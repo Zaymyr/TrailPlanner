@@ -38,6 +38,8 @@ related_tables:
 
 # race_event_edition_sponsors
 
+Existing sponsor text fields persist on blur and switches persist immediately, so the redundant per-row **Enregistrer** action is no longer shown. Sponsor creation, deletion, ordering, validation, authorization, and aggregate reporting contracts are unchanged.
+
 The header-attached workspace switch and the profile chart are not sponsor surfaces.
 
 Chronological cutoff display and the Courses image placeholder are not sponsor surfaces.

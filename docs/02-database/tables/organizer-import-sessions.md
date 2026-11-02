@@ -20,6 +20,8 @@ related_tables:
 
 # `organizer_import_sessions`
 
+The organizer review workflow treats a format website as optional. Missing `externalSiteUrl` evidence no longer enters the required-field completeness set; this changes reconciliation rules only and does not alter the session schema.
+
 ## Purpose
 
 `organizer_import_sessions` stores temporary, service-only state for the two-pass Organizer import: format confirmation first, then field review and application.

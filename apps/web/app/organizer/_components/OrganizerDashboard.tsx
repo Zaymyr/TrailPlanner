@@ -75,7 +75,6 @@ import {
   createEmptyEventForm,
   createEmptyRaceForm,
   createRaceFormFromEventDefaults,
-  createRaceFormFromFormatDefaults,
   eventToForm,
   getAvailableEditionYears,
   getEventEdition,
@@ -146,6 +145,17 @@ import type {
 const MAX_RACE_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const RACE_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/avif"] as const;
 const MAX_UPDATE_MESSAGE_LENGTH = 280;
+
+const isValidHttpsUrl = (value?: string | null) => {
+  if (!value?.trim()) return true;
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
+};
+
+const isValidPhone = (value?: string | null) => !value?.trim() || /^\+?[0-9][0-9 .()/-]{2,}$/.test(value.trim());
 type OrganizerPricingIntent = "publication" | "notification" | "upgrade";
 const WEBSITE_IMPORT_REQUIRED_FIELD_LABELS: Record<string, string> = {
   race_date: "date",
@@ -161,19 +171,19 @@ const ORGANIZER_ONBOARDING_COPY: OnboardingOverlayCopy = {
   finish: "Configurer mes sections",
   steps: [
     {
-      title: "Votre espace course",
+      title: "Ton espace course",
       description: "Retrouvez ici la course active, son avancement et les actions principales.",
     },
     {
       title: "Course et édition",
-      description: "Recherchez une course puis choisissez l’année que vous souhaitez mettre à jour.",
+      description: "Recherche une course puis choisis l’année que tu souhaites mettre à jour.",
     },
     {
       title: "Commun ou par format",
       description: "Les informations communes valent pour toutes les courses. Chaque format possède ensuite ses propres contenus.",
     },
     {
-      title: "Vos sections",
+      title: "Tes sections",
       description: "Cliquez sur une tuile pour l’ouvrir. Gris signifie vide, orange partiel et vert complet.",
     },
     {
@@ -182,7 +192,7 @@ const ORGANIZER_ONBOARDING_COPY: OnboardingOverlayCopy = {
     },
     {
       title: "Visibilité et publication",
-      description: "Masqué retire le format du catalogue sans supprimer ses données. Privé le réserve à votre aperçu ; Public le rend accessible aux coureurs avec une offre active.",
+      description: "Masqué retire le format du catalogue sans supprimer ses données. Privé le réserve à ton aperçu ; Public le rend accessible aux coureurs avec une offre active.",
     },
   ],
 };
@@ -330,6 +340,8 @@ export function OrganizerDashboard({
   const [dirtyModulesByScope, setDirtyModulesByScope] = useState<Record<string, Set<OrganizerModuleId>>>({});
   const [pendingRevisionByScope, setPendingRevisionByScope] = useState<Record<string, number>>({});
   const [status, setStatus] = useState<"idle" | "loading" | "saving" | "uploading">("idle");
+  const [autosaveState, setAutosaveState] = useState<"idle" | "saving" | "saved" | "error">("saved");
+  const [lastAutosavedAt, setLastAutosavedAt] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ id: number; type: "success" | "error"; message: string } | null>(null);
   const [gpxPreview, setGpxPreview] = useState<GpxPreview | null>(null);
@@ -382,6 +394,7 @@ export function OrganizerDashboard({
   const websiteImportAbortRef = useRef<AbortController | null>(null);
   const dirtyRevisionByScopeRef = useRef<Record<string, number>>({});
   const backgroundSaveQueuesRef = useRef<Record<string, Promise<boolean>>>({});
+  const saveCurrentScopeInBackgroundRef = useRef<() => void>(() => undefined);
   const sidecarRequestsRef = useRef(new Map<string, Promise<OrganizerRaceSidecars | null>>());
   const catalogProductsRequestRef = useRef<Promise<FuelProduct[] | null> | null>(null);
   const gpxRequestsRef = useRef(new Map<string, Promise<GpxPreview | null>>());
@@ -605,6 +618,7 @@ export function OrganizerDashboard({
 
   const markDirty = (moduleId: OrganizerModuleId) => {
     if (!activeDirtyScopeKey) return;
+    setAutosaveState("idle");
     dirtyRevisionByScopeRef.current[activeDirtyScopeKey] = (dirtyRevisionByScopeRef.current[activeDirtyScopeKey] ?? 0) + 1;
     setDirtyModulesByScope((current) => {
       const nextModules = new Set(current[activeDirtyScopeKey] ?? EMPTY_DIRTY_MODULES);
@@ -1340,6 +1354,26 @@ export function OrganizerDashboard({
   const saveEvent = async (override?: Partial<EventFormValues>, options: OrganizerSaveOptions = {}) => {
     if (!accessToken || !selectedEventId) return false;
     const nextForm = { ...eventForm, ...override };
+    const invalidEventMessage = !nextForm.name.trim()
+      ? "Indique le nom de l’événement."
+      : !nextForm.location.trim()
+        ? "Indique le lieu de l’événement."
+        : !nextForm.editionStartDate || !nextForm.editionEndDate
+          ? "Indique les dates de début et de fin de l’édition."
+          : nextForm.editionEndDate < nextForm.editionStartDate
+            ? "La date de fin doit suivre la date de début."
+            : !isValidHttpsUrl(nextForm.organizerDetails.officialWebsiteUrl)
+              ? "Le site officiel doit être une adresse complète commençant par https://."
+              : !isValidHttpsUrl(nextForm.organizerDetails.instagramUrl) || !isValidHttpsUrl(nextForm.organizerDetails.facebookUrl)
+                ? "Les liens sociaux doivent être des adresses complètes commençant par https://."
+                : !isValidPhone(nextForm.organizerDetails.emergencyContact.phone)
+                  ? "Le numéro du contact d’urgence est invalide."
+                  : null;
+    if (invalidEventMessage) {
+      setError(invalidEventMessage);
+      showToast("error", invalidEventMessage);
+      return false;
+    }
     const persistedForm = eventDetail
       ? eventToForm(eventDetail, getEventEdition(eventDetail, selectedEditionYear))
       : nextForm;
@@ -1440,6 +1474,22 @@ export function OrganizerDashboard({
       organizerDetails: sanitizeRaceDetailsForSave(override?.organizerDetails ?? raceForm.organizerDetails),
     };
     const nextForm = { ...mergedForm, seriesName: mergedForm.name };
+    const invalidRaceMessage = !nextForm.name.trim()
+      ? "Indique le nom du format."
+      : !Number.isFinite(nextForm.distanceKm) || nextForm.distanceKm <= 0
+        ? "La distance du format doit être supérieure à 0 km."
+        : !nextForm.raceDate.trim()
+          ? "Indique la date du format."
+          : !(nextForm.locationText || eventForm.location).trim()
+            ? "Indique le lieu du format."
+            : !isValidHttpsUrl(nextForm.externalSiteUrl)
+              ? "Le site officiel du format doit commencer par https://."
+              : null;
+    if (invalidRaceMessage) {
+      setError(invalidRaceMessage);
+      showToast("error", invalidRaceMessage);
+      return false;
+    }
     const persistedForm = raceToForm(activeRace);
     const changedFields = getChangedFieldNames(
       {
@@ -2211,14 +2261,22 @@ export function OrganizerDashboard({
       .then(() => saveAllDirty({ background: true, reloadEvent: false, scopeRevision }));
     backgroundSaveQueuesRef.current[scopeKey] = pendingSave;
     setPendingRevisionByScope((current) => ({ ...current, [scopeKey]: scopeRevision }));
+    setAutosaveState("saving");
 
     void pendingSave
       .then((saved) => {
-        if (!saved) showToast("error", "La sauvegarde en arrière-plan a échoué.");
+        if (saved) {
+          setAutosaveState("saved");
+          setLastAutosavedAt(new Date());
+          return;
+        }
+        setAutosaveState("error");
+        showToast("error", "La sauvegarde automatique a échoué.");
       })
       .catch((caught) => {
         console.error("Unable to autosave organizer scope in background", caught);
-        showToast("error", "La sauvegarde en arrière-plan a échoué.");
+        setAutosaveState("error");
+        showToast("error", "La sauvegarde automatique a échoué.");
       })
       .finally(() => {
         if (backgroundSaveQueuesRef.current[scopeKey] === pendingSave) {
@@ -2232,6 +2290,13 @@ export function OrganizerDashboard({
         }
       });
   };
+  saveCurrentScopeInBackgroundRef.current = saveCurrentScopeInBackground;
+
+  useEffect(() => {
+    if (!hasDirtyChanges || currentScopeIsSaving || autosaveState === "error") return;
+    const timer = window.setTimeout(() => saveCurrentScopeInBackgroundRef.current(), 800);
+    return () => window.clearTimeout(timer);
+  }, [autosaveState, currentScopeIsSaving, currentScopeRevision, hasDirtyChanges]);
 
   const updateEventForm = (next: Partial<EventFormValues>, moduleId: OrganizerModuleId = "event") => {
     setEventForm((current) => ({ ...current, ...next }));
@@ -2366,7 +2431,7 @@ export function OrganizerDashboard({
     if (nextTab === activeTab) return;
     saveCurrentScopeInBackground();
     if (nextTab === ADD_FORMAT_TAB_ID) {
-      setNewRaceForm(activeRace ? createRaceFormFromFormatDefaults(activeRace, raceForm) : createRaceFormFromEventDefaults(eventForm));
+      setNewRaceForm(createRaceFormFromEventDefaults(eventForm));
     }
     setActiveTab(nextTab);
     setActiveModule((currentModule) => getModuleForTab(nextTab, currentModule));
@@ -2380,13 +2445,10 @@ export function OrganizerDashboard({
       const raceDate = isActiveRace ? raceForm.raceDate : race.race_date;
       const distanceKm = isActiveRace ? raceForm.distanceKm : race.distance_km;
       const location = isActiveRace ? raceForm.locationText || eventForm.location : race.location_text || eventForm.location;
-      const sourceReady = isActiveRace
-        ? Boolean(raceForm.externalSiteUrl?.trim()) || !race.missing_required_fields?.includes("source_url")
-        : Boolean(race.external_site_url?.trim()) || !race.missing_required_fields?.includes("source_url");
-      return Boolean(name.trim() && raceDate?.trim() && location.trim() && sourceReady && distanceKm > 0);
+      return Boolean(name.trim() && raceDate?.trim() && location.trim() && distanceKm > 0);
     });
     if (!hasPublishableFormat) {
-      showToast("error", "Complète au moins un format : nom, date, lieu, distance et site officiel/source.");
+      showToast("error", "Complète au moins un format : nom, date, lieu et distance.");
       if (activeRace) {
         setActiveTab(activeRace.edition_group_id);
         setActiveModule("formats");
@@ -3212,12 +3274,13 @@ export function OrganizerDashboard({
         importWebsiteLabel={isAdmin ? "Importer les informations" : "Demander un import assisté"}
         completion={completion}
         isVisibilityOnboardingActive={organizerOnboardingOpen && organizerOnboardingStep === 5}
-        hasDirtyChanges={hasDirtyChanges}
-        hasAnyDirtyChanges={hasAnyDirtyChanges}
+        autosaveState={autosaveState}
+        lastAutosavedAt={lastAutosavedAt}
         status={status}
         activeRaceId={activeRace?.id ?? null}
-        onSaveAll={() => {
-          void saveAllDirty();
+        onRetryAutosave={() => {
+          setAutosaveState("idle");
+          saveCurrentScopeInBackground();
         }}
         onNotifyFollowers={(raceId) => {
           if (ORGANIZER_TIER_RANK[activeTier] < ORGANIZER_TIER_RANK.complete) {
@@ -3285,9 +3348,15 @@ export function OrganizerDashboard({
             dirtyModules={dirtyModules}
             onTabChange={handleTabChange}
             onSelectModule={(moduleId) => {
-              if (moduleId === activeModule) return;
-              saveCurrentScopeInBackground();
-              setActiveModule(moduleId);
+              if (moduleId !== activeModule) {
+                saveCurrentScopeInBackground();
+                setActiveModule(moduleId);
+              }
+              window.setTimeout(() => {
+                const editor = document.getElementById("organizer-onboarding-editor");
+                editor?.scrollIntoView({ behavior: "smooth", block: "start" });
+                editor?.focus({ preventScroll: true });
+              }, 0);
             }}
             activeModule={activeModule}
           />
@@ -3301,7 +3370,7 @@ export function OrganizerDashboard({
         <DialogContent className="!my-0 !flex max-h-[calc(100dvh-2rem)] !max-w-6xl flex-col gap-4 overflow-hidden p-4 sm:p-6">
           <DialogHeader>
             <div className="flex items-center gap-2">
-              <DialogTitle>{moduleSettings?.setupCompletedAt === null ? "Configurons votre Livret coureur" : "Sections du Livret coureur"}</DialogTitle>
+              <DialogTitle>{moduleSettings?.setupCompletedAt === null ? "Configurons ton Livret coureur" : "Sections du Livret coureur"}</DialogTitle>
               <ContextualHelp text="Activez uniquement les sections utiles. Masquer une section conserve ses informations." />
             </div>
           </DialogHeader>
@@ -3334,7 +3403,7 @@ export function OrganizerDashboard({
                     return (
                       <div key={state} className="space-y-2">
                         <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          {state === "active" ? "Incluses avec votre offre" : state === "inactive" ? "Masquées" : "Brouillon privé"}
+                          {state === "active" ? "Incluses avec ton offre" : state === "inactive" ? "Masquées" : "Brouillon privé"}
                         </h4>
                         <div className="grid gap-2 sm:grid-cols-2 min-[900px]:grid-cols-3">
                           {choices.map((module) => (
@@ -3402,6 +3471,7 @@ export function OrganizerDashboard({
       <Card className="rounded-lg">
         <CardHeader
           id="organizer-onboarding-editor"
+          tabIndex={-1}
           className={
             (activeModule === "formats" || activeModule === "equipment" || activeModule === "bibPickup" || activeModule === "access") && activeRace
               ? "flex flex-row items-center justify-between gap-4 space-y-0"
@@ -3874,7 +3944,7 @@ export function OrganizerDashboard({
                   {pricingIntent === "notification"
                     ? "Les notifications sont disponibles avec les offres Complet et Signature. L’achat couvre cette édition et tous ses formats présents ou futurs."
                     : pricingIntent === "publication"
-                      ? `Votre brouillon utilise des contenus jusqu’à ${ORGANIZER_TIER_LABEL[requiredPublicationTier]}. Vous pouvez choisir une offre inférieure : les sections non incluses resteront privées, sans être supprimées.`
+                      ? `Ton brouillon utilise des contenus jusqu’à ${ORGANIZER_TIER_LABEL[requiredPublicationTier]}. Tu peux choisir une offre inférieure : les sections non incluses resteront privées, sans être supprimées.`
                       : "Un achat unique pour cette édition et tous ses formats présents ou futurs. Prix HT, TVA calculée par Stripe."}
                 </DialogDescription>
               </DialogHeader>

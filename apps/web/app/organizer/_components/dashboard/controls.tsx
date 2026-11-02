@@ -200,6 +200,7 @@ export function TextField({
   disabled,
   id,
   hint,
+  errorMessage,
 }: {
   label: string;
   value: string;
@@ -212,6 +213,7 @@ export function TextField({
   disabled?: boolean;
   id?: string;
   hint?: string;
+  errorMessage?: string;
 }) {
   const generatedId = useId();
   const inputId = id ?? generatedId;
@@ -236,7 +238,7 @@ export function TextField({
         aria-describedby={invalid ? errorId : undefined}
         className={invalid ? "border-amber-400 bg-amber-50/50 focus-visible:outline-amber-500" : undefined}
       />
-      {invalid ? <p id={errorId} className="text-xs font-medium text-amber-700">Champ manquant</p> : null}
+      {invalid ? <p id={errorId} className="text-xs font-medium text-amber-700">{errorMessage ?? "Ce champ est requis."}</p> : null}
     </div>
   );
 }
@@ -251,6 +253,8 @@ export function NumberField({
   disabled,
   id,
   hint,
+  errorMessage,
+  emptyWhenZero,
 }: {
   label: string;
   value: number;
@@ -261,6 +265,8 @@ export function NumberField({
   disabled?: boolean;
   id?: string;
   hint?: string;
+  errorMessage?: string;
+  emptyWhenZero?: boolean;
 }) {
   const generatedId = useId();
   const inputId = id ?? generatedId;
@@ -276,8 +282,8 @@ export function NumberField({
         id={inputId}
         type="number"
         step={step}
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
+        value={emptyWhenZero && value === 0 ? "" : value}
+        onChange={(event) => onChange(event.target.value === "" ? 0 : Number(event.target.value))}
         readOnly={readOnly}
         disabled={disabled}
         aria-invalid={invalid || undefined}
@@ -287,7 +293,7 @@ export function NumberField({
           readOnly && "bg-muted/40 text-muted-foreground"
         )}
       />
-      {invalid ? <p id={errorId} className="text-xs font-medium text-amber-700">Champ manquant</p> : null}
+      {invalid ? <p id={errorId} className="text-xs font-medium text-amber-700">{errorMessage ?? "Saisis une valeur valide."}</p> : null}
     </div>
   );
 }
@@ -300,6 +306,7 @@ export function TextAreaField({
   disabled,
   id,
   hint,
+  errorMessage,
 }: {
   label: string;
   value: string;
@@ -308,6 +315,7 @@ export function TextAreaField({
   disabled?: boolean;
   id?: string;
   hint?: string;
+  errorMessage?: string;
 }) {
   const generatedId = useId();
   const inputId = id ?? generatedId;
@@ -331,7 +339,7 @@ export function TextAreaField({
         aria-invalid={invalid || undefined}
         aria-describedby={invalid ? errorId : undefined}
       />
-      {invalid ? <p id={errorId} className="text-xs font-medium text-amber-700">Champ manquant</p> : null}
+      {invalid ? <p id={errorId} className="text-xs font-medium text-amber-700">{errorMessage ?? "Ce champ est requis."}</p> : null}
     </div>
   );
 }

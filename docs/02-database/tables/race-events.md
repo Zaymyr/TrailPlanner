@@ -96,6 +96,8 @@ related_tables:
 
 # `race_events`
 
+The organizer event form now validates its date range, HTTPS links, and emergency phone before autosave. These client safeguards do not change the `race_events` schema or server authorization contract.
+
 The header-attached workspace switch and the full-width profile chart read no new event field.
 
 Both workspace headers now show the event location before the format location as plain text (no header map link); the itinerary link remains in Accès. No event column, write, or publication rule changes.

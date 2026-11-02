@@ -77,6 +77,8 @@ related_tables:
 
 # Analytics
 
+The organizer analytics upsell and access copy use tutoiement consistently. Event-wide favorite counts and PostHog query semantics are unchanged.
+
 The header-attached workspace switch, full-width profile chart and plan unlock badge add no analytics event and do not change existing payloads.
 
 The Courses image placeholder, chronological RaceBook cutoffs and the plan access loading gate add no analytics event and do not change existing payloads.

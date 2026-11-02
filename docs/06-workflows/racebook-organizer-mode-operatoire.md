@@ -20,6 +20,8 @@ related_tables:
 
 # Mode opératoire Livret coureur organisateur
 
+Les modifications sont enregistrées automatiquement après une courte pause de saisie. L'état de sauvegarde reste visible et propose **Réessayer** en cas d'échec ; il n'y a plus de bouton général **Sauvegarder**. Un nouveau format reprend uniquement la date, le lieu et éventuellement le site de l'événement, avec des métriques vides. Son site officiel reste facultatif.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose

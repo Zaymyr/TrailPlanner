@@ -13,6 +13,17 @@ import { formatKm } from "./helpers";
 import type { EventFormValues, GpxPreview, RaceFormat, RaceFormValues, RaceParticipationMode } from "./types";
 import { ContextualHelp, NumberField, TextField } from "./controls";
 
+const isInvalidHttpsUrl = (value: string) => {
+  if (!value.trim()) return false;
+  try {
+    return new URL(value).protocol !== "https:";
+  } catch {
+    return true;
+  }
+};
+
+const isInvalidPhone = (value: string) => Boolean(value.trim() && !/^\+?[0-9][0-9 .()/-]{2,}$/.test(value.trim()));
+
 export function EventInfoEditor({
   eventForm,
   onChange,
@@ -34,6 +45,10 @@ export function EventInfoEditor({
   const instagramUrl = eventForm.organizerDetails.instagramUrl ?? "";
   const facebookUrl = eventForm.organizerDetails.facebookUrl ?? "";
   const emergencyContact = eventForm.organizerDetails.emergencyContact;
+  const invalidOfficialWebsiteUrl = isInvalidHttpsUrl(officialWebsiteUrl);
+  const invalidInstagramUrl = isInvalidHttpsUrl(instagramUrl);
+  const invalidFacebookUrl = isInvalidHttpsUrl(facebookUrl);
+  const invalidEmergencyPhone = isInvalidPhone(emergencyContact.phone ?? "");
 
   return (
     <div className="divide-y divide-border">
@@ -70,6 +85,8 @@ export function EventInfoEditor({
             label="Site officiel"
             type="url"
             value={officialWebsiteUrl}
+            invalid={invalidOfficialWebsiteUrl}
+            errorMessage="Saisis une adresse complète commençant par https://."
             onChange={(value) =>
               onChange(
                 {
@@ -86,6 +103,8 @@ export function EventInfoEditor({
             label="Instagram"
             type="url"
             value={instagramUrl}
+            invalid={invalidInstagramUrl}
+            errorMessage="Saisis une adresse Instagram complète commençant par https://."
             onChange={(value) =>
               onChange(
                 {
@@ -102,6 +121,8 @@ export function EventInfoEditor({
             label="Facebook"
             type="url"
             value={facebookUrl}
+            invalid={invalidFacebookUrl}
+            errorMessage="Saisis une adresse Facebook complète commençant par https://."
             onChange={(value) =>
               onChange(
                 {
@@ -123,8 +144,8 @@ export function EventInfoEditor({
           <ContextualHelp text="Les formats utilisent ces dates par défaut, sauf lorsqu’une date spécifique est renseignée." />
         </div>
         <div className="grid max-w-2xl gap-4 sm:grid-cols-2">
-          <TextField label="Début" type="date" value={eventForm.editionStartDate} onChange={(value) => onChange({ editionStartDate: value })} invalid={missingStartDate || invalidDateRange} />
-          <TextField label="Fin" type="date" value={eventForm.editionEndDate} onChange={(value) => onChange({ editionEndDate: value })} invalid={missingEndDate || invalidDateRange} />
+          <TextField label="Début" type="date" value={eventForm.editionStartDate} onChange={(value) => onChange({ editionStartDate: value })} invalid={missingStartDate || invalidDateRange} errorMessage={invalidDateRange ? "La date de début doit précéder la date de fin." : "Indique la date de début."} />
+          <TextField label="Fin" type="date" value={eventForm.editionEndDate} onChange={(value) => onChange({ editionEndDate: value })} invalid={missingEndDate || invalidDateRange} errorMessage={invalidDateRange ? "La date de fin doit suivre la date de début." : "Indique la date de fin."} />
         </div>
       </section>
 
@@ -151,6 +172,8 @@ export function EventInfoEditor({
               label="Téléphone"
               type="tel"
               value={emergencyContact.phone ?? ""}
+              invalid={invalidEmergencyPhone}
+              errorMessage="Saisis un numéro de téléphone valide."
               onChange={(value) =>
                 onChange(
                   {
@@ -247,13 +270,15 @@ export function FormatsEditor({
           onSubmit={onCreateRace}
           onImageChange={onSelectNewRaceImage}
           onGpxChange={onSelectNewRaceGpx}
-          submitLabel="Ajouter"
+          submitLabel="Créer le format"
           disabled={status === "saving" || status === "uploading"}
           requireRaceDate
+          validateOnSubmitOnly
+          emptyNumericFields
           editionStartDate={editionStartDate}
           gpxPreview={gpxPreview}
           gpxTitle="GPX du format"
-          gpxStatus={newRaceGpxName ? "GPX pret a etre importe apres creation." : "Ajoute un GPX pour preremplir les stats et voir le parcours."}
+          gpxStatus={newRaceGpxName ? "GPX prêt à être importé après création." : "Ajoute un GPX pour préremplir les statistiques et voir le parcours."}
           hasGpx={Boolean(newRaceGpxName)}
           inheritedLocationText={eventLocationText}
         />
@@ -306,6 +331,8 @@ function RaceForm({
   hasGpx = false,
   editionStartDate,
   inheritedLocationText,
+  validateOnSubmitOnly = false,
+  emptyNumericFields = false,
 }: {
   title: string;
   values: RaceFormValues;
@@ -327,18 +354,21 @@ function RaceForm({
   hasGpx?: boolean;
   editionStartDate: string;
   inheritedLocationText: string;
+  validateOnSubmitOnly?: boolean;
+  emptyNumericFields?: boolean;
 }) {
   const participationModeId = useId();
   const missingName = !values.name.trim();
   const missingDistance = !Number.isFinite(values.distanceKm) || values.distanceKm <= 0;
   const missingElevationGain = !Number.isFinite(values.elevationGainM) || values.elevationGainM < 0;
   const missingRaceDate = requireRaceDate && !values.raceDate.trim();
-  const missingSource = !values.externalSiteUrl?.trim();
+  const invalidExternalSiteUrl = isInvalidHttpsUrl(values.externalSiteUrl ?? "");
   const previewRace = buildPreviewRace(values, hasGpx);
   const [usesCustomRaceDate, setUsesCustomRaceDate] = useState(Boolean(values.raceDate && editionStartDate && values.raceDate !== editionStartDate));
   const [usesCustomLocation, setUsesCustomLocation] = useState(
     Boolean(values.locationText.trim() && values.locationText.trim() !== inheritedLocationText.trim())
   );
+  const [validationVisible, setValidationVisible] = useState(!validateOnSubmitOnly);
 
   useEffect(() => {
     setUsesCustomRaceDate(Boolean(values.raceDate && editionStartDate && values.raceDate !== editionStartDate));
@@ -349,7 +379,13 @@ function RaceForm({
   }, [inheritedLocationText, values.locationText]);
 
   return (
-    <form className="space-y-4" onSubmit={onSubmit}>
+    <form
+      className="space-y-4"
+      onSubmit={(event) => {
+        setValidationVisible(true);
+        onSubmit(event);
+      }}
+    >
       <div className="flex items-center gap-2">
         <p className="font-semibold text-foreground">{title}</p>
         <ContextualHelp text="Ajoutez d’abord les fichiers, renseignez les informations du format, puis vérifiez le parcours et le profil." />
@@ -368,15 +404,16 @@ function RaceForm({
                   value={values.name}
                   onChange={(value) => onChange({ ...values, name: value, seriesName: value })}
                   required
-                  invalid={missingName}
+                  invalid={validationVisible && missingName}
+                  errorMessage="Indique le nom du format."
                   disabled={disabled}
                 />
               </div>
               <div className="lg:col-span-2">
-                <NumberField label="Distance km" value={values.distanceKm} onChange={(value) => onChange({ ...values, distanceKm: value })} step="0.1" invalid={missingDistance} disabled={disabled} />
+                <NumberField label="Distance km" value={values.distanceKm} onChange={(value) => onChange({ ...values, distanceKm: value })} step="0.1" invalid={validationVisible && missingDistance} errorMessage="Indique une distance supérieure à 0 km." emptyWhenZero={emptyNumericFields} disabled={disabled} />
               </div>
               <div className="lg:col-span-2">
-                <NumberField label="D+" value={values.elevationGainM} onChange={(value) => onChange({ ...values, elevationGainM: value })} step="0.1" invalid={missingElevationGain} disabled={disabled} />
+                <NumberField label="D+" value={values.elevationGainM} onChange={(value) => onChange({ ...values, elevationGainM: value })} step="0.1" invalid={validationVisible && missingElevationGain} errorMessage="Indique un dénivelé positif valide." emptyWhenZero={emptyNumericFields} disabled={disabled} />
               </div>
               <div className="lg:col-span-2">
                 <TextField label="D-" type="number" step="0.1" value={values.elevationLossM} onChange={(value) => onChange({ ...values, elevationLossM: value })} disabled={disabled} />
@@ -421,7 +458,8 @@ function RaceForm({
                     value={values.raceDate}
                     onChange={(value) => onChange({ ...values, raceDate: value })}
                     required={requireRaceDate}
-                    invalid={missingRaceDate}
+                    invalid={validationVisible && missingRaceDate}
+                    errorMessage="Indique la date du format."
                     disabled={disabled}
                   />
                 ) : (
@@ -477,15 +515,15 @@ function RaceForm({
               </div>
               <div className="lg:col-span-12 lg:max-w-2xl">
                 <TextField
-                  label="Site officiel / source du format"
+                  label="Site officiel du format (facultatif)"
                   type="url"
                   value={values.externalSiteUrl ?? ""}
                   onChange={(value) => onChange({ ...values, externalSiteUrl: value })}
+                  invalid={invalidExternalSiteUrl}
+                  errorMessage="Saisis une adresse complète commençant par https://."
                   placeholder="https://www.exemple.fr/course"
-                  required
-                  invalid={missingSource}
                   disabled={disabled}
-                  hint="Cette source est requise pour vérifier les informations du format avant sa publication."
+                  hint="Ajoute la page officielle si ce format en possède une. Aucun lien ne sera affiché si le champ reste vide."
                 />
               </div>
             </div>

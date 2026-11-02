@@ -305,12 +305,12 @@ await page.goto(`${baseURL}/organizer`, { waitUntil: "domcontentloaded" });
 await page.getByText("Trail des Crêtes — Démo").first().waitFor();
 const eventNameInput = page.getByLabel("Nom", { exact: true }).first();
 await eventNameInput.fill("Trail des Crêtes — Démo ");
-await page.getByRole("button", { name: "Sauvegarder" }).waitFor();
+await page.locator("#organizer-autosave-status").getByText(/Sauvegardé automatiquement/).waitFor();
 await annotate(page, [
   page.locator("#organizer-onboarding-selectors"),
   page.getByText("Préparation", { exact: true }).locator(".."),
   page.locator("#organizer-onboarding-scope-navigation:visible"),
-  page.getByRole("button", { name: "Sauvegarder" }),
+  page.locator("#organizer-autosave-status"),
 ]);
 await capture(page, "02-vue-ensemble", "main");
 
@@ -365,7 +365,7 @@ await page.getByText("Détails du format").waitFor();
 await annotate(page, [
   [page.getByLabel("Nom du format"), page.getByLabel("Distance km"), page.getByLabel("D+"), page.getByLabel("D-")],
   [page.getByText("Date différente de l'édition"), page.getByText("Lieu différent de l'événement")],
-  page.getByLabel("Site officiel / source du format"),
+  page.getByLabel("Site officiel du format (facultatif)"),
   page.getByText("Remplacer le GPX source", { exact: true }).locator(".."),
 ]);
 await capture(page, "07-format-gpx", "main");
@@ -414,12 +414,12 @@ const sections = [
     kicker: "ÉTAPE 1 · DÉMARRER",
     title: "Créer l’événement et sa première édition",
     image: "01-creation-evenement.png",
-    intro: "Depuis l’espace organisateurs, créez la fiche mère de votre course. Vous pourrez ensuite ajouter tous les formats de l’édition.",
+    intro: "Depuis l’espace organisateurs, crée la fiche mère de ta course. Tu pourras ensuite ajouter tous les formats de l’édition.",
     items: [
       ["1", "Saisissez le nom public de l’événement, sans année ni distance."],
       ["2", "Indiquez la commune ou le lieu principal."],
-      ["3", "Renseignez la plage complète de dates de l’édition."],
-      ["4", "Cliquez sur « Créer et continuer ». La fiche reste en brouillon."],
+      ["3", "Renseigne la plage complète de dates de l’édition."],
+      ["4", "Clique sur « Créer et continuer ». La fiche reste en brouillon."],
     ],
     tip: "Une nouvelle édition annuelle se crée ensuite depuis Actions → Créer une nouvelle édition.",
   },
@@ -429,12 +429,12 @@ const sections = [
     image: "02-vue-ensemble.png",
     intro: "Le haut de page sert à choisir l’événement et l’édition. La zone « Contenu du Livret coureur » sépare les informations communes des informations propres à chaque format.",
     items: [
-      ["1", "Vérifiez toujours l’événement et l’année sélectionnés avant de modifier."],
+      ["1", "Vérifie toujours l’événement et l’année sélectionnés avant de modifier."],
       ["2", "Suivez la jauge de préparation : vert = complet, orange = partiel, gris = vide."],
-      ["3", "Ouvrez « Événement » pour les données partagées ; ouvrez un format pour ses données propres."],
-      ["4", "Le bouton « Sauvegarder » apparaît dès qu’une modification est en attente."],
+      ["3", "Ouvre « Événement » pour les données partagées ; ouvre un format pour ses données propres."],
+      ["4", "Le bandeau indique automatiquement si les modifications sont en attente, en cours d’enregistrement ou sauvegardées."],
     ],
-    tip: "Les changements de section peuvent être sauvegardés en arrière-plan lors d’un changement d’onglet, mais vérifiez le message de confirmation.",
+    tip: "Les changements sont sauvegardés automatiquement après une courte pause. Vérifie l’état affiché avant de fermer la page.",
   },
   {
     kicker: "ÉTAPE 3 · CONFIGURER",
@@ -445,7 +445,7 @@ const sections = [
       ["1", "Les sections communes s’appliquent automatiquement à tous les formats de l’édition."],
       ["2", "Les sections de format sont configurées pour le format actif ; depuis la vue Événement, elles s’appliquent à tous les formats existants."],
       ["3", "Un libellé d’offre indique qu’une section restera privée avec l’offre actuelle."],
-      ["4", "Cliquez sur « Sauvegarder » ou « Enregistrer et terminer »."],
+      ["4", "Clique sur « Enregistrer et terminer » pour confirmer cette configuration."],
     ],
     tip: "Désactiver une section ne supprime jamais son contenu.",
   },
@@ -456,9 +456,9 @@ const sections = [
     intro: "La liste commune s’applique à tous les formats. Distinguez clairement le matériel obligatoire du matériel simplement recommandé.",
     items: [
       ["1", "Choisissez le plan météo de référence : normal, grand froid ou grosse chaleur."],
-      ["2", "Utilisez les suggestions pour ajouter rapidement les équipements habituels."],
+      ["2", "Utilise les suggestions pour ajouter rapidement les équipements habituels."],
       ["3", "Pour chaque élément, précisez s’il est obligatoire ou recommandé et ses conditions météo."],
-      ["4", "Ajoutez une note uniquement pour une consigne générale utile au contrôle."],
+      ["4", "Ajoute une note uniquement pour une consigne générale utile au contrôle."],
     ],
     tip: "La liste doit rester cohérente avec le règlement officiel et les dernières consignes météo.",
   },
@@ -466,14 +466,14 @@ const sections = [
     kicker: "ÉTAPE 5 · DOSSARD",
     title: "Organiser le retrait des dossards",
     image: "05-dossard.png",
-    intro: "Renseignez chaque lieu de retrait avec ses propres créneaux afin que le coureur sache précisément où et quand se présenter.",
+    intro: "Renseigne chaque lieu de retrait avec ses propres créneaux afin que le coureur sache précisément où et quand se présenter.",
     items: [
-      ["1", "Ajoutez l’adresse complète du lieu de retrait."],
+      ["1", "Ajoute l’adresse complète du lieu de retrait."],
       ["2", "Créez un créneau par jour avec une heure de début et de fin."],
       ["3", "Listez les documents que le participant doit présenter."],
       ["4", "Indiquez si le retrait par un tiers est autorisé et si un contrôle matériel est prévu."],
     ],
-    tip: "Ajoutez plusieurs lieux lorsque le retrait est réparti entre un village course et une zone de départ.",
+    tip: "Ajoute plusieurs lieux lorsque le retrait est réparti entre un village course et une zone de départ.",
   },
   {
     kicker: "ÉTAPE 6 · ACCÈS",
@@ -481,10 +481,10 @@ const sections = [
     image: "06-acces.png",
     intro: "Centralisez les lieux de départ et d’arrivée, les restrictions routières, les parkings et les navettes dans des blocs courts.",
     items: [
-      ["1", "Renseignez les adresses exactes du départ et de l’arrivée."],
+      ["1", "Renseigne les adresses exactes du départ et de l’arrivée."],
       ["2", "Mettez en avant l’information prioritaire et les éventuelles routes fermées."],
       ["3", "Décrivez les parkings officiels, le fonctionnement et les horaires des navettes."],
-      ["4", "Ajoutez si besoin un lien vers une carte générale de l’organisation."],
+      ["4", "Ajoute si besoin un lien vers une carte générale de l’organisation."],
     ],
     tip: "Réservez le champ prioritaire aux informations critiques : dernier départ de navette, route fermée ou accès limité.",
   },
@@ -492,12 +492,12 @@ const sections = [
     kicker: "ÉTAPE 7 · REMPLIR UN FORMAT",
     title: "Renseigner le parcours et importer le GPX",
     image: "07-format-gpx.png",
-    intro: "Chaque distance est un format distinct. Commencez par ses informations principales, puis ajoutez le GPX et contrôlez les valeurs calculées.",
+    intro: "Chaque distance est un format distinct. Commence par ses informations principales, puis ajoute le GPX et contrôle les valeurs calculées.",
     items: [
-      ["1", "Renseignez nom, distance, D+, D− et type de participation."],
+      ["1", "Renseigne nom, distance, D+, D− et type de participation."],
       ["2", "Conservez les dates et le lieu hérités, sauf si ce format est réellement différent."],
-      ["3", "Ajoutez l’URL officielle de la page dédiée à ce format."],
-      ["4", "Importez le fichier GPX, puis vérifiez distance, dénivelé, tracé et profil avant de sauvegarder."],
+      ["3", "Ajoute l’URL officielle de la page dédiée si elle existe ; ce champ est facultatif."],
+      ["4", "Importe le fichier GPX, puis vérifie distance, dénivelé, tracé et profil. Les changements sont ensuite sauvegardés automatiquement."],
     ],
     tip: "Créez un format par distance ou formule : 10 km, 25 km, relais, etc.",
   },
@@ -509,8 +509,8 @@ const sections = [
     items: [
       ["1", "Saisissez un nom reconnaissable et la distance depuis le départ."],
       ["2", "Cochez eau, solide et assistance autorisée selon la réalité terrain."],
-      ["3", "Ajoutez les horaires, barrières ou notes utiles dans les champs dédiés."],
-      ["4", "Utilisez « Ajouter un ravito » pour créer un point ; il sera ordonné selon son kilométrage."],
+      ["3", "Ajoute les horaires, barrières ou notes utiles dans les champs dédiés."],
+      ["4", "Utilise « Ajouter un ravito » pour créer un point ; il sera ordonné selon son kilométrage."],
     ],
     tip: "L’onglet Supporters place séparément les zones d’encouragement ou d’assistance. Un point public exige un nom, un kilomètre, une autorisation et une adresse géocodée.",
   },
@@ -523,7 +523,7 @@ const sections = [
       ["1", "Masqué : le format est retiré du public."],
       ["2", "Privé : le Livret coureur reste visible uniquement pour l’équipe organisatrice en aperçu."],
       ["3", "Public : la course et son Livret coureur deviennent accessibles aux coureurs après validation serveur."],
-      ["4", "Cliquez sur « Publier » et vérifiez les sections incluses ou laissées en brouillon."],
+      ["4", "Clique sur « Publier » et vérifie les sections incluses ou laissées en brouillon."],
     ],
     tip: "Un changement d’offre ou une section privée ne supprime pas les données déjà saisies.",
   },
@@ -564,7 +564,7 @@ const html = `<!doctype html>
   aside { margin-top:5mm; border-left:1.5mm solid #2f8064; background:#edf7f3; padding:3mm 4mm; display:flex; gap:3mm; font-size:8.7pt; line-height:1.4; }
   aside strong { color:#28725b; white-space:nowrap; }.final h2{margin-top:10mm}.final-grid{display:grid;grid-template-columns:1fr 1fr;gap:5mm;margin-top:7mm}.card{padding:5mm;border:1px solid #d8e4df;border-radius:4mm}.card h3{margin:0 0 3mm;font-size:12pt}.card p,.card li{font-size:9pt;line-height:1.45;color:#445b53}.card ul{padding-left:5mm;margin:0}.state{display:grid;grid-template-columns:20mm 1fr;gap:3mm;margin:3mm 0}.state b{font-size:8.5pt;border-radius:99px;padding:1.5mm 2mm;text-align:center}.hidden{background:#e8ecea}.private{background:#fff1cf;color:#8a5a00}.public{background:#dff6e9;color:#16714e}.footer-note{margin-top:7mm;padding:6mm;background:#11392e;color:white;border-radius:4mm;font-size:10pt;line-height:1.5}.small{font-size:8pt;color:#6c7e78;margin-top:6mm}
 </style></head><body>
-  <section class="manual-page cover"><header><span>PACE YOURSELF · LIVRET COUREUR</span><b>2026</b></header><h1>Mode opératoire<br>organisateur</h1><p class="subtitle">Créer, compléter et publier un Livret coureur clair pour vos coureurs.</p><span class="pill">Guide de prise en main · 15 minutes</span><div class="meta"><span class="brand">Pace Yourself</span><br>Version du 11 septembre 2026 · Données de démonstration</div></section>
+  <section class="manual-page cover"><header><span>PACE YOURSELF · LIVRET COUREUR</span><b>2026</b></header><h1>Mode opératoire<br>organisateur</h1><p class="subtitle">Crée, complète et publie un Livret coureur clair pour tes coureurs.</p><span class="pill">Guide de prise en main · 15 minutes</span><div class="meta"><span class="brand">Pace Yourself</span><br>Version du 2 novembre 2026 · Données de démonstration</div></section>
   <section class="manual-page toc"><header><span>AVANT DE COMMENCER</span><b>1</b></header><h2>Le parcours en 9 étapes</h2><p class="lead">Ce guide suit l’ordre recommandé pour éviter les oublis et préparer une publication sans aller-retour.</p><div class="toc-grid">
     ${sections.map((section, index) => `<div class="toc-item"><b>${String(index + 1).padStart(2, "0")}</b><strong>${esc(section.title)}</strong><span>${esc(section.intro.split(".")[0])}.</span></div>`).join("")}
   </div><div class="checklist"><h3>À préparer</h3><p>□ Nom, lieu et dates de l’édition</p><p>□ Liste des formats avec distances et dénivelés</p><p>□ GPX de chaque format</p><p>□ Horaires, ravitaillements, barrières horaires et matériel</p><p>□ Informations d’accès, retrait des dossards et contact d’urgence</p><p>□ Images PNG (5 Mo maximum pour l’image de l’événement)</p></div>
@@ -575,7 +575,7 @@ const html = `<!doctype html>
     <div class="card"><h3>Chaque format</h3><ul><li>Nom, distance, D+ et date</li><li>URL officielle du format</li><li>GPX et profil contrôlés</li><li>Départ, ravitos, supporters et barrières</li><li>Contenu sans contradiction avec le règlement</li></ul></div>
     <div class="card"><h3>Les 3 états</h3><div class="state"><b class="hidden">Masqué</b><p>Invisible du public.</p></div><div class="state"><b class="private">Privé</b><p>Aperçu organisateur uniquement.</p></div><div class="state"><b class="public">Public</b><p>Accessible aux coureurs après validation.</p></div></div>
     <div class="card"><h3>Bon réflexe</h3><p>Publiez d’abord un format pilote, contrôlez le rendu côté coureur, puis publiez les autres formats. En cas d’erreur urgente, repassez le format en Privé ou Masqué, corrigez, sauvegardez et republiez.</p></div>
-  </div><div class="footer-note"><strong>Besoin de reprendre le tutoriel dans l’interface ?</strong><br>Ouvrez le menu <b>Actions</b>, puis choisissez <b>Revoir le guide</b>.</div><p class="small">Les captures utilisent des données fictives. Les sections disponibles dépendent de l’offre de l’édition. Les règles serveur de complétude et de publication restent prioritaires.</p></section>
+  </div><div class="footer-note"><strong>Besoin de reprendre le tutoriel dans l’interface ?</strong><br>Ouvre le menu <b>Actions</b>, puis choisis <b>Revoir le guide</b>.</div><p class="small">Les captures utilisent des données fictives. Les sections disponibles dépendent de l’offre de l’édition. Les règles serveur de complétude et de publication restent prioritaires.</p></section>
 </body></html>`;
 
 const htmlPath = path.join(outputDir, "mode-operatoire-racebook-organisateur.html");

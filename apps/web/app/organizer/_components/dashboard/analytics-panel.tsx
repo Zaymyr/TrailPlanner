@@ -100,8 +100,8 @@ export function OrganizerAnalyticsPanel({ editionId, accessToken, access, races,
     return (
       <Card className="border-brand/30 bg-brand/5">
         <CardHeader>
-          <CardTitle>Suivez l’usage de votre Livret coureur</CardTitle>
-          <CardDescription>Les statistiques sont incluses dans l’offre Signature. Découvrez les consultations, la durée active et l’engagement de vos lecteurs.</CardDescription>
+          <CardTitle>Suis l’usage de ton Livret coureur</CardTitle>
+          <CardDescription>Les statistiques sont incluses dans l’offre Signature. Découvre les consultations, la durée active et l’engagement de tes lecteurs.</CardDescription>
         </CardHeader>
         <CardContent>
           <Button type="button" onClick={onOpenPricing}>Découvrir l’offre Signature</Button>
@@ -116,7 +116,7 @@ export function OrganizerAnalyticsPanel({ editionId, accessToken, access, races,
         <div>
           <h2 id="organizer-analytics-title" className="text-lg font-semibold text-foreground">Performance du Livret coureur</h2>
           <p className="text-sm text-muted-foreground">
-            {access.source === "complimentary" ? "Module offert pour cette édition." : "Module inclus dans votre offre Signature."}
+            {access.source === "complimentary" ? "Module offert pour cette édition." : "Module inclus dans ton offre Signature."}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

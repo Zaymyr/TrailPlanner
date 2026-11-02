@@ -308,7 +308,6 @@ export function SponsorsEditor({
               <p className="text-sm font-semibold text-foreground">{sponsor.impressionCount} vue{sponsor.impressionCount > 1 ? "s" : ""} · {sponsor.clickCount} clic{sponsor.clickCount > 1 ? "s" : ""}</p>
             </div>
             <div className="flex flex-row gap-2 lg:flex-col">
-              <Button type="button" variant="outline" onClick={() => void persistSponsor(sponsor, "Sponsor enregistré.")} disabled={busyId === sponsor.id}>Enregistrer</Button>
               <div className="flex gap-2"><Button type="button" variant="ghost" aria-label="Monter le sponsor" onClick={() => void moveSponsor(index, -1)} disabled={index === 0 || busyId !== null}>↑</Button><Button type="button" variant="ghost" aria-label="Descendre le sponsor" onClick={() => void moveSponsor(index, 1)} disabled={index === sponsors.length - 1 || busyId !== null}>↓</Button></div>
               <Button type="button" variant="outline" className="border-red-300 text-red-700" onClick={() => void removeSponsor(sponsor)} disabled={busyId === sponsor.id}>Supprimer</Button>
             </div>

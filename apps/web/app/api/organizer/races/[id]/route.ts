@@ -225,7 +225,7 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
         const detail = await visibilityResponse.text();
         console.error("Unable to publish organizer Racebook", detail);
         if (/organizer access required/i.test(detail)) {
-          return jsonError("Votre compte n’est pas autorisé à publier ce format.", 403);
+          return jsonError("Ton compte n’est pas autorisé à publier ce format.", 403);
         }
         if (/race format is incomplete/i.test(detail)) {
           return jsonError("Complète les informations minimales du format avant de le publier.", 409);
