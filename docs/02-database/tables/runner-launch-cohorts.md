@@ -1,7 +1,7 @@
 ---
 title: runner_launch_cohorts Table
 scope: database
-last_verified: 2026-11-01
+last_verified: 2026-11-02
 ai_priority: high
 related_files:
   - supabase/migrations/20261031092049_add_runner_launch_grandfathering.sql
@@ -19,10 +19,11 @@ Stores the launch snapshot for identified accounts eligible for the cosmetic “
 
 ## Contract
 
-- One row per identified account captured by service-only launch activation, whether or not that account owns a plan; anonymous accounts are excluded.
+- Production activation captured 422 identified accounts at `2026-11-02 06:32:21.546733+00`; anonymous accounts were excluded.
+- One row exists per identified account captured by service-only launch activation, whether or not that account owns a plan.
 - Grandfathered plan access is a separate snapshot in `runner_launch_grandfathered_plans`. Cohort membership alone never implies that the runner had a plan.
 - `early_supporter` is presentation/cohort state, not a billing or access entitlement.
-- Users may read only their own row; service role manages it.
+- Direct client access is revoked; the service role reads and manages rows for the authenticated launch endpoint.
 - The authenticated launch endpoint returns only the bounded eligibility/badge projection needed by the app.
 
 ## Gotchas

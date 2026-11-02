@@ -1,7 +1,7 @@
 ---
 title: Runner Billing Tables
 scope: database
-last_verified: 2026-10-31
+last_verified: 2026-11-02
 ai_priority: high
 related_files:
   - supabase/migrations/20261030121252_runner_course_access.sql
@@ -30,7 +30,7 @@ related_tables:
 
 ## Purpose
 
-These tables are the server-side authority for runner monetisation. The rollout is inert until the singleton `runner_monetization_config.monetization_enabled` is set to `true`; the migration inserts it as `false`.
+These tables are the server-side authority for runner monetisation. The migration inserts the singleton `runner_monetization_config.monetization_enabled` as `false`; production was explicitly activated on 2026-11-02 at 06:32:21 UTC after the launch cohort and grandfathered-plan snapshots were created atomically.
 
 ## Access model
 
@@ -67,7 +67,7 @@ These tables are the server-side authority for runner monetisation. The rollout 
 ## Gotchas
 
 - Do not use `subscriptions` alone to infer a one-time course purchase; it is a global entitlement snapshot.
-- Do not enable the rollout flag before Stripe/RevenueCat products, webhook verification, and server credentials are configured and tested.
+- Do not toggle the production rollout flag casually. Turning it off is the compatible rollback path; turning it back on must preserve the existing cohort, grandfathered-plan snapshots and billing ledgers.
 - Do not move the rollout-disabled compatibility return ahead of admin simulation resolution. Doing so makes the `free` selector appear broken during pre-rollout testing.
 - Do not grant table writes to mobile or browser clients, including for restore flows.
 - The RevenueCat course product must be a repeat-purchasable consumable in both stores. A non-consumable supports only the first course and breaks the per-race model.

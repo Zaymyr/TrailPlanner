@@ -1,7 +1,7 @@
 ---
 title: Infrastructure
 scope: architecture
-last_verified: 2026-11-01
+last_verified: 2026-11-02
 ai_priority: high
 related_files:
   - apps/web/.env.example
@@ -115,7 +115,7 @@ If the parent commit is unavailable, `git diff` fails closed and Vercel proceeds
 - project id `c713a8a0-cd94-4f6e-9468-063c9c20da6c`
 - updates URL `https://u.expo.dev/c713a8a0-cd94-4f6e-9468-063c9c20da6c`
 - channels are set by the EAS profile.
-- shared iOS/Android runtime `1.1.1`. This runtime accompanies the native iOS light-appearance change and the Android 16 / API 36 build.
+- shared iOS/Android runtime `1.1.2`. Production build 18 on both platforms embeds this runtime and receives production OTAs published for `1.1.2`.
 
 Expo SDK 54 / React Native 0.81 provide Android `compileSdkVersion` and `targetSdkVersion` 36 by default. The repository does not override those API-level defaults. `expo-build-properties` enables R8 minification and resource shrinking for release variants, including store candidates; debug/development-client variants remain unobfuscated. The resulting AAB contains the build-specific `mapping.txt` required to deobfuscate native stack traces.
 
@@ -255,7 +255,7 @@ For local setup, copy `apps/web/.env.example` to the ignored `apps/web/.env.loca
 - Keep `organizer-imports` private and owner-folder-scoped. The browser can upload and make a best-effort cleanup request, but service-role cleanup in the analysis route is the mandatory deletion path.
 - `OPENAI_API_KEY` is server-only. The organizer import LLM is admin-only, returns a transient reviewed proposal, and must never receive service-role credentials.
 - Do not reintroduce the Google Sign-In Expo config plugin on iOS or remove the explicit iOS block in `apps/mobile/react-native.config.js` unless the native iOS package is intentionally linked too; a half-enabled setup can crash at launch while React Native registers third-party Fabric components.
-- `userInterfaceStyle` is native configuration. Build and ship a new iOS binary on runtime `1.1.1` before publishing a `1.1.1` OTA; installed iOS `1.1.0` binaries remain in their prior compatibility group.
+- `userInterfaceStyle` is native configuration. Production iOS build 18 and Android build 18 carry runtime `1.1.2`; installed binaries on `1.1.1` or older remain in their prior compatibility groups and cannot receive `1.1.2` OTAs.
 - EAS remote versioning and `autoIncrement: true` manage the developer-facing iOS build number and Android version code. They do not replace the explicit marketing-version update in `app.config.ts`; once Apple closes a version train, increment `version`, rebuild the IPA, and submit that new artifact.
 - EAS Submit requires a Google service-account key registered in the project credentials; never commit that JSON key to the repository.
 - R8 changes native release output and cannot ship through OTA. Test the exact optimized candidate before promotion, and keep its `mapping.txt` paired with that build rather than reusing a mapping from another version.

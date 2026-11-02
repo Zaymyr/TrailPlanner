@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-11-01
+last_verified: 2026-11-02
 ai_priority: high
 related_files:
   - apps/mobile/components/plan-workspace/LockedPlanContent.tsx
@@ -197,7 +197,7 @@ The mobile Plans screen groups saved plans by `races.race_events.id` and display
 
 The launch popup is acknowledged as soon as it is presented and therefore appears at most once per campaign/user/device. It has a visible close action and one main action to open Plans; it contains neither a “Ne plus afficher” checkbox nor a support-purchase action. The first-hour supporter badge remains in Profile only.
 
-`RunnerLaunchAnnouncement` is a per-campaign runner announcement whose **1.0** label is marketing copy, independent from native runtime `1.1.1`. After bootstrap, launch overlay and onboarding transitions, root tabs use cached `getSession()` identity plus user-scoped launch information to decide eligibility; this adds no Auth listener. It never interrupts auth, onboarding, plan edit, live or purchase routes.
+`RunnerLaunchAnnouncement` is a per-campaign runner announcement whose **1.0** label is marketing copy, independent from native runtime `1.1.2`. After bootstrap, launch overlay and onboarding transitions, root tabs use cached `getSession()` identity plus user-scoped launch information to decide eligibility; this adds no Auth listener. It never interrupts auth, onboarding, plan edit, live or purchase routes.
 
 Eligibility comes from the authenticated launch endpoint's activated cohort/window projection, not merely the generic runner-config flag. Local preferences are keyed by campaign/user/device and store a single `seen` state; legacy daily/hidden preferences migrate to seen. Config, network or storage failure fails closed. Cohort membership covers every identified account captured at activation, while only plan ids present in the separate grandfathered snapshot retain free edit/detail access. Copy must therefore describe that plan benefit conditionally. Later expired subscription/trial/grant plans remain read-only under their normal historical rule.
 
@@ -285,7 +285,7 @@ The app config in `apps/mobile/app.config.ts` declares:
 - scheme `paceyourself`;
 - production Android/iOS identifier `com.paceyourself.app` and development identifier `com.paceyourself.app.dev`, selected by `APP_VARIANT=development`;
 - app version `1.1.2`;
-- shared iOS/Android runtime version `1.1.1` for the current native release line;
+- shared iOS/Android runtime version `1.1.2` for the current native release line;
 - light system appearance, matching the app's light palette; mounted solid-brand headers override status-bar content with their contrast-safe light/dark variant;
 - EAS project id `c713a8a0-cd94-4f6e-9468-063c9c20da6c`;
 - update URL `https://u.expo.dev/c713a8a0-cd94-4f6e-9468-063c9c20da6c`.
@@ -468,7 +468,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - Do not put mobile test credentials in Maestro YAML, screenshots, source files, or Expo public environment variables. Local runs may map the ignored `apps/web/.env.local` login keys into process-only `MAESTRO_*` variables; EAS runs must use secret variables in the `preview` environment.
 - A clean Maestro launch exercises the real session bootstrap and can create an anonymous Supabase session before password login. Use a dedicated non-production test account and periodically clean disposable anonymous test users according to the project's normal data-retention process.
 
-- The shared runtime is `1.1.1`. The light iOS appearance is native configuration, so a runtime-`1.1.1` iOS binary must reach testers/App Store before a `1.1.1` OTA is published; do not send that OTA to older iOS `1.1.0` binaries.
+- The shared runtime is `1.1.2`. Production iOS and Android build 18 both embed it and are compatible with `1.1.2` production OTAs; older runtime groups remain isolated.
 - The production profile's remote `autoIncrement` advances the developer-facing iOS build number, not the App Store marketing version. Increment `version` explicitly before building when App Store Connect has closed the current version train; a rejected IPA keeps its embedded version and must be rebuilt.
 - Keep Google font imports weight-specific in the root layout. Replacing them with package-root imports adds unused font assets to every native export. Likewise, import Expo vector-icon families from their direct subpath (for example, `@expo/vector-icons/Ionicons`) instead of the package barrel so Metro does not retain unrelated icon-font families.
 - The Google Play production submission profile is intentionally configured with `releaseStatus: completed`, so a successful EAS Submit releases the approved build to the full production track rather than creating a draft or staged rollout.

@@ -1,7 +1,7 @@
 ---
 title: Architecture Overview
 scope: architecture
-last_verified: 2026-11-01
+last_verified: 2026-11-02
 ai_priority: high
 related_files:
   - package.json
@@ -115,7 +115,7 @@ The mobile app is configured for EAS in `apps/mobile/eas.json`:
 - Android production submission: completed release to the Google Play `production` track
 - Store-candidate submission: Android internal-track draft plus iOS App Store Connect/TestFlight upload
 
-The current store marketing version is `1.1.2`, while the compatible EAS Update runtime remains `1.1.1`. Remote versioning automatically advances developer-facing build identifiers; a new App Store version train still requires an explicit `version` change and a rebuilt IPA.
+The current store marketing version and compatible EAS Update runtime are both `1.1.2`. Production Android and iOS build 18 embed that runtime. Remote versioning automatically advances developer-facing build identifiers; a new App Store version train still requires an explicit `version` change and a rebuilt IPA.
 
 `apps/mobile/.eas/workflows/mobile-ux-audit.yml` is the versioned cross-platform quality-gate target. It builds the `e2e-test` binaries and runs the same Maestro journey against Android and iOS, with recordings and screenshot artifacts for human visual review. Its hosted Maestro jobs require a compatible paid Expo plan; the current project plan supports keeping and reviewing the configuration but rejects execution of those jobs.
 
@@ -168,7 +168,7 @@ When docs and code disagree, use this order:
 - The mobile app is configured for a development client profile; avoid documenting Expo Go as the primary dev path unless the feature being tested has no native dependency.
 - Start local Expo sessions for the installed development client with `APP_VARIANT=development`; otherwise local config resolves the production name and application identifier even though the EAS development binary was built as `com.paceyourself.app.dev`.
 - Maestro is external test tooling and is not bundled into the application. Local runs require its CLI on `PATH`; the EAS workflow provides the cloud runner.
-- Android and the next iOS binary use EAS Update runtime `1.1.1`. Because the light iOS appearance is native configuration, ship that iOS binary before publishing a `1.1.1` OTA; existing iOS `1.1.0` installs stay in their prior compatibility group.
+- Production Android and iOS build 18 use EAS Update runtime `1.1.2`. Publish production OTAs for that runtime only; older `1.1.1` and `1.1.0` installs stay in their prior compatibility groups.
 - R8 minification is native release configuration, not an OTA change. A mapping file is valid only for the AAB that generated it.
 - Vercel's ignored-build command must include every root or shared-package input consumed by `apps/web`; otherwise an affected web deployment can be skipped.
 - Dependabot branches deliberately do not create Vercel deployments. GitHub CI validates them before batching, and the merge commit on `main` remains the production deployment trigger.
