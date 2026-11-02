@@ -30,7 +30,7 @@ export default function AppLayout() {
   const insets = useSafeAreaInsets();
   const { locale, t } = useI18n();
   const catalogLabel = locale === 'fr' ? 'Courses' : 'Races';
-  const plansTabLabel = locale === 'fr' ? 'Plans' : 'Plans';
+  const plansTabLabel = t.plans.title;
   const nutritionLabel = 'Nutrition';
   const renderTabLabel = (label: string, color: string) => (
     <Text
