@@ -11,6 +11,7 @@ related_files:
   - apps/web/app/admin/video-generator/VideoGeneratorMap.tsx
   - apps/web/app/admin/video-generator/VideoGeneratorMapClient.tsx
   - apps/web/app/admin/video-generator/camera-controller.ts
+  - apps/web/app/admin/video-generator/map-resize-controller.ts
   - apps/web/app/admin/video-generator/video-generator-catalog.ts
   - apps/web/app/api/admin/video-generator/races/[id]/route.ts
   - apps/web/lib/video-generator.ts
@@ -33,6 +34,7 @@ The admin-only `/admin/video-generator` route renders existing race GPX files ov
 - The shared GPX parser remains the geometry source of truth.
 - Draft and published formats are available because the server verifies trusted admin `app_metadata` before any service-role read.
 - Mapbox logo and source attribution remain enabled on the interactive map.
+- The viewer fixes the projection to Mercator for consistent terrain rendering across desktop GPUs and observes its container so the WebGL canvas is resized after responsive layout changes.
 
 ## Data Flow And Security
 

@@ -10,6 +10,7 @@ import mapboxgl, {
 import { Button } from "../../../components/ui/button";
 import { buildMarkerGeoJson, buildRouteGeoJson } from "../../../lib/video-generator";
 import { createRouteCameraController, type RouteCameraController } from "./camera-controller";
+import { observeMapSize } from "./map-resize-controller";
 import type { VideoGeneratorMapProps } from "./VideoGeneratorMap";
 
 const TERRAIN_SOURCE_ID = "video-terrain-dem";
@@ -142,12 +143,14 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points }: VideoGe
       zoom: 9,
       pitch: 55,
       bearing: 0,
+      projection: "mercator",
       antialias: true,
       attributionControl: true,
     });
     mapRef.current = map;
     cameraRef.current = createRouteCameraController(map, () => boundsRef.current);
     map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), "top-right");
+    const resizeController = observeMapSize(map, containerRef.current);
 
     const handleStyleLoad = () => {
       if (!map.getSource(TERRAIN_SOURCE_ID)) {
@@ -160,8 +163,12 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points }: VideoGe
       }
       map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: 1.15 });
       syncMapData(map, routeDataRef.current, markerDataRef.current);
-      cameraRef.current?.reset(0);
-      setIsReady(true);
+      resizeController.schedule();
+      window.requestAnimationFrame(() => {
+        if (mapRef.current !== map) return;
+        cameraRef.current?.reset(0);
+        setIsReady(true);
+      });
     };
     const handleError = (event: MapboxEvent & { error?: Error }) => {
       if (!event.error) return;
@@ -175,6 +182,7 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points }: VideoGe
     return () => {
       map.off("style.load", handleStyleLoad);
       map.off("error", handleError);
+      resizeController.destroy();
       map.remove();
       mapRef.current = null;
       cameraRef.current = null;
