@@ -252,8 +252,14 @@ export default function AdminVideoGeneratorPage() {
           </CardContent>
         </Card>
 
-        <section className="min-h-[42rem] overflow-hidden rounded-lg border border-border bg-card shadow-lg shadow-[rgba(45,80,22,0.08)]">
-          {renderMapContent()}
+        <section className="flex min-h-[42rem] flex-col items-center rounded-lg border border-border bg-muted/30 p-4 shadow-lg shadow-[rgba(45,80,22,0.08)] sm:p-6">
+          <div className="mb-3 flex w-full max-w-md items-center justify-between gap-3 text-xs text-muted-foreground">
+            <span className="font-semibold uppercase tracking-[0.16em]">Aperçu Instagram 9:16</span>
+            <span className="tabular-nums">1080 × 1920</span>
+          </div>
+          <div className="aspect-[9/16] w-full max-w-md overflow-hidden rounded-[1.5rem] border-4 border-slate-900 bg-slate-950 shadow-2xl">
+            {renderMapContent()}
+          </div>
         </section>
       </div>
     </div>

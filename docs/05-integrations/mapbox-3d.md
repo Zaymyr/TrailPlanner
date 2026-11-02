@@ -35,6 +35,8 @@ The admin-only `/admin/video-generator` route renders existing race GPX files ov
 - Draft and published formats are available because the server verifies trusted admin `app_metadata` before any service-role read.
 - Mapbox logo and source attribution remain enabled on the interactive map.
 - The viewer fixes the projection to Mercator for consistent terrain rendering across desktop GPUs and observes its container so the WebGL canvas is resized after responsive layout changes.
+- The interactive viewport mirrors a 9:16 Instagram/Reels frame at a logical 1080 x 1920 output ratio. This is a framing preview only and does not capture or encode video.
+- The classic `satellite-streets-v12` style is the default compatibility basemap. Admins can switch to Mapbox Standard Satellite at runtime to compare rendering without reloading the GPX.
 
 ## Data Flow And Security
 

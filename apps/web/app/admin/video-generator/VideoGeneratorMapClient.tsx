@@ -21,6 +21,13 @@ const MARKER_CIRCLE_LAYER_ID = "video-route-marker-circles";
 const MARKER_LABEL_LAYER_ID = "video-route-marker-labels";
 export const VIDEO_ROUTE_COLOR = "#d9ff57";
 
+const MAP_STYLES = {
+  classic: "mapbox://styles/mapbox/satellite-streets-v12",
+  standard: "mapbox://styles/mapbox/standard-satellite",
+} as const;
+
+type MapStyleChoice = keyof typeof MAP_STYLES;
+
 const supportsWebGl = () => {
   try {
     const canvas = document.createElement("canvas");
@@ -119,6 +126,7 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points }: VideoGe
   const markerDataRef = useRef(markerData);
   const [mapError, setMapError] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
+  const [styleChoice, setStyleChoice] = useState<MapStyleChoice>("classic");
   const [webGlAvailable] = useState(() => typeof document === "undefined" || supportsWebGl());
 
   useEffect(() => {
@@ -138,7 +146,7 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points }: VideoGe
     mapboxgl.accessToken = accessToken;
     const map = new mapboxgl.Map({
       container: containerRef.current,
-      style: "mapbox://styles/mapbox/standard-satellite",
+      style: MAP_STYLES.classic,
       center: [boundsRef.current.minLon, boundsRef.current.minLat],
       zoom: 9,
       pitch: 55,
@@ -153,6 +161,7 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points }: VideoGe
     const resizeController = observeMapSize(map, containerRef.current);
 
     const handleStyleLoad = () => {
+      setMapError(null);
       if (!map.getSource(TERRAIN_SOURCE_ID)) {
         map.addSource(TERRAIN_SOURCE_ID, {
           type: "raster-dem",
@@ -206,10 +215,18 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points }: VideoGe
     );
   }
 
+  const selectStyle = (nextStyle: MapStyleChoice) => {
+    if (nextStyle === styleChoice) return;
+    setStyleChoice(nextStyle);
+    setIsReady(false);
+    setMapError(null);
+    mapRef.current?.setStyle(MAP_STYLES[nextStyle]);
+  };
+
   return (
     <div className="relative h-full min-h-[34rem] w-full bg-slate-950">
       <div ref={containerRef} className="absolute inset-0" aria-label="Visualiseur 3D du parcours" />
-      <div className="pointer-events-none absolute left-3 top-3 z-10 flex flex-wrap gap-2">
+      <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex flex-wrap gap-2">
         <Button
           type="button"
           variant="outline"
@@ -228,6 +245,24 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points }: VideoGe
         >
           Réinitialiser la caméra
         </Button>
+        <div className="pointer-events-auto ml-auto flex rounded-md border border-border bg-card/95 p-1 shadow-lg backdrop-blur">
+          <Button
+            type="button"
+            className="h-8 px-2 text-xs"
+            variant={styleChoice === "classic" ? "default" : "ghost"}
+            onClick={() => selectStyle("classic")}
+          >
+            Satellite stable
+          </Button>
+          <Button
+            type="button"
+            className="h-8 px-2 text-xs"
+            variant={styleChoice === "standard" ? "default" : "ghost"}
+            onClick={() => selectStyle("standard")}
+          >
+            Standard 3D
+          </Button>
+        </div>
       </div>
       {mapError ? (
         <div className="absolute inset-x-4 bottom-8 z-10 rounded-md border border-red-300 bg-red-50/95 p-3 text-sm text-red-800 shadow-lg">
