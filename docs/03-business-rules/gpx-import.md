@@ -193,6 +193,8 @@ Unlike the public bounded preview and Organizer's sampled elevation payload, thi
 
 The viewer is read-only. Missing GPX is an explicit empty state and neither parsing nor camera navigation changes race metrics, stations, publication state or Storage objects.
 
+The 9:16 Instagram preview changes only the viewport framing and basemap presentation. Switching between the compatibility satellite style and Standard Satellite reuses the same complete GPX DTO, projected aid stations and persisted race metrics.
+
 ## Review Flow Conflict
 
 `apps/web/components/GpxAidStationImporter.tsx` contains logic for updating existing race aid stations from GPX:
