@@ -30,7 +30,7 @@ type PriceResponse = {
   };
 };
 
-let cachedPrice: { offer: string; data: PriceResponse["price"]; expiresAt: number } | null = null;
+const cachedPrices = new Map<string, { data: PriceResponse["price"]; expiresAt: number }>();
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
 const respondWithPrice = (price: PriceResponse["price"]) => {
@@ -62,7 +62,10 @@ export async function GET(request: NextRequest) {
 
   if (!stripeConfig || !configuredPriceId) {
     return withSecurityHeaders(
-      NextResponse.json({ message: "Stripe price is not configured." }, { status: 500 })
+      NextResponse.json(
+        { available: false, price: null, message: "Stripe price is not configured." },
+        { status: 200, headers: { "Cache-Control": "public, max-age=60" } }
+      )
     );
   }
 
@@ -81,7 +84,8 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  if (cachedPrice && cachedPrice.offer === offer && cachedPrice.expiresAt > Date.now()) {
+  const cachedPrice = cachedPrices.get(offer);
+  if (cachedPrice && cachedPrice.expiresAt > Date.now()) {
     return respondWithPrice(cachedPrice.data);
   }
 
@@ -109,7 +113,7 @@ export async function GET(request: NextRequest) {
       intervalCount: stripePrice.recurring?.interval_count ?? null,
     };
 
-    cachedPrice = { offer, data: normalizedPrice, expiresAt: Date.now() + CACHE_TTL_MS };
+    cachedPrices.set(offer, { data: normalizedPrice, expiresAt: Date.now() + CACHE_TTL_MS });
 
     return respondWithPrice(normalizedPrice);
   } catch (error) {

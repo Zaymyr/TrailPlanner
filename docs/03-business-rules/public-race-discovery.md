@@ -1,7 +1,7 @@
 ---
 title: Public Race Discovery
 scope: business-rule
-last_verified: 2026-11-01
+last_verified: 2026-11-02
 ai_priority: high
 related_files:
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
@@ -131,6 +131,8 @@ Existing race slugs remain canonical until a rename is explicitly approved. The 
 `scripts/audit-public-race-slugs.mjs` is the review-only preparation step. It reads published catalog data with an anon/publishable key, refuses elevated keys, reports technical slugs and deterministic French-readable proposals, resolves candidate collisions with location then a stable id suffix, and performs zero writes. A proposal is not authorization to rename; approved changes must use the service-only atomic RPC after the migration is deployed.
 
 ## Gotchas
+
+- The `/courses` index renders inside the single `RootChrome` main landmark. Its route root is a `<div>`; this semantic cleanup does not change catalog visibility, grouping, query canonicalization or ISR.
 
 - Keep the registration target event-first and HTTP(S)-only. Do not expose raw organizer JSON or silently turn an unvalidated string into an outbound link.
 - Keep catalog/detail visibility on the 15-minute public window. The raw GPX object may remain in the persistent data cache for one year only because every replacement writes a new Storage path; never overwrite or reuse a published GPX path.

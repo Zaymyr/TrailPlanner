@@ -332,6 +332,8 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 
 ## Gotchas
 
+- Web carbohydrate-calculator sliders expose explicit accessible names and unit-bearing value text. The planner fatigue range keeps its existing calculation and adds only a spoken qualitative value; these accessibility attributes must not alter estimate inputs or allocation math.
+
 - Nutrition filter chips now reuse the shared mobile filter geometry, brand rows vertically center their text block, missing brand images use an initial, and text-bearing product counts use the sans font. None of these presentation choices changes grouping, favorites, nutrients or allocation.
 
 - Guided Plan onboarding uses the ordinary Nutrition favorites surface before standard plan creation. It does not introduce a second product-allocation algorithm or require a favorite before continuing.

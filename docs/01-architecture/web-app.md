@@ -593,6 +593,10 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 
 ## Gotchas
 
+- `RootChrome` owns the single public `<main>` landmark and its `#main-content` skip target. Route pages rendered inside it must not add a second `<main>`. Desktop navigation keeps account-only destinations, locale, theme and sign-out inside the account menu; unauthenticated organizer links target `/organisateurs`.
+- Browser-wide security headers are emitted from `next.config.mjs`. The CSP starts as `Content-Security-Policy-Report-Only` so Stripe, Supabase, PostHog, Google Analytics and Cloudinary violations can be observed before enforcement.
+- The shared footer uses grouped, 44 px-tall links and the canonical support address. Cookie consent is a full-width bottom bar so it does not cover the central reading column.
+
 - Keep the public legal identity synchronized with the current business registration and tax regime. Consumer mediation details must not be invented; add the selected mediator before treating the B2C legal surface as complete.
 - Admin publication management distinguishes operational Admin, payment Stripe, payment by bank transfer, and Offert. Stripe and bank-transfer origins remain derived from valid payment history; the organizer header renders Admin and Offert separately.
 - Never resolve Supabase's relative `/object/sign/...` response against the project origin directly: preserve the `/storage/v1` API prefix before returning the short-lived invoice URL.

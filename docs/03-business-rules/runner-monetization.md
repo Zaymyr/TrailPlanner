@@ -120,6 +120,9 @@ Rollback: turn the canonical switch off to return to compatible editing behavior
 
 ## Validation and gotchas
 
+- The web `/premium` page never substitutes a reference price when Stripe has no configured Price. The public price endpoint returns an explicit available/unavailable payload without a 5xx for absent configuration; checkout remains disabled until a provider amount is present. Provider failures may still return an operational error.
+- Runner profile onboarding remains a subsection of the planner page and therefore uses an H2 beneath the page H1. This semantic change does not alter profile readiness or estimate inputs.
+
 - Matching the plan workspace back/help controls and segmented-selector geometry changes no entitlement boundary. The RaceBook/plan switch keeps the same disabled states, routes and purchase gates.
 
 On 2026-10-30 the owner explicitly authorized applying the three runner migrations to the existing production database. The CLI dry run first found remote-only historical migrations `20261029090122`, `20261029091807` and `20261029110000`; their recorded SQL was recovered with the original versions rather than repairing history or replaying them. Only the three runner migrations were then applied. Post-deployment checks confirmed all seven runner tables have RLS, no existing plan lacks history, clients cannot grant purchases, and internal billing functions are not publicly executable. New-account automatic trials are stopped; historical trial dates were not rewritten. A follow-up migration pins the unlock timestamp trigger's search path after an advisor warning. On 2026-11-02 the launch migration was applied and the atomic activation enabled monetisation while capturing 422 identified accounts and 756 existing plans. Full fixture-based SQL tests remain intended for an isolated database; production verification used read-only checks and a rolled-back caller-predicate smoke test.

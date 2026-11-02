@@ -158,7 +158,7 @@ export function MobileAppPrompt() {
           type="button"
           aria-label={t.mobileAppPrompt.dismissLabel}
           onClick={handleDismiss}
-          className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-50"
+          className="absolute right-2 top-2 inline-flex h-11 w-11 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-50"
         >
           x
         </button>

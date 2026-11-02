@@ -422,7 +422,11 @@ export default function SettingsPage() {
                 <CardTitle className="text-lg">{t.productSettings.listTitle}</CardTitle>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <Label htmlFor="product-filter" className="sr-only">
+                  {t.productSettings.filters.searchPlaceholder}
+                </Label>
                 <Input
+                  id="product-filter"
                   value={filterQuery}
                   onChange={(event) => setFilterQuery(event.target.value)}
                   placeholder={t.productSettings.filters.searchPlaceholder}
@@ -442,14 +446,14 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={() => setShowMyProducts(false)}
-                  className={`px-3 py-1.5 transition-colors ${!showMyProducts ? "bg-primary text-primary-foreground" : "bg-background text-foreground hover:bg-muted dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"}`}
+                  className={`min-h-11 px-3 py-1.5 transition-colors ${!showMyProducts ? "bg-primary text-primary-foreground" : "bg-background text-foreground hover:bg-muted dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"}`}
                 >
                   Tous
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowMyProducts(true)}
-                  className={`px-3 py-1.5 transition-colors ${showMyProducts ? "bg-primary text-primary-foreground" : "bg-background text-foreground hover:bg-muted dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"}`}
+                  className={`min-h-11 px-3 py-1.5 transition-colors ${showMyProducts ? "bg-primary text-primary-foreground" : "bg-background text-foreground hover:bg-muted dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"}`}
                 >
                   Mes produits
                 </button>
@@ -481,7 +485,47 @@ export default function SettingsPage() {
             )}
 
             {sortedProducts.length > 0 && (
-              <Table containerClassName="max-h-[520px] overflow-y-auto">
+              <div className="space-y-3 sm:hidden">
+                {sortedProducts.map((product) => {
+                  const isSelected = selectedProducts.some((item) => item.id === product.id);
+                  return (
+                    <article key={product.id} className="min-w-0 space-y-3 rounded-lg border border-border bg-background p-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-background">
+                          {product.imageUrl ? (
+                            <img src={product.imageUrl} alt="" width={48} height={48} loading="lazy" className="h-full w-full object-contain p-1.5" />
+                          ) : (
+                            <span className="text-xs font-semibold uppercase text-muted-foreground">{product.name.slice(0, 1)}</span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="break-words font-semibold text-foreground">{product.name}</p>
+                          <FuelTypeBadge fuelType={product.fuelType} locale={locale} />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleToggle(product)}
+                          aria-pressed={isSelected}
+                          aria-label={isSelected ? t.productSettings.actions.deselect : t.productSettings.actions.select}
+                          className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-amber-400/70 ${isSelected ? "bg-amber-300/30 text-amber-600" : "text-amber-600"}`}
+                        >
+                          <StarIcon filled={isSelected} className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <dl className="grid grid-cols-2 gap-2 text-sm">
+                        <div><dt className="text-muted-foreground">{t.productSettings.fields.carbs}</dt><dd>{product.carbsGrams} g</dd></div>
+                        <div><dt className="text-muted-foreground">{t.productSettings.fields.sodium}</dt><dd>{product.sodiumMg} mg</dd></div>
+                        <div><dt className="text-muted-foreground">{t.productSettings.fields.calories}</dt><dd>{product.caloriesKcal}</dd></div>
+                        <div><dt className="text-muted-foreground">{t.productSettings.fields.protein} / {t.productSettings.fields.fat}</dt><dd>{product.proteinGrams} g / {product.fatGrams} g</dd></div>
+                      </dl>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+
+            {sortedProducts.length > 0 && (
+              <Table containerClassName="hidden max-h-[520px] overflow-auto sm:block">
                 <TableHeader className="sticky top-0 z-10">
                   <TableRow>
                     <TableHead className="text-center">{t.productSettings.actions.favoriteColumn}</TableHead>
@@ -583,7 +627,7 @@ export default function SettingsPage() {
                                 />
                               ) : null}
                               {product.imageUrl ? (
-                                <img src={product.imageUrl} alt="" loading="lazy" className="h-full w-full object-contain p-1.5" />
+                                <img src={product.imageUrl} alt="" width={44} height={44} loading="lazy" className="h-full w-full object-contain p-1.5" />
                               ) : (
                                 <span className="text-xs font-semibold uppercase text-muted-foreground">
                                   {product.name.slice(0, 1)}

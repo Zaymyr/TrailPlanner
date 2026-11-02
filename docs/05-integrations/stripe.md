@@ -1,7 +1,7 @@
 ---
 title: Stripe Integration
 scope: integration
-last_verified: 2026-11-01
+last_verified: 2026-11-02
 ai_priority: high
 related_files:
   - apps/web/lib/stripe.ts
@@ -140,6 +140,8 @@ Any refund event, including partial, marks its organizer transaction refunded; a
 The `subscriptions` table stores billing status. Trial lifecycle for the app's free premium trial is separate and stored in `user_profiles`. Stripe `trialing` status is treated as an active billing status by entitlement code, but it is not the same as the app profile trial.
 
 ## Gotchas
+
+- `GET /api/stripe/price` returns HTTP 200 with `available: false` and `price: null` when the requested Price id is absent. Clients must render an unavailable state and must not invent or fall back to a display amount. Successful prices are cached independently per offer.
 
 - Organizer publication checkout scans persisted Supabase content before creating a Stripe Session. The branding probe must select its `edition_id` primary key; selecting a nonexistent generic `id` produces a Data API 400 and Stripe is never reached.
 - Do not confuse app trial (`user_profiles`) with Stripe trialing subscription status.
