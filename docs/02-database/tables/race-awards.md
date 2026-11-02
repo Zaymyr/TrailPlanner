@@ -23,6 +23,8 @@ related_tables:
 
 # `race_awards`
 
+The shared mobile RaceBook screen now also renders additive third-party bib-pickup conditions from organizer JSON. That presentation change does not alter award rows, replacement semantics, ordering, module gates, or RLS.
+
 The shared structured-editor status now uses the compact `À jour` label because autosave is explained globally. Award persistence, validation, ordering, and schema are unchanged.
 
 The header-attached workspace switch and the full-width Livret profile chart are presentation only and do not change award rows.

@@ -64,35 +64,66 @@ export function OptionalModule({
   );
 }
 
-export function CollapsibleRow({
-  summary,
-  expanded,
-  onToggle,
+export function InlineEditableRow({
   children,
-  actions,
+  className,
 }: {
-  summary: ReactNode;
-  expanded: boolean;
-  onToggle: () => void;
   children: ReactNode;
-  actions?: ReactNode;
+  className?: string;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-card">
-      <div className="flex min-h-12 items-center gap-2 px-3 py-2">
-        <button
-          type="button"
-          aria-expanded={expanded}
-          onClick={onToggle}
-          className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left text-sm font-medium text-foreground"
-        >
-          <span className="min-w-0 truncate">{summary}</span>
-          <span className="shrink-0 text-xs font-semibold text-brand">{expanded ? "Masquer" : "Détails"}</span>
-        </button>
-        {actions}
-      </div>
-      {expanded ? <div className="space-y-3 border-t border-border px-3 py-3">{children}</div> : null}
+    <div className={cn("border-b border-border/70 py-2 last:border-b-0", className)}>
+      {children}
     </div>
+  );
+}
+
+export function SegmentedChoice<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+  disabled,
+  className,
+}: {
+  label: string;
+  value: T;
+  options: ReadonlyArray<{ value: T; label: string }>;
+  onChange: (value: T) => void;
+  disabled?: boolean;
+  className?: string;
+}) {
+  const groupName = useId();
+
+  return (
+    <fieldset className={cn("min-w-0", className)} disabled={disabled}>
+      <legend className="sr-only">{label}</legend>
+      <div className="inline-grid auto-cols-fr grid-flow-col rounded-md border border-border bg-surface-muted p-0.5" role="radiogroup" aria-label={label}>
+        {options.map((option) => {
+          const checked = option.value === value;
+          return (
+            <label
+              key={option.value}
+              className={cn(
+                "cursor-pointer whitespace-nowrap rounded px-2.5 py-1.5 text-xs font-semibold transition focus-within:outline focus-within:outline-2 focus-within:outline-ring",
+                checked ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                disabled && "cursor-not-allowed opacity-60"
+              )}
+            >
+              <input
+                type="radio"
+                className="sr-only"
+                name={groupName}
+                value={option.value}
+                checked={checked}
+                onChange={() => onChange(option.value)}
+              />
+              {option.label}
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
   );
 }
 

@@ -69,6 +69,8 @@ related_tables:
 
 # `races`
 
+Format `organizer_details.bibPickup` may now include nullable `thirdPartyPickupConditions` as part of a complete format override. Event inheritance and the existing `overrideEnabled` boundary remain authoritative; no relational race column, publication flag, or catalog rule changes.
+
 `external_site_url` and its historical source projection are optional for organizer-created formats and publication readiness. Name, date, effective location, and positive distance remain the required format identity; new formats persist inherited event date/location without cloning another format.
 
 When format equipment, bib pickup, or access has no override, the organizer renders a compact summary from the event values and offers an explicit personalization action. The inherited view creates no race-level payload until personalization is chosen.

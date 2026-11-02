@@ -312,6 +312,8 @@ related_tables:
 
 # Web App Architecture
 
+Organizer Matériel and Dossard authoring is glanceable rather than accordion-driven: saved equipment, pickup locations, and dated slots remain inline and editable, with fixed-column controls on desktop and wrapped controls on narrow screens. The shared `SegmentedChoice` makes binary/status choices explicit, while read-first inputs retain normal focus and autocomplete behavior. Third-party pickup conditions are stored additively in organizer JSON and appear on the public course detail only when pickup by another person is allowed and the bib module is public.
+
 The organizer editor autosaves the active event or format scope after an 800 ms debounce, exposes a persistent save state with explicit retry, and preserves revision-aware background queues during navigation. New formats inherit only event-level date, location, and optional official website defaults; they never clone the active format. A format website is optional for completion, import, and publication readiness.
 
 Organizer forms use shared progressive-disclosure controls: optional modules are added explicitly without deleting hidden values, while repeated equipment items and bib-pickup slots render as compact, single-open rows. Format-specific equipment, bib pickup, and access show a read-only summary of the inherited event content before personalization. Access keeps departure/arrival visible and moves maps, restrictions, parking, and shuttles behind action-labelled modules.

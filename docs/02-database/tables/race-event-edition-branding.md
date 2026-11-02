@@ -34,6 +34,8 @@ related_tables:
 
 # `race_event_edition_branding`
 
+The shared RaceBook screen accepts additive bib-pickup conditions, but branding resolution and its primary/accent ownership remain unchanged. The new Dossard copy continues to use app-owned semantic and control colors.
+
 Valid organizer color changes autosave to the private draft after an 800 ms debounce and expose a local save state. Publication remains a separate explicit action and still copies the complete draft atomically to published fields.
 
 The Livret / plan switch now uses the published primary and on-primary colors in the Livret (application brand green in the plan) as part of the header; no branding field changes.

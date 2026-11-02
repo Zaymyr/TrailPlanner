@@ -24,6 +24,8 @@ related_tables:
 
 # `race_relay_points`
 
+The shared mobile RaceBook screen now also reads additive bib-pickup conditions. Relay ownership, ordering, course-kilometer derivation, completeness, module visibility, and RLS remain unchanged.
+
 The full-width Livret profile chart keeps aid-station markers only; relay rows are unchanged.
 
 Chronological cutoff resolution reads aid-station cutoffs only; relay handover times stay independent.

@@ -356,6 +356,26 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(detailSource).not.toContain("<p className=\"font-semibold text-foreground\">Retrait dossard - {activeRace.name}</p>");
   });
 
+  it("keeps equipment and bib-pickup data visible without nested detail accordions", () => {
+    const detailSource = readFileSync(
+      resolve(process.cwd(), "app/organizer/_components/dashboard/detail-editors.tsx"),
+      "utf8"
+    );
+    const controlsSource = readFileSync(
+      resolve(process.cwd(), "app/organizer/_components/dashboard/controls.tsx"),
+      "utf8"
+    );
+
+    expect(detailSource).not.toContain("CollapsibleRow");
+    expect(controlsSource).not.toContain("export function CollapsibleRow");
+    expect(detailSource).toContain("Obligatoire");
+    expect(detailSource).toContain("Recommandé");
+    expect(detailSource).toContain("Conditions du retrait par un tiers");
+    expect(detailSource).toContain("font-mono text-sm tabular-nums");
+    expect(detailSource).toContain("SegmentedChoice");
+    expect(detailSource).not.toContain(" text-red-");
+  });
+
   it("keeps access fields aligned with the runner-facing information hierarchy", () => {
     const source = readFileSync(
       resolve(process.cwd(), "app/organizer/_components/dashboard/detail-editors.tsx"),

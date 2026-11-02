@@ -1269,6 +1269,7 @@ export default function RaceRacebookScreen() {
     const bibPickup = data.runnerDetails.bibPickup;
     return [
       bibPickup.thirdPartyPickupAllowed === true ? t.catalog.racebookBibThirdPartyPickupAllowed : null,
+      bibPickup.thirdPartyPickupAllowed === true ? bibPickup.thirdPartyPickupConditions : null,
       bibPickup.equipmentCheck === true ? t.catalog.racebookBibEquipmentCheck : null,
       bibPickup.note,
     ].filter((value): value is string => Boolean(value));

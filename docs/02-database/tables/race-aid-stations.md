@@ -33,6 +33,8 @@ related_tables:
 
 # `race_aid_stations`
 
+The shared organizer-details schema adds nullable third-party bib-pickup conditions and accent-insensitive equipment-label matching. Aid-station rows, GPX-derived cumulative metrics, service flags, products, replacement ordering, and RLS remain unchanged; ravito cards continue to keep their key metrics visible while the long edit form may remain collapsible.
+
 ## Purpose
 
 `race_aid_stations` stores source aid stations for rows in `races`. These rows feed admin catalog and organizer formats before a plan-specific snapshot is created; runner-owned race creation is retired.

@@ -37,6 +37,7 @@ type OrganizerBibPickupDetails = {
   locations: OrganizerBibPickupLocation[];
   requiredDocuments: string | null;
   thirdPartyPickupAllowed: boolean | null;
+  thirdPartyPickupConditions: string | null;
   equipmentCheck: boolean | null;
   note: string | null;
 };
@@ -273,6 +274,7 @@ const DEFAULT_BIB_PICKUP: OrganizerBibPickupDetails = {
   locations: [],
   requiredDocuments: null,
   thirdPartyPickupAllowed: null,
+  thirdPartyPickupConditions: null,
   equipmentCheck: null,
   note: null,
 };
@@ -486,6 +488,7 @@ function parseBibPickupDetails(value: unknown): OrganizerBibPickupDetails {
     locations,
     requiredDocuments: readText(record.requiredDocuments),
     thirdPartyPickupAllowed: readNullableBoolean(record.thirdPartyPickupAllowed),
+    thirdPartyPickupConditions: readText(record.thirdPartyPickupConditions),
     equipmentCheck: readNullableBoolean(record.equipmentCheck),
     note: readText(record.note),
   };
@@ -640,6 +643,7 @@ function hasBibContent(details: OrganizerBibPickupDetails): boolean {
         location.slots.some((slot) => hasAnyText([slot.date, slot.startTime, slot.endTime]))
     ) ||
     details.thirdPartyPickupAllowed !== null ||
+    hasAnyText([details.thirdPartyPickupConditions]) ||
     details.equipmentCheck !== null
   );
 }

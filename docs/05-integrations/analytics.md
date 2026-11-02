@@ -77,6 +77,8 @@ related_tables:
 
 # Analytics
 
+Additive third-party bib-pickup conditions are runner-visible content only. They are never attached to analytics events; existing RaceBook navigation, equipment-state, linked-workspace, and organizer-save event schemas remain unchanged.
+
 The organizer analytics upsell and access copy use tutoiement consistently. Event-wide favorite counts and PostHog query semantics are unchanged.
 
 Progressive organizer form expansion, inherited summaries, and runner-preview links add no analytics event in this lot. Existing organizer update and RaceBook reader metrics remain unchanged.

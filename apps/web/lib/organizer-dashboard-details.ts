@@ -96,6 +96,7 @@ export const organizerBibPickupDetailsSchema = z
     locations: z.array(organizerBibPickupLocationSchema).default([]),
     requiredDocuments: nullableText,
     thirdPartyPickupAllowed: nullableBoolean,
+    thirdPartyPickupConditions: nullableText,
     equipmentCheck: nullableBoolean,
     note: nullableText,
   })
@@ -107,6 +108,7 @@ export const organizerBibPickupDetailsSchema = z
     locations: [],
     requiredDocuments: null,
     thirdPartyPickupAllowed: null,
+    thirdPartyPickupConditions: null,
     equipmentCheck: null,
     note: null,
   });
@@ -316,6 +318,22 @@ export type OrganizerBibPickupDetails = z.infer<typeof organizerBibPickupDetails
 export type OrganizerBibPickupLocation = z.infer<typeof organizerBibPickupLocationSchema>;
 export type OrganizerBibPickupSlot = z.infer<typeof organizerBibPickupSlotSchema>;
 
+export const normalizeOrganizerEquipmentLabel = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[’‘`]/g, "'")
+    .trim()
+    .toLocaleLowerCase("fr-FR");
+
+export const hasOrganizerEquipmentLabelPrefix = (
+  items: Array<Pick<OrganizerEquipmentItem, "label">>,
+  label: string
+) => {
+  const normalizedLabel = normalizeOrganizerEquipmentLabel(label);
+  return items.some((item) => normalizeOrganizerEquipmentLabel(item.label).startsWith(normalizedLabel));
+};
+
 export function getOrganizerBibPickupLocations(details: OrganizerBibPickupDetails): OrganizerBibPickupLocation[] {
   if (details.locations.length > 0) return details.locations;
 
@@ -416,7 +434,7 @@ export const expandRaceAccessWithEvent = (
       };
 
 const buildEquipmentKey = (item: Pick<OrganizerEquipmentItem, "label" | "required" | "cold" | "heat">) =>
-  `${item.label.trim().toLocaleLowerCase("fr-FR")}::${item.required ? "required" : "recommended"}::${item.cold ? "cold" : "base"}::${item.heat ? "heat" : "base"}`;
+  `${normalizeOrganizerEquipmentLabel(item.label)}::${item.required ? "required" : "recommended"}::${item.cold ? "cold" : "base"}::${item.heat ? "heat" : "base"}`;
 
 export const isWeatherTaggedEquipment = (item: Pick<OrganizerEquipmentItem, "cold" | "heat">) => item.cold || item.heat;
 

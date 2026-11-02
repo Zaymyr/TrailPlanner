@@ -26,6 +26,8 @@ export function AddressAutocompleteField({
   required,
   placeholder,
   invalid,
+  inputClassName,
+  labelClassName,
 }: {
   label: string;
   value: string;
@@ -36,6 +38,8 @@ export function AddressAutocompleteField({
   required?: boolean;
   placeholder?: string;
   invalid?: boolean;
+  inputClassName?: string;
+  labelClassName?: string;
 }) {
   const [inputValue, setInputValue] = useState(value);
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
@@ -150,7 +154,7 @@ export function AddressAutocompleteField({
 
   return (
     <div className="space-y-1">
-      <Label htmlFor={inputId}>{label}</Label>
+      <Label htmlFor={inputId} className={labelClassName}>{label}</Label>
       <div className="relative">
         <Input
           id={inputId}
@@ -195,7 +199,7 @@ export function AddressAutocompleteField({
               setActiveIndex(-1);
             }
           }}
-          className={cn(invalid && "border-amber-400 bg-amber-50/50 focus-visible:outline-amber-500")}
+          className={cn(invalid && "border-amber-400 bg-amber-50/50 focus-visible:outline-amber-500", inputClassName)}
         />
         {showSuggestions ? (
           <div id={listboxId} role="listbox" aria-label={`Suggestions pour ${label}`} className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-30 rounded-md border border-border bg-card shadow-lg">

@@ -24,6 +24,8 @@ related_tables:
 
 # `racebook_gear_checks`
 
+The shared RaceBook screen now also renders additive bib-pickup conditions. Material checklist keys, optimistic persistence, account/race ownership, and organizer-equipment immutability remain unchanged.
+
 The header-attached workspace switch does not read or mutate checklist rows.
 
 Chronological cutoff resolution does not read or mutate checklist rows.

@@ -6,7 +6,9 @@ import { cn } from "../../../../components/utils";
 import {
   defaultOrganizerEventDetails,
   getOrganizerBibPickupLocations,
+  hasOrganizerEquipmentLabelPrefix,
   hasRaceAccessOverride,
+  normalizeOrganizerEquipmentLabel,
   type OrganizerBibPickupLocation,
   type OrganizerBibPickupSlot,
   type OrganizerEventDetails,
@@ -14,7 +16,7 @@ import {
 } from "../../../../lib/organizer-dashboard-details";
 import { AddressAutocompleteField } from "./address-autocomplete-field";
 import { equipmentSuggestions } from "./constants";
-import { CollapsibleRow, ContextualHelp, OptionalModule, TextAreaField, TextField, ToggleChip } from "./controls";
+import { ContextualHelp, InlineEditableRow, OptionalModule, SegmentedChoice, TextAreaField, TextField, ToggleChip } from "./controls";
 import type { RaceFormat } from "./types";
 
 export function EquipmentEditor({
@@ -81,6 +83,7 @@ export function EquipmentEditor({
           description="La liste est initialisée avec le matériel de l'événement. Tu peux ensuite la modifier pour ce format."
           equipment={raceDetails.mandatoryEquipment}
           sharedWeatherPlan={eventDetails.mandatoryEquipment.weatherPlan}
+          sharedItems={eventDetails.mandatoryEquipment.items}
           showHeader={false}
           onEquipmentChange={(mandatoryEquipment) => onRaceChange({ ...raceDetails, mandatoryEquipment: { ...mandatoryEquipment, overrideEnabled: true } })}
         />
@@ -95,6 +98,7 @@ function EquipmentFields({
   weatherPlanEditable = false,
   sharedWeatherPlan,
   showHeader = true,
+  sharedItems,
   onEquipmentChange,
 }: {
   title: string;
@@ -103,19 +107,35 @@ function EquipmentFields({
   weatherPlanEditable?: boolean;
   sharedWeatherPlan?: OrganizerEventDetails["mandatoryEquipment"]["weatherPlan"];
   showHeader?: boolean;
+  sharedItems?: OrganizerEventDetails["mandatoryEquipment"]["items"];
   onEquipmentChange: (equipment: OrganizerEventDetails["mandatoryEquipment"]) => void;
 }) {
   const updateItems = (items: OrganizerEventDetails["mandatoryEquipment"]["items"]) => onEquipmentChange({ ...equipment, items });
   const updateWeatherPlan = (weatherPlan: OrganizerEventDetails["mandatoryEquipment"]["weatherPlan"]) => onEquipmentChange({ ...equipment, weatherPlan });
   const missingEquipment = equipment.items.length === 0 && !equipment.note?.trim();
-  const existingLabels = new Set(equipment.items.map((item) => item.label.trim().toLocaleLowerCase("fr-FR")));
-  const availableSuggestions = equipmentSuggestions.filter((suggestion) => !existingLabels.has(suggestion.toLocaleLowerCase("fr-FR")));
+  const isSameItem = (
+    first: OrganizerEventDetails["mandatoryEquipment"]["items"][number],
+    second: OrganizerEventDetails["mandatoryEquipment"]["items"][number]
+  ) => Boolean(first.id && second.id && first.id === second.id) || normalizeOrganizerEquipmentLabel(first.label) === normalizeOrganizerEquipmentLabel(second.label);
+  const availableSuggestions = equipmentSuggestions.filter((suggestion) => !hasOrganizerEquipmentLabelPrefix(equipment.items, suggestion));
   const effectiveWeatherPlan = sharedWeatherPlan ?? equipment.weatherPlan;
-  const weatherPlanLabel = effectiveWeatherPlan === "cold" ? "Grand froid" : effectiveWeatherPlan === "heat" ? "Grosse chaleur" : "Normal";
-  const [expandedItemIndex, setExpandedItemIndex] = useState<number | null>(null);
   const [weatherVariantsOpen, setWeatherVariantsOpen] = useState(
     equipment.weatherPlan !== "normal" || equipment.items.some((item) => item.cold || item.heat)
   );
+  const indexedItems = equipment.items.map((item, index) => ({ item, index }));
+  const groups = [
+    { required: true, label: "Obligatoire", rows: indexedItems.filter(({ item }) => item.required) },
+    { required: false, label: "Recommandé", rows: indexedItems.filter(({ item }) => !item.required) },
+  ];
+  const removedSharedItems = sharedItems?.filter((sharedItem) => !equipment.items.some((item) => isSameItem(item, sharedItem))) ?? [];
+  const updateItem = (index: number, next: Partial<OrganizerEventDetails["mandatoryEquipment"]["items"][number]>) =>
+    updateItems(equipment.items.map((item, itemIndex) => itemIndex === index ? { ...item, ...next } : item));
+  const weatherValue = (item: OrganizerEventDetails["mandatoryEquipment"]["items"][number]) =>
+    item.cold && item.heat ? "cold_heat" : item.cold ? "cold" : item.heat ? "heat" : "always";
+  const updateWeather = (index: number, value: string) => updateItem(index, {
+    cold: value === "cold" || value === "cold_heat",
+    heat: value === "heat" || value === "cold_heat",
+  });
 
   return (
     <section className={cn("space-y-4", missingEquipment && "rounded-lg border border-amber-300 p-4")}>
@@ -125,149 +145,122 @@ function EquipmentFields({
           <ContextualHelp text={description} />
         </div>
       ) : null}
-      <p className="text-sm text-muted-foreground">
-        Matériel selon la météo : <span className="font-medium text-foreground">{weatherPlanLabel.toLocaleLowerCase("fr-FR")}</span>
-      </p>
-      <div className="flex flex-wrap gap-2">
-        {availableSuggestions.map((suggestion) => (
-          <Button
-            key={suggestion}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-foreground">Variantes météo</span>
+          <ContextualHelp text="Affiche une condition par ligne lorsque certains équipements ne concernent que le froid ou la chaleur." />
+          <button
             type="button"
-            variant="outline"
-            className="h-8 text-xs"
-            onClick={() => updateItems([...equipment.items, { id: `item-${Date.now()}`, label: suggestion, required: true, cold: false, heat: false, note: null }])}
+            role="switch"
+            aria-checked={weatherVariantsOpen}
+            onClick={() => setWeatherVariantsOpen((current) => !current)}
+            className={cn("relative h-6 w-11 rounded-full transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", weatherVariantsOpen ? "bg-brand" : "bg-muted")}
           >
-            + {suggestion}
-          </Button>
-        ))}
-      </div>
-      <div className="space-y-3">
-        {equipment.items.map((item, index) => (
-          <CollapsibleRow
-            key={item.id ?? index}
-            expanded={expandedItemIndex === index}
-            onToggle={() => setExpandedItemIndex((current) => current === index ? null : index)}
-            summary={`${item.label || `Item ${index + 1}`} · ${item.required ? "Obligatoire" : "Recommandé"}${item.cold ? " · Grand froid" : ""}${item.heat ? " · Grosse chaleur" : ""}`}
-            actions={(
-              <Button
-                type="button"
-                variant="ghost"
-                className="h-9 w-9 shrink-0 px-0 text-red-600 hover:text-red-700"
-                onClick={() => updateItems(equipment.items.filter((_, itemIndex) => itemIndex !== index))}
-                aria-label={`Retirer ${item.label || "cet item"}`}
-                title="Retirer"
+            <span className={cn("absolute top-1 h-4 w-4 rounded-full bg-card shadow-sm transition", weatherVariantsOpen ? "left-6" : "left-1")} />
+          </button>
+        </div>
+        {weatherVariantsOpen ? (
+          weatherPlanEditable ? (
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              Conditions appliquées
+              <select
+                value={equipment.weatherPlan}
+                onChange={(event) => updateWeatherPlan(event.target.value as OrganizerEventDetails["mandatoryEquipment"]["weatherPlan"])}
+                className="h-8 rounded-md border border-border bg-card px-2 text-xs font-medium text-foreground"
               >
-                ×
-              </Button>
-            )}
-          >
-            <div className="space-y-3">
-              <Input
-                aria-label={`Item de matériel n°${index + 1}`}
-                value={item.label}
-                onChange={(event) =>
-                  updateItems(equipment.items.map((candidate, itemIndex) => (itemIndex === index ? { ...candidate, label: event.target.value } : candidate)))
-                }
-                className="h-10"
-              />
-              {weatherVariantsOpen ? <div className="flex flex-wrap items-center gap-2">
-                <label className="inline-flex h-10 items-center gap-2 rounded-md border border-border bg-background px-3 text-sm text-foreground">
-                  <input
-                    type="checkbox"
-                    checked={item.cold}
-                    onChange={(event) =>
-                      updateItems(equipment.items.map((candidate, itemIndex) => (itemIndex === index ? { ...candidate, cold: event.target.checked } : candidate)))
-                    }
-                    className="h-4 w-4"
-                  />
-                  <span>Grand froid</span>
-                </label>
-                <label className="inline-flex h-10 items-center gap-2 rounded-md border border-border bg-background px-3 text-sm text-foreground">
-                  <input
-                    type="checkbox"
-                    checked={item.heat}
-                    onChange={(event) =>
-                      updateItems(equipment.items.map((candidate, itemIndex) => (itemIndex === index ? { ...candidate, heat: event.target.checked } : candidate)))
-                    }
-                    className="h-4 w-4"
-                  />
-                  <span>Grosse chaleur</span>
-                </label>
-              </div> : null}
-            <div className="flex flex-wrap items-center gap-2">
-              {[
-                { value: "required", label: "Obligatoire" },
-                { value: "recommended", label: "Recommandé" },
-              ].map((option) => (
-                <label
-                  key={option.value}
-                  className={cn(
-                    "inline-flex h-10 items-center gap-2 rounded-md border px-3 text-sm whitespace-nowrap",
-                    (item.required ? "required" : "recommended") === option.value
-                      ? "border-brand bg-brand/10 text-foreground"
-                      : "border-border bg-background text-foreground"
-                  )}
-                >
-                  <input
-                    type="radio"
-                    name={`equipment-${index}-status`}
-                    value={option.value}
-                    checked={(item.required ? "required" : "recommended") === option.value}
-                    onChange={() =>
-                      updateItems(
-                        equipment.items.map((candidate, itemIndex) =>
-                          itemIndex === index ? { ...candidate, required: option.value === "required" } : candidate
-                        )
-                      )
-                    }
-                    className="h-4 w-4"
-                  />
-                  <span>{option.label}</span>
-                </label>
+                <option value="normal">Normales</option>
+                <option value="cold">Grand froid</option>
+                <option value="heat">Grosse chaleur</option>
+              </select>
+            </label>
+          ) : (
+            <span className="text-xs text-muted-foreground">Conditions appliquées : {effectiveWeatherPlan === "cold" ? "grand froid" : effectiveWeatherPlan === "heat" ? "grosse chaleur" : "normales"}</span>
+          )
+        ) : null}
+      </div>
+      <div className={cn("hidden px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground sm:grid sm:items-center sm:gap-3", weatherVariantsOpen ? "sm:grid-cols-[minmax(0,1fr)_auto_9rem_2rem]" : "sm:grid-cols-[minmax(0,1fr)_auto_2rem]")}>
+        <span>Item</span><span>Statut</span>{weatherVariantsOpen ? <span>Météo</span> : null}<span className="sr-only">Action</span>
+      </div>
+      <div className="space-y-6">
+        {groups.map((group) => {
+          const removedRows = removedSharedItems.filter((item) => item.required === group.required);
+          if (group.rows.length === 0 && removedRows.length === 0) return null;
+          return (
+            <section key={group.label} className="space-y-1">
+              <div className="flex items-center gap-2 pb-1">
+                <span className={cn("rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide", group.required ? "border-brand-border bg-brand-surface text-brand" : "border-border bg-surface-muted text-muted-foreground")}>{group.label}</span>
+                <span className="text-xs font-semibold text-muted-foreground">({group.rows.length})</span>
+              </div>
+              {group.rows.map(({ item, index }) => {
+                const added = Boolean(sharedItems && !sharedItems.some((sharedItem) => isSameItem(item, sharedItem)));
+                return (
+                  <InlineEditableRow key={item.id ?? index} className={cn("grid grid-cols-[minmax(0,1fr)_2rem] gap-2 sm:items-center sm:gap-3", weatherVariantsOpen ? "sm:grid-cols-[minmax(0,1fr)_auto_9rem_2rem]" : "sm:grid-cols-[minmax(0,1fr)_auto_2rem]")}>
+                    <div className="col-span-2 flex min-w-0 items-center gap-2 sm:col-span-1">
+                      <Input
+                        aria-label={`Item de matériel n°${index + 1}`}
+                        value={item.label}
+                        onChange={(event) => updateItem(index, { label: event.target.value })}
+                        className="h-9 min-w-0 border-transparent bg-transparent px-2 shadow-none hover:border-border focus-visible:border-brand-border"
+                      />
+                      {added ? <span className="shrink-0 rounded-full border border-brand-border bg-brand-surface px-2 py-0.5 text-[10px] font-semibold text-brand">Ajouté</span> : null}
+                    </div>
+                    <div className="flex min-w-0 flex-wrap items-center gap-2 sm:contents">
+                      <SegmentedChoice
+                        label={`Statut de ${item.label || `l’item ${index + 1}`}`}
+                        value={item.required ? "required" : "recommended"}
+                        options={[{ value: "required", label: "Obligatoire" }, { value: "recommended", label: "Recommandé" }] as const}
+                        onChange={(value) => updateItem(index, { required: value === "required" })}
+                      />
+                      {weatherVariantsOpen ? (
+                        <select
+                          aria-label={`Météo de ${item.label || `l’item ${index + 1}`}`}
+                          value={weatherValue(item)}
+                          onChange={(event) => updateWeather(index, event.target.value)}
+                          className="h-8 min-w-32 flex-1 rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-full sm:flex-none"
+                        >
+                          <option value="always">Toujours</option>
+                          <option value="cold">Grand froid</option>
+                          <option value="heat">Grosse chaleur</option>
+                          {item.cold && item.heat ? <option value="cold_heat">Froid + chaleur</option> : null}
+                        </select>
+                      ) : null}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="col-start-2 row-start-2 h-8 w-8 justify-self-end px-0 text-muted-foreground hover:bg-red-50 hover:text-red-700 focus-visible:text-red-700 sm:col-start-auto sm:row-start-auto"
+                      onClick={() => updateItems(equipment.items.filter((_, itemIndex) => itemIndex !== index))}
+                      aria-label={`Retirer ${item.label || "cet item"}`}
+                      title="Retirer"
+                    >×</Button>
+                  </InlineEditableRow>
+                );
+              })}
+              {removedRows.map((item, index) => (
+                <InlineEditableRow key={`removed-${item.id ?? item.label}-${index}`} className={cn("grid gap-2 opacity-70 sm:items-center sm:gap-3", weatherVariantsOpen ? "sm:grid-cols-[minmax(0,1fr)_auto_9rem_2rem]" : "sm:grid-cols-[minmax(0,1fr)_auto_2rem]")}>
+                  <div className="flex min-w-0 items-center gap-2 px-2 text-sm text-foreground line-through"><span className="truncate">{item.label}</span><span className="shrink-0 rounded-full border border-border bg-surface-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground no-underline">Retiré</span></div>
+                  <span className="text-xs text-muted-foreground">{item.required ? "Obligatoire" : "Recommandé"}</span>
+                  {weatherVariantsOpen ? <span className="text-xs text-muted-foreground">{item.cold ? "Grand froid" : item.heat ? "Grosse chaleur" : "Toujours"}</span> : null}
+                  <Button type="button" variant="ghost" className="h-8 px-2 text-xs text-brand" onClick={() => updateItems([...equipment.items, { ...item }])} aria-label={`Restaurer ${item.label}`}>↺</Button>
+                </InlineEditableRow>
               ))}
-            </div>
-            </div>
-          </CollapsibleRow>
+            </section>
+          );
+        })}
+      </div>
+      <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+        <Button type="button" variant="ghost" className="h-8 px-2 text-xs font-semibold text-brand" onClick={() => updateItems([...equipment.items, { id: `item-${Date.now()}`, label: "Nouvel item", required: true, cold: false, heat: false, note: null }])}>+ Ajouter un item</Button>
+        {availableSuggestions.length > 0 ? <span className="text-xs text-muted-foreground">Suggestions :</span> : null}
+        {availableSuggestions.map((suggestion) => (
+          <Button key={suggestion} type="button" variant="ghost" className="h-8 px-2 text-xs text-brand" onClick={() => updateItems([...equipment.items, { id: `item-${Date.now()}`, label: suggestion, required: true, cold: false, heat: false, note: null }])}>+ {suggestion}</Button>
         ))}
       </div>
-      <Button
-        type="button"
-        variant="outline"
-        onClick={() => {
-          updateItems([...equipment.items, { id: `item-${Date.now()}`, label: "Nouvel item", required: true, cold: false, heat: false, note: null }]);
-          setExpandedItemIndex(equipment.items.length);
-        }}
-      >
-        Ajouter un item
-      </Button>
       <TextAreaField
         label="Note matériel"
         value={equipment.note ?? ""}
         onChange={(value) => onEquipmentChange({ ...equipment, note: value || null })}
         invalid={missingEquipment}
       />
-      {weatherPlanEditable ? (
-        <OptionalModule
-          title="les variantes météo"
-          active={weatherVariantsOpen}
-          onAdd={() => setWeatherVariantsOpen(true)}
-          onRemove={() => setWeatherVariantsOpen(false)}
-        >
-          <p className="text-sm text-muted-foreground">Coche si l’item n’est exigé qu’en cas de grand froid ou de forte chaleur.</p>
-          <div className="flex flex-wrap gap-2">
-            {[
-              { value: "normal", label: "Conditions normales" },
-              { value: "cold", label: "Grand froid" },
-              { value: "heat", label: "Grosse chaleur" },
-            ].map((option) => (
-              <label key={option.value} className={cn("inline-flex min-h-10 items-center gap-2 rounded-md border px-3 py-2 text-sm", equipment.weatherPlan === option.value ? "border-brand bg-brand/10" : "border-border")}>
-                <input type="radio" name={`${title}-weather-plan`} checked={equipment.weatherPlan === option.value} onChange={() => updateWeatherPlan(option.value as OrganizerEventDetails["mandatoryEquipment"]["weatherPlan"])} />
-                {option.label}
-              </label>
-            ))}
-          </div>
-        </OptionalModule>
-      ) : null}
     </section>
   );
 }
@@ -348,7 +341,7 @@ function BibPickupFields({
   onBibChange,
   hideLocationDetails,
   showHeader = true,
-  framed = true,
+  framed = false,
 }: {
   title: string;
   description: string;
@@ -359,8 +352,6 @@ function BibPickupFields({
   framed?: boolean;
 }) {
   const update = (next: Partial<OrganizerEventDetails["bibPickup"]>) => onBibChange({ ...bib, ...next });
-  const [expandedLocationIndex, setExpandedLocationIndex] = useState<number | null>(null);
-  const [expandedSlotKey, setExpandedSlotKey] = useState<string | null>(null);
   const locations = getOrganizerBibPickupLocations(bib);
   const emptyLocationDetails = defaultOrganizerEventDetails.bibPickup.locationDetails;
   const updateLocations = (nextLocations: OrganizerBibPickupLocation[]) => {
@@ -373,7 +364,6 @@ function BibPickupFields({
     });
   };
   const addLocation = () => {
-    setExpandedLocationIndex(locations.length);
     updateLocations([
       ...locations,
       {
@@ -396,71 +386,50 @@ function BibPickupFields({
           <ContextualHelp text={description} />
         </div>
       ) : null}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <p className="text-sm font-semibold text-foreground">Lieux et créneaux</p>
-          <ContextualHelp text="Ajoute autant de lieux, de jours et de plages horaires que nécessaire." />
-        </div>
-        <Button type="button" variant="outline" onClick={addLocation}>
-          Ajouter un lieu
-        </Button>
-      </div>
+      <p className="text-sm text-muted-foreground">Ajoute chaque lieu puis ses jours et plages horaires. Toutes les informations restent visibles et modifiables ici.</p>
       {locations.length === 0 ? (
         <p className="rounded-md border border-dashed border-amber-300 bg-amber-50/50 p-4 text-sm text-amber-800">
           Aucun lieu de retrait renseigné.
         </p>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-6">
           {locations.map((pickupLocation, locationIndex) => {
             const missingLocation = !pickupLocation.location?.trim();
             return (
-              <CollapsibleRow
-                key={`bib-location-${locationIndex}`}
-                expanded={expandedLocationIndex === locationIndex}
-                onToggle={() => setExpandedLocationIndex((current) => current === locationIndex ? null : locationIndex)}
-                summary={`${pickupLocation.location || `Lieu de retrait ${locationIndex + 1}`} · ${pickupLocation.slots.length} créneau${pickupLocation.slots.length > 1 ? "x" : ""}`}
-                actions={(
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="h-9 px-2 text-xs font-semibold text-red-700 hover:bg-red-50"
-                    onClick={() => updateLocations(locations.filter((_, index) => index !== locationIndex))}
-                  >
-                    Supprimer
-                  </Button>
-                )}
-              >
-                {hideLocationDetails ? (
-                  <TextField label="Lieu de retrait" value={pickupLocation.location ?? ""} onChange={(value) => updateLocation(locationIndex, { location: value || null })} />
-                ) : (
-                  <AddressAutocompleteField
-                    label="Adresse du lieu"
-                    value={pickupLocation.location ?? ""}
-                    location={pickupLocation.locationDetails}
-                    biasLocation={pickupLocation.locationDetails}
-                    onChange={(value) => updateLocation(locationIndex, { location: value || null })}
-                    onLocationChange={(locationDetails) =>
-                      updateLocation(locationIndex, { location: locationDetails.label, locationDetails })
-                    }
-                    invalid={missingLocation}
-                  />
-                )}
-                <div className="space-y-3">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-sm font-semibold text-foreground">Jours et plages horaires</p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setExpandedSlotKey(`${locationIndex}:${pickupLocation.slots.length}`);
-                        updateSlots(locationIndex, [
-                          ...pickupLocation.slots,
-                          { date: null, startTime: null, endTime: null },
-                        ]);
-                      }}
-                    >
-                      Ajouter un créneau
-                    </Button>
+              <section key={`bib-location-${locationIndex}`} className="space-y-3 border-t border-border pt-6 first:border-t-0 first:pt-0">
+                <div className="flex items-start gap-3">
+                  <div className="min-w-0 flex-1">
+                    {hideLocationDetails ? (
+                      <Input
+                        aria-label={`Lieu de retrait ${locationIndex + 1}`}
+                        value={pickupLocation.location ?? ""}
+                        onChange={(event) => updateLocation(locationIndex, { location: event.target.value || null })}
+                        className={cn("h-9 border-transparent bg-transparent px-2 text-base font-semibold shadow-none hover:border-border focus-visible:border-brand-border", missingLocation && "border-amber-400")}
+                      />
+                    ) : (
+                      <AddressAutocompleteField
+                        label={`Adresse du lieu ${locationIndex + 1}`}
+                        labelClassName="sr-only"
+                        inputClassName="h-9 border-transparent bg-transparent px-2 text-base font-semibold shadow-none hover:border-border focus-visible:border-brand-border"
+                        value={pickupLocation.location ?? ""}
+                        location={pickupLocation.locationDetails}
+                        biasLocation={pickupLocation.locationDetails}
+                        onChange={(value) => updateLocation(locationIndex, { location: value || null })}
+                        onLocationChange={(locationDetails) => updateLocation(locationIndex, { location: locationDetails.label, locationDetails })}
+                        invalid={missingLocation}
+                      />
+                    )}
+                  </div>
+                  <details className="group/menu relative shrink-0">
+                    <summary className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-md text-lg text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring" aria-label={`Actions pour ${pickupLocation.location || `le lieu ${locationIndex + 1}`}`} title="Actions du lieu">⋯</summary>
+                    <div className="absolute right-0 top-9 z-20 w-40 rounded-md border border-border bg-card p-1 shadow-lg">
+                      <button type="button" className="w-full rounded px-3 py-2 text-left text-xs font-medium text-muted-foreground hover:bg-red-50 hover:text-red-700 focus-visible:bg-red-50 focus-visible:text-red-700" onClick={() => updateLocations(locations.filter((_, index) => index !== locationIndex))}>Supprimer le lieu</button>
+                    </div>
+                  </details>
+                </div>
+                <div className="space-y-1">
+                  <div className="hidden grid-cols-[10rem_6.25rem_1rem_6.25rem_2rem] items-center gap-2 px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground sm:grid">
+                    <span>Jour</span><span>Début</span><span aria-hidden>→</span><span>Fin</span><span className="sr-only">Action</span>
                   </div>
                   {pickupLocation.slots.length === 0 ? (
                     <p className="rounded-md border border-dashed border-amber-300 bg-amber-50/50 p-3 text-sm text-amber-800">
@@ -476,37 +445,26 @@ function BibPickupFields({
                           )
                         );
                       return (
-                        <CollapsibleRow
-                          key={`bib-location-${locationIndex}-slot-${slotIndex}`}
-                          expanded={expandedSlotKey === `${locationIndex}:${slotIndex}`}
-                          onToggle={() => setExpandedSlotKey((current) => current === `${locationIndex}:${slotIndex}` ? null : `${locationIndex}:${slotIndex}`)}
-                          summary={`${slot.date || "Jour à définir"} · ${slot.startTime || "--:--"}–${slot.endTime || "--:--"}`}
-                          actions={(
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              className="h-9 px-2 text-xs font-semibold text-red-700 hover:bg-red-50"
-                              onClick={() => updateSlots(locationIndex, pickupLocation.slots.filter((_, index) => index !== slotIndex))}
-                            >
-                              Supprimer
-                            </Button>
-                          )}
-                        >
-                          <div className="grid gap-3 md:grid-cols-3">
-                            <TextField label="Jour" type="date" value={slot.date ?? ""} onChange={(date) => updateSlot({ date: date || null })} invalid={!slot.date} />
-                            <TextField label="Début" type="time" value={slot.startTime ?? ""} onChange={(startTime) => updateSlot({ startTime: startTime || null })} invalid={!slot.startTime} />
-                            <TextField label="Fin" type="time" value={slot.endTime ?? ""} onChange={(endTime) => updateSlot({ endTime: endTime || null })} invalid={!slot.endTime} />
+                        <InlineEditableRow key={`bib-location-${locationIndex}-slot-${slotIndex}`} className="grid grid-cols-[minmax(0,1fr)_2rem] gap-2 sm:grid-cols-[10rem_6.25rem_1rem_6.25rem_2rem] sm:items-center">
+                          <Input aria-label={`Jour du créneau ${slotIndex + 1}, lieu ${locationIndex + 1}`} type="date" value={slot.date ?? ""} onChange={(event) => updateSlot({ date: event.target.value || null })} aria-invalid={!slot.date || undefined} className={cn("h-9 min-w-0 font-mono text-sm tabular-nums", !slot.date && "border-amber-400")} />
+                          <div className="col-span-2 grid grid-cols-[minmax(0,1fr)_1rem_minmax(0,1fr)] items-center gap-2 sm:contents">
+                            <Input aria-label={`Début du créneau ${slotIndex + 1}, lieu ${locationIndex + 1}`} type="time" value={slot.startTime ?? ""} onChange={(event) => updateSlot({ startTime: event.target.value || null })} aria-invalid={!slot.startTime || undefined} className={cn("h-9 min-w-0 font-mono text-sm tabular-nums", !slot.startTime && "border-amber-400")} />
+                            <span className="text-center text-xs text-muted-foreground" aria-hidden>→</span>
+                            <Input aria-label={`Fin du créneau ${slotIndex + 1}, lieu ${locationIndex + 1}`} type="time" value={slot.endTime ?? ""} onChange={(event) => updateSlot({ endTime: event.target.value || null })} aria-invalid={!slot.endTime || undefined} className={cn("h-9 min-w-0 font-mono text-sm tabular-nums", !slot.endTime && "border-amber-400")} />
                           </div>
-                        </CollapsibleRow>
+                          <Button type="button" variant="ghost" className="col-start-2 row-start-1 h-8 w-8 px-0 text-muted-foreground hover:bg-red-50 hover:text-red-700 focus-visible:text-red-700 sm:col-start-auto sm:row-start-auto" onClick={() => updateSlots(locationIndex, pickupLocation.slots.filter((_, index) => index !== slotIndex))} aria-label={`Supprimer le créneau ${slotIndex + 1}, lieu ${locationIndex + 1}`} title="Supprimer le créneau">×</Button>
+                        </InlineEditableRow>
                       );
                     })
                   )}
+                  <Button type="button" variant="ghost" className="h-8 px-2 text-xs font-semibold text-brand" onClick={() => updateSlots(locationIndex, [...pickupLocation.slots, { date: null, startTime: null, endTime: null }])}>+ Ajouter un créneau</Button>
                 </div>
-              </CollapsibleRow>
+              </section>
             );
           })}
         </div>
       )}
+      <Button type="button" variant="ghost" className="h-9 px-2 text-sm font-semibold text-brand" onClick={addLocation}>+ Ajouter un lieu</Button>
       {bib.schedule ? (
         <TextAreaField
           label="Informations horaires existantes"
@@ -518,11 +476,12 @@ function BibPickupFields({
       <div className="space-y-3 border-t border-border pt-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm font-medium text-foreground">Une autre personne peut-elle retirer le dossard ?</p>
-          <ToggleChip checked={bib.thirdPartyPickupAllowed === true} label={bib.thirdPartyPickupAllowed ? "Oui" : "Non"} onChange={(checked) => update({ thirdPartyPickupAllowed: checked })} />
+          <SegmentedChoice label="Retrait par un tiers" value={bib.thirdPartyPickupAllowed === true ? "yes" : "no"} options={[{ value: "no", label: "Non" }, { value: "yes", label: "Oui" }] as const} onChange={(value) => update({ thirdPartyPickupAllowed: value === "yes" })} />
         </div>
+        {bib.thirdPartyPickupAllowed === true ? <div className="ml-0 border-l-2 border-brand-border pl-4 sm:ml-4"><TextAreaField label="Conditions du retrait par un tiers" value={bib.thirdPartyPickupConditions ?? ""} onChange={(value) => update({ thirdPartyPickupConditions: value || null })} /></div> : null}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm font-medium text-foreground">Un contrôle du matériel est-il prévu au retrait ?</p>
-          <ToggleChip checked={bib.equipmentCheck === true} label={bib.equipmentCheck ? "Oui" : "Non"} onChange={(checked) => update({ equipmentCheck: checked })} />
+          <SegmentedChoice label="Contrôle du matériel au retrait" value={bib.equipmentCheck === true ? "yes" : "no"} options={[{ value: "no", label: "Non" }, { value: "yes", label: "Oui" }] as const} onChange={(value) => update({ equipmentCheck: value === "yes" })} />
         </div>
       </div>
       <TextAreaField label="Note dossard" value={bib.note ?? ""} onChange={(value) => update({ note: value || null })} />
