@@ -11,7 +11,7 @@ import { AddressAutocompleteField } from "./address-autocomplete-field";
 import { ADD_FORMAT_TAB_ID } from "./constants";
 import { formatKm } from "./helpers";
 import type { EventFormValues, GpxPreview, RaceFormat, RaceFormValues, RaceParticipationMode } from "./types";
-import { ContextualHelp, NumberField, TextField } from "./controls";
+import { ContextualHelp, NumberField, OptionalModule, TextField } from "./controls";
 
 const isInvalidHttpsUrl = (value: string) => {
   if (!value.trim()) return false;
@@ -49,10 +49,12 @@ export function EventInfoEditor({
   const invalidInstagramUrl = isInvalidHttpsUrl(instagramUrl);
   const invalidFacebookUrl = isInvalidHttpsUrl(facebookUrl);
   const invalidEmergencyPhone = isInvalidPhone(emergencyContact.phone ?? "");
+  const [socialsOpen, setSocialsOpen] = useState(Boolean(officialWebsiteUrl || instagramUrl || facebookUrl));
+  const [imageOpen, setImageOpen] = useState(Boolean(eventForm.thumbnailUrl));
 
   return (
-    <div className="divide-y divide-border">
-      <section className="pb-6">
+    <div className="flex flex-col divide-y divide-border">
+      <section className="order-1 pb-6">
         <h3 className="mb-4 text-sm font-bold text-foreground">Informations principales</h3>
         <div className="grid gap-4 lg:grid-cols-2">
           <TextField label="Nom" value={eventForm.name} onChange={(value) => onChange({ name: value })} required invalid={missingName} />
@@ -78,8 +80,8 @@ export function EventInfoEditor({
         </div>
       </section>
 
-      <section className="py-6">
-        <h3 className="mb-4 text-sm font-bold text-foreground">Présence en ligne</h3>
+      <section className="order-4 py-6">
+        <OptionalModule title="les réseaux sociaux" active={socialsOpen} onAdd={() => setSocialsOpen(true)} onRemove={() => setSocialsOpen(false)}>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(16rem,1.5fr)_minmax(12rem,1fr)_minmax(12rem,1fr)]">
           <TextField
             label="Site officiel"
@@ -136,9 +138,10 @@ export function EventInfoEditor({
             }
           />
         </div>
+        </OptionalModule>
       </section>
 
-      <section className="py-6">
+      <section className="order-2 py-6">
         <div className="mb-4 flex items-center gap-2">
           <h3 className="text-sm font-bold text-foreground">Dates de l’édition</h3>
           <ContextualHelp text="Les formats utilisent ces dates par défaut, sauf lorsqu’une date spécifique est renseignée." />
@@ -149,7 +152,7 @@ export function EventInfoEditor({
         </div>
       </section>
 
-      <section className="py-6">
+      <section className="order-3 py-6">
         <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-800 dark:bg-amber-950/20">
           <h3 className="mb-4 text-sm font-bold text-foreground">Contact d’urgence</h3>
           <div className="grid max-w-2xl gap-4 sm:grid-cols-2">
@@ -190,11 +193,9 @@ export function EventInfoEditor({
         </div>
       </section>
 
-      <section className="pt-6">
-        <div className="mb-4 flex items-center gap-2">
-          <h3 className="text-sm font-bold text-foreground">Image de couverture</h3>
-          <ContextualHelp text="Format PNG uniquement, 5 Mo maximum." />
-        </div>
+      <section className="order-5 pt-6">
+        <OptionalModule title="une image de couverture" active={imageOpen} onAdd={() => setImageOpen(true)} onRemove={() => setImageOpen(false)}>
+        <div className="mb-4 flex items-center gap-2"><p className="text-sm text-muted-foreground">Format PNG uniquement, 5 Mo maximum.</p></div>
         <div className="flex max-w-2xl flex-col gap-4 sm:flex-row sm:items-center">
           {eventForm.thumbnailUrl ? (
             <div className="h-28 w-full shrink-0 overflow-hidden rounded-lg border border-border bg-muted sm:w-56">
@@ -210,6 +211,7 @@ export function EventInfoEditor({
             <Input id={imageInputId} type="file" accept="image/png" onChange={onUploadImage} disabled={status === "uploading"} />
           </div>
         </div>
+        </OptionalModule>
       </section>
     </div>
   );
@@ -390,7 +392,7 @@ function RaceForm({
         <p className="font-semibold text-foreground">{title}</p>
         <ContextualHelp text="Ajoutez d’abord les fichiers, renseignez les informations du format, puis vérifiez le parcours et le profil." />
       </div>
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
+      <div className="grid gap-4">
         <div className="space-y-4">
           <div className="space-y-4 rounded-lg border border-border/70 bg-background px-4 py-4">
             <div className="flex items-center gap-2">
@@ -418,7 +420,7 @@ function RaceForm({
               <div className="lg:col-span-2">
                 <TextField label="D-" type="number" step="0.1" value={values.elevationLossM} onChange={(value) => onChange({ ...values, elevationLossM: value })} disabled={disabled} />
               </div>
-              <div className="space-y-1 lg:col-span-12 lg:max-w-sm">
+              <div className="space-y-1 lg:col-span-6 lg:col-start-7 lg:row-start-1">
                 <div className="flex items-center gap-2">
                   <Label htmlFor={participationModeId}>Type de participation</Label>
                   <ContextualHelp text="Pour un relais, les points de passage se configurent ensuite dans Ravitos et points de course." />
@@ -641,7 +643,7 @@ function OrganizerGpxPanel({
   const gpxInputId = useId();
   const imageInputId = useId();
   return (
-    <aside className="rounded-lg border border-border/70 bg-muted/30 px-4 py-4 xl:sticky xl:top-4">
+    <aside className="rounded-lg border border-border/70 bg-muted/30 px-4 py-4">
       <div className="space-y-4">
         <div className="space-y-1.5">
           <div className="flex items-center justify-between gap-3">

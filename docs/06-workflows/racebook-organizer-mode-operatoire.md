@@ -22,6 +22,8 @@ related_tables:
 
 Les modifications sont enregistrées automatiquement après une courte pause de saisie. L'état de sauvegarde reste visible et propose **Réessayer** en cas d'échec ; il n'y a plus de bouton général **Sauvegarder**. Un nouveau format reprend uniquement la date, le lieu et éventuellement le site de l'événement, avec des métriques vides. Son site officiel reste facultatif.
 
+Les formulaires affichent d'abord l'essentiel. Utilise les boutons **+ Ajouter…** pour ouvrir les informations facultatives sans effacer leur contenu en les retirant. Les items de matériel, lieux et créneaux de retrait, ainsi que les ravitos, s'ouvrent avec **Détails**. Pour un format, le contenu commun apparaît en résumé ; choisis **Personnaliser pour ce format** seulement lorsqu'une différence est nécessaire.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose

@@ -23,6 +23,8 @@ related_tables:
 
 # `race_edition_services`
 
+The organizer service editor removes its redundant section title and uses the global autosave indicator; its local status is simply `À jour`. Adding service cards progressively and preserving historical text do not change this table contract.
+
 The header-attached workspace switch and the full-width Livret profile chart do not change edition-service reads or actions.
 
 Chronological cutoff resolution and plan access gating do not change edition-service reads or actions.

@@ -71,6 +71,8 @@ related_tables:
 
 `external_site_url` and its historical source projection are optional for organizer-created formats and publication readiness. Name, date, effective location, and positive distance remain the required format identity; new formats persist inherited event date/location without cloning another format.
 
+When format equipment, bib pickup, or access has no override, the organizer renders a compact summary from the event values and offers an explicit personalization action. The inherited view creates no race-level payload until personalization is chosen.
+
 The full-width Livret profile chart reads the same elevation profile and aid-station distances; no column or write.
 
 Mobile reads `race_date` to place dated organizer cutoffs (e.g. `dimanche 15/11 à 14h30`) on the right race day; display-only, no write.

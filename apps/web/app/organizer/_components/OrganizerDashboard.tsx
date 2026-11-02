@@ -16,9 +16,6 @@ import { normalizeImportedWaypoints } from "../../../lib/gpx/normalizeImportedWa
 import {
   defaultOrganizerAidStationDetails,
   defaultOrganizerRaceDetails,
-  expandRaceAccessWithEvent,
-  expandRaceEquipmentWithCommon,
-  hasRaceAccessOverride,
   type OrganizerEventDetails,
 } from "../../../lib/organizer-dashboard-details";
 import type { FuelProduct } from "../../../lib/product-types";
@@ -49,7 +46,7 @@ import {
 } from "../../../lib/product-analytics";
 import { buildOrganizerCompletion, type OrganizerCompletionSummary, type OrganizerModuleId } from "./completion";
 import { ADD_FORMAT_TAB_ID, emptyProductForm, EVENT_TAB_ID, MAX_EVENT_IMAGE_SIZE_BYTES } from "./dashboard/constants";
-import { ContextualHelp, OrganizerToast, ToggleChip, type RacebookVisibilityState } from "./dashboard/controls";
+import { ContextualHelp, OrganizerToast, type RacebookVisibilityState } from "./dashboard/controls";
 import {
   clearOrganizerDataCache,
   invalidateOrganizerGpxPreviewCache,
@@ -3515,79 +3512,6 @@ export function OrganizerDashboard({
             >
               Supprimer ce format
             </Button>
-          ) : activeModule === "bibPickup" && activeRace ? (
-            <div className="space-y-1 text-right">
-              <p className="text-[11px] text-muted-foreground">Options avancées · Complet</p>
-              <ToggleChip
-                checked={raceForm.organizerDetails.bibPickup.overrideEnabled}
-                label="Retrait différent pour ce format"
-                onChange={(overrideEnabled) =>
-                  updateRaceForm(
-                  {
-                    organizerDetails: {
-                      ...raceForm.organizerDetails,
-                      bibPickup: { ...raceForm.organizerDetails.bibPickup, overrideEnabled },
-                    },
-                  },
-                  "bibPickup"
-                  )
-                }
-              />
-            </div>
-          ) : activeModule === "equipment" && activeRace ? (
-            <div className="space-y-1 text-right">
-              <p className="text-[11px] text-muted-foreground">Options avancées · Complet</p>
-              <ToggleChip
-              checked={raceForm.organizerDetails.mandatoryEquipment.overrideEnabled === true}
-              label="Matériel différent pour ce format"
-              onChange={(overrideEnabled) =>
-                updateRaceForm(
-                  {
-                    organizerDetails: {
-                      ...raceForm.organizerDetails,
-                      mandatoryEquipment: {
-                        ...(overrideEnabled
-                          ? expandRaceEquipmentWithCommon(
-                              eventForm.organizerDetails.mandatoryEquipment,
-                              raceForm.organizerDetails.mandatoryEquipment
-                            )
-                          : raceForm.organizerDetails.mandatoryEquipment),
-                        overrideEnabled,
-                      },
-                    },
-                  },
-                  "equipment"
-                )
-              }
-              />
-            </div>
-          ) : activeModule === "access" && activeRace ? (
-            <div className="space-y-1 text-right">
-              <p className="text-[11px] text-muted-foreground">Options avancées · Complet</p>
-              <ToggleChip
-              checked={hasRaceAccessOverride(raceForm.organizerDetails.access)}
-              label="Accès différents pour ce format"
-              onChange={(overrideEnabled) =>
-                updateRaceForm(
-                  {
-                    organizerDetails: {
-                      ...raceForm.organizerDetails,
-                      access: {
-                        ...(overrideEnabled
-                          ? expandRaceAccessWithEvent(
-                              eventForm.organizerDetails.access,
-                              raceForm.organizerDetails.access
-                            )
-                          : raceForm.organizerDetails.access),
-                        overrideEnabled,
-                      },
-                    },
-                  },
-                  "access"
-                )
-              }
-              />
-            </div>
           ) : null}
         </CardHeader>
         <CardContent>
@@ -3827,6 +3751,7 @@ export function OrganizerDashboard({
             ) : (
               <RaceBibPickupEditor
                 activeRace={activeRace}
+                eventDetails={eventForm.organizerDetails}
                 raceDetails={raceForm.organizerDetails}
                 onRaceChange={(details) => updateRaceForm({ organizerDetails: details }, "bibPickup")}
               />

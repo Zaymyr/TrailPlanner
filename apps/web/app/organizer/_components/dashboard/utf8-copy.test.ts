@@ -275,10 +275,10 @@ describe("organizer dashboard UTF-8 copy", () => {
     );
 
     expect(source).toContain("Informations principales");
-    expect(source).toContain("Présence en ligne");
+    expect(source).toContain('title="les réseaux sociaux"');
     expect(source).toContain("Dates de l’édition");
     expect(source).toContain("Contact d’urgence");
-    expect(source).toContain("Image de couverture");
+    expect(source).toContain('title="une image de couverture"');
     expect(source).toContain('label="Nom du contact"');
     expect(source).toContain('label="Téléphone"');
     expect(source).toContain('type="tel"');
@@ -299,7 +299,7 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(source).toContain('activeView === "aidStations"');
     expect(source.indexOf("<FixedCourseCard")).toBeLessThan(source.indexOf("<TabsList"));
     expect(source).toContain("disabled={startWaveCount > 0}");
-    expect(source).toContain("leurs horaires définissent le départ.");
+    expect(source).toContain("Les autres SAS se règlent dans l’onglet SAS.");
     expect(source).toContain('title="Départ"');
     expect(source).toContain('title="Arrivée"');
     expect(source).toContain('StationMetaChip>Barrière {details.cutoffTime?.trim() || "-"}');
@@ -346,9 +346,10 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(dashboardSource).toContain('`Retrait dossard - ${activeRace.name}`');
     expect(dashboardSource).toContain('`Matériel - ${activeRace.name}`');
     expect(dashboardSource).toContain('`Accès - ${activeRace.name}`');
-    expect(dashboardSource).toContain('label="Retrait différent pour ce format"');
-    expect(dashboardSource).toContain('label="Matériel différent pour ce format"');
-    expect(dashboardSource).toContain('label="Accès différents pour ce format"');
+    expect(detailSource.match(/Personnaliser pour ce format/g)).toHaveLength(3);
+    expect(detailSource).toContain("Retrait hérité de l’événement");
+    expect(detailSource).toContain("Matériel hérité de l’événement");
+    expect(detailSource).toContain("Accès hérité de l’événement");
     expect(dashboardSource).toContain('activeModule === "formats" || activeModule === "equipment" || activeModule === "bibPickup" || activeModule === "access"');
     expect(detailSource).toContain("showHeader={false}");
     expect(detailSource).toContain("framed={false}");
@@ -361,9 +362,10 @@ describe("organizer dashboard UTF-8 copy", () => {
       "utf8"
     );
 
-    expect(source).toContain("1. Lieux et itinéraire");
-    expect(source).toContain("2. À retenir");
-    expect(source).toContain("3. Venir sur place");
+    expect(source).toContain('title="une carte générale"');
+    expect(source).toContain('title="les routes fermées"');
+    expect(source).toContain('title="les parkings"');
+    expect(source).toContain('title="les navettes"');
     expect(source).toContain('label="Information prioritaire"');
     expect(source).toContain('label="Fonctionnement des navettes"');
     expect(source).toContain('label="Horaires des navettes"');

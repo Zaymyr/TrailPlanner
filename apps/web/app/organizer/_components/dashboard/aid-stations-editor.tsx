@@ -130,19 +130,19 @@ export function AidStationsEditor({
         <FixedCourseCard
           title="Départ"
           subtitle={startWaveCount > 0
-            ? `${startWaveCount} SAS configuré${startWaveCount > 1 ? "s" : ""} : leurs horaires définissent le départ.`
+            ? `${startWaveCount} SAS configuré${startWaveCount > 1 ? "s" : ""}. Les autres SAS se règlent dans l’onglet SAS.`
             : "Heure de départ commune à ce format."}
           value={startTime}
-          label={startWaveCount > 0 ? "Départ défini par les SAS" : "Heure de départ"}
+          label={startWaveCount > 0 ? "Heure du premier départ (SAS 1)" : "Heure de départ"}
           onChange={onStartTimeChange}
           disabled={startWaveCount > 0}
           timeInput
         />
         <FixedCourseCard
           title="Arrivée"
-          subtitle="Heure d’arrivée ou barrière finale de ce format."
+          subtitle="Dernière heure autorisée pour terminer ce format."
           value={finishCutoffTime}
-          label="Heure d’arrivée"
+          label="Fermeture de l’arrivée (barrière finale)"
           onChange={onFinishCutoffTimeChange}
         />
       </div>
@@ -253,15 +253,18 @@ export function AidStationsEditor({
                     <Button
                       type="button"
                       variant="ghost"
-                      className="h-10 w-10 rounded-full border border-border bg-background p-0"
+                      className="h-10 rounded-full border border-border bg-background px-4 text-xs font-semibold"
                       onClick={() => onExpandedStationKeyChange(isExpanded ? null : key)}
                       aria-label={isExpanded ? "Replier le ravito" : "Déplier le ravito"}
                       title={isExpanded ? "Replier le ravito" : "Déplier le ravito"}
                     >
+                      {isExpanded ? "Masquer" : "Détails"}
                       {isExpanded ? <ChevronUpIcon className="h-4 w-4" aria-hidden /> : <ChevronDownIcon className="h-4 w-4" aria-hidden />}
                     </Button>
-                    <Button type="button" variant="ghost" className="h-10 rounded-full border border-red-200 bg-red-50 px-4 text-xs font-semibold text-red-700 hover:bg-red-100" onClick={() => onRemoveStation(index)}>
-                      Retirer
+                    <Button type="button" variant="ghost" className="h-10 rounded-full border border-red-200 bg-red-50 px-4 text-xs font-semibold text-red-700 hover:bg-red-100" onClick={() => {
+                      if (window.confirm(`Supprimer le ravito « ${station.name || `Ravito ${index + 1}`} » ?`)) onRemoveStation(index);
+                    }}>
+                      Supprimer le ravito
                     </Button>
                   </div>
                 </div>

@@ -48,6 +48,8 @@ related_tables:
 
 Adding a format starts from event-level defaults with blank numeric inputs and never reuses the active format's GPX, image, or course metrics. GPX selection remains an explicit action in the new format form.
 
+The format editor is presented as one linear column so the optional GPX, editable metrics, inherited date/location, optional website, and image no longer compete with a sticky side rail. GPX parsing and metric precedence are unchanged.
+
 The Organizer `Suivi coureur` editor may reuse the loaded GPX preview to interpolate an access coordinate at a supporter point's course kilometer. This is an authoring aid: it persists the resulting latitude/longitude and does not alter the source GPX. If the trace cannot cover the requested kilometer, the point stays an incomplete draft until a separate access address is selected or a usable GPX is provided.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.

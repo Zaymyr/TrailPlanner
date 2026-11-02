@@ -1,6 +1,7 @@
-import { useId } from 'react';
+import { useId, type ReactNode } from 'react';
 
 import { Input } from '../../../../components/ui/input';
+import { Button } from '../../../../components/ui/button';
 import { Label } from '../../../../components/ui/label';
 import { cn } from '../../../../components/utils';
 import type { OrganizerModuleLevel, OrganizerModuleStatus } from '../completion';
@@ -14,7 +15,7 @@ export function ContextualHelp({ text, label = "Plus d’informations" }: { text
         type="button"
         aria-label={label}
         aria-describedby={tooltipId}
-        className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border bg-card text-[11px] font-bold text-muted-foreground transition hover:border-brand-border hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-xs font-bold text-muted-foreground transition hover:border-brand-border hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
         ?
       </button>
@@ -26,6 +27,72 @@ export function ContextualHelp({ text, label = "Plus d’informations" }: { text
         {text}
       </span>
     </span>
+  );
+}
+
+export function OptionalModule({
+  title,
+  active,
+  onAdd,
+  onRemove,
+  children,
+}: {
+  title: string;
+  active: boolean;
+  onAdd: () => void;
+  onRemove: () => void;
+  children: ReactNode;
+}) {
+  if (!active) {
+    return (
+      <Button type="button" variant="outline" onClick={onAdd} className="justify-start">
+        + Ajouter {title.toLocaleLowerCase("fr-FR")}
+      </Button>
+    );
+  }
+
+  return (
+    <section className="space-y-3 border-t border-border pt-4">
+      <div className="flex items-center justify-between gap-3">
+        <h4 className="text-sm font-semibold text-foreground">{title}</h4>
+        <Button type="button" variant="ghost" onClick={onRemove} className="h-9 text-xs text-muted-foreground">
+          Retirer
+        </Button>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+export function CollapsibleRow({
+  summary,
+  expanded,
+  onToggle,
+  children,
+  actions,
+}: {
+  summary: ReactNode;
+  expanded: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+  actions?: ReactNode;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-card">
+      <div className="flex min-h-12 items-center gap-2 px-3 py-2">
+        <button
+          type="button"
+          aria-expanded={expanded}
+          onClick={onToggle}
+          className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left text-sm font-medium text-foreground"
+        >
+          <span className="min-w-0 truncate">{summary}</span>
+          <span className="shrink-0 text-xs font-semibold text-brand">{expanded ? "Masquer" : "Détails"}</span>
+        </button>
+        {actions}
+      </div>
+      {expanded ? <div className="space-y-3 border-t border-border px-3 py-3">{children}</div> : null}
+    </div>
   );
 }
 

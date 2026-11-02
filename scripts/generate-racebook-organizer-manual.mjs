@@ -330,22 +330,26 @@ await page.getByRole("button", { name: "Annuler" }).click();
 
 await page.getByRole("button", { name: "Matériel" }).first().click();
 await page.getByRole("heading", { name: "Matériel", level: 3 }).waitFor();
+const weatherModuleButton = page.getByRole("button", { name: "+ Ajouter les variantes météo" });
+if (await weatherModuleButton.isVisible().catch(() => false)) await weatherModuleButton.click();
+await page.getByRole("button", { name: /^Couverture de survie/ }).click();
 await annotate(page, [
-  page.getByText("Plan météo actif").locator(".."),
+  page.getByText(/Matériel selon la météo/),
   [page.getByRole("button", { name: "+ Réserve alimentaire" }), page.getByRole("button", { name: "+ Veste imperméable" }), page.getByRole("button", { name: "+ Lampe frontale" })],
-  [page.locator('input[value="Couverture de survie"]'), page.locator('input[value="Bâtons"]')],
+  page.getByLabel("Item de matériel n°1"),
   page.getByLabel("Note matériel"),
 ]);
 await capture(page, "04-materiel", "main");
 
 await page.getByRole("button", { name: "Dossard" }).first().click();
-await page.getByText("Retrait dossard commun", { exact: true }).waitFor();
-const bibLocation = page.locator("article").filter({ hasText: "Lieu de retrait 1" });
+await page.getByRole("heading", { name: "Dossard", level: 3 }).waitFor();
+await page.getByRole("button", { name: /Salle des fêtes/ }).click();
+await page.getByRole("button", { name: /2027-06-11/ }).click();
 await annotate(page, [
-  bibLocation.getByLabel("Adresse du lieu"),
-  [bibLocation.getByLabel("Jour").first(), bibLocation.getByLabel("Début").first(), bibLocation.getByLabel("Fin").first()],
+  page.getByLabel("Adresse du lieu"),
+  [page.getByLabel("Jour").first(), page.getByLabel("Début").first(), page.getByLabel("Fin").first()],
   page.getByLabel("Documents nécessaires"),
-  [page.getByText("Retrait par tiers", { exact: true }), page.getByText("Contrôle matériel", { exact: true })],
+  [page.getByText("Une autre personne peut-elle retirer le dossard ?"), page.getByText("Un contrôle du matériel est-il prévu au retrait ?")],
 ]);
 await capture(page, "05-dossard", "main");
 
@@ -440,7 +444,7 @@ const sections = [
     kicker: "ÉTAPE 3 · CONFIGURER",
     title: "Choisir les sections utiles",
     image: "03-choix-sections.png",
-    intro: "Activez uniquement ce qui sera utile aux coureurs. Une section masquée conserve ses données et peut être réactivée plus tard.",
+    intro: "Active uniquement ce qui sera utile aux coureurs. Une section masquée conserve ses données et peut être réactivée plus tard.",
     items: [
       ["1", "Les sections communes s’appliquent automatiquement à tous les formats de l’édition."],
       ["2", "Les sections de format sont configurées pour le format actif ; depuis la vue Événement, elles s’appliquent à tous les formats existants."],
@@ -453,11 +457,11 @@ const sections = [
     kicker: "ÉTAPE 4 · MATÉRIEL",
     title: "Préparer la liste du matériel",
     image: "04-materiel.png",
-    intro: "La liste commune s’applique à tous les formats. Distinguez clairement le matériel obligatoire du matériel simplement recommandé.",
+    intro: "La liste commune s’applique à tous les formats. Distingue clairement le matériel obligatoire du matériel simplement recommandé.",
     items: [
-      ["1", "Choisissez le plan météo de référence : normal, grand froid ou grosse chaleur."],
+      ["1", "Ajoute les variantes météo uniquement si le règlement prévoit du matériel différent."],
       ["2", "Utilise les suggestions pour ajouter rapidement les équipements habituels."],
-      ["3", "Pour chaque élément, précisez s’il est obligatoire ou recommandé et ses conditions météo."],
+      ["3", "Ouvre Détails pour préciser si un élément est obligatoire ou recommandé et ses conditions météo."],
       ["4", "Ajoute une note uniquement pour une consigne générale utile au contrôle."],
     ],
     tip: "La liste doit rester cohérente avec le règlement officiel et les dernières consignes météo.",
@@ -469,9 +473,9 @@ const sections = [
     intro: "Renseigne chaque lieu de retrait avec ses propres créneaux afin que le coureur sache précisément où et quand se présenter.",
     items: [
       ["1", "Ajoute l’adresse complète du lieu de retrait."],
-      ["2", "Créez un créneau par jour avec une heure de début et de fin."],
-      ["3", "Listez les documents que le participant doit présenter."],
-      ["4", "Indiquez si le retrait par un tiers est autorisé et si un contrôle matériel est prévu."],
+      ["2", "Crée un créneau par jour avec une heure de début et de fin."],
+      ["3", "Liste les documents que le participant doit présenter."],
+      ["4", "Indique si le retrait par un tiers est autorisé et si un contrôle matériel est prévu."],
     ],
     tip: "Ajoute plusieurs lieux lorsque le retrait est réparti entre un village course et une zone de départ.",
   },
@@ -479,14 +483,14 @@ const sections = [
     kicker: "ÉTAPE 6 · ACCÈS",
     title: "Expliquer comment venir sur place",
     image: "06-acces.png",
-    intro: "Centralisez les lieux de départ et d’arrivée, les restrictions routières, les parkings et les navettes dans des blocs courts.",
+    intro: "Centralise les lieux de départ et d’arrivée, puis ajoute les restrictions, parkings et navettes utiles.",
     items: [
       ["1", "Renseigne les adresses exactes du départ et de l’arrivée."],
-      ["2", "Mettez en avant l’information prioritaire et les éventuelles routes fermées."],
-      ["3", "Décrivez les parkings officiels, le fonctionnement et les horaires des navettes."],
+      ["2", "Mets en avant l’information prioritaire et ajoute les routes fermées si nécessaire."],
+      ["3", "Utilise les boutons + Ajouter pour afficher les parkings et les navettes."],
       ["4", "Ajoute si besoin un lien vers une carte générale de l’organisation."],
     ],
-    tip: "Réservez le champ prioritaire aux informations critiques : dernier départ de navette, route fermée ou accès limité.",
+    tip: "Réserve le champ prioritaire aux informations critiques : dernier départ de navette, route fermée ou accès limité.",
   },
   {
     kicker: "ÉTAPE 7 · REMPLIR UN FORMAT",
@@ -495,11 +499,11 @@ const sections = [
     intro: "Chaque distance est un format distinct. Commence par ses informations principales, puis ajoute le GPX et contrôle les valeurs calculées.",
     items: [
       ["1", "Renseigne nom, distance, D+, D− et type de participation."],
-      ["2", "Conservez les dates et le lieu hérités, sauf si ce format est réellement différent."],
+      ["2", "Conserve les dates et le lieu hérités, sauf si ce format est réellement différent."],
       ["3", "Ajoute l’URL officielle de la page dédiée si elle existe ; ce champ est facultatif."],
       ["4", "Importe le fichier GPX, puis vérifie distance, dénivelé, tracé et profil. Les changements sont ensuite sauvegardés automatiquement."],
     ],
-    tip: "Créez un format par distance ou formule : 10 km, 25 km, relais, etc.",
+    tip: "Crée un format par distance ou formule : 10 km, 25 km, relais, etc.",
   },
   {
     kicker: "ÉTAPE 8 · INFORMATIONS COUREURS",
@@ -507,8 +511,8 @@ const sections = [
     image: "08-ravitaillements.png",
     intro: "Positionnez les ravitaillements dans l’ordre du parcours et décrivez précisément ce que le coureur trouvera sur place.",
     items: [
-      ["1", "Saisissez un nom reconnaissable et la distance depuis le départ."],
-      ["2", "Cochez eau, solide et assistance autorisée selon la réalité terrain."],
+      ["1", "Saisis un nom reconnaissable et la distance depuis le départ."],
+      ["2", "Coche eau, solide et assistance autorisée selon la réalité terrain."],
       ["3", "Ajoute les horaires, barrières ou notes utiles dans les champs dédiés."],
       ["4", "Utilise « Ajouter un ravito » pour créer un point ; il sera ordonné selon son kilométrage."],
     ],

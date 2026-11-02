@@ -203,6 +203,8 @@ export function OrganizerSummaryHeader({
   }, [isVisibilityOnboardingActive]);
   const isVisibilityExpanded = isSummaryExpanded || isVisibilityOnboardingActive;
   const eventScore = completion?.raceProgressScore ?? 0;
+  const completedSectionCount = completion?.modules.filter((module) => module.status === "complete").length ?? 0;
+  const totalSectionCount = completion?.modules.length ?? 0;
   const raceProgress = completion?.raceProgress ?? [];
   const editionYearOptions = buildEditionYearOptions(event?.races ?? [], event?.editions ?? [], editionRequests, selectedEventId);
   const raceRows = groupRacesBySeries(event?.races ?? []).flatMap((group) => {
@@ -218,6 +220,9 @@ export function OrganizerSummaryHeader({
       activeEdition,
     }];
   });
+  const publicFormatCount = raceRows.filter((race) => race.activeEdition?.racebook_is_live === true).length;
+  const allFormatsPublic = raceRows.length > 0 && publicFormatCount === raceRows.length;
+  const previewSlug = raceRows.find((race) => race.activeEdition?.slug)?.activeEdition?.slug ?? null;
   const dateLabel = formatEventDateRange(event, selectedEditionYear);
   const selectedEdition = getEventEdition(event, selectedEditionYear);
   const editionIsVisible = selectedEdition?.is_visible !== false;
@@ -243,6 +248,9 @@ export function OrganizerSummaryHeader({
           <h1 className="mt-1 truncate text-xl font-semibold text-foreground">
             {selectedMembership?.race_events?.name ?? event?.name ?? "Événement"}
           </h1>
+          <span className={cn("mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold", publicFormatCount > 0 ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800")}>
+            {publicFormatCount > 0 ? `En ligne · ${publicFormatCount} format${publicFormatCount > 1 ? "s" : ""} public${publicFormatCount > 1 ? "s" : ""}` : "Brouillon"}
+          </span>
           <p className="mt-1 text-sm text-muted-foreground">
             {[event?.location, dateLabel].filter(Boolean).join(" · ") || "Lieu et dates à compléter"}
           </p>
@@ -250,10 +258,17 @@ export function OrganizerSummaryHeader({
 
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {raceRows.length > 0 ? (
-            <Button type="button" onClick={onRequestPublication} disabled={!editionIsVisible || status !== "idle"} className="!h-11" title="Publier les formats complets sélectionnés pour cette édition.">
-              {canPublishRacebook ? "Publier" : "Choisir une offre"}
-            </Button>
+            allFormatsPublic && previewSlug ? (
+              <Link href={`/courses/${previewSlug}`} className="inline-flex">
+                <Button type="button" className="!h-11">Voir le Livret coureur</Button>
+              </Link>
+            ) : (
+              <Button type="button" onClick={onRequestPublication} disabled={!editionIsVisible || status !== "idle"} className="!h-11" title="Publier les formats complets sélectionnés pour cette édition.">
+                {canPublishRacebook ? "Publier" : "Choisir une offre"}
+              </Button>
+            )
           ) : null}
+          {previewSlug ? <Link href={`/courses/${previewSlug}`} className="inline-flex min-h-11 items-center px-2 text-sm font-semibold text-brand underline-offset-4 hover:underline">Aperçu coureur</Link> : null}
           <details ref={actionsMenuRef} open={actionsMenuOpen} onToggle={(event) => setActionsMenuOpen(event.currentTarget.open)} className="group relative">
             <summary ref={actionsSummaryRef} aria-haspopup="menu" aria-expanded={actionsMenuOpen} title="Ouvrir les actions utilisées moins souvent." className="inline-flex h-11 cursor-pointer list-none items-center gap-2 rounded-md border border-border bg-card px-4 text-sm font-semibold text-foreground transition hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring marker:content-none">
               Actions
@@ -362,7 +377,8 @@ export function OrganizerSummaryHeader({
       <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg bg-muted/30 px-3 py-2.5">
         <span className="text-sm font-medium text-foreground">Préparation</span>
         <InlineProgressBar score={eventScore} className="min-w-[12rem] flex-1" />
-        <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", completion?.informationComplete ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800")}>{completion?.informationComplete ? "Prêt à publier" : "À compléter"}</span>
+        <span className="text-xs font-medium text-muted-foreground">{completedSectionCount} section{completedSectionCount > 1 ? "s" : ""} sur {totalSectionCount} renseignée{completedSectionCount > 1 ? "s" : ""}</span>
+        <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", completion?.informationComplete ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800")}>{completion?.informationComplete ? "Minimum requis atteint" : "Minimum requis à compléter"}</span>
       </div>
 
       <details open={isVisibilityExpanded} onToggle={(toggleEvent) => setIsSummaryExpanded(toggleEvent.currentTarget.open)} className="group mt-2">
@@ -373,7 +389,7 @@ export function OrganizerSummaryHeader({
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180"><path d="m5 7.5 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </summary>
 
-        <div id="organizer-onboarding-visibility" className="mt-2 space-y-2 rounded-lg border border-border bg-background/50 p-3">
+        {isVisibilityExpanded ? <div id="organizer-onboarding-visibility" className="mt-2 space-y-2 rounded-lg border border-border bg-background/50 p-3">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
             <div className="flex items-center gap-2">
               <p className="text-sm font-medium text-foreground">Catalogue</p>
@@ -412,7 +428,7 @@ export function OrganizerSummaryHeader({
             {purchase ? <span>· {purchase.paymentChannel === "bank_transfer" ? "Virement" : "Stripe"}{purchase.paidAt ? ` · ${new Date(purchase.paidAt).toLocaleDateString("fr-FR")}` : ""}</span> : null}
             <ContextualHelp text={offerStatusLabel} label="Détail de l’offre" />
           </div>
-        </div>
+        </div> : null}
       </details>
 
       <div
