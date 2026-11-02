@@ -23,6 +23,8 @@ related_tables:
 
 # `user_favorite_race_events`
 
+Organizer analytics copy now consistently uses tutoiement. The favorite KPI remains the exact event-wide aggregate and this copy-only adjustment does not change favorite ownership or queries.
+
 The Courses card image placeholder does not change the favorite action, its position, or favorite writes.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.

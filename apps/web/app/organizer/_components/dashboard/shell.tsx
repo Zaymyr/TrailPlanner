@@ -123,11 +123,11 @@ export function OrganizerSummaryHeader({
   importWebsiteLabel = "Importer les informations",
   completion,
   isVisibilityOnboardingActive = false,
-  hasDirtyChanges,
-  hasAnyDirtyChanges,
+  autosaveState,
+  lastAutosavedAt,
   status,
   activeRaceId,
-  onSaveAll,
+  onRetryAutosave,
   onNotifyFollowers,
   onRequestPublication,
   onRacebookVisibilityChange,
@@ -155,11 +155,11 @@ export function OrganizerSummaryHeader({
   importWebsiteLabel?: string;
   completion: OrganizerCompletionSummary | null;
   isVisibilityOnboardingActive?: boolean;
-  hasDirtyChanges: boolean;
-  hasAnyDirtyChanges: boolean;
+  autosaveState: "idle" | "saving" | "saved" | "error";
+  lastAutosavedAt: Date | null;
   status: "idle" | "loading" | "saving" | "uploading";
   activeRaceId?: string | null;
-  onSaveAll: () => void;
+  onRetryAutosave: () => void;
   onNotifyFollowers: (raceId?: string) => void;
   onRequestPublication: () => void;
   onRacebookVisibilityChange: (raceId: string, state: RacebookVisibilityState) => void;
@@ -177,6 +177,27 @@ export function OrganizerSummaryHeader({
   const [deleteEditionDialogOpen, setDeleteEditionDialogOpen] = React.useState(false);
   const [deleteEditionConfirmation, setDeleteEditionConfirmation] = React.useState("");
   const [isSummaryExpanded, setIsSummaryExpanded] = React.useState(false);
+  const [actionsMenuOpen, setActionsMenuOpen] = React.useState(false);
+  const actionsMenuRef = React.useRef<HTMLDetailsElement>(null);
+  const actionsSummaryRef = React.useRef<HTMLElement>(null);
+  React.useEffect(() => {
+    if (!actionsMenuOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!actionsMenuRef.current?.contains(event.target as Node)) setActionsMenuOpen(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setActionsMenuOpen(false);
+      actionsSummaryRef.current?.focus();
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [actionsMenuOpen]);
   React.useEffect(() => {
     if (!isVisibilityOnboardingActive) setIsSummaryExpanded(false);
   }, [isVisibilityOnboardingActive]);
@@ -233,21 +254,22 @@ export function OrganizerSummaryHeader({
               {canPublishRacebook ? "Publier" : "Choisir une offre"}
             </Button>
           ) : null}
-          <details className="group relative">
-            <summary title="Ouvrir les actions utilisées moins souvent." className="inline-flex h-11 cursor-pointer list-none items-center gap-2 rounded-md border border-border bg-card px-4 text-sm font-semibold text-foreground transition hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring marker:content-none">
+          <details ref={actionsMenuRef} open={actionsMenuOpen} onToggle={(event) => setActionsMenuOpen(event.currentTarget.open)} className="group relative">
+            <summary ref={actionsSummaryRef} aria-haspopup="menu" aria-expanded={actionsMenuOpen} title="Ouvrir les actions utilisées moins souvent." className="inline-flex h-11 cursor-pointer list-none items-center gap-2 rounded-md border border-border bg-card px-4 text-sm font-semibold text-foreground transition hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring marker:content-none">
               Actions
               <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" className="h-4 w-4 transition group-open:rotate-180">
                 <path d="m5 7.5 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </summary>
-            <div className="absolute right-0 z-30 mt-2 grid w-64 gap-1 rounded-lg border border-border bg-card p-2 shadow-xl">
-              <Button type="button" variant="ghost" onClick={() => onNotifyFollowers(activeRaceId ?? undefined)} disabled={!event} className="!justify-start" title="Envoyer une actualité aux coureurs qui suivent l’événement.">
+            <div role="menu" onClickCapture={() => setActionsMenuOpen(false)} className="absolute right-0 z-30 mt-2 grid w-64 gap-1 rounded-lg border border-border bg-card p-2 shadow-xl">
+              <Button role="menuitem" type="button" variant="ghost" onClick={() => onNotifyFollowers(activeRaceId ?? undefined)} disabled={!event} className="!justify-start" title="Envoyer une actualité aux coureurs qui suivent l’événement.">
                 Notifier les coureurs
               </Button>
               {onImportWebsite ? (
-                <Button type="button" variant="ghost" onClick={onImportWebsite} className="!justify-start" title="Préremplir le Livret coureur depuis les sources officielles.">{importWebsiteLabel}</Button>
+                <Button role="menuitem" type="button" variant="ghost" onClick={onImportWebsite} className="!justify-start" title="Préremplir le Livret coureur depuis les sources officielles.">{importWebsiteLabel}</Button>
               ) : null}
               <Button
+                role="menuitem"
                 type="button"
                 variant="ghost"
                 onClick={() => {
@@ -260,10 +282,11 @@ export function OrganizerSummaryHeader({
               >
                 Créer une nouvelle édition
               </Button>
-              <Link href="/organizers" title="Créer un événement distinct de celui actuellement sélectionné." className="rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">
+              <Link role="menuitem" href="/organizers" title="Créer un événement distinct de celui actuellement sélectionné." className="rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">
                 <span className="flex h-10 items-center px-4 text-sm font-semibold text-foreground hover:bg-muted/40">Créer un autre événement</span>
               </Link>
               <Button
+                role="menuitem"
                 type="button"
                 variant="ghost"
                 onClick={(event) => {
@@ -276,6 +299,7 @@ export function OrganizerSummaryHeader({
                 Revoir le guide
               </Button>
               <Button
+                role="menuitem"
                 type="button"
                 variant="ghost"
                 onClick={(event) => {
@@ -289,6 +313,7 @@ export function OrganizerSummaryHeader({
               </Button>
               <div className="my-1 border-t border-border" />
               <Button
+                role="menuitem"
                 type="button"
                 variant="ghost"
                 onClick={() => {
@@ -302,6 +327,7 @@ export function OrganizerSummaryHeader({
                 Supprimer l’édition
               </Button>
               <Button
+                role="menuitem"
                 type="button"
                 variant="ghost"
                 onClick={() => {
@@ -389,26 +415,32 @@ export function OrganizerSummaryHeader({
         </div>
       </details>
 
-      {hasAnyDirtyChanges || status === "saving" ? (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed inset-x-4 top-20 z-40 mx-auto flex max-w-xl items-center justify-between gap-3 rounded-lg border border-amber-300 bg-card p-3 shadow-lg sm:bottom-4 sm:left-auto sm:right-6 sm:top-auto sm:mx-0 sm:min-w-96"
-        >
-          <p className="min-w-0 text-sm font-medium text-foreground">
-            {status === "saving"
-              ? "Sauvegarde en cours…"
-              : hasDirtyChanges
-                ? "Modifications non enregistrées"
-                : "Une autre section contient des modifications non enregistrées."}
-          </p>
-          {hasDirtyChanges || status === "saving" ? (
-            <Button type="button" onClick={onSaveAll} disabled={status === "saving"} className="!h-11 shrink-0">
-              {status === "saving" ? "Sauvegarde…" : "Sauvegarder"}
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
+      <div
+        id="organizer-autosave-status"
+        role="status"
+        aria-live="polite"
+        className={cn(
+          "mt-3 flex min-h-11 items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm",
+          autosaveState === "error" ? "border-red-300 bg-red-50 text-red-900" : "border-border bg-muted/30 text-muted-foreground"
+        )}
+      >
+        <span>
+          {autosaveState === "saving"
+            ? "Sauvegarde automatique en cours…"
+            : autosaveState === "idle"
+              ? "Modifications en attente de sauvegarde…"
+              : autosaveState === "error"
+                ? "Échec de la sauvegarde automatique. Tes modifications sont conservées dans ce formulaire."
+                : lastAutosavedAt
+                  ? `Sauvegardé automatiquement à ${lastAutosavedAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`
+                  : "Toutes les modifications sont sauvegardées automatiquement."}
+        </span>
+        {autosaveState === "error" ? (
+          <Button type="button" variant="outline" onClick={onRetryAutosave} className="!h-9 shrink-0">
+            Réessayer
+          </Button>
+        ) : null}
+      </div>
 
       <Dialog
         open={newEditionDialogOpen}

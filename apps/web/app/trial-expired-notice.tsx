@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 import { TrialExpiredBanner } from "../components/trial-expired/TrialExpiredBanner";
 import { TrialExpiredModal } from "../components/trial-expired/TrialExpiredModal";
@@ -30,6 +30,7 @@ const GUEST_COPY = {
 
 export const TrialExpiredNotice = () => {
   const router = useRouter();
+  const pathname = usePathname();
   const { session, entitlements } = useVerifiedSession();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false);
@@ -136,7 +137,7 @@ export const TrialExpiredNotice = () => {
     }
   }, [handleMarkSeen, isGuestSession, router, session?.accessToken]);
 
-  if (!shouldShowBanner) {
+  if (pathname.startsWith("/organizer") || !shouldShowBanner) {
     return null;
   }
 

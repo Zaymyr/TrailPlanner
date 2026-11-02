@@ -127,7 +127,7 @@ describe("organizer dashboard helpers", () => {
       },
     });
 
-    expect(raceForm.locationText).toBe("");
+    expect(raceForm.locationText).toBe("Annecy");
     expect(raceForm.externalSiteUrl).toBe("");
     expect(raceForm.organizerDetails.raceLocation).toEqual({
       label: "Annecy",

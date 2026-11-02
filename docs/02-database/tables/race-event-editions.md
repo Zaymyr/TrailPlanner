@@ -58,6 +58,8 @@ related_tables:
 
 # race_event_editions
 
+Organizer editor changes are autosaved with a debounced, revision-aware client queue. Edition dates are validated before persistence, while the table contract and edition ownership rules remain unchanged.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose

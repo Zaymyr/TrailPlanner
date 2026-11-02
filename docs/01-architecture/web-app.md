@@ -305,6 +305,8 @@ related_tables:
 
 # Web App Architecture
 
+The organizer editor autosaves the active event or format scope after an 800 ms debounce, exposes a persistent save state with explicit retry, and preserves revision-aware background queues during navigation. New formats inherit only event-level date, location, and optional official website defaults; they never clone the active format. A format website is optional for completion, import, and publication readiness.
+
 The Organizer `Suivi coureur` editor can seed a point from an existing ravito or create an independent point. Same-course access interpolates and persists a coordinate from the active GPX; separate access continues through the existing address autocomplete. Writes still pass through the authenticated organizer route and the service-only atomic replacement RPC.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.

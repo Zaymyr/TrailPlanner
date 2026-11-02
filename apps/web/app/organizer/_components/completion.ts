@@ -129,18 +129,16 @@ export const isPublishableRace = (race: CompletionRace) =>
   hasText(race.slug) &&
   hasText(race.race_date) &&
   hasText(race.location_text) &&
-  hasText(race.source_url ?? race.external_site_url) &&
   Number.isFinite(race.distance_km) &&
   race.distance_km > 0 &&
   (race.data_status ?? "complete") === "complete" &&
-  (race.missing_required_fields?.length ?? 0) === 0;
+  (race.missing_required_fields?.filter((field) => field !== "source_url").length ?? 0) === 0;
 
 const isRaceIdentityComplete = (race: CompletionRace) =>
   hasText(race.name) &&
   hasText(race.slug) &&
   hasText(race.race_date) &&
   hasText(race.location_text) &&
-  hasText(race.source_url ?? race.external_site_url) &&
   Number.isFinite(race.distance_km) &&
   race.distance_km > 0;
 
@@ -370,7 +368,6 @@ export function buildOrganizerCompletion(
         ["Date", hasText(activeRace.race_date)],
         ["Lieu", hasText(activeRace.location_text)],
         ["Distance", Number.isFinite(activeRace.distance_km) && activeRace.distance_km > 0],
-        ["Source", hasText(activeRace.source_url ?? activeRace.external_site_url)],
       ])
     : [];
   const aidStationMissingLabels = activeRace

@@ -200,15 +200,16 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(shellSource).toContain("Notifier les coureurs");
     expect(shellSource).toContain("Actions");
     expect(shellSource).toContain("Factures");
-    expect(shellSource).toContain("Modifications non enregistrées");
-    expect(shellSource).toContain("Une autre section contient des modifications non enregistrées.");
+    expect(shellSource).toContain("Modifications en attente de sauvegarde…");
+    expect(shellSource).toContain("Sauvegardé automatiquement");
+    expect(shellSource).toContain("Échec de la sauvegarde automatique");
+    expect(shellSource).toContain("Réessayer");
     expect(shellSource).toContain("Duplication de l’édition en cours…");
     expect(shellSource).toContain("Cette opération peut prendre quelques instants.");
     expect(shellSource).toContain('aria-busy={isEditionCreationPending}');
     expect(shellSource).toContain('role="status"');
-    expect(shellSource).toContain("fixed inset-x-4 top-20");
-    expect(shellSource).toContain("sm:bottom-4");
-    expect(dashboardSource).toContain("hasAnyDirtyChanges={hasAnyDirtyChanges}");
+    expect(shellSource).toContain('id="organizer-autosave-status"');
+    expect(dashboardSource).toContain("autosaveState={autosaveState}");
     expect(shellSource).toContain("Supprimer l’édition");
     expect(shellSource).toContain("Supprimer l’événement");
     expect(dashboardSource).toContain("<ContextualHelp");
@@ -242,13 +243,13 @@ describe("organizer dashboard UTF-8 copy", () => {
     const editorSource = readFileSync(resolve(process.cwd(), "app/organizer/_components/dashboard/event-format-editors.tsx"), "utf8");
     const dashboardSource = readFileSync(resolve(process.cwd(), "app/organizer/_components/OrganizerDashboard.tsx"), "utf8");
 
-    expect(editorSource).toContain('label="Site officiel / source du format"');
+    expect(editorSource).toContain('label="Site officiel du format (facultatif)"');
     expect(editorSource).toContain("locationText: inheritedLocationText");
     expect(dashboardSource).toContain("externalSiteUrl: newRaceForm.externalSiteUrl");
     expect(dashboardSource).toContain("externalSiteUrl: nextForm.externalSiteUrl?.trim() || undefined");
     expect(dashboardSource).toContain("locationText: newRaceForm.locationText || eventForm.location");
     expect(dashboardSource).toContain("locationText: nextForm.locationText || eventForm.location");
-    expect(dashboardSource).toContain("site officiel/source");
+    expect(dashboardSource).not.toContain("site officiel/source");
   });
 
   it("stages RaceBook section changes in a wide responsive dialog before one explicit save", () => {
@@ -397,7 +398,8 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(editorSource).toContain("Aperçu mobile");
     expect(editorSource).toContain("Annuler les changements");
     expect(editorSource).toContain("Réinitialiser au thème Pace Yourself");
-    expect(editorSource).toContain("Enregistrer le brouillon");
+    expect(editorSource).toContain("Brouillon sauvegardé automatiquement");
+    expect(editorSource).not.toContain(">Enregistrer le brouillon</Button>");
     expect(editorSource).toContain("Publier la DA");
     expect(editorSource).toContain('window.addEventListener("beforeunload"');
     expect(editorSource).toContain("RACEBOOK_EDITION_LOGO_ENABLED ? (");

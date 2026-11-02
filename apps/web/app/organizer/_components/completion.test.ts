@@ -5,7 +5,7 @@ import {
   defaultOrganizerEventDetails,
   defaultOrganizerRaceDetails,
 } from "../../../lib/organizer-dashboard-details";
-import { buildOrganizerCompletion, isEventReadyToPublish, type CompletionEvent } from "./completion";
+import { buildOrganizerCompletion, isEventReadyToPublish, isPublishableRace, type CompletionEvent } from "./completion";
 
 const baseEvent: CompletionEvent = {
   id: "event-1",
@@ -174,7 +174,16 @@ describe("organizer completion", () => {
     );
 
     expect(completion.eventModules.find((module) => module.id === "event")?.missingLabels).toEqual(["Nom", "Lieu", "Début édition", "Fin édition"]);
-    expect(completion.formatModules.find((module) => module.id === "formats")?.missingLabels).toEqual(["Nom", "Lieu", "Distance", "Source"]);
+    expect(completion.formatModules.find((module) => module.id === "formats")?.missingLabels).toEqual(["Nom", "Lieu", "Distance"]);
+  });
+
+  it("allows publication without a format website", () => {
+    expect(isPublishableRace({
+      ...baseEvent.races[0]!,
+      external_site_url: null,
+      source_url: null,
+      missing_required_fields: ["source_url"],
+    })).toBe(true);
   });
 
   it("counts disabled access sections as satisfied", () => {

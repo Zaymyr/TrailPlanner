@@ -6,7 +6,7 @@ import {
   resolveRacebookTheme,
 } from "@pace-yourself/design-system";
 import Image from "next/image";
-import { useCallback, useEffect, useId, useMemo, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ChangeEvent } from "react";
 
 import { Button } from "../../../../components/ui/button";
 import { Input } from "../../../../components/ui/input";
@@ -38,6 +38,8 @@ export function BrandingEditor({
   const [draft, setDraft] = useState<OrganizerBranding>(emptyState().draft);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<"save" | "logo" | "publish" | "reset" | null>(null);
+  const [autosaveState, setAutosaveState] = useState<"saved" | "saving" | "error">("saved");
+  const saveColorsRef = useRef<(silent?: boolean) => Promise<OrganizerBrandingState | null>>(async () => null);
   const formId = useId();
 
   const updateState = useCallback((next: OrganizerBrandingState) => {
@@ -87,6 +89,7 @@ export function BrandingEditor({
       return null;
     }
     setBusy("save");
+    setAutosaveState("saving");
     try {
       const response = await fetch(`/api/organizer/editions/${editionId}/branding`, {
         method: "PATCH",
@@ -96,15 +99,24 @@ export function BrandingEditor({
       const data = (await response.json().catch(() => null)) as { branding?: OrganizerBrandingState; message?: string } | null;
       if (!response.ok || !data?.branding) throw new Error(data?.message ?? "Impossible d'enregistrer le brouillon.");
       updateState(data.branding);
+      setAutosaveState("saved");
       if (!silent) onToast("success", "Brouillon de la DA enregistré.");
       return data.branding;
     } catch (error) {
+      setAutosaveState("error");
       onToast("error", error instanceof Error ? error.message : "Impossible d'enregistrer le brouillon.");
       return null;
     } finally {
       setBusy(null);
     }
   };
+  saveColorsRef.current = saveColors;
+
+  useEffect(() => {
+    if (!localDirty || busy !== null || !isHexColor(draft.primaryColor) || !isHexColor(draft.accentColor)) return;
+    const timer = window.setTimeout(() => void saveColorsRef.current(true), 800);
+    return () => window.clearTimeout(timer);
+  }, [busy, draft.accentColor, draft.primaryColor, localDirty]);
 
   const uploadLogo = async (event: ChangeEvent<HTMLInputElement>) => {
     const image = event.target.files?.[0];
@@ -193,6 +205,9 @@ export function BrandingEditor({
             {serverState.hasUnpublishedChanges || localDirty ? "Brouillon non publié" : serverState.publishedAt ? "DA publiée" : "Thème Pace Yourself"}
           </span>
           {serverState.publishedAt ? <span className="text-xs text-muted-foreground">Publié le {new Date(serverState.publishedAt).toLocaleString("fr-FR")}</span> : null}
+          <span className="text-xs text-muted-foreground" role="status" aria-live="polite">
+            {autosaveState === "saving" ? "Sauvegarde automatique…" : autosaveState === "error" ? "Échec de la sauvegarde automatique" : "Brouillon sauvegardé automatiquement"}
+          </span>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -221,7 +236,6 @@ export function BrandingEditor({
         ) : null}
 
         <div className="flex flex-wrap gap-3">
-          <Button type="button" onClick={() => void saveColors()} disabled={busy !== null || !localDirty}>Enregistrer le brouillon</Button>
           <Button type="button" variant="outline" onClick={() => setDraft(serverState.draft)} disabled={busy !== null || !localDirty}>Annuler les changements</Button>
           <Button type="button" variant="outline" onClick={() => void resetDraft()} disabled={busy !== null}>Réinitialiser au thème Pace Yourself</Button>
           <Button type="button" onClick={() => void publish()} disabled={busy !== null || (!serverState.hasUnpublishedChanges && !localDirty)} className="ml-auto">Publier la DA</Button>

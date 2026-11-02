@@ -118,7 +118,7 @@ describe("/api/organizer/races/[id] PATCH", () => {
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toMatchObject({
-      message: "Votre compte n’est pas autorisé à publier ce format.",
+      message: "Ton compte n’est pas autorisé à publier ce format.",
     });
   });
 
