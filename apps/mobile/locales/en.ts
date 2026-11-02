@@ -178,6 +178,11 @@ export const en: MobileTranslations = {
     saveError: 'Error',
     start: 'Start',
     maximumTime: 'Max. time',
+    unlockBadges: {
+      planUnlocked: 'Plan unlocked',
+      premium: 'Premium',
+      planOffered: 'Plan offered',
+    },
     distance: 'Distance',
     elevationGain: 'Gain',
     elevationLoss: 'Loss',

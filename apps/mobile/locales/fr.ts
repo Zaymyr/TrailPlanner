@@ -178,6 +178,11 @@ export const fr: MobileTranslations = {
     saveError: 'Erreur',
     start: 'Départ',
     maximumTime: 'Temps max.',
+    unlockBadges: {
+      planUnlocked: 'Plan débloqué',
+      premium: 'Premium',
+      planOffered: 'Plan offert',
+    },
     distance: 'Distance',
     elevationGain: 'D+',
     elevationLoss: 'D−',

@@ -2,7 +2,7 @@
 title: Affiliate Partner Links
 scope: integration
 
-last_verified: 2026-11-01
+last_verified: 2026-11-02
 
 ai_priority: medium
 related_files:
@@ -30,6 +30,8 @@ related_tables:
 ---
 
 # Affiliate Partner Links
+
+The header-attached workspace switch, full-width profile chart and plan unlock badge do not change partner links or their tracking.
 
 Chronological cutoff resolution, the Courses image placeholder and plan access gating do not change partner links or their tracking.
 

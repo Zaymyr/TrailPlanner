@@ -177,6 +177,11 @@ export type MobileTranslations = {
     saveError: string;
     start: string;
     maximumTime: string;
+    unlockBadges: {
+      planUnlocked: string;
+      premium: string;
+      planOffered: string;
+    };
     distance: string;
     elevationGain: string;
     elevationLoss: string;

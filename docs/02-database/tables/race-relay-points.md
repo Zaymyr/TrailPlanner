@@ -2,7 +2,7 @@
 title: race_relay_points Table
 scope: database
 
-last_verified: 2026-11-01
+last_verified: 2026-11-02
 
 ai_priority: high
 related_files:
@@ -23,6 +23,8 @@ related_tables:
 ---
 
 # `race_relay_points`
+
+The full-width Livret profile chart keeps aid-station markers only; relay rows are unchanged.
 
 Chronological cutoff resolution reads aid-station cutoffs only; relay handover times stay independent.
 

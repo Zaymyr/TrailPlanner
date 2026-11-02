@@ -2,7 +2,7 @@
 title: races Table
 scope: database
 
-last_verified: 2026-11-01
+last_verified: 2026-11-02
 
 ai_priority: high
 related_files:
@@ -68,6 +68,8 @@ related_tables:
 ---
 
 # `races`
+
+The full-width Livret profile chart reads the same elevation profile and aid-station distances; no column or write.
 
 Mobile reads `race_date` to place dated organizer cutoffs (e.g. `dimanche 15/11 à 14h30`) on the right race day; display-only, no write.
 

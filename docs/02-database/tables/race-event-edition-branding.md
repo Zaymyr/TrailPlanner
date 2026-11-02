@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_branding
 scope: database
-last_verified: 2026-11-01
+last_verified: 2026-11-02
 ai_priority: high
 related_files:
   - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
@@ -33,6 +33,8 @@ related_tables:
 ---
 
 # `race_event_edition_branding`
+
+The Livret / plan switch now uses the published primary and on-primary colors in the Livret (application brand green in the plan) as part of the header; no branding field changes.
 
 The Courses image placeholder uses application brand colors, not edition branding; chronological cutoff display keeps the application semantic colors.
 

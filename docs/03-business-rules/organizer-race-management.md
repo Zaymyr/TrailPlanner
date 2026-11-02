@@ -2,7 +2,7 @@
 title: Organizer Race Management
 scope: business-rule
 
-last_verified: 2026-11-01
+last_verified: 2026-11-02
 
 ai_priority: high
 related_files:
@@ -246,6 +246,8 @@ related_tables:
 ---
 
 # Organizer Race Management
+
+The Livret / plan switch is rendered in the organizer primary color as part of the Livret header; organizer data and publication rules are unchanged.
 
 Lot 10 renders the organizer-derived departure and maximum time on the same line and position in the Plan and RaceBook headers; organizer data, cutoff parsing and publication rules are unchanged.
 

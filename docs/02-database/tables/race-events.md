@@ -2,7 +2,7 @@
 title: race_events Table
 scope: database
 
-last_verified: 2026-11-01
+last_verified: 2026-11-02
 
 ai_priority: high
 related_files:
@@ -95,6 +95,8 @@ related_tables:
 ---
 
 # `race_events`
+
+The header-attached workspace switch and the full-width profile chart read no new event field.
 
 Both workspace headers now show the event location before the format location as plain text (no header map link); the itinerary link remains in Accès. No event column, write, or publication rule changes.
 
