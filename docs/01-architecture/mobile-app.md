@@ -40,6 +40,9 @@ related_files:
   - apps/mobile/.maestro/flows/authenticated-shell.yaml
   - apps/mobile/scripts/run-mobile-ux-audit.mjs
   - apps/mobile/app/_layout.tsx
+  - apps/mobile/lib/appReview.ts
+  - apps/mobile/lib/appReviewPolicy.ts
+  - apps/mobile/lib/appReviewPolicy.test.ts
   - apps/mobile/components/announcements/RunnerLaunchAnnouncement.tsx
   - apps/mobile/hooks/useRunnerLaunchAnnouncement.ts
   - apps/mobile/lib/runnerLaunchAnnouncement.ts
@@ -190,6 +193,10 @@ RaceBook ravito cards deliberately keep nutrition product lists and pause detail
 ## Plan list hierarchy
 
 The mobile Plans screen groups saved plans by `races.race_events.id` and displays the event name as the section heading. Future event sections are ordered by their nearest departure; dated future plans precede undated plans inside a section. Sections containing only past departures move into a final localized, initially collapsed past-races group, while the orphan section remains last. A dated race stays active for its full local calendar day even after departure and becomes past only at the start of the following day. Plans for different formats of the same event therefore remain together; legacy plans whose source race has disappeared fall back to their stored race name or the orphan group. Runner-owned race editing is no longer exposed. Within an event section, default plan names matching the race format omit the repeated event name whether it precedes or follows the format; an exact duplicate becomes the neutral localized label “Plan de course” / “Race plan”, while runner-defined names remain unchanged. Event headings use stronger typography and plan cards are slightly indented to make the parent-child hierarchy explicit. Ravito counters exclude the editor-only start and finish stations, including for legacy rows that persisted them. Plans has no floating overflow menu: new plans start from a selected catalog course, while its empty-state action opens Courses first. Departure countdowns use day-only copy from 48 hours, hours/minutes below 48 hours, and seconds only in the final hour; their refresh interval follows that same precision.
+
+## Store review prompt
+
+Production Android and iOS builds use the native store-review surface. An identified account with at least one saved plan becomes eligible on its first return after the initial session; the root shell performs a bounded owner-scoped existence read after launch and onboarding overlays have cleared, so returning users do not need to open the Plans tab first. The native request remains best effort because each store decides whether to display its dialog. Local state enforces a 60-day cooldown and three-attempt maximum. The older engagement path remains available after five sessions for a user who has just created and saved a plan. Development builds and unsupported platforms never request a review.
 
 ## Plan loading experience
 

@@ -108,6 +108,7 @@ RaceBook screens must treat the effective module map as additive server data: hi
 - Analytics screen: PostHog screen name from route segments.
 - RaceBook analytics: the existing RaceBook route adds stable race/event properties and foreground engagement events after its publication/content gate succeeds; sponsor reporting stays separate.
 - App-wide session side effect: behavior coordinated by `_layout.tsx` or its `useSessionSideEffects` helper, such as push registration or Resend contact sync, not inside an individual screen.
+- Store review: the root shell owns the returning-plan check after launch/onboarding overlays, while `appReviewPolicy.ts` owns eligibility, cooldown, and attempt limits. Screens may record successful plan milestones but must not launch their own native review dialog.
 - Mobile typography: user-facing copy should render through `components/themed/Text` or `Heading`; comparable numeric metrics, timings, distances, and nutrition values should use `components/themed/DataText`. A value containing words, such as a departure status or product count, stays in the normal sans `Text`. The root layout loads exact font-weight subpaths so unused package weights are not bundled.
 - Root tabs: primary tab screens hide the native header and use `RootCollapsibleHeader` for a consistent section identity that contracts from 76 to 60 points on scroll; their established order is Courses, Plans, Nutrition, Profile. Keep help and optional trailing actions at the 16-point gutter, keep the title's horizontal position stable, and let only its size change. Pushed or hidden detail screens should keep a clear native or route-specific header title; centered titles are reserved for detail contexts.
 - Root-tab content uses a 16-point horizontal gutter and the themed `LoadingState`, `ErrorState`, and `EmptyState` primitives. A recoverable initial fetch must expose localized retry copy. Add pull-to-refresh to read-oriented lists when it cannot discard in-progress edits; form roots such as Profile intentionally omit gesture refresh. Keep an empty result separate from a failed request, and add an empty-state CTA only when one clear next action exists.
@@ -199,6 +200,8 @@ npm run test
 ```
 
 For native behavior, build/run with the development client profile from `apps/mobile/eas.json`. That profile sets `APP_VARIANT=development` and installs as `Pace Yourself Dev` (`com.paceyourself.app.dev`) beside production. Set the same variable before starting Expo locally; in PowerShell, run `$env:APP_VARIANT = "development"` before `npm run dev:mobile`.
+
+For store-review behavior, unit-test the pure policy and smoke-test both production-platform binaries. Development builds intentionally skip the request. A returning identified account with a saved plan becomes eligible from its second recorded foreground session, but platform quotas mean a successful native request does not prove that the dialog appeared.
 
 Before promoting an Android store candidate, smoke-test the release build from the internal track as well as the development client. Release variants enable R8 minification and resource shrinking, so development-client success alone cannot detect a missing keep rule or reflection-only native path removed by optimization. Preserve the candidate's own `mapping.txt` for any obfuscated native crash.
 

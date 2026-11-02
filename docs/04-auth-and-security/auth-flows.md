@@ -1,7 +1,7 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-11-01
+last_verified: 2026-11-02
 ai_priority: high
 related_files:
   - apps/web/app/sign-in/page.tsx
@@ -106,6 +106,8 @@ The authenticated onboarding catalog accepts source-backed formats whose D+ is s
 - marks the owner email and trusted `app_metadata` admins as PostHog internal/test users;
 - registers push tokens after session is active;
 - syncs identified, non-anonymous users to Resend through the web API bridge.
+
+After launch and onboarding overlays have cleared, the same authenticated shell may perform one owner-scoped `race_plans` existence read per active cycle to decide whether a returning identified user is eligible for the native store-review request. This read uses the ordinary authenticated Supabase client and RLS, skips anonymous sessions, and grants no access or entitlement.
 
 The root keeps auth navigation and analytics identity. `useSessionSideEffects` encapsulates only idempotent trial, Resend, and pending account/guest conversion maintenance.
 
