@@ -1,7 +1,7 @@
 ---
 title: Resend Integration
 scope: integration
-last_verified: 2026-10-31
+last_verified: 2026-11-02
 ai_priority: medium
 related_files:
   - package.json
@@ -72,6 +72,7 @@ The per-user contact route:
 - stores its successful mobile idempotency marker under a SecureStore-safe key made from the user id and a SHA-256 digest of the normalized email; an email change therefore triggers a new sync without putting the address itself in the key.
 
 `apps/mobile/app/_layout.tsx` also owns navigation-shell route options, including hiding the bottom tab bar during required onboarding and the light-system/dark-status-bar presentation. Keep those device presentation changes independent from the Resend sync trigger.
+Its returning-plan store-review check is another independent client-side presentation effect: it sends no e-mail, changes no contact subscription, and must never be coupled to Resend configuration or delivery success.
 Its normal post-auth destination is the Courses catalog; changing that destination must not move or delay the identified-user contact sync.
 The same layout marks owner/admin PostHog identities as internal, but that analytics classification remains independent from Resend contact eligibility and subscription state.
 

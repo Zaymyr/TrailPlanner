@@ -1,12 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
+import {
+  shouldRequestAppReview,
+  type AppReviewEligibilityContext,
+} from './appReviewPolicy';
+
 const APP_REVIEW_STORAGE_KEY = '@trailplanner/app-review/v1';
-const MIN_SESSION_COUNT = 5;
-const MIN_ACTIVE_MINUTES = 20;
-const MIN_PLAN_SAVE_COUNT = 1;
-const PROMPT_COOLDOWN_DAYS = 60;
-const MAX_PROMPT_COUNT = 3;
+let promptInFlight: Promise<boolean> | null = null;
 
 type AppReviewState = {
   firstOpenAt: string;
@@ -77,24 +78,6 @@ async function loadStoreReviewModule() {
   }
 }
 
-function hasMeaningfulEngagement(state: AppReviewState) {
-  return (
-    state.planCreatedCount >= 1 &&
-    (state.planSavedCount >= MIN_PLAN_SAVE_COUNT || state.raceCreatedCount >= 1)
-  );
-}
-
-function hasCompletedOnboardingEnough(state: AppReviewState) {
-  return state.onboardingCompleted || state.planCreatedCount > 0 || state.planSavedCount > 0 || state.raceCreatedCount > 0;
-}
-
-function isPromptCooldownElapsed(lastPromptAt: string | null) {
-  if (!lastPromptAt) return true;
-  const lastPromptTime = new Date(lastPromptAt).getTime();
-  if (!Number.isFinite(lastPromptTime)) return true;
-  return Date.now() - lastPromptTime >= PROMPT_COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
-}
-
 export async function noteReviewSessionStart() {
   await updateState((state) => ({
     ...state,
@@ -143,34 +126,31 @@ export async function noteReviewRaceCreated() {
   }));
 }
 
-export async function maybePromptForAppReview() {
-  if (__DEV__ || Platform.OS !== 'android') return false;
-
+async function requestAppReview(context: AppReviewEligibilityContext) {
   const state = await readState();
-  if (!state.pendingPrompt) return false;
-  if (state.promptCount >= MAX_PROMPT_COUNT) return false;
-  if (!hasCompletedOnboardingEnough(state)) return false;
-  if (state.sessionCount < MIN_SESSION_COUNT) return false;
-  if (state.totalActiveMs < MIN_ACTIVE_MINUTES * 60 * 1000) return false;
-  if (!hasMeaningfulEngagement(state)) return false;
-  if (!isPromptCooldownElapsed(state.lastPromptAt)) return false;
+  if (!shouldRequestAppReview(state, context)) return false;
 
   const StoreReview = await loadStoreReviewModule();
-  if (!StoreReview) return false;
+  if (!StoreReview || !(await StoreReview.hasAction())) return false;
 
-  const hasAction = await StoreReview.hasAction();
-  if (!hasAction) return false;
+  await StoreReview.requestReview();
+  await updateState((current) => ({
+    ...current,
+    lastPromptAt: new Date().toISOString(),
+    pendingPrompt: false,
+    promptCount: current.promptCount + 1,
+  }));
+  return true;
+}
 
+export async function maybePromptForAppReview(context: AppReviewEligibilityContext = {}) {
+  if (__DEV__ || (Platform.OS !== 'android' && Platform.OS !== 'ios')) return false;
+  if (promptInFlight) return promptInFlight;
+
+  promptInFlight = requestAppReview(context).catch(() => false);
   try {
-    await StoreReview.requestReview();
-    await updateState((current) => ({
-      ...current,
-      lastPromptAt: new Date().toISOString(),
-      pendingPrompt: false,
-      promptCount: current.promptCount + 1,
-    }));
-    return true;
-  } catch {
-    return false;
+    return await promptInFlight;
+  } finally {
+    promptInFlight = null;
   }
 }

@@ -37,7 +37,11 @@ import { useRunnerLaunchAnnouncement } from '../hooks/useRunnerLaunchAnnouncemen
 import { PlanLoadingScreen } from '../components/PlanLoadingScreen';
 import { usePremium } from '../hooks/usePremium';
 import { ensureAppSession, isAnonymousSession } from '../lib/appSession';
-import { noteReviewActiveDuration, noteReviewSessionStart } from '../lib/appReview';
+import {
+  maybePromptForAppReview,
+  noteReviewActiveDuration,
+  noteReviewSessionStart,
+} from '../lib/appReview';
 import { syncPushDeviceRegistration } from '../lib/pushRegistration';
 import {
   clearInactivityReminder,
@@ -184,6 +188,8 @@ function RootLayoutContent() {
   const initialRedirectInFlightRef = useRef(false);
   const appStateRef = useRef(AppState.currentState);
   const activeUsageStartedAtRef = useRef<number | null>(null);
+  const appReviewCheckInFlightRef = useRef(false);
+  const appReviewCheckedForActiveCycleRef = useRef(false);
   const shouldHoldForPremium = Boolean(session) && premiumLoading;
   const authenticatedPushUserId =
     session && !isAnonymousSession(session) ? session.user.id : null;
@@ -944,6 +950,69 @@ function RootLayoutContent() {
     && !displayedOnboardingTransition
     && !premiumLoading;
   const launchAnnouncement = useRunnerLaunchAnnouncement(session?.user.id ?? null, launchAnnouncementEligible);
+
+  useEffect(() => {
+    const canCheckForReview =
+      launchAnnouncementEligible &&
+      Boolean(authenticatedPushUserId) &&
+      !launchAnnouncement.visible;
+    if (!canCheckForReview) return undefined;
+
+    let cancelled = false;
+    let reviewTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const checkReturningPlanOwner = () => {
+      if (appReviewCheckedForActiveCycleRef.current || appReviewCheckInFlightRef.current) return;
+      appReviewCheckedForActiveCycleRef.current = true;
+
+      reviewTimer = setTimeout(() => {
+        reviewTimer = null;
+        appReviewCheckInFlightRef.current = true;
+
+        void (async () => {
+          try {
+            const { data, error } = await supabase
+              .from('race_plans')
+              .select('id')
+              .limit(1);
+            if (cancelled || error || !data?.length) return;
+            await maybePromptForAppReview({ hasExistingPlan: true });
+          } finally {
+            appReviewCheckInFlightRef.current = false;
+            if (cancelled) {
+              appReviewCheckedForActiveCycleRef.current = false;
+            }
+          }
+        })();
+      }, 1_200);
+    };
+
+    if (AppState.currentState === 'active') {
+      checkReturningPlanOwner();
+    }
+
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active') {
+        appReviewCheckedForActiveCycleRef.current = false;
+        if (reviewTimer) {
+          clearTimeout(reviewTimer);
+          reviewTimer = null;
+        }
+        return;
+      }
+
+      checkReturningPlanOwner();
+    });
+
+    return () => {
+      cancelled = true;
+      if (reviewTimer) {
+        clearTimeout(reviewTimer);
+        appReviewCheckedForActiveCycleRef.current = false;
+      }
+      subscription.remove();
+    };
+  }, [authenticatedPushUserId, launchAnnouncement.visible, launchAnnouncementEligible]);
 
 
   const appContent = (

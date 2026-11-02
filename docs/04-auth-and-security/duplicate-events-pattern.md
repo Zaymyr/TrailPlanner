@@ -1,7 +1,7 @@
 ---
 title: Duplicate Events Pattern
 scope: auth
-last_verified: 2026-11-01
+last_verified: 2026-11-02
 ai_priority: high
 related_files:
   - apps/web/app/onboarding/account/page.tsx
@@ -81,6 +81,7 @@ Likewise, the layout's light-system appearance and dark status-bar presentation 
 The four root tabs now switch to light status-bar icons over their forest collapsible header and restore dark icons on other routes; that route-derived styling still must not add or replay an auth event.
 Likewise, routing returning sessions to the Courses catalog without a Plans preload does not alter the session-event guards.
 The full-screen onboarding-to-plan loading transition is also presentation-only: changing its copy, animation, or determinate/indeterminate indicator must not add another auth listener, repeat plan creation, or alter the guarded transition state.
+The native store-review check is likewise not an Auth-event mutation. The root shell limits its saved-plan existence read to one per foreground cycle, the review helper shares one in-flight request, and durable local cooldown/attempt counters prevent repeated AppState or route events from launching duplicate requests.
 
 ## Gotchas
 

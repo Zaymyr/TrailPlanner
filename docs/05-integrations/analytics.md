@@ -212,6 +212,8 @@ The mobile PostHog client:
 
 The root layout emits `app session started` once per process with the landing screen group, locale, auth state, Premium state, and update channel. It also emits `deep link opened` for initial and in-app links. Deep-link analytics retain only the scheme, host, and the explicit UTM allowlist; paths and arbitrary query values are not captured.
 
+Native store-review eligibility and request attempts are deliberately not PostHog events. Google Play and the App Store may suppress a requested dialog without reporting whether it was displayed or whether a rating was submitted, so neither the owner-scoped existing-plan read nor the local attempt marker may be interpreted as a review impression or conversion.
+
 The mobile Premium funnel uses explicit events instead of treating a store callback as accounting truth:
 
 - `premium paywall viewed` is emitted when the inline Profile offer or a feature-gate modal is actually displayed. `paywall_type` distinguishes `inline` from `modal`, and `placement` distinguishes `profile`, `feature_gate`, and the locked-plan preview boundary. The automatic preview sheet may appear once per plan-workspace visit only at the third-ravito boundary; a short-course finish has a manual CTA only. Neither display is a successful unlock.

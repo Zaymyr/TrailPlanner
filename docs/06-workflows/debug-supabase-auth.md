@@ -1,7 +1,7 @@
 ---
 title: Debug Supabase Auth
 scope: workflow
-last_verified: 2026-10-31
+last_verified: 2026-11-02
 ai_priority: high
 related_files:
   - apps/web/app/api/auth/session/route.ts
@@ -62,6 +62,7 @@ Use this workflow when a user cannot sign in, a session is stale, trial state is
 13. If a RaceBook cannot return to its previous screen or course search, or a header exposes a route template, inspect the nested race stack and the explicit hidden-screen options in `apps/mobile/app/(app)/_layout.tsx`; the header should use history when available and replace with Courses otherwise. These are navigation-shell issues, not session failures.
 14. If login controls are obscured only with the iOS keyboard or enlarged text, inspect the login `ScrollView`/`KeyboardAvoidingView` layout; that is a presentation issue, not failed authentication.
 15. If only the status-bar icon contrast changes between a branded root tab and another route, inspect the route-derived `StatusBar` style in `apps/mobile/app/_layout.tsx`; it does not indicate a session transition.
+16. If the native rating dialog is absent, first confirm an identified non-anonymous session, at least one owner-visible `race_plans` row, a second recorded foreground session, and an elapsed local review cooldown. Store quota suppression is not an Auth or RLS failure, and the absence of a dialog must not trigger a profile, session, or plan repair.
 
 ## Useful Searches
 
