@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-11-01
+last_verified: 2026-11-02
 ai_priority: high
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
@@ -16,6 +16,7 @@ related_files:
   - apps/web/app/courses/_components/PublicElevationProfile.tsx
   - apps/web/app/admin/components/AdminRaceCatalogSection.tsx
   - apps/web/app/admin/video-generator/page.tsx
+  - apps/web/app/admin/video-generator/route-animation.ts
   - apps/web/app/api/admin/video-generator/races/[id]/route.ts
   - apps/web/lib/video-generator.ts
   - apps/web/app/api/admin/race-catalog/utmb/route.ts
@@ -193,7 +194,9 @@ Unlike the public bounded preview and Organizer's sampled elevation payload, thi
 
 The viewer is read-only. Missing GPX is an explicit empty state and neither parsing nor camera navigation changes race metrics, stations, publication state or Storage objects.
 
-The 9:16 Instagram preview changes only the viewport framing and basemap presentation. Switching between the compatibility satellite style and Standard Satellite reuses the same complete GPX DTO, projected aid stations and persisted race metrics.
+The animation engine derives a separate, regularly spaced camera path from cumulative GPX distance and caps it at 2,500 samples. The displayed GeoJSON still contains every original ordered point. Missing camera elevation is interpolated from valid GPX elevations, then completed from loaded Mapbox terrain when necessary; neither result is persisted or written back to the GPX.
+
+Playback, progressive route reveal, and the 9:16/16:9 switch are presentation-only. Seeking calculates the camera and runner marker directly from elapsed time and cumulative distance, while compatibility satellite and Standard Satellite reuse the same complete DTO, projected aid stations and persisted race metrics.
 
 ## Review Flow Conflict
 
@@ -256,6 +259,7 @@ The 9:16 Instagram preview changes only the viewport framing and basemap present
 - Editing or publicly projecting the event-level website for the catalog registration CTA does not change GPX parsing, storage, preview points, or format metrics; standalone CTA fallback to `races.external_site_url` is presentation-only too.
 - Public course visualization must remain a server-parsed preview. Do not expose a signed/private GPX URL, raw file contents, or a download action from the SEO page.
 - The admin 3D viewer may keep the full parsed point set because it is authenticated and internal, but its API must still omit the source Storage path and raw GPX.
+- Keep automatic camera sampling separate from source geometry. Never save interpolated elevation, terrain queries, progress points or smoothed camera coordinates as race or GPX data.
 - Keep edition accent application presentation-only; GPX parsing and distance/elevation calculations must remain color-independent.
 
 ## Related Docs

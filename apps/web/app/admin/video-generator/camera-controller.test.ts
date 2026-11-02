@@ -45,4 +45,26 @@ describe("video generator camera controller", () => {
     expect(map.cameraForBounds).not.toHaveBeenCalled();
     expect(easeTo).toHaveBeenCalledWith(expect.objectContaining({ center: [4, 45], zoom: 14 }));
   });
+
+  it("applies a deterministic free-camera frame", () => {
+    const lookAtPoint = vi.fn();
+    const camera = { position: null, lookAtPoint };
+    const setFreeCameraOptions = vi.fn();
+    const map = {
+      getFreeCameraOptions: () => camera,
+      setFreeCameraOptions,
+    } as unknown as MapboxMap;
+
+    createRouteCameraController(map, () => bounds).applyAnimationFrame({
+      progress: 0.5,
+      distanceKm: 5,
+      routePoint: { lat: 45.5, lon: 4.5, elevationM: 600, distanceKm: 5 },
+      camera: { lat: 45.4, lon: 4.4, altitudeM: 1_500 },
+      target: { lat: 45.6, lon: 4.6, altitudeM: 700 },
+    });
+
+    expect(camera.position).toEqual(expect.objectContaining({ x: expect.any(Number), y: expect.any(Number) }));
+    expect(lookAtPoint).toHaveBeenCalledWith([4.6, 45.6], [0, 0, 1], 700);
+    expect(setFreeCameraOptions).toHaveBeenCalledWith(camera);
+  });
 });

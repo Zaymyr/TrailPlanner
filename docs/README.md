@@ -114,6 +114,7 @@ Docs conventions are in [_conventions.md](_conventions.md).
 - [BeTrail Organizer Email Scraping](05-integrations/betrail-organizer-email-scraping.md)
 - [OpenStreetMap and Leaflet](05-integrations/openstreetmap-leaflet.md)
 - [Mapbox 3D Admin Course Viewer](05-integrations/mapbox-3d.md)
+- [Mapbox 3D Admin Course Viewer](05-integrations/mapbox-3d.md)
 - [Geocoding](05-integrations/geocoding.md)
 - [Supabase Edge Functions](05-integrations/supabase-edge-functions.md)
 - [Analytics](05-integrations/analytics.md)
