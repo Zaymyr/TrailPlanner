@@ -116,6 +116,8 @@ If the parent commit is unavailable, `git diff` fails closed and Vercel proceeds
 - updates URL `https://u.expo.dev/c713a8a0-cd94-4f6e-9468-063c9c20da6c`
 - channels are set by the EAS profile.
 - shared iOS/Android runtime `1.1.2`. Production build 18 on both platforms embeds this runtime and receives production OTAs published for `1.1.2`.
+- public iOS native-release metadata defaults to build `18` and the TestFlight application URL. Production OTA manifests may override it with `EXPO_PUBLIC_IOS_LATEST_BUILD` and `EXPO_PUBLIC_IOS_NATIVE_UPDATE_URL`, but only after that binary is installable for the intended audience.
+- `EAS_UPDATE_RUNTIME_VERSION` is an explicit OTA-only escape hatch used by the protected production workflow when its optional legacy iOS runtime input is supplied. It must not be present for store builds.
 
 Expo SDK 54 / React Native 0.81 provide Android `compileSdkVersion` and `targetSdkVersion` 36 by default. The repository does not override those API-level defaults. `expo-build-properties` enables R8 minification and resource shrinking for release variants, including store candidates; debug/development-client variants remain unobfuscated. The resulting AAB contains the build-specific `mapping.txt` required to deobfuscate native stack traces.
 
@@ -124,6 +126,8 @@ The app config intentionally keeps `@react-native-google-signin/google-signin` o
 The manual `apps/mobile/.eas/workflows/mobile-ux-audit.yml` workflow uses the EAS `preview` environment for both builds and Maestro jobs. Android targets a Pixel 6 emulator with screen recording; iOS uses a simulator build. Both jobs execute the same authenticated smoke/UX flow and retain screenshots plus recordings as artifacts. Expo requires a compatible paid plan for hosted Maestro jobs, and validation against the current project account stops on that billing capability before execution.
 
 Store candidates are manual and platform-specific. `store-candidate-android.yml` and `store-candidate-ios.yml` each expose only `workflow_dispatch`, pause at their own EAS approval gate, build the selected platform with the `production` profile, and submit with `store-candidate`. Operators must dispatch the chosen file from remote `main` (for example, `eas workflow:run .eas/workflows/store-candidate-ios.yml --ref main`); omitting `--ref` uploads the local project state instead. Android submission creates an internal draft, while iOS uploads to App Store Connect/TestFlight. Public Android rollout remains a separate GitHub dispatch protected by the `Production` environment; that dispatch checks the exact merged commit SHA and verifies the selected EAS build's project, platform, profile, application id, commit, status, artifact, and expiry before submission. Apple production review/release remains in App Store Connect.
+
+The protected production OTA dispatch accepts one optional `legacy_ios_runtime_version`. After publishing the normal current-runtime update, it validates that input as a semantic version and publishes the same bundle to iOS only with the runtime override. This supports a narrowly reviewed compatibility bridge such as prompting runtime `1.1.1` / build 17 to install build 18; native-module or native-configuration changes must never be back-published this way.
 
 ## Supabase
 
@@ -259,6 +263,7 @@ For local setup, copy `apps/web/.env.example` to the ignored `apps/web/.env.loca
 - Do not reintroduce the Google Sign-In Expo config plugin on iOS or remove the explicit iOS block in `apps/mobile/react-native.config.js` unless the native iOS package is intentionally linked too; a half-enabled setup can crash at launch while React Native registers third-party Fabric components.
 - `userInterfaceStyle` is native configuration. Production iOS build 18 and Android build 18 carry runtime `1.1.2`; installed binaries on `1.1.1` or older remain in their prior compatibility groups and cannot receive `1.1.2` OTAs.
 - EAS remote versioning and `autoIncrement: true` manage the developer-facing iOS build number and Android version code. They do not replace the explicit marketing-version update in `app.config.ts`; once Apple closes a version train, increment `version`, rebuild the IPA, and submit that new artifact.
+- The iOS build marker is public manifest configuration, not proof by itself that Apple finished distribution. Set it only after verifying availability in TestFlight or the App Store, and keep the URL aligned with that audience.
 - EAS Submit requires a Google service-account key registered in the project credentials; never commit that JSON key to the repository.
 - R8 changes native release output and cannot ship through OTA. Test the exact optimized candidate before promotion, and keep its `mapping.txt` paired with that build rather than reusing a mapping from another version.
 - Store candidate automation also requires valid Apple App Store Connect credentials in EAS. Do not approve the candidate gate until both platform credentials have been configured and the build capacity is intentionally accepted.

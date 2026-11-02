@@ -65,6 +65,10 @@ export type MobileTranslations = {
     continueCta: string;
     readyNotificationTitle: string;
     readyNotificationBody: string;
+    nativeUpdateAvailable: string;
+    nativeUpdateCta: string;
+    nativeOpenErrorTitle: string;
+    nativeOpenErrorBody: string;
   };
   reminders: {
     inactivityTitle: string;

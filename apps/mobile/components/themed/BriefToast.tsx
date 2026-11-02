@@ -7,17 +7,21 @@ import { Text } from './Text';
 type Props = {
   actionLabel?: string;
   bottom?: number;
+  durationMs?: number | null;
   message: string;
   onAction?: () => void;
   onDismiss: () => void;
   tone?: 'success' | 'error';
 };
 
-export function BriefToast({ actionLabel, bottom = 88, message, onAction, onDismiss, tone = 'success' }: Props) {
+export function BriefToast({ actionLabel, bottom = 88, durationMs, message, onAction, onDismiss, tone = 'success' }: Props) {
   useEffect(() => {
-    const timer = setTimeout(onDismiss, tone === 'error' ? 5_000 : 2_600);
+    const resolvedDuration = durationMs === undefined ? (tone === 'error' ? 5_000 : 2_600) : durationMs;
+    if (resolvedDuration === null) return undefined;
+
+    const timer = setTimeout(onDismiss, resolvedDuration);
     return () => clearTimeout(timer);
-  }, [message, onDismiss, tone]);
+  }, [durationMs, message, onDismiss, tone]);
 
   return (
     <View accessibilityLiveRegion="polite" style={[styles.toast, tone === 'error' && styles.error, { bottom }]}>

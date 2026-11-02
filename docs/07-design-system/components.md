@@ -1,7 +1,7 @@
 ---
 title: Design Components
 scope: design-system
-last_verified: 2026-11-01
+last_verified: 2026-11-02
 ai_priority: medium
 related_files:
   - apps/web/components/ui/button.tsx
@@ -131,7 +131,7 @@ one surface/border/radius with units or clear actions inside; modal dismiss acti
 use a labelled 44-point circular close; primary and secondary buttons share one
 radius. Screen-specific components own copy, state, color roles and behavior.
 
-`BriefToast` provides short success or network-error feedback above the mobile tab bar, with an optional retry action. It is reserved for informational outcomes; destructive confirmation remains modal. Root tab headers add elevation only after collapsing, while the bottom tab bar keeps a subtle top divider and shadow.
+`BriefToast` provides short success or network-error feedback above the mobile tab bar, with an optional action. Its default duration remains 2.6 seconds for success and 5 seconds for errors; callers may supply a longer duration for an actionable informational notice or `null` for an explicitly persistent notice. It is reserved for informational outcomes; destructive confirmation remains modal. Root tab headers add elevation only after collapsing, while the bottom tab bar keeps a subtle top divider and shadow.
 
 ## Gotchas
 
@@ -144,6 +144,7 @@ radius. Screen-specific components own copy, state, color roles and behavior.
 - Do not create a local loading, error, or empty state when a themed state can
   express the screen; pass localized labels and preserve the shared retry CTA.
 - Use `DataText` only for comparable numeric values. Counts or statuses containing words use the normal themed `Text` component.
+- Do not make routine success toasts persistent. A longer or unbounded duration is for notices whose action must remain reachable, and the caller must still provide a clear dismissal path or bounded lifecycle.
 
 ## Related Docs
 
