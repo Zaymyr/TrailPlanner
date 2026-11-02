@@ -11,6 +11,10 @@ on:
         description: "Type PROMOTE_TO_PRODUCTION to confirm"
         required: true
         type: string
+      legacy_ios_runtime_version:
+        description: "Optional compatible legacy iOS runtime to receive the same OTA (for example 1.1.1)"
+        required: false
+        type: string
 
 concurrency:
   group: eas-update-production
@@ -100,3 +104,18 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           OTA_MESSAGE: Promote ${{ inputs.ref }} to production
         run: eas update --branch production --environment production --message "$OTA_MESSAGE" --non-interactive
+
+      - name: Publish compatible legacy iOS OTA update
+        if: ${{ inputs.legacy_ios_runtime_version != '' }}
+        env:
+          EAS_UPDATE_RUNTIME_VERSION: ${{ inputs.legacy_ios_runtime_version }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          OTA_MESSAGE: Legacy iOS runtime ${{ inputs.legacy_ios_runtime_version }} - ${{ inputs.ref }}
+        shell: bash
+        run: |
+          if [[ ! "$EAS_UPDATE_RUNTIME_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "The legacy iOS runtime must be a semantic version such as 1.1.1."
+            exit 1
+          fi
+
+          eas update --branch production --platform ios --environment production --message "$OTA_MESSAGE" --non-interactive
