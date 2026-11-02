@@ -135,6 +135,8 @@ radius. Screen-specific components own copy, state, color roles and behavior.
 
 ## Gotchas
 
+- The shared web `Button` primitive enforces a 44 px minimum height. Compact visual variants may reduce padding or font size, but must not override the minimum interactive target.
+
 - Web UI primitives are not currently exported from `@pace-yourself/design-system`.
 - If moving primitives into the design-system package, update package exports, web transpilation, and docs.
 - Keep primitive variants small and consistent with existing Tailwind/CSS variable names.

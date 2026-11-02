@@ -166,6 +166,8 @@ When docs and code disagree, use this order:
 
 ## Gotchas
 
+- `apps/web/next.config.mjs` owns browser security headers as well as package transpilation and route language. Keep the CSP in report-only mode until production reports confirm every required Stripe, Supabase, analytics and image origin.
+
 - `docs/_archive/db/schema.sql` is not the current schema source of truth. It still uses old `race_catalog` names.
 - Several code paths reference `race_events` and newer race columns that are not fully backed by visible migrations in this repo. Those are documented with conflict markers in database docs.
 - The mobile app is configured for a development client profile; avoid documenting Expo Go as the primary dev path unless the feature being tested has no native dependency.

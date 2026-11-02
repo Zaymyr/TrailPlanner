@@ -1,7 +1,7 @@
 ---
 title: Packages Architecture
 scope: architecture
-last_verified: 2026-09-28
+last_verified: 2026-11-02
 ai_priority: medium
 related_files:
   - package.json
@@ -105,6 +105,8 @@ Keep logic inside an app when:
 - the mobile and web flows intentionally differ.
 
 ## Gotchas
+
+- When editing `apps/web/next.config.mjs`, preserve both shared-package transpilation and the browser/locale header rules. The initial CSP is deliberately report-only and is not an authorization to remove required service origins before observing production reports.
 
 - Keep the RaceBook branding resolver runtime-neutral: both Next.js and Expo import it, so it must not depend on DOM, Node, React, or React Native APIs.
 - Keep color contrast derivation in this shared resolver; app surfaces must not independently darken bright organizer colors.

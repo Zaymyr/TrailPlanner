@@ -24,10 +24,9 @@ export function HeaderTabs() {
   const { session } = useVerifiedSession();
   const { hasManagedRaces } = useOrganizerMembershipStatus(session?.accessToken);
 
-  const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
   const coursesLabel = locale === "fr" ? "Courses" : "Races";
   const organizerLabel = locale === "fr" ? "Espace organisateur" : "Organizer space";
-  const organizerHref: Route = hasManagedRaces ? "/organizer" : "/organizers";
+  const organizerHref: Route = session ? (hasManagedRaces ? "/organizer" : "/organizers") : "/organisateurs";
 
   const tabItems: TabItem[] = useMemo(
     () => [
@@ -44,27 +43,12 @@ export function HeaderTabs() {
       {
         label: organizerLabel,
         href: organizerHref,
-        active: isActivePath(pathname, "/organizer") || isActivePath(pathname, "/organizers"),
+        active: isActivePath(pathname, "/organizer") || isActivePath(pathname, "/organizers") || isActivePath(pathname, "/organisateurs"),
       },
       {
         label: t.navigation.blog,
         href: "/blog",
         active: pathname.startsWith("/blog"),
-      },
-      {
-        label: t.navigation.settings,
-        href: "/settings",
-        active: isActivePath(pathname, "/settings"),
-      },
-      {
-        label: t.navigation.profile,
-        href: "/profile",
-        active: isActivePath(pathname, "/profile"),
-      },
-      {
-        label: t.navigation.admin,
-        href: "/admin",
-        active: isActivePath(pathname, "/admin"),
       },
     ],
     [
@@ -72,29 +56,21 @@ export function HeaderTabs() {
       organizerLabel,
       organizerHref,
       pathname,
-      t.navigation.admin,
       t.navigation.blog,
-      t.navigation.profile,
       t.navigation.racePlanner,
-      t.navigation.settings,
     ]
   );
-
-  const visibleTabs = tabItems.filter((item) => {
-    if (item.href === "/admin") return isAdmin;
-    return true;
-  });
 
   const isPremiumActive = pathname === "/premium";
 
   return (
     <nav aria-label={t.navigation.menuLabel} className="flex items-center gap-1">
-      {visibleTabs.map((item) => (
+      {tabItems.map((item) => (
         <Link
           key={item.href}
           href={item.href}
           aria-current={item.active ? "page" : undefined}
-          className={`rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+          className={`whitespace-nowrap rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
             item.active
               ? "border-brand-border bg-brand-surface text-brand shadow-sm dark:border-emerald-400/70 dark:bg-emerald-950/40 dark:text-emerald-50"
               : "border-transparent text-muted-foreground hover:bg-brand-surface/60 hover:text-brand dark:text-emerald-100 dark:hover:bg-emerald-500/15 dark:hover:text-emerald-50"
@@ -106,7 +82,7 @@ export function HeaderTabs() {
       <Link
         href="/premium"
         aria-current={isPremiumActive ? "page" : undefined}
-        className={`premium-glow rounded-md border px-3 py-1.5 text-sm font-semibold transition-colors ${
+        className={`premium-glow whitespace-nowrap rounded-md border px-3 py-1.5 text-sm font-semibold transition-colors ${
           isPremiumActive
             ? "border-amber-300/80 bg-amber-300/90 text-foreground shadow-sm dark:border-amber-300/60 dark:bg-amber-400/80 dark:text-slate-950"
             : "border-amber-200/70 bg-amber-300/75 text-foreground hover:bg-amber-300/90 dark:border-amber-300/40 dark:bg-amber-400/70 dark:text-slate-950 dark:hover:bg-amber-400/90"

@@ -57,7 +57,7 @@ export function RunnerProfileStep({ token, locale, onComplete }: {
     { name: "carbs", label: fr ? "Cible glucidique (g/h)" : "Carbohydrate target (g/h)", type: "number", value: profile.defaultCarbsGPerHour ?? 60, min: 0, max: 200, required: true },
   ];
   return <form onSubmit={submit} className="mx-auto max-w-2xl space-y-5 rounded-2xl border border-border bg-card p-6">
-    <h1 className="text-2xl font-semibold">{fr ? "Ton profil de course" : "Your runner profile"}</h1>
+    <h2 className="text-2xl font-semibold">{fr ? "Ton profil de course" : "Your runner profile"}</h2>
     <p className="text-muted-foreground">{fr ? "Ton allure, ta capacité en eau et ta cible glucidique préparent ton estimation. Les autres informations sont facultatives." : "Your pace, water capacity and carbohydrate target prepare your estimate. Other details are optional."}</p>
     <div className="grid gap-4 sm:grid-cols-2">{fields.map(({ name, label, value, ...props }) => <div key={name} className="space-y-1">
       <Label htmlFor={`runner-${name}`}>{label}</Label><Input id={`runner-${name}`} name={name} defaultValue={value} {...props} />

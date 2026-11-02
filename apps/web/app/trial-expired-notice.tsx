@@ -28,6 +28,8 @@ const GUEST_COPY = {
   cta: "Créer un compte",
 };
 
+const SESSION_DISMISS_KEY = "trial-expired-notice-dismissed";
+
 export const TrialExpiredNotice = () => {
   const router = useRouter();
   const pathname = usePathname();
@@ -39,6 +41,10 @@ export const TrialExpiredNotice = () => {
   const [isMarkingSeen, setIsMarkingSeen] = useState(false);
   const isGuestSession = session?.isAnonymous === true;
   const noticeCopy = isGuestSession ? { ...COPY, ...GUEST_COPY } : COPY;
+
+  useEffect(() => {
+    setDismissed(window.sessionStorage.getItem(SESSION_DISMISS_KEY) === "true");
+  }, []);
 
   const isTrialExpired = useMemo(() => {
     if (!entitlements.trialEndsAt) return false;
@@ -79,13 +85,14 @@ export const TrialExpiredNotice = () => {
   const handleDismiss = useCallback(async () => {
     setUpgradeError(null);
     setIsMarkingSeen(true);
+    window.sessionStorage.setItem(SESSION_DISMISS_KEY, "true");
+    setDismissed(true);
+    setIsModalOpen(false);
 
     try {
       await handleMarkSeen();
     } finally {
       setIsMarkingSeen(false);
-      setDismissed(true);
-      setIsModalOpen(false);
     }
   }, [handleMarkSeen]);
 
@@ -148,6 +155,7 @@ export const TrialExpiredNotice = () => {
         ctaLabel={noticeCopy.cta}
         loadingLabel={COPY.opening}
         onUpgrade={handleUpgrade}
+        onDismiss={handleDismiss}
         isLoading={upgradeStatus === "opening"}
         error={upgradeError && !isModalOpen ? upgradeError : null}
       />

@@ -244,6 +244,9 @@ export const en: Translations = {
     },
   },
   navigation: {
+    home: "Pace Yourself — Home",
+    skipToContent: "Skip to main content",
+    account: "Account",
     racePlanner: "Race planner",
     blog: "Blog",
     settings: "Nutrition list",
@@ -251,6 +254,15 @@ export const en: Translations = {
     admin: "Admin",
     menuLabel: "Open navigation menu",
     premium: "Premium",
+  },
+  notFound: {
+    eyebrow: "Error 404",
+    title: "Page not found",
+    description: "This page does not exist or has moved. Use one of the links below to get back on track.",
+    home: "Back to home",
+    planner: "Open the race planner",
+    races: "Explore races",
+    blog: "Read the blog",
   },
   auth: {
     shared: {

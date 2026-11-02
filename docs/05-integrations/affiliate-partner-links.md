@@ -88,6 +88,8 @@ Standard links are not described as affiliate links. Each mobile surface disclos
 
 ## Gotchas
 
+- Shared web locale types now also carry navigation and not-found accessibility copy. That extension is unrelated to partner-link resolution and must not change allowlisting, attribution, or outbound click behavior.
+
 - Central plan paywall CTAs are not partner-link surfaces and must not resolve or track affiliate destinations.
 
 - Catalog plan CTAs and the RaceBook/Mon plan workspace switch do not resolve, display, or track a partner link. Partner disclosure remains limited to the existing eligible mobile partner surfaces.

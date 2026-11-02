@@ -248,6 +248,13 @@ export function CommandCenter({
               <Input
                 id="fatigueLevel"
                 type="range"
+                aria-valuetext={
+                  pacing.fatigueLevel <= 0.33
+                    ? copy.sections.raceInputs.fields.fatigueLow
+                    : pacing.fatigueLevel >= 0.67
+                      ? copy.sections.raceInputs.fields.fatigueHigh
+                      : copy.sections.raceInputs.fields.fatigueMedium
+                }
                 min="0"
                 max="1"
                 step="0.01"

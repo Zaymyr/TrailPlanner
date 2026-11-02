@@ -95,7 +95,7 @@ const TagFilter = ({ tags, activeTag }: { tags: TagSummary[]; activeTag?: string
         key={tagLabel}
         href={href}
         className={cn(
-          "group inline-flex items-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:focus-visible:outline-emerald-300",
+          "group inline-flex min-h-11 items-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:focus-visible:outline-emerald-300",
           isActive && "font-medium",
         )}
       >

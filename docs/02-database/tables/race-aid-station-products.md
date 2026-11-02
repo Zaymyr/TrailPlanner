@@ -1,7 +1,7 @@
 ---
 title: race_aid_station_products Table
 scope: database
-last_verified: 2026-10-29
+last_verified: 2026-11-02
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -105,6 +105,8 @@ order by order_index asc;
 ```
 
 ## Gotchas
+
+- Web planner breadcrumb and heading changes do not change the official ravito-product overlay, its source markers, or any table read/write contract.
 
 - Organizer replacement and organizer-product creation use service-only atomic functions. Do not restore delete-then-insert route loops or split product creation from station attachment.
 
