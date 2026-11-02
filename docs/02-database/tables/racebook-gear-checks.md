@@ -2,7 +2,7 @@
 title: racebook_gear_checks Table
 scope: database
 
-last_verified: 2026-11-01
+last_verified: 2026-11-02
 
 ai_priority: high
 related_files:
@@ -23,6 +23,8 @@ related_tables:
 ---
 
 # `racebook_gear_checks`
+
+The header-attached workspace switch does not read or mutate checklist rows.
 
 Chronological cutoff resolution does not read or mutate checklist rows.
 

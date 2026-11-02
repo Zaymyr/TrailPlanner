@@ -2,7 +2,7 @@
 title: race_event_edition_sponsors Table
 scope: database
 
-last_verified: 2026-11-01
+last_verified: 2026-11-02
 
 ai_priority: high
 related_files:
@@ -37,6 +37,8 @@ related_tables:
 ---
 
 # race_event_edition_sponsors
+
+The header-attached workspace switch and the profile chart are not sponsor surfaces.
 
 Chronological cutoff display and the Courses image placeholder are not sponsor surfaces.
 

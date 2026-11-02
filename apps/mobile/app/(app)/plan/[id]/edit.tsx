@@ -48,7 +48,9 @@ import {
   cacheRunnerPlanCapabilities,
   readCachedRunnerPlanCapabilities,
   resolveRunnerPlanAccess,
+  resolveRunnerPlanUnlockBadge,
   type RunnerPlanCapabilities,
+  type RunnerPlanUnlockBadge,
 } from '../../../../lib/runnerPlanAccess';
 import { noteReviewPlanSaved } from '../../../../lib/appReview';
 import { isAnonymousSession } from '../../../../lib/appSession';
@@ -304,6 +306,7 @@ export default function EditPlanScreen() {
   // fallback after a network failure). The workspace stays on the loading
   // screen until then, so it never renders with stale or default rights.
   const [accessCheckedPlanId, setAccessCheckedPlanId] = useState<string | null>(null);
+  const [planUnlockBadge, setPlanUnlockBadge] = useState<RunnerPlanUnlockBadge | null>(null);
   const [runnerAccessError, setRunnerAccessError] = useState(false);
   const [previewPaywallVisible, setPreviewPaywallVisible] = useState(false);
   const [previewPaywallPlacement, setPreviewPaywallPlacement] = useState<PremiumPaywallPlacement>('feature_gate');
@@ -505,6 +508,7 @@ export default function EditPlanScreen() {
     if (isNewPlan) {
       setPlanAccessState('unknown');
       setAccessCheckedPlanId(null);
+      setPlanUnlockBadge(null);
       setRunnerAccessError(false);
     }
     setActivePlanEditSession(id);
@@ -564,6 +568,7 @@ export default function EditPlanScreen() {
       setPlanCanEdit(resolution.capabilities.canEdit); setPlanCanViewDetails(resolution.capabilities.canViewDetails);
       setPlanAccessState(resolution.capabilities.canEdit || resolution.capabilities.canViewDetails ? 'granted' : 'denied');
       setRunnerAccessMode(resolution.capabilities.mode ?? 'real');
+      setPlanUnlockBadge(resolveRunnerPlanUnlockBadge(resolution.capabilities));
       setAccessCheckedPlanId(id);
       if (resolution.status === 'verified') void cacheRunnerPlanCapabilities(uid, id, resolution.capabilities);
     } catch {
@@ -576,6 +581,7 @@ export default function EditPlanScreen() {
         setPlanCanViewDetails(resolution.capabilities.canViewDetails);
         setPlanAccessState(resolution.capabilities.canEdit || resolution.capabilities.canViewDetails ? 'granted' : 'denied');
         setRunnerAccessMode(resolution.capabilities.mode ?? 'real');
+        setPlanUnlockBadge(resolveRunnerPlanUnlockBadge(resolution.capabilities));
         setAccessCheckedPlanId(id);
       }
     }
@@ -617,6 +623,7 @@ export default function EditPlanScreen() {
           planAccessResolved = true;
           setPlanCanViewDetails(resolution.capabilities.canViewDetails);
           setRunnerAccessMode(resolution.capabilities.mode ?? 'real');
+          setPlanUnlockBadge(resolveRunnerPlanUnlockBadge(resolution.capabilities));
           setRunnerAccessError(false);
           setPlanAccessState(resolution.capabilities.canEdit || resolution.capabilities.canViewDetails ? 'granted' : 'denied');
           if (resolution.status === 'verified') void cacheRunnerPlanCapabilities(accessUserId, id, resolution.capabilities);
@@ -629,6 +636,7 @@ export default function EditPlanScreen() {
           planAccessResolved = true;
           setPlanCanViewDetails(resolution.capabilities.canViewDetails);
           setRunnerAccessMode(resolution.capabilities.mode ?? 'real');
+          setPlanUnlockBadge(resolveRunnerPlanUnlockBadge(resolution.capabilities));
           setRunnerAccessError(false);
           setPlanAccessState(resolution.capabilities.canEdit || resolution.capabilities.canViewDetails ? 'granted' : 'denied');
         } else setRunnerAccessError(true);
@@ -1258,6 +1266,8 @@ export default function EditPlanScreen() {
         expandedBodyHeight={planHeaderBodyHeight}
         onBack={handleBackToPlans}
         onExpandedBodyHeightChange={handlePlanHeaderBodyHeightChange}
+        attachedBelow={Boolean(linkedRaceId)}
+        unlockBadge={planUnlockBadge}
         saveStatus={saveStatus}
         scrollY={scrollY}
         title={liveValues?.name || planName}
@@ -1267,6 +1277,8 @@ export default function EditPlanScreen() {
       {linkedRaceId ? (
         <RaceWorkspaceSwitch
           active="plan"
+          backgroundColor={Colors.brandPrimary}
+          foregroundColor={Colors.textOnBrand}
           compactHeaderHeight={PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT}
           expandedHeaderHeight={planHeaderBodyHeight}
           planExists

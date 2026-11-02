@@ -1,7 +1,6 @@
 import { mobileComponents } from '@pace-yourself/design-system';
 import { Animated, Pressable, StyleSheet, View } from 'react-native';
 
-import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
 import { Text } from '../themed/Text';
 
@@ -9,6 +8,9 @@ export const RACE_WORKSPACE_SWITCH_HEIGHT = 54;
 
 type Props = {
   active: 'racebook' | 'plan';
+  /** Header background and text colors: the switch reads as part of the header. */
+  backgroundColor: string;
+  foregroundColor: string;
   compactHeaderHeight: number;
   expandedHeaderHeight: number;
   onOpenPlan: () => void;
@@ -20,8 +22,15 @@ type Props = {
   topInset: number;
 };
 
+/**
+ * Livret / plan switch attached under the workspace header. It shares the
+ * header color and carries the header's rounded bottom edge, so it reads as
+ * the header's own navigation rather than another in-page segmented control.
+ */
 export function RaceWorkspaceSwitch({
   active,
+  backgroundColor,
+  foregroundColor,
   compactHeaderHeight,
   expandedHeaderHeight,
   onOpenPlan,
@@ -43,7 +52,7 @@ export function RaceWorkspaceSwitch({
   });
 
   return (
-    <Animated.View style={[styles.shell, { top }]}>
+    <Animated.View style={[styles.shell, { top, backgroundColor }]}>
       <View accessibilityRole="tablist" style={styles.segmentedControl}>
         <Pressable
           accessibilityLabel={racebookLabel}
@@ -54,7 +63,7 @@ export function RaceWorkspaceSwitch({
           style={[styles.segment, active === 'racebook' && styles.activeSegment, racebookDisabled && styles.disabled]}
           testID="race-workspace-racebook"
         >
-          <Text style={[styles.label, active === 'racebook' && styles.activeLabel]}>{racebookLabel}</Text>
+          <Text numberOfLines={1} style={[styles.label, { color: active === 'racebook' ? backgroundColor : foregroundColor }, active === 'racebook' && styles.activeLabel]}>{racebookLabel}</Text>
         </Pressable>
         <Pressable
           accessibilityLabel={planLabel}
@@ -65,7 +74,7 @@ export function RaceWorkspaceSwitch({
           style={[styles.segment, active === 'plan' && styles.activeSegment, planDisabled && styles.disabled]}
           testID="race-workspace-plan"
         >
-          <Text style={[styles.label, active === 'plan' && styles.activeLabel]}>{planLabel}</Text>
+          <Text numberOfLines={1} style={[styles.label, { color: active === 'plan' ? backgroundColor : foregroundColor }, active === 'plan' && styles.activeLabel]}>{planLabel}</Text>
         </Pressable>
       </View>
     </Animated.View>
@@ -81,37 +90,34 @@ const styles = StyleSheet.create({
     height: RACE_WORKSPACE_SWITCH_HEIGHT,
     justifyContent: 'center',
     paddingHorizontal: mobileComponents.screenGutter,
-    backgroundColor: Colors.background,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.border,
+    paddingBottom: 4,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     shadowColor: '#1A1A1A',
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    shadowOpacity: 0.16,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 7 },
+    elevation: 8,
   },
   segmentedControl: {
     minHeight: 38,
     flexDirection: 'row',
     padding: mobileComponents.segmentedControl.padding,
-    borderRadius: mobileComponents.segmentedControl.borderRadius,
-    backgroundColor: Colors.surfaceMuted,
+    borderRadius: 999,
+    backgroundColor: 'rgba(0,0,0,0.2)',
   },
   segment: {
     flex: 1,
     minHeight: mobileComponents.segment.minHeight,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: mobileComponents.segment.borderRadius,
+    borderRadius: 999,
     paddingHorizontal: mobileComponents.segment.paddingHorizontal,
-    borderWidth: 1,
-    borderColor: 'transparent',
   },
   activeSegment: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.brandBorder,
+    backgroundColor: '#FFFFFF',
   },
   disabled: { opacity: 0.45 },
-  label: { color: Colors.textSecondary, fontSize: 13, lineHeight: 17, fontWeight: '700' },
-  activeLabel: { color: Colors.brandPrimary, fontWeight: '800' },
+  label: { fontSize: 13, lineHeight: 17, fontWeight: '700', opacity: 0.88 },
+  activeLabel: { fontWeight: '800', opacity: 1 },
 });

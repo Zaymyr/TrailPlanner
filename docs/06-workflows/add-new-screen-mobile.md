@@ -76,6 +76,8 @@ related_tables:
 
 # Add New Mobile Screen
 
+When a workspace switch is attached under a collapsible header, pass the header colors to `RaceWorkspaceSwitch` and render the header with `attachedBelow` so only the switch carries the rounded edge and shadow.
+
 Screens that depend on plan entitlements should stay on their loading state until access is resolved for the current entity, using cached capabilities only as a timeout or network fallback.
 
 For linked Plan/RaceBook workspaces, reuse `RaceWorkspaceHeaderCommon` so identity, official timing and the five course metrics keep one order and one position: start expanded content below `RACE_WORKSPACE_TOOLBAR_HEIGHT`, keep the 16-point gutter, pass screen-specific rows through `footer` (after the metrics only), and report the measured expanded height instead of a fixed constant. Treat plan entitlement as unknown until cached or verified capabilities exist; unknown UI is neutral and retryable, never a free preview.

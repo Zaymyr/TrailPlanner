@@ -2,7 +2,7 @@
 title: race_edition_services Table
 scope: database
 
-last_verified: 2026-11-01
+last_verified: 2026-11-02
 
 ai_priority: high
 related_files:
@@ -22,6 +22,8 @@ related_tables:
 ---
 
 # `race_edition_services`
+
+The header-attached workspace switch and the full-width Livret profile chart do not change edition-service reads or actions.
 
 Chronological cutoff resolution and plan access gating do not change edition-service reads or actions.
 

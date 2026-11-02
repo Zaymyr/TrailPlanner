@@ -70,6 +70,8 @@ type Props = {
   onCallEmergency?: () => void;
   onOpenSocial: (url: string, action: string) => void;
   onExpandedBodyHeightChange?: (height: number) => void;
+  /** A workspace switch is attached below: it carries the rounded edge and shadow. */
+  attachedBelow?: boolean;
 };
 
 export function RacebookCollapsibleHero({
@@ -108,6 +110,7 @@ export function RacebookCollapsibleHero({
   onCallEmergency,
   onOpenSocial,
   onExpandedBodyHeightChange,
+  attachedBelow = false,
 }: Props) {
   const [isCompact, setIsCompact] = useState(false);
   const [linksVisible, setLinksVisible] = useState(false);
@@ -147,6 +150,7 @@ export function RacebookCollapsibleHero({
     <Animated.View
       style={[
         styles.hero,
+        attachedBelow && styles.heroAttached,
         {
           height: heroHeight,
           backgroundColor: theme.primaryColor,
@@ -326,6 +330,7 @@ export function RacebookCollapsibleHero({
 
 const styles = StyleSheet.create({
   hero: { position: 'absolute', zIndex: 20, top: 0, left: 0, right: 0, overflow: 'hidden', borderBottomLeftRadius: 24, borderBottomRightRadius: 24, shadowColor: '#1A1A1A', shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 7 }, elevation: 8 },
+  heroAttached: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, shadowOpacity: 0, elevation: 0 },
   heroImage: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   contrastVeil: { backgroundColor: 'rgba(0,0,0,0.14)' },
   backButton: { position: 'absolute', zIndex: 4, left: 16, width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.34)', backgroundColor: 'rgba(0,0,0,0.22)' },

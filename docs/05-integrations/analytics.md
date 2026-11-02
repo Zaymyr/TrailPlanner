@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-11-01
+last_verified: 2026-11-02
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-organizer-analytics.ts
@@ -76,6 +76,8 @@ related_tables:
 ---
 
 # Analytics
+
+The header-attached workspace switch, full-width profile chart and plan unlock badge add no analytics event and do not change existing payloads.
 
 The Courses image placeholder, chronological RaceBook cutoffs and the plan access loading gate add no analytics event and do not change existing payloads.
 

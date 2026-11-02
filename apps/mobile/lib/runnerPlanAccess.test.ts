@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { getRunnerAccessModeErrorMessage, resolveRunnerPlanAccess, resolveRunnerPlanCapabilities } from './runnerPlanAccess';
+import {
+  getRunnerAccessModeErrorMessage,
+  resolveRunnerPlanAccess,
+  resolveRunnerPlanCapabilities,
+  resolveRunnerPlanUnlockBadge,
+} from './runnerPlanAccess';
 
 describe('server plan capabilities', () => {
   it('distinguishes an unknown response from a verified denial and reuses verified cache', () => {
@@ -39,5 +44,23 @@ describe('admin access mode errors', () => {
   it('asks the administrator to reconnect after an authorization failure', () => {
     expect(getRunnerAccessModeErrorMessage(403, 'fr')).toContain('reconnectée');
     expect(getRunnerAccessModeErrorMessage(401, 'en')).toContain('Reconnect');
+  });
+});
+
+describe('resolveRunnerPlanUnlockBadge', () => {
+  const granted = { enabled: true, canEdit: true, canViewDetails: true } as const;
+
+  it('labels a per-plan purchase, a subscription and a launch offer', () => {
+    expect(resolveRunnerPlanUnlockBadge({ ...granted, source: 'plan_unlock' })).toBe('planUnlocked');
+    expect(resolveRunnerPlanUnlockBadge({ ...granted, source: 'subscription' })).toBe('premium');
+    expect(resolveRunnerPlanUnlockBadge({ ...granted, source: 'admin' })).toBe('premium');
+    expect(resolveRunnerPlanUnlockBadge({ ...granted, source: 'grandfathered_plan' })).toBe('planOffered');
+  });
+
+  it('shows nothing without edit access, without monetization or without a source', () => {
+    expect(resolveRunnerPlanUnlockBadge({ ...granted, canEdit: false, source: 'historical_subscription' })).toBeNull();
+    expect(resolveRunnerPlanUnlockBadge({ ...granted, enabled: false, source: 'plan_unlock' })).toBeNull();
+    expect(resolveRunnerPlanUnlockBadge({ ...granted })).toBeNull();
+    expect(resolveRunnerPlanUnlockBadge(null)).toBeNull();
   });
 });

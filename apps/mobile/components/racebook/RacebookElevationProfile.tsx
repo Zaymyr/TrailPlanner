@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useCallback, useMemo, useState } from 'react';
 import { PanResponder, Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
-import Svg, { Circle, Defs, G, Line, LinearGradient, Path, Stop, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, Defs, G, Line, LinearGradient, Path, Rect, Stop, Text as SvgText } from 'react-native-svg';
 
 import { Colors } from '../../constants/colors';
 import type { ElevationPoint } from '../plan-form/profile-utils';
@@ -22,8 +22,10 @@ type Props = {
   profileHeight?: number;
 };
 
-const AXIS_WIDTH = 64;
-const RIGHT_PADDING = 34;
+// The curve spans the whole chart: elevation labels sit inside the plot,
+// above their grid line, instead of in a reserved axis column.
+const SIDE_PADDING = 12;
+const LABEL_HEIGHT = 15;
 const TOP_PADDING = 18;
 const BOTTOM_PADDING = 28;
 const STATION_SNAP_DISTANCE_KM = 0.2;
@@ -72,9 +74,9 @@ export function RacebookElevationProfile({
     const minElevation = bounds.minElevationM - elevationPadding;
     const maxElevation = bounds.maxElevationM + elevationPadding;
     const elevationSpan = Math.max(1, maxElevation - minElevation);
-    const innerWidth = Math.max(1, width - AXIS_WIDTH - RIGHT_PADDING);
+    const innerWidth = Math.max(1, width - SIDE_PADDING * 2);
     const innerHeight = chartHeight - TOP_PADDING - BOTTOM_PADDING;
-    const xFor = (distanceKm: number) => AXIS_WIDTH + ((distanceKm - minDistance) / distanceSpan) * innerWidth;
+    const xFor = (distanceKm: number) => SIDE_PADDING + ((distanceKm - minDistance) / distanceSpan) * innerWidth;
     const yFor = (elevationM: number) => TOP_PADDING + innerHeight - ((elevationM - minElevation) / elevationSpan) * innerHeight;
     const path = sampled.map((point, index) => `${index ? 'L' : 'M'} ${xFor(point.distanceKm)} ${yFor(point.elevationM)}`).join(' ');
     const baseline = TOP_PADDING + innerHeight;
@@ -87,7 +89,7 @@ export function RacebookElevationProfile({
     });
 
     return {
-      areaPath: `${path} L ${xFor(maxDistance)} ${baseline} L ${AXIS_WIDTH} ${baseline} Z`,
+      areaPath: `${path} L ${xFor(maxDistance)} ${baseline} L ${SIDE_PADDING} ${baseline} Z`,
       baseline,
       bounds,
       distanceTicks,
@@ -192,17 +194,22 @@ export function RacebookElevationProfile({
               </Defs>
               {chart.ticks.map((tick) => {
                 const y = chart.yFor(tick);
+                return <Line key={tick} x1={SIDE_PADDING} x2={width - SIDE_PADDING} y1={y} y2={y} stroke={Colors.border} strokeDasharray="4 5" />;
+              })}
+              <Path d={chart.areaPath} fill="url(#racebook-profile-area)" />
+              <Path d={chart.path} fill="none" stroke={accentColor} strokeWidth={expanded ? 4 : 3.5} strokeLinejoin="round" strokeLinecap="round" />
+              {chart.ticks.map((tick) => {
+                const label = `${formatNumber(tick, locale)} m`;
+                const top = Math.max(0, chart.yFor(tick) - LABEL_HEIGHT - 2);
                 return (
-                  <G key={tick}>
-                    <Line x1={AXIS_WIDTH} x2={width - RIGHT_PADDING} y1={y} y2={y} stroke={Colors.border} strokeDasharray="4 5" />
-                    <SvgText x={AXIS_WIDTH - 7} y={y + 4} fill={Colors.textMuted} fontSize="10" textAnchor="end">
-                      {formatNumber(tick, locale)} m
+                  <G key={`label-${tick}`}>
+                    <Rect x={SIDE_PADDING - 4} y={top} width={label.length * 6 + 8} height={LABEL_HEIGHT} rx={4} fill="#FFFFFF" fillOpacity={0.82} />
+                    <SvgText x={SIDE_PADDING} y={top + 11} fill={Colors.textSecondary} fontSize="10" fontWeight="600" textAnchor="start">
+                      {label}
                     </SvgText>
                   </G>
                 );
               })}
-              <Path d={chart.areaPath} fill="url(#racebook-profile-area)" />
-              <Path d={chart.path} fill="none" stroke={accentColor} strokeWidth={expanded ? 4 : 3.5} strokeLinejoin="round" strokeLinecap="round" />
               {chart.stationPoints.map(({ station, x, y }) => (
                 <G key={station.id}>
                   <Line x1={x} x2={x} y1={y + 7} y2={chart.baseline} stroke={accentColor} strokeOpacity={0.28} strokeDasharray="3 5" />
@@ -405,9 +412,10 @@ export function RacebookElevationProfile({
 
 const styles = StyleSheet.create({
   root: { gap: 12 },
-  chart: { width: '100%', overflow: 'hidden', borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.62)' },
-  chartExpanded: { backgroundColor: Colors.surface },
-  inspectionGestureLayer: { position: 'absolute', zIndex: 2, left: AXIS_WIDTH, right: RIGHT_PADDING, top: 0, bottom: BOTTOM_PADDING },
+  // Bleeds into the card padding so the curve uses almost the full card width.
+  chart: { alignSelf: 'stretch', marginHorizontal: -10, overflow: 'hidden', borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.62)' },
+  chartExpanded: { marginHorizontal: 0, backgroundColor: Colors.surface },
+  inspectionGestureLayer: { position: 'absolute', zIndex: 2, left: SIDE_PADDING, right: SIDE_PADDING, top: 0, bottom: BOTTOM_PADDING },
   stationHitArea: { position: 'absolute', zIndex: 3, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   stationMarker: { width: 15, height: 15, borderRadius: 8, borderWidth: 3, borderColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', shadowColor: '#000000', shadowOpacity: 0.2, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 3 },
   stationMarkerCore: { width: 3, height: 3, borderRadius: 2, backgroundColor: '#FFFFFF' },

@@ -1,7 +1,7 @@
 ---
 title: Nutrition Algorithm
 scope: business-rule
-last_verified: 2026-11-01
+last_verified: 2026-11-02
 ai_priority: high
 related_files:
   - apps/web/lib/nutrition-planner.ts
@@ -82,6 +82,8 @@ related_tables:
 ---
 
 # Nutrition Algorithm
+
+The plan unlock badge and header-attached switch change no nutrition calculation or saved product.
 
 Waiting for resolved plan access before rendering the editor delays only the first display; nutrition calculations, auto-fill and saved products are unchanged.
 

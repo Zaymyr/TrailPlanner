@@ -3,7 +3,28 @@ export type RunnerPlanCapabilities = {
   canEdit: boolean;
   canViewDetails: boolean;
   mode?: 'real' | 'free' | 'premium';
+  /** Why access is granted, as reported by the web API (e.g. a per-plan purchase). */
+  source?: RunnerPlanAccessSource;
 };
+
+export type RunnerPlanAccessSource =
+  | 'free'
+  | 'admin'
+  | 'grandfathered_plan'
+  | 'subscription'
+  | 'plan_unlock'
+  | 'historical_subscription';
+
+export type RunnerPlanUnlockBadge = 'planUnlocked' | 'premium' | 'planOffered';
+
+/** Maps a granted access source to the badge shown in the plan header. */
+export function resolveRunnerPlanUnlockBadge(capabilities: RunnerPlanCapabilities | null): RunnerPlanUnlockBadge | null {
+  if (!capabilities?.enabled || !capabilities.canEdit) return null;
+  if (capabilities.source === 'plan_unlock') return 'planUnlocked';
+  if (capabilities.source === 'subscription' || capabilities.source === 'admin') return 'premium';
+  if (capabilities.source === 'grandfathered_plan') return 'planOffered';
+  return null;
+}
 
 export function getRunnerAccessModeErrorMessage(status: number, locale: 'fr' | 'en'): string {
   if (status === 404) {

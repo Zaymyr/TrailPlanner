@@ -1938,11 +1938,14 @@ export default function RaceRacebookScreen() {
           onCallEmergency={emergencyTelephoneUrl ? () => openTrackedUrl(emergencyTelephoneUrl, 'emergency_call_started') : undefined}
           onOpenSocial={(url, action) => openTrackedUrl(url, action)}
           onExpandedBodyHeightChange={handleHeroBodyHeightChange}
+          attachedBelow={!showLoading && !unavailable && Boolean(data)}
         />
       ) : null}
       {!showLoading && !unavailable && data ? (
         <RaceWorkspaceSwitch
           active="racebook"
+          backgroundColor={brandTheme.primaryColor}
+          foregroundColor={brandTheme.onPrimaryColor}
           compactHeaderHeight={RACEBOOK_HERO_COMPACT_BODY_HEIGHT}
           expandedHeaderHeight={heroBodyHeight}
           onOpenPlan={existingPlanId ? openLinkedPlan : () => { void handlePlanCtaPress(); }}

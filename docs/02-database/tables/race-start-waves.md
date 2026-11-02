@@ -2,7 +2,7 @@
 title: race_start_waves Table
 scope: database
 
-last_verified: 2026-11-01
+last_verified: 2026-11-02
 
 ai_priority: high
 related_files:
@@ -23,6 +23,8 @@ related_tables:
 ---
 
 # `race_start_waves`
+
+The header-attached workspace switch does not alter SAS visibility, ordering, or time authority.
 
 Official cutoffs are resolved from the official (or first ordered SAS) departure; a personal departure only shifts the comparison with the runner's passages and never changes SAS times.
 
