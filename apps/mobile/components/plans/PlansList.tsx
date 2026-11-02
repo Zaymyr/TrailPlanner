@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { memo, useEffect, useState, type ReactNode } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -31,7 +31,7 @@ import { Heading } from '../themed/Heading';
 import { Text } from '../themed/Text';
 import { formatDistance } from '../../lib/displayFormat';
 import { estimateDuration, getPlanCardTitle } from './plansHelpers';
-import { formatDepartureCountdown, selectPrimaryStartPlanId, type DepartureCountdownCopy } from '../../lib/plansListPresentation';
+import { formatDepartureCountdown, resolvePlanPrimaryAction, type DepartureCountdownCopy, type PlanPrimaryAction } from '../../lib/plansListPresentation';
 import type { PlanRow, RaceSection } from './types';
 
 type PlansListProps = {
@@ -50,6 +50,7 @@ type PlansListProps = {
   liveLabel: string;
   inProgressLabel: string;
   startButtonLabel: string;
+  editButtonLabel: string;
   recapButtonLabel: string;
   shareButtonLabel: string;
   saveButtonLabel: string;
@@ -88,6 +89,7 @@ export const PlansList = memo(function PlansList({
   liveLabel,
   inProgressLabel,
   startButtonLabel,
+  editButtonLabel,
   recapButtonLabel,
   shareButtonLabel,
   saveButtonLabel,
@@ -114,13 +116,7 @@ export const PlansList = memo(function PlansList({
   const [renamingPlan, setRenamingPlan] = useState(false);
   const [nowMs, setNowMs] = useState(Date.now());
   useEffect(() => {
-    const hasUpcomingDeparture = sections.some((section) =>
-      section.data.some((plan) => {
-        const departureMs = plan.departureAt ? new Date(plan.departureAt).getTime() : Number.NaN;
-        return Number.isFinite(departureMs) && departureMs > nowMs;
-      }),
-    );
-    if (!hasUpcomingDeparture) return undefined;
+    if (sections.every((section) => section.data.length === 0)) return undefined;
     const hasDepartureWithinAnHour = sections.some((section) =>
       section.data.some((plan) => {
         const departureMs = plan.departureAt ? new Date(plan.departureAt).getTime() : Number.NaN;
@@ -130,14 +126,6 @@ export const PlansList = memo(function PlansList({
     const timer = setInterval(() => setNowMs(Date.now()), hasDepartureWithinAnHour ? 1_000 : 60_000);
     return () => clearInterval(timer);
   }, [nowMs, sections]);
-  const primaryStartPlanId = useMemo(() => {
-    return selectPrimaryStartPlanId(
-      sections.flatMap((section) => section.data),
-      nowMs,
-      activePlanId,
-    );
-  }, [activePlanId, nowMs, sections]);
-
   const closeManagePlan = () => {
     if (!renamingPlan) setManagedPlan(null);
   };
@@ -189,31 +177,33 @@ export const PlansList = memo(function PlansList({
                 </Heading>
               ) : null}
               <PlanCard
-              displayName={getPlanCardTitle(item, planEventName, locale)}
-              departureCountdownCopy={departureCountdownCopy}
-              departureLabel={departureLabel}
-              duration={duration}
-              isAccessible={isAccessible}
-              isActivePlan={isActivePlan}
-              isSharing={sharingPlanId === item.id}
-              primaryAction={primaryStartPlanId === item.id ? 'start' : 'recap'}
-              item={item}
-              liveLabel={liveLabel}
-              locale={locale}
-              nowMs={nowMs}
-              onLockedPress={onOpenLockedPlan}
-              onManage={() => {
-                setManagedPlan(item);
-                setManagedPlanName(item.name);
-              }}
-              onOpenMain={() => (isActivePlan ? onOpenRacePlan(item.id) : onOpenEditPlan(item.id))}
-              onOpenSummary={() => onOpenSummary(item.id)}
-              onShare={() => onSharePlan(item.id)}
-              onStart={() => onOpenRacePlan(item.id)}
-              recapButtonLabel={recapButtonLabel}
-              shareButtonLabel={shareButtonLabel}
-              startButtonLabel={startButtonLabel}
-              inProgressLabel={inProgressLabel}
+                displayName={getPlanCardTitle(item, planEventName, locale)}
+                departureCountdownCopy={departureCountdownCopy}
+                departureLabel={departureLabel}
+                duration={duration}
+                editButtonLabel={editButtonLabel}
+                inProgressLabel={inProgressLabel}
+                isAccessible={isAccessible}
+                isActivePlan={isActivePlan}
+                isSharing={sharingPlanId === item.id}
+                item={item}
+                liveLabel={liveLabel}
+                locale={locale}
+                nowMs={nowMs}
+                onDelete={() => onDeletePlan(item.id)}
+                onLockedPress={onOpenLockedPlan}
+                onManage={() => {
+                  setManagedPlan(item);
+                  setManagedPlanName(item.name);
+                }}
+                onOpenMain={() => (isActivePlan ? onOpenRacePlan(item.id) : onOpenEditPlan(item.id))}
+                onOpenSummary={() => onOpenSummary(item.id)}
+                onShare={() => onSharePlan(item.id)}
+                onStart={() => onOpenRacePlan(item.id)}
+                primaryAction={resolvePlanPrimaryAction(item, nowMs, activePlanId)}
+                recapButtonLabel={recapButtonLabel}
+                shareButtonLabel={shareButtonLabel}
+                startButtonLabel={startButtonLabel}
               />
             </View>
           );
@@ -352,14 +342,16 @@ type PlanCardProps = {
   isAccessible: boolean;
   isActivePlan: boolean;
   isSharing: boolean;
-  primaryAction: 'start' | 'recap';
+  primaryAction: PlanPrimaryAction;
   nowMs: number;
   liveLabel: string;
   startButtonLabel: string;
+  editButtonLabel: string;
   recapButtonLabel: string;
   shareButtonLabel: string;
   inProgressLabel: string;
   onManage: () => void;
+  onDelete: () => void;
   onOpenMain: () => void;
   onOpenSummary: () => void;
   onShare: () => void;
@@ -381,10 +373,12 @@ function PlanCard({
   nowMs,
   liveLabel,
   startButtonLabel,
+  editButtonLabel,
   recapButtonLabel,
   shareButtonLabel,
   inProgressLabel,
   onManage,
+  onDelete,
   onOpenMain,
   onOpenSummary,
   onShare,
@@ -393,6 +387,21 @@ function PlanCard({
 }: PlanCardProps) {
   const aidStationCount = getIntermediateAidStationCount(item.planner_values?.aidStations);
   const countdown = formatDepartureCountdown(item.departureAt, nowMs, departureCountdownCopy);
+  const primaryLabel = primaryAction === 'start'
+    ? isActivePlan ? inProgressLabel : startButtonLabel
+    : primaryAction === 'edit'
+      ? editButtonLabel
+      : recapButtonLabel;
+  const primaryIcon = primaryAction === 'start'
+    ? isActivePlan ? 'radio-button-on' : 'play'
+    : primaryAction === 'edit'
+      ? 'create-outline'
+      : 'document-text-outline';
+  const handlePrimaryPress = primaryAction === 'start'
+    ? onStart
+    : primaryAction === 'edit'
+      ? onOpenMain
+      : onOpenSummary;
 
   return (
     <Card padded={false} surface="white" style={[styles.card, isActivePlan && styles.cardActive]}>
@@ -485,28 +494,36 @@ function PlanCard({
             </View>
           </View>
         </TouchableOpacity>
+        <TouchableOpacity
+          accessibilityLabel={`${locale === 'fr' ? 'Supprimer le plan' : 'Delete plan'} — ${item.name}`}
+          accessibilityRole="button"
+          activeOpacity={0.75}
+          hitSlop={6}
+          onPress={onDelete}
+          style={styles.cardDeleteButton}
+        >
+          <Ionicons color={colors.accent.terracotta} name="trash-outline" size={18} />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.cardActions}>
           <TouchableOpacity
-            accessibilityLabel={`${primaryAction === 'start' ? (isActivePlan ? inProgressLabel : startButtonLabel) : recapButtonLabel} — ${item.name}`}
+            accessibilityLabel={`${primaryLabel} — ${item.name}`}
             accessibilityRole="button"
             activeOpacity={0.85}
-            onPress={isAccessible
-              ? primaryAction === 'start' ? onStart : onOpenSummary
-              : onLockedPress}
+            onPress={isAccessible ? handlePrimaryPress : onLockedPress}
             style={[styles.primaryCardAction, !isAccessible && styles.iconBtnLocked]}
           >
             <Ionicons
               color={isAccessible ? colors.text.inverse : colors.accent.amber}
-              name={!isAccessible ? 'lock-closed' : primaryAction === 'start' ? (isActivePlan ? 'radio-button-on' : 'play') : 'document-text-outline'}
+              name={!isAccessible ? 'lock-closed' : primaryIcon}
               size={18}
             />
             <Text tone={isAccessible ? 'inverse' : 'brand'} size="xs" weight="bold">
-              {primaryAction === 'start' ? (isActivePlan ? inProgressLabel : startButtonLabel) : recapButtonLabel}
+              {primaryLabel}
             </Text>
           </TouchableOpacity>
-          {primaryAction === 'start' ? (
+          {primaryAction !== 'recap' ? (
           <TouchableOpacity
             accessibilityLabel={`${recapButtonLabel} — ${item.name}`}
             accessibilityRole="button"
@@ -518,13 +535,13 @@ function PlanCard({
           </TouchableOpacity>
           ) : (
             <TouchableOpacity
-              accessibilityLabel={`${isActivePlan ? inProgressLabel : startButtonLabel} — ${item.name}`}
+              accessibilityLabel={`${editButtonLabel} — ${item.name}`}
               accessibilityRole="button"
               activeOpacity={0.8}
-              onPress={isAccessible ? onStart : onLockedPress}
+              onPress={isAccessible ? onOpenMain : onLockedPress}
               style={[styles.iconBtn, !isAccessible && styles.iconBtnLocked]}
             >
-              <Ionicons color={isAccessible ? colors.brand.forest : colors.accent.amber} name={!isAccessible ? 'lock-closed' : isActivePlan ? 'radio-button-on' : 'play-outline'} size={18} />
+              <Ionicons color={isAccessible ? colors.brand.forest : colors.accent.amber} name={!isAccessible ? 'lock-closed' : 'create-outline'} size={18} />
             </TouchableOpacity>
           )}
           <TouchableOpacity
@@ -615,8 +632,21 @@ const styles = StyleSheet.create({
   cardContent: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: spacing[4],
+    paddingLeft: spacing[4],
+    paddingRight: 52,
     paddingVertical: spacing[3],
+  },
+  cardDeleteButton: {
+    position: 'absolute',
+    right: spacing[2],
+    top: spacing[2],
+    width: 36,
+    height: 36,
+    borderRadius: radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface.cream,
+    zIndex: 2,
   },
   planTitleRow: {
     flexDirection: 'row',

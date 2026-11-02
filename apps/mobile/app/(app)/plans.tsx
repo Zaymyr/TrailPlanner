@@ -183,6 +183,7 @@ export default function PlansScreen() {
           </>
         }
         startButtonLabel={t.plans.startButton}
+        editButtonLabel={t.plans.editButton}
         recapButtonLabel={t.planSummary.openRecap}
         shareButtonLabel={t.planSummary.share}
         saveButtonLabel={t.common.save}

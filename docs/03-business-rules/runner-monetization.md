@@ -60,6 +60,8 @@ Offer a useful free race estimate, then sell editable preparation for one format
 
 The annual subscription auto-renews. A one-time purchase does not grant global Premium, does not transfer to a different format/edition and is revoked when its transaction is invalidated. No retrospective credit toward an annual subscription is implemented. Existing paid subscribers keep their original provider products and prices; historical application trials end normally and new accounts receive none.
 
+Deleting the current `race_plans` row never consumes or deletes an active course purchase. The nullable unlock reference is cleared, the canonical course/edition key remains active, and the next plan created for that exact scope reuses it without another checkout.
+
 ## Account, profile and estimate
 
 New plans require an identified account. Course selection survives authentication and the profile step. First name, comfortable flat pace, water capacity and carbohydrate target initialize the estimate; body metrics, birth date and UTMB index are optional. Profile information is prefilled and validated. Existing plans are not silently overwritten when a profile changes.

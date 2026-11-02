@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatDepartureCountdown, isPlanDeparturePast, selectPrimaryStartPlanId, sortPlanSections } from './plansListPresentation';
+import { formatDepartureCountdown, isPlanDeparturePast, resolvePlanPrimaryAction, sortPlanSections } from './plansListPresentation';
 import type { PlanRow, RaceSection } from '../components/plans/types';
 
 const nowMs = Date.parse('2026-11-01T10:00:00Z');
@@ -73,19 +73,19 @@ describe('plans list presentation', () => {
     expect(formatDepartureCountdown('2026-10-31T10:00:00Z', nowMs, countdownCopy)).toBe('Started');
   });
 
-  it('selects the nearest future plan for the primary start action', () => {
-    expect(selectPrimaryStartPlanId([
-      plan('undated', null),
-      plan('later', '2026-11-03T10:00:00Z'),
-      plan('nearer', '2026-11-02T10:00:00Z'),
-      plan('past', '2026-10-31T10:00:00Z'),
-    ], nowMs, null)).toBe('nearer');
+  it('shows edit before race day, start on race day, and recap afterward', () => {
+    const now = new Date(2026, 10, 2, 10, 0).getTime();
+    const future = { ...plan('future', null), races: { name: 'Future', race_date: '2026-11-03' } };
+    const today = { ...plan('today', null), races: { name: 'Today', race_date: '2026-11-02' } };
+    const past = { ...plan('past', null), races: { name: 'Past', race_date: '2026-11-01' } };
+
+    expect(resolvePlanPrimaryAction(future, now, null)).toBe('edit');
+    expect(resolvePlanPrimaryAction(today, now, null)).toBe('start');
+    expect(resolvePlanPrimaryAction(past, now, null)).toBe('recap');
   });
 
-  it('falls back to the active plan when no future departure is known', () => {
-    expect(selectPrimaryStartPlanId([
-      plan('undated', null),
-      plan('past', '2026-10-31T10:00:00Z'),
-    ], nowMs, 'active')).toBe('active');
+  it('keeps an active live plan available and edits an undated plan', () => {
+    expect(resolvePlanPrimaryAction(plan('active', null), nowMs, 'active')).toBe('start');
+    expect(resolvePlanPrimaryAction(plan('undated', null), nowMs, null)).toBe('edit');
   });
 });
