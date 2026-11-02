@@ -225,7 +225,11 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points }: VideoGe
 
   return (
     <div className="relative h-full min-h-[34rem] w-full bg-slate-950">
-      <div ref={containerRef} className="absolute inset-0" aria-label="Visualiseur 3D du parcours" />
+      {/* Mapbox CSS sets `.mapboxgl-map { position: relative }`, which would override `absolute` on the map
+          container itself and collapse it to 0px height. The wrapper owns positioning; the container fills it. */}
+      <div className="absolute inset-0">
+        <div ref={containerRef} className="h-full w-full" aria-label="Visualiseur 3D du parcours" />
+      </div>
       <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex flex-wrap gap-2">
         <Button
           type="button"
