@@ -10,8 +10,16 @@ related_files:
   - apps/web/app/admin/video-generator/page.tsx
   - apps/web/app/admin/video-generator/VideoGeneratorMap.tsx
   - apps/web/app/admin/video-generator/VideoGeneratorMapClient.tsx
+  - apps/web/app/admin/video-generator/VideoGeneratorMapClient.test.ts
+  - apps/web/app/admin/video-generator/AnimationControls.tsx
+  - apps/web/app/admin/video-generator/AnimationControls.test.ts
+  - apps/web/app/admin/video-generator/animation-controller.ts
+  - apps/web/app/admin/video-generator/animation-controller.test.ts
   - apps/web/app/admin/video-generator/camera-controller.ts
+  - apps/web/app/admin/video-generator/camera-controller.test.ts
   - apps/web/app/admin/video-generator/map-resize-controller.ts
+  - apps/web/app/admin/video-generator/route-animation.ts
+  - apps/web/app/admin/video-generator/route-animation.test.ts
   - apps/web/app/admin/video-generator/video-generator-catalog.ts
   - apps/web/app/api/admin/video-generator/races/[id]/route.ts
   - apps/web/lib/video-generator.ts
@@ -25,7 +33,7 @@ related_tables:
 
 ## Purpose
 
-The admin-only `/admin/video-generator` route renders existing race GPX files over satellite imagery and real 3D terrain. Phase 1 is an interactive preparation surface only: it does not animate a camera, capture frames, encode video, or install Remotion/FFmpeg.
+The admin-only `/admin/video-generator` route renders existing race GPX files over satellite imagery and real 3D terrain. Phase 2 adds a deterministic automatic flyover and interactive timeline. It still does not capture frames, encode video, or install Remotion/FFmpeg.
 
 ## Key Concepts
 
@@ -35,8 +43,9 @@ The admin-only `/admin/video-generator` route renders existing race GPX files ov
 - Draft and published formats are available because the server verifies trusted admin `app_metadata` before any service-role read.
 - Mapbox logo and source attribution remain enabled on the interactive map.
 - The viewer fixes the projection to Mercator for consistent terrain rendering across desktop GPUs and observes its container so the WebGL canvas is resized after responsive layout changes.
-- The interactive viewport mirrors a 9:16 Instagram/Reels frame at a logical 1080 x 1920 output ratio. This is a framing preview only and does not capture or encode video.
+- The preview defaults to a 9:16 Instagram/Reels frame at a logical 1080 x 1920 ratio and can switch to a real 16:9 camera viewport. Neither preview captures or encodes video.
 - The classic `satellite-streets-v12` style is the default compatibility basemap. Admins can switch to Mapbox Standard Satellite at runtime to compare rendering without reloading the GPX.
+- Automatic playback is opt-in, defaults to 45 seconds and progressive route reveal, and exposes presets plus a bounded 10-300 second custom duration.
 
 ## Data Flow And Security
 
@@ -57,24 +66,29 @@ Changing the selected format aborts the previous browser request. The client als
 
 ## Rendering And Camera
 
-The Mapbox component loads with `next/dynamic` and `ssr: false`, then initializes Mapbox Standard Satellite plus `mapbox-terrain-dem-v1` with a restrained `1.15` terrain exaggeration. It preserves every parsed point in one GeoJSON line; Mapbox owns render-time tiling and simplification.
+The Mapbox component loads with `next/dynamic` and `ssr: false`, then initializes the compatibility satellite style plus `mapbox-terrain-dem-v1` with a restrained `1.15` terrain exaggeration. It preserves every parsed point in one GeoJSON line; Mapbox owns render-time tiling and simplification.
 
 Start, finish and aid stations use separate GeoJSON marker layers so they remain part of the WebGL composition. Stations have no source latitude/longitude in `race_aid_stations`; the browser projects each station kilometer onto the nearest cumulative-distance GPX point using a binary search. This creates no database coordinate.
 
-The camera controller is separate from rendering:
+The camera stack is separated into three boundaries:
 
 - **Vue d'ensemble** recomputes a full-route camera while preserving current bearing and pitch.
 - **Réinitialiser la caméra** returns to north-up bearing `0` and pitch `55` over the complete route.
 - a one-point route uses a stable close zoom rather than invalid zero-area bounds.
+- `route-animation.ts` regularly samples cumulative GPX distance, resolves missing elevation from valid GPX neighbors and then loaded terrain, and exports deterministic `getCameraStateAtTime` calculations.
+- `animation-controller.ts` owns the monotonic playback clock, pause/resume, restart, seek and duration changes without accumulating camera state frame by frame.
+- `camera-controller.ts` converts a calculated frame into Mapbox `FreeCameraOptions`; it never chains `flyTo` calls.
 
-Future `flyTo`, `easeTo`, or frame-by-frame animation belongs in this controller boundary, not in GPX loading or the route layers.
+The camera path is capped at 2,500 regularly spaced samples for long ultras. The displayed route keeps every original GPX point. Playback updates only the free camera, a small progress-point source, and a `line-progress` gradient on a `lineMetrics` source; it never rebuilds the complete route each frame. Camera interaction is disabled during playback and restored on pause or completion. Hidden tabs pause instead of jumping forward when they become visible again.
+
+The dynamic-following preset derives look-ahead, setback, smoothing and clearance from route distance divided by selected duration. Portrait mode raises and looks farther ahead than landscape mode so the route remains framed around the title and future elevation-profile safe areas. Additional aerial/cinematic presets are intentionally deferred.
 
 ## Environment And Provider Terms
 
 - `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`: public Mapbox token used only by the browser map. Restrict production, preview and local origins as needed; never place a Mapbox secret token in this variable.
 - Mapbox GL JS usage is billed by map load under the provider's current pricing. The provider currently documents a free tier, but pricing can change and must be reviewed before rollout.
 - Mapbox requires its logo and applicable Mapbox/OpenStreetMap attribution on maps using its styles, terrain or imagery.
-- Phase 2 promotional video export requires written confirmation that the intended recording, distribution, attribution and satellite-imagery use are covered. Interactive-map access does not by itself settle that downstream licensing question.
+- Phase 3 promotional video export requires written confirmation that the intended recording, distribution, attribution and satellite-imagery use are covered. Interactive-map access does not by itself settle that downstream licensing question.
 
 Provider references:
 
@@ -87,8 +101,9 @@ Provider references:
 
 - Route tests cover missing/invalid sessions, non-admin denial, draft reads, absent/invalid GPX, Storage failure and sensitive-field omission.
 - Pure tests cover ordered GeoJSON, endpoint markers, station projection and one-point routes.
-- Camera tests cover orientation-preserving overview and canonical reset.
-- Manual validation needs a real restricted token and a known format such as SaintéLyon to confirm satellite imagery, terrain, controls, attribution and visual alignment.
+- Animation tests cover distance interpolation, sample caps, missing/invalid elevations, deterministic camera frames, playback controls and duration preservation.
+- UI and mocked-Mapbox tests cover the default 9:16/45-second/progressive state, custom duration, seek, terrain/layer setup, FreeCamera application, style switching and cleanup.
+- Manual validation needs a real restricted token and known short/long formats such as SaintéLyon and Diagonale des Fous to confirm terrain clearance, smooth turns, exact end state, both aspect ratios, attribution and visual alignment.
 
 ## Gotchas
 
@@ -98,7 +113,9 @@ Provider references:
 - Do not persist projected station coordinates. Their current source contract is `race_aid_stations.km` plus GPX geometry.
 - Do not remove provider attribution from the map or from any future captured output without explicit provider approval.
 - Do not put positioning utilities such as `absolute inset-0` on the element passed to `new mapboxgl.Map({ container })`. Mapbox adds `.mapboxgl-map { position: relative }`, and the production stylesheet order lets it override Tailwind, collapsing the container to 0px height and showing only the black viewer background. Position a wrapper and give the container `h-full w-full`.
-- Do not describe phase 1 as video generation. It produces no video artifact.
+- Do not mutate, thin or progressively slice the displayed GPX source. Camera samples are derived separately and route reveal uses `line-progress`.
+- Do not make rotation smoothing depend on the previous rendered frame. Seeking and future frame export require the same time to reproduce the same camera state.
+- Do not describe phase 2 as video generation. It produces no video artifact.
 
 ## Related Docs
 

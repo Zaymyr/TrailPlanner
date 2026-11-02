@@ -1,10 +1,12 @@
-import type { CameraOptions, Map as MapboxMap } from "mapbox-gl";
+import { MercatorCoordinate, type CameraOptions, type Map as MapboxMap } from "mapbox-gl";
 
 import type { VideoRouteBounds } from "../../../lib/video-generator";
+import type { CameraFrame } from "./route-animation";
 
 export const RESET_CAMERA_PITCH = 55;
 
 export type RouteCameraController = {
+  applyAnimationFrame: (frame: CameraFrame) => void;
   fitOverview: (duration?: number) => void;
   reset: (duration?: number) => void;
 };
@@ -28,6 +30,19 @@ export const createRouteCameraController = (
   map: MapboxMap,
   getBounds: () => VideoRouteBounds,
 ): RouteCameraController => ({
+  applyAnimationFrame: (frame) => {
+    const camera = map.getFreeCameraOptions();
+    camera.position = MercatorCoordinate.fromLngLat(
+      [frame.camera.lon, frame.camera.lat],
+      frame.camera.altitudeM,
+    );
+    camera.lookAtPoint(
+      [frame.target.lon, frame.target.lat],
+      [0, 0, 1],
+      frame.target.altitudeM,
+    );
+    map.setFreeCameraOptions(camera);
+  },
   fitOverview: (duration = 700) => {
     const camera = getCameraForBounds(map, getBounds());
     map.easeTo({

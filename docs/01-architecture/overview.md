@@ -51,6 +51,7 @@ The web app is a Next.js 14 app:
 - Supabase dependencies: `@supabase/supabase-js ^2.45.4`, `@supabase/ssr ^0.5.0`
 - Analytics dependencies: `posthog-js`, `posthog-node`, `@vercel/analytics`, `@vercel/speed-insights`
 - Admin 3D mapping: `mapbox-gl ^3.34.1`, loaded only by the protected video-generator route; existing Leaflet surfaces remain separate.
+- Admin 3D component tests: `@testing-library/react`, `@testing-library/user-event`, `@testing-library/dom`, and `jsdom` are development-only dependencies used for the video-generator controls and mocked Mapbox lifecycle; they are not shipped as runtime mapping code.
 - Resumable browser uploads: `tus-js-client ^4.3.1` for large temporary Organizer import documents sent directly to Supabase Storage.
 - Server PDF generation: `pdf-lib ^1.17.1` for automatic organizer invoices; it is not imported into client components.
 - Server image normalization: `sharp ^0.34.5` converts organizer and product uploads to bounded WebP assets before Supabase Storage receives them.
@@ -180,6 +181,7 @@ When docs and code disagree, use this order:
 - Keep the Vercel install command scoped to `@trailplanner/web`. An unscoped npm install from `apps/web` still resolves the monorepo root and installs unrelated mobile dependencies, increasing preview build time.
 - Keep large Organizer document uploads on the direct Storage TUS path; routing them through the Next.js deployment would reintroduce platform body-size limits.
 - Keep Mapbox GL JS route-local to `/admin/video-generator`; importing it into shared/public layouts would add WebGL and provider code to unrelated pages.
+- Keep jsdom opt-in at the individual browser-component test boundary. Pure route processing, camera math, and timeline-controller tests should remain in Vitest's faster Node environment.
 - `npm run verify` is the local/CI contract. Keep app-level scripts wired into Turbo instead of maintaining a separate undocumented command sequence.
 - Mobile lint plugins required by `eslint-config-expo` must be declared directly in the mobile workspace when the legacy ESLint resolver loads them from `apps/mobile`; a locally hoisted transitive plugin is not evidence that the clean CI install can resolve it.
 

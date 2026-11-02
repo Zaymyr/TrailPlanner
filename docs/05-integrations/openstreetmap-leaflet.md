@@ -37,7 +37,7 @@ This document records the lightweight mapping setup used for organizer GPX route
 
 ## Current Usage
 
-The admin-only `/admin/video-generator` is deliberately not a Leaflet extension: it uses Mapbox GL JS for satellite imagery, raster DEM terrain, pitch and bearing controls required by future camera work. This does not replace or modify any Leaflet surface documented below.
+The admin-only `/admin/video-generator` is deliberately not a Leaflet extension: it uses Mapbox GL JS for satellite imagery, raster DEM terrain, a deterministic FreeCamera route animation, and real 9:16/16:9 preview dimensions. Its Testing Library/jsdom dependencies are test-only. This does not replace or modify any Leaflet surface documented below.
 
 `apps/web/components/gpx/GpxRouteMap.tsx` is the reusable wrapper for organizer-facing GPX route maps.
 
@@ -71,6 +71,7 @@ The per-format `gpxDisplay.showRoute` preference may omit this mobile map from t
 - Keep the route preview and visible distance/D+/D- fields on the same normalized GPX response so the map/profile cannot describe a different import than the form.
 - The Organizer may move map-layout guidance behind hover/focus contextual help, but GPX availability, parse failures, and the rendered route state remain visible without hover.
 - If a future 2D screen needs editing or ordinary basemap controls, extend the shared Leaflet component. The separate Mapbox stack is justified only by the admin viewer's real 3D terrain and programmable-camera requirements.
+- Keep the Phase 2 animation engine, progressive Mapbox line gradient, and FreeCamera controls inside the admin viewer; none of them should become a dependency of public or Organizer Leaflet maps.
 - Never interpolate an unvalidated organizer color into the mobile WebView HTML.
 - Keep organizer-authored station names, services, cutoffs, and notes out of raw HTML interpolation; construct popup content with DOM text nodes and preserve accessible marker labels.
 - Do not interpret a hidden RaceBook route as permission to delete or stop validating the GPX geometry.

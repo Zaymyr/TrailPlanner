@@ -99,6 +99,7 @@ You modify `apps/web/lib/auth/session.ts`, which is referenced by `docs/04-auth-
 | Public race pages / SEO selections | `docs/03-business-rules/public-race-discovery.md` + `docs/02-database/tables/race-events.md` + `docs/02-database/tables/race-slug-redirects.md` + `docs/01-architecture/web-app.md` |
 | Race favorites / organizer runner notifications | `docs/02-database/tables/user-favorite-race-events.md` + `docs/02-database/tables/race-event-updates.md` + `docs/02-database/tables/race-event-update-reads.md` + `docs/03-business-rules/organizer-race-management.md` + `docs/01-architecture/mobile-app.md` |
 | Integration work (Stripe, Resend, Geocoding, Edge Functions) | `docs/05-integrations/` |
+| Admin Mapbox 3D video preview | `docs/05-integrations/mapbox-3d.md` + `docs/03-business-rules/gpx-import.md` + `docs/01-architecture/web-app.md` |
 | Admin 3D course viewer / Mapbox | `docs/05-integrations/mapbox-3d.md` + `docs/03-business-rules/gpx-import.md` + `docs/01-architecture/web-app.md` |
 | Booking / Decathlon partner links | `docs/05-integrations/affiliate-partner-links.md` + `docs/02-database/tables/partner-link-settings.md` |
 | Organizer LLM reconciliation | `docs/05-integrations/openai-organizer-import.md` + `docs/03-business-rules/organizer-race-management.md` + `docs/02-database/tables/organizer-import-sessions.md` |

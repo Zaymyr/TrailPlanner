@@ -154,9 +154,11 @@ export default function AdminVideoGeneratorPage() {
 
     return (
       <VideoGeneratorMap
+        key={detail.race.id}
         aidStations={detail.aidStations}
         bounds={detail.gpx.bounds}
         points={detail.gpx.points}
+        raceName={detail.race.name}
       />
     );
   };
@@ -176,7 +178,7 @@ export default function AdminVideoGeneratorPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand">Administration</p>
           <h1 className="mt-1 text-3xl font-semibold text-foreground">Générateur vidéo 3D</h1>
           <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-            Prévisualisez un parcours sur un terrain satellite 3D avant la future phase d’animation caméra.
+            Prévisualisez et animez automatiquement un parcours sur un terrain satellite 3D.
           </p>
         </div>
         <Link href="/admin" className="text-sm font-medium text-brand underline-offset-4 hover:underline">
@@ -253,13 +255,7 @@ export default function AdminVideoGeneratorPage() {
         </Card>
 
         <section className="flex min-h-[42rem] flex-col items-center rounded-lg border border-border bg-muted/30 p-4 shadow-lg shadow-[rgba(45,80,22,0.08)] sm:p-6">
-          <div className="mb-3 flex w-full max-w-md items-center justify-between gap-3 text-xs text-muted-foreground">
-            <span className="font-semibold uppercase tracking-[0.16em]">Aperçu Instagram 9:16</span>
-            <span className="tabular-nums">1080 × 1920</span>
-          </div>
-          <div className="aspect-[9/16] w-full max-w-md overflow-hidden rounded-[1.5rem] border-4 border-slate-900 bg-slate-950 shadow-2xl">
-            {renderMapContent()}
-          </div>
+          {renderMapContent()}
         </section>
       </div>
     </div>
@@ -285,7 +281,7 @@ function MapMessage({
   title: string;
 }) {
   return (
-    <div className="flex min-h-[34rem] h-full items-center justify-center bg-muted/30 p-8 text-center">
+    <div className="flex min-h-[34rem] h-full w-full items-center justify-center bg-muted/30 p-8 text-center">
       <div className="max-w-md">
         {loading ? <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-brand border-t-transparent" /> : null}
         <h2 className="text-lg font-semibold text-foreground">{title}</h2>

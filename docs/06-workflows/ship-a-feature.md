@@ -57,6 +57,7 @@ rg -n "<feature keyword>" apps packages supabase
 4. Make the smallest code/schema change that fits existing patterns.
 5. Update docs for any changed business rule, table, auth flow, integration, or workflow.
 6. Run targeted tests.
+   Browser-component tests may opt into jsdom per file and use Testing Library, while pure data processing, camera math, and injectable controller tests should stay in Vitest's default Node environment. Mock browser providers such as Mapbox at their public boundary and assert lifecycle cleanup as well as visible behavior.
 7. Run the repository verification gate before opening a pull request:
 
 ```bash

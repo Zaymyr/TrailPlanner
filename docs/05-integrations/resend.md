@@ -54,6 +54,7 @@ The repo has one checked-in Broadcast template and two server-side Resend Contac
 - The same REST helper sends an existing organizer account a transactional e-mail only after its direct membership assignment or reactivation succeeds. The message names the canonical event and links to `/sign-in?next=...`, whose validated internal destination is `/organizer?eventId=...`; this makes an e-mail opened in a browser without the original local session authenticate before entering the selected event. Newly created accounts receive the Supabase invitation instead and do not receive this second message. Its checked-in HTML reuses the production-launch visual language (logo, beige canvas, bordered white card, green responsive CTA, and fallback URL) while remaining a transactional message without a marketing unsubscribe link or a Resend Dashboard template dependency.
 - The web package also contains `tus-js-client` for Organizer Storage uploads, server-only `pdf-lib` for invoice PDFs, and server-only `sharp` for public thumbnail normalization; all are unrelated to Resend, which remains a direct REST integration without the Resend SDK.
 - The web package's route-local `mapbox-gl` dependency powers only the admin 3D viewer and does not change Resend Contacts, Broadcasts or transactional delivery.
+- The Testing Library and jsdom packages added for the admin 3D animation UI are development-only; they do not enter Resend routes, provider payloads, or the deployed e-mail integration.
 - The root npm version is pinned for reliable Turbo/CI workspace discovery. Its `docs:check` and `verify` quality gates do not add a Resend SDK or change the REST contract.
 - `apps/web/app/api/resend/contact/route.ts` exposes `POST /api/resend/contact` for the current authenticated user.
 - `apps/web/app/api/resend/contact/route.test.ts` covers anonymous-user skipping, identified-user syncing, and Resend failure handling.
@@ -145,6 +146,7 @@ For future Broadcast creation and dashboard draft updates, use [Resend Broadcast
 - Resend custom contact properties must exist in Resend before syncing them. Keep `includeProperties: false` unless those fields are created in Resend.
 - Resend can return `429` during large syncs. Keep the default request delay or run batches with `startPage`/`maxPages`.
 - Do not add a Resend dependency unless SDK-specific behavior is needed; current code uses REST through `fetch`.
+- Keep browser-component test dependencies out of `apps/web/lib/resend.ts` and its route tests; the Resend integration remains testable in the default Node environment.
 - Do not reuse the Organizer TUS upload client for email assets or contacts; Resend payloads continue through the bounded server-side REST helpers.
 - Supabase Auth invitation e-mail behavior remains separate from Resend Contact syncing and the existing-account assignment notice. Never send both invitation variants for the same direct assignment.
 - The organizer assignment notice is best-effort after membership persistence. Log a missing configuration or delivery failure without rolling back access that was already granted.
