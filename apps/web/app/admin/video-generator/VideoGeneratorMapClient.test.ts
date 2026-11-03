@@ -188,7 +188,7 @@ describe("VideoGeneratorMapClient", () => {
     act(() => flushAnimationFrames());
     act(() => map.emit("idle"));
 
-    expect(map.setTerrain).toHaveBeenCalledWith({ source: "video-terrain-dem", exaggeration: 1.3 });
+    expect(map.setTerrain).toHaveBeenCalledWith({ source: "video-terrain-dem", exaggeration: 1.8 });
     expect(map.sources.get("video-route")?.definition.lineMetrics).toBe(true);
     expect(map.layers.has("video-route-line")).toBe(true);
     expect(map.layers.has("video-route-line-reveal")).toBe(true);
@@ -196,7 +196,9 @@ describe("VideoGeneratorMapClient", () => {
     expect(map.setPaintProperty).toHaveBeenCalledWith("satellite", "raster-saturation", expect.any(Number));
     expect(map.setLayoutProperty).toHaveBeenCalledWith("road-label", "visibility", "none");
     expect(map.setFog).toHaveBeenCalled();
-    expect(map.addControl).toHaveBeenCalledOnce();
+    // No interactive attribution control: the attribution is burned into the overlay as text.
+    expect(map.addControl).not.toHaveBeenCalled();
+    expect(screen.getByText("© Mapbox © OpenStreetMap")).toBeTruthy();
     const progressMarker = mapboxMock.markers[0];
     expect(progressMarker.addTo).toHaveBeenCalledWith(map);
     const routeSetData = map.sources.get("video-route")?.setData;

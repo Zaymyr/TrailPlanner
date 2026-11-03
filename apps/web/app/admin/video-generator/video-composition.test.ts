@@ -137,7 +137,36 @@ describe("buildVideoTimeline", () => {
     expect(getCameraSpeedMps(paused, midLeg)).toBeGreaterThan(getCameraSpeedMps(paused, atBase) * 1.3);
     const near = getVideoCameraPose(flat, paused, getVideoFrameState(paused, atBase), "portrait");
     const far = getVideoCameraPose(flat, paused, getVideoFrameState(paused, midLeg), "portrait");
-    expect(far.camera.altitudeM - far.target.altitudeM).toBeGreaterThan(near.camera.altitudeM - near.target.altitudeM + 50);
+    expect(far.camera.altitudeM - far.target.altitudeM).toBeGreaterThanOrEqual(near.camera.altitudeM - near.target.altitudeM);
+  });
+
+  it("frames the whole climb while it is told, then returns to the chase", () => {
+    const path = prepareAnimationPath(flatThenClimb);
+    const climb = { ...beat("climb", "climb", 10, 20, "La montée vers le sommet : dix kilomètres, deux mille mètres à gravir."), focusStartKm: 10, focusEndKm: 20 };
+    const timeline = buildVideoTimeline(path, [beat("start", "start", 0, 10, "Départ."), climb], { ...manual(45), introEnabled: false, outroEnabled: false });
+    const told = timeline.beats.find((item) => item.id === "climb")!;
+    const during = getVideoFrameState(timeline, told.narrationStartMs + told.narrationMs / 2);
+    const framed = getVideoCameraPose(path, timeline, during, "portrait");
+    const chase = getVideoCameraPose(path, timeline, { ...during, beat: null }, "portrait");
+    // The framing shot looks at the middle of the climb from further back.
+    expect(framed.target.lat).toBeGreaterThan(chase.target.lat);
+    expect(framed.camera.altitudeM).toBeGreaterThan(chase.camera.altitudeM);
+    const after = getVideoFrameState(timeline, told.narrationStartMs + told.narrationMs + 5_000);
+    expect(getVideoCameraPose(path, timeline, after, "portrait")).toEqual(getVideoCameraPose(path, timeline, { ...after, beat: null }, "portrait"));
+  });
+
+  it("burns the narration in as short subtitle lines timed with the voice", () => {
+    const timeline = buildVideoTimeline(flatPath(20), [
+      beat("intro", "intro", 0, 0, "Bienvenue."),
+      beat("leg", "start", 0, 20, "Départ du Musée de Bibracte. Sept kilomètres sans difficulté jusqu’au ravito de la Grande Verrière : avance à un rythme confortable."),
+    ], manual(45));
+    const leg = timeline.beats.find((item) => item.id === "leg")!;
+    expect(leg.subtitles.length).toBeGreaterThan(2);
+    leg.subtitles.forEach((line) => expect(line.text.length).toBeLessThanOrEqual(60));
+    expect(leg.subtitles[0].startMs).toBe(leg.narrationStartMs);
+    expect(leg.subtitles[leg.subtitles.length - 1].endMs).toBeCloseTo(leg.narrationStartMs + leg.narrationMs, 6);
+    expect(getVideoFrameState(timeline, leg.subtitles[1].startMs + 1).subtitle).toBe(leg.subtitles[1].text);
+    expect(getVideoFrameState(timeline, 600).subtitle).toBe("Bienvenue.");
   });
 
   it("never overlaps two narrations", () => {

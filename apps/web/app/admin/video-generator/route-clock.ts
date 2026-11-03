@@ -172,13 +172,31 @@ export const getSunPosition = (utcMs: number, lat: number, lon: number) => {
 export const getDaylightAt = (clock: RaceClock, distanceKm: number): Daylight => {
   const utcMs = clock.startUtcMs + getElapsedMinutes(clock, distanceKm) * 60_000;
   const { elevationDeg, azimuthDeg } = getSunPosition(utcMs, clock.lat, clock.lon);
-  const level = smoothstep(-9, 5, elevationDeg);
+  // Wide twilight band: from deep night (sun 16° below) to full day (10° above).
+  const level = smoothstep(-16, 10, elevationDeg);
   return {
     minutesOfDay: (utcMs / 60_000 + getTimeZoneOffsetMinutes(utcMs)) % 1_440,
     level,
-    warmth: clamp(1 - Math.abs(elevationDeg + 1) / 8, 0, 1),
+    warmth: clamp(1 - Math.abs(elevationDeg + 2) / 12, 0, 1),
     sunAzimuthDeg: azimuthDeg,
     isNight: level < 0.2,
     isMorning: azimuthDeg < 180,
   };
+};
+
+/**
+ * Daylight averaged over a stretch of route around the runner (±8 % of the distance), so the
+ * video fades between night, dawn, day and dusk slowly instead of switching within seconds of a
+ * fast flyover. The clock shown stays the estimate at the runner.
+ */
+export const getSmoothedDaylightAt = (clock: RaceClock, distanceKm: number): Daylight => {
+  const totalKm = clock.distancesKm[clock.distancesKm.length - 1] ?? 0;
+  const center = getDaylightAt(clock, distanceKm);
+  const windowKm = totalKm * 0.08;
+  if (windowKm <= 0) return center;
+  const samples = [-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1]
+    .map((offset) => getDaylightAt(clock, clamp(distanceKm + offset * windowKm, 0, totalKm)));
+  const level = samples.reduce((sum, sample) => sum + sample.level, 0) / samples.length;
+  const warmth = samples.reduce((sum, sample) => sum + sample.warmth, 0) / samples.length;
+  return { ...center, level, warmth, isNight: level < 0.2 };
 };

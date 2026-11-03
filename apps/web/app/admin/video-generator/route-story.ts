@@ -50,6 +50,9 @@ export type StoryBeat = {
   narration: string;
   /** Extra hold at the start of the beat (a stop at a life base or aid station). */
   pauseMs?: number;
+  /** The slope this beat talks about (a whole climb from its foot to its top), framed and highlighted on the map. */
+  focusStartKm?: number;
+  focusEndKm?: number;
 };
 
 export type StoryRaceInfo = {
@@ -291,12 +294,20 @@ export const buildStoryBeats = (
     passing: VideoAidStation[];
     kind: StoryBeatKind;
     summit: string | null;
+    focus: RouteSlope | null;
   };
   const legs: Leg[] = bounds.slice(0, -1).map((startKm, index) => {
     const endKm = bounds[index + 1];
     const { gain, loss } = elevationChange(path, startKm, endKm);
     const lengthKm = endKm - startKm;
-    const climb = climbAt(startKm);
+    // The slope overlapping the leg the most, so a climb is framed and highlighted from its foot
+    // to its top even when the leg was cut at a station or the top was not a cut.
+    const mostOverlapping = (kind: RouteSlope["kind"]) => slopes
+      .filter((slope) => slope.kind === kind)
+      .map((slope) => ({ slope, overlap: Math.min(endKm, slope.endKm) - Math.max(startKm, slope.startKm) }))
+      .filter((entry) => entry.overlap > 0)
+      .sort((left, right) => right.overlap - left.overlap)[0]?.slope ?? null;
+    const climb = climbAt(startKm) ?? undefined;
     const station = index === 0 ? undefined : stationAt(startKm);
     const isClimb = Boolean(climb) || (gain >= 150 && gain / (lengthKm * 1_000) >= 0.05);
     const isDescent = !isClimb && loss >= 150 && loss / (lengthKm * 1_000) >= 0.04;
@@ -317,9 +328,13 @@ export const buildStoryBeats = (
       passing: stations.filter((candidate) => candidate.distanceKm > startKm + 0.05 && candidate.distanceKm < endKm - 0.05
         && !cuts.some((cut) => cut.station?.id === candidate.id)),
       kind,
-      summit: climb ? landmarks[getSlopeId(climb)] ?? null : null,
+      summit: null as string | null,
+      focus: kind === "climb" ? climb ?? mostOverlapping("climb") : kind === "descent" ? mostOverlapping("descent") : null,
     };
-  });
+  }).map((leg) => ({
+    ...leg,
+    summit: leg.kind === "climb" && leg.focus ? landmarks[getSlopeId(leg.focus)] ?? null : null,
+  }));
 
   let climbCount = 0;
   const routeBeats = legs.map((leg, index): StoryBeat => {
@@ -336,7 +351,11 @@ export const buildStoryBeats = (
     if (leg.kind === "climb") {
       climbCount += 1;
       const name = leg.summit ? `la montée vers ${leg.summit}` : climbCount === 1 ? "la première grosse montée" : "une nouvelle montée";
-      parts.push(`${name.charAt(0).toUpperCase()}${name.slice(1)} : ${formatKm(lengthKm)} kilomètres à ${formatPercent(grade)} pour cent, ${formatNumber(leg.gain)} mètres à gravir. Prends ton temps.`);
+      // The whole climb, foot to top, even when the leg is cut differently.
+      const climbKm = leg.focus ? leg.focus.endKm - leg.focus.startKm : lengthKm;
+      const climbGain = leg.focus ? leg.focus.elevationM : leg.gain;
+      const climbGrade = leg.focus ? leg.focus.averageGrade : grade;
+      parts.push(`${name.charAt(0).toUpperCase()}${name.slice(1)} : ${formatKm(climbKm)} kilomètres à ${formatPercent(climbGrade)} pour cent, ${formatNumber(climbGain)} mètres à gravir. Prends ton temps.`);
     } else if (leg.kind === "descent") {
       parts.push(`On bascule dans la descente : ${formatNumber(leg.loss)} mètres à perdre sur ${formatKm(lengthKm)} kilomètres.`);
     } else {
@@ -377,6 +396,8 @@ export const buildStoryBeats = (
       cutoffTime: leg.station?.cutoffTime ?? null,
       narration: parts.join(" "),
       pauseMs: leg.station ? (leg.station.isLifeBase ? LIFE_BASE_PAUSE_MS : AID_PAUSE_MS) : 0,
+      focusStartKm: leg.focus ? leg.focus.startKm : leg.kind === "flat" ? leg.startKm : undefined,
+      focusEndKm: leg.focus ? leg.focus.endKm : leg.kind === "flat" ? leg.endKm : undefined,
     };
   });
 

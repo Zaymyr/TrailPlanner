@@ -38,7 +38,8 @@ const INFORMATION_TOGGLES: Array<[BooleanSettingKey, string]> = [
   ["showElevation", "Dénivelé"],
   ["showStartInfo", "Départ (lieu, heure)"],
   ["showAidStations", "Ravitaillements"],
-  ["showCaptions", "Sous-titres"],
+  ["showSubtitles", "Sous-titres (voix)"],
+  ["showCaptions", "Encart du tronçon"],
   ["showProfile", "Profil altimétrique"],
   ["showCurrentKm", "Kilomètre en cours"],
 ];
@@ -195,7 +196,7 @@ export function CompositionSettingsPanel({
             type="range"
             className="w-full accent-brand"
             min={1}
-            max={2.5}
+            max={3}
             step={0.05}
             value={settings.terrainExaggeration}
             onChange={(event) => update("terrainExaggeration", Number(event.target.value))}

@@ -92,9 +92,11 @@ const EMPTY_FEATURES = { type: "FeatureCollection", features: [] } as const;
 const IDLE_ACTION: AsyncActionState = { status: "idle", message: null };
 
 const buildSegmentGeoJson = (path: PreparedAnimationPath, beat: ScheduledBeat | null) => {
-  if (!beat || (beat.kind !== "climb" && beat.kind !== "descent" && beat.kind !== "flat")) return EMPTY_FEATURES;
+  // The narrated slope itself (a whole climb, foot to top), not just the leg the story is on.
+  if (!beat || beat.focusStartKm === undefined || beat.focusEndKm === undefined) return EMPTY_FEATURES;
+  const { focusStartKm, focusEndKm } = beat;
   const coordinates = path.samples
-    .filter((sample) => sample.distanceKm >= beat.startKm && sample.distanceKm <= beat.endKm)
+    .filter((sample) => sample.distanceKm >= focusStartKm && sample.distanceKm <= focusEndKm)
     .map((sample) => [sample.lon, sample.lat]);
   if (coordinates.length < 2) return EMPTY_FEATURES;
   return {
@@ -211,8 +213,8 @@ const syncMapData = (
       paint: {
         // A wide halo in the route colour reads on the light brand map and on satellite imagery alike.
         "line-color": settings.routeColor,
-        "line-opacity": 0.45,
-        "line-width": ["interpolate", ["linear"], ["zoom"], 5, 12, 13, 26],
+        "line-opacity": 0.6,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 5, 14, 13, 32],
         "line-blur": 3,
         "line-emissive-strength": 1,
       },
@@ -432,7 +434,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     progressMarkerRef.current?.setLngLat([routePoint.lon, routePoint.lat]);
     if (frame.daylight) {
       const { level, warmth, sunAzimuthDeg } = frame.daylight;
-      const key = `${Math.round(level * 25)}|${Math.round(warmth * 10)}|${Math.round(sunAzimuthDeg / 10)}`;
+      const key = `${Math.round(level * 50)}|${Math.round(warmth * 20)}|${Math.round(sunAzimuthDeg / 10)}`;
       if (key !== daylightKeyRef.current) {
         daylightKeyRef.current = key;
         applyDaylight(map, settingsRef.current, frame.daylight, appearanceStateRef.current, OWN_LAYER_IDS);
@@ -641,7 +643,8 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       bearing: 0,
       projection: "mercator",
       antialias: true,
-      // Mapbox terms require the logo and attribution; keep them compact and away from the overlay.
+      // Mapbox terms require the logo and attribution. The logo stays on the map; the attribution is
+      // burned into the overlay as legible text instead of the interactive "i" control.
       attributionControl: false,
       logoPosition: "bottom-right",
     });
@@ -652,7 +655,6 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       onFrame: applyAnimationTime,
       onSnapshot: setSnapshot,
     });
-    map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-right");
     const resizeController = observeMapSize(map, containerRef.current);
     resizeRef.current = resizeController;
     const firstPoint = preparedPathRef.current.samples[0];

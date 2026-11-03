@@ -113,7 +113,7 @@ const getCaptionTitle = (beat: ScheduledBeat) => {
  * Lower-third caption of the narrated moment: fixed above the profile so it stays readable
  * whatever the route does, and in sync with the voice-over.
  */
-function StoryCaption({ accent, beat, timeMs }: { accent: string; beat: ScheduledBeat; timeMs: number }) {
+function StoryCaption({ accent, beat, timeMs, top }: { accent: string; beat: ScheduledBeat; timeMs: number; top: string }) {
   const appear = Math.max(0, Math.min(1, (timeMs - beat.startMs) / FADE_MS, (beat.endMs - timeMs) / FADE_MS));
   const title = getCaptionTitle(beat);
   return (
@@ -122,8 +122,8 @@ function StoryCaption({ accent, beat, timeMs }: { accent: string; beat: Schedule
       style={{
         left: "4cqmin",
         right: "4cqmin",
-        bottom: "14cqmin",
-        padding: "2cqmin 3cqmin",
+        top,
+        padding: "1.4cqmin 2.4cqmin",
         borderLeft: `1.2cqmin solid ${accent}`,
         opacity: appear,
         transform: `translateY(${(1 - appear) * 3}cqmin)`,
@@ -169,6 +169,9 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, frameStore, gra
   const chromeOpacity = isIntro ? 1 - introOpacity : isOutro ? 1 - outroOpacity : 1;
   const accent = settings.accentColor;
   const hasHeader = settings.showTitle || Boolean(stats);
+  const hasProfileBand = settings.showProfile || settings.showCurrentKm;
+  // The leg card sits under the profile band so the bottom stays free for the subtitles.
+  const captionTop = hasProfileBand ? (hasHeader ? "47cqmin" : "35cqmin") : hasHeader ? "16cqmin" : "4cqmin";
   // The accent is a background, never text on the dark gradients, so a dark brand green stays legible.
   const accentPill = { background: accent, color: "#ffffff", padding: "0.6cqmin 2.2cqmin", textShadow: "none" };
 
@@ -185,8 +188,8 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, frameStore, gra
           on top of the map but under the composition, so it works with any basemap. */}
       {frame.daylight ? (
         <>
-          <div className="absolute inset-0" style={{ background: "#16224d", mixBlendMode: "multiply", opacity: (1 - frame.daylight.level) * 0.6 }} />
-          <div className="absolute inset-0" style={{ background: "#ff8a3d", mixBlendMode: "soft-light", opacity: frame.daylight.warmth * 0.4 }} />
+          <div className="absolute inset-0" style={{ background: "#16224d", mixBlendMode: "multiply", opacity: (1 - frame.daylight.level) * 0.32 }} />
+          <div className="absolute inset-0" style={{ background: "#ff8a3d", mixBlendMode: "soft-light", opacity: frame.daylight.warmth * 0.3 }} />
         </>
       ) : null}
 
@@ -206,7 +209,22 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, frameStore, gra
         </header>
       ) : null}
 
-      {settings.showCaptions && frame.beat ? <StoryCaption accent={accent} beat={frame.beat} timeMs={frame.timeMs} /> : null}
+      {settings.showCaptions && frame.beat ? <StoryCaption accent={accent} beat={frame.beat} timeMs={frame.timeMs} top={captionTop} /> : null}
+
+      {/* Burned-in subtitles of the voice-over, low in the frame above the footer. */}
+      {settings.showSubtitles && frame.subtitle ? (
+        <p
+          className="absolute text-center font-bold leading-snug"
+          style={{ left: "6cqmin", right: "6cqmin", bottom: "15cqmin", fontSize: "4.2cqmin", textShadow: "none" }}
+        >
+          <span className="rounded-[1.2cqmin] bg-black/60" style={{ padding: "0.6cqmin 1.6cqmin", boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone" }}>
+            {frame.subtitle}
+          </span>
+        </p>
+      ) : null}
+
+      {/* Mapbox attribution as legible text; the Mapbox logo stays on the map itself. */}
+      <p className="absolute text-white/75" style={{ right: "2cqmin", bottom: "7cqmin", fontSize: "1.9cqmin" }}>© Mapbox © OpenStreetMap</p>
 
       {settings.showProfile || settings.showCurrentKm ? (
         <section className="absolute" style={{ left: "4cqmin", right: "4cqmin", top: hasHeader ? "16cqmin" : "4cqmin", opacity: chromeOpacity }}>

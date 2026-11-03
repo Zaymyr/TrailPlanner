@@ -151,7 +151,8 @@ export const applyMapAppearance = (
   map.setFog(ambiance.fog);
 };
 
-const NIGHT_FOG = { color: "#0e1628", highColor: "#060b1a", spaceColor: "#01030a" };
+// A blue night rather than black: the route and relief must stay readable.
+const NIGHT_FOG = { color: "#2a3a5e", highColor: "#16244a", spaceColor: "#0a1430" };
 const DUSK_FOG = { color: "#f2b27c", highColor: "#b5583a" };
 
 const mixHex = (from: string, to: string, t: number) => {
@@ -185,11 +186,11 @@ export const applyDaylight = (
     color: mixHex(mixHex(NIGHT_FOG.color, dayColor, daylight.level), DUSK_FOG.color, warm),
     "high-color": mixHex(mixHex(NIGHT_FOG.highColor, dayHigh, daylight.level), DUSK_FOG.highColor, warm),
     "space-color": mixHex(NIGHT_FOG.spaceColor, daySpace, daylight.level),
-    "star-intensity": Math.max(0, 0.6 * (1 - daylight.level * 1.6)),
+    "star-intensity": Math.max(0, 0.35 * (1 - daylight.level * 1.6)),
   });
   (map.getStyle()?.layers ?? []).forEach((layer) => {
     if (layer.type !== "raster" || ownLayerIds.has(layer.id)) return;
-    map.setPaintProperty(layer.id, "raster-brightness-max", 0.3 + (ambiance.raster.brightnessMax - 0.3) * daylight.level);
+    map.setPaintProperty(layer.id, "raster-brightness-max", 0.6 + (ambiance.raster.brightnessMax - 0.6) * daylight.level);
   });
   state.hillshadeLayerIds.forEach((layerId) => {
     if (map.getLayer(layerId)) map.setPaintProperty(layerId, "hillshade-illumination-direction", Math.round(daylight.sunAzimuthDeg) % 360);

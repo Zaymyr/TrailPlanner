@@ -274,9 +274,10 @@ export const getChaseCameraPose = (
 ): CameraPose => {
   const portrait = viewport === "portrait";
   const target = getRoutePointAtDistance(path, distanceKm);
-  // Slow narrated moments come close (600 m); fast transits pull back up to 6 km to stay readable.
-  const backDistanceM = clamp(speedMps * 1.1, 600, 6_000) * (portrait ? 1.2 : 1);
-  const headingWindowKm = clamp(speedMps * 1.2, 500, 6_000) / 1_000;
+  // Far enough to read the section around the runner (1.4 km at the slowest), pulled back up to
+  // 9 km on fast transits.
+  const backDistanceM = clamp(speedMps * 1.6, 1_400, 9_000) * (portrait ? 1.25 : 1);
+  const headingWindowKm = clamp(speedMps * 1.5, 800, 8_000) / 1_000;
   const heading = getRouteHeading(path, distanceKm, headingWindowKm);
   const cameraGround = offsetPosition(target, -heading.east * backDistanceM, -heading.north * backDistanceM);
   const heightM = backDistanceM * Math.tan(CHASE_ELEVATION_ANGLE_RAD);
@@ -344,3 +345,67 @@ export const interpolateCameraPose = (from: CameraPose, to: CameraPose, ratio: n
   camera: interpolatePosition(from.camera, to.camera, ratio),
   target: interpolatePosition(from.target, to.target, ratio),
 });
+
+const FRAMING_ELEVATION_ANGLE_RAD = (36 * Math.PI) / 180;
+
+/**
+ * Frames a whole slope (a climb from its foot to its top): the camera looks along the slope from
+ * behind its foot, far enough back for both ends and the high point to fit, so the narrated climb
+ * is seen entirely. Pure function of the slope, so seeking stays exact.
+ */
+export const getSegmentFramingPose = (
+  path: PreparedAnimationPath,
+  startKm: number,
+  endKm: number,
+  viewport: AnimationViewport = "portrait",
+  terrainExaggeration = TERRAIN_EXAGGERATION,
+): CameraPose => {
+  const portrait = viewport === "portrait";
+  const start = getRoutePointAtDistance(path, startKm);
+  const end = getRoutePointAtDistance(path, endKm);
+  const middle = getRoutePointAtDistance(path, (startKm + endKm) / 2);
+  const steps = 24;
+  let maxElevationM = -Infinity;
+  let minLat = Infinity;
+  let maxLat = -Infinity;
+  let minLon = Infinity;
+  let maxLon = -Infinity;
+  for (let step = 0; step <= steps; step += 1) {
+    const point = getRoutePointAtDistance(path, startKm + ((endKm - startKm) * step) / steps);
+    maxElevationM = Math.max(maxElevationM, point.elevationM);
+    minLat = Math.min(minLat, point.lat);
+    maxLat = Math.max(maxLat, point.lat);
+    minLon = Math.min(minLon, point.lon);
+    maxLon = Math.max(maxLon, point.lon);
+  }
+  const center = { lat: (minLat + maxLat) / 2, lon: (minLon + maxLon) / 2 };
+  const spanM = Math.hypot(
+    (maxLat - minLat) * METERS_PER_DEGREE_LAT,
+    (maxLon - minLon) * metersPerDegreeLon(center.lat),
+  );
+  // Look along the slope, from its foot toward its top.
+  let east = (end.lon - start.lon) * metersPerDegreeLon(center.lat);
+  let north = (end.lat - start.lat) * METERS_PER_DEGREE_LAT;
+  const length = Math.hypot(east, north);
+  if (length < 1) {
+    const heading = getRouteHeading(path, (startKm + endKm) / 2, 1);
+    east = heading.east;
+    north = heading.north;
+  } else {
+    east /= length;
+    north /= length;
+  }
+  const backDistanceM = clamp(spanM * (portrait ? 1.35 : 1.05), 1_800, 14_000);
+  const cameraGround = offsetPosition(center, -east * backDistanceM, -north * backDistanceM);
+  const targetAltitudeM = ((middle.elevationM + maxElevationM) / 2) * terrainExaggeration;
+  return {
+    camera: {
+      ...cameraGround,
+      altitudeM: Math.max(
+        targetAltitudeM + backDistanceM * Math.tan(FRAMING_ELEVATION_ANGLE_RAD),
+        maxElevationM * terrainExaggeration + MIN_TERRAIN_CLEARANCE_M,
+      ),
+    },
+    target: { lat: center.lat, lon: center.lon, altitudeM: targetAltitudeM },
+  };
+};

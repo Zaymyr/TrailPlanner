@@ -5,12 +5,13 @@ import {
   getChaseCameraPose,
   getOverviewCameraPose,
   getRoutePointAtDistance,
+  getSegmentFramingPose,
   interpolateCameraPose,
   type AnimationViewport,
   type CameraPose,
   type PreparedAnimationPath,
 } from "./route-animation";
-import { getDaylightAt, type Daylight, type RaceClock } from "./route-clock";
+import { getSmoothedDaylightAt, type Daylight, type RaceClock } from "./route-clock";
 import { estimateNarrationMs, getAutoDurationSeconds, MAX_VIDEO_SECONDS, type StoryBeat } from "./route-story";
 
 export { AID_SERVICES, getAidStationServices, type AidService } from "./route-story";
@@ -50,7 +51,7 @@ export const videoCompositionSettingsSchema = z.object({
   hideMapLabels: z.boolean().default(true),
   showPeaks: z.boolean().default(true),
   dayNight: z.boolean().default(true),
-  terrainExaggeration: z.number().min(1).max(2.5).default(1.3),
+  terrainExaggeration: z.number().min(1).max(3).default(1.8),
   routeWidth: z.enum(["normal", "bold"]).default("normal"),
   routeGlow: z.boolean().default(false),
   showTitle: z.boolean().default(true),
@@ -59,6 +60,7 @@ export const videoCompositionSettingsSchema = z.object({
   showStartInfo: z.boolean().default(true),
   showAidStations: z.boolean().default(true),
   showCaptions: z.boolean().default(true),
+  showSubtitles: z.boolean().default(true),
   showProfile: z.boolean().default(true),
   profileMode: z.enum(["window", "full"]).default("window"),
   showCurrentKm: z.boolean().default(true),
@@ -85,6 +87,44 @@ export type ScheduledBeat = StoryBeat & {
   endMs: number;
   narrationStartMs: number;
   narrationMs: number;
+  /** Burned-in subtitle lines of the narration, timed in proportion to their length. */
+  subtitles: SubtitleLine[];
+};
+
+export type SubtitleLine = { text: string; startMs: number; endMs: number };
+
+const SUBTITLE_MAX_CHARS = 60;
+
+/** Splits a narration into short lines: by sentence, then by words when a sentence is too long. */
+export const splitSubtitleText = (text: string, maxChars = SUBTITLE_MAX_CHARS) => {
+  const sentences = text.replace(/s+/g, " ").trim().split(/(?<=[.!?…:;])s+/).filter(Boolean);
+  return sentences.flatMap((sentence) => {
+    if (sentence.length <= maxChars) return [sentence];
+    const lines: string[] = [];
+    let line = "";
+    sentence.split(" ").forEach((word) => {
+      if (line && line.length + word.length + 1 > maxChars) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = line ? `${line} ${word}` : word;
+      }
+    });
+    if (line) lines.push(line);
+    return lines;
+  });
+};
+
+const timeSubtitles = (text: string, startMs: number, durationMs: number): SubtitleLine[] => {
+  const lines = splitSubtitleText(text);
+  const totalChars = lines.reduce((sum, line) => sum + line.length, 0);
+  let cursor = startMs;
+  return lines.map((line) => {
+    const lineMs = totalChars > 0 ? (durationMs * line.length) / totalChars : 0;
+    const entry = { text: line, startMs: cursor, endMs: cursor + lineMs };
+    cursor += lineMs;
+    return entry;
+  });
 };
 
 export type VideoTimeline = {
@@ -113,6 +153,8 @@ export type VideoFrameState = {
   routeProgress: number;
   /** Route beat whose caption is on screen. */
   beat: ScheduledBeat | null;
+  /** Subtitle line of the narration being spoken. */
+  subtitle: string | null;
   daylight: Daylight | null;
 };
 
@@ -292,7 +334,8 @@ export const buildVideoTimeline = (
   const flyoverEndMs = introMs + flyoverMs;
   const scheduled: ScheduledBeat[] = [];
   if (introBeat && introMs > 0) {
-    scheduled.push({ ...introBeat, startMs: 0, endMs: introMs, narrationStartMs: NARRATION_GAP_MS, narrationMs: getNarrationMs(introBeat, durations) });
+    const narrationMs = getNarrationMs(introBeat, durations);
+    scheduled.push({ ...introBeat, startMs: 0, endMs: introMs, narrationStartMs: NARRATION_GAP_MS, narrationMs, subtitles: timeSubtitles(introBeat.narration, NARRATION_GAP_MS, narrationMs) });
   }
   let voiceFreeAtMs = introMs;
   routeBeats.forEach((beat, index) => {
@@ -304,15 +347,25 @@ export const buildVideoTimeline = (
     // The caption stays while the voice speaks, without covering the next moment.
     const endMs = Math.min(Math.max(msAtDistance(beat.endKm), narrationStartMs + narrationMs, startMs + MIN_CAPTION_MS), Math.max(nextStartMs, startMs + MIN_CAPTION_MS), flyoverEndMs);
     // The caption appears with the voice, which may start just before the camera reaches the point.
-    scheduled.push({ ...beat, startMs: Math.min(startMs, narrationStartMs), endMs, narrationStartMs, narrationMs });
+    scheduled.push({
+      ...beat,
+      startMs: Math.min(startMs, narrationStartMs),
+      endMs,
+      narrationStartMs,
+      narrationMs,
+      subtitles: timeSubtitles(beat.narration, narrationStartMs, narrationMs),
+    });
   });
   if (outroBeat && outroMs > 0) {
+    const narrationStartMs = Math.max(flyoverEndMs + NARRATION_GAP_MS, voiceFreeAtMs);
+    const narrationMs = getNarrationMs(outroBeat, durations);
     scheduled.push({
       ...outroBeat,
       startMs: flyoverEndMs,
       endMs: timeline.totalMs,
-      narrationStartMs: Math.max(flyoverEndMs + NARRATION_GAP_MS, voiceFreeAtMs),
-      narrationMs: getNarrationMs(outroBeat, durations),
+      narrationStartMs,
+      narrationMs,
+      subtitles: timeSubtitles(outroBeat.narration, narrationStartMs, narrationMs),
     });
   }
   timeline.beats = scheduled;
@@ -354,15 +407,24 @@ export const getVideoFrameState = (timeline: VideoTimeline, requestedTimeMs: num
     ? timeline.beats.find((candidate) =>
       candidate.kind !== "intro" && candidate.kind !== "outro" && timeMs >= candidate.startMs && timeMs < candidate.endMs) ?? null
     : null;
+  let subtitle: string | null = null;
+  for (const candidate of timeline.beats) {
+    const line = candidate.subtitles.find((entry) => timeMs >= entry.startMs && timeMs < entry.endMs);
+    if (line) {
+      subtitle = line.text;
+      break;
+    }
+  }
 
   return {
     timeMs,
     phase,
     phaseProgress,
     distanceKm,
-    daylight: timeline.clock ? getDaylightAt(timeline.clock, distanceKm) : null,
+    daylight: timeline.clock ? getSmoothedDaylightAt(timeline.clock, distanceKm) : null,
     routeProgress: timeline.totalDistanceKm > 0 ? clamp(distanceKm / timeline.totalDistanceKm, 0, 1) : 0,
     beat,
+    subtitle,
   };
 };
 
@@ -480,6 +542,9 @@ const OUTRO_GLIDE_RATIO = 0.6;
 
 /** Intro holds the overview then glides to the start; the outro glides back and holds. */
 const CAMERA_SPEED_WINDOW_MS = 2_000;
+const FRAMING_RAMP_IN_MS = 1_500;
+const FRAMING_HOLD_AFTER_MS = 1_200;
+const FRAMING_RAMP_OUT_MS = 2_000;
 
 /**
  * On-screen ground speed around a moment, over a ±2 s window so the camera distance breathes
@@ -507,7 +572,19 @@ export const getVideoCameraPose = (
 ): CameraPose => {
   const exaggeration = timeline.terrainExaggeration;
   const chase = getChaseCameraPose(path, frame.distanceKm, getCameraSpeedMps(timeline, frame.timeMs), viewport, exaggeration);
-  if (frame.phase === "flyover") return chase;
+  if (frame.phase === "flyover") {
+    const beat = frame.beat;
+    if (!beat || (beat.kind !== "climb" && beat.kind !== "descent") || beat.focusStartKm === undefined || beat.focusEndKm === undefined) {
+      return chase;
+    }
+    // While a climb or descent is told, glide to a shot showing it whole, then back to the chase.
+    const rampIn = (frame.timeMs - beat.narrationStartMs) / FRAMING_RAMP_IN_MS;
+    const rampOut = (beat.narrationStartMs + beat.narrationMs + FRAMING_HOLD_AFTER_MS - frame.timeMs) / FRAMING_RAMP_OUT_MS;
+    const weight = easeInOut(clamp(Math.min(rampIn, rampOut), 0, 1));
+    if (weight <= 0) return chase;
+    const framing = getSegmentFramingPose(path, beat.focusStartKm, beat.focusEndKm, viewport, exaggeration);
+    return interpolateCameraPose(chase, framing, weight);
+  }
   const overview = getOverviewCameraPose(path, viewport, exaggeration);
   if (frame.phase === "intro") {
     return interpolateCameraPose(
