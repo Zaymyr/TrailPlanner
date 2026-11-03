@@ -84,6 +84,10 @@ Docs conventions are in [_conventions.md](_conventions.md).
 - [runner_launch_cohorts](02-database/tables/runner-launch-cohorts.md)
 - [Runner Support Purchase Tables](02-database/tables/runner-support-purchases.md)
 - [partner_link_settings](02-database/tables/partner-link-settings.md)
+- [racebook_publication_states](02-database/tables/racebook-publication-states.md)
+- [racebook_publications](02-database/tables/racebook-publications.md)
+- [racebook_publication_assets](02-database/tables/racebook-publication-assets.md)
+- [racebook_publication_asset_cleanup_queue](02-database/tables/racebook-publication-asset-cleanup-queue.md)
 
 ### 03 Business Rules
 

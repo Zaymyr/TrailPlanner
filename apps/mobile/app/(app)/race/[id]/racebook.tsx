@@ -66,7 +66,13 @@ import { RacebookElevationProfile } from '../../../../components/racebook/Racebo
 import { Colors } from '../../../../constants/colors';
 import type { MobileGpxPreviewPoint } from '../../../../lib/gpx';
 import { useI18n } from '../../../../lib/i18n';
-import { clearRaceProfileRequestCache, fetchRaceElevationProfile, fetchRaceRoutePreviewPoints, pickBestElevationProfile } from '../../../../lib/raceProfile';
+import {
+  clearRaceProfileRequestCache,
+  fetchPublishedRacebookElevationProfile,
+  fetchPublishedRacebookRoutePreviewPoints,
+  fetchRaceElevationProfile,
+  pickBestElevationProfile,
+} from '../../../../lib/raceProfile';
 import { elevationProfileFromRoute } from '../../../../lib/racebookCourseVisuals';
 import { approximateDistanceKm, fetchRaceRacebookData, type RacebookScreenData } from '../../../../lib/racebook';
 import { fetchPartnerLinks, type ResolvedPartnerLink } from '../../../../lib/partnerLinks';
@@ -998,10 +1004,11 @@ export default function RaceRacebookScreen() {
       setLoadingExitDone(false);
     }
 
+    const racebookDataRequest = fetchRaceRacebookData(id);
     Promise.all([
-      fetchRaceRacebookData(id),
-      fetchRaceElevationProfile(id),
-      fetchRaceRoutePreviewPoints(id),
+      racebookDataRequest,
+      fetchPublishedRacebookElevationProfile(id),
+      fetchPublishedRacebookRoutePreviewPoints(id),
       fetchPartnerLinks(),
     ])
       .then(([
@@ -1034,7 +1041,8 @@ export default function RaceRacebookScreen() {
         }
       });
 
-    fetchRacebookSponsors(id)
+    racebookDataRequest
+      .then((result) => fetchRacebookSponsors(id, result?.publicationId))
       .then(async (presentation) => {
         if (cancelled) return;
 
@@ -1095,8 +1103,8 @@ export default function RaceRacebookScreen() {
     try {
       const [result, profilePoints, routePoints, resolvedPartnerLinks] = await Promise.all([
         fetchRaceRacebookData(id),
-        fetchRaceElevationProfile(id),
-        fetchRaceRoutePreviewPoints(id),
+        fetchPublishedRacebookElevationProfile(id),
+        fetchPublishedRacebookRoutePreviewPoints(id),
         fetchPartnerLinks(),
       ]);
 

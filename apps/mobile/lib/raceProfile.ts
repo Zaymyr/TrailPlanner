@@ -26,6 +26,7 @@ type RaceProfilePayload = {
 
 const RACE_PROFILE_REQUEST_TTL_MS = 60_000;
 const raceProfileRequests = new Map<string, { expiresAt: number; request: Promise<RaceProfilePayload> }>();
+const racebookProfileRequests = new Map<string, { expiresAt: number; request: Promise<RaceProfilePayload> }>();
 
 function sanitizeElevationProfile(points: unknown): ElevationPoint[] {
   if (!Array.isArray(points)) return [];
@@ -337,8 +338,72 @@ async function fetchRaceProfilePayload(
   return request;
 }
 
+/**
+ * Fetches visual course data attached to the current RaceBook publication.
+ *
+ * This deliberately has a separate cache and endpoint from the planning
+ * profile: planners continue to use the current source course, while the
+ * RaceBook must never show an unpublished GPX replacement.
+ */
+async function fetchPublishedRacebookProfilePayload(raceId: string): Promise<RaceProfilePayload> {
+  if (!WEB_API_BASE_URL) return { elevationProfile: [], routePreviewPoints: [] };
+
+  const cached = racebookProfileRequests.get(raceId);
+  const now = Date.now();
+  if (cached && cached.expiresAt > now) return cached.request;
+  if (cached) racebookProfileRequests.delete(raceId);
+
+  const request = (async () => {
+    try {
+      const { supabase } = await import('./supabase');
+      const url = `${WEB_API_BASE_URL}/api/racebook-gpx?raceId=${encodeURIComponent(raceId)}`;
+      let response = await fetchWithTimeout(url);
+
+      if (!response.ok) {
+        const session = await supabase.auth.getSession();
+        const accessToken = session.data?.session?.access_token ?? null;
+        if (accessToken) response = await fetchWithTimeout(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+      }
+
+      if (!response.ok) return { elevationProfile: [], routePreviewPoints: [] };
+
+      const data = (await response.json().catch(() => null)) as {
+        elevationProfile?: ElevationPoint[];
+        routePreviewPoints?: MobileGpxPreviewPoint[];
+      } | null;
+
+      return {
+        elevationProfile: sanitizeElevationProfile(data?.elevationProfile),
+        routePreviewPoints: sanitizeRoutePreviewPoints(data?.routePreviewPoints),
+      };
+    } catch {
+      return { elevationProfile: [], routePreviewPoints: [] };
+    }
+  })();
+
+  racebookProfileRequests.set(raceId, { expiresAt: now + RACE_PROFILE_REQUEST_TTL_MS, request });
+  return request;
+}
+
 export function clearRaceProfileRequestCache(raceId: string) {
   raceProfileRequests.delete(raceId);
+  racebookProfileRequests.delete(raceId);
+}
+
+export async function fetchPublishedRacebookElevationProfile(
+  raceId: string | null | undefined,
+): Promise<ElevationPoint[]> {
+  if (!raceId) return [];
+  const { elevationProfile } = await fetchPublishedRacebookProfilePayload(raceId);
+  return elevationProfile;
+}
+
+export async function fetchPublishedRacebookRoutePreviewPoints(
+  raceId: string | null | undefined,
+): Promise<MobileGpxPreviewPoint[]> {
+  if (!raceId) return [];
+  const { routePreviewPoints } = await fetchPublishedRacebookProfilePayload(raceId);
+  return routePreviewPoints;
 }
 
 export async function fetchRaceElevationProfile(raceId: string | null | undefined): Promise<ElevationPoint[]> {

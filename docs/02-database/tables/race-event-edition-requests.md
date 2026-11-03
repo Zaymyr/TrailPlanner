@@ -94,6 +94,8 @@ The table retains `id`, timestamps, `user_id`, `event_id`, `source_year`, `reque
 - Classifying additional official URLs or text PDFs may surface a date claim, but it never retargets the import session or creates a legacy edition request.
 - Do not couple the new edition branding tile or its completion signal to this retired workflow.
 - Do not reintroduce edition review merely because a legacy settings row lacks `supporter_points`: the default only controls the authorized format editor and its publication-module accounting.
+- Versioned edition publication uses `racebook_publication_states` and immutable snapshots; it does not revive this retired request workflow.
+- Moving publication and restoration actions into each visibility row does not revive or write an edition request; it only targets the selected canonical format.
 
 ## Related Docs
 

@@ -2,7 +2,7 @@
 title: race_events Table
 scope: database
 
-last_verified: 2026-11-02
+last_verified: 2026-11-03
 
 ai_priority: high
 related_files:
@@ -226,7 +226,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - The La Tou’Run 2026 integration enriches the existing event in place from its KMS page and official regulation, attaches all five announced formats to the existing edition, and preserves unknown geometry, GPX, exact ravito distance, and the 6 km walk D+ as explicit gaps instead of inferred values.
 - Event organizer details are common defaults. Bib pickup stores `bibPickup.locations[]`, each containing one canonical/geocoded address and `slots[]` with date, start time, and end time; the legacy `location`, `locationDetails`, and free-text `schedule` fields remain compatibility fallbacks. Bib pickup, equipment, and access are inherited until a format enables the corresponding complete override in `races.organizer_details`.
 - Event equipment is inherited unless race JSON explicitly sets `mandatoryEquipment.overrideEnabled = true`. An explicit `false` wins over stale race items; only historical JSON where the flag is absent may infer an override from those differences.
-- Mobile Racebook uses those common defaults as runner-facing event data only through an explicit read-only contract in `apps/mobile/lib/racebook.ts`; `racebook_preview_is_visible = true` is always required, ordinary access additionally requires live course state and `racebook_is_live = true`, and active event membership may bypass only the publication flag. Actual non-ravito organizer content remains mandatory. An emergency phone satisfies that content gate and opens through `tel:`; the official website, Instagram, Facebook, and emergency contact are exposed only as conditional actions inside the identity card. Social links alone do not unlock an otherwise empty Racebook.
+- Mobile RaceBook uses event defaults only through the immutable server publication contract in `apps/mobile/lib/racebook.ts`. The server enforces visibility and organizer membership; an organizer may read the last publication of a private format but never draft event JSON. Without a first publication, the RaceBook is unavailable. An emergency phone is published as a conditional `tel:` action together with the official website and social links.
 - Mobile RaceBook product analytics attach the stable public `race_events.id` and `races.id` to successful open and engagement events so internal reporting can compare formats and same-format return visits. These client events add no table, RLS policy, organizer-visible counter, or new public database field.
 - Organizer event PNG uploads pass through the service route, which validates the raster payload, converts it to a maximum-1024 px WebP, writes a versioned object with `cacheControl: max-age=31536000` metadata to public `race-images`, then patches `thumbnail_url`; organizers should not write directly to Storage from client code.
 - Mobile catalog groups event races and also displays standalone races with no event. Its nested event relation is explicitly inner-filtered to live formats, so hidden editions do not leak rows and events with no visible format do not render empty cards. Current, future, and undated events remain visible by default; an event in the runner's favorite snapshot is also retained through the fourteenth calendar day after `race_date`, then removed on day 15. After a confirmed favorite mutation, mobile emits `race favorite updated`; the optimistic heart pulse preserves the current order and viewport, and the new pinning order takes effect on the next catalog load or refresh.
@@ -320,7 +320,7 @@ where is_live = true
 - Organizer bootstrap and event-detail reads must include all three nested format visibility flags. Masked/private formats use `is_live = false`; preview false/true distinguishes a format absent from the mobile app from a runner-visible course format. Private formats support plan creation for runners, while only active organizers receive the dimmed functional RaceBook preview. Both remain editable in the authorized web workspace.
 - Organizer bootstrap and event-detail reads must also include the same edition-level effective Analytics decision. An event reload replaces the prior snapshot and must not reduce a complimentary grant to a tier-only fallback.
 - Organizer payment invalidation must hide attached RaceBooks through edition rights without setting `race_events.is_live = false`; the event remains in free catalog discovery.
-- Public RaceBook snapshots are tagged by event as well as race and edition. Event metadata/image/live-state changes invalidate that event tag after the write, while private organizer previews remain uncached.
+- Public RaceBook snapshots are tagged by event as well as race and edition. Event metadata/image edits mark every format draft dirty without invalidating the published version; effective visibility and publication changes invalidate the event tag. Private organizer publication reads remain uncached.
 
 - Keep event bib pickup as the default source. A format-level pickup is active only when `overrideEnabled` is explicitly true; absent/false values preserve the event fallback, and the format variant does not require geocoded metadata.
 

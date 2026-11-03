@@ -404,3 +404,7 @@ Likewise, hiding the GPX map or elevation profile is format presentation state o
 ## Lot 6 presentation changes
 
 Shared distance and clock formatting, hero sizing, neutral incomplete checklist progress, broken-image fallback, and the removal of the duplicate RaceBook plan card emit no new analytics events. Existing navigation and checklist events retain their names and bounded properties.
+
+Versioned publication does not snapshot analytics counters. Sponsor click and impression routes accept an event only when the sponsor and placement exist in the current publication and remain effectively entitled; counter-only updates are excluded from draft-revision triggers.
+
+Opening the organizer publication confirmation, its changed-field list, or the `…` version menu emits no runner analytics event and does not alter sponsor counters.

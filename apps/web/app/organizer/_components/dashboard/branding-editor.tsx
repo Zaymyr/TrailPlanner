@@ -37,7 +37,7 @@ export function BrandingEditor({
   const [serverState, setServerState] = useState<OrganizerBrandingState>(emptyState);
   const [draft, setDraft] = useState<OrganizerBranding>(emptyState().draft);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState<"save" | "logo" | "publish" | "reset" | null>(null);
+  const [busy, setBusy] = useState<"save" | "logo" | "reset" | null>(null);
   const [autosaveState, setAutosaveState] = useState<"saved" | "saving" | "error">("saved");
   const saveColorsRef = useRef<(silent?: boolean) => Promise<OrganizerBrandingState | null>>(async () => null);
   const formId = useId();
@@ -175,26 +175,6 @@ export function BrandingEditor({
     }
   };
 
-  const publish = async () => {
-    if (localDirty && !(await saveColors(true))) return;
-    setBusy("publish");
-    try {
-      const response = await fetch(`/api/organizer/editions/${editionId}/branding`, {
-        method: "POST",
-        headers: { ...authHeaders, "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "publish" }),
-      });
-      const data = (await response.json().catch(() => null)) as { branding?: OrganizerBrandingState; message?: string } | null;
-      if (!response.ok || !data?.branding) throw new Error(data?.message ?? "Impossible de publier la DA.");
-      updateState(data.branding);
-      onToast("success", "Nouvelle DA publiée dans le Livret coureur.");
-    } catch (error) {
-      onToast("error", error instanceof Error ? error.message : "Impossible de publier la DA.");
-    } finally {
-      setBusy(null);
-    }
-  };
-
   if (loading) return <p className="text-sm text-muted-foreground">Chargement de l’identité visuelle...</p>;
 
   return (
@@ -238,7 +218,7 @@ export function BrandingEditor({
         <div className="flex flex-wrap gap-3">
           <Button type="button" variant="outline" onClick={() => setDraft(serverState.draft)} disabled={busy !== null || !localDirty}>Annuler les changements</Button>
           <Button type="button" variant="outline" onClick={() => void resetDraft()} disabled={busy !== null}>Réinitialiser au thème Pace Yourself</Button>
-          <Button type="button" onClick={() => void publish()} disabled={busy !== null || (!serverState.hasUnpublishedChanges && !localDirty)} className="ml-auto">Publier la DA</Button>
+          <p className="ml-auto text-xs text-muted-foreground">La DA sera publiée avec le Livret coureur.</p>
         </div>
       </div>
 

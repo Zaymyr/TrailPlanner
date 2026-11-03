@@ -1,16 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { GET, PATCH, POST, PUT } from "./route";
+import { GET, PATCH, PUT } from "./route";
 
 const mocks = vi.hoisted(() => ({
   requireEventOrganizer: vi.fn(),
-  requireOrganizerEditionCapability: vi.fn(),
   requireOrganizerAuth: vi.fn(),
-}));
-
-vi.mock("../../../../../../lib/organizer-entitlements", () => ({
-  requireOrganizerEditionCapability: mocks.requireOrganizerEditionCapability,
 }));
 
 vi.mock("../../../../../../lib/organizer-module-settings", () => ({
@@ -46,7 +41,6 @@ beforeEach(() => {
     serviceConfig: { supabaseUrl: "https://db.example.com", supabaseServiceRoleKey: "service" },
   });
   mocks.requireEventOrganizer.mockResolvedValue(true);
-  mocks.requireOrganizerEditionCapability.mockResolvedValue(true);
 });
 
 afterEach(() => {
@@ -56,13 +50,11 @@ afterEach(() => {
 
 describe("organizer RaceBook branding route", () => {
   it("allows loading the branding draft without the paid capability", async () => {
-    mocks.requireOrganizerEditionCapability.mockResolvedValue(false);
     vi.spyOn(global, "fetch")
       .mockResolvedValueOnce(new Response(JSON.stringify([{ id: editionId, event_id: eventId }]), { status: 200 }))
       .mockResolvedValueOnce(new Response("[]", { status: 200 }));
     const response = await GET(new NextRequest(`http://localhost/api/organizer/editions/${editionId}/branding`), { params: { id: editionId } });
     expect(response.status).toBe(200);
-    expect(mocks.requireOrganizerEditionCapability).not.toHaveBeenCalled();
   });
 
   it("returns defaults when no branding row exists", async () => {
@@ -95,31 +87,4 @@ describe("organizer RaceBook branding route", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("publishes the full draft and removes the superseded published logo", async () => {
-    const published = {
-      ...brandingRow,
-      published_logo_url: brandingRow.draft_logo_url,
-      published_primary_color: brandingRow.draft_primary_color,
-      published_accent_color: brandingRow.draft_accent_color,
-      published_at: "2026-09-07T13:00:00.000Z",
-    };
-    const fetchMock = vi.spyOn(global, "fetch")
-      .mockResolvedValueOnce(new Response(JSON.stringify([{ id: editionId, event_id: eventId }]), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify([brandingRow]), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(published), { status: 200 }))
-      .mockResolvedValueOnce(new Response(null, { status: 200 }));
-    const response = await POST(new NextRequest(`http://localhost/api/organizer/editions/${editionId}/branding`, {
-      method: "POST",
-      body: JSON.stringify({ action: "publish" }),
-    }), { params: { id: editionId } });
-    expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({
-      branding: {
-        published: { logoUrl: brandingRow.draft_logo_url },
-        hasUnpublishedChanges: false,
-      },
-    });
-    expect(fetchMock).toHaveBeenNthCalledWith(3, "https://db.example.com/rest/v1/rpc/publish_racebook_edition_branding", expect.objectContaining({ method: "POST" }));
-    expect(fetchMock).toHaveBeenNthCalledWith(4, "https://db.example.com/storage/v1/object/race-images/organizer-branding/edition/old.png", expect.objectContaining({ method: "DELETE" }));
-  });
 });

@@ -1,7 +1,7 @@
 ---
 title: Database Relationships
 scope: database
-last_verified: 2026-09-28
+last_verified: 2026-11-03
 ai_priority: high
 related_files:
   - supabase/migrations/20241215010000_create_race_plans.sql
@@ -36,6 +36,9 @@ related_files:
   - supabase/migrations/20260923070437_separate_web_and_mobile_race_visibility.sql
   - supabase/migrations/20260915104528_add_organizer_edition_capability_grants.sql
   - supabase/migrations/20260928123934_add_partner_link_settings.sql
+  - supabase/migrations/20261103123918_racebook_versioned_publications.sql
+  - supabase/migrations/20261103124133_index_racebook_publication_foreign_keys.sql
+  - supabase/migrations/20261103124538_cover_racebook_current_publication_foreign_key.sql
 related_tables:
   - race_plans
   - plan_share_links
@@ -67,9 +70,15 @@ related_tables:
   - organizer_edition_payments
   - organizer_edition_capability_grants
   - partner_link_settings
+  - racebook_publication_states
+  - racebook_publications
+  - racebook_publication_assets
+  - racebook_publication_asset_cleanup_queue
 ---
 
 # Database Relationships
+
+Each edition-backed `races` row owns one `racebook_publication_states` row and many immutable `racebook_publications`. The state has a composite pointer constrained to a publication for the same race/event/edition. Each publication owns its asset references by cascade; the independent cleanup queue deliberately has no publication FK so retry work survives history pruning.
 
 `race_event_editions` has many `race_edition_services`. `races` has many `race_start_waves` and `race_awards`. All three foreign keys use `ON DELETE CASCADE` and have explicit indexes for parent lookups.
 
@@ -147,6 +156,7 @@ The design is:
 7. Renaming a race records the old canonical slug transactionally; repeated renames accumulate direct mappings to the same race id without redirect chains.
 8. `race_event_edition_sponsors.edition_id` makes sponsor presentation common to every format in the edition; deleting the edition cascades its sponsor rows while the organizer route removes their Storage logos.
 9. `race_event_edition_branding.edition_id` is both its primary key and cascading edition FK, so one draft/published identity is shared by every format and deleted with the edition; server deletion flows separately clean its Storage logo objects.
+10. `racebook_publication_states.race_id` is one-to-one with a format. Publications and asset references cascade with the format, while saved plans remain unaffected.
 
 ## Product Relationships
 
@@ -253,6 +263,7 @@ Organizer access should be checked through an active `race_event_organizers` row
 - Edition deletion also removes its entitlement and payment ledger. Membership remains event-scoped, so every active organizer consumes the same edition capability.
 - Edition deletion also removes its complimentary capability grants. Pack changes leave those rows untouched because the grant projection is independent from the entitlement projection.
 - Sponsor clicks and impressions belong to the edition sponsor row rather than to a race or runner. The click RPC verifies the requested race shares that edition; the impression RPC additionally requires a published matching race/event and an eligible exact placement before incrementing.
+- Restoration provenance is not a foreign key: the restored source UUID remains an audit fact even after the source leaves the ten-version retention window.
 
 ## Related Docs
 

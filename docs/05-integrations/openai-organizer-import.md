@@ -82,6 +82,8 @@ Edition branding is also outside import reconciliation. The import model cannot 
 
 ## Gotchas
 
+Applying imported claims only updates organizer draft sources and their draft revisions. The import workflow never creates or restores an immutable RaceBook publication; the organizer must use the normal explicit publication action afterward.
+
 - Keep resumable uploads on the direct Supabase Storage origin (`*.storage.supabase.co`) and retain completed-object cleanup on cancellation or failure; sending 25 MB files through the Next.js route reintroduces platform payload limits.
 
 - The Organizer section chooser's edition-common/per-format grouping, local draft, and batched save are independent from assisted-import sessions; opening, toggling, saving, or discarding module switches must not start or cancel an OpenAI reconciliation workflow.
@@ -107,6 +109,8 @@ Edition branding is also outside import reconciliation. The import model cannot 
 ## Related Docs
 
 Confirmed imported formats default to Privé while remaining runner-unpublished; moving them later to Masqué or Public preserves all imported evidence, and Public still requires ordinary readiness and entitlement checks.
+
+After import, the visibility row may report unpublished changes and list the affected canonical sections in the publication confirmation. That deterministic snapshot comparison does not invoke OpenAI and never changes imported evidence.
 
 - [Organizer Race Management](../03-business-rules/organizer-race-management.md)
 - [Web App](../01-architecture/web-app.md)

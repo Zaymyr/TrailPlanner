@@ -282,7 +282,6 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   }
 
   const updated = z.array(raceRowSchema).parse(await response.json())[0] ?? null;
-  await invalidateRacebookCache({ raceId: parsedParams.data.id });
   return withSecurityHeaders(
     NextResponse.json({
       race: updated

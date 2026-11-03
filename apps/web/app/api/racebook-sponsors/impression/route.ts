@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { checkRateLimit, withSecurityHeaders } from "../../../../lib/http";
+import { loadOrganizerEditionEntitlement } from "../../../../lib/organizer-entitlements";
+import { isOrganizerModuleAvailable } from "../../../../lib/organizer-modules";
 import { serviceHeaders } from "../../../../lib/organizer";
-import { isOrganizerEditionModuleEnabled } from "../../../../lib/organizer-module-settings";
+import { loadCurrentRacebookPublication } from "../../../../lib/racebook-publications";
 import {
   racebookSponsorContextualPlacementSchema,
   racebookSponsorTierSchema,
@@ -16,13 +18,6 @@ const impressionSchema = z.object({
   placement: z.enum(["loading", "hero", "aid_stations", "equipment", "access", "services"]),
   viewId: z.string().uuid(),
   tier: racebookSponsorTierSchema.optional(),
-});
-
-const sponsorSchema = z.object({
-  edition_id: z.string().uuid(),
-  show_on_loading: z.boolean(),
-  show_in_banner: z.boolean(),
-  contextual_placement: racebookSponsorContextualPlacementSchema,
 });
 
 const noContent = () => {
@@ -42,22 +37,21 @@ export async function POST(request: NextRequest) {
     return withSecurityHeaders(NextResponse.json({ message: "Sponsor analytics unavailable." }, { status: 500 }));
   }
 
-  const sponsorResponse = await fetch(
-    `${serviceConfig.supabaseUrl}/rest/v1/race_event_edition_sponsors?id=eq.${input.data.sponsorId}&is_active=eq.true&select=edition_id,show_on_loading,show_in_banner,contextual_placement&limit=1`,
-    { headers: serviceHeaders(serviceConfig, ""), cache: "no-store" },
-  );
-  if (!sponsorResponse.ok) {
-    return withSecurityHeaders(NextResponse.json({ message: "Sponsor analytics unavailable." }, { status: 502 }));
-  }
-  const sponsor = z.array(sponsorSchema).parse(await sponsorResponse.json())[0] ?? null;
+  const { publication } = await loadCurrentRacebookPublication(serviceConfig, input.data.raceId);
+  const editionId = publication?.edition_id ?? null;
+  const entitlement = editionId ? await loadOrganizerEditionEntitlement(serviceConfig, editionId) : null;
+  const tier = entitlement?.status === "active" ? entitlement.tier : "visibility";
+  const sponsor = publication?.content.modules.sponsors && isOrganizerModuleAvailable(tier, "sponsors")
+    ? publication.content.sponsors.find((row) => row.id === input.data.sponsorId)
+    : null;
   if (!sponsor) return noContent();
 
   const eligible = input.data.placement === "loading"
-    ? sponsor.show_on_loading
+    ? sponsor.showOnLoading
     : input.data.placement === "hero"
-      ? sponsor.show_in_banner
-      : sponsor.contextual_placement === input.data.placement;
-  if (!eligible || !(await isOrganizerEditionModuleEnabled(serviceConfig, sponsor.edition_id, "sponsors"))) {
+      ? sponsor.showInBanner
+      : sponsor.contextualPlacement === input.data.placement;
+  if (!eligible) {
     return noContent();
   }
 

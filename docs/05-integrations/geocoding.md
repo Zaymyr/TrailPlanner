@@ -1,7 +1,7 @@
 ---
 title: Geocoding
 scope: integration
-last_verified: 2026-11-01
+last_verified: 2026-11-03
 ai_priority: medium
 related_files:
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
@@ -153,6 +153,8 @@ Personal Livret reflection does not geocode runner plan checkpoints or use their
 ## Related Docs
 
 RaceBook demo masking is a whole-format presentation gate only. It preserves normalized coordinates and never triggers geocoding or clears location metadata.
+
+Published RaceBooks copy the already-normalized event, format, service, and supporter coordinates into an immutable snapshot. Mobile never re-geocodes or falls back to draft location rows when a publication omits a location.
 
 - [Web App](../01-architecture/web-app.md)
 - [Organizer Race Management](../03-business-rules/organizer-race-management.md)
