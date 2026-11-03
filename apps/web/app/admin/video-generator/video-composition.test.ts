@@ -134,7 +134,7 @@ describe("buildVideoTimeline", () => {
     // Right after a narrated point the camera is slow and close; mid-leg it travels fast and far.
     const atBase = paused.beats[1].narrationStartMs + 600;
     const midLeg = (getFlyoverFractionAtDistance(paused, 32) * paused.flyoverMs);
-    expect(getCameraSpeedMps(paused, midLeg)).toBeGreaterThan(getCameraSpeedMps(paused, atBase) * 1.3);
+    expect(getCameraSpeedMps(paused, midLeg)).toBeGreaterThan(getCameraSpeedMps(paused, atBase) * 1.15);
     const near = getVideoCameraPose(flat, paused, getVideoFrameState(paused, atBase), "portrait");
     const far = getVideoCameraPose(flat, paused, getVideoFrameState(paused, midLeg), "portrait");
     expect(far.camera.altitudeM - far.target.altitudeM).toBeGreaterThanOrEqual(near.camera.altitudeM - near.target.altitudeM);

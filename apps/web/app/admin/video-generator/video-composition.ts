@@ -592,7 +592,7 @@ const INTRO_HOLD_RATIO = 0.35;
 const OUTRO_GLIDE_RATIO = 0.6;
 
 /** Intro holds the overview then glides to the start; the outro glides back and holds. */
-const CAMERA_SPEED_WINDOW_MS = 2_000;
+const CAMERA_SPEED_WINDOW_MS = 3_000;
 const FRAMING_RAMP_IN_MS = 1_500;
 // Share of the slope covered when the framing shot starts / ends handing back to the chase camera.
 const FRAMING_RELEASE_START = 0.35;
@@ -612,8 +612,8 @@ export const getCameraSpeedMps = (timeline: VideoTimeline, timeMs: number) => {
   if (to <= from) return timeline.averageSpeedMps;
   const distanceAt = (ms: number) => getDistanceAtFlyoverFraction(timeline, (ms - flyoverStart) / timeline.flyoverMs);
   const localMps = ((distanceAt(to) - distanceAt(from)) * 1_000) / ((to - from) / 1_000);
-  // Part of the average keeps the zoom from pumping on every small speed change.
-  return 0.3 * timeline.averageSpeedMps + 0.7 * localMps;
+  // Half of the average keeps the zoom from pumping on every speed change.
+  return 0.5 * timeline.averageSpeedMps + 0.5 * localMps;
 };
 
 export const getVideoCameraPose = (

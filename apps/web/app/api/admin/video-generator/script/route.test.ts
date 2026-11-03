@@ -79,6 +79,14 @@ describe("POST /api/admin/video-generator/script", () => {
     expect(state.parse.mock.calls[1][0].system).toMatch(/télécharger l.appli/);
   });
 
+  it("leaves room for thinking and explains a script cut short", async () => {
+    state.parse.mockRejectedValue(new Error("Failed to parse structured output: SyntaxError: Unterminated string in JSON"));
+    const response = await POST(request(validBody));
+    expect(response.status).toBe(502);
+    expect((await response.json()).message).toMatch(/coupé/);
+    expect(state.parse.mock.calls[0][0].max_tokens).toBeGreaterThanOrEqual(16_000);
+  });
+
   it("reports a refusal instead of returning an empty script", async () => {
     state.parse.mockResolvedValue({ stop_reason: "refusal", parsed_output: null });
     expect((await POST(request(validBody))).status).toBe(502);

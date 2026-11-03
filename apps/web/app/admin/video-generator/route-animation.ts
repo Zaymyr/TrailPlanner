@@ -214,7 +214,8 @@ export const getRoutePointAtDistance = (
 const METERS_PER_DEGREE_LAT = 111_320;
 // Mapbox GL default vertical field of view.
 const VERTICAL_FOV_RAD = (36.87 * Math.PI) / 180;
-const CHASE_ELEVATION_ANGLE_RAD = (32 * Math.PI) / 180;
+// A high viewpoint: the map reads like a relief map and small turns barely move the picture.
+const CHASE_ELEVATION_ANGLE_RAD = (48 * Math.PI) / 180;
 const OVERVIEW_ELEVATION_ANGLE_RAD = (50 * Math.PI) / 180;
 const MIN_TERRAIN_CLEARANCE_M = 300;
 
@@ -274,10 +275,11 @@ export const getChaseCameraPose = (
 ): CameraPose => {
   const portrait = viewport === "portrait";
   const target = getRoutePointAtDistance(path, distanceKm);
-  // Far enough to read the whole section around the runner (2.5 km at the slowest), pulled back
-  // up to 14 km on fast stretches.
-  const backDistanceM = clamp(speedMps * 2.2, 2_500, 14_000) * (portrait ? 1.25 : 1);
-  const headingWindowKm = clamp(speedMps * 2, 1_200, 10_000) / 1_000;
+  // Far enough to read the whole section around the runner (3.5 km at the slowest), pulled back
+  // up to 16 km on fast stretches. The heading is averaged over several kilometres so the camera
+  // turns slowly and ignores the small zigzags of the trail.
+  const backDistanceM = clamp(speedMps * 2.6, 3_500, 16_000) * (portrait ? 1.25 : 1);
+  const headingWindowKm = clamp(speedMps * 3, 2_500, 15_000) / 1_000;
   const heading = getRouteHeading(path, distanceKm, headingWindowKm);
   const cameraGround = offsetPosition(target, -heading.east * backDistanceM, -heading.north * backDistanceM);
   const heightM = backDistanceM * Math.tan(CHASE_ELEVATION_ANGLE_RAD);
@@ -346,7 +348,7 @@ export const interpolateCameraPose = (from: CameraPose, to: CameraPose, ratio: n
   target: interpolatePosition(from.target, to.target, ratio),
 });
 
-const FRAMING_ELEVATION_ANGLE_RAD = (36 * Math.PI) / 180;
+const FRAMING_ELEVATION_ANGLE_RAD = (50 * Math.PI) / 180;
 
 /**
  * Frames a whole slope (a climb from its foot to its top): the camera looks along the slope from

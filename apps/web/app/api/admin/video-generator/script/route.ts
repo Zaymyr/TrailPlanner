@@ -110,7 +110,9 @@ export async function POST(request: NextRequest) {
   try {
     const response = await client.beta.messages.parse({
       model: "claude-opus-5-5",
-      max_tokens: 4_000,
+      // Thinking is always on with this model and counts toward max_tokens: leave room for it,
+      // otherwise the JSON is cut mid-string.
+      max_tokens: 16_000,
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
       output_config: { effort: "medium", format: betaZodOutputFormat(scriptOutputSchema) },
@@ -130,6 +132,10 @@ export async function POST(request: NextRequest) {
     return withSecurityHeaders(NextResponse.json({ beats: result }));
   } catch (error) {
     if (error instanceof Anthropic.RateLimitError) return jsonError("Trop de demandes, réessayez dans un instant.", 429);
+    if (error instanceof Error && /structured output|JSON/i.test(error.message)) {
+      console.error("Video narration script cut short", error.message);
+      return jsonError("Le script a été coupé avant la fin, réessayez.", 502);
+    }
     if (error instanceof Anthropic.AuthenticationError) return jsonError("La clé Anthropic est refusée.", 502);
     if (error instanceof Anthropic.APIError) {
       console.error("Video narration script error", error.status, error.message);
