@@ -1,7 +1,7 @@
 ---
 title: Ship a Feature
 scope: workflow
-last_verified: 2026-11-02
+last_verified: 2026-11-03
 ai_priority: medium
 related_files:
   - package.json
@@ -35,6 +35,7 @@ Use this workflow as a repo-level checklist for implementing and validating a fe
 - Blast radius: how many routes/tables/apps the change touches.
 - Docs update: required when behavior, schema, auth, or workflows change.
 - Worktree visibility: GitHub and remote CI cannot see uncommitted changes stored in another local worktree.
+- Web preview gate: `preview/web` is the long-lived Vercel integration branch used to validate every change that can affect the web build before production.
 
 ## Steps
 
@@ -71,6 +72,7 @@ npm run verify
    Browser media dependencies (for example the admin MP4 export libraries) stay imported by the route that needs them only, pinned to a release that has been out for at least two weeks.
    Paid server-side AI or voice providers (Anthropic, ElevenLabs) stay behind admin-only routes with server-only keys listed in `apps/web/.env.example`, and must answer with an explicit message when their key is missing.
    Server image changes must also exercise a real decode/resize test and a clean production build so Sharp's platform-specific binary is present in the deployed web workspace.
+   Before a web-affecting change can target `main`, push its task branch and integrate it into `preview/web`, wait for the stable branch Preview to become ready, and validate the affected flow there. Web-affecting inputs are `apps/web`, packages consumed by web, root workspace manifests and lockfile, Turbo configuration, and Vercel configuration. Keep development on `dev/*`; `preview/web` is an integration target, not a task branch. After production merge, synchronize `preview/web` with `main` so the next preview is based on the deployed history. Mobile-only work may go directly from its task branch to `main` unless it changes one of the shared web inputs.
 9. For mobile native changes, use the EAS/dev-client path.
 10. For Supabase changes, verify RLS and service-role behavior separately.
 11. For mobile dependency changes, keep both the root workspace lockfile and `apps/mobile/package-lock.json` aligned when both are present.
@@ -90,6 +92,8 @@ git log --branches --not --remotes --oneline
    For every `worktree` path in the first command, run `git -C <path> status --short --branch`. Stop the release when any worktree is dirty or when any commit is local-only. Resolve each item by committing and pushing it, integrating it into the release branch, or obtaining an explicit user decision to abandon it. A clean current directory alone is not sufficient evidence.
 
 The web CI workflow runs on pull requests and on `main`; it also accepts an explicit dispatch so an automated schema-snapshot branch can receive the required status even though GitHub suppresses pull-request workflow events created by `GITHUB_TOKEN`. It fetches Git history and runs `npm run docs:check` against the pull-request base commit or the previous `main` commit, then runs lint, typecheck, the complete web Vitest suite, and the production build. The mobile pre-check runs on pull requests and on `main` when mobile code, shared packages, workspace manifests, the lockfile, Turbo configuration, or its workflow changes. It blocks on mobile lint, typecheck, unit tests, and Expo dependency compatibility. Keep targeted local tests for fast feedback, but do not remove these full gates from CI.
+
+For web delivery, open the first integration PR from the task's `dev/*` branch to `preview/web`. Record the stable Preview URL and validation result, then open or retarget the production PR for the same reviewed change to `main`. Do not merge the whole `preview/web` branch blindly when it contains multiple pending tasks; production must receive only the commits that were individually approved. The Vercel ignored-build command may show mobile-only commits as skipped deployments, but it must not be used to bypass the mandatory Preview for a web-affecting change.
 
 Vercel Cron invokes the daily RevenueCat subscription reconciliation declared in `vercel.json`. Changes to that schedule or route require the matching `CRON_SECRET` and RevenueCat server configuration to exist in the target deployment; merging code alone does not create provider webhook integrations or deployment secrets.
 
@@ -112,6 +116,7 @@ The root `packageManager` pin is required by Turbo workspace discovery. Update i
 ## Do Not
 
 - Do not start a new task from an existing feature branch or reuse a branch whose pull request was merged or closed.
+- Do not develop directly on `preview/web`, delete it after validation, or send a web-affecting task directly to `main` without its stable Vercel Preview evidence.
 - Do not create an additional worktree for ordinary sequential work.
 - Do not push `main` or promote production while another registered worktree is dirty or a local commit is absent from all remotes.
 - Do not invent schema fields; verify migrations or live schema.
