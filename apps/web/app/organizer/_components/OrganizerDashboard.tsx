@@ -398,6 +398,7 @@ export function OrganizerDashboard({
   const cacheOwnerIdRef = useRef<string | null>(null);
   const cacheGenerationRef = useRef(0);
   const previousActiveTierRef = useRef<OrganizerTier>("visibility");
+  const resetSidecarsForRaceIdRef = useRef<string | null>(null);
   const requestedBootstrapEventIdRef = useRef(requestedEventId);
   const skipNextEventLoadRef = useRef<string | null>(null);
 
@@ -520,6 +521,9 @@ export function OrganizerDashboard({
   const currentScopeDirtyModules = activeDirtyScopeKey
     ? dirtyModulesByScope[activeDirtyScopeKey] ?? EMPTY_DIRTY_MODULES
     : EMPTY_DIRTY_MODULES;
+  const activeRaceSidecarsReady = Boolean(activeRace && sidecarLoadedRaceId === activeRace.id);
+  const currentScopeSidecarsReady =
+    !currentScopeDirtyModules.has("aidStations") || activeRaceSidecarsReady;
   const currentScopeRevision = activeDirtyScopeKey ? dirtyRevisionByScopeRef.current[activeDirtyScopeKey] ?? 0 : 0;
   const currentScopeIsSaving = activeDirtyScopeKey
     ? isOrganizerScopeSavePending(
@@ -1285,6 +1289,10 @@ export function OrganizerDashboard({
   }, [accessToken, authHeaders]);
 
   useEffect(() => {
+    const nextRaceId = activeRace?.id ?? null;
+    if (resetSidecarsForRaceIdRef.current === nextRaceId) return;
+    resetSidecarsForRaceIdRef.current = nextRaceId;
+
     if (!activeRace) {
       setRaceForm(createEmptyRaceForm());
       setAidStations([]);
@@ -2227,6 +2235,7 @@ export function OrganizerDashboard({
     }
     if (!selectedEventId) return false;
     const savePlan = buildOrganizerFormatSavePlan(currentScopeDirtyModules);
+    if (savePlan.saveAidStations && !activeRaceSidecarsReady) return false;
     if (savePlan.saveRaceDetails) {
       const ok = await saveRace(undefined, scopedOptions);
       if (!ok) return false;
@@ -2290,10 +2299,10 @@ export function OrganizerDashboard({
   saveCurrentScopeInBackgroundRef.current = saveCurrentScopeInBackground;
 
   useEffect(() => {
-    if (!hasDirtyChanges || currentScopeIsSaving || autosaveState === "error") return;
+    if (!hasDirtyChanges || currentScopeIsSaving || !currentScopeSidecarsReady || autosaveState === "error") return;
     const timer = window.setTimeout(() => saveCurrentScopeInBackgroundRef.current(), 800);
     return () => window.clearTimeout(timer);
-  }, [autosaveState, currentScopeIsSaving, currentScopeRevision, hasDirtyChanges]);
+  }, [autosaveState, currentScopeIsSaving, currentScopeRevision, currentScopeSidecarsReady, hasDirtyChanges]);
 
   const updateEventForm = (next: Partial<EventFormValues>, moduleId: OrganizerModuleId = "event") => {
     setEventForm((current) => ({ ...current, ...next }));
@@ -3560,7 +3569,12 @@ export function OrganizerDashboard({
               />
             </div>
           ) : activeModule === "aidStations" ? (
-            <AidStationsEditor
+            activeRace && !activeRaceSidecarsReady ? (
+              <div className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
+                Chargement des points de course…
+              </div>
+            ) : (
+              <AidStationsEditor
               activeRace={activeRace}
               aidStations={aidStations}
               supporterPoints={supporterPoints}
@@ -3734,8 +3748,9 @@ export function OrganizerDashboard({
                 setProductForm(next);
               }}
               onCreateProduct={createStationProduct}
-              status={status}
-            />
+                status={status}
+              />
+            )
           ) : activeModule === "equipment" ? (
             <EquipmentEditor
               scope={isEventTab ? "event" : "format"}

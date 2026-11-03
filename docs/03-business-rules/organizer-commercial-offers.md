@@ -1,7 +1,7 @@
 ---
 title: Organizer Commercial Offers
 scope: business-rule
-last_verified: 2026-11-01
+last_verified: 2026-11-03
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-entitlements.ts
@@ -54,6 +54,8 @@ related_tables:
 ---
 
 # Organizer Commercial Offers
+
+Course-point autosave now waits for the active format's ravito/supporter sidecars and preserves them across same-format refreshes. The guard prevents transient empty replacements and changes no module selection, effective capability, tier, or publication right.
 
 The publication prerequisite is now name, date, effective location, and positive distance for at least one format; an official format website is optional. Autosave completes before offer/publication navigation through the existing foreground flush.
 

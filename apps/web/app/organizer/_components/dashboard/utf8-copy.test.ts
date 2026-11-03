@@ -429,4 +429,16 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(dashboardSource).toContain("Cette section restera privée jusqu’au passage à");
     expect(dashboardSource).toContain("Offre requise pour publier toutes les sections");
   });
+
+  it("keeps course-point autosave gated by the active race sidecar load", () => {
+    const dashboardSource = readFileSync(
+      resolve(process.cwd(), "app/organizer/_components/OrganizerDashboard.tsx"),
+      "utf8"
+    );
+
+    expect(dashboardSource).toContain("resetSidecarsForRaceIdRef.current === nextRaceId");
+    expect(dashboardSource).toContain("!currentScopeSidecarsReady");
+    expect(dashboardSource).toContain("savePlan.saveAidStations && !activeRaceSidecarsReady");
+    expect(dashboardSource).toContain("Chargement des points de course…");
+  });
 });

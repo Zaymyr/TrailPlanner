@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-11-02
+last_verified: 2026-11-03
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-organizer-analytics.ts
@@ -76,6 +76,8 @@ related_tables:
 ---
 
 # Analytics
+
+Organizer course-point autosave now waits for the active-format sidecars and no longer resets them after a same-format response. Successful save analytics retain their existing event names and fields; blocked pre-load saves emit no false successful-update event.
 
 Additive third-party bib-pickup conditions are runner-visible content only. They are never attached to analytics events; existing RaceBook navigation, equipment-state, linked-workspace, and organizer-save event schemas remain unchanged.
 

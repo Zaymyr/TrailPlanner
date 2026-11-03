@@ -1,7 +1,7 @@
 ---
 title: OpenAI Organizer Import Reconciliation
 scope: integration
-last_verified: 2026-10-29
+last_verified: 2026-11-03
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-source-intelligence.ts
@@ -25,6 +25,8 @@ related_tables:
 ---
 
 # OpenAI Organizer Import Reconciliation
+
+The normal Organizer course-point autosave now waits for active-format sidecars and preserves them across same-format refreshes. This runtime guard is independent from reviewed import selections and does not change reconciliation evidence, signed snapshots, or apply semantics.
 
 Format website evidence is optional during discovery, reconciliation, draft creation, and apply. The required format evidence set is name, date, location, and distance; a selected website claim is still persisted when present.
 

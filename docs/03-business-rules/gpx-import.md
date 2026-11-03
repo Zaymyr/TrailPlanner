@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-11-02
+last_verified: 2026-11-03
 ai_priority: high
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
@@ -49,6 +49,8 @@ related_tables:
 ---
 
 # GPX Import
+
+The shared course-point editor now waits for active-race sidecars before enabling ravito/supporter edits or autosave, and same-race format refreshes preserve the loaded collections. This protection changes no GPX parsing, interpolation, or waypoint-import rule.
 
 Organizer equipment and bib-pickup presentation is now glanceable, and public detail can show additive third-party pickup conditions. These changes do not alter GPX parsing, storage, hashing, simplification, preview metrics, route caching, or aid-station projection.
 

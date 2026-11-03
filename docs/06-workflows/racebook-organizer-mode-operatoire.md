@@ -1,7 +1,7 @@
 ---
 title: Mode opératoire Livret coureur organisateur
 scope: workflow
-last_verified: 2026-11-01
+last_verified: 2026-11-03
 ai_priority: medium
 related_files:
   - scripts/generate-racebook-organizer-manual.mjs
@@ -19,6 +19,8 @@ related_tables:
 ---
 
 # Mode opératoire Livret coureur organisateur
+
+Dans l'écran des points de course, l'édition et la sauvegarde automatique restent suspendues jusqu'au chargement complet des ravitos, relais et points de suivi du format actif. Une sauvegarde du même format ne vide plus brièvement l'écran et ne peut plus envoyer une collection vide transitoire.
 
 Les modifications sont enregistrées automatiquement après une courte pause de saisie. L'état de sauvegarde reste visible et propose **Réessayer** en cas d'échec ; il n'y a plus de bouton général **Sauvegarder**. Un nouveau format reprend uniquement la date, le lieu et éventuellement le site de l'événement, avec des métriques vides. Son site officiel reste facultatif.
 
