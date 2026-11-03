@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-11-02
+last_verified: 2026-11-03
 ai_priority: high
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
@@ -49,6 +49,8 @@ related_tables:
 ---
 
 # GPX Import
+
+The shared course-point editor now waits for active-race sidecars before enabling ravito/supporter edits or autosave, and same-race format refreshes preserve the loaded collections. This protection changes no GPX parsing, interpolation, or waypoint-import rule.
 
 Organizer equipment and bib-pickup presentation is now glanceable, and public detail can show additive third-party pickup conditions. These changes do not alter GPX parsing, storage, hashing, simplification, preview metrics, route caching, or aid-station projection.
 
@@ -269,6 +271,10 @@ Moving a format between Masqué, Privé, and Public changes neither its GPX obje
 
 
 Supporter-point `km` values may position the runner conceptually along the format, but GPX import never creates supporter points and never treats their access coordinates as course geometry. The organizer labels this default-enabled Essential module **Suivi coureur**; replacing a GPX preserves the collection, and the organizer must review any kilometer that no longer fits the updated distance.
+
+Replacing an organizer GPX changes only the draft revision. The runner RaceBook keeps using the Storage path retained by its current immutable publication through `/api/racebook-gpx`; catalog and plan creation continue to use the current source GPX. Publishing or restoring a version atomically changes the RaceBook GPX reference.
+
+When that source path differs from the current snapshot, the per-format publication confirmation lists `Fichier GPX`; merely opening the confirmation or history menu never reads, replaces, or deletes the object.
 
 - [race_aid_stations](../02-database/tables/race-aid-stations.md)
 - [plan_aid_stations](../02-database/tables/plan-aid-stations.md)

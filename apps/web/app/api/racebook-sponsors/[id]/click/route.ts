@@ -4,12 +4,12 @@ import { z } from "zod";
 
 import { checkRateLimitAsync, withSecurityHeaders } from "../../../../../lib/http";
 import { serviceHeaders } from "../../../../../lib/organizer";
-import { isOrganizerEditionModuleEnabled } from "../../../../../lib/organizer-module-settings";
+import { loadOrganizerEditionEntitlement } from "../../../../../lib/organizer-entitlements";
+import { isOrganizerModuleAvailable } from "../../../../../lib/organizer-modules";
+import { loadCurrentRacebookPublication } from "../../../../../lib/racebook-publications";
 import { getSupabaseServiceConfig } from "../../../../../lib/supabase";
 
 const paramsSchema = z.object({ id: z.string().uuid() });
-const targetSchema = z.object({ website_url: z.string().url(), edition_id: z.string().uuid() });
-
 export async function GET(request: NextRequest, context: { params: { id?: string } }) {
   const parsedParams = paramsSchema.safeParse(context.params);
   const raceId = request.nextUrl.searchParams.get("raceId");
@@ -19,25 +19,23 @@ export async function GET(request: NextRequest, context: { params: { id?: string
   const serviceConfig = getSupabaseServiceConfig();
   if (!serviceConfig) return withSecurityHeaders(NextResponse.json({ message: "Sponsor link unavailable." }, { status: 500 }));
 
-  const targetResponse = await fetch(
-    `${serviceConfig.supabaseUrl}/rest/v1/race_event_edition_sponsors?id=eq.${parsedParams.data.id}&is_active=eq.true&website_url=not.is.null&select=website_url,edition_id&limit=1`,
-    { headers: serviceHeaders(serviceConfig, ""), cache: "no-store" },
-  );
-  if (!targetResponse.ok) return withSecurityHeaders(NextResponse.json({ message: "Sponsor link unavailable." }, { status: 502 }));
-  const target = z.array(targetSchema).parse(await targetResponse.json())[0] ?? null;
-  if (!target) return withSecurityHeaders(NextResponse.json({ message: "Sponsor link unavailable." }, { status: 410 }));
-  if (!(await isOrganizerEditionModuleEnabled(serviceConfig, target.edition_id, "sponsors"))) {
-    return withSecurityHeaders(NextResponse.json({ message: "Sponsor link unavailable." }, { status: 410 }));
-  }
-
   const raceResponse = await fetch(
-    `${serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${raceId}&edition_id=eq.${target.edition_id}&select=id&limit=1`,
+    `${serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=id,edition_id&limit=1`,
     { headers: serviceHeaders(serviceConfig, ""), cache: "no-store" },
   );
   const matchingRace = raceResponse.ok
-    ? z.array(z.object({ id: z.string().uuid() })).parse(await raceResponse.json())[0]
+    ? z.array(z.object({ id: z.string().uuid(), edition_id: z.string().uuid() })).parse(await raceResponse.json())[0]
     : null;
   if (!matchingRace) return withSecurityHeaders(NextResponse.json({ message: "Sponsor link unavailable." }, { status: 410 }));
+  const [{ publication }, entitlement] = await Promise.all([
+    loadCurrentRacebookPublication(serviceConfig, matchingRace.id),
+    loadOrganizerEditionEntitlement(serviceConfig, matchingRace.edition_id),
+  ]);
+  const tier = entitlement?.status === "active" ? entitlement.tier : "visibility";
+  const target = publication?.content.modules.sponsors && isOrganizerModuleAvailable(tier, "sponsors")
+    ? publication.content.sponsors.find((sponsor) => sponsor.id === parsedParams.data.id && sponsor.destinationUrl)
+    : null;
+  if (!target?.destinationUrl) return withSecurityHeaders(NextResponse.json({ message: "Sponsor link unavailable." }, { status: 410 }));
 
   const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
   const networkHash = createHash("sha256").update(forwardedFor).digest("hex").slice(0, 24);
@@ -56,7 +54,7 @@ export async function GET(request: NextRequest, context: { params: { id?: string
     }).catch((error) => console.error("Unable to count sponsor click", error));
   }
 
-  const response = NextResponse.redirect(target.website_url, { status: 302 });
+  const response = NextResponse.redirect(target.destinationUrl, { status: 302 });
   response.headers.set("Cache-Control", "no-store, private");
   return withSecurityHeaders(response);
 }

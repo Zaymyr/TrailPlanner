@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-11-01
+last_verified: 2026-11-03
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -55,6 +55,10 @@ related_files:
   - supabase/tests/organizer_atomic_course_collections_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
   - supabase/tests/web_race_visibility_checks.sql
+  - supabase/migrations/20261103123918_racebook_versioned_publications.sql
+  - supabase/migrations/20261103124133_index_racebook_publication_foreign_keys.sql
+  - supabase/migrations/20261103124538_cover_racebook_current_publication_foreign_key.sql
+  - supabase/tests/racebook_versioned_publications_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/migrations/20260830154837_add_mobile_onboarding_statuses.sql
@@ -108,10 +112,16 @@ related_tables:
   - runner_purchase_intents
   - runner_monetization_config
   - runner_plan_history
+  - racebook_publication_states
+  - racebook_publications
+  - racebook_publication_assets
+  - racebook_publication_asset_cleanup_queue
   - runner_admin_access_modes
 ---
 
 # Schema Overview
+
+RaceBook publication is now a service-only versioned boundary. Organizer autosave continues to update the existing source tables and targeted triggers advance `racebook_publication_states.draft_revision`; public/mobile delivery resolves one immutable `racebook_publications` snapshot. The ten-version retention process preserves referenced assets and queues only unreferenced private Storage paths for asynchronous cleanup.
 
 The mobile Courses card (`RaceEventSummaryCard`) now shows a brand-surface placeholder when an event has no usable image; `race_events.thumbnail_url` and format thumbnails keep their meaning and no column is added.
 
@@ -174,6 +184,10 @@ The November 2026 mobile plan-flow polish changes catalog search controls, image
 | `app_feedback` | Feedback submitted from app surfaces; later migrations add user and tracking fields. |
 | `affiliate_offers` | Merchant offer links attached to `products`. |
 | `partner_link_settings` | Service-managed normal and affiliate destinations for global Booking and Decathlon CTAs. |
+| `racebook_publication_states` | Per-format draft revision and current immutable publication pointer. |
+| `racebook_publications` | Ten-version service-only history of canonical RaceBook snapshots. |
+| `racebook_publication_assets` | GPX/image/logo references pinned by retained publications. |
+| `racebook_publication_asset_cleanup_queue` | Retryable orphaned private-Storage deletion work. |
 | `app_changelog` | Published mobile app changelog entries. |
 | `nutrition_plans` | User-owned nutrition planning snapshots. |
 | `plan_aid_stations` | Aid station rows attached to a saved race plan. |

@@ -190,6 +190,9 @@ export type RacebookSupporterPoint = {
 };
 
 export type RacebookScreenData = {
+  publicationId?: string;
+  publicationRevision?: number;
+  publishedAt?: string;
   race: {
     id: string;
     name: string;
@@ -862,7 +865,10 @@ type RacebookApiPayload = {
   startWaveRows: any[];
   awardRows: any[];
   editionServiceRows: any[];
-  organizerPreview: boolean;
+  /** Identifies the immutable runner-facing snapshot returned by the API. */
+  publicationId?: string;
+  publicationRevision?: number;
+  publishedAt?: string;
 };
 
 async function fetchRacebookApiPayload(raceId: string): Promise<RacebookApiPayload | null> {
@@ -895,7 +901,9 @@ async function fetchRacebookApiPayload(raceId: string): Promise<RacebookApiPaylo
       startWaveRows: Array.isArray(payload.startWaveRows) ? payload.startWaveRows : [],
       awardRows: Array.isArray(payload.awardRows) ? payload.awardRows : [],
       editionServiceRows: Array.isArray(payload.editionServiceRows) ? payload.editionServiceRows : [],
-      organizerPreview: payload.organizerPreview === true,
+      publicationId: typeof payload.publicationId === 'string' ? payload.publicationId : undefined,
+      publicationRevision: typeof payload.publicationRevision === 'number' ? payload.publicationRevision : undefined,
+      publishedAt: typeof payload.publishedAt === 'string' ? payload.publishedAt : undefined,
     };
   } catch {
     return null;
@@ -903,74 +911,24 @@ async function fetchRacebookApiPayload(raceId: string): Promise<RacebookApiPaylo
 }
 
 export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScreenData | null> {
-  const { supabase } = await import('./supabase');
-
   const apiPayload = await fetchRacebookApiPayload(raceId);
-  let raceRow: any;
-  let stationRows: any[];
-  let supporterPointRows: any[];
-  let relayPointRows: any[];
-  let startWaveRows: any[];
-  let awardRows: any[];
-  let editionServiceRows: any[];
-  let organizerPreview = false;
+  // A RaceBook is an explicitly published document.  In particular, do not
+  // fall back to source tables when a runner is offline, a deployment is in
+  // progress, or the format has never been published: doing so would expose
+  // organizer drafts (and create a mixed-version screen).
+  if (!apiPayload) return null;
 
-  if (apiPayload) {
-    ({ raceRow, stationRows, supporterPointRows, relayPointRows, startWaveRows, awardRows, editionServiceRows, organizerPreview } = apiPayload);
-
-    // During a staggered web/mobile rollout, the production snapshot may not
-    // expose the additive collection yet. The public RLS policy remains the
-    // authority and returns only complete points for an effective module.
-    if (supporterPointRows.length === 0) {
-      const supporterPointsResult = await supabase
-        .from('race_supporter_points')
-        .select('id,name,km,order_index,encouragement_allowed,assistance_allowed,access_label,latitude,longitude,google_maps_url,access_note,plan_url')
-        .eq('race_id', raceId)
-        .order('order_index', { ascending: true });
-      if (!supporterPointsResult.error) supporterPointRows = supporterPointsResult.data ?? [];
-    }
-  } else {
-    const { data: directRaceRow, error: raceError } = await supabase
-      .from('races')
-      .select(`id,edition_id,name,distance_km,elevation_gain_m,elevation_loss_m,race_date,plan_source_updated_at,is_live,racebook_is_live,racebook_preview_is_visible,thumbnail_url,location_text,participation_mode,start_lat,start_lng,organizer_details,race_events(id,name,location,race_date,thumbnail_url,is_live,organizer_details)`)
-      .eq('id', raceId)
-      .maybeSingle();
-    if (raceError || !directRaceRow) return null;
-    raceRow = directRaceRow;
-
-    const [stationsResult, supporterPointsResult, relayResult, wavesResult, awardsResult, servicesResult] = await Promise.all([
-      supabase.from('race_aid_stations').select(`id,name,km,water_available,solid_available,assistance_allowed,notes,order_index,organizer_details,race_aid_station_products(id,notes,order_index,products(id,name,brand))`).eq('race_id', raceId).order('order_index', { ascending: true }),
-      supabase.from('race_supporter_points').select('id,name,km,order_index,encouragement_allowed,assistance_allowed,access_label,latitude,longitude,google_maps_url,access_note,plan_url').eq('race_id', raceId).order('order_index', { ascending: true }),
-      supabase.from('race_relay_points').select('id,race_aid_station_id,name,km,handover_time,cutoff_time,notes,order_index').eq('race_id', raceId).order('order_index', { ascending: true }),
-      supabase.from('race_start_waves').select('id,name,start_time,eligibility_type,bib_number_min,bib_number_max,finish_minutes_min,finish_minutes_max,pace_seconds_min,pace_seconds_max,eligibility_note,order_index').eq('race_id', raceId).order('order_index'),
-      supabase.from('race_awards').select('id,category_key,category_label,audience,place_from,place_to,podium_time,podium_location,reward_note,order_index').eq('race_id', raceId).order('podium_time').order('order_index'),
-      raceRow.edition_id
-        ? supabase.from('race_edition_services').select('id,service_type,name,description,address,latitude,longitude,google_maps_url,website_url,phone,order_index').eq('edition_id', String(raceRow.edition_id)).order('service_type').order('order_index')
-        : Promise.resolve({ data: [], error: null }),
-    ]);
-    if (stationsResult.error || relayResult.error) return null;
-    if (wavesResult.error) console.warn('Unable to load RaceBook start waves', wavesResult.error.code);
-    if (awardsResult.error) console.warn('Unable to load RaceBook awards', awardsResult.error.code);
-    if (servicesResult.error) console.warn('Unable to load RaceBook edition services', servicesResult.error.code);
-    stationRows = stationsResult.data ?? [];
-    supporterPointRows = supporterPointsResult.error ? [] : supporterPointsResult.data ?? [];
-    relayPointRows = relayResult.data ?? [];
-    startWaveRows = wavesResult.data ?? [];
-    awardRows = awardsResult.data ?? [];
-    editionServiceRows = servicesResult.data ?? [];
-  }
+  const {
+    raceRow,
+    stationRows,
+    supporterPointRows,
+    relayPointRows,
+    startWaveRows,
+    awardRows,
+    editionServiceRows,
+  } = apiPayload;
 
   const eventRelation = Array.isArray(raceRow.race_events) ? raceRow.race_events[0] ?? null : raceRow.race_events ?? null;
-  let hasOrganizerAccess = organizerPreview;
-  if (!apiPayload) {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const userId = sessionData.session?.user?.id ?? null;
-    const { data: organizerMembership } = userId && eventRelation?.id
-      ? await supabase.from('race_event_organizers').select('event_id').eq('event_id', eventRelation.id).eq('user_id', userId).is('revoked_at', null).maybeSingle()
-      : { data: null };
-    hasOrganizerAccess = Boolean(organizerMembership);
-  }
-
   const eventDetails = parseEventDetails(eventRelation?.organizer_details);
   const raceDetails = parseRaceDetails(raceRow.organizer_details);
   const runnerDetails = buildRunnerDetails(eventDetails, raceDetails);
@@ -1018,18 +976,10 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
     : [];
   const supporterPoints = parseRacebookSupporterPoints(supporterPointRows);
 
-  const canOpen = canShowRacebook({
-    raceIsLive: raceRow.is_live,
-    racebookIsLive: raceRow.racebook_is_live,
-    racebookPreviewIsVisible: raceRow.racebook_preview_is_visible,
-    hasOrganizerAccess,
-    hasAidStations: aidStations.length > 0,
-    hasSupporterPoints: supporterPoints.length > 0,
-    hasRelayCourse:
-      raceRow.participation_mode === 'relay' || raceRow.participation_mode === 'solo_and_relay',
-    eventOrganizerDetails: eventRelation?.organizer_details,
-    raceOrganizerDetails: raceRow.organizer_details,
-  });
+  // The server has already applied visibility and organizer membership rules
+  // to the current immutable publication. A successful payload is therefore
+  // the sole authority for opening the RaceBook.
+  const canOpen = true;
 
   const participationMode =
     raceRow.participation_mode === 'solo' ||
@@ -1057,6 +1007,9 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
   const editionServices: RacebookEditionService[] = Array.isArray(editionServiceRows) ? editionServiceRows.map((row:any)=>({id:String(row.id),serviceType:row.service_type,name:readText(row.name)??'',description:readText(row.description),address:readText(row.address),latitude:readNumber(row.latitude),longitude:readNumber(row.longitude),googleMapsUrl:readText(row.google_maps_url),websiteUrl:readText(row.website_url),phone:readText(row.phone),orderIndex:readNumber(row.order_index)??0})).filter((row:any)=>row.name) : [];
 
   return {
+    publicationId: apiPayload.publicationId,
+    publicationRevision: apiPayload.publicationRevision,
+    publishedAt: apiPayload.publishedAt,
     race: {
       id: String(raceRow.id),
       name: readText(raceRow.name) ?? '',

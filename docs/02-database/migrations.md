@@ -2,7 +2,7 @@
 title: Migrations
 scope: database
 
-last_verified: 2026-11-01
+last_verified: 2026-11-03
 
 ai_priority: high
 related_files:
@@ -23,6 +23,10 @@ related_files:
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
+  - supabase/migrations/20261103123918_racebook_versioned_publications.sql
+  - supabase/migrations/20261103124133_index_racebook_publication_foreign_keys.sql
+  - supabase/migrations/20261103124538_cover_racebook_current_publication_foreign_key.sql
+  - supabase/tests/racebook_versioned_publications_checks.sql
   - supabase/migrations/20260821143417_add_organizer_imports_bucket.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260824152859_add_relay_course_points.sql
@@ -121,6 +125,12 @@ related_tables:
 `20260930104930_remove_personal_race_creation.sql` retires runner-owned standalone race creation by restricting `races_insert` to trusted administrators. Legacy owner update/delete policies remain available for cleanup, and organizer authoring continues through service-role routes. The privileged-access rollback test now asserts that a normal authenticated user cannot insert even a private standalone race. The repository version matches the production migration-history entry; its recorded statement and the effective `races_insert` policy were verified before reconciling the filename.
 
 `20260924140119_add_racebook_gear_checks.sql` adds the owner-scoped, per-format RaceBook equipment checklist. Authenticated clients receive only select/insert/delete grants under matching `auth.uid()` policies; `anon` receives none, and the composite key makes repeated checks idempotent. `supabase/tests/racebook_gear_checks.sql` verifies RLS, privileges, policies, and both cascading parents.
+
+`20261103123918_racebook_versioned_publications.sql` separates organizer autosave from runner delivery. It adds one revision state per edition-backed format, immutable versioned JSON snapshots, retained asset references and a retryable orphan-cleanup queue. Targeted triggers dirty only affected formats while excluding visibility/publication metadata and sponsor analytics. Service-only invoker RPCs publish one format, preflight an atomic edition batch, or restore an old snapshot as a new version; each action keeps exactly ten versions. `supabase/tests/racebook_versioned_publications_checks.sql` verifies grants/RLS, invoker functions, revision behavior, analytics exclusion, retention, asset cleanup and draft-preserving restore.
+
+`20261103124133_index_racebook_publication_foreign_keys.sql` adds covering indexes for the current publication, publishing user and event foreign keys used by retention and cleanup paths.
+
+`20261103124538_cover_racebook_current_publication_foreign_key.sql` replaces the single-column current-publication index with a covering index matching its composite parent constraint.
 
 `20260907160043_add_structured_racebook_content.sql` adds normalized services, start waves and awards, their constraints/indexes/RLS, atomic replacement RPCs, and the `schedule.startTime` start-wave backfill.
 

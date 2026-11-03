@@ -1,7 +1,7 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-10-29
+last_verified: 2026-11-03
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -28,6 +28,8 @@ related_tables:
 ---
 
 # `race_event_claims`
+
+The Organizer dashboard now preserves loaded course-point sidecars across same-format refreshes and gates their autosave until loading completes. This client integrity guard does not create, review, approve, or otherwise mutate organizer claims.
 
 The organizer Matériel and Dossard editors now keep saved rows visible and editable without nested accordions, including read-first address autocomplete for pickup locations. This presentation change and the additive third-party pickup conditions field do not alter claim review, membership creation, authorization, or publication.
 
@@ -181,6 +183,10 @@ order by created_at asc;
 ## Related Docs
 
 The GPX route/profile switches are ordinary format-detail edits available only after membership handoff; they neither create nor approve a claim.
+
+Versioned RaceBook publication starts only after claim approval has established normal organizer membership. Publishing or restoring a snapshot never mutates claim status or reviewer evidence.
+
+The per-format publication confirmation and version-history menu are presentation over the normal membership-checked publication routes; they never create, approve, or update an access claim.
 
 - [race_event_organizers](race-event-organizers.md)
 - [race_events](race-events.md)

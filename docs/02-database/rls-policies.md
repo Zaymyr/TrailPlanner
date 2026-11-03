@@ -14,6 +14,8 @@ related_files:
   - supabase/migrations/20260804152041_add_race_event_editions.sql
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
+  - supabase/migrations/20261103123918_racebook_versioned_publications.sql
+  - supabase/tests/racebook_versioned_publications_checks.sql
   - supabase/migrations/20260826090000_allow_event_level_publication_requests.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/migrations/20260830154837_add_mobile_onboarding_statuses.sql
@@ -93,6 +95,8 @@ related_tables:
 `runner_plan_unlocks`, `runner_purchase_intents`, and `runner_plan_history` allow only owner reads. Billing subscriptions/events, rollout configuration, and admin access modes are service-managed. With runner monetisation enabled, `race_plans` writes are constrained by an owned-plan entitlement predicate and a trigger removes paid-only planner detail from unentitled writes. This is defense in depth: APIs must authenticate and authorize before reaching PostgREST.
 
 Structured services, SAS and awards permit SELECT for a published, visible RaceBook and for an authorized organizer preview of the parent event. Direct table and RPC mutations are revoked from `anon`/`authenticated`; Organizer routes execute atomic replacements with `service_role` after session, membership and capability checks.
+
+The versioned publication tables (`racebook_publication_states`, `racebook_publications`, `racebook_publication_assets`, and the cleanup queue) are service-only even for reads. They have RLS enabled, no client policies, and explicit client privilege revocation. Their publication, bulk-publication, restoration and trigger functions are `SECURITY INVOKER`; only `service_role` can execute them. Runner delivery must pass through a server route that selects the current publication and removes private asset paths.
 
 The client policies use `races` as their readable parent. They must not join `race_event_editions`: that table deliberately has no `anon`/`authenticated` SELECT grant, and using it inside the policy causes PostgREST to return `42501 permission denied` before RLS can return rows.
 
@@ -453,6 +457,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - Public slug resolution needs both a table `SELECT` grant and the parent-gated RLS policy. Never grant client mutation or RPC execution, and never rely on a redirect row alone to expose a hidden course.
 - `sync_race_web_catalog_visibility` is an invoker trigger with fixed empty search path and no client execution. It promotes public live rows, preserves the web flag during mobile hiding, and forces it false with `is_public = false`; it adds no client RLS branch.
 - RaceBook sponsor presentation and redirects must remain server-mediated. Do not grant public table reads merely because logos and names eventually appear on a live RaceBook.
+- RaceBook snapshots are not a reason to grant direct publication-table reads. The JSON may include service-only asset paths and must be mapped to an explicit public DTO by the server.
 - Parent-locked Organizer RPCs preserve atomicity, not authorization. Keep every route-level membership and capability check before invoking them and never grant their execution to browser roles.
 - Generated organizer invoice issuance stays behind `service_role`: neither `issue_admin_organizer_invoice` nor the atomic `record_admin_organizer_bank_transfer_invoice` wrapper is executable by `anon` or `authenticated`.
 - Complimentary organizer capabilities stay behind `service_role`; do not add a client policy simply to render an access badge or analytics tab.

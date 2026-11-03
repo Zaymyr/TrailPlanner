@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_branding
 scope: database
-last_verified: 2026-11-02
+last_verified: 2026-11-03
 ai_priority: high
 related_files:
   - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
@@ -67,7 +67,7 @@ Stores one draft and one published RaceBook identity for a canonical event editi
 - The organizer portal edits the draft and previews it locally.
 - Publication atomically copies all draft values to the published fields.
 - Runner and mobile preview payloads expose only published values, including a valid HTTPS logo, and return no RaceBook payload for a format explicitly masked from the organizer demo. The shared resolver remains the final URL and color validation boundary.
-- Editing the draft requires active event membership and a selected `branding` module. Copying the draft to the published snapshot requires the Signature `branding.manage` capability and an effectively active module. A downgrade masks the published identity without deleting either snapshot.
+- Editing the draft requires active event membership and a selected `branding` module. Branding has no independent publish action: the draft logo and colors are copied into each format snapshot by the normal format or edition publication. A downgrade masks the published identity without deleting history.
 - Pace Yourself keeps typography, neutral surfaces, navigation, layout, sponsor placements, the compact unframed partner-row geometry, and semantic danger/warning/info colors.
 - Focused Matériel, Dossard, access, ravito, Services and structured Course components receive the already-resolved theme explicitly; they neither fetch nor resolve draft branding themselves. Accent surfaces and contrast-safe accent foreground/graphic variants identify checklist completion, decorative location/service actions, partner actions, structured course cards, and the ravito chronology rail/segments; cutoff warnings, late-passage disclosure, owner-only personal timing, and other semantic copy retain app-owned meaning.
 - Branding can recolor the linked bib address, but its two-line clamp and complete accessibility label remain app-owned presentation behavior.
@@ -138,7 +138,7 @@ where edition_id = :edition_id;
 
 - Never return draft columns from a runner-facing route.
 - Do not grant direct mobile/browser access to this table; the existing server route is the compatibility and authorization boundary.
-- Public resolved branding shares the tagged sponsor response. Draft writes and publication/reset mutations invalidate the edition tag, but private draft/preview data must never enter the shared CDN cache.
+- Public resolved branding shares the tagged sponsor response and publication identity. Draft writes only increment edition format revisions; publication/restoration invalidates the edition tag. Draft data must never enter the shared CDN cache.
 - Do not delete a logo still referenced by either the draft or the published state.
 - Sponsor logos and organizer-branding logos use separate Storage prefixes. Keep edition-logo rendering behind the shared `RACEBOOK_EDITION_LOGO_ENABLED` release switch so it can be disabled without deleting stored URLs.
 - Invalid/missing branding and image load failures must fall back silently to the Pace Yourself theme.

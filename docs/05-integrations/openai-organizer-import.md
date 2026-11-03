@@ -1,7 +1,7 @@
 ---
 title: OpenAI Organizer Import Reconciliation
 scope: integration
-last_verified: 2026-10-29
+last_verified: 2026-11-03
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-source-intelligence.ts
@@ -25,6 +25,8 @@ related_tables:
 ---
 
 # OpenAI Organizer Import Reconciliation
+
+The normal Organizer course-point autosave now waits for active-format sidecars and preserves them across same-format refreshes. This runtime guard is independent from reviewed import selections and does not change reconciliation evidence, signed snapshots, or apply semantics.
 
 Format website evidence is optional during discovery, reconciliation, draft creation, and apply. The required format evidence set is name, date, location, and distance; a selected website claim is still persisted when present.
 
@@ -80,6 +82,8 @@ Edition branding is also outside import reconciliation. The import model cannot 
 
 ## Gotchas
 
+Applying imported claims only updates organizer draft sources and their draft revisions. The import workflow never creates or restores an immutable RaceBook publication; the organizer must use the normal explicit publication action afterward.
+
 - Keep resumable uploads on the direct Supabase Storage origin (`*.storage.supabase.co`) and retain completed-object cleanup on cancellation or failure; sending 25 MB files through the Next.js route reintroduces platform payload limits.
 
 - The Organizer section chooser's edition-common/per-format grouping, local draft, and batched save are independent from assisted-import sessions; opening, toggling, saving, or discarding module switches must not start or cancel an OpenAI reconciliation workflow.
@@ -105,6 +109,8 @@ Edition branding is also outside import reconciliation. The import model cannot 
 ## Related Docs
 
 Confirmed imported formats default to Privé while remaining runner-unpublished; moving them later to Masqué or Public preserves all imported evidence, and Public still requires ordinary readiness and entitlement checks.
+
+After import, the visibility row may report unpublished changes and list the affected canonical sections in the publication confirmation. That deterministic snapshot comparison does not invoke OpenAI and never changes imported evidence.
 
 - [Organizer Race Management](../03-business-rules/organizer-race-management.md)
 - [Web App](../01-architecture/web-app.md)

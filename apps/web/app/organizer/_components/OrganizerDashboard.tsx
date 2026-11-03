@@ -126,6 +126,8 @@ import type {
   MembershipRow,
   OrganizerEventDetail,
   PublicationRequestRow,
+  RacebookPublicationHistoryItem,
+  RacebookPublicationState,
   ProductFormValues,
   RaceFormat,
   RaceFormValues,
@@ -310,6 +312,25 @@ export function OrganizerDashboard({
   const [claims, setClaims] = useState<ClaimRow[]>([]);
   const [editionRequests, setEditionRequests] = useState<EditionRequestRow[]>([]);
   const [publicationRequests, setPublicationRequests] = useState<PublicationRequestRow[]>([]);
+  const [publicationStatesByRace, setPublicationStatesByRace] = useState<Record<string, RacebookPublicationState>>({});
+  const [publicationHistory, setPublicationHistory] = useState<RacebookPublicationHistoryItem[]>([]);
+  const [publicationHistoryRaceId, setPublicationHistoryRaceId] = useState<string | null>(null);
+  const [publicationDialog, setPublicationDialog] = useState<{
+    raceId: string;
+    label: string;
+    changedFields: string[];
+    loading: boolean;
+  } | null>(null);
+  const [publicationHistoryDialog, setPublicationHistoryDialog] = useState<{
+    raceId: string;
+    label: string;
+    intent: "history" | "restore";
+  } | null>(null);
+  const [restorePublication, setRestorePublication] = useState<{
+    raceId: string;
+    label: string;
+    publication: RacebookPublicationHistoryItem;
+  } | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [eventDetail, setEventDetail] = useState<OrganizerEventDetail | null>(null);
   const [eventForm, setEventForm] = useState<EventFormValues>(() => createEmptyEventForm());
@@ -398,6 +419,7 @@ export function OrganizerDashboard({
   const cacheOwnerIdRef = useRef<string | null>(null);
   const cacheGenerationRef = useRef(0);
   const previousActiveTierRef = useRef<OrganizerTier>("visibility");
+  const resetSidecarsForRaceIdRef = useRef<string | null>(null);
   const requestedBootstrapEventIdRef = useRef(requestedEventId);
   const skipNextEventLoadRef = useRef<string | null>(null);
 
@@ -520,6 +542,9 @@ export function OrganizerDashboard({
   const currentScopeDirtyModules = activeDirtyScopeKey
     ? dirtyModulesByScope[activeDirtyScopeKey] ?? EMPTY_DIRTY_MODULES
     : EMPTY_DIRTY_MODULES;
+  const activeRaceSidecarsReady = Boolean(activeRace && sidecarLoadedRaceId === activeRace.id);
+  const currentScopeSidecarsReady =
+    !currentScopeDirtyModules.has("aidStations") || activeRaceSidecarsReady;
   const currentScopeRevision = activeDirtyScopeKey ? dirtyRevisionByScopeRef.current[activeDirtyScopeKey] ?? 0 : 0;
   const currentScopeIsSaving = activeDirtyScopeKey
     ? isOrganizerScopeSavePending(
@@ -557,6 +582,49 @@ export function OrganizerDashboard({
   const eventDraft = buildEventDraft(eventDetail, eventForm, activeRace, raceForm, selectedEditionYear);
   const productsById = useMemo(() => buildProductsById(catalogProducts, stationProducts), [catalogProducts, stationProducts]);
   const authHeaders = useMemo((): Record<string, string> => (accessToken ? { Authorization: `Bearer ${accessToken}` } : {}), [accessToken]);
+  const loadPublicationState = useCallback(async (raceId: string, includeHistory = false) => {
+    if (!accessToken) return null;
+    const response = await fetch(`/api/organizer/races/${raceId}/publications?limit=${includeHistory ? 10 : 1}`, {
+      headers: authHeaders,
+      cache: "no-store",
+    });
+    if (!response.ok) return null;
+    const payload = (await response.json()) as {
+      state: RacebookPublicationState;
+      publications?: RacebookPublicationHistoryItem[];
+    };
+    setPublicationStatesByRace((current) => ({ ...current, [raceId]: payload.state }));
+    if (includeHistory) {
+      setPublicationHistoryRaceId(raceId);
+      setPublicationHistory(payload.publications ?? []);
+    }
+    return payload.state;
+  }, [accessToken, authHeaders]);
+
+  useEffect(() => {
+    const raceIds = websiteImportExistingRaces.map((race) => race.id);
+    if (!accessToken || raceIds.length === 0) {
+      setPublicationStatesByRace({});
+      setPublicationHistory([]);
+      setPublicationHistoryRaceId(null);
+      return;
+    }
+    let cancelled = false;
+    void Promise.all(raceIds.map(async (raceId) => {
+      const response = await fetch(`/api/organizer/races/${raceId}/publications?limit=1`, {
+        headers: authHeaders,
+        cache: "no-store",
+      });
+      if (!response.ok) return null;
+      const payload = (await response.json()) as { state: RacebookPublicationState };
+      return [raceId, payload.state] as const;
+    })).then((entries) => {
+      if (cancelled) return;
+      setPublicationStatesByRace(Object.fromEntries(entries.filter((entry): entry is readonly [string, RacebookPublicationState] => entry !== null)));
+    });
+    return () => { cancelled = true; };
+  }, [accessToken, activeEdition?.id, authHeaders, websiteImportExistingRaces]);
+
   const sanitizeRaceDetailsForSave = (details: RaceFormValues["organizerDetails"]) => ({
     ...details,
     schedule: {
@@ -1064,7 +1132,7 @@ export function OrganizerDashboard({
         let refreshedEvent = data.event;
         let publishedCount = 0;
         if (publishAfterPayment) {
-          const publicationResponse = await fetch(`/api/organizer/editions/${returnedEditionId}/publication`, {
+          const publicationResponse = await fetch(`/api/organizer/editions/${returnedEditionId}/publications`, {
             method: "POST",
             headers: authHeaders,
             signal: controller.signal,
@@ -1285,6 +1353,10 @@ export function OrganizerDashboard({
   }, [accessToken, authHeaders]);
 
   useEffect(() => {
+    const nextRaceId = activeRace?.id ?? null;
+    if (resetSidecarsForRaceIdRef.current === nextRaceId) return;
+    resetSidecarsForRaceIdRef.current = nextRaceId;
+
     if (!activeRace) {
       setRaceForm(createEmptyRaceForm());
       setAidStations([]);
@@ -2227,6 +2299,7 @@ export function OrganizerDashboard({
     }
     if (!selectedEventId) return false;
     const savePlan = buildOrganizerFormatSavePlan(currentScopeDirtyModules);
+    if (savePlan.saveAidStations && !activeRaceSidecarsReady) return false;
     if (savePlan.saveRaceDetails) {
       const ok = await saveRace(undefined, scopedOptions);
       if (!ok) return false;
@@ -2290,10 +2363,10 @@ export function OrganizerDashboard({
   saveCurrentScopeInBackgroundRef.current = saveCurrentScopeInBackground;
 
   useEffect(() => {
-    if (!hasDirtyChanges || currentScopeIsSaving || autosaveState === "error") return;
+    if (!hasDirtyChanges || currentScopeIsSaving || !currentScopeSidecarsReady || autosaveState === "error") return;
     const timer = window.setTimeout(() => saveCurrentScopeInBackgroundRef.current(), 800);
     return () => window.clearTimeout(timer);
-  }, [autosaveState, currentScopeIsSaving, currentScopeRevision, hasDirtyChanges]);
+  }, [autosaveState, currentScopeIsSaving, currentScopeRevision, currentScopeSidecarsReady, hasDirtyChanges]);
 
   const updateEventForm = (next: Partial<EventFormValues>, moduleId: OrganizerModuleId = "event") => {
     setEventForm((current) => ({ ...current, ...next }));
@@ -2611,6 +2684,11 @@ export function OrganizerDashboard({
       return;
     }
 
+    if (visibility === "public") {
+      await publishRaceRacebook(raceId, true);
+      return;
+    }
+
     setStatus("saving");
     setError(null);
     try {
@@ -2619,19 +2697,11 @@ export function OrganizerDashboard({
         headers: { ...authHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({
           racebookPreviewIsVisible: visibility !== "hidden",
-          racebookIsLive: visibility === "public",
+          racebookIsLive: false,
         }),
       });
       const data = (await response.json().catch(() => null)) as { message?: string } | null;
       if (!response.ok) {
-        if (
-          visibility === "public" &&
-          response.status === 403 &&
-          shouldOpenPublicationOffer(activeTier)
-        ) {
-          openPricingDialog("publication");
-          return;
-        }
         showToast("error", data?.message ?? "Impossible de modifier la visibilité de ce format.");
         return;
       }
@@ -2643,9 +2713,9 @@ export function OrganizerDashboard({
               races: current.races.map((race) => race.id === raceId
                 ? {
                     ...race,
-                    is_live: visibility === "public",
+                    is_live: false,
                     racebook_preview_is_visible: visibility !== "hidden",
-                    racebook_is_live: visibility === "public",
+                    racebook_is_live: false,
                   }
                 : race),
             }
@@ -2653,11 +2723,9 @@ export function OrganizerDashboard({
       );
       showToast(
         "success",
-        visibility === "public"
-          ? "Course et Livret coureur publiés pour tous."
-          : visibility === "private"
-            ? "Course et Livret coureur visibles uniquement par les organisateurs."
-            : "Format masqué du catalogue mobile."
+        visibility === "private"
+          ? "Course et Livret coureur visibles uniquement par les organisateurs."
+          : "Format masqué du catalogue mobile."
       );
     } catch (caught) {
       console.error("Unable to update organizer Racebook visibility", caught);
@@ -2759,6 +2827,125 @@ export function OrganizerDashboard({
     setWebsiteImportOpen(true);
   };
 
+  const publishRaceRacebook = async (raceId: string, makePublic = false) => {
+    if (!accessToken || status !== "idle") return false;
+    if (!(await saveBeforeNavigation())) return false;
+    setStatus("saving");
+    setError(null);
+    try {
+      const response = await fetch(`/api/organizer/races/${raceId}/publications`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ makePublic }),
+      });
+      const data = (await response.json().catch(() => null)) as {
+        state?: RacebookPublicationState;
+        message?: string;
+      } | null;
+      if (!response.ok || !data?.state) {
+        if (response.status === 403 && shouldOpenPublicationOffer(activeTier)) openPricingDialog("publication");
+        else showToast("error", data?.message ?? "Impossible de publier ce Livret coureur.");
+        return false;
+      }
+      setPublicationStatesByRace((current) => ({ ...current, [raceId]: data.state! }));
+      if (makePublic) {
+        setEventDetail((current) => current?.id === selectedEventId ? {
+          ...current,
+          races: current.races.map((race) => race.id === raceId ? {
+            ...race,
+            is_live: true,
+            racebook_preview_is_visible: true,
+            racebook_is_live: true,
+          } : race),
+        } : current);
+      }
+      await loadPublicationState(raceId, true);
+      setPublicationDialog((current) => current?.raceId === raceId ? null : current);
+      showToast("success", `Livret coureur publié · version ${data.state.currentVersion ?? "—"}.`);
+      return true;
+    } catch (caught) {
+      console.error("Unable to publish organizer RaceBook", caught);
+      showToast("error", "Impossible de publier ce Livret coureur.");
+      return false;
+    } finally {
+      setStatus("idle");
+    }
+  };
+
+  const openRacePublicationDialog = async (raceId: string, label: string) => {
+    if (!accessToken || status !== "idle" || autosaveState !== "saved") return;
+    setPublicationDialog({ raceId, label, changedFields: [], loading: true });
+    try {
+      const response = await fetch(`/api/organizer/races/${raceId}/publications?limit=1&includeChanges=true`, {
+        headers: authHeaders,
+        cache: "no-store",
+      });
+      const data = (await response.json().catch(() => null)) as {
+        state?: RacebookPublicationState;
+        changedFields?: string[];
+        message?: string;
+      } | null;
+      if (!response.ok || !data?.state) {
+        showToast("error", data?.message ?? "Impossible de préparer la publication.");
+        setPublicationDialog(null);
+        return;
+      }
+      setPublicationStatesByRace((current) => ({ ...current, [raceId]: data.state! }));
+      setPublicationDialog({
+        raceId,
+        label,
+        changedFields: data.changedFields?.length ? data.changedFields : ["Mise à jour du Livret coureur"],
+        loading: false,
+      });
+    } catch (caught) {
+      console.error("Unable to prepare organizer RaceBook publication", caught);
+      showToast("error", "Impossible de préparer la publication.");
+      setPublicationDialog(null);
+    }
+  };
+
+  const openPublicationHistoryDialog = async (
+    raceId: string,
+    label: string,
+    intent: "history" | "restore",
+  ) => {
+    if (!accessToken) return;
+    setPublicationHistoryDialog({ raceId, label, intent });
+    setPublicationHistoryRaceId(null);
+    setPublicationHistory([]);
+    const state = await loadPublicationState(raceId, true);
+    if (!state) {
+      setPublicationHistoryDialog(null);
+      showToast("error", "Impossible de charger l’historique des versions.");
+    }
+  };
+
+  const restoreRacePublication = async () => {
+    if (!restorePublication || status !== "idle") return;
+    const { raceId, publication } = restorePublication;
+    setStatus("saving");
+    try {
+      const response = await fetch(`/api/organizer/races/${raceId}/publications/${publication.id}/restore`, {
+        method: "POST",
+        headers: authHeaders,
+      });
+      const data = (await response.json().catch(() => null)) as { state?: RacebookPublicationState; message?: string } | null;
+      if (!response.ok || !data?.state) {
+        showToast("error", data?.message ?? "Impossible de restaurer cette publication.");
+        return;
+      }
+      setPublicationStatesByRace((current) => ({ ...current, [raceId]: data.state! }));
+      setRestorePublication(null);
+      await loadPublicationState(raceId, true);
+      showToast("success", `Publication restaurée · nouvelle version ${data.state.currentVersion ?? "—"}.`);
+    } catch (caught) {
+      console.error("Unable to restore organizer RaceBook publication", caught);
+      showToast("error", "Impossible de restaurer cette publication.");
+    } finally {
+      setStatus("idle");
+    }
+  };
+
   const publishEditionRacebooks = async () => {
     if (!accessToken || !activeEdition?.id || !selectedEventId || status !== "idle") return;
     if (!(await saveBeforeNavigation())) return;
@@ -2766,12 +2953,13 @@ export function OrganizerDashboard({
     setStatus("saving");
     setError(null);
     try {
-      const response = await fetch(`/api/organizer/editions/${activeEdition.id}/publication`, {
+      const response = await fetch(`/api/organizer/editions/${activeEdition.id}/publications`, {
         method: "POST",
         headers: authHeaders,
       });
       const data = (await response.json().catch(() => null)) as {
         publishedRaceIds?: string[];
+        states?: Array<RacebookPublicationState & { raceId: string }>;
         message?: string;
       } | null;
       if (!response.ok || !data?.publishedRaceIds?.length) {
@@ -2780,23 +2968,15 @@ export function OrganizerDashboard({
       }
 
       const publishedIds = new Set(data.publishedRaceIds);
-      setEventDetail((current) => current?.id === selectedEventId
-        ? {
-            ...current,
-            races: current.races.map((race) => publishedIds.has(race.id)
-              ? {
-                  ...race,
-                  is_live: true,
-                  racebook_preview_is_visible: true,
-                  racebook_is_live: true,
-                }
-              : race),
-          }
-        : current);
+      if (data.states) setPublicationStatesByRace((current) => ({
+        ...current,
+        ...Object.fromEntries(data.states!.map(({ raceId, ...state }) => [raceId, state])),
+      }));
       showToast(
         "success",
         `${publishedIds.size} Livret${publishedIds.size > 1 ? "s coureurs publiés" : " coureur publié"} pour les coureurs.`
       );
+      if (activeRace?.id && publishedIds.has(activeRace.id)) await loadPublicationState(activeRace.id, true);
     } catch (caught) {
       console.error("Unable to publish organizer edition RaceBooks", caught);
       showToast("error", "Impossible de publier les Livrets coureurs de cette édition.");
@@ -3223,6 +3403,7 @@ export function OrganizerDashboard({
     { id: ADD_FORMAT_TAB_ID, label: "+" },
   ];
   const isEventTab = activeTab === EVENT_TAB_ID;
+  const modifiedFormatCount = websiteImportExistingRaces.filter((race) => publicationStatesByRace[race.id]?.hasUnpublishedChanges).length;
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-8 sm:px-6">
@@ -3275,6 +3456,8 @@ export function OrganizerDashboard({
         lastAutosavedAt={lastAutosavedAt}
         status={status}
         activeRaceId={activeRace?.id ?? null}
+        modifiedFormatCount={modifiedFormatCount}
+        publicationStatesByRace={publicationStatesByRace}
         onRetryAutosave={() => {
           setAutosaveState("idle");
           saveCurrentScopeInBackground();
@@ -3294,12 +3477,114 @@ export function OrganizerDashboard({
         onRacebookVisibilityChange={(raceId, visibility) => {
           void setRacebookVisibility(raceId, visibility);
         }}
+        onPublishRace={(raceId, label) => {
+          void openRacePublicationDialog(raceId, label);
+        }}
+        onOpenPublicationHistory={(raceId, label, intent) => {
+          void openPublicationHistoryDialog(raceId, label, intent);
+        }}
         onEditionVisibilityChange={setEditionVisibility}
         onDeleteEdition={deleteSelectedEdition}
         onDeleteEvent={deleteSelectedEvent}
         onReplayOnboarding={replayOrganizerOnboarding}
         onOpenInvoices={() => setInvoicesDialogOpen(true)}
       />
+
+      <Dialog open={publicationDialog !== null} onOpenChange={(open) => { if (!open && status === "idle") setPublicationDialog(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Publier les modifications · {publicationDialog?.label}</DialogTitle>
+            <DialogDescription>
+              Les informations suivantes remplaceront ensemble la version actuellement visible dans le Livret coureur.
+            </DialogDescription>
+          </DialogHeader>
+          {publicationDialog?.loading ? (
+            <p className="text-sm text-muted-foreground">Analyse des modifications…</p>
+          ) : (
+            <ul className="grid gap-2 rounded-lg border border-border bg-muted/20 p-3 text-sm text-foreground">
+              {publicationDialog?.changedFields.map((field) => (
+                <li key={field} className="flex items-start gap-2">
+                  <span aria-hidden="true" className="mt-0.5 text-brand">•</span>
+                  <span>{field}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setPublicationDialog(null)} disabled={status !== "idle"}>Annuler</Button>
+            <Button
+              type="button"
+              disabled={!publicationDialog || publicationDialog.loading || status !== "idle"}
+              onClick={() => publicationDialog && void publishRaceRacebook(publicationDialog.raceId)}
+            >
+              {status === "saving" ? "Publication…" : "Publier"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={publicationHistoryDialog !== null} onOpenChange={(open) => { if (!open && status === "idle") setPublicationHistoryDialog(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {publicationHistoryDialog?.intent === "restore" ? "Restaurer une ancienne version" : "Historique des versions"}
+              {publicationHistoryDialog ? ` · ${publicationHistoryDialog.label}` : ""}
+            </DialogTitle>
+            <DialogDescription>Les dix publications les plus récentes sont conservées.</DialogDescription>
+          </DialogHeader>
+          {publicationHistoryDialog && publicationHistoryRaceId !== publicationHistoryDialog.raceId ? (
+            <p className="text-sm text-muted-foreground">Chargement de l’historique…</p>
+          ) : publicationHistory.length > 0 ? (
+            <div className="grid max-h-[50vh] gap-2 overflow-y-auto pr-1">
+              {publicationHistory.map((publication) => {
+                const isCurrent = publication.id === publicationStatesByRace[publicationHistoryDialog?.raceId ?? ""]?.currentPublicationId;
+                return (
+                  <div key={publication.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/70 px-3 py-2 text-sm">
+                    <span>
+                      Version {publication.version} · {formatUpdateDate(publication.publishedAt)}
+                      {publication.restoredFromPublicationId ? " · restauration" : ""}
+                      {isCurrent ? " · en ligne" : ""}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="!h-9"
+                      disabled={status !== "idle" || isCurrent || !publicationHistoryDialog}
+                      onClick={() => publicationHistoryDialog && setRestorePublication({
+                        raceId: publicationHistoryDialog.raceId,
+                        label: publicationHistoryDialog.label,
+                        publication,
+                      })}
+                    >
+                      Restaurer
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Aucune publication antérieure.</p>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setPublicationHistoryDialog(null)} disabled={status !== "idle"}>Fermer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={restorePublication !== null} onOpenChange={(open) => { if (!open) setRestorePublication(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Restaurer cette publication · {restorePublication?.label} ?</DialogTitle>
+            <DialogDescription>
+              Une nouvelle version identique sera publiée. Le brouillon actuel sera conservé et restera signalé comme non publié s’il diffère.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setRestorePublication(null)} disabled={status !== "idle"}>Annuler</Button>
+            <Button type="button" onClick={() => void restoreRacePublication()} disabled={status !== "idle"}>Restaurer cette publication</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {error ? <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
 
@@ -3560,7 +3845,12 @@ export function OrganizerDashboard({
               />
             </div>
           ) : activeModule === "aidStations" ? (
-            <AidStationsEditor
+            activeRace && !activeRaceSidecarsReady ? (
+              <div className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
+                Chargement des points de course…
+              </div>
+            ) : (
+              <AidStationsEditor
               activeRace={activeRace}
               aidStations={aidStations}
               supporterPoints={supporterPoints}
@@ -3734,8 +4024,9 @@ export function OrganizerDashboard({
                 setProductForm(next);
               }}
               onCreateProduct={createStationProduct}
-              status={status}
-            />
+                status={status}
+              />
+            )
           ) : activeModule === "equipment" ? (
             <EquipmentEditor
               scope={isEventTab ? "event" : "format"}

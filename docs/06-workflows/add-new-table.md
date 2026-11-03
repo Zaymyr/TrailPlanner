@@ -1,12 +1,14 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-11-01
+last_verified: 2026-11-03
 ai_priority: high
 related_files:
   - supabase/migrations/20260915100443_add_generated_organizer_invoices.sql
   - supabase/tests/organizer_generated_invoice_checks.sql
   - supabase/migrations
+  - supabase/migrations/20261103123918_racebook_versioned_publications.sql
+  - supabase/tests/racebook_versioned_publications_checks.sql
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
@@ -35,6 +37,8 @@ related_tables:
 ---
 
 # Add New Table
+
+The versioned RaceBook publication cluster is the current multi-table service-only example. `racebook_publication_states`, immutable `racebook_publications`, retained asset references and the cleanup queue all enable RLS without client policies, revoke client privileges, and expose only narrowly granted `SECURITY INVOKER` RPCs. When rollout requires existing public rows, build and validate the initial snapshot in the same migration before enabling snapshot-only reads; a state-only backfill is insufficient.
 
 Presentation-only mobile changes that touch files referenced by `schema-overview.md` (such as the Courses card image placeholder) still update that overview's note, but add no table and need no migration.
 
@@ -99,6 +103,7 @@ Use `supabase/tests/organizer_rls_checks.sql` as the event-membership example.
 Use `supabase/tests/organizer_import_sessions_checks.sql` for service-only tables and `SECURITY INVOKER` mutation RPCs. Use `supabase/tests/race_slug_redirects_checks.sql` for a public child mapping whose select policy inherits parent visibility while every mutation remains service-only.
 The organizer entitlement/payment pair is the current service-only projection-plus-ledger example; its transition SQL check exercises recalculation separately from route/webhook tests. Generated invoice metadata extends that existing ledger through a column-only migration and dedicated immutability test; it is not a reason to create a second invoice table. `race_event_edition_branding` is the edition-unique draft/published projection example: one invoker RPC publishes all fields atomically while explicit role checks prove drafts cannot be queried directly.
 `organizer_edition_capability_grants` is the service-only current-state module-grant example: an allowlisted invoker RPC retains activation/revocation audit while the web layer combines it with a separate commercial entitlement.
+`racebook_publications` additionally demonstrates immutable JSON history with optimistic revision checks, exact retention, restoration-as-a-new-version, and asset cleanup that is queued only after all retained references disappear.
 For visibility-gated aggregate RPCs such as sponsor impressions, select an existing row that already satisfies the production publication invariants. Do not force an arbitrary fixture live when completeness or parent-visibility triggers are designed to reject that transition.
 
 ## Do Not

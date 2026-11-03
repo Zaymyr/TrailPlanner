@@ -1,7 +1,7 @@
 ---
 title: race_event_publication_requests Table
 scope: database
-last_verified: 2026-10-29
+last_verified: 2026-11-03
 ai_priority: high
 related_files:
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
@@ -30,6 +30,8 @@ related_tables:
 ---
 
 # `race_event_publication_requests`
+
+The Organizer dashboard now preserves loaded course-point sidecars across same-format refreshes and gates their autosave until loading completes. This prevents transient empty ravito/supporter replacements without changing publication readiness, entitlement checks, or legacy request history.
 
 Publication readiness no longer requires a format website/source. It still requires a non-empty name, date, effective location, positive distance, complete persisted status, membership, and the applicable edition entitlement.
 
@@ -123,6 +125,8 @@ This table is retained publication-review history. New organizer publication use
 - Source-role classification for additional URLs and PDFs is likewise review evidence only. It cannot publish a course, approve a Racebook, or create a publication request.
 - Do not treat `published_at` on edition branding as RaceBook content approval; it records only which visual snapshot runner payloads may use.
 - An absent `supporter_points` key in a legacy settings payload retains the default-enabled module for authorized organizer loading and Essential accounting; it is not evidence of publication approval.
+- Current publication history and dirty state live in the versioned RaceBook tables. These legacy request rows neither select the current snapshot nor authorize restoration.
+- The organizer's per-format `Publier les modifications` confirmation and `…` history menu do not mutate this legacy review table; server membership, readiness, and entitlement checks remain authoritative.
 
 ## Related Docs
 

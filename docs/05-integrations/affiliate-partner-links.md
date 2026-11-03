@@ -2,7 +2,7 @@
 title: Affiliate Partner Links
 scope: integration
 
-last_verified: 2026-11-02
+last_verified: 2026-11-03
 
 ai_priority: medium
 related_files:
@@ -112,3 +112,5 @@ Supporter `S’y rendre` and `Voir le plan` actions open organizer-authored acce
 - [Analytics](analytics.md)
 
 The labeled RaceBook Maps action, shared distance formatting, and plan-switch visual standardization do not change affiliate destinations, redirect accounting, or partner parameters.
+
+Booking and Decathlon remain outside the versioned RaceBook snapshot. Mobile loads their current server-resolved destinations in parallel with published RaceBook content; restoring a RaceBook version never restores or rewrites a partner destination.

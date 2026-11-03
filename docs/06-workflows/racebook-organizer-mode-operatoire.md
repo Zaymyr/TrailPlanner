@@ -1,7 +1,7 @@
 ---
 title: Mode opératoire Livret coureur organisateur
 scope: workflow
-last_verified: 2026-11-01
+last_verified: 2026-11-03
 ai_priority: medium
 related_files:
   - scripts/generate-racebook-organizer-manual.mjs
@@ -19,6 +19,8 @@ related_tables:
 ---
 
 # Mode opératoire Livret coureur organisateur
+
+Dans l'écran des points de course, l'édition et la sauvegarde automatique restent suspendues jusqu'au chargement complet des ravitos, relais et points de suivi du format actif. Une sauvegarde du même format ne vide plus brièvement l'écran et ne peut plus envoyer une collection vide transitoire.
 
 Les modifications sont enregistrées automatiquement après une courte pause de saisie. L'état de sauvegarde reste visible et propose **Réessayer** en cas d'échec ; il n'y a plus de bouton général **Sauvegarder**. Un nouveau format reprend uniquement la date, le lieu et éventuellement le site de l'événement, avec des métriques vides. Son site officiel reste facultatif.
 
@@ -49,6 +51,12 @@ Ce document accompagne le PDF utilisateur [`docs/mode-operatoire-racebook-organi
 4. Pour une autre URL locale, définir `RACEBOOK_MANUAL_BASE_URL` avant l’exécution.
 
 ## Validation
+
+- Dans **Gérer la visibilité**, vérifier que chaque format affiche `Informations à jour` en vert ou `Publier les modifications` lorsqu'un brouillon diffère de la version en ligne.
+- Ouvrir `Publier les modifications` et contrôler que la confirmation liste les champs et sections modifiés avant de proposer `Annuler` ou `Publier`.
+- Utiliser le menu `…` placé après les contrôles de visibilité pour consulter l'historique des dix versions et restaurer une ancienne publication sans changer d'onglet.
+- Utiliser `Publier tous les formats modifiés` pour une transaction d’édition.
+- Une restauration crée une nouvelle version et conserve le brouillon actuel ; aucune prévisualisation globale du brouillon n’est ajoutée.
 
 - Vérifier que le PDF contient douze pages A4.
 - Vérifier que les accents français sont corrects.

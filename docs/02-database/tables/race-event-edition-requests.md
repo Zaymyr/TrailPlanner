@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_requests Table
 scope: database
-last_verified: 2026-10-29
+last_verified: 2026-11-03
 ai_priority: medium
 related_files:
   - supabase/migrations/20260721110000_add_race_event_edition_requests.sql
@@ -23,6 +23,8 @@ related_tables:
 ---
 
 # `race_event_edition_requests`
+
+The Organizer dashboard now preserves loaded course-point sidecars across same-format refreshes and blocks their autosave while loading. This client integrity guard does not revive or mutate the retired edition-request workflow.
 
 Debounced organizer autosave applies only to editable event/format content. Edition creation remains an explicit confirmed action and therefore keeps the existing request lifecycle unchanged.
 
@@ -92,6 +94,8 @@ The table retains `id`, timestamps, `user_id`, `event_id`, `source_year`, `reque
 - Classifying additional official URLs or text PDFs may surface a date claim, but it never retargets the import session or creates a legacy edition request.
 - Do not couple the new edition branding tile or its completion signal to this retired workflow.
 - Do not reintroduce edition review merely because a legacy settings row lacks `supporter_points`: the default only controls the authorized format editor and its publication-module accounting.
+- Versioned edition publication uses `racebook_publication_states` and immutable snapshots; it does not revive this retired request workflow.
+- Moving publication and restoration actions into each visibility row does not revive or write an edition request; it only targets the selected canonical format.
 
 ## Related Docs
 

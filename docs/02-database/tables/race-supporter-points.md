@@ -1,7 +1,7 @@
 ---
 title: race_supporter_points
 scope: database
-last_verified: 2026-11-01
+last_verified: 2026-11-03
 ai_priority: high
 related_files:
   - supabase/migrations/20261029091807_add_race_supporter_points.sql
@@ -23,7 +23,7 @@ The shared RaceBook payload parser now accepts additive bib-pickup conditions. S
 
 Mobile présente maintenant le nom puis les autorisations sur deux lignes, centre ce bloc face à la distance et aux actions et localise tous les libellés visibles. Les URL, permissions, coordonnées, ordre et limites analytics restent inchangés.
 
-When the deployed web snapshot predates `supporterPointRows`, mobile may read this table directly; the public-select RLS policy remains responsible for exposing only complete points from an effective module.
+Supporter points are read on mobile only from the immutable RaceBook publication payload. A missing or older publication is unavailable rather than a reason to query this draft source table directly.
 
 ## Purpose
 

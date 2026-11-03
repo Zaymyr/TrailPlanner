@@ -1,7 +1,7 @@
 ---
 title: race_event_organizers Table
 scope: database
-last_verified: 2026-10-29
+last_verified: 2026-11-03
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -199,6 +199,8 @@ order by created_at asc;
 ## Related Docs
 
 Changing `races.organizer_details.gpxDisplay` uses the existing membership-checked race-details save path; it grants no additional access and does not alter GPX Storage authorization.
+
+Publication history, publish, restore, and private-publication reads repeat the same active event-membership check in server routes. The actor id stored on a publication is always taken from that verified session; clients cannot nominate another actor.
 
 - [race_event_claims](race-event-claims.md)
 - [race_events](race-events.md)

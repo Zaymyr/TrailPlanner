@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-11-02
+last_verified: 2026-11-03
 ai_priority: high
 related_files:
   - apps/mobile/components/plan-workspace/LockedPlanContent.tsx
@@ -10,9 +10,11 @@ related_files:
   - apps/mobile/lib/planPreviewBoundary.ts
   - apps/mobile/lib/planPreviewBoundary.test.ts
   - apps/mobile/lib/racebook.ts
+  - apps/mobile/lib/racebook.published.test.ts
   - apps/mobile/lib/racebookSupporterPoints.ts
   - apps/mobile/lib/racebookSupporterPoints.test.ts
   - apps/mobile/lib/raceProfile.ts
+  - apps/mobile/lib/raceProfile.published.test.ts
   - apps/mobile/locales/fr.ts
   - apps/mobile/locales/en.ts
   - apps/mobile/locales/types.ts
@@ -185,6 +187,10 @@ related_tables:
 
 # Mobile App Architecture
 
+## Published RaceBook boundary
+
+The mobile RaceBook is an immutable published document: `fetchRaceRacebookData` accepts only `/api/racebook-data` payloads and never falls back to Supabase source tables. A missing publication is therefore unavailable rather than an organizer-draft preview. The screen loads its route and elevation exclusively from `/api/racebook-gpx`; the planning and catalog profile functions intentionally keep their current source-course contract. Sponsors and edition branding continue through their server API, which resolves the same publication. An authenticated organizer may receive the last publication of a private format, never its current draft.
+
 The RaceBook bib parser accepts additive `thirdPartyPickupConditions` text. When third-party pickup is allowed, the Dossard rules surface includes those conditions before the equipment-check and general note lines; older payloads omit the field safely. This read-only addition does not change RaceBook access, module visibility, navigation, analytics, or organizer mutation boundaries.
 
 Plan and RaceBook now compose the same left-aligned identity, official date/location/departure row, and ordered `Distance / D+ / D− / Temps prévu / Allure` metrics. A parseable official finish cutoff adds `Temps max.` without letting a personal SAS alter the duration; an over-limit prediction is labelled in the metric. Plan access is tri-state: the workspace stays on `PlanLoadingScreen` until the server resolves access for the current plan (cache only as a timeout/network fallback), so it never renders with stale, free or Premium rights before resolution. Official RaceBook cutoffs are resolved once in course order from the official departure (`resolveOfficialCutoffSchedule`): clock-only cutoffs take their first occurrence not earlier than the previous one and dated organizer wording (`dimanche 15/11 à 14h30`) is read against the race date, so multi-day races display `J+N · HH:MM` with or without a linked plan and `Temps max.` may exceed 24 hours. Plan passages are compared after offsetting the personal departure against the official one.
@@ -233,11 +239,11 @@ The public RaceBook snapshot stays cacheable and unpersonalized. The route loads
 
 ## Structured RaceBook modules
 
-RaceBook loads its core race, ravito/product, relay, SAS, awards, and edition-services snapshot through one public-first web API request. The API can serve a shared CDN copy for published RaceBooks and mobile retries with the session token only when an organizer preview requires it; the former direct Supabase reads remain a compatibility fallback. It loads the independent public Booking/Decathlon contract in parallel and treats failure as an empty partner collection. Course shows conditional **SAS** and **Podiums** views. The Services tab is always present for an accessible RaceBook because Booking is a global action; organizer-authored structured and legacy services still respect the effective Services module. Decathlon is rendered in Matériel after the checklist with generic, non-numeric copy. Per category, structured rows take precedence over legacy text. Approximate distance uses start-address coordinates, then GPX start, then format/event coordinates, and is hidden when either endpoint is invalid. Google Maps remains responsible for the real itinerary.
+RaceBook loads its core race, ravito/product, supporter, relay, SAS, awards, edition-services, sponsor, branding, and GPX data only through versioned web APIs. The API can serve a shared CDN copy for published RaceBooks and mobile retries with the session token only when an organizer opens a private format; there is no direct Supabase fallback to organizer draft tables. Content, sponsors, branding, and course visuals carry one publication identity so a refresh cannot mix versions. It loads the independent public Booking/Decathlon contract in parallel and treats failure as an empty partner collection. Course shows conditional **SAS** and **Podiums** views. The Services tab is always present for an accessible RaceBook because Booking is a global action; organizer-authored structured and legacy services still respect the effective Services module. Decathlon is rendered in Matériel after the checklist with generic, non-numeric copy. Per category, structured rows take precedence over legacy text. Approximate distance uses start-address coordinates, then published GPX start, then format/event coordinates, and is hidden when either endpoint is invalid. Google Maps remains responsible for the real itinerary.
 
 The normalized format details include `gpxDisplay.showRoute` and `gpxDisplay.showElevationProfile`, each defaulting to `true`. The `Tracé` view independently omits the map or elevation profile according to those organizer choices and renders no GPX empty state when both are intentionally disabled.
 
-`supporter_points` follows the same additive rolling-deployment contract. Missing `supporterPointRows` triggers a direct Supabase fallback during a staggered web/mobile rollout; its public RLS policy still returns only complete points for an effective module. The normalized, server-filtered collection is the sole mobile visibility authority: Course shows `Suivi coureur` when at least one complete point exists, without applying a second potentially stale module gate from the separately cached sponsor presentation. This does not broaden access because the snapshot endpoint and direct-read RLS already require the module to be effective. Its S1/S2 chronology aligns permission chips with the title/distance header, suppresses an access label that merely repeats the point name, and keeps Maps/external-plan controls icon-only without adding a general map or runner-specific passage time.
+`supporter_points` is part of the immutable publication. Missing `supporterPointRows` means that the published version contains no visible point; mobile never repairs that absence from the draft table. The normalized collection is the sole mobile visibility authority: Course shows `Suivi coureur` when at least one complete published point exists. Its S1/S2 chronology aligns permission chips with the title/distance header, suppresses an access label that merely repeats the point name, and keeps Maps/external-plan controls icon-only without adding a general map or runner-specific passage time.
 
 The RaceBook reflects a direct personal checkpoint when an official ravito keeps its source id (or the bounded legacy name/kilometer match). For older or simplified plans that omit some official ravitos, passage times are interpolated between the surrounding personal checkpoints; personal pauses and products remain attached only to an actual matched checkpoint.
 
@@ -438,7 +444,7 @@ Runner plan creation uses catalog formats only. Courses, onboarding, and plan se
 
 ## RaceBook Sponsors
 
-When a runner presses the RaceBook action in the Courses sheet, mobile starts the lightweight `/api/racebook-sponsors` request before navigation and warms the returned loading logos. `racebookSponsors.ts` shares that short-lived account/race-scoped in-flight request with the destination so the screen does not issue a duplicate lookup. Direct links use the same destination fallback without requiring prior catalog state. Published sponsor and RaceBook requests are anonymous-first to reuse the Vercel CDN; the session token is sent only on the private-preview retry. Server-mediated mobile fetches use the shared abortable timeout helper so a stalled public attempt cannot hold the loading flow indefinitely. A first cold opening uses an indeterminate preparation indicator rather than inventing a completion percentage, while preserving the sponsor composition when configured. After a successful render, a bounded eight-race in-memory snapshot makes immediate Livret/plan returns synchronous; the route silently revalidates the public data and sponsor presentation in the background and never replays the sponsor minimum delay for that warm return. Scroll offsets are remembered per race, primary tab and Course sub-tab. Pull-to-refresh clears the short profile request cache and reloads RaceBook/profile/route data, but does not replay the sponsor interstitial.
+When a runner presses the RaceBook action in the Courses sheet, mobile may prewarm the current lightweight `/api/racebook-sponsors` response and its logos. On the destination, the authoritative content request resolves the publication id and the sponsor request is keyed to that exact id, preventing a concurrent publication from mixing branding or sponsors with another content version. Published requests are anonymous-first to reuse the Vercel CDN; the session token is sent only on the private-publication retry. Server-mediated mobile fetches use the shared abortable timeout helper so a stalled public attempt cannot hold the loading flow indefinitely. A first cold opening uses an indeterminate preparation indicator rather than inventing a completion percentage. After a successful render, a bounded eight-race in-memory snapshot makes immediate Livret/plan returns synchronous; the route silently revalidates the public data and sponsor presentation in the background and never replays the sponsor minimum delay for that warm return. Scroll offsets are remembered per race, primary tab and Course sub-tab. Pull-to-refresh clears the short published-profile request cache and reloads one publication, but does not replay the sponsor interstitial.
 
 Active banner sponsors render in a stable `Partenaires officiels` surface directly below the identity hero. The presentation respects principal, official, and service tiers, exposes a visible localized discovery action for linked sponsors, and reuses the same component for matching ravito, equipment, access, and services contexts. Loading, hero, and contextual impressions are emitted only after the logo loads and the surface becomes materially visible; they use a random per-view identifier through the aggregate endpoint and never join the runner analytics identity.
 

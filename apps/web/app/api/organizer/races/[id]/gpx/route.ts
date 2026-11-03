@@ -13,7 +13,6 @@ import {
 } from "../../../../../../lib/organizer";
 import { withSecurityHeaders } from "../../../../../../lib/http";
 import { parseOrganizerRaceDetails } from "../../../../../../lib/organizer-dashboard-details";
-import { invalidateRacebookCache } from "../../../../../../lib/racebook-cache";
 
 type ParsedOrganizerGpx = ReturnType<typeof parseGpx>;
 
@@ -223,7 +222,6 @@ export async function DELETE(request: NextRequest, context: { params: { id?: str
 
   const updatedRows = await updateResponse.json().catch(() => null);
   const updated = Array.isArray(updatedRows) ? updatedRows[0] ?? null : null;
-  await invalidateRacebookCache({ raceId: parsedParams.data.id });
 
   return withSecurityHeaders(
     NextResponse.json({
@@ -367,7 +365,6 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
   }
 
   const updated = await updateResponse.json().catch(() => null);
-  await invalidateRacebookCache({ raceId: parsedParams.data.id });
   return withSecurityHeaders(
     NextResponse.json({
       race: Array.isArray(updated) ? updated[0] ?? null : null,

@@ -2,7 +2,7 @@
 title: race_awards Table
 scope: database
 
-last_verified: 2026-11-02
+last_verified: 2026-11-03
 
 ai_priority: high
 related_files:
@@ -59,7 +59,7 @@ Rows are ordered, replaced atomically with stable submitted ids, cascade with th
 
 The shared web editor file also reports SAS count and earliest time to the surrounding schedule card. That callback is start-wave-only and does not change award persistence or completion.
 
-The collection is additive on mobile: a temporary Data API/table-unavailable error is treated as no awards and does not invalidate the rest of the RaceBook. Its public policy resolves publication through `races`, without requiring client access to `race_event_editions`. Published edition primary surfaces and borders style podium cards only; they never change award ordering or meaning, while semantic states remain independent.
+The collection travels only in the immutable RaceBook publication on mobile: a missing publication makes the RaceBook unavailable instead of querying the draft table or rendering a mixed version. Published edition primary surfaces and borders style podium cards only; they never change award ordering or meaning, while semantic states remain independent.
 
 The typed `RacebookStructuredCourseSections` component owns only podium-card presentation; the route continues to group awards by time and enforce the active module/tab contract.
 
@@ -71,7 +71,7 @@ The format access override that hides saved runner information is likewise indep
 
 The Organizer editor serializes revisioned autosaves: a response for an older revision cannot replace newer local award edits and instead queues the latest revision. Masking a format from the private demo suppresses its whole RaceBook entry without deleting awards.
 
-Published rows travel in the consolidated RaceBook CDN snapshot. A successful atomic awards replacement invalidates the parent race tag after persistence.
+Published rows travel in the immutable RaceBook snapshot. A successful atomic awards replacement increments the parent draft revision and requires explicit publication before runners see it.
 
 The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; award rows, ordering, visibility, and read/write contracts remain unchanged.
 
