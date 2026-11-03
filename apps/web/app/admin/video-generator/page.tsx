@@ -11,6 +11,7 @@ import { Label } from "../../../components/ui/label";
 import { videoGeneratorDetailSchema, type VideoGeneratorDetail } from "../../../lib/video-generator";
 import { useVerifiedSession } from "../../hooks/useVerifiedSession";
 import { VideoGeneratorMap } from "./VideoGeneratorMap";
+import type { VideoRaceInfo } from "./VideoCompositionOverlay";
 import {
   getEventChoices,
   getRacesForEvent,
@@ -28,6 +29,19 @@ const idleState = <T,>(): LoadState<T> => ({ status: "idle", data: null, message
 const readErrorMessage = async (response: Response, fallback: string) => {
   const payload = await response.json().catch(() => null) as { message?: unknown } | null;
   return typeof payload?.message === "string" ? payload.message : fallback;
+};
+
+const buildVideoRaceInfo = (detail: VideoGeneratorDetail): VideoRaceInfo => {
+  const { race } = detail;
+  const baseTitle = race.eventName ?? race.name;
+  return {
+    title: race.editionYear && !baseTitle.includes(String(race.editionYear))
+      ? `${baseTitle} ${race.editionYear}`
+      : baseTitle,
+    subtitle: race.eventName && race.eventName !== race.name ? race.name : null,
+    distanceKm: race.distanceKm,
+    elevationGainM: race.elevationGainM,
+  };
 };
 
 const formatMetric = (value: number | null | undefined, unit: string) =>
@@ -131,25 +145,39 @@ export default function AdminVideoGeneratorPage() {
     setDetailState(idleState());
   };
 
+  const renderPreviewMessage = (message: ReactNode) => (
+    <>
+      <section className="flex min-w-0 items-start justify-center">{message}</section>
+      <Card className="hidden h-fit lg:block">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Composition vidéo</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">Les réglages apparaissent une fois le parcours chargé.</p>
+        </CardContent>
+      </Card>
+    </>
+  );
+
   const renderMapContent = () => {
     if (!raceId) {
-      return <MapMessage title="Sélectionnez un format" description="Choisissez un événement puis un format pour charger son parcours." />;
+      return renderPreviewMessage(<MapMessage title="Sélectionnez un format" description="Choisissez un événement puis un format pour charger son parcours." />);
     }
     if (detailState.status === "loading") {
-      return <MapMessage title="Chargement du GPX…" description="Lecture et préparation du parcours complet." loading />;
+      return renderPreviewMessage(<MapMessage title="Chargement du GPX…" description="Lecture et préparation du parcours complet." loading />);
     }
     if (detailState.status === "error") {
-      return (
+      return renderPreviewMessage(
         <MapMessage title="Impossible de charger le parcours" description={detailState.message}>
           <Button type="button" variant="outline" onClick={() => setDetailRequestVersion((version) => version + 1)}>
             Réessayer
           </Button>
-        </MapMessage>
+        </MapMessage>,
       );
     }
-    if (!detail) return <MapMessage title="Parcours indisponible" description="Aucune donnée de parcours n’a été reçue." />;
+    if (!detail) return renderPreviewMessage(<MapMessage title="Parcours indisponible" description="Aucune donnée de parcours n’a été reçue." />);
     if (detail.gpx.status === "missing") {
-      return <MapMessage title="Aucun GPX disponible" description="Ce format ne possède pas encore de fichier GPX." />;
+      return renderPreviewMessage(<MapMessage title="Aucun GPX disponible" description="Ce format ne possède pas encore de fichier GPX." />);
     }
 
     return (
@@ -158,7 +186,7 @@ export default function AdminVideoGeneratorPage() {
         aidStations={detail.aidStations}
         bounds={detail.gpx.bounds}
         points={detail.gpx.points}
-        raceName={detail.race.name}
+        race={buildVideoRaceInfo(detail)}
       />
     );
   };
@@ -172,21 +200,18 @@ export default function AdminVideoGeneratorPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4 px-4 py-6 sm:px-6">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-3 px-4 py-4 sm:px-6">
+      <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand">Administration</p>
-          <h1 className="mt-1 text-3xl font-semibold text-foreground">Générateur vidéo 3D</h1>
-          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-            Prévisualisez et animez automatiquement un parcours sur un terrain satellite 3D.
-          </p>
+          <h1 className="text-2xl font-semibold text-foreground">Générateur vidéo 3D</h1>
         </div>
         <Link href="/admin" className="text-sm font-medium text-brand underline-offset-4 hover:underline">
           Retour à l’administration
         </Link>
       </header>
 
-      <div className="grid min-h-[42rem] gap-4 lg:grid-cols-[21rem_minmax(0,1fr)]">
+      <div className="grid gap-4 lg:grid-cols-[17rem_minmax(0,1fr)_20rem] xl:grid-cols-[19rem_minmax(0,1fr)_22rem]">
         <Card className="h-fit lg:sticky lg:top-4">
           <CardHeader>
             <CardTitle>Configuration</CardTitle>
@@ -254,9 +279,7 @@ export default function AdminVideoGeneratorPage() {
           </CardContent>
         </Card>
 
-        <section className="flex min-h-[42rem] flex-col items-center rounded-lg border border-border bg-muted/30 p-4 shadow-lg shadow-[rgba(45,80,22,0.08)] sm:p-6">
-          {renderMapContent()}
-        </section>
+        {renderMapContent()}
       </div>
     </div>
   );

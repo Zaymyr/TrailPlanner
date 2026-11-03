@@ -56,9 +56,6 @@ describe("video generator camera controller", () => {
     } as unknown as MapboxMap;
 
     createRouteCameraController(map, () => bounds).applyAnimationFrame({
-      progress: 0.5,
-      distanceKm: 5,
-      routePoint: { lat: 45.5, lon: 4.5, elevationM: 600, distanceKm: 5 },
       camera: { lat: 45.4, lon: 4.4, altitudeM: 1_500 },
       target: { lat: 45.6, lon: 4.6, altitudeM: 700 },
     });

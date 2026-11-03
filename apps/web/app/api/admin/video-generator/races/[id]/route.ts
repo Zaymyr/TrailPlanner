@@ -23,6 +23,7 @@ const raceSchema = z.object({
   elevation_gain_m: z.number().nullable(),
   elevation_loss_m: z.number().nullable().optional(),
   gpx_storage_path: z.string().nullable().optional(),
+  race_date: z.string().nullable().optional(),
   race_events: eventSchema.nullable().optional(),
 });
 
@@ -31,6 +32,11 @@ const aidStationSchema = z.object({
   name: z.string(),
   km: z.number(),
 });
+
+const parseEditionYear = (raceDate: string | null | undefined) => {
+  const year = raceDate ? Number.parseInt(raceDate.slice(0, 4), 10) : Number.NaN;
+  return Number.isInteger(year) && year >= 1900 && year <= 2200 ? year : null;
+};
 
 const jsonError = (message: string, status: number) =>
   withSecurityHeaders(NextResponse.json({ message }, { status }));
@@ -62,7 +68,7 @@ export async function GET(request: NextRequest, context: { params: { id?: string
   try {
     const [raceResponse, aidStationsResponse] = await Promise.all([
       fetch(
-        `${supabaseService.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=id,event_id,name,distance_km,elevation_gain_m,elevation_loss_m,gpx_storage_path,race_events(id,name)&limit=1`,
+        `${supabaseService.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=id,event_id,name,distance_km,elevation_gain_m,elevation_loss_m,gpx_storage_path,race_date,race_events(id,name)&limit=1`,
         { headers: serviceHeaders, cache: "no-store" },
       ),
       fetch(
@@ -93,6 +99,7 @@ export async function GET(request: NextRequest, context: { params: { id?: string
         distanceKm: race.distance_km,
         elevationGainM: race.elevation_gain_m,
         elevationLossM: race.elevation_loss_m ?? null,
+        editionYear: parseEditionYear(race.race_date),
       },
       aidStations: aidStationRows.map((station) => ({
         id: station.id,

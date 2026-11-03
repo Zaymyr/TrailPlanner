@@ -26,6 +26,7 @@ const raceRow = {
   elevation_gain_m: 2300,
   elevation_loss_m: null,
   gpx_storage_path: "catalog/saintelyon.gpx",
+  race_date: "2026-11-28",
   race_events: { id: eventId, name: "SaintéLyon" },
 };
 
@@ -70,7 +71,7 @@ describe("GET /api/admin/video-generator/races/[id]", () => {
     expect(response.status).toBe(200);
     expect(String(vi.mocked(fetch).mock.calls[0][0])).not.toContain("is_live");
     expect(payload).toMatchObject({
-      race: { id: raceId, eventName: "SaintéLyon", elevationLossM: null },
+      race: { id: raceId, eventName: "SaintéLyon", elevationLossM: null, editionYear: 2026 },
       aidStations: [{ id: stationId, name: "Sainte-Catherine", distanceKm: 32.5 }],
       gpx: { status: "ready", pointCount: 2 },
     });

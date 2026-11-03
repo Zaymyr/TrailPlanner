@@ -164,7 +164,7 @@ describe("VideoGeneratorMapClient", () => {
         { lat: 45, lon: 4, elevationM: 400, distanceKm: 0 },
         { lat: 46, lon: 5, elevationM: 900, distanceKm: 20 },
       ],
-      raceName: "SaintéLyon",
+      race: { title: "SaintéLyon 2026", subtitle: "SaintéLyon 82 km", distanceKm: 82, elevationGainM: 2_300 },
     }));
     const map = mapboxMock.instances[0];
     expect(map).toBeTruthy();
@@ -183,6 +183,9 @@ describe("VideoGeneratorMapClient", () => {
     const routeUpdatesBeforePlayback = routeSetData?.mock.calls.length;
     const markerMovesBeforePlayback = progressMarker.setLngLat.mock.calls.length;
 
+    expect(screen.getAllByText("SaintéLyon 2026").length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("Durée de la vidéo")).toBeTruthy();
+
     await userEvent.click(screen.getByRole("button", { name: "Lecture" }));
     act(() => flushAnimationFrames(1_000));
     expect(map.setFreeCameraOptions).toHaveBeenCalled();
@@ -194,7 +197,10 @@ describe("VideoGeneratorMapClient", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Classique 16:9" }));
     act(() => flushAnimationFrames(1_100));
-    expect(screen.getByText("Aperçu classique 16:9")).toBeTruthy();
+    expect(screen.getByTestId("video-preview-frame").className).toContain("aspect-video");
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Profil altimétrique" }));
+    expect((screen.getByRole("checkbox", { name: "Profil altimétrique" }) as HTMLInputElement).checked).toBe(false);
 
     Object.defineProperty(document, "hidden", { configurable: true, value: true });
     act(() => document.dispatchEvent(new Event("visibilitychange")));

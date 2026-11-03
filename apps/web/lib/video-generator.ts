@@ -21,6 +21,7 @@ export const videoRaceSchema = z.object({
   distanceKm: z.number(),
   elevationGainM: z.number().nullable(),
   elevationLossM: z.number().nullable(),
+  editionYear: z.number().int().nullable().optional(),
 });
 
 export const videoRouteBoundsSchema = z.object({

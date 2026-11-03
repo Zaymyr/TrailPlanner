@@ -11,6 +11,10 @@ related_files:
   - apps/web/app/admin/video-generator/VideoGeneratorMap.tsx
   - apps/web/app/admin/video-generator/VideoGeneratorMapClient.tsx
   - apps/web/app/admin/video-generator/VideoGeneratorMapClient.test.ts
+  - apps/web/app/admin/video-generator/VideoCompositionOverlay.tsx
+  - apps/web/app/admin/video-generator/CompositionSettingsPanel.tsx
+  - apps/web/app/admin/video-generator/video-composition.ts
+  - apps/web/app/admin/video-generator/video-composition.test.ts
   - apps/web/app/admin/video-generator/AnimationControls.tsx
   - apps/web/app/admin/video-generator/AnimationControls.test.ts
   - apps/web/app/admin/video-generator/animation-controller.ts
@@ -33,7 +37,7 @@ related_tables:
 
 ## Purpose
 
-The admin-only `/admin/video-generator` route renders existing race GPX files over satellite imagery and real 3D terrain. Phase 2 adds a deterministic automatic flyover and interactive timeline. It still does not capture frames, encode video, or install Remotion/FFmpeg.
+The admin-only `/admin/video-generator` route renders existing race GPX files over satellite imagery and real 3D terrain. Phase 2 adds a deterministic automatic flyover and interactive timeline. Phase 3 priority 1 adds the full Reel composition preview (header, animated elevation profile, current kilometre, aid-station labels, branding, intro and outro) driven by one time function meant to be reused by the future MP4 export. It still does not capture frames, encode video, or install Remotion/FFmpeg.
 
 ## Key Concepts
 
@@ -43,9 +47,11 @@ The admin-only `/admin/video-generator` route renders existing race GPX files ov
 - Draft and published formats are available because the server verifies trusted admin `app_metadata` before any service-role read.
 - Mapbox logo and source attribution remain enabled on the interactive map.
 - The viewer fixes the projection to Mercator for consistent terrain rendering across desktop GPUs and observes its container so the WebGL canvas is resized after responsive layout changes.
+- The page is a three-column workspace: race selection on the left, the phone preview with its compact transport bar in the middle (sized from the viewport height so the whole 9:16 frame is visible without scrolling), and the "Composition vidéo" settings on the right.
 - The preview defaults to a 9:16 Instagram/Reels frame at a logical 1080 x 1920 ratio and can switch to a real 16:9 camera viewport. Neither preview captures or encodes video.
 - The classic `satellite-streets-v12` style is the default compatibility basemap. Admins can switch to Mapbox Standard Satellite at runtime to compare rendering without reloading the GPX.
-- Automatic playback is opt-in, defaults to 45 seconds and progressive route reveal, and exposes presets plus a bounded 10-300 second custom duration.
+- Automatic playback is opt-in, defaults to 45 seconds and progressive route reveal. Durations are limited to the Reel presets 30, 45, 60 and 90 seconds, which include the optional 3-second intro and outro.
+- `VideoCompositionSettings` (`video-composition.ts`) is a versioned, zod-validated, JSON-serializable object holding every visual choice (format, export resolution 540p/1080p, information toggles, route and accent colours, logo/CTA, sequences, disabled aid stations). "Copier la configuration" exports it so a render can be reproduced.
 
 ## Data Flow And Security
 
@@ -75,13 +81,18 @@ The camera stack is separated into three boundaries:
 - **Vue d'ensemble** recomputes a full-route camera while preserving current bearing and pitch.
 - **Réinitialiser la caméra** returns to north-up bearing `0` and pitch `55` over the complete route.
 - a one-point route uses a stable close zoom rather than invalid zero-area bounds.
-- `route-animation.ts` regularly samples cumulative GPX distance, resolves missing elevation from valid GPX neighbors and then loaded terrain, and exports deterministic `getCameraStateAtTime` calculations.
+- `route-animation.ts` regularly samples cumulative GPX distance, resolves missing elevation from valid GPX neighbors and then loaded terrain, and exports the pure chase camera, overview camera and pose interpolation.
+- `video-composition.ts` builds the timeline (intro, flyover, outro), the variable pacing, the aid-label schedule and the elevation profile once per configuration, and exposes `getVideoFrameState(timeline, timeMs)` plus `getVideoCameraPose`. The preview, the overlay and the future export all derive a frame from these two functions only.
 - `animation-controller.ts` owns the monotonic playback clock, pause/resume, restart, seek and duration changes without accumulating camera state frame by frame.
 - `camera-controller.ts` converts a calculated frame into Mapbox `FreeCameraOptions`; it never chains `flyTo` calls.
 
 The camera path is capped at 2,500 regularly spaced samples for long ultras. The displayed route keeps every original GPX point. Playback updates only the free camera, the `line-trim-offset` of a bright reveal layer drawn over a faint full-route layer (both on one `lineMetrics` source), and the position of a DOM `mapboxgl.Marker` for the progress point. It never calls `setData` or rebuilds a `line-gradient` per frame: both re-tile or re-texture the route and made playback stutter. Camera interaction is disabled during playback and restored on pause or completion. Hidden tabs pause instead of jumping forward when they become visible again.
 
-The dynamic-following preset derives look-ahead, setback, smoothing and clearance from route distance divided by selected duration. Portrait mode raises and looks farther ahead than landscape mode so the route remains framed around the title and future elevation-profile safe areas. Additional aerial/cinematic presets are intentionally deferred.
+The chase camera always looks exactly at the progress marker, so the runner stays centred between the header and the profile. It sits behind the marker along a travel direction averaged over three symmetric chords (a hairpin rotates progressively instead of snapping) and is raised above the highest nearby GPX sample plus 300 m of clearance. Back distance and heading window scale with the average flyover speed rather than the instantaneous one, so framing stays stable while the pace changes. Portrait mode sits 20% further back and higher. The intro holds a pure north-up overview fitted to the route and glides to the start; the outro glides back to it.
+
+Pacing is not linear in distance. `computePacingWeights` gives each sample a relative time per kilometre: up to +140% on climbs of 15% or more, up to +50% on steep descents, and up to +200% in a Gaussian window around each enabled aid station; the weights are smoothed over 1% of the route so the speed never jumps. The cumulative table is inverted with a binary search, which keeps any time → distance lookup deterministic and seekable.
+
+The composition overlay is plain DOM above the map, sized in `cqmin` container units so the preview and a 1080 x 1920 capture share the same layout. It reads frames from a small external store with `useSyncExternalStore`, leaving the rest of the page at the existing 10 Hz snapshot rate. The elevation profile path is computed once (at most 400 points); frames only move a clip rectangle and a cursor whose distance is the exact marker distance. Aid labels last 2.5 s and never overlap: a following label shortens the previous one when both keep at least 1.2 s, otherwise the later station is skipped and flagged "masqué" in the panel. Essential information stays out of the right-hand Instagram action column and above the bottom caption area. Disabled stations are removed from the map markers and the pacing; the station being announced is enlarged on the map.
 
 ## Environment And Provider Terms
 
@@ -102,7 +113,8 @@ Provider references:
 - Route tests cover missing/invalid sessions, non-admin denial, draft reads, absent/invalid GPX, Storage failure and sensitive-field omission.
 - Pure tests cover ordered GeoJSON, endpoint markers, station projection and one-point routes.
 - Animation tests cover distance interpolation, sample caps, missing/invalid elevations, deterministic camera frames, playback controls and duration preservation.
-- UI and mocked-Mapbox tests cover the default 9:16/45-second/progressive state, custom duration, seek, terrain/layer setup, FreeCamera application, style switching and cleanup.
+- Composition tests cover settings defaults and JSON round-trip, intro/flyover/outro split, slower climbs and aid stations, aid-label collisions, deterministic frames, the intro camera glide and the bounded profile.
+- UI and mocked-Mapbox tests cover the default 9:16/45-second/progressive state, seek, terrain/layer setup, FreeCamera application, information toggles, style switching and cleanup.
 - Manual validation needs a real restricted token and known short/long formats such as SaintéLyon and Diagonale des Fous to confirm terrain clearance, smooth turns, exact end state, both aspect ratios, attribution and visual alignment.
 
 ## Gotchas
@@ -116,7 +128,8 @@ Provider references:
 - Do not mutate, thin or progressively slice the displayed GPX source. Camera samples are derived separately and route reveal trims a `lineMetrics` layer with `line-trim-offset`.
 - Do not make rotation smoothing depend on the previous rendered frame. Seeking and future frame export require the same time to reproduce the same camera state.
 - Do not gate animation frames on `map.isStyleLoaded()`. In Mapbox GL v3 it stays false while any tile loads or a source has pending updates, which is continuous during a flyover; the viewer tracks its own layers-ready flag, reset on style switches.
-- Do not describe phase 2 as video generation. It produces no video artifact.
+- Do not compute overlay content, camera or pacing anywhere else than `video-composition.ts` and `route-animation.ts`; the export must replay exactly what the preview shows.
+- Do not describe the current preview as video generation. It produces no video artifact until the export phase ships.
 
 ## Related Docs
 

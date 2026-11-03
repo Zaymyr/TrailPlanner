@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import type { VideoRoutePoint } from "../../../lib/video-generator";
 import {
-  getCameraStateAtTime,
+  getChaseCameraPose,
+  getOverviewCameraPose,
+  getRouteHeading,
   getRoutePointAtDistance,
   MAX_CAMERA_SAMPLES,
   prepareAnimationPath,
@@ -52,31 +54,61 @@ describe("prepareAnimationPath", () => {
   });
 });
 
-describe("getCameraStateAtTime", () => {
-  it("is deterministic and clamps the exact start and finish", () => {
-    const path = prepareAnimationPath(points);
-    const first = getCameraStateAtTime(12_000, 45_000, path);
-    const repeated = getCameraStateAtTime(12_000, 45_000, path);
-    expect(repeated).toEqual(first);
-    expect(getCameraStateAtTime(-10, 45_000, path).progress).toBe(0);
-    expect(getCameraStateAtTime(99_000, 45_000, path).progress).toBe(1);
-    expect(getCameraStateAtTime(45_000, 45_000, path).distanceKm).toBe(10);
+describe("getChaseCameraPose", () => {
+  const straight = prepareAnimationPath([
+    { lat: 45, lon: 4, elevationM: 400, distanceKm: 0 },
+    { lat: 45.2, lon: 4, elevationM: 600, distanceKm: 22.24 },
+  ]);
+
+  it("looks exactly at the progress point and is deterministic", () => {
+    const pose = getChaseCameraPose(straight, 10, 500);
+    const marker = getRoutePointAtDistance(straight, 10);
+    expect(pose.target.lat).toBeCloseTo(marker.lat, 10);
+    expect(pose.target.lon).toBeCloseTo(marker.lon, 10);
+    expect(getChaseCameraPose(straight, 10, 500)).toEqual(pose);
   });
 
-  it("adapts portrait framing without producing invalid values", () => {
-    const path = prepareAnimationPath(points);
-    const portrait = getCameraStateAtTime(20_000, 45_000, path, undefined, "portrait");
-    const landscape = getCameraStateAtTime(20_000, 45_000, path, undefined, "landscape");
+  it("sits behind the runner along the travel direction and above nearby terrain", () => {
+    const pose = getChaseCameraPose(straight, 10, 500, "landscape");
+    expect(pose.camera.lat).toBeLessThan(pose.target.lat);
+    expect(pose.camera.lon).toBeCloseTo(pose.target.lon, 6);
+    expect(pose.camera.altitudeM).toBeGreaterThan(600 * 1.15 + 299);
+  });
 
+  it("raises the portrait camera and stays finite for degenerate paths", () => {
+    const portrait = getChaseCameraPose(straight, 10, 500, "portrait");
+    const landscape = getChaseCameraPose(straight, 10, 500, "landscape");
     expect(portrait.camera.altitudeM).toBeGreaterThan(landscape.camera.altitudeM);
-    expect(portrait.target.lat).not.toBe(landscape.target.lat);
-    expect(Object.values(portrait.camera).every(Number.isFinite)).toBe(true);
-    expect(Object.values(portrait.target).every(Number.isFinite)).toBe(true);
-  });
 
-  it("remains finite for a zero-length path", () => {
-    const frame = getCameraStateAtTime(0, 45_000, prepareAnimationPath([points[0]]));
-    expect(frame.progress).toBe(0);
-    expect(Object.values(frame.camera).every(Number.isFinite)).toBe(true);
+    const single = getChaseCameraPose(prepareAnimationPath([points[0]]), 0, 0);
+    expect(Object.values(single.camera).every(Number.isFinite)).toBe(true);
+  });
+});
+
+describe("getRouteHeading", () => {
+  it("averages chords so a hairpin rotates progressively", () => {
+    const hairpin = prepareAnimationPath([
+      { lat: 45, lon: 4, elevationM: 0, distanceKm: 0 },
+      { lat: 45.05, lon: 4, elevationM: 0, distanceKm: 5.56 },
+      { lat: 45.05, lon: 4.07, elevationM: 0, distanceKm: 11.06 },
+    ]);
+    const before = getRouteHeading(hairpin, 3, 1);
+    const atTurn = getRouteHeading(hairpin, 5.56, 1);
+    const after = getRouteHeading(hairpin, 8, 1);
+    expect(before.north).toBeGreaterThan(0.99);
+    expect(after.east).toBeGreaterThan(0.99);
+    expect(atTurn.north).toBeGreaterThan(0.5);
+    expect(atTurn.east).toBeGreaterThan(0.5);
+  });
+});
+
+describe("getOverviewCameraPose", () => {
+  it("looks at the route centre from the south, higher in portrait", () => {
+    const path = prepareAnimationPath(points);
+    const portrait = getOverviewCameraPose(path, "portrait");
+    const landscape = getOverviewCameraPose(path, "landscape");
+    expect(portrait.target.lat).toBeCloseTo(45.1, 6);
+    expect(portrait.camera.lat).toBeLessThan(portrait.target.lat);
+    expect(portrait.camera.altitudeM).toBeGreaterThan(landscape.camera.altitudeM);
   });
 });
