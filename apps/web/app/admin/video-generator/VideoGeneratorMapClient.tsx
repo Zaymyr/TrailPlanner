@@ -8,7 +8,7 @@ import mapboxgl, {
   type MapboxEvent,
 } from "mapbox-gl";
 
-import { Button } from "../../../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { buildMarkerGeoJson, buildRouteGeoJson } from "../../../lib/video-generator";
 import { AnimationControls } from "./AnimationControls";
 import {
@@ -17,39 +17,58 @@ import {
   type RouteAnimationController,
 } from "./animation-controller";
 import { createRouteCameraController, type RouteCameraController } from "./camera-controller";
+import { CompositionSettingsPanel } from "./CompositionSettingsPanel";
+import {
+  applyMapAppearance,
+  captureMapAppearanceState,
+  resolveMapStyleUrl,
+  ROUTE_GLOW_WIDTH,
+  ROUTE_LINE_WIDTHS,
+  type MapAppearanceState,
+} from "./map-appearance";
 import { observeMapSize, type MapResizeController } from "./map-resize-controller";
 import {
-  getCameraStateAtTime,
+  getRoutePointAtDistance,
   prepareAnimationPath,
-  TERRAIN_EXAGGERATION,
-  type AnimationViewport,
   type PreparedAnimationPath,
   type RouteRevealMode,
 } from "./route-animation";
+import {
+  buildElevationProfile,
+  buildVideoTimeline,
+  DEFAULT_VIDEO_COMPOSITION_SETTINGS,
+  getGradeAtDistance,
+  getVideoCameraPose,
+  getVideoFrameState,
+  type VideoCompositionSettings,
+} from "./video-composition";
+import { createVideoFrameStore, VideoCompositionOverlay } from "./VideoCompositionOverlay";
 import type { VideoGeneratorMapProps } from "./VideoGeneratorMap";
 
 const TERRAIN_SOURCE_ID = "video-terrain-dem";
 const ROUTE_SOURCE_ID = "video-route";
 const ROUTE_LAYER_ID = "video-route-line";
+const ROUTE_REVEAL_LAYER_ID = "video-route-line-reveal";
+const ROUTE_GLOW_LAYER_ID = "video-route-line-glow";
 const MARKER_SOURCE_ID = "video-route-markers";
 const MARKER_CIRCLE_LAYER_ID = "video-route-marker-circles";
 const MARKER_LABEL_LAYER_ID = "video-route-marker-labels";
-const ROUTE_REVEAL_LAYER_ID = "video-route-line-reveal";
-export const VIDEO_ROUTE_COLOR = "#d9ff57";
-const VIDEO_ROUTE_FUTURE_COLOR = "rgba(217, 255, 87, 0.22)";
-const DEFAULT_DURATION_SECONDS = 45;
+export const VIDEO_ROUTE_COLOR = DEFAULT_VIDEO_COMPOSITION_SETTINGS.routeColor;
+const FUTURE_ROUTE_ALPHA_HEX = "38";
+const GLOW_ROUTE_ALPHA_HEX = "8c";
+const OWN_LAYER_IDS = new Set([
+  ROUTE_LAYER_ID,
+  ROUTE_GLOW_LAYER_ID,
+  ROUTE_REVEAL_LAYER_ID,
+  MARKER_CIRCLE_LAYER_ID,
+  MARKER_LABEL_LAYER_ID,
+]);
 
-const MAP_STYLES = {
-  classic: "mapbox://styles/mapbox/satellite-streets-v12",
-  standard: "mapbox://styles/mapbox/standard-satellite",
-} as const;
-
-type MapStyleChoice = keyof typeof MAP_STYLES;
 type GeoJsonSourceData = Parameters<GeoJSONSource["setData"]>[0];
 
 const initialSnapshot: AnimationPlaybackSnapshot = {
   currentTimeMs: 0,
-  durationMs: DEFAULT_DURATION_SECONDS * 1_000,
+  durationMs: DEFAULT_VIDEO_COMPOSITION_SETTINGS.durationSeconds * 1_000,
   progress: 0,
   isPlaying: false,
 };
@@ -71,16 +90,21 @@ export const buildRouteTrimOffset = (mode: RouteRevealMode, progress: number): [
   return clamped >= 1 ? [0, 0] : [clamped, 1];
 };
 
-const ROUTE_LINE_WIDTH: ExpressionSpecification = ["interpolate", ["linear"], ["zoom"], 5, 3, 13, 7];
+const buildMarkerRadius = (activeDistanceKm: number | null): ExpressionSpecification => [
+  "case",
+  ["==", ["get", "distanceKm"], activeDistanceKm ?? -1],
+  12,
+  ["match", ["get", "kind"], "aid", 6, 8],
+];
 
-const createProgressMarkerElement = () => {
+const createProgressMarkerElement = (color: string) => {
   const element = document.createElement("div");
   element.setAttribute("aria-hidden", "true");
   Object.assign(element.style, {
     width: "16px",
     height: "16px",
     borderRadius: "9999px",
-    background: VIDEO_ROUTE_COLOR,
+    background: color,
     border: "3px solid #172012",
     boxSizing: "content-box",
   });
@@ -91,7 +115,10 @@ const syncMapData = (
   map: MapboxMap,
   routeData: ReturnType<typeof buildRouteGeoJson>,
   markerData: ReturnType<typeof buildMarkerGeoJson>,
+  settings: VideoCompositionSettings,
 ) => {
+  const { routeColor } = settings;
+  const lineWidth = ROUTE_LINE_WIDTHS[settings.routeWidth];
   const routeSource = map.getSource(ROUTE_SOURCE_ID) as GeoJSONSource | undefined;
   if (routeSource) routeSource.setData(routeData as GeoJsonSourceData);
   else map.addSource(ROUTE_SOURCE_ID, { type: "geojson", data: routeData as GeoJsonSourceData, lineMetrics: true });
@@ -104,9 +131,26 @@ const syncMapData = (
       slot: "top",
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
-        "line-color": VIDEO_ROUTE_FUTURE_COLOR,
-        "line-width": ROUTE_LINE_WIDTH,
+        "line-color": `${routeColor}${FUTURE_ROUTE_ALPHA_HEX}`,
+        "line-width": lineWidth,
         "line-emissive-strength": 1,
+      },
+    });
+  }
+
+  if (!map.getLayer(ROUTE_GLOW_LAYER_ID)) {
+    map.addLayer({
+      id: ROUTE_GLOW_LAYER_ID,
+      type: "line",
+      source: ROUTE_SOURCE_ID,
+      slot: "top",
+      layout: { "line-cap": "round", "line-join": "round", visibility: settings.routeGlow ? "visible" : "none" },
+      paint: {
+        "line-color": `${routeColor}${GLOW_ROUTE_ALPHA_HEX}`,
+        "line-width": ROUTE_GLOW_WIDTH,
+        "line-blur": 8,
+        "line-emissive-strength": 1,
+        "line-trim-offset": buildRouteTrimOffset("progressive", 0),
       },
     });
   }
@@ -119,8 +163,8 @@ const syncMapData = (
       slot: "top",
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
-        "line-color": VIDEO_ROUTE_COLOR,
-        "line-width": ROUTE_LINE_WIDTH,
+        "line-color": routeColor,
+        "line-width": lineWidth,
         "line-opacity": 0.96,
         "line-emissive-strength": 1,
         "line-trim-offset": buildRouteTrimOffset("progressive", 0),
@@ -139,7 +183,7 @@ const syncMapData = (
       source: MARKER_SOURCE_ID,
       slot: "top",
       paint: {
-        "circle-radius": ["match", ["get", "kind"], "aid", 6, 8],
+        "circle-radius": buildMarkerRadius(null),
         "circle-color": ["match", ["get", "kind"], "start", "#22c55e", "finish", "#e11d48", "#f59e0b"],
         "circle-stroke-color": "#ffffff",
         "circle-stroke-width": 2,
@@ -174,7 +218,7 @@ const setMapInteractionsEnabled = (map: MapboxMap, enabled: boolean) => {
   });
 };
 
-export function VideoGeneratorMapClient({ aidStations, bounds, points, raceName }: VideoGeneratorMapProps) {
+export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: VideoGeneratorMapProps) {
   const accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN?.trim() ?? "";
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapboxMap | null>(null);
@@ -185,77 +229,139 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, raceName 
   // `map.isStyleLoaded()` is false whenever a tile is loading or a source was just updated, which is
   // permanently the case while the camera flies. Gating frames on it skipped most of them.
   const layersReadyRef = useRef(false);
+  const appearanceStateRef = useRef<MapAppearanceState>({ basemapSymbolLayerIds: [] });
+  const styleUrlRef = useRef<string | null>(null);
+  const activeAidDistanceRef = useRef<number | null>(null);
   const boundsRef = useRef(bounds);
   const pointsRef = useRef(points);
-  const routeData = useMemo(() => buildRouteGeoJson(points), [points]);
-  const markerData = useMemo(() => buildMarkerGeoJson(points, aidStations), [aidStations, points]);
-  const initialPreparedPath = useMemo(() => prepareAnimationPath(points), [points]);
-  const routeDataRef = useRef(routeData);
-  const markerDataRef = useRef(markerData);
-  const preparedPathRef = useRef<PreparedAnimationPath>(initialPreparedPath);
-  const durationMsRef = useRef(DEFAULT_DURATION_SECONDS * 1_000);
-  const viewportRef = useRef<AnimationViewport>("portrait");
-  const revealModeRef = useRef<RouteRevealMode>("progressive");
-  const styleLoadVersionRef = useRef(0);
+
+  const [settings, setSettings] = useState<VideoCompositionSettings>(DEFAULT_VIDEO_COMPOSITION_SETTINGS);
+  const [preparedPath, setPreparedPath] = useState<PreparedAnimationPath>(() => prepareAnimationPath(points));
   const [mapError, setMapError] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
-  const [canAnimate, setCanAnimate] = useState(preparedPathRef.current.canAnimate);
-  const [styleChoice, setStyleChoice] = useState<MapStyleChoice>("classic");
-  const [durationSeconds, setDurationSeconds] = useState(DEFAULT_DURATION_SECONDS);
-  const [viewport, setViewport] = useState<AnimationViewport>("portrait");
-  const [revealMode, setRevealMode] = useState<RouteRevealMode>("progressive");
   const [snapshot, setSnapshot] = useState<AnimationPlaybackSnapshot>(initialSnapshot);
   const [webGlAvailable] = useState(() => typeof document === "undefined" || supportsWebGl());
 
+  const enabledAidStations = useMemo(() => {
+    const disabled = new Set(settings.disabledAidStationIds);
+    return aidStations.filter((station) => !disabled.has(station.id));
+  }, [aidStations, settings.disabledAidStationIds]);
+  const routeData = useMemo(() => buildRouteGeoJson(points), [points]);
+  const markerData = useMemo(() => buildMarkerGeoJson(points, enabledAidStations), [enabledAidStations, points]);
+  const timeline = useMemo(
+    () => buildVideoTimeline(preparedPath, aidStations, settings, { detail: race.startDetail }),
+    [aidStations, preparedPath, race.startDetail, settings],
+  );
+  const profile = useMemo(() => buildElevationProfile(preparedPath), [preparedPath]);
+  const [frameStore] = useState(() => createVideoFrameStore(getVideoFrameState(timeline, 0)));
+  const elevationAtDistance = useCallback(
+    (distanceKm: number) => getRoutePointAtDistance(preparedPath, distanceKm).elevationM,
+    [preparedPath],
+  );
+  const gradeAtDistance = useCallback(
+    (distanceKm: number) => getGradeAtDistance(preparedPath, distanceKm),
+    [preparedPath],
+  );
+
+  const settingsRef = useRef(settings);
+  const timelineRef = useRef(timeline);
+  const preparedPathRef = useRef(preparedPath);
+  const routeDataRef = useRef(routeData);
+  const markerDataRef = useRef(markerData);
+  settingsRef.current = settings;
+  timelineRef.current = timeline;
+  preparedPathRef.current = preparedPath;
+  routeDataRef.current = routeData;
+  markerDataRef.current = markerData;
+
   const applyAnimationTime = useCallback((timeMs: number) => {
+    const frame = getVideoFrameState(timelineRef.current, timeMs);
+    frameStore.set(frame);
     const map = mapRef.current;
     const camera = cameraRef.current;
     const path = preparedPathRef.current;
     if (!map || !layersReadyRef.current || !camera || !path.canAnimate) return;
-    const frame = getCameraStateAtTime(timeMs, durationMsRef.current, path, undefined, viewportRef.current);
-    camera.applyAnimationFrame(frame);
-    if (map.getLayer(ROUTE_REVEAL_LAYER_ID)) {
-      map.setPaintProperty(ROUTE_REVEAL_LAYER_ID, "line-trim-offset", buildRouteTrimOffset(revealModeRef.current, frame.progress));
+
+    camera.applyAnimationFrame(getVideoCameraPose(path, timelineRef.current, frame, settingsRef.current.viewport));
+    const trimOffset = buildRouteTrimOffset(settingsRef.current.revealMode, frame.routeProgress);
+    if (map.getLayer(ROUTE_REVEAL_LAYER_ID)) map.setPaintProperty(ROUTE_REVEAL_LAYER_ID, "line-trim-offset", trimOffset);
+    if (map.getLayer(ROUTE_GLOW_LAYER_ID)) map.setPaintProperty(ROUTE_GLOW_LAYER_ID, "line-trim-offset", trimOffset);
+    const routePoint = getRoutePointAtDistance(path, frame.distanceKm);
+    progressMarkerRef.current?.setLngLat([routePoint.lon, routePoint.lat]);
+
+    const activeAidDistance = frame.aidLabel?.distanceKm ?? null;
+    if (activeAidDistance !== activeAidDistanceRef.current && map.getLayer(MARKER_CIRCLE_LAYER_ID)) {
+      activeAidDistanceRef.current = activeAidDistance;
+      map.setPaintProperty(MARKER_CIRCLE_LAYER_ID, "circle-radius", buildMarkerRadius(activeAidDistance));
     }
-    progressMarkerRef.current?.setLngLat([frame.routePoint.lon, frame.routePoint.lat]);
+  }, [frameStore]);
+
+  const refreshCurrentFrame = useCallback(() => {
+    const controller = animationRef.current;
+    if (controller) controller.seek(controller.getSnapshot().progress);
   }, []);
 
   useEffect(() => {
     boundsRef.current = bounds;
     pointsRef.current = points;
-    routeDataRef.current = routeData;
-    markerDataRef.current = markerData;
-    preparedPathRef.current = initialPreparedPath;
-    setCanAnimate(initialPreparedPath.canAnimate);
+    setPreparedPath(prepareAnimationPath(points));
     animationRef.current?.pause();
     animationRef.current?.seek(0);
-    const firstPoint = initialPreparedPath.samples[0];
-    if (firstPoint) progressMarkerRef.current?.setLngLat([firstPoint.lon, firstPoint.lat]);
+  }, [bounds, points]);
+
+  useEffect(() => {
     const map = mapRef.current;
     if (!map || !layersReadyRef.current) return;
-    syncMapData(map, routeData, markerData);
-    cameraRef.current?.reset(500);
-  }, [bounds, initialPreparedPath, markerData, points, routeData]);
+    syncMapData(map, routeData, markerData, settingsRef.current);
+  }, [markerData, routeData]);
 
   useEffect(() => {
-    durationMsRef.current = durationSeconds * 1_000;
-    animationRef.current?.setDuration(durationMsRef.current);
-  }, [durationSeconds]);
+    animationRef.current?.setDuration(timeline.totalMs);
+    refreshCurrentFrame();
+  }, [refreshCurrentFrame, timeline]);
 
   useEffect(() => {
-    viewportRef.current = viewport;
-    const controller = animationRef.current;
     window.requestAnimationFrame(() => {
       resizeRef.current?.schedule();
-      if (controller) controller.seek(controller.getSnapshot().progress);
+      refreshCurrentFrame();
     });
-  }, [viewport]);
+  }, [refreshCurrentFrame, settings.viewport]);
 
   useEffect(() => {
-    revealModeRef.current = revealMode;
-    const controller = animationRef.current;
-    if (controller) controller.seek(controller.getSnapshot().progress);
-  }, [revealMode]);
+    refreshCurrentFrame();
+  }, [refreshCurrentFrame, settings.revealMode]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const markerElement = progressMarkerRef.current?.getElement();
+    if (markerElement) markerElement.style.background = settings.routeColor;
+    if (!map || !layersReadyRef.current) return;
+    const lineWidth = ROUTE_LINE_WIDTHS[settings.routeWidth];
+    if (map.getLayer(ROUTE_REVEAL_LAYER_ID)) {
+      map.setPaintProperty(ROUTE_REVEAL_LAYER_ID, "line-color", settings.routeColor);
+      map.setPaintProperty(ROUTE_REVEAL_LAYER_ID, "line-width", lineWidth);
+    }
+    if (map.getLayer(ROUTE_LAYER_ID)) {
+      map.setPaintProperty(ROUTE_LAYER_ID, "line-color", `${settings.routeColor}${FUTURE_ROUTE_ALPHA_HEX}`);
+      map.setPaintProperty(ROUTE_LAYER_ID, "line-width", lineWidth);
+    }
+    if (map.getLayer(ROUTE_GLOW_LAYER_ID)) {
+      map.setPaintProperty(ROUTE_GLOW_LAYER_ID, "line-color", `${settings.routeColor}${GLOW_ROUTE_ALPHA_HEX}`);
+      map.setLayoutProperty(ROUTE_GLOW_LAYER_ID, "visibility", settings.routeGlow ? "visible" : "none");
+    }
+  }, [settings.routeColor, settings.routeGlow, settings.routeWidth]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !layersReadyRef.current) return;
+    applyMapAppearance(map, settingsRef.current, appearanceStateRef.current, OWN_LAYER_IDS);
+  }, [settings.hideMapLabels, settings.mapAmbiance]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !layersReadyRef.current || !map.getSource(TERRAIN_SOURCE_ID)) return;
+    map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: settings.terrainExaggeration });
+  }, [settings.terrainExaggeration]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -273,62 +379,74 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, raceName 
   useEffect(() => {
     if (!accessToken || !webGlAvailable || !containerRef.current) return;
     mapboxgl.accessToken = accessToken;
+    styleUrlRef.current = resolveMapStyleUrl(settingsRef.current);
     const map = new mapboxgl.Map({
       container: containerRef.current,
-      style: MAP_STYLES.classic,
+      style: styleUrlRef.current,
       center: [boundsRef.current.minLon, boundsRef.current.minLat],
       zoom: 9,
       pitch: 55,
       bearing: 0,
       projection: "mercator",
       antialias: true,
-      attributionControl: true,
+      // Mapbox terms require the logo and attribution; keep them compact and away from the overlay.
+      attributionControl: false,
+      logoPosition: "bottom-right",
     });
     mapRef.current = map;
     cameraRef.current = createRouteCameraController(map, () => boundsRef.current);
     animationRef.current = createRouteAnimationController({
-      durationMs: durationMsRef.current,
+      durationMs: timelineRef.current.totalMs,
       onFrame: applyAnimationTime,
       onSnapshot: setSnapshot,
     });
-    map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), "top-right");
+    map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-right");
     const resizeController = observeMapSize(map, containerRef.current);
     resizeRef.current = resizeController;
     const firstPoint = preparedPathRef.current.samples[0];
-    progressMarkerRef.current = new mapboxgl.Marker({ element: createProgressMarkerElement() })
+    progressMarkerRef.current = new mapboxgl.Marker({ element: createProgressMarkerElement(settingsRef.current.routeColor) })
       .setLngLat(firstPoint ? [firstPoint.lon, firstPoint.lat] : [boundsRef.current.minLon, boundsRef.current.minLat])
       .addTo(map);
 
+    let styleLoadVersion = 0;
     const handleStyleLoad = () => {
-      styleLoadVersionRef.current += 1;
-      const loadVersion = styleLoadVersionRef.current;
+      styleLoadVersion += 1;
+      const loadVersion = styleLoadVersion;
       setMapError(null);
       if (!map.getSource(TERRAIN_SOURCE_ID)) {
         map.addSource(TERRAIN_SOURCE_ID, { type: "raster-dem", url: "mapbox://mapbox.mapbox-terrain-dem-v1", tileSize: 512, maxzoom: 14 });
       }
-      map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: TERRAIN_EXAGGERATION });
-      syncMapData(map, routeDataRef.current, markerDataRef.current);
+      map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: settingsRef.current.terrainExaggeration });
+      syncMapData(map, routeDataRef.current, markerDataRef.current, settingsRef.current);
+      appearanceStateRef.current = captureMapAppearanceState(map, OWN_LAYER_IDS);
+      applyMapAppearance(map, settingsRef.current, appearanceStateRef.current, OWN_LAYER_IDS);
+      activeAidDistanceRef.current = null;
       layersReadyRef.current = true;
       resizeController.schedule();
       window.requestAnimationFrame(() => {
-        if (mapRef.current !== map || loadVersion !== styleLoadVersionRef.current) return;
+        if (mapRef.current !== map || loadVersion !== styleLoadVersion) return;
         cameraRef.current?.reset(0);
         map.once("idle", () => {
-          if (mapRef.current !== map || loadVersion !== styleLoadVersionRef.current) return;
-          const preparedPath = prepareAnimationPath(pointsRef.current, ({ lat, lon }) =>
-            map.queryTerrainElevation([lon, lat], { exaggerated: false }));
-          preparedPathRef.current = preparedPath;
-          setCanAnimate(preparedPath.canAnimate);
+          if (mapRef.current !== map || loadVersion !== styleLoadVersion) return;
+          setPreparedPath(prepareAnimationPath(pointsRef.current, ({ lat, lon }) =>
+            map.queryTerrainElevation([lon, lat], { exaggerated: false })));
+          setMapError(null);
           setIsReady(true);
-          const controller = animationRef.current;
-          if (controller) controller.seek(controller.getSnapshot().progress);
         });
       });
     };
-    const handleError = (event: MapboxEvent & { error?: Error }) => {
+    const handleError = (event: MapboxEvent & { error?: Error & { status?: number }; sourceId?: string; tile?: unknown }) => {
       if (!event.error) return;
       console.error("Mapbox video generator error", event.error);
-      setMapError("La carte 3D n’a pas pu être chargée. Vérifiez le token Mapbox et sa restriction de domaine.");
+      // A single missing tile, sprite or glyph is not fatal and Mapbox keeps rendering. Only a
+      // failure before the style is usable, or a rejected token, blocks the viewer.
+      const isTileError = Boolean(event.sourceId || event.tile);
+      const isAuthError = event.error.status === 401 || event.error.status === 403;
+      if (isAuthError || (!isTileError && !layersReadyRef.current)) {
+        setMapError(isAuthError
+          ? "Le token Mapbox a été refusé. Vérifiez sa restriction de domaine."
+          : "La carte 3D n’a pas pu être chargée. Vérifiez le token Mapbox ou l’URL du style.");
+      }
     };
 
     map.on("style.load", handleStyleLoad);
@@ -349,6 +467,19 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, raceName 
     };
   }, [accessToken, applyAnimationTime, webGlAvailable]);
 
+  const updateSettings = (nextSettings: VideoCompositionSettings) => {
+    const nextStyleUrl = resolveMapStyleUrl(nextSettings);
+    if (nextStyleUrl !== styleUrlRef.current) {
+      styleUrlRef.current = nextStyleUrl;
+      animationRef.current?.pause();
+      setIsReady(false);
+      setMapError(null);
+      layersReadyRef.current = false;
+      mapRef.current?.setStyle(nextStyleUrl);
+    }
+    setSettings(nextSettings);
+  };
+
   if (!accessToken) {
     return <div className="flex min-h-[34rem] w-full items-center justify-center bg-muted p-8 text-center text-sm text-muted-foreground">Configurez <code className="mx-1 rounded bg-background px-1.5 py-0.5">NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN</code> pour charger le terrain 3D.</div>;
   }
@@ -356,70 +487,66 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, raceName 
     return <div className="flex min-h-[34rem] w-full items-center justify-center bg-muted p-8 text-center text-sm text-muted-foreground">WebGL n’est pas disponible dans ce navigateur. Activez l’accélération graphique ou utilisez un navigateur compatible.</div>;
   }
 
-  const selectStyle = (nextStyle: MapStyleChoice) => {
-    if (nextStyle === styleChoice) return;
-    animationRef.current?.pause();
-    setStyleChoice(nextStyle);
-    setIsReady(false);
-    setMapError(null);
-    layersReadyRef.current = false;
-    mapRef.current?.setStyle(MAP_STYLES[nextStyle]);
-  };
-  const previewLabel = viewport === "portrait" ? "Aperçu Instagram 9:16" : "Aperçu classique 16:9";
-  const previewDimensions = viewport === "portrait" ? "1080 × 1920" : "1920 × 1080";
+  const portrait = settings.viewport === "portrait";
+  const currentFrame = getVideoFrameState(timeline, snapshot.currentTimeMs);
 
   return (
-    <div className="w-full">
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div className="mr-auto text-xs text-muted-foreground">
-          <span className="font-semibold uppercase tracking-[0.16em]">{previewLabel}</span>
-          <span className="ml-2 tabular-nums">{previewDimensions}</span>
-        </div>
-        <Button type="button" variant="outline" disabled={!isReady || snapshot.isPlaying} onClick={() => cameraRef.current?.fitOverview()}>Vue d’ensemble</Button>
-        <Button type="button" variant="outline" disabled={!isReady || snapshot.isPlaying} onClick={() => cameraRef.current?.reset()}>Réinitialiser la caméra</Button>
-        <div className="flex rounded-md border border-border bg-card p-1">
-          <Button type="button" className="px-2 text-xs" variant={styleChoice === "classic" ? "default" : "ghost"} onClick={() => selectStyle("classic")}>Satellite stable</Button>
-          <Button type="button" className="px-2 text-xs" variant={styleChoice === "standard" ? "default" : "ghost"} onClick={() => selectStyle("standard")}>Standard 3D</Button>
-        </div>
-      </div>
-
-      <div className={viewport === "portrait"
-        ? "mx-auto aspect-[9/16] w-full max-w-md overflow-hidden rounded-[1.5rem] border-4 border-slate-900 bg-slate-950 shadow-2xl"
-        : "mx-auto aspect-video w-full max-w-5xl overflow-hidden rounded-xl border-4 border-slate-900 bg-slate-950 shadow-2xl"}>
-        <div className="relative h-full w-full bg-slate-950">
+    <>
+      <section className="flex min-w-0 flex-col items-center gap-3" aria-label="Aperçu de la vidéo">
+        {/* The frame always fits the viewport height so the whole preview is visible without scrolling. */}
+        <div
+          className={portrait
+            ? "relative aspect-[9/16] h-[calc(100dvh-14rem)] max-h-[60rem] min-h-[26rem] max-w-full overflow-hidden rounded-[1.75rem] border-[6px] border-slate-900 bg-slate-950 shadow-2xl [container-type:size]"
+            : "relative aspect-video max-h-[calc(100dvh-14rem)] w-full overflow-hidden rounded-xl border-[6px] border-slate-900 bg-slate-950 shadow-2xl [container-type:size]"}
+          data-testid="video-preview-frame"
+        >
           {/* Mapbox CSS sets `.mapboxgl-map { position: relative }`, which overrides `absolute` on the
               container itself. The wrapper owns positioning so the production canvas cannot collapse. */}
           <div className={`absolute inset-0 ${snapshot.isPlaying ? "pointer-events-none" : ""}`}>
             <div ref={containerRef} className="h-full w-full" aria-label="Visualiseur 3D animé du parcours" />
           </div>
-          <div className="pointer-events-none absolute inset-x-3 top-3 z-10 max-w-[68%] rounded-lg bg-slate-950/75 p-3 text-white shadow-lg backdrop-blur-sm">
-            <p className="truncate text-sm font-semibold">{raceName}</p>
-            <p className="mt-1 text-xs tabular-nums text-white/80">{Math.round(snapshot.progress * 100)} % · {(preparedPathRef.current.totalDistanceKm * snapshot.progress).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} km</p>
-          </div>
-          {viewport === "portrait" ? (
-            <div className="pointer-events-none absolute inset-x-3 bottom-8 z-10 flex h-[17%] items-end justify-center rounded-lg border border-dashed border-white/20 bg-gradient-to-t from-slate-950/55 to-transparent pb-3 text-[10px] font-medium uppercase tracking-[0.14em] text-white/45">Zone réservée au profil altimétrique</div>
-          ) : null}
-          {!isReady && !mapError ? <div className="pointer-events-none absolute inset-x-4 bottom-10 z-20 rounded-md bg-slate-950/80 p-3 text-center text-sm text-white/80">Préparation du terrain et de la caméra…</div> : null}
-          {mapError ? <div className="absolute inset-x-4 bottom-10 z-20 rounded-md border border-red-300 bg-red-50/95 p-3 text-sm text-red-800 shadow-lg">{mapError}</div> : null}
+          <VideoCompositionOverlay
+            elevationAtDistance={elevationAtDistance}
+            frameStore={frameStore}
+            gradeAtDistance={gradeAtDistance}
+            profile={profile}
+            race={race}
+            settings={settings}
+          />
+          {!isReady && !mapError ? <div className="pointer-events-none absolute inset-x-4 top-1/2 z-20 rounded-md bg-slate-950/80 p-3 text-center text-sm text-white/80">Préparation du terrain et de la caméra…</div> : null}
+          {mapError ? <div className="absolute inset-x-4 top-1/2 z-20 rounded-md border border-red-300 bg-red-50/95 p-3 text-sm text-red-800 shadow-lg">{mapError}</div> : null}
         </div>
-      </div>
+        <div className={portrait ? "w-full max-w-md" : "w-full"}>
+          <AnimationControls
+            canAnimate={preparedPath.canAnimate}
+            currentDistanceKm={currentFrame.distanceKm}
+            isReady={isReady}
+            onPause={() => animationRef.current?.pause()}
+            onPlay={() => animationRef.current?.play()}
+            onRestart={() => animationRef.current?.restart()}
+            onSeek={(progress) => animationRef.current?.seek(progress)}
+            snapshot={snapshot}
+            totalDistanceKm={preparedPath.totalDistanceKm}
+          />
+        </div>
+      </section>
 
-      <AnimationControls
-        canAnimate={canAnimate}
-        durationSeconds={durationSeconds}
-        isReady={isReady}
-        onDurationChange={setDurationSeconds}
-        onPause={() => animationRef.current?.pause()}
-        onPlay={() => animationRef.current?.play()}
-        onRestart={() => animationRef.current?.restart()}
-        onRevealModeChange={setRevealMode}
-        onSeek={(progress) => animationRef.current?.seek(progress)}
-        onViewportChange={setViewport}
-        revealMode={revealMode}
-        snapshot={snapshot}
-        totalDistanceKm={preparedPathRef.current.totalDistanceKm}
-        viewport={viewport}
-      />
-    </div>
+      <Card className="h-fit lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Composition vidéo</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <CompositionSettingsPanel
+            aidLabels={timeline.aidLabels}
+            aidStations={aidStations}
+            cameraActionsDisabled={!isReady || snapshot.isPlaying}
+            onChange={updateSettings}
+            onFitOverview={() => cameraRef.current?.fitOverview()}
+            onResetCamera={() => cameraRef.current?.reset()}
+            settings={settings}
+          />
+        </CardContent>
+      </Card>
+    </>
   );
 }

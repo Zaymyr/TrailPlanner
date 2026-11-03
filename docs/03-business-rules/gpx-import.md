@@ -190,7 +190,7 @@ Published RaceBook branding may recolor the mobile route and elevation-profile s
 
 ## Admin 3D Course Viewer
 
-The admin-only `/admin/video-generator` surface reads both draft and published formats after trusted `app_metadata` authorization. Its detail route downloads the private source object server-side, reuses `parseGpx`, and sends the browser only ordered point/elevation/distance DTOs and bounds. It never returns the Storage path, raw XML or a signed object URL.
+The admin-only `/admin/video-generator` surface reads both draft and published formats after trusted `app_metadata` authorization. Its detail route downloads the private source object server-side, reuses `parseGpx`, and sends the browser only ordered point/elevation/distance DTOs and bounds. It never returns the Storage path, raw XML or a signed object URL. The DTO also carries the edition year parsed from `races.race_date` (null when absent or invalid) for the video title. Browser-side pacing and the elevation profile are derived from the same sampled GPX distances and elevations; aid stations stay positioned by `race_aid_stations.km` only, and their services (water, food, assistance, life base, drop bag, cutoff) come from the station row and its parsed organizer details, never from GPX waypoints.
 
 Unlike the public bounded preview and Organizer's sampled elevation payload, this internal viewer preserves every parsed point for a future camera path. The Mapbox GeoJSON source owns render-time optimization. Aid stations continue to be source kilometer facts: the viewer projects each one to the nearest cumulative-distance GPX point without persisting inferred coordinates.
 

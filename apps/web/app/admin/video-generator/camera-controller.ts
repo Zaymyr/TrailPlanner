@@ -1,12 +1,12 @@
 import { MercatorCoordinate, type CameraOptions, type Map as MapboxMap } from "mapbox-gl";
 
 import type { VideoRouteBounds } from "../../../lib/video-generator";
-import type { CameraFrame } from "./route-animation";
+import type { CameraPose } from "./route-animation";
 
 export const RESET_CAMERA_PITCH = 55;
 
 export type RouteCameraController = {
-  applyAnimationFrame: (frame: CameraFrame) => void;
+  applyAnimationFrame: (frame: CameraPose) => void;
   fitOverview: (duration?: number) => void;
   reset: (duration?: number) => void;
 };

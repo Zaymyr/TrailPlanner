@@ -28,26 +28,6 @@ export type CameraPosition = {
   altitudeM: number;
 };
 
-export type CameraFrame = {
-  progress: number;
-  distanceKm: number;
-  routePoint: PreparedRoutePoint;
-  camera: CameraPosition;
-  target: CameraPosition;
-};
-
-export type DynamicCameraSettings = {
-  terrainExaggeration: number;
-  portraitAltitudeMultiplier: number;
-  portraitLookAheadMultiplier: number;
-};
-
-export const DEFAULT_DYNAMIC_CAMERA_SETTINGS: DynamicCameraSettings = {
-  terrainExaggeration: TERRAIN_EXAGGERATION,
-  portraitAltitudeMultiplier: 1.25,
-  portraitLookAheadMultiplier: 1.15,
-};
-
 type TerrainElevationResolver = (point: { lat: number; lon: number }) => number | null | undefined;
 
 const clamp = (value: number, minimum: number, maximum: number) =>
@@ -184,59 +164,135 @@ export const getRoutePointAtDistance = (
   };
 };
 
-const getSmoothedRoutePoint = (
+const METERS_PER_DEGREE_LAT = 111_320;
+// Mapbox GL default vertical field of view.
+const VERTICAL_FOV_RAD = (36.87 * Math.PI) / 180;
+const CHASE_ELEVATION_ANGLE_RAD = (32 * Math.PI) / 180;
+const OVERVIEW_ELEVATION_ANGLE_RAD = (50 * Math.PI) / 180;
+const MIN_TERRAIN_CLEARANCE_M = 300;
+
+export type CameraPose = {
+  camera: CameraPosition;
+  target: CameraPosition;
+};
+
+const metersPerDegreeLon = (lat: number) => METERS_PER_DEGREE_LAT * Math.max(0.01, Math.cos((lat * Math.PI) / 180));
+
+const offsetPosition = (origin: { lat: number; lon: number }, eastM: number, northM: number) => ({
+  lat: origin.lat + northM / METERS_PER_DEGREE_LAT,
+  lon: origin.lon + eastM / metersPerDegreeLon(origin.lat),
+});
+
+/**
+ * Travel direction averaged over three symmetric chords, so hairpins and GPS noise rotate the
+ * camera progressively instead of snapping it. Pure function of the distance: seeking stays exact.
+ */
+export const getRouteHeading = (path: PreparedAnimationPath, distanceKm: number, windowKm: number) => {
+  let east = 0;
+  let north = 0;
+  [windowKm / 3, (2 * windowKm) / 3, windowKm].forEach((chordKm) => {
+    const from = getRoutePointAtDistance(path, distanceKm - chordKm);
+    const to = getRoutePointAtDistance(path, distanceKm + chordKm);
+    east += (to.lon - from.lon) * metersPerDegreeLon(from.lat);
+    north += (to.lat - from.lat) * METERS_PER_DEGREE_LAT;
+  });
+  const length = Math.hypot(east, north);
+  return length > 1e-6 ? { east: east / length, north: north / length } : { east: 0, north: 1 };
+};
+
+const getMaxElevationAround = (path: PreparedAnimationPath, distanceKm: number, radiusKm: number) => {
+  const { samples, totalDistanceKm } = path;
+  if (samples.length === 0) return 0;
+  if (samples.length === 1 || totalDistanceKm <= 0) return samples[0].elevationM;
+  const spacingKm = totalDistanceKm / (samples.length - 1);
+  const start = Math.max(0, Math.floor((distanceKm - radiusKm) / spacingKm));
+  const end = Math.min(samples.length - 1, Math.ceil((distanceKm + radiusKm) / spacingKm));
+  let maximum = Number.NEGATIVE_INFINITY;
+  for (let index = start; index <= end; index += 1) maximum = Math.max(maximum, samples[index].elevationM);
+  return Number.isFinite(maximum) ? maximum : samples[0].elevationM;
+};
+
+/**
+ * Chase camera: always looks exactly at the progress marker so it stays centred, sits behind it
+ * along the smoothed travel direction and never dips below the surrounding terrain. Distances
+ * scale with the average flyover speed, not the instantaneous one, so the framing stays stable
+ * while the pace slows down at aid stations and climbs.
+ */
+export const getChaseCameraPose = (
   path: PreparedAnimationPath,
   distanceKm: number,
-  smoothingDistanceM: number,
-) => {
-  const windowKm = smoothingDistanceM / 1_000;
-  const offsets = [-1, -0.5, 0, 0.5, 1];
-  const positions = offsets.map((offset) => getRoutePointAtDistance(path, distanceKm + windowKm * offset));
-  const count = positions.length;
-  return {
-    lat: positions.reduce((sum, point) => sum + point.lat, 0) / count,
-    lon: positions.reduce((sum, point) => sum + point.lon, 0) / count,
-    elevationM: positions.reduce((sum, point) => sum + point.elevationM, 0) / count,
-    distanceKm: clamp(distanceKm, 0, path.totalDistanceKm),
-  };
-};
-
-export const getCameraStateAtTime = (
-  timeMs: number,
-  durationMs: number,
-  path: PreparedAnimationPath,
-  settings: DynamicCameraSettings = DEFAULT_DYNAMIC_CAMERA_SETTINGS,
+  averageSpeedMps: number,
   viewport: AnimationViewport = "portrait",
-): CameraFrame => {
-  const safeDurationMs = Math.max(1, durationMs);
-  const progress = clamp(timeMs / safeDurationMs, 0, 1);
-  const distanceKm = path.totalDistanceKm * progress;
-  const speedMps = path.totalDistanceKm * 1_000 / (safeDurationMs / 1_000);
+  terrainExaggeration = TERRAIN_EXAGGERATION,
+): CameraPose => {
   const portrait = viewport === "portrait";
-  const lookAheadM = clamp(speedMps * 0.8, 150, 1_600)
-    * (portrait ? settings.portraitLookAheadMultiplier : 1);
-  const setbackM = clamp(speedMps * 0.35, 80, 700);
-  const smoothingDistanceM = clamp(speedMps * 0.6, 100, 1_200);
-  const clearanceM = clamp(700 + speedMps * 0.35, 800, 2_500)
-    * (portrait ? settings.portraitAltitudeMultiplier : 1);
-
-  const routePoint = getRoutePointAtDistance(path, distanceKm);
-  const cameraGround = getSmoothedRoutePoint(path, distanceKm - setbackM / 1_000, smoothingDistanceM);
-  const targetGround = getSmoothedRoutePoint(path, distanceKm + lookAheadM / 1_000, smoothingDistanceM);
+  const target = getRoutePointAtDistance(path, distanceKm);
+  const backDistanceM = clamp(averageSpeedMps * 0.9, 700, 4_000) * (portrait ? 1.2 : 1);
+  const headingWindowKm = clamp(averageSpeedMps * 1.2, 500, 5_000) / 1_000;
+  const heading = getRouteHeading(path, distanceKm, headingWindowKm);
+  const cameraGround = offsetPosition(target, -heading.east * backDistanceM, -heading.north * backDistanceM);
+  const heightM = backDistanceM * Math.tan(CHASE_ELEVATION_ANGLE_RAD);
+  const surroundingMaxM = getMaxElevationAround(path, distanceKm, (backDistanceM * 1.3) / 1_000);
+  const targetAltitudeM = target.elevationM * terrainExaggeration;
 
   return {
-    progress,
-    distanceKm,
-    routePoint,
     camera: {
-      lat: cameraGround.lat,
-      lon: cameraGround.lon,
-      altitudeM: cameraGround.elevationM * settings.terrainExaggeration + clearanceM,
+      ...cameraGround,
+      altitudeM: Math.max(
+        targetAltitudeM + heightM,
+        surroundingMaxM * terrainExaggeration + MIN_TERRAIN_CLEARANCE_M,
+      ),
     },
-    target: {
-      lat: targetGround.lat,
-      lon: targetGround.lon,
-      altitudeM: targetGround.elevationM * settings.terrainExaggeration,
-    },
+    target: { lat: target.lat, lon: target.lon, altitudeM: targetAltitudeM },
   };
 };
+
+/** North-up 3D overview fitting every sample, computed without querying the map. */
+export const getOverviewCameraPose = (
+  path: PreparedAnimationPath,
+  viewport: AnimationViewport = "portrait",
+  terrainExaggeration = TERRAIN_EXAGGERATION,
+): CameraPose => {
+  const { samples } = path;
+  if (samples.length === 0) {
+    return { camera: { lat: 0, lon: 0, altitudeM: 10_000 }, target: { lat: 0, lon: 0, altitudeM: 0 } };
+  }
+  const lats = samples.map((sample) => sample.lat);
+  const lons = samples.map((sample) => sample.lon);
+  const center = {
+    lat: (Math.min(...lats) + Math.max(...lats)) / 2,
+    lon: (Math.min(...lons) + Math.max(...lons)) / 2,
+  };
+  const widthM = Math.max(500, (Math.max(...lons) - Math.min(...lons)) * metersPerDegreeLon(center.lat));
+  const depthM = Math.max(500, (Math.max(...lats) - Math.min(...lats)) * METERS_PER_DEGREE_LAT);
+  const aspect = viewport === "portrait" ? 9 / 16 : 16 / 9;
+  const horizontalFovRad = 2 * Math.atan(Math.tan(VERTICAL_FOV_RAD / 2) * aspect);
+  const viewDistanceM = 1.3 * Math.max(
+    widthM / 2 / Math.tan(horizontalFovRad / 2),
+    (depthM * Math.sin(OVERVIEW_ELEVATION_ANGLE_RAD)) / 2 / Math.tan(VERTICAL_FOV_RAD / 2),
+  );
+  const meanElevationM = samples.reduce((sum, sample) => sum + sample.elevationM, 0) / samples.length;
+  const targetAltitudeM = meanElevationM * terrainExaggeration;
+  const cameraGround = offsetPosition(center, 0, -viewDistanceM * Math.cos(OVERVIEW_ELEVATION_ANGLE_RAD));
+
+  return {
+    camera: { ...cameraGround, altitudeM: targetAltitudeM + viewDistanceM * Math.sin(OVERVIEW_ELEVATION_ANGLE_RAD) },
+    target: { ...center, altitudeM: targetAltitudeM },
+  };
+};
+
+export const easeInOut = (value: number) => {
+  const ratio = clamp(value, 0, 1);
+  return ratio * ratio * (3 - 2 * ratio);
+};
+
+const interpolatePosition = (from: CameraPosition, to: CameraPosition, ratio: number): CameraPosition => ({
+  lat: interpolateNumber(from.lat, to.lat, ratio),
+  lon: interpolateNumber(from.lon, to.lon, ratio),
+  altitudeM: interpolateNumber(from.altitudeM, to.altitudeM, ratio),
+});
+
+export const interpolateCameraPose = (from: CameraPose, to: CameraPose, ratio: number): CameraPose => ({
+  camera: interpolatePosition(from.camera, to.camera, ratio),
+  target: interpolatePosition(from.target, to.target, ratio),
+});

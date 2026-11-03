@@ -26,10 +26,21 @@ const raceRow = {
   elevation_gain_m: 2300,
   elevation_loss_m: null,
   gpx_storage_path: "catalog/saintelyon.gpx",
+  race_date: "2026-11-28",
+  location_text: "Lyon",
+  organizer_details: { schedule: { startTime: "23:30" }, access: { startAddress: "Halle Tony Garnier, Lyon" } },
   race_events: { id: eventId, name: "SaintéLyon" },
 };
 
-const stationRows = [{ id: stationId, name: "Sainte-Catherine", km: 32.5 }];
+const stationRows = [{
+  id: stationId,
+  name: "Sainte-Catherine",
+  km: 32.5,
+  water_available: true,
+  solid_available: true,
+  assistance_allowed: false,
+  organizer_details: { stationType: "life_base", dropBagAvailable: true, cutoffTime: "06:15", organizerNote: "privé" },
+}];
 
 const validGpx = `<?xml version="1.0"?><gpx><trk><trkseg>
   <trkpt lat="45.0000" lon="6.0000"><ele>400</ele></trkpt>
@@ -70,8 +81,26 @@ describe("GET /api/admin/video-generator/races/[id]", () => {
     expect(response.status).toBe(200);
     expect(String(vi.mocked(fetch).mock.calls[0][0])).not.toContain("is_live");
     expect(payload).toMatchObject({
-      race: { id: raceId, eventName: "SaintéLyon", elevationLossM: null },
-      aidStations: [{ id: stationId, name: "Sainte-Catherine", distanceKm: 32.5 }],
+      race: {
+        id: raceId,
+        eventName: "SaintéLyon",
+        elevationLossM: null,
+        editionYear: 2026,
+        raceDate: "2026-11-28",
+        startTime: "23:30",
+        startLocation: "Halle Tony Garnier, Lyon",
+      },
+      aidStations: [{
+        id: stationId,
+        name: "Sainte-Catherine",
+        distanceKm: 32.5,
+        waterAvailable: true,
+        foodAvailable: true,
+        assistanceAllowed: false,
+        isLifeBase: true,
+        dropBagAvailable: true,
+        cutoffTime: "06:15",
+      }],
       gpx: { status: "ready", pointCount: 2 },
     });
     expect(payload.gpx.points).toEqual([
@@ -81,6 +110,8 @@ describe("GET /api/admin/video-generator/races/[id]", () => {
     expect(JSON.stringify(payload)).not.toContain("gpx_storage_path");
     expect(JSON.stringify(payload)).not.toContain("catalog/saintelyon.gpx");
     expect(JSON.stringify(payload)).not.toContain("service-key");
+    expect(JSON.stringify(payload)).not.toContain("organizer_details");
+    expect(JSON.stringify(payload)).not.toContain("privé");
   });
 
   it("returns an explicit non-error state when the format has no GPX", async () => {

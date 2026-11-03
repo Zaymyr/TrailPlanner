@@ -11,6 +11,12 @@ export const videoAidStationSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
   distanceKm: z.number().nonnegative(),
+  waterAvailable: z.boolean().default(true),
+  foodAvailable: z.boolean().default(true),
+  assistanceAllowed: z.boolean().default(true),
+  isLifeBase: z.boolean().default(false),
+  dropBagAvailable: z.boolean().default(false),
+  cutoffTime: z.string().nullable().default(null),
 });
 
 export const videoRaceSchema = z.object({
@@ -21,6 +27,10 @@ export const videoRaceSchema = z.object({
   distanceKm: z.number(),
   elevationGainM: z.number().nullable(),
   elevationLossM: z.number().nullable(),
+  editionYear: z.number().int().nullable().optional(),
+  raceDate: z.string().nullable().optional(),
+  startTime: z.string().nullable().optional(),
+  startLocation: z.string().nullable().optional(),
 });
 
 export const videoRouteBoundsSchema = z.object({
