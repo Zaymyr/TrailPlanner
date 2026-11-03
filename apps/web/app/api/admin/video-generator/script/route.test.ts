@@ -66,7 +66,8 @@ describe("POST /api/admin/video-generator/script", () => {
     const params = state.parse.mock.calls[0][0];
     expect(params.model).toBe("claude-opus-5-5");
     expect(params.fallbacks).toBe("default");
-    expect(params.messages[0].content).toContain("\"maxWords\": 24");
+    expect(params.messages[0].content).toMatch(/"maxWords": \d+/);
+    expect(params.system).toMatch(/continu/);
   });
 
   it("reports a refusal instead of returning an empty script", async () => {

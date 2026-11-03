@@ -158,6 +158,8 @@ beforeEach(() => {
     observe() {}
     disconnect() {}
   });
+  // Summit lookups go to the Mapbox Tilequery API; never hit the network in tests.
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ features: [] })));
 });
 
 afterEach(() => {

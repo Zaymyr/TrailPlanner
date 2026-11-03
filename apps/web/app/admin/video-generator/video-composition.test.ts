@@ -126,7 +126,7 @@ describe("buildVideoTimeline", () => {
   it("grows an automatic duration with the route and the narration, and flags a manual overflow", () => {
     const flat = flatPath(150);
     const story = buildStoryBeats(flat, [station("1", 50), station("2", 100, { isLifeBase: true })], { title: "Ultra", distanceKm: 150, elevationGainM: 6000, startDetail: null }, {
-      targetSeconds: 90, includeAidStations: true, includeStart: false,
+      maxSeconds: 120, includeAidStations: true, includeStart: false,
     });
     const auto = buildVideoTimeline(flat, story, DEFAULT_VIDEO_COMPOSITION_SETTINGS);
     expect(auto.totalMs).toBeGreaterThanOrEqual(90_000);

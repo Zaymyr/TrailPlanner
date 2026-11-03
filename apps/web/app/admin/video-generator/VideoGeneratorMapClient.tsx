@@ -38,7 +38,15 @@ import {
   type PreparedAnimationPath,
   type RouteRevealMode,
 } from "./route-animation";
-import { buildStoryBeats, getAutoDurationSeconds, type StoryBeat } from "./route-story";
+import {
+  buildStoryBeats,
+  detectRouteSlopes,
+  getAutoDurationSeconds,
+  getSlopeId,
+  MAX_VIDEO_SECONDS,
+  type StoryBeat,
+  type StoryLandmarks,
+} from "./route-story";
 import { StoryEditor, type AsyncActionState } from "./StoryEditor";
 import {
   buildElevationProfile,
@@ -91,6 +99,22 @@ const buildSegmentGeoJson = (path: PreparedAnimationPath, beat: ScheduledBeat | 
     type: "FeatureCollection",
     features: [{ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates } }],
   };
+};
+
+type TilequeryFeature = { properties?: { name?: unknown; maki?: unknown; elevation_m?: unknown } };
+
+/** Highest named peak within 1.5 km of a point, from the Mapbox Streets natural labels. */
+export const fetchNearestPeakName = async (lon: number, lat: number, token: string, signal?: AbortSignal) => {
+  const url = `https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/tilequery/${lon.toFixed(5)},${lat.toFixed(5)}.json`
+    + `?radius=1500&limit=20&layers=natural_label&access_token=${encodeURIComponent(token)}`;
+  const response = await fetch(url, { signal });
+  if (!response.ok) return null;
+  const payload = await response.json().catch(() => null) as { features?: TilequeryFeature[] } | null;
+  const peaks = (payload?.features ?? [])
+    .map((feature) => feature.properties ?? {})
+    .filter((properties) => typeof properties.name === "string" && (properties.maki === "mountain" || properties.maki === "volcano"))
+    .sort((left, right) => (Number(right.elevation_m) || 0) - (Number(left.elevation_m) || 0));
+  return (peaks[0]?.name as string | undefined) ?? null;
 };
 
 const readError = async (response: Response, fallback: string) => {
@@ -309,12 +333,30 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
 
   // The story: detected moments with a default narration, overridden by the AI or by hand.
   const autoDurationSeconds = getAutoDurationSeconds(preparedPath.totalDistanceKm);
-  const targetSeconds = settings.durationMode === "auto" ? autoDurationSeconds : settings.durationSeconds;
+  const maxSeconds = settings.durationMode === "auto" ? MAX_VIDEO_SECONDS : settings.durationSeconds;
+  const [landmarks, setLandmarks] = useState<StoryLandmarks>({});
   const defaultBeats = useMemo(() => buildStoryBeats(preparedPath, enabledAidStations, race, {
-    targetSeconds,
+    maxSeconds,
     includeAidStations: settings.showAidStations,
     includeStart: settings.showStartInfo,
-  }), [enabledAidStations, preparedPath, race, settings.showAidStations, settings.showStartInfo, targetSeconds]);
+    landmarks,
+  }), [enabledAidStations, landmarks, maxSeconds, preparedPath, race, settings.showAidStations, settings.showStartInfo]);
+
+  // Summit names make the story concrete ("la montée vers le Mont Thou"): ask Mapbox for the
+  // highest named peak near each climb top, once per route.
+  useEffect(() => {
+    if (!accessToken || !preparedPath.canAnimate) return;
+    const controller = new AbortController();
+    const climbs = detectRouteSlopes(preparedPath).filter((slope) => slope.kind === "climb").slice(0, 8);
+    void Promise.all(climbs.map(async (climb) => {
+      const top = getRoutePointAtDistance(preparedPath, climb.endKm);
+      const name = await fetchNearestPeakName(top.lon, top.lat, accessToken, controller.signal);
+      return name ? [getSlopeId(climb), name] as const : null;
+    })).then((entries) => {
+      if (!controller.signal.aborted) setLandmarks(Object.fromEntries(entries.filter((entry): entry is readonly [string, string] => Boolean(entry))));
+    }).catch(() => undefined);
+    return () => controller.abort();
+  }, [accessToken, preparedPath]);
   const [narrationOverrides, setNarrationOverrides] = useState<Record<string, string>>({});
   const beats = useMemo<StoryBeat[]>(
     () => defaultBeats.map((beat) => narrationOverrides[beat.id] !== undefined ? { ...beat, narration: narrationOverrides[beat.id] } : beat),
@@ -512,7 +554,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     try {
       const response = await authorizedPost("/api/admin/video-generator/script", {
         race: { title: race.title, subtitle: race.subtitle, distanceKm: race.distanceKm, elevationGainM: race.elevationGainM, startDetail: race.startDetail },
-        targetSeconds: Math.round(timeline.totalMs / 1_000),
+        targetSeconds: settings.durationMode === "auto" ? MAX_VIDEO_SECONDS : settings.durationSeconds,
         beats: beats.map(({ id, kind, title, startKm, endKm, facts, services, cutoffTime, narration }) =>
           ({ id, kind, title, startKm, endKm, facts, services, cutoffTime, narration })),
       });

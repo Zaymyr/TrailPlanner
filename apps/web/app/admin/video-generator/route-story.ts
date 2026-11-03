@@ -61,7 +61,8 @@ const clamp = (value: number, minimum: number, maximum: number) => Math.min(maxi
 
 const formatNumber = (value: number, digits = 0) =>
   value.toLocaleString("fr-FR", { minimumFractionDigits: digits, maximumFractionDigits: digits });
-const formatKm = (value: number) => formatNumber(value, value < 10 ? 1 : 0);
+// One decimal below 10 km, except for whole numbers ("1 kilomètre", not "1,0").
+const formatKm = (value: number) => formatNumber(value, value < 10 && Math.abs(value - Math.round(value)) >= 0.05 ? 1 : 0);
 const formatPercent = (ratio: number) => formatNumber(ratio * 100, 0);
 
 /** Elevation every ~100 m, smoothed over ±250 m so GPS noise does not create fake climbs. */
@@ -153,7 +154,10 @@ export const detectRouteSlopes = (path: PreparedAnimationPath): RouteSlope[] => 
   return slopes;
 };
 
-/** Default length when the duration is automatic: longer routes get more time, never more than 90 s. */
+/** Reels never exceed two minutes. */
+export const MAX_VIDEO_SECONDS = 120;
+
+/** Shortest automatic length: longer routes get more time; the story may need more, up to 2 min. */
 export const getAutoDurationSeconds = (totalDistanceKm: number) => {
   if (totalDistanceKm < 25) return 30;
   if (totalDistanceKm < 60) return 45;
@@ -161,205 +165,197 @@ export const getAutoDurationSeconds = (totalDistanceKm: number) => {
   return 90;
 };
 
-const ORDINALS = ["Première", "Deuxième", "Troisième", "Quatrième", "Cinquième", "Sixième"];
+const slopeScore = (slope: RouteSlope) => slope.elevationM * Math.sqrt(Math.max(0.01, slope.averageGrade));
+
+/** Stable id of a slope, used to attach a summit name fetched from the map. */
+export const getSlopeId = (slope: Pick<RouteSlope, "kind" | "startKm">) => `${slope.kind}-${Math.round(slope.startKm * 10)}`;
+
+/** Summit names by climb id (see getSlopeId), resolved from Mapbox peaks near each climb top. */
+export type StoryLandmarks = Record<string, string>;
+
+export type StoryOptions = {
+  /** Upper bound of the whole video; the story keeps about one leg per 5.5 s of it. */
+  maxSeconds: number;
+  includeAidStations: boolean;
+  includeStart: boolean;
+  landmarks?: StoryLandmarks;
+};
+
+type Boundary = { km: number; priority: number; climb?: RouteSlope; station?: VideoAidStation };
 
 const joinFrench = (items: string[]) =>
   items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} et ${items[items.length - 1]}`;
 
-const slopeScore = (slope: RouteSlope) => slope.elevationM * Math.sqrt(Math.max(0.01, slope.averageGrade));
+const servicesSentence = (station: VideoAidStation) => {
+  const words = getAidStationServices(station).map((service) => AID_SERVICES[service].toLowerCase());
+  return words.length ? ` : ${joinFrench(words)}` : "";
+};
 
-type Candidate = Omit<StoryBeat, "startKm" | "endKm" | "narration"> & {
-  priority: number;
-  spanStartKm: number;
-  spanEndKm: number;
-  narration: (order: number) => string;
+const elevationChange = (path: PreparedAnimationPath, startKm: number, endKm: number) => {
+  let gain = 0;
+  let loss = 0;
+  let previous: number | null = null;
+  // Same ±250 m smoothing spirit as slope detection: ignore sub-5 m jitter.
+  path.samples.forEach((sample) => {
+    if (sample.distanceKm < startKm || sample.distanceKm > endKm) return;
+    if (previous === null) {
+      previous = sample.elevationM;
+      return;
+    }
+    const delta = sample.elevationM - previous;
+    if (Math.abs(delta) < 5) return;
+    if (delta > 0) gain += delta;
+    else loss -= delta;
+    previous = sample.elevationM;
+  });
+  return { gain, loss };
 };
 
 /**
- * Picks the moments worth narrating (start, life bases, the hardest climbs, the biggest descent,
- * aid stations, finish) within a budget that grows with the video length, and writes a factual
- * default narration for each. Spans never overlap so one caption and one narration play at a time.
+ * Tells the route as one continuous story. The route is cut into consecutive legs at the foot and
+ * top of the main climbs, at life bases and, when the budget allows, at aid stations; every leg
+ * says what is coming until the next one ("no difficulty until the foot of the climb, settle into
+ * a comfortable pace"). Aid stations inside a leg are only mentioned in passing. Legs cover the
+ * whole route, so the narration also drives the camera between key points.
  */
 export const buildStoryBeats = (
   path: PreparedAnimationPath,
   aidStations: VideoAidStation[],
   race: StoryRaceInfo,
-  options: { targetSeconds: number; includeAidStations: boolean; includeStart: boolean },
+  options: StoryOptions,
 ): StoryBeat[] => {
   const total = path.totalDistanceKm;
   if (!path.canAnimate || total <= 0) return [];
-  const pointWidthKm = Math.max(0.4, total * 0.02);
+  const landmarks = options.landmarks ?? {};
   const slopes = detectRouteSlopes(path);
   const climbs = slopes.filter((slope) => slope.kind === "climb").sort((left, right) => slopeScore(right) - slopeScore(left));
-  const descents = slopes.filter((slope) => slope.kind === "descent").sort((left, right) => slopeScore(right) - slopeScore(left));
+  const stations = options.includeAidStations
+    ? aidStations.filter((station) => station.distanceKm > 0 && station.distanceKm < total).sort((left, right) => left.distanceKm - right.distanceKm)
+    : [];
 
-  const candidates: Candidate[] = [];
-  if (options.includeStart) {
-    candidates.push({
-      id: "start",
-      kind: "start",
-      title: "Départ",
-      anchorKm: 0,
-      spanStartKm: 0,
-      spanEndKm: pointWidthKm,
-      facts: race.startDetail ? race.startDetail.split(" · ") : [],
-      services: [],
-      cutoffTime: null,
-      priority: 100,
-      narration: () => race.startDetail
-        ? `Le départ est donné : ${race.startDetail.split(" · ").join(", ")}.`
-        : "Le départ est donné.",
-    });
-  }
+  // Candidate cut points, most important first.
+  const candidates: Boundary[] = [];
+  climbs.slice(0, 5).forEach((climb, rank) => {
+    candidates.push({ km: climb.startKm, priority: 90 - rank * 8, climb });
+    candidates.push({ km: climb.endKm, priority: 70 - rank * 8 });
+  });
+  stations.forEach((station) => candidates.push({
+    km: station.distanceKm,
+    priority: station.isLifeBase ? 88 : station.cutoffTime ? 55 : 50,
+    station,
+  }));
 
-  climbs.slice(0, 4).forEach((climb, rank) => {
-    const lengthKm = climb.endKm - climb.startKm;
-    candidates.push({
-      id: `climb-${Math.round(climb.startKm * 10)}`,
-      kind: "climb",
-      title: `Montée · km ${formatKm(climb.startKm)}`,
-      anchorKm: climb.startKm,
-      spanStartKm: climb.startKm,
-      spanEndKm: climb.endKm,
-      facts: [`${formatKm(lengthKm)} km`, `+${formatNumber(climb.elevationM)} m`, `${formatPercent(climb.averageGrade)} % moy.`],
-      services: [],
-      cutoffTime: null,
-      priority: 85 - rank * 10,
-      narration: (order) =>
-        `${ORDINALS[order] ?? "Nouvelle"} grosse difficulté au kilomètre ${formatKm(climb.startKm)} : ${formatKm(lengthKm)} kilomètres à ${formatPercent(climb.averageGrade)} pour cent, ${formatNumber(climb.elevationM)} mètres à gravir.`,
-    });
+  // Intro and outro take about 8 s; each leg needs about 5.5 s to be told comfortably.
+  const maxLegs = clamp(Math.floor((options.maxSeconds - 8) / 5.5), 2, 20);
+  // Legs shorter than this are not worth a sentence: a nearby station joins the next cut instead.
+  const minimumLegKm = Math.max(1, total * 0.04);
+  const cuts: Boundary[] = [];
+  [...candidates].sort((left, right) => right.priority - left.priority).forEach((candidate) => {
+    if (cuts.length + 1 >= maxLegs) return;
+    if (candidate.km < minimumLegKm || total - candidate.km < minimumLegKm) return;
+    const clash = cuts.find((cut) => Math.abs(cut.km - candidate.km) < minimumLegKm);
+    if (clash) {
+      // A station right at a climb foot shares the cut instead of being dropped.
+      if (candidate.station && !clash.station) clash.station = candidate.station;
+      if (candidate.climb && !clash.climb) clash.climb = candidate.climb;
+      return;
+    }
+    cuts.push({ ...candidate });
+  });
+  cuts.sort((left, right) => left.km - right.km);
+  const bounds = [0, ...cuts.map((cut) => cut.km), total];
+  const climbAt = (km: number) => cuts.find((cut) => cut.km === km)?.climb;
+  const stationAt = (km: number) => cuts.find((cut) => cut.km === km)?.station;
+  const startPlace = race.startDetail?.split(" · ")[0] ?? null;
+
+  type Leg = {
+    startKm: number;
+    endKm: number;
+    gain: number;
+    loss: number;
+    climb?: RouteSlope;
+    station?: VideoAidStation;
+    passing: VideoAidStation[];
+    kind: StoryBeatKind;
+    summit: string | null;
+  };
+  const legs: Leg[] = bounds.slice(0, -1).map((startKm, index) => {
+    const endKm = bounds[index + 1];
+    const { gain, loss } = elevationChange(path, startKm, endKm);
+    const lengthKm = endKm - startKm;
+    const climb = climbAt(startKm);
+    const station = index === 0 ? undefined : stationAt(startKm);
+    const isClimb = Boolean(climb) || (gain >= 150 && gain / (lengthKm * 1_000) >= 0.05);
+    const isDescent = !isClimb && loss >= 150 && loss / (lengthKm * 1_000) >= 0.04;
+    const kind: StoryBeatKind = index === 0 && options.includeStart ? "start"
+      : isClimb ? "climb"
+        : isDescent ? "descent"
+          : station?.isLifeBase ? "lifeBase"
+            : station ? "aid"
+              : index === bounds.length - 2 ? "finish"
+                : "flat";
+    return {
+      startKm,
+      endKm,
+      gain,
+      loss,
+      climb,
+      station,
+      passing: stations.filter((candidate) => candidate.distanceKm > startKm + 0.05 && candidate.distanceKm < endKm - 0.05
+        && !cuts.some((cut) => cut.station?.id === candidate.id)),
+      kind,
+      summit: climb ? landmarks[getSlopeId(climb)] ?? null : null,
+    };
   });
 
-  descents.slice(0, 2).forEach((descent, rank) => {
-    if (descent.elevationM < 250) return;
-    const lengthKm = descent.endKm - descent.startKm;
-    candidates.push({
-      id: `descent-${Math.round(descent.startKm * 10)}`,
-      kind: "descent",
-      title: `Descente · km ${formatKm(descent.startKm)}`,
-      anchorKm: descent.startKm,
-      spanStartKm: descent.startKm,
-      spanEndKm: descent.endKm,
-      facts: [`${formatKm(lengthKm)} km`, `−${formatNumber(descent.elevationM)} m`, `${formatPercent(descent.averageGrade)} % moy.`],
-      services: [],
-      cutoffTime: null,
-      priority: 60 - rank * 15,
-      narration: () =>
-        `Place à la descente : ${formatNumber(descent.elevationM)} mètres de dénivelé négatif sur ${formatKm(lengthKm)} kilomètres. Garde des jambes.`,
-    });
-  });
+  let climbCount = 0;
+  const routeBeats = legs.map((leg, index): StoryBeat => {
+    const lengthKm = leg.endKm - leg.startKm;
+    const next = legs[index + 1];
+    const isLast = !next;
+    const grade = leg.gain / Math.max(1, lengthKm * 1_000);
+    const parts: string[] = [];
 
-  // Rolling sections: long stretches between the significant slopes, where the runner can relaunch.
-  const minimumFlatKm = Math.max(3, total * 0.08);
-  const orderedSlopes = [...slopes].sort((left, right) => left.startKm - right.startKm);
-  const gaps = orderedSlopes.reduce<Array<{ startKm: number; endKm: number }>>((list, slope, index) => {
-    const previousEnd = index === 0 ? 0 : orderedSlopes[index - 1].endKm;
-    list.push({ startKm: previousEnd, endKm: slope.startKm });
-    if (index === orderedSlopes.length - 1) list.push({ startKm: slope.endKm, endKm: total });
-    return list;
-  }, orderedSlopes.length ? [] : [{ startKm: 0, endKm: total }]);
-  gaps
-    .filter((gap) => gap.endKm - gap.startKm >= minimumFlatKm)
-    .sort((left, right) => (right.endKm - right.startKm) - (left.endKm - left.startKm))
-    .slice(0, 2)
-    .forEach((gap, rank) => {
-      const lengthKm = gap.endKm - gap.startKm;
-      const elevations = path.samples
-        .filter((sample) => sample.distanceKm >= gap.startKm && sample.distanceKm <= gap.endKm)
-        .map((sample) => sample.elevationM);
-      const rangeM = elevations.length ? Math.max(...elevations) - Math.min(...elevations) : 0;
-      // Anchored a little after the start so it does not collide with the start or a slope end.
-      const anchorKm = gap.startKm + Math.min(lengthKm * 0.25, pointWidthKm);
-      candidates.push({
-        id: `flat-${Math.round(gap.startKm * 10)}`,
-        kind: "flat",
-        title: `Roulant · km ${formatKm(gap.startKm)}`,
-        anchorKm,
-        spanStartKm: anchorKm,
-        spanEndKm: Math.min(gap.endKm, anchorKm + Math.max(pointWidthKm * 2, lengthKm * 0.5)),
-        facts: [`${formatKm(lengthKm)} km`, `±${formatNumber(rangeM)} m`],
-        services: [],
-        cutoffTime: null,
-        priority: 58 - rank * 10,
-        narration: () =>
-          `Section roulante sur ${formatKm(lengthKm)} kilomètres : le moment de relancer et de trouver ton allure.`,
-      });
-    });
+    if (index === 0) parts.push(startPlace ? `Départ : ${startPlace}.` : "C’est parti.");
+    if (leg.station) {
+      parts.push(`${leg.station.isLifeBase ? "Base de vie" : "Ravito"} de ${leg.station.name}, kilomètre ${formatKm(leg.station.distanceKm)}${servicesSentence(leg.station)}.`);
+    }
+    if (leg.kind === "climb") {
+      climbCount += 1;
+      const name = leg.summit ? `la montée vers ${leg.summit}` : climbCount === 1 ? "la première grosse montée" : "une nouvelle montée";
+      parts.push(`${name.charAt(0).toUpperCase()}${name.slice(1)} : ${formatKm(lengthKm)} kilomètres à ${formatPercent(grade)} pour cent, ${formatNumber(leg.gain)} mètres à gravir. Prends ton temps.`);
+    } else if (leg.kind === "descent") {
+      parts.push(`On bascule dans la descente : ${formatNumber(leg.loss)} mètres à perdre sur ${formatKm(lengthKm)} kilomètres.`);
+    } else {
+      const until = isLast ? "jusqu’à l’arrivée"
+        : next.kind === "climb" ? `jusqu’au pied de ${next.summit ? `la montée vers ${next.summit}` : "la prochaine montée"}`
+          : next.station ? `${next.station.isLifeBase ? "jusqu’à la base de vie" : "jusqu’au ravito"} de ${next.station.name}`
+            : "";
+      parts.push(`${formatKm(lengthKm)} ${lengthKm < 1.5 ? "kilomètre" : "kilomètres"} sans grosse difficulté${until ? ` ${until}` : ""} : avance à un rythme confortable.`);
+    }
+    leg.passing.forEach((station) => parts.push(`Au passage, ravito de ${station.name} au kilomètre ${formatKm(station.distanceKm)}.`));
+    if (isLast) parts.push(`Ligne d’arrivée au kilomètre ${formatNumber(total)}.`);
 
-  if (options.includeAidStations) {
-    aidStations.filter((station) => station.distanceKm > 0 && station.distanceKm < total).forEach((station) => {
-      const services = getAidStationServices(station);
-      const serviceWords = services.map((service) => AID_SERVICES[service].toLowerCase());
-      candidates.push({
-        id: station.id,
-        kind: station.isLifeBase ? "lifeBase" : "aid",
-        title: station.name,
-        anchorKm: station.distanceKm,
-        spanStartKm: station.distanceKm - pointWidthKm,
-        spanEndKm: station.distanceKm + pointWidthKm * 0.35,
-        facts: [`km ${formatKm(station.distanceKm)}`, ...(station.cutoffTime ? [`Barrière ${station.cutoffTime}`] : [])],
-        services,
-        cutoffTime: station.cutoffTime,
-        priority: station.isLifeBase ? 90 : station.cutoffTime ? 55 : 45,
-        narration: () => [
-          `${station.isLifeBase ? "Base de vie" : "Ravitaillement"} de ${station.name}, au kilomètre ${formatKm(station.distanceKm)}`,
-          serviceWords.length ? ` : ${joinFrench(serviceWords)}.` : ".",
-          station.cutoffTime ? ` Barrière horaire à ${station.cutoffTime}.` : "",
-        ].join(""),
-      });
-    });
-  }
+    const facts = [
+      `${formatKm(lengthKm)} km`,
+      leg.gain >= 30 ? `+${formatNumber(leg.gain)} m` : null,
+      leg.loss >= 30 ? `−${formatNumber(leg.loss)} m` : null,
+      leg.summit ? `▲ ${leg.summit}` : null,
+      ...leg.passing.map((station) => `Ravito ${station.name} km ${formatKm(station.distanceKm)}`),
+    ].filter((fact): fact is string => Boolean(fact));
 
-  candidates.push({
-    id: "finish",
-    kind: "finish",
-    title: "Arrivée",
-    anchorKm: total,
-    spanStartKm: total - pointWidthKm,
-    spanEndKm: total,
-    facts: [`${formatNumber(total)} km`],
-    services: [],
-    cutoffTime: null,
-    priority: 95,
-    narration: () => `Dernier effort jusqu’à la ligne d’arrivée, après ${formatNumber(total)} kilomètres.`,
-  });
-
-  // Start, finish and every enabled aid station are always narrated, so the camera slows down at
-  // each of them; only stations nearly on top of each other are merged. The other moments fill a
-  // budget of about one every 5.5 s of video, so the voice has room to breathe (the automatic
-  // duration grows when the mandatory moments need more).
-  const isMandatory = (candidate: Candidate) =>
-    candidate.kind === "start" || candidate.kind === "finish" || candidate.kind === "aid" || candidate.kind === "lifeBase";
-  const budget = clamp(Math.round(options.targetSeconds / 5.5), 3, 14);
-  const stationGapKm = Math.max(0.3, total * 0.01);
-  const minimumGapKm = Math.max(0.5, total * 0.035);
-  const byPriority = [...candidates].sort((left, right) => right.priority - left.priority);
-  const selected: Candidate[] = [];
-  byPriority.filter(isMandatory).forEach((candidate) => {
-    if (selected.some((other) => Math.abs(other.anchorKm - candidate.anchorKm) < stationGapKm)) return;
-    selected.push(candidate);
-  });
-  // The two best terrain moments always fit, even on a route full of stations.
-  const optionalBudget = Math.max(2, budget - selected.length);
-  let optionalCount = 0;
-  byPriority.filter((candidate) => !isMandatory(candidate)).forEach((candidate) => {
-    if (optionalCount >= optionalBudget) return;
-    if (selected.some((other) => Math.abs(other.anchorKm - candidate.anchorKm) < minimumGapKm)) return;
-    selected.push(candidate);
-    optionalCount += 1;
-  });
-  selected.sort((left, right) => left.anchorKm - right.anchorKm);
-
-  let climbOrder = 0;
-  const routeBeats = selected.map((candidate, index): StoryBeat => {
-    const previous = selected[index - 1];
-    const next = selected[index + 1];
-    // Neighbouring spans are cut halfway between anchors so they never overlap.
-    const startKm = clamp(Math.max(candidate.spanStartKm, previous ? (previous.anchorKm + candidate.anchorKm) / 2 : 0), 0, total);
-    const endKm = clamp(Math.min(candidate.spanEndKm, next ? (candidate.anchorKm + next.anchorKm) / 2 : total), startKm, total);
-    const order = candidate.kind === "climb" ? climbOrder++ : 0;
-    const { priority: _priority, spanStartKm: _start, spanEndKm: _end, narration, ...beat } = candidate;
-    return { ...beat, startKm, endKm, narration: narration(order) };
+    return {
+      id: `leg-${Math.round(leg.startKm * 10)}`,
+      kind: leg.kind,
+      title: leg.station?.name ?? leg.summit ?? (index === 0 && startPlace ? startPlace : `km ${formatKm(leg.startKm)} → ${formatKm(leg.endKm)}`),
+      startKm: leg.startKm,
+      endKm: leg.endKm,
+      anchorKm: leg.station?.distanceKm ?? leg.startKm,
+      facts,
+      services: leg.station ? getAidStationServices(leg.station) : [],
+      cutoffTime: leg.station?.cutoffTime ?? null,
+      narration: parts.join(" "),
+    };
   });
 
   const stats = [
@@ -370,7 +366,7 @@ export const buildStoryBeats = (
     {
       id: "intro", kind: "intro", title: race.title, startKm: 0, endKm: 0, anchorKm: 0,
       facts: [], services: [], cutoffTime: null,
-      narration: `${race.title}. ${stats}. Découvre le parcours.`,
+      narration: `${race.title}. ${stats}. Voici ce qui t’attend.`,
     },
     ...routeBeats,
     {

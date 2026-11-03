@@ -9,27 +9,41 @@ import { narrationScriptRequestSchema, type NarrationScriptRequest } from "../..
 
 export const maxDuration = 60;
 
-const MAX_WORDS: Record<NarrationScriptRequest["beats"][number]["kind"], number> = {
-  intro: 22,
-  start: 16,
-  climb: 24,
-  descent: 22,
-  flat: 18,
-  aid: 16,
-  lifeBase: 20,
-  finish: 16,
-  outro: 14,
+// French voice-over runs at about 2.4 words per second.
+const WORDS_PER_SECOND = 2.4;
+const KIND_WEIGHT: Record<NarrationScriptRequest["beats"][number]["kind"], number> = {
+  intro: 1,
+  start: 1.1,
+  climb: 1.3,
+  descent: 1,
+  flat: 0.8,
+  aid: 0.9,
+  lifeBase: 1.1,
+  finish: 1,
+  outro: 0.6,
 };
 
-const SYSTEM_PROMPT = `Tu écris la voix off des reels verticaux de Pace Yourself, l'application qui aide les traileurs à préparer leur plan de course.
+/** Splits the word budget of the whole video across beats, giving climbs a little more room. */
+const allocateWords = (beats: NarrationScriptRequest["beats"], targetSeconds: number) => {
+  const budget = Math.max(beats.length * 8, Math.round(targetSeconds * WORDS_PER_SECOND * 0.85));
+  const totalWeight = beats.reduce((sum, beat) => sum + KIND_WEIGHT[beat.kind], 0);
+  return beats.map((beat) => Math.max(7, Math.min(32, Math.round((budget * KIND_WEIGHT[beat.kind]) / totalWeight))));
+};
 
-Le reel survole le parcours en 3D. Chaque moment que tu reçois est montré à l'écran pendant que ta phrase est lue par une voix de synthèse, donc :
-- écris pour l'oreille : phrases courtes, rythme, tutoiement, ton énergique et complice de coureur à coureur ;
-- raconte une progression : le départ, la montée en tension sur les difficultés, le soulagement aux ravitos, l'émotion de l'arrivée ; relie les moments entre eux plutôt que d'aligner des fiches ;
-- n'invente rien : n'utilise que les faits fournis (noms, kilomètres, dénivelés, pourcentages, services, horaires). Pas de météo, de paysage ou d'anecdote non fournis ;
-- écris les nombres comme on les dit (« six virgule deux kilomètres » peut rester « 6,2 kilomètres », « 9 pour cent »), jamais de symboles ni d'abréviations (%, km, m, D+), pas d'emoji ;
-- respecte maxWords pour chaque moment, c'est la place disponible dans la vidéo ;
-- le moment "outro" invite à préparer son plan de course sur pace-yourself point com.
+const SYSTEM_PROMPT = `Tu es la voix off des reels verticaux de Pace Yourself, l'application qui aide les traileurs à préparer leur plan de course.
+
+Le reel survole tout le parcours en 3D, du départ à l'arrivée. Tu racontes la course comme un coureur expérimenté qui briefe un ami la veille : on doit comprendre ce qui nous attend et comment la gérer. Le parcours est découpé en tronçons consécutifs ; ta phrase pour un tronçon est lue quand la caméra y entre, puis la caméra file jusqu'au tronçon suivant.
+
+Ton récit :
+- est continu : chaque tronçon enchaîne avec le précédent et annonce la suite (« pas de difficulté jusqu'au pied de la montée vers le Mont Thou », « longue montée de 7 kilomètres, prends ton temps », « on bascule ensuite vers le ravito de… ») ; jamais une lecture de fiches point par point ;
+- donne des conseils de gestion simples et concrets liés au terrain (rythme confortable sur le plat, gérer la montée, garder des jambes pour la descente, s'alimenter à la base de vie) ;
+- mentionne les ravitos naturellement, en passant, sans lister systématiquement tous les services ; insiste seulement sur une base de vie ou une barrière horaire ;
+- utilise les sommets et lieux fournis pour situer (« la montée vers… ») ;
+- n'invente rien : uniquement les faits fournis (noms, kilomètres, dénivelés, pourcentages, services, horaires) ; pas de météo, de paysage ni d'anecdote ;
+- est écrit pour l'oreille : tutoiement, phrases courtes, ton complice et énergique ; nombres tels qu'on les dit (« 6,2 kilomètres », « 9 pour cent »), aucun symbole ni abréviation (%, km, m, D+), pas d'emoji ;
+- raccourcis les lieux trop longs : garde le nom du lieu, jamais une adresse postale ;
+- respecte maxWords de chaque tronçon : c'est le temps disponible dans une vidéo de deux minutes au plus ;
+- l'intro présente la course en une phrase d'accroche ; l'outro invite à préparer son plan de course sur pace-yourself point com.
 
 Renvoie une narration pour chaque id reçu, dans le même ordre.`;
 
@@ -62,21 +76,22 @@ export async function POST(request: NextRequest) {
     return jsonError(`Requête de script invalide (${issue?.path.join(".") || "corps"} : ${issue?.message ?? "format"}).`, 400);
   }
   const { race, beats, targetSeconds } = parsed.data;
+  const maxWords = allocateWords(beats, targetSeconds);
 
   const input = {
     course: race,
-    dureeVideoSecondes: targetSeconds,
-    moments: beats.map((beat) => ({
+    dureeVideoMaxSecondes: targetSeconds,
+    troncons: beats.map((beat, index) => ({
       id: beat.id,
       type: beat.kind,
       titre: beat.title,
       deKm: Number(beat.startKm.toFixed(1)),
       aKm: Number(beat.endKm.toFixed(1)),
       faits: beat.facts,
-      services: beat.services,
+      servicesAuDebut: beat.services,
       barriereHoraire: beat.cutoffTime,
       brouillon: beat.narration,
-      maxWords: MAX_WORDS[beat.kind],
+      maxWords: maxWords[index],
     })),
   };
 
@@ -89,7 +104,7 @@ export async function POST(request: NextRequest) {
       fallbacks: "default",
       output_config: { effort: "medium", format: betaZodOutputFormat(scriptOutputSchema) },
       system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: `Voici le parcours et ses moments, au format JSON :\n${JSON.stringify(input, null, 2)}` }],
+      messages: [{ role: "user", content: `Voici le parcours et ses tronçons, au format JSON :\n${JSON.stringify(input, null, 2)}` }],
     });
 
     if (response.stop_reason === "refusal") return jsonError("La rédaction a été refusée par le modèle.", 502);

@@ -10,17 +10,19 @@ import {
   type CameraPose,
   type PreparedAnimationPath,
 } from "./route-animation";
-import { estimateNarrationMs, getAutoDurationSeconds, type StoryBeat } from "./route-story";
+import { estimateNarrationMs, getAutoDurationSeconds, MAX_VIDEO_SECONDS, type StoryBeat } from "./route-story";
 
 export { AID_SERVICES, getAidStationServices, type AidService } from "./route-story";
 
-export const VIDEO_DURATION_PRESETS = [30, 45, 60, 90] as const;
+export const VIDEO_DURATION_PRESETS = [30, 45, 60, 90, 120] as const;
 export const VIDEO_FPS = 30;
 export const MIN_SEQUENCE_MS = 3_000;
 // Silence kept after each narration so sentences do not run into each other.
 export const NARRATION_GAP_MS = 500;
 // Narrated moments may take at most this share of the flyover; the rest is transit between them.
 export const MAX_BEAT_TIME_SHARE = 0.7;
+// With a continuous story the voice may fill most of the flyover; the rest is travel between talks.
+export const CONTINUOUS_NARRATION_SHARE = 0.85;
 export const MIN_CAPTION_MS = 1_200;
 
 export const VIDEO_RESOLUTIONS = {
@@ -35,7 +37,7 @@ export const MAPBOX_STYLE_URL_PATTERN = /^mapbox:\/\/styles\/[\w.-]+\/[\w-]+$/;
 export const videoCompositionSettingsSchema = z.object({
   version: z.literal(1).default(1),
   durationMode: z.enum(["auto", "manual"]).default("auto"),
-  durationSeconds: z.number().int().min(15).max(180).default(45),
+  durationSeconds: z.number().int().min(15).max(120).default(45),
   resolution: z.enum(["540p", "1080p"]).default("540p"),
   viewport: z.enum(["portrait", "landscape"]).default("portrait"),
   revealMode: z.enum(["progressive", "full"]).default("progressive"),
@@ -163,10 +165,11 @@ export const getNarrationMs = (beat: StoryBeat, durations: NarrationDurations) =
   durations[beat.id] ?? estimateNarrationMs(beat.narration);
 
 /**
- * The narration drives the video: each route beat gets the time its narration needs over its
- * distance span (so the camera slows down there), the remaining flyover time is spread over the
- * transit between beats, weighted by terrain, and the speed is smoothed so it never jumps. In auto
- * mode the length grows with the route and with the narration; in manual mode it is fixed.
+ * The narration drives the video: each route beat gets the time its narration needs, concentrated
+ * at the start of its span (the camera slows while the voice speaks). The remaining flyover time is
+ * travel, weighted by terrain: inside the legs of a continuous story, or over the transit between
+ * isolated beats. The speed is smoothed so it never jumps. In auto mode the length grows with the
+ * route and the narration; every video is capped at MAX_VIDEO_SECONDS.
  */
 export const buildVideoTimeline = (
   path: PreparedAnimationPath,
@@ -187,20 +190,25 @@ export const buildVideoTimeline = (
   const outroMs = sequenceMs(outroBeat, settings.outroEnabled);
   let beatNeeds = routeBeats.map((beat) => getNarrationMs(beat, durations) + NARRATION_GAP_MS);
   const beatsTotal = beatNeeds.reduce((sum, value) => sum + value, 0);
+  // A story of consecutive legs covers the whole route: there is no transit outside the beats.
+  const coveredKm = routeBeats.reduce((sum, beat) => sum + (beat.endKm - beat.startKm), 0);
+  const continuous = totalDistanceKm > 0 && coveredKm / totalDistanceKm > 0.98;
+  const narrationShare = continuous ? CONTINUOUS_NARRATION_SHARE : MAX_BEAT_TIME_SHARE;
 
+  const maxTotalMs = MAX_VIDEO_SECONDS * 1_000;
   const totalMs = settings.durationMode === "auto"
-    ? Math.ceil(Math.max(
+    ? Math.min(maxTotalMs, Math.ceil(Math.max(
       getAutoDurationSeconds(totalDistanceKm) * 1_000,
-      introMs + outroMs + beatsTotal / MAX_BEAT_TIME_SHARE,
-    ) / 1_000) * 1_000
-    : settings.durationSeconds * 1_000;
+      introMs + outroMs + beatsTotal / narrationShare,
+    ) / 1_000) * 1_000)
+    : Math.min(maxTotalMs, settings.durationSeconds * 1_000);
   const flyoverMs = Math.max(1_000, totalMs - introMs - outroMs);
-  const narrationOverflow = beatsTotal > flyoverMs * 0.9;
-  if (beatsTotal > flyoverMs * MAX_BEAT_TIME_SHARE) {
-    const scale = (flyoverMs * MAX_BEAT_TIME_SHARE) / beatsTotal;
+  const narrationOverflow = beatsTotal > flyoverMs * (continuous ? 0.95 : 0.9);
+  if (beatsTotal > flyoverMs * narrationShare) {
+    const scale = (flyoverMs * narrationShare) / beatsTotal;
     beatNeeds = beatNeeds.map((value) => value * scale);
   }
-  const transitMs = flyoverMs - beatNeeds.reduce((sum, value) => sum + value, 0);
+  const remainderMs = flyoverMs - beatNeeds.reduce((sum, value) => sum + value, 0);
 
   const { samples } = path;
   const sampleDistancesKm = samples.map((sample) => sample.distanceKm);
@@ -208,21 +216,38 @@ export const buildVideoTimeline = (
   const beatAt = (distanceKm: number) =>
     routeBeats.findIndex((beat) => distanceKm >= beat.startKm && distanceKm < beat.endKm);
 
-  // Time density (ms per km) of every sample interval, then smoothed into gradual braking.
-  const intervalBeat: number[] = [];
+  // Inside a beat, the narration time is concentrated at its start (the camera slows while the
+  // voice speaks) and the travel time follows the terrain (climbs go slower, flats go fast).
+  const narrationFocus = (beat: StoryBeat, distanceKm: number) =>
+    Math.exp(-(distanceKm - beat.startKm) / Math.max(0.05, (beat.endKm - beat.startKm) * 0.35));
+  const intervals: Array<{ beatIndex: number; stepKm: number; middleKm: number; terrain: number }> = [];
+  const focusTotals = routeBeats.map(() => 0);
+  const terrainTotals = routeBeats.map(() => 0);
   let transitWeight = 0;
   for (let index = 1; index < samples.length; index += 1) {
     const stepKm = sampleDistancesKm[index] - sampleDistancesKm[index - 1];
-    const beatIndex = beatAt((sampleDistancesKm[index] + sampleDistancesKm[index - 1]) / 2);
-    intervalBeat.push(beatIndex);
-    if (beatIndex < 0) transitWeight += stepKm * (terrain[index - 1] + terrain[index]) / 2;
+    const middleKm = (sampleDistancesKm[index] + sampleDistancesKm[index - 1]) / 2;
+    const beatIndex = beatAt(middleKm);
+    const weight = (terrain[index - 1] + terrain[index]) / 2;
+    intervals.push({ beatIndex, stepKm, middleKm, terrain: weight });
+    if (beatIndex < 0) {
+      transitWeight += stepKm * weight;
+    } else {
+      focusTotals[beatIndex] += stepKm * narrationFocus(routeBeats[beatIndex], middleKm);
+      terrainTotals[beatIndex] += stepKm * weight;
+    }
   }
-  const densities = intervalBeat.map((beatIndex, interval) => {
+  const allTerrain = terrainTotals.reduce((sum, value) => sum + value, 0);
+  const travelMs = routeBeats.map((_, beatIndex) =>
+    continuous && allTerrain > 0 ? (remainderMs * terrainTotals[beatIndex]) / allTerrain : 0);
+  const transitMs = continuous ? 0 : remainderMs;
+  const densities = intervals.map(({ beatIndex, middleKm, terrain: weight }) => {
     if (beatIndex >= 0) {
       const beat = routeBeats[beatIndex];
-      return beatNeeds[beatIndex] / (beat.endKm - beat.startKm);
+      const narration = focusTotals[beatIndex] > 0 ? (beatNeeds[beatIndex] * narrationFocus(beat, middleKm)) / focusTotals[beatIndex] : 0;
+      const travel = terrainTotals[beatIndex] > 0 ? (travelMs[beatIndex] * weight) / terrainTotals[beatIndex] : 0;
+      return narration + travel;
     }
-    const weight = (terrain[interval] + terrain[interval + 1]) / 2;
     return transitWeight > 0 ? (transitMs * weight) / transitWeight : 0;
   });
   const spacingKm = samples.length > 1 ? totalDistanceKm / (samples.length - 1) : 1;
