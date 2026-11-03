@@ -274,10 +274,10 @@ export const getChaseCameraPose = (
 ): CameraPose => {
   const portrait = viewport === "portrait";
   const target = getRoutePointAtDistance(path, distanceKm);
-  // Far enough to read the section around the runner (1.4 km at the slowest), pulled back up to
-  // 9 km on fast transits.
-  const backDistanceM = clamp(speedMps * 1.6, 1_400, 9_000) * (portrait ? 1.25 : 1);
-  const headingWindowKm = clamp(speedMps * 1.5, 800, 8_000) / 1_000;
+  // Far enough to read the whole section around the runner (2.5 km at the slowest), pulled back
+  // up to 14 km on fast stretches.
+  const backDistanceM = clamp(speedMps * 2.2, 2_500, 14_000) * (portrait ? 1.25 : 1);
+  const headingWindowKm = clamp(speedMps * 2, 1_200, 10_000) / 1_000;
   const heading = getRouteHeading(path, distanceKm, headingWindowKm);
   const cameraGround = offsetPosition(target, -heading.east * backDistanceM, -heading.north * backDistanceM);
   const heightM = backDistanceM * Math.tan(CHASE_ELEVATION_ANGLE_RAD);
@@ -395,7 +395,7 @@ export const getSegmentFramingPose = (
     east /= length;
     north /= length;
   }
-  const backDistanceM = clamp(spanM * (portrait ? 1.35 : 1.05), 1_800, 14_000);
+  const backDistanceM = clamp(spanM * (portrait ? 1.6 : 1.25), 3_000, 20_000);
   const cameraGround = offsetPosition(center, -east * backDistanceM, -north * backDistanceM);
   const targetAltitudeM = ((middle.elevationM + maxElevationM) / 2) * terrainExaggeration;
   return {

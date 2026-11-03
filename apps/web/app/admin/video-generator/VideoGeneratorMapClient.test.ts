@@ -217,7 +217,7 @@ describe("VideoGeneratorMapClient", () => {
     expect(map.setLayoutProperty).toHaveBeenLastCalledWith("video-peak-labels", "visibility", "visible");
     // The narrated script is editable next to the preview, starting from the factual default.
     expect(screen.getByRole("button", { name: "Rédiger avec l’IA" })).toBeTruthy();
-    expect((screen.getByLabelText(/^Narration : Intro/) as HTMLTextAreaElement).value).toMatch(/^SaintéLyon 2026\./);
+    expect((screen.getByLabelText(/^Narration : Intro/) as HTMLTextAreaElement).value).toMatch(/^SaintéLyon 2026 :/);
 
     await userEvent.click(screen.getByRole("button", { name: "Lecture" }));
     act(() => flushAnimationFrames(1_000));

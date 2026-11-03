@@ -239,7 +239,8 @@ export const buildVideoTimeline = (
   const introMs = sequenceMs(introBeat, settings.introEnabled);
   const outroMs = sequenceMs(outroBeat, settings.outroEnabled);
   // A pause (life base, aid station) holds the camera a moment longer around the point.
-  let beatNeeds = routeBeats.map((beat) => getNarrationMs(beat, durations) + NARRATION_GAP_MS + (beat.pauseMs ?? 0));
+  const pauses = routeBeats.map((beat) => beat.pauseMs ?? 0);
+  let beatNeeds = routeBeats.map((beat, index) => getNarrationMs(beat, durations) + NARRATION_GAP_MS + pauses[index]);
   const beatsTotal = beatNeeds.reduce((sum, value) => sum + value, 0);
   // A story of consecutive legs covers the whole route: there is no transit outside the beats.
   const coveredKm = routeBeats.reduce((sum, beat) => sum + (beat.endKm - beat.startKm), 0);
@@ -247,11 +248,11 @@ export const buildVideoTimeline = (
   const narrationShare = continuous ? CONTINUOUS_NARRATION_SHARE : MAX_BEAT_TIME_SHARE;
 
   const maxTotalMs = MAX_VIDEO_SECONDS * 1_000;
+  // A continuous story lasts as long as it is told: the voice runs over every leg, no silent dash.
   const totalMs = settings.durationMode === "auto"
-    ? Math.min(maxTotalMs, Math.ceil(Math.max(
-      getAutoDurationSeconds(totalDistanceKm) * 1_000,
-      introMs + outroMs + beatsTotal / narrationShare,
-    ) / 1_000) * 1_000)
+    ? Math.min(maxTotalMs, Math.ceil((continuous
+      ? introMs + outroMs + beatsTotal
+      : Math.max(getAutoDurationSeconds(totalDistanceKm) * 1_000, introMs + outroMs + beatsTotal / narrationShare)) / 1_000) * 1_000)
     : Math.min(maxTotalMs, settings.durationSeconds * 1_000);
   const flyoverMs = Math.max(1_000, totalMs - introMs - outroMs);
   const narrationOverflow = beatsTotal > flyoverMs * (continuous ? 0.95 : 0.9);
@@ -289,19 +290,40 @@ export const buildVideoTimeline = (
       terrainTotals[beatIndex] += stepKm * weight;
     }
   }
-  const allTerrain = terrainTotals.reduce((sum, value) => sum + value, 0);
-  const travelMs = routeBeats.map((_, beatIndex) =>
-    continuous && allTerrain > 0 ? (remainderMs * terrainTotals[beatIndex]) / allTerrain : 0);
-  const transitMs = continuous ? 0 : remainderMs;
-  const densities = intervals.map(({ beatIndex, middleKm, terrain: weight }) => {
+  // Continuous story: each leg lasts its narration (plus a share of any spare time), spread over
+  // the whole leg so the voice accompanies the camera to the next cut. The camera is slower near
+  // the point the leg starts from and on climbs; a station pause is spent right at the point.
+  const legShape = (beat: StoryBeat, distanceKm: number) =>
+    1 + 2.5 * Math.exp(-(distanceKm - beat.startKm) / Math.max(0.05, (beat.endKm - beat.startKm) * 0.12));
+  const shapeTotals = routeBeats.map(() => 0);
+  const dwellTotals = routeBeats.map(() => 0);
+  intervals.forEach(({ beatIndex, stepKm, middleKm, terrain: weight }) => {
+    if (beatIndex < 0) return;
+    const beat = routeBeats[beatIndex];
+    shapeTotals[beatIndex] += stepKm * weight * legShape(beat, middleKm);
+    if (middleKm - beat.startKm < dwellKm(beat)) dwellTotals[beatIndex] += stepKm;
+  });
+  const spokenTotal = beatNeeds.reduce((sum, value, index) => sum + value - pauses[index], 0);
+  const legMs = beatNeeds.map((need, index) =>
+    need - pauses[index] + (spokenTotal > 0 ? (remainderMs * (need - pauses[index])) / spokenTotal : 0));
+  const continuousDensities = () => intervals.map(({ beatIndex, middleKm, terrain: weight }) => {
+    if (beatIndex < 0) return 0;
+    const beat = routeBeats[beatIndex];
+    const travel = shapeTotals[beatIndex] > 0 ? (legMs[beatIndex] * weight * legShape(beat, middleKm)) / shapeTotals[beatIndex] : 0;
+    const pause = dwellTotals[beatIndex] > 0 && middleKm - beat.startKm < dwellKm(beat) ? pauses[beatIndex] / dwellTotals[beatIndex] : 0;
+    return travel + pause;
+  });
+  // Isolated beats: narration at each beat, the rest of the time as terrain-weighted transit.
+  const transitMs = remainderMs;
+  const isolatedDensities = () => intervals.map(({ beatIndex, middleKm, terrain: weight }) => {
     if (beatIndex >= 0) {
       const beat = routeBeats[beatIndex];
       const narration = focusTotals[beatIndex] > 0 ? (beatNeeds[beatIndex] * narrationFocus(beat, middleKm)) / focusTotals[beatIndex] : 0;
-      const travel = terrainTotals[beatIndex] > 0 ? (travelMs[beatIndex] * weight) / terrainTotals[beatIndex] : 0;
-      return narration + travel;
+      return narration;
     }
     return transitWeight > 0 ? (transitMs * weight) / transitWeight : 0;
   });
+  const densities = continuous ? continuousDensities() : isolatedDensities();
   const spacingKm = samples.length > 1 ? totalDistanceKm / (samples.length - 1) : 1;
   const smoothed = movingAverage(densities, Math.max(1, Math.round((totalDistanceKm * 0.0035) / spacingKm)));
 

@@ -11,39 +11,44 @@ export const maxDuration = 60;
 
 // French voice-over runs at about 2.4 words per second.
 const WORDS_PER_SECOND = 2.4;
-const KIND_WEIGHT: Record<NarrationScriptRequest["beats"][number]["kind"], number> = {
-  intro: 1,
-  start: 1.1,
-  climb: 1.3,
-  descent: 1,
-  flat: 0.8,
-  aid: 0.9,
-  lifeBase: 1.1,
-  finish: 1,
-  outro: 0.6,
+const FIXED_WORDS: Partial<Record<NarrationScriptRequest["beats"][number]["kind"], number>> = {
+  intro: 18,
+  outro: 12,
 };
 
-/** Splits the word budget of the whole video across beats, giving climbs a little more room. */
+/**
+ * Each leg is on screen for as long as its narration lasts, so its words follow its share of the
+ * route (with a floor for short legs): a long stretch gets more to say instead of a silent dash,
+ * and the camera keeps a steady pace from one leg to the next.
+ */
 const allocateWords = (beats: NarrationScriptRequest["beats"], targetSeconds: number) => {
-  const budget = Math.max(beats.length * 8, Math.round(targetSeconds * WORDS_PER_SECOND * 0.85));
-  const totalWeight = beats.reduce((sum, beat) => sum + KIND_WEIGHT[beat.kind], 0);
-  return beats.map((beat) => Math.max(7, Math.min(32, Math.round((budget * KIND_WEIGHT[beat.kind]) / totalWeight))));
+  const fixed = beats.reduce((sum, beat) => sum + (FIXED_WORDS[beat.kind] ?? 0), 0);
+  const legs = beats.filter((beat) => FIXED_WORDS[beat.kind] === undefined);
+  const budget = Math.max(legs.length * 10, Math.round(targetSeconds * WORDS_PER_SECOND * 0.9) - fixed);
+  const totalKm = legs.reduce((sum, beat) => sum + Math.max(0, beat.endKm - beat.startKm), 0);
+  return beats.map((beat) => {
+    const fixedWords = FIXED_WORDS[beat.kind];
+    if (fixedWords !== undefined) return fixedWords;
+    const share = totalKm > 0 ? Math.max(0, beat.endKm - beat.startKm) / totalKm : 1 / Math.max(1, legs.length);
+    const words = budget * (0.25 / Math.max(1, legs.length) + 0.75 * share);
+    return Math.max(9, Math.min(48, Math.round(words)));
+  });
 };
 
-const SYSTEM_PROMPT = `Tu es la voix off des reels verticaux de Pace Yourself, l'application qui aide les traileurs à préparer leur plan de course.
+const SYSTEM_PROMPT = `Tu es la voix off des reels de Pace Yourself, l'appli qui aide les traileurs à préparer leur plan de course.
 
-Le reel survole tout le parcours en 3D, du départ à l'arrivée. Tu racontes la course comme un coureur expérimenté qui briefe un ami la veille : on doit comprendre ce qui nous attend et comment la gérer. Le parcours est découpé en tronçons consécutifs ; ta phrase pour un tronçon est lue quand la caméra y entre, puis la caméra file jusqu'au tronçon suivant.
+Le reel survole tout le parcours en 3D, du départ à l'arrivée. Tu parles comme un pote traileur qui explique la course à un autre pote, la veille au soir, une bière à la main : décontracté, complice, un peu chambreur, avec le vocabulaire du trail (ça grimpe sec, ça envoie, ça déroule, relancer, gérer, les cuisses qui chauffent, sortir les bâtons, être dans le dur, taper dans le ravito, les bornes, le D+ dit « dénivelé »…). Familier, mais jamais vulgaire.
 
-Ton récit :
-- est continu : chaque tronçon enchaîne avec le précédent et annonce la suite (« pas de difficulté jusqu'au pied de la montée vers le Mont Thou », « longue montée de 7 kilomètres, prends ton temps », « on bascule ensuite vers le ravito de… ») ; jamais une lecture de fiches point par point ;
-- donne des conseils de gestion simples et concrets liés au terrain (rythme confortable sur le plat, gérer la montée, garder des jambes pour la descente, s'alimenter à la base de vie) ;
-- mentionne les ravitos naturellement, en passant, sans lister systématiquement tous les services ; insiste seulement sur une base de vie ou une barrière horaire ;
-- utilise les sommets et lieux fournis pour situer (« la montée vers… ») ;
+Le parcours est découpé en tronçons consécutifs. Ta phrase pour un tronçon commence quand la caméra y entre et dure tout le tronçon : la caméra avance au rythme de ta voix. Donc :
+- le récit est continu et sans trou : chaque tronçon enchaîne naturellement avec le précédent (« bon, une fois en haut… », « et là, ça redescend… ») et annonce la suite ; jamais une lecture de fiches point par point ;
+- un tronçon long mérite plus de mots qu'un court : vise entre minWords et maxWords, au plus près de maxWords ; sur un long passage roulant, raconte comment le gérer plutôt que de te taire ;
+- donne des conseils concrets et perso liés au terrain (pars cool sur le plat, mets-toi en mode diesel dans la montée, garde des cuisses pour la descente, prends le temps de manger à la base de vie) ;
+- cite les ravitos naturellement, en passant, sans lister tous les services ; insiste seulement sur une base de vie ou une barrière horaire ;
+- utilise les sommets, lieux et heures estimées fournis (de nuit : frontale ; au lever du jour…) ;
 - n'invente rien : uniquement les faits fournis (noms, kilomètres, dénivelés, pourcentages, services, horaires) ; pas de météo, de paysage ni d'anecdote ;
-- est écrit pour l'oreille : tutoiement, phrases courtes, ton complice et énergique ; nombres tels qu'on les dit (« 6,2 kilomètres », « 9 pour cent »), aucun symbole ni abréviation (%, km, m, D+), pas d'emoji ;
-- raccourcis les lieux trop longs : garde le nom du lieu, jamais une adresse postale ;
-- respecte maxWords de chaque tronçon : c'est le temps disponible dans une vidéo de deux minutes au plus ;
-- l'intro présente la course en une phrase d'accroche ; l'outro invite à préparer son plan de course sur pace-yourself point com.
+- écris pour l'oreille : tutoiement, phrases courtes, nombres tels qu'on les dit (« 6,2 bornes » ou « 6,2 kilomètres », « 9 pour cent »), aucun symbole ni abréviation (%, km, m, D+), pas d'emoji ;
+- garde les lieux courts : le nom du lieu, jamais une adresse postale ;
+- l'intro accroche en une phrase ; l'outro invite à préparer son plan de course sur pace-yourself point com, sur le même ton.
 
 Renvoie une narration pour chaque id reçu, dans le même ordre.`;
 
@@ -91,6 +96,7 @@ export async function POST(request: NextRequest) {
       servicesAuDebut: beat.services,
       barriereHoraire: beat.cutoffTime,
       brouillon: beat.narration,
+      minWords: Math.max(5, Math.round(maxWords[index] * 0.75)),
       maxWords: maxWords[index],
     })),
   };

@@ -344,28 +344,32 @@ export const buildStoryBeats = (
     const grade = leg.gain / Math.max(1, lengthKm * 1_000);
     const parts: string[] = [];
 
-    if (index === 0) parts.push(startPlace ? `Départ : ${startPlace}.` : "C’est parti.");
+    if (index === 0) parts.push(startPlace ? `On part de ${startPlace}.` : "Allez, c’est parti.");
     if (leg.station) {
-      parts.push(`${leg.station.isLifeBase ? "Base de vie" : "Ravito"} de ${leg.station.name}, kilomètre ${formatKm(leg.station.distanceKm)}${servicesSentence(leg.station)}.`);
+      parts.push(leg.station.isLifeBase
+        ? `Base de vie à ${leg.station.name}, kilomètre ${formatKm(leg.station.distanceKm)}${servicesSentence(leg.station)}. Prends le temps de bien manger, ça compte pour la suite.`
+        : `Ravito à ${leg.station.name}, kilomètre ${formatKm(leg.station.distanceKm)}${servicesSentence(leg.station)} : sers-toi.`);
     }
     if (leg.kind === "climb") {
       climbCount += 1;
-      const name = leg.summit ? `la montée vers ${leg.summit}` : climbCount === 1 ? "la première grosse montée" : "une nouvelle montée";
+      const name = leg.summit ? `la montée vers ${leg.summit}` : climbCount === 1 ? "la première grosse bosse" : "une nouvelle bosse";
       // The whole climb, foot to top, even when the leg is cut differently.
       const climbKm = leg.focus ? leg.focus.endKm - leg.focus.startKm : lengthKm;
       const climbGain = leg.focus ? leg.focus.elevationM : leg.gain;
       const climbGrade = leg.focus ? leg.focus.averageGrade : grade;
-      parts.push(`${name.charAt(0).toUpperCase()}${name.slice(1)} : ${formatKm(climbKm)} kilomètres à ${formatPercent(climbGrade)} pour cent, ${formatNumber(climbGain)} mètres à gravir. Prends ton temps.`);
+      parts.push(`Et là, ça grimpe : ${name}, ${formatKm(climbKm)} kilomètres à ${formatPercent(climbGrade)} pour cent, ${formatNumber(climbGain)} mètres de dénivelé. Mode diesel, et si t’as des bâtons, c’est le moment de les sortir.`);
     } else if (leg.kind === "descent") {
-      parts.push(`On bascule dans la descente : ${formatNumber(leg.loss)} mètres à perdre sur ${formatKm(lengthKm)} kilomètres.`);
+      parts.push(`Ensuite ça bascule : ${formatNumber(leg.loss)} mètres à descendre sur ${formatKm(lengthKm)} kilomètres. Garde des cuisses, ça tape.`);
     } else {
       const until = isLast ? "jusqu’à l’arrivée"
         : next.kind === "climb" ? `jusqu’au pied de ${next.summit ? `la montée vers ${next.summit}` : "la prochaine montée"}`
           : next.station ? `${next.station.isLifeBase ? "jusqu’à la base de vie" : "jusqu’au ravito"} de ${next.station.name}`
             : "";
-      parts.push(`${formatKm(lengthKm)} ${lengthKm < 1.5 ? "kilomètre" : "kilomètres"} sans grosse difficulté${until ? ` ${until}` : ""} : avance à un rythme confortable.`);
+      parts.push(`${formatKm(lengthKm)} ${lengthKm < 1.5 ? "borne" : "bornes"} sans grosse difficulté${until ? ` ${until}` : ""} : pars cool et trouve ton rythme confortable.`);
+      // A long easy stretch gets more to say, so the voice keeps up with the camera.
+      if (lengthKm >= 6) parts.push("C’est là que ça déroule : bois régulièrement, relance sans te cramer, la suite se joue sur la fraîcheur.");
     }
-    leg.passing.forEach((station) => parts.push(`Au passage, ravito de ${station.name} au kilomètre ${formatKm(station.distanceKm)}.`));
+    leg.passing.forEach((station) => parts.push(`Petit ravito au passage à ${station.name}, kilomètre ${formatKm(station.distanceKm)}.`));
     const lightAtStart = options.daylightAt?.(leg.startKm) ?? null;
     const lightAtEnd = options.daylightAt?.(leg.endKm) ?? null;
     if (lightAtStart && lightAtEnd) {
@@ -373,7 +377,7 @@ export const buildStoryBeats = (
       else if (!lightAtStart.isNight && lightAtEnd.isNight) parts.push("La nuit tombe : sors la frontale.");
       else if (lightAtStart.isNight && leg.kind === "climb") parts.push("De nuit : frontale bien réglée.");
     }
-    if (isLast) parts.push(`Ligne d’arrivée au kilomètre ${formatNumber(total)}.`);
+    if (isLast) parts.push(`Et derrière, la ligne d’arrivée au kilomètre ${formatNumber(total)} : savoure !`);
 
     const facts = [
       `${formatKm(lengthKm)} km`,
@@ -409,13 +413,13 @@ export const buildStoryBeats = (
     {
       id: "intro", kind: "intro", title: race.title, startKm: 0, endKm: 0, anchorKm: 0,
       facts: [], services: [], cutoffTime: null,
-      narration: `${race.title}. ${stats}. Voici ce qui t’attend.`,
+      narration: `${race.title} : ${stats}. Je t’explique ce qui t’attend.`,
     },
     ...routeBeats,
     {
       id: "outro", kind: "outro", title: "Pace Yourself", startKm: total, endKm: total, anchorKm: total,
       facts: [], services: [], cutoffTime: null,
-      narration: "Prépare ton plan de course sur pace-yourself point com.",
+      narration: "Et pour préparer ton plan de course, file sur pace-yourself point com.",
     },
   ];
 };

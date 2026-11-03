@@ -183,7 +183,16 @@ describe("buildVideoTimeline", () => {
       maxSeconds: 120, includeAidStations: true, includeStart: false,
     });
     const auto = buildVideoTimeline(flat, story, DEFAULT_VIDEO_COMPOSITION_SETTINGS);
-    expect(auto.totalMs).toBeGreaterThanOrEqual(90_000);
+    // A continuous story lasts exactly as long as it is told, capped at two minutes.
+    const told = auto.beats.reduce((sum, item) => sum + item.narrationMs, 0);
+    expect(auto.totalMs).toBeGreaterThanOrEqual(told);
+    expect(auto.totalMs).toBeLessThanOrEqual(120_000);
+    // Every leg is narrated over its whole length: no silent stretch longer than the gaps.
+    const legs = auto.beats.filter((item) => item.kind !== "intro" && item.kind !== "outro");
+    legs.forEach((leg, index) => {
+      const next = legs[index + 1];
+      if (next) expect(next.narrationStartMs - (leg.narrationStartMs + leg.narrationMs)).toBeLessThan(2_000);
+    });
     expect(auto.narrationOverflow).toBe(false);
     const short = buildVideoTimeline(flat, story.map((item) => ({ ...item, narration: item.narration.repeat(4) })), manual(15));
     expect(short.narrationOverflow).toBe(true);

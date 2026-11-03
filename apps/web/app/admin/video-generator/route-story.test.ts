@@ -66,7 +66,7 @@ describe("buildStoryBeats", () => {
   it("announces what comes next on an easy leg and advises a comfortable pace", () => {
     const beats = buildStoryBeats(path, [], race, { ...options, includeStart: true });
     const first = beats[1];
-    expect(first.narration).toMatch(/^Départ : Annecy\./);
+    expect(first.narration).toMatch(/^On part de Annecy\./);
     expect(first.narration).toMatch(/jusqu’au pied de la première grosse montée|jusqu’au pied de la prochaine montée/);
     expect(first.narration).toMatch(/rythme confortable/);
   });
@@ -86,7 +86,7 @@ describe("buildStoryBeats", () => {
     // The life base sits mid-climb: its leg stays a climb, titled and told from the base de vie.
     const lifeBaseLeg = generous.find((beat) => beat.title === "Ravito 2");
     expect(lifeBaseLeg?.startKm).toBeCloseTo(13, 0);
-    expect(lifeBaseLeg?.narration).toMatch(/^Base de vie de Ravito 2/);
+    expect(lifeBaseLeg?.narration).toMatch(/^Base de vie à Ravito 2/);
 
     // A 30 s reel only has room for a few legs: stations become mentions inside them.
     const short = buildStoryBeats(path, stations, race, { ...options, maxSeconds: 30 });
