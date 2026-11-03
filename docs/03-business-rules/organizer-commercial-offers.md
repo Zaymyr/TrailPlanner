@@ -148,6 +148,7 @@ Publication is a versioned snapshot operation per format. Tier checks are repeat
 - Completing, skipping, or replaying the dashboard guide never creates or upgrades an organizer entitlement. `Terminer` closes it; its visually secondary configuration action only opens the existing section chooser.
 - The new-edition dialog's spinner, busy announcement, and disabled controls are request feedback only. They neither grant the Complet duplication capability nor weaken the server-side capability check, and empty-edition creation remains available without that capability.
 - Never infer a commercial entitlement from presence in the organizer proof section. Proof publication is trusted-admin editorial state backed by historical usage, not an offer source or payment path.
+- Showing `Informations à jour`, the changed-field confirmation, or the version-history menu grants no commercial right. The final publish/restore request still enforces the active edition entitlement on the server.
 
 ## Related Docs
 

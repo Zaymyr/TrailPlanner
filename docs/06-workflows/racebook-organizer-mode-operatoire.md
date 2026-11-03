@@ -52,8 +52,10 @@ Ce document accompagne le PDF utilisateur [`docs/mode-operatoire-racebook-organi
 
 ## Validation
 
-- Vérifier séparément `Brouillon sauvegardé`, `Modifications non publiées` et `Publié · version N`.
-- Utiliser `Publier les modifications` pour le format courant ou `Publier tous les formats modifiés` pour une transaction d’édition.
+- Dans **Gérer la visibilité**, vérifier que chaque format affiche `Informations à jour` en vert ou `Publier les modifications` lorsqu'un brouillon diffère de la version en ligne.
+- Ouvrir `Publier les modifications` et contrôler que la confirmation liste les champs et sections modifiés avant de proposer `Annuler` ou `Publier`.
+- Utiliser le menu `…` placé après les contrôles de visibilité pour consulter l'historique des dix versions et restaurer une ancienne publication sans changer d'onglet.
+- Utiliser `Publier tous les formats modifiés` pour une transaction d’édition.
 - Une restauration crée une nouvelle version et conserve le brouillon actuel ; aucune prévisualisation globale du brouillon n’est ajoutée.
 
 - Vérifier que le PDF contient douze pages A4.

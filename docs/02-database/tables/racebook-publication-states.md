@@ -24,6 +24,7 @@ Stores the mutable draft/publication cursor for each edition-backed RaceBook for
 - `draft_revision` increases when RaceBook source content changes.
 - `published_source_revision` records the draft revision used by the current immutable snapshot.
 - The two revisions differing means there are unpublished changes.
+- The organizer list reads this lightweight state for every format; the heavier draft-versus-snapshot field comparison runs only when the publication confirmation is opened.
 
 ## Columns
 

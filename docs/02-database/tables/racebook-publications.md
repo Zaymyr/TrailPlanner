@@ -25,6 +25,7 @@ Stores immutable, versioned RaceBook snapshots assembled and validated by the se
 - Versions are monotone per format.
 - `schema_version` versions the JSON contract; `content_hash` is the canonical SHA-256 digest.
 - Publication and bulk publication compare an expected draft revision while holding the state row lock.
+- Before a single-format confirmation, the server builds the saved draft snapshot and compares its canonical sections with the current publication to return human-readable changed-field labels; this comparison does not insert a version.
 
 ## Columns
 

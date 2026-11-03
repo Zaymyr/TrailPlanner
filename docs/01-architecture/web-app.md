@@ -694,6 +694,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Prefer a freshly loaded sponsor/branding editor summary over the bootstrap projection after a mutation; until then, use the selected edition's bootstrap summary instead of displaying a false empty tile.
 - Treat route-local Organizer cache values as immutable snapshots. Invalidate race data after relevant mutations and clear the complete cache at a user-session boundary so organizer-scoped products or draft course data cannot cross accounts.
 - Keep the Organizer cache bounds when adding cached sidecars. TTL alone does not cap memory for many event/race selections in a long-lived dashboard session.
+- Keep per-format publication controls in the collapsed visibility panel: lightweight state loads with the format list, while the canonical draft comparison and ten-version history load only after the organizer opens the corresponding confirmation or `…` menu.
 
 ## Related Docs
 

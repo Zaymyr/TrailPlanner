@@ -110,6 +110,8 @@ Applying imported claims only updates organizer draft sources and their draft re
 
 Confirmed imported formats default to Privé while remaining runner-unpublished; moving them later to Masqué or Public preserves all imported evidence, and Public still requires ordinary readiness and entitlement checks.
 
+After import, the visibility row may report unpublished changes and list the affected canonical sections in the publication confirmation. That deterministic snapshot comparison does not invoke OpenAI and never changes imported evidence.
+
 - [Organizer Race Management](../03-business-rules/organizer-race-management.md)
 - [Web App](../01-architecture/web-app.md)
 - [RLS Checklist](../04-auth-and-security/rls-checklist.md)

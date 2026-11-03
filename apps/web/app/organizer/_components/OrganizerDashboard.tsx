@@ -315,7 +315,22 @@ export function OrganizerDashboard({
   const [publicationStatesByRace, setPublicationStatesByRace] = useState<Record<string, RacebookPublicationState>>({});
   const [publicationHistory, setPublicationHistory] = useState<RacebookPublicationHistoryItem[]>([]);
   const [publicationHistoryRaceId, setPublicationHistoryRaceId] = useState<string | null>(null);
-  const [restorePublication, setRestorePublication] = useState<RacebookPublicationHistoryItem | null>(null);
+  const [publicationDialog, setPublicationDialog] = useState<{
+    raceId: string;
+    label: string;
+    changedFields: string[];
+    loading: boolean;
+  } | null>(null);
+  const [publicationHistoryDialog, setPublicationHistoryDialog] = useState<{
+    raceId: string;
+    label: string;
+    intent: "history" | "restore";
+  } | null>(null);
+  const [restorePublication, setRestorePublication] = useState<{
+    raceId: string;
+    label: string;
+    publication: RacebookPublicationHistoryItem;
+  } | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [eventDetail, setEventDetail] = useState<OrganizerEventDetail | null>(null);
   const [eventForm, setEventForm] = useState<EventFormValues>(() => createEmptyEventForm());
@@ -610,10 +625,6 @@ export function OrganizerDashboard({
     return () => { cancelled = true; };
   }, [accessToken, activeEdition?.id, authHeaders, websiteImportExistingRaces]);
 
-  useEffect(() => {
-    if (!activeRace?.id || publicationHistoryRaceId === activeRace.id) return;
-    void loadPublicationState(activeRace.id, true);
-  }, [activeRace?.id, loadPublicationState, publicationHistoryRaceId]);
   const sanitizeRaceDetailsForSave = (details: RaceFormValues["organizerDetails"]) => ({
     ...details,
     schedule: {
@@ -2849,6 +2860,7 @@ export function OrganizerDashboard({
         } : current);
       }
       await loadPublicationState(raceId, true);
+      setPublicationDialog((current) => current?.raceId === raceId ? null : current);
       showToast("success", `Livret coureur publié · version ${data.state.currentVersion ?? "—"}.`);
       return true;
     } catch (caught) {
@@ -2860,11 +2872,60 @@ export function OrganizerDashboard({
     }
   };
 
+  const openRacePublicationDialog = async (raceId: string, label: string) => {
+    if (!accessToken || status !== "idle" || autosaveState !== "saved") return;
+    setPublicationDialog({ raceId, label, changedFields: [], loading: true });
+    try {
+      const response = await fetch(`/api/organizer/races/${raceId}/publications?limit=1&includeChanges=true`, {
+        headers: authHeaders,
+        cache: "no-store",
+      });
+      const data = (await response.json().catch(() => null)) as {
+        state?: RacebookPublicationState;
+        changedFields?: string[];
+        message?: string;
+      } | null;
+      if (!response.ok || !data?.state) {
+        showToast("error", data?.message ?? "Impossible de préparer la publication.");
+        setPublicationDialog(null);
+        return;
+      }
+      setPublicationStatesByRace((current) => ({ ...current, [raceId]: data.state! }));
+      setPublicationDialog({
+        raceId,
+        label,
+        changedFields: data.changedFields?.length ? data.changedFields : ["Mise à jour du Livret coureur"],
+        loading: false,
+      });
+    } catch (caught) {
+      console.error("Unable to prepare organizer RaceBook publication", caught);
+      showToast("error", "Impossible de préparer la publication.");
+      setPublicationDialog(null);
+    }
+  };
+
+  const openPublicationHistoryDialog = async (
+    raceId: string,
+    label: string,
+    intent: "history" | "restore",
+  ) => {
+    if (!accessToken) return;
+    setPublicationHistoryDialog({ raceId, label, intent });
+    setPublicationHistoryRaceId(null);
+    setPublicationHistory([]);
+    const state = await loadPublicationState(raceId, true);
+    if (!state) {
+      setPublicationHistoryDialog(null);
+      showToast("error", "Impossible de charger l’historique des versions.");
+    }
+  };
+
   const restoreRacePublication = async () => {
-    if (!activeRace?.id || !restorePublication || status !== "idle") return;
+    if (!restorePublication || status !== "idle") return;
+    const { raceId, publication } = restorePublication;
     setStatus("saving");
     try {
-      const response = await fetch(`/api/organizer/races/${activeRace.id}/publications/${restorePublication.id}/restore`, {
+      const response = await fetch(`/api/organizer/races/${raceId}/publications/${publication.id}/restore`, {
         method: "POST",
         headers: authHeaders,
       });
@@ -2873,9 +2934,9 @@ export function OrganizerDashboard({
         showToast("error", data?.message ?? "Impossible de restaurer cette publication.");
         return;
       }
-      setPublicationStatesByRace((current) => ({ ...current, [activeRace.id]: data.state! }));
+      setPublicationStatesByRace((current) => ({ ...current, [raceId]: data.state! }));
       setRestorePublication(null);
-      await loadPublicationState(activeRace.id, true);
+      await loadPublicationState(raceId, true);
       showToast("success", `Publication restaurée · nouvelle version ${data.state.currentVersion ?? "—"}.`);
     } catch (caught) {
       console.error("Unable to restore organizer RaceBook publication", caught);
@@ -3342,7 +3403,6 @@ export function OrganizerDashboard({
     { id: ADD_FORMAT_TAB_ID, label: "+" },
   ];
   const isEventTab = activeTab === EVENT_TAB_ID;
-  const activePublicationState = activeRace ? publicationStatesByRace[activeRace.id] ?? null : null;
   const modifiedFormatCount = websiteImportExistingRaces.filter((race) => publicationStatesByRace[race.id]?.hasUnpublishedChanges).length;
 
   return (
@@ -3397,6 +3457,7 @@ export function OrganizerDashboard({
         status={status}
         activeRaceId={activeRace?.id ?? null}
         modifiedFormatCount={modifiedFormatCount}
+        publicationStatesByRace={publicationStatesByRace}
         onRetryAutosave={() => {
           setAutosaveState("idle");
           saveCurrentScopeInBackground();
@@ -3416,6 +3477,12 @@ export function OrganizerDashboard({
         onRacebookVisibilityChange={(raceId, visibility) => {
           void setRacebookVisibility(raceId, visibility);
         }}
+        onPublishRace={(raceId, label) => {
+          void openRacePublicationDialog(raceId, label);
+        }}
+        onOpenPublicationHistory={(raceId, label, intent) => {
+          void openPublicationHistoryDialog(raceId, label, intent);
+        }}
         onEditionVisibilityChange={setEditionVisibility}
         onDeleteEdition={deleteSelectedEdition}
         onDeleteEvent={deleteSelectedEvent}
@@ -3423,64 +3490,91 @@ export function OrganizerDashboard({
         onOpenInvoices={() => setInvoicesDialogOpen(true)}
       />
 
-      {activeRace ? (
-        <section className="rounded-xl border border-border bg-card p-4 shadow-sm" aria-label="Publication du Livret coureur">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <p className="text-sm font-semibold text-foreground">Publication · {activeRace.series_name || activeRace.name}</p>
-              <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700">Brouillon sauvegardé</span>
-                {activePublicationState?.hasUnpublishedChanges ? (
-                  <span className="rounded-full bg-amber-100 px-2.5 py-1 font-semibold text-amber-800">Modifications non publiées</span>
-                ) : null}
-                {activePublicationState?.currentVersion ? (
-                  <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-700">
-                    Publié · version {activePublicationState.currentVersion}
-                    {activePublicationState.publishedAt ? ` · ${formatUpdateDate(activePublicationState.publishedAt)}` : ""}
-                  </span>
-                ) : (
-                  <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-700">Jamais publié</span>
-                )}
-              </div>
-            </div>
+      <Dialog open={publicationDialog !== null} onOpenChange={(open) => { if (!open && status === "idle") setPublicationDialog(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Publier les modifications · {publicationDialog?.label}</DialogTitle>
+            <DialogDescription>
+              Les informations suivantes remplaceront ensemble la version actuellement visible dans le Livret coureur.
+            </DialogDescription>
+          </DialogHeader>
+          {publicationDialog?.loading ? (
+            <p className="text-sm text-muted-foreground">Analyse des modifications…</p>
+          ) : (
+            <ul className="grid gap-2 rounded-lg border border-border bg-muted/20 p-3 text-sm text-foreground">
+              {publicationDialog?.changedFields.map((field) => (
+                <li key={field} className="flex items-start gap-2">
+                  <span aria-hidden="true" className="mt-0.5 text-brand">•</span>
+                  <span>{field}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setPublicationDialog(null)} disabled={status !== "idle"}>Annuler</Button>
             <Button
               type="button"
-              onClick={() => void publishRaceRacebook(activeRace.id)}
-              disabled={status !== "idle" || autosaveState !== "saved" || currentScopeIsSaving || !currentScopeSidecarsReady || activePublicationState?.hasUnpublishedChanges === false}
+              disabled={!publicationDialog || publicationDialog.loading || status !== "idle"}
+              onClick={() => publicationDialog && void publishRaceRacebook(publicationDialog.raceId)}
             >
-              {status === "saving" ? "Publication…" : "Publier les modifications"}
+              {status === "saving" ? "Publication…" : "Publier"}
             </Button>
-          </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-          <details className="mt-4 border-t border-border pt-3">
-            <summary className="cursor-pointer text-sm font-semibold text-foreground">Historique des publications</summary>
-            <div className="mt-3 grid gap-2">
-              {publicationHistoryRaceId === activeRace.id && publicationHistory.length > 0 ? publicationHistory.map((publication) => (
-                <div key={publication.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/70 px-3 py-2 text-sm">
-                  <span>
-                    Version {publication.version} · {formatUpdateDate(publication.publishedAt)}
-                    {publication.restoredFromPublicationId ? " · restauration" : ""}
-                  </span>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="!h-9"
-                    disabled={status !== "idle" || publication.id === activePublicationState?.currentPublicationId}
-                    onClick={() => setRestorePublication(publication)}
-                  >
-                    Restaurer cette publication
-                  </Button>
-                </div>
-              )) : <p className="text-sm text-muted-foreground">Aucune publication antérieure.</p>}
+      <Dialog open={publicationHistoryDialog !== null} onOpenChange={(open) => { if (!open && status === "idle") setPublicationHistoryDialog(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {publicationHistoryDialog?.intent === "restore" ? "Restaurer une ancienne version" : "Historique des versions"}
+              {publicationHistoryDialog ? ` · ${publicationHistoryDialog.label}` : ""}
+            </DialogTitle>
+            <DialogDescription>Les dix publications les plus récentes sont conservées.</DialogDescription>
+          </DialogHeader>
+          {publicationHistoryDialog && publicationHistoryRaceId !== publicationHistoryDialog.raceId ? (
+            <p className="text-sm text-muted-foreground">Chargement de l’historique…</p>
+          ) : publicationHistory.length > 0 ? (
+            <div className="grid max-h-[50vh] gap-2 overflow-y-auto pr-1">
+              {publicationHistory.map((publication) => {
+                const isCurrent = publication.id === publicationStatesByRace[publicationHistoryDialog?.raceId ?? ""]?.currentPublicationId;
+                return (
+                  <div key={publication.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/70 px-3 py-2 text-sm">
+                    <span>
+                      Version {publication.version} · {formatUpdateDate(publication.publishedAt)}
+                      {publication.restoredFromPublicationId ? " · restauration" : ""}
+                      {isCurrent ? " · en ligne" : ""}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="!h-9"
+                      disabled={status !== "idle" || isCurrent || !publicationHistoryDialog}
+                      onClick={() => publicationHistoryDialog && setRestorePublication({
+                        raceId: publicationHistoryDialog.raceId,
+                        label: publicationHistoryDialog.label,
+                        publication,
+                      })}
+                    >
+                      Restaurer
+                    </Button>
+                  </div>
+                );
+              })}
             </div>
-          </details>
-        </section>
-      ) : null}
+          ) : (
+            <p className="text-sm text-muted-foreground">Aucune publication antérieure.</p>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setPublicationHistoryDialog(null)} disabled={status !== "idle"}>Fermer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={restorePublication !== null} onOpenChange={(open) => { if (!open) setRestorePublication(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Restaurer cette publication ?</DialogTitle>
+            <DialogTitle>Restaurer cette publication · {restorePublication?.label} ?</DialogTitle>
             <DialogDescription>
               Une nouvelle version identique sera publiée. Le brouillon actuel sera conservé et restera signalé comme non publié s’il diffère.
             </DialogDescription>

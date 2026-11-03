@@ -141,6 +141,92 @@ const canonicalize = (value: unknown): string => {
   return JSON.stringify(value) ?? "null";
 };
 
+const valuesDiffer = (left: unknown, right: unknown) => canonicalize(left) !== canonicalize(right);
+
+const asRecord = (value: unknown): Record<string, unknown> =>
+  value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+
+const firstRecord = (value: unknown): Record<string, unknown> => {
+  const candidate = Array.isArray(value) ? value[0] : value;
+  return asRecord(candidate);
+};
+
+const changedObjectKeys = (draft: unknown, published: unknown, labels: Record<string, string>) => {
+  const draftRecord = asRecord(draft);
+  const publishedRecord = asRecord(published);
+  return Object.entries(labels)
+    .filter(([key]) => valuesDiffer(draftRecord[key], publishedRecord[key]))
+    .map(([, label]) => label);
+};
+
+export function describeRacebookSnapshotChanges(
+  draft: RacebookPublishedSnapshotV1,
+  published: RacebookPublishedSnapshotV1 | null,
+) {
+  if (!published) return ["Première publication du Livret coureur"];
+
+  const changes = new Set<string>();
+  const draftRace = asRecord(draft.raceRow);
+  const publishedRace = asRecord(published.raceRow);
+  const draftEvent = firstRecord(draftRace.race_events);
+  const publishedEvent = firstRecord(publishedRace.race_events);
+
+  const raceIdentityKeys = [
+    "name", "distance_km", "elevation_gain_m", "elevation_loss_m", "race_date", "location_text",
+    "participation_mode", "start_lat", "start_lng", "thumbnail_url",
+  ];
+  if (raceIdentityKeys.some((key) => valuesDiffer(draftRace[key], publishedRace[key]))) {
+    changes.add("Informations générales du format");
+  }
+
+  const eventIdentityKeys = ["name", "location", "race_date", "thumbnail_url"];
+  if (eventIdentityKeys.some((key) => valuesDiffer(draftEvent[key], publishedEvent[key]))) {
+    changes.add("Informations générales de l’événement");
+  }
+
+  changedObjectKeys(draftRace.organizer_details, publishedRace.organizer_details, {
+    raceLocation: "Lieu du format",
+    gpxDisplay: "Affichage du parcours GPX",
+    schedule: "Horaires et barrières horaires",
+    mandatoryEquipment: "Matériel obligatoire",
+    bibPickup: "Retrait des dossards",
+    access: "Accès au départ et à l’arrivée",
+    runnerInfo: "Informations coureur",
+  }).forEach((label) => changes.add(label));
+
+  changedObjectKeys(draftEvent.organizer_details, publishedEvent.organizer_details, {
+    officialWebsiteUrl: "Site officiel",
+    instagramUrl: "Lien Instagram",
+    facebookUrl: "Lien Facebook",
+    emergencyContact: "Contact d’urgence",
+    eventLocation: "Lieu de l’événement",
+    dateRange: "Dates de l’événement",
+    mandatoryEquipment: "Matériel commun",
+    bibPickup: "Dossards communs",
+    access: "Accès communs",
+    services: "Services communs",
+  }).forEach((label) => changes.add(label));
+
+  const collectionLabels: Array<[keyof RacebookPublishedSnapshotV1, string]> = [
+    ["stationRows", "Ravitaillements et produits"],
+    ["supporterPointRows", "Points de suivi coureur"],
+    ["relayPointRows", "Relais"],
+    ["startWaveRows", "SAS de départ"],
+    ["awardRows", "Podiums et récompenses"],
+    ["editionServiceRows", "Services et alentours"],
+    ["sponsors", "Sponsors"],
+    ["branding", "Identité visuelle"],
+    ["modules", "Sections affichées"],
+  ];
+  for (const [key, label] of collectionLabels) {
+    if (valuesDiffer(draft[key], published[key])) changes.add(label);
+  }
+  if (valuesDiffer(draft.assets.gpxStoragePath, published.assets.gpxStoragePath)) changes.add("Fichier GPX");
+  if (valuesDiffer(draft.assets.imageUrls, published.assets.imageUrls)) changes.add("Images et logos");
+
+  return changes.size > 0 ? [...changes] : ["Mise à jour technique du Livret coureur"];
+}
+
 export const hashRacebookSnapshot = (snapshot: RacebookPublishedSnapshotV1) =>
   createHash("sha256").update(canonicalize(snapshot)).digest("hex");
 

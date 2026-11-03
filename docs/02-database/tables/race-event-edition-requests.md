@@ -95,6 +95,7 @@ The table retains `id`, timestamps, `user_id`, `event_id`, `source_year`, `reque
 - Do not couple the new edition branding tile or its completion signal to this retired workflow.
 - Do not reintroduce edition review merely because a legacy settings row lacks `supporter_points`: the default only controls the authorized format editor and its publication-module accounting.
 - Versioned edition publication uses `racebook_publication_states` and immutable snapshots; it does not revive this retired request workflow.
+- Moving publication and restoration actions into each visibility row does not revive or write an edition request; it only targets the selected canonical format.
 
 ## Related Docs
 

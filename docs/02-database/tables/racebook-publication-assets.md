@@ -23,6 +23,8 @@ Pins every GPX, image or logo used by a retained RaceBook publication so draft r
 
 An asset has either a private Storage bucket/path pair, a public HTTPS URL, or both. Rows cascade only when their publication is pruned.
 
+The organizer publication confirmation reports GPX and image/logo differences from the canonical snapshot while these rows remain the authoritative retained-file references after publication.
+
 ## Columns
 
 | Column | Rules | Meaning |

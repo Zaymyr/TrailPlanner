@@ -9,7 +9,7 @@ import { ORGANIZER_TIER_LABEL, ORGANIZER_TIER_PRICE_EUR, ORGANIZER_TIER_RANK } f
 import type { OrganizerCompletionSummary, OrganizerModuleId } from "../completion";
 import { ADD_FORMAT_TAB_ID, EVENT_TAB_ID } from "./constants";
 import { buildEditionYearOptions, formatEventDateRange, getEventEdition, getRaceEditionYear, getRaceEditionYearLabel, groupRacesBySeries } from "./helpers";
-import type { ClaimRow, EditionRequestRow, MembershipRow, OrganizerEventDetail, PublicationRequestRow, RaceFormat } from "./types";
+import type { ClaimRow, EditionRequestRow, MembershipRow, OrganizerEventDetail, PublicationRequestRow, RacebookPublicationState, RaceFormat } from "./types";
 import { ContextualHelp, LiveToggle, RacebookVisibilityControl } from "./controls";
 import type { RacebookVisibilityState } from "./controls";
 
@@ -128,10 +128,13 @@ export function OrganizerSummaryHeader({
   status,
   activeRaceId,
   modifiedFormatCount = 0,
+  publicationStatesByRace,
   onRetryAutosave,
   onNotifyFollowers,
   onRequestPublication,
   onRacebookVisibilityChange,
+  onPublishRace,
+  onOpenPublicationHistory,
   onEditionVisibilityChange,
   onDeleteEdition,
   onDeleteEvent,
@@ -161,10 +164,13 @@ export function OrganizerSummaryHeader({
   status: "idle" | "loading" | "saving" | "uploading";
   activeRaceId?: string | null;
   modifiedFormatCount?: number;
+  publicationStatesByRace: Record<string, RacebookPublicationState>;
   onRetryAutosave: () => void;
   onNotifyFollowers: (raceId?: string) => void;
   onRequestPublication: () => void;
   onRacebookVisibilityChange: (raceId: string, state: RacebookVisibilityState) => void;
+  onPublishRace: (raceId: string, label: string) => void;
+  onOpenPublicationHistory: (raceId: string, label: string, intent: "history" | "restore") => void;
   onEditionVisibilityChange: (isVisible: boolean) => Promise<boolean>;
   onDeleteEdition: () => Promise<boolean>;
   onDeleteEvent: () => Promise<boolean>;
@@ -405,10 +411,12 @@ export function OrganizerSummaryHeader({
               : race.activeEdition!.racebook_preview_is_visible === false
                 ? "hidden"
                 : "private";
+            const publicationState = publicationStatesByRace[race.activeEdition!.id];
+            const formatLabel = race.label || "Format sans nom";
             return (
-              <div key={race.id} className="grid gap-3 rounded-lg border border-border/60 bg-card p-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+              <div key={race.id} className="grid gap-3 rounded-lg border border-border/60 bg-card p-3 lg:grid-cols-[minmax(0,1fr)_auto_auto_auto] lg:items-center">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-foreground">{race.label || "Format sans nom"}</p>
+                  <p className="truncate text-sm font-medium text-foreground">{formatLabel}</p>
                   <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                     <span>{race.score}% complété</span>
                     <span aria-hidden="true">·</span>
@@ -422,6 +430,61 @@ export function OrganizerSummaryHeader({
                   publicDisabled={!editionIsVisible || race.activeEdition!.data_status === "draft"}
                   onChange={(state) => onRacebookVisibilityChange(race.activeEdition!.id, state)}
                 />
+                {publicationState ? (
+                  publicationState.hasUnpublishedChanges ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="!h-10 border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
+                      disabled={status !== "idle" || autosaveState !== "saved"}
+                      onClick={() => onPublishRace(race.activeEdition!.id, formatLabel)}
+                    >
+                      Publier les modifications
+                    </Button>
+                  ) : (
+                    <span className="inline-flex min-h-10 items-center justify-center rounded-md bg-emerald-50 px-3 text-sm font-semibold text-emerald-700">
+                      Informations à jour
+                    </span>
+                  )
+                ) : (
+                  <span className="inline-flex min-h-10 items-center px-3 text-sm text-muted-foreground">Chargement…</span>
+                )}
+                <details className="group/versions relative justify-self-start lg:justify-self-end">
+                  <summary
+                    className="inline-flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-md border border-border bg-card text-xl font-semibold leading-none text-foreground transition hover:bg-muted/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring marker:content-none"
+                    aria-label={`Ouvrir les versions de ${formatLabel}`}
+                    title="Historique et restauration"
+                  >
+                    …
+                  </summary>
+                  <div role="menu" className="absolute right-0 z-40 mt-2 grid w-64 gap-1 rounded-lg border border-border bg-card p-2 shadow-xl">
+                    <Button
+                      role="menuitem"
+                      type="button"
+                      variant="ghost"
+                      className="!justify-start"
+                      onClick={(event) => {
+                        event.currentTarget.closest("details")?.removeAttribute("open");
+                        onOpenPublicationHistory(race.activeEdition!.id, formatLabel, "history");
+                      }}
+                    >
+                      Historique des versions
+                    </Button>
+                    <Button
+                      role="menuitem"
+                      type="button"
+                      variant="ghost"
+                      className="!justify-start"
+                      disabled={!publicationState?.currentPublicationId}
+                      onClick={(event) => {
+                        event.currentTarget.closest("details")?.removeAttribute("open");
+                        onOpenPublicationHistory(race.activeEdition!.id, formatLabel, "restore");
+                      }}
+                    >
+                      Restaurer une ancienne version
+                    </Button>
+                  </div>
+                </details>
               </div>
             );
           }) : <p className="text-sm text-muted-foreground">Aucune course pour le moment.</p>}

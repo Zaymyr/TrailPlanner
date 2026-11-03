@@ -274,6 +274,8 @@ Supporter-point `km` values may position the runner conceptually along the forma
 
 Replacing an organizer GPX changes only the draft revision. The runner RaceBook keeps using the Storage path retained by its current immutable publication through `/api/racebook-gpx`; catalog and plan creation continue to use the current source GPX. Publishing or restoring a version atomically changes the RaceBook GPX reference.
 
+When that source path differs from the current snapshot, the per-format publication confirmation lists `Fichier GPX`; merely opening the confirmation or history menu never reads, replaces, or deletes the object.
+
 - [race_aid_stations](../02-database/tables/race-aid-stations.md)
 - [plan_aid_stations](../02-database/tables/plan-aid-stations.md)
 - [Plan Storage](plan-storage.md)

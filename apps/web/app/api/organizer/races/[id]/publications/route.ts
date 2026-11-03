@@ -6,6 +6,8 @@ import { loadOrganizerEditionEntitlement } from "../../../../../../lib/organizer
 import { jsonError, loadRaceForOrganizer, requireOrganizerAuth, serviceHeaders, uuidParamSchema } from "../../../../../../lib/organizer";
 import { validateOrganizerEventPublication } from "../../../../../../lib/organizer-publication";
 import {
+  buildRacebookPublishedSnapshot,
+  describeRacebookSnapshotChanges,
   loadCurrentRacebookPublication,
   publishRacebookSnapshot,
   racebookPublicationRowSchema,
@@ -15,6 +17,7 @@ import { invalidateRacebookCache } from "../../../../../../lib/racebook-cache";
 
 const publishBodySchema = z.object({ makePublic: z.boolean().optional().default(false) });
 const limitSchema = z.coerce.number().int().min(1).max(10).default(10);
+const includeChangesSchema = z.enum(["true", "false"]).default("false");
 
 const historyItem = (publication: z.infer<typeof racebookPublicationRowSchema>) => ({
   id: publication.id,
@@ -40,6 +43,8 @@ export async function GET(request: NextRequest, context: { params: { id?: string
   if ("error" in auth) return auth.error;
   const limit = limitSchema.safeParse(request.nextUrl.searchParams.get("limit") ?? 10);
   if (!limit.success) return jsonError("Invalid publication limit.", 400);
+  const includeChanges = includeChangesSchema.safeParse(request.nextUrl.searchParams.get("includeChanges") ?? "false");
+  if (!includeChanges.success) return jsonError("Invalid includeChanges value.", 400);
 
   try {
     const current = await loadCurrentRacebookPublication(auth.serviceConfig, auth.race.id);
@@ -50,9 +55,13 @@ export async function GET(request: NextRequest, context: { params: { id?: string
     );
     if (!response.ok) return jsonError("Impossible de charger l’historique de publication.", 502);
     const publications = z.array(racebookPublicationRowSchema).parse(await response.json());
+    const changedFields = includeChanges.data === "true"
+      ? describeRacebookSnapshotChanges((await buildRacebookPublishedSnapshot(auth.serviceConfig, auth.race.id)).snapshot, current.publication?.content ?? null)
+      : undefined;
     return withSecurityHeaders(NextResponse.json({
       state: serializePublicationState(current.state, current.publication),
       publications: publications.map(historyItem),
+      ...(changedFields ? { changedFields } : {}),
     }));
   } catch (error) {
     console.error("Unable to load RaceBook publication history", error);

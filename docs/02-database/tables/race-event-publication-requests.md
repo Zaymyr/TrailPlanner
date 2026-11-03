@@ -126,6 +126,7 @@ This table is retained publication-review history. New organizer publication use
 - Do not treat `published_at` on edition branding as RaceBook content approval; it records only which visual snapshot runner payloads may use.
 - An absent `supporter_points` key in a legacy settings payload retains the default-enabled module for authorized organizer loading and Essential accounting; it is not evidence of publication approval.
 - Current publication history and dirty state live in the versioned RaceBook tables. These legacy request rows neither select the current snapshot nor authorize restoration.
+- The organizer's per-format `Publier les modifications` confirmation and `…` history menu do not mutate this legacy review table; server membership, readiness, and entitlement checks remain authoritative.
 
 ## Related Docs
 

@@ -198,6 +198,12 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(shellSource).toContain('aria-label="Ajouter un format"');
     expect(shellSource).toContain("Créer un autre événement");
     expect(shellSource).toContain("Gérer la visibilité");
+    expect(shellSource).toContain("Informations à jour");
+    expect(shellSource).toContain("Publier les modifications");
+    expect(shellSource).toContain("Historique des versions");
+    expect(shellSource).toContain("Restaurer une ancienne version");
+    expect(dashboardSource).toContain("Les informations suivantes remplaceront ensemble la version actuellement visible");
+    expect(dashboardSource).toContain("includeChanges=true");
     expect(shellSource).toContain("Notifier les coureurs");
     expect(shellSource).toContain("Actions");
     expect(shellSource).toContain("Factures");

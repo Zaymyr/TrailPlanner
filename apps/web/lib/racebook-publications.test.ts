@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { hashRacebookSnapshot, racebookPublishedSnapshotV1Schema, toRacebookPublicationAssets } from "./racebook-publications";
+import { describeRacebookSnapshotChanges, hashRacebookSnapshot, racebookPublishedSnapshotV1Schema, toRacebookPublicationAssets } from "./racebook-publications";
 
 const base = {
   schemaVersion: 1 as const,
@@ -54,6 +54,31 @@ describe("RaceBook publication snapshots", () => {
       { asset_type: "gpx", storage_bucket: "race-gpx", storage_path: "events/test.gpx" },
       { asset_type: "image", storage_bucket: "race-images", storage_path: "events/logo.png", public_url: "https://db.example.com/storage/v1/object/public/race-images/events%2Flogo.png" },
       { asset_type: "image", public_url: "https://cdn.example.com/external.png" },
+    ]);
+  });
+
+  it("describes the organizer fields and sections changed since the current publication", () => {
+    const published = racebookPublishedSnapshotV1Schema.parse(base);
+    const draft = racebookPublishedSnapshotV1Schema.parse({
+      ...base,
+      raceRow: {
+        ...base.raceRow,
+        organizer_details: { schedule: { startTime: "08:00" } },
+      },
+      stationRows: [{ id: "station-1", name: "Ravito du col" }],
+      branding: { ...base.branding, primaryColor: "#123456" },
+    });
+
+    expect(describeRacebookSnapshotChanges(draft, published)).toEqual([
+      "Horaires et barrières horaires",
+      "Ravitaillements et produits",
+      "Identité visuelle",
+    ]);
+  });
+
+  it("labels a snapshot without a previous version as a first publication", () => {
+    expect(describeRacebookSnapshotChanges(racebookPublishedSnapshotV1Schema.parse(base), null)).toEqual([
+      "Première publication du Livret coureur",
     ]);
   });
 });
