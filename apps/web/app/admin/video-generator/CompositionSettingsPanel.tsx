@@ -11,7 +11,6 @@ import {
   MAPBOX_STYLE_URL_PATTERN,
   PROFILE_SLOPE_CLASSES,
   VIDEO_DURATION_PRESETS,
-  type ScheduledAidLabel,
   type VideoCompositionSettings,
 } from "./video-composition";
 
@@ -20,7 +19,9 @@ type BooleanSettingKey = {
 }[keyof VideoCompositionSettings];
 
 type CompositionSettingsPanelProps = {
-  aidLabels: ScheduledAidLabel[];
+  /** Ids of the beats kept in the narration, to flag stations left out. */
+  narratedIds: Set<string>;
+  autoDurationSeconds: number;
   aidStations: VideoAidStation[];
   cameraActionsDisabled: boolean;
   onChange: (settings: VideoCompositionSettings) => void;
@@ -35,6 +36,7 @@ const INFORMATION_TOGGLES: Array<[BooleanSettingKey, string]> = [
   ["showElevation", "Dénivelé"],
   ["showStartInfo", "Départ (lieu, heure)"],
   ["showAidStations", "Ravitaillements"],
+  ["showCaptions", "Sous-titres"],
   ["showProfile", "Profil altimétrique"],
   ["showCurrentKm", "Kilomètre en cours"],
 ];
@@ -87,7 +89,8 @@ function Segmented<T extends string>({
 }
 
 export function CompositionSettingsPanel({
-  aidLabels,
+  narratedIds,
+  autoDurationSeconds,
   aidStations,
   cameraActionsDisabled,
   onChange,
@@ -100,7 +103,6 @@ export function CompositionSettingsPanel({
   const update = <Key extends keyof VideoCompositionSettings>(key: Key, value: VideoCompositionSettings[Key]) =>
     onChange({ ...settings, [key]: value });
   const disabledStations = new Set(settings.disabledAidStationIds);
-  const shownLabelIds = new Set(aidLabels.map((label) => label.id));
 
   const copyConfiguration = async () => {
     try {
@@ -132,11 +134,19 @@ export function CompositionSettingsPanel({
           <select
             aria-label="Durée de la vidéo"
             className="min-h-9 w-full rounded-md border border-input bg-card px-2 text-sm"
-            value={settings.durationSeconds}
-            onChange={(event) => update("durationSeconds", Number(event.target.value) as VideoCompositionSettings["durationSeconds"])}
+            value={settings.durationMode === "auto" ? "auto" : settings.durationSeconds}
+            onChange={(event) => onChange(event.target.value === "auto"
+              ? { ...settings, durationMode: "auto" }
+              : { ...settings, durationMode: "manual", durationSeconds: Number(event.target.value) })}
           >
+            <option value="auto">Auto selon le parcours ({autoDurationSeconds} s minimum)</option>
             {VIDEO_DURATION_PRESETS.map((duration) => <option key={duration} value={duration}>{duration} secondes</option>)}
           </select>
+          <span className="block text-xs text-muted-foreground">
+            {settings.durationMode === "auto"
+              ? "La vidéo s’allonge si la narration en a besoin."
+              : "Durée fixe : la narration doit tenir dedans."}
+          </span>
         </label>
       </PanelSection>
 
@@ -254,8 +264,8 @@ export function CompositionSettingsPanel({
 
       <PanelSection title="Séquences">
         <div className="grid grid-cols-2 gap-x-2">
-          <Toggle label="Introduction (3 s)" checked={settings.introEnabled} onChange={(checked) => update("introEnabled", checked)} />
-          <Toggle label="Conclusion (3 s)" checked={settings.outroEnabled} onChange={(checked) => update("outroEnabled", checked)} />
+          <Toggle label="Introduction" checked={settings.introEnabled} onChange={(checked) => update("introEnabled", checked)} />
+          <Toggle label="Conclusion" checked={settings.outroEnabled} onChange={(checked) => update("outroEnabled", checked)} />
         </div>
       </PanelSection>
 
@@ -282,8 +292,8 @@ export function CompositionSettingsPanel({
                         : [...settings.disabledAidStationIds, station.id],
                     )}
                   />
-                  {enabled && settings.showAidStations && !shownLabelIds.has(station.id) ? (
-                    <span className="shrink-0 text-[10px] text-muted-foreground" title="Trop proche du ravitaillement précédent pour afficher une étiquette lisible">masqué</span>
+                  {enabled && settings.showAidStations && !narratedIds.has(station.id) ? (
+                    <span className="shrink-0 text-[10px] text-muted-foreground" title="Trop proche d’un autre moment raconté, ou vidéo trop courte pour tout raconter">non raconté</span>
                   ) : null}
                 </li>
               );

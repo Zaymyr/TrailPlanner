@@ -196,6 +196,7 @@ export default function AdminVideoGeneratorPage() {
         bounds={detail.gpx.bounds}
         points={detail.gpx.points}
         race={buildVideoRaceInfo(detail)}
+        accessToken={accessToken ?? ""}
       />
     );
   };

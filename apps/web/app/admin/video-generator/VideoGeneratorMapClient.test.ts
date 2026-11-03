@@ -177,6 +177,7 @@ describe("VideoGeneratorMapClient", () => {
         { lat: 46, lon: 5, elevationM: 900, distanceKm: 20 },
       ],
       race: { title: "SaintéLyon 2026", subtitle: "SaintéLyon 82 km", distanceKm: 82, elevationGainM: 2_300, startDetail: "Lyon · 28 novembre · 23:30" },
+      accessToken: "admin-token",
     }));
     const map = mapboxMock.instances[0];
     expect(map).toBeTruthy();
@@ -210,7 +211,9 @@ describe("VideoGeneratorMapClient", () => {
     expect(map.setLayoutProperty).toHaveBeenCalledWith("road-label", "visibility", "visible");
     // Peaks are the generator's own layer: they stay visible when basemap labels are hidden or shown.
     expect(map.setLayoutProperty).toHaveBeenLastCalledWith("video-peak-labels", "visibility", "visible");
-    expect(mapboxMock.markers[1].addTo).toHaveBeenCalledWith(map);
+    // The narrated script is editable next to the preview, starting from the factual default.
+    expect(screen.getByRole("button", { name: "Rédiger avec l’IA" })).toBeTruthy();
+    expect((screen.getByLabelText(/^Narration : Intro/) as HTMLTextAreaElement).value).toMatch(/^SaintéLyon 2026\./);
 
     await userEvent.click(screen.getByRole("button", { name: "Lecture" }));
     act(() => flushAnimationFrames(1_000));

@@ -18,6 +18,8 @@ export type VideoGeneratorMapProps = {
   bounds: VideoRouteBounds;
   points: VideoRoutePoint[];
   race: VideoRaceInfo;
+  /** Admin session token for the narration routes (script and voice). */
+  accessToken: string;
 };
 
 /** Renders two grid cells: the phone preview with its transport bar, then the composition panel. */

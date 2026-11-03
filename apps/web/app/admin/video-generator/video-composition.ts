@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-import type { VideoAidStation } from "../../../lib/video-generator";
 import {
   easeInOut,
   getChaseCameraPose,
@@ -11,16 +10,18 @@ import {
   type CameraPose,
   type PreparedAnimationPath,
 } from "./route-animation";
+import { estimateNarrationMs, getAutoDurationSeconds, type StoryBeat } from "./route-story";
+
+export { AID_SERVICES, getAidStationServices, type AidService } from "./route-story";
 
 export const VIDEO_DURATION_PRESETS = [30, 45, 60, 90] as const;
 export const VIDEO_FPS = 30;
-export const INTRO_DURATION_MS = 3_000;
-export const OUTRO_DURATION_MS = 3_000;
-export const START_LABEL_DURATION_MS = 2_500;
-export const AID_LABEL_MIN_DURATION_MS = 1_200;
-// A bubble opens while the flyover slows down on the approach and closes just after the station.
-export const AID_BUBBLE_APPROACH_SIGMAS = 2.5;
-export const AID_BUBBLE_EXIT_SIGMAS = 0.4;
+export const MIN_SEQUENCE_MS = 3_000;
+// Silence kept after each narration so sentences do not run into each other.
+export const NARRATION_GAP_MS = 500;
+// Narrated moments may take at most this share of the flyover; the rest is transit between them.
+export const MAX_BEAT_TIME_SHARE = 0.7;
+export const MIN_CAPTION_MS = 1_200;
 
 export const VIDEO_RESOLUTIONS = {
   "540p": { width: 540, height: 960 },
@@ -33,7 +34,8 @@ export const MAPBOX_STYLE_URL_PATTERN = /^mapbox:\/\/styles\/[\w.-]+\/[\w-]+$/;
 // Serializable on purpose: the same object must reproduce the same render later (export jobs).
 export const videoCompositionSettingsSchema = z.object({
   version: z.literal(1).default(1),
-  durationSeconds: z.union([z.literal(30), z.literal(45), z.literal(60), z.literal(90)]).default(45),
+  durationMode: z.enum(["auto", "manual"]).default("auto"),
+  durationSeconds: z.number().int().min(15).max(180).default(45),
   resolution: z.enum(["540p", "1080p"]).default("540p"),
   viewport: z.enum(["portrait", "landscape"]).default("portrait"),
   revealMode: z.enum(["progressive", "full"]).default("progressive"),
@@ -50,6 +52,7 @@ export const videoCompositionSettingsSchema = z.object({
   showElevation: z.boolean().default(true),
   showStartInfo: z.boolean().default(true),
   showAidStations: z.boolean().default(true),
+  showCaptions: z.boolean().default(true),
   showProfile: z.boolean().default(true),
   profileMode: z.enum(["window", "full"]).default("window"),
   showCurrentKm: z.boolean().default(true),
@@ -67,17 +70,15 @@ export type VideoPhase = "intro" | "flyover" | "outro";
 
 export const DEFAULT_VIDEO_COMPOSITION_SETTINGS: VideoCompositionSettings = videoCompositionSettingsSchema.parse({});
 
-export type ScheduledAidLabel = {
-  id: string;
-  kind: "start" | "aid";
-  name: string;
-  detail: string | null;
-  distanceKm: number;
-  services: AidService[];
-  isLifeBase: boolean;
-  cutoffTime: string | null;
+/** Real narration lengths once the voice is generated, by beat id. */
+export type NarrationDurations = Record<string, number>;
+
+export type ScheduledBeat = StoryBeat & {
+  /** Caption window. */
   startMs: number;
   endMs: number;
+  narrationStartMs: number;
+  narrationMs: number;
 };
 
 export type VideoTimeline = {
@@ -90,8 +91,10 @@ export type VideoTimeline = {
   terrainExaggeration: number;
   sampleDistancesKm: number[];
   cumulativeTimeFraction: number[];
-  aidStations: Array<VideoAidStation & { arrivalMs: number }>;
-  aidLabels: ScheduledAidLabel[];
+  /** Every beat in play order, intro and outro included. */
+  beats: ScheduledBeat[];
+  /** True when a manual duration is too short for the narration. */
+  narrationOverflow: boolean;
 };
 
 export type VideoFrameState = {
@@ -100,7 +103,8 @@ export type VideoFrameState = {
   phaseProgress: number;
   distanceKm: number;
   routeProgress: number;
-  aidLabel: ScheduledAidLabel | null;
+  /** Route beat whose caption is on screen. */
+  beat: ScheduledBeat | null;
 };
 
 const clamp = (value: number, minimum: number, maximum: number) =>
@@ -140,125 +144,101 @@ const movingAverage = (values: number[], radius: number) => {
   });
 };
 
-export type PacingStop = { distanceKm: number; strength: number };
-
-export const AID_STATION_SLOWDOWN = 10;
-export const LIFE_BASE_SLOWDOWN = 15;
-// Stops may take at most this share of the flyover, so a route with many stations still moves.
-export const MAX_STOP_TIME_SHARE = 0.6;
-// Leaving a station, the flyover speeds up again over a longer distance than it slowed down.
-const STOP_EXIT_SIGMA_RATIO = 1.3;
-
-export const AID_SERVICES = {
-  water: "Eau",
-  food: "Nourriture",
-  assistance: "Assistance",
-  dropBag: "Sac d’allègement",
-} as const;
-export type AidService = keyof typeof AID_SERVICES;
-
-export const getAidStationServices = (station: VideoAidStation): AidService[] => {
-  const services: AidService[] = [];
-  if (station.waterAvailable) services.push("water");
-  if (station.foodAvailable) services.push("food");
-  if (station.assistanceAllowed) services.push("assistance");
-  if (station.dropBagAvailable) services.push("dropBag");
-  return services;
-};
-
-/** Approach width of a stop slowdown; the exit side is STOP_EXIT_SIGMA_RATIO times wider. */
-export const getStopSigmaKm = (totalDistanceKm: number) => Math.max(0.5, totalDistanceKm * 0.012);
-
-/**
- * Relative time spent per kilometre. Climbs and steep descents slow the flyover down; around each
- * enabled stop it brakes hard on the approach and speeds up again progressively after the station.
- * The weights are smoothed so the speed never changes abruptly.
- */
-export const computePacingWeights = (path: PreparedAnimationPath, stops: PacingStop[]) => {
+/** Relative time per kilometre between narrated moments: climbs and steep descents go slower. */
+export const computeTerrainWeights = (path: PreparedAnimationPath) => {
   const { samples, totalDistanceKm } = path;
   if (samples.length < 2 || totalDistanceKm <= 0) return samples.map(() => 1);
   const spacingKm = totalDistanceKm / (samples.length - 1);
   const gradeRadius = Math.max(1, Math.round(0.15 / spacingKm));
-  const approachSigmaKm = getStopSigmaKm(totalDistanceKm);
-  const exitSigmaKm = approachSigmaKm * STOP_EXIT_SIGMA_RATIO;
-
-  const terrain = samples.map((_, index) => {
+  return samples.map((_, index) => {
     const before = samples[Math.max(0, index - gradeRadius)];
     const after = samples[Math.min(samples.length - 1, index + gradeRadius)];
     const runM = (after.distanceKm - before.distanceKm) * 1_000;
     const grade = runM > 0 ? (after.elevationM - before.elevationM) / runM : 0;
     return 1 + 1.4 * clamp(grade / 0.15, 0, 1) + 0.5 * clamp(-grade / 0.2, 0, 1);
   });
-  const stopWeights = samples.map((sample) => Math.min(LIFE_BASE_SLOWDOWN, stops.reduce((sum, { distanceKm, strength }) => {
-    const delta = sample.distanceKm - distanceKm;
-    const offset = delta / (delta < 0 ? approachSigmaKm : exitSigmaKm);
-    return sum + strength * Math.exp(-(offset * offset) / 2);
-  }, 0)));
-
-  const terrainTotal = terrain.reduce((sum, value) => sum + value, 0);
-  const stopTotal = stopWeights.reduce((sum, value) => sum + value, 0);
-  const maxStopTotal = (terrainTotal * MAX_STOP_TIME_SHARE) / (1 - MAX_STOP_TIME_SHARE);
-  const stopScale = stopTotal > maxStopTotal ? maxStopTotal / stopTotal : 1;
-  const weights = terrain.map((value, index) => value + stopWeights[index] * stopScale);
-
-  const smoothingRadius = Math.max(1, Math.round((totalDistanceKm * 0.005) / spacingKm));
-  return movingAverage(weights, smoothingRadius);
 };
 
-const scheduleLabels = (candidates: ScheduledAidLabel[], flyoverEndMs: number): ScheduledAidLabel[] => {
-  const labels: ScheduledAidLabel[] = [];
-  [...candidates]
-    .sort((left, right) => left.distanceKm - right.distanceKm)
-    .forEach((candidate) => {
-      // One bubble at a time: a close station waits until the previous one has been passed, and is
-      // dropped when what remains of its approach would be unreadable.
-      const previous = labels[labels.length - 1];
-      const startMs = Math.max(candidate.startMs, previous?.endMs ?? 0);
-      const endMs = Math.min(flyoverEndMs, candidate.endMs);
-      if (endMs - startMs < AID_LABEL_MIN_DURATION_MS) return;
-      labels.push({ ...candidate, startMs, endMs });
-    });
-  return labels;
-};
+export const getNarrationMs = (beat: StoryBeat, durations: NarrationDurations) =>
+  durations[beat.id] ?? estimateNarrationMs(beat.narration);
 
-export type VideoStartInfo = { detail: string | null };
-
+/**
+ * The narration drives the video: each route beat gets the time its narration needs over its
+ * distance span (so the camera slows down there), the remaining flyover time is spread over the
+ * transit between beats, weighted by terrain, and the speed is smoothed so it never jumps. In auto
+ * mode the length grows with the route and with the narration; in manual mode it is fixed.
+ */
 export const buildVideoTimeline = (
   path: PreparedAnimationPath,
-  aidStations: VideoAidStation[],
+  beats: StoryBeat[],
   settings: VideoCompositionSettings,
-  startInfo: VideoStartInfo = { detail: null },
+  durations: NarrationDurations = {},
 ): VideoTimeline => {
-  const totalMs = settings.durationSeconds * 1_000;
-  const introMs = settings.introEnabled ? INTRO_DURATION_MS : 0;
-  const outroMs = settings.outroEnabled ? OUTRO_DURATION_MS : 0;
-  const flyoverMs = Math.max(1, totalMs - introMs - outroMs);
   const totalDistanceKm = path.totalDistanceKm;
-  const disabled = new Set(settings.disabledAidStationIds);
-  const enabledStations = aidStations.filter((station) =>
-    !disabled.has(station.id) && station.distanceKm > 0 && station.distanceKm < totalDistanceKm);
+  const introBeat = beats.find((beat) => beat.kind === "intro");
+  const outroBeat = beats.find((beat) => beat.kind === "outro");
+  const routeBeats = beats
+    .filter((beat) => beat.kind !== "intro" && beat.kind !== "outro" && beat.endKm > beat.startKm)
+    .sort((left, right) => left.startKm - right.startKm);
 
-  const sampleDistancesKm = path.samples.map((sample) => sample.distanceKm);
-  const showStart = settings.showStartInfo && Boolean(startInfo.detail);
-  const weights = computePacingWeights(path, [
-    ...(showStart ? [{ distanceKm: 0, strength: AID_STATION_SLOWDOWN }] : []),
-    ...(settings.showAidStations ? enabledStations : []).map((station) => ({
-      distanceKm: station.distanceKm,
-      strength: station.isLifeBase ? LIFE_BASE_SLOWDOWN : AID_STATION_SLOWDOWN,
-    })),
-  ]);
-  const cumulative = [0];
-  for (let index = 1; index < path.samples.length; index += 1) {
-    const stepKm = sampleDistancesKm[index] - sampleDistancesKm[index - 1];
-    cumulative.push(cumulative[index - 1] + stepKm * (weights[index - 1] + weights[index]) / 2);
+  const sequenceMs = (beat: StoryBeat | undefined, enabled: boolean) =>
+    enabled ? Math.max(MIN_SEQUENCE_MS, beat ? getNarrationMs(beat, durations) + NARRATION_GAP_MS * 2 : 0) : 0;
+  const introMs = sequenceMs(introBeat, settings.introEnabled);
+  const outroMs = sequenceMs(outroBeat, settings.outroEnabled);
+  let beatNeeds = routeBeats.map((beat) => getNarrationMs(beat, durations) + NARRATION_GAP_MS);
+  const beatsTotal = beatNeeds.reduce((sum, value) => sum + value, 0);
+
+  const totalMs = settings.durationMode === "auto"
+    ? Math.ceil(Math.max(
+      getAutoDurationSeconds(totalDistanceKm) * 1_000,
+      introMs + outroMs + beatsTotal / MAX_BEAT_TIME_SHARE,
+    ) / 1_000) * 1_000
+    : settings.durationSeconds * 1_000;
+  const flyoverMs = Math.max(1_000, totalMs - introMs - outroMs);
+  const narrationOverflow = beatsTotal > flyoverMs * 0.9;
+  if (beatsTotal > flyoverMs * MAX_BEAT_TIME_SHARE) {
+    const scale = (flyoverMs * MAX_BEAT_TIME_SHARE) / beatsTotal;
+    beatNeeds = beatNeeds.map((value) => value * scale);
   }
+  const transitMs = flyoverMs - beatNeeds.reduce((sum, value) => sum + value, 0);
+
+  const { samples } = path;
+  const sampleDistancesKm = samples.map((sample) => sample.distanceKm);
+  const terrain = computeTerrainWeights(path);
+  const beatAt = (distanceKm: number) =>
+    routeBeats.findIndex((beat) => distanceKm >= beat.startKm && distanceKm < beat.endKm);
+
+  // Time density (ms per km) of every sample interval, then smoothed into gradual braking.
+  const intervalBeat: number[] = [];
+  let transitWeight = 0;
+  for (let index = 1; index < samples.length; index += 1) {
+    const stepKm = sampleDistancesKm[index] - sampleDistancesKm[index - 1];
+    const beatIndex = beatAt((sampleDistancesKm[index] + sampleDistancesKm[index - 1]) / 2);
+    intervalBeat.push(beatIndex);
+    if (beatIndex < 0) transitWeight += stepKm * (terrain[index - 1] + terrain[index]) / 2;
+  }
+  const densities = intervalBeat.map((beatIndex, interval) => {
+    if (beatIndex >= 0) {
+      const beat = routeBeats[beatIndex];
+      return beatNeeds[beatIndex] / (beat.endKm - beat.startKm);
+    }
+    const weight = (terrain[interval] + terrain[interval + 1]) / 2;
+    return transitWeight > 0 ? (transitMs * weight) / transitWeight : 0;
+  });
+  const spacingKm = samples.length > 1 ? totalDistanceKm / (samples.length - 1) : 1;
+  const smoothed = movingAverage(densities, Math.max(1, Math.round((totalDistanceKm * 0.006) / spacingKm)));
+
+  const cumulative = [0];
+  smoothed.forEach((density, interval) => {
+    cumulative.push(cumulative[interval] + density * (sampleDistancesKm[interval + 1] - sampleDistancesKm[interval]));
+  });
   const totalWeight = cumulative[cumulative.length - 1] ?? 0;
   const cumulativeTimeFraction = totalWeight > 0
     ? cumulative.map((value) => value / totalWeight)
     : sampleDistancesKm.map((_, index, all) => all.length > 1 ? index / (all.length - 1) : 0);
 
   const timeline: VideoTimeline = {
-    totalMs,
+    totalMs: introMs + flyoverMs + outroMs,
     introMs,
     flyoverMs,
     outroMs,
@@ -267,47 +247,38 @@ export const buildVideoTimeline = (
     terrainExaggeration: settings.terrainExaggeration,
     sampleDistancesKm,
     cumulativeTimeFraction,
-    aidStations: [],
-    aidLabels: [],
+    beats: [],
+    narrationOverflow: settings.durationMode === "manual" && narrationOverflow,
   };
-  timeline.aidStations = enabledStations.map((station) => ({
-    ...station,
-    arrivalMs: introMs + getFlyoverFractionAtDistance(timeline, station.distanceKm) * flyoverMs,
-  }));
 
-  const sigmaKm = getStopSigmaKm(totalDistanceKm);
   const msAtDistance = (distanceKm: number) =>
     introMs + getFlyoverFractionAtDistance(timeline, clamp(distanceKm, 0, totalDistanceKm)) * flyoverMs;
-  const candidates: ScheduledAidLabel[] = [];
-  if (showStart) {
-    candidates.push({
-      id: "start",
-      kind: "start",
-      name: "Départ",
-      detail: startInfo.detail,
-      distanceKm: 0,
-      services: [],
-      isLifeBase: false,
-      cutoffTime: null,
-      startMs: introMs,
-      endMs: Math.max(introMs + START_LABEL_DURATION_MS, msAtDistance(sigmaKm * 0.6)),
+  const flyoverEndMs = introMs + flyoverMs;
+  const scheduled: ScheduledBeat[] = [];
+  if (introBeat && introMs > 0) {
+    scheduled.push({ ...introBeat, startMs: 0, endMs: introMs, narrationStartMs: NARRATION_GAP_MS, narrationMs: getNarrationMs(introBeat, durations) });
+  }
+  let voiceFreeAtMs = introMs;
+  routeBeats.forEach((beat, index) => {
+    const startMs = msAtDistance(beat.startKm);
+    const narrationStartMs = Math.max(startMs, voiceFreeAtMs);
+    const narrationMs = getNarrationMs(beat, durations);
+    voiceFreeAtMs = narrationStartMs + narrationMs + NARRATION_GAP_MS;
+    const nextStartMs = routeBeats[index + 1] ? msAtDistance(routeBeats[index + 1].startKm) : flyoverEndMs;
+    // The caption stays while the voice speaks, without covering the next moment.
+    const endMs = Math.min(Math.max(msAtDistance(beat.endKm), narrationStartMs + narrationMs, startMs + MIN_CAPTION_MS), Math.max(nextStartMs, startMs + MIN_CAPTION_MS), flyoverEndMs);
+    scheduled.push({ ...beat, startMs, endMs, narrationStartMs, narrationMs });
+  });
+  if (outroBeat && outroMs > 0) {
+    scheduled.push({
+      ...outroBeat,
+      startMs: flyoverEndMs,
+      endMs: timeline.totalMs,
+      narrationStartMs: Math.max(flyoverEndMs + NARRATION_GAP_MS, voiceFreeAtMs),
+      narrationMs: getNarrationMs(outroBeat, durations),
     });
   }
-  if (settings.showAidStations) {
-    timeline.aidStations.forEach((station) => candidates.push({
-      id: station.id,
-      kind: "aid",
-      name: station.name,
-      detail: null,
-      distanceKm: station.distanceKm,
-      services: getAidStationServices(station),
-      isLifeBase: station.isLifeBase,
-      cutoffTime: station.cutoffTime,
-      startMs: Math.max(introMs, msAtDistance(station.distanceKm - sigmaKm * AID_BUBBLE_APPROACH_SIGMAS)),
-      endMs: msAtDistance(station.distanceKm + sigmaKm * AID_BUBBLE_EXIT_SIGMAS),
-    }));
-  }
-  timeline.aidLabels = scheduleLabels(candidates, introMs + flyoverMs);
+  timeline.beats = scheduled;
   return timeline;
 };
 
@@ -342,8 +313,9 @@ export const getVideoFrameState = (timeline: VideoTimeline, requestedTimeMs: num
     distanceKm = getDistanceAtFlyoverFraction(timeline, phaseProgress);
   }
 
-  const aidLabel = phase === "flyover"
-    ? timeline.aidLabels.find((label) => timeMs >= label.startMs && timeMs < label.endMs) ?? null
+  const beat = phase === "flyover"
+    ? timeline.beats.find((candidate) =>
+      candidate.kind !== "intro" && candidate.kind !== "outro" && timeMs >= candidate.startMs && timeMs < candidate.endMs) ?? null
     : null;
 
   return {
@@ -352,7 +324,7 @@ export const getVideoFrameState = (timeline: VideoTimeline, requestedTimeMs: num
     phaseProgress,
     distanceKm,
     routeProgress: timeline.totalDistanceKm > 0 ? clamp(distanceKm / timeline.totalDistanceKm, 0, 1) : 0,
-    aidLabel,
+    beat,
   };
 };
 

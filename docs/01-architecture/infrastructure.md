@@ -191,6 +191,8 @@ For local setup, copy `apps/web/.env.example` to the ignored `apps/web/.env.loca
 - `SUPABASE_ANON_KEY`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` (public browser token for the admin 3D viewer; restrict it to approved origins)
+- `ANTHROPIC_API_KEY` (server-only; admin video generator narration script)
+- `ELEVENLABS_API_KEY` and optional `ELEVENLABS_VOICE_ID` (server-only; admin video generator voice-over)
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `SUPABASE_SERVICE_ROLE`
 - `STRIPE_SECRET_KEY`

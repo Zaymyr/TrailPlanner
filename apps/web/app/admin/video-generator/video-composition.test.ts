@@ -2,10 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import type { VideoAidStation, VideoRoutePoint } from "../../../lib/video-generator";
 import { prepareAnimationPath } from "./route-animation";
+import { buildStoryBeats, type StoryBeat } from "./route-story";
 import {
-  AID_BUBBLE_APPROACH_SIGMAS,
-  AID_BUBBLE_EXIT_SIGMAS,
-  AID_LABEL_MIN_DURATION_MS,
   buildElevationProfile,
   buildVideoTimeline,
   DEFAULT_VIDEO_COMPOSITION_SETTINGS,
@@ -15,7 +13,6 @@ import {
   getProfileTicks,
   getProfileWindow,
   getSlopeClass,
-  getStopSigmaKm,
   getVideoCameraPose,
   getVideoFrameState,
   videoCompositionSettingsSchema,
@@ -62,63 +59,86 @@ describe("videoCompositionSettingsSchema", () => {
     });
     const restored = videoCompositionSettingsSchema.parse(JSON.parse(JSON.stringify(DEFAULT_VIDEO_COMPOSITION_SETTINGS)));
     expect(restored).toEqual(DEFAULT_VIDEO_COMPOSITION_SETTINGS);
-    expect(videoCompositionSettingsSchema.safeParse({ durationSeconds: 37 }).success).toBe(false);
+    expect(videoCompositionSettingsSchema.safeParse({ durationSeconds: 37 }).success).toBe(true);
+    expect(videoCompositionSettingsSchema.safeParse({ durationSeconds: 10 }).success).toBe(false);
   });
 });
+
+const beat = (id: string, kind: StoryBeat["kind"], startKm: number, endKm: number, narration: string): StoryBeat => ({
+  id, kind, title: id, startKm, endKm, anchorKm: startKm, facts: [], services: [], cutoffTime: null, narration,
+});
+
+const manual = (durationSeconds: number) => ({ ...DEFAULT_VIDEO_COMPOSITION_SETTINGS, durationMode: "manual" as const, durationSeconds });
 
 describe("buildVideoTimeline", () => {
   const path = prepareAnimationPath(flatThenClimb);
 
-  it("splits 45 s into 3 s intro, 39 s flyover and 3 s outro", () => {
-    const timeline = buildVideoTimeline(path, [], DEFAULT_VIDEO_COMPOSITION_SETTINGS);
-    expect([timeline.introMs, timeline.flyoverMs, timeline.outroMs]).toEqual([3_000, 39_000, 3_000]);
-
-    const noSequences = buildVideoTimeline(path, [], { ...DEFAULT_VIDEO_COMPOSITION_SETTINGS, introEnabled: false, outroEnabled: false });
+  it("sizes intro and outro to their narration and keeps a manual total", () => {
+    const timeline = buildVideoTimeline(path, [beat("intro", "intro", 0, 0, "Court."), beat("outro", "outro", 20, 20, "")], manual(45));
+    expect(timeline.introMs).toBe(3_000);
+    expect(timeline.outroMs).toBe(3_000);
+    expect(timeline.totalMs).toBe(45_000);
+    const noSequences = buildVideoTimeline(path, [], { ...manual(45), introEnabled: false, outroEnabled: false });
     expect(noSequences.flyoverMs).toBe(45_000);
+
+    const longIntro = buildVideoTimeline(path, [beat("intro", "intro", 0, 0, "x".repeat(120))], manual(45));
+    expect(longIntro.introMs).toBeGreaterThan(8_000);
   });
 
   it("spends more time on the climb than on the flat half", () => {
-    const timeline = buildVideoTimeline(path, [], DEFAULT_VIDEO_COMPOSITION_SETTINGS);
-    // The flat first half goes by quickly, so half of the flyover time is already spent climbing.
+    const timeline = buildVideoTimeline(path, [], manual(45));
     expect(getFlyoverFractionAtDistance(timeline, 10)).toBeLessThan(0.4);
-    expect(getDistanceAtFlyoverFraction(timeline, 0.5)).toBeGreaterThan(10);
     expect(getDistanceAtFlyoverFraction(timeline, 0)).toBe(0);
     expect(getDistanceAtFlyoverFraction(timeline, 1)).toBeCloseTo(20, 6);
   });
 
-  it("slows down around an enabled aid station but not a disabled one", () => {
-    const flat = flatPath(20);
-    const aid = station("1", 10);
-    const withAid = buildVideoTimeline(flat, [aid], DEFAULT_VIDEO_COMPOSITION_SETTINGS);
-    const disabled = buildVideoTimeline(flat, [aid], { ...DEFAULT_VIDEO_COMPOSITION_SETTINGS, disabledAidStationIds: [aid.id] });
-
-    const timeAround = (timeline: typeof withAid) => {
-      const enter = timeline.cumulativeTimeFraction[timeline.sampleDistancesKm.findIndex((km) => km >= 9.5)];
-      const leave = timeline.cumulativeTimeFraction[timeline.sampleDistancesKm.findIndex((km) => km >= 10.5)];
-      return leave - enter;
-    };
-    expect(timeAround(withAid)).toBeGreaterThan(timeAround(disabled) * 2);
-    expect(disabled.aidLabels).toEqual([]);
-
-    const lifeBase = buildVideoTimeline(flat, [station("1", 10, { isLifeBase: true })], DEFAULT_VIDEO_COMPOSITION_SETTINGS);
-    expect(timeAround(lifeBase)).toBeGreaterThan(timeAround(withAid));
+  it("gives a narrated span the time its voice needs and schedules the voice there", () => {
+    const flat = flatPath(40);
+    const narration = "Ravitaillement de Saint-Genou au kilomètre vingt : eau et nourriture.";
+    const timeline = buildVideoTimeline(flat, [beat("aid", "aid", 19, 20.3, narration)], { ...manual(45), introEnabled: false, outroEnabled: false });
+    const scheduled = timeline.beats[0];
+    const spanMs = (getFlyoverFractionAtDistance(timeline, 20.3) - getFlyoverFractionAtDistance(timeline, 19)) * timeline.flyoverMs;
+    // 1.3 km out of 40 km gets far more than its 3 % share of the time.
+    expect(spanMs / timeline.flyoverMs).toBeGreaterThan(0.08);
+    expect(scheduled.narrationStartMs).toBeCloseTo(scheduled.startMs, 0);
+    expect(getVideoFrameState(timeline, scheduled.narrationStartMs + 100).beat?.id).toBe("aid");
+    expect(getVideoFrameState(timeline, scheduled.endMs + 50).beat).toBeNull();
   });
 
-  it("never stacks aid labels and drops a station that would be unreadable", () => {
-    const flat = flatPath(55);
-    const timeline = buildVideoTimeline(flat, [station("1", 20), station("2", 20.2), station("3", 40)], DEFAULT_VIDEO_COMPOSITION_SETTINGS);
-    expect(timeline.aidLabels.map((label) => label.name)).toEqual(["Ravito 1", "Ravito 3"]);
-    timeline.aidLabels.forEach((label, index) => {
-      expect(label.endMs - label.startMs).toBeGreaterThanOrEqual(AID_LABEL_MIN_DURATION_MS);
-      if (index > 0) expect(label.startMs).toBeGreaterThanOrEqual(timeline.aidLabels[index - 1].endMs);
+  it("uses the real voice duration once generated", () => {
+    const flat = flatPath(40);
+    const beats = [beat("climb", "climb", 10, 14, "Texte.")];
+    const estimated = buildVideoTimeline(flat, beats, manual(45));
+    const voiced = buildVideoTimeline(flat, beats, manual(45), { climb: 6_000 });
+    expect(voiced.beats[0].narrationMs).toBe(6_000);
+    const share = (timeline: typeof voiced) => getFlyoverFractionAtDistance(timeline, 14) - getFlyoverFractionAtDistance(timeline, 10);
+    expect(share(voiced)).toBeGreaterThan(share(estimated));
+  });
+
+  it("never overlaps two narrations", () => {
+    const flat = flatPath(30);
+    const long = "Une phrase volontairement longue pour occuper la voix plus longtemps que le segment.";
+    const timeline = buildVideoTimeline(flat, [beat("a", "aid", 10, 10.2, long), beat("b", "aid", 10.2, 10.4, long)], manual(30));
+    const [first, second] = timeline.beats.filter((scheduled) => scheduled.kind === "aid");
+    expect(second.narrationStartMs).toBeGreaterThanOrEqual(first.narrationStartMs + first.narrationMs);
+  });
+
+  it("grows an automatic duration with the route and the narration, and flags a manual overflow", () => {
+    const flat = flatPath(150);
+    const story = buildStoryBeats(flat, [station("1", 50), station("2", 100, { isLifeBase: true })], { title: "Ultra", distanceKm: 150, elevationGainM: 6000, startDetail: null }, {
+      targetSeconds: 90, includeAidStations: true, includeStart: false,
     });
+    const auto = buildVideoTimeline(flat, story, DEFAULT_VIDEO_COMPOSITION_SETTINGS);
+    expect(auto.totalMs).toBeGreaterThanOrEqual(90_000);
+    expect(auto.narrationOverflow).toBe(false);
+    const short = buildVideoTimeline(flat, story.map((item) => ({ ...item, narration: item.narration.repeat(4) })), manual(15));
+    expect(short.narrationOverflow).toBe(true);
   });
 });
 
 describe("getVideoFrameState", () => {
   const path = prepareAnimationPath(flatThenClimb);
-  const aid = station("1", 10);
-  const timeline = buildVideoTimeline(path, [aid], DEFAULT_VIDEO_COMPOSITION_SETTINGS);
+  const timeline = buildVideoTimeline(path, [], manual(45));
 
   it("maps every moment to one deterministic phase and position", () => {
     expect(getVideoFrameState(timeline, 1_000)).toMatchObject({ phase: "intro", distanceKm: 0 });
@@ -126,34 +146,6 @@ describe("getVideoFrameState", () => {
     const middle = getVideoFrameState(timeline, 20_000);
     expect(middle.phase).toBe("flyover");
     expect(getVideoFrameState(timeline, 20_000)).toEqual(middle);
-  });
-
-  it("opens the bubble on the approach and closes it just after the station", () => {
-    const label = timeline.aidLabels[0];
-    const arrival = timeline.aidStations[0].arrivalMs;
-    const sigmaKm = getStopSigmaKm(timeline.totalDistanceKm);
-    expect(getVideoFrameState(timeline, label.startMs).distanceKm).toBeCloseTo(10 - sigmaKm * AID_BUBBLE_APPROACH_SIGMAS, 3);
-    expect(getVideoFrameState(timeline, label.endMs).distanceKm).toBeCloseTo(10 + sigmaKm * AID_BUBBLE_EXIT_SIGMAS, 3);
-    expect(arrival - label.startMs).toBeGreaterThan(label.endMs - arrival);
-    expect(getVideoFrameState(timeline, arrival).aidLabel).toMatchObject({ name: "Ravito 1", services: ["water"] });
-    expect(getVideoFrameState(timeline, label.endMs + 1).aidLabel).toBeNull();
-  });
-
-  it("brakes before a station and speeds up again progressively after it", () => {
-    const flat = buildVideoTimeline(flatPath(40), [station("1", 20)], { ...DEFAULT_VIDEO_COMPOSITION_SETTINGS, introEnabled: false, outroEnabled: false });
-    const msPerKm = (fromKm: number, toKm: number) =>
-      (getFlyoverFractionAtDistance(flat, toKm) - getFlyoverFractionAtDistance(flat, fromKm)) * flat.flyoverMs / (toKm - fromKm);
-    const cruise = msPerKm(2, 4);
-    expect(msPerKm(19.8, 20)).toBeGreaterThan(cruise * 6);
-    // Same distance from the station: the exit is still slower than the approach (progressive re-acceleration).
-    expect(msPerKm(21.5, 22)).toBeGreaterThan(msPerKm(18, 18.5));
-  });
-
-  it("announces the start with its place and time when provided", () => {
-    const withStart = buildVideoTimeline(path, [], DEFAULT_VIDEO_COMPOSITION_SETTINGS, { detail: "Lyon · 28 novembre · 23:30" });
-    expect(getVideoFrameState(withStart, 3_100).aidLabel).toMatchObject({ kind: "start", name: "Départ", detail: "Lyon · 28 novembre · 23:30" });
-    const hidden = buildVideoTimeline(path, [], { ...DEFAULT_VIDEO_COMPOSITION_SETTINGS, showStartInfo: false }, { detail: "Lyon" });
-    expect(hidden.aidLabels).toEqual([]);
   });
 
   it("glides the camera from the overview to the start during the intro", () => {

@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import mapboxgl, {
   type ExpressionSpecification,
   type GeoJSONSource,
@@ -11,6 +10,7 @@ import mapboxgl, {
 
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { buildMarkerGeoJson, buildRouteGeoJson } from "../../../lib/video-generator";
+import { narrationScriptResponseSchema, narrationVoiceResponseSchema } from "../../../lib/video-narration";
 import { AnimationControls } from "./AnimationControls";
 import {
   createRouteAnimationController,
@@ -29,6 +29,7 @@ import {
   type MapAppearanceState,
 } from "./map-appearance";
 import { observeMapSize, type MapResizeController } from "./map-resize-controller";
+import { createNarrationPlayer, type NarrationClip, type NarrationPlayer } from "./narration-player";
 import {
   buildLineProgressTable,
   getLineProgressAtDistance,
@@ -37,6 +38,8 @@ import {
   type PreparedAnimationPath,
   type RouteRevealMode,
 } from "./route-animation";
+import { buildStoryBeats, getAutoDurationSeconds, type StoryBeat } from "./route-story";
+import { StoryEditor, type AsyncActionState } from "./StoryEditor";
 import {
   buildElevationProfile,
   buildVideoTimeline,
@@ -44,9 +47,11 @@ import {
   getGradeAtDistance,
   getVideoCameraPose,
   getVideoFrameState,
+  type NarrationDurations,
+  type ScheduledBeat,
   type VideoCompositionSettings,
 } from "./video-composition";
-import { AidBubble, createVideoFrameStore, VideoCompositionOverlay } from "./VideoCompositionOverlay";
+import { createVideoFrameStore, VideoCompositionOverlay } from "./VideoCompositionOverlay";
 import type { VideoGeneratorMapProps } from "./VideoGeneratorMap";
 
 const TERRAIN_SOURCE_ID = "video-terrain-dem";
@@ -57,6 +62,9 @@ const ROUTE_GLOW_LAYER_ID = "video-route-line-glow";
 const MARKER_SOURCE_ID = "video-route-markers";
 const MARKER_CIRCLE_LAYER_ID = "video-route-marker-circles";
 const MARKER_LABEL_LAYER_ID = "video-route-marker-labels";
+// The climb or descent being narrated, drawn as a light casing under the route.
+const SEGMENT_SOURCE_ID = "video-beat-segment";
+const SEGMENT_LAYER_ID = "video-beat-segment-line";
 export const VIDEO_ROUTE_COLOR = DEFAULT_VIDEO_COMPOSITION_SETTINGS.routeColor;
 const FUTURE_ROUTE_ALPHA_HEX = "38";
 const GLOW_ROUTE_ALPHA_HEX = "8c";
@@ -67,7 +75,28 @@ const OWN_LAYER_IDS = new Set([
   MARKER_CIRCLE_LAYER_ID,
   MARKER_LABEL_LAYER_ID,
   PEAKS_LAYER_ID,
+  SEGMENT_LAYER_ID,
 ]);
+
+const EMPTY_FEATURES = { type: "FeatureCollection", features: [] } as const;
+const IDLE_ACTION: AsyncActionState = { status: "idle", message: null };
+
+const buildSegmentGeoJson = (path: PreparedAnimationPath, beat: ScheduledBeat | null) => {
+  if (!beat || (beat.kind !== "climb" && beat.kind !== "descent")) return EMPTY_FEATURES;
+  const coordinates = path.samples
+    .filter((sample) => sample.distanceKm >= beat.startKm && sample.distanceKm <= beat.endKm)
+    .map((sample) => [sample.lon, sample.lat]);
+  if (coordinates.length < 2) return EMPTY_FEATURES;
+  return {
+    type: "FeatureCollection",
+    features: [{ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates } }],
+  };
+};
+
+const readError = async (response: Response, fallback: string) => {
+  const payload = await response.json().catch(() => null) as { message?: unknown } | null;
+  return typeof payload?.message === "string" ? payload.message : fallback;
+};
 
 type GeoJsonSourceData = Parameters<GeoJSONSource["setData"]>[0];
 
@@ -138,6 +167,25 @@ const syncMapData = (
       paint: {
         "line-color": `${routeColor}${FUTURE_ROUTE_ALPHA_HEX}`,
         "line-width": lineWidth,
+        "line-emissive-strength": 1,
+      },
+    });
+  }
+
+  if (!map.getSource(SEGMENT_SOURCE_ID)) {
+    map.addSource(SEGMENT_SOURCE_ID, { type: "geojson", data: EMPTY_FEATURES as unknown as GeoJsonSourceData });
+  }
+  if (!map.getLayer(SEGMENT_LAYER_ID)) {
+    map.addLayer({
+      id: SEGMENT_LAYER_ID,
+      type: "line",
+      source: SEGMENT_SOURCE_ID,
+      slot: "top",
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: {
+        "line-color": "#ffffff",
+        "line-opacity": 0.75,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 5, 8, 13, 16],
         "line-emissive-strength": 1,
       },
     });
@@ -223,7 +271,7 @@ const setMapInteractionsEnabled = (map: MapboxMap, enabled: boolean) => {
   });
 };
 
-export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: VideoGeneratorMapProps) {
+export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations, bounds, points, race }: VideoGeneratorMapProps) {
   const accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN?.trim() ?? "";
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapboxMap | null>(null);
@@ -231,11 +279,8 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: V
   const animationRef = useRef<RouteAnimationController | null>(null);
   const resizeRef = useRef<MapResizeController | null>(null);
   const progressMarkerRef = useRef<mapboxgl.Marker | null>(null);
-  // The aid bubble is a Mapbox marker so it stays pinned above the station while the camera moves;
-  // React renders its content into the marker element through a portal.
-  const bubbleMarkerRef = useRef<mapboxgl.Marker | null>(null);
-  const bubbleLabelIdRef = useRef<string | null>(null);
-  const [bubbleHost, setBubbleHost] = useState<HTMLElement | null>(null);
+  const activeBeatIdRef = useRef<string | null>(null);
+  const narrationPlayerRef = useRef<NarrationPlayer | null>(null);
   // `map.isStyleLoaded()` is false whenever a tile is loading or a source was just updated, which is
   // permanently the case while the camera flies. Gating frames on it skipped most of them.
   const layersReadyRef = useRef(false);
@@ -259,9 +304,36 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: V
   const routeData = useMemo(() => buildRouteGeoJson(points), [points]);
   const lineProgressTable = useMemo(() => buildLineProgressTable(points), [points]);
   const markerData = useMemo(() => buildMarkerGeoJson(points, enabledAidStations), [enabledAidStations, points]);
+
+  // The story: detected moments with a default narration, overridden by the AI or by hand.
+  const autoDurationSeconds = getAutoDurationSeconds(preparedPath.totalDistanceKm);
+  const targetSeconds = settings.durationMode === "auto" ? autoDurationSeconds : settings.durationSeconds;
+  const defaultBeats = useMemo(() => buildStoryBeats(preparedPath, enabledAidStations, race, {
+    targetSeconds,
+    includeAidStations: settings.showAidStations,
+    includeStart: settings.showStartInfo,
+  }), [enabledAidStations, preparedPath, race, settings.showAidStations, settings.showStartInfo, targetSeconds]);
+  const [narrationOverrides, setNarrationOverrides] = useState<Record<string, string>>({});
+  const beats = useMemo<StoryBeat[]>(
+    () => defaultBeats.map((beat) => narrationOverrides[beat.id] !== undefined ? { ...beat, narration: narrationOverrides[beat.id] } : beat),
+    [defaultBeats, narrationOverrides],
+  );
+  const [voiceClips, setVoiceClips] = useState<Record<string, NarrationClip>>({});
+  const [voiceId, setVoiceId] = useState("");
+  const [scriptState, setScriptState] = useState<AsyncActionState>(IDLE_ACTION);
+  const [voiceState, setVoiceState] = useState<AsyncActionState>(IDLE_ACTION);
+  // A clip only counts while its text still matches the narration it was generated from.
+  const freshClips = useMemo(
+    () => beats.flatMap((beat) => voiceClips[beat.id]?.text === beat.narration ? [voiceClips[beat.id]] : []),
+    [beats, voiceClips],
+  );
+  const narrationDurations = useMemo<NarrationDurations>(
+    () => Object.fromEntries(freshClips.map((clip) => [clip.beatId, clip.durationMs])),
+    [freshClips],
+  );
   const timeline = useMemo(
-    () => buildVideoTimeline(preparedPath, aidStations, settings, { detail: race.startDetail }),
-    [aidStations, preparedPath, race.startDetail, settings],
+    () => buildVideoTimeline(preparedPath, beats, settings, narrationDurations),
+    [beats, narrationDurations, preparedPath, settings],
   );
   const profile = useMemo(() => buildElevationProfile(preparedPath), [preparedPath]);
   const [frameStore] = useState(() => createVideoFrameStore(getVideoFrameState(timeline, 0)));
@@ -302,14 +374,14 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: V
     if (map.getLayer(ROUTE_GLOW_LAYER_ID)) map.setPaintProperty(ROUTE_GLOW_LAYER_ID, "line-trim-offset", trimOffset);
     const routePoint = getRoutePointAtDistance(path, frame.distanceKm);
     progressMarkerRef.current?.setLngLat([routePoint.lon, routePoint.lat]);
-    const bubbleLabelId = frame.aidLabel?.id ?? null;
-    if (frame.aidLabel && bubbleLabelId !== bubbleLabelIdRef.current) {
-      const stationPoint = getRoutePointAtDistance(path, frame.aidLabel.distanceKm);
-      bubbleMarkerRef.current?.setLngLat([stationPoint.lon, stationPoint.lat]);
+    // Beat changes are rare: only then the narrated segment and the station marker are updated.
+    const beatId = frame.beat?.id ?? null;
+    if (beatId !== activeBeatIdRef.current) {
+      activeBeatIdRef.current = beatId;
+      const segmentSource = map.getSource(SEGMENT_SOURCE_ID) as GeoJSONSource | undefined;
+      segmentSource?.setData(buildSegmentGeoJson(path, frame.beat) as unknown as GeoJsonSourceData);
     }
-    bubbleLabelIdRef.current = bubbleLabelId;
-
-    const activeAidDistance = frame.aidLabel?.distanceKm ?? null;
+    const activeAidDistance = frame.beat && (frame.beat.kind === "aid" || frame.beat.kind === "lifeBase") ? frame.beat.anchorKm : null;
     if (activeAidDistance !== activeAidDistanceRef.current && map.getLayer(MARKER_CIRCLE_LAYER_ID)) {
       activeAidDistanceRef.current = activeAidDistance;
       map.setPaintProperty(MARKER_CIRCLE_LAYER_ID, "circle-radius", buildMarkerRadius(activeAidDistance));
@@ -388,6 +460,94 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: V
     if (map) setMapInteractionsEnabled(map, !snapshot.isPlaying);
   }, [snapshot.isPlaying]);
 
+  // Voice-over: clips are scheduled on the same timeline as the camera.
+  const narrationCues = useMemo(
+    () => timeline.beats.filter((beat) => narrationDurations[beat.id] !== undefined).map((beat) => ({ beatId: beat.id, startMs: beat.narrationStartMs })),
+    [narrationDurations, timeline.beats],
+  );
+  const narrationCuesRef = useRef(narrationCues);
+  narrationCuesRef.current = narrationCues;
+  const isPlayingRef = useRef(false);
+  isPlayingRef.current = snapshot.isPlaying;
+
+  const restartNarration = useCallback(() => {
+    const controller = animationRef.current;
+    const player = narrationPlayerRef.current;
+    if (!controller || !player) return;
+    if (!isPlayingRef.current) {
+      player.stop();
+      return;
+    }
+    player.play(narrationCuesRef.current, controller.getSnapshot().currentTimeMs);
+  }, []);
+
+  useEffect(() => {
+    const player = createNarrationPlayer();
+    narrationPlayerRef.current = player;
+    return () => {
+      player.destroy();
+      narrationPlayerRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    void narrationPlayerRef.current?.load(freshClips).then(restartNarration);
+  }, [freshClips, restartNarration]);
+
+  useEffect(() => {
+    restartNarration();
+  }, [narrationCues, restartNarration, snapshot.isPlaying]);
+
+  const authorizedPost = (url: string, body: unknown) => fetch(url, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${sessionToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  const writeScript = async () => {
+    setScriptState({ status: "loading", message: "Claude rédige la narration…" });
+    try {
+      const response = await authorizedPost("/api/admin/video-generator/script", {
+        race: { title: race.title, subtitle: race.subtitle, distanceKm: race.distanceKm, elevationGainM: race.elevationGainM, startDetail: race.startDetail },
+        targetSeconds: Math.round(timeline.totalMs / 1_000),
+        beats: beats.map(({ id, kind, title, startKm, endKm, facts, services, cutoffTime, narration }) =>
+          ({ id, kind, title, startKm, endKm, facts, services, cutoffTime, narration })),
+      });
+      if (!response.ok) throw new Error(await readError(response, "La narration n’a pas pu être rédigée."));
+      const parsed = narrationScriptResponseSchema.safeParse(await response.json());
+      if (!parsed.success) throw new Error("Le script reçu est invalide.");
+      setNarrationOverrides((current) => ({ ...current, ...Object.fromEntries(parsed.data.beats.map((beat) => [beat.id, beat.narration])) }));
+      setScriptState({ status: "success", message: "Narration rédigée. Relis-la puis génère la voix off." });
+    } catch (error) {
+      setScriptState({ status: "error", message: error instanceof Error ? error.message : "La narration n’a pas pu être rédigée." });
+    }
+  };
+
+  const generateVoice = async () => {
+    const items = beats.filter((beat) => beat.narration.trim()).map((beat) => ({ id: beat.id, text: beat.narration.trim() }));
+    setVoiceState({ status: "loading", message: `Génération de ${items.length} phrases avec ElevenLabs…` });
+    try {
+      const response = await authorizedPost("/api/admin/video-generator/voice", { voiceId: voiceId || null, items });
+      if (!response.ok) throw new Error(await readError(response, "La voix off n’a pas pu être générée."));
+      const parsed = narrationVoiceResponseSchema.safeParse(await response.json());
+      if (!parsed.success) throw new Error("L’audio reçu est invalide.");
+      // The clip keeps the exact narration text so it stays valid only while that text is unchanged.
+      const textById = new Map(beats.map((beat) => [beat.id, beat.narration]));
+      setVoiceClips((current) => ({
+        ...current,
+        ...Object.fromEntries(parsed.data.clips.map((clip) => [clip.id, {
+          beatId: clip.id,
+          text: textById.get(clip.id) ?? clip.text,
+          audioBase64: clip.audioBase64,
+          durationMs: clip.durationMs,
+        }])),
+      }));
+      setVoiceState({ status: "success", message: "Voix off prête : lance la lecture." });
+    } catch (error) {
+      setVoiceState({ status: "error", message: error instanceof Error ? error.message : "La voix off n’a pas pu être générée." });
+    }
+  };
+
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden) animationRef.current?.pause();
@@ -427,13 +587,6 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: V
     progressMarkerRef.current = new mapboxgl.Marker({ element: createProgressMarkerElement(settingsRef.current.routeColor) })
       .setLngLat(firstPoint ? [firstPoint.lon, firstPoint.lat] : [boundsRef.current.minLon, boundsRef.current.minLat])
       .addTo(map);
-    const bubbleElement = document.createElement("div");
-    bubbleElement.style.pointerEvents = "none";
-    bubbleMarkerRef.current = new mapboxgl.Marker({ element: bubbleElement, anchor: "bottom", occludedOpacity: 1 })
-      .setLngLat(firstPoint ? [firstPoint.lon, firstPoint.lat] : [boundsRef.current.minLon, boundsRef.current.minLat])
-      .addTo(map);
-    bubbleLabelIdRef.current = null;
-    setBubbleHost(bubbleElement);
 
     let styleLoadVersion = 0;
     const handleStyleLoad = () => {
@@ -448,6 +601,7 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: V
       appearanceStateRef.current = captureMapAppearanceState(map, OWN_LAYER_IDS);
       applyMapAppearance(map, settingsRef.current, appearanceStateRef.current, OWN_LAYER_IDS);
       activeAidDistanceRef.current = null;
+      activeBeatIdRef.current = null;
       layersReadyRef.current = true;
       resizeController.schedule();
       window.requestAnimationFrame(() => {
@@ -484,9 +638,6 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: V
       animationRef.current?.destroy();
       progressMarkerRef.current?.remove();
       progressMarkerRef.current = null;
-      bubbleMarkerRef.current?.remove();
-      bubbleMarkerRef.current = null;
-      setBubbleHost(null);
       layersReadyRef.current = false;
       resizeController.destroy();
       map.remove();
@@ -535,7 +686,6 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: V
           <div className={`absolute inset-0 ${snapshot.isPlaying ? "pointer-events-none" : ""}`}>
             <div ref={containerRef} className="h-full w-full" aria-label="Visualiseur 3D animé du parcours" />
           </div>
-          {bubbleHost ? createPortal(<AidBubble accent={settings.accentColor} frameStore={frameStore} />, bubbleHost) : null}
           <VideoCompositionOverlay
             elevationAtDistance={elevationAtDistance}
             frameStore={frameStore}
@@ -554,21 +704,53 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: V
             isReady={isReady}
             onPause={() => animationRef.current?.pause()}
             onPlay={() => animationRef.current?.play()}
-            onRestart={() => animationRef.current?.restart()}
-            onSeek={(progress) => animationRef.current?.seek(progress)}
+            onRestart={() => {
+              animationRef.current?.restart();
+              restartNarration();
+            }}
+            onSeek={(progress) => {
+              animationRef.current?.seek(progress);
+              restartNarration();
+            }}
             snapshot={snapshot}
             totalDistanceKm={preparedPath.totalDistanceKm}
           />
         </div>
       </section>
 
-      <Card className="h-fit lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto">
+      <div className="h-fit space-y-4 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto">
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Narration</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <StoryEditor
+            beats={timeline.beats}
+            narrationOverflow={timeline.narrationOverflow}
+            onGenerateVoice={() => void generateVoice()}
+            onNarrationChange={(beatId, narration) => setNarrationOverrides((current) => ({ ...current, [beatId]: narration }))}
+            onResetScript={() => {
+              setNarrationOverrides({});
+              setScriptState(IDLE_ACTION);
+            }}
+            onVoiceIdChange={setVoiceId}
+            onWriteScript={() => void writeScript()}
+            scriptState={scriptState}
+            totalMs={timeline.totalMs}
+            voiceId={voiceId}
+            voiceReadyIds={new Set(Object.keys(narrationDurations))}
+            voiceState={voiceState}
+          />
+        </CardContent>
+      </Card>
+      <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Composition vidéo</CardTitle>
         </CardHeader>
         <CardContent>
           <CompositionSettingsPanel
-            aidLabels={timeline.aidLabels}
+            autoDurationSeconds={autoDurationSeconds}
+            narratedIds={new Set(beats.map((beat) => beat.id))}
             aidStations={aidStations}
             cameraActionsDisabled={!isReady || snapshot.isPlaying}
             onChange={updateSettings}
@@ -578,6 +760,7 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: V
           />
         </CardContent>
       </Card>
+      </div>
     </>
   );
 }

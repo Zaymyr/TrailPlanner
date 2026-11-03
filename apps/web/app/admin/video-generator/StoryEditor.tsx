@@ -1,0 +1,135 @@
+"use client";
+
+import React from "react";
+
+import { Button } from "../../../components/ui/button";
+import { estimateNarrationMs } from "./route-story";
+import type { ScheduledBeat } from "./video-composition";
+
+export type AsyncActionState = { status: "idle" | "loading" | "success" | "error"; message: string | null };
+
+const KIND_LABELS: Record<ScheduledBeat["kind"], string> = {
+  intro: "Intro",
+  start: "Départ",
+  climb: "Montée",
+  descent: "Descente",
+  aid: "Ravito",
+  lifeBase: "Base de vie",
+  finish: "Arrivée",
+  outro: "Conclusion",
+};
+
+const formatTime = (ms: number) => {
+  const seconds = Math.max(0, Math.round(ms / 1_000));
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+};
+
+type StoryEditorProps = {
+  beats: ScheduledBeat[];
+  narrationOverflow: boolean;
+  onGenerateVoice: () => void;
+  onNarrationChange: (beatId: string, narration: string) => void;
+  onResetScript: () => void;
+  onVoiceIdChange: (voiceId: string) => void;
+  onWriteScript: () => void;
+  scriptState: AsyncActionState;
+  totalMs: number;
+  voiceId: string;
+  voiceReadyIds: Set<string>;
+  voiceState: AsyncActionState;
+};
+
+function ActionMessage({ state }: { state: AsyncActionState }) {
+  if (!state.message) return null;
+  return <p className={`text-xs ${state.status === "error" ? "text-red-700" : "text-muted-foreground"}`}>{state.message}</p>;
+}
+
+/** The narrated script: one editable line per moment, with its place in the video and voice status. */
+export function StoryEditor({
+  beats,
+  narrationOverflow,
+  onGenerateVoice,
+  onNarrationChange,
+  onResetScript,
+  onVoiceIdChange,
+  onWriteScript,
+  scriptState,
+  totalMs,
+  voiceId,
+  voiceReadyIds,
+  voiceState,
+}: StoryEditorProps) {
+  const busy = scriptState.status === "loading" || voiceState.status === "loading";
+  const voicedCount = beats.filter((beat) => voiceReadyIds.has(beat.id)).length;
+  return (
+    <div className="space-y-3 text-foreground">
+      <div className="grid grid-cols-2 gap-2">
+        <Button type="button" className="h-9 px-2 text-xs" disabled={busy} onClick={onWriteScript}>
+          {scriptState.status === "loading" ? "Rédaction…" : "Rédiger avec l’IA"}
+        </Button>
+        <Button type="button" variant="outline" className="h-9 px-2 text-xs" disabled={busy || beats.length === 0} onClick={onGenerateVoice}>
+          {voiceState.status === "loading" ? "Génération…" : "Générer la voix off"}
+        </Button>
+      </div>
+      <ActionMessage state={scriptState} />
+      <ActionMessage state={voiceState} />
+      <p className="text-xs text-muted-foreground">
+        Vidéo de {formatTime(totalMs)} · {beats.length} moments · voix {voicedCount}/{beats.length}
+      </p>
+      {narrationOverflow ? (
+        <p className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
+          La narration est trop longue pour la durée choisie : raccourcis les textes ou passe la durée en automatique.
+        </p>
+      ) : null}
+
+      <ol className="space-y-2">
+        {beats.map((beat) => {
+          const voiced = voiceReadyIds.has(beat.id);
+          return (
+            <li key={beat.id} className="rounded-md border border-border bg-muted/20 p-2">
+              <div className="flex items-center justify-between gap-2 text-xs">
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className="shrink-0 rounded bg-brand px-1.5 py-0.5 font-semibold text-brand-foreground">{KIND_LABELS[beat.kind]}</span>
+                  <span className="truncate font-medium">{beat.kind === "intro" || beat.kind === "outro" ? "" : beat.title}</span>
+                </span>
+                <span className="flex shrink-0 items-center gap-1.5 tabular-nums text-muted-foreground">
+                  {formatTime(beat.narrationStartMs)}
+                  <span
+                    className={`h-2 w-2 rounded-full ${voiced ? "bg-emerald-500" : "bg-muted-foreground/40"}`}
+                    title={voiced ? "Voix générée" : "Voix à générer"}
+                  />
+                </span>
+              </div>
+              <textarea
+                aria-label={`Narration : ${KIND_LABELS[beat.kind]} ${beat.title}`}
+                className="mt-1.5 w-full resize-y rounded border border-input bg-card px-2 py-1 text-xs leading-snug"
+                rows={2}
+                value={beat.narration}
+                onChange={(event) => onNarrationChange(beat.id, event.target.value)}
+              />
+              <p className="text-[10px] text-muted-foreground">
+                ≈ {(estimateNarrationMs(beat.narration) / 1_000).toFixed(1)} s{beat.facts.length ? ` · ${beat.facts.join(" · ")}` : ""}
+              </p>
+            </li>
+          );
+        })}
+      </ol>
+
+      <div className="flex items-end gap-2 border-t border-border pt-3">
+        <label className="block flex-1 space-y-1 text-xs">
+          <span className="font-medium">Voix ElevenLabs (identifiant)</span>
+          <input
+            aria-label="Identifiant de la voix ElevenLabs"
+            className="min-h-8 w-full rounded-md border border-input bg-card px-2 font-mono text-xs"
+            placeholder="Voix par défaut"
+            value={voiceId}
+            onChange={(event) => onVoiceIdChange(event.target.value.trim())}
+          />
+        </label>
+        <Button type="button" variant="ghost" className="h-8 px-2 text-xs" disabled={busy} onClick={onResetScript}>
+          Texte par défaut
+        </Button>
+      </div>
+    </div>
+  );
+}

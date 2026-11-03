@@ -10,7 +10,7 @@ import {
   PROFILE_UNITS_PER_KM,
   type AidService,
   type ElevationProfile,
-  type ScheduledAidLabel,
+  type ScheduledBeat,
   type VideoCompositionSettings,
   type VideoFrameState,
 } from "./video-composition";
@@ -59,9 +59,6 @@ export const formatRaceStats = (race: VideoRaceInfo, settings: VideoCompositionS
   settings.showElevation && race.elevationGainM ? `${formatInteger(race.elevationGainM)} M D+` : null,
 ].filter(Boolean).join(" · ");
 
-const getLabelOpacity = (label: ScheduledAidLabel, timeMs: number) =>
-  Math.max(0, Math.min(1, (timeMs - label.startMs) / FADE_MS, (label.endMs - timeMs) / FADE_MS));
-
 const ProfileSegments = memo(function ProfileSegments({ profile }: { profile: ElevationProfile }) {
   return (
     <>
@@ -75,72 +72,78 @@ const ProfileSegments = memo(function ProfileSegments({ profile }: { profile: El
   );
 });
 
-const ICON_PATHS: Record<AidService | "cutoff", string[]> = {
+const ICON_PATHS: Record<AidService, string[]> = {
   water: ["M12 2.7s-6 6.4-6 11a6 6 0 0 0 12 0c0-4.6-6-11-6-11z"],
   food: ["M5 3v6a3 3 0 0 0 6 0V3", "M8 3v18", "M18 21V3c-2 0-4 2.5-4 7h4"],
   assistance: ["M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2", "M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z", "M22 21v-2a4 4 0 0 0-3-3.9", "M16 3.1a4 4 0 0 1 0 7.8"],
   dropBag: ["M5 10a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z", "M9 5V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1", "M8 14h8v4"],
-  cutoff: ["M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z", "M12 7v5l3 2"],
 };
 
-function BubbleIcon({ name }: { name: AidService | "cutoff" }) {
+function CaptionIcon({ name }: { name: AidService }) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" style={{ width: "2.9cqmin", height: "2.9cqmin" }} aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" style={{ width: "3.6cqmin", height: "3.6cqmin" }} aria-hidden="true">
       {ICON_PATHS[name].map((path) => <path key={path} d={path} />)}
     </svg>
   );
 }
 
+const CAPTION_KIND_LABELS: Record<ScheduledBeat["kind"], string> = {
+  intro: "",
+  start: "Départ",
+  climb: "Montée",
+  descent: "Descente",
+  aid: "Ravito",
+  lifeBase: "Base de vie",
+  finish: "Arrivée",
+  outro: "",
+};
+
+const getCaptionTitle = (beat: ScheduledBeat) => {
+  if (beat.kind === "climb" || beat.kind === "descent") return `km ${formatKm(beat.startKm)} → ${formatKm(beat.endKm)}`;
+  if (beat.kind === "start" || beat.kind === "finish") return null;
+  return beat.title;
+};
+
 /**
- * Compact card drawn above the station on the map (rendered into a Mapbox marker). It pops in on
- * the approach and fades out once the runner has passed the station.
+ * Lower-third caption of the narrated moment: fixed above the profile so it stays readable
+ * whatever the route does, and in sync with the voice-over.
  */
-function AidBubbleComponent({ accent, frameStore }: { accent: string; frameStore: VideoFrameStore }) {
-  const frame = useSyncExternalStore(frameStore.subscribe, frameStore.get, frameStore.get);
-  const label = frame.aidLabel;
-  if (!label) return null;
-  const appear = getLabelOpacity(label, frame.timeMs);
+function StoryCaption({ accent, beat, timeMs }: { accent: string; beat: ScheduledBeat; timeMs: number }) {
+  const appear = Math.max(0, Math.min(1, (timeMs - beat.startMs) / FADE_MS, (beat.endMs - timeMs) / FADE_MS));
+  const title = getCaptionTitle(beat);
   return (
     <div
-      className="relative w-max text-[#1a1a1a]"
-      style={{ opacity: appear, transform: `scale(${0.85 + appear * 0.15})`, transformOrigin: "50% 100%", marginBottom: "2.2cqmin", maxWidth: "62cqmin" }}
+      className="absolute rounded-[2cqmin] bg-white text-[#1a1a1a] shadow-[0_0.6cqmin_2.4cqmin_rgba(0,0,0,0.35)]"
+      style={{
+        left: "4cqmin",
+        right: "4cqmin",
+        bottom: "50cqmin",
+        padding: "2cqmin 3cqmin",
+        borderLeft: `1.2cqmin solid ${accent}`,
+        opacity: appear,
+        transform: `translateY(${(1 - appear) * 3}cqmin)`,
+        textShadow: "none",
+      }}
     >
-      <div className="rounded-[2cqmin] bg-white shadow-[0_0.6cqmin_2.4cqmin_rgba(0,0,0,0.35)]" style={{ padding: "1.5cqmin 2.4cqmin", borderTop: `0.8cqmin solid ${accent}` }}>
-        <div className="flex items-center" style={{ gap: "1.4cqmin" }}>
-          <p className="truncate font-black uppercase leading-none" style={{ fontSize: "3.6cqmin" }}>{label.name}</p>
-          {label.isLifeBase ? (
-            <span className="shrink-0 rounded-full font-black uppercase leading-none text-white" style={{ fontSize: "2.1cqmin", padding: "0.6cqmin 1.4cqmin", background: accent }}>
-              Base de vie
+      <div className="flex items-center" style={{ gap: "1.8cqmin" }}>
+        <span className="shrink-0 rounded-full font-black uppercase leading-none text-white" style={{ fontSize: "2.6cqmin", padding: "0.8cqmin 1.8cqmin", background: accent }}>
+          {CAPTION_KIND_LABELS[beat.kind]}
+        </span>
+        {title ? <p className="truncate font-black uppercase leading-none" style={{ fontSize: "4.4cqmin" }}>{title}</p> : null}
+      </div>
+      {beat.facts.length || beat.services.length ? (
+        <div className="flex flex-wrap items-center font-bold tabular-nums leading-tight" style={{ gap: "2cqmin", marginTop: "1.4cqmin", fontSize: "3.4cqmin" }}>
+          {beat.facts.length ? <span>{beat.facts.join(" · ")}</span> : null}
+          {beat.services.length ? (
+            <span className="flex items-center" style={{ gap: "1.6cqmin", color: accent }}>
+              {beat.services.map((service) => <CaptionIcon key={service} name={service} />)}
             </span>
           ) : null}
         </div>
-        <div className="flex items-center font-bold tabular-nums leading-none" style={{ gap: "1.8cqmin", marginTop: "1cqmin", fontSize: "2.8cqmin" }}>
-          {label.kind === "start" ? (
-            <span className="font-semibold">{label.detail}</span>
-          ) : (
-            <>
-              <span style={{ color: accent }}>KM {formatKm(label.distanceKm)}</span>
-              {label.cutoffTime ? (
-                <span className="flex items-center" style={{ gap: "0.6cqmin" }}><BubbleIcon name="cutoff" />{label.cutoffTime}</span>
-              ) : null}
-              {label.services.length ? (
-                <span className="flex items-center" style={{ gap: "1.2cqmin", color: accent }}>
-                  {label.services.map((service) => <BubbleIcon key={service} name={service} />)}
-                </span>
-              ) : null}
-            </>
-          )}
-        </div>
-      </div>
-      <span
-        className="absolute left-1/2 top-full -translate-x-1/2"
-        style={{ borderLeft: "1.6cqmin solid transparent", borderRight: "1.6cqmin solid transparent", borderTop: "1.8cqmin solid white" }}
-      />
+      ) : null}
     </div>
   );
 }
-
-export const AidBubble = memo(AidBubbleComponent);
 
 type OverlayProps = {
   elevationAtDistance: (distanceKm: number) => number;
@@ -186,6 +189,8 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, frameStore, gra
           {stats ? <p className="mt-[1.5cqmin] w-fit rounded-full font-bold tabular-nums" style={{ ...accentPill, fontSize: "3.8cqmin" }}>{stats}</p> : null}
         </header>
       ) : null}
+
+      {settings.showCaptions && frame.beat ? <StoryCaption accent={accent} beat={frame.beat} timeMs={frame.timeMs} /> : null}
 
       {settings.showProfile || settings.showCurrentKm ? (
         <section className="absolute" style={{ left: "4cqmin", right: "4cqmin", bottom: "14cqmin", opacity: chromeOpacity }}>
