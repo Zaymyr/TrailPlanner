@@ -1,7 +1,7 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-10-29
+last_verified: 2026-11-03
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -28,6 +28,8 @@ related_tables:
 ---
 
 # `race_event_claims`
+
+The Organizer dashboard now preserves loaded course-point sidecars across same-format refreshes and gates their autosave until loading completes. This client integrity guard does not create, review, approve, or otherwise mutate organizer claims.
 
 The organizer Matériel and Dossard editors now keep saved rows visible and editable without nested accordions, including read-first address autocomplete for pickup locations. This presentation change and the additive third-party pickup conditions field do not alter claim review, membership creation, authorization, or publication.
 

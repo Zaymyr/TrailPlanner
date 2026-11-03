@@ -2,7 +2,7 @@
 title: Organizer Race Management
 scope: business-rule
 
-last_verified: 2026-11-02
+last_verified: 2026-11-03
 
 ai_priority: high
 related_files:
@@ -246,6 +246,8 @@ related_tables:
 ---
 
 # Organizer Race Management
+
+Ravito, relay, and supporter-point autosave is gated on the active race sidecar load. Saving the same format no longer resets those collections merely because the refreshed race object has a new identity, so an unloaded empty array cannot replace persisted course points.
 
 Organizer edits autosave after 800 ms with visible pending/saving/saved/error states and explicit retry. Validation blocks invalid date ranges, phones, HTTPS links, and incomplete required identity before persistence. New formats inherit event date/location and may prefill the event website, but never clone another format; the format website itself is optional.
 
