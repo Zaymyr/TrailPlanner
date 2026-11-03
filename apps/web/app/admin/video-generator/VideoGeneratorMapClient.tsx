@@ -76,6 +76,9 @@ const MARKER_LABEL_LAYER_ID = "video-route-marker-labels";
 // The climb, descent or rolling section being narrated, drawn in the highlight colour.
 const SEGMENT_SOURCE_ID = "video-beat-segment";
 const SEGMENT_LAYER_ID = "video-beat-segment-line";
+const SEGMENT_DONE_LAYER_ID = "video-beat-segment-done";
+// The told slope ahead of the runner is shown pale; behind the runner it is solid.
+const SEGMENT_AHEAD_OPACITY = 0.4;
 export const VIDEO_ROUTE_COLOR = DEFAULT_VIDEO_COMPOSITION_SETTINGS.routeColor;
 const FUTURE_ROUTE_ALPHA_HEX = "38";
 const GLOW_ROUTE_ALPHA_HEX = "8c";
@@ -87,6 +90,7 @@ const OWN_LAYER_IDS = new Set([
   MARKER_LABEL_LAYER_ID,
   PEAKS_LAYER_ID,
   SEGMENT_LAYER_ID,
+  SEGMENT_DONE_LAYER_ID,
 ]);
 
 const EMPTY_FEATURES = { type: "FeatureCollection", features: [] } as const;
@@ -238,7 +242,7 @@ const syncMapData = (
   // The narrated slope is the route itself in the highlight colour, drawn over the reveal layer so
   // the whole climb shows even before the runner gets there.
   if (!map.getSource(SEGMENT_SOURCE_ID)) {
-    map.addSource(SEGMENT_SOURCE_ID, { type: "geojson", data: EMPTY_FEATURES as unknown as GeoJsonSourceData });
+    map.addSource(SEGMENT_SOURCE_ID, { type: "geojson", data: EMPTY_FEATURES as unknown as GeoJsonSourceData, lineMetrics: true });
   }
   if (!map.getLayer(SEGMENT_LAYER_ID)) {
     map.addLayer({
@@ -249,8 +253,24 @@ const syncMapData = (
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
         "line-color": settings.highlightColor,
+        "line-opacity": SEGMENT_AHEAD_OPACITY,
         "line-width": lineWidth,
         "line-emissive-strength": 1,
+      },
+    });
+  }
+  if (!map.getLayer(SEGMENT_DONE_LAYER_ID)) {
+    map.addLayer({
+      id: SEGMENT_DONE_LAYER_ID,
+      type: "line",
+      source: SEGMENT_SOURCE_ID,
+      slot: "top",
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: {
+        "line-color": settings.highlightColor,
+        "line-width": lineWidth,
+        "line-emissive-strength": 1,
+        "line-trim-offset": [0, 1],
       },
     });
   }
@@ -456,6 +476,14 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       const segmentSource = map.getSource(SEGMENT_SOURCE_ID) as GeoJSONSource | undefined;
       segmentSource?.setData(buildSegmentGeoJson(path, frame.beat) as unknown as GeoJsonSourceData);
     }
+    // Solid behind the runner, pale ahead: the told slope never looks revealed before the dot.
+    if (frame.beat?.focusStartKm !== undefined && frame.beat.focusEndKm !== undefined && map.getLayer(SEGMENT_DONE_LAYER_ID)) {
+      const table = lineProgressTableRef.current;
+      const from = getLineProgressAtDistance(table, frame.beat.focusStartKm);
+      const to = getLineProgressAtDistance(table, frame.beat.focusEndKm);
+      const done = to > from ? (getLineProgressAtDistance(table, frame.distanceKm) - from) / (to - from) : 0;
+      map.setPaintProperty(SEGMENT_DONE_LAYER_ID, "line-trim-offset", buildRouteTrimOffset("progressive", done));
+    }
     const activeAidDistance = frame.beat && (frame.beat.kind === "aid" || frame.beat.kind === "lifeBase") ? frame.beat.anchorKm : null;
     if (activeAidDistance !== activeAidDistanceRef.current && map.getLayer(MARKER_CIRCLE_LAYER_ID)) {
       activeAidDistanceRef.current = activeAidDistance;
@@ -512,10 +540,11 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       map.setPaintProperty(ROUTE_LAYER_ID, "line-color", `${settings.routeColor}${FUTURE_ROUTE_ALPHA_HEX}`);
       map.setPaintProperty(ROUTE_LAYER_ID, "line-width", lineWidth);
     }
-    if (map.getLayer(SEGMENT_LAYER_ID)) {
-      map.setPaintProperty(SEGMENT_LAYER_ID, "line-color", settings.highlightColor);
-      map.setPaintProperty(SEGMENT_LAYER_ID, "line-width", lineWidth);
-    }
+    [SEGMENT_LAYER_ID, SEGMENT_DONE_LAYER_ID].forEach((layerId) => {
+      if (!map.getLayer(layerId)) return;
+      map.setPaintProperty(layerId, "line-color", settings.highlightColor);
+      map.setPaintProperty(layerId, "line-width", lineWidth);
+    });
     if (map.getLayer(ROUTE_GLOW_LAYER_ID)) {
       map.setPaintProperty(ROUTE_GLOW_LAYER_ID, "line-color", `${settings.routeColor}${GLOW_ROUTE_ALPHA_HEX}`);
       map.setLayoutProperty(ROUTE_GLOW_LAYER_ID, "visibility", settings.routeGlow ? "visible" : "none");
@@ -592,6 +621,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       const response = await authorizedPost("/api/admin/video-generator/script", {
         race: { title: race.title, subtitle: race.subtitle, distanceKm: race.distanceKm, elevationGainM: race.elevationGainM, startDetail: race.startDetail },
         targetSeconds: settings.durationMode === "auto" ? MAX_VIDEO_SECONDS : settings.durationSeconds,
+        voiceModel: voiceOptions.model,
         beats: beats.map(({ id, kind, title, startKm, endKm, facts, services, cutoffTime, narration }) =>
           ({ id, kind, title, startKm, endKm, facts, services, cutoffTime, narration })),
       });

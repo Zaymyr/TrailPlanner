@@ -145,14 +145,18 @@ describe("buildVideoTimeline", () => {
     const climb = { ...beat("climb", "climb", 10, 20, "La montée vers le sommet : dix kilomètres, deux mille mètres à gravir."), focusStartKm: 10, focusEndKm: 20 };
     const timeline = buildVideoTimeline(path, [beat("start", "start", 0, 10, "Départ."), climb], { ...manual(45), introEnabled: false, outroEnabled: false });
     const told = timeline.beats.find((item) => item.id === "climb")!;
-    const during = getVideoFrameState(timeline, told.narrationStartMs + told.narrationMs / 2);
+    const msAt = (distanceKm: number) => timeline.introMs + getFlyoverFractionAtDistance(timeline, distanceKm) * timeline.flyoverMs;
+    // Early in the climb (after the 1.5 s glide in), the shot frames the whole slope.
+    const during = getVideoFrameState(timeline, Math.max(told.narrationStartMs + 1_600, msAt(12.5)));
+    expect(during.distanceKm).toBeLessThan(13.5);
     const framed = getVideoCameraPose(path, timeline, during, "portrait");
     const chase = getVideoCameraPose(path, timeline, { ...during, beat: null }, "portrait");
-    // The framing shot looks at the middle of the climb from further back.
     expect(framed.target.lat).toBeGreaterThan(chase.target.lat);
     expect(framed.camera.altitudeM).toBeGreaterThan(chase.camera.altitudeM);
-    const after = getVideoFrameState(timeline, told.narrationStartMs + told.narrationMs + 5_000);
-    expect(getVideoCameraPose(path, timeline, after, "portrait")).toEqual(getVideoCameraPose(path, timeline, { ...after, beat: null }, "portrait"));
+    // Near the top the camera is fully back on the runner, while the voice still speaks.
+    const nearTop = getVideoFrameState(timeline, msAt(18.5));
+    expect(nearTop.beat?.id).toBe("climb");
+    expect(getVideoCameraPose(path, timeline, nearTop, "portrait")).toEqual(getVideoCameraPose(path, timeline, { ...nearTop, beat: null }, "portrait"));
   });
 
   it("burns the narration in as short subtitle lines timed with the voice", () => {

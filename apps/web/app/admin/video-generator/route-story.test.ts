@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { VideoAidStation, VideoRoutePoint } from "../../../lib/video-generator";
 import { prepareAnimationPath } from "./route-animation";
-import { buildStoryBeats, detectRouteSlopes, estimateNarrationMs, getAutoDurationSeconds, getSlopeId } from "./route-story";
+import { buildStoryBeats, detectRouteSlopes, estimateNarrationMs, getAutoDurationSeconds, getSlopeId, stripVoiceTags } from "./route-story";
 
 // 0-10 km flat, 10-16 km climb of 600 m, 16-22 km descent of 600 m, 22-30 km flat.
 const profilePoints: VideoRoutePoint[] = Array.from({ length: 301 }, (_, index) => {
@@ -104,5 +104,16 @@ describe("durations", () => {
   it("estimates speech at about 15 characters per second", () => {
     expect(estimateNarrationMs("")).toBe(0);
     expect(estimateNarrationMs("x".repeat(150))).toBeCloseTo(10_300, -2);
+  });
+});
+
+describe("stripVoiceTags", () => {
+  it("hides v3 performance tags and maps shown characters back to the spoken text", () => {
+    const raw = "[excited] Allez, c’est parti ! [laughs] Garde des cuisses.";
+    const { text, rawIndex } = stripVoiceTags(raw);
+    expect(text).toBe("Allez, c’est parti ! Garde des cuisses.");
+    expect(raw[rawIndex[0]]).toBe("A");
+    expect(raw[rawIndex[text.indexOf("Garde")]]).toBe("G");
+    expect(estimateNarrationMs(raw)).toBe(estimateNarrationMs(text));
   });
 });

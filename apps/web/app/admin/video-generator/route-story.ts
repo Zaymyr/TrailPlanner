@@ -419,10 +419,49 @@ export const buildStoryBeats = (
     {
       id: "outro", kind: "outro", title: "Pace Yourself", startKm: total, endKm: total, anchorKm: total,
       facts: [], services: [], cutoffTime: null,
-      narration: "Et pour préparer ton plan de course, file sur pace-yourself point com.",
+      narration: "Et pour préparer ta course, télécharge l’appli Pace Yourself, dispo sur iPhone et Android.",
     },
   ];
 };
 
+/**
+ * Removes ElevenLabs v3 performance tags ("[excited]", "[laughs]") from what is shown or timed,
+ * keeping for every shown character its index in the original text, so subtitles can still be
+ * timed from the audio alignment of the text that was spoken.
+ */
+export const stripVoiceTags = (raw: string) => {
+  const shown: string[] = [];
+  const rawIndex: number[] = [];
+  let depth = 0;
+  let pendingSpace = false;
+  for (let index = 0; index < raw.length; index += 1) {
+    const character = raw[index];
+    if (character === "[") {
+      depth += 1;
+      continue;
+    }
+    if (character === "]" && depth > 0) {
+      depth -= 1;
+      continue;
+    }
+    if (depth > 0) continue;
+    if (/\s/.test(character)) {
+      if (shown.length) pendingSpace = true;
+      continue;
+    }
+    if (pendingSpace) {
+      shown.push(" ");
+      rawIndex.push(index - 1);
+      pendingSpace = false;
+    }
+    shown.push(character);
+    rawIndex.push(index);
+  }
+  return { text: shown.join(""), rawIndex };
+};
+
 /** French speech runs at about 15 characters per second; used until the real audio exists. */
-export const estimateNarrationMs = (text: string) => (text.trim() ? 400 + text.trim().length * 66 : 0);
+export const estimateNarrationMs = (text: string) => {
+  const spoken = stripVoiceTags(text).text;
+  return spoken ? 400 + spoken.length * 66 : 0;
+};

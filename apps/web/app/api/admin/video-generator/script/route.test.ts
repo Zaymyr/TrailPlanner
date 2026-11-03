@@ -70,6 +70,15 @@ describe("POST /api/admin/video-generator/script", () => {
     expect(params.system).toMatch(/continu/);
   });
 
+  it("allows v3 performance tags only for the expressive voice", async () => {
+    state.parse.mockResolvedValue({ stop_reason: "end_turn", parsed_output: { beats: [{ id: "intro", narration: "[excited] Allez !" }] } });
+    await POST(request(validBody));
+    expect(state.parse.mock.calls[0][0].system).not.toContain("[excited]");
+    await POST(request({ ...validBody, voiceModel: "v3" }));
+    expect(state.parse.mock.calls[1][0].system).toContain("[excited]");
+    expect(state.parse.mock.calls[1][0].system).toMatch(/télécharger l.appli/);
+  });
+
   it("reports a refusal instead of returning an empty script", async () => {
     state.parse.mockResolvedValue({ stop_reason: "refusal", parsed_output: null });
     expect((await POST(request(validBody))).status).toBe(502);

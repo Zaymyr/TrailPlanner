@@ -298,8 +298,8 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, frameStore, gra
           {settings.showLogo ? <Image src={LOGO_SRC} alt="" width={256} height={256} unoptimized style={{ width: "7cqmin", height: "7cqmin" }} /> : null}
           {settings.showCta ? (
             <div className="leading-tight">
-              <p className="font-black uppercase" style={{ fontSize: "2.8cqmin" }}>Prépare ton plan de course</p>
-              <p className="font-semibold text-white/85" style={{ fontSize: "2.8cqmin" }}>pace-yourself.com</p>
+              <p className="font-black uppercase" style={{ fontSize: "2.8cqmin" }}>Télécharge l’appli</p>
+              <p className="font-semibold text-white/85" style={{ fontSize: "2.8cqmin" }}>Dispo sur iPhone et Android</p>
             </div>
           ) : null}
         </footer>
@@ -321,8 +321,9 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, frameStore, gra
           {settings.showLogo ? <Image src={LOGO_SRC} alt="" width={256} height={256} unoptimized style={{ width: "22cqmin", height: "22cqmin" }} /> : null}
           {settings.showCta ? (
             <>
-              <p className="mt-[3cqmin] font-black uppercase leading-tight" style={{ fontSize: "6.5cqmin" }}>Prépare ton plan de course</p>
-              <p className="mt-[2cqmin] rounded-full font-bold" style={{ ...accentPill, fontSize: "4.6cqmin" }}>pace-yourself.com</p>
+              <p className="mt-[3cqmin] font-black uppercase leading-tight" style={{ fontSize: "6.5cqmin" }}>Télécharge l’appli Pace Yourself</p>
+              <p className="mt-[1.5cqmin] font-semibold" style={{ fontSize: "4cqmin" }}>Prépare ton plan de course</p>
+              <p className="mt-[2.5cqmin] rounded-full font-bold" style={{ ...accentPill, fontSize: "4.6cqmin" }}>App Store · Google Play</p>
             </>
           ) : null}
         </div>

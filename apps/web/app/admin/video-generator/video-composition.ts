@@ -12,7 +12,7 @@ import {
   type PreparedAnimationPath,
 } from "./route-animation";
 import { getSmoothedDaylightAt, type Daylight, type RaceClock } from "./route-clock";
-import { estimateNarrationMs, getAutoDurationSeconds, MAX_VIDEO_SECONDS, type StoryBeat } from "./route-story";
+import { estimateNarrationMs, getAutoDurationSeconds, MAX_VIDEO_SECONDS, stripVoiceTags, type StoryBeat } from "./route-story";
 
 export { AID_SERVICES, getAidStationServices, type AidService } from "./route-story";
 
@@ -125,17 +125,22 @@ export const splitSubtitleText = (text: string, maxChars = SUBTITLE_MAX_CHARS) =
  * text, otherwise in proportion to the line lengths.
  */
 const timeSubtitles = (text: string, startMs: number, durationMs: number, characterEndMs?: number[]): SubtitleLine[] => {
-  const lines = splitSubtitleText(text);
+  // Performance tags ("[excited]") are spoken as intonation, never shown.
+  const { text: shown, rawIndex } = stripVoiceTags(text);
+  const lines = splitSubtitleText(shown);
   const spoken = text.trim();
+  const leadingSpaces = text.length - text.trimStart().length;
   if (characterEndMs && characterEndMs.length === spoken.length && lines.length) {
     let cursor = 0;
     let previousEndMs = 0;
     const aligned = lines.map((line) => {
-      const at = spoken.indexOf(line, cursor);
+      const at = shown.indexOf(line, cursor);
       if (at < 0) return null;
       cursor = at + line.length;
-      const entry = { text: line, startMs: startMs + previousEndMs, endMs: startMs + characterEndMs[cursor - 1] };
-      previousEndMs = characterEndMs[cursor - 1];
+      const endMs = characterEndMs[rawIndex[cursor - 1] - leadingSpaces];
+      if (endMs === undefined) return null;
+      const entry = { text: line, startMs: startMs + previousEndMs, endMs: startMs + endMs };
+      previousEndMs = endMs;
       return entry;
     });
     if (aligned.every((entry): entry is SubtitleLine => entry !== null)) return aligned;
@@ -589,8 +594,9 @@ const OUTRO_GLIDE_RATIO = 0.6;
 /** Intro holds the overview then glides to the start; the outro glides back and holds. */
 const CAMERA_SPEED_WINDOW_MS = 2_000;
 const FRAMING_RAMP_IN_MS = 1_500;
-const FRAMING_HOLD_AFTER_MS = 1_200;
-const FRAMING_RAMP_OUT_MS = 2_000;
+// Share of the slope covered when the framing shot starts / ends handing back to the chase camera.
+const FRAMING_RELEASE_START = 0.35;
+const FRAMING_RELEASE_END = 0.8;
 
 /**
  * On-screen ground speed around a moment, over a ±2 s window so the camera distance breathes
@@ -623,9 +629,12 @@ export const getVideoCameraPose = (
     if (!beat || (beat.kind !== "climb" && beat.kind !== "descent") || beat.focusStartKm === undefined || beat.focusEndKm === undefined) {
       return chase;
     }
-    // While a climb or descent is told, glide to a shot showing it whole, then back to the chase.
+    // While a climb or descent is told, glide to a shot showing it whole. The shot hands back to the
+    // chase camera as the runner climbs (fully back before the top), so the dot never leaves the
+    // frame and the camera never has to catch up at once.
     const rampIn = (frame.timeMs - beat.narrationStartMs) / FRAMING_RAMP_IN_MS;
-    const rampOut = (beat.narrationStartMs + beat.narrationMs + FRAMING_HOLD_AFTER_MS - frame.timeMs) / FRAMING_RAMP_OUT_MS;
+    const climbProgress = (frame.distanceKm - beat.focusStartKm) / Math.max(0.01, beat.focusEndKm - beat.focusStartKm);
+    const rampOut = (FRAMING_RELEASE_END - climbProgress) / (FRAMING_RELEASE_END - FRAMING_RELEASE_START);
     const weight = easeInOut(clamp(Math.min(rampIn, rampOut), 0, 1));
     if (weight <= 0) return chase;
     const framing = getSegmentFramingPose(path, beat.focusStartKm, beat.focusEndKm, viewport, exaggeration);

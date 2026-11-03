@@ -48,9 +48,14 @@ Le parcours est découpé en tronçons consécutifs. Ta phrase pour un tronçon 
 - n'invente rien : uniquement les faits fournis (noms, kilomètres, dénivelés, pourcentages, services, horaires) ; pas de météo, de paysage ni d'anecdote ;
 - écris pour l'oreille : tutoiement, phrases courtes, nombres tels qu'on les dit (« 6,2 bornes » ou « 6,2 kilomètres », « 9 pour cent »), aucun symbole ni abréviation (%, km, m, D+), pas d'emoji ;
 - garde les lieux courts : le nom du lieu, jamais une adresse postale ;
-- l'intro accroche en une phrase ; l'outro invite à préparer son plan de course sur pace-yourself point com, sur le même ton.
+- l'intro accroche en une phrase ; l'outro invite à télécharger l'appli Pace Yourself, dispo sur iPhone et Android, pour préparer son plan de course, sur le même ton.
 
 Renvoie une narration pour chaque id reçu, dans le même ordre.`;
+
+// Only for the expressive v3 voice: it reads bracketed tags as performance directions.
+const V3_TAGS_PROMPT = `
+
+La voix est le modèle expressif ElevenLabs v3 : tu peux ajouter quelques indications de jeu en anglais entre crochets, placées juste avant les mots concernés, pour donner de la vie : [excited], [cheerful], [laughs], [chuckles], [sighs], [whispers], [curious], [determined], [relieved]. Au plus une par tronçon, pas dans chaque tronçon, jamais deux d'affilée ; elles ne comptent pas dans maxWords. Exemples : « [excited] Allez, c'est parti ! », « [sighs] Et là, ça grimpe sec… », « [laughs] Garde des cuisses, tu vas en avoir besoin. »`;
 
 const scriptOutputSchema = z4.object({
   beats: z4.array(z4.object({ id: z4.string(), narration: z4.string() })),
@@ -80,7 +85,7 @@ export async function POST(request: NextRequest) {
     console.error("Video narration script request rejected", parsed.error.issues.slice(0, 5));
     return jsonError(`Requête de script invalide (${issue?.path.join(".") || "corps"} : ${issue?.message ?? "format"}).`, 400);
   }
-  const { race, beats, targetSeconds } = parsed.data;
+  const { race, beats, targetSeconds, voiceModel } = parsed.data;
   const maxWords = allocateWords(beats, targetSeconds);
 
   const input = {
@@ -109,7 +114,7 @@ export async function POST(request: NextRequest) {
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
       output_config: { effort: "medium", format: betaZodOutputFormat(scriptOutputSchema) },
-      system: SYSTEM_PROMPT,
+      system: voiceModel === "v3" ? SYSTEM_PROMPT + V3_TAGS_PROMPT : SYSTEM_PROMPT,
       messages: [{ role: "user", content: `Voici le parcours et ses tronçons, au format JSON :\n${JSON.stringify(input, null, 2)}` }],
     });
 

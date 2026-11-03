@@ -23,6 +23,8 @@ export const narrationScriptRequestSchema = z.object({
     startDetail: z.string().max(200).nullable(),
   }),
   targetSeconds: z.number().min(10).max(300),
+  /** With the expressive v3 voice, the script may carry performance tags such as [excited]. */
+  voiceModel: z.enum(["multilingual_v2", "v3"]).default("multilingual_v2"),
   beats: z.array(narrationBeatInputSchema).min(1).max(40),
 });
 
