@@ -105,6 +105,53 @@ const interpolateGpxElevation = (
   );
 };
 
+export type LineProgressTable = { distancesKm: number[]; progress: number[] };
+
+const toMercator = (lon: number, lat: number) => {
+  const clampedLat = Math.max(-85, Math.min(85, lat)) * Math.PI / 180;
+  return { x: lon / 360, y: Math.log(Math.tan(Math.PI / 4 + clampedLat / 2)) / (2 * Math.PI) };
+};
+
+/**
+ * Mapbox `line-progress` (used by `line-trim-offset`) is measured along the drawn line in Mercator
+ * units, not in GPX distance. GPX distances can include elevation and Mercator scale changes with
+ * latitude, so the reveal must map the marker distance through this table to stay under the dot.
+ */
+export const buildLineProgressTable = (sourcePoints: VideoRoutePoint[]): LineProgressTable => {
+  const points = normalizePoints(sourcePoints);
+  const lengths = [0];
+  for (let index = 1; index < points.length; index += 1) {
+    const from = toMercator(points[index - 1].lon, points[index - 1].lat);
+    const to = toMercator(points[index].lon, points[index].lat);
+    lengths.push(lengths[index - 1] + Math.hypot(to.x - from.x, to.y - from.y));
+  }
+  const total = lengths[lengths.length - 1] ?? 0;
+  return {
+    distancesKm: points.map((point) => point.distanceKm),
+    progress: lengths.map((length, index) => total > 0 ? length / total : points.length > 1 ? index / (points.length - 1) : 0),
+  };
+};
+
+export const getLineProgressAtDistance = (table: LineProgressTable, distanceKm: number) => {
+  const { distancesKm, progress } = table;
+  if (distancesKm.length === 0) return 0;
+  if (distanceKm <= distancesKm[0]) return progress[0];
+  const last = distancesKm.length - 1;
+  if (distanceKm >= distancesKm[last]) return progress[last];
+  let low = 0;
+  let high = distancesKm.length;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (distancesKm[middle] <= distanceKm) low = middle + 1;
+    else high = middle;
+  }
+  const upperIndex = low;
+  const lowerIndex = Math.max(0, upperIndex - 1);
+  const span = distancesKm[upperIndex] - distancesKm[lowerIndex];
+  const ratio = span > 0 ? (distanceKm - distancesKm[lowerIndex]) / span : 1;
+  return interpolateNumber(progress[lowerIndex], progress[upperIndex], ratio);
+};
+
 export const prepareAnimationPath = (
   sourcePoints: VideoRoutePoint[],
   resolveTerrainElevation?: TerrainElevationResolver,

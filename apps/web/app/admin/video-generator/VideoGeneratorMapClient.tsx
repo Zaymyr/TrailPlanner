@@ -30,6 +30,8 @@ import {
 } from "./map-appearance";
 import { observeMapSize, type MapResizeController } from "./map-resize-controller";
 import {
+  buildLineProgressTable,
+  getLineProgressAtDistance,
   getRoutePointAtDistance,
   prepareAnimationPath,
   type PreparedAnimationPath,
@@ -255,6 +257,7 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: V
     return aidStations.filter((station) => !disabled.has(station.id));
   }, [aidStations, settings.disabledAidStationIds]);
   const routeData = useMemo(() => buildRouteGeoJson(points), [points]);
+  const lineProgressTable = useMemo(() => buildLineProgressTable(points), [points]);
   const markerData = useMemo(() => buildMarkerGeoJson(points, enabledAidStations), [enabledAidStations, points]);
   const timeline = useMemo(
     () => buildVideoTimeline(preparedPath, aidStations, settings, { detail: race.startDetail }),
@@ -280,6 +283,8 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: V
   timelineRef.current = timeline;
   preparedPathRef.current = preparedPath;
   routeDataRef.current = routeData;
+  const lineProgressTableRef = useRef(lineProgressTable);
+  lineProgressTableRef.current = lineProgressTable;
   markerDataRef.current = markerData;
 
   const applyAnimationTime = useCallback((timeMs: number) => {
@@ -291,7 +296,8 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: V
     if (!map || !layersReadyRef.current || !camera || !path.canAnimate) return;
 
     camera.applyAnimationFrame(getVideoCameraPose(path, timelineRef.current, frame, settingsRef.current.viewport));
-    const trimOffset = buildRouteTrimOffset(settingsRef.current.revealMode, frame.routeProgress);
+    const lineProgress = frame.routeProgress >= 1 ? 1 : getLineProgressAtDistance(lineProgressTableRef.current, frame.distanceKm);
+    const trimOffset = buildRouteTrimOffset(settingsRef.current.revealMode, lineProgress);
     if (map.getLayer(ROUTE_REVEAL_LAYER_ID)) map.setPaintProperty(ROUTE_REVEAL_LAYER_ID, "line-trim-offset", trimOffset);
     if (map.getLayer(ROUTE_GLOW_LAYER_ID)) map.setPaintProperty(ROUTE_GLOW_LAYER_ID, "line-trim-offset", trimOffset);
     const routePoint = getRoutePointAtDistance(path, frame.distanceKm);
