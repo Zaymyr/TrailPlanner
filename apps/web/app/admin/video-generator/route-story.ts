@@ -465,3 +465,7 @@ export const estimateNarrationMs = (text: string) => {
   const spoken = stripVoiceTags(text).text;
   return spoken ? 400 + spoken.length * 66 : 0;
 };
+
+/** Positive elevation gain from the start to a distance, ignoring sub-5 m GPS jitter. */
+export const getCumulativeGainAt = (path: PreparedAnimationPath, distanceKm: number) =>
+  elevationChange(path, 0, distanceKm).gain;

@@ -9,7 +9,7 @@ import mapboxgl, {
 } from "mapbox-gl";
 
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
-import { buildMarkerGeoJson, buildRouteGeoJson } from "../../../lib/video-generator";
+import { buildMarkerGeoJson, buildRouteGeoJson, type VideoAidStation } from "../../../lib/video-generator";
 import { narrationScriptResponseSchema, narrationVoiceResponseSchema } from "../../../lib/video-narration";
 import { AnimationControls } from "./AnimationControls";
 import {
@@ -25,6 +25,7 @@ import {
   captureMapAppearanceState,
   PEAKS_LAYER_ID,
   resolveMapStyleUrl,
+  ROUTE_CASING_WIDTHS,
   ROUTE_GLOW_WIDTH,
   ROUTE_LINE_WIDTHS,
   type MapAppearanceState,
@@ -44,6 +45,7 @@ import {
   buildStoryBeats,
   detectRouteSlopes,
   getAutoDurationSeconds,
+  getCumulativeGainAt,
   getSlopeId,
   MAX_VIDEO_SECONDS,
   type StoryBeat,
@@ -70,6 +72,7 @@ const ROUTE_SOURCE_ID = "video-route";
 const ROUTE_LAYER_ID = "video-route-line";
 const ROUTE_REVEAL_LAYER_ID = "video-route-line-reveal";
 const ROUTE_GLOW_LAYER_ID = "video-route-line-glow";
+const ROUTE_CASING_LAYER_ID = "video-route-line-casing";
 const MARKER_SOURCE_ID = "video-route-markers";
 const MARKER_CIRCLE_LAYER_ID = "video-route-marker-circles";
 const MARKER_LABEL_LAYER_ID = "video-route-marker-labels";
@@ -86,6 +89,7 @@ const OWN_LAYER_IDS = new Set([
   ROUTE_LAYER_ID,
   ROUTE_GLOW_LAYER_ID,
   ROUTE_REVEAL_LAYER_ID,
+  ROUTE_CASING_LAYER_ID,
   MARKER_CIRCLE_LAYER_ID,
   MARKER_LABEL_LAYER_ID,
   PEAKS_LAYER_ID,
@@ -126,6 +130,71 @@ export const fetchNearestPeakName = async (lon: number, lat: number, token: stri
   return (peaks[0]?.name as string | undefined) ?? null;
 };
 
+type AidBubble = { distanceKm: number; element: HTMLElement; marker: mapboxgl.Marker; opacity: number };
+
+/** Card above an aid station: name, cumulative D+ from the start and cutoff, built with text nodes. */
+const createAidBubbleElement = (station: VideoAidStation, cumulativeGainM: number, accent: string) => {
+  const element = document.createElement("div");
+  element.setAttribute("aria-hidden", "true");
+  Object.assign(element.style, {
+    position: "relative",
+    padding: "0.9cqmin 1.8cqmin",
+    borderRadius: "1.4cqmin",
+    background: "#ffffff",
+    color: "#1a1a1a",
+    borderLeft: `0.8cqmin solid ${accent}`,
+    boxShadow: "0 0.4cqmin 1.6cqmin rgba(0, 0, 0, 0.35)",
+    whiteSpace: "nowrap",
+    opacity: "0",
+    pointerEvents: "none",
+    transition: "none",
+  });
+  const line = (text: string, styles: Partial<CSSStyleDeclaration>) => {
+    const node = document.createElement("div");
+    node.textContent = text;
+    Object.assign(node.style, styles);
+    element.appendChild(node);
+  };
+  line(`${station.isLifeBase ? "Base de vie · " : ""}${station.name}`, { fontWeight: "800", fontSize: "2.6cqmin", lineHeight: "1.15" });
+  const kilometre = station.distanceKm.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
+  const gain = Math.round(cumulativeGainM).toLocaleString("fr-FR");
+  line(`km ${kilometre} · D+ ${gain} m`, { fontWeight: "700", fontSize: "2.1cqmin", color: accent, fontVariantNumeric: "tabular-nums" });
+  if (station.cutoffTime) line(`Barrière ${station.cutoffTime}`, { fontWeight: "600", fontSize: "2cqmin", color: "#5b5b5b" });
+  const tail = document.createElement("span");
+  Object.assign(tail.style, {
+    position: "absolute",
+    left: "50%",
+    top: "100%",
+    transform: "translateX(-50%)",
+    borderLeft: "1.1cqmin solid transparent",
+    borderRight: "1.1cqmin solid transparent",
+    borderTop: "1.3cqmin solid #ffffff",
+  });
+  element.appendChild(tail);
+  return element;
+};
+
+/**
+ * A bubble fades in while the runner approaches its station (6 % of the route, 1.5 km minimum)
+ * and fades out just after it; DOM writes only happen when the rounded opacity changes.
+ */
+const updateAidBubbles = (bubbles: AidBubble[], distanceKm: number | null, totalDistanceKm: number) => {
+  const approachKm = Math.max(1.5, totalDistanceKm * 0.06);
+  bubbles.forEach((bubble) => {
+    let opacity = 0;
+    if (distanceKm !== null) {
+      const fadeIn = (distanceKm - (bubble.distanceKm - approachKm)) / (approachKm * 0.25);
+      const fadeOut = (bubble.distanceKm + 0.6 - distanceKm) / 0.4;
+      opacity = Math.max(0, Math.min(1, fadeIn, fadeOut));
+    }
+    const rounded = Math.round(opacity * 20) / 20;
+    if (rounded !== bubble.opacity) {
+      bubble.opacity = rounded;
+      bubble.element.style.opacity = String(rounded);
+    }
+  });
+};
+
 const readError = async (response: Response, fallback: string) => {
   const payload = await response.json().catch(() => null) as { message?: unknown } | null;
   return typeof payload?.message === "string" ? payload.message : fallback;
@@ -164,15 +233,17 @@ const buildMarkerRadius = (activeDistanceKm: number | null): ExpressionSpecifica
   ["match", ["get", "kind"], "aid", 6, 8],
 ];
 
+// The runner: a white dot ringed in the route colour with a soft shadow.
 const createProgressMarkerElement = (color: string) => {
   const element = document.createElement("div");
   element.setAttribute("aria-hidden", "true");
   Object.assign(element.style, {
-    width: "16px",
-    height: "16px",
+    width: "14px",
+    height: "14px",
     borderRadius: "9999px",
-    background: color,
-    border: "3px solid #172012",
+    background: "#ffffff",
+    border: `4px solid ${color}`,
+    boxShadow: "0 0 0 2px #ffffff, 0 2px 8px rgba(0, 0, 0, 0.45)",
     boxSizing: "content-box",
   });
   return element;
@@ -188,7 +259,9 @@ const syncMapData = (
   const lineWidth = ROUTE_LINE_WIDTHS[settings.routeWidth];
   const routeSource = map.getSource(ROUTE_SOURCE_ID) as GeoJSONSource | undefined;
   if (routeSource) routeSource.setData(routeData as GeoJsonSourceData);
-  else map.addSource(ROUTE_SOURCE_ID, { type: "geojson", data: routeData as GeoJsonSourceData, lineMetrics: true });
+  // tolerance 0: no simplification. Simplified tiles cut switchbacks short at low zoom, which made
+  // the line progress (and the revealed trace) run ahead of the marker on winding climbs.
+  else map.addSource(ROUTE_SOURCE_ID, { type: "geojson", data: routeData as GeoJsonSourceData, lineMetrics: true, tolerance: 0 });
 
   if (!map.getLayer(ROUTE_LAYER_ID)) {
     map.addLayer({
@@ -222,6 +295,23 @@ const syncMapData = (
     });
   }
 
+  // White casing under the revealed route, trimmed like it, for a clean branded line.
+  if (!map.getLayer(ROUTE_CASING_LAYER_ID)) {
+    map.addLayer({
+      id: ROUTE_CASING_LAYER_ID,
+      type: "line",
+      source: ROUTE_SOURCE_ID,
+      slot: "top",
+      layout: { "line-cap": "round", "line-join": "round", visibility: settings.routeCasing ? "visible" : "none" },
+      paint: {
+        "line-color": "#ffffff",
+        "line-width": ROUTE_CASING_WIDTHS[settings.routeWidth],
+        "line-emissive-strength": 1,
+        "line-trim-offset": buildRouteTrimOffset("progressive", 0),
+      },
+    });
+  }
+
   if (!map.getLayer(ROUTE_REVEAL_LAYER_ID)) {
     map.addLayer({
       id: ROUTE_REVEAL_LAYER_ID,
@@ -242,7 +332,7 @@ const syncMapData = (
   // The narrated slope is the route itself in the highlight colour, drawn over the reveal layer so
   // the whole climb shows even before the runner gets there.
   if (!map.getSource(SEGMENT_SOURCE_ID)) {
-    map.addSource(SEGMENT_SOURCE_ID, { type: "geojson", data: EMPTY_FEATURES as unknown as GeoJsonSourceData, lineMetrics: true });
+    map.addSource(SEGMENT_SOURCE_ID, { type: "geojson", data: EMPTY_FEATURES as unknown as GeoJsonSourceData, lineMetrics: true, tolerance: 0 });
   }
   if (!map.getLayer(SEGMENT_LAYER_ID)) {
     map.addLayer({
@@ -330,6 +420,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   const resizeRef = useRef<MapResizeController | null>(null);
   const progressMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const activeBeatIdRef = useRef<string | null>(null);
+  const aidBubblesRef = useRef<AidBubble[]>([]);
   const narrationPlayerRef = useRef<NarrationPlayer | null>(null);
   // `map.isStyleLoaded()` is false whenever a tile is loading or a source was just updated, which is
   // permanently the case while the camera flies. Gating frames on it skipped most of them.
@@ -455,8 +546,10 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     const trimOffset = buildRouteTrimOffset(settingsRef.current.revealMode, lineProgress);
     if (map.getLayer(ROUTE_REVEAL_LAYER_ID)) map.setPaintProperty(ROUTE_REVEAL_LAYER_ID, "line-trim-offset", trimOffset);
     if (map.getLayer(ROUTE_GLOW_LAYER_ID)) map.setPaintProperty(ROUTE_GLOW_LAYER_ID, "line-trim-offset", trimOffset);
+    if (map.getLayer(ROUTE_CASING_LAYER_ID)) map.setPaintProperty(ROUTE_CASING_LAYER_ID, "line-trim-offset", trimOffset);
     const routePoint = getRoutePointAtDistance(path, frame.distanceKm);
     progressMarkerRef.current?.setLngLat([routePoint.lon, routePoint.lat]);
+    updateAidBubbles(aidBubblesRef.current, frame.phase === "flyover" ? frame.distanceKm : null, path.totalDistanceKm);
     if (frame.daylight) {
       const { level, warmth, sunAzimuthDeg } = frame.daylight;
       const key = `${Math.round(level * 50)}|${Math.round(warmth * 20)}|${Math.round(sunAzimuthDeg / 10)}`;
@@ -529,7 +622,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   useEffect(() => {
     const map = mapRef.current;
     const markerElement = progressMarkerRef.current?.getElement();
-    if (markerElement) markerElement.style.background = settings.routeColor;
+    if (markerElement) markerElement.style.borderColor = settings.routeColor;
     if (!map || !layersReadyRef.current) return;
     const lineWidth = ROUTE_LINE_WIDTHS[settings.routeWidth];
     if (map.getLayer(ROUTE_REVEAL_LAYER_ID)) {
@@ -549,7 +642,11 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       map.setPaintProperty(ROUTE_GLOW_LAYER_ID, "line-color", `${settings.routeColor}${GLOW_ROUTE_ALPHA_HEX}`);
       map.setLayoutProperty(ROUTE_GLOW_LAYER_ID, "visibility", settings.routeGlow ? "visible" : "none");
     }
-  }, [settings.highlightColor, settings.routeColor, settings.routeGlow, settings.routeWidth]);
+    if (map.getLayer(ROUTE_CASING_LAYER_ID)) {
+      map.setPaintProperty(ROUTE_CASING_LAYER_ID, "line-width", ROUTE_CASING_WIDTHS[settings.routeWidth]);
+      map.setLayoutProperty(ROUTE_CASING_LAYER_ID, "visibility", settings.routeCasing ? "visible" : "none");
+    }
+  }, [settings.highlightColor, settings.routeCasing, settings.routeColor, settings.routeGlow, settings.routeWidth]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -570,6 +667,28 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     const map = mapRef.current;
     if (map) setMapInteractionsEnabled(map, !snapshot.isPlaying);
   }, [snapshot.isPlaying]);
+
+  // Bubbles above aid stations: built once per route and settings, faded per frame.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !isReady || !settings.showAidBubbles) return;
+    const bubbles = enabledAidStations
+      .filter((station) => station.distanceKm > 0 && station.distanceKm < preparedPath.totalDistanceKm)
+      .map((station): AidBubble => {
+        const point = getRoutePointAtDistance(preparedPath, station.distanceKm);
+        const element = createAidBubbleElement(station, getCumulativeGainAt(preparedPath, station.distanceKm), settings.accentColor);
+        const marker = new mapboxgl.Marker({ element, anchor: "bottom", offset: [0, -10], occludedOpacity: 1 })
+          .setLngLat([point.lon, point.lat])
+          .addTo(map);
+        return { distanceKm: station.distanceKm, element, marker, opacity: -1 };
+      });
+    aidBubblesRef.current = bubbles;
+    refreshCurrentFrame();
+    return () => {
+      bubbles.forEach((bubble) => bubble.marker.remove());
+      aidBubblesRef.current = [];
+    };
+  }, [enabledAidStations, isReady, preparedPath, refreshCurrentFrame, settings.accentColor, settings.showAidBubbles]);
 
   // Voice-over: clips are scheduled on the same timeline as the camera.
   const narrationCues = useMemo(

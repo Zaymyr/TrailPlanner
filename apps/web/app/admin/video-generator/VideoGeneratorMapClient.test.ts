@@ -101,7 +101,7 @@ const mapboxMock = vi.hoisted(() => {
     addTo = vi.fn(() => this);
     remove = vi.fn(() => this);
 
-    constructor() {
+    constructor(readonly options?: { element?: HTMLElement }) {
       markers.push(this);
     }
   }
@@ -172,7 +172,10 @@ afterEach(() => {
 describe("VideoGeneratorMapClient", () => {
   it("initializes terrain and animated layers, applies frames, switches format and cleans up", async () => {
     const view = render(createElement(VideoGeneratorMapClient, {
-      aidStations: [],
+      aidStations: [{
+        id: "33333333-3333-4333-8333-333333333333", name: "Sainte-Catherine", distanceKm: 10, waterAvailable: true, foodAvailable: true,
+        assistanceAllowed: false, isLifeBase: true, dropBagAvailable: false, cutoffTime: "06:15",
+      }],
       bounds: { minLat: 45, minLon: 4, maxLat: 46, maxLon: 5 },
       points: [
         { lat: 45, lon: 4, elevationM: 400, distanceKm: 0 },
@@ -190,6 +193,12 @@ describe("VideoGeneratorMapClient", () => {
 
     expect(map.setTerrain).toHaveBeenCalledWith({ source: "video-terrain-dem", exaggeration: 1.8 });
     expect(map.sources.get("video-route")?.definition.lineMetrics).toBe(true);
+    // No simplification: simplified tiles cut switchbacks short and let the trace run ahead.
+    expect(map.sources.get("video-route")?.definition.tolerance).toBe(0);
+    expect(map.layers.has("video-route-line-casing")).toBe(true);
+    // One bubble above the aid station, with its name, cumulative D+ and cutoff.
+    const bubbleText = mapboxMock.markers.map((marker) => marker.options?.element?.textContent ?? "").find((text) => text.includes("Sainte-Catherine"));
+    expect(bubbleText).toMatch(/^Base de vie · Sainte-Catherinekm 10 · D\+ [\d\s ]+ mBarrière 06:15$/);
     expect(map.layers.has("video-route-line")).toBe(true);
     expect(map.layers.has("video-route-line-reveal")).toBe(true);
     expect(map.layers.has("video-route-line-glow")).toBe(true);

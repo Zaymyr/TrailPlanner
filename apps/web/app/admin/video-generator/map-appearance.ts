@@ -55,6 +55,11 @@ export const ROUTE_LINE_WIDTHS: Record<VideoCompositionSettings["routeWidth"], E
   bold: ["interpolate", ["linear"], ["zoom"], 5, 5, 13, 11],
 };
 
+export const ROUTE_CASING_WIDTHS: Record<VideoCompositionSettings["routeWidth"], ExpressionSpecification> = {
+  normal: ["interpolate", ["linear"], ["zoom"], 5, 6, 13, 11],
+  bold: ["interpolate", ["linear"], ["zoom"], 5, 8, 13, 15],
+};
+
 export const ROUTE_GLOW_WIDTH: ExpressionSpecification = ["interpolate", ["linear"], ["zoom"], 5, 10, 13, 26];
 
 export const PEAKS_SOURCE_ID = "video-peaks";

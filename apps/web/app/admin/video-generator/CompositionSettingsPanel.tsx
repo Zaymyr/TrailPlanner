@@ -40,6 +40,7 @@ const INFORMATION_TOGGLES: Array<[BooleanSettingKey, string]> = [
   ["showAidStations", "Ravitaillements"],
   ["showSubtitles", "Sous-titres (voix)"],
   ["showCaptions", "Encart du tronçon"],
+  ["showAidBubbles", "Bulles des ravitos"],
   ["showProfile", "Profil altimétrique"],
   ["showCurrentKm", "Kilomètre en cours"],
 ];
@@ -226,6 +227,7 @@ export function CompositionSettingsPanel({
             onChange={(value) => update("routeWidth", value)}
           />
           <Toggle label="Halo lumineux" checked={settings.routeGlow} onChange={(checked) => update("routeGlow", checked)} />
+          <Toggle label="Liseré blanc" checked={settings.routeCasing} onChange={(checked) => update("routeCasing", checked)} />
         </div>
         <div className="flex gap-2">
           <Button type="button" variant="outline" className="h-8 flex-1 px-2 text-xs" disabled={cameraActionsDisabled} onClick={onFitOverview}>Vue d’ensemble</Button>

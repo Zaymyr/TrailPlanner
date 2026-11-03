@@ -60,13 +60,16 @@ export const videoCompositionSettingsSchema = z.object({
   showStartInfo: z.boolean().default(true),
   showAidStations: z.boolean().default(true),
   showCaptions: z.boolean().default(true),
+  // Small cards above aid stations (name, cumulative D+, cutoff) shown while approaching them.
+  showAidBubbles: z.boolean().default(true),
   showSubtitles: z.boolean().default(true),
   showProfile: z.boolean().default(true),
   profileMode: z.enum(["window", "full"]).default("window"),
   showCurrentKm: z.boolean().default(true),
-  routeColor: hexColorSchema.default("#ff8a3d"),
+  routeColor: hexColorSchema.default("#2d5016"),
+  routeCasing: z.boolean().default(true),
   // Colour of the route on the climb, descent or rolling section being told.
-  highlightColor: hexColorSchema.default("#d7263d"),
+  highlightColor: hexColorSchema.default("#ff8a3d"),
   accentColor: hexColorSchema.default("#2d5016"),
   showLogo: z.boolean().default(true),
   showCta: z.boolean().default(true),
