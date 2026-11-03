@@ -127,6 +127,7 @@ export function OrganizerSummaryHeader({
   lastAutosavedAt,
   status,
   activeRaceId,
+  modifiedFormatCount = 0,
   onRetryAutosave,
   onNotifyFollowers,
   onRequestPublication,
@@ -159,6 +160,7 @@ export function OrganizerSummaryHeader({
   lastAutosavedAt: Date | null;
   status: "idle" | "loading" | "saving" | "uploading";
   activeRaceId?: string | null;
+  modifiedFormatCount?: number;
   onRetryAutosave: () => void;
   onNotifyFollowers: (raceId?: string) => void;
   onRequestPublication: () => void;
@@ -257,16 +259,16 @@ export function OrganizerSummaryHeader({
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {raceRows.length > 0 ? (
-            allFormatsPublic && previewSlug ? (
-              <Link href={`/courses/${previewSlug}`} className="inline-flex">
-                <Button type="button" className="!h-11">Voir le Livret coureur</Button>
-              </Link>
-            ) : (
-              <Button type="button" onClick={onRequestPublication} disabled={!editionIsVisible || status !== "idle"} className="!h-11" title="Publier les formats complets sélectionnés pour cette édition.">
-                {canPublishRacebook ? "Publier" : "Choisir une offre"}
-              </Button>
-            )
+          {raceRows.length > 0 && (!canPublishRacebook || modifiedFormatCount > 0) ? (
+            <Button type="button" onClick={onRequestPublication} disabled={!editionIsVisible || status !== "idle"} className="!h-11" title="Publier atomiquement tous les formats modifiés de cette édition.">
+              {canPublishRacebook
+                ? `Publier tous les formats modifiés (${modifiedFormatCount})`
+                : "Choisir une offre"}
+            </Button>
+          ) : allFormatsPublic && previewSlug ? (
+            <Link href={`/courses/${previewSlug}`} className="inline-flex">
+              <Button type="button" className="!h-11">Voir le Livret coureur</Button>
+            </Link>
           ) : null}
           {previewSlug ? <Link href={`/courses/${previewSlug}`} className="inline-flex min-h-11 items-center px-2 text-sm font-semibold text-brand underline-offset-4 hover:underline">Aperçu coureur</Link> : null}
           <details ref={actionsMenuRef} open={actionsMenuOpen} onToggle={(event) => setActionsMenuOpen(event.currentTarget.open)} className="group relative">

@@ -10,7 +10,6 @@ import {
   uuidParamSchema,
 } from "../../../../../../lib/organizer";
 import { isOrganizerRaceModuleSelected } from "../../../../../../lib/organizer-module-settings";
-import { invalidateRacebookCache } from "../../../../../../lib/racebook-cache";
 
 const nullableHttpUrl = z.union([z.string().trim().url().refine((value) => /^https?:\/\//i.test(value)), z.literal(""), z.null()])
   .optional()
@@ -147,7 +146,6 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
     return jsonError("Unable to update supporter points.", 502);
   }
   const rows = z.array(supporterPointRowSchema).parse(await response.json());
-  await invalidateRacebookCache({ raceId: params.data.id });
   return withSecurityHeaders(NextResponse.json({
     supporterPoints: rows.map((point) => serializePoint(point, Number(race.distance_km))),
   }));

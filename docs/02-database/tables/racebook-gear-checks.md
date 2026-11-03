@@ -2,7 +2,7 @@
 title: racebook_gear_checks Table
 scope: database
 
-last_verified: 2026-11-02
+last_verified: 2026-11-03
 
 ai_priority: high
 related_files:
@@ -96,3 +96,5 @@ Opening supporter directions or an external access plan does not read or mutate 
 - [Mobile App](../../01-architecture/mobile-app.md)
 
 Checklist progress remains visually neutral until every required item is checked, then becomes successful. This state styling does not alter row ownership, checked persistence, or analytics snapshots.
+
+Versioned RaceBook publication changes only the source equipment payload. Owner-scoped checked rows remain live user state and are never copied into, restored from, or exposed through a public publication.

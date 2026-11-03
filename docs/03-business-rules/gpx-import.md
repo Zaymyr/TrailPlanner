@@ -272,6 +272,8 @@ Moving a format between Masqué, Privé, and Public changes neither its GPX obje
 
 Supporter-point `km` values may position the runner conceptually along the format, but GPX import never creates supporter points and never treats their access coordinates as course geometry. The organizer labels this default-enabled Essential module **Suivi coureur**; replacing a GPX preserves the collection, and the organizer must review any kilometer that no longer fits the updated distance.
 
+Replacing an organizer GPX changes only the draft revision. The runner RaceBook keeps using the Storage path retained by its current immutable publication through `/api/racebook-gpx`; catalog and plan creation continue to use the current source GPX. Publishing or restoring a version atomically changes the RaceBook GPX reference.
+
 - [race_aid_stations](../02-database/tables/race-aid-stations.md)
 - [plan_aid_stations](../02-database/tables/plan-aid-stations.md)
 - [Plan Storage](plan-storage.md)

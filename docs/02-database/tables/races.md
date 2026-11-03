@@ -2,7 +2,7 @@
 title: races Table
 scope: database
 
-last_verified: 2026-11-02
+last_verified: 2026-11-03
 
 ai_priority: high
 related_files:
@@ -181,6 +181,7 @@ Authenticated non-admin users can no longer insert races. Trusted `app_metadata`
 - The normalized-geography migration refreshes eleven Search Console-priority `location`/`location_text` labels with source-backed city, route endpoint and administrative-area wording. Exact region/department filters belong to the parent `race_events` normalized fields rather than parsed format text.
 - Every dated row with an `event_id` is attached to the matching canonical event/year edition. The assignment trigger atomically creates or expands that edition when legacy catalog/import code omits `edition_id`.
 - Web catalog, slug, and SEO detail reads are server-only service calls requiring `web_catalog_is_live = true`, `is_public = true`, and a live optional parent event. They select only explicit public columns for the lightweight catalog, do not consult the mobile edition-visibility flag, and do not grant masked rows to direct clients. Service reads enrich details from edition dates, sanitized `organizer_details`, ravitos, and private `gpx_storage_path`. Catalog, sitemap, detail visibility, entitlement/module settings, and route ISR share a 15-minute revalidation window; none of those public detail reads may use `no-store`. Raw GPX bytes use a one-year persistent cache because replacement uploads use immutable versioned paths. RaceBook practical fields additionally require `racebook_is_live` and an effective module under the active edition tier; uncovered draft subtrees are replaced by empty public values.
+- RaceBook runner content is read only from an immutable per-format publication. Source changes create unpublished draft work and cannot affect the runner payload; the publication also supplies bounded GPX visuals, while catalog and planning retain the source-course contract.
 - RaceBook branding is resolved from the format's `edition_id`, not stored on `races`; changing or publishing the edition identity never changes catalog or Racebook visibility columns.
 - Global Booking and Decathlon availability is resolved independently of `races`. Services remains a permanent tab for Booking, while Decathlon is placed in Matériel; neither partner can make a RaceBook accessible, publish a format, or alter any race visibility column.
 - The owner-only Livret adds a saved plan's projected duration and average pace to its identity metrics and resolves the departure once in the hero. Each matched ravito aligns a compact green `Passage prévu à : HH:mm` row above the cutoff, exposes a warning when late, and opens the targeted editor on press; blue connectors show pause-excluded expected segment duration. Pauses stay in the plan. Returning may reuse short-lived local editor state only when its plan id exactly matches the route; these presentation values do not modify race metrics, start times, or the public RaceBook snapshot.
@@ -221,7 +222,7 @@ where web_catalog_is_live = true
 
 - Do not replace an unknown D+ or absent GPX with a fabricated zero or placeholder.
 - New rows without a GPX keep `gpx_path`, `gpx_hash`, and `gpx_storage_path` null. Historical placeholders are cleared by the catalog-contract migration when no stored object exists.
-- Public RaceBook snapshots and profile responses are tagged by race, edition, and event. Race metadata, image, GPX, visibility, and structured-content writes invalidate the narrowest applicable tag after success.
+- Public RaceBook snapshots and published GPX responses are tagged by race, edition, and event. Race metadata, image, GPX, and structured-content autosaves increment the draft revision without invalidation; publication, restoration, and visibility changes invalidate the narrowest applicable tags.
 - A declarative complete-row check is intentionally deferred until legacy catalog rows have been backfilled. The column-scoped completeness trigger protects new and catalog-relevant writes without blocking unrelated updates to legacy rows.
 - Do not set a draft live. The database constraint rejects both course and Racebook visibility.
 - Do not broaden `races_insert` for convenience. It is restricted to trusted administrators; organizer writes must remain behind their authorized service routes.

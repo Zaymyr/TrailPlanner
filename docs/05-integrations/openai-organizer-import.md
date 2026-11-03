@@ -82,6 +82,8 @@ Edition branding is also outside import reconciliation. The import model cannot 
 
 ## Gotchas
 
+Applying imported claims only updates organizer draft sources and their draft revisions. The import workflow never creates or restores an immutable RaceBook publication; the organizer must use the normal explicit publication action afterward.
+
 - Keep resumable uploads on the direct Supabase Storage origin (`*.storage.supabase.co`) and retain completed-object cleanup on cancellation or failure; sending 25 MB files through the Next.js route reintroduces platform payload limits.
 
 - The Organizer section chooser's edition-common/per-format grouping, local draft, and batched save are independent from assisted-import sessions; opening, toggling, saving, or discarding module switches must not start or cancel an OpenAI reconciliation workflow.

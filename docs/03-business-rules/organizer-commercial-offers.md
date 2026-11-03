@@ -120,6 +120,8 @@ Recalculation requires a valid paid path and assigns `stripe` or `manual_payment
 
 ## Gotchas
 
+Publication is a versioned snapshot operation per format. Tier checks are repeated before snapshot construction; bulk edition publication is all-or-none, a downgrade masks unavailable published modules immediately, and an upgrade requires explicit republication.
+
 - Runner annual and course offers are a distinct consumer billing model. Do not create `organizer_edition_payments` or organizer edition entitlements from their webhook events.
 
 - The persisted-content scan runs before Stripe session creation. Every Supabase presence probe must select a real column; `race_event_edition_branding` is keyed by `edition_id`, so a generic `select=id` blocks checkout with a Data API 400.

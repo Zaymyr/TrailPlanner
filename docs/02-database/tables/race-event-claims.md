@@ -184,6 +184,8 @@ order by created_at asc;
 
 The GPX route/profile switches are ordinary format-detail edits available only after membership handoff; they neither create nor approve a claim.
 
+Versioned RaceBook publication starts only after claim approval has established normal organizer membership. Publishing or restoring a snapshot never mutates claim status or reviewer evidence.
+
 - [race_event_organizers](race-event-organizers.md)
 - [race_events](race-events.md)
 - [RLS Policies](../rls-policies.md)

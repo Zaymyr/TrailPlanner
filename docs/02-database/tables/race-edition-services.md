@@ -2,7 +2,7 @@
 title: race_edition_services Table
 scope: database
 
-last_verified: 2026-11-02
+last_verified: 2026-11-03
 
 ai_priority: high
 related_files:
@@ -73,7 +73,7 @@ Public reads follow the visible, published RaceBook edition. Authorized event or
 
 Legacy `organizer_details.services` text remains untouched. Mobile prefers structured rows per matching category and falls back to that category's legacy text only when no structured row exists. Edition accent surfaces remain decorative and do not alter service categories or content.
 
-The structured collection is additive on mobile. A temporary Data API/table-unavailable error falls back to the preserved legacy services instead of making the complete RaceBook unavailable. Public and organizer-preview policies find the parent edition through `races`, avoiding a direct client-policy dependency on service-role-only `race_event_editions`.
+The structured collection travels in the immutable RaceBook publication on mobile. A missing publication makes the complete RaceBook unavailable rather than falling back to draft service rows or legacy source data.
 
 The two-line clamp applied to bib-pickup address text is isolated from service-card rendering and does not change service addresses or links.
 
@@ -85,7 +85,7 @@ The format access override that hides saved runner information is likewise indep
 
 The Organizer editor serializes revisioned autosaves: a response for an older revision cannot replace newer local service edits and instead queues the latest revision. Masking a format from the private demo suppresses its whole RaceBook entry without deleting edition service rows.
 
-Published rows travel in the consolidated RaceBook CDN snapshot. A successful services replacement invalidates the edition tag after persistence.
+Published rows travel in the immutable RaceBook snapshot. A successful services replacement marks every format of the edition dirty without invalidating the current public version.
 
 The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; structured service rows, links, visibility, and API/RLS contracts remain unchanged.
 

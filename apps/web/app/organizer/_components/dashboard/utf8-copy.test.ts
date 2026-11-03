@@ -141,7 +141,8 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(controlsSource).toContain("group-hover/visibility:block");
     expect(controlsSource).toContain("group-focus-within/visibility:block");
     expect(controlsSource).toContain("La course et son Livret coureur sont visibles uniquement par les organisateurs actifs");
-    expect(dashboardSource).toContain('racebookIsLive: visibility === "public"');
+    expect(dashboardSource).toContain('publishRaceRacebook(raceId, true)');
+    expect(dashboardSource).toContain('body: JSON.stringify({ makePublic })');
     expect(dashboardSource).toContain('visibility === "public" && activeTier === "visibility"');
     expect(dashboardSource).toContain('openPricingDialog("publication")');
     expect(dashboardSource.indexOf('visibility === "public" && activeTier === "visibility"')).toBeLessThan(
@@ -422,7 +423,8 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(editorSource).toContain("Réinitialiser au thème Pace Yourself");
     expect(editorSource).toContain("Brouillon sauvegardé automatiquement");
     expect(editorSource).not.toContain(">Enregistrer le brouillon</Button>");
-    expect(editorSource).toContain("Publier la DA");
+    expect(editorSource).toContain("La DA sera publiée avec le Livret coureur.");
+    expect(editorSource).not.toContain("Publier la DA");
     expect(editorSource).toContain('window.addEventListener("beforeunload"');
     expect(editorSource).toContain("RACEBOOK_EDITION_LOGO_ENABLED ? (");
     expect(editorSource).toContain("theme.accentSurfaceColor");

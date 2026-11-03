@@ -347,7 +347,6 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   }
 
   const event = z.array(eventDetailSchema.omit({ races: true })).parse(await response.json())[0] ?? null;
-  await invalidateRacebookCache({ eventId: parsedParams.data.id, editionId: edition?.id });
   return withSecurityHeaders(
     NextResponse.json({
       edition,

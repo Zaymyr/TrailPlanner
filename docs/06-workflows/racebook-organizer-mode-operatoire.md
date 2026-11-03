@@ -52,6 +52,10 @@ Ce document accompagne le PDF utilisateur [`docs/mode-operatoire-racebook-organi
 
 ## Validation
 
+- Vérifier séparément `Brouillon sauvegardé`, `Modifications non publiées` et `Publié · version N`.
+- Utiliser `Publier les modifications` pour le format courant ou `Publier tous les formats modifiés` pour une transaction d’édition.
+- Une restauration crée une nouvelle version et conserve le brouillon actuel ; aucune prévisualisation globale du brouillon n’est ajoutée.
+
 - Vérifier que le PDF contient douze pages A4.
 - Vérifier que les accents français sont corrects.
 - Vérifier que chaque capture porte la mention ou les données de démonstration.

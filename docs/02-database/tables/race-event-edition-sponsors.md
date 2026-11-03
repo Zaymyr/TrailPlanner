@@ -2,7 +2,7 @@
 title: race_event_edition_sponsors Table
 scope: database
 
-last_verified: 2026-11-02
+last_verified: 2026-11-03
 
 ai_priority: high
 related_files:
@@ -102,7 +102,7 @@ The fictitious Trail TST assets are reproducible under `supabase/demo-assets/spo
 
 ## Mobile Presentation
 
-The same backward-compatible `/api/racebook-sponsors` response carries the edition's resolved published `branding` object beside sponsor arrays. The published edition logo is independently resolved from sponsor slots and remains separate from click reporting. Missing/unpublished branding resolves to Pace Yourself forest green `#2D5016` and alpine blue `#3F6F8F` defaults without changing sponsor behavior.
+The backward-compatible `/api/racebook-sponsors` response carries branding and sponsor arrays from one requested immutable publication. The edition logo remains independent from sponsor slots and click reporting. A snapshot without branding resolves to Pace Yourself forest green `#2D5016` and alpine blue `#3F6F8F` defaults.
 
 The Courses sheet starts a short-lived, account-scoped sponsor request and logo warmup immediately before navigating to a RaceBook. The destination reuses that in-flight/cached request, holds visible progress at its initial position until loading logos are ready, then starts the normal animation with sponsors already displayed. Direct links keep the same lookup and logo-prefetch fallback. The RaceBook reserves one unified loading panel with two vertical logo slots while that preparation is pending. The slots share one surface with a subtle divider and occupy roughly one third of the available viewport beneath a compact localized title and animated runner trail. An empty or failed lookup removes the panel and does not activate the 2.5-second sponsor gate. This loading state temporarily hides feedback and the bottom tab bar, but keeps the native back/title header and restores normal navigation before content appears.
 
@@ -125,7 +125,7 @@ The two-line clamp for bib-pickup address links is independent from sponsor layo
 - The separate `racebook_analytics.view` complimentary capability never unlocks sponsor authoring or presentation; `sponsors.manage` remains Signature-only.
 
 - Sponsor ordering sends the complete edition list to `reorder_racebook_sponsors`. The function locks the edition and rejects partial lists, foreign ids, duplicate ids or duplicate positions before updating any row.
-- Public placement responses are edge-cached only for fully published RaceBooks. Sponsor create, edit, reorder, logo replacement, and delete invalidate the edition tag; the mobile 2.5-second loading placement remains intentional even on a cache hit.
+- Public placement responses are edge-cached only for fully published RaceBooks. Sponsor create, edit, reorder, logo replacement, and delete increment every format draft revision but leave the current cache intact until publication. The mobile 2.5-second loading placement remains intentional even on a cache hit.
 
 - The destination waits for the lightweight sponsor/module/branding response before revealing RaceBook content. Do not restore a short UI timeout that commits defaults while the valid edition response is still in flight.
 - The RaceBook onboarding guide is layered over the existing screen after loading; it does not replay, bypass, or alter sponsor lookup, timing, placement, or click counting.

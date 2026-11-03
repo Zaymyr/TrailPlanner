@@ -3,176 +3,54 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { GET } from "./route";
 
-const mocks = vi.hoisted(() => ({
-  fetchSupabaseUser: vi.fn(),
-  isOrganizerForEvent: vi.fn(),
-}));
-
+const mocks = vi.hoisted(() => ({ loadCurrent: vi.fn(), fetchUser: vi.fn(), isOrganizer: vi.fn() }));
 vi.mock("../../../lib/supabase", () => ({
   extractBearerToken: (value: string | null) => value?.replace("Bearer ", "") ?? null,
-  fetchSupabaseUser: mocks.fetchSupabaseUser,
+  fetchSupabaseUser: mocks.fetchUser,
   getSupabaseAnonConfig: () => ({ supabaseUrl: "https://db.example.com", supabaseAnonKey: "anon" }),
   getSupabaseServiceConfig: () => ({ supabaseUrl: "https://db.example.com", supabaseServiceRoleKey: "service" }),
 }));
-
-vi.mock("../../../lib/organizer", () => ({
-  isOrganizerForEvent: mocks.isOrganizerForEvent,
-  serviceHeaders: () => ({}),
-}));
-
+vi.mock("../../../lib/organizer", () => ({ serviceHeaders: () => ({}), isOrganizerForEvent: mocks.isOrganizer }));
 vi.mock("../../../lib/organizer-entitlements", () => ({
-  loadOrganizerEditionEntitlement: () => Promise.resolve({ tier: "signature", status: "active" }),
+  loadOrganizerEditionEntitlement: () => Promise.resolve({ status: "active", tier: "signature" }),
 }));
-
-vi.mock("../../../lib/organizer-module-settings", () => ({
-  loadOrganizerModuleSettings: () => Promise.resolve({ edition: {}, races: {} }),
-  effectiveOrganizerModules: () => ({
-    equipment: true, bib_pickup: true, access: true, services: true, branding: true, sponsors: true,
-    aid_stations: true, supporter_points: false, start_waves: true, awards: true, relay: true, official_products: true,
-  }),
-}));
+vi.mock("../../../lib/racebook-publications", () => ({ loadCurrentRacebookPublication: mocks.loadCurrent }));
 
 const raceId = "11111111-1111-4111-8111-111111111111";
 const eventId = "22222222-2222-4222-8222-222222222222";
 const editionId = "33333333-3333-4333-8333-333333333333";
+const sponsorId = "44444444-4444-4444-8444-444444444444";
+const access = [{ id: raceId, event_id: eventId, edition_id: editionId, is_live: true, racebook_is_live: true, racebook_preview_is_visible: true, race_events: { is_live: true } }];
+const publication = {
+  id: "55555555-5555-4555-8555-555555555555", source_draft_revision: 3, published_at: "2026-11-03T12:00:00Z",
+  content: {
+    modules: { sponsors: true, branding: true },
+    branding: { logoUrl: "https://example.com/logo.png", primaryColor: "#123456", accentColor: "#ABCDEF" },
+    sponsors: [{
+      id: sponsorId, name: "Partenaire", logoUrl: "https://example.com/sponsor.png", destinationUrl: "https://sponsor.example.com",
+      tier: "principal", category: "Nutrition", contextualPlacement: "aid_stations", showOnLoading: true, showInBanner: true, position: 0,
+    }],
+  },
+};
 
-const racePayload = (live: boolean, previewIsVisible = true) => [{
-  id: raceId,
-  event_id: eventId,
-  edition_id: editionId,
-  is_live: live,
-  racebook_is_live: live,
-  racebook_preview_is_visible: previewIsVisible,
-  participation_mode: "relay",
-  distance_km: 42,
-  organizer_details: {},
-  race_events: { is_live: live, organizer_details: {} },
-}];
-
-const sponsor = (id: string, loading: boolean, banner: boolean) => ({
-  id,
-  edition_id: editionId,
-  name: `Sponsor ${id}`,
-  logo_url: `https://example.com/${id}.png`,
-  website_url: "https://example.com",
-  is_active: true,
-  show_on_loading: loading,
-  show_in_banner: banner,
-  position: 0,
-  click_count: 0,
-  impression_count: 0,
-  partnership_level: "official",
-  category: null,
-  contextual_placement: "none",
-});
-
-const branding = [{
-  edition_id: editionId,
-  draft_logo_url: "https://example.com/draft.png",
-  draft_primary_color: "#FFFFFF",
-  draft_accent_color: "#000000",
-  published_logo_url: "https://example.com/published.png",
-  published_primary_color: "#123456",
-  published_accent_color: "#ABCDEF",
-  published_at: "2026-09-07T12:00:00.000Z",
-  updated_at: "2026-09-07T12:00:00.000Z",
-}];
-
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => { vi.restoreAllMocks(); vi.clearAllMocks(); });
 
 describe("GET /api/racebook-sponsors", () => {
-  it("does not expose a format hidden from the organizer demo", async () => {
-    vi.spyOn(global, "fetch")
-      .mockResolvedValueOnce(new Response(JSON.stringify(racePayload(false, false)), { status: 200 }));
-
-    const response = await GET(new NextRequest(`http://localhost/api/racebook-sponsors?raceId=${raceId}`, {
-      headers: { Authorization: "Bearer token" },
-    }));
-
-    expect(response.status).toBe(404);
-    expect(mocks.isOrganizerForEvent).not.toHaveBeenCalled();
-  });
-
-  it("returns only the requested placements for a public RaceBook", async () => {
-    vi.spyOn(global, "fetch")
-      .mockResolvedValueOnce(new Response(JSON.stringify(racePayload(true)), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify([
-        {
-          ...sponsor("44444444-4444-4444-8444-444444444444", true, true),
-          partnership_level: "principal",
-          category: "Équipement outdoor",
-          contextual_placement: "equipment",
-        },
-        sponsor("55555555-5555-4555-8555-555555555555", false, true),
-      ]), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(branding), { status: 200 }));
-
+  it("projects sponsors and branding from the same publication", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(Response.json(access));
+    mocks.loadCurrent.mockResolvedValue({ publication });
     const response = await GET(new NextRequest(`http://localhost/api/racebook-sponsors?raceId=${raceId}`));
     const payload = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(payload.loadingSponsors).toHaveLength(1);
-    expect(payload.bannerSponsors).toHaveLength(2);
-    expect(payload.contextualSponsors).toHaveLength(1);
-    expect(payload.contextualSponsors[0]).toMatchObject({
-      tier: "principal",
-      category: "Équipement outdoor",
-      contextualPlacement: "equipment",
-    });
-    expect(payload.loadingSponsors[0].clickUrl).toContain(`/api/racebook-sponsors/44444444-4444-4444-8444-444444444444/click`);
-    expect(payload.loadingSponsors[0]).not.toHaveProperty("websiteUrl");
-    expect(payload.loadingSponsors[0]).not.toHaveProperty("impressionCount");
-    expect(payload.branding).toEqual({ logoUrl: "https://example.com/published.png", primaryColor: "#123456", accentColor: "#ABCDEF" });
-    expect(JSON.stringify(payload)).not.toContain("draft.png");
-    expect(response.headers.get("Vercel-CDN-Cache-Control")).toContain("max-age=300");
-    expect(response.headers.get("Vercel-Cache-Tag")).toContain(`racebook:race:${raceId}`);
+    expect(payload).toMatchObject({ publicationId: publication.id, publicationRevision: 3, branding: publication.content.branding });
+    expect(payload.loadingSponsors[0].clickUrl).toContain(`/api/racebook-sponsors/${sponsorId}/click`);
+    expect(JSON.stringify(payload)).not.toContain("destinationUrl");
+    expect(JSON.stringify(payload)).not.toContain("sponsor.example.com");
   });
 
-  it("allows an authenticated organizer preview", async () => {
-    mocks.fetchSupabaseUser.mockResolvedValue({ id: "user-1" });
-    mocks.isOrganizerForEvent.mockResolvedValue(true);
-    vi.spyOn(global, "fetch")
-      .mockResolvedValueOnce(new Response(JSON.stringify(racePayload(false)), { status: 200 }))
-      .mockResolvedValueOnce(new Response("[]", { status: 200 }))
-      .mockResolvedValueOnce(new Response("[]", { status: 200 }));
-
-    const response = await GET(new NextRequest(`http://localhost/api/racebook-sponsors?raceId=${raceId}`, {
-      headers: { Authorization: "Bearer token" },
-    }));
-    expect(response.status).toBe(200);
-    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
-  });
-
-  it("falls back to Pace Yourself defaults when stored branding is invalid", async () => {
-    vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    vi.spyOn(global, "fetch")
-      .mockResolvedValueOnce(new Response(JSON.stringify(racePayload(true)), { status: 200 }))
-      .mockResolvedValueOnce(new Response("[]", { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify([{ ...branding[0], published_primary_color: "red" }]), { status: 200 }));
-
+  it("does not read draft sponsor tables when no publication exists", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(Response.json(access));
+    mocks.loadCurrent.mockResolvedValue({ publication: null });
     const response = await GET(new NextRequest(`http://localhost/api/racebook-sponsors?raceId=${raceId}`));
-    expect(await response.json()).toMatchObject({
-      branding: { logoUrl: null, primaryColor: "#2D5016", accentColor: "#3F6F8F" },
-    });
-  });
-
-  it("refuses a private RaceBook to anonymous callers", async () => {
-    vi.spyOn(global, "fetch").mockResolvedValueOnce(new Response(JSON.stringify(racePayload(false)), { status: 200 }));
-    const response = await GET(new NextRequest(`http://localhost/api/racebook-sponsors?raceId=${raceId}`));
-    expect(response.status).toBe(404);
-  });
-
-  it("refuses sponsors when a published solo RaceBook has no organizer content", async () => {
-    const emptyRaceBook = [{
-      ...racePayload(true)[0],
-      participation_mode: "solo",
-    }];
-    vi.spyOn(global, "fetch").mockResolvedValueOnce(
-      new Response(JSON.stringify(emptyRaceBook), { status: 200 }),
-    );
-
-    const response = await GET(new NextRequest(`http://localhost/api/racebook-sponsors?raceId=${raceId}`));
-
     expect(response.status).toBe(404);
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });

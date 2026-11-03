@@ -65,6 +65,23 @@ export type PublicationRequestRow = {
   created_at: string;
 };
 
+export type RacebookPublicationState = {
+  draftRevision: number;
+  publishedSourceRevision: number | null;
+  currentPublicationId: string | null;
+  currentVersion: number | null;
+  publishedAt: string | null;
+  hasUnpublishedChanges: boolean;
+};
+
+export type RacebookPublicationHistoryItem = {
+  id: string;
+  version: number;
+  publishedAt: string;
+  publishedBy: string | null;
+  restoredFromPublicationId: string | null;
+};
+
 export type RaceParticipationMode = "solo" | "relay" | "solo_and_relay";
 
 export type RaceFormat = {

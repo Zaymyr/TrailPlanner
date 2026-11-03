@@ -20,7 +20,6 @@ import {
   sponsorMetadataSchema,
   toOrganizerSponsor,
 } from "../../../../../../lib/racebook-sponsors";
-import { invalidateRacebookCache } from "../../../../../../lib/racebook-cache";
 
 const editionSchema = z.object({ id: z.string().uuid(), event_id: z.string().uuid() });
 const reorderSponsorsSchema = z.object({
@@ -176,7 +175,6 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
   }
 
   const sponsor = z.array(racebookSponsorRowSchema).parse(await insertResponse.json())[0];
-  await invalidateRacebookCache({ editionId: auth.edition.id });
   return withSecurityHeaders(NextResponse.json({ sponsor: sponsor ? toOrganizerSponsor(sponsor) : null }, { status: 201 }));
 }
 
@@ -213,6 +211,5 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   }
 
   const sponsors = z.array(racebookSponsorRowSchema).parse(await response.json());
-  await invalidateRacebookCache({ editionId: auth.edition.id });
   return withSecurityHeaders(NextResponse.json({ sponsors: sponsors.map(toOrganizerSponsor) }));
 }

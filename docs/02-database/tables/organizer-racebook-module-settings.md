@@ -1,7 +1,7 @@
 ---
 title: organizer_racebook_module_settings
 scope: database
-last_verified: 2026-11-01
+last_verified: 2026-11-03
 ai_priority: high
 related_files:
   - supabase/migrations/20260908093008_add_organizer_offer_modules_v2.sql
@@ -57,7 +57,7 @@ New editions enable equipment, bib and access; new formats enable aid stations. 
 - Never grant direct client access to this table.
 - Never delete content when `is_enabled` becomes false.
 - Never create an entitlement merely because an organizer enables or fills a higher-tier draft module.
-- A successful module-settings write invalidates the edition RaceBook cache tag so stored content appears or disappears without waiting for the five-minute edge TTL.
+- A module-settings write increments the affected draft revisions but does not invalidate public RaceBook cache tags. The section appears or disappears only after explicit publication; an entitlement downgrade is the separate exception and masks unavailable modules immediately.
 - Keep batched mutation failures visible to the organizer and retain the browser draft for retry; a slow request must not look like an unresponsive switch.
 
 ## Related Docs

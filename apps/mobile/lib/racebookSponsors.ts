@@ -48,18 +48,18 @@ export async function reportRacebookSponsorImpression(
   }, 2_500).catch(() => null);
 }
 
-export async function fetchRacebookSponsors(raceId: string): Promise<RacebookSponsorPresentation> {
+export async function fetchRacebookSponsors(raceId: string, publicationId?: string): Promise<RacebookSponsorPresentation> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   const accessScope = data.session?.user.id ?? 'public';
-  const cacheKey = `${accessScope}:${raceId}`;
+  const cacheKey = `${accessScope}:${raceId}:${publicationId ?? "current"}`;
   const now = Date.now();
   const cached = sponsorRequests.get(cacheKey);
 
   if (cached && cached.expiresAt > now) return cached.request;
   if (cached) sponsorRequests.delete(cacheKey);
 
-  const url = `${WEB_API_BASE_URL}/api/racebook-sponsors?raceId=${encodeURIComponent(raceId)}`;
+  const url = `${WEB_API_BASE_URL}/api/racebook-sponsors?raceId=${encodeURIComponent(raceId)}${publicationId ? `&publicationId=${encodeURIComponent(publicationId)}` : ""}`;
   const request = fetchWithTimeout(url)
     .then(async (publicResponse) => {
       const response = publicResponse.ok || !token

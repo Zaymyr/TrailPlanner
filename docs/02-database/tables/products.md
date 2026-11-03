@@ -1,7 +1,7 @@
 ---
 title: products Table
 scope: database
-last_verified: 2026-09-23
+last_verified: 2026-11-03
 ai_priority: high
 related_files:
   - supabase/migrations/20241215030000_create_products_and_affiliate_offers.sql
@@ -152,6 +152,8 @@ where fuel_type = 'electrolyte'
 ```
 
 ## Gotchas
+
+An update to a product referenced by an organizer ravito increments the affected RaceBook draft revisions. Product labels and public images enter a snapshot only when the `official_products` module is effectively enabled; catalog and plan consumers continue to read their current product contracts outside this publication lifecycle.
 
 - Associating products with organizer ravitos requires the effective Signature `official_products` module; this does not alter the reusable product catalog row.
 
