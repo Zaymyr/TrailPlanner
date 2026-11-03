@@ -3,12 +3,17 @@ import { describe, expect, it } from "vitest";
 import type { VideoAidStation, VideoRoutePoint } from "../../../lib/video-generator";
 import { prepareAnimationPath } from "./route-animation";
 import {
+  AID_LABEL_LEAD_MS,
   AID_LABEL_MIN_DURATION_MS,
   buildElevationProfile,
   buildVideoTimeline,
   DEFAULT_VIDEO_COMPOSITION_SETTINGS,
   getDistanceAtFlyoverFraction,
   getFlyoverFractionAtDistance,
+  getGradeAtDistance,
+  getProfileTicks,
+  getProfileWindow,
+  getSlopeClass,
   getVideoCameraPose,
   getVideoFrameState,
   videoCompositionSettingsSchema,
@@ -20,11 +25,23 @@ const flatThenClimb: VideoRoutePoint[] = [
   { lat: 45.2, lon: 4, elevationM: 2_200, distanceKm: 20 },
 ];
 
-const station = (id: string, distanceKm: number): VideoAidStation => ({
+const station = (id: string, distanceKm: number, overrides: Partial<VideoAidStation> = {}): VideoAidStation => ({
   id: `00000000-0000-4000-8000-${id.padStart(12, "0")}`,
   name: `Ravito ${id}`,
   distanceKm,
+  waterAvailable: true,
+  foodAvailable: false,
+  assistanceAllowed: false,
+  isLifeBase: false,
+  dropBagAvailable: false,
+  cutoffTime: null,
+  ...overrides,
 });
+
+const flatPath = (km: number) => prepareAnimationPath([
+  { lat: 45, lon: 4, elevationM: 200, distanceKm: 0 },
+  { lat: 45 + km / 111, lon: 4, elevationM: 200, distanceKm: km },
+]);
 
 describe("videoCompositionSettingsSchema", () => {
   it("provides publishable defaults and round-trips through JSON", () => {
@@ -62,10 +79,7 @@ describe("buildVideoTimeline", () => {
   });
 
   it("slows down around an enabled aid station but not a disabled one", () => {
-    const flat = prepareAnimationPath([
-      { lat: 45, lon: 4, elevationM: 200, distanceKm: 0 },
-      { lat: 45.2, lon: 4, elevationM: 200, distanceKm: 20 },
-    ]);
+    const flat = flatPath(20);
     const aid = station("1", 10);
     const withAid = buildVideoTimeline(flat, [aid], DEFAULT_VIDEO_COMPOSITION_SETTINGS);
     const disabled = buildVideoTimeline(flat, [aid], { ...DEFAULT_VIDEO_COMPOSITION_SETTINGS, disabledAidStationIds: [aid.id] });
@@ -75,15 +89,15 @@ describe("buildVideoTimeline", () => {
       const leave = timeline.cumulativeTimeFraction[timeline.sampleDistancesKm.findIndex((km) => km >= 10.5)];
       return leave - enter;
     };
-    expect(timeAround(withAid)).toBeGreaterThan(timeAround(disabled) * 1.5);
+    expect(timeAround(withAid)).toBeGreaterThan(timeAround(disabled) * 2);
     expect(disabled.aidLabels).toEqual([]);
+
+    const lifeBase = buildVideoTimeline(flat, [station("1", 10, { isLifeBase: true })], DEFAULT_VIDEO_COMPOSITION_SETTINGS);
+    expect(timeAround(lifeBase)).toBeGreaterThan(timeAround(withAid));
   });
 
   it("never stacks aid labels and drops a station that would be unreadable", () => {
-    const flat = prepareAnimationPath([
-      { lat: 45, lon: 4, elevationM: 200, distanceKm: 0 },
-      { lat: 45.5, lon: 4, elevationM: 200, distanceKm: 55 },
-    ]);
+    const flat = flatPath(55);
     const timeline = buildVideoTimeline(flat, [station("1", 20), station("2", 20.2), station("3", 40)], DEFAULT_VIDEO_COMPOSITION_SETTINGS);
     expect(timeline.aidLabels.map((label) => label.name)).toEqual(["Ravito 1", "Ravito 3"]);
     timeline.aidLabels.forEach((label, index) => {
@@ -106,11 +120,20 @@ describe("getVideoFrameState", () => {
     expect(getVideoFrameState(timeline, 20_000)).toEqual(middle);
   });
 
-  it("shows an aid label when the runner reaches the station", () => {
+  it("shows an aid label with its services just before the runner reaches the station", () => {
     const label = timeline.aidLabels[0];
-    expect(getVideoFrameState(timeline, label.startMs + 100).aidLabel?.name).toBe("Ravito 1");
-    expect(getVideoFrameState(timeline, label.startMs + 100).distanceKm).toBeCloseTo(10, 0);
+    const arrival = timeline.aidStations[0].arrivalMs;
+    expect(label.startMs).toBeCloseTo(arrival - AID_LABEL_LEAD_MS, 6);
+    expect(getVideoFrameState(timeline, arrival).aidLabel).toMatchObject({ name: "Ravito 1", services: ["Eau"] });
+    expect(getVideoFrameState(timeline, arrival).distanceKm).toBeCloseTo(10, 6);
     expect(getVideoFrameState(timeline, label.endMs + 1).aidLabel).toBeNull();
+  });
+
+  it("announces the start with its place and time when provided", () => {
+    const withStart = buildVideoTimeline(path, [], DEFAULT_VIDEO_COMPOSITION_SETTINGS, { detail: "Lyon · 28 novembre · 23:30" });
+    expect(getVideoFrameState(withStart, 3_100).aidLabel).toMatchObject({ kind: "start", name: "Départ", detail: "Lyon · 28 novembre · 23:30" });
+    const hidden = buildVideoTimeline(path, [], { ...DEFAULT_VIDEO_COMPOSITION_SETTINGS, showStartInfo: false }, { detail: "Lyon" });
+    expect(hidden.aidLabels).toEqual([]);
   });
 
   it("glides the camera from the overview to the start during the intro", () => {
@@ -122,13 +145,29 @@ describe("getVideoFrameState", () => {
   });
 });
 
-describe("buildElevationProfile", () => {
-  it("covers the whole route once with bounded points", () => {
+describe("elevation profile", () => {
+  it("colours every sample by slope class once per route", () => {
     const profile = buildElevationProfile(prepareAnimationPath(flatThenClimb));
     expect(profile.minElevationM).toBe(200);
     expect(profile.maxElevationM).toBe(2_200);
-    expect(profile.totalDistanceKm).toBe(20);
-    expect(profile.linePath.startsWith("M0.0,")).toBe(true);
-    expect(profile.linePath.split("L").length).toBeLessThanOrEqual(401);
+    const colors = new Set(profile.segments.map((segment) => segment.color));
+    expect(colors.has(getSlopeClass(0).color)).toBe(true);
+    expect(colors.has(getSlopeClass(0.2).color)).toBe(true);
+    expect(profile.segments[0].linePath.startsWith("M0.0,")).toBe(true);
+  });
+
+  it("scrolls a window with the cursor at 35 % and clamps it to the route", () => {
+    expect(getProfileWindow(100, 50, "window")).toEqual({ startKm: 50 - 18 * 0.35, endKm: 50 + 18 * 0.65 });
+    expect(getProfileWindow(100, 1, "window")).toEqual({ startKm: 0, endKm: 18 });
+    expect(getProfileWindow(100, 99, "window")).toEqual({ startKm: 82, endKm: 100 });
+    expect(getProfileWindow(4, 2, "window")).toEqual({ startKm: 0, endKm: 4 });
+    expect(getProfileWindow(100, 50, "full")).toEqual({ startKm: 0, endKm: 100 });
+    expect(getProfileTicks({ startKm: 43.7, endKm: 61.7 })).toEqual([45, 50, 55, 60]);
+  });
+
+  it("measures the local grade around a distance", () => {
+    const path = prepareAnimationPath(flatThenClimb);
+    expect(getGradeAtDistance(path, 5)).toBeCloseTo(0, 6);
+    expect(getGradeAtDistance(path, 15)).toBeCloseTo(0.2, 6);
   });
 });

@@ -31,6 +31,14 @@ const readErrorMessage = async (response: Response, fallback: string) => {
   return typeof payload?.message === "string" ? payload.message : fallback;
 };
 
+const formatStartDetail = (race: VideoGeneratorDetail["race"]) => {
+  const date = race.raceDate && /^\d{4}-\d{2}-\d{2}/.test(race.raceDate)
+    ? new Date(`${race.raceDate.slice(0, 10)}T00:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "UTC" })
+    : null;
+  const parts = [race.startLocation, date, race.startTime].filter((part): part is string => Boolean(part?.trim()));
+  return parts.length ? parts.join(" · ") : null;
+};
+
 const buildVideoRaceInfo = (detail: VideoGeneratorDetail): VideoRaceInfo => {
   const { race } = detail;
   const baseTitle = race.eventName ?? race.name;
@@ -41,6 +49,7 @@ const buildVideoRaceInfo = (detail: VideoGeneratorDetail): VideoRaceInfo => {
     subtitle: race.eventName && race.eventName !== race.name ? race.name : null,
     distanceKm: race.distanceKm,
     elevationGainM: race.elevationGainM,
+    startDetail: formatStartDetail(race),
   };
 };
 

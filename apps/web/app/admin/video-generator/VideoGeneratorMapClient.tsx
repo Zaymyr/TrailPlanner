@@ -18,11 +18,18 @@ import {
 } from "./animation-controller";
 import { createRouteCameraController, type RouteCameraController } from "./camera-controller";
 import { CompositionSettingsPanel } from "./CompositionSettingsPanel";
+import {
+  applyMapAppearance,
+  captureMapAppearanceState,
+  resolveMapStyleUrl,
+  ROUTE_GLOW_WIDTH,
+  ROUTE_LINE_WIDTHS,
+  type MapAppearanceState,
+} from "./map-appearance";
 import { observeMapSize, type MapResizeController } from "./map-resize-controller";
 import {
   getRoutePointAtDistance,
   prepareAnimationPath,
-  TERRAIN_EXAGGERATION,
   type PreparedAnimationPath,
   type RouteRevealMode,
 } from "./route-animation";
@@ -30,6 +37,7 @@ import {
   buildElevationProfile,
   buildVideoTimeline,
   DEFAULT_VIDEO_COMPOSITION_SETTINGS,
+  getGradeAtDistance,
   getVideoCameraPose,
   getVideoFrameState,
   type VideoCompositionSettings,
@@ -41,16 +49,20 @@ const TERRAIN_SOURCE_ID = "video-terrain-dem";
 const ROUTE_SOURCE_ID = "video-route";
 const ROUTE_LAYER_ID = "video-route-line";
 const ROUTE_REVEAL_LAYER_ID = "video-route-line-reveal";
+const ROUTE_GLOW_LAYER_ID = "video-route-line-glow";
 const MARKER_SOURCE_ID = "video-route-markers";
 const MARKER_CIRCLE_LAYER_ID = "video-route-marker-circles";
 const MARKER_LABEL_LAYER_ID = "video-route-marker-labels";
 export const VIDEO_ROUTE_COLOR = DEFAULT_VIDEO_COMPOSITION_SETTINGS.routeColor;
 const FUTURE_ROUTE_ALPHA_HEX = "38";
-
-const MAP_STYLES = {
-  classic: "mapbox://styles/mapbox/satellite-streets-v12",
-  standard: "mapbox://styles/mapbox/standard-satellite",
-} as const;
+const GLOW_ROUTE_ALPHA_HEX = "8c";
+const OWN_LAYER_IDS = new Set([
+  ROUTE_LAYER_ID,
+  ROUTE_GLOW_LAYER_ID,
+  ROUTE_REVEAL_LAYER_ID,
+  MARKER_CIRCLE_LAYER_ID,
+  MARKER_LABEL_LAYER_ID,
+]);
 
 type GeoJsonSourceData = Parameters<GeoJSONSource["setData"]>[0];
 
@@ -78,8 +90,6 @@ export const buildRouteTrimOffset = (mode: RouteRevealMode, progress: number): [
   return clamped >= 1 ? [0, 0] : [clamped, 1];
 };
 
-const ROUTE_LINE_WIDTH: ExpressionSpecification = ["interpolate", ["linear"], ["zoom"], 5, 3, 13, 7];
-
 const buildMarkerRadius = (activeDistanceKm: number | null): ExpressionSpecification => [
   "case",
   ["==", ["get", "distanceKm"], activeDistanceKm ?? -1],
@@ -105,8 +115,10 @@ const syncMapData = (
   map: MapboxMap,
   routeData: ReturnType<typeof buildRouteGeoJson>,
   markerData: ReturnType<typeof buildMarkerGeoJson>,
-  routeColor: string,
+  settings: VideoCompositionSettings,
 ) => {
+  const { routeColor } = settings;
+  const lineWidth = ROUTE_LINE_WIDTHS[settings.routeWidth];
   const routeSource = map.getSource(ROUTE_SOURCE_ID) as GeoJSONSource | undefined;
   if (routeSource) routeSource.setData(routeData as GeoJsonSourceData);
   else map.addSource(ROUTE_SOURCE_ID, { type: "geojson", data: routeData as GeoJsonSourceData, lineMetrics: true });
@@ -120,8 +132,25 @@ const syncMapData = (
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
         "line-color": `${routeColor}${FUTURE_ROUTE_ALPHA_HEX}`,
-        "line-width": ROUTE_LINE_WIDTH,
+        "line-width": lineWidth,
         "line-emissive-strength": 1,
+      },
+    });
+  }
+
+  if (!map.getLayer(ROUTE_GLOW_LAYER_ID)) {
+    map.addLayer({
+      id: ROUTE_GLOW_LAYER_ID,
+      type: "line",
+      source: ROUTE_SOURCE_ID,
+      slot: "top",
+      layout: { "line-cap": "round", "line-join": "round", visibility: settings.routeGlow ? "visible" : "none" },
+      paint: {
+        "line-color": `${routeColor}${GLOW_ROUTE_ALPHA_HEX}`,
+        "line-width": ROUTE_GLOW_WIDTH,
+        "line-blur": 8,
+        "line-emissive-strength": 1,
+        "line-trim-offset": buildRouteTrimOffset("progressive", 0),
       },
     });
   }
@@ -135,7 +164,7 @@ const syncMapData = (
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
         "line-color": routeColor,
-        "line-width": ROUTE_LINE_WIDTH,
+        "line-width": lineWidth,
         "line-opacity": 0.96,
         "line-emissive-strength": 1,
         "line-trim-offset": buildRouteTrimOffset("progressive", 0),
@@ -200,6 +229,8 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: V
   // `map.isStyleLoaded()` is false whenever a tile is loading or a source was just updated, which is
   // permanently the case while the camera flies. Gating frames on it skipped most of them.
   const layersReadyRef = useRef(false);
+  const appearanceStateRef = useRef<MapAppearanceState>({ basemapSymbolLayerIds: [] });
+  const styleUrlRef = useRef<string | null>(null);
   const activeAidDistanceRef = useRef<number | null>(null);
   const boundsRef = useRef(bounds);
   const pointsRef = useRef(points);
@@ -217,11 +248,18 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: V
   }, [aidStations, settings.disabledAidStationIds]);
   const routeData = useMemo(() => buildRouteGeoJson(points), [points]);
   const markerData = useMemo(() => buildMarkerGeoJson(points, enabledAidStations), [enabledAidStations, points]);
-  const timeline = useMemo(() => buildVideoTimeline(preparedPath, aidStations, settings), [aidStations, preparedPath, settings]);
+  const timeline = useMemo(
+    () => buildVideoTimeline(preparedPath, aidStations, settings, { detail: race.startDetail }),
+    [aidStations, preparedPath, race.startDetail, settings],
+  );
   const profile = useMemo(() => buildElevationProfile(preparedPath), [preparedPath]);
   const [frameStore] = useState(() => createVideoFrameStore(getVideoFrameState(timeline, 0)));
   const elevationAtDistance = useCallback(
     (distanceKm: number) => getRoutePointAtDistance(preparedPath, distanceKm).elevationM,
+    [preparedPath],
+  );
+  const gradeAtDistance = useCallback(
+    (distanceKm: number) => getGradeAtDistance(preparedPath, distanceKm),
     [preparedPath],
   );
 
@@ -245,9 +283,9 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: V
     if (!map || !layersReadyRef.current || !camera || !path.canAnimate) return;
 
     camera.applyAnimationFrame(getVideoCameraPose(path, timelineRef.current, frame, settingsRef.current.viewport));
-    if (map.getLayer(ROUTE_REVEAL_LAYER_ID)) {
-      map.setPaintProperty(ROUTE_REVEAL_LAYER_ID, "line-trim-offset", buildRouteTrimOffset(settingsRef.current.revealMode, frame.routeProgress));
-    }
+    const trimOffset = buildRouteTrimOffset(settingsRef.current.revealMode, frame.routeProgress);
+    if (map.getLayer(ROUTE_REVEAL_LAYER_ID)) map.setPaintProperty(ROUTE_REVEAL_LAYER_ID, "line-trim-offset", trimOffset);
+    if (map.getLayer(ROUTE_GLOW_LAYER_ID)) map.setPaintProperty(ROUTE_GLOW_LAYER_ID, "line-trim-offset", trimOffset);
     const routePoint = getRoutePointAtDistance(path, frame.distanceKm);
     progressMarkerRef.current?.setLngLat([routePoint.lon, routePoint.lat]);
 
@@ -274,7 +312,7 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: V
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !layersReadyRef.current) return;
-    syncMapData(map, routeData, markerData, settingsRef.current.routeColor);
+    syncMapData(map, routeData, markerData, settingsRef.current);
   }, [markerData, routeData]);
 
   useEffect(() => {
@@ -298,9 +336,32 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: V
     const markerElement = progressMarkerRef.current?.getElement();
     if (markerElement) markerElement.style.background = settings.routeColor;
     if (!map || !layersReadyRef.current) return;
-    if (map.getLayer(ROUTE_REVEAL_LAYER_ID)) map.setPaintProperty(ROUTE_REVEAL_LAYER_ID, "line-color", settings.routeColor);
-    if (map.getLayer(ROUTE_LAYER_ID)) map.setPaintProperty(ROUTE_LAYER_ID, "line-color", `${settings.routeColor}${FUTURE_ROUTE_ALPHA_HEX}`);
-  }, [settings.routeColor]);
+    const lineWidth = ROUTE_LINE_WIDTHS[settings.routeWidth];
+    if (map.getLayer(ROUTE_REVEAL_LAYER_ID)) {
+      map.setPaintProperty(ROUTE_REVEAL_LAYER_ID, "line-color", settings.routeColor);
+      map.setPaintProperty(ROUTE_REVEAL_LAYER_ID, "line-width", lineWidth);
+    }
+    if (map.getLayer(ROUTE_LAYER_ID)) {
+      map.setPaintProperty(ROUTE_LAYER_ID, "line-color", `${settings.routeColor}${FUTURE_ROUTE_ALPHA_HEX}`);
+      map.setPaintProperty(ROUTE_LAYER_ID, "line-width", lineWidth);
+    }
+    if (map.getLayer(ROUTE_GLOW_LAYER_ID)) {
+      map.setPaintProperty(ROUTE_GLOW_LAYER_ID, "line-color", `${settings.routeColor}${GLOW_ROUTE_ALPHA_HEX}`);
+      map.setLayoutProperty(ROUTE_GLOW_LAYER_ID, "visibility", settings.routeGlow ? "visible" : "none");
+    }
+  }, [settings.routeColor, settings.routeGlow, settings.routeWidth]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !layersReadyRef.current) return;
+    applyMapAppearance(map, settingsRef.current, appearanceStateRef.current, OWN_LAYER_IDS);
+  }, [settings.hideMapLabels, settings.mapAmbiance]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !layersReadyRef.current || !map.getSource(TERRAIN_SOURCE_ID)) return;
+    map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: settings.terrainExaggeration });
+  }, [settings.terrainExaggeration]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -318,16 +379,19 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: V
   useEffect(() => {
     if (!accessToken || !webGlAvailable || !containerRef.current) return;
     mapboxgl.accessToken = accessToken;
+    styleUrlRef.current = resolveMapStyleUrl(settingsRef.current);
     const map = new mapboxgl.Map({
       container: containerRef.current,
-      style: MAP_STYLES[settingsRef.current.mapStyle],
+      style: styleUrlRef.current,
       center: [boundsRef.current.minLon, boundsRef.current.minLat],
       zoom: 9,
       pitch: 55,
       bearing: 0,
       projection: "mercator",
       antialias: true,
-      attributionControl: true,
+      // Mapbox terms require the logo and attribution; keep them compact and away from the overlay.
+      attributionControl: false,
+      logoPosition: "bottom-right",
     });
     mapRef.current = map;
     cameraRef.current = createRouteCameraController(map, () => boundsRef.current);
@@ -336,7 +400,7 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: V
       onFrame: applyAnimationTime,
       onSnapshot: setSnapshot,
     });
-    map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), "top-right");
+    map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-right");
     const resizeController = observeMapSize(map, containerRef.current);
     resizeRef.current = resizeController;
     const firstPoint = preparedPathRef.current.samples[0];
@@ -352,8 +416,10 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: V
       if (!map.getSource(TERRAIN_SOURCE_ID)) {
         map.addSource(TERRAIN_SOURCE_ID, { type: "raster-dem", url: "mapbox://mapbox.mapbox-terrain-dem-v1", tileSize: 512, maxzoom: 14 });
       }
-      map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: TERRAIN_EXAGGERATION });
-      syncMapData(map, routeDataRef.current, markerDataRef.current, settingsRef.current.routeColor);
+      map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: settingsRef.current.terrainExaggeration });
+      syncMapData(map, routeDataRef.current, markerDataRef.current, settingsRef.current);
+      appearanceStateRef.current = captureMapAppearanceState(map, OWN_LAYER_IDS);
+      applyMapAppearance(map, settingsRef.current, appearanceStateRef.current, OWN_LAYER_IDS);
       activeAidDistanceRef.current = null;
       layersReadyRef.current = true;
       resizeController.schedule();
@@ -364,14 +430,23 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: V
           if (mapRef.current !== map || loadVersion !== styleLoadVersion) return;
           setPreparedPath(prepareAnimationPath(pointsRef.current, ({ lat, lon }) =>
             map.queryTerrainElevation([lon, lat], { exaggerated: false })));
+          setMapError(null);
           setIsReady(true);
         });
       });
     };
-    const handleError = (event: MapboxEvent & { error?: Error }) => {
+    const handleError = (event: MapboxEvent & { error?: Error & { status?: number }; sourceId?: string; tile?: unknown }) => {
       if (!event.error) return;
       console.error("Mapbox video generator error", event.error);
-      setMapError("La carte 3D n’a pas pu être chargée. Vérifiez le token Mapbox et sa restriction de domaine.");
+      // A single missing tile, sprite or glyph is not fatal and Mapbox keeps rendering. Only a
+      // failure before the style is usable, or a rejected token, blocks the viewer.
+      const isTileError = Boolean(event.sourceId || event.tile);
+      const isAuthError = event.error.status === 401 || event.error.status === 403;
+      if (isAuthError || (!isTileError && !layersReadyRef.current)) {
+        setMapError(isAuthError
+          ? "Le token Mapbox a été refusé. Vérifiez sa restriction de domaine."
+          : "La carte 3D n’a pas pu être chargée. Vérifiez le token Mapbox ou l’URL du style.");
+      }
     };
 
     map.on("style.load", handleStyleLoad);
@@ -393,12 +468,14 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: V
   }, [accessToken, applyAnimationTime, webGlAvailable]);
 
   const updateSettings = (nextSettings: VideoCompositionSettings) => {
-    if (nextSettings.mapStyle !== settings.mapStyle) {
+    const nextStyleUrl = resolveMapStyleUrl(nextSettings);
+    if (nextStyleUrl !== styleUrlRef.current) {
+      styleUrlRef.current = nextStyleUrl;
       animationRef.current?.pause();
       setIsReady(false);
       setMapError(null);
       layersReadyRef.current = false;
-      mapRef.current?.setStyle(MAP_STYLES[nextSettings.mapStyle]);
+      mapRef.current?.setStyle(nextStyleUrl);
     }
     setSettings(nextSettings);
   };
@@ -431,6 +508,7 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: V
           <VideoCompositionOverlay
             elevationAtDistance={elevationAtDistance}
             frameStore={frameStore}
+            gradeAtDistance={gradeAtDistance}
             profile={profile}
             race={race}
             settings={settings}

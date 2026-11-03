@@ -14,6 +14,7 @@ related_files:
   - apps/web/app/admin/video-generator/VideoCompositionOverlay.tsx
   - apps/web/app/admin/video-generator/CompositionSettingsPanel.tsx
   - apps/web/app/admin/video-generator/video-composition.ts
+  - apps/web/app/admin/video-generator/map-appearance.ts
   - apps/web/app/admin/video-generator/video-composition.test.ts
   - apps/web/app/admin/video-generator/AnimationControls.tsx
   - apps/web/app/admin/video-generator/AnimationControls.test.ts
@@ -49,7 +50,9 @@ The admin-only `/admin/video-generator` route renders existing race GPX files ov
 - The viewer fixes the projection to Mercator for consistent terrain rendering across desktop GPUs and observes its container so the WebGL canvas is resized after responsive layout changes.
 - The page is a three-column workspace: race selection on the left, the phone preview with its compact transport bar in the middle (sized from the viewport height so the whole 9:16 frame is visible without scrolling), and the "Composition vidéo" settings on the right.
 - The preview defaults to a 9:16 Instagram/Reels frame at a logical 1080 x 1920 ratio and can switch to a real 16:9 camera viewport. Neither preview captures or encodes video.
-- The classic `satellite-streets-v12` style is the default compatibility basemap. Admins can switch to Mapbox Standard Satellite at runtime to compare rendering without reloading the GPX.
+- The classic `satellite-streets-v12` style is the default compatibility basemap. Admins can switch to Mapbox Standard Satellite or to their own Mapbox Studio style (`mapbox://styles/<account>/<id>`, validated before use) without reloading the GPX.
+- `map-appearance.ts` applies the basemap look on style load and on setting changes, never per frame: four ambiances (natural, vivid, cinematic, night) set raster saturation/contrast/brightness and fog/sky, basemap place and road labels can be hidden (Standard uses its label configuration properties), terrain exaggeration ranges from 1 to 2.5 (default 1.3) and also feeds the camera clearance, and the route can be thin or bold with an optional blurred glow layer trimmed like the reveal layer.
+- Map navigation buttons are not rendered because the output is a video. The Mapbox logo and a compact attribution stay bottom-right: Mapbox terms require both on maps and on captured output, so they must not be removed or hidden behind the overlay.
 - Automatic playback is opt-in, defaults to 45 seconds and progressive route reveal. Durations are limited to the Reel presets 30, 45, 60 and 90 seconds, which include the optional 3-second intro and outro.
 - `VideoCompositionSettings` (`video-composition.ts`) is a versioned, zod-validated, JSON-serializable object holding every visual choice (format, export resolution 540p/1080p, information toggles, route and accent colours, logo/CTA, sequences, disabled aid stations). "Copier la configuration" exports it so a render can be reproduced.
 
@@ -65,6 +68,8 @@ The page reuses `GET /api/admin/race-catalog` for the authorized event/format se
 4. reads the private `race-gpx` object;
 5. parses it with `apps/web/lib/gpx/parseGpx.ts`;
 6. returns an explicit DTO with race metrics, stations, ordered points, elevation, cumulative distance and bounds.
+
+Stations carry `water_available`, `solid_available`, `assistance_allowed` and, from `organizer_details` parsed with the shared organizer parser, whether the station is a life base, offers a drop bag, and its cutoff time. The race carries `race_date`, the organizer start time (`organizer_details.schedule.startTime`) and the first available start place (race then event start location/address, race location, `location_text`). Raw organizer JSON and organizer notes are never returned.
 
 The response never serializes the service credential, Storage path, signed URL, or raw GPX XML. A missing GPX is a successful `gpx.status = "missing"` response; invalid GPX returns `422`, and Supabase/PostgREST/Storage failures return `502`.
 
@@ -90,9 +95,11 @@ The camera path is capped at 2,500 regularly spaced samples for long ultras. The
 
 The chase camera always looks exactly at the progress marker, so the runner stays centred between the header and the profile. It sits behind the marker along a travel direction averaged over three symmetric chords (a hairpin rotates progressively instead of snapping) and is raised above the highest nearby GPX sample plus 300 m of clearance. Back distance and heading window scale with the average flyover speed rather than the instantaneous one, so framing stays stable while the pace changes. Portrait mode sits 20% further back and higher. The intro holds a pure north-up overview fitted to the route and glides to the start; the outro glides back to it.
 
-Pacing is not linear in distance. `computePacingWeights` gives each sample a relative time per kilometre: up to +140% on climbs of 15% or more, up to +50% on steep descents, and up to +200% in a Gaussian window around each enabled aid station; the weights are smoothed over 1% of the route so the speed never jumps. The cumulative table is inverted with a binary search, which keeps any time → distance lookup deterministic and seekable.
+Pacing is not linear in distance. `computePacingWeights` gives each sample a relative time per kilometre: up to +140% on climbs of 15% or more, up to +50% on steep descents, and a Gaussian slowdown around each enabled aid station (+300%, +450% for a life base, capped at +450% when stations overlap); the weights are smoothed over 1% of the route so the speed never jumps. The cumulative table is inverted with a binary search, which keeps any time → distance lookup deterministic and seekable.
 
-The composition overlay is plain DOM above the map, sized in `cqmin` container units so the preview and a 1080 x 1920 capture share the same layout. It reads frames from a small external store with `useSyncExternalStore`, leaving the rest of the page at the existing 10 Hz snapshot rate. The elevation profile path is computed once (at most 400 points); frames only move a clip rectangle and a cursor whose distance is the exact marker distance. Aid labels last 2.5 s and never overlap: a following label shortens the previous one when both keep at least 1.2 s, otherwise the later station is skipped and flagged "masqué" in the panel. Essential information stays out of the right-hand Instagram action column and above the bottom caption area. Disabled stations are removed from the map markers and the pacing; the station being announced is enlarged on the map.
+The composition overlay is plain DOM above the map, sized in `cqmin` container units so the preview and a 1080 x 1920 capture share the same layout. It reads frames from a small external store with `useSyncExternalStore`, leaving the rest of the page at the existing 10 Hz snapshot rate. The elevation profile path is computed once (at most 400 points); frames only move a clip rectangle and a cursor whose distance is the exact marker distance. Labels last 2.5 s, start 0.7 s before the marker reaches the station while the camera is already slowing, and never overlap: a following label shortens the previous one when both keep at least 1.2 s, otherwise the later station is skipped and flagged "masqué" in the panel. An aid label shows the name, kilometre, optional cutoff, a "Base de vie" badge and the available services (water, food, assistance, drop bag). When a start place, date or time is known, a "Départ" label opens the flyover and the intro repeats it.
+
+The elevation profile spans the full frame width and, by default, scrolls: it shows an 18% window of the route (6 to 25 km) with the cursor at 35%, plus kilometre ticks, the current altitude and grade, and a thin full-route bar locating the window. "Parcours entier" keeps the whole route instead. Every camera sample is drawn once as slope-coloured segments (descent, rolling, 4-10%, 10-18%, above 18% over ±100 m); a frame only changes the SVG `viewBox` and a dimming rectangle over the remaining route. Essential information stays out of the right-hand Instagram action column and above the bottom caption area. Disabled stations are removed from the map markers and the pacing; the station being announced is enlarged on the map.
 
 ## Environment And Provider Terms
 
@@ -127,6 +134,7 @@ Provider references:
 - Do not put positioning utilities such as `absolute inset-0` on the element passed to `new mapboxgl.Map({ container })`. Mapbox adds `.mapboxgl-map { position: relative }`, and the production stylesheet order lets it override Tailwind, collapsing the container to 0px height and showing only the black viewer background. Position a wrapper and give the container `h-full w-full`.
 - Do not mutate, thin or progressively slice the displayed GPX source. Camera samples are derived separately and route reveal trims a `lineMetrics` layer with `line-trim-offset`.
 - Do not make rotation smoothing depend on the previous rendered frame. Seeking and future frame export require the same time to reproduce the same camera state.
+- Do not show the fatal map error for tile, sprite or glyph errors (events carrying `sourceId` or `tile`) once the layers are ready; Mapbox keeps rendering. Only token rejections (401/403) or failures before the style is usable block the viewer.
 - Do not gate animation frames on `map.isStyleLoaded()`. In Mapbox GL v3 it stays false while any tile loads or a source has pending updates, which is continuous during a flyover; the viewer tracks its own layers-ready flag, reset on style switches.
 - Do not compute overlay content, camera or pacing anywhere else than `video-composition.ts` and `route-animation.ts`; the export must replay exactly what the preview shows.
 - Do not describe the current preview as video generation. It produces no video artifact until the export phase ships.

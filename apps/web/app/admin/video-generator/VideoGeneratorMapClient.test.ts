@@ -11,10 +11,17 @@ const mapboxMock = vi.hoisted(() => {
   class MockMap {
     events = new Map<string, Set<(...args: unknown[]) => void>>();
     sources = new Map<string, { definition: Record<string, unknown>; setData: ReturnType<typeof vi.fn> }>();
-    layers = new Map<string, Record<string, unknown>>();
+    // Basemap layers present in the loaded style before ours are added.
+    layers = new Map<string, Record<string, unknown>>([
+      ["satellite", { id: "satellite", type: "raster" }],
+      ["road-label", { id: "road-label", type: "symbol", layout: {} }],
+    ]);
     addControl = vi.fn();
     setTerrain = vi.fn();
     setPaintProperty = vi.fn();
+    setLayoutProperty = vi.fn();
+    setConfigProperty = vi.fn();
+    setFog = vi.fn();
     setFreeCameraOptions = vi.fn();
     setStyle = vi.fn();
     easeTo = vi.fn();
@@ -78,6 +85,11 @@ const mapboxMock = vi.hoisted(() => {
     getBearing() { return 20; }
     getPitch() { return 55; }
     getFreeCameraOptions() { return this.freeCamera; }
+    getStyle() {
+      return {
+        layers: [...this.layers.values()],
+      };
+    }
     // Mirrors Mapbox: false while tiles load or a source has pending updates, i.e. during a flyover.
     isStyleLoaded() { return false; }
   }
@@ -108,12 +120,12 @@ vi.mock("mapbox-gl", () => ({
     accessToken: "",
     Map: mapboxMock.MockMap,
     Marker: mapboxMock.MockMarker,
-    NavigationControl: class NavigationControl {},
+    AttributionControl: class AttributionControl {},
   },
   Map: mapboxMock.MockMap,
   Marker: mapboxMock.MockMarker,
   MercatorCoordinate: mapboxMock.MockMercatorCoordinate,
-  NavigationControl: class NavigationControl {},
+  AttributionControl: class AttributionControl {},
 }));
 
 import { buildRouteTrimOffset, VideoGeneratorMapClient } from "./VideoGeneratorMapClient";
@@ -164,7 +176,7 @@ describe("VideoGeneratorMapClient", () => {
         { lat: 45, lon: 4, elevationM: 400, distanceKm: 0 },
         { lat: 46, lon: 5, elevationM: 900, distanceKm: 20 },
       ],
-      race: { title: "SaintéLyon 2026", subtitle: "SaintéLyon 82 km", distanceKm: 82, elevationGainM: 2_300 },
+      race: { title: "SaintéLyon 2026", subtitle: "SaintéLyon 82 km", distanceKm: 82, elevationGainM: 2_300, startDetail: "Lyon · 28 novembre · 23:30" },
     }));
     const map = mapboxMock.instances[0];
     expect(map).toBeTruthy();
@@ -173,10 +185,15 @@ describe("VideoGeneratorMapClient", () => {
     act(() => flushAnimationFrames());
     act(() => map.emit("idle"));
 
-    expect(map.setTerrain).toHaveBeenCalledWith({ source: "video-terrain-dem", exaggeration: 1.15 });
+    expect(map.setTerrain).toHaveBeenCalledWith({ source: "video-terrain-dem", exaggeration: 1.3 });
     expect(map.sources.get("video-route")?.definition.lineMetrics).toBe(true);
     expect(map.layers.has("video-route-line")).toBe(true);
     expect(map.layers.has("video-route-line-reveal")).toBe(true);
+    expect(map.layers.has("video-route-line-glow")).toBe(true);
+    expect(map.setPaintProperty).toHaveBeenCalledWith("satellite", "raster-saturation", expect.any(Number));
+    expect(map.setLayoutProperty).toHaveBeenCalledWith("road-label", "visibility", "none");
+    expect(map.setFog).toHaveBeenCalled();
+    expect(map.addControl).toHaveBeenCalledOnce();
     const progressMarker = mapboxMock.markers[0];
     expect(progressMarker.addTo).toHaveBeenCalledWith(map);
     const routeSetData = map.sources.get("video-route")?.setData;
@@ -185,6 +202,12 @@ describe("VideoGeneratorMapClient", () => {
 
     expect(screen.getAllByText("SaintéLyon 2026").length).toBeGreaterThan(0);
     expect(screen.getByLabelText("Durée de la vidéo")).toBeTruthy();
+
+    act(() => map.emit("error", { error: new Error("tile 404"), sourceId: "mapbox-satellite" }));
+    expect(screen.queryByText(/La carte 3D n’a pas pu être chargée/)).toBeNull();
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Masquer les noms de lieux et de routes" }));
+    expect(map.setLayoutProperty).toHaveBeenLastCalledWith("road-label", "visibility", "visible");
 
     await userEvent.click(screen.getByRole("button", { name: "Lecture" }));
     act(() => flushAnimationFrames(1_000));

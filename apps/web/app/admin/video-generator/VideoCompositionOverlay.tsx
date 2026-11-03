@@ -1,10 +1,13 @@
 "use client";
 
-import React, { memo, useId, useSyncExternalStore } from "react";
+import React, { memo, useSyncExternalStore } from "react";
 import Image from "next/image";
 
 import {
+  getProfileTicks,
+  getProfileWindow,
   getProfileY,
+  PROFILE_UNITS_PER_KM,
   type ElevationProfile,
   type ScheduledAidLabel,
   type VideoCompositionSettings,
@@ -16,6 +19,8 @@ export type VideoRaceInfo = {
   subtitle: string | null;
   distanceKm: number;
   elevationGainM: number | null;
+  /** Start place, date and time, e.g. "Lyon · 28 novembre · 23:30". */
+  startDetail: string | null;
 };
 
 export type VideoFrameStore = {
@@ -46,6 +51,7 @@ const TEXT_SHADOW = "0 0.3cqmin 1.2cqmin rgba(0, 0, 0, 0.65)";
 
 const formatKm = (value: number) => value.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const formatInteger = (value: number) => Math.round(value).toLocaleString("fr-FR");
+const formatGrade = (grade: number) => `${grade >= 0 ? "+" : "−"}${Math.abs(Math.round(grade * 100))} %`;
 
 export const formatRaceStats = (race: VideoRaceInfo, settings: VideoCompositionSettings) => [
   settings.showDistance ? `${formatInteger(race.distanceKm)} KM` : null,
@@ -55,31 +61,78 @@ export const formatRaceStats = (race: VideoRaceInfo, settings: VideoCompositionS
 const getLabelOpacity = (label: ScheduledAidLabel, timeMs: number) =>
   Math.max(0, Math.min(1, (timeMs - label.startMs) / FADE_MS, (label.endMs - timeMs) / FADE_MS));
 
+const ProfileSegments = memo(function ProfileSegments({ profile }: { profile: ElevationProfile }) {
+  return (
+    <>
+      {profile.segments.map((segment, index) => (
+        <path key={`area-${index}`} d={segment.areaPath} fill={segment.color} fillOpacity={0.5} />
+      ))}
+      {profile.segments.map((segment, index) => (
+        <path key={`line-${index}`} d={segment.linePath} fill="none" stroke={segment.color} strokeWidth={3} vectorEffect="non-scaling-stroke" />
+      ))}
+    </>
+  );
+});
+
+function AidLabelCard({ accent, label, timeMs }: { accent: string; label: ScheduledAidLabel; timeMs: number }) {
+  const meta = label.kind === "start"
+    ? label.detail
+    : [`KM ${formatKm(label.distanceKm)}`, label.cutoffTime ? `Barrière ${label.cutoffTime}` : null].filter(Boolean).join(" · ");
+  return (
+    <div
+      className="absolute left-1/2 max-w-[86%] -translate-x-1/2 rounded-[1.5cqmin] bg-black/60 text-center backdrop-blur-sm"
+      style={{ top: "30%", padding: "2cqmin 4cqmin", borderLeft: `1cqmin solid ${accent}`, opacity: getLabelOpacity(label, timeMs) }}
+    >
+      {label.isLifeBase ? (
+        <p className="mx-auto mb-[1cqmin] w-fit rounded-full px-[2cqmin] font-black uppercase tracking-wide text-black" style={{ fontSize: "2.8cqmin", background: accent }}>
+          Base de vie
+        </p>
+      ) : null}
+      <p className="font-black uppercase leading-tight" style={{ fontSize: "5cqmin" }}>{label.name}</p>
+      {meta ? <p className="font-bold tabular-nums" style={{ fontSize: "3.6cqmin", color: accent }}>{meta}</p> : null}
+      {label.services.length ? (
+        <div className="mt-[1.2cqmin] flex flex-wrap justify-center" style={{ gap: "1cqmin" }}>
+          {label.services.map((service) => (
+            <span key={service} className="rounded-full bg-white/15 font-semibold" style={{ fontSize: "2.9cqmin", padding: "0.4cqmin 1.8cqmin" }}>
+              {service}
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 type OverlayProps = {
   elevationAtDistance: (distanceKm: number) => number;
   frameStore: VideoFrameStore;
+  gradeAtDistance: (distanceKm: number) => number;
   profile: ElevationProfile;
   race: VideoRaceInfo;
   settings: VideoCompositionSettings;
 };
 
-function VideoCompositionOverlayComponent({ elevationAtDistance, frameStore, profile, race, settings }: OverlayProps) {
+function VideoCompositionOverlayComponent({ elevationAtDistance, frameStore, gradeAtDistance, profile, race, settings }: OverlayProps) {
   const frame = useSyncExternalStore(frameStore.subscribe, frameStore.get, frameStore.get);
-  const clipId = useId();
   const stats = formatRaceStats(race, settings);
   const isIntro = frame.phase === "intro";
   const isOutro = frame.phase === "outro";
   const introOpacity = isIntro ? Math.min(1, (1 - frame.phaseProgress) / 0.3) : 0;
   const outroOpacity = isOutro ? Math.min(1, Math.max(0, (frame.phaseProgress - 0.4) / 0.3)) : 0;
   const chromeOpacity = isIntro ? 1 - introOpacity : isOutro ? 1 - outroOpacity : 1;
-  const cursorX = frame.routeProgress * profile.width;
-  const cursorY = getProfileY(profile, elevationAtDistance(frame.distanceKm));
   const accent = settings.accentColor;
+
+  const profileWindow = getProfileWindow(profile.totalDistanceKm, frame.distanceKm, settings.profileMode);
+  const windowSpanKm = Math.max(0.001, profileWindow.endKm - profileWindow.startKm);
+  const toWindowPercent = (distanceKm: number) => ((distanceKm - profileWindow.startKm) / windowSpanKm) * 100;
+  const currentElevationM = elevationAtDistance(frame.distanceKm);
+  const cursorX = frame.distanceKm * PROFILE_UNITS_PER_KM;
+  const totalUnits = profile.totalDistanceKm * PROFILE_UNITS_PER_KM;
 
   return (
     <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden text-white" style={{ textShadow: TEXT_SHADOW }}>
       <div className="absolute inset-x-0 top-0 h-[30%] bg-gradient-to-b from-black/60 to-transparent" style={{ opacity: chromeOpacity }} />
-      <div className="absolute inset-x-0 bottom-0 h-[38%] bg-gradient-to-t from-black/70 to-transparent" style={{ opacity: isOutro ? 1 : chromeOpacity }} />
+      <div className="absolute inset-x-0 bottom-0 h-[40%] bg-gradient-to-t from-black/75 to-transparent" style={{ opacity: isOutro ? 1 : chromeOpacity }} />
 
       {settings.showTitle || stats ? (
         <header className="absolute" style={{ left: "5cqmin", right: "5cqmin", top: "6cqmin", opacity: chromeOpacity }}>
@@ -93,61 +146,74 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, frameStore, pro
         </header>
       ) : null}
 
-      {frame.aidLabel ? (
-        <div
-          className="absolute left-1/2 -translate-x-1/2 rounded-[1.5cqmin] bg-black/55 text-center backdrop-blur-sm"
-          style={{ top: "34%", padding: "2cqmin 4cqmin", borderLeft: `1cqmin solid ${accent}`, opacity: getLabelOpacity(frame.aidLabel, frame.timeMs) }}
-        >
-          <p className="font-black uppercase leading-tight" style={{ fontSize: "5cqmin" }}>{frame.aidLabel.name}</p>
-          <p className="font-bold tabular-nums" style={{ fontSize: "4cqmin", color: accent }}>KM {formatKm(frame.aidLabel.distanceKm)}</p>
-        </div>
-      ) : null}
+      {frame.aidLabel ? <AidLabelCard accent={accent} label={frame.aidLabel} timeMs={frame.timeMs} /> : null}
 
       {settings.showProfile || settings.showCurrentKm ? (
-        <section className="absolute" style={{ left: "5cqmin", right: "16cqmin", bottom: "15cqmin", opacity: chromeOpacity }}>
+        <section className="absolute" style={{ left: "4cqmin", right: "4cqmin", bottom: "14cqmin", opacity: chromeOpacity }}>
           {settings.showCurrentKm ? (
-            <p className="font-black tabular-nums" style={{ fontSize: "5cqmin" }}>
-              KM {formatKm(frame.distanceKm)}
-              <span className="font-semibold text-white/75"> / {formatInteger(profile.totalDistanceKm)}</span>
+            <p className="flex items-baseline justify-between font-black tabular-nums" style={{ fontSize: "5cqmin" }}>
+              <span>
+                KM {formatKm(frame.distanceKm)}
+                <span className="font-semibold text-white/75"> / {formatInteger(profile.totalDistanceKm)}</span>
+              </span>
+              <span className="font-bold" style={{ fontSize: "3.6cqmin" }}>
+                {formatInteger(currentElevationM)} m
+                <span style={{ color: accent }}> · {formatGrade(gradeAtDistance(frame.distanceKm))}</span>
+              </span>
             </p>
           ) : null}
           {settings.showProfile ? (
-            <div className="relative mt-[1.5cqmin]" style={{ height: "22cqmin" }}>
-              <svg className="absolute inset-0 h-full w-full" viewBox={`0 0 ${profile.width} ${profile.height}`} preserveAspectRatio="none" aria-hidden="true">
-                <defs>
-                  <clipPath id={clipId}>
-                    <rect x={0} y={0} width={cursorX} height={profile.height} />
-                  </clipPath>
-                </defs>
-                <path d={profile.areaPath} fill="rgba(255,255,255,0.14)" />
-                <path d={profile.linePath} fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth={3} vectorEffect="non-scaling-stroke" />
-                <g clipPath={`url(#${clipId})`}>
-                  <path d={profile.areaPath} fill={accent} fillOpacity={0.4} />
-                  <path d={profile.linePath} fill="none" stroke={accent} strokeWidth={4} vectorEffect="non-scaling-stroke" />
-                </g>
-                <line x1={cursorX} x2={cursorX} y1={0} y2={profile.height} stroke="white" strokeWidth={2} vectorEffect="non-scaling-stroke" />
-              </svg>
-              <span
-                className="absolute rounded-full border-white"
-                style={{
-                  left: `${frame.routeProgress * 100}%`,
-                  top: `${(cursorY / profile.height) * 100}%`,
-                  width: "3cqmin",
-                  height: "3cqmin",
-                  borderWidth: "0.6cqmin",
-                  background: accent,
-                  transform: "translate(-50%, -50%)",
-                }}
-              />
-              <span className="absolute left-0 top-0 font-semibold tabular-nums text-white/70" style={{ fontSize: "2.6cqmin" }}>{formatInteger(profile.maxElevationM)} m</span>
-              <span className="absolute bottom-0 left-0 font-semibold tabular-nums text-white/70" style={{ fontSize: "2.6cqmin" }}>{formatInteger(profile.minElevationM)} m</span>
-            </div>
+            <>
+              <div className="relative mt-[1.2cqmin]" style={{ height: "20cqmin" }}>
+                <svg
+                  className="absolute inset-0 h-full w-full"
+                  viewBox={`${profileWindow.startKm * PROFILE_UNITS_PER_KM} 0 ${windowSpanKm * PROFILE_UNITS_PER_KM} ${profile.height}`}
+                  preserveAspectRatio="none"
+                  aria-hidden="true"
+                >
+                  <ProfileSegments profile={profile} />
+                  <rect x={cursorX} y={0} width={Math.max(0, totalUnits - cursorX)} height={profile.height} fill="black" fillOpacity={0.45} />
+                  <line x1={cursorX} x2={cursorX} y1={0} y2={profile.height} stroke="white" strokeWidth={2} vectorEffect="non-scaling-stroke" />
+                </svg>
+                <span
+                  className="absolute rounded-full border-white"
+                  style={{
+                    left: `${toWindowPercent(frame.distanceKm)}%`,
+                    top: `${(getProfileY(profile, currentElevationM) / profile.height) * 100}%`,
+                    width: "3cqmin",
+                    height: "3cqmin",
+                    borderWidth: "0.6cqmin",
+                    background: accent,
+                    transform: "translate(-50%, -50%)",
+                  }}
+                />
+              </div>
+              <div className="relative h-[3.6cqmin]">
+                {getProfileTicks(profileWindow).map((km) => (
+                  <span key={km} className="absolute top-0 -translate-x-1/2 font-semibold tabular-nums text-white/75" style={{ left: `${toWindowPercent(km)}%`, fontSize: "2.6cqmin" }}>
+                    {km} km
+                  </span>
+                ))}
+              </div>
+              {settings.profileMode === "window" ? (
+                <div className="relative mt-[0.8cqmin] h-[1cqmin] rounded-full bg-white/25">
+                  <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${frame.routeProgress * 100}%`, background: accent }} />
+                  <div
+                    className="absolute -inset-y-[0.4cqmin] rounded-sm border border-white/80"
+                    style={{
+                      left: `${(profileWindow.startKm / Math.max(0.001, profile.totalDistanceKm)) * 100}%`,
+                      width: `${(windowSpanKm / Math.max(0.001, profile.totalDistanceKm)) * 100}%`,
+                    }}
+                  />
+                </div>
+              ) : null}
+            </>
           ) : null}
         </section>
       ) : null}
 
       {(settings.showLogo || settings.showCta) && !isOutro ? (
-        <footer className="absolute flex items-center" style={{ left: "5cqmin", bottom: "5cqmin", gap: "2cqmin", opacity: chromeOpacity }}>
+        <footer className="absolute flex items-center" style={{ left: "4cqmin", bottom: "4cqmin", gap: "2cqmin", opacity: chromeOpacity }}>
           {settings.showLogo ? <Image src={LOGO_SRC} alt="" width={256} height={256} unoptimized style={{ width: "7cqmin", height: "7cqmin" }} /> : null}
           {settings.showCta ? (
             <div className="leading-tight">
@@ -163,6 +229,9 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, frameStore, pro
           <p className="font-black uppercase leading-none" style={{ fontSize: "10cqmin" }}>{race.title}</p>
           {race.subtitle ? <p className="mt-[2cqmin] font-bold uppercase" style={{ fontSize: "5.5cqmin" }}>{race.subtitle}</p> : null}
           {stats ? <p className="mt-[3cqmin] font-black tabular-nums" style={{ fontSize: "5.5cqmin", color: accent }}>{stats}</p> : null}
+          {settings.showStartInfo && race.startDetail ? (
+            <p className="mt-[2.5cqmin] font-semibold" style={{ fontSize: "4cqmin" }}>Départ · {race.startDetail}</p>
+          ) : null}
         </div>
       ) : null}
 

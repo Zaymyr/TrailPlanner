@@ -4,7 +4,11 @@ import React, { useState, type ReactNode } from "react";
 
 import { Button } from "../../../components/ui/button";
 import type { VideoAidStation } from "../../../lib/video-generator";
+import { MAP_AMBIANCES } from "./map-appearance";
 import {
+  getAidStationServices,
+  MAPBOX_STYLE_URL_PATTERN,
+  PROFILE_SLOPE_CLASSES,
   VIDEO_DURATION_PRESETS,
   type ScheduledAidLabel,
   type VideoCompositionSettings,
@@ -28,6 +32,7 @@ const INFORMATION_TOGGLES: Array<[BooleanSettingKey, string]> = [
   ["showTitle", "Titre"],
   ["showDistance", "Distance"],
   ["showElevation", "Dénivelé"],
+  ["showStartInfo", "Départ (lieu, heure)"],
   ["showAidStations", "Ravitaillements"],
   ["showProfile", "Profil altimétrique"],
   ["showCurrentKm", "Kilomètre en cours"],
@@ -90,6 +95,7 @@ export function CompositionSettingsPanel({
   settings,
 }: CompositionSettingsPanelProps) {
   const [copied, setCopied] = useState(false);
+  const [customStyleDraft, setCustomStyleDraft] = useState(settings.customStyleUrl ?? "");
   const update = <Key extends keyof VideoCompositionSettings>(key: Key, value: VideoCompositionSettings[Key]) =>
     onChange({ ...settings, [key]: value });
   const disabledStations = new Set(settings.disabledAidStationIds);
@@ -137,15 +143,66 @@ export function CompositionSettingsPanel({
         <Segmented
           label="Style de carte"
           value={settings.mapStyle}
-          options={[["classic", "Satellite stable"], ["standard", "Standard 3D"]]}
+          options={[["classic", "Satellite"], ["standard", "Standard 3D"], ["custom", "Mon style"]]}
           onChange={(value) => update("mapStyle", value)}
         />
+        {settings.mapStyle === "custom" ? (
+          <label className="block space-y-1 text-xs">
+            <span className="font-medium">URL du style Mapbox Studio</span>
+            <input
+              aria-label="URL du style Mapbox Studio"
+              className="min-h-9 w-full rounded-md border border-input bg-card px-2 font-mono text-xs"
+              placeholder="mapbox://styles/compte/identifiant"
+              value={customStyleDraft}
+              onChange={(event) => {
+                const value = event.target.value.trim();
+                setCustomStyleDraft(value);
+                if (MAPBOX_STYLE_URL_PATTERN.test(value)) update("customStyleUrl", value);
+              }}
+            />
+            <span className="text-muted-foreground">
+              {settings.customStyleUrl ? "Style appliqué." : "Créez un style sur studio.mapbox.com puis collez son URL « Share ». En attendant, le satellite est utilisé."}
+            </span>
+          </label>
+        ) : null}
+        <Segmented
+          label="Ambiance"
+          value={settings.mapAmbiance}
+          options={Object.entries(MAP_AMBIANCES).map(([value, ambiance]) => [value as VideoCompositionSettings["mapAmbiance"], ambiance.label])}
+          onChange={(value) => update("mapAmbiance", value)}
+        />
+        <label className="block space-y-1 text-sm">
+          <span className="flex justify-between font-medium">
+            Relief
+            <span className="tabular-nums text-muted-foreground">×{settings.terrainExaggeration.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}</span>
+          </span>
+          <input
+            aria-label="Exagération du relief"
+            type="range"
+            className="w-full accent-brand"
+            min={1}
+            max={2.5}
+            step={0.05}
+            value={settings.terrainExaggeration}
+            onChange={(event) => update("terrainExaggeration", Number(event.target.value))}
+          />
+        </label>
+        <Toggle label="Masquer les noms de lieux et de routes" checked={settings.hideMapLabels} onChange={(checked) => update("hideMapLabels", checked)} />
         <Segmented
           label="Affichage du tracé"
           value={settings.revealMode}
           options={[["progressive", "Tracé progressif"], ["full", "Tracé complet"]]}
           onChange={(value) => update("revealMode", value)}
         />
+        <div className="grid grid-cols-2 items-center gap-2">
+          <Segmented
+            label="Épaisseur du tracé"
+            value={settings.routeWidth}
+            options={[["normal", "Fin"], ["bold", "Épais"]]}
+            onChange={(value) => update("routeWidth", value)}
+          />
+          <Toggle label="Halo lumineux" checked={settings.routeGlow} onChange={(checked) => update("routeGlow", checked)} />
+        </div>
         <div className="flex gap-2">
           <Button type="button" variant="outline" className="h-8 flex-1 px-2 text-xs" disabled={cameraActionsDisabled} onClick={onFitOverview}>Vue d’ensemble</Button>
           <Button type="button" variant="outline" className="h-8 flex-1 px-2 text-xs" disabled={cameraActionsDisabled} onClick={onResetCamera}>Réinitialiser</Button>
@@ -158,6 +215,24 @@ export function CompositionSettingsPanel({
             <Toggle key={key} label={label} checked={settings[key]} onChange={(checked) => update(key, checked)} />
           ))}
         </div>
+        {settings.showProfile ? (
+          <>
+            <Segmented
+              label="Profil altimétrique"
+              value={settings.profileMode}
+              options={[["window", "Section défilante"], ["full", "Parcours entier"]]}
+              onChange={(value) => update("profileMode", value)}
+            />
+            <ul className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground" aria-label="Couleurs des pentes">
+              {PROFILE_SLOPE_CLASSES.map((slopeClass) => (
+                <li key={slopeClass.id} className="flex items-center gap-1">
+                  <span className="h-2.5 w-2.5 rounded-sm" style={{ background: slopeClass.color }} />
+                  {slopeClass.label}
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : null}
       </PanelSection>
 
       <PanelSection title="Identité graphique">
@@ -192,7 +267,11 @@ export function CompositionSettingsPanel({
               return (
                 <li key={station.id} className="flex items-center justify-between gap-2">
                   <Toggle
-                    label={`${station.name} · km ${station.distanceKm.toLocaleString("fr-FR", { maximumFractionDigits: 1 })}`}
+                    label={[
+                      `${station.name} · km ${station.distanceKm.toLocaleString("fr-FR", { maximumFractionDigits: 1 })}`,
+                      station.isLifeBase ? "base de vie" : null,
+                      getAidStationServices(station).join(", ").toLowerCase() || null,
+                    ].filter(Boolean).join(" · ")}
                     checked={enabled}
                     onChange={(checked) => update(
                       "disabledAidStationIds",
