@@ -57,6 +57,16 @@ describe("POST /api/admin/video-generator/voice", () => {
     expect(JSON.parse(String(init?.body))).toMatchObject({ text: "SaintéLyon 2026.", next_text: "Dernier effort." });
   });
 
+  it("turns ElevenLabs plan and key errors into actionable messages", async () => {
+    vi.mocked(fetch).mockImplementation(async () => new Response(JSON.stringify({ detail: { code: "paid_plan_required", status: "payment_required" } }), { status: 402 }));
+    const planResponse = await POST(request({ voiceId: null, items }));
+    expect(planResponse.status).toBe(400);
+    expect((await planResponse.json()).message).toMatch(/plan gratuit/);
+
+    vi.mocked(fetch).mockImplementation(async () => new Response(JSON.stringify({ detail: { code: "invalid_api_key", status: "api_key_id_used_as_api_key" } }), { status: 400 }));
+    expect((await (await POST(request({ voiceId: null, items }))).json()).message).toMatch(/sk_/);
+  });
+
   it("rejects an invalid voice id before calling ElevenLabs", async () => {
     const response = await POST(request({ voiceId: "../../admin", items }));
     expect(response.status).toBe(400);

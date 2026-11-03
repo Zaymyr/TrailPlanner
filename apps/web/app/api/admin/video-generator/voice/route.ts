@@ -18,6 +18,36 @@ const speechSchema = z.object({
   alignment: z.object({ character_end_times_seconds: z.array(z.number()) }).nullable().optional(),
 });
 
+const CONCURRENCY = 4;
+
+class VoiceError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+  }
+}
+
+/** Turns ElevenLabs error codes into an actionable message for the admin. */
+const describeElevenLabsError = (status: number, body: string) => {
+  let code = "";
+  try {
+    const detail = (JSON.parse(body) as { detail?: { code?: unknown; status?: unknown } }).detail;
+    code = `${typeof detail?.code === "string" ? detail.code : ""} ${typeof detail?.status === "string" ? detail.status : ""}`;
+  } catch {
+    // Not JSON: fall back to the HTTP status.
+  }
+  if (code.includes("api_key_id_used_as_api_key")) {
+    return "ELEVENLABS_API_KEY contient l’identifiant de la clé : colle la clé secrète elle-même (elle commence par « sk_ »).";
+  }
+  if (code.includes("invalid_api_key") || status === 401) return "La clé ElevenLabs est refusée : vérifie ELEVENLABS_API_KEY.";
+  if (code.includes("paid_plan_required") || status === 402) {
+    return "Le plan gratuit ElevenLabs n’autorise pas cette voix par l’API : choisis une voix par défaut (« premade ») ou passe à un plan payant.";
+  }
+  if (code.includes("missing_permissions")) return "La clé ElevenLabs n’a pas la permission « Text to Speech ».";
+  if (code.includes("quota_exceeded") || status === 429) return "Quota ElevenLabs atteint, réessaie plus tard.";
+  if (status === 404 || code.includes("voice_not_found")) return "Voix ElevenLabs introuvable : vérifie son identifiant.";
+  return `Le service de voix a refusé la demande (${status}).`;
+};
+
 const jsonError = (message: string, status: number) =>
   withSecurityHeaders(NextResponse.json({ message }, { status }));
 
@@ -35,13 +65,14 @@ export async function POST(request: NextRequest) {
   if (!apiKey) return jsonError("La voix off n’est pas configurée : ajoutez ELEVENLABS_API_KEY côté serveur.", 503);
 
   const parsed = narrationVoiceRequestSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return jsonError("Requête de voix invalide.", 400);
-  const voiceId = parsed.data.voiceId ?? process.env.ELEVENLABS_VOICE_ID ?? FALLBACK_VOICE_ID;
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    return jsonError(`Requête de voix invalide (${issue?.path.join(".") || "corps"} : ${issue?.message ?? "format"}).`, 400);
+  }
+  const voiceId = parsed.data.voiceId || process.env.ELEVENLABS_VOICE_ID?.trim() || FALLBACK_VOICE_ID;
   const { items } = parsed.data;
 
-  const clips = [];
-  // Sequential on purpose: neighbouring sentences are passed as context for a continuous delivery.
-  for (let index = 0; index < items.length; index += 1) {
+  const synthesize = async (index: number) => {
     const item = items[index];
     const response = await fetch(
       `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/with-timestamps?output_format=mp3_44100_128`,
@@ -58,17 +89,33 @@ export async function POST(request: NextRequest) {
       },
     );
     if (!response.ok) {
-      console.error("ElevenLabs narration error", response.status, await response.text().catch(() => ""));
-      if (response.status === 401) return jsonError("La clé ElevenLabs est refusée.", 502);
-      if (response.status === 404 || response.status === 422) return jsonError("Voix ElevenLabs introuvable : vérifiez son identifiant.", 400);
-      if (response.status === 429) return jsonError("Quota ElevenLabs atteint, réessayez plus tard.", 429);
-      return jsonError("Le service de voix est indisponible.", 502);
+      const body = await response.text().catch(() => "");
+      console.error("ElevenLabs narration error", response.status, body);
+      throw new VoiceError(describeElevenLabsError(response.status, body), response.status === 429 ? 429 : response.status >= 500 ? 502 : 400);
     }
     const speech = speechSchema.safeParse(await response.json().catch(() => null));
-    if (!speech.success) return jsonError("Réponse de voix invalide.", 502);
+    if (!speech.success) throw new VoiceError("Réponse de voix invalide.", 502);
     const endTimes = speech.data.alignment?.character_end_times_seconds ?? [];
     const spokenMs = endTimes.length ? endTimes[endTimes.length - 1] * 1_000 : item.text.length * 66;
-    clips.push({ id: item.id, text: item.text, audioBase64: speech.data.audio_base64, durationMs: Math.round(spokenMs + TAIL_MS) });
+    return { id: item.id, text: item.text, audioBase64: speech.data.audio_base64, durationMs: Math.round(spokenMs + TAIL_MS) };
+  };
+
+  // A few sentences at a time keeps a long story within the function time limit; neighbouring
+  // sentences are still passed as context so the delivery stays continuous.
+  const clips: Array<Awaited<ReturnType<typeof synthesize>>> = new Array(items.length);
+  let next = 0;
+  try {
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, items.length) }, async () => {
+      while (next < items.length) {
+        const index = next;
+        next += 1;
+        clips[index] = await synthesize(index);
+      }
+    }));
+  } catch (error) {
+    if (error instanceof VoiceError) return jsonError(error.message, error.status);
+    console.error("ElevenLabs narration error", error);
+    return jsonError("Le service de voix est injoignable.", 502);
   }
 
   return withSecurityHeaders(NextResponse.json({ clips }));

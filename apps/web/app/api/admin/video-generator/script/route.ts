@@ -55,7 +55,12 @@ export async function POST(request: NextRequest) {
   }
 
   const parsed = narrationScriptRequestSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return jsonError("Requête de script invalide.", 400);
+  if (!parsed.success) {
+    // Admin-only route: naming the offending field makes a limit or data problem diagnosable.
+    const issue = parsed.error.issues[0];
+    console.error("Video narration script request rejected", parsed.error.issues.slice(0, 5));
+    return jsonError(`Requête de script invalide (${issue?.path.join(".") || "corps"} : ${issue?.message ?? "format"}).`, 400);
+  }
   const { race, beats, targetSeconds } = parsed.data;
 
   const input = {
