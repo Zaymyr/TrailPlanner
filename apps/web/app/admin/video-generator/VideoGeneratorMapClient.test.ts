@@ -78,7 +78,20 @@ const mapboxMock = vi.hoisted(() => {
     getBearing() { return 20; }
     getPitch() { return 55; }
     getFreeCameraOptions() { return this.freeCamera; }
-    isStyleLoaded() { return true; }
+    // Mirrors Mapbox: false while tiles load or a source has pending updates, i.e. during a flyover.
+    isStyleLoaded() { return false; }
+  }
+
+  const markers: MockMarker[] = [];
+
+  class MockMarker {
+    setLngLat = vi.fn(() => this);
+    addTo = vi.fn(() => this);
+    remove = vi.fn(() => this);
+
+    constructor() {
+      markers.push(this);
+    }
   }
 
   class MockMercatorCoordinate {
@@ -87,21 +100,23 @@ const mapboxMock = vi.hoisted(() => {
     }
   }
 
-  return { instances, MockMap, MockMercatorCoordinate };
+  return { instances, markers, MockMap, MockMarker, MockMercatorCoordinate };
 });
 
 vi.mock("mapbox-gl", () => ({
   default: {
     accessToken: "",
     Map: mapboxMock.MockMap,
+    Marker: mapboxMock.MockMarker,
     NavigationControl: class NavigationControl {},
   },
   Map: mapboxMock.MockMap,
+  Marker: mapboxMock.MockMarker,
   MercatorCoordinate: mapboxMock.MockMercatorCoordinate,
   NavigationControl: class NavigationControl {},
 }));
 
-import { VideoGeneratorMapClient } from "./VideoGeneratorMapClient";
+import { buildRouteTrimOffset, VideoGeneratorMapClient } from "./VideoGeneratorMapClient";
 
 let animationFrames = new Map<number, FrameRequestCallback>();
 let nextAnimationFrameId = 0;
@@ -115,6 +130,7 @@ const flushAnimationFrames = (time = 0) => {
 beforeEach(() => {
   process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN = "pk.test";
   mapboxMock.instances.length = 0;
+  mapboxMock.markers.length = 0;
   animationFrames = new Map();
   nextAnimationFrameId = 0;
   vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
@@ -159,17 +175,21 @@ describe("VideoGeneratorMapClient", () => {
 
     expect(map.setTerrain).toHaveBeenCalledWith({ source: "video-terrain-dem", exaggeration: 1.15 });
     expect(map.sources.get("video-route")?.definition.lineMetrics).toBe(true);
-    expect(map.layers.has("video-route-progress-point")).toBe(true);
+    expect(map.layers.has("video-route-line")).toBe(true);
+    expect(map.layers.has("video-route-line-reveal")).toBe(true);
+    const progressMarker = mapboxMock.markers[0];
+    expect(progressMarker.addTo).toHaveBeenCalledWith(map);
     const routeSetData = map.sources.get("video-route")?.setData;
-    const progressSetData = map.sources.get("video-route-progress")?.setData;
     const routeUpdatesBeforePlayback = routeSetData?.mock.calls.length;
+    const markerMovesBeforePlayback = progressMarker.setLngLat.mock.calls.length;
 
     await userEvent.click(screen.getByRole("button", { name: "Lecture" }));
     act(() => flushAnimationFrames(1_000));
     expect(map.setFreeCameraOptions).toHaveBeenCalled();
-    expect(map.setPaintProperty).toHaveBeenCalledWith("video-route-line", "line-gradient", expect.any(Array));
+    expect(map.setPaintProperty).toHaveBeenCalledWith("video-route-line-reveal", "line-trim-offset", expect.any(Array));
+    expect(map.setPaintProperty).not.toHaveBeenCalledWith(expect.anything(), "line-gradient", expect.anything());
     expect(map.dragPan.disable).toHaveBeenCalled();
-    expect(progressSetData).toHaveBeenCalled();
+    expect(progressMarker.setLngLat.mock.calls.length).toBeGreaterThan(markerMovesBeforePlayback);
     expect(routeSetData).toHaveBeenCalledTimes(routeUpdatesBeforePlayback ?? 0);
 
     await userEvent.click(screen.getByRole("button", { name: "Classique 16:9" }));
@@ -189,5 +209,16 @@ describe("VideoGeneratorMapClient", () => {
 
     view.unmount();
     expect(map.remove).toHaveBeenCalledOnce();
+    expect(progressMarker.remove).toHaveBeenCalled();
+  });
+});
+
+describe("buildRouteTrimOffset", () => {
+  it("hides only the remaining route in progressive mode and nothing in full mode", () => {
+    expect(buildRouteTrimOffset("progressive", 0)).toEqual([0, 1]);
+    expect(buildRouteTrimOffset("progressive", 0.4)).toEqual([0.4, 1]);
+    expect(buildRouteTrimOffset("progressive", 1)).toEqual([0, 0]);
+    expect(buildRouteTrimOffset("progressive", -1)).toEqual([0, 1]);
+    expect(buildRouteTrimOffset("full", 0.4)).toEqual([0, 0]);
   });
 });

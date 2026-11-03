@@ -24,7 +24,6 @@ import {
   TERRAIN_EXAGGERATION,
   type AnimationViewport,
   type PreparedAnimationPath,
-  type PreparedRoutePoint,
   type RouteRevealMode,
 } from "./route-animation";
 import type { VideoGeneratorMapProps } from "./VideoGeneratorMap";
@@ -35,8 +34,7 @@ const ROUTE_LAYER_ID = "video-route-line";
 const MARKER_SOURCE_ID = "video-route-markers";
 const MARKER_CIRCLE_LAYER_ID = "video-route-marker-circles";
 const MARKER_LABEL_LAYER_ID = "video-route-marker-labels";
-const PROGRESS_SOURCE_ID = "video-route-progress";
-const PROGRESS_LAYER_ID = "video-route-progress-point";
+const ROUTE_REVEAL_LAYER_ID = "video-route-line-reveal";
 export const VIDEO_ROUTE_COLOR = "#d9ff57";
 const VIDEO_ROUTE_FUTURE_COLOR = "rgba(217, 255, 87, 0.22)";
 const DEFAULT_DURATION_SECONDS = 45;
@@ -65,33 +63,34 @@ const supportsWebGl = () => {
   }
 };
 
-export const buildRouteGradient = (
-  mode: RouteRevealMode,
-  progress: number,
-): string | ExpressionSpecification => mode === "full"
-  ? VIDEO_ROUTE_COLOR
-  : [
-      "step",
-      ["line-progress"],
-      VIDEO_ROUTE_COLOR,
-      Math.min(1, Math.max(0, progress)),
-      VIDEO_ROUTE_FUTURE_COLOR,
-    ] as ExpressionSpecification;
+// Trims the not-yet-run part of the bright reveal layer. Unlike a per-frame `line-gradient` update,
+// changing `line-trim-offset` is a GPU uniform and does not rebuild the gradient texture of every tile.
+export const buildRouteTrimOffset = (mode: RouteRevealMode, progress: number): [number, number] => {
+  if (mode === "full") return [0, 0];
+  const clamped = Math.min(1, Math.max(0, progress));
+  return clamped >= 1 ? [0, 0] : [clamped, 1];
+};
 
-export const buildProgressGeoJson = (point: PreparedRoutePoint) => ({
-  type: "FeatureCollection" as const,
-  features: [{
-    type: "Feature" as const,
-    properties: { kind: "progress", distanceKm: point.distanceKm },
-    geometry: { type: "Point" as const, coordinates: [point.lon, point.lat] },
-  }],
-});
+const ROUTE_LINE_WIDTH: ExpressionSpecification = ["interpolate", ["linear"], ["zoom"], 5, 3, 13, 7];
+
+const createProgressMarkerElement = () => {
+  const element = document.createElement("div");
+  element.setAttribute("aria-hidden", "true");
+  Object.assign(element.style, {
+    width: "16px",
+    height: "16px",
+    borderRadius: "9999px",
+    background: VIDEO_ROUTE_COLOR,
+    border: "3px solid #172012",
+    boxSizing: "content-box",
+  });
+  return element;
+};
 
 const syncMapData = (
   map: MapboxMap,
   routeData: ReturnType<typeof buildRouteGeoJson>,
   markerData: ReturnType<typeof buildMarkerGeoJson>,
-  firstPoint: PreparedRoutePoint,
 ) => {
   const routeSource = map.getSource(ROUTE_SOURCE_ID) as GeoJSONSource | undefined;
   if (routeSource) routeSource.setData(routeData as GeoJsonSourceData);
@@ -105,30 +104,26 @@ const syncMapData = (
       slot: "top",
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
-        "line-gradient": buildRouteGradient("progressive", 0),
-        "line-width": ["interpolate", ["linear"], ["zoom"], 5, 3, 13, 7],
-        "line-opacity": 0.96,
+        "line-color": VIDEO_ROUTE_FUTURE_COLOR,
+        "line-width": ROUTE_LINE_WIDTH,
         "line-emissive-strength": 1,
       },
     });
   }
 
-  const progressData = buildProgressGeoJson(firstPoint);
-  const progressSource = map.getSource(PROGRESS_SOURCE_ID) as GeoJSONSource | undefined;
-  if (progressSource) progressSource.setData(progressData as GeoJsonSourceData);
-  else map.addSource(PROGRESS_SOURCE_ID, { type: "geojson", data: progressData as GeoJsonSourceData });
-
-  if (!map.getLayer(PROGRESS_LAYER_ID)) {
+  if (!map.getLayer(ROUTE_REVEAL_LAYER_ID)) {
     map.addLayer({
-      id: PROGRESS_LAYER_ID,
-      type: "circle",
-      source: PROGRESS_SOURCE_ID,
+      id: ROUTE_REVEAL_LAYER_ID,
+      type: "line",
+      source: ROUTE_SOURCE_ID,
       slot: "top",
+      layout: { "line-cap": "round", "line-join": "round" },
       paint: {
-        "circle-radius": 8,
-        "circle-color": VIDEO_ROUTE_COLOR,
-        "circle-stroke-color": "#172012",
-        "circle-stroke-width": 3,
+        "line-color": VIDEO_ROUTE_COLOR,
+        "line-width": ROUTE_LINE_WIDTH,
+        "line-opacity": 0.96,
+        "line-emissive-strength": 1,
+        "line-trim-offset": buildRouteTrimOffset("progressive", 0),
       },
     });
   }
@@ -186,6 +181,10 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, raceName 
   const cameraRef = useRef<RouteCameraController | null>(null);
   const animationRef = useRef<RouteAnimationController | null>(null);
   const resizeRef = useRef<MapResizeController | null>(null);
+  const progressMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  // `map.isStyleLoaded()` is false whenever a tile is loading or a source was just updated, which is
+  // permanently the case while the camera flies. Gating frames on it skipped most of them.
+  const layersReadyRef = useRef(false);
   const boundsRef = useRef(bounds);
   const pointsRef = useRef(points);
   const routeData = useMemo(() => buildRouteGeoJson(points), [points]);
@@ -212,14 +211,13 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, raceName 
     const map = mapRef.current;
     const camera = cameraRef.current;
     const path = preparedPathRef.current;
-    if (!map?.isStyleLoaded() || !camera || !path.canAnimate) return;
+    if (!map || !layersReadyRef.current || !camera || !path.canAnimate) return;
     const frame = getCameraStateAtTime(timeMs, durationMsRef.current, path, undefined, viewportRef.current);
     camera.applyAnimationFrame(frame);
-    if (map.getLayer(ROUTE_LAYER_ID)) {
-      map.setPaintProperty(ROUTE_LAYER_ID, "line-gradient", buildRouteGradient(revealModeRef.current, frame.progress));
+    if (map.getLayer(ROUTE_REVEAL_LAYER_ID)) {
+      map.setPaintProperty(ROUTE_REVEAL_LAYER_ID, "line-trim-offset", buildRouteTrimOffset(revealModeRef.current, frame.progress));
     }
-    const progressSource = map.getSource(PROGRESS_SOURCE_ID) as GeoJSONSource | undefined;
-    progressSource?.setData(buildProgressGeoJson(frame.routePoint) as GeoJsonSourceData);
+    progressMarkerRef.current?.setLngLat([frame.routePoint.lon, frame.routePoint.lat]);
   }, []);
 
   useEffect(() => {
@@ -231,9 +229,11 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, raceName 
     setCanAnimate(initialPreparedPath.canAnimate);
     animationRef.current?.pause();
     animationRef.current?.seek(0);
+    const firstPoint = initialPreparedPath.samples[0];
+    if (firstPoint) progressMarkerRef.current?.setLngLat([firstPoint.lon, firstPoint.lat]);
     const map = mapRef.current;
-    if (!map?.isStyleLoaded()) return;
-    syncMapData(map, routeData, markerData, initialPreparedPath.samples[0]);
+    if (!map || !layersReadyRef.current) return;
+    syncMapData(map, routeData, markerData);
     cameraRef.current?.reset(500);
   }, [bounds, initialPreparedPath, markerData, points, routeData]);
 
@@ -294,6 +294,10 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, raceName 
     map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), "top-right");
     const resizeController = observeMapSize(map, containerRef.current);
     resizeRef.current = resizeController;
+    const firstPoint = preparedPathRef.current.samples[0];
+    progressMarkerRef.current = new mapboxgl.Marker({ element: createProgressMarkerElement() })
+      .setLngLat(firstPoint ? [firstPoint.lon, firstPoint.lat] : [boundsRef.current.minLon, boundsRef.current.minLat])
+      .addTo(map);
 
     const handleStyleLoad = () => {
       styleLoadVersionRef.current += 1;
@@ -303,8 +307,8 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, raceName 
         map.addSource(TERRAIN_SOURCE_ID, { type: "raster-dem", url: "mapbox://mapbox.mapbox-terrain-dem-v1", tileSize: 512, maxzoom: 14 });
       }
       map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: TERRAIN_EXAGGERATION });
-      const fallbackPath = prepareAnimationPath(pointsRef.current);
-      syncMapData(map, routeDataRef.current, markerDataRef.current, fallbackPath.samples[0]);
+      syncMapData(map, routeDataRef.current, markerDataRef.current);
+      layersReadyRef.current = true;
       resizeController.schedule();
       window.requestAnimationFrame(() => {
         if (mapRef.current !== map || loadVersion !== styleLoadVersionRef.current) return;
@@ -333,6 +337,9 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, raceName 
       map.off("style.load", handleStyleLoad);
       map.off("error", handleError);
       animationRef.current?.destroy();
+      progressMarkerRef.current?.remove();
+      progressMarkerRef.current = null;
+      layersReadyRef.current = false;
       resizeController.destroy();
       map.remove();
       mapRef.current = null;
@@ -355,6 +362,7 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, raceName 
     setStyleChoice(nextStyle);
     setIsReady(false);
     setMapError(null);
+    layersReadyRef.current = false;
     mapRef.current?.setStyle(MAP_STYLES[nextStyle]);
   };
   const previewLabel = viewport === "portrait" ? "Aperçu Instagram 9:16" : "Aperçu classique 16:9";

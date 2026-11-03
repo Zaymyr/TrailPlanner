@@ -79,7 +79,7 @@ The camera stack is separated into three boundaries:
 - `animation-controller.ts` owns the monotonic playback clock, pause/resume, restart, seek and duration changes without accumulating camera state frame by frame.
 - `camera-controller.ts` converts a calculated frame into Mapbox `FreeCameraOptions`; it never chains `flyTo` calls.
 
-The camera path is capped at 2,500 regularly spaced samples for long ultras. The displayed route keeps every original GPX point. Playback updates only the free camera, a small progress-point source, and a `line-progress` gradient on a `lineMetrics` source; it never rebuilds the complete route each frame. Camera interaction is disabled during playback and restored on pause or completion. Hidden tabs pause instead of jumping forward when they become visible again.
+The camera path is capped at 2,500 regularly spaced samples for long ultras. The displayed route keeps every original GPX point. Playback updates only the free camera, the `line-trim-offset` of a bright reveal layer drawn over a faint full-route layer (both on one `lineMetrics` source), and the position of a DOM `mapboxgl.Marker` for the progress point. It never calls `setData` or rebuilds a `line-gradient` per frame: both re-tile or re-texture the route and made playback stutter. Camera interaction is disabled during playback and restored on pause or completion. Hidden tabs pause instead of jumping forward when they become visible again.
 
 The dynamic-following preset derives look-ahead, setback, smoothing and clearance from route distance divided by selected duration. Portrait mode raises and looks farther ahead than landscape mode so the route remains framed around the title and future elevation-profile safe areas. Additional aerial/cinematic presets are intentionally deferred.
 
@@ -113,8 +113,9 @@ Provider references:
 - Do not persist projected station coordinates. Their current source contract is `race_aid_stations.km` plus GPX geometry.
 - Do not remove provider attribution from the map or from any future captured output without explicit provider approval.
 - Do not put positioning utilities such as `absolute inset-0` on the element passed to `new mapboxgl.Map({ container })`. Mapbox adds `.mapboxgl-map { position: relative }`, and the production stylesheet order lets it override Tailwind, collapsing the container to 0px height and showing only the black viewer background. Position a wrapper and give the container `h-full w-full`.
-- Do not mutate, thin or progressively slice the displayed GPX source. Camera samples are derived separately and route reveal uses `line-progress`.
+- Do not mutate, thin or progressively slice the displayed GPX source. Camera samples are derived separately and route reveal trims a `lineMetrics` layer with `line-trim-offset`.
 - Do not make rotation smoothing depend on the previous rendered frame. Seeking and future frame export require the same time to reproduce the same camera state.
+- Do not gate animation frames on `map.isStyleLoaded()`. In Mapbox GL v3 it stays false while any tile loads or a source has pending updates, which is continuous during a flyover; the viewer tracks its own layers-ready flag, reset on style switches.
 - Do not describe phase 2 as video generation. It produces no video artifact.
 
 ## Related Docs
