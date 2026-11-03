@@ -67,6 +67,23 @@ describe("POST /api/admin/video-generator/voice", () => {
     expect((await (await POST(request({ voiceId: null, items }))).json()).message).toMatch(/sk_/);
   });
 
+  it("retries a sentence when the plan's parallel request limit is reached", async () => {
+    vi.useFakeTimers();
+    const busy = () => new Response(JSON.stringify({ detail: { code: "concurrent_limit_exceeded", status: "too_many_concurrent_requests" } }), { status: 429 });
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(busy())
+      .mockImplementation(async () => Response.json({ audio_base64: "AAA", alignment: { character_end_times_seconds: [1] } }));
+
+    const pending = POST(request({ voiceId: null, items }));
+    await vi.runAllTimersAsync();
+    const response = await pending;
+    vi.useRealTimers();
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).clips).toHaveLength(2);
+    expect(fetch).toHaveBeenCalledTimes(3);
+  });
+
   it("rejects an invalid voice id before calling ElevenLabs", async () => {
     const response = await POST(request({ voiceId: "../../admin", items }));
     expect(response.status).toBe(400);

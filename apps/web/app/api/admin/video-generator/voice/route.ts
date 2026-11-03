@@ -18,7 +18,11 @@ const speechSchema = z.object({
   alignment: z.object({ character_end_times_seconds: z.array(z.number()) }).nullable().optional(),
 });
 
-const CONCURRENCY = 4;
+// ElevenLabs caps parallel requests per plan (2 on the free plan, 3 on Starter).
+const CONCURRENCY = 2;
+const CONCURRENCY_RETRY_DELAYS_MS = [800, 1_600, 3_200];
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 class VoiceError extends Error {
   constructor(message: string, readonly status: number) {
@@ -43,7 +47,11 @@ const describeElevenLabsError = (status: number, body: string) => {
     return "Le plan gratuit ElevenLabs n’autorise pas cette voix par l’API : choisis une voix par défaut (« premade ») ou passe à un plan payant.";
   }
   if (code.includes("missing_permissions")) return "La clé ElevenLabs n’a pas la permission « Text to Speech ».";
-  if (code.includes("quota_exceeded") || status === 429) return "Quota ElevenLabs atteint, réessaie plus tard.";
+  if (code.includes("concurrent_limit_exceeded") || code.includes("too_many_concurrent_requests")) {
+    return "ElevenLabs est saturé par des générations en parallèle, réessaie dans quelques secondes.";
+  }
+  if (code.includes("quota_exceeded")) return "Quota de caractères ElevenLabs épuisé pour ce mois.";
+  if (status === 429) return "ElevenLabs limite le nombre de requêtes, réessaie dans quelques secondes.";
   if (status === 404 || code.includes("voice_not_found")) return "Voix ElevenLabs introuvable : vérifie son identifiant.";
   return `Le service de voix a refusé la demande (${status}).`;
 };
@@ -72,22 +80,32 @@ export async function POST(request: NextRequest) {
   const voiceId = parsed.data.voiceId || process.env.ELEVENLABS_VOICE_ID?.trim() || FALLBACK_VOICE_ID;
   const { items } = parsed.data;
 
+  const requestSpeech = (index: number) => fetch(
+    `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/with-timestamps?output_format=mp3_44100_128`,
+    {
+      method: "POST",
+      headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: items[index].text,
+        model_id: MODEL_ID,
+        previous_text: items[index - 1]?.text,
+        next_text: items[index + 1]?.text,
+      }),
+      cache: "no-store",
+    },
+  );
+
   const synthesize = async (index: number) => {
     const item = items[index];
-    const response = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/with-timestamps?output_format=mp3_44100_128`,
-      {
-        method: "POST",
-        headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text: item.text,
-          model_id: MODEL_ID,
-          previous_text: items[index - 1]?.text,
-          next_text: items[index + 1]?.text,
-        }),
-        cache: "no-store",
-      },
-    );
+    let response = await requestSpeech(index);
+    // Another generation (or a preview tab) may hold the plan's parallel slots: back off and retry.
+    for (const delayMs of CONCURRENCY_RETRY_DELAYS_MS) {
+      if (response.status !== 429) break;
+      const body = await response.clone().text().catch(() => "");
+      if (!body.includes("concurrent")) break;
+      await wait(delayMs);
+      response = await requestSpeech(index);
+    }
     if (!response.ok) {
       const body = await response.text().catch(() => "");
       console.error("ElevenLabs narration error", response.status, body);
@@ -100,7 +118,7 @@ export async function POST(request: NextRequest) {
     return { id: item.id, text: item.text, audioBase64: speech.data.audio_base64, durationMs: Math.round(spokenMs + TAIL_MS) };
   };
 
-  // A few sentences at a time keeps a long story within the function time limit; neighbouring
+  // Two sentences at a time keeps a long story within the function time limit; neighbouring
   // sentences are still passed as context so the delivery stays continuous.
   const clips: Array<Awaited<ReturnType<typeof synthesize>>> = new Array(items.length);
   let next = 0;
