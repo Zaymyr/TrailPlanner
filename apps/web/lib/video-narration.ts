@@ -32,8 +32,14 @@ export const narrationScriptResponseSchema = z.object({
 
 export const ELEVENLABS_VOICE_ID_PATTERN = /^[A-Za-z0-9]{10,40}$/;
 
+export const NARRATION_VOICE_MODELS = ["multilingual_v2", "v3"] as const;
+
 export const narrationVoiceRequestSchema = z.object({
   voiceId: z.string().regex(ELEVENLABS_VOICE_ID_PATTERN).nullable(),
+  /** multilingual_v2 is steady; v3 is far more expressive. */
+  model: z.enum(NARRATION_VOICE_MODELS).default("multilingual_v2"),
+  /** 0 = calm and steady, 1 = lively and varied intonation. */
+  expressiveness: z.number().min(0).max(1).default(0.6),
   items: z.array(z.object({ id: z.string().min(1).max(80), text: z.string().min(1).max(600) })).min(1).max(40),
 });
 
@@ -43,6 +49,8 @@ export const narrationVoiceResponseSchema = z.object({
     text: z.string(),
     audioBase64: z.string(),
     durationMs: z.number(),
+    /** End time of every character of `text`, in ms, to time subtitles exactly. */
+    characterEndMs: z.array(z.number()).optional(),
   })),
 });
 

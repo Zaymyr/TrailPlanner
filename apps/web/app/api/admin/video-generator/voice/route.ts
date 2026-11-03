@@ -9,7 +9,20 @@ export const maxDuration = 60;
 
 // ElevenLabs premade voice used when neither the request nor ELEVENLABS_VOICE_ID names one.
 const FALLBACK_VOICE_ID = "pNInz6obpgDQGcFmaJgB";
-const MODEL_ID = "eleven_multilingual_v2";
+const MODEL_IDS = { multilingual_v2: "eleven_multilingual_v2", v3: "eleven_v3" } as const;
+
+/**
+ * Expressiveness 0-1 → ElevenLabs voice settings. Lower stability and more style give a livelier,
+ * more varied intonation; v3 only accepts three stability presets (creative, natural, robust).
+ */
+const buildVoiceSettings = (model: keyof typeof MODEL_IDS, expressiveness: number) => (model === "v3"
+  ? { stability: expressiveness >= 0.66 ? 0 : expressiveness >= 0.33 ? 0.5 : 1 }
+  : {
+    stability: Number((0.7 - 0.5 * expressiveness).toFixed(2)),
+    similarity_boost: 0.8,
+    style: Number((0.1 + 0.5 * expressiveness).toFixed(2)),
+    use_speaker_boost: true,
+  });
 // A short tail so the last syllable is not cut when the next clip starts right after.
 const TAIL_MS = 150;
 
@@ -78,7 +91,8 @@ export async function POST(request: NextRequest) {
     return jsonError(`Requête de voix invalide (${issue?.path.join(".") || "corps"} : ${issue?.message ?? "format"}).`, 400);
   }
   const voiceId = parsed.data.voiceId || process.env.ELEVENLABS_VOICE_ID?.trim() || FALLBACK_VOICE_ID;
-  const { items } = parsed.data;
+  const { items, model, expressiveness } = parsed.data;
+  const voiceSettings = buildVoiceSettings(model, expressiveness);
 
   const requestSpeech = (index: number) => fetch(
     `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/with-timestamps?output_format=mp3_44100_128`,
@@ -87,9 +101,10 @@ export async function POST(request: NextRequest) {
       headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
       body: JSON.stringify({
         text: items[index].text,
-        model_id: MODEL_ID,
-        previous_text: items[index - 1]?.text,
-        next_text: items[index + 1]?.text,
+        model_id: MODEL_IDS[model],
+        voice_settings: voiceSettings,
+        // v3 does not take neighbouring text; v2 uses it for a continuous delivery.
+        ...(model === "v3" ? {} : { previous_text: items[index - 1]?.text, next_text: items[index + 1]?.text }),
       }),
       cache: "no-store",
     },
@@ -115,7 +130,14 @@ export async function POST(request: NextRequest) {
     if (!speech.success) throw new VoiceError("Réponse de voix invalide.", 502);
     const endTimes = speech.data.alignment?.character_end_times_seconds ?? [];
     const spokenMs = endTimes.length ? endTimes[endTimes.length - 1] * 1_000 : item.text.length * 66;
-    return { id: item.id, text: item.text, audioBase64: speech.data.audio_base64, durationMs: Math.round(spokenMs + TAIL_MS) };
+    return {
+      id: item.id,
+      text: item.text,
+      audioBase64: speech.data.audio_base64,
+      durationMs: Math.round(spokenMs + TAIL_MS),
+      // Exact per-character timing, only when it maps one-to-one onto the text sent.
+      ...(endTimes.length === item.text.length ? { characterEndMs: endTimes.map((seconds) => Math.round(seconds * 1_000)) } : {}),
+    };
   };
 
   // Two sentences at a time keeps a long story within the function time limit; neighbouring

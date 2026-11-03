@@ -8,6 +8,8 @@ import type { ScheduledBeat } from "./video-composition";
 
 export type AsyncActionState = { status: "idle" | "loading" | "success" | "error"; message: string | null };
 
+export type VoiceOptions = { model: "multilingual_v2" | "v3"; expressiveness: number };
+
 const KIND_LABELS: Record<ScheduledBeat["kind"], string> = {
   intro: "Intro",
   start: "Départ",
@@ -32,10 +34,12 @@ type StoryEditorProps = {
   onNarrationChange: (beatId: string, narration: string) => void;
   onResetScript: () => void;
   onVoiceIdChange: (voiceId: string) => void;
+  onVoiceOptionsChange: (options: VoiceOptions) => void;
   onWriteScript: () => void;
   scriptState: AsyncActionState;
   totalMs: number;
   voiceId: string;
+  voiceOptions: VoiceOptions;
   voiceReadyIds: Set<string>;
   voiceState: AsyncActionState;
 };
@@ -53,10 +57,12 @@ export function StoryEditor({
   onNarrationChange,
   onResetScript,
   onVoiceIdChange,
+  onVoiceOptionsChange,
   onWriteScript,
   scriptState,
   totalMs,
   voiceId,
+  voiceOptions,
   voiceReadyIds,
   voiceState,
 }: StoryEditorProps) {
@@ -116,7 +122,41 @@ export function StoryEditor({
         })}
       </ol>
 
-      <div className="flex items-end gap-2 border-t border-border pt-3">
+      <div className="space-y-2 border-t border-border pt-3">
+        <div role="group" aria-label="Modèle de voix" className="flex rounded-md border border-border bg-muted/30 p-1">
+          {([["multilingual_v2", "Stable (v2)"], ["v3", "Expressive (v3)"]] as const).map(([model, label]) => (
+            <Button
+              key={model}
+              type="button"
+              aria-pressed={voiceOptions.model === model}
+              className="h-7 flex-1 px-2 text-xs"
+              variant={voiceOptions.model === model ? "default" : "ghost"}
+              onClick={() => onVoiceOptionsChange({ ...voiceOptions, model })}
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
+        <label className="block space-y-1 text-xs">
+          <span className="flex justify-between font-medium">
+            Intonation
+            <span className="text-muted-foreground">{voiceOptions.expressiveness < 0.34 ? "posée" : voiceOptions.expressiveness < 0.67 ? "naturelle" : "très vivante"}</span>
+          </span>
+          <input
+            aria-label="Expressivité de la voix"
+            type="range"
+            className="w-full accent-brand"
+            min={0}
+            max={1}
+            step={0.05}
+            value={voiceOptions.expressiveness}
+            onChange={(event) => onVoiceOptionsChange({ ...voiceOptions, expressiveness: Number(event.target.value) })}
+          />
+        </label>
+        <p className="text-[10px] text-muted-foreground">Change la voix ou ces réglages puis régénère la voix off.</p>
+      </div>
+
+      <div className="flex items-end gap-2">
         <label className="block flex-1 space-y-1 text-xs">
           <span className="font-medium">Voix ElevenLabs (identifiant)</span>
           <input

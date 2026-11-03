@@ -54,7 +54,26 @@ describe("POST /api/admin/video-generator/voice", () => {
     ]);
     const [url, init] = vi.mocked(fetch).mock.calls[0];
     expect(String(url)).toContain("/v1/text-to-speech/abcdefghij1234567890/with-timestamps");
-    expect(JSON.parse(String(init?.body))).toMatchObject({ text: "SaintéLyon 2026.", next_text: "Dernier effort." });
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      text: "SaintéLyon 2026.",
+      next_text: "Dernier effort.",
+      model_id: "eleven_multilingual_v2",
+      voice_settings: { stability: 0.4, style: 0.4, use_speaker_boost: true },
+    });
+  });
+
+  it("uses the expressive v3 model and returns exact character timing when it matches the text", async () => {
+    const text = "Allez !";
+    vi.mocked(fetch).mockImplementation(async () => Response.json({
+      audio_base64: "AAA",
+      alignment: { character_end_times_seconds: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7] },
+    }));
+    const response = await POST(request({ voiceId: null, model: "v3", expressiveness: 0.9, items: [{ id: "intro", text }] }));
+    const payload = await response.json();
+    expect(payload.clips[0].characterEndMs).toEqual([100, 200, 300, 400, 500, 600, 700]);
+    const body = JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body));
+    expect(body).toMatchObject({ model_id: "eleven_v3", voice_settings: { stability: 0 } });
+    expect(body.previous_text).toBeUndefined();
   });
 
   it("turns ElevenLabs plan and key errors into actionable messages", async () => {

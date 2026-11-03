@@ -49,7 +49,7 @@ import {
   type StoryBeat,
   type StoryLandmarks,
 } from "./route-story";
-import { StoryEditor, type AsyncActionState } from "./StoryEditor";
+import { StoryEditor, type AsyncActionState, type VoiceOptions } from "./StoryEditor";
 import {
   buildElevationProfile,
   buildVideoTimeline,
@@ -57,6 +57,7 @@ import {
   getGradeAtDistance,
   getVideoCameraPose,
   getVideoFrameState,
+  type NarrationAlignments,
   type NarrationDurations,
   type ScheduledBeat,
   type VideoCompositionSettings,
@@ -72,7 +73,7 @@ const ROUTE_GLOW_LAYER_ID = "video-route-line-glow";
 const MARKER_SOURCE_ID = "video-route-markers";
 const MARKER_CIRCLE_LAYER_ID = "video-route-marker-circles";
 const MARKER_LABEL_LAYER_ID = "video-route-marker-labels";
-// The climb, descent or rolling section being narrated, drawn as a halo under the route.
+// The climb, descent or rolling section being narrated, drawn in the highlight colour.
 const SEGMENT_SOURCE_ID = "video-beat-segment";
 const SEGMENT_LAYER_ID = "video-beat-segment-line";
 export const VIDEO_ROUTE_COLOR = DEFAULT_VIDEO_COMPOSITION_SETTINGS.routeColor;
@@ -200,27 +201,6 @@ const syncMapData = (
     });
   }
 
-  if (!map.getSource(SEGMENT_SOURCE_ID)) {
-    map.addSource(SEGMENT_SOURCE_ID, { type: "geojson", data: EMPTY_FEATURES as unknown as GeoJsonSourceData });
-  }
-  if (!map.getLayer(SEGMENT_LAYER_ID)) {
-    map.addLayer({
-      id: SEGMENT_LAYER_ID,
-      type: "line",
-      source: SEGMENT_SOURCE_ID,
-      slot: "top",
-      layout: { "line-cap": "round", "line-join": "round" },
-      paint: {
-        // A wide halo in the route colour reads on the light brand map and on satellite imagery alike.
-        "line-color": settings.routeColor,
-        "line-opacity": 0.6,
-        "line-width": ["interpolate", ["linear"], ["zoom"], 5, 14, 13, 32],
-        "line-blur": 3,
-        "line-emissive-strength": 1,
-      },
-    });
-  }
-
   if (!map.getLayer(ROUTE_GLOW_LAYER_ID)) {
     map.addLayer({
       id: ROUTE_GLOW_LAYER_ID,
@@ -251,6 +231,26 @@ const syncMapData = (
         "line-opacity": 0.96,
         "line-emissive-strength": 1,
         "line-trim-offset": buildRouteTrimOffset("progressive", 0),
+      },
+    });
+  }
+
+  // The narrated slope is the route itself in the highlight colour, drawn over the reveal layer so
+  // the whole climb shows even before the runner gets there.
+  if (!map.getSource(SEGMENT_SOURCE_ID)) {
+    map.addSource(SEGMENT_SOURCE_ID, { type: "geojson", data: EMPTY_FEATURES as unknown as GeoJsonSourceData });
+  }
+  if (!map.getLayer(SEGMENT_LAYER_ID)) {
+    map.addLayer({
+      id: SEGMENT_LAYER_ID,
+      type: "line",
+      source: SEGMENT_SOURCE_ID,
+      slot: "top",
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: {
+        "line-color": settings.highlightColor,
+        "line-width": lineWidth,
+        "line-emissive-strength": 1,
       },
     });
   }
@@ -378,6 +378,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   );
   const [voiceClips, setVoiceClips] = useState<Record<string, NarrationClip>>({});
   const [voiceId, setVoiceId] = useState("");
+  const [voiceOptions, setVoiceOptions] = useState<VoiceOptions>({ model: "multilingual_v2", expressiveness: 0.6 });
   const [scriptState, setScriptState] = useState<AsyncActionState>(IDLE_ACTION);
   const [voiceState, setVoiceState] = useState<AsyncActionState>(IDLE_ACTION);
   // A clip only counts while its text still matches the narration it was generated from.
@@ -385,13 +386,17 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     () => beats.flatMap((beat) => voiceClips[beat.id]?.text === beat.narration ? [voiceClips[beat.id]] : []),
     [beats, voiceClips],
   );
+  const narrationAlignments = useMemo<NarrationAlignments>(
+    () => Object.fromEntries(freshClips.flatMap((clip) => clip.characterEndMs ? [[clip.beatId, clip.characterEndMs]] : [])),
+    [freshClips],
+  );
   const narrationDurations = useMemo<NarrationDurations>(
     () => Object.fromEntries(freshClips.map((clip) => [clip.beatId, clip.durationMs])),
     [freshClips],
   );
   const timeline = useMemo(
-    () => buildVideoTimeline(preparedPath, beats, settings, narrationDurations, raceClock),
-    [beats, narrationDurations, preparedPath, raceClock, settings],
+    () => buildVideoTimeline(preparedPath, beats, settings, narrationDurations, raceClock, narrationAlignments),
+    [beats, narrationAlignments, narrationDurations, preparedPath, raceClock, settings],
   );
   const profile = useMemo(() => buildElevationProfile(preparedPath), [preparedPath]);
   const [frameStore] = useState(() => createVideoFrameStore(getVideoFrameState(timeline, 0)));
@@ -507,12 +512,15 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       map.setPaintProperty(ROUTE_LAYER_ID, "line-color", `${settings.routeColor}${FUTURE_ROUTE_ALPHA_HEX}`);
       map.setPaintProperty(ROUTE_LAYER_ID, "line-width", lineWidth);
     }
-    if (map.getLayer(SEGMENT_LAYER_ID)) map.setPaintProperty(SEGMENT_LAYER_ID, "line-color", settings.routeColor);
+    if (map.getLayer(SEGMENT_LAYER_ID)) {
+      map.setPaintProperty(SEGMENT_LAYER_ID, "line-color", settings.highlightColor);
+      map.setPaintProperty(SEGMENT_LAYER_ID, "line-width", lineWidth);
+    }
     if (map.getLayer(ROUTE_GLOW_LAYER_ID)) {
       map.setPaintProperty(ROUTE_GLOW_LAYER_ID, "line-color", `${settings.routeColor}${GLOW_ROUTE_ALPHA_HEX}`);
       map.setLayoutProperty(ROUTE_GLOW_LAYER_ID, "visibility", settings.routeGlow ? "visible" : "none");
     }
-  }, [settings.routeColor, settings.routeGlow, settings.routeWidth]);
+  }, [settings.highlightColor, settings.routeColor, settings.routeGlow, settings.routeWidth]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -601,7 +609,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     const items = beats.filter((beat) => beat.narration.trim()).map((beat) => ({ id: beat.id, text: beat.narration.trim() }));
     setVoiceState({ status: "loading", message: `Génération de ${items.length} phrases avec ElevenLabs…` });
     try {
-      const response = await authorizedPost("/api/admin/video-generator/voice", { voiceId: voiceId || null, items });
+      const response = await authorizedPost("/api/admin/video-generator/voice", { voiceId: voiceId || null, items, ...voiceOptions });
       if (!response.ok) throw new Error(await readError(response, "La voix off n’a pas pu être générée."));
       const parsed = narrationVoiceResponseSchema.safeParse(await response.json());
       if (!parsed.success) throw new Error("L’audio reçu est invalide.");
@@ -614,6 +622,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
           text: textById.get(clip.id) ?? clip.text,
           audioBase64: clip.audioBase64,
           durationMs: clip.durationMs,
+          characterEndMs: clip.characterEndMs,
         }])),
       }));
       setVoiceState({ status: "success", message: "Voix off prête : lance la lecture." });
@@ -809,6 +818,8 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
               setScriptState(IDLE_ACTION);
             }}
             onVoiceIdChange={setVoiceId}
+            onVoiceOptionsChange={setVoiceOptions}
+            voiceOptions={voiceOptions}
             onWriteScript={() => void writeScript()}
             scriptState={scriptState}
             totalMs={timeline.totalMs}

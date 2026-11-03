@@ -65,6 +65,8 @@ export const videoCompositionSettingsSchema = z.object({
   profileMode: z.enum(["window", "full"]).default("window"),
   showCurrentKm: z.boolean().default(true),
   routeColor: hexColorSchema.default("#ff8a3d"),
+  // Colour of the route on the climb, descent or rolling section being told.
+  highlightColor: hexColorSchema.default("#d7263d"),
   accentColor: hexColorSchema.default("#2d5016"),
   showLogo: z.boolean().default(true),
   showCta: z.boolean().default(true),
@@ -80,6 +82,9 @@ export const DEFAULT_VIDEO_COMPOSITION_SETTINGS: VideoCompositionSettings = vide
 
 /** Real narration lengths once the voice is generated, by beat id. */
 export type NarrationDurations = Record<string, number>;
+
+/** Per-character end times (ms) of each generated narration, by beat id. */
+export type NarrationAlignments = Record<string, number[]>;
 
 export type ScheduledBeat = StoryBeat & {
   /** Caption window. */
@@ -97,7 +102,7 @@ const SUBTITLE_MAX_CHARS = 60;
 
 /** Splits a narration into short lines: by sentence, then by words when a sentence is too long. */
 export const splitSubtitleText = (text: string, maxChars = SUBTITLE_MAX_CHARS) => {
-  const sentences = text.replace(/s+/g, " ").trim().split(/(?<=[.!?…:;])s+/).filter(Boolean);
+  const sentences = text.replace(/\s+/g, " ").trim().split(/(?<=[.!?…:;])\s+/).filter(Boolean);
   return sentences.flatMap((sentence) => {
     if (sentence.length <= maxChars) return [sentence];
     const lines: string[] = [];
@@ -115,8 +120,26 @@ export const splitSubtitleText = (text: string, maxChars = SUBTITLE_MAX_CHARS) =
   });
 };
 
-const timeSubtitles = (text: string, startMs: number, durationMs: number): SubtitleLine[] => {
+/**
+ * Times subtitle lines: exactly from the ElevenLabs per-character timing when it matches the
+ * text, otherwise in proportion to the line lengths.
+ */
+const timeSubtitles = (text: string, startMs: number, durationMs: number, characterEndMs?: number[]): SubtitleLine[] => {
   const lines = splitSubtitleText(text);
+  const spoken = text.trim();
+  if (characterEndMs && characterEndMs.length === spoken.length && lines.length) {
+    let cursor = 0;
+    let previousEndMs = 0;
+    const aligned = lines.map((line) => {
+      const at = spoken.indexOf(line, cursor);
+      if (at < 0) return null;
+      cursor = at + line.length;
+      const entry = { text: line, startMs: startMs + previousEndMs, endMs: startMs + characterEndMs[cursor - 1] };
+      previousEndMs = characterEndMs[cursor - 1];
+      return entry;
+    });
+    if (aligned.every((entry): entry is SubtitleLine => entry !== null)) return aligned;
+  }
   const totalChars = lines.reduce((sum, line) => sum + line.length, 0);
   let cursor = startMs;
   return lines.map((line) => {
@@ -226,6 +249,7 @@ export const buildVideoTimeline = (
   settings: VideoCompositionSettings,
   durations: NarrationDurations = {},
   clock: RaceClock | null = null,
+  alignments: NarrationAlignments = {},
 ): VideoTimeline => {
   const totalDistanceKm = path.totalDistanceKm;
   const introBeat = beats.find((beat) => beat.kind === "intro");
@@ -357,7 +381,7 @@ export const buildVideoTimeline = (
   const scheduled: ScheduledBeat[] = [];
   if (introBeat && introMs > 0) {
     const narrationMs = getNarrationMs(introBeat, durations);
-    scheduled.push({ ...introBeat, startMs: 0, endMs: introMs, narrationStartMs: NARRATION_GAP_MS, narrationMs, subtitles: timeSubtitles(introBeat.narration, NARRATION_GAP_MS, narrationMs) });
+    scheduled.push({ ...introBeat, startMs: 0, endMs: introMs, narrationStartMs: NARRATION_GAP_MS, narrationMs, subtitles: timeSubtitles(introBeat.narration, NARRATION_GAP_MS, narrationMs, alignments[introBeat.id]) });
   }
   let voiceFreeAtMs = introMs;
   routeBeats.forEach((beat, index) => {
@@ -375,7 +399,7 @@ export const buildVideoTimeline = (
       endMs,
       narrationStartMs,
       narrationMs,
-      subtitles: timeSubtitles(beat.narration, narrationStartMs, narrationMs),
+      subtitles: timeSubtitles(beat.narration, narrationStartMs, narrationMs, alignments[beat.id]),
     });
   });
   if (outroBeat && outroMs > 0) {
@@ -387,7 +411,7 @@ export const buildVideoTimeline = (
       endMs: timeline.totalMs,
       narrationStartMs,
       narrationMs,
-      subtitles: timeSubtitles(outroBeat.narration, narrationStartMs, narrationMs),
+      subtitles: timeSubtitles(outroBeat.narration, narrationStartMs, narrationMs, alignments[outroBeat.id]),
     });
   }
   timeline.beats = scheduled;

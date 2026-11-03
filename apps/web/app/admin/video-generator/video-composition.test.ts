@@ -162,11 +162,25 @@ describe("buildVideoTimeline", () => {
     ], manual(45));
     const leg = timeline.beats.find((item) => item.id === "leg")!;
     expect(leg.subtitles.length).toBeGreaterThan(2);
+    // Regression: every letter survives the split (an unescaped /s+/ once removed every "s").
+    expect(leg.subtitles.map((line) => line.text).join(" ")).toBe(leg.narration);
     leg.subtitles.forEach((line) => expect(line.text.length).toBeLessThanOrEqual(60));
     expect(leg.subtitles[0].startMs).toBe(leg.narrationStartMs);
     expect(leg.subtitles[leg.subtitles.length - 1].endMs).toBeCloseTo(leg.narrationStartMs + leg.narrationMs, 6);
     expect(getVideoFrameState(timeline, leg.subtitles[1].startMs + 1).subtitle).toBe(leg.subtitles[1].text);
     expect(getVideoFrameState(timeline, 600).subtitle).toBe("Bienvenue.");
+  });
+
+  it("times subtitle lines exactly from the voice character timing", () => {
+    const text = "Départ. Ça grimpe.";
+    // The second sentence is spoken slowly: 2 s for its 10 characters.
+    const timing = Array.from(text, (_, index) => (index < 8 ? (index + 1) * 50 : 400 + (index - 7) * 200));
+    const timeline = buildVideoTimeline(flatPath(10), [beat("leg", "start", 0, 10, text)], { ...manual(30), introEnabled: false, outroEnabled: false }, { leg: 2_400 }, null, { leg: timing });
+    const [first, second] = timeline.beats[0].subtitles;
+    expect(first.text).toBe("Départ.");
+    expect(second.text).toBe("Ça grimpe.");
+    expect(first.endMs - first.startMs).toBe(350);
+    expect(second.endMs - timeline.beats[0].narrationStartMs).toBe(timing[timing.length - 1]);
   });
 
   it("never overlaps two narrations", () => {

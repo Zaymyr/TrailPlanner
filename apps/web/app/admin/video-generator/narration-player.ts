@@ -4,6 +4,8 @@ export type NarrationClip = {
   text: string;
   audioBase64: string;
   durationMs: number;
+  /** Per-character end times (ms) of `text`, when ElevenLabs returned an exact alignment. */
+  characterEndMs?: number[];
 };
 
 export type NarrationCue = { beatId: string; startMs: number };
