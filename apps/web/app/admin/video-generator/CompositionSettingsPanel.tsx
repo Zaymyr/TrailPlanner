@@ -6,6 +6,7 @@ import { Button } from "../../../components/ui/button";
 import type { VideoAidStation } from "../../../lib/video-generator";
 import { MAP_AMBIANCES } from "./map-appearance";
 import {
+  AID_SERVICES,
   getAidStationServices,
   MAPBOX_STYLE_URL_PATTERN,
   PROFILE_SLOPE_CLASSES,
@@ -68,7 +69,7 @@ function Segmented<T extends string>({
   value: T;
 }) {
   return (
-    <div role="group" aria-label={label} className="flex rounded-md border border-border bg-muted/30 p-1">
+    <div role="group" aria-label={label} className="flex flex-wrap rounded-md border border-border bg-muted/30 p-1">
       {options.map(([optionValue, optionLabel]) => (
         <Button
           key={optionValue}
@@ -143,7 +144,7 @@ export function CompositionSettingsPanel({
         <Segmented
           label="Style de carte"
           value={settings.mapStyle}
-          options={[["classic", "Satellite"], ["standard", "Standard 3D"], ["custom", "Mon style"]]}
+          options={[["paceyourself", "Pace Yourself"], ["classic", "Satellite"], ["standard", "Standard 3D"], ["custom", "Mon style"]]}
           onChange={(value) => update("mapStyle", value)}
         />
         {settings.mapStyle === "custom" ? (
@@ -161,7 +162,7 @@ export function CompositionSettingsPanel({
               }}
             />
             <span className="text-muted-foreground">
-              {settings.customStyleUrl ? "Style appliqué." : "Créez un style sur studio.mapbox.com puis collez son URL « Share ». En attendant, le satellite est utilisé."}
+              {settings.customStyleUrl ? "Style appliqué." : "Créez un style sur studio.mapbox.com puis collez son URL « Share ». En attendant, le style Pace Yourself est utilisé."}
             </span>
           </label>
         ) : null}
@@ -188,6 +189,7 @@ export function CompositionSettingsPanel({
           />
         </label>
         <Toggle label="Masquer les noms de lieux et de routes" checked={settings.hideMapLabels} onChange={(checked) => update("hideMapLabels", checked)} />
+        <Toggle label="Afficher les sommets (nom, altitude)" checked={settings.showPeaks} onChange={(checked) => update("showPeaks", checked)} />
         <Segmented
           label="Affichage du tracé"
           value={settings.revealMode}
@@ -270,7 +272,7 @@ export function CompositionSettingsPanel({
                     label={[
                       `${station.name} · km ${station.distanceKm.toLocaleString("fr-FR", { maximumFractionDigits: 1 })}`,
                       station.isLifeBase ? "base de vie" : null,
-                      getAidStationServices(station).join(", ").toLowerCase() || null,
+                      getAidStationServices(station).map((service) => AID_SERVICES[service]).join(", ").toLowerCase() || null,
                     ].filter(Boolean).join(" · ")}
                     checked={enabled}
                     onChange={(checked) => update(

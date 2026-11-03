@@ -16,10 +16,11 @@ export const VIDEO_DURATION_PRESETS = [30, 45, 60, 90] as const;
 export const VIDEO_FPS = 30;
 export const INTRO_DURATION_MS = 3_000;
 export const OUTRO_DURATION_MS = 3_000;
-export const AID_LABEL_DURATION_MS = 2_500;
+export const START_LABEL_DURATION_MS = 2_500;
 export const AID_LABEL_MIN_DURATION_MS = 1_200;
-// Labels appear slightly before the marker reaches the station, while the camera is slowing down.
-export const AID_LABEL_LEAD_MS = 700;
+// A bubble opens while the flyover slows down on the approach and closes just after the station.
+export const AID_BUBBLE_APPROACH_SIGMAS = 2.5;
+export const AID_BUBBLE_EXIT_SIGMAS = 0.4;
 
 export const VIDEO_RESOLUTIONS = {
   "540p": { width: 540, height: 960 },
@@ -36,13 +37,14 @@ export const videoCompositionSettingsSchema = z.object({
   resolution: z.enum(["540p", "1080p"]).default("540p"),
   viewport: z.enum(["portrait", "landscape"]).default("portrait"),
   revealMode: z.enum(["progressive", "full"]).default("progressive"),
-  mapStyle: z.enum(["classic", "standard", "custom"]).default("classic"),
+  mapStyle: z.enum(["paceyourself", "classic", "standard", "custom"]).default("paceyourself"),
   customStyleUrl: z.string().regex(MAPBOX_STYLE_URL_PATTERN).nullable().default(null),
-  mapAmbiance: z.enum(["natural", "vivid", "cinematic", "night"]).default("vivid"),
+  mapAmbiance: z.enum(["brand", "natural", "vivid", "cinematic", "night"]).default("brand"),
   hideMapLabels: z.boolean().default(true),
+  showPeaks: z.boolean().default(true),
   terrainExaggeration: z.number().min(1).max(2.5).default(1.3),
-  routeWidth: z.enum(["normal", "bold"]).default("bold"),
-  routeGlow: z.boolean().default(true),
+  routeWidth: z.enum(["normal", "bold"]).default("normal"),
+  routeGlow: z.boolean().default(false),
   showTitle: z.boolean().default(true),
   showDistance: z.boolean().default(true),
   showElevation: z.boolean().default(true),
@@ -51,8 +53,8 @@ export const videoCompositionSettingsSchema = z.object({
   showProfile: z.boolean().default(true),
   profileMode: z.enum(["window", "full"]).default("window"),
   showCurrentKm: z.boolean().default(true),
-  routeColor: hexColorSchema.default("#d9ff57"),
-  accentColor: hexColorSchema.default("#ff8a3d"),
+  routeColor: hexColorSchema.default("#ff8a3d"),
+  accentColor: hexColorSchema.default("#2d5016"),
   showLogo: z.boolean().default(true),
   showCta: z.boolean().default(true),
   introEnabled: z.boolean().default(true),
@@ -71,7 +73,7 @@ export type ScheduledAidLabel = {
   name: string;
   detail: string | null;
   distanceKm: number;
-  services: string[];
+  services: AidService[];
   isLifeBase: boolean;
   cutoffTime: string | null;
   startMs: number;
@@ -140,64 +142,83 @@ const movingAverage = (values: number[], radius: number) => {
 
 export type PacingStop = { distanceKm: number; strength: number };
 
-export const AID_STATION_SLOWDOWN = 3;
-export const LIFE_BASE_SLOWDOWN = 4.5;
+export const AID_STATION_SLOWDOWN = 10;
+export const LIFE_BASE_SLOWDOWN = 15;
+// Stops may take at most this share of the flyover, so a route with many stations still moves.
+export const MAX_STOP_TIME_SHARE = 0.6;
+// Leaving a station, the flyover speeds up again over a longer distance than it slowed down.
+const STOP_EXIT_SIGMA_RATIO = 1.3;
 
-export const getAidStationServices = (station: VideoAidStation) => [
-  station.waterAvailable ? "Eau" : null,
-  station.foodAvailable ? "Nourriture" : null,
-  station.assistanceAllowed ? "Assistance" : null,
-  station.dropBagAvailable ? "Sac d’allègement" : null,
-].filter((service): service is string => Boolean(service));
+export const AID_SERVICES = {
+  water: "Eau",
+  food: "Nourriture",
+  assistance: "Assistance",
+  dropBag: "Sac d’allègement",
+} as const;
+export type AidService = keyof typeof AID_SERVICES;
+
+export const getAidStationServices = (station: VideoAidStation): AidService[] => {
+  const services: AidService[] = [];
+  if (station.waterAvailable) services.push("water");
+  if (station.foodAvailable) services.push("food");
+  if (station.assistanceAllowed) services.push("assistance");
+  if (station.dropBagAvailable) services.push("dropBag");
+  return services;
+};
+
+/** Approach width of a stop slowdown; the exit side is STOP_EXIT_SIGMA_RATIO times wider. */
+export const getStopSigmaKm = (totalDistanceKm: number) => Math.max(0.5, totalDistanceKm * 0.012);
 
 /**
- * Relative time spent per kilometre. Climbs, steep descents and enabled aid stations slow the
- * flyover down (life bases most); the weights are smoothed so the speed never changes abruptly.
+ * Relative time spent per kilometre. Climbs and steep descents slow the flyover down; around each
+ * enabled stop it brakes hard on the approach and speeds up again progressively after the station.
+ * The weights are smoothed so the speed never changes abruptly.
  */
 export const computePacingWeights = (path: PreparedAnimationPath, stops: PacingStop[]) => {
   const { samples, totalDistanceKm } = path;
   if (samples.length < 2 || totalDistanceKm <= 0) return samples.map(() => 1);
   const spacingKm = totalDistanceKm / (samples.length - 1);
   const gradeRadius = Math.max(1, Math.round(0.15 / spacingKm));
-  const stopSigmaKm = Math.max(0.4, totalDistanceKm * 0.008);
+  const approachSigmaKm = getStopSigmaKm(totalDistanceKm);
+  const exitSigmaKm = approachSigmaKm * STOP_EXIT_SIGMA_RATIO;
 
-  const weights = samples.map((sample, index) => {
+  const terrain = samples.map((_, index) => {
     const before = samples[Math.max(0, index - gradeRadius)];
     const after = samples[Math.min(samples.length - 1, index + gradeRadius)];
     const runM = (after.distanceKm - before.distanceKm) * 1_000;
     const grade = runM > 0 ? (after.elevationM - before.elevationM) / runM : 0;
-    const climb = 1.4 * clamp(grade / 0.15, 0, 1);
-    const descent = 0.5 * clamp(-grade / 0.2, 0, 1);
-    const stop = stops.reduce((sum, { distanceKm, strength }) => {
-      const offset = (sample.distanceKm - distanceKm) / stopSigmaKm;
-      return sum + strength * Math.exp(-(offset * offset) / 2);
-    }, 0);
-    return 1 + climb + descent + Math.min(stop, LIFE_BASE_SLOWDOWN);
+    return 1 + 1.4 * clamp(grade / 0.15, 0, 1) + 0.5 * clamp(-grade / 0.2, 0, 1);
   });
+  const stopWeights = samples.map((sample) => Math.min(LIFE_BASE_SLOWDOWN, stops.reduce((sum, { distanceKm, strength }) => {
+    const delta = sample.distanceKm - distanceKm;
+    const offset = delta / (delta < 0 ? approachSigmaKm : exitSigmaKm);
+    return sum + strength * Math.exp(-(offset * offset) / 2);
+  }, 0)));
 
-  const smoothingRadius = Math.max(1, Math.round((totalDistanceKm * 0.01) / spacingKm));
+  const terrainTotal = terrain.reduce((sum, value) => sum + value, 0);
+  const stopTotal = stopWeights.reduce((sum, value) => sum + value, 0);
+  const maxStopTotal = (terrainTotal * MAX_STOP_TIME_SHARE) / (1 - MAX_STOP_TIME_SHARE);
+  const stopScale = stopTotal > maxStopTotal ? maxStopTotal / stopTotal : 1;
+  const weights = terrain.map((value, index) => value + stopWeights[index] * stopScale);
+
+  const smoothingRadius = Math.max(1, Math.round((totalDistanceKm * 0.005) / spacingKm));
   return movingAverage(weights, smoothingRadius);
 };
 
-type LabelCandidate = Omit<ScheduledAidLabel, "startMs" | "endMs"> & { startMs: number };
-
-const scheduleLabels = (candidates: LabelCandidate[], flyoverEndMs: number): ScheduledAidLabel[] => {
+const scheduleLabels = (candidates: ScheduledAidLabel[], flyoverEndMs: number): ScheduledAidLabel[] => {
   const labels: ScheduledAidLabel[] = [];
   [...candidates]
-    .sort((left, right) => left.startMs - right.startMs)
+    .sort((left, right) => left.distanceKm - right.distanceKm)
     .forEach((candidate) => {
-      const { startMs } = candidate;
-      if (startMs >= flyoverEndMs) return;
+      // One bubble at a time: a close station waits until the previous one has been passed, and is
+      // dropped when what remains of its approach would be unreadable.
       const previous = labels[labels.length - 1];
-      if (previous && startMs < previous.endMs) {
-        // Collision: shorten the previous label when both can stay readable, otherwise keep the
-        // earlier one and drop this station rather than stacking two labels.
-        if (startMs - previous.startMs < AID_LABEL_MIN_DURATION_MS) return;
-        previous.endMs = startMs;
-      }
-      labels.push({ ...candidate, endMs: Math.min(flyoverEndMs, startMs + AID_LABEL_DURATION_MS) });
+      const startMs = Math.max(candidate.startMs, previous?.endMs ?? 0);
+      const endMs = Math.min(flyoverEndMs, candidate.endMs);
+      if (endMs - startMs < AID_LABEL_MIN_DURATION_MS) return;
+      labels.push({ ...candidate, startMs, endMs });
     });
-  return labels.filter((label) => label.endMs - label.startMs >= AID_LABEL_MIN_DURATION_MS);
+  return labels;
 };
 
 export type VideoStartInfo = { detail: string | null };
@@ -218,10 +239,14 @@ export const buildVideoTimeline = (
     !disabled.has(station.id) && station.distanceKm > 0 && station.distanceKm < totalDistanceKm);
 
   const sampleDistancesKm = path.samples.map((sample) => sample.distanceKm);
-  const weights = computePacingWeights(path, enabledStations.map((station) => ({
-    distanceKm: station.distanceKm,
-    strength: station.isLifeBase ? LIFE_BASE_SLOWDOWN : AID_STATION_SLOWDOWN,
-  })));
+  const showStart = settings.showStartInfo && Boolean(startInfo.detail);
+  const weights = computePacingWeights(path, [
+    ...(showStart ? [{ distanceKm: 0, strength: AID_STATION_SLOWDOWN }] : []),
+    ...(settings.showAidStations ? enabledStations : []).map((station) => ({
+      distanceKm: station.distanceKm,
+      strength: station.isLifeBase ? LIFE_BASE_SLOWDOWN : AID_STATION_SLOWDOWN,
+    })),
+  ]);
   const cumulative = [0];
   for (let index = 1; index < path.samples.length; index += 1) {
     const stepKm = sampleDistancesKm[index] - sampleDistancesKm[index - 1];
@@ -250,8 +275,11 @@ export const buildVideoTimeline = (
     arrivalMs: introMs + getFlyoverFractionAtDistance(timeline, station.distanceKm) * flyoverMs,
   }));
 
-  const candidates: LabelCandidate[] = [];
-  if (settings.showStartInfo && startInfo.detail) {
+  const sigmaKm = getStopSigmaKm(totalDistanceKm);
+  const msAtDistance = (distanceKm: number) =>
+    introMs + getFlyoverFractionAtDistance(timeline, clamp(distanceKm, 0, totalDistanceKm)) * flyoverMs;
+  const candidates: ScheduledAidLabel[] = [];
+  if (showStart) {
     candidates.push({
       id: "start",
       kind: "start",
@@ -262,6 +290,7 @@ export const buildVideoTimeline = (
       isLifeBase: false,
       cutoffTime: null,
       startMs: introMs,
+      endMs: Math.max(introMs + START_LABEL_DURATION_MS, msAtDistance(sigmaKm * 0.6)),
     });
   }
   if (settings.showAidStations) {
@@ -274,7 +303,8 @@ export const buildVideoTimeline = (
       services: getAidStationServices(station),
       isLifeBase: station.isLifeBase,
       cutoffTime: station.cutoffTime,
-      startMs: Math.max(introMs, station.arrivalMs - AID_LABEL_LEAD_MS),
+      startMs: Math.max(introMs, msAtDistance(station.distanceKm - sigmaKm * AID_BUBBLE_APPROACH_SIGMAS)),
+      endMs: msAtDistance(station.distanceKm + sigmaKm * AID_BUBBLE_EXIT_SIGMAS),
     }));
   }
   timeline.aidLabels = scheduleLabels(candidates, introMs + flyoverMs);

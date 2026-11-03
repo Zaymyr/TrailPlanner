@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { VideoAidStation, VideoRoutePoint } from "../../../lib/video-generator";
 import { prepareAnimationPath } from "./route-animation";
 import {
-  AID_LABEL_LEAD_MS,
+  AID_BUBBLE_APPROACH_SIGMAS,
+  AID_BUBBLE_EXIT_SIGMAS,
   AID_LABEL_MIN_DURATION_MS,
   buildElevationProfile,
   buildVideoTimeline,
@@ -14,6 +15,7 @@ import {
   getProfileTicks,
   getProfileWindow,
   getSlopeClass,
+  getStopSigmaKm,
   getVideoCameraPose,
   getVideoFrameState,
   videoCompositionSettingsSchema,
@@ -51,6 +53,12 @@ describe("videoCompositionSettingsSchema", () => {
       viewport: "portrait",
       introEnabled: true,
       outroEnabled: true,
+      mapStyle: "paceyourself",
+      routeColor: "#ff8a3d",
+      accentColor: "#2d5016",
+      routeWidth: "normal",
+      routeGlow: false,
+      showPeaks: true,
     });
     const restored = videoCompositionSettingsSchema.parse(JSON.parse(JSON.stringify(DEFAULT_VIDEO_COMPOSITION_SETTINGS)));
     expect(restored).toEqual(DEFAULT_VIDEO_COMPOSITION_SETTINGS);
@@ -120,13 +128,25 @@ describe("getVideoFrameState", () => {
     expect(getVideoFrameState(timeline, 20_000)).toEqual(middle);
   });
 
-  it("shows an aid label with its services just before the runner reaches the station", () => {
+  it("opens the bubble on the approach and closes it just after the station", () => {
     const label = timeline.aidLabels[0];
     const arrival = timeline.aidStations[0].arrivalMs;
-    expect(label.startMs).toBeCloseTo(arrival - AID_LABEL_LEAD_MS, 6);
-    expect(getVideoFrameState(timeline, arrival).aidLabel).toMatchObject({ name: "Ravito 1", services: ["Eau"] });
-    expect(getVideoFrameState(timeline, arrival).distanceKm).toBeCloseTo(10, 6);
+    const sigmaKm = getStopSigmaKm(timeline.totalDistanceKm);
+    expect(getVideoFrameState(timeline, label.startMs).distanceKm).toBeCloseTo(10 - sigmaKm * AID_BUBBLE_APPROACH_SIGMAS, 3);
+    expect(getVideoFrameState(timeline, label.endMs).distanceKm).toBeCloseTo(10 + sigmaKm * AID_BUBBLE_EXIT_SIGMAS, 3);
+    expect(arrival - label.startMs).toBeGreaterThan(label.endMs - arrival);
+    expect(getVideoFrameState(timeline, arrival).aidLabel).toMatchObject({ name: "Ravito 1", services: ["water"] });
     expect(getVideoFrameState(timeline, label.endMs + 1).aidLabel).toBeNull();
+  });
+
+  it("brakes before a station and speeds up again progressively after it", () => {
+    const flat = buildVideoTimeline(flatPath(40), [station("1", 20)], { ...DEFAULT_VIDEO_COMPOSITION_SETTINGS, introEnabled: false, outroEnabled: false });
+    const msPerKm = (fromKm: number, toKm: number) =>
+      (getFlyoverFractionAtDistance(flat, toKm) - getFlyoverFractionAtDistance(flat, fromKm)) * flat.flyoverMs / (toKm - fromKm);
+    const cruise = msPerKm(2, 4);
+    expect(msPerKm(19.8, 20)).toBeGreaterThan(cruise * 6);
+    // Same distance from the station: the exit is still slower than the approach (progressive re-acceleration).
+    expect(msPerKm(21.5, 22)).toBeGreaterThan(msPerKm(18, 18.5));
   });
 
   it("announces the start with its place and time when provided", () => {

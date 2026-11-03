@@ -3,12 +3,17 @@ import type { ExpressionSpecification, FogSpecification, Map as MapboxMap } from
 import type { VideoCompositionSettings } from "./video-composition";
 
 export const MAP_STYLES = {
+  // Brand topographic style owned by the Pace Yourself Mapbox account: cream background, brand-green
+  // hillshade and contours, dashed trails.
+  paceyourself: "mapbox://styles/paceyourself/cmw0o76rp00bh01r10iuwh6vy",
   classic: "mapbox://styles/mapbox/satellite-streets-v12",
   standard: "mapbox://styles/mapbox/standard-satellite",
 } as const;
 
-export const resolveMapStyleUrl = (settings: Pick<VideoCompositionSettings, "mapStyle" | "customStyleUrl">) =>
-  settings.mapStyle === "custom" && settings.customStyleUrl ? settings.customStyleUrl : MAP_STYLES[settings.mapStyle === "standard" ? "standard" : "classic"];
+export const resolveMapStyleUrl = (settings: Pick<VideoCompositionSettings, "mapStyle" | "customStyleUrl">) => {
+  if (settings.mapStyle === "custom") return settings.customStyleUrl ?? MAP_STYLES.paceyourself;
+  return MAP_STYLES[settings.mapStyle];
+};
 
 type Ambiance = {
   label: string;
@@ -17,6 +22,11 @@ type Ambiance = {
 };
 
 export const MAP_AMBIANCES: Record<VideoCompositionSettings["mapAmbiance"], Ambiance> = {
+  brand: {
+    label: "Pace Yourself",
+    raster: { saturation: -0.15, contrast: 0.1, brightnessMin: 0.04, brightnessMax: 1 },
+    fog: { range: [1, 12], color: "#ece8dc", "high-color": "#c9d9b0", "horizon-blend": 0.12, "space-color": "#dfe7cf", "star-intensity": 0 },
+  },
   natural: {
     label: "Naturel",
     raster: { saturation: 0, contrast: 0, brightnessMin: 0, brightnessMax: 1 },
@@ -46,6 +56,47 @@ export const ROUTE_LINE_WIDTHS: Record<VideoCompositionSettings["routeWidth"], E
 
 export const ROUTE_GLOW_WIDTH: ExpressionSpecification = ["interpolate", ["linear"], ["zoom"], 5, 10, 13, 26];
 
+export const PEAKS_SOURCE_ID = "video-peaks";
+export const PEAKS_LAYER_ID = "video-peak-labels";
+
+/**
+ * Named summits from Mapbox Streets, drawn by the generator itself so they stay visible when the
+ * basemap labels are hidden. `filterrank` keeps only the most prominent ones to avoid clutter.
+ */
+export const syncPeakLabels = (map: MapboxMap, settings: VideoCompositionSettings) => {
+  if (!map.getSource(PEAKS_SOURCE_ID)) {
+    map.addSource(PEAKS_SOURCE_ID, { type: "vector", url: "mapbox://mapbox.mapbox-streets-v8" });
+  }
+  const onBrandMap = settings.mapStyle === "paceyourself";
+  if (!map.getLayer(PEAKS_LAYER_ID)) {
+    map.addLayer({
+      id: PEAKS_LAYER_ID,
+      type: "symbol",
+      source: PEAKS_SOURCE_ID,
+      "source-layer": "natural_label",
+      slot: "top",
+      minzoom: 9,
+      filter: ["all", ["match", ["get", "maki"], ["mountain", "volcano"], true, false], ["<=", ["get", "filterrank"], 3]],
+      layout: {
+        "text-field": [
+          "format",
+          ["concat", "▲ ", ["get", "name"]], { "font-scale": 1 },
+          ["case", ["has", "elevation_m"], ["concat", "\n", ["to-string", ["get", "elevation_m"]], " m"], ""], { "font-scale": 0.85 },
+        ],
+        "text-font": ["DIN Pro Bold", "Arial Unicode MS Bold"],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 9, 11, 14, 15],
+        "text-anchor": "bottom",
+        "text-line-height": 1.15,
+        "text-padding": 12,
+      },
+      paint: { "text-color": "#ffffff", "text-halo-width": 1.6 },
+    });
+  }
+  map.setLayoutProperty(PEAKS_LAYER_ID, "visibility", settings.showPeaks ? "visible" : "none");
+  map.setPaintProperty(PEAKS_LAYER_ID, "text-color", onBrandMap ? "#2d5016" : "#ffffff");
+  map.setPaintProperty(PEAKS_LAYER_ID, "text-halo-color", onBrandMap ? "#f6f3ea" : "rgba(20, 30, 12, 0.85)");
+};
+
 // Mapbox Standard exposes its labels through configuration instead of style layers.
 const STANDARD_LABEL_CONFIG = ["showPlaceLabels", "showRoadLabels", "showPointOfInterestLabels", "showTransitLabels"];
 
@@ -60,7 +111,10 @@ export const captureMapAppearanceState = (map: MapboxMap, ownLayerIds: Set<strin
     .map((layer) => layer.id),
 });
 
-/** Applies the basemap look. Called on style load and when an appearance setting changes, never per frame. */
+/**
+ * Applies the basemap look and the peak labels. Called on style load and when an appearance setting
+ * changes, never per frame.
+ */
 export const applyMapAppearance = (
   map: MapboxMap,
   settings: VideoCompositionSettings,
@@ -87,5 +141,6 @@ export const applyMapAppearance = (
       }
     });
   }
+  syncPeakLabels(map, settings);
   map.setFog(ambiance.fog);
 };

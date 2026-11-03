@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import mapboxgl, {
   type ExpressionSpecification,
   type GeoJSONSource,
@@ -21,6 +22,7 @@ import { CompositionSettingsPanel } from "./CompositionSettingsPanel";
 import {
   applyMapAppearance,
   captureMapAppearanceState,
+  PEAKS_LAYER_ID,
   resolveMapStyleUrl,
   ROUTE_GLOW_WIDTH,
   ROUTE_LINE_WIDTHS,
@@ -42,7 +44,7 @@ import {
   getVideoFrameState,
   type VideoCompositionSettings,
 } from "./video-composition";
-import { createVideoFrameStore, VideoCompositionOverlay } from "./VideoCompositionOverlay";
+import { AidBubble, createVideoFrameStore, VideoCompositionOverlay } from "./VideoCompositionOverlay";
 import type { VideoGeneratorMapProps } from "./VideoGeneratorMap";
 
 const TERRAIN_SOURCE_ID = "video-terrain-dem";
@@ -62,6 +64,7 @@ const OWN_LAYER_IDS = new Set([
   ROUTE_REVEAL_LAYER_ID,
   MARKER_CIRCLE_LAYER_ID,
   MARKER_LABEL_LAYER_ID,
+  PEAKS_LAYER_ID,
 ]);
 
 type GeoJsonSourceData = Parameters<GeoJSONSource["setData"]>[0];
@@ -226,6 +229,11 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: V
   const animationRef = useRef<RouteAnimationController | null>(null);
   const resizeRef = useRef<MapResizeController | null>(null);
   const progressMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  // The aid bubble is a Mapbox marker so it stays pinned above the station while the camera moves;
+  // React renders its content into the marker element through a portal.
+  const bubbleMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const bubbleLabelIdRef = useRef<string | null>(null);
+  const [bubbleHost, setBubbleHost] = useState<HTMLElement | null>(null);
   // `map.isStyleLoaded()` is false whenever a tile is loading or a source was just updated, which is
   // permanently the case while the camera flies. Gating frames on it skipped most of them.
   const layersReadyRef = useRef(false);
@@ -288,6 +296,12 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: V
     if (map.getLayer(ROUTE_GLOW_LAYER_ID)) map.setPaintProperty(ROUTE_GLOW_LAYER_ID, "line-trim-offset", trimOffset);
     const routePoint = getRoutePointAtDistance(path, frame.distanceKm);
     progressMarkerRef.current?.setLngLat([routePoint.lon, routePoint.lat]);
+    const bubbleLabelId = frame.aidLabel?.id ?? null;
+    if (frame.aidLabel && bubbleLabelId !== bubbleLabelIdRef.current) {
+      const stationPoint = getRoutePointAtDistance(path, frame.aidLabel.distanceKm);
+      bubbleMarkerRef.current?.setLngLat([stationPoint.lon, stationPoint.lat]);
+    }
+    bubbleLabelIdRef.current = bubbleLabelId;
 
     const activeAidDistance = frame.aidLabel?.distanceKm ?? null;
     if (activeAidDistance !== activeAidDistanceRef.current && map.getLayer(MARKER_CIRCLE_LAYER_ID)) {
@@ -355,7 +369,7 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: V
     const map = mapRef.current;
     if (!map || !layersReadyRef.current) return;
     applyMapAppearance(map, settingsRef.current, appearanceStateRef.current, OWN_LAYER_IDS);
-  }, [settings.hideMapLabels, settings.mapAmbiance]);
+  }, [settings.hideMapLabels, settings.mapAmbiance, settings.mapStyle, settings.showPeaks]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -407,6 +421,13 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: V
     progressMarkerRef.current = new mapboxgl.Marker({ element: createProgressMarkerElement(settingsRef.current.routeColor) })
       .setLngLat(firstPoint ? [firstPoint.lon, firstPoint.lat] : [boundsRef.current.minLon, boundsRef.current.minLat])
       .addTo(map);
+    const bubbleElement = document.createElement("div");
+    bubbleElement.style.pointerEvents = "none";
+    bubbleMarkerRef.current = new mapboxgl.Marker({ element: bubbleElement, anchor: "bottom", occludedOpacity: 1 })
+      .setLngLat(firstPoint ? [firstPoint.lon, firstPoint.lat] : [boundsRef.current.minLon, boundsRef.current.minLat])
+      .addTo(map);
+    bubbleLabelIdRef.current = null;
+    setBubbleHost(bubbleElement);
 
     let styleLoadVersion = 0;
     const handleStyleLoad = () => {
@@ -457,6 +478,9 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: V
       animationRef.current?.destroy();
       progressMarkerRef.current?.remove();
       progressMarkerRef.current = null;
+      bubbleMarkerRef.current?.remove();
+      bubbleMarkerRef.current = null;
+      setBubbleHost(null);
       layersReadyRef.current = false;
       resizeController.destroy();
       map.remove();
@@ -505,6 +529,7 @@ export function VideoGeneratorMapClient({ aidStations, bounds, points, race }: V
           <div className={`absolute inset-0 ${snapshot.isPlaying ? "pointer-events-none" : ""}`}>
             <div ref={containerRef} className="h-full w-full" aria-label="Visualiseur 3D animé du parcours" />
           </div>
+          {bubbleHost ? createPortal(<AidBubble accent={settings.accentColor} frameStore={frameStore} />, bubbleHost) : null}
           <VideoCompositionOverlay
             elevationAtDistance={elevationAtDistance}
             frameStore={frameStore}

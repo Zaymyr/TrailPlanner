@@ -207,7 +207,10 @@ describe("VideoGeneratorMapClient", () => {
     expect(screen.queryByText(/La carte 3D n’a pas pu être chargée/)).toBeNull();
 
     await userEvent.click(screen.getByRole("checkbox", { name: "Masquer les noms de lieux et de routes" }));
-    expect(map.setLayoutProperty).toHaveBeenLastCalledWith("road-label", "visibility", "visible");
+    expect(map.setLayoutProperty).toHaveBeenCalledWith("road-label", "visibility", "visible");
+    // Peaks are the generator's own layer: they stay visible when basemap labels are hidden or shown.
+    expect(map.setLayoutProperty).toHaveBeenLastCalledWith("video-peak-labels", "visibility", "visible");
+    expect(mapboxMock.markers[1].addTo).toHaveBeenCalledWith(map);
 
     await userEvent.click(screen.getByRole("button", { name: "Lecture" }));
     act(() => flushAnimationFrames(1_000));
