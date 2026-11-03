@@ -55,7 +55,9 @@ related_files:
   - supabase/tests/organizer_atomic_course_collections_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
   - supabase/tests/web_race_visibility_checks.sql
-  - supabase/migrations/20261103112225_racebook_versioned_publications.sql
+  - supabase/migrations/20261103123918_racebook_versioned_publications.sql
+  - supabase/migrations/20261103124133_index_racebook_publication_foreign_keys.sql
+  - supabase/migrations/20261103124538_cover_racebook_current_publication_foreign_key.sql
   - supabase/tests/racebook_versioned_publications_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql

@@ -7,7 +7,7 @@ related_files:
   - supabase/migrations/20260915100443_add_generated_organizer_invoices.sql
   - supabase/tests/organizer_generated_invoice_checks.sql
   - supabase/migrations
-  - supabase/migrations/20261103112225_racebook_versioned_publications.sql
+  - supabase/migrations/20261103123918_racebook_versioned_publications.sql
   - supabase/tests/racebook_versioned_publications_checks.sql
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql

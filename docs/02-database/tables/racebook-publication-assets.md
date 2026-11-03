@@ -4,7 +4,7 @@ scope: database
 last_verified: 2026-11-03
 ai_priority: high
 related_files:
-  - supabase/migrations/20261103112225_racebook_versioned_publications.sql
+  - supabase/migrations/20261103123918_racebook_versioned_publications.sql
   - supabase/tests/racebook_versioned_publications_checks.sql
   - apps/web/lib/racebook-publications.ts
 related_tables:

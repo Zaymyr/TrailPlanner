@@ -36,7 +36,9 @@ related_files:
   - supabase/migrations/20260923070437_separate_web_and_mobile_race_visibility.sql
   - supabase/migrations/20260915104528_add_organizer_edition_capability_grants.sql
   - supabase/migrations/20260928123934_add_partner_link_settings.sql
-  - supabase/migrations/20261103112225_racebook_versioned_publications.sql
+  - supabase/migrations/20261103123918_racebook_versioned_publications.sql
+  - supabase/migrations/20261103124133_index_racebook_publication_foreign_keys.sql
+  - supabase/migrations/20261103124538_cover_racebook_current_publication_foreign_key.sql
 related_tables:
   - race_plans
   - plan_share_links

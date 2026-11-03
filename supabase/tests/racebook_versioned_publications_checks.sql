@@ -1,5 +1,5 @@
 -- Versioned RaceBook publication checks.
--- Run in a privileged SQL session after 20261103112225_racebook_versioned_publications.sql.
+-- Run in a privileged SQL session after 20261103123918_racebook_versioned_publications.sql.
 
 begin;
 
@@ -79,6 +79,8 @@ begin
   end if;
 end $$;
 
+grant select, update on table _racebook_publication_fixture to service_role;
+
 set local role service_role;
 
 do $$
@@ -120,14 +122,14 @@ end $$;
 
 do $$
 declare
-  race_id uuid := (select race_id from _racebook_publication_fixture);
+  target_race_id uuid := (select race_id from _racebook_publication_fixture);
   revision_before bigint;
   revision_after bigint;
   sponsor_id uuid;
 begin
-  select draft_revision into revision_before from public.racebook_publication_states where racebook_publication_states.race_id = race_id;
-  update public.races set organizer_details = coalesce(organizer_details, '{}'::jsonb) || '{"publicationSqlCheck":true}'::jsonb where id = race_id;
-  select draft_revision into revision_after from public.racebook_publication_states where racebook_publication_states.race_id = race_id;
+  select draft_revision into revision_before from public.racebook_publication_states where racebook_publication_states.race_id = target_race_id;
+  update public.races set organizer_details = coalesce(organizer_details, '{}'::jsonb) || '{"publicationSqlCheck":true}'::jsonb where id = target_race_id;
+  select draft_revision into revision_after from public.racebook_publication_states where racebook_publication_states.race_id = target_race_id;
   if revision_after <> revision_before + 1 then
     raise exception 'RaceBook source edits must increment draft_revision once.';
   end if;
@@ -139,7 +141,7 @@ begin
   if sponsor_id is not null then
     revision_before := revision_after;
     update public.race_event_edition_sponsors set click_count = click_count + 1 where id = sponsor_id;
-    select draft_revision into revision_after from public.racebook_publication_states where racebook_publication_states.race_id = race_id;
+    select draft_revision into revision_after from public.racebook_publication_states where racebook_publication_states.race_id = target_race_id;
     if revision_after <> revision_before then
       raise exception 'Sponsor analytics must not increment draft_revision.';
     end if;
@@ -148,7 +150,7 @@ end $$;
 
 do $$
 declare
-  race_id uuid := (select race_id from _racebook_publication_fixture);
+  target_race_id uuid := (select race_id from _racebook_publication_fixture);
   source_id uuid;
   source_revision bigint;
   draft_revision bigint;
@@ -156,17 +158,17 @@ declare
 begin
   select id, source_draft_revision into source_id, source_revision
   from public.racebook_publications
-  where racebook_publications.race_id = race_id
+  where racebook_publications.race_id = target_race_id
   order by version asc
   limit 1;
   select racebook_publication_states.draft_revision into draft_revision
-  from public.racebook_publication_states where racebook_publication_states.race_id = race_id;
+  from public.racebook_publication_states where racebook_publication_states.race_id = target_race_id;
 
-  result := public.restore_racebook_publication(race_id, source_id, null);
+  result := public.restore_racebook_publication(target_race_id, source_id, null);
   if (select restored_from_publication_id from public.racebook_publications where id = (result ->> 'publicationId')::uuid) <> source_id then
     raise exception 'Restore must create a new publication with durable provenance.';
   end if;
-  if (select published_source_revision from public.racebook_publication_states where racebook_publication_states.race_id = race_id) <> source_revision then
+  if (select published_source_revision from public.racebook_publication_states where racebook_publication_states.race_id = target_race_id) <> source_revision then
     raise exception 'Restore must retain the source publication revision.';
   end if;
   if source_revision = draft_revision then

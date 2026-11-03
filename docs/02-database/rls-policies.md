@@ -14,7 +14,7 @@ related_files:
   - supabase/migrations/20260804152041_add_race_event_editions.sql
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
-  - supabase/migrations/20261103112225_racebook_versioned_publications.sql
+  - supabase/migrations/20261103123918_racebook_versioned_publications.sql
   - supabase/tests/racebook_versioned_publications_checks.sql
   - supabase/migrations/20260826090000_allow_event_level_publication_requests.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
