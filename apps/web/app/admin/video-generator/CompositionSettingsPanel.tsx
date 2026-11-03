@@ -22,6 +22,8 @@ type CompositionSettingsPanelProps = {
   /** Ids of the beats kept in the narration, to flag stations left out. */
   narratedIds: Set<string>;
   autoDurationSeconds: number;
+  /** False when the race has no start time: the day/night look cannot be estimated. */
+  dayNightAvailable: boolean;
   aidStations: VideoAidStation[];
   cameraActionsDisabled: boolean;
   onChange: (settings: VideoCompositionSettings) => void;
@@ -91,6 +93,7 @@ function Segmented<T extends string>({
 export function CompositionSettingsPanel({
   narratedIds,
   autoDurationSeconds,
+  dayNightAvailable,
   aidStations,
   cameraActionsDisabled,
   onChange,
@@ -200,6 +203,14 @@ export function CompositionSettingsPanel({
         </label>
         <Toggle label="Masquer les noms de lieux et de routes" checked={settings.hideMapLabels} onChange={(checked) => update("hideMapLabels", checked)} />
         <Toggle label="Afficher les sommets (nom, altitude)" checked={settings.showPeaks} onChange={(checked) => update("showPeaks", checked)} />
+        <Toggle label="Jour / nuit selon l’heure estimée" checked={settings.dayNight} onChange={(checked) => update("dayNight", checked)} />
+        {settings.dayNight ? (
+          <p className="text-xs text-muted-foreground">
+            {dayNightAvailable
+              ? "Heure de passage estimée avec une allure classique, recalée sur les barrières horaires."
+              : "Heure de départ inconnue pour ce format : la lumière reste celle du jour."}
+          </p>
+        ) : null}
         <Segmented
           label="Affichage du tracé"
           value={settings.revealMode}

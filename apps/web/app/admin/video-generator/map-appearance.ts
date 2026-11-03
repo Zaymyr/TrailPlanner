@@ -1,5 +1,6 @@
 import type { ExpressionSpecification, FogSpecification, Map as MapboxMap } from "mapbox-gl";
 
+import type { Daylight } from "./route-clock";
 import type { VideoCompositionSettings } from "./video-composition";
 
 export const MAP_STYLES = {
@@ -103,11 +104,16 @@ const STANDARD_LABEL_CONFIG = ["showPlaceLabels", "showRoadLabels", "showPointOf
 export type MapAppearanceState = {
   /** Basemap symbol layers that were visible when the style loaded; only these are toggled. */
   basemapSymbolLayerIds: string[];
+  /** Hillshade layers whose light direction follows the sun. */
+  hillshadeLayerIds: string[];
 };
 
 export const captureMapAppearanceState = (map: MapboxMap, ownLayerIds: Set<string>): MapAppearanceState => ({
   basemapSymbolLayerIds: (map.getStyle()?.layers ?? [])
     .filter((layer) => layer.type === "symbol" && !ownLayerIds.has(layer.id) && layer.layout?.visibility !== "none")
+    .map((layer) => layer.id),
+  hillshadeLayerIds: (map.getStyle()?.layers ?? [])
+    .filter((layer) => layer.type === "hillshade" && !ownLayerIds.has(layer.id))
     .map((layer) => layer.id),
 });
 
@@ -143,4 +149,57 @@ export const applyMapAppearance = (
   }
   syncPeakLabels(map, settings);
   map.setFog(ambiance.fog);
+};
+
+const NIGHT_FOG = { color: "#0e1628", highColor: "#060b1a", spaceColor: "#01030a" };
+const DUSK_FOG = { color: "#f2b27c", highColor: "#b5583a" };
+
+const mixHex = (from: string, to: string, t: number) => {
+  const parse = (hex: string) => [1, 3, 5].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16));
+  if (!/^#[0-9a-fA-F]{6}$/.test(from) || !/^#[0-9a-fA-F]{6}$/.test(to)) return t < 0.5 ? from : to;
+  const [a, b] = [parse(from), parse(to)];
+  return `#${a.map((value, index) => Math.round(value + (b[index] - value) * Math.min(1, Math.max(0, t))).toString(16).padStart(2, "0")).join("")}`;
+};
+
+/**
+ * Day/night look from the estimated race clock: fog and sky blend from night to the ambiance's
+ * day colours with a warm tint around sunrise and sunset, satellite imagery dims at night, the
+ * hillshade light follows the sun and Mapbox Standard switches its light preset. Called only when
+ * the quantized daylight changes, never on every frame.
+ */
+export const applyDaylight = (
+  map: MapboxMap,
+  settings: VideoCompositionSettings,
+  daylight: Pick<Daylight, "level" | "warmth" | "sunAzimuthDeg" | "isMorning">,
+  state: MapAppearanceState,
+  ownLayerIds: Set<string>,
+) => {
+  const ambiance = MAP_AMBIANCES[settings.mapAmbiance];
+  const day = ambiance.fog;
+  const dayColor = typeof day.color === "string" ? day.color : "#dce6f0";
+  const dayHigh = typeof day["high-color"] === "string" ? day["high-color"] : "#6aa0d8";
+  const daySpace = typeof day["space-color"] === "string" ? day["space-color"] : "#0b1a33";
+  const warm = daylight.warmth * 0.65;
+  map.setFog({
+    ...day,
+    color: mixHex(mixHex(NIGHT_FOG.color, dayColor, daylight.level), DUSK_FOG.color, warm),
+    "high-color": mixHex(mixHex(NIGHT_FOG.highColor, dayHigh, daylight.level), DUSK_FOG.highColor, warm),
+    "space-color": mixHex(NIGHT_FOG.spaceColor, daySpace, daylight.level),
+    "star-intensity": Math.max(0, 0.6 * (1 - daylight.level * 1.6)),
+  });
+  (map.getStyle()?.layers ?? []).forEach((layer) => {
+    if (layer.type !== "raster" || ownLayerIds.has(layer.id)) return;
+    map.setPaintProperty(layer.id, "raster-brightness-max", 0.3 + (ambiance.raster.brightnessMax - 0.3) * daylight.level);
+  });
+  state.hillshadeLayerIds.forEach((layerId) => {
+    if (map.getLayer(layerId)) map.setPaintProperty(layerId, "hillshade-illumination-direction", Math.round(daylight.sunAzimuthDeg) % 360);
+  });
+  if (settings.mapStyle === "standard") {
+    const preset = daylight.level < 0.2 ? "night" : daylight.warmth > 0.5 ? (daylight.isMorning ? "dawn" : "dusk") : "day";
+    try {
+      map.setConfigProperty("basemap", "lightPreset", preset);
+    } catch {
+      // Older Standard revisions may not expose the light preset.
+    }
+  }
 };

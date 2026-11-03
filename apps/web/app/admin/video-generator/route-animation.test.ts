@@ -74,7 +74,7 @@ describe("getChaseCameraPose", () => {
     const pose = getChaseCameraPose(straight, 10, 500, "landscape");
     expect(pose.camera.lat).toBeLessThan(pose.target.lat);
     expect(pose.camera.lon).toBeCloseTo(pose.target.lon, 6);
-    expect(pose.camera.altitudeM).toBeGreaterThan(600 * 1.15 + 299);
+    expect(pose.camera.altitudeM).toBeGreaterThan(pose.target.altitudeM + 299);
   });
 
   it("raises the portrait camera and stays finite for degenerate paths", () => {

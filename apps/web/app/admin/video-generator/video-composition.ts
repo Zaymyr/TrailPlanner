@@ -10,6 +10,7 @@ import {
   type CameraPose,
   type PreparedAnimationPath,
 } from "./route-animation";
+import { getDaylightAt, type Daylight, type RaceClock } from "./route-clock";
 import { estimateNarrationMs, getAutoDurationSeconds, MAX_VIDEO_SECONDS, type StoryBeat } from "./route-story";
 
 export { AID_SERVICES, getAidStationServices, type AidService } from "./route-story";
@@ -24,6 +25,8 @@ export const MAX_BEAT_TIME_SHARE = 0.7;
 // With a continuous story the voice may fill most of the flyover; the rest is travel between talks.
 export const CONTINUOUS_NARRATION_SHARE = 0.85;
 export const MIN_CAPTION_MS = 1_200;
+// The voice starts just before the camera reaches the point it talks about.
+export const NARRATION_LEAD_MS = 400;
 
 export const VIDEO_RESOLUTIONS = {
   "540p": { width: 540, height: 960 },
@@ -46,6 +49,7 @@ export const videoCompositionSettingsSchema = z.object({
   mapAmbiance: z.enum(["brand", "natural", "vivid", "cinematic", "night"]).default("brand"),
   hideMapLabels: z.boolean().default(true),
   showPeaks: z.boolean().default(true),
+  dayNight: z.boolean().default(true),
   terrainExaggeration: z.number().min(1).max(2.5).default(1.3),
   routeWidth: z.enum(["normal", "bold"]).default("normal"),
   routeGlow: z.boolean().default(false),
@@ -97,6 +101,8 @@ export type VideoTimeline = {
   beats: ScheduledBeat[];
   /** True when a manual duration is too short for the narration. */
   narrationOverflow: boolean;
+  /** Estimated race clock for the day/night look, when the start time is known and the look is on. */
+  clock: RaceClock | null;
 };
 
 export type VideoFrameState = {
@@ -107,6 +113,7 @@ export type VideoFrameState = {
   routeProgress: number;
   /** Route beat whose caption is on screen. */
   beat: ScheduledBeat | null;
+  daylight: Daylight | null;
 };
 
 const clamp = (value: number, minimum: number, maximum: number) =>
@@ -176,6 +183,7 @@ export const buildVideoTimeline = (
   beats: StoryBeat[],
   settings: VideoCompositionSettings,
   durations: NarrationDurations = {},
+  clock: RaceClock | null = null,
 ): VideoTimeline => {
   const totalDistanceKm = path.totalDistanceKm;
   const introBeat = beats.find((beat) => beat.kind === "intro");
@@ -188,7 +196,8 @@ export const buildVideoTimeline = (
     enabled ? Math.max(MIN_SEQUENCE_MS, beat ? getNarrationMs(beat, durations) + NARRATION_GAP_MS * 2 : 0) : 0;
   const introMs = sequenceMs(introBeat, settings.introEnabled);
   const outroMs = sequenceMs(outroBeat, settings.outroEnabled);
-  let beatNeeds = routeBeats.map((beat) => getNarrationMs(beat, durations) + NARRATION_GAP_MS);
+  // A pause (life base, aid station) holds the camera a moment longer around the point.
+  let beatNeeds = routeBeats.map((beat) => getNarrationMs(beat, durations) + NARRATION_GAP_MS + (beat.pauseMs ?? 0));
   const beatsTotal = beatNeeds.reduce((sum, value) => sum + value, 0);
   // A story of consecutive legs covers the whole route: there is no transit outside the beats.
   const coveredKm = routeBeats.reduce((sum, beat) => sum + (beat.endKm - beat.startKm), 0);
@@ -216,10 +225,11 @@ export const buildVideoTimeline = (
   const beatAt = (distanceKm: number) =>
     routeBeats.findIndex((beat) => distanceKm >= beat.startKm && distanceKm < beat.endKm);
 
-  // Inside a beat, the narration time is concentrated at its start (the camera slows while the
-  // voice speaks) and the travel time follows the terrain (climbs go slower, flats go fast).
-  const narrationFocus = (beat: StoryBeat, distanceKm: number) =>
-    Math.exp(-(distanceKm - beat.startKm) / Math.max(0.05, (beat.endKm - beat.startKm) * 0.35));
+  // Inside a beat, the narration time is spent on a short stretch right after its start, so the
+  // camera stays at the point the voice talks about; the travel time follows the terrain (climbs
+  // go slower, flats go fast).
+  const dwellKm = (beat: StoryBeat) => clamp((beat.endKm - beat.startKm) * 0.12, 0.15, Math.max(0.3, totalDistanceKm * 0.012));
+  const narrationFocus = (beat: StoryBeat, distanceKm: number) => (distanceKm - beat.startKm < dwellKm(beat) ? 1 : 0.02);
   const intervals: Array<{ beatIndex: number; stepKm: number; middleKm: number; terrain: number }> = [];
   const focusTotals = routeBeats.map(() => 0);
   const terrainTotals = routeBeats.map(() => 0);
@@ -251,7 +261,7 @@ export const buildVideoTimeline = (
     return transitWeight > 0 ? (transitMs * weight) / transitWeight : 0;
   });
   const spacingKm = samples.length > 1 ? totalDistanceKm / (samples.length - 1) : 1;
-  const smoothed = movingAverage(densities, Math.max(1, Math.round((totalDistanceKm * 0.006) / spacingKm)));
+  const smoothed = movingAverage(densities, Math.max(1, Math.round((totalDistanceKm * 0.0035) / spacingKm)));
 
   const cumulative = [0];
   smoothed.forEach((density, interval) => {
@@ -274,6 +284,7 @@ export const buildVideoTimeline = (
     cumulativeTimeFraction,
     beats: [],
     narrationOverflow: settings.durationMode === "manual" && narrationOverflow,
+    clock: settings.dayNight ? clock : null,
   };
 
   const msAtDistance = (distanceKm: number) =>
@@ -286,13 +297,14 @@ export const buildVideoTimeline = (
   let voiceFreeAtMs = introMs;
   routeBeats.forEach((beat, index) => {
     const startMs = msAtDistance(beat.startKm);
-    const narrationStartMs = Math.max(startMs, voiceFreeAtMs);
+    const narrationStartMs = Math.max(introMs, startMs - NARRATION_LEAD_MS, voiceFreeAtMs);
     const narrationMs = getNarrationMs(beat, durations);
     voiceFreeAtMs = narrationStartMs + narrationMs + NARRATION_GAP_MS;
     const nextStartMs = routeBeats[index + 1] ? msAtDistance(routeBeats[index + 1].startKm) : flyoverEndMs;
     // The caption stays while the voice speaks, without covering the next moment.
     const endMs = Math.min(Math.max(msAtDistance(beat.endKm), narrationStartMs + narrationMs, startMs + MIN_CAPTION_MS), Math.max(nextStartMs, startMs + MIN_CAPTION_MS), flyoverEndMs);
-    scheduled.push({ ...beat, startMs, endMs, narrationStartMs, narrationMs });
+    // The caption appears with the voice, which may start just before the camera reaches the point.
+    scheduled.push({ ...beat, startMs: Math.min(startMs, narrationStartMs), endMs, narrationStartMs, narrationMs });
   });
   if (outroBeat && outroMs > 0) {
     scheduled.push({
@@ -348,6 +360,7 @@ export const getVideoFrameState = (timeline: VideoTimeline, requestedTimeMs: num
     phase,
     phaseProgress,
     distanceKm,
+    daylight: timeline.clock ? getDaylightAt(timeline.clock, distanceKm) : null,
     routeProgress: timeline.totalDistanceKm > 0 ? clamp(distanceKm / timeline.totalDistanceKm, 0, 1) : 0,
     beat,
   };
@@ -466,6 +479,26 @@ const INTRO_HOLD_RATIO = 0.35;
 const OUTRO_GLIDE_RATIO = 0.6;
 
 /** Intro holds the overview then glides to the start; the outro glides back and holds. */
+const CAMERA_SPEED_WINDOW_MS = 2_000;
+
+/**
+ * On-screen ground speed around a moment, over a ±2 s window so the camera distance breathes
+ * smoothly: the faster the flyover, the further back and higher the chase camera, so a fast
+ * stretch stays readable; slowing down at a narrated point brings it closer again.
+ */
+export const getCameraSpeedMps = (timeline: VideoTimeline, timeMs: number) => {
+  if (timeline.flyoverMs <= 0) return timeline.averageSpeedMps;
+  const flyoverStart = timeline.introMs;
+  const flyoverEnd = timeline.introMs + timeline.flyoverMs;
+  const from = clamp(timeMs - CAMERA_SPEED_WINDOW_MS, flyoverStart, flyoverEnd - CAMERA_SPEED_WINDOW_MS * 2);
+  const to = Math.min(flyoverEnd, from + CAMERA_SPEED_WINDOW_MS * 2);
+  if (to <= from) return timeline.averageSpeedMps;
+  const distanceAt = (ms: number) => getDistanceAtFlyoverFraction(timeline, (ms - flyoverStart) / timeline.flyoverMs);
+  const localMps = ((distanceAt(to) - distanceAt(from)) * 1_000) / ((to - from) / 1_000);
+  // Part of the average keeps the zoom from pumping on every small speed change.
+  return 0.3 * timeline.averageSpeedMps + 0.7 * localMps;
+};
+
 export const getVideoCameraPose = (
   path: PreparedAnimationPath,
   timeline: VideoTimeline,
@@ -473,7 +506,7 @@ export const getVideoCameraPose = (
   viewport: AnimationViewport,
 ): CameraPose => {
   const exaggeration = timeline.terrainExaggeration;
-  const chase = getChaseCameraPose(path, frame.distanceKm, timeline.averageSpeedMps, viewport, exaggeration);
+  const chase = getChaseCameraPose(path, frame.distanceKm, getCameraSpeedMps(timeline, frame.timeMs), viewport, exaggeration);
   if (frame.phase === "flyover") return chase;
   const overview = getOverviewCameraPose(path, viewport, exaggeration);
   if (frame.phase === "intro") {

@@ -13,8 +13,10 @@ import {
   getProfileTicks,
   getProfileWindow,
   getSlopeClass,
+  getCameraSpeedMps,
   getVideoCameraPose,
   getVideoFrameState,
+  NARRATION_LEAD_MS,
   videoCompositionSettingsSchema,
 } from "./video-composition";
 
@@ -100,7 +102,8 @@ describe("buildVideoTimeline", () => {
     const spanMs = (getFlyoverFractionAtDistance(timeline, 20.3) - getFlyoverFractionAtDistance(timeline, 19)) * timeline.flyoverMs;
     // 1.3 km out of 40 km gets far more than its 3 % share of the time.
     expect(spanMs / timeline.flyoverMs).toBeGreaterThan(0.08);
-    expect(scheduled.narrationStartMs).toBeCloseTo(scheduled.startMs, 0);
+    // The voice starts just before the camera reaches the point it talks about.
+    expect(scheduled.narrationStartMs).toBeCloseTo(getFlyoverFractionAtDistance(timeline, 19) * timeline.flyoverMs - NARRATION_LEAD_MS, 0);
     expect(getVideoFrameState(timeline, scheduled.narrationStartMs + 100).beat?.id).toBe("aid");
     expect(getVideoFrameState(timeline, scheduled.endMs + 50).beat).toBeNull();
   });
@@ -113,6 +116,28 @@ describe("buildVideoTimeline", () => {
     expect(voiced.beats[0].narrationMs).toBe(6_000);
     const share = (timeline: typeof voiced) => getFlyoverFractionAtDistance(timeline, 14) - getFlyoverFractionAtDistance(timeline, 10);
     expect(share(voiced)).toBeGreaterThan(share(estimated));
+  });
+
+  it("holds the camera at a life base and pulls it back when the flyover speeds up", () => {
+    const flat = flatPath(40);
+    const legs = (pauseMs: number) => [
+      beat("a", "start", 0, 20, "Départ."),
+      { ...beat("b", "lifeBase", 20, 40, "Base de vie."), pauseMs },
+    ];
+    const settings = { ...manual(60), introEnabled: false, outroEnabled: false };
+    const noPause = buildVideoTimeline(flat, legs(0), settings);
+    const paused = buildVideoTimeline(flat, legs(2_200), settings);
+    const timeAroundBase = (timeline: typeof paused) =>
+      (getFlyoverFractionAtDistance(timeline, 20.6) - getFlyoverFractionAtDistance(timeline, 19.9)) * timeline.flyoverMs;
+    expect(timeAroundBase(paused)).toBeGreaterThan(timeAroundBase(noPause) + 1_000);
+
+    // Right after a narrated point the camera is slow and close; mid-leg it travels fast and far.
+    const atBase = paused.beats[1].narrationStartMs + 600;
+    const midLeg = (getFlyoverFractionAtDistance(paused, 32) * paused.flyoverMs);
+    expect(getCameraSpeedMps(paused, midLeg)).toBeGreaterThan(getCameraSpeedMps(paused, atBase) * 1.3);
+    const near = getVideoCameraPose(flat, paused, getVideoFrameState(paused, atBase), "portrait");
+    const far = getVideoCameraPose(flat, paused, getVideoFrameState(paused, midLeg), "portrait");
+    expect(far.camera.altitudeM - far.target.altitudeM).toBeGreaterThan(near.camera.altitudeM - near.target.altitudeM + 50);
   });
 
   it("never overlaps two narrations", () => {

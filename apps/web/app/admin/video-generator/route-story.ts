@@ -48,6 +48,8 @@ export type StoryBeat = {
   services: AidService[];
   cutoffTime: string | null;
   narration: string;
+  /** Extra hold at the start of the beat (a stop at a life base or aid station). */
+  pauseMs?: number;
 };
 
 export type StoryRaceInfo = {
@@ -179,9 +181,20 @@ export type StoryOptions = {
   includeAidStations: boolean;
   includeStart: boolean;
   landmarks?: StoryLandmarks;
+  /** Estimated time of day at a distance, for night / sunrise mentions (see route-clock). */
+  daylightAt?: (distanceKm: number) => { minutesOfDay: number; isNight: boolean } | null;
 };
 
 type Boundary = { km: number; priority: number; climb?: RouteSlope; station?: VideoAidStation };
+
+// Holds at stations: the camera lingers a moment, longer at a life base.
+export const LIFE_BASE_PAUSE_MS = 2_200;
+export const AID_PAUSE_MS = 900;
+
+const formatClock = (minutesOfDay: number) => {
+  const minutes = ((Math.round(minutesOfDay) % 1_440) + 1_440) % 1_440;
+  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+};
 
 const joinFrench = (items: string[]) =>
   items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} et ${items[items.length - 1]}`;
@@ -334,6 +347,13 @@ export const buildStoryBeats = (
       parts.push(`${formatKm(lengthKm)} ${lengthKm < 1.5 ? "kilomètre" : "kilomètres"} sans grosse difficulté${until ? ` ${until}` : ""} : avance à un rythme confortable.`);
     }
     leg.passing.forEach((station) => parts.push(`Au passage, ravito de ${station.name} au kilomètre ${formatKm(station.distanceKm)}.`));
+    const lightAtStart = options.daylightAt?.(leg.startKm) ?? null;
+    const lightAtEnd = options.daylightAt?.(leg.endKm) ?? null;
+    if (lightAtStart && lightAtEnd) {
+      if (lightAtStart.isNight && !lightAtEnd.isNight) parts.push("Le jour se lève sur ce tronçon.");
+      else if (!lightAtStart.isNight && lightAtEnd.isNight) parts.push("La nuit tombe : sors la frontale.");
+      else if (lightAtStart.isNight && leg.kind === "climb") parts.push("De nuit : frontale bien réglée.");
+    }
     if (isLast) parts.push(`Ligne d’arrivée au kilomètre ${formatNumber(total)}.`);
 
     const facts = [
@@ -341,6 +361,7 @@ export const buildStoryBeats = (
       leg.gain >= 30 ? `+${formatNumber(leg.gain)} m` : null,
       leg.loss >= 30 ? `−${formatNumber(leg.loss)} m` : null,
       leg.summit ? `▲ ${leg.summit}` : null,
+      lightAtStart ? `≈ ${formatClock(lightAtStart.minutesOfDay)}${lightAtStart.isNight ? " · nuit" : ""}` : null,
       ...leg.passing.map((station) => `Ravito ${station.name} km ${formatKm(station.distanceKm)}`),
     ].filter((fact): fact is string => Boolean(fact));
 
@@ -355,6 +376,7 @@ export const buildStoryBeats = (
       services: leg.station ? getAidStationServices(leg.station) : [],
       cutoffTime: leg.station?.cutoffTime ?? null,
       narration: parts.join(" "),
+      pauseMs: leg.station ? (leg.station.isLifeBase ? LIFE_BASE_PAUSE_MS : AID_PAUSE_MS) : 0,
     };
   });
 

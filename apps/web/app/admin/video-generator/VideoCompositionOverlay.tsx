@@ -14,6 +14,7 @@ import {
   type VideoCompositionSettings,
   type VideoFrameState,
 } from "./video-composition";
+import { formatClockTime } from "./route-clock";
 
 export type VideoRaceInfo = {
   title: string;
@@ -22,6 +23,9 @@ export type VideoRaceInfo = {
   elevationGainM: number | null;
   /** Start place, date and time, e.g. "Lyon · 28 novembre · 23:30". */
   startDetail: string | null;
+  /** Raw race date (YYYY-MM-DD) and start time (HH:MM), for the estimated race clock. */
+  raceDate?: string | null;
+  startTime?: string | null;
 };
 
 export type VideoFrameStore = {
@@ -177,6 +181,15 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, frameStore, gra
 
   return (
     <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden text-white" style={{ textShadow: TEXT_SHADOW }}>
+      {/* Day/night: a navy multiply veil at night and a warm soft-light tint around sunrise and sunset,
+          on top of the map but under the composition, so it works with any basemap. */}
+      {frame.daylight ? (
+        <>
+          <div className="absolute inset-0" style={{ background: "#16224d", mixBlendMode: "multiply", opacity: (1 - frame.daylight.level) * 0.6 }} />
+          <div className="absolute inset-0" style={{ background: "#ff8a3d", mixBlendMode: "soft-light", opacity: frame.daylight.warmth * 0.4 }} />
+        </>
+      ) : null}
+
       {/* Top band: compact title then the profile; the map keeps the middle; captions sit at the bottom. */}
       <div className="absolute inset-x-0 top-0 h-[36%] bg-gradient-to-b from-black/70 via-black/40 to-transparent" style={{ opacity: chromeOpacity }} />
       <div className="absolute inset-x-0 bottom-0 h-[28%] bg-gradient-to-t from-black/70 to-transparent" style={{ opacity: isOutro ? 1 : chromeOpacity }} />
@@ -204,6 +217,9 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, frameStore, gra
                 <span className="font-semibold text-white/75"> / {formatInteger(profile.totalDistanceKm)}</span>
               </span>
               <span className="font-bold" style={{ fontSize: "3.6cqmin" }}>
+                {frame.daylight ? (
+                  <span className="text-white/90">{frame.daylight.isNight ? "☾" : "☀"} {formatClockTime(frame.daylight.minutesOfDay)} · </span>
+                ) : null}
                 {formatInteger(currentElevationM)} m
                 <span className="text-white/80"> · {formatGrade(gradeAtDistance(frame.distanceKm))}</span>
               </span>

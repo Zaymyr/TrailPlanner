@@ -60,6 +60,8 @@ const buildVideoRaceInfo = (detail: VideoGeneratorDetail): VideoRaceInfo => {
     distanceKm: race.distanceKm,
     elevationGainM: race.elevationGainM,
     startDetail: formatStartDetail(race),
+    raceDate: race.raceDate,
+    startTime: race.startTime,
   };
 };
 

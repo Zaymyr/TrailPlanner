@@ -268,14 +268,15 @@ const getMaxElevationAround = (path: PreparedAnimationPath, distanceKm: number, 
 export const getChaseCameraPose = (
   path: PreparedAnimationPath,
   distanceKm: number,
-  averageSpeedMps: number,
+  speedMps: number,
   viewport: AnimationViewport = "portrait",
   terrainExaggeration = TERRAIN_EXAGGERATION,
 ): CameraPose => {
   const portrait = viewport === "portrait";
   const target = getRoutePointAtDistance(path, distanceKm);
-  const backDistanceM = clamp(averageSpeedMps * 0.9, 700, 4_000) * (portrait ? 1.2 : 1);
-  const headingWindowKm = clamp(averageSpeedMps * 1.2, 500, 5_000) / 1_000;
+  // Slow narrated moments come close (600 m); fast transits pull back up to 6 km to stay readable.
+  const backDistanceM = clamp(speedMps * 1.1, 600, 6_000) * (portrait ? 1.2 : 1);
+  const headingWindowKm = clamp(speedMps * 1.2, 500, 6_000) / 1_000;
   const heading = getRouteHeading(path, distanceKm, headingWindowKm);
   const cameraGround = offsetPosition(target, -heading.east * backDistanceM, -heading.north * backDistanceM);
   const heightM = backDistanceM * Math.tan(CHASE_ELEVATION_ANGLE_RAD);

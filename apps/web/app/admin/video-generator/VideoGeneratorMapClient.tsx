@@ -20,6 +20,7 @@ import {
 import { createRouteCameraController, type RouteCameraController } from "./camera-controller";
 import { CompositionSettingsPanel } from "./CompositionSettingsPanel";
 import {
+  applyDaylight,
   applyMapAppearance,
   captureMapAppearanceState,
   PEAKS_LAYER_ID,
@@ -28,6 +29,7 @@ import {
   ROUTE_LINE_WIDTHS,
   type MapAppearanceState,
 } from "./map-appearance";
+import { buildRaceClock, getDaylightAt } from "./route-clock";
 import { observeMapSize, type MapResizeController } from "./map-resize-controller";
 import { createNarrationPlayer, type NarrationClip, type NarrationPlayer } from "./narration-player";
 import {
@@ -310,7 +312,9 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   // `map.isStyleLoaded()` is false whenever a tile is loading or a source was just updated, which is
   // permanently the case while the camera flies. Gating frames on it skipped most of them.
   const layersReadyRef = useRef(false);
-  const appearanceStateRef = useRef<MapAppearanceState>({ basemapSymbolLayerIds: [] });
+  const appearanceStateRef = useRef<MapAppearanceState>({ basemapSymbolLayerIds: [], hillshadeLayerIds: [] });
+  // Last daylight applied to the map, quantized so the look only changes in small steps.
+  const daylightKeyRef = useRef<string | null>(null);
   const styleUrlRef = useRef<string | null>(null);
   const activeAidDistanceRef = useRef<number | null>(null);
   const boundsRef = useRef(bounds);
@@ -335,12 +339,20 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   const autoDurationSeconds = getAutoDurationSeconds(preparedPath.totalDistanceKm);
   const maxSeconds = settings.durationMode === "auto" ? MAX_VIDEO_SECONDS : settings.durationSeconds;
   const [landmarks, setLandmarks] = useState<StoryLandmarks>({});
+  // Estimated passing time at each kilometre (classic pace, cutoffs) for the day/night look.
+  const raceClock = useMemo(() => buildRaceClock(preparedPath, enabledAidStations, race), [enabledAidStations, preparedPath, race]);
+  const activeClock = settings.dayNight ? raceClock : null;
+  const daylightAt = useCallback(
+    (distanceKm: number) => (activeClock ? getDaylightAt(activeClock, distanceKm) : null),
+    [activeClock],
+  );
   const defaultBeats = useMemo(() => buildStoryBeats(preparedPath, enabledAidStations, race, {
     maxSeconds,
     includeAidStations: settings.showAidStations,
     includeStart: settings.showStartInfo,
     landmarks,
-  }), [enabledAidStations, landmarks, maxSeconds, preparedPath, race, settings.showAidStations, settings.showStartInfo]);
+    daylightAt,
+  }), [daylightAt, enabledAidStations, landmarks, maxSeconds, preparedPath, race, settings.showAidStations, settings.showStartInfo]);
 
   // Summit names make the story concrete ("la montée vers le Mont Thou"): ask Mapbox for the
   // highest named peak near each climb top, once per route.
@@ -376,8 +388,8 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     [freshClips],
   );
   const timeline = useMemo(
-    () => buildVideoTimeline(preparedPath, beats, settings, narrationDurations),
-    [beats, narrationDurations, preparedPath, settings],
+    () => buildVideoTimeline(preparedPath, beats, settings, narrationDurations, raceClock),
+    [beats, narrationDurations, preparedPath, raceClock, settings],
   );
   const profile = useMemo(() => buildElevationProfile(preparedPath), [preparedPath]);
   const [frameStore] = useState(() => createVideoFrameStore(getVideoFrameState(timeline, 0)));
@@ -418,6 +430,18 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     if (map.getLayer(ROUTE_GLOW_LAYER_ID)) map.setPaintProperty(ROUTE_GLOW_LAYER_ID, "line-trim-offset", trimOffset);
     const routePoint = getRoutePointAtDistance(path, frame.distanceKm);
     progressMarkerRef.current?.setLngLat([routePoint.lon, routePoint.lat]);
+    if (frame.daylight) {
+      const { level, warmth, sunAzimuthDeg } = frame.daylight;
+      const key = `${Math.round(level * 25)}|${Math.round(warmth * 10)}|${Math.round(sunAzimuthDeg / 10)}`;
+      if (key !== daylightKeyRef.current) {
+        daylightKeyRef.current = key;
+        applyDaylight(map, settingsRef.current, frame.daylight, appearanceStateRef.current, OWN_LAYER_IDS);
+      }
+    } else if (daylightKeyRef.current !== null) {
+      daylightKeyRef.current = null;
+      applyMapAppearance(map, settingsRef.current, appearanceStateRef.current, OWN_LAYER_IDS);
+    }
+
     // Beat changes are rare: only then the narrated segment and the station marker are updated.
     const beatId = frame.beat?.id ?? null;
     if (beatId !== activeBeatIdRef.current) {
@@ -492,7 +516,10 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     const map = mapRef.current;
     if (!map || !layersReadyRef.current) return;
     applyMapAppearance(map, settingsRef.current, appearanceStateRef.current, OWN_LAYER_IDS);
-  }, [settings.hideMapLabels, settings.mapAmbiance, settings.mapStyle, settings.showPeaks]);
+    // The appearance reset the fog: let the next frame re-apply the daylight on top of it.
+    daylightKeyRef.current = null;
+    refreshCurrentFrame();
+  }, [refreshCurrentFrame, settings.dayNight, settings.hideMapLabels, settings.mapAmbiance, settings.mapStyle, settings.showPeaks]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -647,6 +674,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       applyMapAppearance(map, settingsRef.current, appearanceStateRef.current, OWN_LAYER_IDS);
       activeAidDistanceRef.current = null;
       activeBeatIdRef.current = null;
+      daylightKeyRef.current = null;
       layersReadyRef.current = true;
       resizeController.schedule();
       window.requestAnimationFrame(() => {
@@ -795,6 +823,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
         <CardContent>
           <CompositionSettingsPanel
             autoDurationSeconds={autoDurationSeconds}
+            dayNightAvailable={raceClock !== null}
             narratedIds={new Set(beats.map((beat) => beat.id))}
             aidStations={aidStations}
             cameraActionsDisabled={!isReady || snapshot.isPlaying}
