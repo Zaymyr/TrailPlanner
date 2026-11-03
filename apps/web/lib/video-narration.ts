@@ -4,7 +4,7 @@ import { z } from "zod";
 
 export const narrationBeatInputSchema = z.object({
   id: z.string().min(1).max(80),
-  kind: z.enum(["intro", "start", "climb", "descent", "aid", "lifeBase", "finish", "outro"]),
+  kind: z.enum(["intro", "start", "climb", "descent", "flat", "aid", "lifeBase", "finish", "outro"]),
   title: z.string().max(160),
   startKm: z.number(),
   endKm: z.number(),

@@ -13,6 +13,7 @@ const KIND_LABELS: Record<ScheduledBeat["kind"], string> = {
   start: "Départ",
   climb: "Montée",
   descent: "Descente",
+  flat: "Roulant",
   aid: "Ravito",
   lifeBase: "Base de vie",
   finish: "Arrivée",

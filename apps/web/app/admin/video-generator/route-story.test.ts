@@ -63,12 +63,21 @@ describe("buildStoryBeats", () => {
     expect(climb?.narration).not.toMatch(/%/);
   });
 
-  it("keeps life bases first when the budget is small and skips disabled stations", () => {
-    const stations = [station("1", 5), station("2", 13, { isLifeBase: true }), station("3", 24)];
+  it("narrates the long rolling stretch before the climb", () => {
+    const beats = buildStoryBeats(path, [], race, { targetSeconds: 45, includeAidStations: false, includeStart: false });
+    const flat = beats.find((beat) => beat.kind === "flat");
+    expect(flat).toBeDefined();
+    expect(flat!.startKm).toBeLessThan(10);
+    expect(flat!.narration).toMatch(/roulante/);
+  });
+
+  it("always narrates every station, even beyond the budget, but merges stations on top of each other", () => {
+    const stations = [station("1", 5), station("2", 13, { isLifeBase: true }), station("3", 24), station("4", 24.1)];
     const beats = buildStoryBeats(path, stations, race, { targetSeconds: 15, includeAidStations: true, includeStart: false });
     const ids = beats.map((beat) => beat.id);
-    expect(ids).toContain(stations[1].id);
-    expect(beats.length - 2).toBeLessThanOrEqual(3);
+    expect(ids).toEqual(expect.arrayContaining([stations[0].id, stations[1].id, stations[2].id]));
+    expect(ids).not.toContain(stations[3].id);
+    expect(beats.some((beat) => beat.kind === "climb")).toBe(true);
     const withoutAid = buildStoryBeats(path, stations, race, { targetSeconds: 45, includeAidStations: false, includeStart: false });
     expect(withoutAid.some((beat) => beat.kind === "aid" || beat.kind === "lifeBase")).toBe(false);
   });

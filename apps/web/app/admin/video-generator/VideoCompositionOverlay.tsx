@@ -92,6 +92,7 @@ const CAPTION_KIND_LABELS: Record<ScheduledBeat["kind"], string> = {
   start: "Départ",
   climb: "Montée",
   descent: "Descente",
+  flat: "Roulant",
   aid: "Ravito",
   lifeBase: "Base de vie",
   finish: "Arrivée",
@@ -99,7 +100,7 @@ const CAPTION_KIND_LABELS: Record<ScheduledBeat["kind"], string> = {
 };
 
 const getCaptionTitle = (beat: ScheduledBeat) => {
-  if (beat.kind === "climb" || beat.kind === "descent") return `km ${formatKm(beat.startKm)} → ${formatKm(beat.endKm)}`;
+  if (beat.kind === "climb" || beat.kind === "descent" || beat.kind === "flat") return `km ${formatKm(beat.startKm)} → ${formatKm(beat.endKm)}`;
   if (beat.kind === "start" || beat.kind === "finish") return null;
   return beat.title;
 };
@@ -117,7 +118,7 @@ function StoryCaption({ accent, beat, timeMs }: { accent: string; beat: Schedule
       style={{
         left: "4cqmin",
         right: "4cqmin",
-        bottom: "50cqmin",
+        bottom: "14cqmin",
         padding: "2cqmin 3cqmin",
         borderLeft: `1.2cqmin solid ${accent}`,
         opacity: appear,
@@ -163,6 +164,7 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, frameStore, gra
   const outroOpacity = isOutro ? Math.min(1, Math.max(0, (frame.phaseProgress - 0.4) / 0.3)) : 0;
   const chromeOpacity = isIntro ? 1 - introOpacity : isOutro ? 1 - outroOpacity : 1;
   const accent = settings.accentColor;
+  const hasHeader = settings.showTitle || Boolean(stats);
   // The accent is a background, never text on the dark gradients, so a dark brand green stays legible.
   const accentPill = { background: accent, color: "#ffffff", padding: "0.6cqmin 2.2cqmin", textShadow: "none" };
 
@@ -175,25 +177,26 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, frameStore, gra
 
   return (
     <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden text-white" style={{ textShadow: TEXT_SHADOW }}>
-      <div className="absolute inset-x-0 top-0 h-[30%] bg-gradient-to-b from-black/60 to-transparent" style={{ opacity: chromeOpacity }} />
-      <div className="absolute inset-x-0 bottom-0 h-[40%] bg-gradient-to-t from-black/75 to-transparent" style={{ opacity: isOutro ? 1 : chromeOpacity }} />
+      {/* Top band: compact title then the profile; the map keeps the middle; captions sit at the bottom. */}
+      <div className="absolute inset-x-0 top-0 h-[36%] bg-gradient-to-b from-black/70 via-black/40 to-transparent" style={{ opacity: chromeOpacity }} />
+      <div className="absolute inset-x-0 bottom-0 h-[28%] bg-gradient-to-t from-black/70 to-transparent" style={{ opacity: isOutro ? 1 : chromeOpacity }} />
 
-      {settings.showTitle || stats ? (
-        <header className="absolute" style={{ left: "5cqmin", right: "5cqmin", top: "6cqmin", opacity: chromeOpacity }}>
+      {hasHeader ? (
+        <header className="absolute" style={{ left: "4cqmin", right: "4cqmin", top: "4cqmin", opacity: chromeOpacity }}>
           {settings.showTitle ? (
-            <>
-              <p className="font-black uppercase leading-none tracking-tight" style={{ fontSize: "7.5cqmin" }}>{race.title}</p>
-              {race.subtitle ? <p className="mt-[1cqmin] font-semibold uppercase" style={{ fontSize: "4cqmin" }}>{race.subtitle}</p> : null}
-            </>
+            <p className="truncate font-black uppercase leading-none tracking-tight" style={{ fontSize: "5.6cqmin" }}>{race.title}</p>
           ) : null}
-          {stats ? <p className="mt-[1.5cqmin] w-fit rounded-full font-bold tabular-nums" style={{ ...accentPill, fontSize: "3.8cqmin" }}>{stats}</p> : null}
+          <div className="flex items-center" style={{ gap: "1.6cqmin", marginTop: settings.showTitle ? "1.2cqmin" : 0 }}>
+            {settings.showTitle && race.subtitle ? <p className="truncate font-semibold uppercase" style={{ fontSize: "3cqmin" }}>{race.subtitle}</p> : null}
+            {stats ? <p className="shrink-0 rounded-full font-bold tabular-nums" style={{ ...accentPill, fontSize: "3cqmin" }}>{stats}</p> : null}
+          </div>
         </header>
       ) : null}
 
       {settings.showCaptions && frame.beat ? <StoryCaption accent={accent} beat={frame.beat} timeMs={frame.timeMs} /> : null}
 
       {settings.showProfile || settings.showCurrentKm ? (
-        <section className="absolute" style={{ left: "4cqmin", right: "4cqmin", bottom: "14cqmin", opacity: chromeOpacity }}>
+        <section className="absolute" style={{ left: "4cqmin", right: "4cqmin", top: hasHeader ? "16cqmin" : "4cqmin", opacity: chromeOpacity }}>
           {settings.showCurrentKm ? (
             <p className="flex items-baseline justify-between font-black tabular-nums" style={{ fontSize: "5cqmin" }}>
               <span>
@@ -208,7 +211,7 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, frameStore, gra
           ) : null}
           {settings.showProfile ? (
             <>
-              <div className="relative mt-[1.2cqmin]" style={{ height: "20cqmin" }}>
+              <div className="relative mt-[1.2cqmin]" style={{ height: "15cqmin" }}>
                 <svg
                   className="absolute inset-0 h-full w-full"
                   viewBox={`${profileWindow.startKm * PROFILE_UNITS_PER_KM} 0 ${windowSpanKm * PROFILE_UNITS_PER_KM} ${profile.height}`}

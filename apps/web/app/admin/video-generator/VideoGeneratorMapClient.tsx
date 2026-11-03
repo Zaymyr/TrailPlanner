@@ -62,7 +62,7 @@ const ROUTE_GLOW_LAYER_ID = "video-route-line-glow";
 const MARKER_SOURCE_ID = "video-route-markers";
 const MARKER_CIRCLE_LAYER_ID = "video-route-marker-circles";
 const MARKER_LABEL_LAYER_ID = "video-route-marker-labels";
-// The climb or descent being narrated, drawn as a light casing under the route.
+// The climb, descent or rolling section being narrated, drawn as a halo under the route.
 const SEGMENT_SOURCE_ID = "video-beat-segment";
 const SEGMENT_LAYER_ID = "video-beat-segment-line";
 export const VIDEO_ROUTE_COLOR = DEFAULT_VIDEO_COMPOSITION_SETTINGS.routeColor;
@@ -82,7 +82,7 @@ const EMPTY_FEATURES = { type: "FeatureCollection", features: [] } as const;
 const IDLE_ACTION: AsyncActionState = { status: "idle", message: null };
 
 const buildSegmentGeoJson = (path: PreparedAnimationPath, beat: ScheduledBeat | null) => {
-  if (!beat || (beat.kind !== "climb" && beat.kind !== "descent")) return EMPTY_FEATURES;
+  if (!beat || (beat.kind !== "climb" && beat.kind !== "descent" && beat.kind !== "flat")) return EMPTY_FEATURES;
   const coordinates = path.samples
     .filter((sample) => sample.distanceKm >= beat.startKm && sample.distanceKm <= beat.endKm)
     .map((sample) => [sample.lon, sample.lat]);
@@ -183,9 +183,11 @@ const syncMapData = (
       slot: "top",
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
-        "line-color": "#ffffff",
-        "line-opacity": 0.75,
-        "line-width": ["interpolate", ["linear"], ["zoom"], 5, 8, 13, 16],
+        // A wide halo in the route colour reads on the light brand map and on satellite imagery alike.
+        "line-color": settings.routeColor,
+        "line-opacity": 0.45,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 5, 12, 13, 26],
+        "line-blur": 3,
         "line-emissive-strength": 1,
       },
     });
@@ -437,6 +439,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       map.setPaintProperty(ROUTE_LAYER_ID, "line-color", `${settings.routeColor}${FUTURE_ROUTE_ALPHA_HEX}`);
       map.setPaintProperty(ROUTE_LAYER_ID, "line-width", lineWidth);
     }
+    if (map.getLayer(SEGMENT_LAYER_ID)) map.setPaintProperty(SEGMENT_LAYER_ID, "line-color", settings.routeColor);
     if (map.getLayer(ROUTE_GLOW_LAYER_ID)) {
       map.setPaintProperty(ROUTE_GLOW_LAYER_ID, "line-color", `${settings.routeColor}${GLOW_ROUTE_ALPHA_HEX}`);
       map.setLayoutProperty(ROUTE_GLOW_LAYER_ID, "visibility", settings.routeGlow ? "visible" : "none");

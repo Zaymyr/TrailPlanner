@@ -30,7 +30,7 @@ export type RouteSlope = {
   endElevationM: number;
 };
 
-export type StoryBeatKind = "intro" | "start" | "climb" | "descent" | "aid" | "lifeBase" | "finish" | "outro";
+export type StoryBeatKind = "intro" | "start" | "climb" | "descent" | "flat" | "aid" | "lifeBase" | "finish" | "outro";
 
 /**
  * One moment of the narrated video. Route beats own a distance span the camera covers while the
@@ -249,6 +249,43 @@ export const buildStoryBeats = (
     });
   });
 
+  // Rolling sections: long stretches between the significant slopes, where the runner can relaunch.
+  const minimumFlatKm = Math.max(3, total * 0.08);
+  const orderedSlopes = [...slopes].sort((left, right) => left.startKm - right.startKm);
+  const gaps = orderedSlopes.reduce<Array<{ startKm: number; endKm: number }>>((list, slope, index) => {
+    const previousEnd = index === 0 ? 0 : orderedSlopes[index - 1].endKm;
+    list.push({ startKm: previousEnd, endKm: slope.startKm });
+    if (index === orderedSlopes.length - 1) list.push({ startKm: slope.endKm, endKm: total });
+    return list;
+  }, orderedSlopes.length ? [] : [{ startKm: 0, endKm: total }]);
+  gaps
+    .filter((gap) => gap.endKm - gap.startKm >= minimumFlatKm)
+    .sort((left, right) => (right.endKm - right.startKm) - (left.endKm - left.startKm))
+    .slice(0, 2)
+    .forEach((gap, rank) => {
+      const lengthKm = gap.endKm - gap.startKm;
+      const elevations = path.samples
+        .filter((sample) => sample.distanceKm >= gap.startKm && sample.distanceKm <= gap.endKm)
+        .map((sample) => sample.elevationM);
+      const rangeM = elevations.length ? Math.max(...elevations) - Math.min(...elevations) : 0;
+      // Anchored a little after the start so it does not collide with the start or a slope end.
+      const anchorKm = gap.startKm + Math.min(lengthKm * 0.25, pointWidthKm);
+      candidates.push({
+        id: `flat-${Math.round(gap.startKm * 10)}`,
+        kind: "flat",
+        title: `Roulant · km ${formatKm(gap.startKm)}`,
+        anchorKm,
+        spanStartKm: anchorKm,
+        spanEndKm: Math.min(gap.endKm, anchorKm + Math.max(pointWidthKm * 2, lengthKm * 0.5)),
+        facts: [`${formatKm(lengthKm)} km`, `±${formatNumber(rangeM)} m`],
+        services: [],
+        cutoffTime: null,
+        priority: 58 - rank * 10,
+        narration: () =>
+          `Section roulante sur ${formatKm(lengthKm)} kilomètres : le moment de relancer et de trouver ton allure.`,
+      });
+    });
+
   if (options.includeAidStations) {
     aidStations.filter((station) => station.distanceKm > 0 && station.distanceKm < total).forEach((station) => {
       const services = getAidStationServices(station);
@@ -287,14 +324,29 @@ export const buildStoryBeats = (
     narration: () => `Dernier effort jusqu’à la ligne d’arrivée, après ${formatNumber(total)} kilomètres.`,
   });
 
-  // About one narrated moment every 5.5 s of video, so the voice has room to breathe.
+  // Start, finish and every enabled aid station are always narrated, so the camera slows down at
+  // each of them; only stations nearly on top of each other are merged. The other moments fill a
+  // budget of about one every 5.5 s of video, so the voice has room to breathe (the automatic
+  // duration grows when the mandatory moments need more).
+  const isMandatory = (candidate: Candidate) =>
+    candidate.kind === "start" || candidate.kind === "finish" || candidate.kind === "aid" || candidate.kind === "lifeBase";
   const budget = clamp(Math.round(options.targetSeconds / 5.5), 3, 14);
+  const stationGapKm = Math.max(0.3, total * 0.01);
   const minimumGapKm = Math.max(0.5, total * 0.035);
+  const byPriority = [...candidates].sort((left, right) => right.priority - left.priority);
   const selected: Candidate[] = [];
-  [...candidates].sort((left, right) => right.priority - left.priority).forEach((candidate) => {
-    if (selected.length >= budget) return;
+  byPriority.filter(isMandatory).forEach((candidate) => {
+    if (selected.some((other) => Math.abs(other.anchorKm - candidate.anchorKm) < stationGapKm)) return;
+    selected.push(candidate);
+  });
+  // The two best terrain moments always fit, even on a route full of stations.
+  const optionalBudget = Math.max(2, budget - selected.length);
+  let optionalCount = 0;
+  byPriority.filter((candidate) => !isMandatory(candidate)).forEach((candidate) => {
+    if (optionalCount >= optionalBudget) return;
     if (selected.some((other) => Math.abs(other.anchorKm - candidate.anchorKm) < minimumGapKm)) return;
     selected.push(candidate);
+    optionalCount += 1;
   });
   selected.sort((left, right) => left.anchorKm - right.anchorKm);
 

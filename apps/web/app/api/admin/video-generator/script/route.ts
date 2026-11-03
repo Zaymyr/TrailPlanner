@@ -14,6 +14,7 @@ const MAX_WORDS: Record<NarrationScriptRequest["beats"][number]["kind"], number>
   start: 16,
   climb: 24,
   descent: 22,
+  flat: 18,
   aid: 16,
   lifeBase: 20,
   finish: 16,
