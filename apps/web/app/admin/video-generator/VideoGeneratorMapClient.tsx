@@ -2,14 +2,13 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import mapboxgl, {
-  type ExpressionSpecification,
   type GeoJSONSource,
   type Map as MapboxMap,
   type MapboxEvent,
 } from "mapbox-gl";
 
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
-import { buildMarkerGeoJson, buildRouteGeoJson, type VideoAidStation } from "../../../lib/video-generator";
+import { buildRouteGeoJson, type VideoAidStation } from "../../../lib/video-generator";
 import { narrationScriptResponseSchema, narrationVoiceResponseSchema } from "../../../lib/video-narration";
 import { AnimationControls } from "./AnimationControls";
 import {
@@ -56,6 +55,7 @@ import {
   buildElevationProfile,
   buildVideoTimeline,
   DEFAULT_VIDEO_COMPOSITION_SETTINGS,
+  getFlyoverFractionAtDistance,
   getGradeAtDistance,
   getVideoCameraPose,
   getVideoFrameState,
@@ -63,6 +63,7 @@ import {
   type NarrationDurations,
   type ScheduledBeat,
   type VideoCompositionSettings,
+  type VideoTimeline,
 } from "./video-composition";
 import { createVideoFrameStore, VideoCompositionOverlay } from "./VideoCompositionOverlay";
 import type { VideoGeneratorMapProps } from "./VideoGeneratorMap";
@@ -74,8 +75,7 @@ const ROUTE_REVEAL_LAYER_ID = "video-route-line-reveal";
 const ROUTE_GLOW_LAYER_ID = "video-route-line-glow";
 const ROUTE_CASING_LAYER_ID = "video-route-line-casing";
 const MARKER_SOURCE_ID = "video-route-markers";
-const MARKER_CIRCLE_LAYER_ID = "video-route-marker-circles";
-const MARKER_LABEL_LAYER_ID = "video-route-marker-labels";
+const MARKER_ICON_LAYER_ID = "video-route-marker-icons";
 // The climb, descent or rolling section being narrated, drawn in the highlight colour.
 const SEGMENT_SOURCE_ID = "video-beat-segment";
 const SEGMENT_LAYER_ID = "video-beat-segment-line";
@@ -90,8 +90,7 @@ const OWN_LAYER_IDS = new Set([
   ROUTE_GLOW_LAYER_ID,
   ROUTE_REVEAL_LAYER_ID,
   ROUTE_CASING_LAYER_ID,
-  MARKER_CIRCLE_LAYER_ID,
-  MARKER_LABEL_LAYER_ID,
+  MARKER_ICON_LAYER_ID,
   PEAKS_LAYER_ID,
   SEGMENT_LAYER_ID,
   SEGMENT_DONE_LAYER_ID,
@@ -132,45 +131,103 @@ export const fetchNearestPeakName = async (lon: number, lat: number, token: stri
 
 type AidBubble = { distanceKm: number; card: HTMLElement; marker: mapboxgl.Marker; opacity: number };
 
-const SVG_NS = "http://www.w3.org/2000/svg";
-// Lucide-style outlines: a bottle for an aid station, a tent for a life base.
-const STATION_ICON_PATHS = {
-  aid: ["M10 2h4", "M10 2v3l-2 3v12a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V8l-2-3V2", "M8 12h8"],
-  lifeBase: ["M3.5 21 12 3l8.5 18", "M12 21l-4-7", "M12 21l4-7", "M2 21h20"],
-} as const;
+type StationIconKind = "start" | "finish" | "aid" | "lifeBase";
+const STATION_ICON_IDS: Record<StationIconKind, string> = {
+  start: "video-icon-start",
+  finish: "video-icon-finish",
+  aid: "video-icon-aid",
+  lifeBase: "video-icon-life-base",
+};
+// 24-unit outlines (Lucide style): a flag for the start, a chequered flag for the finish, a bottle
+// for an aid station and a tent for a life base.
+const STATION_ICON_PATHS: Record<StationIconKind, { stroke: string[]; fill?: string[] }> = {
+  start: { stroke: ["M5 21V4", "M5 4h12l-2.5 4L17 12H5"] },
+  finish: { stroke: ["M5 21V4", "M5 4h13v9H5"], fill: ["M5 4h3.25v3H5z", "M11.5 4h3.25v3H11.5z", "M8.25 7h3.25v3H8.25z", "M14.75 7H18v3h-3.25z", "M5 10h3.25v3H5z", "M11.5 10h3.25v3H11.5z"] },
+  aid: { stroke: ["M10 2h4", "M10 2v3l-2 3v12a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V8l-2-3V2", "M8 12h8"] },
+  lifeBase: { stroke: ["M3.5 21 12 3l8.5 18", "M12 21l-4-7", "M12 21l4-7", "M2 21h20"] },
+};
+const ICON_PIXEL_RATIO = 2;
+const ICON_SIZE = 32 * ICON_PIXEL_RATIO;
 
-const createStationIcon = (kind: keyof typeof STATION_ICON_PATHS, color: string) => {
-  const svg = document.createElementNS(SVG_NS, "svg");
-  svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("fill", "none");
-  svg.setAttribute("stroke", color);
-  svg.setAttribute("stroke-width", "2.4");
-  svg.setAttribute("stroke-linecap", "round");
-  svg.setAttribute("stroke-linejoin", "round");
-  Object.assign(svg.style, { width: "62%", height: "62%" });
-  STATION_ICON_PATHS[kind].forEach((d) => {
-    const path = document.createElementNS(SVG_NS, "path");
-    path.setAttribute("d", d);
-    svg.appendChild(path);
+/** Round badge drawn on a canvas: filled disc, white or coloured ring, outline icon. */
+const drawStationIcon = (kind: StationIconKind, accent: string) => {
+  const canvas = document.createElement("canvas");
+  canvas.width = ICON_SIZE;
+  canvas.height = ICON_SIZE;
+  const context = canvas.getContext("2d");
+  if (!context || typeof context.arc !== "function" || typeof Path2D === "undefined") return null;
+  const filled = kind !== "aid";
+  const fill = kind === "finish" ? "#1a1a1a" : filled ? accent : "#ffffff";
+  const ink = filled ? "#ffffff" : accent;
+  const center = ICON_SIZE / 2;
+  context.beginPath();
+  context.arc(center, center, center - 4, 0, Math.PI * 2);
+  context.fillStyle = fill;
+  context.fill();
+  context.lineWidth = 6;
+  context.strokeStyle = filled ? "#ffffff" : accent;
+  context.stroke();
+  const scale = (ICON_SIZE * 0.5) / 24;
+  context.save();
+  context.translate(center - 12 * scale, center - 12 * scale);
+  context.scale(scale, scale);
+  context.lineWidth = 2.4;
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  context.strokeStyle = ink;
+  context.fillStyle = ink;
+  STATION_ICON_PATHS[kind].stroke.forEach((d) => context.stroke(new Path2D(d)));
+  STATION_ICON_PATHS[kind].fill?.forEach((d) => context.fill(new Path2D(d)));
+  context.restore();
+  return context.getImageData(0, 0, ICON_SIZE, ICON_SIZE);
+};
+
+/** (Re)registers the station icons in the current style; styles drop their images on reload. */
+const addStationIcons = (map: MapboxMap, accent: string) => {
+  if (typeof map.addImage !== "function") return;
+  (Object.keys(STATION_ICON_IDS) as StationIconKind[]).forEach((kind) => {
+    const image = drawStationIcon(kind, accent);
+    if (!image) return;
+    const id = STATION_ICON_IDS[kind];
+    if (map.hasImage?.(id)) map.removeImage(id);
+    map.addImage(id, image, { pixelRatio: ICON_PIXEL_RATIO });
   });
-  return svg;
+};
+
+/** Start, finish and stations at the exact route point of their kilometre. */
+const buildStationIconGeoJson = (path: PreparedAnimationPath, stations: VideoAidStation[]) => {
+  if (!path.canAnimate) return EMPTY_FEATURES;
+  const feature = (distanceKm: number, kind: StationIconKind) => {
+    const point = getRoutePointAtDistance(path, distanceKm);
+    return {
+      type: "Feature",
+      properties: { kind, icon: STATION_ICON_IDS[kind], distanceKm },
+      geometry: { type: "Point", coordinates: [point.lon, point.lat] },
+    };
+  };
+  return {
+    type: "FeatureCollection",
+    features: [
+      ...stations
+        .filter((station) => station.distanceKm > 0 && station.distanceKm < path.totalDistanceKm)
+        .map((station) => feature(station.distanceKm, station.isLifeBase ? "lifeBase" : "aid")),
+      feature(0, "start"),
+      feature(path.totalDistanceKm, "finish"),
+    ],
+  };
 };
 
 /**
- * Station marker: a small round icon sitting on the route (always visible) and, above it, a card
- * with the name, kilometre, cumulative D+ and cutoff that only shows while the runner approaches.
- * Mapbox owns the outer element (position, transform, opacity for occlusion), so every visual
- * style and the fading live on inner elements; the outer one only stacks them and sizes to fit.
+ * Card shown above a station icon while the runner arrives: name, kilometre, cumulative D+ and
+ * cutoff. Mapbox owns the marker element (position, transform, occlusion opacity), so all styles
+ * and the fading live on the inner card, which sizes to its text.
  */
-const createAidStationElement = (station: VideoAidStation, cumulativeGainM: number, accent: string) => {
+const createAidCardElement = (station: VideoAidStation, cumulativeGainM: number, accent: string) => {
   const element = document.createElement("div");
   element.setAttribute("aria-hidden", "true");
-  Object.assign(element.style, { display: "flex", flexDirection: "column", alignItems: "center", pointerEvents: "none" });
-
   const card = document.createElement("div");
   Object.assign(card.style, {
     position: "relative",
-    marginBottom: "1.6cqmin",
     padding: "0.8cqmin 1.6cqmin",
     borderRadius: "1.2cqmin",
     background: "#ffffff",
@@ -179,6 +236,7 @@ const createAidStationElement = (station: VideoAidStation, cumulativeGainM: numb
     boxShadow: "0 0.4cqmin 1.6cqmin rgba(0, 0, 0, 0.35)",
     whiteSpace: "nowrap",
     width: "max-content",
+    pointerEvents: "none",
     opacity: "0",
   });
   const line = (text: string, styles: Partial<CSSStyleDeclaration>) => {
@@ -203,38 +261,23 @@ const createAidStationElement = (station: VideoAidStation, cumulativeGainM: numb
     borderTop: "1.2cqmin solid #ffffff",
   });
   card.appendChild(tail);
-
-  // Life bases are filled with the accent colour, aid stations are white: both read on any map.
-  const pin = document.createElement("div");
-  Object.assign(pin.style, {
-    width: "4.2cqmin",
-    height: "4.2cqmin",
-    borderRadius: "9999px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    background: station.isLifeBase ? accent : "#ffffff",
-    border: `0.5cqmin solid ${station.isLifeBase ? "#ffffff" : accent}`,
-    boxShadow: "0 0.3cqmin 1cqmin rgba(0, 0, 0, 0.35)",
-    boxSizing: "border-box",
-  });
-  pin.appendChild(createStationIcon(station.isLifeBase ? "lifeBase" : "aid", station.isLifeBase ? "#ffffff" : accent));
-
-  element.append(card, pin);
+  element.appendChild(card);
   return { element, card };
 };
 
-/**
- * A card fades in while the runner approaches its station (6 % of the route, 1.5 km minimum)
- * and fades out just after it; DOM writes only happen when the rounded opacity changes.
- */
-const updateAidBubbles = (bubbles: AidBubble[], distanceKm: number | null, totalDistanceKm: number) => {
-  const approachKm = Math.max(1.5, totalDistanceKm * 0.06);
+// A card shows from 3.5 s before the runner reaches its station to 1.5 s after, with short fades:
+// tied to video time, so it behaves the same whatever the speed of the flyover there.
+const CARD_LEAD_MS = 3_500;
+const CARD_TRAIL_MS = 1_500;
+const CARD_FADE_MS = 400;
+
+const updateAidBubbles = (bubbles: AidBubble[], timeline: VideoTimeline, timeMs: number | null) => {
   bubbles.forEach((bubble) => {
     let opacity = 0;
-    if (distanceKm !== null) {
-      const fadeIn = (distanceKm - (bubble.distanceKm - approachKm)) / (approachKm * 0.25);
-      const fadeOut = (bubble.distanceKm + 0.6 - distanceKm) / 0.4;
+    if (timeMs !== null) {
+      const arrivalMs = timeline.introMs + getFlyoverFractionAtDistance(timeline, bubble.distanceKm) * timeline.flyoverMs;
+      const fadeIn = (timeMs - (arrivalMs - CARD_LEAD_MS)) / CARD_FADE_MS;
+      const fadeOut = (arrivalMs + CARD_TRAIL_MS - timeMs) / CARD_FADE_MS;
       opacity = Math.max(0, Math.min(1, fadeIn, fadeOut));
     }
     const rounded = Math.round(opacity * 20) / 20;
@@ -276,13 +319,6 @@ export const buildRouteTrimOffset = (mode: RouteRevealMode, progress: number): [
   return clamped >= 1 ? [0, 0] : [clamped, 1];
 };
 
-const buildMarkerRadius = (activeDistanceKm: number | null): ExpressionSpecification => [
-  "case",
-  ["==", ["get", "distanceKm"], activeDistanceKm ?? -1],
-  12,
-  ["match", ["get", "kind"], "aid", 6, 8],
-];
-
 // The runner: a white dot ringed in the route colour with a soft shadow.
 const createProgressMarkerElement = (color: string) => {
   const element = document.createElement("div");
@@ -302,7 +338,7 @@ const createProgressMarkerElement = (color: string) => {
 const syncMapData = (
   map: MapboxMap,
   routeData: ReturnType<typeof buildRouteGeoJson>,
-  markerData: ReturnType<typeof buildMarkerGeoJson>,
+  markerData: unknown,
   settings: VideoCompositionSettings,
 ) => {
   const { routeColor } = settings;
@@ -419,36 +455,22 @@ const syncMapData = (
   if (markerSource) markerSource.setData(markerData as GeoJsonSourceData);
   else map.addSource(MARKER_SOURCE_ID, { type: "geojson", data: markerData as GeoJsonSourceData });
 
-  if (!map.getLayer(MARKER_CIRCLE_LAYER_ID)) {
+  if (!map.getLayer(MARKER_ICON_LAYER_ID)) {
+    // Drawn by the map itself, so the icons sit on the route at terrain level and move with it.
     map.addLayer({
-      id: MARKER_CIRCLE_LAYER_ID,
-      type: "circle",
-      source: MARKER_SOURCE_ID,
-      slot: "top",
-      paint: {
-        "circle-radius": buildMarkerRadius(null),
-        "circle-color": ["match", ["get", "kind"], "start", "#22c55e", "finish", "#e11d48", "#f59e0b"],
-        "circle-stroke-color": "#ffffff",
-        "circle-stroke-width": 2,
-      },
-    });
-  }
-
-  if (!map.getLayer(MARKER_LABEL_LAYER_ID)) {
-    map.addLayer({
-      id: MARKER_LABEL_LAYER_ID,
+      id: MARKER_ICON_LAYER_ID,
       type: "symbol",
       source: MARKER_SOURCE_ID,
       slot: "top",
-      minzoom: 8,
       layout: {
-        "text-field": ["get", "label"],
-        "text-size": 12,
-        "text-offset": [0, 1.25],
-        "text-anchor": "top",
-        "text-allow-overlap": false,
+        "icon-image": ["get", "icon"],
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 7, 0.6, 13, 0.9],
+        "icon-anchor": "center",
+        "icon-allow-overlap": true,
+        "icon-ignore-placement": true,
+        "icon-pitch-alignment": "viewport",
+        "icon-rotation-alignment": "viewport",
       },
-      paint: { "text-color": "#ffffff", "text-halo-color": "#172012", "text-halo-width": 1.5 },
     });
   }
 };
@@ -479,7 +501,6 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   // Last daylight applied to the map, quantized so the look only changes in small steps.
   const daylightKeyRef = useRef<string | null>(null);
   const styleUrlRef = useRef<string | null>(null);
-  const activeAidDistanceRef = useRef<number | null>(null);
   const boundsRef = useRef(bounds);
   const pointsRef = useRef(points);
 
@@ -496,8 +517,8 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   }, [aidStations, settings.disabledAidStationIds]);
   const routeData = useMemo(() => buildRouteGeoJson(points), [points]);
   const lineProgressTable = useMemo(() => buildLineProgressTable(points), [points]);
-  // Start and finish only: aid stations are DOM icons placed exactly on the route (see below).
-  const markerData = useMemo(() => buildMarkerGeoJson(points, []), [points]);
+  // Start, finish and station icons at the exact route point of their kilometre.
+  const markerData = useMemo(() => buildStationIconGeoJson(preparedPath, enabledAidStations), [enabledAidStations, preparedPath]);
 
   // The story: detected moments with a default narration, overridden by the AI or by hand.
   const autoDurationSeconds = getAutoDurationSeconds(preparedPath.totalDistanceKm);
@@ -600,7 +621,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     if (map.getLayer(ROUTE_CASING_LAYER_ID)) map.setPaintProperty(ROUTE_CASING_LAYER_ID, "line-trim-offset", trimOffset);
     const routePoint = getRoutePointAtDistance(path, frame.distanceKm);
     progressMarkerRef.current?.setLngLat([routePoint.lon, routePoint.lat]);
-    updateAidBubbles(aidBubblesRef.current, frame.phase === "flyover" && settingsRef.current.showAidBubbles ? frame.distanceKm : null, path.totalDistanceKm);
+    updateAidBubbles(aidBubblesRef.current, timelineRef.current, frame.phase === "flyover" && settingsRef.current.showAidBubbles ? frame.timeMs : null);
     if (frame.daylight) {
       const { level, warmth, sunAzimuthDeg } = frame.daylight;
       const key = `${Math.round(level * 50)}|${Math.round(warmth * 20)}|${Math.round(sunAzimuthDeg / 10)}`;
@@ -627,11 +648,6 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       const to = getLineProgressAtDistance(table, frame.beat.focusEndKm);
       const done = to > from ? (getLineProgressAtDistance(table, frame.distanceKm) - from) / (to - from) : 0;
       map.setPaintProperty(SEGMENT_DONE_LAYER_ID, "line-trim-offset", buildRouteTrimOffset("progressive", done));
-    }
-    const activeAidDistance = frame.beat && (frame.beat.kind === "aid" || frame.beat.kind === "lifeBase") ? frame.beat.anchorKm : null;
-    if (activeAidDistance !== activeAidDistanceRef.current && map.getLayer(MARKER_CIRCLE_LAYER_ID)) {
-      activeAidDistanceRef.current = activeAidDistance;
-      map.setPaintProperty(MARKER_CIRCLE_LAYER_ID, "circle-radius", buildMarkerRadius(activeAidDistance));
     }
   }, [frameStore]);
 
@@ -727,9 +743,9 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       .filter((station) => station.distanceKm > 0 && station.distanceKm < preparedPath.totalDistanceKm)
       .map((station): AidBubble => {
         const point = getRoutePointAtDistance(preparedPath, station.distanceKm);
-        const { element, card } = createAidStationElement(station, getCumulativeGainAt(preparedPath, station.distanceKm), settings.accentColor);
-        // Anchored at the bottom of the round icon, exactly on the route at the station kilometre.
-        const marker = new mapboxgl.Marker({ element, anchor: "bottom", occludedOpacity: 1 })
+        const { element, card } = createAidCardElement(station, getCumulativeGainAt(preparedPath, station.distanceKm), settings.accentColor);
+        // The card tail points at the station icon drawn by the map (about 15 px radius).
+        const marker = new mapboxgl.Marker({ element, anchor: "bottom", offset: [0, -18], occludedOpacity: 1 })
           .setLngLat([point.lon, point.lat])
           .addTo(map);
         return { distanceKm: station.distanceKm, card, marker, opacity: -1 };
@@ -741,6 +757,14 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       aidBubblesRef.current = [];
     };
   }, [enabledAidStations, isReady, preparedPath, refreshCurrentFrame, settings.accentColor]);
+
+  // Station icons are images in the style: redraw them when the accent colour changes.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !layersReadyRef.current) return;
+    addStationIcons(map, settings.accentColor);
+    map.triggerRepaint();
+  }, [settings.accentColor]);
 
   // Voice-over: clips are scheduled on the same timeline as the camera.
   const narrationCues = useMemo(
@@ -881,10 +905,10 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
         map.addSource(TERRAIN_SOURCE_ID, { type: "raster-dem", url: "mapbox://mapbox.mapbox-terrain-dem-v1", tileSize: 512, maxzoom: 14 });
       }
       map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: settingsRef.current.terrainExaggeration });
+      addStationIcons(map, settingsRef.current.accentColor);
       syncMapData(map, routeDataRef.current, markerDataRef.current, settingsRef.current);
       appearanceStateRef.current = captureMapAppearanceState(map, OWN_LAYER_IDS);
       applyMapAppearance(map, settingsRef.current, appearanceStateRef.current, OWN_LAYER_IDS);
-      activeAidDistanceRef.current = null;
       activeBeatIdRef.current = null;
       daylightKeyRef.current = null;
       layersReadyRef.current = true;

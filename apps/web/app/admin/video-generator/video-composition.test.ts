@@ -14,6 +14,7 @@ import {
   getProfileWindow,
   getSlopeClass,
   getCameraSpeedMps,
+  getOrbitLookDirection,
   getTimeSmoothedHeading,
   getVideoCameraPose,
   getVideoFrameState,
@@ -209,6 +210,25 @@ describe("buildVideoTimeline", () => {
     expect(maxStep).toBeLessThan(3);
     expect(angleAt(0)).toBeCloseTo(0, 0);
     expect(angleAt(timeline.totalMs)).toBeCloseTo(90, 0);
+  });
+
+  it("orbits the relief in three-quarter view and glides between legs without following the trail", () => {
+    const bend = prepareAnimationPath([
+      { lat: 45, lon: 4, elevationM: 200, distanceKm: 0 },
+      { lat: 45 + 10 / 111.32, lon: 4, elevationM: 200, distanceKm: 10 },
+      { lat: 45 + 10 / 111.32, lon: 4 + 10 / (111.32 * Math.cos((45.09 * Math.PI) / 180)), elevationM: 200, distanceKm: 20 },
+    ]);
+    const legs = [beat("north", "start", 0, 10, "Tout droit vers le nord."), beat("east", "flat", 10, 20, "Puis plein est jusqu’à l’arrivée.")];
+    const timeline = buildVideoTimeline(bend, legs, { ...manual(30), introEnabled: false, outroEnabled: false });
+    const bearingAt = (ms: number) => {
+      const look = getOrbitLookDirection(bend, timeline, ms)!;
+      return (Math.atan2(look.east, look.north) * 180) / Math.PI;
+    };
+    // Three-quarter view on the first leg: 35 degrees off its direction, not straight behind.
+    expect(Math.abs(bearingAt(0))).toBeCloseTo(35, 0);
+    let maxStep = 0;
+    for (let ms = 0; ms < timeline.totalMs; ms += 1_000 / 30) maxStep = Math.max(maxStep, Math.abs(bearingAt(ms + 1_000 / 30) - bearingAt(ms)));
+    expect(maxStep).toBeLessThan(1.5);
   });
 
   it("never overlaps two narrations", () => {

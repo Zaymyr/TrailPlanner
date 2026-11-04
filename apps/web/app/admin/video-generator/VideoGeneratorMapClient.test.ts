@@ -201,7 +201,10 @@ describe("VideoGeneratorMapClient", () => {
     const stationMarker = mapboxMock.markers.find((marker) => marker.options?.element?.textContent?.includes("Sainte-Catherine"));
     expect(stationMarker?.options?.element?.style.position).toBe("");
     expect(stationMarker?.options?.element?.style.opacity).toBe("");
-    expect(stationMarker?.options?.element?.querySelector("svg")).toBeTruthy();
+    // Start, finish and station icons are drawn by the map on the route, not as floating DOM pins.
+    expect(map.layers.has("video-route-marker-icons")).toBe(true);
+    const iconData = map.sources.get("video-route-markers")?.definition.data as { features: Array<{ properties: { kind: string } }> };
+    expect(iconData.features.map((feature) => feature.properties.kind)).toEqual(["lifeBase", "start", "finish"]);
     const bubbleText = mapboxMock.markers.map((marker) => marker.options?.element?.textContent ?? "").find((text) => text.includes("Sainte-Catherine"));
     expect(bubbleText).toMatch(/^Base de vie · Sainte-Catherinekm 10 · D\+ [\d\s ]+ mBarrière 06:15$/);
     expect(map.layers.has("video-route-line")).toBe(true);

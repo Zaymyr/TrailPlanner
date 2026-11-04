@@ -211,13 +211,23 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, frameStore, gra
 
       {settings.showCaptions && frame.beat ? <StoryCaption accent={accent} beat={frame.beat} timeMs={frame.timeMs} top={captionTop} /> : null}
 
-      {/* Burned-in subtitles of the voice-over, low in the frame above the footer. */}
+      {/* Burned-in subtitles of the voice-over in the Pace Yourself look: brand green band, white
+          bold text, an orange underline from the highlight colour; high contrast on any map. */}
       {settings.showSubtitles && frame.subtitle ? (
         <p
-          className="absolute text-center font-bold leading-snug"
-          style={{ left: "6cqmin", right: "6cqmin", bottom: "15cqmin", fontSize: "4.2cqmin", textShadow: "none" }}
+          className="absolute text-center font-extrabold leading-snug text-white"
+          style={{ left: "6cqmin", right: "6cqmin", bottom: "15cqmin", fontSize: "4.2cqmin", textShadow: "none", letterSpacing: "0.01em" }}
         >
-          <span className="rounded-[1.2cqmin] bg-black/60" style={{ padding: "0.6cqmin 1.6cqmin", boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone" }}>
+          <span
+            className="rounded-[1.2cqmin]"
+            style={{
+              padding: "0.6cqmin 1.8cqmin",
+              background: `${accent}eb`,
+              boxShadow: `inset 0 -0.6cqmin 0 ${settings.highlightColor}, 0 0.5cqmin 1.6cqmin rgba(0, 0, 0, 0.35)`,
+              boxDecorationBreak: "clone",
+              WebkitBoxDecorationBreak: "clone",
+            }}
+          >
             {frame.subtitle}
           </span>
         </p>

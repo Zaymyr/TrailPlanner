@@ -640,6 +640,67 @@ export const getCameraSpeedMps = (timeline: VideoTimeline, timeMs: number) => {
   return 0.5 * timeline.averageSpeedMps + 0.5 * localMps;
 };
 
+const ORBIT_SIDE_OFFSET_DEG = 35;
+
+const toBearingDeg = (east: number, north: number) => ((Math.atan2(east, north) * 180) / Math.PI + 360) % 360;
+const shortestTurnDeg = (from: number, to: number) => ((to - from + 540) % 360) - 180;
+
+/**
+ * Camera keyframes: one per told leg, at the middle of its time on screen. The camera looks along
+ * the overall direction of the leg (start to end, ignoring every switchback), turned 35° to one
+ * side so the relief reads in three-quarter view; the side is the one closest to the previous
+ * keyframe so the camera keeps orbiting the same way.
+ */
+const getOrbitKeyframes = (path: PreparedAnimationPath, timeline: VideoTimeline) => {
+  const legs = timeline.beats.filter((beat) => beat.kind !== "intro" && beat.kind !== "outro" && beat.endKm > beat.startKm);
+  const keyframes: Array<{ timeMs: number; bearingDeg: number }> = [];
+  legs.forEach((leg, index) => {
+    const from = getRoutePointAtDistance(path, leg.startKm);
+    const to = getRoutePointAtDistance(path, leg.endKm);
+    const east = (to.lon - from.lon) * 111_320 * Math.cos((from.lat * Math.PI) / 180);
+    const north = (to.lat - from.lat) * 111_320;
+    if (Math.hypot(east, north) < 50) return;
+    const travel = toBearingDeg(east, north);
+    const previous = keyframes[keyframes.length - 1]?.bearingDeg;
+    const candidates = [travel + ORBIT_SIDE_OFFSET_DEG, travel - ORBIT_SIDE_OFFSET_DEG].map((value) => (value + 360) % 360);
+    const bearingDeg = previous === undefined
+      ? candidates[0]
+      : candidates.reduce((best, value) => Math.abs(shortestTurnDeg(previous, value)) < Math.abs(shortestTurnDeg(previous, best)) ? value : best);
+    const nextStart = legs[index + 1]?.startMs ?? timeline.introMs + timeline.flyoverMs;
+    keyframes.push({ timeMs: (leg.startMs + nextStart) / 2, bearingDeg });
+  });
+  return keyframes;
+};
+
+const orbitCache = new WeakMap<VideoTimeline, Array<{ timeMs: number; bearingDeg: number }>>();
+
+/**
+ * Where the camera looks from, as a unit vector: the runner stays centred, but the camera does not
+ * chase every turn of the trail. It glides from one leg's three-quarter view to the next over the
+ * whole time between them (smoothstep), so it never jerks; without legs it follows the
+ * time-smoothed travel direction.
+ */
+export const getOrbitLookDirection = (path: PreparedAnimationPath, timeline: VideoTimeline, timeMs: number) => {
+  let keyframes = orbitCache.get(timeline);
+  if (!keyframes) {
+    keyframes = getOrbitKeyframes(path, timeline);
+    orbitCache.set(timeline, keyframes);
+  }
+  if (keyframes.length === 0) return getTimeSmoothedHeading(path, timeline, timeMs);
+  let bearingDeg = keyframes[0].bearingDeg;
+  if (timeMs >= keyframes[keyframes.length - 1].timeMs) {
+    bearingDeg = keyframes[keyframes.length - 1].bearingDeg;
+  } else if (timeMs > keyframes[0].timeMs) {
+    const next = keyframes.findIndex((keyframe) => keyframe.timeMs > timeMs);
+    const before = keyframes[next - 1];
+    const after = keyframes[next];
+    const t = easeInOut((timeMs - before.timeMs) / Math.max(1, after.timeMs - before.timeMs));
+    bearingDeg = before.bearingDeg + shortestTurnDeg(before.bearingDeg, after.bearingDeg) * t;
+  }
+  const radians = (bearingDeg * Math.PI) / 180;
+  return { east: Math.sin(radians), north: Math.cos(radians) };
+};
+
 export const getVideoCameraPose = (
   path: PreparedAnimationPath,
   timeline: VideoTimeline,
@@ -653,7 +714,7 @@ export const getVideoCameraPose = (
     getCameraSpeedMps(timeline, frame.timeMs),
     viewport,
     exaggeration,
-    frame.phase === "flyover" ? getTimeSmoothedHeading(path, timeline, frame.timeMs) : undefined,
+    getOrbitLookDirection(path, timeline, frame.phase === "flyover" ? frame.timeMs : frame.phase === "intro" ? timeline.introMs : timeline.introMs + timeline.flyoverMs),
   );
   if (frame.phase === "flyover") {
     const beat = frame.beat;
