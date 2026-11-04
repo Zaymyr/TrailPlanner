@@ -69,7 +69,7 @@ export const videoCompositionSettingsSchema = z.object({
   routeColor: hexColorSchema.default("#2d5016"),
   routeCasing: z.boolean().default(true),
   // Colour of the route on the climb, descent or rolling section being told.
-  highlightColor: hexColorSchema.default("#ff8a3d"),
+  highlightColor: hexColorSchema.default("#d9925b"),
   accentColor: hexColorSchema.default("#2d5016"),
   showLogo: z.boolean().default(true),
   showCta: z.boolean().default(true),
@@ -595,7 +595,7 @@ const INTRO_HOLD_RATIO = 0.35;
 const OUTRO_GLIDE_RATIO = 0.6;
 
 /** Intro holds the overview then glides to the start; the outro glides back and holds. */
-const CAMERA_SPEED_WINDOW_MS = 3_000;
+const CAMERA_SPEED_WINDOW_MS = 6_000;
 // The look direction averages where the runner was and will be over these windows: a turn is
 // anticipated and spread over several seconds whatever the speed, so it never jerks.
 const HEADING_WINDOWS_MS = [3_000, 6_000, 9_000];
@@ -637,10 +637,44 @@ export const getCameraSpeedMps = (timeline: VideoTimeline, timeMs: number) => {
   const distanceAt = (ms: number) => getDistanceAtFlyoverFraction(timeline, (ms - flyoverStart) / timeline.flyoverMs);
   const localMps = ((distanceAt(to) - distanceAt(from)) * 1_000) / ((to - from) / 1_000);
   // Half of the average keeps the zoom from pumping on every speed change.
-  return 0.5 * timeline.averageSpeedMps + 0.5 * localMps;
+  return 0.7 * timeline.averageSpeedMps + 0.3 * localMps;
 };
 
 const ORBIT_SIDE_OFFSET_DEG = 35;
+// Helicopter-like framing: the camera aims at where the runner is on average over ±6 s, so the
+// trail switchbacks do not shake the picture; the dot drifts gently around the centre instead.
+const TARGET_SMOOTHING_MS = 6_000;
+
+/**
+ * Weighted mean of every route sample the runner covers within ±6 s (triangular weights, the
+ * present counts most). Averaging all samples, not a few instants, avoids aliasing: instants a
+ * fixed time apart can all land on the same side of regularly spaced switchbacks.
+ */
+export const getSmoothedCameraTarget = (path: PreparedAnimationPath, timeline: VideoTimeline, timeMs: number) => {
+  const flyoverStart = timeline.introMs;
+  const flyoverEnd = timeline.introMs + timeline.flyoverMs;
+  const distanceAt = (ms: number) =>
+    getDistanceAtFlyoverFraction(timeline, (clamp(ms, flyoverStart, flyoverEnd) - flyoverStart) / Math.max(1, timeline.flyoverMs));
+  const centerKm = distanceAt(timeMs);
+  const fromKm = distanceAt(timeMs - TARGET_SMOOTHING_MS);
+  const toKm = distanceAt(timeMs + TARGET_SMOOTHING_MS);
+  const center = getRoutePointAtDistance(path, centerKm);
+  let lat = center.lat;
+  let lon = center.lon;
+  let elevationM = center.elevationM;
+  let totalWeight = 1;
+  path.samples.forEach((sample) => {
+    if (sample.distanceKm < fromKm || sample.distanceKm > toKm) return;
+    const halfSpan = sample.distanceKm < centerKm ? centerKm - fromKm : toKm - centerKm;
+    const weight = halfSpan > 0 ? 1 - Math.abs(sample.distanceKm - centerKm) / (halfSpan * 1.25) : 0;
+    if (weight <= 0) return;
+    lat += sample.lat * weight;
+    lon += sample.lon * weight;
+    elevationM += sample.elevationM * weight;
+    totalWeight += weight;
+  });
+  return { lat: lat / totalWeight, lon: lon / totalWeight, elevationM: elevationM / totalWeight };
+};
 
 const toBearingDeg = (east: number, north: number) => ((Math.atan2(east, north) * 180) / Math.PI + 360) % 360;
 const shortestTurnDeg = (from: number, to: number) => ((to - from + 540) % 360) - 180;
@@ -715,6 +749,9 @@ export const getVideoCameraPose = (
     viewport,
     exaggeration,
     getOrbitLookDirection(path, timeline, frame.phase === "flyover" ? frame.timeMs : frame.phase === "intro" ? timeline.introMs : timeline.introMs + timeline.flyoverMs),
+    // Same smoothing in every phase (it clamps to the flyover), so the intro and outro glides
+    // meet the flyover framing without a jump.
+    getSmoothedCameraTarget(path, timeline, frame.timeMs),
   );
   if (frame.phase === "flyover") {
     const beat = frame.beat;

@@ -53,6 +53,9 @@ export type StoryBeat = {
   /** The slope this beat talks about (a whole climb from its foot to its top), framed and highlighted on the map. */
   focusStartKm?: number;
   focusEndKm?: number;
+  /** Card shown on the map in the middle of the told slope, e.g. "Montée vers Mont Thou". */
+  focusTitle?: string;
+  focusFacts?: string[];
 };
 
 export type StoryRaceInfo = {
@@ -402,6 +405,14 @@ export const buildStoryBeats = (
       pauseMs: leg.station ? (leg.station.isLifeBase ? LIFE_BASE_PAUSE_MS : AID_PAUSE_MS) : 0,
       focusStartKm: leg.focus ? leg.focus.startKm : leg.kind === "flat" ? leg.startKm : undefined,
       focusEndKm: leg.focus ? leg.focus.endKm : leg.kind === "flat" ? leg.endKm : undefined,
+      ...(leg.focus ? {
+        focusTitle: leg.focus.kind === "climb" ? (leg.summit ? `Montée vers ${leg.summit}` : "Montée") : "Descente",
+        focusFacts: [
+          `${formatKm(leg.focus.endKm - leg.focus.startKm)} km`,
+          `${leg.focus.kind === "climb" ? "+" : "−"}${formatNumber(leg.focus.elevationM)} m`,
+          `${formatPercent(leg.focus.averageGrade)} % moy.`,
+        ],
+      } : {}),
     };
   });
 

@@ -63,6 +63,7 @@ import {
   type NarrationDurations,
   type ScheduledBeat,
   type VideoCompositionSettings,
+  type VideoFrameState,
   type VideoTimeline,
 } from "./video-composition";
 import { createVideoFrameStore, VideoCompositionOverlay } from "./VideoCompositionOverlay";
@@ -217,6 +218,26 @@ const buildStationIconGeoJson = (path: PreparedAnimationPath, stations: VideoAid
   };
 };
 
+const CUTOFF_RED = "#d7263d";
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+const createClockIcon = (color: string) => {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", color);
+  svg.setAttribute("stroke-width", "2.6");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  Object.assign(svg.style, { width: "2.3cqmin", height: "2.3cqmin", flex: "none" });
+  ["M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z", "M12 7v5l3 2"].forEach((d) => {
+    const path = document.createElementNS(SVG_NS, "path");
+    path.setAttribute("d", d);
+    svg.appendChild(path);
+  });
+  return svg;
+};
+
 /**
  * Card shown above a station icon while the runner arrives: name, kilometre, cumulative D+ and
  * cutoff. Mapbox owns the marker element (position, transform, occlusion opacity), so all styles
@@ -249,7 +270,13 @@ const createAidCardElement = (station: VideoAidStation, cumulativeGainM: number,
   const kilometre = station.distanceKm.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
   const gain = Math.round(cumulativeGainM).toLocaleString("fr-FR");
   line(`km ${kilometre} · D+ ${gain} m`, { fontWeight: "700", fontSize: "2cqmin", color: accent, fontVariantNumeric: "tabular-nums" });
-  if (station.cutoffTime) line(`Barrière ${station.cutoffTime}`, { fontWeight: "600", fontSize: "1.9cqmin", color: "#5b5b5b" });
+  if (station.cutoffTime) {
+    // Cutoff in red with a clock, so it stands out from the other figures.
+    const cutoff = document.createElement("div");
+    Object.assign(cutoff.style, { display: "flex", alignItems: "center", gap: "0.6cqmin", fontWeight: "700", fontSize: "2cqmin", color: CUTOFF_RED });
+    cutoff.append(createClockIcon(CUTOFF_RED), document.createTextNode(`Barrière ${station.cutoffTime}`));
+    card.appendChild(cutoff);
+  }
   const tail = document.createElement("span");
   Object.assign(tail.style, {
     position: "absolute",
@@ -286,6 +313,71 @@ const updateAidBubbles = (bubbles: AidBubble[], timeline: VideoTimeline, timeMs:
       bubble.card.style.opacity = String(rounded);
     }
   });
+};
+
+type ClimbCard = { card: HTMLElement; title: HTMLElement; facts: HTMLElement; marker: mapboxgl.Marker; beatId: string | null; opacity: number };
+
+/** One card reused for every told slope, placed in the middle of it: title and key figures. */
+const createClimbCard = (map: MapboxMap, accent: string): ClimbCard => {
+  const element = document.createElement("div");
+  element.setAttribute("aria-hidden", "true");
+  const card = document.createElement("div");
+  Object.assign(card.style, {
+    position: "relative",
+    padding: "0.8cqmin 1.6cqmin",
+    borderRadius: "1.2cqmin",
+    background: accent,
+    color: "#ffffff",
+    boxShadow: "0 0.4cqmin 1.6cqmin rgba(0, 0, 0, 0.35)",
+    whiteSpace: "nowrap",
+    width: "max-content",
+    pointerEvents: "none",
+    opacity: "0",
+  });
+  const title = document.createElement("div");
+  Object.assign(title.style, { fontWeight: "800", fontSize: "2.4cqmin", lineHeight: "1.15" });
+  const facts = document.createElement("div");
+  Object.assign(facts.style, { fontWeight: "600", fontSize: "2cqmin", opacity: "0.9", fontVariantNumeric: "tabular-nums" });
+  const tail = document.createElement("span");
+  Object.assign(tail.style, {
+    position: "absolute",
+    left: "50%",
+    top: "100%",
+    transform: "translateX(-50%)",
+    borderLeft: "1cqmin solid transparent",
+    borderRight: "1cqmin solid transparent",
+    borderTop: `1.2cqmin solid ${accent}`,
+  });
+  card.append(title, facts, tail);
+  element.appendChild(card);
+  const marker = new mapboxgl.Marker({ element, anchor: "bottom", offset: [0, -6], occludedOpacity: 1 }).setLngLat([0, 0]).addTo(map);
+  return { card, title, facts, marker, beatId: null, opacity: -1 };
+};
+
+/**
+ * Shown while the voice tells the slope and the runner has not reached its top yet, with short
+ * fades; content and position only change when the told slope changes.
+ */
+const updateClimbCard = (climbCard: ClimbCard, path: PreparedAnimationPath, timeline: VideoTimeline, frame: VideoFrameState) => {
+  const beat = frame.phase === "flyover" ? frame.beat : null;
+  let opacity = 0;
+  if (beat?.focusTitle && beat.focusStartKm !== undefined && beat.focusEndKm !== undefined) {
+    if (beat.id !== climbCard.beatId) {
+      climbCard.beatId = beat.id;
+      climbCard.title.textContent = beat.focusTitle;
+      climbCard.facts.textContent = (beat.focusFacts ?? []).join(" · ");
+      const middle = getRoutePointAtDistance(path, (beat.focusStartKm + beat.focusEndKm) / 2);
+      climbCard.marker.setLngLat([middle.lon, middle.lat]);
+    }
+    const topMs = timeline.introMs + getFlyoverFractionAtDistance(timeline, beat.focusEndKm) * timeline.flyoverMs;
+    const endMs = Math.min(beat.narrationStartMs + beat.narrationMs + 1_000, topMs);
+    opacity = Math.max(0, Math.min(1, (frame.timeMs - beat.narrationStartMs) / CARD_FADE_MS, (endMs - frame.timeMs) / CARD_FADE_MS));
+  }
+  const rounded = Math.round(opacity * 20) / 20;
+  if (rounded !== climbCard.opacity) {
+    climbCard.opacity = rounded;
+    climbCard.card.style.opacity = String(rounded);
+  }
 };
 
 const readError = async (response: Response, fallback: string) => {
@@ -493,6 +585,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   const progressMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const activeBeatIdRef = useRef<string | null>(null);
   const aidBubblesRef = useRef<AidBubble[]>([]);
+  const climbCardRef = useRef<ClimbCard | null>(null);
   const narrationPlayerRef = useRef<NarrationPlayer | null>(null);
   // `map.isStyleLoaded()` is false whenever a tile is loading or a source was just updated, which is
   // permanently the case while the camera flies. Gating frames on it skipped most of them.
@@ -634,13 +727,16 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       applyMapAppearance(map, settingsRef.current, appearanceStateRef.current, OWN_LAYER_IDS);
     }
 
-    // Beat changes are rare: only then the narrated segment and the station marker are updated.
-    const beatId = frame.beat?.id ?? null;
-    if (beatId !== activeBeatIdRef.current) {
-      activeBeatIdRef.current = beatId;
+    // Beat changes are rare: only then the narrated segment is updated. Once the runner is past the
+    // told slope, its colour is removed even if the leg goes on.
+    const passedFocus = frame.beat?.focusEndKm !== undefined && frame.distanceKm > frame.beat.focusEndKm + 0.05;
+    const segmentKey = frame.beat && !passedFocus ? frame.beat.id : null;
+    if (segmentKey !== activeBeatIdRef.current) {
+      activeBeatIdRef.current = segmentKey;
       const segmentSource = map.getSource(SEGMENT_SOURCE_ID) as GeoJSONSource | undefined;
-      segmentSource?.setData(buildSegmentGeoJson(path, frame.beat) as unknown as GeoJsonSourceData);
+      segmentSource?.setData(buildSegmentGeoJson(path, passedFocus ? null : frame.beat) as unknown as GeoJsonSourceData);
     }
+    if (climbCardRef.current) updateClimbCard(climbCardRef.current, path, timelineRef.current, frame);
     // Solid behind the runner, pale ahead: the told slope never looks revealed before the dot.
     if (frame.beat?.focusStartKm !== undefined && frame.beat.focusEndKm !== undefined && map.getLayer(SEGMENT_DONE_LAYER_ID)) {
       const table = lineProgressTableRef.current;
@@ -751,12 +847,16 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
         return { distanceKm: station.distanceKm, card, marker, opacity: -1 };
       });
     aidBubblesRef.current = bubbles;
+    const climbCard = createClimbCard(map, settings.highlightColor);
+    climbCardRef.current = climbCard;
     refreshCurrentFrame();
     return () => {
       bubbles.forEach((bubble) => bubble.marker.remove());
       aidBubblesRef.current = [];
+      climbCard.marker.remove();
+      climbCardRef.current = null;
     };
-  }, [enabledAidStations, isReady, preparedPath, refreshCurrentFrame, settings.accentColor]);
+  }, [enabledAidStations, isReady, preparedPath, refreshCurrentFrame, settings.accentColor, settings.highlightColor]);
 
   // Station icons are images in the style: redraw them when the accent colour changes.
   useEffect(() => {

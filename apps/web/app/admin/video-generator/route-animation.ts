@@ -274,9 +274,11 @@ export const getChaseCameraPose = (
   terrainExaggeration = TERRAIN_EXAGGERATION,
   /** Travel direction to look along; defaults to the route heading around the runner. */
   headingOverride?: { east: number; north: number },
+  /** Point to centre on; defaults to the exact runner position. */
+  targetOverride?: { lat: number; lon: number; elevationM: number },
 ): CameraPose => {
   const portrait = viewport === "portrait";
-  const target = getRoutePointAtDistance(path, distanceKm);
+  const target = targetOverride ?? getRoutePointAtDistance(path, distanceKm);
   // Far enough to read the whole section around the runner (4.5 km at the slowest), pulled back
   // up to 20 km on fast stretches.
   const backDistanceM = clamp(speedMps * 3, 4_500, 20_000) * (portrait ? 1.25 : 1);

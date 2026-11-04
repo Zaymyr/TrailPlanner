@@ -15,6 +15,7 @@ import {
   getSlopeClass,
   getCameraSpeedMps,
   getOrbitLookDirection,
+  getSmoothedCameraTarget,
   getTimeSmoothedHeading,
   getVideoCameraPose,
   getVideoFrameState,
@@ -57,7 +58,7 @@ describe("videoCompositionSettingsSchema", () => {
       mapStyle: "paceyourself",
       routeColor: "#2d5016",
       routeCasing: true,
-      highlightColor: "#ff8a3d",
+      highlightColor: "#d9925b",
       showAidBubbles: true,
       accentColor: "#2d5016",
       routeWidth: "normal",
@@ -136,10 +137,12 @@ describe("buildVideoTimeline", () => {
       (getFlyoverFractionAtDistance(timeline, 20.6) - getFlyoverFractionAtDistance(timeline, 19.9)) * timeline.flyoverMs;
     expect(timeAroundBase(paused)).toBeGreaterThan(timeAroundBase(noPause) + 1_000);
 
-    // Right after a narrated point the camera is slow and close; mid-leg it travels fast and far.
+    // Helicopter framing: the distance barely changes, but still opens up a little mid-leg.
     const atBase = paused.beats[1].narrationStartMs + 600;
     const midLeg = (getFlyoverFractionAtDistance(paused, 32) * paused.flyoverMs);
-    expect(getCameraSpeedMps(paused, midLeg)).toBeGreaterThan(getCameraSpeedMps(paused, atBase) * 1.15);
+    const ratio = getCameraSpeedMps(paused, midLeg) / getCameraSpeedMps(paused, atBase);
+    expect(ratio).toBeGreaterThan(1);
+    expect(ratio).toBeLessThan(1.4);
     const near = getVideoCameraPose(flat, paused, getVideoFrameState(paused, atBase), "portrait");
     const far = getVideoCameraPose(flat, paused, getVideoFrameState(paused, midLeg), "portrait");
     expect(far.camera.altitudeM - far.target.altitudeM).toBeGreaterThanOrEqual(near.camera.altitudeM - near.target.altitudeM);
@@ -229,6 +232,29 @@ describe("buildVideoTimeline", () => {
     let maxStep = 0;
     for (let ms = 0; ms < timeline.totalMs; ms += 1_000 / 30) maxStep = Math.max(maxStep, Math.abs(bearingAt(ms + 1_000 / 30) - bearingAt(ms)));
     expect(maxStep).toBeLessThan(1.5);
+  });
+
+  it("centres the camera on a smoothed position so switchbacks do not shake the picture", () => {
+    // A zigzag climb: 40 switchbacks 200 m wide while heading north.
+    const zigzag = prepareAnimationPath(Array.from({ length: 81 }, (_, index) => ({
+      lat: 45 + (index * 0.125) / 111.32,
+      lon: 4 + (index % 2 === 0 ? 0 : 0.2 / (111.32 * Math.cos((45 * Math.PI) / 180))),
+      elevationM: 500 + index * 10,
+      distanceKm: index * 0.24,
+    })));
+    const timeline = buildVideoTimeline(zigzag, [], { ...manual(30), introEnabled: false, outroEnabled: false });
+    const eastOffsetM = (lon: number) => (lon - 4) * 111_320 * Math.cos((45 * Math.PI) / 180);
+    const runner: number[] = [];
+    const centre: number[] = [];
+    for (let ms = 6_000; ms < 24_000; ms += 1_000 / 30) {
+      const frame = getVideoFrameState(timeline, ms);
+      runner.push(eastOffsetM(getVideoCameraPose(zigzag, timeline, { ...frame }, "portrait").target.lon));
+      centre.push(eastOffsetM(getSmoothedCameraTarget(zigzag, timeline, ms).lon));
+    }
+    const spread = (values: number[]) => Math.max(...values) - Math.min(...values);
+    // The aimed point barely moves sideways while the runner zigzags 200 m.
+    expect(spread(centre)).toBeLessThan(40);
+    expect(spread(runner)).toBeLessThan(40);
   });
 
   it("never overlaps two narrations", () => {
