@@ -50,7 +50,6 @@ import {
   getAutoDurationSeconds,
   getCumulativeGainAt,
   getSlopeId,
-  MAX_VIDEO_SECONDS,
   type StoryBeat,
   type StoryLandmarks,
 } from "./route-story";
@@ -639,7 +638,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
 
   // The story: detected moments with a default narration, overridden by the AI or by hand.
   const autoDurationSeconds = getAutoDurationSeconds(preparedPath.totalDistanceKm);
-  const maxSeconds = settings.durationMode === "auto" ? MAX_VIDEO_SECONDS : settings.durationSeconds;
+  const maxSeconds = settings.durationMode === "auto" ? autoDurationSeconds : settings.durationSeconds;
   const [landmarks, setLandmarks] = useState<StoryLandmarks>(renderSnapshot?.landmarks ?? {});
   // Estimated passing time at each kilometre (classic pace, cutoffs) for the day/night look.
   const raceClock = useMemo(() => buildRaceClock(preparedPath, enabledAidStations, race), [enabledAidStations, preparedPath, race]);
@@ -952,7 +951,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     try {
       const response = await authorizedPost("/api/admin/video-generator/script", {
         race: { title: race.title, subtitle: race.subtitle, distanceKm: race.distanceKm, elevationGainM: race.elevationGainM, startDetail: race.startDetail },
-        targetSeconds: settings.durationMode === "auto" ? MAX_VIDEO_SECONDS : settings.durationSeconds,
+        targetSeconds: maxSeconds,
         voiceModel: voiceOptions.model,
         beats: beats.map(({ id, kind, title, startKm, endKm, facts, services, cutoffTime, narration }) =>
           ({ id, kind, title, startKm, endKm, facts, services, cutoffTime, narration })),

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { withSecurityHeaders } from "../../../../../lib/http";
+import { mapSpokenTimingToText, toSpokenText } from "../../../../../lib/spoken-numbers";
 import { extractBearerToken, fetchSupabaseUser, getSupabaseAnonConfig, isAdminUser } from "../../../../../lib/supabase";
 import { narrationVoiceRequestSchema } from "../../../../../lib/video-narration";
 
@@ -37,6 +38,13 @@ const CONCURRENCY_RETRY_DELAYS_MS = [800, 1_600, 3_200];
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/**
+ * Errors worth retrying after a short pause: the plan's parallel slots are taken (429), or a
+ * library voice is still being added to the account by a parallel request (409 already_running).
+ */
+const isTransientElevenLabsError = (status: number, body: string) =>
+  (status === 429 && body.includes("concurrent")) || (status === 409 && body.includes("already_running"));
+
 class VoiceError extends Error {
   constructor(message: string, readonly status: number) {
     super(message);
@@ -65,6 +73,7 @@ const describeElevenLabsError = (status: number, body: string) => {
   }
   if (code.includes("quota_exceeded")) return "Quota de caractères ElevenLabs épuisé pour ce mois.";
   if (status === 429) return "ElevenLabs limite le nombre de requêtes, réessaie dans quelques secondes.";
+  if (code.includes("already_running")) return "ElevenLabs ajoute encore cette voix à ton compte, réessaie dans quelques secondes.";
   if (status === 404 || code.includes("voice_not_found")) return "Voix ElevenLabs introuvable : vérifie son identifiant.";
   return `Le service de voix a refusé la demande (${status}).`;
 };
@@ -94,17 +103,20 @@ export async function POST(request: NextRequest) {
   const { items, model, expressiveness } = parsed.data;
   const voiceSettings = buildVoiceSettings(model, expressiveness);
 
+  // The narration keeps digits and units for the subtitles; the voice reads them in words.
+  const spokenTexts = items.map((item) => toSpokenText(item.text));
+
   const requestSpeech = (index: number) => fetch(
     `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/with-timestamps?output_format=mp3_44100_128`,
     {
       method: "POST",
       headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
       body: JSON.stringify({
-        text: items[index].text,
+        text: spokenTexts[index].spoken,
         model_id: MODEL_IDS[model],
         voice_settings: voiceSettings,
         // v3 does not take neighbouring text; v2 uses it for a continuous delivery.
-        ...(model === "v3" ? {} : { previous_text: items[index - 1]?.text, next_text: items[index + 1]?.text }),
+        ...(model === "v3" ? {} : { previous_text: spokenTexts[index - 1]?.spoken, next_text: spokenTexts[index + 1]?.spoken }),
       }),
       cache: "no-store",
     },
@@ -113,11 +125,12 @@ export async function POST(request: NextRequest) {
   const synthesize = async (index: number) => {
     const item = items[index];
     let response = await requestSpeech(index);
-    // Another generation (or a preview tab) may hold the plan's parallel slots: back off and retry.
+    // Another generation (or a preview tab) may hold the plan's parallel slots, or the voice may
+    // still be joining the account: back off and retry.
     for (const delayMs of CONCURRENCY_RETRY_DELAYS_MS) {
-      if (response.status !== 429) break;
+      if (response.status !== 429 && response.status !== 409) break;
       const body = await response.clone().text().catch(() => "");
-      if (!body.includes("concurrent")) break;
+      if (!isTransientElevenLabsError(response.status, body)) break;
       await wait(delayMs);
       response = await requestSpeech(index);
     }
@@ -135,8 +148,11 @@ export async function POST(request: NextRequest) {
       text: item.text,
       audioBase64: speech.data.audio_base64,
       durationMs: Math.round(spokenMs + TAIL_MS),
-      // Exact per-character timing, only when it maps one-to-one onto the text sent.
-      ...(endTimes.length === item.text.length ? { characterEndMs: endTimes.map((seconds) => Math.round(seconds * 1_000)) } : {}),
+      // Exact per-character timing of the spoken text, mapped back onto the narration characters,
+      // only when ElevenLabs aligned exactly the text sent.
+      ...(endTimes.length === spokenTexts[index].spoken.length
+        ? { characterEndMs: mapSpokenTimingToText(spokenTexts[index], endTimes).map((seconds) => Math.round(seconds * 1_000)) }
+        : {}),
     };
   };
 
@@ -145,6 +161,10 @@ export async function POST(request: NextRequest) {
   const clips: Array<Awaited<ReturnType<typeof synthesize>>> = new Array(items.length);
   let next = 0;
   try {
+    // The first request alone: with a library voice not yet in the account, it adds the voice, and
+    // parallel requests would each try to add it at once (409 already_running).
+    clips[0] = await synthesize(0);
+    next = 1;
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, items.length) }, async () => {
       while (next < items.length) {
         const index = next;
