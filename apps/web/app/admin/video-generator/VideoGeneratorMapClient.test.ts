@@ -36,7 +36,7 @@ const mapboxMock = vi.hoisted(() => {
     keyboard = { enable: vi.fn(), disable: vi.fn() };
     scrollZoom = { enable: vi.fn(), disable: vi.fn() };
     touchZoomRotate = { enable: vi.fn(), disable: vi.fn() };
-    freeCamera = { position: null, lookAtPoint: vi.fn() };
+    freeCamera = { position: null, lookAtPoint: vi.fn(), setPitchBearing: vi.fn() };
 
     constructor() {
       instances.push(this);
@@ -101,7 +101,7 @@ const mapboxMock = vi.hoisted(() => {
     addTo = vi.fn(() => this);
     remove = vi.fn(() => this);
 
-    constructor() {
+    constructor(readonly options?: { element?: HTMLElement }) {
       markers.push(this);
     }
   }
@@ -158,6 +158,8 @@ beforeEach(() => {
     observe() {}
     disconnect() {}
   });
+  // Summit lookups go to the Mapbox Tilequery API; never hit the network in tests.
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ features: [] })));
 });
 
 afterEach(() => {
@@ -170,13 +172,17 @@ afterEach(() => {
 describe("VideoGeneratorMapClient", () => {
   it("initializes terrain and animated layers, applies frames, switches format and cleans up", async () => {
     const view = render(createElement(VideoGeneratorMapClient, {
-      aidStations: [],
+      aidStations: [{
+        id: "33333333-3333-4333-8333-333333333333", name: "Sainte-Catherine", distanceKm: 10, waterAvailable: true, foodAvailable: true,
+        assistanceAllowed: false, isLifeBase: true, dropBagAvailable: false, cutoffTime: "06:15",
+      }],
       bounds: { minLat: 45, minLon: 4, maxLat: 46, maxLon: 5 },
       points: [
         { lat: 45, lon: 4, elevationM: 400, distanceKm: 0 },
         { lat: 46, lon: 5, elevationM: 900, distanceKm: 20 },
       ],
       race: { title: "SaintéLyon 2026", subtitle: "SaintéLyon 82 km", distanceKm: 82, elevationGainM: 2_300, startDetail: "Lyon · 28 novembre · 23:30" },
+      accessToken: "admin-token",
     }));
     const map = mapboxMock.instances[0];
     expect(map).toBeTruthy();
@@ -185,15 +191,31 @@ describe("VideoGeneratorMapClient", () => {
     act(() => flushAnimationFrames());
     act(() => map.emit("idle"));
 
-    expect(map.setTerrain).toHaveBeenCalledWith({ source: "video-terrain-dem", exaggeration: 1.3 });
+    expect(map.setTerrain).toHaveBeenCalledWith({ source: "video-terrain-dem", exaggeration: 1.8 });
     expect(map.sources.get("video-route")?.definition.lineMetrics).toBe(true);
+    // No simplification: simplified tiles cut switchbacks short and let the trace run ahead.
+    expect(map.sources.get("video-route")?.definition.tolerance).toBe(0);
+    expect(map.layers.has("video-route-line-casing")).toBe(true);
+    // One bubble above the aid station, with its name, cumulative D+ and cutoff.
+    // Mapbox owns the marker element (position, opacity): the station marker only styles its children.
+    const stationMarker = mapboxMock.markers.find((marker) => marker.options?.element?.textContent?.includes("Sainte-Catherine"));
+    expect(stationMarker?.options?.element?.style.position).toBe("");
+    expect(stationMarker?.options?.element?.style.opacity).toBe("");
+    // Start, finish and station icons are drawn by the map on the route, not as floating DOM pins.
+    expect(map.layers.has("video-route-marker-icons")).toBe(true);
+    const iconData = map.sources.get("video-route-markers")?.definition.data as { features: Array<{ properties: { kind: string } }> };
+    expect(iconData.features.map((feature) => feature.properties.kind)).toEqual(["lifeBase", "start", "finish"]);
+    const bubbleText = mapboxMock.markers.map((marker) => marker.options?.element?.textContent ?? "").find((text) => text.includes("Sainte-Catherine"));
+    expect(bubbleText).toMatch(/^Base de vieSainte-Catherinekm 10 · D\+ [\d\s ]+ mBarrière 06:15$/);
     expect(map.layers.has("video-route-line")).toBe(true);
     expect(map.layers.has("video-route-line-reveal")).toBe(true);
     expect(map.layers.has("video-route-line-glow")).toBe(true);
     expect(map.setPaintProperty).toHaveBeenCalledWith("satellite", "raster-saturation", expect.any(Number));
     expect(map.setLayoutProperty).toHaveBeenCalledWith("road-label", "visibility", "none");
     expect(map.setFog).toHaveBeenCalled();
-    expect(map.addControl).toHaveBeenCalledOnce();
+    // No interactive attribution control: the attribution is burned into the overlay as text.
+    expect(map.addControl).not.toHaveBeenCalled();
+    expect(screen.getByText("© Mapbox © OpenStreetMap")).toBeTruthy();
     const progressMarker = mapboxMock.markers[0];
     expect(progressMarker.addTo).toHaveBeenCalledWith(map);
     const routeSetData = map.sources.get("video-route")?.setData;
@@ -207,7 +229,15 @@ describe("VideoGeneratorMapClient", () => {
     expect(screen.queryByText(/La carte 3D n’a pas pu être chargée/)).toBeNull();
 
     await userEvent.click(screen.getByRole("checkbox", { name: "Masquer les noms de lieux et de routes" }));
-    expect(map.setLayoutProperty).toHaveBeenLastCalledWith("road-label", "visibility", "visible");
+    expect(map.setLayoutProperty).toHaveBeenCalledWith("road-label", "visibility", "visible");
+    // Peaks are the generator's own layer: they stay visible when basemap labels are hidden or shown.
+    expect(map.setLayoutProperty).toHaveBeenLastCalledWith("video-peak-labels", "visibility", "visible");
+    // The narrated script is editable next to the preview, starting from the factual default.
+    expect(screen.getByRole("button", { name: "Rédiger avec l’IA" })).toBeTruthy();
+    // MP4 export and the Instagram description sit next to the narration.
+    expect(screen.getByRole("button", { name: /Exporter la vidéo MP4/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Générer la description et les hashtags/ })).toBeTruthy();
+    expect((screen.getByLabelText(/^Narration : Intro/) as HTMLTextAreaElement).value).toMatch(/^SaintéLyon 2026 :/);
 
     await userEvent.click(screen.getByRole("button", { name: "Lecture" }));
     act(() => flushAnimationFrames(1_000));

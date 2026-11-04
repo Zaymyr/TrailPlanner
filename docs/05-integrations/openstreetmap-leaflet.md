@@ -37,7 +37,7 @@ This document records the lightweight mapping setup used for organizer GPX route
 
 ## Current Usage
 
-The admin-only `/admin/video-generator` is deliberately not a Leaflet extension: it uses Mapbox GL JS for satellite imagery, raster DEM terrain, a deterministic FreeCamera route animation, and real 9:16/16:9 preview dimensions. Its Testing Library/jsdom dependencies are test-only. This does not replace or modify any Leaflet surface documented below.
+The admin-only `/admin/video-generator` is deliberately not a Leaflet extension: it uses Mapbox GL JS for satellite imagery, raster DEM terrain, a deterministic FreeCamera route animation, and real 9:16/16:9 preview dimensions. Its Testing Library/jsdom dependencies are test-only, and its server-only `@anthropic-ai/sdk` narration dependency never reaches map code; its MP4 export libraries (`mediabunny`, `html-to-image`) are loaded only by that admin route. This does not replace or modify any Leaflet surface documented below.
 
 `apps/web/components/gpx/GpxRouteMap.tsx` is the reusable wrapper for organizer-facing GPX route maps.
 

@@ -11,7 +11,21 @@ export type RouteCameraController = {
   reset: (duration?: number) => void;
 };
 
-const getCameraForBounds = (map: MapboxMap, bounds: VideoRouteBounds): CameraOptions => {
+const METERS_PER_DEGREE_LAT = 111_320;
+
+/** Mapbox pitch (0 = straight down) and bearing (degrees from north) of a camera pose. */
+export const getPitchBearing = ({ camera, target }: CameraPose) => {
+  const eastM = (target.lon - camera.lon) * METERS_PER_DEGREE_LAT * Math.cos((camera.lat * Math.PI) / 180);
+  const northM = (target.lat - camera.lat) * METERS_PER_DEGREE_LAT;
+  const groundM = Math.hypot(eastM, northM);
+  const dropM = Math.max(1, camera.altitudeM - target.altitudeM);
+  return {
+    pitch: Math.min(85, (Math.atan2(groundM, dropM) * 180) / Math.PI),
+    bearing: groundM > 0 ? (Math.atan2(eastM, northM) * 180) / Math.PI : 0,
+  };
+};
+
+const getCameraForBounds =(map: MapboxMap, bounds: VideoRouteBounds): CameraOptions => {
   const isSinglePoint = bounds.minLat === bounds.maxLat && bounds.minLon === bounds.maxLon;
   if (isSinglePoint) {
     return { center: [bounds.minLon, bounds.minLat], zoom: 14 };
@@ -36,11 +50,11 @@ export const createRouteCameraController = (
       [frame.camera.lon, frame.camera.lat],
       frame.camera.altitudeM,
     );
-    camera.lookAtPoint(
-      [frame.target.lon, frame.target.lat],
-      [0, 0, 1],
-      frame.target.altitudeM,
-    );
+    // Orientation from our own camera → target vector. `lookAtPoint` re-reads the terrain under
+    // the target every frame, so ravines and ridges under a smoothly moving target made the view
+    // nod; the pose already carries a smoothed target altitude.
+    const { pitch, bearing } = getPitchBearing(frame);
+    camera.setPitchBearing(pitch, bearing);
     map.setFreeCameraOptions(camera);
   },
   fitOverview: (duration = 700) => {

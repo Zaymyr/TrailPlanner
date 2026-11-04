@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import type { VideoRoutePoint } from "../../../lib/video-generator";
 import {
+  buildLineProgressTable,
   getChaseCameraPose,
+  getLineProgressAtDistance,
   getOverviewCameraPose,
   getRouteHeading,
   getRoutePointAtDistance,
@@ -72,7 +74,7 @@ describe("getChaseCameraPose", () => {
     const pose = getChaseCameraPose(straight, 10, 500, "landscape");
     expect(pose.camera.lat).toBeLessThan(pose.target.lat);
     expect(pose.camera.lon).toBeCloseTo(pose.target.lon, 6);
-    expect(pose.camera.altitudeM).toBeGreaterThan(600 * 1.15 + 299);
+    expect(pose.camera.altitudeM).toBeGreaterThan(pose.target.altitudeM + 299);
   });
 
   it("raises the portrait camera and stays finite for degenerate paths", () => {
@@ -110,5 +112,20 @@ describe("getOverviewCameraPose", () => {
     expect(portrait.target.lat).toBeCloseTo(45.1, 6);
     expect(portrait.camera.lat).toBeLessThan(portrait.target.lat);
     expect(portrait.camera.altitudeM).toBeGreaterThan(landscape.camera.altitudeM);
+  });
+});
+
+describe("buildLineProgressTable", () => {
+  it("maps GPX distance to the drawn line progress used by line-trim-offset", () => {
+    // Steep first half: the GPX counts 3D distance (10 km) for a shorter drawn segment than the flat 10 km.
+    const table = buildLineProgressTable([
+      { lat: 45, lon: 4, elevationM: 200, distanceKm: 0 },
+      { lat: 45.045, lon: 4, elevationM: 2_200, distanceKm: 10 },
+      { lat: 45.135, lon: 4, elevationM: 2_200, distanceKm: 20 },
+    ]);
+    expect(getLineProgressAtDistance(table, 0)).toBe(0);
+    expect(getLineProgressAtDistance(table, 10)).toBeCloseTo(1 / 3, 2);
+    expect(getLineProgressAtDistance(table, 20)).toBe(1);
+    expect(getLineProgressAtDistance(table, 25)).toBe(1);
   });
 });

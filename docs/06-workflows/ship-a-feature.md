@@ -68,6 +68,8 @@ npm run verify
 
 8. For web UI changes, run/build the web app.
    Browser integrations with public provider tokens must also document the environment variable, origin restrictions, attribution, pricing boundary, and any downstream licensing gate.
+   Browser media dependencies (for example the admin MP4 export libraries) stay imported by the route that needs them only, pinned to a release that has been out for at least two weeks.
+   Paid server-side AI or voice providers (Anthropic, ElevenLabs) stay behind admin-only routes with server-only keys listed in `apps/web/.env.example`, and must answer with an explicit message when their key is missing.
    Server image changes must also exercise a real decode/resize test and a clean production build so Sharp's platform-specific binary is present in the deployed web workspace.
 9. For mobile native changes, use the EAS/dev-client path.
 10. For Supabase changes, verify RLS and service-role behavior separately.

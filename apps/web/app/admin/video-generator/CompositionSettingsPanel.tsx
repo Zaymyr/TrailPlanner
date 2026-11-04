@@ -6,11 +6,11 @@ import { Button } from "../../../components/ui/button";
 import type { VideoAidStation } from "../../../lib/video-generator";
 import { MAP_AMBIANCES } from "./map-appearance";
 import {
+  AID_SERVICES,
   getAidStationServices,
   MAPBOX_STYLE_URL_PATTERN,
   PROFILE_SLOPE_CLASSES,
   VIDEO_DURATION_PRESETS,
-  type ScheduledAidLabel,
   type VideoCompositionSettings,
 } from "./video-composition";
 
@@ -19,7 +19,11 @@ type BooleanSettingKey = {
 }[keyof VideoCompositionSettings];
 
 type CompositionSettingsPanelProps = {
-  aidLabels: ScheduledAidLabel[];
+  /** Ids of the beats kept in the narration, to flag stations left out. */
+  narratedIds: Set<string>;
+  autoDurationSeconds: number;
+  /** False when the race has no start time: the day/night look cannot be estimated. */
+  dayNightAvailable: boolean;
   aidStations: VideoAidStation[];
   cameraActionsDisabled: boolean;
   onChange: (settings: VideoCompositionSettings) => void;
@@ -34,16 +38,23 @@ const INFORMATION_TOGGLES: Array<[BooleanSettingKey, string]> = [
   ["showElevation", "Dénivelé"],
   ["showStartInfo", "Départ (lieu, heure)"],
   ["showAidStations", "Ravitaillements"],
+  ["showSubtitles", "Sous-titres (voix)"],
+  ["showCaptions", "Encart du tronçon"],
+  ["showAidBubbles", "Bulles des ravitos"],
   ["showProfile", "Profil altimétrique"],
   ["showCurrentKm", "Kilomètre en cours"],
 ];
 
+/** Settings group, collapsed by default: the defaults are good, so details stay out of the way. */
 function PanelSection({ children, title }: { children: ReactNode; title: string }) {
   return (
-    <fieldset className="space-y-2 border-t border-border pt-3 first:border-t-0 first:pt-0">
-      <legend className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</legend>
-      {children}
-    </fieldset>
+    <details className="group border-t border-border pt-2">
+      <summary className="flex cursor-pointer list-none items-center justify-between py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground">
+        {title}
+        <span aria-hidden="true" className="transition-transform group-open:rotate-90">›</span>
+      </summary>
+      <div className="space-y-2 pb-2 pt-2">{children}</div>
+    </details>
   );
 }
 
@@ -68,7 +79,7 @@ function Segmented<T extends string>({
   value: T;
 }) {
   return (
-    <div role="group" aria-label={label} className="flex rounded-md border border-border bg-muted/30 p-1">
+    <div role="group" aria-label={label} className="flex flex-wrap rounded-md border border-border bg-muted/30 p-1">
       {options.map(([optionValue, optionLabel]) => (
         <Button
           key={optionValue}
@@ -86,7 +97,9 @@ function Segmented<T extends string>({
 }
 
 export function CompositionSettingsPanel({
-  aidLabels,
+  narratedIds,
+  autoDurationSeconds,
+  dayNightAvailable,
   aidStations,
   cameraActionsDisabled,
   onChange,
@@ -99,7 +112,6 @@ export function CompositionSettingsPanel({
   const update = <Key extends keyof VideoCompositionSettings>(key: Key, value: VideoCompositionSettings[Key]) =>
     onChange({ ...settings, [key]: value });
   const disabledStations = new Set(settings.disabledAidStationIds);
-  const shownLabelIds = new Set(aidLabels.map((label) => label.id));
 
   const copyConfiguration = async () => {
     try {
@@ -112,38 +124,70 @@ export function CompositionSettingsPanel({
   };
 
   return (
-    <div className="space-y-4 text-foreground">
-      <PanelSection title="Format">
-        <Segmented
-          label="Format de prévisualisation"
-          value={settings.viewport}
-          options={[["portrait", "Instagram 9:16"], ["landscape", "Classique 16:9"]]}
-          onChange={(value) => update("viewport", value)}
-        />
+    <div className="space-y-2 text-foreground">
+      {/* Quick access: what is worth changing per video. */}
+      <div className="space-y-2 pb-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Réglages rapides</p>
+        <label className="block space-y-1 text-sm">
+          <span className="flex justify-between font-medium">
+            Relief
+            <span className="tabular-nums text-muted-foreground">×{settings.terrainExaggeration.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}</span>
+          </span>
+          <input
+            aria-label="Exagération du relief"
+            type="range"
+            className="w-full accent-brand"
+            min={1}
+            max={3}
+            step={0.05}
+            value={settings.terrainExaggeration}
+            onChange={(event) => update("terrainExaggeration", Number(event.target.value))}
+          />
+        </label>
+        <div className="space-y-1 text-sm">
+          <span className="font-medium">Qualité de la vidéo</span>
         <Segmented
           label="Résolution d’export"
           value={settings.resolution}
           options={[["540p", "540p (test)"], ["1080p", "1080p"]]}
           onChange={(value) => update("resolution", value)}
         />
+        </div>
+      </div>
+
+      <PanelSection title="Format et durée">
+        <Segmented
+          label="Format de prévisualisation"
+          value={settings.viewport}
+          options={[["portrait", "Instagram 9:16"], ["landscape", "Classique 16:9"]]}
+          onChange={(value) => update("viewport", value)}
+        />
         <label className="block space-y-1 text-sm">
           <span className="font-medium">Durée totale</span>
           <select
             aria-label="Durée de la vidéo"
             className="min-h-9 w-full rounded-md border border-input bg-card px-2 text-sm"
-            value={settings.durationSeconds}
-            onChange={(event) => update("durationSeconds", Number(event.target.value) as VideoCompositionSettings["durationSeconds"])}
+            value={settings.durationMode === "auto" ? "auto" : settings.durationSeconds}
+            onChange={(event) => onChange(event.target.value === "auto"
+              ? { ...settings, durationMode: "auto" }
+              : { ...settings, durationMode: "manual", durationSeconds: Number(event.target.value) })}
           >
+            <option value="auto">Auto selon le parcours ({autoDurationSeconds} s minimum)</option>
             {VIDEO_DURATION_PRESETS.map((duration) => <option key={duration} value={duration}>{duration} secondes</option>)}
           </select>
+          <span className="block text-xs text-muted-foreground">
+            {settings.durationMode === "auto"
+              ? "La vidéo s’allonge si la narration en a besoin."
+              : "Durée fixe : la narration doit tenir dedans."}
+          </span>
         </label>
       </PanelSection>
 
-      <PanelSection title="Carte et caméra">
+      <PanelSection title="Carte">
         <Segmented
           label="Style de carte"
           value={settings.mapStyle}
-          options={[["classic", "Satellite"], ["standard", "Standard 3D"], ["custom", "Mon style"]]}
+          options={[["paceyourself", "Pace Yourself"], ["classic", "Satellite"], ["standard", "Standard 3D"], ["custom", "Mon style"]]}
           onChange={(value) => update("mapStyle", value)}
         />
         {settings.mapStyle === "custom" ? (
@@ -161,7 +205,7 @@ export function CompositionSettingsPanel({
               }}
             />
             <span className="text-muted-foreground">
-              {settings.customStyleUrl ? "Style appliqué." : "Créez un style sur studio.mapbox.com puis collez son URL « Share ». En attendant, le satellite est utilisé."}
+              {settings.customStyleUrl ? "Style appliqué." : "Créez un style sur studio.mapbox.com puis collez son URL « Share ». En attendant, le style Pace Yourself est utilisé."}
             </span>
           </label>
         ) : null}
@@ -171,23 +215,19 @@ export function CompositionSettingsPanel({
           options={Object.entries(MAP_AMBIANCES).map(([value, ambiance]) => [value as VideoCompositionSettings["mapAmbiance"], ambiance.label])}
           onChange={(value) => update("mapAmbiance", value)}
         />
-        <label className="block space-y-1 text-sm">
-          <span className="flex justify-between font-medium">
-            Relief
-            <span className="tabular-nums text-muted-foreground">×{settings.terrainExaggeration.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}</span>
-          </span>
-          <input
-            aria-label="Exagération du relief"
-            type="range"
-            className="w-full accent-brand"
-            min={1}
-            max={2.5}
-            step={0.05}
-            value={settings.terrainExaggeration}
-            onChange={(event) => update("terrainExaggeration", Number(event.target.value))}
-          />
-        </label>
         <Toggle label="Masquer les noms de lieux et de routes" checked={settings.hideMapLabels} onChange={(checked) => update("hideMapLabels", checked)} />
+        <Toggle label="Afficher les sommets (nom, altitude)" checked={settings.showPeaks} onChange={(checked) => update("showPeaks", checked)} />
+        <Toggle label="Jour / nuit selon l’heure estimée" checked={settings.dayNight} onChange={(checked) => update("dayNight", checked)} />
+        {settings.dayNight ? (
+          <p className="text-xs text-muted-foreground">
+            {dayNightAvailable
+              ? "Heure de passage estimée avec une allure classique, recalée sur les barrières horaires."
+              : "Heure de départ inconnue pour ce format : la lumière reste celle du jour."}
+          </p>
+        ) : null}
+      </PanelSection>
+
+      <PanelSection title="Tracé et caméra">
         <Segmented
           label="Affichage du tracé"
           value={settings.revealMode}
@@ -202,6 +242,7 @@ export function CompositionSettingsPanel({
             onChange={(value) => update("routeWidth", value)}
           />
           <Toggle label="Halo lumineux" checked={settings.routeGlow} onChange={(checked) => update("routeGlow", checked)} />
+          <Toggle label="Liseré blanc" checked={settings.routeCasing} onChange={(checked) => update("routeCasing", checked)} />
         </div>
         <div className="flex gap-2">
           <Button type="button" variant="outline" className="h-8 flex-1 px-2 text-xs" disabled={cameraActionsDisabled} onClick={onFitOverview}>Vue d’ensemble</Button>
@@ -209,7 +250,7 @@ export function CompositionSettingsPanel({
         </div>
       </PanelSection>
 
-      <PanelSection title="Informations">
+      <PanelSection title="Informations affichées">
         <div className="grid grid-cols-2 gap-x-2">
           {INFORMATION_TOGGLES.map(([key, label]) => (
             <Toggle key={key} label={label} checked={settings[key]} onChange={(checked) => update(key, checked)} />
@@ -235,11 +276,15 @@ export function CompositionSettingsPanel({
         ) : null}
       </PanelSection>
 
-      <PanelSection title="Identité graphique">
+      <PanelSection title="Couleurs et marque">
         <div className="grid grid-cols-2 gap-2">
           <label className="flex items-center gap-2 text-sm">
             <input aria-label="Couleur du parcours" type="color" className="h-8 w-10 cursor-pointer rounded border border-border bg-card" value={settings.routeColor} onChange={(event) => update("routeColor", event.target.value)} />
             Parcours
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input aria-label="Couleur de la section racontée" type="color" className="h-8 w-10 cursor-pointer rounded border border-border bg-card" value={settings.highlightColor} onChange={(event) => update("highlightColor", event.target.value)} />
+            Section racontée
           </label>
           <label className="flex items-center gap-2 text-sm">
             <input aria-label="Couleur d’accentuation" type="color" className="h-8 w-10 cursor-pointer rounded border border-border bg-card" value={settings.accentColor} onChange={(event) => update("accentColor", event.target.value)} />
@@ -252,8 +297,8 @@ export function CompositionSettingsPanel({
 
       <PanelSection title="Séquences">
         <div className="grid grid-cols-2 gap-x-2">
-          <Toggle label="Introduction (3 s)" checked={settings.introEnabled} onChange={(checked) => update("introEnabled", checked)} />
-          <Toggle label="Conclusion (3 s)" checked={settings.outroEnabled} onChange={(checked) => update("outroEnabled", checked)} />
+          <Toggle label="Introduction" checked={settings.introEnabled} onChange={(checked) => update("introEnabled", checked)} />
+          <Toggle label="Conclusion" checked={settings.outroEnabled} onChange={(checked) => update("outroEnabled", checked)} />
         </div>
       </PanelSection>
 
@@ -270,7 +315,7 @@ export function CompositionSettingsPanel({
                     label={[
                       `${station.name} · km ${station.distanceKm.toLocaleString("fr-FR", { maximumFractionDigits: 1 })}`,
                       station.isLifeBase ? "base de vie" : null,
-                      getAidStationServices(station).join(", ").toLowerCase() || null,
+                      getAidStationServices(station).map((service) => AID_SERVICES[service]).join(", ").toLowerCase() || null,
                     ].filter(Boolean).join(" · ")}
                     checked={enabled}
                     onChange={(checked) => update(
@@ -280,8 +325,8 @@ export function CompositionSettingsPanel({
                         : [...settings.disabledAidStationIds, station.id],
                     )}
                   />
-                  {enabled && settings.showAidStations && !shownLabelIds.has(station.id) ? (
-                    <span className="shrink-0 text-[10px] text-muted-foreground" title="Trop proche du ravitaillement précédent pour afficher une étiquette lisible">masqué</span>
+                  {enabled && settings.showAidStations && !narratedIds.has(station.id) ? (
+                    <span className="shrink-0 text-[10px] text-muted-foreground" title="Trop proche d’un autre moment raconté, ou vidéo trop courte pour tout raconter">non raconté</span>
                   ) : null}
                 </li>
               );
