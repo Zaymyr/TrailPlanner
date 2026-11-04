@@ -617,7 +617,8 @@ export const getTimeSmoothedHeading = (path: PreparedAnimationPath, timeline: Vi
   const length = Math.hypot(east, north);
   return length > 1 ? { east: east / length, north: north / length } : undefined;
 };
-const FRAMING_RAMP_IN_MS = 1_500;
+// Slow rise when a climb or descent is told: a helicopter takes height, it does not jump.
+const FRAMING_RAMP_IN_MS = 3_500;
 // Share of the slope covered when the framing shot starts / ends handing back to the chase camera.
 const FRAMING_RELEASE_START = 0.35;
 const FRAMING_RELEASE_END = 0.8;
@@ -773,7 +774,8 @@ export const shiftIntoVisibleZone = (pose: CameraPose, ratio = VISIBLE_ZONE_SHIF
   };
 };
 
-export const getVideoCameraPose = (
+/** Camera pose computed from this moment alone, before the time smoothing of the whole flight. */
+export const getRawVideoCameraPose = (
   path: PreparedAnimationPath,
   timeline: VideoTimeline,
   frame: VideoFrameState,
@@ -817,4 +819,96 @@ export const getVideoCameraPose = (
     );
   }
   return interpolateCameraPose(chase, overview, easeInOut(frame.phaseProgress / OUTRO_GLIDE_RATIO));
+};
+
+// The whole flight is computed once, then low-passed in time (gaussian, σ = 1.8 s) on the camera
+// position and on the aimed point: every change (a turn, a speed change, a climb shot taking height)
+// becomes a long glide, like a helicopter, and the result stays a pure function of time.
+const CAMERA_TRACK_STEP_MS = 100;
+const CAMERA_TRACK_SIGMA_MS = 1_800;
+
+type CameraTrack = { lat: Float64Array; lon: Float64Array; alt: Float64Array };
+type SmoothedCameraTrack = { camera: CameraTrack; target: CameraTrack };
+
+const cameraTrackCache = new WeakMap<VideoTimeline, Map<AnimationViewport, SmoothedCameraTrack>>();
+
+const createTrack = (length: number): CameraTrack => ({
+  lat: new Float64Array(length),
+  lon: new Float64Array(length),
+  alt: new Float64Array(length),
+});
+
+const smoothTrack = (track: CameraTrack, kernel: number[]): CameraTrack => {
+  const length = track.lat.length;
+  const radius = (kernel.length - 1) / 2;
+  const smoothed = createTrack(length);
+  for (let index = 0; index < length; index += 1) {
+    let lat = 0;
+    let lon = 0;
+    let alt = 0;
+    kernel.forEach((weight, offset) => {
+      // The ends are held: before the first and after the last moment the camera stays put.
+      const source = clamp(index + offset - radius, 0, length - 1);
+      lat += track.lat[source] * weight;
+      lon += track.lon[source] * weight;
+      alt += track.alt[source] * weight;
+    });
+    smoothed.lat[index] = lat;
+    smoothed.lon[index] = lon;
+    smoothed.alt[index] = alt;
+  }
+  return smoothed;
+};
+
+const buildCameraTrack = (path: PreparedAnimationPath, timeline: VideoTimeline, viewport: AnimationViewport) => {
+  const length = Math.floor(timeline.totalMs / CAMERA_TRACK_STEP_MS) + 2;
+  const camera = createTrack(length);
+  const target = createTrack(length);
+  for (let index = 0; index < length; index += 1) {
+    const pose = getRawVideoCameraPose(path, timeline, getVideoFrameState(timeline, index * CAMERA_TRACK_STEP_MS), viewport);
+    camera.lat[index] = pose.camera.lat;
+    camera.lon[index] = pose.camera.lon;
+    camera.alt[index] = pose.camera.altitudeM;
+    target.lat[index] = pose.target.lat;
+    target.lon[index] = pose.target.lon;
+    target.alt[index] = pose.target.altitudeM;
+  }
+  const radius = Math.ceil((CAMERA_TRACK_SIGMA_MS * 3) / CAMERA_TRACK_STEP_MS);
+  const sigma = CAMERA_TRACK_SIGMA_MS / CAMERA_TRACK_STEP_MS;
+  const weights = Array.from({ length: radius * 2 + 1 }, (_, index) => Math.exp(-((index - radius) ** 2) / (2 * sigma * sigma)));
+  const total = weights.reduce((sum, weight) => sum + weight, 0);
+  const kernel = weights.map((weight) => weight / total);
+  return { camera: smoothTrack(camera, kernel), target: smoothTrack(target, kernel) };
+};
+
+const sampleTrack = (track: CameraTrack, position: number) => {
+  const index = clamp(Math.floor(position), 0, track.lat.length - 1);
+  const next = Math.min(track.lat.length - 1, index + 1);
+  const t = clamp(position - index, 0, 1);
+  return {
+    lat: track.lat[index] + (track.lat[next] - track.lat[index]) * t,
+    lon: track.lon[index] + (track.lon[next] - track.lon[index]) * t,
+    altitudeM: track.alt[index] + (track.alt[next] - track.alt[index]) * t,
+  };
+};
+
+/** Camera pose of a frame, read from the time-smoothed flight. */
+export const getVideoCameraPose = (
+  path: PreparedAnimationPath,
+  timeline: VideoTimeline,
+  frame: Pick<VideoFrameState, "timeMs">,
+  viewport: AnimationViewport,
+): CameraPose => {
+  let tracks = cameraTrackCache.get(timeline);
+  if (!tracks) {
+    tracks = new Map();
+    cameraTrackCache.set(timeline, tracks);
+  }
+  let track = tracks.get(viewport);
+  if (!track) {
+    track = buildCameraTrack(path, timeline, viewport);
+    tracks.set(viewport, track);
+  }
+  const position = clamp(frame.timeMs, 0, timeline.totalMs) / CAMERA_TRACK_STEP_MS;
+  return { camera: sampleTrack(track.camera, position), target: sampleTrack(track.target, position) };
 };

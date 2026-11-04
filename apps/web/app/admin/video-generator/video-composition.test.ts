@@ -18,6 +18,7 @@ import {
   getSmoothedCameraTarget,
   shiftIntoVisibleZone,
   getTimeSmoothedHeading,
+  getRawVideoCameraPose,
   getVideoCameraPose,
   getVideoFrameState,
   NARRATION_LEAD_MS,
@@ -155,17 +156,28 @@ describe("buildVideoTimeline", () => {
     const timeline = buildVideoTimeline(path, [beat("start", "start", 0, 10, "Départ."), climb], { ...manual(45), introEnabled: false, outroEnabled: false });
     const told = timeline.beats.find((item) => item.id === "climb")!;
     const msAt = (distanceKm: number) => timeline.introMs + getFlyoverFractionAtDistance(timeline, distanceKm) * timeline.flyoverMs;
-    // Early in the climb (after the 1.5 s glide in), the shot frames the whole slope.
+    // Early in the climb (while the 3.5 s rise is under way), the shot frames the whole slope.
     const during = getVideoFrameState(timeline, Math.max(told.narrationStartMs + 1_600, msAt(12.5)));
     expect(during.distanceKm).toBeLessThan(13.5);
-    const framed = getVideoCameraPose(path, timeline, during, "portrait");
-    const chase = getVideoCameraPose(path, timeline, { ...during, beat: null }, "portrait");
+    const framed = getRawVideoCameraPose(path, timeline, during, "portrait");
+    const chase = getRawVideoCameraPose(path, timeline, { ...during, beat: null }, "portrait");
     expect(framed.target.lat).toBeGreaterThan(chase.target.lat);
     expect(framed.camera.altitudeM).toBeGreaterThan(chase.camera.altitudeM);
     // Near the top the camera is fully back on the runner, while the voice still speaks.
     const nearTop = getVideoFrameState(timeline, msAt(18.5));
     expect(nearTop.beat?.id).toBe("climb");
-    expect(getVideoCameraPose(path, timeline, nearTop, "portrait")).toEqual(getVideoCameraPose(path, timeline, { ...nearTop, beat: null }, "portrait"));
+    expect(getRawVideoCameraPose(path, timeline, nearTop, "portrait")).toEqual(getRawVideoCameraPose(path, timeline, { ...nearTop, beat: null }, "portrait"));
+
+    // The flight itself glides into that shot: no frame-to-frame jolt when the climb starts.
+    const altitudes: number[] = [];
+    const rawAltitudes: number[] = [];
+    for (let ms = told.narrationStartMs - 3_000; ms < told.narrationStartMs + 6_000; ms += 1_000 / 30) {
+      const frame = getVideoFrameState(timeline, ms);
+      altitudes.push(getVideoCameraPose(path, timeline, frame, "portrait").camera.altitudeM);
+      rawAltitudes.push(getRawVideoCameraPose(path, timeline, frame, "portrait").camera.altitudeM);
+    }
+    const maxJolt = (values: number[]) => Math.max(...values.slice(2).map((value, index) => Math.abs(value - 2 * values[index + 1] + values[index])));
+    expect(maxJolt(altitudes)).toBeLessThan(maxJolt(rawAltitudes) * 0.5);
   });
 
   it("burns the narration in as short subtitle lines timed with the voice", () => {
