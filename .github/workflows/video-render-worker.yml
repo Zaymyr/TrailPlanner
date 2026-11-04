@@ -1,0 +1,66 @@
+name: Video render worker
+
+# Builds the headless-Chrome render image and updates the Cloud Run job. GitHub authenticates to
+# Google Cloud through Workload Identity Federation: no Google key is stored in the repository.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/video-render-worker/**"
+      - ".github/workflows/video-render-worker.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: video-render-worker
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  PROJECT_ID: flowing-lead-513714-t2
+  PROJECT_NUMBER: "960460926584"
+  REGION: europe-west1
+  JOB: video-render
+  IMAGE: europe-west1-docker.pkg.dev/flowing-lead-513714-t2/video-render/worker
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Test
+        working-directory: apps/video-render-worker
+        run: node --test
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/${{ env.PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github/providers/github
+          service_account: github-deployer@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build and push the image
+        run: |
+          gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+          docker build -t "${IMAGE}:${GITHUB_SHA}" apps/video-render-worker
+          docker push "${IMAGE}:${GITHUB_SHA}"
+
+      - name: Deploy the Cloud Run job
+        run: |
+          gcloud run jobs deploy "${JOB}" \
+            --project "${PROJECT_ID}" \
+            --region "${REGION}" \
+            --image "${IMAGE}:${GITHUB_SHA}" \
+            --service-account "video-render-runtime@${PROJECT_ID}.iam.gserviceaccount.com" \
+            --cpu 4 \
+            --memory 8Gi \
+            --task-timeout 3h \
+            --max-retries 0 \
+            --tasks 1

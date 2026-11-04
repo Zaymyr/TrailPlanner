@@ -17,6 +17,8 @@ import {
 import { formatClockTime } from "./route-clock";
 
 export type VideoRaceInfo = {
+  /** Catalog race id, used to file background renders. */
+  id?: string;
   title: string;
   subtitle: string | null;
   distanceKm: number;

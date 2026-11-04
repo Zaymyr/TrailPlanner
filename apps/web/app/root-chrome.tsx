@@ -12,7 +12,7 @@ import { HeaderTabs } from "./header-tabs";
 import { useI18n } from "./i18n-provider";
 
 const STANDALONE_PATHS = new Set(["/links", "/en/links"]);
-const STANDALONE_PREFIXES = ["/share/plan/"];
+const STANDALONE_PREFIXES = ["/share/plan/", "/render/"];
 
 type RootChromeProps = {
   children: ReactNode;

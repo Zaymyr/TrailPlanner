@@ -194,3 +194,5 @@ The per-format publication confirmation and version-history menu are presentatio
 - [Organizer Race Management](../../03-business-rules/organizer-race-management.md)
 
 
+
+The address autocomplete popup now credits OpenStreetMap and its suggestions merge two OpenStreetMap providers; claims, memberships and authorization are unaffected.

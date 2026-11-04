@@ -85,8 +85,15 @@ export const exportVideo = async ({ width, height, fps, totalMs, driver, narrati
     throw new ExportUnsupportedError("Ce navigateur ne sait pas encoder la vidéo en H.264 : utilise Chrome ou Edge à jour.");
   }
   const withAudio = Boolean(narration && narration.cues.length > 0);
-  if (withAudio && !(await canEncodeAudio("aac", { numberOfChannels: 2, sampleRate: AUDIO_SAMPLE_RATE, bitrate: 160_000 }))) {
-    throw new ExportUnsupportedError("Ce navigateur ne sait pas encoder le son en AAC : utilise Chrome ou Edge à jour.");
+  const aacConfig = { numberOfChannels: 2, sampleRate: AUDIO_SAMPLE_RATE, bitrate: 160_000 };
+  if (withAudio && !(await canEncodeAudio("aac", aacConfig))) {
+    // Chrome on Linux (the background renderer) and Firefox have no native AAC encoder: fall back
+    // to the WASM build of FFmpeg's encoder, loaded only when needed.
+    const { registerAacEncoder } = await import("@mediabunny/aac-encoder");
+    registerAacEncoder();
+    if (!(await canEncodeAudio("aac", aacConfig))) {
+      throw new ExportUnsupportedError("Ce navigateur ne sait pas encoder le son en AAC : utilise Chrome ou Edge à jour.");
+    }
   }
 
   onProgress({ phase: "preparing", frame: 0, totalFrames, elapsedMs: 0 });

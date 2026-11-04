@@ -1,0 +1,16 @@
+{
+  "name": "@trailplanner/video-render-worker",
+  "private": true,
+  "type": "module",
+  "description": "Cloud Run job: renders an admin 3D reel in headless Chrome and uploads the MP4.",
+  "scripts": {
+    "start": "node render.mjs",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "playwright": "1.64.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

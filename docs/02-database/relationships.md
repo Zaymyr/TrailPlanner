@@ -276,5 +276,6 @@ Organizer access should be checked through an active `race_event_organizers` row
 - [race_supporter_points](tables/race-supporter-points.md)
 - [race_relay_points](tables/race-relay-points.md)
 - [race_slug_redirects](tables/race-slug-redirects.md)
+- [video_render_jobs](tables/video-render-jobs.md)
 - [race_event_organizers](tables/race-event-organizers.md)
 - [race_aid_station_products](tables/race-aid-station-products.md)

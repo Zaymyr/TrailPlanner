@@ -102,6 +102,7 @@ You modify `apps/web/lib/auth/session.ts`, which is referenced by `docs/04-auth-
 | Integration work (Stripe, Resend, Geocoding, Edge Functions) | `docs/05-integrations/` |
 | Admin Mapbox 3D video preview | `docs/05-integrations/mapbox-3d.md` + `docs/03-business-rules/gpx-import.md` + `docs/01-architecture/web-app.md` |
 | Admin 3D course viewer / Mapbox | `docs/05-integrations/mapbox-3d.md` + `docs/03-business-rules/gpx-import.md` + `docs/01-architecture/web-app.md` |
+| Admin reel background render / Google Cloud | `docs/05-integrations/google-cloud-video-render.md` + `docs/02-database/tables/video-render-jobs.md` + `docs/05-integrations/mapbox-3d.md` |
 | Booking / Decathlon partner links | `docs/05-integrations/affiliate-partner-links.md` + `docs/02-database/tables/partner-link-settings.md` |
 | Organizer LLM reconciliation | `docs/05-integrations/openai-organizer-import.md` + `docs/03-business-rules/organizer-race-management.md` + `docs/02-database/tables/organizer-import-sessions.md` |
 | Mobile-specific work | `docs/01-architecture/mobile-app.md` + `docs/06-workflows/add-new-screen-mobile.md` |

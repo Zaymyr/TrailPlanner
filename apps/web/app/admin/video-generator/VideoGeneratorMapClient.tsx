@@ -74,6 +74,17 @@ import {
 } from "./video-composition";
 import { createVideoFrameStore, VideoCompositionOverlay } from "./VideoCompositionOverlay";
 import type { VideoGeneratorMapProps } from "./VideoGeneratorMap";
+import type { VideoRenderSnapshot } from "./render-snapshot";
+import { BackgroundRenderPanel } from "./BackgroundRenderPanel";
+import {
+  forgetVoice,
+  getLastUsedVoiceId,
+  loadVoiceLibrary,
+  nameVoice,
+  rememberVoice,
+  storeVoiceLibrary,
+  type SavedVoice,
+} from "./voice-library";
 
 const TERRAIN_SOURCE_ID = "video-terrain-dem";
 const ROUTE_SOURCE_ID = "video-route";
@@ -583,7 +594,8 @@ const setMapInteractionsEnabled = (map: MapboxMap, enabled: boolean) => {
   });
 };
 
-export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations, bounds, points, race }: VideoGeneratorMapProps) {
+export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations, bounds, points, race, render }: VideoGeneratorMapProps) {
+  const renderSnapshot = render?.snapshot;
   const accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN?.trim() ?? "";
   const containerRef = useRef<HTMLDivElement | null>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
@@ -609,7 +621,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   const boundsRef = useRef(bounds);
   const pointsRef = useRef(points);
 
-  const [settings, setSettings] = useState<VideoCompositionSettings>(DEFAULT_VIDEO_COMPOSITION_SETTINGS);
+  const [settings, setSettings] = useState<VideoCompositionSettings>(renderSnapshot?.settings ?? DEFAULT_VIDEO_COMPOSITION_SETTINGS);
   const [preparedPath, setPreparedPath] = useState<PreparedAnimationPath>(() => prepareAnimationPath(points));
   const [mapError, setMapError] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
@@ -628,7 +640,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   // The story: detected moments with a default narration, overridden by the AI or by hand.
   const autoDurationSeconds = getAutoDurationSeconds(preparedPath.totalDistanceKm);
   const maxSeconds = settings.durationMode === "auto" ? MAX_VIDEO_SECONDS : settings.durationSeconds;
-  const [landmarks, setLandmarks] = useState<StoryLandmarks>({});
+  const [landmarks, setLandmarks] = useState<StoryLandmarks>(renderSnapshot?.landmarks ?? {});
   // Estimated passing time at each kilometre (classic pace, cutoffs) for the day/night look.
   const raceClock = useMemo(() => buildRaceClock(preparedPath, enabledAidStations, race), [enabledAidStations, preparedPath, race]);
   const activeClock = settings.dayNight ? raceClock : null;
@@ -647,7 +659,8 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   // Summit names make the story concrete ("la montée vers le Mont Thou"): ask Mapbox for the
   // highest named peak near each climb top, once per route.
   useEffect(() => {
-    if (!accessToken || !preparedPath.canAnimate) return;
+    // A background render replays the summit names saved with the composition.
+    if (renderSnapshot || !accessToken || !preparedPath.canAnimate) return;
     const controller = new AbortController();
     const climbs = detectRouteSlopes(preparedPath).filter((slope) => slope.kind === "climb").slice(0, 8);
     void Promise.all(climbs.map(async (climb) => {
@@ -658,14 +671,32 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       if (!controller.signal.aborted) setLandmarks(Object.fromEntries(entries.filter((entry): entry is readonly [string, string] => Boolean(entry))));
     }).catch(() => undefined);
     return () => controller.abort();
-  }, [accessToken, preparedPath]);
-  const [narrationOverrides, setNarrationOverrides] = useState<Record<string, string>>({});
+  }, [accessToken, preparedPath, renderSnapshot]);
+  const [narrationOverrides, setNarrationOverrides] = useState<Record<string, string>>(renderSnapshot?.narrationOverrides ?? {});
   const beats = useMemo<StoryBeat[]>(
     () => defaultBeats.map((beat) => narrationOverrides[beat.id] !== undefined ? { ...beat, narration: narrationOverrides[beat.id] } : beat),
     [defaultBeats, narrationOverrides],
   );
-  const [voiceClips, setVoiceClips] = useState<Record<string, NarrationClip>>({});
+  const [voiceClips, setVoiceClips] = useState<Record<string, NarrationClip>>(
+    () => Object.fromEntries((renderSnapshot?.voiceClips ?? []).map((clip) => [clip.beatId, clip])),
+  );
   const [voiceId, setVoiceId] = useState("");
+  // Voices used or saved in this browser; the last one used is picked again on the next visit.
+  const [savedVoices, setSavedVoices] = useState<SavedVoice[]>([]);
+  useEffect(() => {
+    if (render) return;
+    const library = loadVoiceLibrary();
+    setSavedVoices(library);
+    const lastUsed = getLastUsedVoiceId(library);
+    if (lastUsed) setVoiceId((current) => current || lastUsed);
+  }, [render]);
+  const updateVoiceLibrary = (update: (voices: SavedVoice[]) => SavedVoice[]) => {
+    setSavedVoices((current) => {
+      const next = update(current);
+      storeVoiceLibrary(next);
+      return next;
+    });
+  };
   const [voiceOptions, setVoiceOptions] = useState<VoiceOptions>({ model: "multilingual_v2", expressiveness: 0.6 });
   const [scriptState, setScriptState] = useState<AsyncActionState>(IDLE_ACTION);
   const [voiceState, setVoiceState] = useState<AsyncActionState>(IDLE_ACTION);
@@ -945,7 +976,8 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     narrationPlayerRef.current?.stop();
     const base = VIDEO_RESOLUTIONS[settings.resolution];
     const size = settings.viewport === "portrait" ? base : { width: base.height, height: base.width };
-    const scale = Math.min(1, Math.max(0.15, (window.innerHeight - 224) / size.height));
+    // The background renderer opens a window of the exact video size.
+    const scale = render ? 1 : Math.min(1, Math.max(0.15, (window.innerHeight - 224) / size.height));
     if (exportState.status === "done") URL.revokeObjectURL(exportState.url);
     const controller = new AbortController();
     exportAbortRef.current = controller;
@@ -982,14 +1014,18 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
           if (progress.phase === "rendering" && progress.frame < progress.totalFrames && now - lastProgressAt < 250) return;
           lastProgressAt = now;
           setExportState({ status: "running", progress });
+          render?.onProgress(progress.phase === "rendering" ? progress.frame / progress.totalFrames : progress.phase === "finalizing" ? 1 : 0);
         },
         signal: controller.signal,
       });
       const fileName = `${race.title.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "parcours"}-reel.mp4`;
-      setExportState({ status: "done", url: URL.createObjectURL(blob), sizeBytes: blob.size, fileName });
+      if (render) render.onComplete(blob);
+      else setExportState({ status: "done", url: URL.createObjectURL(blob), sizeBytes: blob.size, fileName });
     } catch (error) {
+      const message = error instanceof Error ? error.message : "L’export a échoué.";
+      render?.onError(message);
       if (error instanceof DOMException && error.name === "AbortError") setExportState({ status: "idle", message: "Export annulé." });
-      else setExportState({ status: "error", message: error instanceof Error ? error.message : "L’export a échoué." });
+      else setExportState({ status: "error", message });
     } finally {
       exportAbortRef.current = null;
       setExportLayout(null);
@@ -1041,11 +1077,34 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
           characterEndMs: clip.characterEndMs,
         }])),
       }));
+      if (voiceId) updateVoiceLibrary((voices) => rememberVoice(voices, voiceId));
       setVoiceState({ status: "success", message: "Voix off prête : lance la lecture." });
     } catch (error) {
       setVoiceState({ status: "error", message: error instanceof Error ? error.message : "La voix off n’a pas pu être générée." });
     }
   };
+
+  // Background render: export as soon as the map and its layers are ready, once.
+  const renderStartedRef = useRef(false);
+  const startExportRef = useRef(startExport);
+  startExportRef.current = startExport;
+  useEffect(() => {
+    if (!render || !isReady || renderStartedRef.current) return;
+    renderStartedRef.current = true;
+    void startExportRef.current();
+  }, [isReady, render]);
+
+  const createRenderSnapshot = (): VideoRenderSnapshot => ({
+    version: 1,
+    race,
+    aidStations,
+    bounds,
+    points,
+    settings,
+    narrationOverrides,
+    landmarks,
+    voiceClips: freshClips,
+  });
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -1215,6 +1274,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
         </div>
         </div>
         </div>
+        {render ? null : (
         <div className={portrait ? "w-full max-w-md" : "w-full"}>
           <AnimationControls
             canAnimate={preparedPath.canAnimate}
@@ -1234,8 +1294,10 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
             totalDistanceKm={preparedPath.totalDistanceKm}
           />
         </div>
+        )}
       </section>
 
+      {render ? null : (
       <div className="h-fit space-y-4 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto">
       <Card>
         <CardHeader className="pb-3">
@@ -1251,6 +1313,8 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
               setNarrationOverrides({});
               setScriptState(IDLE_ACTION);
             }}
+            onForgetVoice={(id) => updateVoiceLibrary((voices) => forgetVoice(voices, id))}
+            onSaveVoice={(id, name) => updateVoiceLibrary((voices) => nameVoice(voices, id, name))}
             onVoiceIdChange={setVoiceId}
             onVoiceOptionsChange={setVoiceOptions}
             voiceOptions={voiceOptions}
@@ -1260,6 +1324,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
             voiceId={voiceId}
             voiceReadyIds={new Set(Object.keys(narrationDurations))}
             voiceState={voiceState}
+            voices={savedVoices}
           />
         </CardContent>
       </Card>
@@ -1275,6 +1340,15 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
             onExport={() => void startExport()}
             resolutionLabel={settings.resolution}
             state={exportState}
+          />
+          <BackgroundRenderPanel
+            accessToken={sessionToken}
+            canRender={isReady && preparedPath.canAnimate && exportState.status !== "running"}
+            createSnapshot={createRenderSnapshot}
+            hasVoice={freshClips.length > 0}
+            raceId={race.id}
+            raceTitle={race.title}
+            resolutionLabel={settings.resolution}
           />
         </CardContent>
       </Card>
@@ -1312,6 +1386,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
         </CardContent>
       </Card>
       </div>
+      )}
     </>
   );
 }

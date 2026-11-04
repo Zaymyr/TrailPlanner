@@ -131,3 +131,5 @@ When a mobile change adds an Expo native module, bump the runtime compatibility 
 - [Overview](../01-architecture/overview.md)
 - [Schema Overview](../02-database/schema-overview.md)
 - [RLS Checklist](../04-auth-and-security/rls-checklist.md)
+
+The video render worker (`apps/video-render-worker`) is deployed by `.github/workflows/video-render-worker.yml` on pushes to `main` that touch it; it is not part of `npm run verify` (run `node --test` in its folder).

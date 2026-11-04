@@ -282,3 +282,5 @@ When that source path differs from the current snapshot, the per-format publicat
 - [Organizer Race Management](organizer-race-management.md)
 - [Infrastructure](../01-architecture/infrastructure.md)
 - [Mapbox 3D Admin Course Viewer](../05-integrations/mapbox-3d.md)
+
+Background reel renders replay the parsed GPX points saved in the composition snapshot; they never re-read or re-parse the stored GPX.
