@@ -1,7 +1,7 @@
 ---
 title: Geocoding
 scope: integration
-last_verified: 2026-11-03
+last_verified: 2026-11-04
 ai_priority: medium
 related_files:
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
@@ -12,6 +12,7 @@ related_files:
   - apps/mobile/lib/racebook.ts
   - apps/mobile/lib/fetchWithTimeout.ts
   - apps/web/app/api/location-search/route.ts
+  - apps/web/app/api/location-search/route.test.ts
   - apps/web/lib/location-utils.ts
   - apps/web/app/organizer/_components/dashboard/address-autocomplete-field.tsx
   - apps/web/app/organizer/_components/dashboard/event-format-editors.tsx
@@ -58,7 +59,7 @@ The current organizer flow is:
 
 1. The user types into a route-local `AddressAutocompleteField`.
 2. After 3+ characters and a short debounce, the component calls `GET /api/location-search?q=...`.
-3. The route proxies the lookup to OpenStreetMap Nominatim server-side.
+3. The route queries Photon and OpenStreetMap Nominatim in parallel, server-side, and merges their results.
 4. When the field or its parent scope already has coordinates, the component also sends a proximity bias so nearby suggestions rank first.
 5. The user can keep typing free text normally; the component keeps the raw input locally and only syncs a manual location object on blur when no autocomplete suggestion was chosen.
 6. The selected suggestion keeps the text input filled and also stores a structured location object in `organizer_details`.
@@ -80,12 +81,14 @@ The format-level `Accès - <format>` context and `Accès différents pour ce for
 
 `apps/web/app/api/location-search/route.ts` currently uses:
 
-- provider: OpenStreetMap Nominatim search endpoint;
+- providers: Photon (`photon.komoot.io`, OpenStreetMap data, built for type-ahead: partial words, typos and named places such as a museum or a village hall) and the OpenStreetMap Nominatim search endpoint (strong on exact postal addresses), called in parallel with `Promise.allSettled`; either one failing still returns the other's results, and the route answers 502 only when both fail;
+- provider-neutral candidates: Photon's structured parts become a label (named place first, then number and street, postcode and city, country; a town with its county), Photon's own order gives its relevance, and the same place returned by both providers (same normalized label, or under 30 m apart with the same first word) keeps only its best-ranked entry;
+- licence: both providers serve OpenStreetMap data (ODbL), so the coordinates may be stored; the suggestion popup shows "Données © OpenStreetMap";
 - server-side fetch only;
 - per-IP in-memory rate limiting with `checkRateLimit`;
 - `Accept-Language` forwarding from the incoming request when available;
-- a France-neighbor country filter (`fr`, `mc`, `be`, `ch`, `lu`);
-- optional `biasLat` / `biasLng` query params to favor suggestions near a known event or format location;
+- a France-neighbor country filter (`fr`, `mc`, `be`, `ch`, `lu`), sent to Nominatim and applied locally to Photon results (Photon has no country parameter);
+- optional `biasLat` / `biasLng` query params to favor suggestions near a known event or format location (also forwarded to Photon as `lat` / `lon`);
 - a wider upstream fetch window plus local relevance scoring and deduplication before returning the final shortlist.
 
 The route returns a narrow payload:
@@ -137,9 +140,9 @@ The public `/courses` search reads only the normalized locality names alongside 
 - Do not promote country-level international evidence into a city anchor. Venues, islands, provinces and multi-city races require separate locality verification before nearby-city discovery is enabled.
 - Commune-centre coordinates are approximate discovery anchors, not exact start lines, course geometry or routing distances.
 - Do not assume every historical organizer row has geocoded metadata or a `bibPickup.locations[]` array; old single-location rows should parse through the legacy fallback without losing their free-text schedule.
-- The current Nominatim-backed route is intentionally lightweight. If usage grows, move to a dedicated paid or self-hosted geocoding service before increasing request volume.
-- The current quality improvement is still heuristic on top of Nominatim. It helps French race addresses significantly, but it is not a full postal-address provider with rooftop accuracy guarantees.
-- Google Places is a valid future replacement for autocomplete quality, but it requires a Google Maps Platform key, billing, quota management, and a review of Google usage terms before swapping providers.
+- The route relies on the public Photon and Nominatim instances (fair-use limits, no SLA). If usage grows, self-host Photon (one container with the OpenStreetMap extract) before increasing request volume.
+- The ranking is still heuristic on top of the two OpenStreetMap providers. It helps French race addresses significantly, but it is not a full postal-address provider with rooftop accuracy guarantees.
+- Google Places and Mapbox Search Box were reviewed (2026-11-04) and not adopted: their terms keep returned coordinates temporary (Google: 30-day cache, only `place_id` stored durably; Mapbox Search Box: temporary use unless a sales agreement), while organizer locations are stored. Mapbox permanent geocoding is storable but has no named places.
 - Keep the provider call server-side so browser clients do not depend directly on third-party geocoding availability or headers.
 - Preserve the combobox roles, active-option relationship and keyboard behavior when changing suggestion rendering; mouse-only autocomplete is not an acceptable fallback.
 - Contextual help may replace surrounding explanatory paragraphs in Organizer, but address labels, validation errors, inherited-location values, and the combobox keyboard contract must remain visible and accessible.

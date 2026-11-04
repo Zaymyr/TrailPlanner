@@ -714,3 +714,5 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - [Organizer Race Management](../03-business-rules/organizer-race-management.md)
 - [Stripe](../05-integrations/stripe.md)
 - [Mapbox 3D Admin Course Viewer](../05-integrations/mapbox-3d.md)
+
+Organizer address autocomplete (`/api/location-search`) queries Photon and Nominatim in parallel server-side and merges their OpenStreetMap results, so partial words and named places (museum, village hall) are found while exact postal addresses keep working; the suggestion popup credits OpenStreetMap. See [Geocoding](../05-integrations/geocoding.md).

@@ -223,6 +223,9 @@ export function AddressAutocompleteField({
                   </button>
                 ))
               : null}
+            {!isLoading ? (
+              <p className="border-t border-border px-3 py-1 text-[10px] text-muted-foreground">Données © OpenStreetMap</p>
+            ) : null}
           </div>
         ) : null}
       </div>

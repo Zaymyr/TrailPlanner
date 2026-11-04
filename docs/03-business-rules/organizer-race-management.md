@@ -678,3 +678,5 @@ The runner catalog presents organizer RaceBook availability independently from p
 
 Lot 6 keeps organizer data read-only in the runner experience: official station identity/services show an explicit locked treatment, failed catalog images collapse their decorative rail, and RaceBook distances, ranges, elevation labels, and passage clocks use the shared localized formatter. These changes do not change publication, module visibility, or organizer ownership.
 
+
+Address suggestions in every organizer location field now come from Photon and Nominatim merged (OpenStreetMap data, storable coordinates). The stored location object, its `source`, the canonical text field and the manual free-text fallback are unchanged.
