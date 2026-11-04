@@ -16,6 +16,7 @@ import {
   getCameraSpeedMps,
   getOrbitLookDirection,
   getSmoothedCameraTarget,
+  shiftIntoVisibleZone,
   getTimeSmoothedHeading,
   getVideoCameraPose,
   getVideoFrameState,
@@ -266,6 +267,16 @@ describe("buildVideoTimeline", () => {
     // The aimed point barely moves sideways while the runner zigzags 200 m.
     expect(spread(centre)).toBeLessThan(40);
     expect(spread(runner)).toBeLessThan(40);
+  });
+
+  it("moves the whole camera rig forward so the action sits below the title band", () => {
+    const pose = { camera: { lat: 45, lon: 4, altitudeM: 5_000 }, target: { lat: 45 + 4_000 / 111_320, lon: 4, altitudeM: 500 } };
+    const shifted = shiftIntoVisibleZone(pose, 0.25);
+    // 1 km forward (25 % of the 4 km ground distance), same altitudes, same look direction.
+    expect((shifted.camera.lat - pose.camera.lat) * 111_320).toBeCloseTo(1_000, 0);
+    expect((shifted.target.lat - pose.target.lat) * 111_320).toBeCloseTo(1_000, 0);
+    expect(shifted.camera.altitudeM).toBe(5_000);
+    expect(shifted.target.lon).toBe(4);
   });
 
   it("never overlaps two narrations", () => {

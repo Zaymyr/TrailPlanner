@@ -36,7 +36,7 @@ const mapboxMock = vi.hoisted(() => {
     keyboard = { enable: vi.fn(), disable: vi.fn() };
     scrollZoom = { enable: vi.fn(), disable: vi.fn() };
     touchZoomRotate = { enable: vi.fn(), disable: vi.fn() };
-    freeCamera = { position: null, lookAtPoint: vi.fn() };
+    freeCamera = { position: null, lookAtPoint: vi.fn(), setPitchBearing: vi.fn() };
 
     constructor() {
       instances.push(this);
@@ -206,7 +206,7 @@ describe("VideoGeneratorMapClient", () => {
     const iconData = map.sources.get("video-route-markers")?.definition.data as { features: Array<{ properties: { kind: string } }> };
     expect(iconData.features.map((feature) => feature.properties.kind)).toEqual(["lifeBase", "start", "finish"]);
     const bubbleText = mapboxMock.markers.map((marker) => marker.options?.element?.textContent ?? "").find((text) => text.includes("Sainte-Catherine"));
-    expect(bubbleText).toMatch(/^Base de vie · Sainte-Catherinekm 10 · D\+ [\d\s ]+ mBarrière 06:15$/);
+    expect(bubbleText).toMatch(/^Base de vieSainte-Catherinekm 10 · D\+ [\d\s ]+ mBarrière 06:15$/);
     expect(map.layers.has("video-route-line")).toBe(true);
     expect(map.layers.has("video-route-line-reveal")).toBe(true);
     expect(map.layers.has("video-route-line-glow")).toBe(true);

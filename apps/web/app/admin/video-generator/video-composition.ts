@@ -755,6 +755,24 @@ export const getOrbitLookDirection = (path: PreparedAnimationPath, timeline: Vid
   return { east: Math.sin(radians), north: Math.cos(radians) };
 };
 
+// The top of the frame holds the title, the profile and the leg card: the whole rig moves forward
+// by a share of its ground distance so the runner (or the framed slope) sits in the clear middle-low
+// part of the picture instead of the exact centre.
+const VISIBLE_ZONE_SHIFT = 0.18;
+
+export const shiftIntoVisibleZone = (pose: CameraPose, ratio = VISIBLE_ZONE_SHIFT): CameraPose => {
+  const metersPerDegreeLat = 111_320;
+  const cosLat = Math.cos((pose.camera.lat * Math.PI) / 180);
+  const eastM = (pose.target.lon - pose.camera.lon) * metersPerDegreeLat * cosLat;
+  const northM = (pose.target.lat - pose.camera.lat) * metersPerDegreeLat;
+  const dLat = (northM * ratio) / metersPerDegreeLat;
+  const dLon = (eastM * ratio) / (metersPerDegreeLat * cosLat);
+  return {
+    camera: { ...pose.camera, lat: pose.camera.lat + dLat, lon: pose.camera.lon + dLon },
+    target: { ...pose.target, lat: pose.target.lat + dLat, lon: pose.target.lon + dLon },
+  };
+};
+
 export const getVideoCameraPose = (
   path: PreparedAnimationPath,
   timeline: VideoTimeline,
@@ -762,7 +780,7 @@ export const getVideoCameraPose = (
   viewport: AnimationViewport,
 ): CameraPose => {
   const exaggeration = timeline.terrainExaggeration;
-  const chase = getChaseCameraPose(
+  const chase = shiftIntoVisibleZone(getChaseCameraPose(
     path,
     frame.distanceKm,
     getCameraSpeedMps(timeline, frame.timeMs),
@@ -773,7 +791,7 @@ export const getVideoCameraPose = (
     // meet the flyover framing without a jump.
     // The leash (10 % of the camera distance) keeps a fast runner well inside the frame.
     getSmoothedCameraTarget(path, timeline, frame.timeMs, 0.1 * Math.min(20_000, Math.max(4_500, getCameraSpeedMps(timeline, frame.timeMs) * 3))),
-  );
+  ));
   if (frame.phase === "flyover") {
     const beat = frame.beat;
     if (!beat || (beat.kind !== "climb" && beat.kind !== "descent") || beat.focusStartKm === undefined || beat.focusEndKm === undefined) {
@@ -787,7 +805,7 @@ export const getVideoCameraPose = (
     const rampOut = (FRAMING_RELEASE_END - climbProgress) / (FRAMING_RELEASE_END - FRAMING_RELEASE_START);
     const weight = easeInOut(clamp(Math.min(rampIn, rampOut), 0, 1));
     if (weight <= 0) return chase;
-    const framing = getSegmentFramingPose(path, beat.focusStartKm, beat.focusEndKm, viewport, exaggeration);
+    const framing = shiftIntoVisibleZone(getSegmentFramingPose(path, beat.focusStartKm, beat.focusEndKm, viewport, exaggeration));
     return interpolateCameraPose(chase, framing, weight);
   }
   const overview = getOverviewCameraPose(path, viewport, exaggeration);

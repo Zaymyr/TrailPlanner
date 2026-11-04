@@ -28,6 +28,7 @@ import {
   PEAKS_LAYER_ID,
   resolveMapStyleUrl,
   ROUTE_CASING_WIDTHS,
+  SEGMENT_BORDER_WIDTHS,
   ROUTE_GLOW_WIDTH,
   ROUTE_LINE_WIDTHS,
   type MapAppearanceState,
@@ -85,9 +86,6 @@ const MARKER_ICON_LAYER_ID = "video-route-marker-icons";
 // The climb, descent or rolling section being narrated, drawn in the highlight colour.
 const SEGMENT_SOURCE_ID = "video-beat-segment";
 const SEGMENT_LAYER_ID = "video-beat-segment-line";
-const SEGMENT_DONE_LAYER_ID = "video-beat-segment-done";
-// The told slope ahead of the runner is shown pale; behind the runner it is solid.
-const SEGMENT_AHEAD_OPACITY = 0.4;
 export const VIDEO_ROUTE_COLOR = DEFAULT_VIDEO_COMPOSITION_SETTINGS.routeColor;
 const FUTURE_ROUTE_ALPHA_HEX = "38";
 const GLOW_ROUTE_ALPHA_HEX = "8c";
@@ -99,7 +97,6 @@ const OWN_LAYER_IDS = new Set([
   MARKER_ICON_LAYER_ID,
   PEAKS_LAYER_ID,
   SEGMENT_LAYER_ID,
-  SEGMENT_DONE_LAYER_ID,
 ]);
 
 const EMPTY_FEATURES = { type: "FeatureCollection", features: [] } as const;
@@ -271,10 +268,13 @@ const createAidCardElement = (station: VideoAidStation, cumulativeGainM: number,
     Object.assign(node.style, styles);
     card.appendChild(node);
   };
-  line(`${station.isLifeBase ? "Base de vie · " : ""}${station.name}`, { fontWeight: "800", fontSize: "2.4cqmin", lineHeight: "1.15" });
+  if (station.isLifeBase) {
+    line("Base de vie", { display: "inline-block", marginBottom: "0.5cqmin", padding: "0.2cqmin 1cqmin", borderRadius: "9999px", background: accent, color: "#ffffff", fontWeight: "800", fontSize: "1.7cqmin", letterSpacing: "0.04em", textTransform: "uppercase" });
+  }
+  line(station.name, { fontWeight: "800", fontSize: "2.6cqmin", lineHeight: "1.15", color: accent, textTransform: "uppercase", letterSpacing: "0.02em" });
   const kilometre = station.distanceKm.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
   const gain = Math.round(cumulativeGainM).toLocaleString("fr-FR");
-  line(`km ${kilometre} · D+ ${gain} m`, { fontWeight: "700", fontSize: "2cqmin", color: accent, fontVariantNumeric: "tabular-nums" });
+  line(`km ${kilometre} · D+ ${gain} m`, { fontWeight: "600", fontSize: "2.1cqmin", color: "#3f3f3f", fontVariantNumeric: "tabular-nums" });
   if (station.cutoffTime) {
     // Cutoff in red with a clock, so it stands out from the other figures.
     const cutoff = document.createElement("div");
@@ -323,7 +323,8 @@ const updateAidBubbles = (bubbles: AidBubble[], timeline: VideoTimeline, timeMs:
 type ClimbCard = { card: HTMLElement; title: HTMLElement; facts: HTMLElement; marker: mapboxgl.Marker; beatId: string | null; opacity: number };
 
 /** One card reused for every told slope, placed in the middle of it: title and key figures. */
-const createClimbCard = (map: MapboxMap, accent: string): ClimbCard => {
+// Brand green card with an orange edge (the highlight colour), white text.
+const createClimbCard = (map: MapboxMap, accent: string, highlight: string): ClimbCard => {
   const element = document.createElement("div");
   element.setAttribute("aria-hidden", "true");
   const card = document.createElement("div");
@@ -332,6 +333,7 @@ const createClimbCard = (map: MapboxMap, accent: string): ClimbCard => {
     padding: "0.8cqmin 1.6cqmin",
     borderRadius: "1.2cqmin",
     background: accent,
+    borderLeft: `0.8cqmin solid ${highlight}`,
     color: "#ffffff",
     boxShadow: "0 0.4cqmin 1.6cqmin rgba(0, 0, 0, 0.35)",
     whiteSpace: "nowrap",
@@ -340,9 +342,9 @@ const createClimbCard = (map: MapboxMap, accent: string): ClimbCard => {
     opacity: "0",
   });
   const title = document.createElement("div");
-  Object.assign(title.style, { fontWeight: "800", fontSize: "2.4cqmin", lineHeight: "1.15" });
+  Object.assign(title.style, { fontWeight: "800", fontSize: "2.8cqmin", lineHeight: "1.15", textTransform: "uppercase", letterSpacing: "0.02em" });
   const facts = document.createElement("div");
-  Object.assign(facts.style, { fontWeight: "600", fontSize: "2cqmin", opacity: "0.9", fontVariantNumeric: "tabular-nums" });
+  Object.assign(facts.style, { fontWeight: "600", fontSize: "2.3cqmin", marginTop: "0.3cqmin", color: highlight, fontVariantNumeric: "tabular-nums" });
   const tail = document.createElement("span");
   Object.assign(tail.style, {
     position: "absolute",
@@ -529,10 +531,10 @@ const syncMapData = (
     });
   }
 
-  // The narrated slope is the route itself in the highlight colour, drawn over the reveal layer so
-  // the whole climb shows even before the runner gets there.
+  // The narrated slope gets an orange border: a wider line in the highlight colour drawn under
+  // every route layer, so only its edges show around the green route and its white casing.
   if (!map.getSource(SEGMENT_SOURCE_ID)) {
-    map.addSource(SEGMENT_SOURCE_ID, { type: "geojson", data: EMPTY_FEATURES as unknown as GeoJsonSourceData, lineMetrics: true, tolerance: 0 });
+    map.addSource(SEGMENT_SOURCE_ID, { type: "geojson", data: EMPTY_FEATURES as unknown as GeoJsonSourceData, tolerance: 0 });
   }
   if (!map.getLayer(SEGMENT_LAYER_ID)) {
     map.addLayer({
@@ -543,26 +545,10 @@ const syncMapData = (
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
         "line-color": settings.highlightColor,
-        "line-opacity": SEGMENT_AHEAD_OPACITY,
-        "line-width": lineWidth,
+        "line-width": SEGMENT_BORDER_WIDTHS[settings.routeWidth],
         "line-emissive-strength": 1,
       },
-    });
-  }
-  if (!map.getLayer(SEGMENT_DONE_LAYER_ID)) {
-    map.addLayer({
-      id: SEGMENT_DONE_LAYER_ID,
-      type: "line",
-      source: SEGMENT_SOURCE_ID,
-      slot: "top",
-      layout: { "line-cap": "round", "line-join": "round" },
-      paint: {
-        "line-color": settings.highlightColor,
-        "line-width": lineWidth,
-        "line-emissive-strength": 1,
-        "line-trim-offset": [0, 1],
-      },
-    });
+    }, map.getLayer(ROUTE_LAYER_ID) ? ROUTE_LAYER_ID : undefined);
   }
 
   const markerSource = map.getSource(MARKER_SOURCE_ID) as GeoJSONSource | undefined;
@@ -766,14 +752,6 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       segmentSource?.setData(buildSegmentGeoJson(path, passedFocus ? null : frame.beat) as unknown as GeoJsonSourceData);
     }
     if (climbCardRef.current) updateClimbCard(climbCardRef.current, path, timelineRef.current, frame);
-    // Solid behind the runner, pale ahead: the told slope never looks revealed before the dot.
-    if (frame.beat?.focusStartKm !== undefined && frame.beat.focusEndKm !== undefined && map.getLayer(SEGMENT_DONE_LAYER_ID)) {
-      const table = lineProgressTableRef.current;
-      const from = getLineProgressAtDistance(table, frame.beat.focusStartKm);
-      const to = getLineProgressAtDistance(table, frame.beat.focusEndKm);
-      const done = to > from ? (getLineProgressAtDistance(table, frame.distanceKm) - from) / (to - from) : 0;
-      map.setPaintProperty(SEGMENT_DONE_LAYER_ID, "line-trim-offset", buildRouteTrimOffset("progressive", done));
-    }
   }, [frameStore]);
 
   const refreshCurrentFrame = useCallback(() => {
@@ -825,11 +803,10 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       map.setPaintProperty(ROUTE_LAYER_ID, "line-color", `${settings.routeColor}${FUTURE_ROUTE_ALPHA_HEX}`);
       map.setPaintProperty(ROUTE_LAYER_ID, "line-width", lineWidth);
     }
-    [SEGMENT_LAYER_ID, SEGMENT_DONE_LAYER_ID].forEach((layerId) => {
-      if (!map.getLayer(layerId)) return;
-      map.setPaintProperty(layerId, "line-color", settings.highlightColor);
-      map.setPaintProperty(layerId, "line-width", lineWidth);
-    });
+    if (map.getLayer(SEGMENT_LAYER_ID)) {
+      map.setPaintProperty(SEGMENT_LAYER_ID, "line-color", settings.highlightColor);
+      map.setPaintProperty(SEGMENT_LAYER_ID, "line-width", SEGMENT_BORDER_WIDTHS[settings.routeWidth]);
+    }
     if (map.getLayer(ROUTE_GLOW_LAYER_ID)) {
       map.setPaintProperty(ROUTE_GLOW_LAYER_ID, "line-color", `${settings.routeColor}${GLOW_ROUTE_ALPHA_HEX}`);
       map.setLayoutProperty(ROUTE_GLOW_LAYER_ID, "visibility", settings.routeGlow ? "visible" : "none");
@@ -876,7 +853,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
         return { distanceKm: station.distanceKm, card, marker, opacity: -1 };
       });
     aidBubblesRef.current = bubbles;
-    const climbCard = createClimbCard(map, settings.highlightColor);
+    const climbCard = createClimbCard(map, settings.accentColor, settings.highlightColor);
     climbCardRef.current = climbCard;
     refreshCurrentFrame();
     return () => {

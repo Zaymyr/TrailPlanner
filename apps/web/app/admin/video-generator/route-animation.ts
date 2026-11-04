@@ -351,7 +351,8 @@ export const interpolateCameraPose = (from: CameraPose, to: CameraPose, ratio: n
   target: interpolatePosition(from.target, to.target, ratio),
 });
 
-const FRAMING_ELEVATION_ANGLE_RAD = (50 * Math.PI) / 180;
+// High above the slope so the whole climb, its foot and its top read at once.
+const FRAMING_ELEVATION_ANGLE_RAD = (62 * Math.PI) / 180;
 
 /**
  * Frames a whole slope (a climb from its foot to its top): the camera looks along the slope from
@@ -400,7 +401,8 @@ export const getSegmentFramingPose = (
     east /= length;
     north /= length;
   }
-  const backDistanceM = clamp(spanM * (portrait ? 1.6 : 1.25), 3_000, 20_000);
+  // Seen from about three times its length: the slope fills roughly half the frame width.
+  const backDistanceM = clamp(spanM * (portrait ? 1.5 : 1.15), 6_000, 30_000);
   const cameraGround = offsetPosition(center, -east * backDistanceM, -north * backDistanceM);
   const targetAltitudeM = ((middle.elevationM + maxElevationM) / 2) * terrainExaggeration;
   return {
