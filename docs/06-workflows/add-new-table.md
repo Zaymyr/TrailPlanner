@@ -1,7 +1,7 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-11-03
+last_verified: 2026-11-04
 ai_priority: high
 related_files:
   - supabase/migrations/20260915100443_add_generated_organizer_invoices.sql
@@ -9,6 +9,8 @@ related_files:
   - supabase/migrations
   - supabase/migrations/20261103123918_racebook_versioned_publications.sql
   - supabase/tests/racebook_versioned_publications_checks.sql
+  - supabase/migrations/20261104140000_add_video_render_jobs.sql
+  - supabase/tests/video_render_jobs_checks.sql
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
@@ -140,3 +142,5 @@ The `race_supporter_points` addition follows this workflow: cascade ownership by
 - [Race Slug Redirects](../02-database/tables/race-slug-redirects.md)
 
 RaceBook lot 6 is explicitly not a database task: localized display formatting, failed-image fallback, locked official-field presentation, checklist colors, hero measurement, and development-client OTA guards require no migration, table, grant, or policy.
+
+`video_render_jobs` (background reel renders) follows the service-role-only pattern: RLS on, no policy, every privilege revoked from `anon` and `authenticated`, covering indexes on its foreign keys, and `supabase/tests/video_render_jobs_checks.sql` asserting the grants.

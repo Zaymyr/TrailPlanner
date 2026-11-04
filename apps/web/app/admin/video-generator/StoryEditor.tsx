@@ -5,6 +5,8 @@ import React from "react";
 import { Button } from "../../../components/ui/button";
 import { estimateNarrationMs } from "./route-story";
 import type { ScheduledBeat } from "./video-composition";
+import type { SavedVoice } from "./voice-library";
+import { VoiceIdPicker } from "./VoiceIdPicker";
 
 export type AsyncActionState = { status: "idle" | "loading" | "success" | "error"; message: string | null };
 
@@ -34,6 +36,8 @@ type StoryEditorProps = {
   onNarrationChange: (beatId: string, narration: string) => void;
   onResetScript: () => void;
   onVoiceIdChange: (voiceId: string) => void;
+  onForgetVoice: (voiceId: string) => void;
+  onSaveVoice: (voiceId: string, name: string) => void;
   onVoiceOptionsChange: (options: VoiceOptions) => void;
   onWriteScript: () => void;
   scriptState: AsyncActionState;
@@ -42,6 +46,7 @@ type StoryEditorProps = {
   voiceOptions: VoiceOptions;
   voiceReadyIds: Set<string>;
   voiceState: AsyncActionState;
+  voices: SavedVoice[];
 };
 
 function ActionMessage({ state }: { state: AsyncActionState }) {
@@ -57,6 +62,8 @@ export function StoryEditor({
   onNarrationChange,
   onResetScript,
   onVoiceIdChange,
+  onForgetVoice,
+  onSaveVoice,
   onVoiceOptionsChange,
   onWriteScript,
   scriptState,
@@ -65,6 +72,7 @@ export function StoryEditor({
   voiceOptions,
   voiceReadyIds,
   voiceState,
+  voices,
 }: StoryEditorProps) {
   const busy = scriptState.status === "loading" || voiceState.status === "loading";
   const voicedCount = beats.filter((beat) => voiceReadyIds.has(beat.id)).length;
@@ -117,18 +125,16 @@ export function StoryEditor({
         <p className="text-[10px] text-muted-foreground">Change la voix ou ces réglages puis régénère la voix off.</p>
       </div>
 
-      <div className="flex items-end gap-2">
-        <label className="block flex-1 space-y-1 text-xs">
-          <span className="font-medium">Voix ElevenLabs (identifiant)</span>
-          <input
-            aria-label="Identifiant de la voix ElevenLabs"
-            className="min-h-8 w-full rounded-md border border-input bg-card px-2 font-mono text-xs"
-            placeholder="Voix par défaut"
-            value={voiceId}
-            onChange={(event) => onVoiceIdChange(event.target.value.trim())}
-          />
-        </label>
-        <Button type="button" variant="ghost" className="h-8 px-2 text-xs" disabled={busy} onClick={onResetScript}>
+      <div className="flex items-start gap-2">
+        <VoiceIdPicker
+          disabled={busy}
+          onForget={onForgetVoice}
+          onSave={onSaveVoice}
+          onVoiceIdChange={onVoiceIdChange}
+          voiceId={voiceId}
+          voices={voices}
+        />
+        <Button type="button" variant="ghost" className="mb-auto mt-5 h-8 px-2 text-xs" disabled={busy} onClick={onResetScript}>
           Texte par défaut
         </Button>
       </div>

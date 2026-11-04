@@ -295,6 +295,7 @@ erDiagram
 - [race_aid_station_products](tables/race-aid-station-products.md)
 - [races](tables/races.md)
 - [race_slug_redirects](tables/race-slug-redirects.md)
+- [video_render_jobs](tables/video-render-jobs.md)
 - [organizer_import_sessions](tables/organizer-import-sessions.md)
 - [race_events](tables/race-events.md)
 - [race_event_editions](tables/race-event-editions.md)

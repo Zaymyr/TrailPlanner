@@ -32,7 +32,7 @@ const browserSecurityHeaders = [
       "font-src 'self' data:",
       "style-src 'self' 'unsafe-inline'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://*.posthog.com https://js.stripe.com",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.posthog.com https://www.google-analytics.com https://region1.google-analytics.com https://api.stripe.com",
+      "connect-src 'self' https://storage.googleapis.com https://*.supabase.co wss://*.supabase.co https://*.posthog.com https://www.google-analytics.com https://region1.google-analytics.com https://api.stripe.com",
       "frame-src https://js.stripe.com https://hooks.stripe.com",
       "form-action 'self' https://checkout.stripe.com",
       "upgrade-insecure-requests",

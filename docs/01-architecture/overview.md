@@ -199,3 +199,5 @@ The mobile client now uses `expo-haptics` for optional reduced-motion-aware feed
 - [Infrastructure](infrastructure.md)
 - [Schema Overview](../02-database/schema-overview.md)
 - [Supabase Edge Functions](../05-integrations/supabase-edge-functions.md)
+
+Background reel renders run outside Vercel, in a Google Cloud Run job (`apps/video-render-worker`, headless Chrome, deployed by GitHub Actions through Workload Identity Federation); see [Google Cloud Background Reel Render](../05-integrations/google-cloud-video-render.md). The web app adds `@mediabunny/aac-encoder` for AAC export where the browser lacks an encoder, and allows `https://storage.googleapis.com` in the report-only CSP.

@@ -193,6 +193,7 @@ For local setup, copy `apps/web/.env.example` to the ignored `apps/web/.env.loca
 - `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` (public browser token for the admin 3D viewer; restrict it to approved origins)
 - `ANTHROPIC_API_KEY` (server-only; admin video generator narration script)
 - `ELEVENLABS_API_KEY` and optional `ELEVENLABS_VOICE_ID` (server-only; admin video generator voice-over)
+- `GCP_PROJECT_ID`, `GCP_PROJECT_NUMBER`, `GCP_SERVICE_ACCOUNT_EMAIL`, `VIDEO_RENDER_BUCKET`, `VIDEO_RENDER_TOKEN_SECRET` (Sensitive) and optional `GCP_REGION`, `GCP_WORKLOAD_IDENTITY_POOL_ID`, `GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID`, `VIDEO_RENDER_JOB_NAME`, `VIDEO_RENDER_APP_ORIGIN` (server-only; admin reel background render on Google Cloud Run through Vercel OIDC federation, no Google key)
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `SUPABASE_SERVICE_ROLE`
 - `STRIPE_SECRET_KEY`

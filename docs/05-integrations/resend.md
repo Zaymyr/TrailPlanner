@@ -160,3 +160,5 @@ For future Broadcast creation and dashboard draft updates, use [Resend Broadcast
 - [RLS Policies](../02-database/rls-policies.md)
 
 The mobile root-layout guard for unsupported development-client OTA checks is independent from Resend contact synchronization and email delivery. It neither reads Resend configuration nor changes authenticated contact-sync behavior.
+
+The web package now also depends on `@mediabunny/aac-encoder` for the admin reel export; this integration is unaffected.

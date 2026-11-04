@@ -26,6 +26,7 @@ related_files:
   - supabase/migrations/20261103123918_racebook_versioned_publications.sql
   - supabase/migrations/20261103124133_index_racebook_publication_foreign_keys.sql
   - supabase/migrations/20261103124538_cover_racebook_current_publication_foreign_key.sql
+  - supabase/migrations/20261104140000_add_video_render_jobs.sql
   - supabase/tests/racebook_versioned_publications_checks.sql
   - supabase/migrations/20260821143417_add_organizer_imports_bucket.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
@@ -131,6 +132,8 @@ related_tables:
 `20261103124133_index_racebook_publication_foreign_keys.sql` adds covering indexes for the current publication, publishing user and event foreign keys used by retention and cleanup paths.
 
 `20261103124538_cover_racebook_current_publication_foreign_key.sql` replaces the single-column current-publication index with a covering index matching its composite parent constraint.
+
+`20261104140000_add_video_render_jobs.sql` adds `video_render_jobs` (background reel renders on Google Cloud Run): status, progress, video size and timing, with covering indexes for its race and creator foreign keys, RLS on and service-role-only grants.
 
 `20260907160043_add_structured_racebook_content.sql` adds normalized services, start waves and awards, their constraints/indexes/RLS, atomic replacement RPCs, and the `schedule.startTime` start-wave backfill.
 
@@ -528,3 +531,4 @@ Organizer import cleanup additionally uses `organizer-import-cleanup-hourly` at 
 - [Add RLS Policy](../06-workflows/add-rls-policy.md)
 - [Organizer Race Management](../03-business-rules/organizer-race-management.md)
 - [Race Slug Redirects](tables/race-slug-redirects.md)
+- [Video Render Jobs](tables/video-render-jobs.md)

@@ -123,3 +123,5 @@ Keep logic inside an app when:
 - [Design Tokens](../07-design-system/tokens.md)
 - [Design Icons](../07-design-system/icons.md)
 - [Pacing Algorithm](../03-business-rules/pacing-algorithm.md)
+
+`apps/video-render-worker` is a standalone Node package outside the npm workspaces (its own `package-lock.json`, Playwright only) built into the Cloud Run render image. The web CSP (`next.config.mjs`, report-only) allows `https://storage.googleapis.com` for signed render uploads and downloads.

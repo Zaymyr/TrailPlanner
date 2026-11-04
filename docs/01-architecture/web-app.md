@@ -714,3 +714,5 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - [Organizer Race Management](../03-business-rules/organizer-race-management.md)
 - [Stripe](../05-integrations/stripe.md)
 - [Mapbox 3D Admin Course Viewer](../05-integrations/mapbox-3d.md)
+
+The admin reel can also be rendered in the background on Google Cloud (`/api/admin/video-generator/render-jobs`, the standalone noindex `/render/video/[id]` page opened by a Cloud Run job, per-job HMAC token routes under `/api/video-render/jobs/[id]`, Vercel OIDC federation to Google, no stored Google key); see [Google Cloud Background Reel Render](../05-integrations/google-cloud-video-render.md). `/render/` is a standalone prefix in `RootChrome` (no header or footer). The ElevenLabs voice field keeps a per-browser library of used and named voices. The report-only CSP lists `https://storage.googleapis.com` in `connect-src` for the signed Storage uploads and downloads.

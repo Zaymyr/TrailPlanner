@@ -83,3 +83,5 @@ The per-format `gpxDisplay.showRoute` preference may omit this mobile map from t
 - [GPX Import](../03-business-rules/gpx-import.md)
 - [Organizer Race Management](../03-business-rules/organizer-race-management.md)
 - [Mapbox 3D Admin Course Viewer](mapbox-3d.md)
+
+The web package now also depends on `@mediabunny/aac-encoder` for the admin reel export; this integration is unaffected.

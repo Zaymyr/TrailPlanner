@@ -53,6 +53,7 @@ const buildVideoRaceInfo = (detail: VideoGeneratorDetail): VideoRaceInfo => {
   const { race } = detail;
   const baseTitle = race.eventName ?? race.name;
   return {
+    id: race.id,
     title: race.editionYear && !baseTitle.includes(String(race.editionYear))
       ? `${baseTitle} ${race.editionYear}`
       : baseTitle,
