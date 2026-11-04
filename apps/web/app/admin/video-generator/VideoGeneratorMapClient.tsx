@@ -11,6 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui
 import { buildRouteGeoJson, type VideoAidStation } from "../../../lib/video-generator";
 import { instagramCaptionResponseSchema, narrationScriptResponseSchema, narrationVoiceResponseSchema } from "../../../lib/video-narration";
 import { InstagramPanel } from "./InstagramPanel";
+import { ExportPanel, type ExportState } from "./ExportPanel";
+import { exportVideo } from "./video-export";
 import { AnimationControls } from "./AnimationControls";
 import {
   createRouteAnimationController,
@@ -60,6 +62,8 @@ import {
   getGradeAtDistance,
   getVideoCameraPose,
   getVideoFrameState,
+  VIDEO_FPS,
+  VIDEO_RESOLUTIONS,
   type NarrationAlignments,
   type NarrationDurations,
   type ScheduledBeat,
@@ -381,6 +385,23 @@ const updateClimbCard = (climbCard: ClimbCard, path: PreparedAnimationPath, time
   }
 };
 
+const waitMs = (ms: number) => new Promise<void>((resolve) => { window.setTimeout(resolve, ms); });
+
+/** Resolves once the map has drawn the current camera with its tiles loaded, or after a timeout. */
+const waitForMapIdle = (map: MapboxMap, timeoutMs: number) => new Promise<void>((resolve) => {
+  let settled = false;
+  const finish = () => {
+    if (settled) return;
+    settled = true;
+    window.clearTimeout(timer);
+    map.off("idle", finish);
+    resolve();
+  };
+  const timer = window.setTimeout(finish, timeoutMs);
+  map.once("idle", finish);
+  map.triggerRepaint();
+});
+
 const readError = async (response: Response, fallback: string) => {
   const payload = await response.json().catch(() => null) as { message?: unknown } | null;
   return typeof payload?.message === "string" ? payload.message : fallback;
@@ -579,6 +600,10 @@ const setMapInteractionsEnabled = (map: MapboxMap, enabled: boolean) => {
 export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations, bounds, points, race }: VideoGeneratorMapProps) {
   const accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN?.trim() ?? "";
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const frameRef = useRef<HTMLDivElement | null>(null);
+  const exportAbortRef = useRef<AbortController | null>(null);
+  const [exportLayout, setExportLayout] = useState<{ width: number; height: number; scale: number } | null>(null);
+  const [exportState, setExportState] = useState<ExportState>({ status: "idle" });
   const mapRef = useRef<MapboxMap | null>(null);
   const cameraRef = useRef<RouteCameraController | null>(null);
   const animationRef = useRef<RouteAnimationController | null>(null);
@@ -934,6 +959,70 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     }
   };
 
+  // MP4 export: the preview frame is laid out at the exact video size (scaled down on screen),
+  // then every frame is rendered, waited for and captured.
+  const startExport = async () => {
+    const map = mapRef.current;
+    if (!map || !isReady || exportAbortRef.current) return;
+    animationRef.current?.pause();
+    narrationPlayerRef.current?.stop();
+    const base = VIDEO_RESOLUTIONS[settings.resolution];
+    const size = settings.viewport === "portrait" ? base : { width: base.height, height: base.width };
+    const scale = Math.min(1, Math.max(0.15, (window.innerHeight - 224) / size.height));
+    if (exportState.status === "done") URL.revokeObjectURL(exportState.url);
+    const controller = new AbortController();
+    exportAbortRef.current = controller;
+    setExportState({ status: "running" });
+    setExportLayout({ ...size, scale });
+    let lastProgressAt = 0;
+    try {
+      await waitMs(80);
+      // One CSS pixel per video pixel; on a high-density screen the map canvas is larger and is
+      // scaled down to the video size when composited.
+      map.resize();
+      await waitForMapIdle(map, 10_000);
+      const blob = await exportVideo({
+        width: size.width,
+        height: size.height,
+        fps: VIDEO_FPS,
+        totalMs: timelineRef.current.totalMs,
+        driver: {
+          renderFrame: async (timeMs) => {
+            applyAnimationTime(timeMs);
+            // Let React paint the overlay for this frame, then wait for the map tiles.
+            await waitMs(0);
+            await waitForMapIdle(map, 6_000);
+          },
+          mapCanvas: () => map.getCanvas(),
+          frameElement: () => {
+            if (!frameRef.current) throw new Error("Aperçu introuvable.");
+            return frameRef.current;
+          },
+        },
+        narration: freshClips.length ? { clips: freshClips, cues: narrationCuesRef.current } : null,
+        onProgress: (progress) => {
+          const now = performance.now();
+          if (progress.phase === "rendering" && progress.frame < progress.totalFrames && now - lastProgressAt < 250) return;
+          lastProgressAt = now;
+          setExportState({ status: "running", progress });
+        },
+        signal: controller.signal,
+      });
+      const fileName = `${race.title.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "parcours"}-reel.mp4`;
+      setExportState({ status: "done", url: URL.createObjectURL(blob), sizeBytes: blob.size, fileName });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") setExportState({ status: "idle", message: "Export annulé." });
+      else setExportState({ status: "error", message: error instanceof Error ? error.message : "L’export a échoué." });
+    } finally {
+      exportAbortRef.current = null;
+      setExportLayout(null);
+      window.requestAnimationFrame(() => {
+        map.resize();
+        refreshCurrentFrame();
+      });
+    }
+  };
+
   const writeInstagramCaption = async () => {
     setInstagramState({ status: "loading", message: "Claude rédige la description du reel…" });
     try {
@@ -1002,6 +1091,8 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       bearing: 0,
       projection: "mercator",
       antialias: true,
+      // Needed to read the map canvas after it has been drawn (MP4 export).
+      preserveDrawingBuffer: true,
       // Mapbox terms require the logo and attribution. The logo stays on the map; the attribution is
       // burned into the overlay as legible text instead of the interactive "i" control.
       attributionControl: false,
@@ -1108,11 +1199,25 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   return (
     <>
       <section className="flex min-w-0 flex-col items-start gap-3" aria-label="Aperçu de la vidéo">
-        {/* The frame always fits the viewport height so the whole preview is visible without scrolling. */}
+        {/* The frame always fits the viewport height so the whole preview is visible without scrolling.
+            While exporting, it is laid out at the exact video size and only scaled down on screen by
+            the wrappers, so the captured frame is neither scaled nor framed like a phone. */}
         <div
-          className={portrait
-            ? "relative aspect-[9/16] h-[calc(100dvh-14rem)] max-h-[60rem] min-h-[26rem] max-w-full overflow-hidden rounded-[1.75rem] border-[6px] border-slate-900 bg-slate-950 shadow-2xl [container-type:size]"
-            : "relative aspect-video h-[calc((100dvh-14rem)*0.6)] min-h-[16rem] max-w-[calc(100vw-48rem)] overflow-hidden rounded-xl border-[6px] border-slate-900 bg-slate-950 shadow-2xl [container-type:size]"}
+          className={exportLayout ? "overflow-hidden rounded-lg shadow-2xl" : "contents"}
+          style={exportLayout ? { width: exportLayout.width * exportLayout.scale, height: exportLayout.height * exportLayout.scale } : undefined}
+        >
+        <div
+          className={exportLayout ? "origin-top-left" : "contents"}
+          style={exportLayout ? { transform: `scale(${exportLayout.scale})` } : undefined}
+        >
+        <div
+          ref={frameRef}
+          className={exportLayout
+            ? "relative overflow-hidden bg-transparent [container-type:size]"
+            : portrait
+              ? "relative aspect-[9/16] h-[calc(100dvh-14rem)] max-h-[60rem] min-h-[26rem] max-w-full overflow-hidden rounded-[1.75rem] border-[6px] border-slate-900 bg-slate-950 shadow-2xl [container-type:size]"
+              : "relative aspect-video h-[calc((100dvh-14rem)*0.6)] min-h-[16rem] max-w-[calc(100vw-48rem)] overflow-hidden rounded-xl border-[6px] border-slate-900 bg-slate-950 shadow-2xl [container-type:size]"}
+          style={exportLayout ? { width: exportLayout.width, height: exportLayout.height } : undefined}
           data-testid="video-preview-frame"
         >
           {/* Mapbox CSS sets `.mapboxgl-map { position: relative }`, which overrides `absolute` on the
@@ -1130,6 +1235,8 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
           />
           {!isReady && !mapError ? <div className="pointer-events-none absolute inset-x-4 top-1/2 z-20 rounded-md bg-slate-950/80 p-3 text-center text-sm text-white/80">Préparation du terrain et de la caméra…</div> : null}
           {mapError ? <div className="absolute inset-x-4 top-1/2 z-20 rounded-md border border-red-300 bg-red-50/95 p-3 text-sm text-red-800 shadow-lg">{mapError}</div> : null}
+        </div>
+        </div>
         </div>
         <div className={portrait ? "w-full max-w-md" : "w-full"}>
           <AnimationControls
@@ -1176,6 +1283,21 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
             voiceId={voiceId}
             voiceReadyIds={new Set(Object.keys(narrationDurations))}
             voiceState={voiceState}
+          />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Export vidéo</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ExportPanel
+            canExport={isReady && preparedPath.canAnimate}
+            hasVoice={freshClips.length > 0}
+            onCancel={() => exportAbortRef.current?.abort()}
+            onExport={() => void startExport()}
+            resolutionLabel={settings.resolution}
+            state={exportState}
           />
         </CardContent>
       </Card>

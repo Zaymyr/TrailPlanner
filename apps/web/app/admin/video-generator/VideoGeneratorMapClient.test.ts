@@ -234,6 +234,9 @@ describe("VideoGeneratorMapClient", () => {
     expect(map.setLayoutProperty).toHaveBeenLastCalledWith("video-peak-labels", "visibility", "visible");
     // The narrated script is editable next to the preview, starting from the factual default.
     expect(screen.getByRole("button", { name: "Rédiger avec l’IA" })).toBeTruthy();
+    // MP4 export and the Instagram description sit next to the narration.
+    expect(screen.getByRole("button", { name: /Exporter la vidéo MP4/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Générer la description et les hashtags/ })).toBeTruthy();
     expect((screen.getByLabelText(/^Narration : Intro/) as HTMLTextAreaElement).value).toMatch(/^SaintéLyon 2026 :/);
 
     await userEvent.click(screen.getByRole("button", { name: "Lecture" }));

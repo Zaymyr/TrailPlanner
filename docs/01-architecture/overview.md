@@ -52,6 +52,7 @@ The web app is a Next.js 14 app:
 - Analytics dependencies: `posthog-js`, `posthog-node`, `@vercel/analytics`, `@vercel/speed-insights`
 - Admin 3D mapping: `mapbox-gl ^3.34.1`, loaded only by the protected video-generator route; existing Leaflet surfaces remain separate.
 - Admin 3D component tests: `@testing-library/react`, `@testing-library/user-event`, `@testing-library/dom`, and `jsdom` are development-only dependencies used for the video-generator controls and mocked Mapbox lifecycle; they are not shipped as runtime mapping code.
+- Admin video export: `mediabunny 1.61.6` (MP4 muxing with WebCodecs H.264/AAC) and `html-to-image ^1.11.13` (overlay capture), both loaded only by the protected video-generator route.
 - Admin video narration: `@anthropic-ai/sdk ^1.4.0`, imported only by the server route that writes the reel script; the ElevenLabs voice-over uses `fetch` without an SDK.
 - Resumable browser uploads: `tus-js-client ^4.3.1` for large temporary Organizer import documents sent directly to Supabase Storage.
 - Server PDF generation: `pdf-lib ^1.17.1` for automatic organizer invoices; it is not imported into client components.
