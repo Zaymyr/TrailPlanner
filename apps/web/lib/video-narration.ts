@@ -58,3 +58,27 @@ export const narrationVoiceResponseSchema = z.object({
 
 export type NarrationScriptRequest = z.infer<typeof narrationScriptRequestSchema>;
 export type NarrationVoiceRequest = z.infer<typeof narrationVoiceRequestSchema>;
+
+/** Instagram Reel description: a short story of the race plus hashtags, written by Claude. */
+export const instagramCaptionRequestSchema = z.object({
+  race: narrationScriptRequestSchema.shape.race.extend({
+    raceDate: z.string().max(20).nullable(),
+  }),
+  legs: z.array(z.object({
+    kind: narrationBeatInputSchema.shape.kind,
+    title: z.string().max(160),
+    facts: z.array(z.string().max(120)).max(8),
+    narration: z.string().max(600),
+  })).min(1).max(40),
+});
+
+export const instagramCaptionResponseSchema = z.object({
+  caption: z.string(),
+  hashtags: z.array(z.string()),
+});
+
+export type InstagramCaptionRequest = z.infer<typeof instagramCaptionRequestSchema>;
+
+/** Instagram limits: 2,200 characters per caption, 30 hashtags. */
+export const INSTAGRAM_CAPTION_MAX_CHARS = 2_200;
+export const INSTAGRAM_MAX_HASHTAGS = 30;

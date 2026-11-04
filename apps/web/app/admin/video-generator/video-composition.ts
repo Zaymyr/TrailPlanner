@@ -650,14 +650,23 @@ const TARGET_SMOOTHING_MS = 6_000;
  * present counts most). Averaging all samples, not a few instants, avoids aliasing: instants a
  * fixed time apart can all land on the same side of regularly spaced switchbacks.
  */
-export const getSmoothedCameraTarget = (path: PreparedAnimationPath, timeline: VideoTimeline, timeMs: number) => {
+export const getSmoothedCameraTarget = (
+  path: PreparedAnimationPath,
+  timeline: VideoTimeline,
+  timeMs: number,
+  /** Leash: the aimed point never drifts further than this from the runner. */
+  maxOffsetM = Number.POSITIVE_INFINITY,
+) => {
   const flyoverStart = timeline.introMs;
   const flyoverEnd = timeline.introMs + timeline.flyoverMs;
   const distanceAt = (ms: number) =>
     getDistanceAtFlyoverFraction(timeline, (clamp(ms, flyoverStart, flyoverEnd) - flyoverStart) / Math.max(1, timeline.flyoverMs));
   const centerKm = distanceAt(timeMs);
-  const fromKm = distanceAt(timeMs - TARGET_SMOOTHING_MS);
-  const toKm = distanceAt(timeMs + TARGET_SMOOTHING_MS);
+  // Symmetric window that shrinks near the start and the finish: a window cut on one side would
+  // aim ahead of the runner (or behind), which left the start off-centre.
+  const windowMs = Math.max(0, Math.min(TARGET_SMOOTHING_MS, timeMs - flyoverStart, flyoverEnd - timeMs));
+  const fromKm = distanceAt(timeMs - windowMs);
+  const toKm = distanceAt(timeMs + windowMs);
   const center = getRoutePointAtDistance(path, centerKm);
   let lat = center.lat;
   let lon = center.lon;
@@ -673,7 +682,18 @@ export const getSmoothedCameraTarget = (path: PreparedAnimationPath, timeline: V
     elevationM += sample.elevationM * weight;
     totalWeight += weight;
   });
-  return { lat: lat / totalWeight, lon: lon / totalWeight, elevationM: elevationM / totalWeight };
+  const mean = { lat: lat / totalWeight, lon: lon / totalWeight, elevationM: elevationM / totalWeight };
+  const metersPerDegreeLat = 111_320;
+  const eastM = (mean.lon - center.lon) * metersPerDegreeLat * Math.cos((center.lat * Math.PI) / 180);
+  const northM = (mean.lat - center.lat) * metersPerDegreeLat;
+  const offsetM = Math.hypot(eastM, northM);
+  if (offsetM <= maxOffsetM) return mean;
+  const keep = maxOffsetM / offsetM;
+  return {
+    lat: center.lat + (mean.lat - center.lat) * keep,
+    lon: center.lon + (mean.lon - center.lon) * keep,
+    elevationM: center.elevationM + (mean.elevationM - center.elevationM) * keep,
+  };
 };
 
 const toBearingDeg = (east: number, north: number) => ((Math.atan2(east, north) * 180) / Math.PI + 360) % 360;
@@ -751,7 +771,8 @@ export const getVideoCameraPose = (
     getOrbitLookDirection(path, timeline, frame.phase === "flyover" ? frame.timeMs : frame.phase === "intro" ? timeline.introMs : timeline.introMs + timeline.flyoverMs),
     // Same smoothing in every phase (it clamps to the flyover), so the intro and outro glides
     // meet the flyover framing without a jump.
-    getSmoothedCameraTarget(path, timeline, frame.timeMs),
+    // The leash (10 % of the camera distance) keeps a fast runner well inside the frame.
+    getSmoothedCameraTarget(path, timeline, frame.timeMs, 0.1 * Math.min(20_000, Math.max(4_500, getCameraSpeedMps(timeline, frame.timeMs) * 3))),
   );
   if (frame.phase === "flyover") {
     const beat = frame.beat;

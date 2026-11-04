@@ -9,7 +9,8 @@ import mapboxgl, {
 
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { buildRouteGeoJson, type VideoAidStation } from "../../../lib/video-generator";
-import { narrationScriptResponseSchema, narrationVoiceResponseSchema } from "../../../lib/video-narration";
+import { instagramCaptionResponseSchema, narrationScriptResponseSchema, narrationVoiceResponseSchema } from "../../../lib/video-narration";
+import { InstagramPanel } from "./InstagramPanel";
 import { AnimationControls } from "./AnimationControls";
 import {
   createRouteAnimationController,
@@ -657,6 +658,9 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   const [voiceOptions, setVoiceOptions] = useState<VoiceOptions>({ model: "multilingual_v2", expressiveness: 0.6 });
   const [scriptState, setScriptState] = useState<AsyncActionState>(IDLE_ACTION);
   const [voiceState, setVoiceState] = useState<AsyncActionState>(IDLE_ACTION);
+  const [instagramCaption, setInstagramCaption] = useState("");
+  const [instagramHashtags, setInstagramHashtags] = useState<string[]>([]);
+  const [instagramState, setInstagramState] = useState<AsyncActionState>(IDLE_ACTION);
   // A clip only counts while its text still matches the narration it was generated from.
   const freshClips = useMemo(
     () => beats.flatMap((beat) => voiceClips[beat.id]?.text === beat.narration ? [voiceClips[beat.id]] : []),
@@ -930,6 +934,27 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     }
   };
 
+  const writeInstagramCaption = async () => {
+    setInstagramState({ status: "loading", message: "Claude rédige la description du reel…" });
+    try {
+      const response = await authorizedPost("/api/admin/video-generator/caption", {
+        race: {
+          title: race.title, subtitle: race.subtitle, distanceKm: race.distanceKm, elevationGainM: race.elevationGainM,
+          startDetail: race.startDetail, raceDate: race.raceDate ?? null,
+        },
+        legs: beats.map(({ kind, title, facts, narration }) => ({ kind, title, facts, narration })),
+      });
+      if (!response.ok) throw new Error(await readError(response, "La description n’a pas pu être rédigée."));
+      const parsed = instagramCaptionResponseSchema.safeParse(await response.json());
+      if (!parsed.success) throw new Error("La description reçue est invalide.");
+      setInstagramCaption(parsed.data.caption);
+      setInstagramHashtags(parsed.data.hashtags);
+      setInstagramState({ status: "success", message: "Description prête : relis-la puis copie-la dans Instagram." });
+    } catch (error) {
+      setInstagramState({ status: "error", message: error instanceof Error ? error.message : "La description n’a pas pu être rédigée." });
+    }
+  };
+
   const generateVoice = async () => {
     const items = beats.filter((beat) => beat.narration.trim()).map((beat) => ({ id: beat.id, text: beat.narration.trim() }));
     setVoiceState({ status: "loading", message: `Génération de ${items.length} phrases avec ElevenLabs…` });
@@ -1082,12 +1107,12 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
 
   return (
     <>
-      <section className="flex min-w-0 flex-col items-center gap-3" aria-label="Aperçu de la vidéo">
+      <section className="flex min-w-0 flex-col items-start gap-3" aria-label="Aperçu de la vidéo">
         {/* The frame always fits the viewport height so the whole preview is visible without scrolling. */}
         <div
           className={portrait
             ? "relative aspect-[9/16] h-[calc(100dvh-14rem)] max-h-[60rem] min-h-[26rem] max-w-full overflow-hidden rounded-[1.75rem] border-[6px] border-slate-900 bg-slate-950 shadow-2xl [container-type:size]"
-            : "relative aspect-video max-h-[calc(100dvh-14rem)] w-full overflow-hidden rounded-xl border-[6px] border-slate-900 bg-slate-950 shadow-2xl [container-type:size]"}
+            : "relative aspect-video h-[calc((100dvh-14rem)*0.6)] min-h-[16rem] max-w-[calc(100vw-48rem)] overflow-hidden rounded-xl border-[6px] border-slate-900 bg-slate-950 shadow-2xl [container-type:size]"}
           data-testid="video-preview-frame"
         >
           {/* Mapbox CSS sets `.mapboxgl-map { position: relative }`, which overrides `absolute` on the
@@ -1151,6 +1176,21 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
             voiceId={voiceId}
             voiceReadyIds={new Set(Object.keys(narrationDurations))}
             voiceState={voiceState}
+          />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Publication Instagram</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <InstagramPanel
+            caption={instagramCaption}
+            hashtags={instagramHashtags}
+            onCaptionChange={setInstagramCaption}
+            onGenerate={() => void writeInstagramCaption()}
+            onHashtagsChange={setInstagramHashtags}
+            state={instagramState}
           />
         </CardContent>
       </Card>

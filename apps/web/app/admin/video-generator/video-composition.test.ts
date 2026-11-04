@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { VideoAidStation, VideoRoutePoint } from "../../../lib/video-generator";
-import { prepareAnimationPath } from "./route-animation";
+import { getRoutePointAtDistance, prepareAnimationPath } from "./route-animation";
 import { buildStoryBeats, type StoryBeat } from "./route-story";
 import {
   buildElevationProfile,
@@ -252,6 +252,17 @@ describe("buildVideoTimeline", () => {
       centre.push(eastOffsetM(getSmoothedCameraTarget(zigzag, timeline, ms).lon));
     }
     const spread = (values: number[]) => Math.max(...values) - Math.min(...values);
+    // The start is centred: the window shrinks to nothing at the first frame.
+    const start = getSmoothedCameraTarget(zigzag, timeline, 0);
+    expect(start.lat).toBeCloseTo(45, 6);
+    expect(start.lon).toBeCloseTo(4, 6);
+    // The leash keeps the aimed point within the given distance of the runner.
+    const leashed = getSmoothedCameraTarget(zigzag, timeline, 15_000, 10);
+    const runnerAt = getRoutePointAtDistance(zigzag, getVideoFrameState(timeline, 15_000).distanceKm);
+    expect(Math.hypot(
+      (leashed.lon - runnerAt.lon) * 111_320 * Math.cos((45 * Math.PI) / 180),
+      (leashed.lat - runnerAt.lat) * 111_320,
+    )).toBeLessThanOrEqual(10.01);
     // The aimed point barely moves sideways while the runner zigzags 200 m.
     expect(spread(centre)).toBeLessThan(40);
     expect(spread(runner)).toBeLessThan(40);

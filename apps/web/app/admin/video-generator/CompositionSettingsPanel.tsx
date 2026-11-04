@@ -45,12 +45,16 @@ const INFORMATION_TOGGLES: Array<[BooleanSettingKey, string]> = [
   ["showCurrentKm", "Kilomètre en cours"],
 ];
 
+/** Settings group, collapsed by default: the defaults are good, so details stay out of the way. */
 function PanelSection({ children, title }: { children: ReactNode; title: string }) {
   return (
-    <fieldset className="space-y-2 border-t border-border pt-3 first:border-t-0 first:pt-0">
-      <legend className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</legend>
-      {children}
-    </fieldset>
+    <details className="group border-t border-border pt-2">
+      <summary className="flex cursor-pointer list-none items-center justify-between py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground">
+        {title}
+        <span aria-hidden="true" className="transition-transform group-open:rotate-90">›</span>
+      </summary>
+      <div className="space-y-2 pb-2 pt-2">{children}</div>
+    </details>
   );
 }
 
@@ -120,19 +124,43 @@ export function CompositionSettingsPanel({
   };
 
   return (
-    <div className="space-y-4 text-foreground">
-      <PanelSection title="Format">
-        <Segmented
-          label="Format de prévisualisation"
-          value={settings.viewport}
-          options={[["portrait", "Instagram 9:16"], ["landscape", "Classique 16:9"]]}
-          onChange={(value) => update("viewport", value)}
-        />
+    <div className="space-y-2 text-foreground">
+      {/* Quick access: what is worth changing per video. */}
+      <div className="space-y-2 pb-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Réglages rapides</p>
+        <label className="block space-y-1 text-sm">
+          <span className="flex justify-between font-medium">
+            Relief
+            <span className="tabular-nums text-muted-foreground">×{settings.terrainExaggeration.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}</span>
+          </span>
+          <input
+            aria-label="Exagération du relief"
+            type="range"
+            className="w-full accent-brand"
+            min={1}
+            max={3}
+            step={0.05}
+            value={settings.terrainExaggeration}
+            onChange={(event) => update("terrainExaggeration", Number(event.target.value))}
+          />
+        </label>
+        <div className="space-y-1 text-sm">
+          <span className="font-medium">Qualité de la vidéo</span>
         <Segmented
           label="Résolution d’export"
           value={settings.resolution}
           options={[["540p", "540p (test)"], ["1080p", "1080p"]]}
           onChange={(value) => update("resolution", value)}
+        />
+        </div>
+      </div>
+
+      <PanelSection title="Format et durée">
+        <Segmented
+          label="Format de prévisualisation"
+          value={settings.viewport}
+          options={[["portrait", "Instagram 9:16"], ["landscape", "Classique 16:9"]]}
+          onChange={(value) => update("viewport", value)}
         />
         <label className="block space-y-1 text-sm">
           <span className="font-medium">Durée totale</span>
@@ -155,7 +183,7 @@ export function CompositionSettingsPanel({
         </label>
       </PanelSection>
 
-      <PanelSection title="Carte et caméra">
+      <PanelSection title="Carte">
         <Segmented
           label="Style de carte"
           value={settings.mapStyle}
@@ -187,22 +215,6 @@ export function CompositionSettingsPanel({
           options={Object.entries(MAP_AMBIANCES).map(([value, ambiance]) => [value as VideoCompositionSettings["mapAmbiance"], ambiance.label])}
           onChange={(value) => update("mapAmbiance", value)}
         />
-        <label className="block space-y-1 text-sm">
-          <span className="flex justify-between font-medium">
-            Relief
-            <span className="tabular-nums text-muted-foreground">×{settings.terrainExaggeration.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}</span>
-          </span>
-          <input
-            aria-label="Exagération du relief"
-            type="range"
-            className="w-full accent-brand"
-            min={1}
-            max={3}
-            step={0.05}
-            value={settings.terrainExaggeration}
-            onChange={(event) => update("terrainExaggeration", Number(event.target.value))}
-          />
-        </label>
         <Toggle label="Masquer les noms de lieux et de routes" checked={settings.hideMapLabels} onChange={(checked) => update("hideMapLabels", checked)} />
         <Toggle label="Afficher les sommets (nom, altitude)" checked={settings.showPeaks} onChange={(checked) => update("showPeaks", checked)} />
         <Toggle label="Jour / nuit selon l’heure estimée" checked={settings.dayNight} onChange={(checked) => update("dayNight", checked)} />
@@ -213,6 +225,9 @@ export function CompositionSettingsPanel({
               : "Heure de départ inconnue pour ce format : la lumière reste celle du jour."}
           </p>
         ) : null}
+      </PanelSection>
+
+      <PanelSection title="Tracé et caméra">
         <Segmented
           label="Affichage du tracé"
           value={settings.revealMode}
@@ -235,7 +250,7 @@ export function CompositionSettingsPanel({
         </div>
       </PanelSection>
 
-      <PanelSection title="Informations">
+      <PanelSection title="Informations affichées">
         <div className="grid grid-cols-2 gap-x-2">
           {INFORMATION_TOGGLES.map(([key, label]) => (
             <Toggle key={key} label={label} checked={settings[key]} onChange={(checked) => update(key, checked)} />
@@ -261,7 +276,7 @@ export function CompositionSettingsPanel({
         ) : null}
       </PanelSection>
 
-      <PanelSection title="Identité graphique">
+      <PanelSection title="Couleurs et marque">
         <div className="grid grid-cols-2 gap-2">
           <label className="flex items-center gap-2 text-sm">
             <input aria-label="Couleur du parcours" type="color" className="h-8 w-10 cursor-pointer rounded border border-border bg-card" value={settings.routeColor} onChange={(event) => update("routeColor", event.target.value)} />

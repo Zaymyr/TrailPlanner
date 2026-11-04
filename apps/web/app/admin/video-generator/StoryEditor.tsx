@@ -83,46 +83,7 @@ export function StoryEditor({
       <p className="text-xs text-muted-foreground">
         Vidéo de {formatTime(totalMs)} · {beats.length} moments · voix {voicedCount}/{beats.length}
       </p>
-      {narrationOverflow ? (
-        <p className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
-          La narration est trop longue pour la durée choisie : raccourcis les textes ou passe la durée en automatique.
-        </p>
-      ) : null}
-
-      <ol className="space-y-2">
-        {beats.map((beat) => {
-          const voiced = voiceReadyIds.has(beat.id);
-          return (
-            <li key={beat.id} className="rounded-md border border-border bg-muted/20 p-2">
-              <div className="flex items-center justify-between gap-2 text-xs">
-                <span className="flex min-w-0 items-center gap-1.5">
-                  <span className="shrink-0 rounded bg-brand px-1.5 py-0.5 font-semibold text-brand-foreground">{KIND_LABELS[beat.kind]}</span>
-                  <span className="truncate font-medium">{beat.kind === "intro" || beat.kind === "outro" ? "" : beat.title}</span>
-                </span>
-                <span className="flex shrink-0 items-center gap-1.5 tabular-nums text-muted-foreground">
-                  {formatTime(beat.narrationStartMs)}
-                  <span
-                    className={`h-2 w-2 rounded-full ${voiced ? "bg-emerald-500" : "bg-muted-foreground/40"}`}
-                    title={voiced ? "Voix générée" : "Voix à générer"}
-                  />
-                </span>
-              </div>
-              <textarea
-                aria-label={`Narration : ${KIND_LABELS[beat.kind]} ${beat.title}`}
-                className="mt-1.5 w-full resize-y rounded border border-input bg-card px-2 py-1 text-xs leading-snug"
-                rows={2}
-                value={beat.narration}
-                onChange={(event) => onNarrationChange(beat.id, event.target.value)}
-              />
-              <p className="text-[10px] text-muted-foreground">
-                ≈ {(estimateNarrationMs(beat.narration) / 1_000).toFixed(1)} s{beat.facts.length ? ` · ${beat.facts.join(" · ")}` : ""}
-              </p>
-            </li>
-          );
-        })}
-      </ol>
-
-      <div className="space-y-2 border-t border-border pt-3">
+      <div className="space-y-2 rounded-md border border-border bg-muted/20 p-2">
         <div role="group" aria-label="Modèle de voix" className="flex rounded-md border border-border bg-muted/30 p-1">
           {([["multilingual_v2", "Stable (v2)"], ["v3", "Expressive (v3)"]] as const).map(([model, label]) => (
             <Button
@@ -171,6 +132,52 @@ export function StoryEditor({
           Texte par défaut
         </Button>
       </div>
+
+      {narrationOverflow ? (
+        <p className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
+          La narration est trop longue pour la durée choisie : raccourcis les textes ou passe la durée en automatique.
+        </p>
+      ) : null}
+
+      <details className="group" open>
+        <summary className="flex cursor-pointer list-none items-center justify-between py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground">
+          Textes de narration ({beats.length})
+          <span aria-hidden="true" className="transition-transform group-open:rotate-90">›</span>
+        </summary>
+        <ol className="space-y-2">
+          {beats.map((beat) => {
+            const voiced = voiceReadyIds.has(beat.id);
+            return (
+              <li key={beat.id} className="rounded-md border border-border bg-muted/20 p-2">
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="shrink-0 rounded bg-brand px-1.5 py-0.5 font-semibold text-brand-foreground">{KIND_LABELS[beat.kind]}</span>
+                    <span className="truncate font-medium">{beat.kind === "intro" || beat.kind === "outro" ? "" : beat.title}</span>
+                  </span>
+                  <span className="flex shrink-0 items-center gap-1.5 tabular-nums text-muted-foreground">
+                    {formatTime(beat.narrationStartMs)}
+                    <span
+                      className={`h-2 w-2 rounded-full ${voiced ? "bg-emerald-500" : "bg-muted-foreground/40"}`}
+                      title={voiced ? "Voix générée" : "Voix à générer"}
+                    />
+                  </span>
+                </div>
+                <textarea
+                  aria-label={`Narration : ${KIND_LABELS[beat.kind]} ${beat.title}`}
+                  className="mt-1.5 w-full resize-y rounded border border-input bg-card px-2 py-1 text-xs leading-snug"
+                  rows={2}
+                  value={beat.narration}
+                  onChange={(event) => onNarrationChange(beat.id, event.target.value)}
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  ≈ {(estimateNarrationMs(beat.narration) / 1_000).toFixed(1)} s{beat.facts.length ? ` · ${beat.facts.join(" · ")}` : ""}
+                </p>
+              </li>
+            );
+          })}
+        </ol>
+
+      </details>
     </div>
   );
 }

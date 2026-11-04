@@ -233,7 +233,7 @@ export default function AdminVideoGeneratorPage() {
         </Link>
       </header>
 
-      <div className="grid gap-4 lg:grid-cols-[17rem_minmax(0,1fr)_20rem] xl:grid-cols-[19rem_minmax(0,1fr)_22rem]">
+      <div className="grid gap-4 lg:grid-cols-[17rem_auto_minmax(24rem,1fr)] xl:grid-cols-[19rem_auto_minmax(28rem,1fr)]">
         <Card className="h-fit lg:sticky lg:top-4">
           <CardHeader>
             <CardTitle>Configuration</CardTitle>
