@@ -487,6 +487,8 @@ Organizer import cleanup additionally uses `organizer-import-cleanup-hourly` at 
 
 ## Gotchas
 
+- `20261102063210_add_runner_launch_grandfathering.sql` was first committed as `20261031092049_…`, but production recorded it under `20261102063210` (applied outside the workflow, byte-identical content). The file was renamed to the recorded version on 2026-11-04 so the history check reconciles; `20261031092338` and `20261101120000` were still pending in production at that date and apply out of order through `--include-all`.
+
 - Do not copy old `race_catalog` DDL from `docs/_archive/db/schema.sql`.
 - Do not add `user_metadata` admin checks in new policies.
 - Do not grant authority from `user_profiles.role`; the final security migration keeps it as server-managed legacy data only.

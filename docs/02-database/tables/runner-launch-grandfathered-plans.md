@@ -4,7 +4,7 @@ scope: database
 last_verified: 2026-11-02
 ai_priority: high
 related_files:
-  - supabase/migrations/20261031092049_add_runner_launch_grandfathering.sql
+  - supabase/migrations/20261102063210_add_runner_launch_grandfathering.sql
   - supabase/tests/runner_launch_checks.sql
   - apps/web/lib/runner-access.ts
 related_tables:
