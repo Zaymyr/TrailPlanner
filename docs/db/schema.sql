@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict kkckm2FvUpxkJNFaJBTZjPscfCmbN6m8Q9lHMrYnsPOXR6MFnBkdhKufkenZ2c3
+\restrict 3zgAMydVr6T2bJibt6fkt5rorI8GVCPXXBT1egCb30i0WCEkqVV21XSxMKhq8zY
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.11
@@ -918,6 +918,50 @@ COMMENT ON FUNCTION private.protect_issued_organizer_invoice() IS 'Prevents dele
 
 
 --
+-- Name: prune_racebook_publications(uuid); Type: FUNCTION; Schema: private; Owner: -
+--
+
+CREATE FUNCTION private.prune_racebook_publications(p_race_id uuid) RETURNS void
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+declare
+  doomed_ids uuid[];
+begin
+  select coalesce(array_agg(ranked.id), '{}'::uuid[])
+  into doomed_ids
+  from (
+    select publication_row.id,
+           row_number() over (order by publication_row.version desc) as version_rank
+    from public.racebook_publications publication_row
+    where publication_row.race_id = p_race_id
+  ) ranked
+  where ranked.version_rank > 10;
+
+  if cardinality(doomed_ids) = 0 then return; end if;
+
+  insert into public.racebook_publication_asset_cleanup_queue (storage_bucket, storage_path)
+  select distinct asset_row.storage_bucket, asset_row.storage_path
+  from public.racebook_publication_assets asset_row
+  where asset_row.publication_id = any(doomed_ids)
+    and asset_row.storage_bucket is not null
+    and not exists (
+      select 1 from public.racebook_publication_assets retained_asset
+      where retained_asset.storage_bucket = asset_row.storage_bucket
+        and retained_asset.storage_path = asset_row.storage_path
+        and not (retained_asset.publication_id = any(doomed_ids))
+    )
+  on conflict (storage_bucket, storage_path) do update
+  set status = case when racebook_publication_asset_cleanup_queue.status = 'deleted' then 'pending' else racebook_publication_asset_cleanup_queue.status end,
+      completed_at = case when racebook_publication_asset_cleanup_queue.status = 'deleted' then null else racebook_publication_asset_cleanup_queue.completed_at end,
+      available_at = least(racebook_publication_asset_cleanup_queue.available_at, timezone('utc', now()));
+
+  delete from public.racebook_publications where id = any(doomed_ids);
+end;
+$$;
+
+
+--
 -- Name: race_is_in_visible_catalog(uuid, uuid); Type: FUNCTION; Schema: private; Owner: -
 --
 
@@ -1009,6 +1053,78 @@ $$;
 --
 
 COMMENT ON FUNCTION private.user_has_trusted_admin_role(p_user_id uuid) IS 'Returns whether one server-authorized actor has a trusted Auth app-metadata admin role.';
+
+
+--
+-- Name: acknowledge_race_plan_source_revision(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.acknowledge_race_plan_source_revision(p_plan_id uuid) RETURNS timestamp with time zone
+    LANGUAGE sql
+    SET search_path TO ''
+    AS $$
+  update public.race_plans plan_row
+  set source_revision_at_last_review = race_row.plan_source_updated_at
+  from public.races race_row
+  where plan_row.id = p_plan_id
+    and plan_row.user_id = (select auth.uid())
+    and plan_row.race_id = race_row.id
+  returning plan_row.source_revision_at_last_review;
+$$;
+
+
+--
+-- Name: activate_runner_launch(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.activate_runner_launch() RETURNS timestamp with time zone
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+declare
+  launch_time timestamptz;
+begin
+  perform pg_advisory_xact_lock(hashtextextended('pace_yourself_runner_launch', 0));
+
+  select launched_at
+    into launch_time
+    from public.runner_monetization_config
+    where id = true
+    for update;
+
+  if not found then
+    raise exception 'Runner monetization configuration is missing';
+  end if;
+  if launch_time is not null then
+    return launch_time;
+  end if;
+
+  lock table auth.users in share mode;
+  lock table public.race_plans in share mode;
+  launch_time := clock_timestamp();
+
+  insert into public.runner_launch_grandfathered_plans(plan_id, user_id, grandfathered_at)
+    select id, user_id, launch_time
+    from public.race_plans
+    on conflict (plan_id) do nothing;
+
+  insert into public.runner_launch_cohorts(user_id, early_supporter)
+    select id, true
+    from auth.users
+    where not coalesce(is_anonymous, false)
+      and coalesce(raw_app_meta_data ->> 'provider', '') <> 'anonymous'
+    on conflict (user_id) do nothing;
+
+  update public.runner_monetization_config
+    set monetization_enabled = true,
+        launched_at = launch_time,
+        launch_popup_ends_at = launch_time + interval '7 days',
+        updated_at = launch_time
+    where id = true;
+
+  return launch_time;
+end;
+$$;
 
 
 --
@@ -1551,6 +1667,388 @@ COMMENT ON FUNCTION public.assign_race_event_edition() IS 'Assigns a dated event
 
 
 --
+-- Name: bump_aid_product_race_plan_source_revision(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.bump_aid_product_race_plan_source_revision() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+begin
+  if tg_op = 'INSERT' then
+    update public.races race_row set plan_source_updated_at = clock_timestamp()
+    where exists (select 1 from public.race_aid_stations station_row where station_row.id = new.race_aid_station_id and station_row.race_id = race_row.id);
+  elsif tg_op = 'DELETE' then
+    update public.races race_row set plan_source_updated_at = clock_timestamp()
+    where exists (select 1 from public.race_aid_stations station_row where station_row.id = old.race_aid_station_id and station_row.race_id = race_row.id);
+  elsif old.race_aid_station_id is distinct from new.race_aid_station_id
+    or old.product_id is distinct from new.product_id
+    or old.notes is distinct from new.notes
+    or old.order_index is distinct from new.order_index then
+    update public.races race_row
+    set plan_source_updated_at = clock_timestamp()
+    where exists (
+      select 1 from public.race_aid_stations station_row
+      where station_row.id in (old.race_aid_station_id, new.race_aid_station_id)
+        and station_row.race_id = race_row.id
+    );
+  end if;
+  if tg_op = 'DELETE' then return old; end if;
+  return new;
+end;
+$$;
+
+
+--
+-- Name: bump_aid_station_race_plan_source_revision(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.bump_aid_station_race_plan_source_revision() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+begin
+  if tg_op = 'INSERT' then
+    update public.races set plan_source_updated_at = clock_timestamp() where id = new.race_id;
+  elsif tg_op = 'DELETE' then
+    update public.races set plan_source_updated_at = clock_timestamp() where id = old.race_id;
+  elsif old.race_id is distinct from new.race_id
+    or old.name is distinct from new.name
+    or old.km is distinct from new.km
+    or old.water_available is distinct from new.water_available
+    or old.solid_available is distinct from new.solid_available
+    or old.assistance_allowed is distinct from new.assistance_allowed
+    or old.notes is distinct from new.notes
+    or old.organizer_details is distinct from new.organizer_details
+    or old.order_index is distinct from new.order_index then
+    update public.races
+    set plan_source_updated_at = clock_timestamp()
+    where id in (old.race_id, new.race_id);
+  end if;
+  if tg_op = 'DELETE' then return old; end if;
+  return new;
+end;
+$$;
+
+
+--
+-- Name: bump_linked_product_race_plan_source_revisions(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.bump_linked_product_race_plan_source_revisions() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+begin
+  if old.name is distinct from new.name
+    or old.brand is distinct from new.brand
+    or old.carbs_g is distinct from new.carbs_g
+    or old.protein_g is distinct from new.protein_g
+    or old.fat_g is distinct from new.fat_g
+    or old.sodium_mg is distinct from new.sodium_mg
+    or old.calories_kcal is distinct from new.calories_kcal
+    or old.fuel_type is distinct from new.fuel_type
+    or old.image_url is distinct from new.image_url
+    or old.is_official is distinct from new.is_official
+    or old.is_live is distinct from new.is_live
+    or old.is_archived is distinct from new.is_archived then
+    update public.races race_row
+    set plan_source_updated_at = clock_timestamp()
+    where exists (
+      select 1
+      from public.race_aid_station_products link_row
+      join public.race_aid_stations station_row on station_row.id = link_row.race_aid_station_id
+      where link_row.product_id = new.id
+        and station_row.race_id = race_row.id
+    );
+  end if;
+  return new;
+end;
+$$;
+
+
+--
+-- Name: bump_race_plan_source_revision(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.bump_race_plan_source_revision() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+begin
+  if old.name is distinct from new.name
+    or old.distance_km is distinct from new.distance_km
+    or old.elevation_gain_m is distinct from new.elevation_gain_m
+    or old.elevation_loss_m is distinct from new.elevation_loss_m
+    or old.race_date is distinct from new.race_date
+    or old.gpx_storage_path is distinct from new.gpx_storage_path
+    or old.gpx_sha256 is distinct from new.gpx_sha256
+    or old.organizer_details is distinct from new.organizer_details then
+    new.plan_source_updated_at := clock_timestamp();
+  end if;
+  return new;
+end;
+$$;
+
+
+--
+-- Name: bump_racebook_aid_product_draft_revision(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.bump_racebook_aid_product_draft_revision() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+declare
+  station_id uuid;
+begin
+  station_id := case when tg_op = 'DELETE' then old.race_aid_station_id else new.race_aid_station_id end;
+  update public.racebook_publication_states state_row
+  set draft_revision = state_row.draft_revision + 1,
+      updated_at = timezone('utc', now())
+  from public.race_aid_stations station_row
+  where station_row.id = station_id
+    and state_row.race_id = station_row.race_id;
+  if tg_op = 'DELETE' then return old; end if;
+  return new;
+end;
+$$;
+
+
+--
+-- Name: bump_racebook_edition_child_draft_revisions(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.bump_racebook_edition_child_draft_revisions() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+declare
+  target_edition_id uuid;
+begin
+  target_edition_id := case when tg_op = 'DELETE' then old.edition_id else new.edition_id end;
+  update public.racebook_publication_states
+  set draft_revision = draft_revision + 1,
+      updated_at = timezone('utc', now())
+  where edition_id = target_edition_id;
+  if tg_op = 'DELETE' then return old; end if;
+  return new;
+end;
+$$;
+
+
+--
+-- Name: bump_racebook_edition_draft_revisions(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.bump_racebook_edition_draft_revisions() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+begin
+  if (to_jsonb(old) - array['updated_at', 'is_visible', 'is_current']) is distinct from
+     (to_jsonb(new) - array['updated_at', 'is_visible', 'is_current']) then
+    update public.racebook_publication_states
+    set draft_revision = draft_revision + 1,
+        updated_at = timezone('utc', now())
+    where edition_id = new.id;
+  end if;
+  return new;
+end;
+$$;
+
+
+--
+-- Name: bump_racebook_event_draft_revisions(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.bump_racebook_event_draft_revisions() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+begin
+  if (to_jsonb(old) - array['updated_at', 'is_live']) is distinct from
+     (to_jsonb(new) - array['updated_at', 'is_live']) then
+    update public.racebook_publication_states
+    set draft_revision = draft_revision + 1,
+        updated_at = timezone('utc', now())
+    where event_id = new.id;
+  end if;
+  return new;
+end;
+$$;
+
+
+--
+-- Name: bump_racebook_module_draft_revisions(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.bump_racebook_module_draft_revisions() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+declare
+  target_edition_id uuid;
+  target_race_id uuid;
+begin
+  target_edition_id := case when tg_op = 'DELETE' then old.edition_id else new.edition_id end;
+  target_race_id := case when tg_op = 'DELETE' then old.race_id else new.race_id end;
+  update public.racebook_publication_states
+  set draft_revision = draft_revision + 1,
+      updated_at = timezone('utc', now())
+  where (target_race_id is not null and race_id = target_race_id)
+     or (target_race_id is null and edition_id = target_edition_id);
+  if tg_op = 'DELETE' then return old; end if;
+  return new;
+end;
+$$;
+
+
+--
+-- Name: bump_racebook_product_draft_revisions(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.bump_racebook_product_draft_revisions() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+declare
+  target_product_id uuid;
+begin
+  target_product_id := case when tg_op = 'DELETE' then old.id else new.id end;
+  if tg_op <> 'UPDATE' or (to_jsonb(old) - 'updated_at') is distinct from (to_jsonb(new) - 'updated_at') then
+    update public.racebook_publication_states state_row
+    set draft_revision = state_row.draft_revision + 1,
+        updated_at = timezone('utc', now())
+    where exists (
+      select 1
+      from public.race_aid_station_products link_row
+      join public.race_aid_stations station_row on station_row.id = link_row.race_aid_station_id
+      where link_row.product_id = target_product_id
+        and station_row.race_id = state_row.race_id
+    );
+  end if;
+  if tg_op = 'DELETE' then return old; end if;
+  return new;
+end;
+$$;
+
+
+--
+-- Name: bump_racebook_race_child_draft_revision(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.bump_racebook_race_child_draft_revision() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+declare
+  target_race_id uuid;
+begin
+  target_race_id := case when tg_op = 'DELETE' then old.race_id else new.race_id end;
+  update public.racebook_publication_states
+  set draft_revision = draft_revision + 1,
+      updated_at = timezone('utc', now())
+  where race_id = target_race_id;
+  if tg_op = 'DELETE' then return old; end if;
+  return new;
+end;
+$$;
+
+
+--
+-- Name: bump_racebook_race_draft_revision(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.bump_racebook_race_draft_revision() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+declare
+  old_draft jsonb;
+  new_draft jsonb;
+begin
+  old_draft := to_jsonb(old) - array[
+    'updated_at', 'is_live', 'is_public', 'web_catalog_is_live',
+    'racebook_is_live', 'racebook_preview_is_visible',
+    'racebook_publication_approved_at', 'racebook_publication_approved_by',
+    'source_revision'
+  ];
+  new_draft := to_jsonb(new) - array[
+    'updated_at', 'is_live', 'is_public', 'web_catalog_is_live',
+    'racebook_is_live', 'racebook_preview_is_visible',
+    'racebook_publication_approved_at', 'racebook_publication_approved_by',
+    'source_revision'
+  ];
+
+  if old_draft is distinct from new_draft and new.event_id is not null and new.edition_id is not null then
+    insert into public.racebook_publication_states (race_id, event_id, edition_id, draft_revision)
+    values (new.id, new.event_id, new.edition_id, 2)
+    on conflict (race_id) do update
+    set event_id = excluded.event_id,
+        edition_id = excluded.edition_id,
+        draft_revision = racebook_publication_states.draft_revision + 1,
+        updated_at = timezone('utc', now());
+  end if;
+  return new;
+end;
+$$;
+
+
+--
+-- Name: bump_racebook_sponsor_draft_revisions(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.bump_racebook_sponsor_draft_revisions() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+declare
+  target_edition_id uuid;
+begin
+  target_edition_id := case when tg_op = 'DELETE' then old.edition_id else new.edition_id end;
+  if tg_op <> 'UPDATE'
+    or (to_jsonb(old) - array['updated_at', 'click_count', 'impression_count']) is distinct from
+       (to_jsonb(new) - array['updated_at', 'click_count', 'impression_count']) then
+    update public.racebook_publication_states
+    set draft_revision = draft_revision + 1,
+        updated_at = timezone('utc', now())
+    where edition_id = target_edition_id;
+  end if;
+  if tg_op = 'DELETE' then return old; end if;
+  return new;
+end;
+$$;
+
+
+--
+-- Name: bump_start_wave_race_plan_source_revision(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.bump_start_wave_race_plan_source_revision() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+begin
+  if tg_op = 'INSERT' then
+    update public.races set plan_source_updated_at = clock_timestamp() where id = new.race_id;
+  elsif tg_op = 'DELETE' then
+    update public.races set plan_source_updated_at = clock_timestamp() where id = old.race_id;
+  elsif old.race_id is distinct from new.race_id
+    or old.name is distinct from new.name
+    or old.start_time is distinct from new.start_time
+    or old.order_index is distinct from new.order_index
+    or old.eligibility_type is distinct from new.eligibility_type
+    or old.eligibility_note is distinct from new.eligibility_note then
+    update public.races set plan_source_updated_at = clock_timestamp() where id in (old.race_id, new.race_id);
+  end if;
+  if tg_op = 'DELETE' then return old; end if;
+  return new;
+end;
+$$;
+
+
+--
 -- Name: check_and_increment_rate_limit(text, integer, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1587,6 +2085,170 @@ BEGIN
       ELSE 0::bigint
     END;
 END;
+$$;
+
+
+--
+-- Name: claim_runner_plan_unlock(uuid, uuid, text, text, text, timestamp with time zone, uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.claim_runner_plan_unlock(p_user_id uuid, p_plan_id uuid, p_provider text, p_transaction_id text, p_product_id text DEFAULT NULL::text, p_purchased_at timestamp with time zone DEFAULT timezone('utc'::text, now()), p_intent_id uuid DEFAULT NULL::uuid) RETURNS boolean
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+declare
+  existing public.runner_plan_unlocks;
+  purchase_intent public.runner_purchase_intents;
+  canonical_key text;
+  latest_transaction_status text;
+begin
+  if p_provider not in ('stripe', 'google', 'apple') or nullif(trim(p_transaction_id), '') is null then
+    return false;
+  end if;
+
+  -- Serialize every provider transaction, including a refund delivered before
+  -- its purchase event.
+  perform pg_advisory_xact_lock(hashtextextended(p_provider || ':' || p_transaction_id, 0));
+
+  select case
+      when rp.race_id is null then 'plan:' || rp.id::text
+      else 'race:' || rp.race_id::text || ':edition:' || coalesce(r.edition_id::text, 'legacy')
+    end
+    into canonical_key
+    from public.race_plans rp
+    left join public.races r on r.id = rp.race_id
+    where rp.id = p_plan_id and rp.user_id = p_user_id;
+  if p_intent_id is not null then
+    select * into purchase_intent
+      from public.runner_purchase_intents
+      where id = p_intent_id
+      for update;
+    if not found
+      or purchase_intent.user_id <> p_user_id
+      or (purchase_intent.plan_id is not null and purchase_intent.plan_id is distinct from p_plan_id)
+      or purchase_intent.provider <> p_provider
+      or purchase_intent.status not in ('pending', 'fulfilled')
+      or (purchase_intent.transaction_id is not null and purchase_intent.transaction_id <> p_transaction_id)
+      or (purchase_intent.product_id is not null and purchase_intent.product_id is distinct from p_product_id)
+      or p_purchased_at < purchase_intent.created_at
+      or (purchase_intent.status = 'pending' and p_purchased_at > purchase_intent.expires_at)
+    then
+      return false;
+    end if;
+    canonical_key := purchase_intent.plan_key;
+  end if;
+  if canonical_key is null then return false; end if;
+
+  select transaction_status into latest_transaction_status
+    from public.runner_billing_events
+    where provider = p_provider and transaction_id = p_transaction_id
+      and transaction_status is not null
+    order by event_at desc, received_at desc
+    limit 1;
+  if latest_transaction_status in ('refunded', 'revoked') then return false; end if;
+
+  select * into existing from public.runner_plan_unlocks
+    where provider = p_provider and provider_transaction_id = p_transaction_id
+    for update;
+  if found then
+    if existing.user_id <> p_user_id or existing.plan_key <> canonical_key or existing.status <> 'active' then
+      return false;
+    end if;
+  else
+    insert into public.runner_plan_unlocks(user_id, plan_key, plan_id, provider, provider_transaction_id, status, purchased_at)
+      values (
+        p_user_id,
+        canonical_key,
+        case when exists (select 1 from public.race_plans where id = p_plan_id and user_id = p_user_id) then p_plan_id else null end,
+        p_provider,
+        p_transaction_id,
+        'active',
+        p_purchased_at
+      );
+  end if;
+
+  if p_intent_id is not null then
+    update public.runner_purchase_intents
+      set status = 'fulfilled', transaction_id = p_transaction_id,
+          fulfilled_at = coalesce(fulfilled_at, timezone('utc', now())),
+          last_verified_at = timezone('utc', now()), failure_reason = null,
+          plan_key = canonical_key
+      where id = p_intent_id;
+  end if;
+  return true;
+exception when unique_violation then
+  return false;
+end;
+$$;
+
+
+--
+-- Name: claim_runner_support_purchase(uuid, text, text, text, timestamp with time zone, uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.claim_runner_support_purchase(p_user_id uuid, p_provider text, p_product_id text, p_transaction_id text, p_purchased_at timestamp with time zone, p_intent_id uuid DEFAULT NULL::uuid) RETURNS boolean
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+declare
+  purchase_intent public.runner_support_purchase_intents%rowtype;
+  recorded boolean;
+  effective_status text;
+begin
+  if p_intent_id is not null then
+    select * into purchase_intent
+    from public.runner_support_purchase_intents
+    where id = p_intent_id
+    for update;
+
+    if not found
+       or purchase_intent.user_id <> p_user_id
+       or purchase_intent.provider <> p_provider
+       or purchase_intent.product_id <> p_product_id
+       or purchase_intent.status not in ('pending', 'fulfilled')
+       or purchase_intent.created_at > p_purchased_at
+       or purchase_intent.expires_at < p_purchased_at
+       or (purchase_intent.transaction_id is not null and purchase_intent.transaction_id <> p_transaction_id) then
+      return false;
+    end if;
+  end if;
+
+  recorded := public.record_runner_support_event(
+    p_user_id,
+    p_provider,
+    p_product_id,
+    p_transaction_id,
+    'active',
+    p_purchased_at,
+    p_purchased_at,
+    'sync:' || p_provider || ':' || p_transaction_id
+  );
+
+  if not recorded then
+    return false;
+  end if;
+
+  select status into effective_status
+  from public.runner_support_purchases
+  where user_id = p_user_id
+    and provider = p_provider
+    and product_id = p_product_id
+    and transaction_id = p_transaction_id;
+
+  if effective_status is distinct from 'active' then
+    return false;
+  end if;
+
+  if p_intent_id is not null then
+    update public.runner_support_purchase_intents
+    set status = 'fulfilled',
+        transaction_id = p_transaction_id,
+        updated_at = now()
+    where id = p_intent_id;
+  end if;
+
+  return true;
+end;
 $$;
 
 
@@ -2318,6 +2980,34 @@ $$;
 
 
 --
+-- Name: ensure_racebook_publication_state(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.ensure_racebook_publication_state() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+begin
+  if new.event_id is not null and new.edition_id is not null then
+    insert into public.racebook_publication_states (race_id, event_id, edition_id)
+    values (new.id, new.event_id, new.edition_id)
+    on conflict (race_id) do update
+    set event_id = excluded.event_id,
+        edition_id = excluded.edition_id,
+        draft_revision = case
+          when racebook_publication_states.event_id is distinct from excluded.event_id
+            or racebook_publication_states.edition_id is distinct from excluded.edition_id
+          then racebook_publication_states.draft_revision + 1
+          else racebook_publication_states.draft_revision
+        end,
+        updated_at = timezone('utc', now());
+  end if;
+  return new;
+end;
+$$;
+
+
+--
 -- Name: get_admin_growth_metrics(date, date, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -2792,31 +3482,40 @@ $$;
 
 
 --
+-- Name: guard_racebook_visibility_requires_publication(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.guard_racebook_visibility_requires_publication() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+begin
+  if new.racebook_is_live and not old.racebook_is_live and not exists (
+    select 1 from public.racebook_publication_states state_row
+    where state_row.race_id = new.id and state_row.current_publication_id is not null
+  ) then
+    raise exception 'A RaceBook publication is required before runner visibility.' using errcode = '23514';
+  end if;
+  return new;
+end;
+$$;
+
+
+--
 -- Name: handle_new_user_profile(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.handle_new_user_profile() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO ''
+    SET search_path TO 'public'
     AS $$
 declare
-  trial_start timestamptz := coalesce(new.created_at, timezone('utc', now()));
-  profile_name text := nullif(
-    trim(coalesce(new.raw_user_meta_data ->> 'full_name', new.raw_user_meta_data ->> 'name', '')),
-    ''
-  );
+  profile_name text := nullif(trim(coalesce(new.raw_user_meta_data ->> 'full_name', new.raw_user_meta_data ->> 'name', '')), '');
 begin
-  insert into public.user_profiles (user_id, full_name, trial_started_at, trial_ends_at)
-  values (new.id, profile_name, trial_start, trial_start + interval '15 days')
+  insert into public.user_profiles (user_id, full_name)
+  values (new.id, profile_name)
   on conflict (user_id) do update
-  set
-    full_name = coalesce(public.user_profiles.full_name, excluded.full_name),
-    trial_started_at = coalesce(public.user_profiles.trial_started_at, excluded.trial_started_at),
-    trial_ends_at = coalesce(
-      public.user_profiles.trial_ends_at,
-      coalesce(public.user_profiles.trial_started_at, excluded.trial_started_at) + interval '15 days'
-    );
-
+    set full_name = coalesce(public.user_profiles.full_name, excluded.full_name);
   return new;
 end;
 $$;
@@ -3011,8 +3710,34 @@ CREATE FUNCTION public.initialize_organizer_race_modules() RETURNS trigger
 begin
   if new.edition_id is not null then
     insert into public.organizer_racebook_module_settings (edition_id, race_id, module_key, is_enabled)
-    values (new.edition_id, new.id, 'aid_stations', true)
+    values
+      (new.edition_id, new.id, 'aid_stations', true),
+      (new.edition_id, new.id, 'supporter_points', true)
     on conflict do nothing;
+  end if;
+  return new;
+end;
+$$;
+
+
+--
+-- Name: initialize_plan_source_review_revision(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.initialize_plan_source_review_revision() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+begin
+  if tg_op = 'INSERT' or old.race_id is distinct from new.race_id then
+    new.source_revision_at_last_review := null;
+  end if;
+  if new.race_id is not null
+    and (tg_op = 'INSERT' or old.race_id is distinct from new.race_id) then
+    select race_row.plan_source_updated_at
+    into new.source_revision_at_last_review
+    from public.races race_row
+    where race_row.id = new.race_id;
   end if;
   return new;
 end;
@@ -3222,88 +3947,46 @@ CREATE FUNCTION public.normalize_product_brand(raw_brand text) RETURNS text
 declare
   cleaned text;
 begin
-  if raw_brand is null then
-    return null;
-  end if;
+  if raw_brand is null then return null; end if;
 
   cleaned := lower(trim(raw_brand));
   cleaned := replace(cleaned, chr(8217), '''');
   cleaned := regexp_replace(cleaned, '\s+', ' ', 'g');
   cleaned := regexp_replace(cleaned, '(^[^[:alnum:]]+|[^[:alnum:]]+$)', '', 'g');
-
-  if cleaned = '' then
-    return null;
-  end if;
+  if cleaned = '' then return null; end if;
 
   case
-    when cleaned in ('maurten') or cleaned like 'maurten %' then return 'Maurten';
+    when cleaned in ('décat', 'decat', 'decath', 'decathlon') or cleaned like 'decathlon %' then return 'Decathlon';
+    when cleaned = 'maurten' or cleaned like 'maurten %' then return 'Maurten';
     when cleaned in ('gu', 'gu energy', 'gu energy labs') or cleaned like 'gu %' then return 'GU';
     when cleaned in ('sis', 'science in sport', 'science-in-sport') or cleaned like 'sis %' or cleaned like 'science in sport %' then return 'SiS';
-    when cleaned in ('naak') or cleaned like 'naak %' then return 'NAAK';
+    when cleaned = 'naak' or cleaned like 'naak %' then return 'NAAK';
     when cleaned in ('precision fuel & hydration', 'precision fuel and hydration', 'precision fuel', 'precision hydration', 'pf&h', 'pfh')
-      or cleaned like 'precision fuel & hydration %'
-      or cleaned like 'precision fuel and hydration %'
-      or cleaned like 'precision fuel %'
-      or cleaned like 'precision hydration %'
+      or cleaned like 'precision fuel & hydration %' or cleaned like 'precision fuel and hydration %'
+      or cleaned like 'precision fuel %' or cleaned like 'precision hydration %'
       then return 'Precision Fuel & Hydration';
     when cleaned in ('tailwind', 'tailwind nutrition') or cleaned like 'tailwind %' then return 'Tailwind';
-    when cleaned in ('neversecond') or cleaned like 'neversecond %' then return 'Neversecond';
+    when cleaned = 'neversecond' or cleaned like 'neversecond %' then return 'Neversecond';
     when cleaned in ('overstims', 'overstim.s') or cleaned like 'overstims %' or cleaned like 'overstim.s %' then return 'Overstims';
-    when cleaned in ('powerbar') or cleaned like 'powerbar %' then return 'Powerbar';
+    when cleaned = 'powerbar' or cleaned like 'powerbar %' then return 'Powerbar';
     when cleaned in ('clif', 'clif bar') or cleaned like 'clif %' then return 'Clif';
-    when cleaned in ('high5') or cleaned like 'high5 %' then return 'HIGH5';
-    when cleaned in ('aptonia') or cleaned like 'aptonia %' then return 'Aptonia';
+    when cleaned = 'high5' or cleaned like 'high5 %' then return 'HIGH5';
+    when cleaned = 'aptonia' or cleaned like 'aptonia %' then return 'Aptonia';
     when cleaned in ('huma', 'huma chia') or cleaned like 'huma %' then return 'Huma';
-    when cleaned in ('226ers') or cleaned like '226ers %' then return '226ERS';
+    when cleaned = '226ers' or cleaned like '226ers %' then return '226ERS';
     when cleaned in ('skratch', 'skratch labs') or cleaned like 'skratch %' then return 'Skratch Labs';
-    when cleaned in ('saltstick') or cleaned like 'saltstick %' then return 'SaltStick';
+    when cleaned = 'saltstick' or cleaned like 'saltstick %' then return 'SaltStick';
     else null;
   end case;
 
-  if cleaned = any (
-    array[
-      'gel',
-      'gels',
-      'energy gel',
-      'bar',
-      'bars',
-      'drink',
-      'drink mix',
-      'drink mixes',
-      'mix',
-      'mixes',
-      'boisson',
-      'boissons',
-      'electrolyte',
-      'electrolytes',
-      'electrolytes mix',
-      'capsule',
-      'capsules',
-      'chew',
-      'chews',
-      'food',
-      'decathlon',
-      'nutrition',
-      'sport nutrition',
-      'sports nutrition',
-      'energy',
-      'fuel',
-      'hydration',
-      'product',
-      'products',
-      'autre',
-      'other',
-      'unknown',
-      'sample',
-      'samples',
-      'test',
-      'tests',
-      'demo',
-      'example'
-    ]
-  ) then
-    return null;
-  end if;
+  if cleaned = any (array[
+    'gel', 'gels', 'energy gel', 'bar', 'bars', 'drink', 'drink mix', 'drink mixes',
+    'mix', 'mixes', 'boisson', 'boissons', 'electrolyte', 'electrolytes',
+    'electrolytes mix', 'capsule', 'capsules', 'chew', 'chews', 'food',
+    'nutrition', 'sport nutrition', 'sports nutrition', 'energy', 'fuel', 'hydration',
+    'product', 'products', 'autre', 'other', 'unknown', 'sample', 'samples',
+    'test', 'tests', 'demo', 'example'
+  ]) then return null; end if;
 
   return initcap(cleaned);
 end;
@@ -3406,6 +4089,7 @@ CREATE TABLE public.races (
     participation_mode text,
     racebook_preview_is_visible boolean DEFAULT true NOT NULL,
     web_catalog_is_live boolean DEFAULT false NOT NULL,
+    plan_source_updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
     CONSTRAINT races_complete_has_no_missing_required_fields CHECK (((data_status <> 'complete'::text) OR (cardinality(missing_required_fields) = 0))),
     CONSTRAINT races_data_status_check CHECK ((data_status = ANY (ARRAY['draft'::text, 'complete'::text]))),
     CONSTRAINT races_draft_is_hidden CHECK (((data_status <> 'draft'::text) OR ((is_live = false) AND (racebook_is_live = false)))),
@@ -3507,6 +4191,13 @@ COMMENT ON COLUMN public.races.racebook_preview_is_visible IS 'Whether this form
 --
 
 COMMENT ON COLUMN public.races.web_catalog_is_live IS 'Whether this public course remains discoverable on the web catalog and SEO routes, independently from mobile catalog and RaceBook visibility.';
+
+
+--
+-- Name: COLUMN races.plan_source_updated_at; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.races.plan_source_updated_at IS 'Latest official source revision that can require an attached runner plan review.';
 
 
 --
@@ -3631,6 +4322,140 @@ begin
   end if;
 
   return published;
+end;
+$$;
+
+
+--
+-- Name: publish_racebook_snapshot(uuid, bigint, integer, jsonb, text, jsonb, uuid, boolean); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.publish_racebook_snapshot(p_race_id uuid, p_expected_draft_revision bigint, p_schema_version integer, p_content jsonb, p_content_hash text, p_assets jsonb, p_actor_id uuid, p_make_public boolean DEFAULT false) RETURNS jsonb
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $_$
+declare
+  state_row public.racebook_publication_states;
+  publication_row public.racebook_publications;
+  next_version integer;
+begin
+  if jsonb_typeof(p_content) <> 'object' or p_schema_version < 1 or p_content_hash !~ '^[0-9a-f]{64}$' then
+    raise exception 'Invalid RaceBook publication payload.' using errcode = '22023';
+  end if;
+  if jsonb_typeof(coalesce(p_assets, '[]'::jsonb)) <> 'array' then
+    raise exception 'RaceBook publication assets must be an array.' using errcode = '22023';
+  end if;
+
+  select * into state_row
+  from public.racebook_publication_states
+  where race_id = p_race_id
+  for update;
+  if state_row.race_id is null then raise exception 'RaceBook publication state not found.' using errcode = 'P0002'; end if;
+  if state_row.draft_revision <> p_expected_draft_revision then
+    raise exception 'RaceBook draft revision changed.' using errcode = 'PT409';
+  end if;
+
+  select coalesce(max(version), 0) + 1 into next_version
+  from public.racebook_publications where race_id = p_race_id;
+
+  insert into public.racebook_publications (
+    race_id, event_id, edition_id, version, schema_version, content, content_hash,
+    source_draft_revision, published_by
+  ) values (
+    state_row.race_id, state_row.event_id, state_row.edition_id, next_version,
+    p_schema_version, p_content, lower(p_content_hash), state_row.draft_revision, p_actor_id
+  ) returning * into publication_row;
+
+  insert into public.racebook_publication_assets (
+    publication_id, asset_type, storage_bucket, storage_path, public_url
+  )
+  select publication_row.id, asset.asset_type, nullif(asset.storage_bucket, ''),
+         nullif(asset.storage_path, ''), nullif(asset.public_url, '')
+  from jsonb_to_recordset(coalesce(p_assets, '[]'::jsonb)) asset(
+    asset_type text, storage_bucket text, storage_path text, public_url text
+  );
+
+  update public.racebook_publication_states
+  set current_publication_id = publication_row.id,
+      published_source_revision = publication_row.source_draft_revision,
+      last_published_at = publication_row.published_at,
+      last_published_by = publication_row.published_by,
+      updated_at = timezone('utc', now())
+  where race_id = p_race_id;
+
+  if p_make_public then
+    update public.races
+    set is_live = true,
+        racebook_preview_is_visible = true,
+        racebook_is_live = true,
+        racebook_publication_approved_at = coalesce(racebook_publication_approved_at, publication_row.published_at),
+        racebook_publication_approved_by = coalesce(racebook_publication_approved_by, p_actor_id)
+    where id = p_race_id;
+  end if;
+
+  perform private.prune_racebook_publications(p_race_id);
+  return jsonb_build_object(
+    'raceId', publication_row.race_id,
+    'publicationId', publication_row.id,
+    'version', publication_row.version,
+    'sourceDraftRevision', publication_row.source_draft_revision,
+    'publishedAt', publication_row.published_at
+  );
+end;
+$_$;
+
+
+--
+-- Name: publish_racebook_snapshots(jsonb, uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.publish_racebook_snapshots(p_items jsonb, p_actor_id uuid) RETURNS jsonb
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+declare
+  item jsonb;
+  result_items jsonb := '[]'::jsonb;
+  race_id uuid;
+  expected_revision bigint;
+begin
+  if jsonb_typeof(coalesce(p_items, '[]'::jsonb)) <> 'array' or jsonb_array_length(coalesce(p_items, '[]'::jsonb)) = 0 then
+    raise exception 'RaceBook publication items must be a non-empty array.' using errcode = '22023';
+  end if;
+  if exists (
+    select value ->> 'raceId'
+    from jsonb_array_elements(p_items)
+    group by value ->> 'raceId'
+    having count(*) > 1
+  ) then
+    raise exception 'A RaceBook format may only be published once per batch.' using errcode = '22023';
+  end if;
+
+  for item in select value from jsonb_array_elements(p_items)
+  loop
+    race_id := (item ->> 'raceId')::uuid;
+    expected_revision := (item ->> 'expectedDraftRevision')::bigint;
+    perform 1 from public.racebook_publication_states
+    where racebook_publication_states.race_id = race_id
+      and racebook_publication_states.draft_revision = expected_revision
+    for update;
+    if not found then raise exception 'RaceBook draft revision changed.' using errcode = 'PT409'; end if;
+  end loop;
+
+  for item in select value from jsonb_array_elements(p_items)
+  loop
+    result_items := result_items || jsonb_build_array(public.publish_racebook_snapshot(
+      (item ->> 'raceId')::uuid,
+      (item ->> 'expectedDraftRevision')::bigint,
+      (item ->> 'schemaVersion')::integer,
+      item -> 'content',
+      item ->> 'contentHash',
+      coalesce(item -> 'assets', '[]'::jsonb),
+      p_actor_id,
+      coalesce((item ->> 'makePublic')::boolean, false)
+    ));
+  end loop;
+  return result_items;
 end;
 $$;
 
@@ -3962,6 +4787,125 @@ COMMENT ON FUNCTION public.record_race_slug_redirect() IS 'Invoker trigger: rese
 
 
 --
+-- Name: record_runner_plan_history(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.record_runner_plan_history() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+declare canonical_key text; detailed boolean;
+begin
+  canonical_key := case when new.race_id is null then 'plan:' || new.id::text else 'race:' || new.race_id::text || ':edition:' || coalesce((select edition_id::text from public.races where id = new.race_id), 'legacy') end;
+  -- Only subscription/trial/grant preparation earns post-expiry read access.
+  -- A refunded one-time purchase must not retain access through this history.
+  detailed := not coalesce((select monetization_enabled from public.runner_monetization_config where id), false)
+    or public.runner_user_is_premium(new.user_id);
+  -- Simulated access must never create durable paid history.
+  if public.runner_session_mode(new.user_id) <> 'real' then detailed := false; end if;
+  insert into public.runner_plan_history(plan_id, user_id, plan_key, detailed_access_granted)
+    values (new.id, new.user_id, canonical_key, detailed)
+    on conflict (plan_id) do update set user_id = excluded.user_id, plan_key = excluded.plan_key,
+      detailed_access_granted = public.runner_plan_history.detailed_access_granted or excluded.detailed_access_granted;
+  return new;
+end;
+$$;
+
+
+--
+-- Name: record_runner_support_event(uuid, text, text, text, text, timestamp with time zone, timestamp with time zone, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.record_runner_support_event(p_user_id uuid, p_provider text, p_product_id text, p_transaction_id text, p_status text, p_purchased_at timestamp with time zone, p_event_at timestamp with time zone, p_event_id text) RETURNS boolean
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+declare
+  existing_purchase public.runner_support_purchases%rowtype;
+  existing_event public.runner_support_events%rowtype;
+  has_existing boolean;
+begin
+  if p_user_id is null
+     or p_provider not in ('apple', 'google')
+     or nullif(btrim(p_product_id), '') is null
+     or nullif(btrim(p_transaction_id), '') is null
+     or p_status not in ('active', 'refunded')
+     or p_purchased_at is null
+     or p_event_at is null
+     or nullif(btrim(p_event_id), '') is null then
+    return false;
+  end if;
+
+  perform pg_advisory_xact_lock(hashtextextended('runner-support-user:' || p_user_id::text, 0));
+  perform pg_advisory_xact_lock(hashtextextended('runner-support-transaction:' || p_provider || ':' || p_transaction_id, 0));
+
+  select * into existing_purchase
+  from public.runner_support_purchases
+  where user_id = p_user_id
+     or (provider = p_provider and transaction_id = p_transaction_id)
+  order by (user_id = p_user_id) desc
+  limit 1
+  for update;
+
+  has_existing := found;
+
+  if has_existing and (
+    existing_purchase.user_id <> p_user_id
+    or existing_purchase.provider <> p_provider
+    or existing_purchase.product_id <> p_product_id
+    or existing_purchase.transaction_id <> p_transaction_id
+  ) then
+    return false;
+  end if;
+
+  select * into existing_event
+  from public.runner_support_events
+  where provider = p_provider
+    and provider_event_id = p_event_id;
+
+  if found and (
+    existing_event.user_id <> p_user_id
+    or existing_event.product_id <> p_product_id
+    or existing_event.transaction_id <> p_transaction_id
+    or existing_event.transaction_status <> p_status
+    or existing_event.event_at <> p_event_at
+  ) then
+    return false;
+  end if;
+
+  insert into public.runner_support_events (
+    user_id, provider, provider_event_id, product_id, transaction_id, transaction_status, event_at
+  ) values (
+    p_user_id, p_provider, p_event_id, p_product_id, p_transaction_id, p_status, p_event_at
+  )
+  on conflict (provider, provider_event_id) do nothing;
+
+  if not has_existing then
+    insert into public.runner_support_purchases (
+      user_id, provider, product_id, transaction_id, status, purchased_at, latest_event_at
+    ) values (
+      p_user_id, p_provider, p_product_id, p_transaction_id, p_status, p_purchased_at, p_event_at
+    );
+    return true;
+  end if;
+
+  update public.runner_support_purchases
+  set status = p_status,
+      purchased_at = least(purchased_at, p_purchased_at),
+      latest_event_at = p_event_at,
+      updated_at = now()
+  where id = existing_purchase.id
+    and p_event_at >= latest_event_at;
+
+  return true;
+exception
+  when unique_violation then
+    return false;
+end;
+$$;
+
+
+--
 -- Name: rename_race_slug(uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -4225,62 +5169,44 @@ begin
   if jsonb_typeof(coalesce(p_items, '[]'::jsonb)) <> 'array' then
     raise exception 'Aid station product items must be a JSON array.' using errcode = '22023';
   end if;
-
-  select race_row.id
-  into locked_race_id
-  from public.races as race_row
-  where race_row.id = p_race_id
+  select race_row.id into locked_race_id from public.races race_row where race_row.id = p_race_id for update;
+  if locked_race_id is null then raise exception 'Race not found.' using errcode = 'P0002'; end if;
+  select station.id into locked_station_id
+  from public.race_aid_stations station
+  where station.id = p_aid_station_id and station.race_id = p_race_id
   for update;
-
-  if locked_race_id is null then
-    raise exception 'Race not found.' using errcode = 'P0002';
-  end if;
-
-  select station.id
-  into locked_station_id
-  from public.race_aid_stations as station
-  where station.id = p_aid_station_id
-    and station.race_id = p_race_id
-  for update;
-
-  if locked_station_id is null then
-    raise exception 'Aid station does not belong to this race.' using errcode = '23503';
-  end if;
-
+  if locked_station_id is null then raise exception 'Aid station does not belong to this race.' using errcode = '23503'; end if;
   if exists (
-    select 1
-    from jsonb_to_recordset(coalesce(p_items, '[]'::jsonb)) as item(product_id uuid)
-    group by item.product_id
-    having item.product_id is null or count(*) > 1
-  ) then
-    raise exception 'A product may only be submitted once and must have an id.' using errcode = '22023';
-  end if;
+    select 1 from jsonb_to_recordset(coalesce(p_items, '[]'::jsonb)) item(product_id uuid)
+    group by item.product_id having item.product_id is null or count(*) > 1
+  ) then raise exception 'A product may only be submitted once and must have an id.' using errcode = '22023'; end if;
 
-  delete from public.race_aid_station_products
-  where race_aid_station_id = p_aid_station_id;
+  update public.race_aid_station_products link_row
+  set notes = item.notes, order_index = item.order_index
+  from jsonb_to_recordset(coalesce(p_items, '[]'::jsonb)) item(product_id uuid, notes text, order_index integer)
+  where link_row.race_aid_station_id = p_aid_station_id
+    and link_row.product_id = item.product_id
+    and (link_row.notes is distinct from item.notes or link_row.order_index is distinct from item.order_index);
 
-  insert into public.race_aid_station_products (
-    race_aid_station_id,
-    product_id,
-    notes,
-    order_index
-  )
-  select
-    p_aid_station_id,
-    item.product_id,
-    item.notes,
-    item.order_index
-  from jsonb_to_recordset(coalesce(p_items, '[]'::jsonb)) as item(
-    product_id uuid,
-    notes text,
-    order_index integer
+  delete from public.race_aid_station_products link_row
+  where link_row.race_aid_station_id = p_aid_station_id
+    and not exists (
+      select 1 from jsonb_to_recordset(coalesce(p_items, '[]'::jsonb)) item(product_id uuid)
+      where item.product_id = link_row.product_id
+    );
+
+  insert into public.race_aid_station_products (race_aid_station_id, product_id, notes, order_index)
+  select p_aid_station_id, item.product_id, item.notes, item.order_index
+  from jsonb_to_recordset(coalesce(p_items, '[]'::jsonb)) item(product_id uuid, notes text, order_index integer)
+  where not exists (
+    select 1 from public.race_aid_station_products link_row
+    where link_row.race_aid_station_id = p_aid_station_id and link_row.product_id = item.product_id
   );
 
   return query
-  select link.*
-  from public.race_aid_station_products as link
-  where link.race_aid_station_id = p_aid_station_id
-  order by link.order_index, link.id;
+  select link_row.* from public.race_aid_station_products link_row
+  where link_row.race_aid_station_id = p_aid_station_id
+  order by link_row.order_index, link_row.id;
 end;
 $$;
 
@@ -4817,76 +5743,326 @@ CREATE FUNCTION public.replace_race_start_waves(p_race_id uuid, p_items jsonb) R
     SET search_path TO ''
     AS $$
 declare
+  locked_race_id uuid;
+  current_organizer_details jsonb;
+  next_organizer_details jsonb;
   first_time time;
 begin
-  delete from public.race_start_waves where race_id = p_race_id;
-
-  insert into public.race_start_waves (
-    id,
-    race_id,
-    name,
-    start_time,
-    eligibility_type,
-    bib_number_min,
-    bib_number_max,
-    finish_minutes_min,
-    finish_minutes_max,
-    pace_seconds_min,
-    pace_seconds_max,
-    eligibility_note,
-    order_index
-  )
-  select
-    coalesce(x.id, gen_random_uuid()),
-    p_race_id,
-    x.name,
-    x.start_time,
-    x.eligibility_type,
-    x.bib_number_min,
-    x.bib_number_max,
-    x.finish_minutes_min,
-    x.finish_minutes_max,
-    x.pace_seconds_min,
-    x.pace_seconds_max,
-    x.eligibility_note,
-    x.order_index
-  from jsonb_to_recordset(coalesce(p_items, '[]'::jsonb)) as x(
-    id uuid,
-    name text,
-    start_time time,
-    eligibility_type text,
-    bib_number_min integer,
-    bib_number_max integer,
-    finish_minutes_min integer,
-    finish_minutes_max integer,
-    pace_seconds_min integer,
-    pace_seconds_max integer,
-    eligibility_note text,
-    order_index integer
-  );
-
-  select min(start_time)
-  into first_time
-  from public.race_start_waves
-  where race_id = p_race_id;
-
-  if first_time is not null then
-    update public.races
-    set organizer_details = jsonb_set(
-      coalesce(organizer_details, '{}'::jsonb)
-        || jsonb_build_object('schedule', coalesce(organizer_details -> 'schedule', '{}'::jsonb)),
-      '{schedule,startTime}',
-      to_jsonb(first_time::text),
-      true
-    )
-    where id = p_race_id;
+  if jsonb_typeof(coalesce(p_items, '[]'::jsonb)) <> 'array' then
+    raise exception 'Start-wave items must be a JSON array.' using errcode = '22023';
   end if;
 
+  select race_row.id, race_row.organizer_details
+  into locked_race_id, current_organizer_details
+  from public.races race_row
+  where race_row.id = p_race_id
+  for update;
+  if locked_race_id is null then raise exception 'Race not found.' using errcode = 'P0002'; end if;
+
+  if exists (
+    select 1
+    from jsonb_to_recordset(coalesce(p_items, '[]'::jsonb)) item(id uuid)
+    where item.id is not null
+    group by item.id
+    having count(*) > 1
+  ) then raise exception 'A start wave id may only be submitted once.' using errcode = '22023'; end if;
+
+  update public.race_start_waves wave_row
+  set name = item.name,
+      start_time = item.start_time,
+      eligibility_type = item.eligibility_type,
+      bib_number_min = item.bib_number_min,
+      bib_number_max = item.bib_number_max,
+      finish_minutes_min = item.finish_minutes_min,
+      finish_minutes_max = item.finish_minutes_max,
+      pace_seconds_min = item.pace_seconds_min,
+      pace_seconds_max = item.pace_seconds_max,
+      eligibility_note = item.eligibility_note,
+      order_index = item.order_index
+  from jsonb_to_recordset(coalesce(p_items, '[]'::jsonb)) item(
+    id uuid, name text, start_time time, eligibility_type text,
+    bib_number_min integer, bib_number_max integer,
+    finish_minutes_min integer, finish_minutes_max integer,
+    pace_seconds_min integer, pace_seconds_max integer,
+    eligibility_note text, order_index integer
+  )
+  where wave_row.race_id = p_race_id
+    and wave_row.id = item.id
+    and (wave_row.name, wave_row.start_time, wave_row.eligibility_type,
+      wave_row.bib_number_min, wave_row.bib_number_max,
+      wave_row.finish_minutes_min, wave_row.finish_minutes_max,
+      wave_row.pace_seconds_min, wave_row.pace_seconds_max,
+      wave_row.eligibility_note, wave_row.order_index)
+      is distinct from
+      (item.name, item.start_time, item.eligibility_type,
+        item.bib_number_min, item.bib_number_max,
+        item.finish_minutes_min, item.finish_minutes_max,
+        item.pace_seconds_min, item.pace_seconds_max,
+        item.eligibility_note, item.order_index);
+
+  delete from public.race_start_waves wave_row
+  where wave_row.race_id = p_race_id
+    and not exists (
+      select 1
+      from jsonb_to_recordset(coalesce(p_items, '[]'::jsonb)) item(id uuid)
+      where item.id = wave_row.id
+    );
+
+  insert into public.race_start_waves (
+    id, race_id, name, start_time, eligibility_type,
+    bib_number_min, bib_number_max, finish_minutes_min, finish_minutes_max,
+    pace_seconds_min, pace_seconds_max, eligibility_note, order_index
+  )
+  select coalesce(item.id, gen_random_uuid()), p_race_id, item.name, item.start_time,
+    item.eligibility_type, item.bib_number_min, item.bib_number_max,
+    item.finish_minutes_min, item.finish_minutes_max,
+    item.pace_seconds_min, item.pace_seconds_max, item.eligibility_note, item.order_index
+  from jsonb_to_recordset(coalesce(p_items, '[]'::jsonb)) item(
+    id uuid, name text, start_time time, eligibility_type text,
+    bib_number_min integer, bib_number_max integer,
+    finish_minutes_min integer, finish_minutes_max integer,
+    pace_seconds_min integer, pace_seconds_max integer,
+    eligibility_note text, order_index integer
+  )
+  where item.id is null
+    or not exists (select 1 from public.race_start_waves wave_row where wave_row.id = item.id);
+
+  select min(wave_row.start_time) into first_time
+  from public.race_start_waves wave_row where wave_row.race_id = p_race_id;
+  if first_time is not null then
+    next_organizer_details := jsonb_set(
+      coalesce(current_organizer_details, '{}'::jsonb)
+        || jsonb_build_object('schedule', coalesce(current_organizer_details -> 'schedule', '{}'::jsonb)),
+      '{schedule,startTime}', to_jsonb(first_time::text), true
+    );
+    update public.races
+    set organizer_details = next_organizer_details
+    where id = p_race_id and organizer_details is distinct from next_organizer_details;
+  end if;
+
+  return query select wave_row.* from public.race_start_waves wave_row
+  where wave_row.race_id = p_race_id order by wave_row.order_index;
+end;
+$$;
+
+
+--
+-- Name: race_supporter_points; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.race_supporter_points (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    race_id uuid NOT NULL,
+    name text DEFAULT ''::text NOT NULL,
+    km numeric,
+    order_index integer DEFAULT 0 NOT NULL,
+    encouragement_allowed boolean DEFAULT false NOT NULL,
+    assistance_allowed boolean DEFAULT false NOT NULL,
+    access_label text,
+    latitude double precision,
+    longitude double precision,
+    google_maps_url text,
+    access_note text,
+    plan_url text,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    access_on_course boolean DEFAULT false NOT NULL,
+    CONSTRAINT race_supporter_points_coordinate_pair_check CHECK (((latitude IS NULL) = (longitude IS NULL))),
+    CONSTRAINT race_supporter_points_km_check CHECK (((km IS NULL) OR (km >= (0)::numeric))),
+    CONSTRAINT race_supporter_points_latitude_check CHECK (((latitude IS NULL) OR ((latitude >= ('-90'::integer)::double precision) AND (latitude <= (90)::double precision)))),
+    CONSTRAINT race_supporter_points_longitude_check CHECK (((longitude IS NULL) OR ((longitude >= ('-180'::integer)::double precision) AND (longitude <= (180)::double precision)))),
+    CONSTRAINT race_supporter_points_maps_url_check CHECK (((google_maps_url IS NULL) OR (google_maps_url ~* '^https?://'::text))),
+    CONSTRAINT race_supporter_points_plan_url_check CHECK (((plan_url IS NULL) OR (plan_url ~* '^https?://'::text)))
+);
+
+
+--
+-- Name: TABLE race_supporter_points; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.race_supporter_points IS 'Organizer-authored supporter encouragement and crew-access points for a race format.';
+
+
+--
+-- Name: COLUMN race_supporter_points.access_on_course; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.race_supporter_points.access_on_course IS 'True when supporter directions use the GPX course position at km instead of a separate access address.';
+
+
+--
+-- Name: replace_race_supporter_points(uuid, jsonb); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.replace_race_supporter_points(p_race_id uuid, p_items jsonb) RETURNS SETOF public.race_supporter_points
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+declare
+  locked_race_id uuid;
+begin
+  if jsonb_typeof(coalesce(p_items, '[]'::jsonb)) <> 'array' then
+    raise exception 'Supporter point items must be a JSON array.' using errcode = '22023';
+  end if;
+
+  select race_row.id into locked_race_id
+  from public.races race_row
+  where race_row.id = p_race_id
+  for update;
+  if locked_race_id is null then raise exception 'Race not found.' using errcode = 'P0002'; end if;
+
+  if exists (
+    select 1 from jsonb_to_recordset(coalesce(p_items, '[]'::jsonb)) item(id uuid)
+    where item.id is not null group by item.id having count(*) > 1
+  ) then raise exception 'A supporter point id may only be submitted once.' using errcode = '22023'; end if;
+
+  if exists (
+    select 1 from jsonb_to_recordset(coalesce(p_items, '[]'::jsonb)) item(id uuid)
+    where item.id is not null and not exists (
+      select 1 from public.race_supporter_points point_row
+      where point_row.id = item.id and point_row.race_id = p_race_id
+    )
+  ) then raise exception 'A supporter point does not belong to this race.' using errcode = '23503'; end if;
+
+  if exists (
+    select 1
+    from jsonb_to_recordset(coalesce(p_items, '[]'::jsonb)) item(
+      km numeric, latitude double precision, longitude double precision,
+      google_maps_url text, plan_url text
+    )
+    join public.races race_row on race_row.id = p_race_id
+    where (item.km is not null and (item.km < 0 or item.km > race_row.distance_km))
+       or ((item.latitude is null) <> (item.longitude is null))
+       or (item.latitude is not null and item.latitude not between -90 and 90)
+       or (item.longitude is not null and item.longitude not between -180 and 180)
+       or (item.google_maps_url is not null and item.google_maps_url !~* '^https?://')
+       or (item.plan_url is not null and item.plan_url !~* '^https?://')
+  ) then raise exception 'Invalid supporter point.' using errcode = '22023'; end if;
+
+  delete from public.race_supporter_points point_row
+  where point_row.race_id = p_race_id
+    and not exists (
+      select 1 from jsonb_to_recordset(coalesce(p_items, '[]'::jsonb)) item(id uuid)
+      where item.id = point_row.id
+    );
+
+  insert into public.race_supporter_points (
+    id, race_id, name, km, order_index, encouragement_allowed, assistance_allowed,
+    access_label, latitude, longitude, google_maps_url, access_note, plan_url, access_on_course
+  )
+  select
+    coalesce(parsed.id, gen_random_uuid()), p_race_id, coalesce(parsed.name, ''), parsed.km,
+    row_number() over (order by parsed.km asc nulls last, item.input_order)::integer - 1,
+    coalesce(parsed.encouragement_allowed, false), coalesce(parsed.assistance_allowed, false),
+    nullif(btrim(parsed.access_label), ''), parsed.latitude, parsed.longitude,
+    nullif(btrim(parsed.google_maps_url), ''), nullif(btrim(parsed.access_note), ''),
+    nullif(btrim(parsed.plan_url), ''), coalesce(parsed.access_on_course, false)
+  from jsonb_array_elements(coalesce(p_items, '[]'::jsonb)) with ordinality as item(value, input_order)
+  cross join lateral jsonb_to_record(item.value) as parsed(
+    id uuid, name text, km numeric, encouragement_allowed boolean, assistance_allowed boolean,
+    access_label text, latitude double precision, longitude double precision,
+    google_maps_url text, access_note text, plan_url text, access_on_course boolean
+  )
+  on conflict (id) do update set
+    name = excluded.name, km = excluded.km, order_index = excluded.order_index,
+    encouragement_allowed = excluded.encouragement_allowed,
+    assistance_allowed = excluded.assistance_allowed, access_label = excluded.access_label,
+    latitude = excluded.latitude, longitude = excluded.longitude,
+    google_maps_url = excluded.google_maps_url, access_note = excluded.access_note,
+    plan_url = excluded.plan_url, access_on_course = excluded.access_on_course;
+
   return query
-  select *
-  from public.race_start_waves
-  where race_id = p_race_id
-  order by order_index;
+  select point_row.* from public.race_supporter_points point_row
+  where point_row.race_id = p_race_id
+  order by point_row.order_index;
+end;
+$$;
+
+
+--
+-- Name: FUNCTION replace_race_supporter_points(p_race_id uuid, p_items jsonb); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.replace_race_supporter_points(p_race_id uuid, p_items jsonb) IS 'Service-only atomic replacement sorted by course kilometer while preserving submitted ids.';
+
+
+--
+-- Name: restore_racebook_publication(uuid, uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.restore_racebook_publication(p_race_id uuid, p_publication_id uuid, p_actor_id uuid) RETURNS jsonb
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+declare
+  state_row public.racebook_publication_states;
+  source_row public.racebook_publications;
+  restored_row public.racebook_publications;
+  next_version integer;
+begin
+  select * into state_row from public.racebook_publication_states where race_id = p_race_id for update;
+  if state_row.race_id is null then raise exception 'RaceBook publication state not found.' using errcode = 'PT404'; end if;
+  select * into source_row from public.racebook_publications
+  where id = p_publication_id and race_id = p_race_id;
+  if source_row.id is null then raise exception 'RaceBook publication not found.' using errcode = 'PT404'; end if;
+
+  select coalesce(max(version), 0) + 1 into next_version from public.racebook_publications where race_id = p_race_id;
+  insert into public.racebook_publications (
+    race_id, event_id, edition_id, version, schema_version, content, content_hash,
+    source_draft_revision, published_by, restored_from_publication_id
+  ) values (
+    state_row.race_id, state_row.event_id, state_row.edition_id, next_version,
+    source_row.schema_version, source_row.content, source_row.content_hash,
+    source_row.source_draft_revision, p_actor_id, source_row.id
+  ) returning * into restored_row;
+
+  insert into public.racebook_publication_assets (publication_id, asset_type, storage_bucket, storage_path, public_url)
+  select restored_row.id, asset_type, storage_bucket, storage_path, public_url
+  from public.racebook_publication_assets where publication_id = source_row.id;
+
+  update public.racebook_publication_states
+  set current_publication_id = restored_row.id,
+      published_source_revision = restored_row.source_draft_revision,
+      last_published_at = restored_row.published_at,
+      last_published_by = restored_row.published_by,
+      updated_at = timezone('utc', now())
+  where race_id = p_race_id;
+
+  perform private.prune_racebook_publications(p_race_id);
+  return jsonb_build_object(
+    'raceId', restored_row.race_id,
+    'publicationId', restored_row.id,
+    'version', restored_row.version,
+    'sourceDraftRevision', restored_row.source_draft_revision,
+    'publishedAt', restored_row.published_at,
+    'restoredFromPublicationId', source_row.id
+  );
+end;
+$$;
+
+
+--
+-- Name: restore_runner_payment_transaction(text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.restore_runner_payment_transaction(p_provider text, p_transaction_id text) RETURNS boolean
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+declare latest_transaction_status text;
+begin
+  if p_provider not in ('stripe', 'google', 'apple') or nullif(trim(p_transaction_id), '') is null then return false; end if;
+  perform pg_advisory_xact_lock(hashtextextended(p_provider || ':' || p_transaction_id, 0));
+  select transaction_status into latest_transaction_status
+    from public.runner_billing_events
+    where provider = p_provider and transaction_id = p_transaction_id and transaction_status is not null
+    order by event_at desc, received_at desc limit 1;
+  if latest_transaction_status is distinct from 'active' then return false; end if;
+  update public.runner_plan_unlocks set status = 'active'
+    where provider = p_provider and provider_transaction_id = p_transaction_id and status in ('refunded', 'revoked');
+  -- Duplicate reversals and reversal-before-purchase delivery are successful:
+  -- the latest active journal state remains authoritative for a later claim.
+  return true;
 end;
 $$;
 
@@ -5032,6 +6208,161 @@ begin
   returning * into reviewed_request;
 
   return reviewed_request;
+end;
+$$;
+
+
+--
+-- Name: revoke_runner_payment_transaction(text, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.revoke_runner_payment_transaction(p_provider text, p_transaction_id text, p_status text DEFAULT 'refunded'::text) RETURNS boolean
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+declare latest_transaction_status text;
+begin
+  if p_provider not in ('stripe', 'google', 'apple')
+    or p_status not in ('refunded', 'revoked')
+    or nullif(trim(p_transaction_id), '') is null
+  then return false; end if;
+  perform pg_advisory_xact_lock(hashtextextended(p_provider || ':' || p_transaction_id, 0));
+  select transaction_status into latest_transaction_status from public.runner_billing_events
+    where provider = p_provider and transaction_id = p_transaction_id and transaction_status is not null
+    order by event_at desc, received_at desc limit 1;
+  -- A stale refund/dispute delivered after a newer reversal must not revoke again.
+  if latest_transaction_status is null then return false; end if;
+  if latest_transaction_status is distinct from p_status then return true; end if;
+  update public.runner_plan_unlocks
+    set status = p_status
+    where provider = p_provider and provider_transaction_id = p_transaction_id
+      and status in ('active', 'pending');
+  return true;
+end;
+$$;
+
+
+--
+-- Name: runner_can_create_plan(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.runner_can_create_plan(target_user_id uuid) RETURNS boolean
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+begin
+  if target_user_id is distinct from auth.uid() or coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) then return false; end if;
+  if not coalesce((select monetization_enabled from public.runner_monetization_config where id), false) then return true; end if;
+  return exists (select 1 from public.user_profiles p where p.user_id = target_user_id
+    and nullif(trim(p.full_name), '') is not null and p.comfortable_flat_pace_min_per_km > 0
+    and p.water_bag_liters >= 0 and p.default_carbs_g_per_hour >= 0);
+end;
+$$;
+
+
+--
+-- Name: runner_plan_is_unlocked(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.runner_plan_is_unlocked(target_plan_id uuid, target_user_id uuid) RETURNS boolean
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+declare canonical_key text;
+begin
+  if target_user_id is distinct from auth.uid() and coalesce(auth.jwt() ->> 'role', '') <> 'service_role' then return false; end if;
+  if not coalesce((select monetization_enabled from public.runner_monetization_config where id), false) then return true; end if;
+  if public.runner_session_mode(target_user_id) = 'free' then return false; end if;
+  if exists (
+    select 1 from public.runner_launch_grandfathered_plans grandfathered
+    where grandfathered.plan_id = target_plan_id and grandfathered.user_id = target_user_id
+  ) then return true; end if;
+  if public.runner_user_is_premium(target_user_id) then return true; end if;
+  select case when rp.race_id is not null then 'race:' || rp.race_id::text || ':edition:' || coalesce(r.edition_id::text, 'legacy') else 'plan:' || rp.id::text end
+    into canonical_key from public.race_plans rp left join public.races r on r.id = rp.race_id
+    where rp.id = target_plan_id and rp.user_id = target_user_id;
+  return exists (select 1 from public.runner_plan_unlocks u where u.user_id = target_user_id and u.status = 'active'
+    and (u.plan_id = target_plan_id or u.plan_key = canonical_key));
+end;
+$$;
+
+
+--
+-- Name: runner_session_mode(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.runner_session_mode(target_user_id uuid) RETURNS text
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+  select coalesce((select a.mode from public.runner_admin_access_modes a
+    join auth.users u on u.id = a.user_id
+    where a.user_id = target_user_id and a.session_id::text = (auth.jwt() ->> 'session_id')
+    and (u.raw_app_meta_data ->> 'role' = 'admin' or coalesce(u.raw_app_meta_data -> 'roles', '[]'::jsonb) ? 'admin')
+    and target_user_id = auth.uid()), 'real');
+$$;
+
+
+--
+-- Name: runner_user_is_premium(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.runner_user_is_premium(target_user_id uuid) RETURNS boolean
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+declare mode text;
+begin
+  if target_user_id is distinct from auth.uid() and coalesce(auth.jwt() ->> 'role', '') <> 'service_role' then return false; end if;
+  mode := public.runner_session_mode(target_user_id);
+  if mode = 'free' then return false; end if;
+  if mode = 'premium' then return true; end if;
+  return exists (select 1 from public.runner_subscription_accounts s where s.user_id = target_user_id
+    and s.status in ('active', 'trialing') and s.current_period_end > now())
+    or exists (select 1 from public.subscriptions s where s.user_id = target_user_id
+      and s.status in ('active', 'trialing') and (s.current_period_end is null or s.current_period_end > now()))
+    or exists (select 1 from public.user_profiles p where p.user_id = target_user_id and p.trial_ends_at > now())
+    or exists (select 1 from public.premium_grants g where g.user_id = target_user_id and g.starts_at <= now()
+      and coalesce(g.ends_at, g.starts_at + make_interval(days => g.initial_duration_days)) > now());
+end;
+$$;
+
+
+--
+-- Name: sanitize_runner_free_plan(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.sanitize_runner_free_plan() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+declare stations jsonb; canonical_key text; paid boolean;
+begin
+  if not coalesce((select monetization_enabled from public.runner_monetization_config where id), false) then return new; end if;
+  if tg_op = 'UPDATE' and coalesce(auth.jwt() ->> 'role', '') <> 'service_role' then
+    if old.user_id is distinct from new.user_id or old.race_id is distinct from new.race_id then
+      raise exception 'Plan ownership and course are immutable' using errcode = '42501';
+    end if;
+  end if;
+  if tg_op = 'UPDATE' and coalesce(auth.jwt() ->> 'role', '') = 'service_role' then return new; end if;
+  canonical_key := case when new.race_id is null then 'plan:' || new.id::text else 'race:' || new.race_id::text || ':edition:' || coalesce((select edition_id::text from public.races where id = new.race_id), 'legacy') end;
+  paid := exists (
+      select 1 from public.runner_launch_grandfathered_plans grandfathered
+      where grandfathered.plan_id = new.id and grandfathered.user_id = new.user_id
+    )
+    or public.runner_user_is_premium(new.user_id)
+    or (public.runner_session_mode(new.user_id) <> 'free' and exists (
+      select 1 from public.runner_plan_unlocks where user_id = new.user_id and status = 'active' and (plan_id = new.id or plan_key = canonical_key)));
+  if public.runner_session_mode(new.user_id) = 'free' then paid := false; end if;
+  if not paid then
+    new.planner_values := new.planner_values - 'segments' - 'sectionSegments' - 'finishPlan' - 'pauseOverrides' - 'startSupplies';
+    if jsonb_typeof(new.planner_values -> 'aidStations') = 'array' then
+      select coalesce(jsonb_agg(station - 'supplies' - 'nutrition' - 'pauseMinutes' - 'segmentMinutesOverride' - 'paceAdjustmentMinutesPerKm' - 'gelsPlanned' - 'pickupGels'), '[]'::jsonb)
+        into stations from jsonb_array_elements(new.planner_values -> 'aidStations') station;
+      new.planner_values := jsonb_set(new.planner_values, '{aidStations}', stations);
+    end if;
+  end if;
+  return new;
 end;
 $$;
 
@@ -5644,6 +6975,21 @@ BEGIN new.updated_at = timezone('utc', now()); RETURN new; END; $$;
 
 
 --
+-- Name: set_race_supporter_point_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.set_race_supporter_point_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+begin
+  new.updated_at := timezone('utc', now());
+  return new;
+end;
+$$;
+
+
+--
 -- Name: set_races_updated_at(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -5652,6 +6998,21 @@ CREATE FUNCTION public.set_races_updated_at() RETURNS trigger
     SET search_path TO 'public', 'pg_temp'
     AS $$
 BEGIN new.updated_at = timezone('utc', now()); RETURN new; END; $$;
+
+
+--
+-- Name: set_runner_plan_unlocks_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.set_runner_plan_unlocks_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+begin
+  new.updated_at = timezone('utc', now());
+  return new;
+end;
+$$;
 
 
 --
@@ -5789,6 +7150,23 @@ $$;
 --
 
 COMMENT ON FUNCTION public.sync_race_web_catalog_visibility() IS 'Promotes public mobile courses to the durable web catalog without letting later mobile hiding remove their web pages.';
+
+
+--
+-- Name: sync_runner_launch_grandfathered_plan_owner(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.sync_runner_launch_grandfathered_plan_owner() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+begin
+  update public.runner_launch_grandfathered_plans
+    set user_id = new.user_id
+    where plan_id = new.id and user_id = old.user_id;
+  return new;
+end;
+$$;
 
 
 --
@@ -6268,6 +7646,75 @@ $$;
 
 
 --
+-- Name: authorize(text, text, text, text, text, text[], text[]); Type: FUNCTION; Schema: realtime; Owner: -
+--
+
+CREATE FUNCTION realtime.authorize(role_name text, topic_name text, claims text, sub text, headers text, read_extensions text[], write_extensions text[], OUT read_allowed boolean[], OUT write_allowed boolean[]) RETURNS record
+    LANGUAGE plpgsql
+    AS $$
+declare
+  probe_ids uuid[];
+  probe_inserted_at timestamp := now() at time zone 'utc';
+  visible_ids uuid[];
+  ext text;
+  allowed boolean;
+begin
+  -- The probe inserts are rolled back, but they still give the transaction an xid, so it ends
+  -- in a commit. Nothing durable was written, so skip waiting on the WAL flush and sync standbys.
+  -- Set outside the block below, whose rollback would undo it.
+  perform set_config('synchronous_commit', 'off', true);
+
+  -- The RAISE at the end of this block rolls back everything in it.
+  begin
+    probe_ids := array(select gen_random_uuid() from unnest(read_extensions));
+
+    insert into realtime.messages (id, topic, extension, inserted_at, updated_at)
+    select p.id, topic_name, p.extension, probe_inserted_at, probe_inserted_at
+    from unnest(probe_ids, read_extensions) as p(id, extension);
+
+    perform set_config('role', role_name, true),
+            set_config('realtime.topic', topic_name, true),
+            set_config('request.jwt.claims', claims, true),
+            set_config('request.jwt.claim.sub', sub, true),
+            set_config('request.jwt.claim.role', role_name, true),
+            set_config('request.headers', headers, true);
+
+    -- One lookup for every probe, by the full primary key.
+    visible_ids := array(
+      select m.id
+      from realtime.messages m
+      where m.inserted_at = probe_inserted_at
+        and m.id = any(probe_ids));
+
+    read_allowed := array(
+      select p.id = any(visible_ids)
+      from unnest(probe_ids) with ordinality as p(id, n)
+      order by p.n);
+
+    write_allowed := '{}';
+
+    foreach ext in array write_extensions loop
+      begin
+        insert into realtime.messages (topic, extension, inserted_at, updated_at)
+        values (topic_name, ext, now() at time zone 'utc', now() at time zone 'utc');
+
+        allowed := true;
+      exception when insufficient_privilege then
+        allowed := false;
+      end;
+
+      write_allowed := write_allowed || allowed;
+    end loop;
+
+    raise sqlstate 'RTA01';
+  exception when sqlstate 'RTA01' then
+    null;
+  end;
+end;
+$$;
+
+
+--
 -- Name: broadcast_changes(text, text, text, text, text, record, record, text); Type: FUNCTION; Schema: realtime; Owner: -
 --
 
@@ -6560,6 +8007,76 @@ $$;
 
 
 --
+-- Name: list_changes_sync(name, name, integer, integer); Type: FUNCTION; Schema: realtime; Owner: -
+--
+
+CREATE FUNCTION realtime.list_changes_sync(publication name, slot_name name, max_changes integer, max_record_bytes integer) RETURNS TABLE(wal jsonb, is_rls_enabled boolean, subscription_ids uuid[], errors text[], slot_changes_count bigint)
+    LANGUAGE sql
+    SET log_min_messages TO 'fatal'
+    AS $$
+  WITH pub AS (
+    SELECT
+      concat_ws(
+        ',',
+        CASE WHEN bool_or(pubinsert) THEN 'insert' ELSE NULL END,
+        CASE WHEN bool_or(pubupdate) THEN 'update' ELSE NULL END,
+        CASE WHEN bool_or(pubdelete) THEN 'delete' ELSE NULL END
+      ) AS w2j_actions,
+      coalesce(
+        string_agg(
+          realtime.quote_wal2json(format('%I.%I', schemaname, tablename)::regclass),
+          ','
+        ) filter (WHERE ppt.tablename IS NOT NULL),
+        ''
+      ) AS w2j_add_tables
+    FROM pg_publication pp
+    LEFT JOIN pg_publication_tables ppt ON pp.pubname = ppt.pubname
+    WHERE pp.pubname = publication
+    GROUP BY pp.pubname
+    LIMIT 1
+  ),
+  -- MATERIALIZED ensures the slot is read exactly once.
+  consumed AS MATERIALIZED (
+    SELECT x.*, pub.w2j_add_tables
+    FROM pub,
+         realtime.settled_changes(
+           slot_name, max_changes,
+           'include-pk', 'true',
+           'include-transaction', 'false',
+           'include-timestamp', 'true',
+           'include-type-oids', 'true',
+           'format-version', '2',
+           'actions', pub.w2j_actions,
+           'add-tables', pub.w2j_add_tables
+         ) x
+  ),
+  slot_count AS (
+    SELECT count(*)::bigint AS cnt
+    FROM consumed
+    WHERE consumed.w2j_add_tables <> ''
+  ),
+  rls_filtered AS (
+    SELECT xyz.wal, xyz.is_rls_enabled, xyz.subscription_ids, xyz.errors
+    FROM consumed,
+         realtime.apply_rls(
+           wal := consumed.data::jsonb,
+           max_record_bytes := max_record_bytes
+         ) xyz(wal, is_rls_enabled, subscription_ids, errors)
+    WHERE consumed.w2j_add_tables <> ''
+      AND xyz.subscription_ids[1] IS NOT NULL
+  )
+  SELECT rf.wal, rf.is_rls_enabled, rf.subscription_ids, rf.errors, sc.cnt
+  FROM rls_filtered rf, slot_count sc
+
+  UNION ALL
+
+  SELECT null, null, null, null, sc.cnt
+  FROM slot_count sc
+  WHERE NOT EXISTS (SELECT 1 FROM rls_filtered)
+$$;
+
+
+--
 -- Name: quote_wal2json(regclass); Type: FUNCTION; Schema: realtime; Owner: -
 --
 
@@ -6632,6 +8149,97 @@ BEGIN
       RAISE WARNING 'WarnSendingBroadcastMessage: %', SQLERRM;
   END;
 END;
+$$;
+
+
+--
+-- Name: settled_changes(name, integer, text[]); Type: FUNCTION; Schema: realtime; Owner: -
+--
+
+CREATE FUNCTION realtime.settled_changes(slot_name name, max_changes integer, VARIADIC opts text[]) RETURNS TABLE(lsn pg_lsn, xid xid, data text)
+    LANGUAGE plpgsql
+    AS $$
+declare
+  upto pg_lsn;
+  total bigint;
+  xids xid[];
+  starts bigint[];
+  snapshot pg_snapshot;
+  running_xids xid[];
+  xmax_age int;
+  cut bigint;
+begin
+  -- Each statement in a volatile function takes its own snapshot, which is what lets the
+  -- check below see a writer that was still in flight when the peek ran. Under REPEATABLE
+  -- READ the snapshot never advances, so a deferred change would never be released.
+  if current_setting('transaction_isolation') <> 'read committed' then
+    raise exception 'realtime.settled_changes requires READ COMMITTED';
+  end if;
+
+  -- The peek and the read below cover the same WAL, so the read cannot reach a commit the
+  -- check never saw.
+  upto := pg_current_wal_flush_lsn();
+
+  -- One entry per transaction, in commit order: its xid and the position of its first
+  -- change. The peek uses the caller's own options, so max_changes counts exactly what the
+  -- read counts. A non-transactional logical message is emitted as soon as it is decoded,
+  -- tagged with the xid of whatever transaction wrote it, so it does not mark where that
+  -- transaction starts.
+  select coalesce(sum(g.n), 0),
+         array_agg(g.x order by g.first) filter (where g.first is not null),
+         array_agg(g.first order by g.first) filter (where g.first is not null)
+    into total, xids, starts
+    from (
+      select p.xid as x, count(*) as n,
+             min(p.ord) filter (where not case
+               when starts_with(p.data, '{"action":"M"') then (p.data::jsonb->>'transactional')::boolean is false
+               else false
+             end) as first
+      from pg_logical_slot_peek_changes(slot_name, upto, max_changes, variadic opts)
+           with ordinality as p(lsn, xid, data, ord)
+      group by p.xid
+    ) g;
+
+  -- Nothing for the caller, but the slot still has to move past what the peek covered.
+  if total = 0 then
+    perform pg_replication_slot_advance(slot_name, upto);
+    return;
+  end if;
+
+  if xids is not null then
+    -- Taken after the peek is materialized, so a writer that was still in flight during
+    -- decoding is guaranteed to show up here.
+    snapshot := pg_current_snapshot();
+
+    -- A commit record reaches the WAL before the writer leaves the proc array, so a change
+    -- can be decoded while its row is invisible. apply_rls would resolve a policy against a
+    -- row it cannot see and authorize it for nobody, while the read consumed it regardless.
+    --
+    -- xip lists transactions running when the snapshot was taken. It does not cover a writer
+    -- whose xid sits at or beyond xmax, which never appears there, so the horizon is checked
+    -- too. age() counts backwards from the current xid and so compares correctly across
+    -- wraparound.
+    select coalesce(array_agg(running.x::xid), array[]::xid[])
+      into running_xids
+      from pg_snapshot_xip(snapshot) running(x);
+    xmax_age := age(pg_snapshot_xmax(snapshot)::xid);
+
+    select min(u.s) into cut
+      from unnest(xids, starts) as u(x, s)
+      where u.x = any(running_xids) or age(u.x) <= xmax_age;
+  end if;
+
+  -- The read stops right after the commit that brings its count to upto_nchanges, so the
+  -- count of changes in front of the first unsettled transaction stops it just before that
+  -- transaction.
+  if cut is null then
+    return query
+      select p.* from pg_logical_slot_get_changes(slot_name, upto, max_changes, variadic opts) p;
+  elsif cut > 1 then
+    return query
+      select p.* from pg_logical_slot_get_changes(slot_name, upto, (cut - 1)::int, variadic opts) p;
+  end if;
+end;
 $$;
 
 
@@ -6875,6 +8483,70 @@ $$;
 
 
 --
+-- Name: delete_lifecycle_objects(uuid[]); Type: FUNCTION; Schema: storage; Owner: -
+--
+
+CREATE FUNCTION storage.delete_lifecycle_objects(object_ids uuid[]) RETURNS TABLE(id uuid, is_delete_marker boolean, metadata jsonb)
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    object_id uuid;
+    deleted_row storage.objects%ROWTYPE;
+    deleted_ids uuid[];
+    deleted_markers boolean[];
+    deleted_metadata jsonb[];
+    bulk_deleted boolean := false;
+BEGIN
+    -- Surface pre-existing deferred violations instead of treating them as blocked rows.
+    SET CONSTRAINTS ALL IMMEDIATE;
+    PERFORM set_config('storage.allow_delete_query', 'true', true);
+
+    -- One subxact keeps the subxid cache from overflowing; rows return only once it commits.
+    BEGIN
+        WITH deleted AS (
+            DELETE FROM storage.objects AS object_row
+              WHERE object_row.id = ANY(object_ids) AND object_row.archived_at IS NOT NULL
+              RETURNING object_row.id, object_row.is_delete_marker, object_row.metadata
+        )
+        SELECT array_agg(deleted.id), array_agg(deleted.is_delete_marker), array_agg(deleted.metadata)
+          INTO deleted_ids, deleted_markers, deleted_metadata
+          FROM deleted;
+        bulk_deleted := true;
+    EXCEPTION
+        WHEN OTHERS THEN
+            -- User triggers may use insufficient_privilege to block a row.
+            IF SQLSTATE <> '42501' AND left(SQLSTATE, 2) IN ('08', '40', '42', '53', '55', '57', '58', 'XX') THEN
+                RAISE;
+            END IF;
+    END;
+    IF bulk_deleted THEN
+        RETURN QUERY SELECT * FROM unnest(deleted_ids, deleted_markers, deleted_metadata);
+        RETURN;
+    END IF;
+
+    FOREACH object_id IN ARRAY object_ids LOOP
+        BEGIN
+            DELETE FROM storage.objects AS object_row
+              WHERE object_row.id = object_id AND object_row.archived_at IS NOT NULL
+              RETURNING object_row.* INTO deleted_row;
+            IF FOUND THEN
+                id := deleted_row.id;
+                is_delete_marker := deleted_row.is_delete_marker;
+                metadata := deleted_row.metadata;
+                RETURN NEXT;
+            END IF;
+        EXCEPTION
+            WHEN OTHERS THEN
+                IF SQLSTATE <> '42501' AND left(SQLSTATE, 2) IN ('08', '40', '42', '53', '55', '57', '58', 'XX') THEN
+                    RAISE;
+                END IF;
+        END;
+    END LOOP;
+END;
+$$;
+
+
+--
 -- Name: enforce_bucket_lifecycle_service_role(); Type: FUNCTION; Schema: storage; Owner: -
 --
 
@@ -6883,14 +8555,9 @@ CREATE FUNCTION storage.enforce_bucket_lifecycle_service_role() RETURNS trigger
     SET search_path TO 'pg_catalog'
     AS $$
 BEGIN
-  IF current_user::text IS DISTINCT FROM TG_ARGV[0]
-     AND (
-       OLD.lifecycle_configuration IS DISTINCT FROM NEW.lifecycle_configuration
-       OR OLD.lifecycle_configuration_generation IS DISTINCT FROM NEW.lifecycle_configuration_generation
-     ) THEN
-    -- AFTER runs only after caller RLS has accepted the proposed row. The API
-    -- recognizes this specific error after rolling back its permission probe;
-    -- direct non-service writes still fail and cannot persist the change.
+  IF current_user::text IS DISTINCT FROM TG_ARGV[0] THEN
+    -- Keep this check AFTER caller RLS accepts the proposed row. The API
+    -- recognizes this exact signal after rolling back its permission probe.
     RAISE EXCEPTION 'bucket control columns may only be changed by the configured storage service role'
       USING ERRCODE = 'PST01',
             SCHEMA = TG_TABLE_SCHEMA,
@@ -6916,6 +8583,29 @@ begin
     end if;
     return new;
 end;
+$$;
+
+
+--
+-- Name: enforce_versioning_status_transition(); Type: FUNCTION; Schema: storage; Owner: -
+--
+
+CREATE FUNCTION storage.enforce_versioning_status_transition() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF NEW.versioning_status = OLD.versioning_status THEN
+        RETURN NEW;
+    END IF;
+
+    IF NEW.versioning_status = 'DISABLED' OR
+       (OLD.versioning_status = 'DISABLED' AND NEW.versioning_status = 'SUSPENDED') THEN
+        RAISE EXCEPTION 'Cannot transition bucket versioning status from % to %',
+            OLD.versioning_status, NEW.versioning_status;
+    END IF;
+
+    RETURN NEW;
+END;
 $$;
 
 
@@ -7734,6 +9424,35 @@ $$;
 
 
 --
+-- Name: protect_active_lifecycle_states(); Type: FUNCTION; Schema: storage; Owner: -
+--
+
+CREATE FUNCTION storage.protect_active_lifecycle_states() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog'
+    AS $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM storage.bucket_lifecycle_states
+        WHERE bucket_id = OLD.id
+          AND NOT (
+              continuation IS NULL
+              OR (continuation @> '{"continuationVersion": 1}' AND continuation #> '{batch,inFlight}' IS NULL)
+          )
+    ) THEN
+        RAISE EXCEPTION 'update or delete on table "buckets" violates foreign key constraint "bucket_lifecycle_states_bucket_id_fkey" on table "bucket_lifecycle_states"'
+            USING ERRCODE = 'foreign_key_violation',
+                  DETAIL = format('Key (id)=(%s) is still referenced from table "bucket_lifecycle_states".', OLD.id),
+                  SCHEMA = 'storage',
+                  TABLE = 'bucket_lifecycle_states',
+                  CONSTRAINT = 'bucket_lifecycle_states_bucket_id_fkey';
+    END IF;
+    RETURN OLD;
+END;
+$$;
+
+
+--
 -- Name: protect_bucket_control_columns(); Type: FUNCTION; Schema: storage; Owner: -
 --
 
@@ -7806,6 +9525,80 @@ BEGIN
                   ERRCODE = '42501';
     END IF;
     RETURN NULL;
+END;
+$$;
+
+
+--
+-- Name: reconcile_lifecycle_state(text, boolean); Type: FUNCTION; Schema: storage; Owner: -
+--
+
+CREATE FUNCTION storage.reconcile_lifecycle_state(target_bucket_id text, policy_changed boolean) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog'
+    AS $$
+DECLARE
+    bucket storage.buckets%ROWTYPE;
+    active boolean;
+    idle boolean;
+    state_generation uuid;
+BEGIN
+    SELECT * INTO bucket FROM storage.buckets WHERE id = target_bucket_id FOR NO KEY UPDATE;
+    IF NOT FOUND THEN
+        RETURN;
+    END IF;
+
+    SELECT continuation IS NULL OR (
+               continuation @> '{"continuationVersion": 1}'
+               AND continuation #> '{batch,inFlight}' IS NULL
+           ), generation
+    INTO idle, state_generation
+    FROM storage.bucket_lifecycle_states
+    WHERE bucket_id = target_bucket_id
+    FOR UPDATE;
+
+    IF bucket.lifecycle_configuration IS NULL THEN
+        DELETE FROM storage.bucket_lifecycle_states
+        WHERE bucket_id = target_bucket_id
+          AND idle IS TRUE;
+
+        UPDATE storage.bucket_lifecycle_states
+        SET next_run_at = clock_timestamp(), updated_at = clock_timestamp()
+        WHERE bucket_id = target_bucket_id
+          AND idle IS NOT TRUE;
+        RETURN;
+    END IF;
+
+    active := bucket.versioning_status <> 'DISABLED'
+        AND bucket.lifecycle_configuration @> '{"rules":[{"status":"Enabled"}]}'::jsonb;
+
+    -- The state row records the generation it was reconciled with so callers need not detect
+    -- policy changes. Rows without a recorded generation keep their work.
+    policy_changed := policy_changed OR (
+        state_generation IS NOT NULL AND state_generation <> bucket.lifecycle_configuration_generation
+    );
+
+    INSERT INTO storage.bucket_lifecycle_states AS state (bucket_id, generation, next_run_at)
+    VALUES (bucket.id, bucket.lifecycle_configuration_generation, CASE WHEN active THEN clock_timestamp() END)
+    ON CONFLICT (bucket_id) DO UPDATE
+    SET next_run_at = CASE
+            WHEN policy_changed THEN
+                CASE WHEN active OR idle IS NOT TRUE THEN clock_timestamp() END
+            ELSE EXCLUDED.next_run_at
+        END,
+        generation = EXCLUDED.generation,
+        claim_id = CASE WHEN policy_changed AND idle IS TRUE
+                        THEN NULL ELSE state.claim_id END,
+        claim_until = CASE WHEN policy_changed AND idle IS TRUE
+                           THEN NULL ELSE state.claim_until END,
+        continuation = CASE WHEN policy_changed AND idle IS TRUE
+                            THEN NULL ELSE state.continuation END,
+        failure_count = CASE WHEN policy_changed AND idle IS TRUE
+                             THEN 0 ELSE state.failure_count END,
+        last_error = CASE WHEN policy_changed AND idle IS TRUE
+                          THEN NULL ELSE state.last_error END,
+        updated_at = clock_timestamp()
+    WHERE policy_changed OR (state.next_run_at IS NULL AND EXCLUDED.next_run_at IS NOT NULL);
 END;
 $$;
 
@@ -8617,6 +10410,25 @@ CREATE FUNCTION storage.update_updated_at_column() RETURNS trigger
 BEGIN
     NEW.updated_at = now();
     RETURN NEW; 
+END;
+$$;
+
+
+--
+-- Name: wake_lifecycle_state(); Type: FUNCTION; Schema: storage; Owner: -
+--
+
+CREATE FUNCTION storage.wake_lifecycle_state() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog'
+    AS $$
+BEGIN
+    IF TG_OP = 'INSERT' AND NEW.lifecycle_configuration IS NULL THEN
+        RETURN NEW;
+    END IF;
+
+    PERFORM storage.reconcile_lifecycle_state(NEW.id, false);
+    RETURN NEW;
 END;
 $$;
 
@@ -9495,7 +11307,7 @@ CREATE TABLE public.organizer_racebook_module_settings (
     module_key text NOT NULL,
     is_enabled boolean DEFAULT false NOT NULL,
     configured_by uuid,
-    CONSTRAINT organizer_racebook_module_settings_scope_check CHECK ((((race_id IS NULL) AND (module_key = ANY (ARRAY['equipment'::text, 'bib_pickup'::text, 'access'::text, 'services'::text, 'branding'::text, 'sponsors'::text]))) OR ((race_id IS NOT NULL) AND (module_key = ANY (ARRAY['aid_stations'::text, 'start_waves'::text, 'awards'::text, 'relay'::text, 'official_products'::text])))))
+    CONSTRAINT organizer_racebook_module_settings_scope_check CHECK ((((race_id IS NULL) AND (module_key = ANY (ARRAY['equipment'::text, 'bib_pickup'::text, 'access'::text, 'services'::text, 'branding'::text, 'sponsors'::text]))) OR ((race_id IS NOT NULL) AND (module_key = ANY (ARRAY['aid_stations'::text, 'supporter_points'::text, 'start_waves'::text, 'awards'::text, 'relay'::text, 'official_products'::text])))))
 );
 
 
@@ -10034,8 +11846,16 @@ CREATE TABLE public.race_plans (
     race_id uuid,
     catalog_race_updated_at_at_import timestamp with time zone,
     plan_gpx_path text,
-    plan_course_stats jsonb DEFAULT '{}'::jsonb NOT NULL
+    plan_course_stats jsonb DEFAULT '{}'::jsonb NOT NULL,
+    source_revision_at_last_review timestamp with time zone
 );
+
+
+--
+-- Name: COLUMN race_plans.source_revision_at_last_review; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.race_plans.source_revision_at_last_review IS 'Official source revision explicitly acknowledged after saving this plan.';
 
 
 --
@@ -10108,6 +11928,120 @@ CREATE TABLE public.racebook_gear_checks (
 
 
 --
+-- Name: racebook_publication_asset_cleanup_queue; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.racebook_publication_asset_cleanup_queue (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    storage_bucket text NOT NULL,
+    storage_path text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    attempt_count integer DEFAULT 0 NOT NULL,
+    available_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    last_attempt_at timestamp with time zone,
+    last_error text,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    completed_at timestamp with time zone,
+    CONSTRAINT racebook_publication_asset_cleanup_completion_check CHECK ((((status = 'deleted'::text) AND (completed_at IS NOT NULL)) OR ((status <> 'deleted'::text) AND (completed_at IS NULL)))),
+    CONSTRAINT racebook_publication_asset_cleanup_queue_attempt_count_check CHECK ((attempt_count >= 0)),
+    CONSTRAINT racebook_publication_asset_cleanup_queue_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'failed'::text, 'deleted'::text])))
+);
+
+
+--
+-- Name: TABLE racebook_publication_asset_cleanup_queue; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.racebook_publication_asset_cleanup_queue IS 'Retryable Storage cleanup work created only after no retained publication references an object.';
+
+
+--
+-- Name: racebook_publication_assets; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.racebook_publication_assets (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    publication_id uuid NOT NULL,
+    asset_type text NOT NULL,
+    storage_bucket text,
+    storage_path text,
+    public_url text,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    CONSTRAINT racebook_publication_assets_asset_type_check CHECK ((asset_type = ANY (ARRAY['gpx'::text, 'image'::text, 'event_image'::text, 'format_image'::text, 'branding_logo'::text, 'sponsor_logo'::text, 'product_image'::text]))),
+    CONSTRAINT racebook_publication_assets_location_check CHECK ((((storage_bucket IS NOT NULL) AND (storage_path IS NOT NULL)) OR (public_url IS NOT NULL))),
+    CONSTRAINT racebook_publication_assets_public_url_check CHECK (((public_url IS NULL) OR (public_url ~* '^https?://'::text))),
+    CONSTRAINT racebook_publication_assets_storage_pair_check CHECK (((storage_bucket IS NULL) = (storage_path IS NULL)))
+);
+
+
+--
+-- Name: TABLE racebook_publication_assets; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.racebook_publication_assets IS 'Assets retained by an immutable RaceBook publication.';
+
+
+--
+-- Name: racebook_publication_states; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.racebook_publication_states (
+    race_id uuid NOT NULL,
+    event_id uuid NOT NULL,
+    edition_id uuid NOT NULL,
+    draft_revision bigint DEFAULT 1 NOT NULL,
+    current_publication_id uuid,
+    published_source_revision bigint,
+    last_published_at timestamp with time zone,
+    last_published_by uuid,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    CONSTRAINT racebook_publication_states_draft_revision_check CHECK ((draft_revision >= 1)),
+    CONSTRAINT racebook_publication_states_publication_metadata_check CHECK ((((current_publication_id IS NULL) AND (published_source_revision IS NULL) AND (last_published_at IS NULL)) OR ((current_publication_id IS NOT NULL) AND (published_source_revision IS NOT NULL) AND (last_published_at IS NOT NULL)))),
+    CONSTRAINT racebook_publication_states_published_source_revision_check CHECK (((published_source_revision IS NULL) OR (published_source_revision >= 1)))
+);
+
+
+--
+-- Name: TABLE racebook_publication_states; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.racebook_publication_states IS 'Service-only draft/publication revision state for each organizer RaceBook format.';
+
+
+--
+-- Name: racebook_publications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.racebook_publications (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    race_id uuid NOT NULL,
+    event_id uuid NOT NULL,
+    edition_id uuid NOT NULL,
+    version integer NOT NULL,
+    schema_version integer NOT NULL,
+    content jsonb NOT NULL,
+    content_hash text NOT NULL,
+    source_draft_revision bigint NOT NULL,
+    published_by uuid,
+    published_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    restored_from_publication_id uuid,
+    CONSTRAINT racebook_publications_content_check CHECK ((jsonb_typeof(content) = 'object'::text)),
+    CONSTRAINT racebook_publications_content_hash_check CHECK ((content_hash ~ '^[0-9a-f]{64}$'::text)),
+    CONSTRAINT racebook_publications_schema_version_check CHECK ((schema_version >= 1)),
+    CONSTRAINT racebook_publications_source_draft_revision_check CHECK ((source_draft_revision >= 1)),
+    CONSTRAINT racebook_publications_version_check CHECK ((version >= 1))
+);
+
+
+--
+-- Name: TABLE racebook_publications; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.racebook_publications IS 'Immutable service-only RaceBook snapshots; only the current state pointer is runner-visible through server routes.';
+
+
+--
 -- Name: rate_limit_entries; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -10115,6 +12049,215 @@ CREATE TABLE public.rate_limit_entries (
     key text NOT NULL,
     count integer DEFAULT 1 NOT NULL,
     reset_at timestamp with time zone NOT NULL
+);
+
+
+--
+-- Name: runner_admin_access_modes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.runner_admin_access_modes (
+    session_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    mode text NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    CONSTRAINT runner_admin_access_modes_mode_check CHECK ((mode = ANY (ARRAY['real'::text, 'free'::text, 'premium'::text])))
+);
+
+
+--
+-- Name: runner_billing_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.runner_billing_events (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    provider text NOT NULL,
+    provider_event_id text NOT NULL,
+    event_type text NOT NULL,
+    payload jsonb DEFAULT '{}'::jsonb NOT NULL,
+    received_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    transaction_id text,
+    transaction_status text,
+    event_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    processed_at timestamp with time zone,
+    processing_error text,
+    CONSTRAINT runner_billing_events_transaction_status_check CHECK ((transaction_status = ANY (ARRAY['active'::text, 'refunded'::text, 'revoked'::text])))
+);
+
+
+--
+-- Name: runner_launch_cohorts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.runner_launch_cohorts (
+    user_id uuid NOT NULL,
+    early_supporter boolean DEFAULT true NOT NULL,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+
+--
+-- Name: runner_launch_grandfathered_plans; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.runner_launch_grandfathered_plans (
+    plan_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    grandfathered_at timestamp with time zone NOT NULL,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+
+--
+-- Name: runner_monetization_config; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.runner_monetization_config (
+    id boolean DEFAULT true NOT NULL,
+    monetization_enabled boolean DEFAULT false NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    launched_at timestamp with time zone,
+    launch_popup_ends_at timestamp with time zone,
+    CONSTRAINT runner_monetization_config_id_check CHECK ((id = true))
+);
+
+
+--
+-- Name: runner_plan_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.runner_plan_history (
+    plan_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    plan_key text NOT NULL,
+    detailed_access_granted boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+
+--
+-- Name: runner_plan_unlocks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.runner_plan_unlocks (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    plan_key text NOT NULL,
+    plan_id uuid,
+    provider text NOT NULL,
+    provider_transaction_id text,
+    status text DEFAULT 'active'::text NOT NULL,
+    purchased_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    CONSTRAINT runner_plan_unlocks_provider_check CHECK ((provider = ANY (ARRAY['stripe'::text, 'google'::text, 'apple'::text, 'admin'::text]))),
+    CONSTRAINT runner_plan_unlocks_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'active'::text, 'refunded'::text, 'revoked'::text])))
+);
+
+
+--
+-- Name: runner_purchase_intents; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.runner_purchase_intents (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    plan_key text NOT NULL,
+    plan_id uuid,
+    provider text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    fulfilled_at timestamp with time zone,
+    product_id text,
+    transaction_id text,
+    expires_at timestamp with time zone DEFAULT (timezone('utc'::text, now()) + '1 day'::interval) NOT NULL,
+    last_verified_at timestamp with time zone,
+    failure_reason text,
+    store_started_at timestamp with time zone,
+    CONSTRAINT runner_purchase_intents_provider_check CHECK ((provider = ANY (ARRAY['stripe'::text, 'google'::text, 'apple'::text]))),
+    CONSTRAINT runner_purchase_intents_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'fulfilled'::text, 'expired'::text, 'cancelled'::text])))
+);
+
+
+--
+-- Name: runner_subscription_accounts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.runner_subscription_accounts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    provider text NOT NULL,
+    provider_subscription_id text NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    current_period_end timestamp with time zone,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    CONSTRAINT runner_subscription_accounts_provider_check CHECK ((provider = ANY (ARRAY['stripe'::text, 'google'::text, 'apple'::text])))
+);
+
+
+--
+-- Name: runner_support_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.runner_support_events (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    provider text NOT NULL,
+    provider_event_id text NOT NULL,
+    product_id text NOT NULL,
+    transaction_id text NOT NULL,
+    transaction_status text NOT NULL,
+    event_at timestamp with time zone NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT runner_support_events_product_id_check CHECK ((length(btrim(product_id)) > 0)),
+    CONSTRAINT runner_support_events_provider_check CHECK ((provider = ANY (ARRAY['apple'::text, 'google'::text]))),
+    CONSTRAINT runner_support_events_provider_event_id_check CHECK ((length(btrim(provider_event_id)) > 0)),
+    CONSTRAINT runner_support_events_transaction_id_check CHECK ((length(btrim(transaction_id)) > 0)),
+    CONSTRAINT runner_support_events_transaction_status_check CHECK ((transaction_status = ANY (ARRAY['active'::text, 'refunded'::text])))
+);
+
+
+--
+-- Name: runner_support_purchase_intents; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.runner_support_purchase_intents (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    provider text NOT NULL,
+    product_id text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    transaction_id text,
+    expires_at timestamp with time zone NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT runner_support_purchase_intents_check CHECK ((expires_at > created_at)),
+    CONSTRAINT runner_support_purchase_intents_product_id_check CHECK ((length(btrim(product_id)) > 0)),
+    CONSTRAINT runner_support_purchase_intents_provider_check CHECK ((provider = ANY (ARRAY['apple'::text, 'google'::text]))),
+    CONSTRAINT runner_support_purchase_intents_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'fulfilled'::text, 'cancelled'::text, 'expired'::text])))
+);
+
+
+--
+-- Name: runner_support_purchases; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.runner_support_purchases (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    provider text NOT NULL,
+    product_id text NOT NULL,
+    transaction_id text NOT NULL,
+    status text NOT NULL,
+    purchased_at timestamp with time zone NOT NULL,
+    latest_event_at timestamp with time zone NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT runner_support_purchases_product_id_check CHECK ((length(btrim(product_id)) > 0)),
+    CONSTRAINT runner_support_purchases_provider_check CHECK ((provider = ANY (ARRAY['apple'::text, 'google'::text]))),
+    CONSTRAINT runner_support_purchases_status_check CHECK ((status = ANY (ARRAY['active'::text, 'refunded'::text]))),
+    CONSTRAINT runner_support_purchases_transaction_id_check CHECK ((length(btrim(transaction_id)) > 0))
 );
 
 
@@ -10226,6 +12369,36 @@ COMMENT ON COLUMN public.user_profiles.racebook_onboarding_status IS 'Runner-fac
 
 
 --
+-- Name: video_render_jobs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.video_render_jobs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    race_id uuid NOT NULL,
+    race_title text NOT NULL,
+    status text DEFAULT 'uploading'::text NOT NULL,
+    progress real DEFAULT 0 NOT NULL,
+    message text,
+    width integer NOT NULL,
+    height integer NOT NULL,
+    output_size_bytes bigint,
+    cloud_run_execution text,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    started_at timestamp with time zone,
+    finished_at timestamp with time zone,
+    CONSTRAINT video_render_jobs_height_check CHECK (((height >= 160) AND (height <= 4096))),
+    CONSTRAINT video_render_jobs_message_check CHECK (((message IS NULL) OR (char_length(message) <= 500))),
+    CONSTRAINT video_render_jobs_output_size_bytes_check CHECK (((output_size_bytes IS NULL) OR (output_size_bytes >= 0))),
+    CONSTRAINT video_render_jobs_progress_check CHECK (((progress >= (0)::double precision) AND (progress <= (1)::double precision))),
+    CONSTRAINT video_render_jobs_race_title_check CHECK (((char_length(race_title) >= 1) AND (char_length(race_title) <= 200))),
+    CONSTRAINT video_render_jobs_status_check CHECK ((status = ANY (ARRAY['uploading'::text, 'queued'::text, 'running'::text, 'done'::text, 'failed'::text]))),
+    CONSTRAINT video_render_jobs_width_check CHECK (((width >= 160) AND (width <= 4096)))
+);
+
+
+--
 -- Name: messages; Type: TABLE; Schema: realtime; Owner: -
 --
 
@@ -10235,8 +12408,8 @@ CREATE TABLE realtime.messages (
     payload jsonb,
     event text,
     private boolean DEFAULT false,
-    updated_at timestamp without time zone DEFAULT now() NOT NULL,
-    inserted_at timestamp without time zone DEFAULT now() NOT NULL,
+    updated_at timestamp without time zone DEFAULT timezone('utc'::text, clock_timestamp()) NOT NULL,
+    inserted_at timestamp without time zone DEFAULT timezone('utc'::text, clock_timestamp()) NOT NULL,
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     binary_payload bytea,
     skip_broadcast boolean DEFAULT false NOT NULL
@@ -10287,6 +12460,31 @@ ALTER TABLE realtime.subscription ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTI
 
 
 --
+-- Name: bucket_lifecycle_states; Type: TABLE; Schema: storage; Owner: -
+--
+
+CREATE TABLE storage.bucket_lifecycle_states (
+    bucket_id text NOT NULL,
+    generation uuid,
+    next_run_at timestamp with time zone,
+    claim_id uuid,
+    claim_until timestamp with time zone,
+    continuation jsonb,
+    last_started_at timestamp with time zone,
+    last_completed_at timestamp with time zone,
+    last_success_at timestamp with time zone,
+    last_result jsonb,
+    failure_count integer DEFAULT 0 NOT NULL,
+    last_error jsonb,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT bucket_lifecycle_continuation_object_check CHECK (((continuation IS NULL) OR (jsonb_typeof(continuation) = 'object'::text))),
+    CONSTRAINT bucket_lifecycle_failure_count_check CHECK ((failure_count >= 0)),
+    CONSTRAINT bucket_lifecycle_last_result_object_check CHECK (((last_result IS NULL) OR (jsonb_typeof(last_result) = 'object'::text))),
+    CONSTRAINT bucket_lifecycle_recovery_due_check CHECK (((next_run_at IS NOT NULL) OR (NOT jsonb_path_exists(COALESCE(continuation, '{}'::jsonb), '$."batch"."inFlight"'::jsonpath))))
+);
+
+
+--
 -- Name: buckets; Type: TABLE; Schema: storage; Owner: -
 --
 
@@ -10312,7 +12510,6 @@ CASE
     ELSE false
 END))),
     CONSTRAINT buckets_lifecycle_configuration_standard_only_check CHECK (((type = 'STANDARD'::storage.buckettype) OR ((lifecycle_configuration IS NULL) AND (lifecycle_configuration_generation IS NULL)))),
-    CONSTRAINT buckets_versioning_dark_check CHECK ((versioning_status = 'DISABLED'::text)),
     CONSTRAINT buckets_versioning_standard_only_check CHECK (((type = 'STANDARD'::storage.buckettype) OR (versioning_status = 'DISABLED'::text))),
     CONSTRAINT buckets_versioning_status_check CHECK ((versioning_status = ANY (ARRAY['DISABLED'::text, 'ENABLED'::text, 'SUSPENDED'::text])))
 );
@@ -10349,6 +12546,19 @@ CREATE TABLE storage.buckets_vectors (
     type storage.buckettype DEFAULT 'VECTOR'::storage.buckettype NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: lifecycle_abandoned_artifacts; Type: TABLE; Schema: storage; Owner: -
+--
+
+CREATE TABLE storage.lifecycle_abandoned_artifacts (
+    bucket_id text NOT NULL,
+    key text NOT NULL,
+    name text NOT NULL,
+    version text,
+    attempted_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -11181,6 +13391,14 @@ ALTER TABLE ONLY public.race_start_waves
 
 
 --
+-- Name: race_supporter_points race_supporter_points_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.race_supporter_points
+    ADD CONSTRAINT race_supporter_points_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: racebook_gear_checks racebook_gear_checks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -11189,11 +13407,227 @@ ALTER TABLE ONLY public.racebook_gear_checks
 
 
 --
+-- Name: racebook_publication_asset_cleanup_queue racebook_publication_asset_cleanup_queue_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.racebook_publication_asset_cleanup_queue
+    ADD CONSTRAINT racebook_publication_asset_cleanup_queue_key UNIQUE (storage_bucket, storage_path);
+
+
+--
+-- Name: racebook_publication_asset_cleanup_queue racebook_publication_asset_cleanup_queue_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.racebook_publication_asset_cleanup_queue
+    ADD CONSTRAINT racebook_publication_asset_cleanup_queue_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: racebook_publication_assets racebook_publication_assets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.racebook_publication_assets
+    ADD CONSTRAINT racebook_publication_assets_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: racebook_publication_assets racebook_publication_assets_unique_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.racebook_publication_assets
+    ADD CONSTRAINT racebook_publication_assets_unique_key UNIQUE NULLS NOT DISTINCT (publication_id, asset_type, storage_bucket, storage_path, public_url);
+
+
+--
+-- Name: racebook_publication_states racebook_publication_states_parent_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.racebook_publication_states
+    ADD CONSTRAINT racebook_publication_states_parent_key UNIQUE (race_id, event_id, edition_id);
+
+
+--
+-- Name: racebook_publication_states racebook_publication_states_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.racebook_publication_states
+    ADD CONSTRAINT racebook_publication_states_pkey PRIMARY KEY (race_id);
+
+
+--
+-- Name: racebook_publications racebook_publications_parent_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.racebook_publications
+    ADD CONSTRAINT racebook_publications_parent_key UNIQUE (id, race_id, event_id, edition_id);
+
+
+--
+-- Name: racebook_publications racebook_publications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.racebook_publications
+    ADD CONSTRAINT racebook_publications_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: racebook_publications racebook_publications_race_version_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.racebook_publications
+    ADD CONSTRAINT racebook_publications_race_version_key UNIQUE (race_id, version);
+
+
+--
 -- Name: rate_limit_entries rate_limit_entries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.rate_limit_entries
     ADD CONSTRAINT rate_limit_entries_pkey PRIMARY KEY (key);
+
+
+--
+-- Name: runner_admin_access_modes runner_admin_access_modes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_admin_access_modes
+    ADD CONSTRAINT runner_admin_access_modes_pkey PRIMARY KEY (session_id);
+
+
+--
+-- Name: runner_billing_events runner_billing_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_billing_events
+    ADD CONSTRAINT runner_billing_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: runner_billing_events runner_billing_events_provider_provider_event_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_billing_events
+    ADD CONSTRAINT runner_billing_events_provider_provider_event_id_key UNIQUE (provider, provider_event_id);
+
+
+--
+-- Name: runner_launch_cohorts runner_launch_cohorts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_launch_cohorts
+    ADD CONSTRAINT runner_launch_cohorts_pkey PRIMARY KEY (user_id);
+
+
+--
+-- Name: runner_launch_grandfathered_plans runner_launch_grandfathered_plans_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_launch_grandfathered_plans
+    ADD CONSTRAINT runner_launch_grandfathered_plans_pkey PRIMARY KEY (plan_id);
+
+
+--
+-- Name: runner_monetization_config runner_monetization_config_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_monetization_config
+    ADD CONSTRAINT runner_monetization_config_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: runner_plan_history runner_plan_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_plan_history
+    ADD CONSTRAINT runner_plan_history_pkey PRIMARY KEY (plan_id);
+
+
+--
+-- Name: runner_plan_unlocks runner_plan_unlocks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_plan_unlocks
+    ADD CONSTRAINT runner_plan_unlocks_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: runner_plan_unlocks runner_plan_unlocks_provider_provider_transaction_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_plan_unlocks
+    ADD CONSTRAINT runner_plan_unlocks_provider_provider_transaction_id_key UNIQUE (provider, provider_transaction_id);
+
+
+--
+-- Name: runner_purchase_intents runner_purchase_intents_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_purchase_intents
+    ADD CONSTRAINT runner_purchase_intents_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: runner_subscription_accounts runner_subscription_accounts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_subscription_accounts
+    ADD CONSTRAINT runner_subscription_accounts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: runner_subscription_accounts runner_subscription_accounts_provider_provider_subscription_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_subscription_accounts
+    ADD CONSTRAINT runner_subscription_accounts_provider_provider_subscription_key UNIQUE (provider, provider_subscription_id);
+
+
+--
+-- Name: runner_support_events runner_support_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_support_events
+    ADD CONSTRAINT runner_support_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: runner_support_events runner_support_events_provider_provider_event_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_support_events
+    ADD CONSTRAINT runner_support_events_provider_provider_event_id_key UNIQUE (provider, provider_event_id);
+
+
+--
+-- Name: runner_support_purchase_intents runner_support_purchase_intents_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_support_purchase_intents
+    ADD CONSTRAINT runner_support_purchase_intents_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: runner_support_purchases runner_support_purchases_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_support_purchases
+    ADD CONSTRAINT runner_support_purchases_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: runner_support_purchases runner_support_purchases_provider_transaction_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_support_purchases
+    ADD CONSTRAINT runner_support_purchases_provider_transaction_id_key UNIQUE (provider, transaction_id);
+
+
+--
+-- Name: runner_support_purchases runner_support_purchases_user_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_support_purchases
+    ADD CONSTRAINT runner_support_purchases_user_id_key UNIQUE (user_id);
 
 
 --
@@ -11245,6 +13679,14 @@ ALTER TABLE ONLY public.user_profiles
 
 
 --
+-- Name: video_render_jobs video_render_jobs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.video_render_jobs
+    ADD CONSTRAINT video_render_jobs_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: messages messages_payload_exclusive; Type: CHECK CONSTRAINT; Schema: realtime; Owner: -
 --
 
@@ -11277,6 +13719,14 @@ ALTER TABLE ONLY realtime.schema_migrations
 
 
 --
+-- Name: bucket_lifecycle_states bucket_lifecycle_states_pkey; Type: CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.bucket_lifecycle_states
+    ADD CONSTRAINT bucket_lifecycle_states_pkey PRIMARY KEY (bucket_id);
+
+
+--
 -- Name: buckets_analytics buckets_analytics_pkey; Type: CONSTRAINT; Schema: storage; Owner: -
 --
 
@@ -11298,6 +13748,14 @@ ALTER TABLE ONLY storage.buckets
 
 ALTER TABLE ONLY storage.buckets_vectors
     ADD CONSTRAINT buckets_vectors_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: lifecycle_abandoned_artifacts lifecycle_abandoned_artifacts_pkey; Type: CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.lifecycle_abandoned_artifacts
+    ADD CONSTRAINT lifecycle_abandoned_artifacts_pkey PRIMARY KEY (bucket_id, key);
 
 
 --
@@ -12429,6 +14887,20 @@ CREATE INDEX race_plans_user_id_idx ON public.race_plans USING btree (user_id);
 
 
 --
+-- Name: race_plans_user_race_unique_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX race_plans_user_race_unique_idx ON public.race_plans USING btree (user_id, race_id) WHERE (race_id IS NOT NULL);
+
+
+--
+-- Name: INDEX race_plans_user_race_unique_idx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.race_plans_user_race_unique_idx IS 'Allows at most one catalog-format plan per Supabase user while preserving unlinked personal plans.';
+
+
+--
 -- Name: race_relay_points_aid_station_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -12471,10 +14943,94 @@ CREATE INDEX race_start_waves_race_order_idx ON public.race_start_waves USING bt
 
 
 --
+-- Name: race_supporter_points_race_order_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX race_supporter_points_race_order_idx ON public.race_supporter_points USING btree (race_id, order_index);
+
+
+--
 -- Name: racebook_gear_checks_race_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX racebook_gear_checks_race_idx ON public.racebook_gear_checks USING btree (race_id);
+
+
+--
+-- Name: racebook_publication_asset_cleanup_pending_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX racebook_publication_asset_cleanup_pending_idx ON public.racebook_publication_asset_cleanup_queue USING btree (available_at, created_at) WHERE (status = ANY (ARRAY['pending'::text, 'failed'::text]));
+
+
+--
+-- Name: racebook_publication_assets_storage_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX racebook_publication_assets_storage_idx ON public.racebook_publication_assets USING btree (storage_bucket, storage_path) WHERE (storage_bucket IS NOT NULL);
+
+
+--
+-- Name: racebook_publication_states_current_publication_parent_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX racebook_publication_states_current_publication_parent_idx ON public.racebook_publication_states USING btree (current_publication_id, race_id, event_id, edition_id) WHERE (current_publication_id IS NOT NULL);
+
+
+--
+-- Name: racebook_publication_states_dirty_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX racebook_publication_states_dirty_idx ON public.racebook_publication_states USING btree (edition_id, race_id) WHERE ((current_publication_id IS NULL) OR (draft_revision <> published_source_revision));
+
+
+--
+-- Name: racebook_publication_states_edition_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX racebook_publication_states_edition_idx ON public.racebook_publication_states USING btree (edition_id, race_id);
+
+
+--
+-- Name: racebook_publication_states_event_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX racebook_publication_states_event_idx ON public.racebook_publication_states USING btree (event_id, race_id);
+
+
+--
+-- Name: racebook_publication_states_last_published_by_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX racebook_publication_states_last_published_by_idx ON public.racebook_publication_states USING btree (last_published_by) WHERE (last_published_by IS NOT NULL);
+
+
+--
+-- Name: racebook_publications_edition_published_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX racebook_publications_edition_published_idx ON public.racebook_publications USING btree (edition_id, published_at DESC);
+
+
+--
+-- Name: racebook_publications_event_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX racebook_publications_event_idx ON public.racebook_publications USING btree (event_id);
+
+
+--
+-- Name: racebook_publications_published_by_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX racebook_publications_published_by_idx ON public.racebook_publications USING btree (published_by) WHERE (published_by IS NOT NULL);
+
+
+--
+-- Name: racebook_publications_race_published_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX racebook_publications_race_published_idx ON public.racebook_publications USING btree (race_id, published_at DESC);
 
 
 --
@@ -12510,6 +15066,97 @@ CREATE INDEX races_is_public_idx ON public.races USING btree (is_public);
 --
 
 CREATE INDEX races_web_catalog_date_name_idx ON public.races USING btree (race_date, name) WHERE ((is_public = true) AND (web_catalog_is_live = true));
+
+
+--
+-- Name: runner_billing_events_transaction_state_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX runner_billing_events_transaction_state_idx ON public.runner_billing_events USING btree (provider, transaction_id, event_at DESC, received_at DESC) WHERE ((transaction_id IS NOT NULL) AND (transaction_status IS NOT NULL));
+
+
+--
+-- Name: runner_launch_grandfathered_plans_user_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX runner_launch_grandfathered_plans_user_idx ON public.runner_launch_grandfathered_plans USING btree (user_id);
+
+
+--
+-- Name: runner_plan_unlocks_plan_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX runner_plan_unlocks_plan_idx ON public.runner_plan_unlocks USING btree (plan_id);
+
+
+--
+-- Name: runner_plan_unlocks_user_key_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX runner_plan_unlocks_user_key_idx ON public.runner_plan_unlocks USING btree (user_id, plan_key, status);
+
+
+--
+-- Name: runner_purchase_intents_pending_store_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX runner_purchase_intents_pending_store_idx ON public.runner_purchase_intents USING btree (user_id, provider) WHERE (status = 'pending'::text);
+
+
+--
+-- Name: runner_purchase_intents_provider_transaction_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX runner_purchase_intents_provider_transaction_idx ON public.runner_purchase_intents USING btree (provider, transaction_id) WHERE (transaction_id IS NOT NULL);
+
+
+--
+-- Name: runner_purchase_intents_user_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX runner_purchase_intents_user_idx ON public.runner_purchase_intents USING btree (user_id, status);
+
+
+--
+-- Name: runner_subscription_accounts_user_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX runner_subscription_accounts_user_idx ON public.runner_subscription_accounts USING btree (user_id, status);
+
+
+--
+-- Name: runner_support_events_transaction; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX runner_support_events_transaction ON public.runner_support_events USING btree (provider, transaction_id, event_at DESC);
+
+
+--
+-- Name: runner_support_events_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX runner_support_events_user ON public.runner_support_events USING btree (user_id, event_at DESC);
+
+
+--
+-- Name: runner_support_purchase_intents_expiry; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX runner_support_purchase_intents_expiry ON public.runner_support_purchase_intents USING btree (expires_at) WHERE (status = 'pending'::text);
+
+
+--
+-- Name: runner_support_purchase_intents_one_pending_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX runner_support_purchase_intents_one_pending_user ON public.runner_support_purchase_intents USING btree (user_id) WHERE (status = 'pending'::text);
+
+
+--
+-- Name: runner_support_purchase_intents_provider_transaction; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX runner_support_purchase_intents_provider_transaction ON public.runner_support_purchase_intents USING btree (provider, transaction_id) WHERE (transaction_id IS NOT NULL);
 
 
 --
@@ -12555,6 +15202,27 @@ CREATE INDEX user_favorite_race_events_user_idx ON public.user_favorite_race_eve
 
 
 --
+-- Name: video_render_jobs_created_by_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX video_render_jobs_created_by_idx ON public.video_render_jobs USING btree (created_by);
+
+
+--
+-- Name: video_render_jobs_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX video_render_jobs_created_idx ON public.video_render_jobs USING btree (created_at DESC);
+
+
+--
+-- Name: video_render_jobs_race_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX video_render_jobs_race_idx ON public.video_render_jobs USING btree (race_id);
+
+
+--
 -- Name: ix_realtime_subscription_entity; Type: INDEX; Schema: realtime; Owner: -
 --
 
@@ -12580,6 +15248,13 @@ CREATE UNIQUE INDEX subscription_subscription_id_entity_filters_action_filter_se
 --
 
 CREATE UNIQUE INDEX bname ON storage.buckets USING btree (name);
+
+
+--
+-- Name: bucket_lifecycle_states_due_idx; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE INDEX bucket_lifecycle_states_due_idx ON storage.bucket_lifecycle_states USING btree (next_run_at, bucket_id) WHERE (next_run_at IS NOT NULL);
 
 
 --
@@ -12632,10 +15307,31 @@ CREATE UNIQUE INDEX idx_objects_null_version ON storage.objects USING btree (buc
 
 
 --
+-- Name: lifecycle_abandoned_artifacts_attempted_at_idx; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE INDEX lifecycle_abandoned_artifacts_attempted_at_idx ON storage.lifecycle_abandoned_artifacts USING btree (attempted_at);
+
+
+--
 -- Name: name_prefix_search; Type: INDEX; Schema: storage; Owner: -
 --
 
 CREATE INDEX name_prefix_search ON storage.objects USING btree (name text_pattern_ops);
+
+
+--
+-- Name: objects_archived_due_idx; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE INDEX objects_archived_due_idx ON storage.objects USING btree (bucket_id, archived_at, name COLLATE "C") INCLUDE (id, version, is_delete_marker) WHERE (archived_at IS NOT NULL);
+
+
+--
+-- Name: objects_archived_order_uq; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE UNIQUE INDEX objects_archived_order_uq ON storage.objects USING btree (bucket_id, name COLLATE "C", archived_at) WHERE (archived_at IS NOT NULL);
 
 
 --
@@ -12664,6 +15360,139 @@ CREATE TRIGGER on_auth_user_created_create_profile AFTER INSERT ON auth.users FO
 --
 
 CREATE TRIGGER assign_race_event_edition_trigger BEFORE INSERT OR UPDATE OF event_id, edition_id, race_date ON public.races FOR EACH ROW EXECUTE FUNCTION public.assign_race_event_edition();
+
+
+--
+-- Name: race_aid_station_products bump_aid_product_race_plan_source_revision_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER bump_aid_product_race_plan_source_revision_trigger AFTER INSERT OR DELETE OR UPDATE ON public.race_aid_station_products FOR EACH ROW EXECUTE FUNCTION public.bump_aid_product_race_plan_source_revision();
+
+
+--
+-- Name: race_aid_stations bump_aid_station_race_plan_source_revision_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER bump_aid_station_race_plan_source_revision_trigger AFTER INSERT OR DELETE OR UPDATE ON public.race_aid_stations FOR EACH ROW EXECUTE FUNCTION public.bump_aid_station_race_plan_source_revision();
+
+
+--
+-- Name: products bump_linked_product_race_plan_source_revisions_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER bump_linked_product_race_plan_source_revisions_trigger AFTER UPDATE ON public.products FOR EACH ROW EXECUTE FUNCTION public.bump_linked_product_race_plan_source_revisions();
+
+
+--
+-- Name: races bump_race_plan_source_revision_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER bump_race_plan_source_revision_trigger BEFORE UPDATE ON public.races FOR EACH ROW EXECUTE FUNCTION public.bump_race_plan_source_revision();
+
+
+--
+-- Name: race_aid_station_products bump_racebook_aid_product_draft_revision_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER bump_racebook_aid_product_draft_revision_trigger AFTER INSERT OR DELETE OR UPDATE ON public.race_aid_station_products FOR EACH ROW EXECUTE FUNCTION public.bump_racebook_aid_product_draft_revision();
+
+
+--
+-- Name: race_aid_stations bump_racebook_aid_station_draft_revision_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER bump_racebook_aid_station_draft_revision_trigger AFTER INSERT OR DELETE OR UPDATE ON public.race_aid_stations FOR EACH ROW EXECUTE FUNCTION public.bump_racebook_race_child_draft_revision();
+
+
+--
+-- Name: race_awards bump_racebook_award_draft_revision_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER bump_racebook_award_draft_revision_trigger AFTER INSERT OR DELETE OR UPDATE ON public.race_awards FOR EACH ROW EXECUTE FUNCTION public.bump_racebook_race_child_draft_revision();
+
+
+--
+-- Name: race_event_edition_branding bump_racebook_branding_draft_revisions_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER bump_racebook_branding_draft_revisions_trigger AFTER INSERT OR DELETE OR UPDATE ON public.race_event_edition_branding FOR EACH ROW EXECUTE FUNCTION public.bump_racebook_edition_child_draft_revisions();
+
+
+--
+-- Name: race_event_editions bump_racebook_edition_draft_revisions_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER bump_racebook_edition_draft_revisions_trigger AFTER UPDATE ON public.race_event_editions FOR EACH ROW EXECUTE FUNCTION public.bump_racebook_edition_draft_revisions();
+
+
+--
+-- Name: race_events bump_racebook_event_draft_revisions_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER bump_racebook_event_draft_revisions_trigger AFTER UPDATE ON public.race_events FOR EACH ROW EXECUTE FUNCTION public.bump_racebook_event_draft_revisions();
+
+
+--
+-- Name: organizer_racebook_module_settings bump_racebook_module_draft_revisions_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER bump_racebook_module_draft_revisions_trigger AFTER INSERT OR DELETE OR UPDATE ON public.organizer_racebook_module_settings FOR EACH ROW EXECUTE FUNCTION public.bump_racebook_module_draft_revisions();
+
+
+--
+-- Name: products bump_racebook_product_draft_revisions_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER bump_racebook_product_draft_revisions_trigger AFTER UPDATE ON public.products FOR EACH ROW EXECUTE FUNCTION public.bump_racebook_product_draft_revisions();
+
+
+--
+-- Name: races bump_racebook_race_draft_revision_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER bump_racebook_race_draft_revision_trigger AFTER UPDATE ON public.races FOR EACH ROW EXECUTE FUNCTION public.bump_racebook_race_draft_revision();
+
+
+--
+-- Name: race_relay_points bump_racebook_relay_point_draft_revision_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER bump_racebook_relay_point_draft_revision_trigger AFTER INSERT OR DELETE OR UPDATE ON public.race_relay_points FOR EACH ROW EXECUTE FUNCTION public.bump_racebook_race_child_draft_revision();
+
+
+--
+-- Name: race_edition_services bump_racebook_service_draft_revisions_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER bump_racebook_service_draft_revisions_trigger AFTER INSERT OR DELETE OR UPDATE ON public.race_edition_services FOR EACH ROW EXECUTE FUNCTION public.bump_racebook_edition_child_draft_revisions();
+
+
+--
+-- Name: race_event_edition_sponsors bump_racebook_sponsor_draft_revisions_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER bump_racebook_sponsor_draft_revisions_trigger AFTER INSERT OR DELETE OR UPDATE ON public.race_event_edition_sponsors FOR EACH ROW EXECUTE FUNCTION public.bump_racebook_sponsor_draft_revisions();
+
+
+--
+-- Name: race_start_waves bump_racebook_start_wave_draft_revision_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER bump_racebook_start_wave_draft_revision_trigger AFTER INSERT OR DELETE OR UPDATE ON public.race_start_waves FOR EACH ROW EXECUTE FUNCTION public.bump_racebook_race_child_draft_revision();
+
+
+--
+-- Name: race_supporter_points bump_racebook_supporter_point_draft_revision_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER bump_racebook_supporter_point_draft_revision_trigger AFTER INSERT OR DELETE OR UPDATE ON public.race_supporter_points FOR EACH ROW EXECUTE FUNCTION public.bump_racebook_race_child_draft_revision();
+
+
+--
+-- Name: race_start_waves bump_start_wave_race_plan_source_revision_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER bump_start_wave_race_plan_source_revision_trigger AFTER INSERT OR DELETE OR UPDATE ON public.race_start_waves FOR EACH ROW EXECUTE FUNCTION public.bump_start_wave_race_plan_source_revision();
 
 
 --
@@ -12702,6 +15531,20 @@ CREATE TRIGGER ensure_organizer_edition_entitlement_trigger AFTER INSERT ON publ
 
 
 --
+-- Name: races ensure_racebook_publication_state_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER ensure_racebook_publication_state_trigger AFTER INSERT OR UPDATE OF event_id, edition_id ON public.races FOR EACH ROW EXECUTE FUNCTION public.ensure_racebook_publication_state();
+
+
+--
+-- Name: races guard_racebook_visibility_requires_publication_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER guard_racebook_visibility_requires_publication_trigger BEFORE UPDATE OF racebook_is_live ON public.races FOR EACH ROW EXECUTE FUNCTION public.guard_racebook_visibility_requires_publication();
+
+
+--
 -- Name: race_event_editions initialize_organizer_edition_modules_trigger; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -12713,6 +15556,13 @@ CREATE TRIGGER initialize_organizer_edition_modules_trigger AFTER INSERT ON publ
 --
 
 CREATE TRIGGER initialize_organizer_race_modules_trigger AFTER INSERT OR UPDATE OF edition_id ON public.races FOR EACH ROW EXECUTE FUNCTION public.initialize_organizer_race_modules();
+
+
+--
+-- Name: race_plans initialize_plan_source_review_revision_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER initialize_plan_source_review_revision_trigger BEFORE INSERT OR UPDATE OF race_id ON public.race_plans FOR EACH ROW EXECUTE FUNCTION public.initialize_plan_source_review_revision();
 
 
 --
@@ -12741,6 +15591,20 @@ CREATE TRIGGER protect_server_managed_profile_fields_update BEFORE UPDATE OF rol
 --
 
 CREATE TRIGGER record_race_slug_redirect BEFORE INSERT OR UPDATE OF slug ON public.races FOR EACH ROW EXECUTE FUNCTION public.record_race_slug_redirect();
+
+
+--
+-- Name: race_plans record_runner_plan_history; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER record_runner_plan_history AFTER INSERT OR UPDATE ON public.race_plans FOR EACH ROW EXECUTE FUNCTION public.record_runner_plan_history();
+
+
+--
+-- Name: race_plans sanitize_runner_free_plan; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER sanitize_runner_free_plan BEFORE INSERT OR UPDATE ON public.race_plans FOR EACH ROW EXECUTE FUNCTION public.sanitize_runner_free_plan();
 
 
 --
@@ -12870,10 +15734,24 @@ CREATE TRIGGER set_race_start_waves_updated_at BEFORE UPDATE ON public.race_star
 
 
 --
+-- Name: race_supporter_points set_race_supporter_point_updated_at_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER set_race_supporter_point_updated_at_trigger BEFORE UPDATE ON public.race_supporter_points FOR EACH ROW EXECUTE FUNCTION public.set_race_supporter_point_updated_at();
+
+
+--
 -- Name: races set_races_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER set_races_updated_at BEFORE UPDATE ON public.races FOR EACH ROW EXECUTE FUNCTION public.set_races_updated_at();
+
+
+--
+-- Name: runner_plan_unlocks set_runner_plan_unlocks_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER set_runner_plan_unlocks_updated_at BEFORE UPDATE ON public.runner_plan_unlocks FOR EACH ROW EXECUTE FUNCTION public.set_runner_plan_unlocks_updated_at();
 
 
 --
@@ -12909,6 +15787,13 @@ CREATE TRIGGER sync_race_event_edition_visibility AFTER UPDATE OF is_visible ON 
 --
 
 CREATE TRIGGER sync_race_web_catalog_visibility BEFORE INSERT OR UPDATE OF is_public, is_live, web_catalog_is_live ON public.races FOR EACH ROW EXECUTE FUNCTION public.sync_race_web_catalog_visibility();
+
+
+--
+-- Name: race_plans sync_runner_launch_grandfathered_plan_owner; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER sync_runner_launch_grandfathered_plan_owner AFTER UPDATE OF user_id ON public.race_plans FOR EACH ROW WHEN ((old.user_id IS DISTINCT FROM new.user_id)) EXECUTE FUNCTION public.sync_runner_launch_grandfathered_plan_owner();
 
 
 --
@@ -12961,6 +15846,20 @@ CREATE TRIGGER enforce_bucket_name_length_trigger BEFORE INSERT OR UPDATE OF nam
 
 
 --
+-- Name: buckets enforce_versioning_status_transition; Type: TRIGGER; Schema: storage; Owner: -
+--
+
+CREATE TRIGGER enforce_versioning_status_transition BEFORE UPDATE OF versioning_status ON storage.buckets FOR EACH ROW EXECUTE FUNCTION storage.enforce_versioning_status_transition();
+
+
+--
+-- Name: buckets protect_active_lifecycle_states; Type: TRIGGER; Schema: storage; Owner: -
+--
+
+CREATE TRIGGER protect_active_lifecycle_states BEFORE DELETE ON storage.buckets FOR EACH ROW EXECUTE FUNCTION storage.protect_active_lifecycle_states();
+
+
+--
 -- Name: buckets protect_bucket_control_insert; Type: TRIGGER; Schema: storage; Owner: -
 --
 
@@ -13000,6 +15899,20 @@ CREATE TRIGGER protect_objects_delete BEFORE DELETE ON storage.objects FOR EACH 
 --
 
 CREATE TRIGGER update_objects_updated_at BEFORE UPDATE ON storage.objects FOR EACH ROW EXECUTE FUNCTION storage.update_updated_at_column();
+
+
+--
+-- Name: buckets wake_lifecycle_on_policy_write; Type: TRIGGER; Schema: storage; Owner: -
+--
+
+CREATE TRIGGER wake_lifecycle_on_policy_write AFTER INSERT OR UPDATE OF lifecycle_configuration_generation ON storage.buckets FOR EACH ROW EXECUTE FUNCTION storage.wake_lifecycle_state();
+
+
+--
+-- Name: buckets wake_lifecycle_on_versioning_enable; Type: TRIGGER; Schema: storage; Owner: -
+--
+
+CREATE TRIGGER wake_lifecycle_on_versioning_enable AFTER UPDATE OF versioning_status ON storage.buckets FOR EACH ROW WHEN ((new.lifecycle_configuration IS NOT NULL)) EXECUTE FUNCTION storage.wake_lifecycle_state();
 
 
 --
@@ -13731,6 +16644,14 @@ ALTER TABLE ONLY public.race_start_waves
 
 
 --
+-- Name: race_supporter_points race_supporter_points_race_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.race_supporter_points
+    ADD CONSTRAINT race_supporter_points_race_id_fkey FOREIGN KEY (race_id) REFERENCES public.races(id) ON DELETE CASCADE;
+
+
+--
 -- Name: racebook_gear_checks racebook_gear_checks_race_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -13744,6 +16665,86 @@ ALTER TABLE ONLY public.racebook_gear_checks
 
 ALTER TABLE ONLY public.racebook_gear_checks
     ADD CONSTRAINT racebook_gear_checks_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(user_id) ON DELETE CASCADE;
+
+
+--
+-- Name: racebook_publication_assets racebook_publication_assets_publication_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.racebook_publication_assets
+    ADD CONSTRAINT racebook_publication_assets_publication_id_fkey FOREIGN KEY (publication_id) REFERENCES public.racebook_publications(id) ON DELETE CASCADE;
+
+
+--
+-- Name: racebook_publication_states racebook_publication_states_current_publication_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.racebook_publication_states
+    ADD CONSTRAINT racebook_publication_states_current_publication_fkey FOREIGN KEY (current_publication_id, race_id, event_id, edition_id) REFERENCES public.racebook_publications(id, race_id, event_id, edition_id) ON DELETE SET NULL (current_publication_id);
+
+
+--
+-- Name: racebook_publication_states racebook_publication_states_edition_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.racebook_publication_states
+    ADD CONSTRAINT racebook_publication_states_edition_id_fkey FOREIGN KEY (edition_id) REFERENCES public.race_event_editions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: racebook_publication_states racebook_publication_states_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.racebook_publication_states
+    ADD CONSTRAINT racebook_publication_states_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.race_events(id) ON DELETE CASCADE;
+
+
+--
+-- Name: racebook_publication_states racebook_publication_states_last_published_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.racebook_publication_states
+    ADD CONSTRAINT racebook_publication_states_last_published_by_fkey FOREIGN KEY (last_published_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: racebook_publication_states racebook_publication_states_race_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.racebook_publication_states
+    ADD CONSTRAINT racebook_publication_states_race_id_fkey FOREIGN KEY (race_id) REFERENCES public.races(id) ON DELETE CASCADE;
+
+
+--
+-- Name: racebook_publications racebook_publications_edition_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.racebook_publications
+    ADD CONSTRAINT racebook_publications_edition_id_fkey FOREIGN KEY (edition_id) REFERENCES public.race_event_editions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: racebook_publications racebook_publications_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.racebook_publications
+    ADD CONSTRAINT racebook_publications_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.race_events(id) ON DELETE CASCADE;
+
+
+--
+-- Name: racebook_publications racebook_publications_published_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.racebook_publications
+    ADD CONSTRAINT racebook_publications_published_by_fkey FOREIGN KEY (published_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: racebook_publications racebook_publications_race_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.racebook_publications
+    ADD CONSTRAINT racebook_publications_race_id_fkey FOREIGN KEY (race_id) REFERENCES public.races(id) ON DELETE CASCADE;
 
 
 --
@@ -13776,6 +16777,118 @@ ALTER TABLE ONLY public.races
 
 ALTER TABLE ONLY public.races
     ADD CONSTRAINT races_racebook_publication_approved_by_fkey FOREIGN KEY (racebook_publication_approved_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: runner_admin_access_modes runner_admin_access_modes_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_admin_access_modes
+    ADD CONSTRAINT runner_admin_access_modes_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: runner_launch_cohorts runner_launch_cohorts_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_launch_cohorts
+    ADD CONSTRAINT runner_launch_cohorts_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: runner_launch_grandfathered_plans runner_launch_grandfathered_plans_plan_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_launch_grandfathered_plans
+    ADD CONSTRAINT runner_launch_grandfathered_plans_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.race_plans(id) ON DELETE CASCADE;
+
+
+--
+-- Name: runner_launch_grandfathered_plans runner_launch_grandfathered_plans_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_launch_grandfathered_plans
+    ADD CONSTRAINT runner_launch_grandfathered_plans_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: runner_plan_history runner_plan_history_plan_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_plan_history
+    ADD CONSTRAINT runner_plan_history_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.race_plans(id) ON DELETE CASCADE;
+
+
+--
+-- Name: runner_plan_history runner_plan_history_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_plan_history
+    ADD CONSTRAINT runner_plan_history_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: runner_plan_unlocks runner_plan_unlocks_plan_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_plan_unlocks
+    ADD CONSTRAINT runner_plan_unlocks_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.race_plans(id) ON DELETE SET NULL;
+
+
+--
+-- Name: runner_plan_unlocks runner_plan_unlocks_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_plan_unlocks
+    ADD CONSTRAINT runner_plan_unlocks_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: runner_purchase_intents runner_purchase_intents_plan_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_purchase_intents
+    ADD CONSTRAINT runner_purchase_intents_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.race_plans(id) ON DELETE SET NULL;
+
+
+--
+-- Name: runner_purchase_intents runner_purchase_intents_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_purchase_intents
+    ADD CONSTRAINT runner_purchase_intents_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: runner_subscription_accounts runner_subscription_accounts_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_subscription_accounts
+    ADD CONSTRAINT runner_subscription_accounts_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: runner_support_events runner_support_events_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_support_events
+    ADD CONSTRAINT runner_support_events_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: runner_support_purchase_intents runner_support_purchase_intents_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_support_purchase_intents
+    ADD CONSTRAINT runner_support_purchase_intents_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: runner_support_purchases runner_support_purchases_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runner_support_purchases
+    ADD CONSTRAINT runner_support_purchases_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 
 
 --
@@ -13824,6 +16937,30 @@ ALTER TABLE ONLY public.user_favorite_race_events
 
 ALTER TABLE ONLY public.user_profiles
     ADD CONSTRAINT user_profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: video_render_jobs video_render_jobs_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.video_render_jobs
+    ADD CONSTRAINT video_render_jobs_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: video_render_jobs video_render_jobs_race_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.video_render_jobs
+    ADD CONSTRAINT video_render_jobs_race_id_fkey FOREIGN KEY (race_id) REFERENCES public.races(id) ON DELETE CASCADE;
+
+
+--
+-- Name: bucket_lifecycle_states bucket_lifecycle_states_bucket_id_fkey; Type: FK CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.bucket_lifecycle_states
+    ADD CONSTRAINT bucket_lifecycle_states_bucket_id_fkey FOREIGN KEY (bucket_id) REFERENCES storage.buckets(id) ON DELETE CASCADE;
 
 
 --
@@ -14114,6 +17251,38 @@ CREATE POLICY "Published start waves are viewable" ON public.race_start_waves FO
 
 
 --
+-- Name: race_supporter_points Published supporter points are viewable; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Published supporter points are viewable" ON public.race_supporter_points FOR SELECT TO authenticated, anon USING (((btrim(name) <> ''::text) AND (km IS NOT NULL) AND (latitude IS NOT NULL) AND (longitude IS NOT NULL) AND (encouragement_allowed OR assistance_allowed) AND (EXISTS ( SELECT 1
+   FROM public.races race_row
+  WHERE ((race_row.id = race_supporter_points.race_id) AND (race_supporter_points.km <= race_row.distance_km) AND private.racebook_module_is_enabled(race_row.id, 'supporter_points'::text) AND ((race_row.is_public AND race_row.is_live AND race_row.racebook_is_live) OR (race_row.created_by = ( SELECT auth.uid() AS uid)) OR (EXISTS ( SELECT 1
+           FROM public.race_event_organizers organizer_row
+          WHERE ((organizer_row.event_id = race_row.event_id) AND (organizer_row.user_id = ( SELECT auth.uid() AS uid)) AND (organizer_row.revoked_at IS NULL)))) OR (((( SELECT auth.jwt() AS jwt) -> 'app_metadata'::text) ->> 'role'::text) = 'admin'::text)))))));
+
+
+--
+-- Name: race_plans Runner creation requires an identified account; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Runner creation requires an identified account" ON public.race_plans AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (public.runner_can_create_plan(user_id));
+
+
+--
+-- Name: runner_launch_cohorts Service manages launch cohorts; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Service manages launch cohorts" ON public.runner_launch_cohorts TO service_role USING (true) WITH CHECK (true);
+
+
+--
+-- Name: runner_launch_grandfathered_plans Service manages launch grandfathering; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Service manages launch grandfathering" ON public.runner_launch_grandfathered_plans TO service_role USING (true) WITH CHECK (true);
+
+
+--
 -- Name: affiliate_offers Service role can manage affiliate offers; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -14146,6 +17315,55 @@ CREATE POLICY "Service role can manage push notification events" ON public.push_
 --
 
 CREATE POLICY "Service role can upsert subscriptions" ON public.subscriptions USING ((auth.role() = 'service_role'::text)) WITH CHECK ((auth.role() = 'service_role'::text));
+
+
+--
+-- Name: runner_admin_access_modes Service role manages admin access modes; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Service role manages admin access modes" ON public.runner_admin_access_modes TO service_role USING (true) WITH CHECK (true);
+
+
+--
+-- Name: runner_plan_history Service role manages plan history; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Service role manages plan history" ON public.runner_plan_history TO service_role USING (true) WITH CHECK (true);
+
+
+--
+-- Name: runner_billing_events Service role manages runner billing events; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Service role manages runner billing events" ON public.runner_billing_events TO service_role USING (true) WITH CHECK (true);
+
+
+--
+-- Name: runner_monetization_config Service role manages runner monetization config; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Service role manages runner monetization config" ON public.runner_monetization_config TO service_role USING (true) WITH CHECK (true);
+
+
+--
+-- Name: runner_plan_unlocks Service role manages runner plan unlocks; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Service role manages runner plan unlocks" ON public.runner_plan_unlocks TO service_role USING (true) WITH CHECK (true);
+
+
+--
+-- Name: runner_purchase_intents Service role manages runner purchase intents; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Service role manages runner purchase intents" ON public.runner_purchase_intents TO service_role USING (true) WITH CHECK (true);
+
+
+--
+-- Name: runner_subscription_accounts Service role manages runner subscriptions; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Service role manages runner subscriptions" ON public.runner_subscription_accounts TO service_role USING (true) WITH CHECK (true);
 
 
 --
@@ -14288,6 +17506,13 @@ CREATE POLICY "Users can mark own race event updates read" ON public.race_event_
 
 
 --
+-- Name: runner_plan_history Users can read own plan history; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can read own plan history" ON public.runner_plan_history FOR SELECT TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id));
+
+
+--
 -- Name: products Users can read own products; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -14299,6 +17524,20 @@ CREATE POLICY "Users can read own products" ON public.products FOR SELECT TO aut
 --
 
 CREATE POLICY "Users can read their active premium grants" ON public.premium_grants FOR SELECT TO authenticated USING (((( SELECT auth.uid() AS uid) = user_id) AND (starts_at <= now()) AND (COALESCE(ends_at, (starts_at + ((initial_duration_days || ' days'::text))::interval)) >= now())));
+
+
+--
+-- Name: runner_purchase_intents Users can read their purchase intents; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can read their purchase intents" ON public.runner_purchase_intents FOR SELECT TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id));
+
+
+--
+-- Name: runner_plan_unlocks Users can read their runner plan unlocks; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can read their runner plan unlocks" ON public.runner_plan_unlocks FOR SELECT TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id));
 
 
 --
@@ -14353,7 +17592,7 @@ CREATE POLICY "Users can update their push devices" ON public.push_devices FOR U
 -- Name: race_plans Users can update their race plans; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY "Users can update their race plans" ON public.race_plans FOR UPDATE USING ((auth.uid() = user_id)) WITH CHECK ((auth.uid() = user_id));
+CREATE POLICY "Users can update their race plans" ON public.race_plans FOR UPDATE TO authenticated USING (((( SELECT auth.uid() AS uid) = user_id) AND public.runner_plan_is_unlocked(id, auth.uid()))) WITH CHECK (((( SELECT auth.uid() AS uid) = user_id) AND public.runner_plan_is_unlocked(id, auth.uid())));
 
 
 --
@@ -14757,10 +17996,40 @@ ALTER TABLE public.race_slug_redirects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.race_start_waves ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: race_supporter_points; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.race_supporter_points ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: racebook_gear_checks; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.racebook_gear_checks ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: racebook_publication_asset_cleanup_queue; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.racebook_publication_asset_cleanup_queue ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: racebook_publication_assets; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.racebook_publication_assets ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: racebook_publication_states; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.racebook_publication_states ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: racebook_publications; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.racebook_publications ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: races; Type: ROW SECURITY; Schema: public; Owner: -
@@ -14805,6 +18074,78 @@ CREATE POLICY races_update ON public.races FOR UPDATE TO authenticated USING (((
 ALTER TABLE public.rate_limit_entries ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: runner_admin_access_modes; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.runner_admin_access_modes ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: runner_billing_events; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.runner_billing_events ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: runner_launch_cohorts; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.runner_launch_cohorts ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: runner_launch_grandfathered_plans; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.runner_launch_grandfathered_plans ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: runner_monetization_config; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.runner_monetization_config ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: runner_plan_history; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.runner_plan_history ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: runner_plan_unlocks; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.runner_plan_unlocks ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: runner_purchase_intents; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.runner_purchase_intents ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: runner_subscription_accounts; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.runner_subscription_accounts ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: runner_support_events; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.runner_support_events ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: runner_support_purchase_intents; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.runner_support_purchase_intents ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: runner_support_purchases; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.runner_support_purchases ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: subscriptions; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -14827,6 +18168,12 @@ ALTER TABLE public.user_favorite_race_events ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: video_render_jobs; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.video_render_jobs ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: messages; Type: ROW SECURITY; Schema: realtime; Owner: -
@@ -14884,6 +18231,12 @@ CREATE POLICY "Public read race images" ON storage.objects FOR SELECT USING ((bu
 
 
 --
+-- Name: bucket_lifecycle_states; Type: ROW SECURITY; Schema: storage; Owner: -
+--
+
+ALTER TABLE storage.bucket_lifecycle_states ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: buckets; Type: ROW SECURITY; Schema: storage; Owner: -
 --
 
@@ -14900,6 +18253,12 @@ ALTER TABLE storage.buckets_analytics ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE storage.buckets_vectors ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: lifecycle_abandoned_artifacts; Type: ROW SECURITY; Schema: storage; Owner: -
+--
+
+ALTER TABLE storage.lifecycle_abandoned_artifacts ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: migrations; Type: ROW SECURITY; Schema: storage; Owner: -
@@ -16016,6 +19375,14 @@ GRANT ALL ON FUNCTION private.protect_issued_organizer_invoice() TO service_role
 
 
 --
+-- Name: FUNCTION prune_racebook_publications(p_race_id uuid); Type: ACL; Schema: private; Owner: -
+--
+
+REVOKE ALL ON FUNCTION private.prune_racebook_publications(p_race_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION private.prune_racebook_publications(p_race_id uuid) TO service_role;
+
+
+--
 -- Name: FUNCTION race_is_in_visible_catalog(p_event_id uuid, p_edition_id uuid); Type: ACL; Schema: private; Owner: -
 --
 
@@ -16043,6 +19410,23 @@ GRANT ALL ON FUNCTION private.user_has_trusted_admin_role(p_user_id uuid) TO ser
 
 
 --
+-- Name: FUNCTION acknowledge_race_plan_source_revision(p_plan_id uuid); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.acknowledge_race_plan_source_revision(p_plan_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.acknowledge_race_plan_source_revision(p_plan_id uuid) TO service_role;
+GRANT ALL ON FUNCTION public.acknowledge_race_plan_source_revision(p_plan_id uuid) TO authenticated;
+
+
+--
+-- Name: FUNCTION activate_runner_launch(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.activate_runner_launch() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.activate_runner_launch() TO service_role;
+
+
+--
 -- Name: FUNCTION apply_organizer_import_field_patches(p_session_id uuid, p_event_patch jsonb, p_race_patches jsonb); Type: ACL; Schema: public; Owner: -
 --
 
@@ -16059,11 +19443,139 @@ GRANT ALL ON FUNCTION public.assign_race_event_edition() TO service_role;
 
 
 --
+-- Name: FUNCTION bump_aid_product_race_plan_source_revision(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.bump_aid_product_race_plan_source_revision() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.bump_aid_product_race_plan_source_revision() TO service_role;
+
+
+--
+-- Name: FUNCTION bump_aid_station_race_plan_source_revision(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.bump_aid_station_race_plan_source_revision() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.bump_aid_station_race_plan_source_revision() TO service_role;
+
+
+--
+-- Name: FUNCTION bump_linked_product_race_plan_source_revisions(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.bump_linked_product_race_plan_source_revisions() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.bump_linked_product_race_plan_source_revisions() TO service_role;
+
+
+--
+-- Name: FUNCTION bump_race_plan_source_revision(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.bump_race_plan_source_revision() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.bump_race_plan_source_revision() TO service_role;
+
+
+--
+-- Name: FUNCTION bump_racebook_aid_product_draft_revision(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.bump_racebook_aid_product_draft_revision() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.bump_racebook_aid_product_draft_revision() TO service_role;
+
+
+--
+-- Name: FUNCTION bump_racebook_edition_child_draft_revisions(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.bump_racebook_edition_child_draft_revisions() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.bump_racebook_edition_child_draft_revisions() TO service_role;
+
+
+--
+-- Name: FUNCTION bump_racebook_edition_draft_revisions(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.bump_racebook_edition_draft_revisions() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.bump_racebook_edition_draft_revisions() TO service_role;
+
+
+--
+-- Name: FUNCTION bump_racebook_event_draft_revisions(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.bump_racebook_event_draft_revisions() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.bump_racebook_event_draft_revisions() TO service_role;
+
+
+--
+-- Name: FUNCTION bump_racebook_module_draft_revisions(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.bump_racebook_module_draft_revisions() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.bump_racebook_module_draft_revisions() TO service_role;
+
+
+--
+-- Name: FUNCTION bump_racebook_product_draft_revisions(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.bump_racebook_product_draft_revisions() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.bump_racebook_product_draft_revisions() TO service_role;
+
+
+--
+-- Name: FUNCTION bump_racebook_race_child_draft_revision(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.bump_racebook_race_child_draft_revision() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.bump_racebook_race_child_draft_revision() TO service_role;
+
+
+--
+-- Name: FUNCTION bump_racebook_race_draft_revision(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.bump_racebook_race_draft_revision() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.bump_racebook_race_draft_revision() TO service_role;
+
+
+--
+-- Name: FUNCTION bump_racebook_sponsor_draft_revisions(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.bump_racebook_sponsor_draft_revisions() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.bump_racebook_sponsor_draft_revisions() TO service_role;
+
+
+--
+-- Name: FUNCTION bump_start_wave_race_plan_source_revision(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.bump_start_wave_race_plan_source_revision() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.bump_start_wave_race_plan_source_revision() TO service_role;
+
+
+--
 -- Name: FUNCTION check_and_increment_rate_limit(p_key text, p_limit integer, p_window_ms integer); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.check_and_increment_rate_limit(p_key text, p_limit integer, p_window_ms integer) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.check_and_increment_rate_limit(p_key text, p_limit integer, p_window_ms integer) TO service_role;
+
+
+--
+-- Name: FUNCTION claim_runner_plan_unlock(p_user_id uuid, p_plan_id uuid, p_provider text, p_transaction_id text, p_product_id text, p_purchased_at timestamp with time zone, p_intent_id uuid); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.claim_runner_plan_unlock(p_user_id uuid, p_plan_id uuid, p_provider text, p_transaction_id text, p_product_id text, p_purchased_at timestamp with time zone, p_intent_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.claim_runner_plan_unlock(p_user_id uuid, p_plan_id uuid, p_provider text, p_transaction_id text, p_product_id text, p_purchased_at timestamp with time zone, p_intent_id uuid) TO service_role;
+
+
+--
+-- Name: FUNCTION claim_runner_support_purchase(p_user_id uuid, p_provider text, p_product_id text, p_transaction_id text, p_purchased_at timestamp with time zone, p_intent_id uuid); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.claim_runner_support_purchase(p_user_id uuid, p_provider text, p_product_id text, p_transaction_id text, p_purchased_at timestamp with time zone, p_intent_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.claim_runner_support_purchase(p_user_id uuid, p_provider text, p_product_id text, p_transaction_id text, p_purchased_at timestamp with time zone, p_intent_id uuid) TO service_role;
 
 
 --
@@ -16148,6 +19660,14 @@ GRANT ALL ON FUNCTION public.ensure_organizer_edition_entitlement() TO service_r
 
 
 --
+-- Name: FUNCTION ensure_racebook_publication_state(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.ensure_racebook_publication_state() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.ensure_racebook_publication_state() TO service_role;
+
+
+--
 -- Name: FUNCTION get_admin_growth_metrics(p_start_date date, p_end_date date, p_timezone text); Type: ACL; Schema: public; Owner: -
 --
 
@@ -16193,6 +19713,14 @@ GRANT ALL ON FUNCTION public.get_trial_users_enriched(p_start timestamp with tim
 
 REVOKE ALL ON FUNCTION public.get_trial_users_for_reminder(p_start timestamp with time zone, p_end timestamp with time zone) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.get_trial_users_for_reminder(p_start timestamp with time zone, p_end timestamp with time zone) TO service_role;
+
+
+--
+-- Name: FUNCTION guard_racebook_visibility_requires_publication(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.guard_racebook_visibility_requires_publication() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.guard_racebook_visibility_requires_publication() TO service_role;
 
 
 --
@@ -16250,6 +19778,14 @@ GRANT ALL ON FUNCTION public.initialize_organizer_edition_modules() TO service_r
 
 REVOKE ALL ON FUNCTION public.initialize_organizer_race_modules() FROM PUBLIC;
 GRANT ALL ON FUNCTION public.initialize_organizer_race_modules() TO service_role;
+
+
+--
+-- Name: FUNCTION initialize_plan_source_review_revision(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.initialize_plan_source_review_revision() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.initialize_plan_source_review_revision() TO service_role;
 
 
 --
@@ -16334,6 +19870,22 @@ GRANT ALL ON FUNCTION public.publish_racebook_edition_branding(p_edition_id uuid
 
 
 --
+-- Name: FUNCTION publish_racebook_snapshot(p_race_id uuid, p_expected_draft_revision bigint, p_schema_version integer, p_content jsonb, p_content_hash text, p_assets jsonb, p_actor_id uuid, p_make_public boolean); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.publish_racebook_snapshot(p_race_id uuid, p_expected_draft_revision bigint, p_schema_version integer, p_content jsonb, p_content_hash text, p_assets jsonb, p_actor_id uuid, p_make_public boolean) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.publish_racebook_snapshot(p_race_id uuid, p_expected_draft_revision bigint, p_schema_version integer, p_content jsonb, p_content_hash text, p_assets jsonb, p_actor_id uuid, p_make_public boolean) TO service_role;
+
+
+--
+-- Name: FUNCTION publish_racebook_snapshots(p_items jsonb, p_actor_id uuid); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.publish_racebook_snapshots(p_items jsonb, p_actor_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.publish_racebook_snapshots(p_items jsonb, p_actor_id uuid) TO service_role;
+
+
+--
 -- Name: FUNCTION purge_expired_rate_limit_entries(); Type: ACL; Schema: public; Owner: -
 --
 
@@ -16378,6 +19930,22 @@ GRANT ALL ON FUNCTION public.record_admin_organizer_bank_transfer_invoice(p_edit
 
 REVOKE ALL ON FUNCTION public.record_race_slug_redirect() FROM PUBLIC;
 GRANT ALL ON FUNCTION public.record_race_slug_redirect() TO service_role;
+
+
+--
+-- Name: FUNCTION record_runner_plan_history(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.record_runner_plan_history() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.record_runner_plan_history() TO service_role;
+
+
+--
+-- Name: FUNCTION record_runner_support_event(p_user_id uuid, p_provider text, p_product_id text, p_transaction_id text, p_status text, p_purchased_at timestamp with time zone, p_event_at timestamp with time zone, p_event_id text); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.record_runner_support_event(p_user_id uuid, p_provider text, p_product_id text, p_transaction_id text, p_status text, p_purchased_at timestamp with time zone, p_event_at timestamp with time zone, p_event_id text) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.record_runner_support_event(p_user_id uuid, p_provider text, p_product_id text, p_transaction_id text, p_status text, p_purchased_at timestamp with time zone, p_event_at timestamp with time zone, p_event_id text) TO service_role;
 
 
 --
@@ -16506,6 +20074,39 @@ GRANT ALL ON FUNCTION public.replace_race_start_waves(p_race_id uuid, p_items js
 
 
 --
+-- Name: TABLE race_supporter_points; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.race_supporter_points TO service_role;
+GRANT SELECT ON TABLE public.race_supporter_points TO anon;
+GRANT SELECT ON TABLE public.race_supporter_points TO authenticated;
+
+
+--
+-- Name: FUNCTION replace_race_supporter_points(p_race_id uuid, p_items jsonb); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.replace_race_supporter_points(p_race_id uuid, p_items jsonb) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.replace_race_supporter_points(p_race_id uuid, p_items jsonb) TO service_role;
+
+
+--
+-- Name: FUNCTION restore_racebook_publication(p_race_id uuid, p_publication_id uuid, p_actor_id uuid); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.restore_racebook_publication(p_race_id uuid, p_publication_id uuid, p_actor_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.restore_racebook_publication(p_race_id uuid, p_publication_id uuid, p_actor_id uuid) TO service_role;
+
+
+--
+-- Name: FUNCTION restore_runner_payment_transaction(p_provider text, p_transaction_id text); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.restore_runner_payment_transaction(p_provider text, p_transaction_id text) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.restore_runner_payment_transaction(p_provider text, p_transaction_id text) TO service_role;
+
+
+--
 -- Name: TABLE race_event_publication_requests; Type: ACL; Schema: public; Owner: -
 --
 
@@ -16522,6 +20123,56 @@ REVOKE ALL ON FUNCTION public.review_race_event_publication_request(p_request_id
 GRANT ALL ON FUNCTION public.review_race_event_publication_request(p_request_id uuid, p_reviewer_id uuid, p_status text, p_reviewer_notes text) TO anon;
 GRANT ALL ON FUNCTION public.review_race_event_publication_request(p_request_id uuid, p_reviewer_id uuid, p_status text, p_reviewer_notes text) TO authenticated;
 GRANT ALL ON FUNCTION public.review_race_event_publication_request(p_request_id uuid, p_reviewer_id uuid, p_status text, p_reviewer_notes text) TO service_role;
+
+
+--
+-- Name: FUNCTION revoke_runner_payment_transaction(p_provider text, p_transaction_id text, p_status text); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.revoke_runner_payment_transaction(p_provider text, p_transaction_id text, p_status text) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.revoke_runner_payment_transaction(p_provider text, p_transaction_id text, p_status text) TO service_role;
+
+
+--
+-- Name: FUNCTION runner_can_create_plan(target_user_id uuid); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.runner_can_create_plan(target_user_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.runner_can_create_plan(target_user_id uuid) TO service_role;
+GRANT ALL ON FUNCTION public.runner_can_create_plan(target_user_id uuid) TO authenticated;
+
+
+--
+-- Name: FUNCTION runner_plan_is_unlocked(target_plan_id uuid, target_user_id uuid); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.runner_plan_is_unlocked(target_plan_id uuid, target_user_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.runner_plan_is_unlocked(target_plan_id uuid, target_user_id uuid) TO service_role;
+GRANT ALL ON FUNCTION public.runner_plan_is_unlocked(target_plan_id uuid, target_user_id uuid) TO authenticated;
+
+
+--
+-- Name: FUNCTION runner_session_mode(target_user_id uuid); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.runner_session_mode(target_user_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.runner_session_mode(target_user_id uuid) TO service_role;
+
+
+--
+-- Name: FUNCTION runner_user_is_premium(target_user_id uuid); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.runner_user_is_premium(target_user_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.runner_user_is_premium(target_user_id uuid) TO service_role;
+
+
+--
+-- Name: FUNCTION sanitize_runner_free_plan(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.sanitize_runner_free_plan() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.sanitize_runner_free_plan() TO service_role;
 
 
 --
@@ -16716,12 +20367,28 @@ GRANT ALL ON FUNCTION public.set_race_plans_updated_at() TO service_role;
 
 
 --
+-- Name: FUNCTION set_race_supporter_point_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.set_race_supporter_point_updated_at() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.set_race_supporter_point_updated_at() TO service_role;
+
+
+--
 -- Name: FUNCTION set_races_updated_at(); Type: ACL; Schema: public; Owner: -
 --
 
 GRANT ALL ON FUNCTION public.set_races_updated_at() TO anon;
 GRANT ALL ON FUNCTION public.set_races_updated_at() TO authenticated;
 GRANT ALL ON FUNCTION public.set_races_updated_at() TO service_role;
+
+
+--
+-- Name: FUNCTION set_runner_plan_unlocks_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.set_runner_plan_unlocks_updated_at() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.set_runner_plan_unlocks_updated_at() TO service_role;
 
 
 --
@@ -16785,6 +20452,14 @@ GRANT ALL ON FUNCTION public.sync_race_web_catalog_visibility() TO service_role;
 
 
 --
+-- Name: FUNCTION sync_runner_launch_grandfathered_plan_owner(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.sync_runner_launch_grandfathered_plan_owner() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.sync_runner_launch_grandfathered_plan_owner() TO service_role;
+
+
+--
 -- Name: FUNCTION validate_organizer_import_session_scope(); Type: ACL; Schema: public; Owner: -
 --
 
@@ -16827,6 +20502,14 @@ GRANT ALL ON FUNCTION realtime.apply_rls(wal jsonb, max_record_bytes integer) TO
 GRANT ALL ON FUNCTION realtime.apply_rls(wal jsonb, max_record_bytes integer) TO anon;
 GRANT ALL ON FUNCTION realtime.apply_rls(wal jsonb, max_record_bytes integer) TO authenticated;
 GRANT ALL ON FUNCTION realtime.apply_rls(wal jsonb, max_record_bytes integer) TO service_role;
+
+
+--
+-- Name: FUNCTION authorize(role_name text, topic_name text, claims text, sub text, headers text, read_extensions text[], write_extensions text[], OUT read_allowed boolean[], OUT write_allowed boolean[]); Type: ACL; Schema: realtime; Owner: -
+--
+
+GRANT ALL ON FUNCTION realtime.authorize(role_name text, topic_name text, claims text, sub text, headers text, read_extensions text[], write_extensions text[], OUT read_allowed boolean[], OUT write_allowed boolean[]) TO postgres;
+GRANT ALL ON FUNCTION realtime.authorize(role_name text, topic_name text, claims text, sub text, headers text, read_extensions text[], write_extensions text[], OUT read_allowed boolean[], OUT write_allowed boolean[]) TO dashboard_user;
 
 
 --
@@ -16901,6 +20584,14 @@ GRANT ALL ON FUNCTION realtime.list_changes(publication name, slot_name name, ma
 
 
 --
+-- Name: FUNCTION list_changes_sync(publication name, slot_name name, max_changes integer, max_record_bytes integer); Type: ACL; Schema: realtime; Owner: -
+--
+
+GRANT ALL ON FUNCTION realtime.list_changes_sync(publication name, slot_name name, max_changes integer, max_record_bytes integer) TO postgres;
+GRANT ALL ON FUNCTION realtime.list_changes_sync(publication name, slot_name name, max_changes integer, max_record_bytes integer) TO dashboard_user;
+
+
+--
 -- Name: FUNCTION quote_wal2json(entity regclass); Type: ACL; Schema: realtime; Owner: -
 --
 
@@ -16925,6 +20616,14 @@ GRANT ALL ON FUNCTION realtime.send(payload jsonb, event text, topic text, priva
 
 GRANT ALL ON FUNCTION realtime.send_binary(payload bytea, event text, topic text, private boolean) TO postgres;
 GRANT ALL ON FUNCTION realtime.send_binary(payload bytea, event text, topic text, private boolean) TO dashboard_user;
+
+
+--
+-- Name: FUNCTION settled_changes(slot_name name, max_changes integer, VARIADIC opts text[]); Type: ACL; Schema: realtime; Owner: -
+--
+
+GRANT ALL ON FUNCTION realtime.settled_changes(slot_name name, max_changes integer, VARIADIC opts text[]) TO postgres;
+GRANT ALL ON FUNCTION realtime.settled_changes(slot_name name, max_changes integer, VARIADIC opts text[]) TO dashboard_user;
 
 
 --
@@ -16963,6 +20662,38 @@ GRANT ALL ON FUNCTION realtime.topic() TO dashboard_user;
 
 GRANT ALL ON FUNCTION realtime.wal2json_escape_identifier(name text) TO postgres;
 GRANT ALL ON FUNCTION realtime.wal2json_escape_identifier(name text) TO dashboard_user;
+
+
+--
+-- Name: FUNCTION delete_lifecycle_objects(object_ids uuid[]); Type: ACL; Schema: storage; Owner: -
+--
+
+REVOKE ALL ON FUNCTION storage.delete_lifecycle_objects(object_ids uuid[]) FROM PUBLIC;
+GRANT ALL ON FUNCTION storage.delete_lifecycle_objects(object_ids uuid[]) TO postgres;
+GRANT ALL ON FUNCTION storage.delete_lifecycle_objects(object_ids uuid[]) TO service_role;
+
+
+--
+-- Name: FUNCTION protect_active_lifecycle_states(); Type: ACL; Schema: storage; Owner: -
+--
+
+REVOKE ALL ON FUNCTION storage.protect_active_lifecycle_states() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION reconcile_lifecycle_state(target_bucket_id text, policy_changed boolean); Type: ACL; Schema: storage; Owner: -
+--
+
+REVOKE ALL ON FUNCTION storage.reconcile_lifecycle_state(target_bucket_id text, policy_changed boolean) FROM PUBLIC;
+GRANT ALL ON FUNCTION storage.reconcile_lifecycle_state(target_bucket_id text, policy_changed boolean) TO postgres;
+GRANT ALL ON FUNCTION storage.reconcile_lifecycle_state(target_bucket_id text, policy_changed boolean) TO service_role;
+
+
+--
+-- Name: FUNCTION wake_lifecycle_state(); Type: ACL; Schema: storage; Owner: -
+--
+
+REVOKE ALL ON FUNCTION storage.wake_lifecycle_state() FROM PUBLIC;
 
 
 --
@@ -17517,12 +21248,127 @@ GRANT SELECT,INSERT,DELETE ON TABLE public.racebook_gear_checks TO authenticated
 
 
 --
+-- Name: TABLE racebook_publication_asset_cleanup_queue; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.racebook_publication_asset_cleanup_queue TO service_role;
+
+
+--
+-- Name: TABLE racebook_publication_assets; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.racebook_publication_assets TO service_role;
+
+
+--
+-- Name: TABLE racebook_publication_states; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.racebook_publication_states TO service_role;
+
+
+--
+-- Name: TABLE racebook_publications; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.racebook_publications TO service_role;
+
+
+--
 -- Name: TABLE rate_limit_entries; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT ALL ON TABLE public.rate_limit_entries TO anon;
 GRANT ALL ON TABLE public.rate_limit_entries TO authenticated;
 GRANT ALL ON TABLE public.rate_limit_entries TO service_role;
+
+
+--
+-- Name: TABLE runner_admin_access_modes; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.runner_admin_access_modes TO service_role;
+
+
+--
+-- Name: TABLE runner_billing_events; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.runner_billing_events TO service_role;
+
+
+--
+-- Name: TABLE runner_launch_cohorts; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.runner_launch_cohorts TO service_role;
+
+
+--
+-- Name: TABLE runner_launch_grandfathered_plans; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.runner_launch_grandfathered_plans TO service_role;
+
+
+--
+-- Name: TABLE runner_monetization_config; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.runner_monetization_config TO service_role;
+
+
+--
+-- Name: TABLE runner_plan_history; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.runner_plan_history TO service_role;
+GRANT SELECT ON TABLE public.runner_plan_history TO authenticated;
+
+
+--
+-- Name: TABLE runner_plan_unlocks; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.runner_plan_unlocks TO service_role;
+GRANT SELECT ON TABLE public.runner_plan_unlocks TO authenticated;
+
+
+--
+-- Name: TABLE runner_purchase_intents; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.runner_purchase_intents TO service_role;
+GRANT SELECT ON TABLE public.runner_purchase_intents TO authenticated;
+
+
+--
+-- Name: TABLE runner_subscription_accounts; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.runner_subscription_accounts TO service_role;
+
+
+--
+-- Name: TABLE runner_support_events; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.runner_support_events TO service_role;
+
+
+--
+-- Name: TABLE runner_support_purchase_intents; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.runner_support_purchase_intents TO service_role;
+
+
+--
+-- Name: TABLE runner_support_purchases; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.runner_support_purchases TO service_role;
 
 
 --
@@ -17562,6 +21408,13 @@ GRANT ALL ON TABLE public.user_profiles TO service_role;
 
 
 --
+-- Name: TABLE video_render_jobs; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.video_render_jobs TO service_role;
+
+
+--
 -- Name: TABLE messages; Type: ACL; Schema: realtime; Owner: -
 --
 
@@ -17596,13 +21449,21 @@ GRANT USAGE ON SEQUENCE realtime.subscription_id_seq TO service_role;
 
 
 --
+-- Name: TABLE bucket_lifecycle_states; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT ALL ON TABLE storage.bucket_lifecycle_states TO postgres;
+GRANT ALL ON TABLE storage.bucket_lifecycle_states TO service_role;
+
+
+--
 -- Name: TABLE buckets; Type: ACL; Schema: storage; Owner: -
 --
 
 REVOKE ALL ON TABLE storage.buckets FROM supabase_storage_admin;
 GRANT ALL ON TABLE storage.buckets TO supabase_storage_admin WITH GRANT OPTION;
-GRANT ALL ON TABLE storage.buckets TO anon;
-GRANT ALL ON TABLE storage.buckets TO authenticated;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE storage.buckets TO anon;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE storage.buckets TO authenticated;
 GRANT ALL ON TABLE storage.buckets TO service_role;
 GRANT ALL ON TABLE storage.buckets TO postgres WITH GRANT OPTION;
 
@@ -17612,8 +21473,8 @@ GRANT ALL ON TABLE storage.buckets TO postgres WITH GRANT OPTION;
 --
 
 GRANT ALL ON TABLE storage.buckets_analytics TO service_role;
-GRANT ALL ON TABLE storage.buckets_analytics TO authenticated;
-GRANT ALL ON TABLE storage.buckets_analytics TO anon;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE storage.buckets_analytics TO authenticated;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE storage.buckets_analytics TO anon;
 
 
 --
@@ -17621,8 +21482,16 @@ GRANT ALL ON TABLE storage.buckets_analytics TO anon;
 --
 
 GRANT SELECT ON TABLE storage.buckets_vectors TO service_role;
-GRANT SELECT ON TABLE storage.buckets_vectors TO authenticated;
 GRANT SELECT ON TABLE storage.buckets_vectors TO anon;
+GRANT SELECT ON TABLE storage.buckets_vectors TO authenticated;
+
+
+--
+-- Name: TABLE lifecycle_abandoned_artifacts; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT ALL ON TABLE storage.lifecycle_abandoned_artifacts TO postgres;
+GRANT ALL ON TABLE storage.lifecycle_abandoned_artifacts TO service_role;
 
 
 --
@@ -17631,8 +21500,8 @@ GRANT SELECT ON TABLE storage.buckets_vectors TO anon;
 
 REVOKE ALL ON TABLE storage.objects FROM supabase_storage_admin;
 GRANT ALL ON TABLE storage.objects TO supabase_storage_admin WITH GRANT OPTION;
-GRANT ALL ON TABLE storage.objects TO anon;
-GRANT ALL ON TABLE storage.objects TO authenticated;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE storage.objects TO anon;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE storage.objects TO authenticated;
 GRANT ALL ON TABLE storage.objects TO service_role;
 GRANT ALL ON TABLE storage.objects TO postgres WITH GRANT OPTION;
 
@@ -17660,8 +21529,8 @@ GRANT SELECT ON TABLE storage.s3_multipart_uploads_parts TO anon;
 --
 
 GRANT SELECT ON TABLE storage.vector_indexes TO service_role;
-GRANT SELECT ON TABLE storage.vector_indexes TO authenticated;
 GRANT SELECT ON TABLE storage.vector_indexes TO anon;
+GRANT SELECT ON TABLE storage.vector_indexes TO authenticated;
 
 
 --
@@ -17989,5 +21858,5 @@ CREATE EVENT TRIGGER pgrst_drop_watch ON sql_drop
 -- PostgreSQL database dump complete
 --
 
-\unrestrict kkckm2FvUpxkJNFaJBTZjPscfCmbN6m8Q9lHMrYnsPOXR6MFnBkdhKufkenZ2c3
+\unrestrict 3zgAMydVr6T2bJibt6fkt5rorI8GVCPXXBT1egCb30i0WCEkqVV21XSxMKhq8zY
 
