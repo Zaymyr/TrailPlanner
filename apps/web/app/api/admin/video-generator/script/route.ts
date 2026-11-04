@@ -9,8 +9,11 @@ import { narrationScriptRequestSchema, type NarrationScriptRequest } from "../..
 
 export const maxDuration = 60;
 
-// French voice-over runs at about 2.4 words per second.
-const WORDS_PER_SECOND = 2.4;
+// Shown words per second of audio until the voice has been measured: tags, pauses and numbers
+// read in words make it slower than plain French speech (see speech-rate in the generator).
+const DEFAULT_WORDS_PER_SECOND = 2.2;
+// Silence the timeline keeps around each narration (NARRATION_GAP_MS in video-composition).
+const GAP_SECONDS_PER_BEAT = 0.5;
 const FIXED_WORDS: Partial<Record<NarrationScriptRequest["beats"][number]["kind"], number>> = {
   intro: 18,
   outro: 12,
@@ -21,10 +24,12 @@ const FIXED_WORDS: Partial<Record<NarrationScriptRequest["beats"][number]["kind"
  * route (with a floor for short legs): a long stretch gets more to say instead of a silent dash,
  * and the camera keeps a steady pace from one leg to the next.
  */
-const allocateWords = (beats: NarrationScriptRequest["beats"], targetSeconds: number) => {
+const allocateWords = (beats: NarrationScriptRequest["beats"], targetSeconds: number, wordsPerSecond: number) => {
   const fixed = beats.reduce((sum, beat) => sum + (FIXED_WORDS[beat.kind] ?? 0), 0);
   const legs = beats.filter((beat) => FIXED_WORDS[beat.kind] === undefined);
-  const budget = Math.max(legs.length * 10, Math.round(targetSeconds * WORDS_PER_SECOND * 0.9) - fixed);
+  // The video lasts as long as the voice: the words that fill the target once the gaps are out.
+  const speakingSeconds = targetSeconds - GAP_SECONDS_PER_BEAT * (beats.length + 2);
+  const budget = Math.max(legs.length * 9, Math.round(speakingSeconds * wordsPerSecond) - fixed);
   const totalKm = legs.reduce((sum, beat) => sum + Math.max(0, beat.endKm - beat.startKm), 0);
   return beats.map((beat) => {
     const fixedWords = FIXED_WORDS[beat.kind];
@@ -41,7 +46,7 @@ Le reel survole tout le parcours en 3D, du départ à l'arrivée. Tu parles comm
 
 Le parcours est découpé en tronçons consécutifs. Ta phrase pour un tronçon commence quand la caméra y entre et dure tout le tronçon : la caméra avance au rythme de ta voix. Donc :
 - le récit est continu et sans trou : chaque tronçon enchaîne naturellement avec le précédent (« bon, une fois en haut… », « et là, ça redescend… ») et annonce la suite ; jamais une lecture de fiches point par point ;
-- un tronçon long mérite plus de mots qu'un court : vise entre minWords et maxWords, au plus près de maxWords ; sur un long passage roulant, raconte comment le gérer plutôt que de te taire ;
+- un tronçon long mérite plus de mots qu'un court : vise entre minWords et maxWords, au plus près de maxWords sans jamais le dépasser (un nombre et son unité comptent pour un mot) : la vidéo dure exactement le temps de ta voix, donc ces bornes calent le récit sur la durée visée ; sur un long passage roulant, raconte comment le gérer plutôt que de te taire ;
 - donne des conseils concrets et perso liés au terrain (pars cool sur le plat, mets-toi en mode diesel dans la montée, garde des cuisses pour la descente, prends le temps de manger à la base de vie) ;
 - cite les ravitos naturellement, en passant, sans lister tous les services ; insiste seulement sur une base de vie ou une barrière horaire ;
 - utilise les sommets, lieux et heures estimées fournis (de nuit : frontale ; au lever du jour…) ;
@@ -85,12 +90,12 @@ export async function POST(request: NextRequest) {
     console.error("Video narration script request rejected", parsed.error.issues.slice(0, 5));
     return jsonError(`Requête de script invalide (${issue?.path.join(".") || "corps"} : ${issue?.message ?? "format"}).`, 400);
   }
-  const { race, beats, targetSeconds, voiceModel } = parsed.data;
-  const maxWords = allocateWords(beats, targetSeconds);
+  const { race, beats, targetSeconds, voiceModel, wordsPerSecond } = parsed.data;
+  const maxWords = allocateWords(beats, targetSeconds, wordsPerSecond ?? DEFAULT_WORDS_PER_SECOND);
 
   const input = {
     course: race,
-    dureeVideoMaxSecondes: targetSeconds,
+    dureeVideoCibleSecondes: targetSeconds,
     troncons: beats.map((beat, index) => ({
       id: beat.id,
       type: beat.kind,
@@ -101,7 +106,7 @@ export async function POST(request: NextRequest) {
       servicesAuDebut: beat.services,
       barriereHoraire: beat.cutoffTime,
       brouillon: beat.narration,
-      minWords: Math.max(5, Math.round(maxWords[index] * 0.75)),
+      minWords: Math.max(5, Math.round(maxWords[index] * 0.85)),
       maxWords: maxWords[index],
     })),
   };

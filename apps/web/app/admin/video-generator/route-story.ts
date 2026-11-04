@@ -162,10 +162,11 @@ export const detectRouteSlopes = (path: PreparedAnimationPath): RouteSlope[] => 
   return slopes;
 };
 
-/** Reels never exceed two minutes. */
+/** Longest target length, and the cap of a manual length. */
 export const MAX_VIDEO_SECONDS = 120;
+/** Instagram's reel limit: an automatic reel may run past its target so the voice is never cut. */
+export const MAX_NARRATED_VIDEO_SECONDS = 180;
 
-/** Shortest automatic length: longer routes get more time; the story may need more, up to 2 min. */
 /**
  * Target reel length in auto mode: 30 s plus half a second per km, in 5 s steps, from 30 s to the
  * 2-minute cap (a 35 km trail gets 50 s, a 100 km 80 s, a 180 km ultra the full 2 minutes). It

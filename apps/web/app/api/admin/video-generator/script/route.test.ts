@@ -70,6 +70,19 @@ describe("POST /api/admin/video-generator/script", () => {
     expect(params.system).toMatch(/continu/);
   });
 
+  it("sizes the words to the target length at the voice's measured pace", async () => {
+    state.parse.mockResolvedValue({ stop_reason: "end_turn", parsed_output: { beats: [] } });
+    const legWords = (call: number) => {
+      const input = JSON.parse(String(state.parse.mock.calls[call][0].messages[0].content).replace(/^[^{]*/, ""));
+      return input.troncons[1].maxWords as number;
+    };
+    await POST(request({ ...validBody, targetSeconds: 20 }));
+    await POST(request({ ...validBody, targetSeconds: 20, wordsPerSecond: 1.6 }));
+    // 20 s minus 2 s of gaps, at 2.2 then 1.6 words per second, minus the intro's 18 words.
+    expect(legWords(0)).toBe(22);
+    expect(legWords(1)).toBe(11);
+  });
+
   it("allows v3 performance tags only for the expressive voice", async () => {
     state.parse.mockResolvedValue({ stop_reason: "end_turn", parsed_output: { beats: [{ id: "intro", narration: "[excited] Allez !" }] } });
     await POST(request(validBody));

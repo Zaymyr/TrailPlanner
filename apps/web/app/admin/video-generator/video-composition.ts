@@ -12,7 +12,7 @@ import {
   type PreparedAnimationPath,
 } from "./route-animation";
 import { getSmoothedDaylightAt, type Daylight, type RaceClock } from "./route-clock";
-import { estimateNarrationMs, getAutoDurationSeconds, MAX_VIDEO_SECONDS, stripVoiceTags, type StoryBeat } from "./route-story";
+import { estimateNarrationMs, getAutoDurationSeconds, MAX_NARRATED_VIDEO_SECONDS, MAX_VIDEO_SECONDS, stripVoiceTags, type StoryBeat } from "./route-story";
 
 export { AID_SERVICES, getAidStationServices, type AidService } from "./route-story";
 
@@ -249,7 +249,7 @@ export const getNarrationMs = (beat: StoryBeat, durations: NarrationDurations) =
  * at the start of its span (the camera slows while the voice speaks). The remaining flyover time is
  * travel, weighted by terrain: inside the legs of a continuous story, or over the transit between
  * isolated beats. The speed is smoothed so it never jumps. In auto mode the length grows with the
- * route and the narration; every video is capped at MAX_VIDEO_SECONDS.
+ * route and the narration (see the cap below).
  */
 export const buildVideoTimeline = (
   path: PreparedAnimationPath,
@@ -279,13 +279,14 @@ export const buildVideoTimeline = (
   const continuous = totalDistanceKm > 0 && coveredKm / totalDistanceKm > 0.98;
   const narrationShare = continuous ? CONTINUOUS_NARRATION_SHARE : MAX_BEAT_TIME_SHARE;
 
-  const maxTotalMs = MAX_VIDEO_SECONDS * 1_000;
   // A continuous story lasts as long as it is told: the voice runs over every leg, no silent dash.
+  // Auto mode never cuts the voice to the 2-minute target (a 123 s story makes a 123 s reel), up
+  // to the 3-minute Instagram limit; a manual length is a hard cap, flagged when the voice overflows.
   const totalMs = settings.durationMode === "auto"
-    ? Math.min(maxTotalMs, Math.ceil((continuous
+    ? Math.min(MAX_NARRATED_VIDEO_SECONDS * 1_000, Math.ceil((continuous
       ? introMs + outroMs + beatsTotal
       : Math.max(getAutoDurationSeconds(totalDistanceKm) * 1_000, introMs + outroMs + beatsTotal / narrationShare)) / 1_000) * 1_000)
-    : Math.min(maxTotalMs, settings.durationSeconds * 1_000);
+    : Math.min(MAX_VIDEO_SECONDS * 1_000, settings.durationSeconds * 1_000);
   const flyoverMs = Math.max(1_000, totalMs - introMs - outroMs);
   const narrationOverflow = beatsTotal > flyoverMs * (continuous ? 0.95 : 0.9);
   if (beatsTotal > flyoverMs * narrationShare) {

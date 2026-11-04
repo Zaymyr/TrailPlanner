@@ -84,6 +84,7 @@ import {
   storeVoiceLibrary,
   type SavedVoice,
 } from "./voice-library";
+import { getSpeechRateKey, loadSpeechRates, measureWordsPerSecond, storeSpeechRates } from "./speech-rate";
 
 const TERRAIN_SOURCE_ID = "video-terrain-dem";
 const ROUTE_SOURCE_ID = "video-route";
@@ -697,6 +698,12 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     });
   };
   const [voiceOptions, setVoiceOptions] = useState<VoiceOptions>({ model: "multilingual_v2", expressiveness: 0.6 });
+  // Measured pace of each voice, so the next script is sized to the reel length.
+  const [speechRates, setSpeechRates] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!render) setSpeechRates(loadSpeechRates());
+  }, [render]);
+  const speechRateKey = getSpeechRateKey(voiceOptions.model, voiceId);
   const [scriptState, setScriptState] = useState<AsyncActionState>(IDLE_ACTION);
   const [voiceState, setVoiceState] = useState<AsyncActionState>(IDLE_ACTION);
   const [instagramCaption, setInstagramCaption] = useState("");
@@ -952,6 +959,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       const response = await authorizedPost("/api/admin/video-generator/script", {
         race: { title: race.title, subtitle: race.subtitle, distanceKm: race.distanceKm, elevationGainM: race.elevationGainM, startDetail: race.startDetail },
         targetSeconds: maxSeconds,
+        wordsPerSecond: speechRates[speechRateKey],
         voiceModel: voiceOptions.model,
         beats: beats.map(({ id, kind, title, startKm, endKm, facts, services, cutoffTime, narration }) =>
           ({ id, kind, title, startKm, endKm, facts, services, cutoffTime, narration })),
@@ -1077,6 +1085,14 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
         }])),
       }));
       if (voiceId) updateVoiceLibrary((voices) => rememberVoice(voices, voiceId));
+      const measured = measureWordsPerSecond(parsed.data.clips.map((clip) => ({ text: textById.get(clip.id) ?? clip.text, durationMs: clip.durationMs })));
+      if (measured) {
+        setSpeechRates((current) => {
+          const next = { ...current, [speechRateKey]: measured };
+          storeSpeechRates(next);
+          return next;
+        });
+      }
       setVoiceState({ status: "success", message: "Voix off prête : lance la lecture." });
     } catch (error) {
       setVoiceState({ status: "error", message: error instanceof Error ? error.message : "La voix off n’a pas pu être générée." });
