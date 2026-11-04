@@ -180,3 +180,9 @@ Provider references:
 The ElevenLabs voice field (`VoiceIdPicker`, `voice-library.ts`) remembers voices in this browser's `localStorage` (`py.videoGenerator.voices`): every voice used for a successful voice-over joins a 6-entry recent history, a voice can be saved under a name (kept until removed), chips select a voice in one click, and the last one used is filled in on the next visit. It is a per-browser convenience, not shared between admins or devices.
 
 The script request accepts a station cutoff of up to 120 characters: organizers type it as free text ("Samedi 14h30 au plus tard"), not only a clock time.
+
+The voice route generates the first sentence alone before going two at a time: with an ElevenLabs library voice not yet in the account, that first request adds it, and parallel requests would each try to add it (409 `already_running`). A 409 `already_running`, like a 429 concurrency error, is retried after 0.8, 1.6 and 3.2 s.
+
+In auto mode the target reel length grows with the route, `getAutoDurationSeconds` = 30 s + 0.5 s per km in 5 s steps, from 30 s to the 2-minute cap (35 km: 50 s, 100 km: 80 s, 180 km: 120 s). That target sizes the story (number of legs) and is the `targetSeconds` of the script request, so the word budget, hence the narration and the reel, follow the distance; before, auto mode always asked for 2 minutes.
+
+Numbers stay in digits in the narration and the subtitles ("850 m D+", "6,2 km", "9 %", "km 12", "14h30"): the script prompt asks for them. The voice route sends ElevenLabs a spoken version instead (`lib/spoken-numbers.ts`: French number words with gender for hours, decimals, km, m, %, D+/D-, kilometre marks, times, 1er/1re), also for the neighbouring context, and maps the per-character timing of the spoken text back onto the original characters, so subtitles stay exact.

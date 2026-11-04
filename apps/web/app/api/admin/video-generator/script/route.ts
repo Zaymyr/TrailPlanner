@@ -46,7 +46,7 @@ Le parcours est découpé en tronçons consécutifs. Ta phrase pour un tronçon 
 - cite les ravitos naturellement, en passant, sans lister tous les services ; insiste seulement sur une base de vie ou une barrière horaire ;
 - utilise les sommets, lieux et heures estimées fournis (de nuit : frontale ; au lever du jour…) ;
 - n'invente rien : uniquement les faits fournis (noms, kilomètres, dénivelés, pourcentages, services, horaires) ; pas de météo, de paysage ni d'anecdote ;
-- écris pour l'oreille : tutoiement, phrases courtes, nombres tels qu'on les dit (« 6,2 bornes » ou « 6,2 kilomètres », « 9 pour cent »), aucun symbole ni abréviation (%, km, m, D+), pas d'emoji ;
+- écris pour l'oreille : tutoiement, phrases courtes, pas d'emoji ; les nombres s'affichent en sous-titres, donc écris-les en chiffres avec leur unité courte (« 6,2 km », « 850 m D+ », « 9 % », « km 12 », « 14h30 ») : la voix les lit automatiquement en toutes lettres ;
 - garde les lieux courts : le nom du lieu, jamais une adresse postale ;
 - l'intro accroche en une phrase ; l'outro invite à télécharger l'appli Pace Yourself, dispo sur iPhone et Android, pour préparer son plan de course, sur le même ton.
 

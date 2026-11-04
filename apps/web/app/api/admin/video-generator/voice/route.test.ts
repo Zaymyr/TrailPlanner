@@ -55,7 +55,8 @@ describe("POST /api/admin/video-generator/voice", () => {
     const [url, init] = vi.mocked(fetch).mock.calls[0];
     expect(String(url)).toContain("/v1/text-to-speech/abcdefghij1234567890/with-timestamps");
     expect(JSON.parse(String(init?.body))).toMatchObject({
-      text: "SaintéLyon 2026.",
+      // The year is read in words; the clip keeps the digits for the subtitles.
+      text: "SaintéLyon deux mille vingt-six.",
       next_text: "Dernier effort.",
       model_id: "eleven_multilingual_v2",
       voice_settings: { stability: 0.4, style: 0.4, use_speaker_boost: true },
@@ -101,6 +102,48 @@ describe("POST /api/admin/video-generator/voice", () => {
     expect(response.status).toBe(200);
     expect((await response.json()).clips).toHaveLength(2);
     expect(fetch).toHaveBeenCalledTimes(3);
+  });
+
+  it("adds a library voice with one request before going parallel, and retries while it is being added", async () => {
+    vi.useFakeTimers();
+    const adding = () => new Response(JSON.stringify({ detail: { type: "conflict", code: "already_running", status: "already_running" } }), { status: 409 });
+    const inFlight: string[] = [];
+    const firstSpoken = "SaintéLyon deux mille vingt-six.";
+    let firstDone = false;
+    vi.mocked(fetch).mockImplementation(async (_url, init) => {
+      const text = JSON.parse(String(init?.body)).text as string;
+      inFlight.push(text);
+      // Nothing else may start while the first sentence (which adds the voice) is pending.
+      if (!firstDone && text !== firstSpoken) throw new Error("parallel request before the voice was added");
+      if (inFlight.filter((value) => value === text).length === 1 && text === items[1].text) return adding();
+      if (text === firstSpoken) firstDone = true;
+      return Response.json({ audio_base64: "AAA", alignment: { character_end_times_seconds: [1] } });
+    });
+
+    const pending = POST(request({ voiceId: "abcdefghij1234567890", items }));
+    await vi.runAllTimersAsync();
+    const response = await pending;
+    vi.useRealTimers();
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).clips).toHaveLength(2);
+    expect(inFlight).toEqual([firstSpoken, items[1].text, items[1].text]);
+  });
+
+  it("sends numbers and units in words to the voice, and times the original subtitles", async () => {
+    const text = "Puis 6 km.";
+    const spoken = "Puis six kilomètres.";
+    vi.mocked(fetch).mockImplementation(async () => Response.json({
+      audio_base64: "AAA",
+      alignment: { character_end_times_seconds: [...spoken].map((_, index) => (index + 1) / 100) },
+    }));
+
+    const payload = await (await POST(request({ voiceId: null, items: [{ id: "leg", text }] }))).json();
+
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body)).text).toBe(spoken);
+    expect(payload.clips[0].text).toBe(text);
+    expect(payload.clips[0].characterEndMs).toHaveLength(text.length);
+    expect(payload.clips[0].characterEndMs.at(-1)).toBe(200);
   });
 
   it("rejects an invalid voice id before calling ElevenLabs", async () => {
