@@ -14,6 +14,7 @@ import {
   getProfileWindow,
   getSlopeClass,
   getCameraSpeedMps,
+  getTimeSmoothedHeading,
   getVideoCameraPose,
   getVideoFrameState,
   NARRATION_LEAD_MS,
@@ -188,6 +189,26 @@ describe("buildVideoTimeline", () => {
     expect(second.text).toBe("Ça grimpe.");
     expect(first.endMs - first.startMs).toBe(350);
     expect(second.endMs - timeline.beats[0].narrationStartMs).toBe(timing[timing.length - 1]);
+  });
+
+  it("turns the camera smoothly through a right-angle bend", () => {
+    // 10 km north, then a sharp turn east for 10 km.
+    const bend = prepareAnimationPath([
+      { lat: 45, lon: 4, elevationM: 200, distanceKm: 0 },
+      { lat: 45 + 10 / 111.32, lon: 4, elevationM: 200, distanceKm: 10 },
+      { lat: 45 + 10 / 111.32, lon: 4 + 10 / (111.32 * Math.cos((45.09 * Math.PI) / 180)), elevationM: 200, distanceKm: 20 },
+    ]);
+    const timeline = buildVideoTimeline(bend, [], { ...manual(30), introEnabled: false, outroEnabled: false });
+    const angleAt = (ms: number) => {
+      const heading = getTimeSmoothedHeading(bend, timeline, ms)!;
+      return (Math.atan2(heading.east, heading.north) * 180) / Math.PI;
+    };
+    let maxStep = 0;
+    for (let ms = 0; ms < timeline.totalMs; ms += 1_000 / 30) maxStep = Math.max(maxStep, Math.abs(angleAt(ms + 1_000 / 30) - angleAt(ms)));
+    // A 90 degree turn spread over seconds: never more than a few degrees between two frames.
+    expect(maxStep).toBeLessThan(3);
+    expect(angleAt(0)).toBeCloseTo(0, 0);
+    expect(angleAt(timeline.totalMs)).toBeCloseTo(90, 0);
   });
 
   it("never overlaps two narrations", () => {

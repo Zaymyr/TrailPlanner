@@ -197,6 +197,11 @@ describe("VideoGeneratorMapClient", () => {
     expect(map.sources.get("video-route")?.definition.tolerance).toBe(0);
     expect(map.layers.has("video-route-line-casing")).toBe(true);
     // One bubble above the aid station, with its name, cumulative D+ and cutoff.
+    // Mapbox owns the marker element (position, opacity): the station marker only styles its children.
+    const stationMarker = mapboxMock.markers.find((marker) => marker.options?.element?.textContent?.includes("Sainte-Catherine"));
+    expect(stationMarker?.options?.element?.style.position).toBe("");
+    expect(stationMarker?.options?.element?.style.opacity).toBe("");
+    expect(stationMarker?.options?.element?.querySelector("svg")).toBeTruthy();
     const bubbleText = mapboxMock.markers.map((marker) => marker.options?.element?.textContent ?? "").find((text) => text.includes("Sainte-Catherine"));
     expect(bubbleText).toMatch(/^Base de vie · Sainte-Catherinekm 10 · D\+ [\d\s ]+ mBarrière 06:15$/);
     expect(map.layers.has("video-route-line")).toBe(true);

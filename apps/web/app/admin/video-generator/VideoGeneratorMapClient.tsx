@@ -130,52 +130,102 @@ export const fetchNearestPeakName = async (lon: number, lat: number, token: stri
   return (peaks[0]?.name as string | undefined) ?? null;
 };
 
-type AidBubble = { distanceKm: number; element: HTMLElement; marker: mapboxgl.Marker; opacity: number };
+type AidBubble = { distanceKm: number; card: HTMLElement; marker: mapboxgl.Marker; opacity: number };
 
-/** Card above an aid station: name, cumulative D+ from the start and cutoff, built with text nodes. */
-const createAidBubbleElement = (station: VideoAidStation, cumulativeGainM: number, accent: string) => {
+const SVG_NS = "http://www.w3.org/2000/svg";
+// Lucide-style outlines: a bottle for an aid station, a tent for a life base.
+const STATION_ICON_PATHS = {
+  aid: ["M10 2h4", "M10 2v3l-2 3v12a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V8l-2-3V2", "M8 12h8"],
+  lifeBase: ["M3.5 21 12 3l8.5 18", "M12 21l-4-7", "M12 21l4-7", "M2 21h20"],
+} as const;
+
+const createStationIcon = (kind: keyof typeof STATION_ICON_PATHS, color: string) => {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", color);
+  svg.setAttribute("stroke-width", "2.4");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  Object.assign(svg.style, { width: "62%", height: "62%" });
+  STATION_ICON_PATHS[kind].forEach((d) => {
+    const path = document.createElementNS(SVG_NS, "path");
+    path.setAttribute("d", d);
+    svg.appendChild(path);
+  });
+  return svg;
+};
+
+/**
+ * Station marker: a small round icon sitting on the route (always visible) and, above it, a card
+ * with the name, kilometre, cumulative D+ and cutoff that only shows while the runner approaches.
+ * Mapbox owns the outer element (position, transform, opacity for occlusion), so every visual
+ * style and the fading live on inner elements; the outer one only stacks them and sizes to fit.
+ */
+const createAidStationElement = (station: VideoAidStation, cumulativeGainM: number, accent: string) => {
   const element = document.createElement("div");
   element.setAttribute("aria-hidden", "true");
-  Object.assign(element.style, {
+  Object.assign(element.style, { display: "flex", flexDirection: "column", alignItems: "center", pointerEvents: "none" });
+
+  const card = document.createElement("div");
+  Object.assign(card.style, {
     position: "relative",
-    padding: "0.9cqmin 1.8cqmin",
-    borderRadius: "1.4cqmin",
+    marginBottom: "1.6cqmin",
+    padding: "0.8cqmin 1.6cqmin",
+    borderRadius: "1.2cqmin",
     background: "#ffffff",
     color: "#1a1a1a",
-    borderLeft: `0.8cqmin solid ${accent}`,
+    borderLeft: `0.7cqmin solid ${accent}`,
     boxShadow: "0 0.4cqmin 1.6cqmin rgba(0, 0, 0, 0.35)",
     whiteSpace: "nowrap",
+    width: "max-content",
     opacity: "0",
-    pointerEvents: "none",
-    transition: "none",
   });
   const line = (text: string, styles: Partial<CSSStyleDeclaration>) => {
     const node = document.createElement("div");
     node.textContent = text;
     Object.assign(node.style, styles);
-    element.appendChild(node);
+    card.appendChild(node);
   };
-  line(`${station.isLifeBase ? "Base de vie · " : ""}${station.name}`, { fontWeight: "800", fontSize: "2.6cqmin", lineHeight: "1.15" });
+  line(`${station.isLifeBase ? "Base de vie · " : ""}${station.name}`, { fontWeight: "800", fontSize: "2.4cqmin", lineHeight: "1.15" });
   const kilometre = station.distanceKm.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
   const gain = Math.round(cumulativeGainM).toLocaleString("fr-FR");
-  line(`km ${kilometre} · D+ ${gain} m`, { fontWeight: "700", fontSize: "2.1cqmin", color: accent, fontVariantNumeric: "tabular-nums" });
-  if (station.cutoffTime) line(`Barrière ${station.cutoffTime}`, { fontWeight: "600", fontSize: "2cqmin", color: "#5b5b5b" });
+  line(`km ${kilometre} · D+ ${gain} m`, { fontWeight: "700", fontSize: "2cqmin", color: accent, fontVariantNumeric: "tabular-nums" });
+  if (station.cutoffTime) line(`Barrière ${station.cutoffTime}`, { fontWeight: "600", fontSize: "1.9cqmin", color: "#5b5b5b" });
   const tail = document.createElement("span");
   Object.assign(tail.style, {
     position: "absolute",
     left: "50%",
     top: "100%",
     transform: "translateX(-50%)",
-    borderLeft: "1.1cqmin solid transparent",
-    borderRight: "1.1cqmin solid transparent",
-    borderTop: "1.3cqmin solid #ffffff",
+    borderLeft: "1cqmin solid transparent",
+    borderRight: "1cqmin solid transparent",
+    borderTop: "1.2cqmin solid #ffffff",
   });
-  element.appendChild(tail);
-  return element;
+  card.appendChild(tail);
+
+  // Life bases are filled with the accent colour, aid stations are white: both read on any map.
+  const pin = document.createElement("div");
+  Object.assign(pin.style, {
+    width: "4.2cqmin",
+    height: "4.2cqmin",
+    borderRadius: "9999px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: station.isLifeBase ? accent : "#ffffff",
+    border: `0.5cqmin solid ${station.isLifeBase ? "#ffffff" : accent}`,
+    boxShadow: "0 0.3cqmin 1cqmin rgba(0, 0, 0, 0.35)",
+    boxSizing: "border-box",
+  });
+  pin.appendChild(createStationIcon(station.isLifeBase ? "lifeBase" : "aid", station.isLifeBase ? "#ffffff" : accent));
+
+  element.append(card, pin);
+  return { element, card };
 };
 
 /**
- * A bubble fades in while the runner approaches its station (6 % of the route, 1.5 km minimum)
+ * A card fades in while the runner approaches its station (6 % of the route, 1.5 km minimum)
  * and fades out just after it; DOM writes only happen when the rounded opacity changes.
  */
 const updateAidBubbles = (bubbles: AidBubble[], distanceKm: number | null, totalDistanceKm: number) => {
@@ -190,7 +240,7 @@ const updateAidBubbles = (bubbles: AidBubble[], distanceKm: number | null, total
     const rounded = Math.round(opacity * 20) / 20;
     if (rounded !== bubble.opacity) {
       bubble.opacity = rounded;
-      bubble.element.style.opacity = String(rounded);
+      bubble.card.style.opacity = String(rounded);
     }
   });
 };
@@ -446,7 +496,8 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   }, [aidStations, settings.disabledAidStationIds]);
   const routeData = useMemo(() => buildRouteGeoJson(points), [points]);
   const lineProgressTable = useMemo(() => buildLineProgressTable(points), [points]);
-  const markerData = useMemo(() => buildMarkerGeoJson(points, enabledAidStations), [enabledAidStations, points]);
+  // Start and finish only: aid stations are DOM icons placed exactly on the route (see below).
+  const markerData = useMemo(() => buildMarkerGeoJson(points, []), [points]);
 
   // The story: detected moments with a default narration, overridden by the AI or by hand.
   const autoDurationSeconds = getAutoDurationSeconds(preparedPath.totalDistanceKm);
@@ -549,7 +600,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     if (map.getLayer(ROUTE_CASING_LAYER_ID)) map.setPaintProperty(ROUTE_CASING_LAYER_ID, "line-trim-offset", trimOffset);
     const routePoint = getRoutePointAtDistance(path, frame.distanceKm);
     progressMarkerRef.current?.setLngLat([routePoint.lon, routePoint.lat]);
-    updateAidBubbles(aidBubblesRef.current, frame.phase === "flyover" ? frame.distanceKm : null, path.totalDistanceKm);
+    updateAidBubbles(aidBubblesRef.current, frame.phase === "flyover" && settingsRef.current.showAidBubbles ? frame.distanceKm : null, path.totalDistanceKm);
     if (frame.daylight) {
       const { level, warmth, sunAzimuthDeg } = frame.daylight;
       const key = `${Math.round(level * 50)}|${Math.round(warmth * 20)}|${Math.round(sunAzimuthDeg / 10)}`;
@@ -617,7 +668,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
 
   useEffect(() => {
     refreshCurrentFrame();
-  }, [refreshCurrentFrame, settings.revealMode]);
+  }, [refreshCurrentFrame, settings.revealMode, settings.showAidBubbles]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -671,16 +722,17 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   // Bubbles above aid stations: built once per route and settings, faded per frame.
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !isReady || !settings.showAidBubbles) return;
+    if (!map || !isReady) return;
     const bubbles = enabledAidStations
       .filter((station) => station.distanceKm > 0 && station.distanceKm < preparedPath.totalDistanceKm)
       .map((station): AidBubble => {
         const point = getRoutePointAtDistance(preparedPath, station.distanceKm);
-        const element = createAidBubbleElement(station, getCumulativeGainAt(preparedPath, station.distanceKm), settings.accentColor);
-        const marker = new mapboxgl.Marker({ element, anchor: "bottom", offset: [0, -10], occludedOpacity: 1 })
+        const { element, card } = createAidStationElement(station, getCumulativeGainAt(preparedPath, station.distanceKm), settings.accentColor);
+        // Anchored at the bottom of the round icon, exactly on the route at the station kilometre.
+        const marker = new mapboxgl.Marker({ element, anchor: "bottom", occludedOpacity: 1 })
           .setLngLat([point.lon, point.lat])
           .addTo(map);
-        return { distanceKm: station.distanceKm, element, marker, opacity: -1 };
+        return { distanceKm: station.distanceKm, card, marker, opacity: -1 };
       });
     aidBubblesRef.current = bubbles;
     refreshCurrentFrame();
@@ -688,7 +740,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       bubbles.forEach((bubble) => bubble.marker.remove());
       aidBubblesRef.current = [];
     };
-  }, [enabledAidStations, isReady, preparedPath, refreshCurrentFrame, settings.accentColor, settings.showAidBubbles]);
+  }, [enabledAidStations, isReady, preparedPath, refreshCurrentFrame, settings.accentColor]);
 
   // Voice-over: clips are scheduled on the same timeline as the camera.
   const narrationCues = useMemo(

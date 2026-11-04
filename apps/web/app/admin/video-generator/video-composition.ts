@@ -596,6 +596,27 @@ const OUTRO_GLIDE_RATIO = 0.6;
 
 /** Intro holds the overview then glides to the start; the outro glides back and holds. */
 const CAMERA_SPEED_WINDOW_MS = 3_000;
+// The look direction averages where the runner was and will be over these windows: a turn is
+// anticipated and spread over several seconds whatever the speed, so it never jerks.
+const HEADING_WINDOWS_MS = [3_000, 6_000, 9_000];
+
+export const getTimeSmoothedHeading = (path: PreparedAnimationPath, timeline: VideoTimeline, timeMs: number) => {
+  const flyoverStart = timeline.introMs;
+  const flyoverEnd = timeline.introMs + timeline.flyoverMs;
+  const distanceAt = (ms: number) =>
+    getDistanceAtFlyoverFraction(timeline, (clamp(ms, flyoverStart, flyoverEnd) - flyoverStart) / Math.max(1, timeline.flyoverMs));
+  let east = 0;
+  let north = 0;
+  HEADING_WINDOWS_MS.forEach((windowMs) => {
+    const from = getRoutePointAtDistance(path, distanceAt(timeMs - windowMs));
+    const to = getRoutePointAtDistance(path, distanceAt(timeMs + windowMs));
+    const metersPerDegreeLat = 111_320;
+    east += (to.lon - from.lon) * metersPerDegreeLat * Math.cos((from.lat * Math.PI) / 180);
+    north += (to.lat - from.lat) * metersPerDegreeLat;
+  });
+  const length = Math.hypot(east, north);
+  return length > 1 ? { east: east / length, north: north / length } : undefined;
+};
 const FRAMING_RAMP_IN_MS = 1_500;
 // Share of the slope covered when the framing shot starts / ends handing back to the chase camera.
 const FRAMING_RELEASE_START = 0.35;
@@ -626,7 +647,14 @@ export const getVideoCameraPose = (
   viewport: AnimationViewport,
 ): CameraPose => {
   const exaggeration = timeline.terrainExaggeration;
-  const chase = getChaseCameraPose(path, frame.distanceKm, getCameraSpeedMps(timeline, frame.timeMs), viewport, exaggeration);
+  const chase = getChaseCameraPose(
+    path,
+    frame.distanceKm,
+    getCameraSpeedMps(timeline, frame.timeMs),
+    viewport,
+    exaggeration,
+    frame.phase === "flyover" ? getTimeSmoothedHeading(path, timeline, frame.timeMs) : undefined,
+  );
   if (frame.phase === "flyover") {
     const beat = frame.beat;
     if (!beat || (beat.kind !== "climb" && beat.kind !== "descent") || beat.focusStartKm === undefined || beat.focusEndKm === undefined) {
