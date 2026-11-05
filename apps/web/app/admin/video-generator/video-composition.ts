@@ -61,6 +61,7 @@ export const videoCompositionSettingsSchema = z.object({
   showCaptions: z.boolean().default(true),
   // Small cards above aid stations (name, cumulative D+, cutoff) shown while approaching them.
   showAidBubbles: z.boolean().default(true),
+  showPlaceNames: z.boolean().default(true),
   showSubtitles: z.boolean().default(true),
   showProfile: z.boolean().default(true),
   profileMode: z.enum(["window", "full"]).default("window"),

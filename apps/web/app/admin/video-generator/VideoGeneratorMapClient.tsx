@@ -86,6 +86,7 @@ import {
 } from "./voice-library";
 import { getSpeechRateKey, loadSpeechRates, measureWordsPerSecond, storeSpeechRates } from "./speech-rate";
 import { loadScriptNotes, storeScriptNotes } from "./script-notes";
+import { fetchNearestPlaceName, resolveEndpointNames, type EndpointNames } from "./place-labels";
 
 const TERRAIN_SOURCE_ID = "video-terrain-dem";
 const ROUTE_SOURCE_ID = "video-route";
@@ -290,6 +291,32 @@ const createAidCardElement = (station: VideoAidStation, cumulativeGainM: number,
   card.appendChild(tail);
   element.appendChild(card);
   return { element, card };
+};
+
+/** Small white pill with the accent edge, like the aid bubbles: "DÉPART" over the place name. */
+const createPlaceLabelElement = (kind: string, name: string, accent: string) => {
+  const element = document.createElement("div");
+  element.setAttribute("aria-hidden", "true");
+  const card = document.createElement("div");
+  Object.assign(card.style, {
+    padding: "0.6cqmin 1.4cqmin",
+    borderRadius: "1.2cqmin",
+    background: "#ffffff",
+    borderLeft: `0.7cqmin solid ${accent}`,
+    boxShadow: "0 0.4cqmin 1.6cqmin rgba(0, 0, 0, 0.35)",
+    whiteSpace: "nowrap",
+    width: "max-content",
+    pointerEvents: "none",
+  });
+  const kindLine = document.createElement("div");
+  kindLine.textContent = kind;
+  Object.assign(kindLine.style, { fontWeight: "800", fontSize: "1.7cqmin", color: accent, textTransform: "uppercase", letterSpacing: "0.04em" });
+  const nameLine = document.createElement("div");
+  nameLine.textContent = name;
+  Object.assign(nameLine.style, { fontWeight: "800", fontSize: "2.4cqmin", lineHeight: "1.15", color: "#1a1a1a" });
+  card.append(kindLine, nameLine);
+  element.appendChild(card);
+  return element;
 };
 
 // A card shows from 3.5 s before the runner reaches its station to 1.5 s after, with short fades:
@@ -567,6 +594,19 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     }).catch(() => undefined);
     return () => controller.abort();
   }, [accessToken, preparedPath, renderSnapshot]);
+  // Start and finish names for the map labels, looked up once per route (saved with a render).
+  const [endpointNames, setEndpointNames] = useState<EndpointNames>(renderSnapshot?.placeNames ?? { start: null, finish: null });
+  useEffect(() => {
+    if (renderSnapshot || !preparedPath.canAnimate) return;
+    const controller = new AbortController();
+    const start = getRoutePointAtDistance(preparedPath, 0);
+    const finish = getRoutePointAtDistance(preparedPath, preparedPath.totalDistanceKm);
+    const lookup = (lon: number, lat: number) => (accessToken ? fetchNearestPlaceName(lon, lat, accessToken, controller.signal) : Promise.resolve(null));
+    void resolveEndpointNames(start, finish, race.startPlace, lookup).then((names) => {
+      if (!controller.signal.aborted) setEndpointNames(names);
+    });
+    return () => controller.abort();
+  }, [accessToken, preparedPath, race.startPlace, renderSnapshot]);
   const [narrationOverrides, setNarrationOverrides] = useState<Record<string, string>>(renderSnapshot?.narrationOverrides ?? {});
   const beats = useMemo<StoryBeat[]>(
     () => defaultBeats.map((beat) => narrationOverrides[beat.id] !== undefined ? { ...beat, narration: narrationOverrides[beat.id] } : beat),
@@ -787,6 +827,23 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       aidBubblesRef.current = [];
     };
   }, [enabledAidStations, isReady, preparedPath, refreshCurrentFrame, settings.accentColor]);
+
+  // Start and finish names, pinned above their icons for the whole reel.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !isReady || !settings.showPlaceNames || !preparedPath.canAnimate) return;
+    const labels = ([["start", "Départ", 0], ["finish", "Arrivée", preparedPath.totalDistanceKm]] as const)
+      .flatMap(([key, kind, distanceKm]) => {
+        const name = endpointNames[key];
+        if (!name) return [];
+        const point = getRoutePointAtDistance(preparedPath, distanceKm);
+        const marker = new mapboxgl.Marker({ element: createPlaceLabelElement(kind, name, settings.accentColor), anchor: "bottom", offset: [0, -18], occludedOpacity: 1 })
+          .setLngLat([point.lon, point.lat])
+          .addTo(map);
+        return [marker];
+      });
+    return () => labels.forEach((marker) => marker.remove());
+  }, [endpointNames, isReady, preparedPath, settings.accentColor, settings.showPlaceNames]);
 
   // Station icons are images in the style: redraw them when the accent colour changes.
   useEffect(() => {
@@ -1011,6 +1068,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     settings,
     narrationOverrides,
     landmarks,
+    placeNames: endpointNames,
     voiceClips: freshClips,
   });
 

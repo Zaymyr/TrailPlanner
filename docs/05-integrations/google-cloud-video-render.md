@@ -66,3 +66,5 @@ The workflow `.github/workflows/video-render-worker.yml` tests the worker, build
 - Chrome on Linux has no native WebCodecs AAC encoder: `video-export.ts` registers `@mediabunny/aac-encoder` (WASM build of FFmpeg's AAC encoder, loaded only when needed) when `canEncodeAudio("aac")` is false. The same fallback serves Firefox.
 - Software WebGL is slow: expect a render to take several times the reel length. Try 540p first.
 - The render page must stay a pure replay: anything the viewer fetches or randomizes at runtime would make the render differ from the preview. Summit names are saved in the snapshot for that reason.
+
+The render snapshot also carries the start and finish names shown on the map (`placeNames`), resolved in the editor, so the Cloud Run render does not query Mapbox for them. Snapshots saved before this field default to no labels.

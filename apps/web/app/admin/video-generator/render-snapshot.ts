@@ -8,6 +8,7 @@ import {
 import type { VideoRaceInfo } from "./VideoCompositionOverlay";
 import { videoCompositionSettingsSchema, type VideoCompositionSettings } from "./video-composition";
 import type { NarrationClip } from "./narration-player";
+import type { EndpointNames } from "./place-labels";
 import type { StoryLandmarks } from "./route-story";
 import type { VideoAidStation, VideoRouteBounds, VideoRoutePoint } from "../../../lib/video-generator";
 
@@ -25,6 +26,8 @@ export type VideoRenderSnapshot = {
   settings: VideoCompositionSettings;
   narrationOverrides: Record<string, string>;
   landmarks: StoryLandmarks;
+  /** Start and finish names shown on the map, resolved once in the editor. */
+  placeNames: EndpointNames;
   voiceClips: NarrationClip[];
 };
 
@@ -45,6 +48,8 @@ const snapshotSchema = z.object({
   settings: videoCompositionSettingsSchema,
   narrationOverrides: z.record(z.string(), z.string()),
   landmarks: z.record(z.string(), z.string()),
+  // Absent from snapshots saved before the labels existed.
+  placeNames: z.object({ start: z.string().max(80).nullable(), finish: z.string().max(80).nullable() }).default({ start: null, finish: null }),
   voiceClips: z.array(narrationClipSchema),
 });
 

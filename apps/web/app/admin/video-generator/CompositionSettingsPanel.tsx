@@ -40,6 +40,7 @@ const INFORMATION_TOGGLES: Array<[BooleanSettingKey, string]> = [
   ["showSubtitles", "Sous-titres (voix)"],
   ["showCaptions", "Encart du tronçon"],
   ["showAidBubbles", "Bulles des ravitos"],
+  ["showPlaceNames", "Noms du départ et de l’arrivée"],
   ["showProfile", "Profil altimétrique"],
   ["showCurrentKm", "Kilomètre en cours"],
 ];
