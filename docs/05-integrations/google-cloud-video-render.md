@@ -4,6 +4,8 @@ scope: integration
 last_verified: 2026-11-04
 ai_priority: medium
 related_files:
+  - apps/web/app/api/admin/video-generator/render-jobs/[id]/route.test.ts
+  - apps/web/app/api/admin/video-generator/render-jobs/[id]/route.ts
   - apps/web/app/admin/video-generator/export-frame.test.ts
   - apps/web/app/admin/video-generator/export-frame.ts
   - apps/video-render-worker/package.json
@@ -80,3 +82,7 @@ The job list (`GET /api/admin/video-generator/render-jobs`) also returns `starte
 The job requests one NVIDIA L4 (`--gpu 1 --gpu-type nvidia-l4 --no-gpu-zonal-redundancy`, which needs at least 4 CPU and 16 GiB). Cloud Run mounts the driver in `/usr/local/nvidia/lib64`; the image adds the Vulkan loader, `libegl1`, a Vulkan ICD file (`libGLX_nvidia.so.0`) and a GLVND EGL vendor file (`libEGL_nvidia.so.0`), and sets `LD_LIBRARY_PATH`. The first GPU deployment in a region gets an automatic quota of 3 L4; a Free Trial billing account cannot use GPUs and must be upgraded to a paid account (the remaining trial credit stays usable). A GPU task over 1 hour is the Preview feature "Long running GPU jobs": the GA `gcloud run jobs deploy` rejects it (`FAILED_PRECONDITION … declared launch stage`), and Google advises 1 hour at most for GPU jobs because GPU tasks are not live migrated. The job therefore keeps a 1-hour task timeout and the worker stops at 55 min. `MAX_RENDER_HOURS` (8 h, `apps/web/lib/video-render.ts`) only bounds the page token, the upload URL lifetime and the stale rule.
 
 Whether Chrome can drive the L4 depends on the graphics libraries in the mounted driver: check the "WebGL backend:" line of the first execution's logs. A fallback to `swiftshader` keeps rendering on the CPU, only slower (a 1080p reel took over 3 hours on 4 vCPU).
+
+## Deleting a video
+
+Each finished or failed render in the panel has a "Supprimer" action (with a confirmation): `DELETE /api/admin/video-generator/render-jobs/<id>` deletes `jobs/<id>/reel.mp4` and `jobs/<id>/input.json` with the Google access token (`deleteStorageObject`, a 404 counts as deleted), then the row (`deleteRenderJob`, limited to `done`/`failed`). A render still `uploading`, `queued` or `running` answers 409. When the bucket refuses the object deletion (the `vercel-trigger` account may lack `storage.objects.delete`), the row is still deleted and the response says `filesDeleted: false`: the 30-day lifecycle removes the files. Dropping the row also lowers the race's video count in the race picker.

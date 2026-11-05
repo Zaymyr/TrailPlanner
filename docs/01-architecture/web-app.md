@@ -755,3 +755,5 @@ The admin "Messagerie" tab (`AdminMessagingTab`) replaced "Demandes de course". 
 Pending bugs, feedback and race requests also have a one-click "Clôturer" button: the item goes to completed with no dialog and no message to the runner (`PATCH /api/admin/feedback` without `notification`, `PATCH /api/admin/race-requests` with `silent: true`, a plain service-role update of `status`, `reviewed_at` and `reviewed_by`).
 
 Reel exports (in the browser and in the background render) keep the preview frame's CSS size and raise only the map's pixel density to the video resolution (`export-frame.ts`), so the framing, map detail and station bubbles match the preview.
+
+Background renders can be deleted from the reel panel ("Supprimer" on finished or failed renders), and every exported frame re-places the DOM markers after the map is idle so the aid bubbles stay on their station icon.

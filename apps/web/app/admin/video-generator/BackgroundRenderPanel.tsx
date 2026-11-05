@@ -150,6 +150,25 @@ export function BackgroundRenderPanel({ accessToken, canRender, createSnapshot, 
     }
   };
 
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const remove = async (job: BackgroundRenderJob) => {
+    if (!window.confirm(`Supprimer la vidéo « ${job.raceTitle} » (${job.width}×${job.height}) ? Le MP4 ne pourra plus être téléchargé.`)) return;
+    setDeletingId(job.id);
+    setError(null);
+    try {
+      const response = await fetch(`/api/admin/video-generator/render-jobs/${job.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!response.ok) throw new Error(await readMessage(response, "La vidéo n’a pas pu être supprimée."));
+      setJobs((current) => current.filter((entry) => entry.id !== job.id));
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "La vidéo n’a pas pu être supprimée.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   if (!available) {
     return <p className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">Rendu en arrière-plan non configuré sur cet environnement.</p>;
   }
@@ -179,11 +198,23 @@ export function BackgroundRenderPanel({ accessToken, canRender, createSnapshot, 
                 {renderTiming(job)}
               </p>
               {job.status === "failed" && job.message ? <p className="text-[11px] text-red-700">{job.message}</p> : null}
-              {job.downloadUrl ? (
-                <a className="mt-1 inline-block font-semibold text-foreground underline underline-offset-2" href={job.downloadUrl}>
-                  Télécharger le MP4
-                </a>
-              ) : null}
+              <div className="mt-1 flex items-center justify-between gap-2">
+                {job.downloadUrl ? (
+                  <a className="font-semibold text-foreground underline underline-offset-2" href={job.downloadUrl}>
+                    Télécharger le MP4
+                  </a>
+                ) : <span />}
+                {job.status === "done" || job.status === "failed" ? (
+                  <button
+                    type="button"
+                    className="text-[11px] text-muted-foreground underline-offset-2 hover:text-red-700 hover:underline disabled:opacity-50"
+                    disabled={deletingId === job.id}
+                    onClick={() => void remove(job)}
+                  >
+                    {deletingId === job.id ? "Suppression…" : "Supprimer"}
+                  </button>
+                ) : null}
+              </div>
             </li>
           ))}
         </ul>
