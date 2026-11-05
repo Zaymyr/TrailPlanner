@@ -70,6 +70,26 @@ describe("POST /api/admin/video-generator/script", () => {
     expect(params.system).toMatch(/continu/);
   });
 
+  it("passes the admin instructions first and uses the chosen storytelling style", async () => {
+    state.parse.mockResolvedValue({ stop_reason: "end_turn", parsed_output: { beats: [{ id: "intro", narration: "Allez !" }] } });
+    const payload = await (await POST(request({ ...validBody, notes: " Bâtons interdits. ", style: "coach" }))).json();
+    const params = state.parse.mock.calls[0][0];
+    expect(params.messages[0].content).toContain("\"consignes\": \"Bâtons interdits.\"");
+    expect(params.system).toMatch(/consignes .* passent avant toutes les autres règles/);
+    expect(params.system).toMatch(/coach de trail/);
+    expect(payload.style).toBe("coach");
+  });
+
+  it("picks a storytelling style at random when none is chosen, and reports it", async () => {
+    state.parse.mockResolvedValue({ stop_reason: "end_turn", parsed_output: { beats: [{ id: "intro", narration: "Allez !" }] } });
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const payload = await (await POST(request(validBody))).json();
+    random.mockRestore();
+    expect(payload.style).toBe("chambreur");
+    expect(state.parse.mock.calls[0][0].system).toMatch(/chambreur qui charrie/);
+    expect(state.parse.mock.calls[0][0].messages[0].content).not.toContain("consignes");
+  });
+
   it("sizes the words to the target length at the voice's measured pace", async () => {
     state.parse.mockResolvedValue({ stop_reason: "end_turn", parsed_output: { beats: [] } });
     const legWords = (call: number) => {

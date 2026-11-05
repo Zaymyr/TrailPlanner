@@ -15,6 +15,10 @@ related_files:
   - apps/web/app/admin/video-generator/CompositionSettingsPanel.tsx
   - apps/web/app/admin/video-generator/video-composition.ts
   - apps/web/app/admin/video-generator/speech-rate.ts
+  - apps/web/app/admin/video-generator/script-notes.ts
+  - apps/web/app/admin/video-generator/place-labels.ts
+  - apps/web/app/admin/video-generator/place-labels.test.ts
+  - apps/web/app/admin/video-generator/script-notes.test.ts
   - apps/web/app/admin/video-generator/speech-rate.test.ts
   - apps/web/app/admin/video-generator/map-appearance.ts
   - apps/web/app/admin/video-generator/video-composition.test.ts
@@ -192,3 +196,7 @@ Numbers stay in digits in the narration and the subtitles ("850 m D+", "6,2 km",
 `speech-rate.ts` measures the real pace of a voice after each successful voice-over (shown words, numbers in digits, per second of clip audio, which includes pauses, tags and numbers read in words; at least 10 s of audio) and keeps it per model and voice id in this browser (`py.videoGenerator.speechRates`). The next "Rédiger avec l’IA" sends it as `wordsPerSecond`, so the word budget, hence the narration, matches the target length; an unmeasured voice uses 2.2 words per second. Regenerating the script then the voice therefore lands closer to the target the second time.
 
 Each leg of the script request lists the aid stations the camera flies over inside it (`getLegPassages`), with the share of the leg screen time at which the camera reaches each one; the prompt asks to name a station before that moment (and to open an aid or life-base leg with its station), so the voice never names a station already passed. When a drafted leg runs more than 10% over its `maxWords`, the script route sends the draft back once (low effort) listing the legs to shorten; if that revision fails the draft is kept. The route allows 120 s for both calls.
+
+Under the duration, "Style du récit" picks the narrator persona sent to the script route (`style`: pote traileur, coach, commentateur en direct, suspense, chambreur); "Surprise" (default) omits it and the route picks one at random, plus a random opening for the intro (a question, the key figure, the start time…), and the prompt forbids reusing the draft wording or repeating stock phrases, so reels of different races, or two drafts of one, do not sound alike. The success message names the style used. "Consignes pour Claude" (`notes`, 1,000 characters, kept per race id in this browser under `py.videoGenerator.scriptNotes`) is sent as `consignes`, which the prompt puts before every other rule and the style ("bâtons interdits": never mention poles).
+
+Start and finish names (`place-labels.ts`, setting "Noms du départ et de l’arrivée", on by default) are pinned above their icons for the whole reel as small white pills with the accent edge ("DÉPART" / "ARRIVÉE" over the name). The start uses the organizer start place shortened to its landmark (`VideoRaceInfo.startPlace`); otherwise, and for the finish, the nearest Mapbox Streets `place_label` settlement within 5 km (Tilequery, same public token as the summit lookup). A finish within 1.5 km of the start reuses the start name. The names are resolved once per route and saved in the render snapshot (`placeNames`, defaulting to none for older snapshots) so a background render shows the same labels.

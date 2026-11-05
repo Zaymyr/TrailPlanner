@@ -9,7 +9,7 @@ import mapboxgl, {
 
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { buildRouteGeoJson, type VideoAidStation } from "../../../lib/video-generator";
-import { instagramCaptionResponseSchema, narrationScriptResponseSchema, narrationVoiceResponseSchema } from "../../../lib/video-narration";
+import { instagramCaptionResponseSchema, NARRATION_STYLE_LABELS, narrationScriptResponseSchema, narrationVoiceResponseSchema } from "../../../lib/video-narration";
 import { InstagramPanel } from "./InstagramPanel";
 import { ExportPanel, type ExportState } from "./ExportPanel";
 import { exportVideo } from "./video-export";
@@ -52,7 +52,7 @@ import {
   type StoryBeat,
   type StoryLandmarks,
 } from "./route-story";
-import { StoryEditor, type AsyncActionState, type VoiceOptions } from "./StoryEditor";
+import { StoryEditor, type AsyncActionState, type ScriptStyleChoice, type VoiceOptions } from "./StoryEditor";
 import {
   buildElevationProfile,
   buildVideoTimeline,
@@ -85,6 +85,8 @@ import {
   type SavedVoice,
 } from "./voice-library";
 import { getSpeechRateKey, loadSpeechRates, measureWordsPerSecond, storeSpeechRates } from "./speech-rate";
+import { loadScriptNotes, storeScriptNotes } from "./script-notes";
+import { fetchNearestPlaceName, resolveEndpointNames, type EndpointNames } from "./place-labels";
 
 const TERRAIN_SOURCE_ID = "video-terrain-dem";
 const ROUTE_SOURCE_ID = "video-route";
@@ -289,6 +291,32 @@ const createAidCardElement = (station: VideoAidStation, cumulativeGainM: number,
   card.appendChild(tail);
   element.appendChild(card);
   return { element, card };
+};
+
+/** Small white pill with the accent edge, like the aid bubbles: "DÉPART" over the place name. */
+const createPlaceLabelElement = (kind: string, name: string, accent: string) => {
+  const element = document.createElement("div");
+  element.setAttribute("aria-hidden", "true");
+  const card = document.createElement("div");
+  Object.assign(card.style, {
+    padding: "0.6cqmin 1.4cqmin",
+    borderRadius: "1.2cqmin",
+    background: "#ffffff",
+    borderLeft: `0.7cqmin solid ${accent}`,
+    boxShadow: "0 0.4cqmin 1.6cqmin rgba(0, 0, 0, 0.35)",
+    whiteSpace: "nowrap",
+    width: "max-content",
+    pointerEvents: "none",
+  });
+  const kindLine = document.createElement("div");
+  kindLine.textContent = kind;
+  Object.assign(kindLine.style, { fontWeight: "800", fontSize: "1.7cqmin", color: accent, textTransform: "uppercase", letterSpacing: "0.04em" });
+  const nameLine = document.createElement("div");
+  nameLine.textContent = name;
+  Object.assign(nameLine.style, { fontWeight: "800", fontSize: "2.4cqmin", lineHeight: "1.15", color: "#1a1a1a" });
+  card.append(kindLine, nameLine);
+  element.appendChild(card);
+  return element;
 };
 
 // A card shows from 3.5 s before the runner reaches its station to 1.5 s after, with short fades:
@@ -566,6 +594,19 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     }).catch(() => undefined);
     return () => controller.abort();
   }, [accessToken, preparedPath, renderSnapshot]);
+  // Start and finish names for the map labels, looked up once per route (saved with a render).
+  const [endpointNames, setEndpointNames] = useState<EndpointNames>(renderSnapshot?.placeNames ?? { start: null, finish: null });
+  useEffect(() => {
+    if (renderSnapshot || !preparedPath.canAnimate) return;
+    const controller = new AbortController();
+    const start = getRoutePointAtDistance(preparedPath, 0);
+    const finish = getRoutePointAtDistance(preparedPath, preparedPath.totalDistanceKm);
+    const lookup = (lon: number, lat: number) => (accessToken ? fetchNearestPlaceName(lon, lat, accessToken, controller.signal) : Promise.resolve(null));
+    void resolveEndpointNames(start, finish, race.startPlace, lookup).then((names) => {
+      if (!controller.signal.aborted) setEndpointNames(names);
+    });
+    return () => controller.abort();
+  }, [accessToken, preparedPath, race.startPlace, renderSnapshot]);
   const [narrationOverrides, setNarrationOverrides] = useState<Record<string, string>>(renderSnapshot?.narrationOverrides ?? {});
   const beats = useMemo<StoryBeat[]>(
     () => defaultBeats.map((beat) => narrationOverrides[beat.id] !== undefined ? { ...beat, narration: narrationOverrides[beat.id] } : beat),
@@ -575,6 +616,16 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     () => Object.fromEntries((renderSnapshot?.voiceClips ?? []).map((clip) => [clip.beatId, clip])),
   );
   const [voiceId, setVoiceId] = useState("");
+  // Storytelling: a random style by default so reels vary, and the admin's instructions for this race.
+  const [scriptStyle, setScriptStyle] = useState<ScriptStyleChoice>("auto");
+  const [scriptNotes, setScriptNotes] = useState("");
+  useEffect(() => {
+    if (!render) setScriptNotes(loadScriptNotes(race.id));
+  }, [race.id, render]);
+  const updateScriptNotes = (notes: string) => {
+    setScriptNotes(notes);
+    storeScriptNotes(race.id, notes);
+  };
   // Voices used or saved in this browser; the last one used is picked again on the next visit.
   const [savedVoices, setSavedVoices] = useState<SavedVoice[]>([]);
   useEffect(() => {
@@ -777,6 +828,23 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     };
   }, [enabledAidStations, isReady, preparedPath, refreshCurrentFrame, settings.accentColor]);
 
+  // Start and finish names, pinned above their icons for the whole reel.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !isReady || !settings.showPlaceNames || !preparedPath.canAnimate) return;
+    const labels = ([["start", "Départ", 0], ["finish", "Arrivée", preparedPath.totalDistanceKm]] as const)
+      .flatMap(([key, kind, distanceKm]) => {
+        const name = endpointNames[key];
+        if (!name) return [];
+        const point = getRoutePointAtDistance(preparedPath, distanceKm);
+        const marker = new mapboxgl.Marker({ element: createPlaceLabelElement(kind, name, settings.accentColor), anchor: "bottom", offset: [0, -18], occludedOpacity: 1 })
+          .setLngLat([point.lon, point.lat])
+          .addTo(map);
+        return [marker];
+      });
+    return () => labels.forEach((marker) => marker.remove());
+  }, [endpointNames, isReady, preparedPath, settings.accentColor, settings.showPlaceNames]);
+
   // Station icons are images in the style: redraw them when the accent colour changes.
   useEffect(() => {
     const map = mapRef.current;
@@ -837,6 +905,8 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
         targetSeconds: maxSeconds,
         wordsPerSecond: speechRates[speechRateKey],
         voiceModel: voiceOptions.model,
+        notes: scriptNotes.trim() || undefined,
+        style: scriptStyle === "auto" ? undefined : scriptStyle,
         beats: beats.map(({ id, kind, title, startKm, endKm, facts, services, cutoffTime, narration }) => ({
           id, kind, title, startKm, endKm, facts, services, cutoffTime, narration,
           // Intro and outro have no span; a leg tells the stations it flies over before reaching them.
@@ -847,7 +917,8 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       const parsed = narrationScriptResponseSchema.safeParse(await response.json());
       if (!parsed.success) throw new Error("Le script reçu est invalide.");
       setNarrationOverrides((current) => ({ ...current, ...Object.fromEntries(parsed.data.beats.map((beat) => [beat.id, beat.narration])) }));
-      setScriptState({ status: "success", message: "Narration rédigée. Relis-la puis génère la voix off." });
+      const usedStyle = parsed.data.style ? ` (style : ${NARRATION_STYLE_LABELS[parsed.data.style]})` : "";
+      setScriptState({ status: "success", message: `Narration rédigée${usedStyle}. Relis-la puis génère la voix off.` });
     } catch (error) {
       setScriptState({ status: "error", message: error instanceof Error ? error.message : "La narration n’a pas pu être rédigée." });
     }
@@ -997,6 +1068,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     settings,
     narrationOverrides,
     landmarks,
+    placeNames: endpointNames,
     voiceClips: freshClips,
   });
 
@@ -1212,6 +1284,10 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
             onVoiceIdChange={setVoiceId}
             onVoiceOptionsChange={setVoiceOptions}
             voiceOptions={voiceOptions}
+            onScriptNotesChange={updateScriptNotes}
+            onScriptStyleChange={setScriptStyle}
+            scriptNotes={scriptNotes}
+            scriptStyle={scriptStyle}
             onWriteScript={() => void writeScript()}
             scriptState={scriptState}
             totalMs={timeline.totalMs}

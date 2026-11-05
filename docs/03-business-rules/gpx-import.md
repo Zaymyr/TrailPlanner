@@ -286,3 +286,5 @@ When that source path differs from the current snapshot, the per-format publicat
 Background reel renders replay the parsed GPX points saved in the composition snapshot; they never re-read or re-parse the stored GPX.
 
 The admin reel animation (`route-animation.ts`) no longer computes a slope framing shot: the camera stays on the chase pose while a climb is told. Route sampling and interpolation rules are unchanged.
+
+The admin reel page also passes the shortened organizer start place (`startPlace`) to the generator for the start label on the map; it reads the existing `start_location` only.

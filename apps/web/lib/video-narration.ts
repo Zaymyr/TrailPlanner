@@ -17,6 +17,17 @@ export const narrationBeatInputSchema = z.object({
   passages: z.array(z.object({ name: z.string().max(120), km: z.number(), moment: z.number().min(0).max(1) })).max(8).default([]),
 });
 
+export const NARRATION_STYLES = ["pote", "coach", "commentateur", "suspense", "chambreur"] as const;
+export type NarrationStyle = (typeof NARRATION_STYLES)[number];
+
+export const NARRATION_STYLE_LABELS: Record<NarrationStyle, string> = {
+  pote: "Pote traileur",
+  coach: "Coach",
+  commentateur: "Commentateur en direct",
+  suspense: "Suspense",
+  chambreur: "Chambreur",
+};
+
 export const narrationScriptRequestSchema = z.object({
   race: z.object({
     title: z.string().max(160),
@@ -31,10 +42,16 @@ export const narrationScriptRequestSchema = z.object({
   /** With the expressive v3 voice, the script may carry performance tags such as [excited]. */
   voiceModel: z.enum(["multilingual_v2", "v3"]).default("multilingual_v2"),
   beats: z.array(narrationBeatInputSchema).min(1).max(40),
+  /** Admin instructions for this race ("bâtons interdits"), applied before every other rule. */
+  notes: z.string().max(1_000).optional(),
+  /** Storytelling style; omitted, the route picks one at random so reels do not all sound alike. */
+  style: z.enum(NARRATION_STYLES).optional(),
 });
 
 export const narrationScriptResponseSchema = z.object({
   beats: z.array(z.object({ id: z.string(), narration: z.string() })),
+  /** The style actually used (the random pick when none was asked). */
+  style: z.enum(NARRATION_STYLES).optional(),
 });
 
 export const ELEVENLABS_VOICE_ID_PATTERN = /^[A-Za-z0-9]{10,40}$/;

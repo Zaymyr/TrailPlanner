@@ -25,6 +25,8 @@ export type VideoRaceInfo = {
   elevationGainM: number | null;
   /** Start place, date and time, e.g. "Lyon · 28 novembre · 23:30". */
   startDetail: string | null;
+  /** Organizer start place, shortened to its landmark ("Saint-Étienne"), for the map label. */
+  startPlace?: string | null;
   /** Raw race date (YYYY-MM-DD) and start time (HH:MM), for the estimated race clock. */
   raceDate?: string | null;
   startTime?: string | null;
