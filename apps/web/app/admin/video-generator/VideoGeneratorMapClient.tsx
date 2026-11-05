@@ -9,7 +9,7 @@ import mapboxgl, {
 
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { buildRouteGeoJson, type VideoAidStation } from "../../../lib/video-generator";
-import { instagramCaptionResponseSchema, narrationScriptResponseSchema, narrationVoiceResponseSchema } from "../../../lib/video-narration";
+import { instagramCaptionResponseSchema, NARRATION_STYLE_LABELS, narrationScriptResponseSchema, narrationVoiceResponseSchema } from "../../../lib/video-narration";
 import { InstagramPanel } from "./InstagramPanel";
 import { ExportPanel, type ExportState } from "./ExportPanel";
 import { exportVideo } from "./video-export";
@@ -52,7 +52,7 @@ import {
   type StoryBeat,
   type StoryLandmarks,
 } from "./route-story";
-import { StoryEditor, type AsyncActionState, type VoiceOptions } from "./StoryEditor";
+import { StoryEditor, type AsyncActionState, type ScriptStyleChoice, type VoiceOptions } from "./StoryEditor";
 import {
   buildElevationProfile,
   buildVideoTimeline,
@@ -85,6 +85,7 @@ import {
   type SavedVoice,
 } from "./voice-library";
 import { getSpeechRateKey, loadSpeechRates, measureWordsPerSecond, storeSpeechRates } from "./speech-rate";
+import { loadScriptNotes, storeScriptNotes } from "./script-notes";
 
 const TERRAIN_SOURCE_ID = "video-terrain-dem";
 const ROUTE_SOURCE_ID = "video-route";
@@ -575,6 +576,16 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     () => Object.fromEntries((renderSnapshot?.voiceClips ?? []).map((clip) => [clip.beatId, clip])),
   );
   const [voiceId, setVoiceId] = useState("");
+  // Storytelling: a random style by default so reels vary, and the admin's instructions for this race.
+  const [scriptStyle, setScriptStyle] = useState<ScriptStyleChoice>("auto");
+  const [scriptNotes, setScriptNotes] = useState("");
+  useEffect(() => {
+    if (!render) setScriptNotes(loadScriptNotes(race.id));
+  }, [race.id, render]);
+  const updateScriptNotes = (notes: string) => {
+    setScriptNotes(notes);
+    storeScriptNotes(race.id, notes);
+  };
   // Voices used or saved in this browser; the last one used is picked again on the next visit.
   const [savedVoices, setSavedVoices] = useState<SavedVoice[]>([]);
   useEffect(() => {
@@ -837,6 +848,8 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
         targetSeconds: maxSeconds,
         wordsPerSecond: speechRates[speechRateKey],
         voiceModel: voiceOptions.model,
+        notes: scriptNotes.trim() || undefined,
+        style: scriptStyle === "auto" ? undefined : scriptStyle,
         beats: beats.map(({ id, kind, title, startKm, endKm, facts, services, cutoffTime, narration }) => ({
           id, kind, title, startKm, endKm, facts, services, cutoffTime, narration,
           // Intro and outro have no span; a leg tells the stations it flies over before reaching them.
@@ -847,7 +860,8 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       const parsed = narrationScriptResponseSchema.safeParse(await response.json());
       if (!parsed.success) throw new Error("Le script reçu est invalide.");
       setNarrationOverrides((current) => ({ ...current, ...Object.fromEntries(parsed.data.beats.map((beat) => [beat.id, beat.narration])) }));
-      setScriptState({ status: "success", message: "Narration rédigée. Relis-la puis génère la voix off." });
+      const usedStyle = parsed.data.style ? ` (style : ${NARRATION_STYLE_LABELS[parsed.data.style]})` : "";
+      setScriptState({ status: "success", message: `Narration rédigée${usedStyle}. Relis-la puis génère la voix off.` });
     } catch (error) {
       setScriptState({ status: "error", message: error instanceof Error ? error.message : "La narration n’a pas pu être rédigée." });
     }
@@ -1212,6 +1226,10 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
             onVoiceIdChange={setVoiceId}
             onVoiceOptionsChange={setVoiceOptions}
             voiceOptions={voiceOptions}
+            onScriptNotesChange={updateScriptNotes}
+            onScriptStyleChange={setScriptStyle}
+            scriptNotes={scriptNotes}
+            scriptStyle={scriptStyle}
             onWriteScript={() => void writeScript()}
             scriptState={scriptState}
             totalMs={timeline.totalMs}

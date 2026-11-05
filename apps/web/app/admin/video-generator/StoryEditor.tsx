@@ -3,6 +3,8 @@
 import React from "react";
 
 import { Button } from "../../../components/ui/button";
+import { NARRATION_STYLE_LABELS, NARRATION_STYLES, type NarrationStyle } from "../../../lib/video-narration";
+import { SCRIPT_NOTES_MAX_LENGTH } from "./script-notes";
 import { estimateNarrationMs } from "./route-story";
 import type { ScheduledBeat } from "./video-composition";
 import type { SavedVoice } from "./voice-library";
@@ -11,6 +13,9 @@ import { VoiceIdPicker } from "./VoiceIdPicker";
 export type AsyncActionState = { status: "idle" | "loading" | "success" | "error"; message: string | null };
 
 export type VoiceOptions = { model: "multilingual_v2" | "v3"; expressiveness: number };
+
+/** A fixed storytelling style, or "auto" for a random one at each draft. */
+export type ScriptStyleChoice = NarrationStyle | "auto";
 
 const KIND_LABELS: Record<ScheduledBeat["kind"], string> = {
   intro: "Intro",
@@ -42,7 +47,11 @@ type StoryEditorProps = {
   onSaveVoice: (voiceId: string, name: string) => void;
   onVoiceOptionsChange: (options: VoiceOptions) => void;
   onWriteScript: () => void;
+  onScriptNotesChange: (notes: string) => void;
+  onScriptStyleChange: (style: ScriptStyleChoice) => void;
+  scriptNotes: string;
   scriptState: AsyncActionState;
+  scriptStyle: ScriptStyleChoice;
   totalMs: number;
   voiceId: string;
   voiceOptions: VoiceOptions;
@@ -69,7 +78,11 @@ export function StoryEditor({
   onSaveVoice,
   onVoiceOptionsChange,
   onWriteScript,
+  onScriptNotesChange,
+  onScriptStyleChange,
+  scriptNotes,
   scriptState,
+  scriptStyle,
   totalMs,
   voiceId,
   voiceOptions,
@@ -143,6 +156,34 @@ export function StoryEditor({
       </div>
 
       {durationControl}
+
+      <label className="block space-y-1 text-xs">
+        <span className="font-medium">Style du récit</span>
+        <select
+          aria-label="Style du récit"
+          className="min-h-9 w-full rounded-md border border-input bg-card px-2 text-sm"
+          value={scriptStyle}
+          disabled={busy}
+          onChange={(event) => onScriptStyleChange(event.target.value as ScriptStyleChoice)}
+        >
+          <option value="auto">Surprise (un style différent à chaque rédaction)</option>
+          {NARRATION_STYLES.map((style) => <option key={style} value={style}>{NARRATION_STYLE_LABELS[style]}</option>)}
+        </select>
+      </label>
+
+      <label className="block space-y-1 text-xs">
+        <span className="font-medium">Consignes pour Claude</span>
+        <textarea
+          aria-label="Consignes pour Claude"
+          className="w-full resize-y rounded border border-input bg-card px-2 py-1 text-xs leading-snug"
+          rows={2}
+          maxLength={SCRIPT_NOTES_MAX_LENGTH}
+          placeholder="Ex. : bâtons interdits sur la course, insister sur la barrière de Saint-Genou…"
+          value={scriptNotes}
+          onChange={(event) => onScriptNotesChange(event.target.value)}
+        />
+        <span className="block text-[10px] text-muted-foreground">Gardées pour cette course dans ce navigateur, appliquées à la prochaine rédaction.</span>
+      </label>
 
       {narrationOverflow ? (
         <p className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">

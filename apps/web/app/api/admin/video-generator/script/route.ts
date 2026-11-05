@@ -5,7 +5,7 @@ import { z as z4 } from "zod/v4";
 
 import { withSecurityHeaders } from "../../../../../lib/http";
 import { extractBearerToken, fetchSupabaseUser, getSupabaseAnonConfig, isAdminUser } from "../../../../../lib/supabase";
-import { narrationScriptRequestSchema, type NarrationScriptRequest } from "../../../../../lib/video-narration";
+import { NARRATION_STYLES, narrationScriptRequestSchema, type NarrationScriptRequest, type NarrationStyle } from "../../../../../lib/video-narration";
 
 // Room for a draft and, when it runs over its word budget, a quick revision.
 export const maxDuration = 120;
@@ -45,9 +45,38 @@ const allocateWords = (beats: NarrationScriptRequest["beats"], targetSeconds: nu
   });
 };
 
-const SYSTEM_PROMPT = `Tu es la voix off des reels de Pace Yourself, l'appli qui aide les traileurs à préparer leur plan de course.
+// Each reel picks a voice persona and an opening, so two races (or two drafts) do not sound alike.
+const STYLE_PROMPTS: Record<NarrationStyle, string> = {
+  pote: "Tu parles comme un pote traileur qui explique la course à un autre pote, la veille au soir, une bière à la main : décontracté, complice, avec le vocabulaire du trail (ça grimpe sec, ça envoie, ça déroule, relancer, gérer, les cuisses qui chauffent, être dans le dur, taper dans le ravito, les bornes, le D+ dit « dénivelé »…). Familier, mais jamais vulgaire.",
+  coach: "Tu parles comme un coach de trail qui briefe son athlète la veille : posé, précis, bienveillant, centré sur la stratégie (allure, gestion de l'effort, alimentation, moments où la course se joue), avec le vocabulaire du trail. Des consignes claires, pas de blabla.",
+  commentateur: "Tu commentes la course en direct, comme un commentateur sportif passionné qui suit le coureur depuis l'hélico : rythme, énergie, sens du spectacle, la tension monte sur les gros morceaux, et tu t'adresses au coureur. Toujours avec les seuls faits fournis.",
+  suspense: "Tu racontes le parcours comme un récit à suspense : tu fais monter la tension, tu tease ce qui arrive (« et là… tu crois que c'est fini ? »), phrases courtes, quelques silences suggérés par la ponctuation, une vraie chute à l'arrivée.",
+  chambreur: "Tu es le pote chambreur qui charrie gentiment : humour, second degré, petites piques sur les cuisses qui vont souffrir, mais un vrai conseil derrière chaque vanne. Jamais méchant ni vulgaire.",
+};
 
-Le reel survole tout le parcours en 3D, du départ à l'arrivée. Tu parles comme un pote traileur qui explique la course à un autre pote, la veille au soir, une bière à la main : décontracté, complice, un peu chambreur, avec le vocabulaire du trail (ça grimpe sec, ça envoie, ça déroule, relancer, gérer, les cuisses qui chauffent, sortir les bâtons, être dans le dur, taper dans le ravito, les bornes, le D+ dit « dénivelé »…). Familier, mais jamais vulgaire.
+const OPENINGS = [
+  "une question directe au coureur",
+  "le chiffre le plus marquant de la course",
+  "l'heure ou l'ambiance du départ",
+  "une promesse de ce qui l'attend",
+  "une interpellation courte et punchy",
+  "le défi que représente la course en une image",
+];
+
+const pick = <T,>(items: readonly T[]) => items[Math.floor(Math.random() * items.length)];
+
+const buildSystemPrompt = (style: NarrationStyle, opening: string, voiceModel: NarrationScriptRequest["voiceModel"]) =>
+  `${SYSTEM_PROMPT_HEAD}${STYLE_PROMPTS[style]}
+
+Pour ce reel, l'intro s'ouvre sur ${opening}. Varie tes formulations : pas de phrases toutes faites ni de tics (« c'est parti », « accroche-toi ») répétés d'un tronçon à l'autre ; le brouillon de chaque tronçon ne sert qu'à connaître les faits, ne reprends pas sa façon de dire.
+
+${SYSTEM_PROMPT_RULES}${voiceModel === "v3" ? V3_TAGS_PROMPT : ""}`;
+
+const SYSTEM_PROMPT_HEAD = `Tu es la voix off des reels de Pace Yourself, l'appli qui aide les traileurs à préparer leur plan de course.
+
+Le reel survole tout le parcours en 3D, du départ à l'arrivée. `;
+
+const SYSTEM_PROMPT_RULES = `Si consignes est fourni, ce sont les consignes de l'équipe pour cette course : elles passent avant toutes les autres règles et avant ton style (par exemple « bâtons interdits » : ne parle jamais de bâtons, même pour conseiller de ne pas en prendre).
 
 Le parcours est découpé en tronçons consécutifs. Ta phrase pour un tronçon commence quand la caméra y entre et dure tout le tronçon : la caméra avance au rythme de ta voix. Donc :
 - le récit est continu et sans trou : chaque tronçon enchaîne naturellement avec le précédent (« bon, une fois en haut… », « et là, ça redescend… ») et annonce la suite ; jamais une lecture de fiches point par point ;
@@ -96,11 +125,14 @@ export async function POST(request: NextRequest) {
     console.error("Video narration script request rejected", parsed.error.issues.slice(0, 5));
     return jsonError(`Requête de script invalide (${issue?.path.join(".") || "corps"} : ${issue?.message ?? "format"}).`, 400);
   }
-  const { race, beats, targetSeconds, voiceModel, wordsPerSecond } = parsed.data;
+  const { race, beats, targetSeconds, voiceModel, wordsPerSecond, notes } = parsed.data;
   const maxWords = allocateWords(beats, targetSeconds, wordsPerSecond ?? DEFAULT_WORDS_PER_SECOND);
+  const style = parsed.data.style ?? pick(NARRATION_STYLES);
+  const system = buildSystemPrompt(style, pick(OPENINGS), voiceModel);
 
   const input = {
     course: race,
+    ...(notes?.trim() ? { consignes: notes.trim() } : {}),
     dureeVideoCibleSecondes: targetSeconds,
     troncons: beats.map((beat, index) => ({
       id: beat.id,
@@ -127,7 +159,7 @@ export async function POST(request: NextRequest) {
     betas: ["server-side-fallback-2026-07-01"],
     fallbacks: "default",
     output_config: { effort, format: betaZodOutputFormat(scriptOutputSchema) },
-    system: voiceModel === "v3" ? SYSTEM_PROMPT + V3_TAGS_PROMPT : SYSTEM_PROMPT,
+    system,
     messages,
   });
   try {
@@ -169,7 +201,7 @@ export async function POST(request: NextRequest) {
       .filter((beat) => knownIds.has(beat.id))
       .map((beat) => ({ id: beat.id, narration: beat.narration.trim().slice(0, 600) }))
       .filter((beat) => beat.narration.length > 0);
-    return withSecurityHeaders(NextResponse.json({ beats: result }));
+    return withSecurityHeaders(NextResponse.json({ beats: result, style }));
   } catch (error) {
     if (error instanceof Anthropic.RateLimitError) return jsonError("Trop de demandes, réessayez dans un instant.", 429);
     if (error instanceof Error && /structured output|JSON/i.test(error.message)) {
