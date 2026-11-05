@@ -35,6 +35,25 @@ describe("PATCH /api/admin/race-requests", () => {
     mocks.deliver.mockResolvedValue({ push_status: "unavailable" });
   });
 
+  it("closes a request in one click without the RPC or any message", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const response = await PATCH(new NextRequest("http://localhost/api/admin/race-requests", {
+        method: "PATCH",
+        body: JSON.stringify({ requestId: 42, status: "completed", silent: true }),
+      }));
+
+      expect(response.status).toBe(200);
+      expect(mocks.review).not.toHaveBeenCalled();
+      expect(mocks.deliver).not.toHaveBeenCalled();
+      expect(String(fetchMock.mock.calls[0][0])).toContain("race_requests?id=eq.42");
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ status: "completed", reviewed_by: "99999999-9999-4999-8999-999999999999" });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("uses the atomic review RPC result before external delivery", async () => {
     const response = await PATCH(new NextRequest("http://localhost/api/admin/race-requests", {
       method: "PATCH",
