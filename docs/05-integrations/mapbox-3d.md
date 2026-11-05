@@ -58,7 +58,7 @@ related_tables:
 
 # Mapbox 3D Admin Course Viewer
 
-The admin page now also links to a race-request review queue. That tab and its user-notification delivery are independent from the lazy 3D video-generator route and do not load Mapbox, GPX, narration, or rendering dependencies.
+The admin page now also has a messaging inbox (bugs, feedback, race requests). That tab and its user-notification delivery are independent from the lazy 3D video-generator route and do not load Mapbox, GPX, narration, or rendering dependencies.
 
 ## Purpose
 

@@ -4,6 +4,8 @@ scope: database
 last_verified: 2026-11-05
 ai_priority: high
 related_files:
+  - supabase/migrations/20261105180000_add_app_feedback_review.sql
+  - supabase/tests/app_feedback_review_checks.sql
   - supabase/migrations/20261105115106_admin_user_notifications.sql
   - supabase/tests/admin_user_notifications_checks.sql
 related_tables:
@@ -23,7 +25,7 @@ Stores the durable in-app inbox for messages sent by trusted administrators to o
 - Notification kinds are `admin_message` and `race_request_status`.
 - The application channel is mandatory; `email_requested` and `push_requested` are optional.
 - Delivery statuses are `not_requested`, `pending`, `sent`, `failed`, or `unavailable`.
-- Reading a notification changes only `read_at`.
+- Reading a notification changes only `read_at`; deleting it from the inbox sets `deleted_at` (and `read_at` when still unread). Owners never hard-delete.
 
 ## Columns
 
@@ -37,6 +39,8 @@ Stores the durable in-app inbox for messages sent by trusted administrators to o
 | `title` | text | Trimmed, 1–160 characters. |
 | `body` | text | Trimmed, 1–4000 characters. |
 | `read_at` | timestamptz nullable | Owner read receipt. |
+| `feedback_id` | bigint nullable | Bug or feedback this message answers (`app_feedback`); set null if deleted. Owner-readable. |
+| `deleted_at` | timestamptz nullable | Set by the owner to remove the message from their inbox; the row stays so the admin still sees the reply. Owner-updatable. |
 | `email_requested` / `push_requested` | boolean | Admin-selected external channels. |
 | `email_status` / `push_status` | text | Durable delivery state. |
 | `email_provider_id` | text nullable | Resend message id. |
@@ -72,7 +76,7 @@ Stores the durable in-app inbox for messages sent by trusted administrators to o
 
 ## Common Queries
 
-The mobile inbox explicitly selects `id,user_id,race_request_id,kind,title,body,read_at,created_at`, filters by the authenticated owner, orders newest first, and uses the partial unread index for badge counts.
+The mobile inbox explicitly selects `id,user_id,race_request_id,feedback_id,kind,title,body,read_at,created_at`, filters by the authenticated owner and `deleted_at is null` (list, single load and unread badge), orders newest first, and uses the partial unread index for badge counts.
 
 ## Gotchas
 
@@ -86,3 +90,9 @@ The mobile inbox explicitly selects `id,user_id,race_request_id,kind,title,body,
 - [RLS Policies](../rls-policies.md)
 - [Relationships](../relationships.md)
 - [RLS Checklist](../../04-auth-and-security/rls-checklist.md)
+
+## Admin read receipts
+
+The admin inbox lists (`/api/admin/feedback`, `/api/admin/race-requests`) return, per item, the latest notification linked by `feedback_id` or `race_request_id` with its `read_at` and `deleted_at`, shown as "Lue le …", "Non lue" or "Supprimée par l'utilisateur".
+
+The mobile query depends on `feedback_id` and `deleted_at`: apply `20261105180000_add_app_feedback_review.sql` before publishing the mobile update that reads them.

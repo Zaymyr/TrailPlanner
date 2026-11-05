@@ -342,6 +342,16 @@ export type MobileTranslations = {
     notificationsAdminMessageLabel: string;
     notificationsExpand: string;
     notificationsCollapse: string;
+    notificationsContactTitle: string;
+    notificationsContactBody: string;
+    notificationsReportBug: string;
+    notificationsSendFeedback: string;
+    notificationsRequestRace: string;
+    notificationsFeedbackReplyLabel: string;
+    notificationsDelete: string;
+    notificationsDeleteTitle: string;
+    notificationsDeleteBody: string;
+    notificationsDeleteFailed: string;
     notificationsProfileDotLabel: string;
     personalSectionTitle: string;
     personalSectionSubtitle: string;

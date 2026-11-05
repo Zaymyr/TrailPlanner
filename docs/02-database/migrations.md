@@ -6,6 +6,8 @@ last_verified: 2026-11-05
 
 ai_priority: high
 related_files:
+  - supabase/migrations/20261105180000_add_app_feedback_review.sql
+  - supabase/tests/app_feedback_review_checks.sql
   - .github/workflows/db-migrate.yml
   - .github/workflows/db-verify.yml
   - .github/workflows/db-schema-snapshot.yml
@@ -122,6 +124,8 @@ related_tables:
 ---
 
 # Migrations
+
+`20261105180000_add_app_feedback_review.sql` gives `app_feedback` the race-request review lifecycle (`status` pending/completed/rejected, `reviewed_at`, `reviewed_by`, trigger-maintained `updated_at`), adds a generated `is_pending` column to `app_feedback` and `race_requests` so the admin inbox lists pending items first, and narrows `app_feedback` client privileges to an authenticated column INSERT (it was `GRANT ALL` to `anon` and `authenticated` behind an insert-only policy). `user_notifications` gains `feedback_id` (reply to a bug or feedback, set null on delete) and `deleted_at` (runner-side hiding, client-updatable). The service-role-only `review_app_feedback_with_notification` RPC commits a feedback status and its reply atomically. `supabase/tests/app_feedback_review_checks.sql` checks the grants, the RPC boundary and the foreign key.
 
 `20261105115106_admin_user_notifications.sql` replaces the ambiguous race-request `approved` state with `completed`, adds review audit timestamps/actor, and introduces the owner-readable `user_notifications` inbox. A service-role-only invoker RPC commits a request status and its mandatory in-app message atomically. Explicit column grants expose only inbox content plus `read_at` updates; Resend/Expo delivery metadata remains server-only. `supabase/tests/admin_user_notifications_checks.sql` verifies constraints, indexes, grants, policies and RPC execution boundaries.
 

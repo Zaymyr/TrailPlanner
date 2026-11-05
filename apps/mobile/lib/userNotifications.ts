@@ -6,6 +6,8 @@ export type UserNotification = {
   id: string;
   userId: string;
   raceRequestId: number | null;
+  /** Set when the message answers a bug report or feedback the runner sent. */
+  feedbackId: number | null;
   kind: UserNotificationKind;
   title: string;
   body: string;
@@ -17,6 +19,7 @@ type UserNotificationRow = {
   id: string;
   user_id: string;
   race_request_id: number | null;
+  feedback_id: number | null;
   kind: UserNotificationKind;
   title: string;
   body: string;
@@ -25,7 +28,7 @@ type UserNotificationRow = {
 };
 
 const NOTIFICATION_SELECT =
-  'id,user_id,race_request_id,kind,title,body,read_at,created_at';
+  'id,user_id,race_request_id,feedback_id,kind,title,body,read_at,created_at';
 const unreadListeners = new Set<(count: number) => void>();
 let cachedUnreadCount = 0;
 
@@ -39,6 +42,7 @@ function mapRow(row: UserNotificationRow): UserNotification {
     id: row.id,
     userId: row.user_id,
     raceRequestId: row.race_request_id,
+    feedbackId: row.feedback_id,
     kind: row.kind,
     title: row.title,
     body: row.body,
@@ -64,7 +68,8 @@ export async function loadUnreadNotificationCount(userId: string): Promise<numbe
     .from('user_notifications')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
-    .is('read_at', null);
+    .is('read_at', null)
+    .is('deleted_at', null);
 
   if (error) throw error;
   const nextCount = count ?? 0;
@@ -84,6 +89,7 @@ export async function loadUserNotifications(input: {
     .from('user_notifications')
     .select(NOTIFICATION_SELECT)
     .eq('user_id', input.userId)
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .range(from, to);
 
@@ -100,6 +106,7 @@ export async function loadUserNotificationById(input: {
     .select(NOTIFICATION_SELECT)
     .eq('user_id', input.userId)
     .eq('id', input.notificationId)
+    .is('deleted_at', null)
     .maybeSingle();
 
   if (error) throw error;
@@ -135,6 +142,29 @@ export async function markAllUserNotificationsRead(userId: string) {
   if (error) throw error;
   emitUnreadCount(0);
   return readAt;
+}
+
+/**
+ * Removes a message from the runner's inbox. The row is only hidden (deleted_at), so the admin
+ * still sees the reply they sent and that it was deleted.
+ */
+export async function deleteUserNotification(input: {
+  userId: string;
+  notification: Pick<UserNotification, 'id' | 'readAt'>;
+}) {
+  const deletedAt = new Date().toISOString();
+  const { error } = await supabase
+    .from('user_notifications')
+    .update(input.notification.readAt ? { deleted_at: deletedAt } : { deleted_at: deletedAt, read_at: deletedAt })
+    .eq('user_id', input.userId)
+    .eq('id', input.notification.id);
+
+  if (error) throw error;
+  if (!input.notification.readAt) emitUnreadCount(Math.max(0, cachedUnreadCount - 1));
+}
+
+export function removeUserNotification(notifications: UserNotification[], id: string) {
+  return notifications.filter((notification) => notification.id !== id);
 }
 
 export function mergeUserNotificationPages(

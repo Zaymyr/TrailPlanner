@@ -3,7 +3,8 @@ import { z } from "zod";
 
 import {
   deliverAdminUserNotification,
-  fetchAdminAuthUser,
+  loadAdminUserIdentities,
+  loadLatestReplies,
   reviewRaceRequestWithNotification,
 } from "../../../../lib/admin-user-notifications";
 import { checkRateLimitAsync, withSecurityHeaders } from "../../../../lib/http";
@@ -46,7 +47,8 @@ export async function GET(request: NextRequest) {
 
   const params = new URLSearchParams({
     select: "id,created_at,updated_at,user_id,race_name,location,requested_date,status,reviewed_at,reviewed_by",
-    order: "created_at.desc",
+    // Still to handle first, handled ones below.
+    order: "is_pending.desc,created_at.desc",
     limit: String(PAGE_SIZE),
     offset: String((page - 1) * PAGE_SIZE),
   });
@@ -61,23 +63,10 @@ export async function GET(request: NextRequest) {
   const parsed = z.array(raceRequestRowSchema).safeParse(await response.json().catch(() => null));
   if (!parsed.success) return jsonError("Unexpected race request response.", 500);
 
-  const userIds = [...new Set(parsed.data.map((row) => row.user_id))];
-  const profileParams = new URLSearchParams({
-    select: "user_id,full_name",
-    user_id: `in.(${userIds.join(",")})`,
-  });
-  const profilesPromise = userIds.length === 0
-    ? Promise.resolve([] as Array<{ user_id: string; full_name: string | null }>)
-    : fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/user_profiles?${profileParams.toString()}`, {
-        headers: serviceHeaders(auth.serviceConfig, ""),
-        cache: "no-store",
-      }).then(async (profileResponse) => profileResponse.ok ? profileResponse.json() : []);
-  const [profiles, authUsers] = await Promise.all([
-    profilesPromise,
-    Promise.all(userIds.map((userId) => fetchAdminAuthUser(auth.serviceConfig, userId).catch(() => null))),
+  const [{ names, emails }, replies] = await Promise.all([
+    loadAdminUserIdentities(auth.serviceConfig, parsed.data.map((row) => row.user_id)),
+    loadLatestReplies(auth.serviceConfig, "race_request_id", parsed.data.map((row) => row.id)),
   ]);
-  const names = new Map(profiles.map((profile: { user_id: string; full_name: string | null }) => [profile.user_id, profile.full_name]));
-  const emails = new Map(authUsers.filter(Boolean).map((user) => [user!.id, user!.email ?? null]));
   const total = Number(response.headers.get("content-range")?.split("/")[1] ?? parsed.data.length);
 
   return withSecurityHeaders(NextResponse.json({
@@ -93,6 +82,7 @@ export async function GET(request: NextRequest) {
       requestedDate: row.requested_date,
       status: row.status,
       reviewedAt: row.reviewed_at ?? null,
+      reply: replies.get(row.id) ?? null,
     })),
     pagination: {
       page,

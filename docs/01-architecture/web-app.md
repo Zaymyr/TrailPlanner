@@ -4,6 +4,14 @@ scope: architecture
 last_verified: 2026-11-05
 ai_priority: high
 related_files:
+  - apps/web/app/admin/_components/AdminMessagingTab.tsx
+  - apps/web/app/admin/_components/AdminFeedbackTab.tsx
+  - apps/web/app/admin/_components/AdminReplyStatus.tsx
+  - apps/web/app/admin/_components/admin-message-template.ts
+  - apps/web/app/admin/_components/admin-message-template.test.ts
+  - apps/web/app/api/admin/feedback/route.ts
+  - apps/web/app/api/admin/feedback/route.test.ts
+  - apps/web/app/api/admin/inbox-counts/route.ts
   - apps/web/lib/organizer-structured-content.ts
   - apps/web/app/organizer/_components/dashboard/structured-content-editors.tsx
   - apps/web/app/organizer/_components/dashboard/structured-content-editors.test.ts
@@ -737,3 +745,7 @@ The admin voice route adds an ElevenLabs library voice with a single first reque
 Admin reel narration keeps digits for subtitles while the voice route converts numbers, units and times to French words before calling ElevenLabs (`lib/spoken-numbers.ts`), remapping the alignment onto the original text. In auto mode the reel length targets 30 s + 6.7 s × √km (80 km: 90 s; 2-minute target cap), set in the narration panel before writing, but follows the voice up to 180 s, so a longer narration is never delayed and cut; the script word budget uses the voice pace measured on its last clips (`speech-rate.ts`, per browser), 2.2 words per second until then; legs over budget are revised once, and stations flown over carry the moment the camera reaches them. The told climb is no longer highlighted: no orange route border, no climb card on the map, no framing shot (the camera stays on the chase pose). The narration panel also sets a storytelling style (random by default, so reels vary) and per-race instructions for Claude (`script-notes.ts`, browser only), which override every other prompt rule. Start and finish names are pinned on the map (`place-labels.ts`: organizer start place, else nearest Mapbox settlement).
 
 The admin reel generator saves each race's narration in Supabase (`video_narrations` + private bucket `video-narrations`) and restores it when the race opens; its event picker filters while typing and shows video counts, and formats show GPX availability, videos and saved narration.
+
+## Admin messaging inbox
+
+The admin "Messagerie" tab (`AdminMessagingTab`) replaced "Demandes de course". It has three sub-tabs with pending counts from `GET /api/admin/inbox-counts`: Bugs and Feedback (`AdminFeedbackTab`, `GET`/`PATCH /api/admin/feedback`) and Demandes de course (`AdminRaceRequestsTab`). Lists put pending items first (`is_pending`); handled ones sink below and their row is greyed (`handledRowClassName`). A status change on an item whose author has an account opens `AdminNotificationDialog`, and the reply and status commit together (`review_app_feedback_with_notification` / `review_race_request_with_notification`); "Répondre" sends a reply without changing the status; an author without an account gets a silent status change. Each row shows the last reply sent and its state (`AdminReplyStatus`: read, unread, deleted by the runner). Every prefilled message, including the free message of the Users tab, opens with "Bonjour," and ends with "Faustin de Pace Yourself" (`admin-message-template.ts`). `loadAdminUserIdentities` and `loadLatestReplies` in `lib/admin-user-notifications.ts` serve both list routes.

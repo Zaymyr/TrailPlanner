@@ -4,6 +4,8 @@ scope: database
 last_verified: 2026-11-05
 ai_priority: high
 related_files:
+  - supabase/migrations/20261105180000_add_app_feedback_review.sql
+  - supabase/tests/app_feedback_review_checks.sql
   - supabase/migrations/20260405173000_create_race_requests.sql
   - supabase/migrations/20261105115106_admin_user_notifications.sql
   - supabase/tests/admin_user_notifications_checks.sql
@@ -81,3 +83,6 @@ Mobile owner history selects rows filtered by `user_id = auth.uid()`. Admin queu
 - [RLS Policies](../rls-policies.md)
 - [Migrations](../migrations.md)
 
+## Admin ordering
+
+`is_pending` (generated, `status = 'pending'`, added by `20261105180000_add_app_feedback_review.sql`) orders the admin list pending first; handled requests sink below and are greyed. The admin list also shows the last status message sent and whether the runner read or deleted it.

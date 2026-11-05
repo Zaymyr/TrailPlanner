@@ -511,6 +511,17 @@ export default function ProfileScreen() {
               adminMessageLabel: t.profile.notificationsAdminMessageLabel,
               expand: t.profile.notificationsExpand,
               collapse: t.profile.notificationsCollapse,
+              contactTitle: t.profile.notificationsContactTitle,
+              contactBody: t.profile.notificationsContactBody,
+              reportBug: t.profile.notificationsReportBug,
+              sendFeedback: t.profile.notificationsSendFeedback,
+              requestRace: t.profile.notificationsRequestRace,
+              feedbackReplyLabel: t.profile.notificationsFeedbackReplyLabel,
+              delete: t.profile.notificationsDelete,
+              deleteTitle: t.profile.notificationsDeleteTitle,
+              deleteBody: t.profile.notificationsDeleteBody,
+              deleteFailed: t.profile.notificationsDeleteFailed,
+              cancel: t.common.cancel,
             }}
             locale={locale}
             onUnreadChanged={unreadNotifications.refresh}
