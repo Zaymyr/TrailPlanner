@@ -34,9 +34,9 @@ export type VideoRenderJobRow = z.infer<typeof videoRenderJobRowSchema>;
 export const VIDEO_RENDER_JOB_COLUMNS = "id,race_id,race_title,status,progress,message,width,height,output_size_bytes,created_at,updated_at,started_at,finished_at";
 
 /**
- * Longest render the pipeline allows, end to end. The Cloud Run task timeout
- * (.github/workflows/video-render-worker.yml) and the worker's own wait (RENDER_TIMEOUT_MS) stay
- * just under it; a GPU task may run up to 12 h.
+ * Upper bound on a render, end to end, for the page token, the upload URL and the stale rule. The
+ * Cloud Run GPU task itself stops at 1 h (.github/workflows/video-render-worker.yml): a GPU task
+ * over 1 h is a Preview feature. The margin keeps these limits valid if that timeout grows.
  */
 export const MAX_RENDER_HOURS = 8;
 
