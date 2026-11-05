@@ -5,6 +5,7 @@ import {
   getRenderInputObject,
   getRenderOutputObject,
   getStorageObjectSize,
+  RENDER_UPLOAD_URL_TTL_SECONDS,
   signStorageUrl,
   updateRenderJob,
 } from "../../../../../lib/video-render";
@@ -34,8 +35,7 @@ export async function GET(request: Request, context: { params: { id?: string } }
     const accessToken = await getGoogleAccessToken(config, request);
     const [inputUrl, outputUploadUrl] = await Promise.all([
       signStorageUrl({ config, accessToken, method: "GET", objectName: getRenderInputObject(job.id), expiresSeconds: 30 * 60 }),
-      // The slowest software render of a 2-minute reel stays well under three hours.
-      signStorageUrl({ config, accessToken, method: "PUT", objectName: getRenderOutputObject(job.id), expiresSeconds: 3 * 60 * 60 }),
+      signStorageUrl({ config, accessToken, method: "PUT", objectName: getRenderOutputObject(job.id), expiresSeconds: RENDER_UPLOAD_URL_TTL_SECONDS }),
     ]);
     await updateRenderJob(supabase, job.id, { status: "running", progress: 0, started_at: new Date().toISOString() }, ["queued"]);
     return renderJson({ job: { id: job.id, width: job.width, height: job.height }, inputUrl, outputUploadUrl });

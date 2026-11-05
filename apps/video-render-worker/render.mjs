@@ -1,10 +1,13 @@
 import { chromium } from "playwright";
 
+import { backendOrder, chromeArgs, describeNvidiaLibs, isHardwareRenderer, probeWebglRenderer } from "./gpu.mjs";
 import { parseRenderUrl } from "./render-url.mjs";
 
 // The render page does the whole job (load, frame-by-frame export, upload, report); this script only
-// gives it a browser of the exact video size and waits. Without a GPU, WebGL runs on SwiftShader.
-const TIMEOUT_MS = Number(process.env.RENDER_TIMEOUT_MS ?? 165 * 60 * 1_000);
+// gives it a browser of the exact video size and waits. WebGL runs on the job's NVIDIA GPU when one is
+// attached and Chrome can use it, otherwise on SwiftShader (CPU).
+// Stays under the Cloud Run task timeout and MAX_RENDER_HOURS (apps/web/lib/video-render.ts).
+const TIMEOUT_MS = Number(process.env.RENDER_TIMEOUT_MS ?? 7.75 * 60 * 60 * 1_000);
 const POLL_MS = 5_000;
 
 const reportFailure = async (render, message) => {
@@ -19,24 +22,36 @@ const reportFailure = async (render, message) => {
   }
 };
 
+/** First backend whose WebGL renderer is really a GPU; SwiftShader is the last resort. */
+const launchBestBrowser = async () => {
+  const backends = backendOrder({ gpuSetting: process.env.RENDER_GPU });
+  if (backends.length > 1) console.log(`NVIDIA driver: ${describeNvidiaLibs()}`);
+  for (const backend of backends) {
+    let browser;
+    try {
+      // Google Chrome, not Chromium: it ships the H.264 encoder WebCodecs needs.
+      browser = await chromium.launch({ channel: "chrome", headless: true, args: chromeArgs(backend) });
+      const probe = await browser.newPage();
+      const renderer = await probe.evaluate(probeWebglRenderer).catch(() => null);
+      await probe.close();
+      if (backend === "swiftshader" || isHardwareRenderer(renderer)) {
+        console.log(`WebGL backend: ${backend} (${renderer ?? "no WebGL context"})`);
+        return browser;
+      }
+      console.log(`WebGL backend ${backend} unusable (${renderer ?? "no WebGL context"}), trying the next one`);
+    } catch (error) {
+      console.log(`WebGL backend ${backend} failed to start: ${error?.message ?? error}`);
+    }
+    await browser?.close().catch(() => {});
+  }
+  throw new Error("No WebGL backend could start.");
+};
+
 const main = async () => {
   const render = parseRenderUrl(process.env.RENDER_URL);
   console.log(`Rendering job ${render.jobId} at ${render.width}x${render.height}`);
 
-  const browser = await chromium.launch({
-    // Google Chrome, not Chromium: it ships the H.264 encoder WebCodecs needs.
-    channel: "chrome",
-    headless: true,
-    args: [
-      "--use-angle=swiftshader",
-      "--enable-unsafe-swiftshader",
-      "--ignore-gpu-blocklist",
-      "--autoplay-policy=no-user-gesture-required",
-      "--disable-background-timer-throttling",
-      "--disable-renderer-backgrounding",
-      "--disable-backgrounding-occluded-windows",
-    ],
-  });
+  const browser = await launchBestBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: render.width, height: render.height }, deviceScaleFactor: 1 });
     page.on("console", (message) => {

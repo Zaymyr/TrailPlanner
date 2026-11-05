@@ -6,6 +6,7 @@ import {
   getRenderInputObject,
   getRenderOutputObject,
   insertRenderJob,
+  isRenderJobStale,
   listRenderJobs,
   signStorageUrl,
   updateRenderJob,
@@ -19,9 +20,6 @@ const createSchema = z.object({
   height: z.number().int().min(160).max(4096),
 });
 
-// A job that has not reported for this long is considered lost (crashed container, timeout).
-const STALE_JOB_MS = 2 * 60 * 60 * 1_000;
-
 export async function GET(request: Request) {
   const gate = await authorizeRenderAdmin(request);
   if (!gate.ok) return gate.response;
@@ -32,7 +30,7 @@ export async function GET(request: Request) {
     const now = Date.now();
     const jobs = await Promise.all(rows.map(async (row) => {
       let current = row;
-      if ((row.status === "queued" || row.status === "running" || row.status === "uploading") && now - Date.parse(row.created_at) > STALE_JOB_MS) {
+      if (isRenderJobStale(row, now)) {
         current = await updateRenderJob(supabase, row.id, {
           status: "failed",
           message: "Le rendu n’a plus donné de nouvelles : relance-le.",

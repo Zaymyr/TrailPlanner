@@ -25,15 +25,42 @@ export const videoRenderJobRowSchema = z.object({
   height: z.number().int(),
   output_size_bytes: z.number().nullable(),
   created_at: z.string(),
+  updated_at: z.string(),
   started_at: z.string().nullable(),
   finished_at: z.string().nullable(),
 });
 export type VideoRenderJobRow = z.infer<typeof videoRenderJobRowSchema>;
 
-export const VIDEO_RENDER_JOB_COLUMNS = "id,race_id,race_title,status,progress,message,width,height,output_size_bytes,created_at,started_at,finished_at";
+export const VIDEO_RENDER_JOB_COLUMNS = "id,race_id,race_title,status,progress,message,width,height,output_size_bytes,created_at,updated_at,started_at,finished_at";
 
-/** A render page token lives long enough for the slowest CPU render plus the queue. */
-export const RENDER_TOKEN_TTL_SECONDS = 3 * 60 * 60;
+/**
+ * Longest render the pipeline allows, end to end. The Cloud Run task timeout
+ * (.github/workflows/video-render-worker.yml) and the worker's own wait (RENDER_TIMEOUT_MS) stay
+ * just under it; a GPU task may run up to 12 h.
+ */
+export const MAX_RENDER_HOURS = 8;
+
+/** The page token covers the queue plus the longest render. */
+export const RENDER_TOKEN_TTL_SECONDS = (MAX_RENDER_HOURS + 1) * 60 * 60;
+
+/** The MP4 upload URL is signed when the render starts and used at its very end. */
+export const RENDER_UPLOAD_URL_TTL_SECONDS = MAX_RENDER_HOURS * 60 * 60;
+
+/** The page reports progress every 5 s: this long without news means the container is gone. */
+export const RENDER_SILENCE_LIMIT_MS = 15 * 60 * 1_000;
+
+/**
+ * A render still marked active is lost when it has not reported for RENDER_SILENCE_LIMIT_MS, or
+ * outlived the longest allowed render (queue included).
+ */
+export const isRenderJobStale = (row: Pick<VideoRenderJobRow, "status" | "created_at" | "updated_at">, nowMs: number) => {
+  if (row.status !== "queued" && row.status !== "running" && row.status !== "uploading") return false;
+  const silentFor = nowMs - Date.parse(row.updated_at);
+  const age = nowMs - Date.parse(row.created_at);
+  // A queued job has no report yet: only the overall limit applies until the page starts it.
+  if (row.status !== "queued" && silentFor > RENDER_SILENCE_LIMIT_MS) return true;
+  return age > RENDER_TOKEN_TTL_SECONDS * 1_000;
+};
 
 export type VideoRenderConfig = {
   projectId: string;
