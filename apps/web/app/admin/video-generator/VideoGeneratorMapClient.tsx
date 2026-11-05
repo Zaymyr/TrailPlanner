@@ -20,7 +20,7 @@ import {
   type RouteAnimationController,
 } from "./animation-controller";
 import { createRouteCameraController, type RouteCameraController } from "./camera-controller";
-import { CompositionSettingsPanel } from "./CompositionSettingsPanel";
+import { CompositionSettingsPanel, DurationSelect } from "./CompositionSettingsPanel";
 import {
   applyDaylight,
   applyMapAppearance,
@@ -60,6 +60,7 @@ import {
   DEFAULT_VIDEO_COMPOSITION_SETTINGS,
   getFlyoverFractionAtDistance,
   getGradeAtDistance,
+  getLegPassages,
   getVideoCameraPose,
   getVideoFrameState,
   VIDEO_FPS,
@@ -697,7 +698,8 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       return next;
     });
   };
-  const [voiceOptions, setVoiceOptions] = useState<VoiceOptions>({ model: "multilingual_v2", expressiveness: 0.6 });
+  // Expressive and lively by default: the reels are told like a friend's briefing.
+  const [voiceOptions, setVoiceOptions] = useState<VoiceOptions>({ model: "v3", expressiveness: 0.9 });
   // Measured pace of each voice, so the next script is sized to the reel length.
   const [speechRates, setSpeechRates] = useState<Record<string, number>>({});
   useEffect(() => {
@@ -961,8 +963,11 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
         targetSeconds: maxSeconds,
         wordsPerSecond: speechRates[speechRateKey],
         voiceModel: voiceOptions.model,
-        beats: beats.map(({ id, kind, title, startKm, endKm, facts, services, cutoffTime, narration }) =>
-          ({ id, kind, title, startKm, endKm, facts, services, cutoffTime, narration })),
+        beats: beats.map(({ id, kind, title, startKm, endKm, facts, services, cutoffTime, narration }) => ({
+          id, kind, title, startKm, endKm, facts, services, cutoffTime, narration,
+          // Intro and outro have no span; a leg tells the stations it flies over before reaching them.
+          passages: kind === "intro" || kind === "outro" ? [] : getLegPassages(timeline, { startKm, endKm }, enabledAidStations),
+        })),
       });
       if (!response.ok) throw new Error(await readError(response, "La narration n’a pas pu être rédigée."));
       const parsed = narrationScriptResponseSchema.safeParse(await response.json());
@@ -1321,6 +1326,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
         <CardContent>
           <StoryEditor
             beats={timeline.beats}
+            durationControl={<DurationSelect autoDurationSeconds={autoDurationSeconds} onChange={updateSettings} settings={settings} />}
             narrationOverflow={timeline.narrationOverflow}
             onGenerateVoice={() => void generateVoice()}
             onNarrationChange={(beatId, narration) => setNarrationOverrides((current) => ({ ...current, [beatId]: narration }))}
@@ -1388,7 +1394,6 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
         </CardHeader>
         <CardContent>
           <CompositionSettingsPanel
-            autoDurationSeconds={autoDurationSeconds}
             dayNightAvailable={raceClock !== null}
             narratedIds={new Set(beats.map((beat) => beat.id))}
             aidStations={aidStations}

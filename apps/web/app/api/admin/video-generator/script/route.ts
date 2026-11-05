@@ -7,13 +7,18 @@ import { withSecurityHeaders } from "../../../../../lib/http";
 import { extractBearerToken, fetchSupabaseUser, getSupabaseAnonConfig, isAdminUser } from "../../../../../lib/supabase";
 import { narrationScriptRequestSchema, type NarrationScriptRequest } from "../../../../../lib/video-narration";
 
-export const maxDuration = 60;
+// Room for a draft and, when it runs over its word budget, a quick revision.
+export const maxDuration = 120;
 
 // Shown words per second of audio until the voice has been measured: tags, pauses and numbers
 // read in words make it slower than plain French speech (see speech-rate in the generator).
 const DEFAULT_WORDS_PER_SECOND = 2.2;
 // Silence the timeline keeps around each narration (NARRATION_GAP_MS in video-composition).
 const GAP_SECONDS_PER_BEAT = 0.5;
+// A leg this far over its maxWords is sent back for a shorter version.
+const OVER_BUDGET_TOLERANCE = 1.1;
+// Words as the budget counts them: a performance tag ("[excited]") is not spoken as words.
+const countWords = (text: string) => text.replace(/\[[^\]]*\]/g, " ").split(/\s+/).filter(Boolean).length;
 const FIXED_WORDS: Partial<Record<NarrationScriptRequest["beats"][number]["kind"], number>> = {
   intro: 18,
   outro: 12,
@@ -49,6 +54,7 @@ Le parcours est découpé en tronçons consécutifs. Ta phrase pour un tronçon 
 - un tronçon long mérite plus de mots qu'un court : vise entre minWords et maxWords, au plus près de maxWords sans jamais le dépasser (un nombre et son unité comptent pour un mot) : la vidéo dure exactement le temps de ta voix, donc ces bornes calent le récit sur la durée visée ; sur un long passage roulant, raconte comment le gérer plutôt que de te taire ;
 - donne des conseils concrets et perso liés au terrain (pars cool sur le plat, mets-toi en mode diesel dans la montée, garde des cuisses pour la descente, prends le temps de manger à la base de vie) ;
 - cite les ravitos naturellement, en passant, sans lister tous les services ; insiste seulement sur une base de vie ou une barrière horaire ;
+- ta phrase suit la caméra dans l'ordre du parcours : un tronçon de type aid ou lifeBase commence au ravito, donc ta phrase commence par lui ; un ravito de ravitosTraverses est atteint à momentDuTroncon de la durée du tronçon : cite-le avant ce moment dans ta phrase (à 40 %, dans les premiers 40 % de tes mots), jamais après, sinon la caméra l'a déjà dépassé ;
 - utilise les sommets, lieux et heures estimées fournis (de nuit : frontale ; au lever du jour…) ;
 - n'invente rien : uniquement les faits fournis (noms, kilomètres, dénivelés, pourcentages, services, horaires) ; pas de météo, de paysage ni d'anecdote ;
 - écris pour l'oreille : tutoiement, phrases courtes, pas d'emoji ; les nombres s'affichent en sous-titres, donc écris-les en chiffres avec leur unité courte (« 6,2 km », « 850 m D+ », « 9 % », « km 12 », « 14h30 ») : la voix les lit automatiquement en toutes lettres ;
@@ -106,28 +112,57 @@ export async function POST(request: NextRequest) {
       servicesAuDebut: beat.services,
       barriereHoraire: beat.cutoffTime,
       brouillon: beat.narration,
+      ravitosTraverses: beat.passages.map((passage) => ({ nom: passage.name, km: passage.km, momentDuTroncon: `${Math.round(passage.moment * 100)} %` })),
       minWords: Math.max(5, Math.round(maxWords[index] * 0.85)),
       maxWords: maxWords[index],
     })),
   };
 
   const client = new Anthropic();
+  const askClaude = (messages: Anthropic.Beta.BetaMessageParam[], effort: "low" | "medium") => client.beta.messages.parse({
+    model: "claude-opus-5-5",
+    // Thinking is always on with this model and counts toward max_tokens: leave room for it,
+    // otherwise the JSON is cut mid-string.
+    max_tokens: 16_000,
+    betas: ["server-side-fallback-2026-07-01"],
+    fallbacks: "default",
+    output_config: { effort, format: betaZodOutputFormat(scriptOutputSchema) },
+    system: voiceModel === "v3" ? SYSTEM_PROMPT + V3_TAGS_PROMPT : SYSTEM_PROMPT,
+    messages,
+  });
   try {
-    const response = await client.beta.messages.parse({
-      model: "claude-opus-5-5",
-      // Thinking is always on with this model and counts toward max_tokens: leave room for it,
-      // otherwise the JSON is cut mid-string.
-      max_tokens: 16_000,
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
-      output_config: { effort: "medium", format: betaZodOutputFormat(scriptOutputSchema) },
-      system: voiceModel === "v3" ? SYSTEM_PROMPT + V3_TAGS_PROMPT : SYSTEM_PROMPT,
-      messages: [{ role: "user", content: `Voici le parcours et ses tronçons, au format JSON :\n${JSON.stringify(input, null, 2)}` }],
-    });
+    const firstMessages: Anthropic.Beta.BetaMessageParam[] = [
+      { role: "user", content: `Voici le parcours et ses tronçons, au format JSON :\n${JSON.stringify(input, null, 2)}` },
+    ];
+    const response = await askClaude(firstMessages, "medium");
 
     if (response.stop_reason === "refusal") return jsonError("La rédaction a été refusée par le modèle.", 502);
-    const output = response.parsed_output;
+    let output = response.parsed_output;
     if (!output) return jsonError("Le script reçu est incomplet, réessayez.", 502);
+
+    // The reel lasts as long as the voice, so a script over its word budget makes the video longer
+    // than chosen: one quick revision shortens the legs that overshoot. Its failure keeps the draft.
+    const maxById = new Map(beats.map((beat, index) => [beat.id, maxWords[index]]));
+    const overBudget = output.beats.flatMap((beat) => {
+      const max = maxById.get(beat.id);
+      const words = countWords(beat.narration);
+      return max !== undefined && words > max * OVER_BUDGET_TOLERANCE ? [{ id: beat.id, words, max }] : [];
+    });
+    if (overBudget.length) {
+      const revision = await askClaude([
+        ...firstMessages,
+        { role: "assistant", content: JSON.stringify(output) },
+        {
+          role: "user",
+          content: `Trop long : la vidéo dure le temps de ta voix. Raccourcis ces tronçons sous leur maxWords, en gardant le ton, l'ordre et les faits : ${overBudget
+            .map((beat) => `${beat.id} (${beat.words} mots, max ${beat.max})`).join(", ")}. Renvoie toutes les narrations, les autres inchangées.`,
+        },
+      ], "low").catch((error: unknown) => {
+        console.error("Video narration script revision failed", error instanceof Error ? error.message : error);
+        return null;
+      });
+      if (revision?.stop_reason !== "refusal" && revision?.parsed_output?.beats.length) output = revision.parsed_output;
+    }
 
     const knownIds = new Set(beats.map((beat) => beat.id));
     const result = output.beats

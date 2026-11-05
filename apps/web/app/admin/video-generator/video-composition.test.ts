@@ -10,6 +10,7 @@ import {
   getDistanceAtFlyoverFraction,
   getFlyoverFractionAtDistance,
   getGradeAtDistance,
+  getLegPassages,
   getProfileTicks,
   getProfileWindow,
   getSlopeClass,
@@ -289,6 +290,18 @@ describe("buildVideoTimeline", () => {
     expect((shifted.target.lat - pose.target.lat) * 111_320).toBeCloseTo(1_000, 0);
     expect(shifted.camera.altitudeM).toBe(5_000);
     expect(shifted.target.lon).toBe(4);
+  });
+
+  it("tells when the camera reaches each station flown over inside a leg", () => {
+    const flat = flatPath(40);
+    const legs = [beat("a", "flat", 0, 20, "Ça déroule."), beat("b", "flat", 20, 40, "Ça déroule encore.")];
+    const timeline = buildVideoTimeline(flat, legs, DEFAULT_VIDEO_COMPOSITION_SETTINGS, { a: 10_000, b: 10_000 });
+    const passages = getLegPassages(timeline, legs[0], [{ name: "Loin", distanceKm: 15 }, { name: "Près", distanceKm: 5 }, { name: "Coupure", distanceKm: 20 }]);
+    // In route order; the station at the cut belongs to the next leg.
+    expect(passages.map((passage) => passage.name)).toEqual(["Près", "Loin"]);
+    expect(passages[0].moment).toBeGreaterThan(0);
+    expect(passages[0].moment).toBeLessThan(passages[1].moment);
+    expect(passages[1].moment).toBeLessThan(1);
   });
 
   it("never overlaps two narrations", () => {

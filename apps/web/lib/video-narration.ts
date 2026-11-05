@@ -13,6 +13,8 @@ export const narrationBeatInputSchema = z.object({
   // Organizer free text ("Samedi 14h30 au plus tard"), not only a clock time.
   cutoffTime: z.string().max(120).nullable(),
   narration: z.string().max(600),
+  /** Stations flown over inside the leg, with the share of the leg's screen time when reached. */
+  passages: z.array(z.object({ name: z.string().max(120), km: z.number(), moment: z.number().min(0).max(1) })).max(8).default([]),
 });
 
 export const narrationScriptRequestSchema = z.object({

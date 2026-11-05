@@ -98,7 +98,7 @@ describe("buildStoryBeats", () => {
 
 describe("durations", () => {
   it("lengthens the automatic duration with the route", () => {
-    expect([10, 35, 100, 180, 250].map(getAutoDurationSeconds)).toEqual([35, 50, 80, 120, 120]);
+    expect([10, 35, 80, 100, 180, 250].map(getAutoDurationSeconds)).toEqual([50, 70, 90, 95, 120, 120]);
   });
 
   it("estimates speech at about 15 characters per second", () => {

@@ -168,12 +168,13 @@ export const MAX_VIDEO_SECONDS = 120;
 export const MAX_NARRATED_VIDEO_SECONDS = 180;
 
 /**
- * Target reel length in auto mode: 30 s plus half a second per km, in 5 s steps, from 30 s to the
- * 2-minute cap (a 35 km trail gets 50 s, a 100 km 80 s, a 180 km ultra the full 2 minutes). It
- * sizes the story (number of legs) and the script word budget, so the narration lasts about that.
+ * Target reel length in auto mode: 30 s plus 6.7 s per square root of km, in 5 s steps, from 30 s
+ * to the 2-minute cap (a 35 km trail gets 70 s, an 80 km 90 s, a 180 km ultra the full 2 minutes):
+ * short races still get time to be told, long ones do not run away. It sizes the story (number of
+ * legs) and the script word budget, so the narration lasts about that.
  */
 export const getAutoDurationSeconds = (totalDistanceKm: number) =>
-  Math.min(MAX_VIDEO_SECONDS, Math.max(30, Math.round((30 + 0.5 * Math.max(0, totalDistanceKm)) / 5) * 5));
+  Math.min(MAX_VIDEO_SECONDS, Math.max(30, Math.round((30 + 6.7 * Math.sqrt(Math.max(0, totalDistanceKm))) / 5) * 5));
 
 const slopeScore = (slope: RouteSlope) => slope.elevationM * Math.sqrt(Math.max(0.01, slope.averageGrade));
 

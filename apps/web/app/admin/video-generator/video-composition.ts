@@ -437,6 +437,30 @@ export const getFlyoverFractionAtDistance = (timeline: VideoTimeline, distanceKm
   return interpolateTable(timeline.sampleDistancesKm, timeline.cumulativeTimeFraction, distanceKm);
 };
 
+/**
+ * Aid stations the camera flies over inside a leg, with the share of the leg's screen time
+ * (0 to 1) at which it reaches each one. The script places their mention before that moment, so
+ * the voice never names a station the camera has already passed.
+ */
+export const getLegPassages = (
+  timeline: VideoTimeline,
+  leg: Pick<StoryBeat, "startKm" | "endKm">,
+  stations: Array<{ name: string; distanceKm: number }>,
+) => {
+  const startFraction = getFlyoverFractionAtDistance(timeline, leg.startKm);
+  const span = getFlyoverFractionAtDistance(timeline, leg.endKm) - startFraction;
+  if (span <= 0) return [];
+  return stations
+    .filter((station) => station.distanceKm > leg.startKm + 0.05 && station.distanceKm < leg.endKm - 0.05)
+    .sort((left, right) => left.distanceKm - right.distanceKm)
+    .slice(0, 8)
+    .map((station) => ({
+      name: station.name.slice(0, 120),
+      km: Math.round(station.distanceKm * 10) / 10,
+      moment: Math.round(clamp((getFlyoverFractionAtDistance(timeline, station.distanceKm) - startFraction) / span, 0, 1) * 100) / 100,
+    }));
+};
+
 /** The single time → state function shared by the preview and the future frame-by-frame export. */
 export const getVideoFrameState = (timeline: VideoTimeline, requestedTimeMs: number): VideoFrameState => {
   const timeMs = clamp(requestedTimeMs, 0, timeline.totalMs);

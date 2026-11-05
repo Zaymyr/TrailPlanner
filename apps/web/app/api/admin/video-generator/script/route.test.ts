@@ -83,6 +83,37 @@ describe("POST /api/admin/video-generator/script", () => {
     expect(legWords(1)).toBe(11);
   });
 
+  it("sends back the legs over their word budget once, and tells when the camera reaches a station", async () => {
+    const long = Array.from({ length: 60 }, () => "bla").join(" ");
+    state.parse
+      .mockResolvedValueOnce({ stop_reason: "end_turn", parsed_output: { beats: [{ id: "intro", narration: "Allez !" }, { id: "climb-1", narration: long }] } })
+      .mockResolvedValueOnce({ stop_reason: "end_turn", parsed_output: { beats: [{ id: "intro", narration: "Allez !" }, { id: "climb-1", narration: "Ça grimpe." }] } });
+    const body = {
+      ...validBody,
+      beats: [validBody.beats[0], { ...validBody.beats[1], passages: [{ name: "Saint-Genou", km: 13, moment: 0.42 }] }],
+    };
+
+    const payload = await (await POST(request(body))).json();
+
+    expect(payload.beats[1].narration).toBe("Ça grimpe.");
+    expect(state.parse).toHaveBeenCalledTimes(2);
+    expect(state.parse.mock.calls[0][0].messages[0].content).toContain("\"momentDuTroncon\": \"42 %\"");
+    const revision = state.parse.mock.calls[1][0];
+    expect(revision.messages).toHaveLength(3);
+    expect(revision.messages[2].content).toMatch(/climb-1 \(60 mots, max \d+\)/);
+    expect(revision.output_config.effort).toBe("low");
+  });
+
+  it("keeps the draft when the revision fails", async () => {
+    const long = Array.from({ length: 60 }, () => "bla").join(" ");
+    state.parse
+      .mockResolvedValueOnce({ stop_reason: "end_turn", parsed_output: { beats: [{ id: "climb-1", narration: long }] } })
+      .mockRejectedValueOnce(new Error("overloaded"));
+    const response = await POST(request(validBody));
+    expect(response.status).toBe(200);
+    expect((await response.json()).beats[0].narration).toBe(long);
+  });
+
   it("allows v3 performance tags only for the expressive voice", async () => {
     state.parse.mockResolvedValue({ stop_reason: "end_turn", parsed_output: { beats: [{ id: "intro", narration: "[excited] Allez !" }] } });
     await POST(request(validBody));
