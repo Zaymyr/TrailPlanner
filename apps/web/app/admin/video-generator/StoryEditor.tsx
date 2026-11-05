@@ -31,6 +31,8 @@ const formatTime = (ms: number) => {
 
 type StoryEditorProps = {
   beats: ScheduledBeat[];
+  /** The reel length setting, right under the voice: it sizes the script, so it is set first. */
+  durationControl?: React.ReactNode;
   narrationOverflow: boolean;
   onGenerateVoice: () => void;
   onNarrationChange: (beatId: string, narration: string) => void;
@@ -57,6 +59,7 @@ function ActionMessage({ state }: { state: AsyncActionState }) {
 /** The narrated script: one editable line per moment, with its place in the video and voice status. */
 export function StoryEditor({
   beats,
+  durationControl,
   narrationOverflow,
   onGenerateVoice,
   onNarrationChange,
@@ -138,6 +141,8 @@ export function StoryEditor({
           Texte par défaut
         </Button>
       </div>
+
+      {durationControl}
 
       {narrationOverflow ? (
         <p className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">

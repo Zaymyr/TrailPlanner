@@ -21,7 +21,6 @@ type BooleanSettingKey = {
 type CompositionSettingsPanelProps = {
   /** Ids of the beats kept in the narration, to flag stations left out. */
   narratedIds: Set<string>;
-  autoDurationSeconds: number;
   /** False when the race has no start time: the day/night look cannot be estimated. */
   dayNightAvailable: boolean;
   aidStations: VideoAidStation[];
@@ -96,9 +95,44 @@ function Segmented<T extends string>({
   );
 }
 
+/**
+ * Reel length, shown in the narration panel right under the voice settings: it sizes the story
+ * and the script, so it is chosen before writing.
+ */
+export function DurationSelect({
+  autoDurationSeconds,
+  onChange,
+  settings,
+}: {
+  autoDurationSeconds: number;
+  onChange: (settings: VideoCompositionSettings) => void;
+  settings: VideoCompositionSettings;
+}) {
+  return (
+    <label className="block space-y-1 text-xs">
+      <span className="font-medium">Durée totale</span>
+      <select
+        aria-label="Durée de la vidéo"
+        className="min-h-9 w-full rounded-md border border-input bg-card px-2 text-sm"
+        value={settings.durationMode === "auto" ? "auto" : settings.durationSeconds}
+        onChange={(event) => onChange(event.target.value === "auto"
+          ? { ...settings, durationMode: "auto" }
+          : { ...settings, durationMode: "manual", durationSeconds: Number(event.target.value) })}
+      >
+        <option value="auto">Auto selon le parcours (≈ {autoDurationSeconds} s, suit la voix)</option>
+        {VIDEO_DURATION_PRESETS.map((duration) => <option key={duration} value={duration}>{duration} secondes</option>)}
+      </select>
+      <span className="block text-xs text-muted-foreground">
+        {settings.durationMode === "auto"
+          ? "Choisis-la avant « Rédiger avec l’IA » : le texte est écrit pour cette durée, et la vidéo suit la voix."
+          : "Durée fixe : choisis-la avant de rédiger, la narration doit tenir dedans."}
+      </span>
+    </label>
+  );
+}
+
 export function CompositionSettingsPanel({
   narratedIds,
-  autoDurationSeconds,
   dayNightAvailable,
   aidStations,
   cameraActionsDisabled,
@@ -155,32 +189,13 @@ export function CompositionSettingsPanel({
         </div>
       </div>
 
-      <PanelSection title="Format et durée">
+      <PanelSection title="Format">
         <Segmented
           label="Format de prévisualisation"
           value={settings.viewport}
           options={[["portrait", "Instagram 9:16"], ["landscape", "Classique 16:9"]]}
           onChange={(value) => update("viewport", value)}
         />
-        <label className="block space-y-1 text-sm">
-          <span className="font-medium">Durée totale</span>
-          <select
-            aria-label="Durée de la vidéo"
-            className="min-h-9 w-full rounded-md border border-input bg-card px-2 text-sm"
-            value={settings.durationMode === "auto" ? "auto" : settings.durationSeconds}
-            onChange={(event) => onChange(event.target.value === "auto"
-              ? { ...settings, durationMode: "auto" }
-              : { ...settings, durationMode: "manual", durationSeconds: Number(event.target.value) })}
-          >
-            <option value="auto">Auto selon le parcours (≈ {autoDurationSeconds} s, suit la voix)</option>
-            {VIDEO_DURATION_PRESETS.map((duration) => <option key={duration} value={duration}>{duration} secondes</option>)}
-          </select>
-          <span className="block text-xs text-muted-foreground">
-            {settings.durationMode === "auto"
-              ? "La vidéo s’allonge si la narration en a besoin."
-              : "Durée fixe : la narration doit tenir dedans."}
-          </span>
-        </label>
       </PanelSection>
 
       <PanelSection title="Carte">
@@ -281,10 +296,6 @@ export function CompositionSettingsPanel({
           <label className="flex items-center gap-2 text-sm">
             <input aria-label="Couleur du parcours" type="color" className="h-8 w-10 cursor-pointer rounded border border-border bg-card" value={settings.routeColor} onChange={(event) => update("routeColor", event.target.value)} />
             Parcours
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input aria-label="Couleur de la section racontée" type="color" className="h-8 w-10 cursor-pointer rounded border border-border bg-card" value={settings.highlightColor} onChange={(event) => update("highlightColor", event.target.value)} />
-            Section racontée
           </label>
           <label className="flex items-center gap-2 text-sm">
             <input aria-label="Couleur d’accentuation" type="color" className="h-8 w-10 cursor-pointer rounded border border-border bg-card" value={settings.accentColor} onChange={(event) => update("accentColor", event.target.value)} />

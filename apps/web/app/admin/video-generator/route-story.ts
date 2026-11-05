@@ -50,12 +50,6 @@ export type StoryBeat = {
   narration: string;
   /** Extra hold at the start of the beat (a stop at a life base or aid station). */
   pauseMs?: number;
-  /** The slope this beat talks about (a whole climb from its foot to its top), framed and highlighted on the map. */
-  focusStartKm?: number;
-  focusEndKm?: number;
-  /** Card shown on the map in the middle of the told slope, e.g. "Montée vers Mont Thou". */
-  focusTitle?: string;
-  focusFacts?: string[];
 };
 
 export type StoryRaceInfo = {
@@ -168,12 +162,13 @@ export const MAX_VIDEO_SECONDS = 120;
 export const MAX_NARRATED_VIDEO_SECONDS = 180;
 
 /**
- * Target reel length in auto mode: 30 s plus half a second per km, in 5 s steps, from 30 s to the
- * 2-minute cap (a 35 km trail gets 50 s, a 100 km 80 s, a 180 km ultra the full 2 minutes). It
- * sizes the story (number of legs) and the script word budget, so the narration lasts about that.
+ * Target reel length in auto mode: 30 s plus 6.7 s per square root of km, in 5 s steps, from 30 s
+ * to the 2-minute cap (a 35 km trail gets 70 s, an 80 km 90 s, a 180 km ultra the full 2 minutes):
+ * short races still get time to be told, long ones do not run away. It sizes the story (number of
+ * legs) and the script word budget, so the narration lasts about that.
  */
 export const getAutoDurationSeconds = (totalDistanceKm: number) =>
-  Math.min(MAX_VIDEO_SECONDS, Math.max(30, Math.round((30 + 0.5 * Math.max(0, totalDistanceKm)) / 5) * 5));
+  Math.min(MAX_VIDEO_SECONDS, Math.max(30, Math.round((30 + 6.7 * Math.sqrt(Math.max(0, totalDistanceKm))) / 5) * 5));
 
 const slopeScore = (slope: RouteSlope) => slope.elevationM * Math.sqrt(Math.max(0.01, slope.averageGrade));
 
@@ -305,8 +300,8 @@ export const buildStoryBeats = (
     const endKm = bounds[index + 1];
     const { gain, loss } = elevationChange(path, startKm, endKm);
     const lengthKm = endKm - startKm;
-    // The slope overlapping the leg the most, so a climb is framed and highlighted from its foot
-    // to its top even when the leg was cut at a station or the top was not a cut.
+    // The slope overlapping the leg the most, so a climb is told from its foot to its top even
+    // when the leg was cut at a station or the top was not a cut.
     const mostOverlapping = (kind: RouteSlope["kind"]) => slopes
       .filter((slope) => slope.kind === kind)
       .map((slope) => ({ slope, overlap: Math.min(endKm, slope.endKm) - Math.max(startKm, slope.startKm) }))
@@ -405,16 +400,6 @@ export const buildStoryBeats = (
       cutoffTime: leg.station?.cutoffTime ?? null,
       narration: parts.join(" "),
       pauseMs: leg.station ? (leg.station.isLifeBase ? LIFE_BASE_PAUSE_MS : AID_PAUSE_MS) : 0,
-      focusStartKm: leg.focus ? leg.focus.startKm : leg.kind === "flat" ? leg.startKm : undefined,
-      focusEndKm: leg.focus ? leg.focus.endKm : leg.kind === "flat" ? leg.endKm : undefined,
-      ...(leg.focus ? {
-        focusTitle: leg.focus.kind === "climb" ? (leg.summit ? `Montée vers ${leg.summit}` : "Montée") : "Descente",
-        focusFacts: [
-          `${formatKm(leg.focus.endKm - leg.focus.startKm)} km`,
-          `${leg.focus.kind === "climb" ? "+" : "−"}${formatNumber(leg.focus.elevationM)} m`,
-          `${formatPercent(leg.focus.averageGrade)} % moy.`,
-        ],
-      } : {}),
     };
   });
 
