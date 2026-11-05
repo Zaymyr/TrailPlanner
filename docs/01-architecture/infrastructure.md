@@ -1,7 +1,7 @@
 ---
 title: Infrastructure
 scope: architecture
-last_verified: 2026-11-02
+last_verified: 2026-11-03
 ai_priority: high
 related_files:
   - apps/web/.env.example
@@ -57,6 +57,8 @@ This document records the infrastructure visible from the repository: Vercel, EA
 
 ## Vercel
 
+The Vercel Production environment tracks `main`. The long-lived Git branch `preview/web` owns the fixed web integration Preview; it is not a paid Custom Environment and must not be deleted or used as a task-development branch. Every change that affects `apps/web`, a package consumed by web, the root workspace manifests or lockfile, Turbo configuration, or Vercel configuration is first integrated from its `dev/*` task branch into `preview/web` and validated on that stable Preview. Only the same reviewed change is then eligible for merge into `main`. Changes confined to mobile may bypass `preview/web` when they do not touch any shared web input.
+
 `vercel.json` configures the web deployment:
 
 ```json
@@ -97,6 +99,8 @@ The Git deployment filter prevents Vercel from creating deployments for branches
 - Turbo and Vercel configuration
 
 If the parent commit is unavailable, `git diff` fails closed and Vercel proceeds with the build.
+
+The ignored-build command and the `preview/web` gate solve different problems. The command saves build capacity by skipping commits that cannot affect the web workspace; it does not authorize a web change to skip the stable Preview. A skipped mobile-only deployment may still appear in Vercel history without running the full web build. Keep `preview/web` synchronized from `main` after an approved production merge, and avoid merging the entire integration branch into production when it contains other unapproved tasks.
 
 ## EAS
 
@@ -244,6 +248,7 @@ For local setup, copy `apps/web/.env.example` to the ignored `apps/web/.env.loca
 - Keep the development profile's `APP_VARIANT` value aligned with local Expo startup. Firebase/Google configuration injected into that profile must use the dedicated `*_DEV` variables and register `com.paceyourself.app.dev`; files containing only the production client are not interchangeable. When those optional Dev files are absent, the app config omits them rather than embedding production configuration, so Dev push/Google features remain unavailable until the separate Firebase clients exist.
 - Keep Maestro credentials in the EAS `preview` secret environment or process-only local variables. Do not prefix them with `EXPO_PUBLIC_`.
 - Keep the ignored-build paths aligned with every repository-level input used by the web build. An omitted shared input can cause Vercel to skip a required deployment.
+- Keep Vercel branch tracking aligned with the documented flow: Production follows `main`, while `preview/web` remains an ordinary Preview branch with a stable branch URL. Do not create a paid Custom Environment for this purpose.
 - Keep the `dependabot/**` Git deployment exclusion and its ignored-build fallback limited to that branch prefix. The merge commit on `main` must continue to trigger the single production deployment after a dependency batch is approved.
 - Keep every alternate production hostname on a permanent redirect to `https://pace-yourself.com`; temporary host redirects split canonical signals and should not be configured in the Vercel domain settings.
 - Keep the Vercel dependency install scoped to `@trailplanner/web`. Removing the workspace filter makes npm install every workspace, including the mobile Expo graph, even though Vercel builds only the web app. Do not replace it with `npm ci` without re-evaluating build timings because `npm ci` deletes the dependency tree restored from Vercel's cache.

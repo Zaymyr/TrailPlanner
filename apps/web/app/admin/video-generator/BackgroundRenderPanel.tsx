@@ -16,6 +16,8 @@ export type BackgroundRenderJob = {
   height: number;
   sizeBytes: number | null;
   createdAt: string;
+  startedAt?: string | null;
+  finishedAt?: string | null;
   downloadUrl: string | null;
 };
 
@@ -28,6 +30,32 @@ const STATUS_LABELS: Record<BackgroundRenderJob["status"], string> = {
 };
 
 const POLL_MS = 10_000;
+
+/** "6 min 12 s" between two timestamps, or null when one is missing. */
+export const formatRenderDuration = (from: string | null | undefined, to: string | null | undefined) => {
+  const ms = from && to ? Date.parse(to) - Date.parse(from) : Number.NaN;
+  if (!Number.isFinite(ms) || ms < 0) return null;
+  const seconds = Math.round(ms / 1_000);
+  const hours = Math.floor(seconds / 3_600);
+  const minutes = Math.floor((seconds % 3_600) / 60);
+  if (hours) return `${hours} h ${String(minutes).padStart(2, "0")} min`;
+  return minutes ? `${minutes} min ${String(seconds % 60).padStart(2, "0")} s` : `${seconds % 60} s`;
+};
+
+// Done: computing time (and the wait before the job started); running: time so far.
+const renderTiming = (job: BackgroundRenderJob) => {
+  if (job.status === "done" || job.status === "failed") {
+    const rendering = formatRenderDuration(job.startedAt, job.finishedAt);
+    const total = formatRenderDuration(job.createdAt, job.finishedAt);
+    if (!rendering) return total ? ` · ${total}` : "";
+    return ` · ${job.status === "done" ? "rendu en" : "arrêté après"} ${rendering}${total && total !== rendering ? ` (${total} au total)` : ""}`;
+  }
+  if (job.status === "running" && job.startedAt) {
+    const elapsed = formatRenderDuration(job.startedAt, new Date().toISOString());
+    return elapsed ? ` · depuis ${elapsed}` : "";
+  }
+  return "";
+};
 
 type BackgroundRenderPanelProps = {
   accessToken: string;
@@ -148,6 +176,7 @@ export function BackgroundRenderPanel({ accessToken, canRender, createSnapshot, 
               <p className="text-[11px] text-muted-foreground">
                 {new Date(job.createdAt).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })} · {job.width}×{job.height}
                 {job.sizeBytes ? ` · ${(job.sizeBytes / 1_048_576).toFixed(1)} Mo` : ""}
+                {renderTiming(job)}
               </p>
               {job.status === "failed" && job.message ? <p className="text-[11px] text-red-700">{job.message}</p> : null}
               {job.downloadUrl ? (

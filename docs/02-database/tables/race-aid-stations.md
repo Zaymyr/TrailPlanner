@@ -1,9 +1,10 @@
 ---
 title: race_aid_stations Table
 scope: database
-last_verified: 2026-11-03
+last_verified: 2026-11-05
 ai_priority: high
 related_files:
+  - supabase/migrations/20261105082511_enrich_saintelyon_2026_formats.sql
   - supabase/migrations/20251220120000_add_race_catalog.sql
   - supabase/migrations/20260324000000_refactor_race_catalog_to_races.sql
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -89,6 +90,7 @@ Summary:
 
 ## Business Invariants
 
+- The 2026 SaintéLyon snapshot contains 34 structured course stations across the nine adult formats. The 160 km return-leg positions are derived from the organizer's published kilometer-82 turnaround and named return stations; SaintéTic and SaintéGones receive no synthetic course or finish station.
 - Race aid stations are source data, not per-plan state.
 - Parent race creation must first satisfy the required standalone series identity (`edition_group_id = races.id`, `series_name = races.name`) before inserting derived or manual stations.
 - Admin catalog image decoding completes before any GPX upload, parent-row insert, or station insert, so an invalid raster cannot leave partial race/station data.

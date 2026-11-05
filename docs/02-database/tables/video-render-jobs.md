@@ -40,3 +40,5 @@ Tracks background renders of the admin 3D reel. The render runs in a Google Clou
 ## Access
 
 RLS is enabled with no policy and every privilege is revoked from `anon` and `authenticated`: only the service role (admin routes, and render-page routes after their per-job token check) reads and writes rows. Status updates are guarded by the expected current status, so a finished job is never reopened.
+
+`started_at` and `finished_at` are returned by the admin job list to show each render's duration, and finished (`done`) jobs are counted per race for the video generator picker (`race-stats`).

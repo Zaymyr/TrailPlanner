@@ -29,11 +29,10 @@ type Gate<T> = { ok: true; value: T } | { ok: false; response: NextResponse };
 
 const NOT_CONFIGURED = "Rendu en arrière-plan non configuré (variables Google Cloud absentes).";
 
-/** Admin session plus the Supabase service role and the Google Cloud render configuration. */
-export const authorizeRenderAdmin = async (request: Request): Promise<Gate<{
+/** Admin session plus the Supabase service role (saved narrations, video stats). */
+export const authorizeVideoAdmin = async (request: Request): Promise<Gate<{
   userId: string;
   supabase: SupabaseServiceConfig;
-  config: VideoRenderConfig;
 }>> => {
   const anon = getSupabaseAnonConfig();
   const supabase = getSupabaseServiceConfig();
@@ -44,10 +43,20 @@ export const authorizeRenderAdmin = async (request: Request): Promise<Gate<{
   const user = await fetchSupabaseUser(token, anon);
   if (!user?.id) return { ok: false, response: renderJsonError("Invalid session.", 401) };
   if (!isAdminUser(user)) return { ok: false, response: renderJsonError("Not authorized.", 403) };
+  return { ok: true, value: { userId: user.id, supabase } };
+};
 
+/** Admin session plus the Supabase service role and the Google Cloud render configuration. */
+export const authorizeRenderAdmin = async (request: Request): Promise<Gate<{
+  userId: string;
+  supabase: SupabaseServiceConfig;
+  config: VideoRenderConfig;
+}>> => {
+  const gate = await authorizeVideoAdmin(request);
+  if (!gate.ok) return gate;
   const config = getVideoRenderConfig();
   if (!config) return { ok: false, response: renderJsonError(NOT_CONFIGURED, 503) };
-  return { ok: true, value: { userId: user.id, supabase, config } };
+  return { ok: true, value: { ...gate.value, config } };
 };
 
 /** The render page: a valid token for this very job, and the job itself. */

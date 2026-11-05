@@ -1647,6 +1647,7 @@
 | `catalog_race_updated_at_at_import` | `t` | ❌ | `` |
 | `plan_gpx_path` | `t` | ❌ | `` |
 | `plan_course_stats` | `j` | ✅ | `` |
+| `source_revision_at_last_review` | `t` | ❌ | `` |
 
 **Primary keys**
 - `race_plans_pkey` on (id)
@@ -1760,6 +1761,39 @@
 
 ---
 
+### Table `public.race_supporter_points`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `id` | `u` | ✅ | `` |
+| `race_id` | `u` | ✅ | `` |
+| `name` | `t` | ✅ | `` |
+| `km` | `n` | ❌ | `` |
+| `order_index` | `i` | ✅ | `` |
+| `encouragement_allowed` | `b` | ✅ | `` |
+| `assistance_allowed` | `b` | ✅ | `` |
+| `access_label` | `t` | ❌ | `` |
+| `latitude` | `d` | ❌ | `` |
+| `longitude` | `d` | ❌ | `` |
+| `google_maps_url` | `t` | ❌ | `` |
+| `access_note` | `t` | ❌ | `` |
+| `plan_url` | `t` | ❌ | `` |
+| `created_at` | `t` | ✅ | `` |
+| `updated_at` | `t` | ✅ | `` |
+| `access_on_course` | `b` | ✅ | `` |
+
+**Primary keys**
+- `race_supporter_points_pkey` on (id)
+
+**Foreign keys**
+- `race_supporter_points_race_id_fkey`: (race_id) → public.races(id)
+
+**RLS**: ❌ disabled
+
+---
+
 ### Table `public.racebook_gear_checks`
 
 **Columns**
@@ -1777,6 +1811,117 @@
 **Foreign keys**
 - `racebook_gear_checks_race_id_fkey`: (race_id) → public.races(id)
 - `racebook_gear_checks_user_id_fkey`: (user_id) → public.user_profiles(user_id)
+
+**RLS**: ❌ disabled
+
+---
+
+### Table `public.racebook_publication_asset_cleanup_queue`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `id` | `u` | ✅ | `` |
+| `storage_bucket` | `t` | ✅ | `` |
+| `storage_path` | `t` | ✅ | `` |
+| `status` | `t` | ✅ | `` |
+| `attempt_count` | `i` | ✅ | `` |
+| `available_at` | `t` | ✅ | `` |
+| `last_attempt_at` | `t` | ❌ | `` |
+| `last_error` | `t` | ❌ | `` |
+| `created_at` | `t` | ✅ | `` |
+| `completed_at` | `t` | ❌ | `` |
+
+**Primary keys**
+- `racebook_publication_asset_cleanup_queue_pkey` on (id)
+
+**RLS**: ❌ disabled
+
+---
+
+### Table `public.racebook_publication_assets`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `id` | `u` | ✅ | `` |
+| `publication_id` | `u` | ✅ | `` |
+| `asset_type` | `t` | ✅ | `` |
+| `storage_bucket` | `t` | ❌ | `` |
+| `storage_path` | `t` | ❌ | `` |
+| `public_url` | `t` | ❌ | `` |
+| `created_at` | `t` | ✅ | `` |
+
+**Primary keys**
+- `racebook_publication_assets_pkey` on (id)
+
+**Foreign keys**
+- `racebook_publication_assets_publication_id_fkey`: (publication_id) → public.racebook_publications(id)
+
+**RLS**: ❌ disabled
+
+---
+
+### Table `public.racebook_publication_states`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `race_id` | `u` | ✅ | `` |
+| `event_id` | `u` | ✅ | `` |
+| `edition_id` | `u` | ✅ | `` |
+| `draft_revision` | `b` | ✅ | `` |
+| `current_publication_id` | `u` | ❌ | `` |
+| `published_source_revision` | `b` | ❌ | `` |
+| `last_published_at` | `t` | ❌ | `` |
+| `last_published_by` | `u` | ❌ | `` |
+| `created_at` | `t` | ✅ | `` |
+| `updated_at` | `t` | ✅ | `` |
+
+**Primary keys**
+- `racebook_publication_states_pkey` on (race_id)
+
+**Foreign keys**
+- `racebook_publication_states_current_publication_fkey`: (current_publication_id, race_id, event_id, edition_id) → public.racebook_publications(id, race_id, event_id, edition_id)
+- `racebook_publication_states_edition_id_fkey`: (edition_id) → public.race_event_editions(id)
+- `racebook_publication_states_event_id_fkey`: (event_id) → public.race_events(id)
+- `racebook_publication_states_last_published_by_fkey`: (last_published_by) → auth.users(id)
+- `racebook_publication_states_race_id_fkey`: (race_id) → public.races(id)
+
+**RLS**: ❌ disabled
+
+---
+
+### Table `public.racebook_publications`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `id` | `u` | ✅ | `` |
+| `race_id` | `u` | ✅ | `` |
+| `event_id` | `u` | ✅ | `` |
+| `edition_id` | `u` | ✅ | `` |
+| `version` | `i` | ✅ | `` |
+| `schema_version` | `i` | ✅ | `` |
+| `content` | `j` | ✅ | `` |
+| `content_hash` | `t` | ✅ | `` |
+| `source_draft_revision` | `b` | ✅ | `` |
+| `published_by` | `u` | ❌ | `` |
+| `published_at` | `t` | ✅ | `` |
+| `restored_from_publication_id` | `u` | ❌ | `` |
+
+**Primary keys**
+- `racebook_publications_pkey` on (id)
+
+**Foreign keys**
+- `racebook_publications_edition_id_fkey`: (edition_id) → public.race_event_editions(id)
+- `racebook_publications_event_id_fkey`: (event_id) → public.race_events(id)
+- `racebook_publications_published_by_fkey`: (published_by) → auth.users(id)
+- `racebook_publications_race_id_fkey`: (race_id) → public.races(id)
 
 **RLS**: ❌ disabled
 
@@ -1836,6 +1981,7 @@
 | `participation_mode` | `t` | ❌ | `` |
 | `racebook_preview_is_visible` | `b` | ✅ | `` |
 | `web_catalog_is_live` | `b` | ✅ | `` |
+| `plan_source_updated_at` | `t` | ✅ | `` |
 
 **Primary keys**
 - `race_catalog_pkey` on (id)
@@ -1866,6 +2012,300 @@
 
 **Primary keys**
 - `rate_limit_entries_pkey` on (key)
+
+**RLS**: ❌ disabled
+
+---
+
+### Table `public.runner_admin_access_modes`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `session_id` | `u` | ✅ | `` |
+| `user_id` | `u` | ✅ | `` |
+| `mode` | `t` | ✅ | `` |
+| `updated_at` | `t` | ✅ | `` |
+
+**Primary keys**
+- `runner_admin_access_modes_pkey` on (session_id)
+
+**Foreign keys**
+- `runner_admin_access_modes_user_id_fkey`: (user_id) → auth.users(id)
+
+**RLS**: ❌ disabled
+
+---
+
+### Table `public.runner_billing_events`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `id` | `u` | ✅ | `` |
+| `provider` | `t` | ✅ | `` |
+| `provider_event_id` | `t` | ✅ | `` |
+| `event_type` | `t` | ✅ | `` |
+| `payload` | `j` | ✅ | `` |
+| `received_at` | `t` | ✅ | `` |
+| `transaction_id` | `t` | ❌ | `` |
+| `transaction_status` | `t` | ❌ | `` |
+| `event_at` | `t` | ✅ | `` |
+| `processed_at` | `t` | ❌ | `` |
+| `processing_error` | `t` | ❌ | `` |
+
+**Primary keys**
+- `runner_billing_events_pkey` on (id)
+
+**RLS**: ❌ disabled
+
+---
+
+### Table `public.runner_launch_cohorts`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `user_id` | `u` | ✅ | `` |
+| `early_supporter` | `b` | ✅ | `` |
+| `created_at` | `t` | ✅ | `` |
+
+**Primary keys**
+- `runner_launch_cohorts_pkey` on (user_id)
+
+**Foreign keys**
+- `runner_launch_cohorts_user_id_fkey`: (user_id) → auth.users(id)
+
+**RLS**: ❌ disabled
+
+---
+
+### Table `public.runner_launch_grandfathered_plans`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `plan_id` | `u` | ✅ | `` |
+| `user_id` | `u` | ✅ | `` |
+| `grandfathered_at` | `t` | ✅ | `` |
+| `created_at` | `t` | ✅ | `` |
+
+**Primary keys**
+- `runner_launch_grandfathered_plans_pkey` on (plan_id)
+
+**Foreign keys**
+- `runner_launch_grandfathered_plans_plan_id_fkey`: (plan_id) → public.race_plans(id)
+- `runner_launch_grandfathered_plans_user_id_fkey`: (user_id) → auth.users(id)
+
+**RLS**: ❌ disabled
+
+---
+
+### Table `public.runner_monetization_config`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `id` | `b` | ✅ | `` |
+| `monetization_enabled` | `b` | ✅ | `` |
+| `updated_at` | `t` | ✅ | `` |
+| `launched_at` | `t` | ❌ | `` |
+| `launch_popup_ends_at` | `t` | ❌ | `` |
+
+**Primary keys**
+- `runner_monetization_config_pkey` on (id)
+
+**RLS**: ❌ disabled
+
+---
+
+### Table `public.runner_plan_history`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `plan_id` | `u` | ✅ | `` |
+| `user_id` | `u` | ✅ | `` |
+| `plan_key` | `t` | ✅ | `` |
+| `detailed_access_granted` | `b` | ✅ | `` |
+| `created_at` | `t` | ✅ | `` |
+
+**Primary keys**
+- `runner_plan_history_pkey` on (plan_id)
+
+**Foreign keys**
+- `runner_plan_history_plan_id_fkey`: (plan_id) → public.race_plans(id)
+- `runner_plan_history_user_id_fkey`: (user_id) → auth.users(id)
+
+**RLS**: ❌ disabled
+
+---
+
+### Table `public.runner_plan_unlocks`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `id` | `u` | ✅ | `` |
+| `user_id` | `u` | ✅ | `` |
+| `plan_key` | `t` | ✅ | `` |
+| `plan_id` | `u` | ❌ | `` |
+| `provider` | `t` | ✅ | `` |
+| `provider_transaction_id` | `t` | ❌ | `` |
+| `status` | `t` | ✅ | `` |
+| `purchased_at` | `t` | ✅ | `` |
+| `created_at` | `t` | ✅ | `` |
+| `updated_at` | `t` | ✅ | `` |
+
+**Primary keys**
+- `runner_plan_unlocks_pkey` on (id)
+
+**Foreign keys**
+- `runner_plan_unlocks_plan_id_fkey`: (plan_id) → public.race_plans(id)
+- `runner_plan_unlocks_user_id_fkey`: (user_id) → auth.users(id)
+
+**RLS**: ❌ disabled
+
+---
+
+### Table `public.runner_purchase_intents`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `id` | `u` | ✅ | `` |
+| `user_id` | `u` | ✅ | `` |
+| `plan_key` | `t` | ✅ | `` |
+| `plan_id` | `u` | ❌ | `` |
+| `provider` | `t` | ✅ | `` |
+| `status` | `t` | ✅ | `` |
+| `created_at` | `t` | ✅ | `` |
+| `fulfilled_at` | `t` | ❌ | `` |
+| `product_id` | `t` | ❌ | `` |
+| `transaction_id` | `t` | ❌ | `` |
+| `expires_at` | `t` | ✅ | `` |
+| `last_verified_at` | `t` | ❌ | `` |
+| `failure_reason` | `t` | ❌ | `` |
+| `store_started_at` | `t` | ❌ | `` |
+
+**Primary keys**
+- `runner_purchase_intents_pkey` on (id)
+
+**Foreign keys**
+- `runner_purchase_intents_plan_id_fkey`: (plan_id) → public.race_plans(id)
+- `runner_purchase_intents_user_id_fkey`: (user_id) → auth.users(id)
+
+**RLS**: ❌ disabled
+
+---
+
+### Table `public.runner_subscription_accounts`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `id` | `u` | ✅ | `` |
+| `user_id` | `u` | ✅ | `` |
+| `provider` | `t` | ✅ | `` |
+| `provider_subscription_id` | `t` | ✅ | `` |
+| `status` | `t` | ✅ | `` |
+| `current_period_end` | `t` | ❌ | `` |
+| `created_at` | `t` | ✅ | `` |
+| `updated_at` | `t` | ✅ | `` |
+
+**Primary keys**
+- `runner_subscription_accounts_pkey` on (id)
+
+**Foreign keys**
+- `runner_subscription_accounts_user_id_fkey`: (user_id) → auth.users(id)
+
+**RLS**: ❌ disabled
+
+---
+
+### Table `public.runner_support_events`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `id` | `u` | ✅ | `` |
+| `user_id` | `u` | ✅ | `` |
+| `provider` | `t` | ✅ | `` |
+| `provider_event_id` | `t` | ✅ | `` |
+| `product_id` | `t` | ✅ | `` |
+| `transaction_id` | `t` | ✅ | `` |
+| `transaction_status` | `t` | ✅ | `` |
+| `event_at` | `t` | ✅ | `` |
+| `created_at` | `t` | ✅ | `` |
+
+**Primary keys**
+- `runner_support_events_pkey` on (id)
+
+**Foreign keys**
+- `runner_support_events_user_id_fkey`: (user_id) → auth.users(id)
+
+**RLS**: ❌ disabled
+
+---
+
+### Table `public.runner_support_purchase_intents`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `id` | `u` | ✅ | `` |
+| `user_id` | `u` | ✅ | `` |
+| `provider` | `t` | ✅ | `` |
+| `product_id` | `t` | ✅ | `` |
+| `status` | `t` | ✅ | `` |
+| `transaction_id` | `t` | ❌ | `` |
+| `expires_at` | `t` | ✅ | `` |
+| `created_at` | `t` | ✅ | `` |
+| `updated_at` | `t` | ✅ | `` |
+
+**Primary keys**
+- `runner_support_purchase_intents_pkey` on (id)
+
+**Foreign keys**
+- `runner_support_purchase_intents_user_id_fkey`: (user_id) → auth.users(id)
+
+**RLS**: ❌ disabled
+
+---
+
+### Table `public.runner_support_purchases`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `id` | `u` | ✅ | `` |
+| `user_id` | `u` | ✅ | `` |
+| `provider` | `t` | ✅ | `` |
+| `product_id` | `t` | ✅ | `` |
+| `transaction_id` | `t` | ✅ | `` |
+| `status` | `t` | ✅ | `` |
+| `purchased_at` | `t` | ✅ | `` |
+| `latest_event_at` | `t` | ✅ | `` |
+| `created_at` | `t` | ✅ | `` |
+| `updated_at` | `t` | ✅ | `` |
+
+**Primary keys**
+- `runner_support_purchases_pkey` on (id)
+
+**Foreign keys**
+- `runner_support_purchases_user_id_fkey`: (user_id) → auth.users(id)
 
 **RLS**: ❌ disabled
 
@@ -1983,6 +2423,39 @@
 
 ---
 
+### Table `public.video_render_jobs`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `id` | `u` | ✅ | `` |
+| `race_id` | `u` | ✅ | `` |
+| `race_title` | `t` | ✅ | `` |
+| `status` | `t` | ✅ | `` |
+| `progress` | `r` | ✅ | `` |
+| `message` | `t` | ❌ | `` |
+| `width` | `i` | ✅ | `` |
+| `height` | `i` | ✅ | `` |
+| `output_size_bytes` | `b` | ❌ | `` |
+| `cloud_run_execution` | `t` | ❌ | `` |
+| `created_by` | `u` | ❌ | `` |
+| `created_at` | `t` | ✅ | `` |
+| `updated_at` | `t` | ✅ | `` |
+| `started_at` | `t` | ❌ | `` |
+| `finished_at` | `t` | ❌ | `` |
+
+**Primary keys**
+- `video_render_jobs_pkey` on (id)
+
+**Foreign keys**
+- `video_render_jobs_created_by_fkey`: (created_by) → auth.users(id)
+- `video_render_jobs_race_id_fkey`: (race_id) → public.races(id)
+
+**RLS**: ❌ disabled
+
+---
+
 ## Schema `realtime`
 
 ### Table `realtime.messages`
@@ -2050,6 +2523,36 @@
 
 ## Schema `storage`
 
+### Table `storage.bucket_lifecycle_states`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `bucket_id` | `t` | ✅ | `` |
+| `generation` | `u` | ❌ | `` |
+| `next_run_at` | `t` | ❌ | `` |
+| `claim_id` | `u` | ❌ | `` |
+| `claim_until` | `t` | ❌ | `` |
+| `continuation` | `j` | ❌ | `` |
+| `last_started_at` | `t` | ❌ | `` |
+| `last_completed_at` | `t` | ❌ | `` |
+| `last_success_at` | `t` | ❌ | `` |
+| `last_result` | `j` | ❌ | `` |
+| `failure_count` | `i` | ✅ | `` |
+| `last_error` | `j` | ❌ | `` |
+| `updated_at` | `t` | ✅ | `` |
+
+**Primary keys**
+- `bucket_lifecycle_states_pkey` on (bucket_id)
+
+**Foreign keys**
+- `bucket_lifecycle_states_bucket_id_fkey`: (bucket_id) → storage.buckets(id)
+
+**RLS**: ❌ disabled
+
+---
+
 ### Table `storage.buckets`
 
 **Columns**
@@ -2112,6 +2615,25 @@
 
 **Primary keys**
 - `buckets_vectors_pkey` on (id)
+
+**RLS**: ❌ disabled
+
+---
+
+### Table `storage.lifecycle_abandoned_artifacts`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `bucket_id` | `t` | ✅ | `` |
+| `key` | `t` | ✅ | `` |
+| `name` | `t` | ✅ | `` |
+| `version` | `t` | ❌ | `` |
+| `attempted_at` | `t` | ✅ | `` |
+
+**Primary keys**
+- `lifecycle_abandoned_artifacts_pkey` on (bucket_id, key)
 
 **RLS**: ❌ disabled
 

@@ -7,10 +7,12 @@ related_files:
   - supabase/migrations/20260915100443_add_generated_organizer_invoices.sql
   - supabase/tests/organizer_generated_invoice_checks.sql
   - supabase/migrations
+  - supabase/migrations/20261105082511_enrich_saintelyon_2026_formats.sql
   - supabase/migrations/20261103123918_racebook_versioned_publications.sql
   - supabase/tests/racebook_versioned_publications_checks.sql
   - supabase/migrations/20261104140000_add_video_render_jobs.sql
   - supabase/tests/video_render_jobs_checks.sql
+  - supabase/tests/video_narrations_checks.sql
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
@@ -59,7 +61,7 @@ Mobile catalog/RaceBook CTA wording, an existing-plan refine action, a read-only
 
 For column-only migrations on existing tables, use the relevant table doc plus [../02-database/migrations.md](../02-database/migrations.md) instead; do not create a new table doc unless a new primary table is introduced. Recent examples include organizer edition grouping on `races.edition_group_id` / `series_name`, the checked Plan/RaceBook onboarding statuses on `user_profiles`, sponsor hierarchy/contextual/aggregate-impression columns on the already service-only `race_event_edition_sponsors` table, and the RaceBook branding accent-default migration on `race_event_edition_branding`. A default-only change should preserve the table's existing RLS/grants and backfill only rows that can be identified as still carrying the former application defaults. Each still requires schema and business/auth-doc updates plus focused SQL checks for any new service-only RPC. `racebook_gear_checks` is the current owner-scoped table example, with explicit authenticated select/insert/delete grants and separate matching `auth.uid()` policies. `organizer_import_sessions` is the service-only workflow-state example: RLS remains enabled without client policies, every client grant is revoked, service-role grants are explicit, and a SQL check verifies both table and RPC privileges. `partner_link_settings` is the small global-configuration example: its natural key is allowlisted, seed rows remain disabled, and its SQL check proves the service-only privilege boundary.
 
-Data-only catalog/showcase/roadbook migrations are outside this new-table workflow. They must still be created with the migration CLI, remain idempotent, preserve existing RLS/grants, document any external Storage assets, and update the migration documentation. The Les Amaz’Eaunes 2026 final-roadbook synchronization and the 23 September 2026 canonical event-website backfill are current data-correction examples and add no table.
+Data-only catalog/showcase/roadbook migrations are outside this new-table workflow. They must still be created with the migration CLI, remain idempotent, preserve existing RLS/grants, document any external Storage assets, and update the migration documentation. The 2026 SaintéLyon enrichment is the current multi-format example: it updates existing rows, structured stations and relay points, and references verified GPX objects without adding a table. The Les Amaz’Eaunes 2026 final-roadbook synchronization and the 23 September 2026 canonical event-website backfill are other data-correction examples.
 
 A column-and-trigger migration on an existing table is outside this workflow too. For example, `20260923070437_separate_web_and_mobile_race_visibility.sql` adds a `races` visibility column while deliberately preserving existing client policies; verify that RLS decision, update the existing table documentation, and add a focused rollback SQL check instead.
 

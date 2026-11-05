@@ -12,6 +12,7 @@ related_files:
   - supabase/migrations
   - supabase/migrations/20261105115106_admin_user_notifications.sql
   - supabase/tests/admin_user_notifications_checks.sql
+  - supabase/migrations/20261105082511_enrich_saintelyon_2026_formats.sql
   - supabase/migrations/20261029155052_fix_supporter_point_replacement_ordinality.sql
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
   - supabase/migrations/20260930104930_remove_personal_race_creation.sql
@@ -29,6 +30,7 @@ related_files:
   - supabase/migrations/20261103124133_index_racebook_publication_foreign_keys.sql
   - supabase/migrations/20261103124538_cover_racebook_current_publication_foreign_key.sql
   - supabase/migrations/20261104140000_add_video_render_jobs.sql
+  - supabase/migrations/20261105160000_add_video_narrations.sql
   - supabase/tests/racebook_versioned_publications_checks.sql
   - supabase/migrations/20260821143417_add_organizer_imports_bucket.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
@@ -123,6 +125,8 @@ related_tables:
 
 `20261105115106_admin_user_notifications.sql` replaces the ambiguous race-request `approved` state with `completed`, adds review audit timestamps/actor, and introduces the owner-readable `user_notifications` inbox. A service-role-only invoker RPC commits a request status and its mandatory in-app message atomically. Explicit column grants expose only inbox content plus `read_at` updates; Resend/Expo delivery metadata remains server-only. `supabase/tests/admin_user_notifications_checks.sql` verifies constraints, indexes, grants, policies and RPC execution boundaries.
 
+`20261105082511_enrich_saintelyon_2026_formats.sql` reconciles the official 2026 SaintéLyon event and its ten formats without changing schema or RLS. It stores schedule, access and bib-pickup data in the existing structured organizer JSON, seeds 34 official course aid stations and six relay handovers, and attaches six verified GPX objects to the nine formats for which the organizer publishes a downloadable trace. SaintéGones keeps a null GPX because its official page exposes no downloadable file.
+
 `20261101120000_normalize_decathlon_product_brand_aliases.sql` extends the canonical product-brand function with Decathlon aliases and backfills only curated catalog rows. The pre-migration read-only review on 2026-11-01 found 187 visible active products and no current official row requiring an alias, null-brand, or uppercase-name correction. Production application remains maintainer-gated; user-owned products are never rewritten by this migration.
 
 `20261029090122_link_racebook_plans.sql` enforces one linked plan per `(user_id, race_id)` with a partial unique index. Before creating the index it keeps the most recently updated duplicate linked and safely detaches older duplicates by setting `race_id = null`; no plan content is deleted. `supabase/tests/race_plan_race_uniqueness_checks.sql` verifies the index columns, uniqueness, and null-only predicate.
@@ -140,6 +144,8 @@ related_tables:
 `20261103124538_cover_racebook_current_publication_foreign_key.sql` replaces the single-column current-publication index with a covering index matching its composite parent constraint.
 
 `20261104140000_add_video_render_jobs.sql` adds `video_render_jobs` (background reel renders on Google Cloud Run): status, progress, video size and timing, with covering indexes for its race and creator foreign keys, RLS on and service-role-only grants.
+
+`20261105160000_add_video_narrations.sql` adds `video_narrations` (the saved reel narration per race: settings, texts by beat id, voice choice, clip count) and the private Storage bucket `video-narrations` for the voice clips, RLS on with no policy and service-role-only grants.
 
 `20260907160043_add_structured_racebook_content.sql` adds normalized services, start waves and awards, their constraints/indexes/RLS, atomic replacement RPCs, and the `schedule.startTime` start-wave backfill.
 
