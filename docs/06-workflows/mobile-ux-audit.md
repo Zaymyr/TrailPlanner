@@ -161,3 +161,5 @@ The launch-polish audit covers personal-versus-official departure copy, wave sel
 - [Ship a Feature](ship-a-feature.md)
 - [Auth Flows](../04-auth-and-security/auth-flows.md)
 - [Design Tokens](../07-design-system/tokens.md)
+
+Notifications contact and delete: check that the "Nous écrire" card shows in the empty, error and loaded states, that each button opens the right form (bug preselected, feedback preselected, race request), that deleting asks for confirmation, removes the card, and lowers the unread badge when the message was unread, at normal and enlarged text sizes in French and English.

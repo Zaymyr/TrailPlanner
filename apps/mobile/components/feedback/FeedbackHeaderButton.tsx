@@ -18,18 +18,20 @@ import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
 import { supabase, supabaseInitError } from '../../lib/supabase';
 
-type FeedbackKind = 'bug' | 'feedback';
+export type FeedbackKind = 'bug' | 'feedback';
 
 type FeedbackHeaderButtonProps = {
   children?: (open: () => void) => ReactNode;
   contextLabel?: string;
+  /** Kind selected when the form opens (bug by default). */
+  initialKind?: FeedbackKind;
   leading?: ReactNode;
 };
 
-export function FeedbackHeaderButton({ children, contextLabel, leading }: FeedbackHeaderButtonProps) {
+export function FeedbackHeaderButton({ children, contextLabel, initialKind = 'bug', leading }: FeedbackHeaderButtonProps) {
   const { t } = useI18n();
   const [visible, setVisible] = useState(false);
-  const [kind, setKind] = useState<FeedbackKind>('bug');
+  const [kind, setKind] = useState<FeedbackKind>(initialKind);
   const [subject, setSubject] = useState('');
   const [detail, setDetail] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -47,7 +49,10 @@ export function FeedbackHeaderButton({ children, contextLabel, leading }: Feedba
     return lines.join('\n');
   }, [appVersion, contextLabel, t.feedback.screenLabel, t.feedback.sourceLabel]);
 
-  const handleOpen = () => setVisible(true);
+  const handleOpen = () => {
+    setKind(initialKind);
+    setVisible(true);
+  };
   const handleClose = () => {
     if (submitting) return;
     setVisible(false);
@@ -98,7 +103,7 @@ export function FeedbackHeaderButton({ children, contextLabel, leading }: Feedba
     setVisible(false);
     setSubject('');
     setDetail('');
-    setKind('bug');
+    setKind(initialKind);
     Alert.alert(t.feedback.successTitle, kind === 'bug' ? t.feedback.bugSent : t.feedback.feedbackSent);
   };
 

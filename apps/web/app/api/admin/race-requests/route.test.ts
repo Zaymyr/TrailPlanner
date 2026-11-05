@@ -9,7 +9,8 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock("../../../../lib/admin-user-notifications", () => ({
   deliverAdminUserNotification: mocks.deliver,
-  fetchAdminAuthUser: vi.fn(),
+  loadAdminUserIdentities: vi.fn(),
+  loadLatestReplies: vi.fn(),
   reviewRaceRequestWithNotification: mocks.review,
 }));
 vi.mock("../../../../lib/http", async () => {

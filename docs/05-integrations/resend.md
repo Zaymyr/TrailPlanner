@@ -168,3 +168,5 @@ For future Broadcast creation and dashboard draft updates, use [Resend Broadcast
 The mobile root-layout guard for unsupported development-client OTA checks is independent from Resend contact synchronization and email delivery. It neither reads Resend configuration nor changes authenticated contact-sync behavior.
 
 The web package now also depends on `@mediabunny/aac-encoder` for the admin reel export; this integration is unaffected.
+
+Replies to bugs and feedback (`PATCH /api/admin/feedback` with a notification) follow the same contract: the in-app row is created first by `review_app_feedback_with_notification`, then the optional e-mail and push are delivered by `deliverAdminUserNotification` with the notification UUID as idempotency key. A status change without a notification sends nothing.

@@ -5,11 +5,12 @@ import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 
 import { Button } from "../../../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table";
+import { adminMessageBody, adminMessageTitle, handledRowClassName } from "./admin-message-template";
 import { AdminNotificationDialog, type AdminNotificationFormValue } from "./AdminNotificationDialog";
+import { AdminReplyStatus, adminReplySchema } from "./AdminReplyStatus";
 
 const statusSchema = z.enum(["pending", "completed", "rejected"]);
 type RequestStatus = z.infer<typeof statusSchema>;
@@ -25,6 +26,7 @@ const requestSchema = z.object({
   requestedDate: z.string(),
   status: statusSchema,
   reviewedAt: z.string().nullable(),
+  reply: adminReplySchema,
 });
 const responseSchema = z.object({
   requests: z.array(requestSchema),
@@ -43,26 +45,27 @@ const statusLabels: Record<RequestStatus, string> = {
   rejected: "Refusée",
 };
 
-const notificationCopy = (request: RaceRequest, status: RequestStatus) => {
+export const notificationCopy = (request: Pick<RaceRequest, "raceName" | "location">, status: RequestStatus) => {
   if (status === "completed") {
     return {
-      title: `Ta demande pour ${request.raceName} est terminée`,
-      body: `La course ${request.raceName} (${request.location}) a été traitée par l’équipe Pace Yourself.`,
+      title: adminMessageTitle(`Ta demande pour ${request.raceName} est terminée`),
+      body: adminMessageBody(`La course ${request.raceName} (${request.location}) a été traitée par l’équipe Pace Yourself.`),
     };
   }
   if (status === "rejected") {
     return {
-      title: `Mise à jour de ta demande pour ${request.raceName}`,
-      body: `Nous ne pouvons pas donner suite à la demande concernant ${request.raceName} pour le moment.`,
+      title: adminMessageTitle(`Mise à jour de ta demande pour ${request.raceName}`),
+      body: adminMessageBody(`Nous ne pouvons pas donner suite à la demande concernant ${request.raceName} pour le moment.`),
     };
   }
   return {
-    title: `Ta demande pour ${request.raceName} est à nouveau à traiter`,
-    body: `La demande concernant ${request.raceName} a été replacée dans la file de traitement.`,
+    title: adminMessageTitle(`Ta demande pour ${request.raceName} est à nouveau à traiter`),
+    body: adminMessageBody(`La demande concernant ${request.raceName} a été replacée dans la file de traitement.`),
   };
 };
 
-export function AdminRaceRequestsTab({ accessToken }: { accessToken: string | null }) {
+/** Race requests, shown as a sub-tab of the admin inbox (AdminMessagingTab). */
+export function AdminRaceRequestsTab({ accessToken, onChanged }: { accessToken: string | null; onChanged?: () => void }) {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<"all" | RequestStatus>("all");
   const [search, setSearch] = useState("");
@@ -112,6 +115,7 @@ export function AdminRaceRequestsTab({ accessToken }: { accessToken: string | nu
     setMessage(hasFailure ? "Statut modifié; au moins un canal externe n’a pas pu être livré." : "Statut et notification enregistrés.");
     setDialog(null);
     await query.refetch();
+    onChanged?.();
   };
 
   const rows = query.data?.requests ?? [];
@@ -119,11 +123,7 @@ export function AdminRaceRequestsTab({ accessToken }: { accessToken: string | nu
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <CardTitle>Demandes de course</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <div className="space-y-4">
           <div className="grid gap-3 md:grid-cols-[1fr_220px]">
             <div className="space-y-1">
               <Label htmlFor="race-request-search">Course ou lieu</Label>
@@ -159,8 +159,8 @@ export function AdminRaceRequestsTab({ accessToken }: { accessToken: string | nu
                 </TableRow></TableHeader>
                 <TableBody>
                   {rows.map((request) => (
-                    <TableRow key={request.id}>
-                      <TableCell><div className="font-semibold">{request.raceName}</div><div className="text-xs text-muted-foreground">{request.location}</div></TableCell>
+                    <TableRow key={request.id} className={handledRowClassName(request.status)}>
+                      <TableCell><div className="font-semibold">{request.raceName}</div><div className="text-xs text-muted-foreground">{request.location}</div><AdminReplyStatus reply={request.reply} /></TableCell>
                       <TableCell><div>{request.userName || "—"}</div><div className="text-xs text-muted-foreground">{request.userEmail || request.userId}</div></TableCell>
                       <TableCell>{new Intl.DateTimeFormat("fr-FR").format(new Date(`${request.requestedDate}T12:00:00`))}</TableCell>
                       <TableCell>{statusLabels[request.status]}</TableCell>
@@ -186,8 +186,7 @@ export function AdminRaceRequestsTab({ accessToken }: { accessToken: string | nu
               <Button variant="outline" onClick={() => setPage((current) => Math.min(pagination.totalPages, current + 1))} disabled={page >= pagination.totalPages}>Suivant</Button>
             </div>
           ) : null}
-        </CardContent>
-      </Card>
+      </div>
       <AdminNotificationDialog
         open={Boolean(dialog)}
         recipient={dialog?.request.userEmail ?? dialog?.request.userId ?? ""}

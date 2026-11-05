@@ -19,10 +19,12 @@ export const adminUserNotificationRowSchema = z.object({
   user_id: z.string().uuid(),
   created_by: z.string().uuid().nullable().optional(),
   race_request_id: z.coerce.number().int().positive().nullable().optional(),
+  feedback_id: z.coerce.number().int().positive().nullable().optional(),
   kind: adminNotificationKindSchema,
   title: z.string(),
   body: z.string(),
   read_at: z.string().nullable().optional(),
+  deleted_at: z.string().nullable().optional(),
   email_requested: z.boolean(),
   email_status: adminNotificationDeliveryStatusSchema,
   email_provider_id: z.string().nullable().optional(),
@@ -58,6 +60,70 @@ export async function fetchAdminAuthUser(
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(`Unable to load Auth user (${response.status}).`);
   return authUserSchema.parse(await response.json());
+}
+
+/** Display name (user_profiles) and Auth email of each user, for the admin inbox lists. */
+export async function loadAdminUserIdentities(serviceConfig: SupabaseServiceConfig, userIds: string[]) {
+  const ids = [...new Set(userIds)];
+  if (ids.length === 0) return { names: new Map<string, string | null>(), emails: new Map<string, string | null>() };
+  const profileParams = new URLSearchParams({ select: "user_id,full_name", user_id: `in.(${ids.join(",")})` });
+  const [profiles, authUsers] = await Promise.all([
+    fetch(`${serviceConfig.supabaseUrl}/rest/v1/user_profiles?${profileParams.toString()}`, {
+      headers: serviceHeaders(serviceConfig, ""),
+      cache: "no-store",
+    }).then(async (response) => (response.ok ? response.json() : [])) as Promise<Array<{ user_id: string; full_name: string | null }>>,
+    Promise.all(ids.map((userId) => fetchAdminAuthUser(serviceConfig, userId).catch(() => null))),
+  ]);
+  return {
+    names: new Map(profiles.map((profile) => [profile.user_id, profile.full_name])),
+    emails: new Map(authUsers.filter((user): user is NonNullable<typeof user> => Boolean(user)).map((user) => [user.id, user.email ?? null])),
+  };
+}
+
+const latestReplyRowSchema = z.object({
+  feedback_id: z.coerce.number().int().positive().nullable().optional(),
+  race_request_id: z.coerce.number().int().positive().nullable().optional(),
+  title: z.string(),
+  body: z.string(),
+  created_at: z.string(),
+  read_at: z.string().nullable(),
+  deleted_at: z.string().nullable(),
+});
+
+export type AdminLatestReply = {
+  title: string;
+  body: string;
+  sentAt: string;
+  readAt: string | null;
+  deletedAt: string | null;
+};
+
+/** The last message sent about each bug, feedback or race request, with its read and deletion state. */
+export async function loadLatestReplies(
+  serviceConfig: SupabaseServiceConfig,
+  column: "feedback_id" | "race_request_id",
+  ids: number[]
+): Promise<Map<number, AdminLatestReply>> {
+  const replies = new Map<number, AdminLatestReply>();
+  if (ids.length === 0) return replies;
+  const params = new URLSearchParams({
+    select: `${column},title,body,created_at,read_at,deleted_at`,
+    [column]: `in.(${[...new Set(ids)].join(",")})`,
+    order: "created_at.desc",
+  });
+  const response = await fetch(`${serviceConfig.supabaseUrl}/rest/v1/user_notifications?${params.toString()}`, {
+    headers: serviceHeaders(serviceConfig, ""),
+    cache: "no-store",
+  });
+  if (!response.ok) return replies;
+  const parsed = z.array(latestReplyRowSchema).safeParse(await response.json().catch(() => null));
+  if (!parsed.success) return replies;
+  for (const row of parsed.data) {
+    const id = row[column];
+    if (!id || replies.has(id)) continue;
+    replies.set(id, { title: row.title, body: row.body, sentAt: row.created_at, readAt: row.read_at, deletedAt: row.deleted_at });
+  }
+  return replies;
 }
 
 export async function insertAdminUserNotification(
@@ -143,6 +209,37 @@ export async function reviewRaceRequestWithNotification(
     }),
   });
   if (!response.ok) throw new Error(`Unable to review race request: ${await response.text()}`);
+  return parseNotification(await response.json());
+}
+
+export async function reviewAppFeedbackWithNotification(
+  serviceConfig: SupabaseServiceConfig,
+  input: {
+    feedbackId: number;
+    adminId: string;
+    status: "pending" | "completed" | "rejected";
+    notificationId: string;
+    title: string;
+    body: string;
+    emailRequested: boolean;
+    pushRequested: boolean;
+  }
+): Promise<AdminUserNotificationRow> {
+  const response = await fetch(`${serviceConfig.supabaseUrl}/rest/v1/rpc/review_app_feedback_with_notification`, {
+    method: "POST",
+    headers: serviceHeaders(serviceConfig),
+    body: JSON.stringify({
+      p_feedback_id: input.feedbackId,
+      p_admin_id: input.adminId,
+      p_status: input.status,
+      p_notification_id: input.notificationId,
+      p_title: input.title,
+      p_body: input.body,
+      p_email_requested: input.emailRequested,
+      p_push_requested: input.pushRequested,
+    }),
+  });
+  if (!response.ok) throw new Error(`Unable to review feedback: ${await response.text()}`);
   return parseNotification(await response.json());
 }
 

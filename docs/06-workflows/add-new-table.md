@@ -4,6 +4,8 @@ scope: workflow
 last_verified: 2026-11-05
 ai_priority: high
 related_files:
+  - supabase/migrations/20261105180000_add_app_feedback_review.sql
+  - supabase/tests/app_feedback_review_checks.sql
   - supabase/migrations/20260915100443_add_generated_organizer_invoices.sql
   - supabase/tests/organizer_generated_invoice_checks.sql
   - supabase/migrations
@@ -151,3 +153,5 @@ The `race_supporter_points` addition follows this workflow: cascade ownership by
 RaceBook lot 6 is explicitly not a database task: localized display formatting, failed-image fallback, locked official-field presentation, checklist colors, hero measurement, and development-client OTA guards require no migration, table, grant, or policy.
 
 `video_render_jobs` (background reel renders) follows the service-role-only pattern: RLS on, no policy, every privilege revoked from `anon` and `authenticated`, covering indexes on its foreign keys, and `supabase/tests/video_render_jobs_checks.sql` asserting the grants.
+
+Changing an existing client-writable table follows the same discipline: `20261105180000_add_app_feedback_review.sql` replaces the legacy `GRANT ALL` on `app_feedback` with a column-scoped INSERT for `authenticated`, so new server-managed columns (`status`, `reviewed_by`) cannot be set by clients, and lets owners update only `user_notifications.deleted_at` (soft delete) rather than granting DELETE.

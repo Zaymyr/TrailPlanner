@@ -22,6 +22,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { useI18n } from "../../i18n-provider";
 import { adminGrowthResponseSchema } from "../../api/admin/growth/schema";
 import AdminTrendChart from "../components/AdminTrendChart";
+import { adminMessageBody } from "./admin-message-template";
 import { AdminNotificationDialog, type AdminNotificationFormValue } from "./AdminNotificationDialog";
 import {
   AdminUser,
@@ -929,6 +930,7 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
       <AdminNotificationDialog
         open={Boolean(notificationDialogUser)}
         recipient={notificationDialogUser?.email ?? notificationDialogUser?.id ?? ""}
+        initialBody={adminMessageBody()}
         onOpenChange={(open) => !open && setNotificationDialogUser(null)}
         onSubmit={sendUserNotification}
       />

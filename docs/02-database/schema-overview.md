@@ -4,6 +4,8 @@ scope: database
 last_verified: 2026-11-05
 ai_priority: high
 related_files:
+  - supabase/migrations/20261105180000_add_app_feedback_review.sql
+  - supabase/tests/app_feedback_review_checks.sql
   - supabase/migrations
   - supabase/migrations/20261105115106_admin_user_notifications.sql
   - supabase/tests/admin_user_notifications_checks.sql
@@ -125,6 +127,8 @@ related_tables:
 
 # Schema Overview
 
+Bugs and feedback (`app_feedback`) now share the race-request review lifecycle; an admin reply is a `user_notifications` row linked by `feedback_id`, created atomically with the status by a service-role RPC. Runners hide a message with `deleted_at` instead of deleting it, so the admin keeps the reply and its read and deletion state.
+
 Admin-to-runner messaging now uses owner-readable `user_notifications`. Race-request reviews atomically update `race_requests` and insert the mandatory in-app message; optional Resend and Expo delivery state stays server-managed. Authenticated clients receive explicit safe-column reads and `read_at`-only updates, while the review RPC remains service-role-only.
 
 The 2026 SaintéLyon catalog snapshot uses the existing event, edition, format, aid-station and relay-point contracts: ten formats, 34 structured course aid stations, six relay handovers, and six official GPX objects shared across nine formats. SaintéGones deliberately has no GPX because no downloadable official trace exists. This data-only migration adds no schema, grant, policy, or publication-state change.
@@ -189,7 +193,7 @@ The November 2026 mobile plan-flow polish changes catalog search controls, image
 
 | Table | Purpose |
 | --- | --- |
-| `app_feedback` | Feedback submitted from app surfaces; later migrations add user and tracking fields. |
+| `app_feedback` | Bug reports and feedback from app surfaces, with an admin review status (`pending`/`completed`/`rejected`). See [app_feedback](tables/app-feedback.md). |
 | `affiliate_offers` | Merchant offer links attached to `products`. |
 | `partner_link_settings` | Service-managed normal and affiliate destinations for global Booking and Decathlon CTAs. |
 | `racebook_publication_states` | Per-format draft revision and current immutable publication pointer. |

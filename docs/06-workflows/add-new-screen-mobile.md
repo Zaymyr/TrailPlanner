@@ -274,3 +274,5 @@ RaceBook GPX cards must also honor normalized `gpxDisplay` route/profile choices
 ## Race workspace presentation checks
 
 For RaceBook or plan-workspace changes, verify two-line hero titles at 100% and 130% text scaling, 44-point increment/decrement targets, content clearance below sticky selectors, localized distance/range/clock output, and image-error fallback without an empty rail. Keep the Livret/Plan switch as the sole plan entry control on RaceBook; a saved plan may show a revision warning, but must not add a duplicate creation card.
+
+- Inbox actions: the Notifications sub-tab reuses `FeedbackHeaderButton` (`initialKind`) and `RaceRequestHeaderButton` through their render-prop `children` instead of new forms, and deletes a message by hiding it (`deleted_at`), never with a client DELETE.

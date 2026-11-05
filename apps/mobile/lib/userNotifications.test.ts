@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   mergeUserNotificationPages,
+  removeUserNotification,
   setNotificationsRead,
   shouldOpenNotificationsTab,
   shouldShowProfileAttentionDot,
@@ -18,6 +19,7 @@ function notification(
     id,
     userId: 'user-1',
     raceRequestId: null,
+    feedbackId: null,
     kind: 'admin_message',
     title: `Title ${id}`,
     body: `Body ${id}`,
@@ -27,6 +29,11 @@ function notification(
 }
 
 describe('user notification collection helpers', () => {
+  it('drops a deleted message from the inbox list', () => {
+    const list = [notification('a', '2026-11-05T10:00:00.000Z'), notification('b', '2026-11-04T10:00:00.000Z')];
+    expect(removeUserNotification(list, 'a').map((item) => item.id)).toEqual(['b']);
+  });
+
   it('merges paginated results without duplicates and keeps newest first', () => {
     const result = mergeUserNotificationPages(
       [notification('older', '2026-11-01T10:00:00.000Z')],
