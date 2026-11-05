@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import { VideoGeneratorMap, type VideoRenderHooks } from "../../../admin/video-generator/VideoGeneratorMap";
+import { getExportFrame, overrideDevicePixelRatio } from "../../../admin/video-generator/export-frame";
 import { parseRenderSnapshot, type VideoRenderSnapshot } from "../../../admin/video-generator/render-snapshot";
 
 /** State read by the headless renderer (Playwright polls it). */
@@ -61,7 +62,13 @@ export function RenderVideoClient({ jobId }: { jobId: string }) {
       uploadUrlRef.current = outputUploadUrl;
       const input = await fetch(inputUrl, { cache: "no-store", signal: controller.signal });
       if (!input.ok) throw new Error(`Composition illisible (${input.status}).`);
-      setSnapshot(parseRenderSnapshot(await input.json()));
+      const parsed = parseRenderSnapshot(await input.json());
+      // The map renders at the video resolution inside a frame of the editor preview's size; the
+      // ratio is forced before the map exists so its first tiles already load at that density.
+      const params = new URLSearchParams(window.location.search);
+      const video = { width: Number(params.get("w")) || 1080, height: Number(params.get("h")) || 1920 };
+      overrideDevicePixelRatio(getExportFrame(video, parsed.previewSize).pixelRatio);
+      setSnapshot(parsed);
       setStatus({ status: "rendering" });
     })().catch((loadError: unknown) => {
       if (controller.signal.aborted) return;

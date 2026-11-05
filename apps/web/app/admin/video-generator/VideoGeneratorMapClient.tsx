@@ -13,6 +13,7 @@ import { savedNarrationResponseSchema } from "../../../lib/video-narrations";
 import { instagramCaptionResponseSchema, NARRATION_STYLE_LABELS, narrationScriptResponseSchema, narrationVoiceResponseSchema } from "../../../lib/video-narration";
 import { InstagramPanel } from "./InstagramPanel";
 import { ExportPanel, type ExportState } from "./ExportPanel";
+import { getExportFrame, overrideDevicePixelRatio } from "./export-frame";
 import { exportVideo } from "./video-export";
 import { AnimationControls } from "./AnimationControls";
 import {
@@ -990,8 +991,15 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     }
   };
 
-  // MP4 export: the preview frame is laid out at the exact video size (scaled down on screen),
-  // then every frame is rendered, waited for and captured.
+  /** CSS size of the preview frame (inside its border), while it is not laid out for an export. */
+  const measurePreviewFrame = () => {
+    const frame = frameRef.current;
+    return frame && !exportLayout ? { width: frame.clientWidth, height: frame.clientHeight } : null;
+  };
+
+  // MP4 export: the frame keeps the preview's CSS size (so the camera, the map details and the
+  // bubbles match the preview) while the map renders at the video resolution; then every frame is
+  // rendered, waited for and captured at the video size.
   const startExport = async () => {
     const map = mapRef.current;
     if (!map || !isReady || exportAbortRef.current) return;
@@ -999,18 +1007,17 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     narrationPlayerRef.current?.stop();
     const base = VIDEO_RESOLUTIONS[settings.resolution];
     const size = settings.viewport === "portrait" ? base : { width: base.height, height: base.width };
-    // The background renderer opens a window of the exact video size.
-    const scale = render ? 1 : Math.min(1, Math.max(0.15, (window.innerHeight - 224) / size.height));
+    const frame = getExportFrame(size, render ? renderSnapshot?.previewSize : measurePreviewFrame());
+    // The background render page already forces the ratio before creating the map.
+    const restorePixelRatio = render ? null : overrideDevicePixelRatio(frame.pixelRatio);
     if (exportState.status === "done") URL.revokeObjectURL(exportState.url);
     const controller = new AbortController();
     exportAbortRef.current = controller;
     setExportState({ status: "running" });
-    setExportLayout({ ...size, scale });
+    setExportLayout({ width: frame.width, height: frame.height, scale: 1 });
     let lastProgressAt = 0;
     try {
       await waitMs(80);
-      // One CSS pixel per video pixel; on a high-density screen the map canvas is larger and is
-      // scaled down to the video size when composited.
       map.resize();
       await waitForMapIdle(map, 10_000);
       const blob = await exportVideo({
@@ -1051,6 +1058,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       else setExportState({ status: "error", message });
     } finally {
       exportAbortRef.current = null;
+      restorePixelRatio?.();
       setExportLayout(null);
       window.requestAnimationFrame(() => {
         map.resize();
@@ -1137,6 +1145,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     landmarks,
     placeNames: endpointNames,
     voiceClips: freshClips,
+    previewSize: measurePreviewFrame(),
   });
 
   useEffect(() => {
