@@ -71,6 +71,7 @@ export function AdminRaceRequestsTab({ accessToken, onChanged }: { accessToken: 
   const [search, setSearch] = useState("");
   const [dialog, setDialog] = useState<{ request: RaceRequest; status: RequestStatus } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const query = useQuery({
     queryKey: ["admin", "race-requests", accessToken, page, status, search],
@@ -118,6 +119,25 @@ export function AdminRaceRequestsTab({ accessToken, onChanged }: { accessToken: 
     onChanged?.();
   };
 
+  // "Clôturer": completed in one click, no message to the runner.
+  const closeSilently = async (request: RaceRequest) => {
+    if (!accessToken) return;
+    setError(null);
+    const response = await fetch("/api/admin/race-requests", {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ requestId: request.id, status: "completed", silent: true }),
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      setError(payload?.message ?? "Impossible de clôturer la demande.");
+      return;
+    }
+    setMessage(`Demande pour ${request.raceName} clôturée sans message.`);
+    await query.refetch();
+    onChanged?.();
+  };
+
   const rows = query.data?.requests ?? [];
   const pagination = query.data?.pagination;
 
@@ -148,6 +168,7 @@ export function AdminRaceRequestsTab({ accessToken, onChanged }: { accessToken: 
             </div>
           </div>
           {message ? <p role="status" className="text-sm text-emerald-700 dark:text-emerald-300">{message}</p> : null}
+          {error ? <p role="alert" className="text-sm text-red-600">{error}</p> : null}
           {query.isLoading ? <p className="text-sm text-muted-foreground">Chargement…</p> : null}
           {query.error ? <p role="alert" className="text-sm text-red-600">{query.error instanceof Error ? query.error.message : "Erreur"}</p> : null}
           {!query.isLoading && !query.error && rows.length === 0 ? <p className="text-sm text-muted-foreground">Aucune demande.</p> : null}
@@ -166,6 +187,17 @@ export function AdminRaceRequestsTab({ accessToken, onChanged }: { accessToken: 
                       <TableCell>{statusLabels[request.status]}</TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
+                          {request.status === "pending" ? (
+                            <Button
+                              type="button"
+                              variant="default"
+                              className="h-8 px-2 text-xs"
+                              title="Passe en terminée sans envoyer de message"
+                              onClick={() => void closeSilently(request)}
+                            >
+                              Clôturer
+                            </Button>
+                          ) : null}
                           {statusSchema.options.filter((next) => next !== request.status).map((next) => (
                             <Button key={next} type="button" variant="outline" className="h-8 px-2 text-xs" onClick={() => setDialog({ request, status: next })}>
                               {statusLabels[next]}

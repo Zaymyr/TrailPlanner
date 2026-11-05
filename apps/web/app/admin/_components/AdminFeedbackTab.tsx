@@ -155,16 +155,20 @@ export function AdminFeedbackTab({
     setDialog(null);
   };
 
+  const changeStatusSilently = (item: FeedbackItem, next: FeedbackStatus, reason: string) => {
+    setError(null);
+    patch({ feedbackId: item.id, status: next })
+      .then(() => setMessage(`« ${item.subject} » passé à « ${labels[next]} » (${reason}).`))
+      .catch((caught) => setError(caught instanceof Error ? caught.message : "Erreur"));
+  };
+
   // An author without an account cannot be notified: the status changes silently.
   const changeStatus = (item: FeedbackItem, next: FeedbackStatus) => {
     if (item.userId) {
       setDialog({ item, action: next });
       return;
     }
-    setError(null);
-    patch({ feedbackId: item.id, status: next })
-      .then(() => setMessage(`Passé à « ${labels[next]} » (auteur sans compte, aucun message envoyé).`))
-      .catch((caught) => setError(caught instanceof Error ? caught.message : "Erreur"));
+    changeStatusSilently(item, next, "auteur sans compte, aucun message envoyé");
   };
 
   const rows = query.data?.items ?? [];
@@ -228,6 +232,17 @@ export function AdminFeedbackTab({
                     <TableCell className="align-top">{labels[item.status]}</TableCell>
                     <TableCell className="align-top">
                       <div className="flex flex-wrap gap-1">
+                        {item.status === "pending" ? (
+                          <Button
+                            type="button"
+                            variant="default"
+                            className="h-8 px-2 text-xs"
+                            title="Passe en terminé sans envoyer de message"
+                            onClick={() => changeStatusSilently(item, "completed", "clôturé sans message")}
+                          >
+                            Clôturer
+                          </Button>
+                        ) : null}
                         {item.userId ? (
                           <Button type="button" className="h-8 px-2 text-xs" onClick={() => setDialog({ item, action: "reply" })}>
                             Répondre
