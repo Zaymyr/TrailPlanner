@@ -8,6 +8,7 @@ import {
 import type { VideoRaceInfo } from "./VideoCompositionOverlay";
 import { videoCompositionSettingsSchema, type VideoCompositionSettings } from "./video-composition";
 import type { NarrationClip } from "./narration-player";
+import type { FrameSize } from "./export-frame";
 import type { EndpointNames } from "./place-labels";
 import type { StoryLandmarks } from "./route-story";
 import type { VideoAidStation, VideoRouteBounds, VideoRoutePoint } from "../../../lib/video-generator";
@@ -29,6 +30,8 @@ export type VideoRenderSnapshot = {
   /** Start and finish names shown on the map, resolved once in the editor. */
   placeNames: EndpointNames;
   voiceClips: NarrationClip[];
+  /** CSS size of the editor's preview frame: the render frames the map exactly like it. */
+  previewSize: FrameSize | null;
 };
 
 const narrationClipSchema = z.object({
@@ -51,6 +54,8 @@ const snapshotSchema = z.object({
   // Absent from snapshots saved before the labels existed.
   placeNames: z.object({ start: z.string().max(80).nullable(), finish: z.string().max(80).nullable() }).default({ start: null, finish: null }),
   voiceClips: z.array(narrationClipSchema),
+  // Absent from snapshots saved before; the render then uses a 1080p-screen preview size.
+  previewSize: z.object({ width: z.number().positive(), height: z.number().positive() }).nullable().default(null),
 });
 
 export const parseRenderSnapshot = (value: unknown): VideoRenderSnapshot => {
