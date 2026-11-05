@@ -60,12 +60,6 @@ export const ROUTE_CASING_WIDTHS: Record<VideoCompositionSettings["routeWidth"],
   bold: ["interpolate", ["linear"], ["zoom"], 5, 8, 13, 15],
 };
 
-// Border of the told slope: 4 px wider than the white casing, so 2 px of orange show on each side.
-export const SEGMENT_BORDER_WIDTHS: Record<VideoCompositionSettings["routeWidth"], ExpressionSpecification> = {
-  normal: ["interpolate", ["linear"], ["zoom"], 5, 10, 13, 15],
-  bold: ["interpolate", ["linear"], ["zoom"], 5, 12, 13, 19],
-};
-
 export const ROUTE_GLOW_WIDTH: ExpressionSpecification = ["interpolate", ["linear"], ["zoom"], 5, 10, 13, 26];
 
 export const PEAKS_SOURCE_ID = "video-peaks";

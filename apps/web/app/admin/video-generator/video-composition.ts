@@ -5,7 +5,6 @@ import {
   getChaseCameraPose,
   getOverviewCameraPose,
   getRoutePointAtDistance,
-  getSegmentFramingPose,
   interpolateCameraPose,
   type AnimationViewport,
   type CameraPose,
@@ -69,7 +68,6 @@ export const videoCompositionSettingsSchema = z.object({
   routeColor: hexColorSchema.default("#2d5016"),
   routeCasing: z.boolean().default(true),
   // Colour of the route on the climb, descent or rolling section being told.
-  highlightColor: hexColorSchema.default("#d9925b"),
   accentColor: hexColorSchema.default("#2d5016"),
   showLogo: z.boolean().default(true),
   showCta: z.boolean().default(true),
@@ -642,11 +640,6 @@ export const getTimeSmoothedHeading = (path: PreparedAnimationPath, timeline: Vi
   const length = Math.hypot(east, north);
   return length > 1 ? { east: east / length, north: north / length } : undefined;
 };
-// Slow rise when a climb or descent is told: a helicopter takes height, it does not jump.
-const FRAMING_RAMP_IN_MS = 3_500;
-// Share of the slope covered when the framing shot starts / ends handing back to the chase camera.
-const FRAMING_RELEASE_START = 0.35;
-const FRAMING_RELEASE_END = 0.8;
 
 /**
  * On-screen ground speed around a moment, over a ±2 s window so the camera distance breathes
@@ -819,22 +812,7 @@ export const getRawVideoCameraPose = (
     // The leash (10 % of the camera distance) keeps a fast runner well inside the frame.
     getSmoothedCameraTarget(path, timeline, frame.timeMs, 0.1 * Math.min(20_000, Math.max(4_500, getCameraSpeedMps(timeline, frame.timeMs) * 3))),
   ));
-  if (frame.phase === "flyover") {
-    const beat = frame.beat;
-    if (!beat || (beat.kind !== "climb" && beat.kind !== "descent") || beat.focusStartKm === undefined || beat.focusEndKm === undefined) {
-      return chase;
-    }
-    // While a climb or descent is told, glide to a shot showing it whole. The shot hands back to the
-    // chase camera as the runner climbs (fully back before the top), so the dot never leaves the
-    // frame and the camera never has to catch up at once.
-    const rampIn = (frame.timeMs - beat.narrationStartMs) / FRAMING_RAMP_IN_MS;
-    const climbProgress = (frame.distanceKm - beat.focusStartKm) / Math.max(0.01, beat.focusEndKm - beat.focusStartKm);
-    const rampOut = (FRAMING_RELEASE_END - climbProgress) / (FRAMING_RELEASE_END - FRAMING_RELEASE_START);
-    const weight = easeInOut(clamp(Math.min(rampIn, rampOut), 0, 1));
-    if (weight <= 0) return chase;
-    const framing = shiftIntoVisibleZone(getSegmentFramingPose(path, beat.focusStartKm, beat.focusEndKm, viewport, exaggeration));
-    return interpolateCameraPose(chase, framing, weight);
-  }
+  if (frame.phase === "flyover") return chase;
   const overview = getOverviewCameraPose(path, viewport, exaggeration);
   if (frame.phase === "intro") {
     return interpolateCameraPose(

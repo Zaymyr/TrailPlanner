@@ -61,7 +61,6 @@ describe("videoCompositionSettingsSchema", () => {
       mapStyle: "paceyourself",
       routeColor: "#2d5016",
       routeCasing: true,
-      highlightColor: "#d9925b",
       showAidBubbles: true,
       accentColor: "#2d5016",
       routeWidth: "normal",
@@ -151,34 +150,13 @@ describe("buildVideoTimeline", () => {
     expect(far.camera.altitudeM - far.target.altitudeM).toBeGreaterThanOrEqual(near.camera.altitudeM - near.target.altitudeM);
   });
 
-  it("frames the whole climb while it is told, then returns to the chase", () => {
+  it("keeps the chase camera while a climb is told, without a framing shot or a highlight", () => {
     const path = prepareAnimationPath(flatThenClimb);
-    const climb = { ...beat("climb", "climb", 10, 20, "La montée vers le sommet : dix kilomètres, deux mille mètres à gravir."), focusStartKm: 10, focusEndKm: 20 };
-    const timeline = buildVideoTimeline(path, [beat("start", "start", 0, 10, "Départ."), climb], { ...manual(45), introEnabled: false, outroEnabled: false });
-    const told = timeline.beats.find((item) => item.id === "climb")!;
+    const timeline = buildVideoTimeline(path, [beat("start", "start", 0, 10, "Départ."), beat("climb", "climb", 10, 20, "Ça grimpe.")], { ...manual(45), introEnabled: false, outroEnabled: false });
     const msAt = (distanceKm: number) => timeline.introMs + getFlyoverFractionAtDistance(timeline, distanceKm) * timeline.flyoverMs;
-    // Early in the climb (while the 3.5 s rise is under way), the shot frames the whole slope.
-    const during = getVideoFrameState(timeline, Math.max(told.narrationStartMs + 1_600, msAt(12.5)));
-    expect(during.distanceKm).toBeLessThan(13.5);
-    const framed = getRawVideoCameraPose(path, timeline, during, "portrait");
-    const chase = getRawVideoCameraPose(path, timeline, { ...during, beat: null }, "portrait");
-    expect(framed.target.lat).toBeGreaterThan(chase.target.lat);
-    expect(framed.camera.altitudeM).toBeGreaterThan(chase.camera.altitudeM);
-    // Near the top the camera is fully back on the runner, while the voice still speaks.
-    const nearTop = getVideoFrameState(timeline, msAt(18.5));
-    expect(nearTop.beat?.id).toBe("climb");
-    expect(getRawVideoCameraPose(path, timeline, nearTop, "portrait")).toEqual(getRawVideoCameraPose(path, timeline, { ...nearTop, beat: null }, "portrait"));
-
-    // The flight itself glides into that shot: no frame-to-frame jolt when the climb starts.
-    const altitudes: number[] = [];
-    const rawAltitudes: number[] = [];
-    for (let ms = told.narrationStartMs - 3_000; ms < told.narrationStartMs + 6_000; ms += 1_000 / 30) {
-      const frame = getVideoFrameState(timeline, ms);
-      altitudes.push(getVideoCameraPose(path, timeline, frame, "portrait").camera.altitudeM);
-      rawAltitudes.push(getRawVideoCameraPose(path, timeline, frame, "portrait").camera.altitudeM);
-    }
-    const maxJolt = (values: number[]) => Math.max(...values.slice(2).map((value, index) => Math.abs(value - 2 * values[index + 1] + values[index])));
-    expect(maxJolt(altitudes)).toBeLessThan(maxJolt(rawAltitudes) * 0.5);
+    const during = getVideoFrameState(timeline, msAt(12.5));
+    expect(during.beat?.id).toBe("climb");
+    expect(getRawVideoCameraPose(path, timeline, during, "portrait")).toEqual(getRawVideoCameraPose(path, timeline, { ...during, beat: null }, "portrait"));
   });
 
   it("burns the narration in as short subtitle lines timed with the voice", () => {

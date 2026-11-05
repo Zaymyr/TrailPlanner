@@ -28,7 +28,6 @@ import {
   PEAKS_LAYER_ID,
   resolveMapStyleUrl,
   ROUTE_CASING_WIDTHS,
-  SEGMENT_BORDER_WIDTHS,
   ROUTE_GLOW_WIDTH,
   ROUTE_LINE_WIDTHS,
   type MapAppearanceState,
@@ -95,9 +94,6 @@ const ROUTE_GLOW_LAYER_ID = "video-route-line-glow";
 const ROUTE_CASING_LAYER_ID = "video-route-line-casing";
 const MARKER_SOURCE_ID = "video-route-markers";
 const MARKER_ICON_LAYER_ID = "video-route-marker-icons";
-// The climb, descent or rolling section being narrated, drawn in the highlight colour.
-const SEGMENT_SOURCE_ID = "video-beat-segment";
-const SEGMENT_LAYER_ID = "video-beat-segment-line";
 export const VIDEO_ROUTE_COLOR = DEFAULT_VIDEO_COMPOSITION_SETTINGS.routeColor;
 const FUTURE_ROUTE_ALPHA_HEX = "38";
 const GLOW_ROUTE_ALPHA_HEX = "8c";
@@ -108,25 +104,11 @@ const OWN_LAYER_IDS = new Set([
   ROUTE_CASING_LAYER_ID,
   MARKER_ICON_LAYER_ID,
   PEAKS_LAYER_ID,
-  SEGMENT_LAYER_ID,
 ]);
 
 const EMPTY_FEATURES = { type: "FeatureCollection", features: [] } as const;
 const IDLE_ACTION: AsyncActionState = { status: "idle", message: null };
 
-const buildSegmentGeoJson = (path: PreparedAnimationPath, beat: ScheduledBeat | null) => {
-  // The narrated slope itself (a whole climb, foot to top), not just the leg the story is on.
-  if (!beat || beat.focusStartKm === undefined || beat.focusEndKm === undefined) return EMPTY_FEATURES;
-  const { focusStartKm, focusEndKm } = beat;
-  const coordinates = path.samples
-    .filter((sample) => sample.distanceKm >= focusStartKm && sample.distanceKm <= focusEndKm)
-    .map((sample) => [sample.lon, sample.lat]);
-  if (coordinates.length < 2) return EMPTY_FEATURES;
-  return {
-    type: "FeatureCollection",
-    features: [{ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates } }],
-  };
-};
 
 type TilequeryFeature = { properties?: { name?: unknown; maki?: unknown; elevation_m?: unknown } };
 
@@ -332,73 +314,6 @@ const updateAidBubbles = (bubbles: AidBubble[], timeline: VideoTimeline, timeMs:
   });
 };
 
-type ClimbCard = { card: HTMLElement; title: HTMLElement; facts: HTMLElement; marker: mapboxgl.Marker; beatId: string | null; opacity: number };
-
-/** One card reused for every told slope, placed in the middle of it: title and key figures. */
-// Brand green card with an orange edge (the highlight colour), white text.
-const createClimbCard = (map: MapboxMap, accent: string, highlight: string): ClimbCard => {
-  const element = document.createElement("div");
-  element.setAttribute("aria-hidden", "true");
-  const card = document.createElement("div");
-  Object.assign(card.style, {
-    position: "relative",
-    padding: "0.8cqmin 1.6cqmin",
-    borderRadius: "1.2cqmin",
-    background: accent,
-    borderLeft: `0.8cqmin solid ${highlight}`,
-    color: "#ffffff",
-    boxShadow: "0 0.4cqmin 1.6cqmin rgba(0, 0, 0, 0.35)",
-    whiteSpace: "nowrap",
-    width: "max-content",
-    pointerEvents: "none",
-    opacity: "0",
-  });
-  const title = document.createElement("div");
-  Object.assign(title.style, { fontWeight: "800", fontSize: "2.8cqmin", lineHeight: "1.15", textTransform: "uppercase", letterSpacing: "0.02em" });
-  const facts = document.createElement("div");
-  Object.assign(facts.style, { fontWeight: "600", fontSize: "2.3cqmin", marginTop: "0.3cqmin", color: highlight, fontVariantNumeric: "tabular-nums" });
-  const tail = document.createElement("span");
-  Object.assign(tail.style, {
-    position: "absolute",
-    left: "50%",
-    top: "100%",
-    transform: "translateX(-50%)",
-    borderLeft: "1cqmin solid transparent",
-    borderRight: "1cqmin solid transparent",
-    borderTop: `1.2cqmin solid ${accent}`,
-  });
-  card.append(title, facts, tail);
-  element.appendChild(card);
-  const marker = new mapboxgl.Marker({ element, anchor: "bottom", offset: [0, -6], occludedOpacity: 1 }).setLngLat([0, 0]).addTo(map);
-  return { card, title, facts, marker, beatId: null, opacity: -1 };
-};
-
-/**
- * Shown while the voice tells the slope and the runner has not reached its top yet, with short
- * fades; content and position only change when the told slope changes.
- */
-const updateClimbCard = (climbCard: ClimbCard, path: PreparedAnimationPath, timeline: VideoTimeline, frame: VideoFrameState) => {
-  const beat = frame.phase === "flyover" ? frame.beat : null;
-  let opacity = 0;
-  if (beat?.focusTitle && beat.focusStartKm !== undefined && beat.focusEndKm !== undefined) {
-    if (beat.id !== climbCard.beatId) {
-      climbCard.beatId = beat.id;
-      climbCard.title.textContent = beat.focusTitle;
-      climbCard.facts.textContent = (beat.focusFacts ?? []).join(" · ");
-      const middle = getRoutePointAtDistance(path, (beat.focusStartKm + beat.focusEndKm) / 2);
-      climbCard.marker.setLngLat([middle.lon, middle.lat]);
-    }
-    const topMs = timeline.introMs + getFlyoverFractionAtDistance(timeline, beat.focusEndKm) * timeline.flyoverMs;
-    const endMs = Math.min(beat.narrationStartMs + beat.narrationMs + 1_000, topMs);
-    opacity = Math.max(0, Math.min(1, (frame.timeMs - beat.narrationStartMs) / CARD_FADE_MS, (endMs - frame.timeMs) / CARD_FADE_MS));
-  }
-  const rounded = Math.round(opacity * 20) / 20;
-  if (rounded !== climbCard.opacity) {
-    climbCard.opacity = rounded;
-    climbCard.card.style.opacity = String(rounded);
-  }
-};
-
 const waitMs = (ms: number) => new Promise<void>((resolve) => { window.setTimeout(resolve, ms); });
 
 /** Resolves once the map has drawn the current camera with its tiles loaded, or after a timeout. */
@@ -543,26 +458,6 @@ const syncMapData = (
     });
   }
 
-  // The narrated slope gets an orange border: a wider line in the highlight colour drawn under
-  // every route layer, so only its edges show around the green route and its white casing.
-  if (!map.getSource(SEGMENT_SOURCE_ID)) {
-    map.addSource(SEGMENT_SOURCE_ID, { type: "geojson", data: EMPTY_FEATURES as unknown as GeoJsonSourceData, tolerance: 0 });
-  }
-  if (!map.getLayer(SEGMENT_LAYER_ID)) {
-    map.addLayer({
-      id: SEGMENT_LAYER_ID,
-      type: "line",
-      source: SEGMENT_SOURCE_ID,
-      slot: "top",
-      layout: { "line-cap": "round", "line-join": "round" },
-      paint: {
-        "line-color": settings.highlightColor,
-        "line-width": SEGMENT_BORDER_WIDTHS[settings.routeWidth],
-        "line-emissive-strength": 1,
-      },
-    }, map.getLayer(ROUTE_LAYER_ID) ? ROUTE_LAYER_ID : undefined);
-  }
-
   const markerSource = map.getSource(MARKER_SOURCE_ID) as GeoJSONSource | undefined;
   if (markerSource) markerSource.setData(markerData as GeoJsonSourceData);
   else map.addSource(MARKER_SOURCE_ID, { type: "geojson", data: markerData as GeoJsonSourceData });
@@ -608,9 +503,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   const animationRef = useRef<RouteAnimationController | null>(null);
   const resizeRef = useRef<MapResizeController | null>(null);
   const progressMarkerRef = useRef<mapboxgl.Marker | null>(null);
-  const activeBeatIdRef = useRef<string | null>(null);
   const aidBubblesRef = useRef<AidBubble[]>([]);
-  const climbCardRef = useRef<ClimbCard | null>(null);
   const narrationPlayerRef = useRef<NarrationPlayer | null>(null);
   // `map.isStyleLoaded()` is false whenever a tile is loading or a source was just updated, which is
   // permanently the case while the camera flies. Gating frames on it skipped most of them.
@@ -780,17 +673,6 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       daylightKeyRef.current = null;
       applyMapAppearance(map, settingsRef.current, appearanceStateRef.current, OWN_LAYER_IDS);
     }
-
-    // Beat changes are rare: only then the narrated segment is updated. Once the runner is past the
-    // told slope, its colour is removed even if the leg goes on.
-    const passedFocus = frame.beat?.focusEndKm !== undefined && frame.distanceKm > frame.beat.focusEndKm + 0.05;
-    const segmentKey = frame.beat && !passedFocus ? frame.beat.id : null;
-    if (segmentKey !== activeBeatIdRef.current) {
-      activeBeatIdRef.current = segmentKey;
-      const segmentSource = map.getSource(SEGMENT_SOURCE_ID) as GeoJSONSource | undefined;
-      segmentSource?.setData(buildSegmentGeoJson(path, passedFocus ? null : frame.beat) as unknown as GeoJsonSourceData);
-    }
-    if (climbCardRef.current) updateClimbCard(climbCardRef.current, path, timelineRef.current, frame);
   }, [frameStore]);
 
   const refreshCurrentFrame = useCallback(() => {
@@ -842,10 +724,6 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       map.setPaintProperty(ROUTE_LAYER_ID, "line-color", `${settings.routeColor}${FUTURE_ROUTE_ALPHA_HEX}`);
       map.setPaintProperty(ROUTE_LAYER_ID, "line-width", lineWidth);
     }
-    if (map.getLayer(SEGMENT_LAYER_ID)) {
-      map.setPaintProperty(SEGMENT_LAYER_ID, "line-color", settings.highlightColor);
-      map.setPaintProperty(SEGMENT_LAYER_ID, "line-width", SEGMENT_BORDER_WIDTHS[settings.routeWidth]);
-    }
     if (map.getLayer(ROUTE_GLOW_LAYER_ID)) {
       map.setPaintProperty(ROUTE_GLOW_LAYER_ID, "line-color", `${settings.routeColor}${GLOW_ROUTE_ALPHA_HEX}`);
       map.setLayoutProperty(ROUTE_GLOW_LAYER_ID, "visibility", settings.routeGlow ? "visible" : "none");
@@ -854,7 +732,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       map.setPaintProperty(ROUTE_CASING_LAYER_ID, "line-width", ROUTE_CASING_WIDTHS[settings.routeWidth]);
       map.setLayoutProperty(ROUTE_CASING_LAYER_ID, "visibility", settings.routeCasing ? "visible" : "none");
     }
-  }, [settings.highlightColor, settings.routeCasing, settings.routeColor, settings.routeGlow, settings.routeWidth]);
+  }, [settings.routeCasing, settings.routeColor, settings.routeGlow, settings.routeWidth]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -892,16 +770,12 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
         return { distanceKm: station.distanceKm, card, marker, opacity: -1 };
       });
     aidBubblesRef.current = bubbles;
-    const climbCard = createClimbCard(map, settings.accentColor, settings.highlightColor);
-    climbCardRef.current = climbCard;
     refreshCurrentFrame();
     return () => {
       bubbles.forEach((bubble) => bubble.marker.remove());
       aidBubblesRef.current = [];
-      climbCard.marker.remove();
-      climbCardRef.current = null;
     };
-  }, [enabledAidStations, isReady, preparedPath, refreshCurrentFrame, settings.accentColor, settings.highlightColor]);
+  }, [enabledAidStations, isReady, preparedPath, refreshCurrentFrame, settings.accentColor]);
 
   // Station icons are images in the style: redraw them when the accent colour changes.
   useEffect(() => {
@@ -1181,7 +1055,6 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       syncMapData(map, routeDataRef.current, markerDataRef.current, settingsRef.current);
       appearanceStateRef.current = captureMapAppearanceState(map, OWN_LAYER_IDS);
       applyMapAppearance(map, settingsRef.current, appearanceStateRef.current, OWN_LAYER_IDS);
-      activeBeatIdRef.current = null;
       daylightKeyRef.current = null;
       layersReadyRef.current = true;
       resizeController.schedule();

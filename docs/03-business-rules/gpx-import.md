@@ -284,3 +284,5 @@ When that source path differs from the current snapshot, the per-format publicat
 - [Mapbox 3D Admin Course Viewer](../05-integrations/mapbox-3d.md)
 
 Background reel renders replay the parsed GPX points saved in the composition snapshot; they never re-read or re-parse the stored GPX.
+
+The admin reel animation (`route-animation.ts`) no longer computes a slope framing shot: the camera stays on the chase pose while a climb is told. Route sampling and interpolation rules are unchanged.

@@ -298,10 +298,6 @@ export function CompositionSettingsPanel({
             Parcours
           </label>
           <label className="flex items-center gap-2 text-sm">
-            <input aria-label="Couleur de la section racontée" type="color" className="h-8 w-10 cursor-pointer rounded border border-border bg-card" value={settings.highlightColor} onChange={(event) => update("highlightColor", event.target.value)} />
-            Section racontée
-          </label>
-          <label className="flex items-center gap-2 text-sm">
             <input aria-label="Couleur d’accentuation" type="color" className="h-8 w-10 cursor-pointer rounded border border-border bg-card" value={settings.accentColor} onChange={(event) => update("accentColor", event.target.value)} />
             Accent
           </label>
