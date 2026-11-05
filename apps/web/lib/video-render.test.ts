@@ -4,6 +4,7 @@ import {
   createRenderToken,
   getGoogleAccessToken,
   getReelFileName,
+  isRenderJobStale,
   resetGoogleTokenCache,
   RENDER_TOKEN_TTL_SECONDS,
   runRenderJob,
@@ -122,4 +123,31 @@ describe("Cloud Run job", () => {
 
 it("names the reel file after the race", () => {
   expect(getReelFileName("Trail des Druides 2026")).toBe("trail-des-druides-2026-reel.mp4");
+});
+
+describe("isRenderJobStale", () => {
+  const start = Date.parse("2026-11-05T10:00:00Z");
+  const minutes = (count: number) => start + count * 60_000;
+  const row = (status: "queued" | "running" | "done", updatedAt: number) => ({
+    status,
+    created_at: new Date(start).toISOString(),
+    updated_at: new Date(updatedAt).toISOString(),
+  });
+
+  it("keeps a long render alive while it keeps reporting", () => {
+    expect(isRenderJobStale(row("running", minutes(239)), minutes(240))).toBe(false);
+  });
+
+  it("marks a render lost after 15 minutes without news", () => {
+    expect(isRenderJobStale(row("running", minutes(30)), minutes(46))).toBe(true);
+  });
+
+  it("waits for the overall limit on a job still queued", () => {
+    expect(isRenderJobStale(row("queued", start), minutes(60))).toBe(false);
+    expect(isRenderJobStale(row("queued", start), minutes(9 * 60 + 1))).toBe(true);
+  });
+
+  it("never touches a finished job", () => {
+    expect(isRenderJobStale(row("done", start), minutes(24 * 60))).toBe(false);
+  });
 });
