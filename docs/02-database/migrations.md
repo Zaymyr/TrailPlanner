@@ -27,6 +27,7 @@ related_files:
   - supabase/migrations/20261103124133_index_racebook_publication_foreign_keys.sql
   - supabase/migrations/20261103124538_cover_racebook_current_publication_foreign_key.sql
   - supabase/migrations/20261104140000_add_video_render_jobs.sql
+  - supabase/migrations/20261105160000_add_video_narrations.sql
   - supabase/tests/racebook_versioned_publications_checks.sql
   - supabase/migrations/20260821143417_add_organizer_imports_bucket.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
@@ -134,6 +135,8 @@ related_tables:
 `20261103124538_cover_racebook_current_publication_foreign_key.sql` replaces the single-column current-publication index with a covering index matching its composite parent constraint.
 
 `20261104140000_add_video_render_jobs.sql` adds `video_render_jobs` (background reel renders on Google Cloud Run): status, progress, video size and timing, with covering indexes for its race and creator foreign keys, RLS on and service-role-only grants.
+
+`20261105160000_add_video_narrations.sql` adds `video_narrations` (the saved reel narration per race: settings, texts by beat id, voice choice, clip count) and the private Storage bucket `video-narrations` for the voice clips, RLS on with no policy and service-role-only grants.
 
 `20260907160043_add_structured_racebook_content.sql` adds normalized services, start waves and awards, their constraints/indexes/RLS, atomic replacement RPCs, and the `schedule.startTime` start-wave backfill.
 

@@ -11,6 +11,7 @@ related_files:
   - supabase/tests/racebook_versioned_publications_checks.sql
   - supabase/migrations/20261104140000_add_video_render_jobs.sql
   - supabase/tests/video_render_jobs_checks.sql
+  - supabase/tests/video_narrations_checks.sql
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql

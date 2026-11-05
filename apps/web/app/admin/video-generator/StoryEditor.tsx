@@ -47,6 +47,9 @@ type StoryEditorProps = {
   onSaveVoice: (voiceId: string, name: string) => void;
   onVoiceOptionsChange: (options: VoiceOptions) => void;
   onWriteScript: () => void;
+  /** Saves the text, settings and voice of this race (see the saved narration in the client). */
+  onSaveNarration: () => void;
+  savedNarration: AsyncActionState;
   onScriptNotesChange: (notes: string) => void;
   onScriptStyleChange: (style: ScriptStyleChoice) => void;
   scriptNotes: string;
@@ -78,6 +81,8 @@ export function StoryEditor({
   onSaveVoice,
   onVoiceOptionsChange,
   onWriteScript,
+  onSaveNarration,
+  savedNarration,
   onScriptNotesChange,
   onScriptStyleChange,
   scriptNotes,
@@ -100,6 +105,12 @@ export function StoryEditor({
         </Button>
         <Button type="button" variant="outline" className="h-9 px-2 text-xs" disabled={busy || beats.length === 0} onClick={onGenerateVoice}>
           {voiceState.status === "loading" ? "Génération…" : "Générer la voix off"}
+        </Button>
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <ActionMessage state={savedNarration.message ? savedNarration : { status: "idle", message: "Aucun récit enregistré pour cette course." }} />
+        <Button type="button" variant="ghost" className="h-7 shrink-0 px-2 text-xs" disabled={busy || savedNarration.status === "loading"} onClick={onSaveNarration}>
+          Enregistrer
         </Button>
       </div>
       <ActionMessage state={scriptState} />

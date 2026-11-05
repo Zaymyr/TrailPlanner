@@ -9,6 +9,7 @@ import mapboxgl, {
 
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { buildRouteGeoJson, type VideoAidStation } from "../../../lib/video-generator";
+import { savedNarrationResponseSchema } from "../../../lib/video-narrations";
 import { instagramCaptionResponseSchema, NARRATION_STYLE_LABELS, narrationScriptResponseSchema, narrationVoiceResponseSchema } from "../../../lib/video-narration";
 import { InstagramPanel } from "./InstagramPanel";
 import { ExportPanel, type ExportState } from "./ExportPanel";
@@ -70,6 +71,7 @@ import {
   type VideoCompositionSettings,
   type VideoFrameState,
   type VideoTimeline,
+  videoCompositionSettingsSchema,
 } from "./video-composition";
 import { createVideoFrameStore, VideoCompositionOverlay } from "./VideoCompositionOverlay";
 import type { VideoGeneratorMapProps } from "./VideoGeneratorMap";
@@ -897,6 +899,69 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     body: JSON.stringify(body),
   });
 
+  // Saved narration of this race (text, settings, voice): restored once when the race opens, saved
+  // after every AI draft or voice generation and on demand, so a race is written and voiced once.
+  const [savedNarration, setSavedNarration] = useState<AsyncActionState>(IDLE_ACTION);
+  const [pendingSave, setPendingSave] = useState<{ clips: boolean } | null>(null);
+  useEffect(() => {
+    if (render || !race.id || !sessionToken) return;
+    const controller = new AbortController();
+    setSavedNarration({ status: "loading", message: "Recherche d’un récit enregistré…" });
+    void fetch(`/api/admin/video-generator/narrations/${race.id}`, { headers: { Authorization: `Bearer ${sessionToken}` }, cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(await readError(response, "Le récit enregistré n’a pas pu être lu."));
+        const parsed = savedNarrationResponseSchema.safeParse(await response.json());
+        if (!parsed.success) throw new Error("Le récit enregistré est illisible.");
+        const saved = parsed.data.narration;
+        if (controller.signal.aborted) return;
+        if (!saved) {
+          setSavedNarration(IDLE_ACTION);
+          return;
+        }
+        // Settings first: they decide the story cut, hence which beat each saved text belongs to.
+        const restoredSettings = videoCompositionSettingsSchema.safeParse({ ...DEFAULT_VIDEO_COMPOSITION_SETTINGS, ...saved.settings });
+        if (restoredSettings.success) setSettings(restoredSettings.data);
+        setNarrationOverrides(saved.narrationOverrides);
+        if (saved.voice.voiceId) setVoiceId(saved.voice.voiceId);
+        if (saved.voice.model && saved.voice.expressiveness !== undefined) {
+          setVoiceOptions({ model: saved.voice.model, expressiveness: saved.voice.expressiveness });
+        }
+        setVoiceClips(Object.fromEntries(saved.clips.map((clip) => [clip.beatId, clip])));
+        const when = new Date(saved.updatedAt).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
+        setSavedNarration({ status: "success", message: `Récit enregistré du ${when} chargé${saved.clips.length ? " avec sa voix off" : ""}.` });
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) setSavedNarration({ status: "error", message: error instanceof Error ? error.message : "Le récit enregistré n’a pas pu être lu." });
+      });
+    return () => controller.abort();
+    // Once per race: later edits are saved, never overwritten by a reload.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [race.id, render]);
+
+  useEffect(() => {
+    if (!pendingSave || !race.id) return;
+    setPendingSave(null);
+    setSavedNarration({ status: "loading", message: "Enregistrement du récit…" });
+    void fetch(`/api/admin/video-generator/narrations/${race.id}`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${sessionToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        settings,
+        narrationOverrides,
+        voice: { voiceId: voiceId || null, ...voiceOptions },
+        ...(pendingSave.clips ? { clips: freshClips } : {}),
+      }),
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(await readError(response, "Le récit n’a pas pu être enregistré."));
+        const time = new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+        setSavedNarration({ status: "success", message: `Récit enregistré à ${time}${pendingSave.clips && freshClips.length ? " avec sa voix off" : ""}.` });
+      })
+      .catch((error: unknown) => {
+        setSavedNarration({ status: "error", message: error instanceof Error ? error.message : "Le récit n’a pas pu être enregistré." });
+      });
+  }, [freshClips, narrationOverrides, pendingSave, race.id, sessionToken, settings, voiceId, voiceOptions]);
+
   const writeScript = async () => {
     setScriptState({ status: "loading", message: "Claude rédige la narration…" });
     try {
@@ -919,6 +984,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       setNarrationOverrides((current) => ({ ...current, ...Object.fromEntries(parsed.data.beats.map((beat) => [beat.id, beat.narration])) }));
       const usedStyle = parsed.data.style ? ` (style : ${NARRATION_STYLE_LABELS[parsed.data.style]})` : "";
       setScriptState({ status: "success", message: `Narration rédigée${usedStyle}. Relis-la puis génère la voix off.` });
+      setPendingSave({ clips: false });
     } catch (error) {
       setScriptState({ status: "error", message: error instanceof Error ? error.message : "La narration n’a pas pu être rédigée." });
     }
@@ -1044,6 +1110,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
         });
       }
       setVoiceState({ status: "success", message: "Voix off prête : lance la lecture." });
+      setPendingSave({ clips: true });
     } catch (error) {
       setVoiceState({ status: "error", message: error instanceof Error ? error.message : "La voix off n’a pas pu être générée." });
     }
@@ -1271,6 +1338,8 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
         <CardContent>
           <StoryEditor
             beats={timeline.beats}
+            onSaveNarration={() => setPendingSave({ clips: true })}
+            savedNarration={savedNarration}
             durationControl={<DurationSelect autoDurationSeconds={autoDurationSeconds} onChange={updateSettings} settings={settings} />}
             narrationOverflow={timeline.narrationOverflow}
             onGenerateVoice={() => void generateVoice()}
