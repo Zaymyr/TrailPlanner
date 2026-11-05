@@ -35,7 +35,7 @@ Tracks background renders of the admin 3D reel. The render runs in a Google Clou
 | `output_size_bytes` | `bigint` | null or ≥ 0 | Size of the uploaded MP4, checked against Storage. |
 | `cloud_run_execution` | `text` | nullable | Cloud Run execution name, for the logs. |
 | `created_by` | `uuid` | references `auth.users(id)` on delete set null | Admin who started it. |
-| `created_at`, `updated_at`, `started_at`, `finished_at` | `timestamptz` | | Timing; `updated_at` is refreshed by every progress report, and an active job silent for 15 minutes (or older than `MAX_RENDER_HOURS` + 1 h) is marked failed. |
+| `created_at`, `updated_at`, `started_at`, `finished_at` | `timestamptz` | | Timing; `updated_at` is refreshed by every progress report, and an active job silent for 15 minutes (or older than `MAX_RENDER_HOURS` + 1 h) is marked failed; the GPU task itself stops at 1 h. |
 
 ## Access
 

@@ -6,8 +6,9 @@ import { parseRenderUrl } from "./render-url.mjs";
 // The render page does the whole job (load, frame-by-frame export, upload, report); this script only
 // gives it a browser of the exact video size and waits. WebGL runs on the job's NVIDIA GPU when one is
 // attached and Chrome can use it, otherwise on SwiftShader (CPU).
-// Stays under the Cloud Run task timeout and MAX_RENDER_HOURS (apps/web/lib/video-render.ts).
-const TIMEOUT_MS = Number(process.env.RENDER_TIMEOUT_MS ?? 7.75 * 60 * 60 * 1_000);
+// Stays under the Cloud Run task timeout (1 h, .github/workflows/video-render-worker.yml) so the
+// worker reports the failure itself.
+const TIMEOUT_MS = Number(process.env.RENDER_TIMEOUT_MS ?? 55 * 60 * 1_000);
 const POLL_MS = 5_000;
 
 const reportFailure = async (render, message) => {
