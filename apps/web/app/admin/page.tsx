@@ -15,6 +15,7 @@ import { AdminOrganizerClaimsTab } from "./_components/AdminOrganizerClaimsTab";
 import { AdminOrganizerSocialProofsTab } from "./_components/AdminOrganizerSocialProofsTab";
 import { AdminPartnerLinksTab } from "./_components/AdminPartnerLinksTab";
 import { AdminProductsTab } from "./_components/AdminProductsTab";
+import { AdminRaceRequestsTab } from "./_components/AdminRaceRequestsTab";
 import { AdminUsersTab } from "./_components/AdminUsersTab";
 
 export default function AdminPage() {
@@ -86,6 +87,7 @@ export default function AdminPage() {
         tabs={[
           { id: "products", label: t.admin.products.title },
           { id: "users", label: t.admin.users.title },
+          { id: "race-requests", label: "Demandes de course" },
           { id: "social-templates", label: t.admin.socialTemplates.title },
           { id: "races", label: t.admin.raceCatalog.title },
           { id: "organizers", label: "Organisateurs" },
@@ -99,6 +101,7 @@ export default function AdminPage() {
 
       {activeTab === "products" && <AdminProductsTab accessToken={accessToken} />}
       {activeTab === "users" && <AdminUsersTab accessToken={accessToken} />}
+      {activeTab === "race-requests" && <AdminRaceRequestsTab accessToken={accessToken} />}
       {activeTab === "social-templates" && (
         <AdminSocialTemplatesSection accessToken={accessToken} t={t.admin.socialTemplates} />
       )}

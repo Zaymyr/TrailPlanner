@@ -1,10 +1,12 @@
 ---
 title: RLS Checklist
 scope: auth
-last_verified: 2026-10-29
+last_verified: 2026-11-05
 ai_priority: high
 related_files:
   - supabase/migrations
+  - supabase/migrations/20261105115106_admin_user_notifications.sql
+  - supabase/tests/admin_user_notifications_checks.sql
   - supabase/migrations/20261029155052_fix_supporter_point_replacement_ordinality.sql
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
   - supabase/migrations/20260930104930_remove_personal_race_creation.sql
@@ -84,6 +86,7 @@ related_tables:
   - race_event_edition_branding
   - organizer_racebook_module_settings
   - organizer_edition_capability_grants
+  - user_notifications
 ---
 
 # RLS Checklist
@@ -135,6 +138,7 @@ Use this checklist before adding or changing Supabase tables, policies, or servi
 12. For service-only destructive RPCs, prefer `SECURITY INVOKER`, revoke `PUBLIC`, grant only `service_role`, and keep the user-to-parent authorization check in the server route.
 13. When adding columns to an existing RLS-protected table, confirm the existing row policies still match the new data sensitivity.
 14. Protect server-owned entitlement, billing, analytics, and publication columns from owner-wide policies with column grants, a validated trigger, or a narrow server route.
+15. For owner-readable admin messages, grant only the safe inbox projection and `UPDATE(read_at)`; keep delivery errors, provider ids, audit actors and message creation service-only.
 
 ## Correct Parent Policy Shape
 
@@ -217,6 +221,7 @@ Use:
 - Mobile onboarding markers and per-tour statuses are column-only owner data. Existing profile select/insert/update policies remain the correct boundary; no new grant or policy is required.
 - Organizer dashboard onboarding is a column-only addition to the existing membership row. The browser completion endpoint must still verify the bearer user owns an active membership for the requested event before writing with service role.
 - Read receipts require both owner equality and a live parent event; ownership alone must not allow receipts for hidden draft announcements.
+- `user_notifications` intentionally combines owner RLS with column-level privileges. A broad table `SELECT` or `UPDATE` grant would expose delivery failures/admin audit fields or let owners rewrite message content, so mobile must request explicit safe columns.
 - Racebook publication remains behind service routes: organizer toggles require active event membership or a trusted app-metadata admin, a complete format, and an active edition-level `racebook.publish` capability. The atomic RPC writes durable unlock provenance on first publication; legacy publication requests remain service-only audit data.
 - Do not select `auth.users` directly inside a service-role `SECURITY INVOKER` RPC. Keep the single-format publication mutation invoker-secured and isolate only the trusted admin predicate in the private, boolean-only, service-role-executable helper.
 - Keep the bulk publication SQL test asserting both sides of the private-to-public transition: the update sets `is_live = true`, and its predicate never requires `race_row.is_live = true`.

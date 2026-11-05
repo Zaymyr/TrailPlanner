@@ -1,7 +1,7 @@
 ---
 title: Mobile UX Audit
 scope: workflow
-last_verified: 2026-11-02
+last_verified: 2026-11-05
 ai_priority: high
 related_files:
   - .agents/skills/mobile-ux-ui-auditor/SKILL.md
@@ -18,6 +18,10 @@ related_files:
   - apps/mobile/scripts/run-mobile-ux-audit.mjs
   - apps/mobile/app/(auth)/login.tsx
   - apps/mobile/app/(app)/_layout.tsx
+  - apps/mobile/app/(app)/profile.tsx
+  - apps/mobile/components/profile/ProfileNotificationsSection.tsx
+  - apps/mobile/components/profile/ProfileTabs.tsx
+  - apps/mobile/hooks/useUnreadNotificationCount.ts
   - apps/mobile/components/inputs/NumericKeyboardAccessory.tsx
   - apps/mobile/components/inputs/DatePickerField.tsx
 related_tables: []
@@ -66,6 +70,7 @@ The repository skill `$mobile-ux-ui-auditor` turns this workflow into a dedicate
 15. Return from a plan detail to Mes plans/My plans and confirm the visual header state matches the real list offset. In the plan editor, confirm matching back/help controls and visible first content on a 6.1-inch viewport.
 16. Compare first-level content edges across Courses, Mes plans/My plans, Nutrition and Profile; cards, section titles and selectors must use the same 16-point gutter. Confirm sticky Courses search is fully opaque.
 17. Compare filter chips, segmented selectors, profile inputs, modal closes and primary/secondary buttons across the same journey. Verify event locations truncate before the protected date and sans/mono typography follows the documented value rule.
+18. In Profile, inspect the four-sub-tab segmented scroller at normal and enlarged text sizes. Create both pending-onboarding and unread-notification conditions and confirm that the bottom Profile icon shows one red dot whose screen-reader label announces both. Open Notifications, verify its own unread dot, loading/error/empty/list states, pagination and retry, then confirm a card becomes read only after opening it and the bulk action clears remaining unread dots. Open a push href targeting `/(app)/profile?tab=notifications&notificationId=<uuid>` and confirm the owner-visible card expands and becomes read even when it was outside the first page.
 
 ## Visual Review Rubric
 
@@ -95,6 +100,8 @@ The trusted-admin Profile preview is local-only visual instrumentation. It may v
 For launch-cohort copy, do not claim device validation without one. When available, verify the bounded daily dismissal/“Ne plus afficher” behavior separately from the cosmetic badge, and that no announcement action starts a support transaction or changes existing access.
 
 No connected-device evidence is implied by source changes. When a build is available, manually audit the scrollable locked preview: clear departure/first section, later veiled inaccessible content, no auto popup, and exactly one full CTA card centered in the useful area during scroll (returning inline at top). Verify its title, description and button remain present, clamping on a small screen, and identical central-paywall behavior for first-sample edit/add/split and auto-fill. Check start-time consistency between RaceBook hero and plan header.
+
+Notification inbox unit and type checks do not prove native badge geometry, foreground push delivery, screen-reader output, or notification-tap routing. Record those claims only after a development/E2E binary exercise; verify both French and English, compact width, 130% text, app resume, and the combined onboarding/unread badge state.
 
 Include a short-course regression: the compact CTA transition must remain reachable using live viewport/section/inline/fixed-tab measurements, with any preview-only spacer after ghost cards. Open another plan afterward to ensure geometry is scoped to its own plan id rather than stale measurements.
 

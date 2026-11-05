@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-11-03
+last_verified: 2026-11-05
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-structured-content.ts
@@ -36,6 +36,13 @@ related_files:
   - apps/web/next.config.mjs
   - apps/web/app/admin/components/AdminRaceCatalogSection.tsx
   - apps/web/app/admin/page.tsx
+  - apps/web/app/admin/_components/AdminNotificationDialog.tsx
+  - apps/web/app/admin/_components/AdminNotificationDialog.test.ts
+  - apps/web/app/admin/_components/AdminRaceRequestsTab.tsx
+  - apps/web/app/api/admin/race-requests/route.ts
+  - apps/web/app/api/admin/race-requests/route.test.ts
+  - apps/web/app/api/admin/user-notifications/route.ts
+  - apps/web/app/api/admin/user-notifications/route.test.ts
   - apps/web/app/admin/video-generator/page.tsx
   - apps/web/app/admin/video-generator/VideoGeneratorMap.tsx
   - apps/web/app/admin/video-generator/VideoGeneratorMapClient.tsx
@@ -288,6 +295,8 @@ related_files:
   - apps/web/app/api/stripe/checkout/route.ts
   - apps/web/lib/location-utils.ts
   - apps/web/lib/push.ts
+  - apps/web/lib/admin-user-notifications.ts
+  - apps/web/lib/admin-user-notifications.test.ts
   - apps/web/lib/organizer-entitlements.ts
   - apps/web/app/api/organizer/publication-checkout/route.ts
   - apps/web/app/api/organizer/publication-checkout/route.test.ts
@@ -313,6 +322,8 @@ related_tables:
   - race_aid_station_products
   - user_favorite_race_events
   - user_profiles
+  - race_requests
+  - user_notifications
   - subscriptions
   - push_devices
   - push_notification_events
@@ -323,6 +334,8 @@ related_tables:
 ---
 
 # Web App Architecture
+
+The admin area exposes a top-level `Demandes de course` queue backed by a protected, paginated service-role route. An admin can filter requests and move one to `pending`, `completed`, or `rejected`; the status update and required in-app notification are written atomically by `review_race_request_with_notification`. The reusable notification dialog also lets an admin message a user directly from the Users tab. In-app delivery is fixed on, while e-mail and push are explicit opt-ins. Each opened dialog generates one notification UUID and retains it across failed or lost-response retries until success or cancellation, so the server and providers deduplicate one logical action. Provider delivery runs after the durable write, records its outcome on `user_notifications`, and cannot roll back the request status or in-app message.
 
 Organizer course-point autosave now waits for the active race sidecars to finish loading, and a same-race server refresh no longer clears those loaded collections. This prevents transient empty ravito/supporter payloads and removes the editor jump caused by resetting the workspace after each format save.
 

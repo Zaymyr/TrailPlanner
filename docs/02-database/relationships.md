@@ -1,7 +1,7 @@
 ---
 title: Database Relationships
 scope: database
-last_verified: 2026-11-03
+last_verified: 2026-11-05
 ai_priority: high
 related_files:
   - supabase/migrations/20241215010000_create_race_plans.sql
@@ -39,6 +39,8 @@ related_files:
   - supabase/migrations/20261103123918_racebook_versioned_publications.sql
   - supabase/migrations/20261103124133_index_racebook_publication_foreign_keys.sql
   - supabase/migrations/20261103124538_cover_racebook_current_publication_foreign_key.sql
+  - supabase/migrations/20261105115106_admin_user_notifications.sql
+  - supabase/tests/admin_user_notifications_checks.sql
 related_tables:
   - race_plans
   - plan_share_links
@@ -74,6 +76,7 @@ related_tables:
   - racebook_publications
   - racebook_publication_assets
   - racebook_publication_asset_cleanup_queue
+  - user_notifications
 ---
 
 # Database Relationships
@@ -112,6 +115,7 @@ User-owned tables include:
 - `push_notification_events.user_id`
 - `nutrition_plans.user_id`
 - `race_requests.user_id`
+- `user_notifications.user_id`
 - `user_favorite_products.user_id`
 - `user_favorite_race_events.user_id`
 - `race_event_claims.user_id`
@@ -124,6 +128,8 @@ User-owned tables include:
 - `organizer_import_sessions.created_by`
 
 `subscriptions.user_id` and `premium_grants.user_id` reference `auth.users(id)` directly. Client code must not query `auth.users`; use service routes or SECURITY DEFINER functions when auth-user data is needed.
+
+`user_notifications.user_id` references `auth.users(id)` with cascade deletion. Its nullable `created_by` audit actor uses `on delete set null`, as does `race_request_id` when a request is removed. The in-app message therefore follows the recipient account lifecycle while preserving history independently from the source request and admin account.
 
 `partner_link_settings.updated_by` is a nullable admin-audit reference to `auth.users(id)` with `on delete set null`. It does not grant ownership or client access; the table remains service-only.
 

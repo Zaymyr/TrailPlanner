@@ -1,7 +1,7 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-11-02
+last_verified: 2026-11-05
 ai_priority: high
 related_files:
   - apps/web/app/sign-in/page.tsx
@@ -15,6 +15,9 @@ related_files:
   - apps/web/app/api/auth/password-reset-request/route.test.ts
   - apps/web/app/api/auth/password-update/route.ts
   - apps/web/app/api/auth/session/route.ts
+  - apps/web/app/api/account/merge-guest/route.ts
+  - apps/web/app/api/account/merge-guest/route.test.ts
+  - apps/web/lib/guest-merge.ts
   - apps/web/app/api/resend/contact/route.ts
   - apps/web/app/hooks/useVerifiedSession.tsx
   - apps/web/lib/entitlements-client.ts
@@ -41,6 +44,7 @@ related_files:
   - apps/mobile/lib/trial.ts
 related_tables:
   - user_profiles
+  - user_notifications
 ---
 
 # Auth Flows
@@ -52,6 +56,8 @@ The runner launch announcement uses cached `getSession()` identity and a user-sc
 Launch information is fetched by a user-scoped mobile hook only after a cached authenticated session is known and refreshes on foreground. It exposes cohort/badge state, not a new authorization source; failures do not grant access.
 
 Guests may browse catalog data but cannot create a runner plan. Plan creation requires a non-anonymous account and the runner profile defaults needed for generation (name, comfortable pace, water capacity and carbohydrate target; body/UTMB values remain optional). New sign-ups do not start a trial; existing trial dates remain honored unchanged. The protected plan-access API resolves global entitlement, a canonical course/edition unlock, or historical read-only detail access server-side. Admin free/premium simulation is trusted `app_metadata` plus current JWT session only.
+
+When an anonymous account is merged into an identified account, `/api/account/merge-guest` moves its owned `user_notifications.user_id` references to the identified user before deleting the source Auth user. Notification UUIDs remain unchanged for idempotency, and `created_by` remains untouched so the original administrative actor is preserved.
 
 ## Purpose
 

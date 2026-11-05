@@ -2,7 +2,7 @@
 title: race_events Table
 scope: database
 
-last_verified: 2026-11-03
+last_verified: 2026-11-05
 
 ai_priority: high
 related_files:
@@ -87,6 +87,7 @@ related_tables:
   - race_event_publication_requests
   - race_event_updates
   - race_event_update_reads
+  - user_notifications
   - race_event_editions
   - races
   - organizer_import_sessions
@@ -132,6 +133,7 @@ The mobile Livret may separately load an owner's linked plan for personal reflec
 - Canonical event website: nullable `website_url` is the narrow public catalog source for the registration CTA. A data-only backfill fills the 13 live public events that lacked it on 23 September 2026, mirrors it into an empty `organizer_details.officialWebsiteUrl`, and preserves any newer non-empty value.
 - Event favorite target: runners follow the whole event, not an individual race format.
 - Organizer announcement source: manual `race_event_updates` rows can concern the whole event or one child format and are pushed to event followers.
+- Direct admin notifications target one Auth user through `user_notifications`; they do not use event favorites, mutate `race_events`, or create `race_event_updates` rows.
 - Mobile Racebook contract: the mobile Courses tab reads `organizer_details`, `races.racebook_preview_is_visible`, and `races.racebook_is_live`. Ordinary runners require a live format plus RaceBook publication. Active `race_event_organizers` membership keeps managed private formats in Courses, grants an unpublished preview only when preview selection is true, and dims that private RaceBook action. Masked formats are removed from the mobile catalog for every role.
 - Public web catalog contract: `/courses` uses a server-only service read with explicit safe columns from `web_catalog_is_live` public race formats and their live parent events. Mobile edition visibility does not remove already published web formats, and the service boundary avoids exposing masked rows through direct client RLS. Its server search projection includes public format/event locations plus normalized city, department, region, and country names, but excludes codes, coordinates, organizer JSON, and operational fields; each response serializes at most 12 grouped event editions plus any formats inside those groups. The richer server-only detail read repeats the web race/event gates before loading organizer JSON, canonical edition dates, or private GPX, then returns only allowlisted runner-facing values. Its metadata helper limits titles to 60 characters and descriptions to 160, reserves a distance/year suffix, preserves the distinguishing end of long format names, and uses the shared social image only when neither format nor event supplies one.
 - Public web grouping: `/courses` groups current formats by stable `races.event_id + races.edition_id`, with an `event_id` fallback only for historical rows without an edition; event names are presentation labels and never grouping keys.

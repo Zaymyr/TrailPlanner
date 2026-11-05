@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
 import { withSecurityHeaders } from "../../../../lib/http";
+import { moveGuestOwnedReferences } from "../../../../lib/guest-merge";
 import {
   extractBearerToken,
   fetchSupabaseUser,
@@ -233,20 +234,6 @@ async function mergeProfiles(adminClient: AdminClient, sourceUserId: string, tar
   }
 }
 
-async function moveUserReference(
-  adminClient: AdminClient,
-  table: string,
-  column: string,
-  sourceUserId: string,
-  targetUserId: string
-) {
-  const { error } = await adminClient.from(table).update({ [column]: targetUserId }).eq(column, sourceUserId);
-
-  if (error) {
-    throw error;
-  }
-}
-
 export async function POST(request: NextRequest) {
   const supabaseAnon = getSupabaseAnonConfig();
   const supabaseService = getSupabaseServiceConfig();
@@ -303,12 +290,7 @@ export async function POST(request: NextRequest) {
     await mergeProfiles(adminClient, sourceUser.id, targetUser.id);
     await mergeFavoriteProducts(adminClient, sourceUser.id, targetUser.id);
 
-    await moveUserReference(adminClient, "race_plans", "user_id", sourceUser.id, targetUser.id);
-    await moveUserReference(adminClient, "nutrition_plans", "user_id", sourceUser.id, targetUser.id);
-    await moveUserReference(adminClient, "races", "created_by", sourceUser.id, targetUser.id);
-    await moveUserReference(adminClient, "products", "created_by", sourceUser.id, targetUser.id);
-    await moveUserReference(adminClient, "race_requests", "user_id", sourceUser.id, targetUser.id);
-    await moveUserReference(adminClient, "traces", "owner_id", sourceUser.id, targetUser.id);
+    await moveGuestOwnedReferences(adminClient, sourceUser.id, targetUser.id);
 
     const { error: deleteProfileError } = await adminClient
       .from("user_profiles")

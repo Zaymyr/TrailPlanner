@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-11-03
+last_verified: 2026-11-05
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-organizer-analytics.ts
@@ -35,6 +35,8 @@ related_files:
   - apps/web/app/admin/components/AdminGrowthSection.tsx
   - apps/web/app/admin/components/AdminTrendChart.tsx
   - apps/web/app/admin/_components/AdminUsersTab.tsx
+  - apps/web/app/admin/_components/AdminNotificationDialog.tsx
+  - apps/web/app/api/admin/user-notifications/route.ts
   - apps/web/app/api/admin/users/route.ts
   - apps/web/app/api/admin/users/route.test.ts
   - apps/web/app/admin/_components/admin-types.ts
@@ -312,6 +314,8 @@ The admin Growth tab is operational and uses Supabase only:
 The Growth dashboard and the Users management tab consume a shared Supabase daily trend series for account creation, mature 24-hour activation cohorts, plan creation, and plan activity. Every user/plan/subscription/activity total excludes accounts whose Auth `raw_app_meta_data.role` or `roles` contains `admin`. `get_admin_growth_metrics` calculates the bounded Europe/Paris reporting range inside Postgres, so the application no longer downloads whole operational tables or depends on the Data API row cap.
 
 The Users table keeps its global email/id/role search and adds column-typed filters for email text, role membership, account-creation date range, and last-sign-in date range. The protected admin route applies every filter to the complete normalized Supabase Auth collection before sorting and 20-row pagination; date upper bounds include the complete selected UTC calendar day. Premium is intentionally not offered as a column filter because grants, trials, and subscriptions are enriched only after the Auth result page has been selected.
+
+The Users table also exposes an operational `Envoyer un message` action. Its required in-app notification and optional e-mail/push delivery are audited in Supabase/provider delivery records, not emitted as PostHog product events; message titles, bodies, recipient identifiers, and provider errors must stay out of analytics payloads.
 
 Activation uses only identified accounts whose complete 24-hour observation window has elapsed. The eligible denominator is exposed separately from all new accounts. Effective Premium is the distinct union of active subscription rows, active application trials, and active manual grants; the detail separates paid subscriptions, trials, grants, and paid providers so overlapping access sources do not inflate the unique total.
 

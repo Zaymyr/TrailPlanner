@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Text } from '../../components/themed/Text';
 import { Button } from '../../components/themed/Button';
 import { RunnerLaunchAnnouncement } from '../../components/announcements/RunnerLaunchAnnouncement';
@@ -30,6 +30,7 @@ import { ProfileLanguageSection } from '../../components/profile/ProfileLanguage
 import { ProfilePerformanceSection } from '../../components/profile/ProfilePerformanceSection';
 import { ProfilePersonalSection } from '../../components/profile/ProfilePersonalSection';
 import { ProfileOnboardingSection } from '../../components/profile/ProfileOnboardingSection';
+import { ProfileNotificationsSection } from '../../components/profile/ProfileNotificationsSection';
 import { ProfilePremiumSection } from '../../components/profile/ProfilePremiumSection';
 import { ProfileSaveButton } from '../../components/profile/ProfileSaveButton';
 import { ProfileTabs } from '../../components/profile/ProfileTabs';
@@ -42,7 +43,9 @@ import {
 import { type ProfileTutorialTargetKey, useProfileTutorial } from '../../hooks/useProfileTutorial';
 import { useProfileScreen } from '../../hooks/useProfileScreen';
 import { useRunnerLaunchInfo } from '../../hooks/useRunnerLaunchInfo';
+import { useUnreadNotificationCount } from '../../hooks/useUnreadNotificationCount';
 import { type TutorialStep } from '../../lib/helpTutorial';
+import { shouldOpenNotificationsTab } from '../../lib/userNotifications';
 import {
   addOnboardingStatusListener,
   DEFAULT_ONBOARDING_STATUSES,
@@ -55,6 +58,10 @@ import {
 export default function ProfileScreen() {
   const [showLaunchPreview, setShowLaunchPreview] = useState(false);
   const router = useRouter();
+  const { notificationId, tab } = useLocalSearchParams<{
+    notificationId?: string;
+    tab?: string;
+  }>();
   const insets = useSafeAreaInsets();
   const scrollY = useRef(new Animated.Value(0)).current;
   const [onboardingStatuses, setOnboardingStatuses] = useState<OnboardingStatuses>(DEFAULT_ONBOARDING_STATUSES);
@@ -165,6 +172,35 @@ export default function ProfileScreen() {
     formatChangelogVersionMeta,
   } = useProfileScreen();
   const launchInfo = useRunnerLaunchInfo(isAnonymousAccount ? null : userId);
+  const unreadNotifications = useUnreadNotificationCount();
+  const refreshUnreadNotifications = unreadNotifications.refresh;
+
+  const profileTabsWithNotifications = useMemo(
+    () => [
+      ...profileTabs.filter((profileTab) => profileTab.key !== 'settings'),
+      {
+        key: 'notifications' as const,
+        label: t.profile.notificationsTabLabel,
+        hasUnread: unreadNotifications.hasUnread,
+        accessibilityLabel: unreadNotifications.hasUnread
+          ? `${t.profile.notificationsTabLabel}. ${t.profile.notificationsUnreadLabel}`
+          : t.profile.notificationsTabLabel,
+      },
+      ...profileTabs.filter((profileTab) => profileTab.key === 'settings'),
+    ],
+    [
+      profileTabs,
+      t.profile.notificationsTabLabel,
+      t.profile.notificationsUnreadLabel,
+      unreadNotifications.hasUnread,
+    ],
+  );
+
+  useEffect(() => {
+    if (shouldOpenNotificationsTab(tab, notificationId)) {
+      setActiveProfileTab('notifications');
+    }
+  }, [notificationId, setActiveProfileTab, tab]);
 
   const refreshOnboardingStatuses = useCallback(() => {
     void loadOnboardingStatuses().then(setOnboardingStatuses).catch((caught) => {
@@ -173,6 +209,9 @@ export default function ProfileScreen() {
   }, []);
 
   useFocusEffect(refreshOnboardingStatuses);
+  useFocusEffect(useCallback(() => {
+    void refreshUnreadNotifications();
+  }, [refreshUnreadNotifications]));
   useEffect(() => addOnboardingStatusListener(setOnboardingStatuses), []);
   useEffect(() => {
     if (Platform.OS !== 'ios') return undefined;
@@ -242,7 +281,9 @@ export default function ProfileScreen() {
     ],
     [t.helpTutorial],
   );
-  const showSaveAction = activeProfileTab !== 'settings' && (isProfileDirty || saving);
+  const showSaveAction =
+    (activeProfileTab === 'personal' || activeProfileTab === 'performance') &&
+    (isProfileDirty || saving);
   const saveDockBottom = keyboardInset > 0
     ? keyboardInset + 12
     : 72 + Math.max(8, insets.bottom);
@@ -351,7 +392,11 @@ export default function ProfileScreen() {
         scrollEventThrottle={16}
         style={styles.container}
       >
-        <ProfileTabs activeTab={activeProfileTab} tabs={profileTabs} onChange={handleProfileTabChange} />
+        <ProfileTabs
+          activeTab={activeProfileTab}
+          tabs={profileTabsWithNotifications}
+          onChange={handleProfileTabChange}
+        />
         {launchInfo.earlySupporter ? (
           <View style={styles.earlySupporterBadge}>
             <Text tone="brand" size="sm" weight="semibold">
@@ -446,6 +491,32 @@ export default function ProfileScreen() {
               onOpenEstimator={handleOpenEstimator}
             />
           </TutorialTarget>
+        ) : null}
+
+        {activeProfileTab === 'notifications' ? (
+          <ProfileNotificationsSection
+            copy={{
+              title: t.profile.notificationsTitle,
+              subtitle: t.profile.notificationsSubtitle,
+              emptyTitle: t.profile.notificationsEmptyTitle,
+              emptyBody: t.profile.notificationsEmptyBody,
+              loadFailed: t.profile.notificationsLoadFailed,
+              refresh: t.common.retry,
+              markAllRead: t.profile.notificationsMarkAllRead,
+              markingAllRead: t.profile.notificationsMarkingAllRead,
+              loadMore: t.profile.notificationsLoadMore,
+              loadingMore: t.profile.notificationsLoadingMore,
+              unreadLabel: t.profile.notificationsUnreadLabel,
+              raceRequestLabel: t.profile.notificationsRaceRequestLabel,
+              adminMessageLabel: t.profile.notificationsAdminMessageLabel,
+              expand: t.profile.notificationsExpand,
+              collapse: t.profile.notificationsCollapse,
+            }}
+            locale={locale}
+            onUnreadChanged={unreadNotifications.refresh}
+            targetNotificationId={notificationId ?? null}
+            userId={userId}
+          />
         ) : null}
 
         {activeProfileTab === 'settings' ? (

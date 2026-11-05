@@ -2,7 +2,7 @@
 title: Affiliate Partner Links
 scope: integration
 
-last_verified: 2026-11-03
+last_verified: 2026-11-05
 
 ai_priority: medium
 related_files:
@@ -32,6 +32,8 @@ related_tables:
 # Affiliate Partner Links
 
 The shared mobile RaceBook screen now also renders additive third-party bib-pickup conditions. Booking/Decathlon destination resolution, affiliation disclosure, outbound analytics, and URL validation remain unchanged.
+
+The admin page's race-request queue and user-message actions are separate operational surfaces. They do not share partner-link configuration, destinations, caches, or the atomic partner settings upsert.
 
 The header-attached workspace switch, full-width profile chart and plan unlock badge do not change partner links or their tracking.
 

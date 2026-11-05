@@ -59,6 +59,7 @@ export type ResendContactSyncResult =
 export type ResendContactSyncOptions = {
   requestDelayMs?: number;
   maxRetries?: number;
+  idempotencyKey?: string;
 };
 
 export type ResendIdentifiedUserSyncResult =
@@ -81,6 +82,8 @@ export type OrganizerAssignmentEmailResult =
   | { status: "sent"; id?: string }
   | { status: "skipped"; reason: "missing-config" }
   | { status: "failed"; statusCode?: number; message: string };
+
+export type AdminUserEmailResult = OrganizerAssignmentEmailResult;
 
 const resendContactResponseSchema = z
   .object({
@@ -199,6 +202,7 @@ const requestResend = async (
       headers: {
         Authorization: `Bearer ${config.apiKey}`,
         "Content-Type": "application/json",
+        ...(options.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : {}),
         ...(init.headers ?? {}),
       },
       cache: "no-store",
@@ -227,6 +231,29 @@ const escapeHtml = (value: string): string =>
     };
     return entities[character] ?? character;
   });
+
+const buildAdminUserNotificationHtml = (title: string, body: string): string => {
+  const bodyHtml = body.replace(/\r?\n/g, "<br>");
+  return `<!doctype html>
+<html lang="fr" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${title}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#eceae3;color:#1f2410;">
+    <div lang="fr" dir="ltr" style="max-width:600px;margin:0 auto;padding:28px 16px;font-family:Arial,Helvetica,sans-serif;">
+      <div style="background:#ffffff;border:1px solid #e5e2d8;border-radius:16px;padding:32px;">
+        <p style="margin:0 0 12px;color:#5c6450;font-size:13px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;">Message Pace Yourself</p>
+        <h1 style="margin:0 0 18px;font-size:26px;line-height:33px;color:#1f2410;">${title}</h1>
+        <p style="margin:0 0 24px;font-size:16px;line-height:25px;color:#424936;">${bodyHtml}</p>
+        <p style="margin:0;padding:14px 16px;border-radius:12px;background:#f1f5ec;color:#344426;font-size:14px;line-height:21px;">Retrouve ce message dans l'onglet Notifications de l'application Pace Yourself.</p>
+      </div>
+      <p style="margin:18px 0 0;text-align:center;color:#6d7463;font-size:12px;line-height:18px;">Cet e-mail concerne ton compte Pace Yourself et ne contient aucun contenu promotionnel.</p>
+    </div>
+  </body>
+</html>`;
+};
 
 const buildOrganizerAssignmentHtml = (eventName: string, organizerUrl: string): string => `<!doctype html>
 <html lang="fr">
@@ -364,6 +391,48 @@ export const sendOrganizerAssignmentEmail = async (input: {
     status: "failed",
     statusCode: response.status,
     message: extractErrorMessage(payload, "Unable to send organizer assignment email."),
+  };
+};
+
+export const sendAdminUserNotificationEmail = async (input: {
+  to: string;
+  notificationId: string;
+  title: string;
+  body: string;
+}): Promise<AdminUserEmailResult> => {
+  const config = getResendConfig();
+  if (!config) return { status: "skipped", reason: "missing-config" };
+
+  const title = input.title.trim();
+  const body = input.body.trim();
+  const { response, payload } = await requestResend(
+    config,
+    "/emails",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        from: config.from,
+        to: [input.to.trim().toLowerCase()],
+        subject: title,
+        html: buildAdminUserNotificationHtml(escapeHtml(title), escapeHtml(body)),
+        text: `${title}\n\n${body}\n\nRetrouve ce message dans l'onglet Notifications de l'application Pace Yourself.\n\nL'équipe Pace Yourself`,
+      }),
+    },
+    {
+      maxRetries: 2,
+      idempotencyKey: `admin-user-notification/${input.notificationId}`,
+    }
+  );
+
+  if (response.ok) {
+    const parsed = resendContactResponseSchema.safeParse(payload);
+    return { status: "sent", id: parsed.success ? parsed.data.id : undefined };
+  }
+
+  return {
+    status: "failed",
+    statusCode: response.status,
+    message: extractErrorMessage(payload, "Unable to send admin user notification email."),
   };
 };
 

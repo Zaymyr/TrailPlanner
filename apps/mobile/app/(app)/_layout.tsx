@@ -10,6 +10,7 @@ import { NativeBuildUpdatePrompt } from '../../components/updates/NativeBuildUpd
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
 import { getActivePlanEditHref } from '../../lib/planEditSession';
+import { useUnreadNotificationCount } from '../../hooks/useUnreadNotificationCount';
 import {
   addOnboardingStatusListener,
   DEFAULT_ONBOARDING_STATUSES,
@@ -17,6 +18,7 @@ import {
   loadOnboardingStatuses,
 } from '../../lib/onboardingStatus';
 import { supabase } from '../../lib/supabase';
+import { shouldShowProfileAttentionDot } from '../../lib/userNotifications';
 
 export const unstable_settings = {
   initialRouteName: 'catalog',
@@ -43,6 +45,11 @@ export default function AppLayout() {
     </Text>
   );
   const [showProfileOnboardingDot, setShowProfileOnboardingDot] = useState(false);
+  const unreadNotifications = useUnreadNotificationCount();
+  const showProfileAttentionDot = shouldShowProfileAttentionDot({
+    hasPendingOnboarding: showProfileOnboardingDot,
+    hasUnreadNotifications: unreadNotifications.hasUnread,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -221,8 +228,17 @@ export default function AppLayout() {
           tabBarIcon: ({ color, size }) => (
             <View style={styles.profileIconWrap}>
               <Ionicons name="person" size={size} color={color} />
-              {showProfileOnboardingDot ? (
-                <View accessibilityLabel={t.onboarding.tours.profileDotLabel} style={styles.onboardingDot} />
+              {showProfileAttentionDot ? (
+                <View
+                  accessibilityLabel={
+                    unreadNotifications.hasUnread && showProfileOnboardingDot
+                      ? `${t.profile.notificationsProfileDotLabel}. ${t.onboarding.tours.profileDotLabel}`
+                      : unreadNotifications.hasUnread
+                      ? t.profile.notificationsProfileDotLabel
+                      : t.onboarding.tours.profileDotLabel
+                  }
+                  style={styles.attentionDot}
+                />
               ) : null}
             </View>
           ),
@@ -293,7 +309,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   profileIconWrap: { position: 'relative' },
-  onboardingDot: {
+  attentionDot: {
     position: 'absolute',
     right: -4,
     top: -2,

@@ -99,6 +99,7 @@ You modify `apps/web/lib/auth/session.ts`, which is referenced by `docs/04-auth-
 | Relay formats / handover points | `docs/02-database/tables/race-relay-points.md` + `docs/02-database/tables/races.md` + `docs/03-business-rules/organizer-race-management.md` + `docs/01-architecture/mobile-app.md` |
 | Public race pages / SEO selections | `docs/03-business-rules/public-race-discovery.md` + `docs/02-database/tables/race-events.md` + `docs/02-database/tables/race-slug-redirects.md` + `docs/01-architecture/web-app.md` |
 | Race favorites / organizer runner notifications | `docs/02-database/tables/user-favorite-race-events.md` + `docs/02-database/tables/race-event-updates.md` + `docs/02-database/tables/race-event-update-reads.md` + `docs/03-business-rules/organizer-race-management.md` + `docs/01-architecture/mobile-app.md` |
+| Admin race requests / direct user notifications | `docs/02-database/tables/race-requests.md` + `docs/02-database/tables/user-notifications.md` + `docs/04-auth-and-security/rls-checklist.md` + `docs/05-integrations/resend.md` + `docs/01-architecture/mobile-app.md` + `docs/01-architecture/web-app.md` |
 | Integration work (Stripe, Resend, Geocoding, Edge Functions) | `docs/05-integrations/` |
 | Admin Mapbox 3D video preview | `docs/05-integrations/mapbox-3d.md` + `docs/03-business-rules/gpx-import.md` + `docs/01-architecture/web-app.md` |
 | Admin 3D course viewer / Mapbox | `docs/05-integrations/mapbox-3d.md` + `docs/03-business-rules/gpx-import.md` + `docs/01-architecture/web-app.md` |

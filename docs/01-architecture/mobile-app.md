@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-11-03
+last_verified: 2026-11-05
 ai_priority: high
 related_files:
   - apps/mobile/components/plan-workspace/LockedPlanContent.tsx
@@ -70,6 +70,11 @@ related_files:
   - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
   - supabase/migrations/20260923070437_separate_web_and_mobile_race_visibility.sql
   - apps/mobile/app/(app)/profile.tsx
+  - apps/mobile/components/profile/ProfileNotificationsSection.tsx
+  - apps/mobile/components/profile/types.ts
+  - apps/mobile/hooks/useUnreadNotificationCount.ts
+  - apps/mobile/lib/userNotifications.ts
+  - apps/mobile/lib/userNotifications.test.ts
   - apps/mobile/app/(app)/nutrition.tsx
   - apps/mobile/components/nutrition/NutritionContent.tsx
   - apps/mobile/app/(app)/onboarding.tsx
@@ -183,6 +188,8 @@ related_tables:
   - race_relay_points
   - race_event_edition_sponsors
   - race_event_edition_branding
+  - race_requests
+  - user_notifications
 ---
 
 # Mobile App Architecture
@@ -389,6 +396,8 @@ The plan detail header is intentionally centered while root-tab titles are left-
 Its reusable loading card, race row, and filter modal live in `apps/mobile/components/catalog/CatalogPresentation.tsx`; the route retains catalog queries, filtering state, favorites, analytics, and navigation. Runner-owned personal races are no longer queried or displayed.
 
 The four root tabs expose the same 44-point `?` header action in expanded and compact modes. It opens contextual help, feedback, and race request actions and consumes Android back while open; guided Courses onboarding intentionally omits it. Courses keeps search and quick filters pinned below the compact header. Native date fields preserve ISO values while rendering locale dates and are loaded lazily so an OTA reaching an older binary reports that a new build is required instead of crashing. Profile uses one dirty-only bottom save dock, while Nutrition keeps brand accordions only for the unfiltered catalog and switches to flat product rows for search/type results.
+
+Profile contains a fourth, horizontally scrollable Notifications sub-tab. It reads only the authenticated owner's safe `user_notifications` projection (`id,user_id,race_request_id,kind,title,body,read_at,created_at`), orders newest first, paginates by 20 rows, and distinguishes loading, failure, empty, and populated states. Opening a card marks only that row read; the explicit bulk action updates only `read_at`. The shared unread-count hook refreshes on auth changes, app foregrounding, Profile focus, foreground push receipt, and local read mutations. One red Profile badge represents the logical union of unread notifications and pending onboarding, with an accessibility label that names both conditions when both apply. Push hrefs may target `/(app)/profile?tab=notifications&notificationId=<uuid>`; Profile opens the sub-tab, fetches the owner-scoped target when it is outside the first page, expands it, and marks it read.
 
 - its public event relation uses an inner join filtered to `races.racebook_preview_is_visible = true`, so an event remains discoverable with private formats but no public RaceBook; the presentation filter removes every format whose preview flag is false;
 - when several visible editions of the same event are already online, it groups formats by stable `edition_id`; an older edition stays alongside the newest through the fourteenth local calendar day after its latest visible format date, then only the newest dated edition remains. Legacy rows without an edition or a usable date stay visible rather than being discarded speculatively;

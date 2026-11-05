@@ -22,6 +22,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { useI18n } from "../../i18n-provider";
 import { adminGrowthResponseSchema } from "../../api/admin/growth/schema";
 import AdminTrendChart from "../components/AdminTrendChart";
+import { AdminNotificationDialog, type AdminNotificationFormValue } from "./AdminNotificationDialog";
 import {
   AdminUser,
   adminUserSchema,
@@ -87,6 +88,7 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
   const [premiumDialogOpen, setPremiumDialogOpen] = useState(false);
   const [premiumDialogUser, setPremiumDialogUser] = useState<AdminUser | null>(null);
   const [detailsDialogUser, setDetailsDialogUser] = useState<AdminUser | null>(null);
+  const [notificationDialogUser, setNotificationDialogUser] = useState<AdminUser | null>(null);
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -389,6 +391,30 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
     setCreatedTo("");
     setLastSignInFrom("");
     setLastSignInTo("");
+  };
+
+  const sendUserNotification = async (value: AdminNotificationFormValue) => {
+    if (!accessToken || !notificationDialogUser) throw new Error("Session admin manquante.");
+    const response = await fetch("/api/admin/user-notifications", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        notificationId: value.notificationId,
+        userId: notificationDialogUser.id,
+        title: value.title,
+        body: value.body,
+        sendEmail: value.sendEmail,
+        sendPush: value.sendPush,
+      }),
+    });
+    const payload = await readResponsePayload(response);
+    if (!response.ok) throw new Error(buildApiErrorMessage(response, payload, "Impossible d’envoyer le message."));
+    setUserError(null);
+    setUserMessage("Le message a été enregistré et les canaux sélectionnés ont été traités.");
+    setNotificationDialogUser(null);
   };
 
   const renderSortableHeader = (
@@ -743,9 +769,14 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Button type="button" variant="ghost" className="h-8 px-2 text-xs" onClick={() => setDetailsDialogUser(user)}>
-                        {t.admin.users.details.open}
-                      </Button>
+                      <div className="flex flex-wrap gap-1">
+                        <Button type="button" variant="ghost" className="h-8 px-2 text-xs" onClick={() => setDetailsDialogUser(user)}>
+                          {t.admin.users.details.open}
+                        </Button>
+                        <Button type="button" variant="outline" className="h-8 px-2 text-xs" onClick={() => setNotificationDialogUser(user)}>
+                          Envoyer un message
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -894,6 +925,13 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
           </form>
         </DialogContent>
       </Dialog>
+
+      <AdminNotificationDialog
+        open={Boolean(notificationDialogUser)}
+        recipient={notificationDialogUser?.email ?? notificationDialogUser?.id ?? ""}
+        onOpenChange={(open) => !open && setNotificationDialogUser(null)}
+        onSubmit={sendUserNotification}
+      />
 
       <Dialog open={Boolean(detailsDialogUser)} onOpenChange={(open) => !open && setDetailsDialogUser(null)}>
         <DialogContent className="max-h-[80vh] overflow-y-auto">

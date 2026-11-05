@@ -1,10 +1,12 @@
 ---
 title: RLS Policies
 scope: database
-last_verified: 2026-09-30
+last_verified: 2026-11-05
 ai_priority: high
 related_files:
   - supabase/migrations
+  - supabase/migrations/20261105115106_admin_user_notifications.sql
+  - supabase/tests/admin_user_notifications_checks.sql
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
   - supabase/migrations/20260930104930_remove_personal_race_creation.sql
   - supabase/tests/privileged_database_access_checks.sql
@@ -86,6 +88,7 @@ related_tables:
   - user_profiles
   - subscriptions
   - premium_grants
+  - user_notifications
 ---
 
 # RLS Policies
@@ -383,7 +386,8 @@ Declared in `20260504120000_add_push_notifications.sql`.
 - `partner_link_settings`: RLS is enabled without client policies; `PUBLIC`, `anon`, and `authenticated` have no privileges, while `service_role` manages the two rows only after the web route authenticates a trusted admin.
 - `app_feedback`: authenticated users can insert after later migration.
 - `app_changelog`: authenticated users can view.
-- `race_requests`: authenticated users can insert and read own requests.
+- `race_requests`: authenticated users can insert and read own requests, but cannot review them directly. The service-role-only invoker RPC writes the status and mandatory notification atomically.
+- `user_notifications`: authenticated owners explicitly select only safe inbox columns and update only `read_at`; insert/delete, delivery metadata and the admin actor remain service-only.
 - `nutrition_plans`: users can insert and view own rows.
 - Legacy coach/coachee tables and RLS policies were removed by `20260618145940_remove_coach_features.sql`.
 
@@ -443,6 +447,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - Organizer portal membership checks are event-based. Do not replace them with `races.created_by`.
 - Event-favorite ownership and organizer-update audience selection are separate concerns. Do not grant organizers direct read access to follower rows just because they can send updates.
 - Push delivery logs and read receipts have different security boundaries. Keep runner-visible state in owner-scoped `race_event_update_reads`, not in service-managed `push_notification_events`.
+- Admin messages follow the same separation: `user_notifications` is the owner-readable inbox/read state, while `push_notification_events` remains a per-device delivery and deduplication log. Column-level grants mean client queries must not use `select('*')`.
 - Adding service-flag columns to `race_aid_stations` does not grant new row access; keep organizer mutations behind the existing service-route membership check.
 - Adding organizer dashboard JSONB columns to existing source tables does not grant new row access. Keep event/race/station mutations behind the existing organizer service routes and active membership checks.
 - Public share links still need owner RLS even though the public page uses service role; route code must verify parent plan ownership before creating a link.

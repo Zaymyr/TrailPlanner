@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { sendOrganizerAssignmentEmail } from "./resend";
+import { sendAdminUserNotificationEmail, sendOrganizerAssignmentEmail } from "./resend";
 
 describe("sendOrganizerAssignmentEmail", () => {
   const originalApiKey = process.env.RESEND_API_KEY;
@@ -47,5 +47,47 @@ describe("sendOrganizerAssignmentEmail", () => {
     expect(body.html).toContain("background:#ffffff; border-radius:16px");
     expect(body.html).not.toContain("RESEND_UNSUBSCRIBE_URL");
     expect(body.text).toContain("https://pace-yourself.com/organizer?eventId=event-1&source=admin");
+  });
+});
+
+describe("sendAdminUserNotificationEmail", () => {
+  const originalApiKey = process.env.RESEND_API_KEY;
+
+  beforeEach(() => {
+    process.env.RESEND_API_KEY = "re_test";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ id: "email-admin-1" })));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    if (originalApiKey === undefined) delete process.env.RESEND_API_KEY;
+    else process.env.RESEND_API_KEY = originalApiKey;
+  });
+
+  it("uses an idempotency key and escapes the transactional content", async () => {
+    const result = await sendAdminUserNotificationEmail({
+      to: "Runner@Example.com",
+      notificationId: "11111111-1111-4111-8111-111111111111",
+      title: "Course <terminée>",
+      body: "Bonjour & bienvenue\nDeuxième ligne",
+    });
+
+    expect(result).toEqual({ status: "sent", id: "email-admin-1" });
+    const [, init] = vi.mocked(fetch).mock.calls[0];
+    expect(init?.headers).toMatchObject({
+      "Idempotency-Key": "admin-user-notification/11111111-1111-4111-8111-111111111111",
+    });
+    const body = JSON.parse(init?.body as string);
+    expect(body.to).toEqual(["runner@example.com"]);
+    expect(body.html).toContain('<html lang="fr" dir="ltr">');
+    expect(body.html).toContain('<div lang="fr" dir="ltr"');
+    expect(body.html).toContain("Course &lt;terminée&gt;");
+    expect(body.html).toContain("Bonjour &amp; bienvenue<br>Deuxième ligne");
+    expect(body.html).toContain("l'onglet Notifications de l'application Pace Yourself");
+    expect(body.html).not.toContain("pace-yourself.com/profile");
+    expect(body.html).not.toContain("<a ");
+    expect(body.text).toContain("Deuxième ligne");
+    expect(body.text).toContain("l'onglet Notifications de l'application Pace Yourself");
+    expect(body.text).not.toContain("pace-yourself.com/profile");
   });
 });

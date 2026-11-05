@@ -1,7 +1,7 @@
 ---
 title: organizer_social_proofs
 scope: database
-last_verified: 2026-11-02
+last_verified: 2026-11-05
 ai_priority: high
 related_files:
   - supabase/migrations/20260930115641_add_organizer_social_proofs.sql
@@ -29,6 +29,8 @@ related_tables:
 ## Purpose
 
 `organizer_social_proofs` stores the administrator-curated, edition-scoped proof cards published on `/organisateurs`. It combines optional consented organizer copy with a durable snapshot of aggregate RaceBook usage. The public landing summarizes the first ordered proof in its conversion hero, independently of the now self-contained and viewport-height-constrained phone demonstration, then gives the complete published selection a dedicated highlighted surface with semantic metrics and an optional visually distinct testimonial. Responsive compaction changes only presentation; the landing never queries PostHog directly and never receives runner identities.
+
+The admin page now also includes an independent race-request notification queue. That additional tab does not read, write, publish, or invalidate organizer social-proof rows.
 
 ## Key Concepts
 

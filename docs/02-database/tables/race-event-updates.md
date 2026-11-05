@@ -1,7 +1,7 @@
 ---
 title: race_event_updates Table
 scope: database
-last_verified: 2026-11-01
+last_verified: 2026-11-05
 ai_priority: high
 related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
@@ -18,6 +18,7 @@ related_tables:
   - race_event_organizers
   - push_notification_events
   - race_event_update_reads
+  - user_notifications
   - races
 ---
 
@@ -33,6 +34,7 @@ related_tables:
 - Event history: runners can read the latest published updates from the event sheet.
 - Push source: one update can fan out one push send using a dedupe key derived from the update id.
 - Live visibility: public read access is limited to updates whose parent event is live.
+- Direct admin messages are a separate flow: their runner-visible source is `user_notifications`, not `race_event_updates`.
 
 ## Columns
 
@@ -127,6 +129,7 @@ Organizer deletion includes both `updateId` and `editionId`. The server verifies
 - The dedicated `/api/race-events/[id]/updates` route still owns the fuller history fetch when a runner taps to view more than the preview.
 - Public visibility depends on the parent event liveness, not on a separate `published` column here.
 - Push delivery metadata belongs in `push_notification_events`, not in this table.
+- Admin-to-runner pushes may reuse the shared push sender, but use `admin-user-notification:<notificationId>` dedupe keys and link back to `user_notifications`; they never create organizer announcement history here.
 - `push notification opened` is a bounded product-analytics interaction emitted from the app shell; it contains no message body or href and must not be treated as announcement read state.
 - Runner read state belongs in `race_event_update_reads`; do not mutate an announcement when one runner views it.
 - Do not use `racebook_is_live` as the event-announcement visibility rule. Updates stay governed by parent event liveness and their existing optional live-format validation.

@@ -1,10 +1,12 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-11-03
+last_verified: 2026-11-05
 ai_priority: high
 related_files:
   - supabase/migrations
+  - supabase/migrations/20261105115106_admin_user_notifications.sql
+  - supabase/tests/admin_user_notifications_checks.sql
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
   - supabase/migrations/20260930104930_remove_personal_race_creation.sql
   - supabase/tests/privileged_database_access_checks.sql
@@ -104,6 +106,7 @@ related_tables:
   - products
   - user_favorite_race_events
   - user_profiles
+  - user_notifications
   - subscriptions
   - premium_grants
   - runner_plan_unlocks
@@ -120,6 +123,8 @@ related_tables:
 ---
 
 # Schema Overview
+
+Admin-to-runner messaging now uses owner-readable `user_notifications`. Race-request reviews atomically update `race_requests` and insert the mandatory in-app message; optional Resend and Expo delivery state stays server-managed. Authenticated clients receive explicit safe-column reads and `read_at`-only updates, while the review RPC remains service-role-only.
 
 RaceBook publication is now a service-only versioned boundary. Organizer autosave continues to update the existing source tables and targeted triggers advance `racebook_publication_states.draft_revision`; public/mobile delivery resolves one immutable `racebook_publications` snapshot. The ten-version retention process preserves referenced assets and queues only unreferenced private Storage paths for asynchronous cleanup.
 
@@ -225,6 +230,7 @@ The November 2026 mobile plan-flow polish changes catalog search controls, image
 | `user_favorite_race_events` | User-owned favorites for `race_events`, used for catalog pinning and organizer-update audience selection. |
 | `user_favorite_products` | User favorites for products. |
 | `user_profiles` | App profile, independent Plan/RaceBook onboarding statuses, legacy completion, trial fields, defaults, sign-in metrics, and body metrics. |
+| `user_notifications` | Owner-readable admin messages and race-request status notifications with server-managed email/push delivery state. |
 
 Removed legacy tables:
 
@@ -341,6 +347,7 @@ erDiagram
 - Historical migrations contain unsafe administrator branches, but the final hardening migration replaces active privileged policies with trusted `app_metadata` checks. Never authorize from `user_profiles.role` or `user_metadata`.
 - `planner_values` is JSONB and intentionally broad; schema docs cannot enumerate all app-level planner fields.
 - Mobile catalog root actions are UI-only; Courses now opens its existing `race_requests` form from the persistent action in the shared collapsible root header and no longer renders that trigger beside search. Header collapse, search, and quick filters remain presentation wiring separate from the `race_events` and `races` query contract documented here.
+- `user_notifications` uses column-level privileges: clients must explicitly select the documented inbox columns and may update only `read_at`; delivery errors and admin audit fields remain service-only.
 - Mobile catalog and onboarding can share race-event presentation components, but those components must not change the `race_events` and `races` query contract documented here.
 - The mobile-only catalog filter may retain an event for its current runner through the fourteenth calendar day after `race_events.race_date` when its id is in that runner's favorite snapshot. This is presentation logic over existing rows; it adds no schema, RLS, or cross-user favorite access.
 - The same mobile query selects the existing `races.edition_id` so presentation can retire an older visible edition on day 15 after its latest visible format date when a newer edition is already online. This in-memory rollover adds no table, policy, mutation, or direct client access to `race_event_editions`.

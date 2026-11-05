@@ -76,6 +76,8 @@ Docs conventions are in [_conventions.md](_conventions.md).
 - [race_event_update_reads](02-database/tables/race-event-update-reads.md)
 - [products](02-database/tables/products.md)
 - [user_profiles](02-database/tables/user-profiles.md)
+- [race_requests](02-database/tables/race-requests.md)
+- [user_notifications](02-database/tables/user-notifications.md)
 - [user_favorite_race_events](02-database/tables/user-favorite-race-events.md)
 - [subscriptions](02-database/tables/subscriptions.md)
 - [premium_grants](02-database/tables/premium-grants.md)

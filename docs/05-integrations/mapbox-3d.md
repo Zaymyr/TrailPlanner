@@ -1,7 +1,7 @@
 ---
 title: Mapbox 3D Admin Course Viewer
 scope: integration
-last_verified: 2026-11-02
+last_verified: 2026-11-05
 ai_priority: high
 related_files:
   - apps/web/package.json
@@ -55,6 +55,8 @@ related_tables:
 ---
 
 # Mapbox 3D Admin Course Viewer
+
+The admin page now also links to a race-request review queue. That tab and its user-notification delivery are independent from the lazy 3D video-generator route and do not load Mapbox, GPX, narration, or rendering dependencies.
 
 ## Purpose
 

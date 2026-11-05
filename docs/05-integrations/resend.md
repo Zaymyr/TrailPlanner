@@ -1,7 +1,7 @@
 ---
 title: Resend Integration
 scope: integration
-last_verified: 2026-11-02
+last_verified: 2026-11-05
 ai_priority: medium
 related_files:
   - package.json
@@ -11,6 +11,11 @@ related_files:
   - apps/web/public/landing/mobile-app-plan-screen.jpeg
   - apps/web/lib/resend.ts
   - apps/web/lib/resend.test.ts
+  - apps/web/lib/admin-user-notifications.ts
+  - apps/web/app/api/admin/race-requests/route.ts
+  - apps/web/app/api/admin/race-requests/route.test.ts
+  - apps/web/app/api/admin/user-notifications/route.ts
+  - apps/web/app/api/admin/user-notifications/route.test.ts
   - apps/web/app/api/resend/contact/route.ts
   - apps/web/app/api/resend/contact/route.test.ts
   - apps/web/app/api/admin/resend/sync/route.ts
@@ -29,7 +34,7 @@ related_tables:
 
 ## Purpose
 
-This document records the current Resend integration in the repo. Resend is used to sync Supabase Auth users into Resend Contacts through an admin bulk route and a per-user authenticated route, and to send the transactional notification that follows assignment of an existing organizer account to a race event. A static production-launch Broadcast template also lives in the repo.
+This document records the current Resend integration in the repo. Resend is used to sync Supabase Auth users into Resend Contacts through an admin bulk route and a per-user authenticated route, and to send transactional notifications for organizer assignment and optional admin-to-user messages. A static production-launch Broadcast template also lives in the repo.
 
 ## Key Concepts
 
@@ -51,6 +56,7 @@ The repo has one checked-in Broadcast template and two server-side Resend Contac
 - `emails/resend/production-launch.html` is a static HTML template for the Google Play production launch Broadcast. Its support ask mentions both a Google Play rating and the `@pace_your.self` Instagram account.
 - `emails/resend/production-launch.txt` is the matching plain-text copy.
 - `apps/web/lib/resend.ts` wraps the Resend Contacts REST API with `fetch`; no `resend` npm dependency is installed.
+- Admin messages and race-request status notices may opt into a transactional Resend e-mail. Their durable in-app `user_notifications` row is created first, the notification UUID becomes the provider `Idempotency-Key`, and the delivery result is persisted as `sent`, `failed`, or `unavailable` without undoing the in-app message or race-request review. The e-mail includes escaped, accessible HTML and matching plain text. Because the inbox is currently mobile-only and no universal link is configured, it truthfully directs the recipient to the app's Notifications tab without rendering a broken web CTA. A missing recipient e-mail or server configuration is recorded as unavailable rather than treated as a successful send.
 - The same REST helper sends an existing organizer account a transactional e-mail only after its direct membership assignment or reactivation succeeds. The message names the canonical event and links to `/sign-in?next=...`, whose validated internal destination is `/organizer?eventId=...`; this makes an e-mail opened in a browser without the original local session authenticate before entering the selected event. Newly created accounts receive the Supabase invitation instead and do not receive this second message. Its checked-in HTML reuses the production-launch visual language (logo, beige canvas, bordered white card, green responsive CTA, and fallback URL) while remaining a transactional message without a marketing unsubscribe link or a Resend Dashboard template dependency.
 - The web package also contains `tus-js-client` for Organizer Storage uploads, server-only `pdf-lib` for invoice PDFs, and server-only `sharp` for public thumbnail normalization; all are unrelated to Resend, which remains a direct REST integration without the Resend SDK.
 - The web package's route-local `mapbox-gl` dependency powers only the admin 3D viewer, the server-only `@anthropic-ai/sdk` dependency only writes its narration, and `mediabunny` / `html-to-image` only export its MP4; none changes Resend Contacts, Broadcasts or transactional delivery.
@@ -111,7 +117,7 @@ Request options:
 The app still has:
 
 - Supabase Auth flows for login/signup/password-related behavior;
-- no React Email templates or Resend email-sending route.
+- no React Email templates or public/browser Resend email-sending route. Transactional sends remain inside protected server routes through the REST helper.
 
 The production-launch template is intended for Resend Broadcasts or manual dashboard use. It references public HTTPS assets served by the web app:
 

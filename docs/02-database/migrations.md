@@ -2,7 +2,7 @@
 title: Migrations
 scope: database
 
-last_verified: 2026-11-03
+last_verified: 2026-11-05
 
 ai_priority: high
 related_files:
@@ -10,6 +10,8 @@ related_files:
   - .github/workflows/db-verify.yml
   - .github/workflows/db-schema-snapshot.yml
   - supabase/migrations
+  - supabase/migrations/20261105115106_admin_user_notifications.sql
+  - supabase/tests/admin_user_notifications_checks.sql
   - supabase/migrations/20261029155052_fix_supporter_point_replacement_ordinality.sql
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
   - supabase/migrations/20260930104930_remove_personal_race_creation.sql
@@ -113,9 +115,13 @@ related_tables:
   - organizer_edition_entitlements
   - organizer_edition_payments
   - organizer_edition_capability_grants
+  - race_requests
+  - user_notifications
 ---
 
 # Migrations
+
+`20261105115106_admin_user_notifications.sql` replaces the ambiguous race-request `approved` state with `completed`, adds review audit timestamps/actor, and introduces the owner-readable `user_notifications` inbox. A service-role-only invoker RPC commits a request status and its mandatory in-app message atomically. Explicit column grants expose only inbox content plus `read_at` updates; Resend/Expo delivery metadata remains server-only. `supabase/tests/admin_user_notifications_checks.sql` verifies constraints, indexes, grants, policies and RPC execution boundaries.
 
 `20261101120000_normalize_decathlon_product_brand_aliases.sql` extends the canonical product-brand function with Decathlon aliases and backfills only curated catalog rows. The pre-migration read-only review on 2026-11-01 found 187 visible active products and no current official row requiring an alias, null-brand, or uppercase-name correction. Production application remains maintainer-gated; user-owned products are never rewritten by this migration.
 

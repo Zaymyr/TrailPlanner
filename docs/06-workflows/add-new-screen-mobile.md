@@ -1,7 +1,7 @@
 ---
 title: Add New Mobile Screen
 scope: workflow
-last_verified: 2026-11-03
+last_verified: 2026-11-05
 ai_priority: medium
 related_files:
   - apps/mobile/app
@@ -15,6 +15,12 @@ related_files:
   - apps/mobile/app/(app)/plans.tsx
   - apps/mobile/app/(app)/nutrition.tsx
   - apps/mobile/app/(app)/profile.tsx
+  - apps/mobile/components/profile/ProfileNotificationsSection.tsx
+  - apps/mobile/components/profile/ProfileTabs.tsx
+  - apps/mobile/components/profile/types.ts
+  - apps/mobile/hooks/useUnreadNotificationCount.ts
+  - apps/mobile/lib/userNotifications.ts
+  - apps/mobile/lib/userNotifications.test.ts
   - apps/mobile/components/plans/PlansList.tsx
   - apps/mobile/components/nutrition/NutritionContent.tsx
   - apps/mobile/hooks/useGuestAccountPrompt.ts
@@ -72,6 +78,7 @@ related_tables:
   - race_relay_points
   - race_event_edition_sponsors
   - race_event_edition_branding
+  - user_notifications
 ---
 
 # Add New Mobile Screen
@@ -114,6 +121,7 @@ RaceBook screens must treat the effective module map as additive server data: hi
 - Mobile typography: user-facing copy should render through `components/themed/Text` or `Heading`; comparable numeric metrics, timings, distances, and nutrition values should use `components/themed/DataText`. A value containing words, such as a departure status or product count, stays in the normal sans `Text`. The root layout loads exact font-weight subpaths so unused package weights are not bundled.
 - Root tabs: primary tab screens hide the native header and use `RootCollapsibleHeader` for a consistent section identity that contracts from 76 to 60 points on scroll; their established order is Courses, Mes plans/My plans, Nutrition, Profile. The saved-plans tab label and root title must share the localized `plans.title` value while the route remains `plans`. Keep help and optional trailing actions at the 16-point gutter, keep the title's horizontal position stable, and let only its size change. Pushed or hidden detail screens should keep a clear native or route-specific header title; centered titles are reserved for detail contexts.
 - Root-tab content uses a 16-point horizontal gutter and the themed `LoadingState`, `ErrorState`, and `EmptyState` primitives. A recoverable initial fetch must expose localized retry copy. Add pull-to-refresh to read-oriented lists when it cannot discard in-progress edits; form roots such as Profile intentionally omit gesture refresh. Keep an empty result separate from a failed request, and add an empty-state CTA only when one clear next action exists.
+- A read-oriented Profile sub-tab may refresh on focus instead of adding form-wide pull-to-refresh. The Notifications sub-tab keeps its four labels usable in a horizontal segmented scroller, fetches the owner-scoped safe projection in pages, and marks a row read only when its card opens. Keep unread-count refresh in one shared hook so the sub-tab dot and root Profile dot remain consistent across auth changes, app resume, push receipt, Profile focus, and local reads. The root dot is a single logical union with the onboarding dot, not a second overlapping badge. Notification push hrefs use the existing root response listener and the explicit `tab=notifications&notificationId=<uuid>` query contract.
 - Bottom tab safe area: keep the visible tab bar's height and bottom padding derived from `useSafeAreaInsets()` so Android three-button navigation cannot cover its actions.
 - A modal sheet must set `accessibilityViewIsModal`, expose its title as an accessibility header, distinguish a failed load from an empty result with a localized retry when it fetches data, and give each icon-only dismissal control a localized label plus a 44-point target or equivalent hit slop. Keep the backdrop out of the VoiceOver focus order.
 - Hidden detail headers with custom left/right actions should reserve title space through `headerTitleContainerStyle` in the parent layout or screen options. On narrow iPhones, prefer shared one-line truncation in `AppHeaderTitle` over wrapped titles that can collide with header icons.

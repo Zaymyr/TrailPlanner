@@ -9,7 +9,7 @@ const EXPO_PUSH_CHUNK_SIZE = 100;
 
 type PushPlatform = "ios" | "android";
 type PushLocale = "fr" | "en";
-type PushNotificationKind = "inactive-user" | "unfinished-plan" | "organizer-race-update";
+type PushNotificationKind = "inactive-user" | "unfinished-plan" | "organizer-race-update" | "admin-user-notification";
 
 type PushDeviceRow = {
   id: string;
@@ -94,6 +94,8 @@ type ReminderRunSummary = {
 type OrganizerRaceUpdateSummary = ReminderRunSummary & {
   favoriteUserCount: number;
 };
+
+export type AdminUserNotificationPushSummary = ReminderRunSummary;
 
 function getServiceClient() {
   const supabaseService = getSupabaseServiceConfig();
@@ -651,4 +653,31 @@ export async function sendOrganizerRaceUpdateNotifications(input: {
     ...summary,
     favoriteUserCount: favoriteUserIds.length,
   };
+}
+
+export async function sendAdminUserNotificationPush(input: {
+  userId: string;
+  notificationId: string;
+  title: string;
+  body: string;
+}): Promise<AdminUserNotificationPushSummary> {
+  const devices = await fetchEnabledDevicesForUsers([input.userId]);
+  const href = `/(app)/profile?tab=notifications&notificationId=${encodeURIComponent(input.notificationId)}`;
+  const reminders = devices.map<PendingReminder>((device) => ({
+    userId: device.user_id,
+    pushDeviceId: device.id,
+    expoPushToken: device.expo_push_token,
+    dedupeKey: `admin-user-notification:${input.notificationId}`,
+    kind: "admin-user-notification",
+    href,
+    title: input.title,
+    body: input.body,
+    payload: {
+      href,
+      kind: "admin-user-notification",
+      notificationId: input.notificationId,
+    },
+  }));
+
+  return sendPendingNotifications(reminders);
 }

@@ -1,4 +1,4 @@
-export type ProfileTabKey = 'personal' | 'performance' | 'settings';
+export type ProfileTabKey = 'personal' | 'performance' | 'notifications' | 'settings';
 
 export type CarbEstimatorLevel = 'beginner' | 'moderate' | 'gels' | 'high';
 export type HydrationEstimatorLevel = 'low' | 'normal' | 'thirsty' | 'very_thirsty';

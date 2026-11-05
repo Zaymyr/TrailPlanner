@@ -2,7 +2,7 @@
 title: Organizer Race Management
 scope: business-rule
 
-last_verified: 2026-11-03
+last_verified: 2026-11-05
 
 ai_priority: high
 related_files:
@@ -382,6 +382,8 @@ The selected edition year controls its canonical range and attached format rows,
 When the organizer adds a format, the creation form can queue its image and GPX before submission. GPX parsing still pre-fills course metrics and visuals. The format inherits the edition start date unless a different in-range date is enabled; after row creation, the existing image and GPX routes persist the pending files.
 
 Organizers whose selected edition has Pro can publish a manual update from the top dashboard card through `Notifier les coureurs`. The modal requires a scope (`Tout l’événement` or one live format from the selected edition) and one short message. It creates one `race_event_updates` row, then sends push notifications only to users who favorited the event. Event-wide pushes use the event name in the title; format-specific pushes use the format name and carry both event and format ids. Recent messages in the same modal expose a small delete cross; after confirmation, the membership-checked route removes that event-scoped history row and its read receipts, without attempting to recall an already delivered push. The modal's follower total comes from an exact Supabase aggregate count with a one-row response range, not from downloading the follower ids. This action is intentionally separate from normal save/publish flows so tiny organizer edits never notify runners automatically.
+
+The shared push transport also supports admin-to-user `user_notifications`, but that path remains independent from organizer announcements: it targets one user, uses the notification UUID for deduplication, and never creates or deletes a `race_event_updates` row.
 
 That same dashboard header now also exposes `Importer les informations`. The admin supplies an optional general event URL, additional official URLs, and/or official documents. Those additional URLs may point to an event overview, one or several formats, a regulation, program, logistics, registration, or archive; they are evidence sources and not asserted format identities. The server detects `UTMB`, `Trace de Trail`, or falls back to bounded generic HTML/JSON-LD extraction plus source classification. The first review shows every candidate with its edition, existence evidence/confidence, and missing required fields. It keeps a live final count while the admin corrects names, merges or separates detections, binds an existing format, adds a forgotten format, or ignores a false positive. The second review groups the event and every confirmed format, shows safe/review/conflict/missing counters, and offers exactly one choice per field: keep current, select a sourced claim, or leave missing.
 

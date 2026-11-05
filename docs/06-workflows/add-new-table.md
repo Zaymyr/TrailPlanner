@@ -1,7 +1,7 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-11-04
+last_verified: 2026-11-05
 ai_priority: high
 related_files:
   - supabase/migrations/20260915100443_add_generated_organizer_invoices.sql
@@ -30,15 +30,20 @@ related_files:
   - supabase/tests/racebook_gear_checks.sql
   - supabase/migrations/20260928123934_add_partner_link_settings.sql
   - supabase/tests/partner_link_settings_checks.sql
+  - supabase/migrations/20261105115106_admin_user_notifications.sql
+  - supabase/tests/admin_user_notifications_checks.sql
 related_tables:
   - race_slug_redirects
   - race_event_edition_branding
   - organizer_edition_capability_grants
   - racebook_gear_checks
   - partner_link_settings
+  - user_notifications
 ---
 
 # Add New Table
+
+`user_notifications` is the owner-readable, server-authored example: clients receive explicit safe-column reads and `read_at`-only updates under owner RLS, while message creation and external delivery metadata stay service-only. Its race-request review RPC is invoker-security, service-role-only and commits the status plus inbox row atomically.
 
 The versioned RaceBook publication cluster is the current multi-table service-only example. `racebook_publication_states`, immutable `racebook_publications`, retained asset references and the cleanup queue all enable RLS without client policies, revoke client privileges, and expose only narrowly granted `SECURITY INVOKER` RPCs. When rollout requires existing public rows, build and validate the initial snapshot in the same migration before enabling snapshot-only reads; a state-only backfill is insufficient.
 
