@@ -2,10 +2,11 @@
 title: race_relay_points Table
 scope: database
 
-last_verified: 2026-11-03
+last_verified: 2026-11-05
 
 ai_priority: high
 related_files:
+  - supabase/migrations/20261105082511_enrich_saintelyon_2026_formats.sql
   - supabase/migrations/20260824152859_add_relay_course_points.sql
   - apps/web/app/api/organizer/races/[id]/relay-points/route.ts
   - apps/web/app/api/organizer/races/[id]/relay-points/route.test.ts
@@ -92,6 +93,7 @@ Selecting the conditional `Relais` sub-tab is recorded as RaceBook product engag
 
 ## Business Invariants
 
+- The 2026 SaintéLyon relay snapshot stores six handovers at the organizer's exact cumulative leg boundaries, links each point to the same-format aid station, keeps cutoff data structured, and leaves redundant free-text notes null.
 - Points are positive and strictly before the parent race distance.
 - A linked ravito and every submitted existing point id must belong to the same race.
 - Switching `races.participation_mode` to `solo` removes all relay points.

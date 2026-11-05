@@ -2,10 +2,11 @@
 title: races Table
 scope: database
 
-last_verified: 2026-11-03
+last_verified: 2026-11-05
 
 ai_priority: high
 related_files:
+  - supabase/migrations/20261105082511_enrich_saintelyon_2026_formats.sql
   - supabase/migrations/20251220120000_add_race_catalog.sql
   - supabase/migrations/20260324000000_refactor_race_catalog_to_races.sql
   - supabase/migrations/20260720120000_add_race_edition_groups.sql
@@ -149,6 +150,8 @@ Existing `races` policies control the whole row, including import status. Organi
 Authenticated non-admin users can no longer insert races. Trusted `app_metadata` admins retain direct catalog insertion; organizer mutations remain service-route operations. Legacy standalone owners retain the existing update/delete boundary so old data can still be maintained or removed without reopening creation.
 
 ## Business Invariants
+
+- The 2026 SaintéLyon snapshot keeps official published distance and D+ labels in the primary format metrics. Six organizer GPX files provide hashes, private Storage paths and parsed route metadata for nine formats because the solo and relay races share the 80 km trace; SaintéGones remains null when no official downloadable GPX exists.
 
 - `data_status = complete` requires an empty `missing_required_fields` array.
 - Runner-created standalone races are retired: current selectors load catalog formats only, the generic POST route returns `410`, and RLS rejects non-admin inserts.

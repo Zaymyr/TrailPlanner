@@ -1,10 +1,11 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-11-03
+last_verified: 2026-11-05
 ai_priority: high
 related_files:
   - supabase/migrations
+  - supabase/migrations/20261105082511_enrich_saintelyon_2026_formats.sql
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
   - supabase/migrations/20260930104930_remove_personal_race_creation.sql
   - supabase/tests/privileged_database_access_checks.sql
@@ -120,6 +121,8 @@ related_tables:
 ---
 
 # Schema Overview
+
+The 2026 SaintéLyon catalog snapshot uses the existing event, edition, format, aid-station and relay-point contracts: ten formats, 34 structured course aid stations, six relay handovers, and six official GPX objects shared across nine formats. SaintéGones deliberately has no GPX because no downloadable official trace exists. This data-only migration adds no schema, grant, policy, or publication-state change.
 
 RaceBook publication is now a service-only versioned boundary. Organizer autosave continues to update the existing source tables and targeted triggers advance `racebook_publication_states.draft_revision`; public/mobile delivery resolves one immutable `racebook_publications` snapshot. The ten-version retention process preserves referenced assets and queues only unreferenced private Storage paths for asynchronous cleanup.
 

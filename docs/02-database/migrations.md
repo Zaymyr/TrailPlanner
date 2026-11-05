@@ -2,7 +2,7 @@
 title: Migrations
 scope: database
 
-last_verified: 2026-11-03
+last_verified: 2026-11-05
 
 ai_priority: high
 related_files:
@@ -10,6 +10,7 @@ related_files:
   - .github/workflows/db-verify.yml
   - .github/workflows/db-schema-snapshot.yml
   - supabase/migrations
+  - supabase/migrations/20261105082511_enrich_saintelyon_2026_formats.sql
   - supabase/migrations/20261029155052_fix_supporter_point_replacement_ordinality.sql
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
   - supabase/migrations/20260930104930_remove_personal_race_creation.sql
@@ -116,6 +117,8 @@ related_tables:
 ---
 
 # Migrations
+
+`20261105082511_enrich_saintelyon_2026_formats.sql` reconciles the official 2026 SaintéLyon event and its ten formats without changing schema or RLS. It stores schedule, access and bib-pickup data in the existing structured organizer JSON, seeds 34 official course aid stations and six relay handovers, and attaches six verified GPX objects to the nine formats for which the organizer publishes a downloadable trace. SaintéGones keeps a null GPX because its official page exposes no downloadable file.
 
 `20261101120000_normalize_decathlon_product_brand_aliases.sql` extends the canonical product-brand function with Decathlon aliases and backfills only curated catalog rows. The pre-migration read-only review on 2026-11-01 found 187 visible active products and no current official row requiring an alias, null-brand, or uppercase-name correction. Production application remains maintainer-gated; user-owned products are never rewritten by this migration.
 
