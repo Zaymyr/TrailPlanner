@@ -721,4 +721,4 @@ Organizer address autocomplete (`/api/location-search`) queries Photon and Nomin
 
 The admin voice route adds an ElevenLabs library voice with a single first request before generating two sentences at a time, and retries a transient 409 `already_running`.
 
-Admin reel narration keeps digits for subtitles while the voice route converts numbers, units and times to French words before calling ElevenLabs (`lib/spoken-numbers.ts`), remapping the alignment onto the original text. In auto mode the reel length targets 30 s + 0.5 s per km (capped at 2 minutes).
+Admin reel narration keeps digits for subtitles while the voice route converts numbers, units and times to French words before calling ElevenLabs (`lib/spoken-numbers.ts`), remapping the alignment onto the original text. In auto mode the reel length targets 30 s + 0.5 s per km (2-minute target cap) but follows the voice up to 180 s, so a longer narration is never delayed and cut; the script word budget uses the voice pace measured on its last clips (`speech-rate.ts`, per browser), 2.2 words per second until then.

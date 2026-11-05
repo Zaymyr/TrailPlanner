@@ -172,7 +172,7 @@ export function CompositionSettingsPanel({
               ? { ...settings, durationMode: "auto" }
               : { ...settings, durationMode: "manual", durationSeconds: Number(event.target.value) })}
           >
-            <option value="auto">Auto selon le parcours ({autoDurationSeconds} s minimum)</option>
+            <option value="auto">Auto selon le parcours (≈ {autoDurationSeconds} s, suit la voix)</option>
             {VIDEO_DURATION_PRESETS.map((duration) => <option key={duration} value={duration}>{duration} secondes</option>)}
           </select>
           <span className="block text-xs text-muted-foreground">

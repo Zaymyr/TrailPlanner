@@ -299,16 +299,31 @@ describe("buildVideoTimeline", () => {
     expect(second.narrationStartMs).toBeGreaterThanOrEqual(first.narrationStartMs + first.narrationMs);
   });
 
+  it("lets an automatic reel run past two minutes rather than fall behind and cut the voice", () => {
+    const flat = flatPath(180);
+    const legs = Array.from({ length: 12 }, (_, index) => beat(`leg-${index}`, "flat", index * 15, (index + 1) * 15, "Ça déroule."));
+    // 12 legs of 10 s of voice: 120 s of speech plus the gaps and the intro/outro.
+    const durations = Object.fromEntries(legs.map((leg) => [leg.id, 10_000]));
+    const timeline = buildVideoTimeline(flat, legs, DEFAULT_VIDEO_COMPOSITION_SETTINGS, durations);
+    expect(timeline.totalMs).toBeGreaterThan(120_000);
+    timeline.beats.forEach((scheduled) => {
+      // The voice starts with its leg (at most the lead before it), never late.
+      expect(scheduled.narrationStartMs - scheduled.startMs).toBeLessThanOrEqual(NARRATION_LEAD_MS + 1);
+    });
+    const lastVoiceEndMs = Math.max(...timeline.beats.map((scheduled) => scheduled.narrationStartMs + scheduled.narrationMs));
+    expect(lastVoiceEndMs).toBeLessThanOrEqual(timeline.totalMs);
+  });
+
   it("grows an automatic duration with the route and the narration, and flags a manual overflow", () => {
     const flat = flatPath(150);
     const story = buildStoryBeats(flat, [station("1", 50), station("2", 100, { isLifeBase: true })], { title: "Ultra", distanceKm: 150, elevationGainM: 6000, startDetail: null }, {
       maxSeconds: 120, includeAidStations: true, includeStart: false,
     });
     const auto = buildVideoTimeline(flat, story, DEFAULT_VIDEO_COMPOSITION_SETTINGS);
-    // A continuous story lasts exactly as long as it is told, capped at two minutes.
+    // A continuous story lasts exactly as long as it is told.
     const told = auto.beats.reduce((sum, item) => sum + item.narrationMs, 0);
     expect(auto.totalMs).toBeGreaterThanOrEqual(told);
-    expect(auto.totalMs).toBeLessThanOrEqual(120_000);
+    expect(auto.totalMs).toBeLessThanOrEqual(180_000);
     // Every leg is narrated over its whole length: no silent stretch longer than the gaps.
     const legs = auto.beats.filter((item) => item.kind !== "intro" && item.kind !== "outro");
     legs.forEach((leg, index) => {

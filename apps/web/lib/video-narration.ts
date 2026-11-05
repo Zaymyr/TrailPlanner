@@ -24,6 +24,8 @@ export const narrationScriptRequestSchema = z.object({
     startDetail: z.string().max(200).nullable(),
   }),
   targetSeconds: z.number().min(10).max(300),
+  /** Measured pace of the chosen voice (shown words per second of audio), when known. */
+  wordsPerSecond: z.number().min(1).max(4).optional(),
   /** With the expressive v3 voice, the script may carry performance tags such as [excited]. */
   voiceModel: z.enum(["multilingual_v2", "v3"]).default("multilingual_v2"),
   beats: z.array(narrationBeatInputSchema).min(1).max(40),
