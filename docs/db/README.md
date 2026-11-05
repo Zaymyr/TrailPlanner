@@ -774,11 +774,17 @@
 | `source` | `t` | ✅ | `` |
 | `screen` | `t` | ❌ | `` |
 | `app_version` | `t` | ❌ | `` |
+| `status` | `t` | ✅ | `` |
+| `updated_at` | `t` | ✅ | `` |
+| `reviewed_at` | `t` | ❌ | `` |
+| `reviewed_by` | `u` | ❌ | `` |
+| `is_pending` | `b` | ❌ | `` |
 
 **Primary keys**
 - `app_feedback_pkey` on (id)
 
 **Foreign keys**
+- `app_feedback_reviewed_by_fkey`: (reviewed_by) → auth.users(id)
 - `app_feedback_user_id_fkey`: (user_id) → auth.users(id)
 
 **RLS**: ❌ disabled
@@ -1701,9 +1707,16 @@
 | `location` | `t` | ✅ | `` |
 | `requested_date` | `d` | ✅ | `` |
 | `status` | `t` | ✅ | `` |
+| `updated_at` | `t` | ✅ | `` |
+| `reviewed_at` | `t` | ❌ | `` |
+| `reviewed_by` | `u` | ❌ | `` |
+| `is_pending` | `b` | ❌ | `` |
 
 **Primary keys**
 - `race_requests_pkey` on (id)
+
+**Foreign keys**
+- `race_requests_reviewed_by_fkey`: (reviewed_by) → auth.users(id)
 
 **RLS**: ❌ disabled
 
@@ -2381,6 +2394,46 @@
 
 ---
 
+### Table `public.user_notifications`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `id` | `u` | ✅ | `` |
+| `user_id` | `u` | ✅ | `` |
+| `created_by` | `u` | ❌ | `` |
+| `race_request_id` | `b` | ❌ | `` |
+| `kind` | `t` | ✅ | `` |
+| `title` | `t` | ✅ | `` |
+| `body` | `t` | ✅ | `` |
+| `read_at` | `t` | ❌ | `` |
+| `email_requested` | `b` | ✅ | `` |
+| `email_status` | `t` | ✅ | `` |
+| `email_provider_id` | `t` | ❌ | `` |
+| `email_error` | `t` | ❌ | `` |
+| `push_requested` | `b` | ✅ | `` |
+| `push_status` | `t` | ✅ | `` |
+| `push_sent_count` | `i` | ✅ | `` |
+| `push_error` | `t` | ❌ | `` |
+| `created_at` | `t` | ✅ | `` |
+| `updated_at` | `t` | ✅ | `` |
+| `feedback_id` | `b` | ❌ | `` |
+| `deleted_at` | `t` | ❌ | `` |
+
+**Primary keys**
+- `user_notifications_pkey` on (id)
+
+**Foreign keys**
+- `user_notifications_created_by_fkey`: (created_by) → auth.users(id)
+- `user_notifications_feedback_id_fkey`: (feedback_id) → public.app_feedback(id)
+- `user_notifications_race_request_id_fkey`: (race_request_id) → public.race_requests(id)
+- `user_notifications_user_id_fkey`: (user_id) → auth.users(id)
+
+**RLS**: ❌ disabled
+
+---
+
 ### Table `public.user_profiles`
 
 **Columns**
@@ -2418,6 +2471,31 @@
 
 **Foreign keys**
 - `user_profiles_user_id_fkey`: (user_id) → auth.users(id)
+
+**RLS**: ❌ disabled
+
+---
+
+### Table `public.video_narrations`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `race_id` | `u` | ✅ | `` |
+| `settings` | `j` | ✅ | `` |
+| `narration_overrides` | `j` | ✅ | `` |
+| `voice` | `j` | ✅ | `` |
+| `clip_count` | `i` | ✅ | `` |
+| `updated_by` | `u` | ❌ | `` |
+| `updated_at` | `t` | ✅ | `` |
+
+**Primary keys**
+- `video_narrations_pkey` on (race_id)
+
+**Foreign keys**
+- `video_narrations_race_id_fkey`: (race_id) → public.races(id)
+- `video_narrations_updated_by_fkey`: (updated_by) → auth.users(id)
 
 **RLS**: ❌ disabled
 
