@@ -33,6 +33,12 @@ const patchSchema = z.object({
   sendEmail: z.boolean().optional().default(false),
   sendPush: z.boolean().optional().default(false),
 });
+// One-click close ("Clôturer"): the status changes, no message is sent.
+const silentPatchSchema = z.object({
+  requestId: z.coerce.number().int().positive(),
+  status: statusSchema,
+  silent: z.literal(true),
+});
 
 export async function GET(request: NextRequest) {
   const auth = await requireAdminAuth(request);
@@ -99,7 +105,22 @@ export async function PATCH(request: NextRequest) {
   const rateLimit = await checkRateLimitAsync(`admin-race-request-review:${auth.user.id}`, 30, 60_000);
   if (!rateLimit.allowed) return jsonError("Too many notification attempts.", 429);
 
-  const parsed = patchSchema.safeParse(await request.json().catch(() => null));
+  const payload = await request.json().catch(() => null);
+  const silent = silentPatchSchema.safeParse(payload);
+  if (silent.success) {
+    const response = await fetch(
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_requests?id=eq.${silent.data.requestId}`,
+      {
+        method: "PATCH",
+        headers: { ...serviceHeaders(auth.serviceConfig), Prefer: "return=minimal" },
+        body: JSON.stringify({ status: silent.data.status, reviewed_at: new Date().toISOString(), reviewed_by: auth.user.id }),
+      }
+    );
+    if (!response.ok) return jsonError("Unable to update race request.", 502);
+    return withSecurityHeaders(NextResponse.json({ notification: null, delivery: {} }));
+  }
+
+  const parsed = patchSchema.safeParse(payload);
   if (!parsed.success) return jsonError("Invalid race request review payload.", 400);
   try {
     const notification = await reviewRaceRequestWithNotification(auth.serviceConfig, {
