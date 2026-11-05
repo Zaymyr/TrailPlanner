@@ -59,6 +59,8 @@ export async function GET(request: Request) {
         height: current.height,
         sizeBytes: current.output_size_bytes,
         createdAt: current.created_at,
+        startedAt: current.started_at,
+        finishedAt: current.finished_at,
         downloadUrl,
       };
     }));

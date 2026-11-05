@@ -13,11 +13,17 @@ import { useVerifiedSession } from "../../hooks/useVerifiedSession";
 import { VideoGeneratorMap } from "./VideoGeneratorMap";
 import type { VideoRaceInfo } from "./VideoCompositionOverlay";
 import {
+  countEventVideos,
+  formatRaceChoiceLabel,
+  formatVideoCount,
   getEventChoices,
   getRacesForEvent,
   videoGeneratorCatalogSchema,
+  videoRaceStatsSchema,
   type VideoGeneratorCatalog,
+  type VideoRaceStats,
 } from "./video-generator-catalog";
+import { EventCombobox } from "./EventCombobox";
 
 type LoadState<T> =
   | { status: "idle" | "loading"; data: null; message: null }
@@ -80,6 +86,25 @@ export default function AdminVideoGeneratorPage() {
   const [eventId, setEventId] = useState("");
   const [raceId, setRaceId] = useState("");
   const [detailRequestVersion, setDetailRequestVersion] = useState(0);
+  // Videos and saved narration per race, for the pickers; refreshed when a race is opened.
+  const [videoStats, setVideoStats] = useState<VideoRaceStats>({});
+
+  useEffect(() => {
+    if (!accessToken) return;
+    const controller = new AbortController();
+    void fetch("/api/admin/video-generator/race-stats", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const parsed = response.ok ? videoRaceStatsSchema.safeParse(await response.json()) : null;
+        // The pickers work without the counts: a failure only hides them.
+        if (parsed?.success && !controller.signal.aborted) setVideoStats(parsed.data.races);
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [accessToken, raceId]);
 
   useEffect(() => {
     if (!accessToken) {
@@ -243,16 +268,16 @@ export default function AdminVideoGeneratorPage() {
           <CardContent className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="video-event">Événement</Label>
-              <select
-                id="video-event"
-                className="min-h-11 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground"
+              <EventCombobox
+                inputId="video-event"
+                choices={eventChoices.map((event) => ({
+                  ...event,
+                  detail: catalog ? formatVideoCount(countEventVideos(catalog, event.id, videoStats)) : null,
+                }))}
                 value={eventId}
                 disabled={catalogState.status === "loading" || catalogState.status === "error"}
-                onChange={(event) => handleEventChange(event.target.value)}
-              >
-                <option value="">Sélectionner un événement</option>
-                {eventChoices.map((event) => <option key={event.id} value={event.id}>{event.name}</option>)}
-              </select>
+                onChange={handleEventChange}
+              />
               {catalogState.status === "loading" ? <p className="text-xs text-muted-foreground">Chargement du catalogue…</p> : null}
               {catalogState.status === "error" ? <p className="text-xs text-red-700">{catalogState.message}</p> : null}
             </div>
@@ -267,7 +292,7 @@ export default function AdminVideoGeneratorPage() {
                 onChange={(event) => setRaceId(event.target.value)}
               >
                 <option value="">Sélectionner un format</option>
-                {raceChoices.map((race) => <option key={race.id} value={race.id}>{race.name}</option>)}
+                {raceChoices.map((race) => <option key={race.id} value={race.id}>{formatRaceChoiceLabel(race, videoStats)}</option>)}
               </select>
               {eventId && raceChoices.length === 0 ? <p className="text-xs text-muted-foreground">Aucun format pour cet événement.</p> : null}
             </div>

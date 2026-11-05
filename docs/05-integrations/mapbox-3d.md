@@ -17,6 +17,8 @@ related_files:
   - apps/web/app/admin/video-generator/speech-rate.ts
   - apps/web/app/admin/video-generator/script-notes.ts
   - apps/web/app/admin/video-generator/place-labels.ts
+  - apps/web/app/admin/video-generator/BackgroundRenderPanel.test.ts
+  - apps/web/app/admin/video-generator/EventCombobox.tsx
   - apps/web/app/admin/video-generator/place-labels.test.ts
   - apps/web/app/admin/video-generator/script-notes.test.ts
   - apps/web/app/admin/video-generator/speech-rate.test.ts
@@ -202,3 +204,5 @@ Each leg of the script request lists the aid stations the camera flies over insi
 Under the duration, "Style du récit" picks the narrator persona sent to the script route (`style`: pote traileur, coach, commentateur en direct, suspense, chambreur); "Surprise" (default) omits it and the route picks one at random, plus a random opening for the intro (a question, the key figure, the start time…), and the prompt forbids reusing the draft wording or repeating stock phrases, so reels of different races, or two drafts of one, do not sound alike. The success message names the style used. "Consignes pour Claude" (`notes`, 1,000 characters, kept per race id in this browser under `py.videoGenerator.scriptNotes`) is sent as `consignes`, which the prompt puts before every other rule and the style ("bâtons interdits": never mention poles).
 
 Start and finish names (`place-labels.ts`, setting "Noms du départ et de l’arrivée", on by default) are pinned above their icons for the whole reel as small white pills with the accent edge ("DÉPART" / "ARRIVÉE" over the name). The start uses the organizer start place shortened to its landmark (`VideoRaceInfo.startPlace`); otherwise, and for the finish, the nearest Mapbox Streets `place_label` settlement within 5 km (Tilequery, same public token as the summit lookup). A finish within 1.5 km of the start reuses the start name. The names are resolved once per route and saved in the render snapshot (`placeNames`, defaulting to none for older snapshots) so a background render shows the same labels.
+
+The narration of a race is saved in Supabase ([video_narrations](../02-database/tables/video-narrations.md)): settings, texts by beat id and voice choice in the table, voice clips in the private bucket `video-narrations`. It is saved automatically after each AI draft (text only) and each voice generation (with the clips), and on demand with "Enregistrer"; opening the race restores it once (settings first, since they decide the beat ids), so a race is not rewritten or revoiced. The race picker is a type-to-filter combobox (`EventCombobox`, accents and case ignored) showing each event's number of finished videos; each format is labelled with GPX availability, its videos and a saved narration (`/api/admin/video-generator/race-stats`). Background render rows show the computing time (`started_at` to `finished_at`) and the total including the wait.

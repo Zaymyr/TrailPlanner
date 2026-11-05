@@ -68,3 +68,5 @@ The workflow `.github/workflows/video-render-worker.yml` tests the worker, build
 - The render page must stay a pure replay: anything the viewer fetches or randomizes at runtime would make the render differ from the preview. Summit names are saved in the snapshot for that reason.
 
 The render snapshot also carries the start and finish names shown on the map (`placeNames`), resolved in the editor, so the Cloud Run render does not query Mapbox for them. Snapshots saved before this field default to no labels.
+
+The job list (`GET /api/admin/video-generator/render-jobs`) also returns `startedAt` and `finishedAt`; the panel shows the computing time ("rendu en 6 min 12 s") with the total including the queue, or the elapsed time of a running job. `authorizeRenderAdmin` now builds on `authorizeVideoAdmin` (admin session and Supabase service role, no Google configuration), which the saved-narration routes use alone.
