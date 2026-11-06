@@ -42,6 +42,7 @@ const INFORMATION_TOGGLES: Array<[BooleanSettingKey, string]> = [
   ["showAidBubbles", "Bulles des ravitos"],
   ["showPlaceNames", "Noms du départ et de l’arrivée"],
   ["showProfile", "Profil altimétrique"],
+  ["highlightToldSlopes", "Pente racontée en couleur"],
   ["showCurrentKm", "Kilomètre en cours"],
 ];
 
@@ -304,6 +305,7 @@ export function CompositionSettingsPanel({
           </label>
           <Toggle label="Logo Pace Yourself" checked={settings.showLogo} onChange={(checked) => update("showLogo", checked)} />
           <Toggle label="CTA final" checked={settings.showCta} onChange={(checked) => update("showCta", checked)} />
+          <Toggle label="Logo et CTA en bas" checked={settings.showFooterBrand} onChange={(checked) => update("showFooterBrand", checked)} />
         </div>
       </PanelSection>
 

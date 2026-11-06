@@ -759,3 +759,5 @@ Reel exports (in the browser and in the background render) keep the preview fram
 Background renders can be deleted from the reel panel ("Supprimer" on finished or failed renders), and every exported frame re-places the DOM markers after the map is idle so the aid bubbles stay on their station icon.
 
 Reel aid bubbles and place labels are centred by layout inside zero-size markers, so the rasterised export clone keeps them on their station whatever its fonts; the aid bubbles float 28 px above their icon so the tail does not touch it.
+
+Reels light the told climb or descent in the profile slope colours on the map and on the elevation profile while its caption is shown (setting "Pente racontée en couleur"), and no longer show the logo and CTA in the bottom-left corner by default ("Logo et CTA en bas"), where Instagram puts its follow button.
