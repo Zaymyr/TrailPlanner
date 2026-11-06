@@ -839,8 +839,9 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       .map((station): AidBubble => {
         const point = getRoutePointAtDistance(preparedPath, station.distanceKm);
         const { element, card } = createAidCardElement(station, getCumulativeGainAt(preparedPath, station.distanceKm), settings.accentColor);
-        // The card tail points at the station icon drawn by the map (about 15 px radius).
-        const marker = new mapboxgl.Marker({ element, anchor: "center", offset: [0, -18], occludedOpacity: 1 })
+        // The card tail stops a few pixels above the station icon drawn by the map (about 15 px
+        // radius), so the bubble floats over its station instead of touching it.
+        const marker = new mapboxgl.Marker({ element, anchor: "center", offset: [0, -28], occludedOpacity: 1 })
           .setLngLat([point.lon, point.lat])
           .addTo(map);
         return { distanceKm: station.distanceKm, card, marker, opacity: -1 };
