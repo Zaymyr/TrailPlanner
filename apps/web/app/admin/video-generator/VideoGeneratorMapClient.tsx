@@ -240,13 +240,33 @@ const createClockIcon = (color: string) => {
 };
 
 /**
+ * Marker element of zero size whose card is centred above the anchor point by layout (flex), not
+ * by Mapbox's `translate(-50%, -100%)` anchor. That translate is resolved in pixels from the live
+ * card width; the export rasterises a clone with its own embedded fonts, whose text can be wider
+ * or narrower, which slid the bubbles sideways off their station in rendered videos. Used with
+ * the "center" anchor, which is a no-op on a zero-size element.
+ */
+const createPinnedMarkerElement = () => {
+  const element = document.createElement("div");
+  element.setAttribute("aria-hidden", "true");
+  Object.assign(element.style, {
+    width: "0",
+    height: "0",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "flex-end",
+    overflow: "visible",
+  });
+  return element;
+};
+
+/**
  * Card shown above a station icon while the runner arrives: name, kilometre, cumulative D+ and
  * cutoff. Mapbox owns the marker element (position, transform, occlusion opacity), so all styles
  * and the fading live on the inner card, which sizes to its text.
  */
 const createAidCardElement = (station: VideoAidStation, cumulativeGainM: number, accent: string) => {
-  const element = document.createElement("div");
-  element.setAttribute("aria-hidden", "true");
+  const element = createPinnedMarkerElement();
   const card = document.createElement("div");
   Object.assign(card.style, {
     position: "relative",
@@ -258,6 +278,7 @@ const createAidCardElement = (station: VideoAidStation, cumulativeGainM: number,
     boxShadow: "0 0.4cqmin 1.6cqmin rgba(0, 0, 0, 0.35)",
     whiteSpace: "nowrap",
     width: "max-content",
+    flex: "none",
     pointerEvents: "none",
     opacity: "0",
   });
@@ -298,8 +319,7 @@ const createAidCardElement = (station: VideoAidStation, cumulativeGainM: number,
 
 /** Small white pill with the accent edge, like the aid bubbles: "DÉPART" over the place name. */
 const createPlaceLabelElement = (kind: string, name: string, accent: string) => {
-  const element = document.createElement("div");
-  element.setAttribute("aria-hidden", "true");
+  const element = createPinnedMarkerElement();
   const card = document.createElement("div");
   Object.assign(card.style, {
     padding: "0.6cqmin 1.4cqmin",
@@ -309,6 +329,7 @@ const createPlaceLabelElement = (kind: string, name: string, accent: string) => 
     boxShadow: "0 0.4cqmin 1.6cqmin rgba(0, 0, 0, 0.35)",
     whiteSpace: "nowrap",
     width: "max-content",
+    flex: "none",
     pointerEvents: "none",
   });
   const kindLine = document.createElement("div");
@@ -819,7 +840,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
         const point = getRoutePointAtDistance(preparedPath, station.distanceKm);
         const { element, card } = createAidCardElement(station, getCumulativeGainAt(preparedPath, station.distanceKm), settings.accentColor);
         // The card tail points at the station icon drawn by the map (about 15 px radius).
-        const marker = new mapboxgl.Marker({ element, anchor: "bottom", offset: [0, -18], occludedOpacity: 1 })
+        const marker = new mapboxgl.Marker({ element, anchor: "center", offset: [0, -18], occludedOpacity: 1 })
           .setLngLat([point.lon, point.lat])
           .addTo(map);
         return { distanceKm: station.distanceKm, card, marker, opacity: -1 };
@@ -841,7 +862,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
         const name = endpointNames[key];
         if (!name) return [];
         const point = getRoutePointAtDistance(preparedPath, distanceKm);
-        const marker = new mapboxgl.Marker({ element: createPlaceLabelElement(kind, name, settings.accentColor), anchor: "bottom", offset: [0, -18], occludedOpacity: 1 })
+        const marker = new mapboxgl.Marker({ element: createPlaceLabelElement(kind, name, settings.accentColor), anchor: "center", offset: [0, -18], occludedOpacity: 1 })
           .setLngLat([point.lon, point.lat])
           .addTo(map);
         return [marker];

@@ -757,3 +757,5 @@ Pending bugs, feedback and race requests also have a one-click "Clôturer" butto
 Reel exports (in the browser and in the background render) keep the preview frame's CSS size and raise only the map's pixel density to the video resolution (`export-frame.ts`), so the framing, map detail and station bubbles match the preview.
 
 Background renders can be deleted from the reel panel ("Supprimer" on finished or failed renders), and every exported frame re-places the DOM markers after the map is idle so the aid bubbles stay on their station icon.
+
+Reel aid bubbles and place labels are centred by layout inside zero-size markers, so the rasterised export clone keeps them on their station whatever its fonts.
