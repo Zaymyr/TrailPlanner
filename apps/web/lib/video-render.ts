@@ -254,6 +254,18 @@ export const getStorageObjectSize = async (config: VideoRenderConfig, accessToke
   return size;
 };
 
+/**
+ * Deletes a stored object; true when it is gone (already absent included). A refused deletion
+ * (missing IAM permission) returns false: the bucket's 30-day lifecycle removes it anyway.
+ */
+export const deleteStorageObject = async (config: VideoRenderConfig, accessToken: string, objectName: string, fetcher: typeof fetch = fetch) => {
+  const response = await fetcher(
+    `https://storage.googleapis.com/storage/v1/b/${encodeURIComponent(config.bucket)}/o/${encodeURIComponent(objectName)}`,
+    { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" },
+  );
+  return response.ok || response.status === 404;
+};
+
 // ---------------------------------------------------------------------------------------------
 // Cloud Run job
 
@@ -331,6 +343,16 @@ export const updateRenderJob = async (
   });
   if (!response.ok) throw new Error(`Unable to update render job: ${await response.text()}`);
   return z.array(videoRenderJobRowSchema).parse(await response.json())[0] ?? null;
+};
+
+/** Deletes a finished or failed job row; an active one is left alone (false). */
+export const deleteRenderJob = async (supabase: SupabaseServiceConfig, jobId: string) => {
+  const response = await fetch(
+    `${supabase.supabaseUrl}/rest/v1/video_render_jobs?id=eq.${jobId}&status=in.(done,failed)&select=id`,
+    { method: "DELETE", headers: { ...serviceHeaders(supabase), Prefer: "return=representation" }, cache: "no-store" },
+  );
+  if (!response.ok) throw new Error(`Unable to delete render job: ${await response.text()}`);
+  return z.array(z.object({ id: z.string() })).parse(await response.json()).length > 0;
 };
 
 /** Filename-safe slug of the race title, like the in-browser export. */

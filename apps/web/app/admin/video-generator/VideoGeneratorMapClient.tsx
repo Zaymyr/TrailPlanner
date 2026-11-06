@@ -535,6 +535,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   const resizeRef = useRef<MapResizeController | null>(null);
   const progressMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const aidBubblesRef = useRef<AidBubble[]>([]);
+  const placeLabelMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const narrationPlayerRef = useRef<NarrationPlayer | null>(null);
   // `map.isStyleLoaded()` is false whenever a tile is loading or a source was just updated, which is
   // permanently the case while the camera flies. Gating frames on it skipped most of them.
@@ -845,7 +846,11 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
           .addTo(map);
         return [marker];
       });
-    return () => labels.forEach((marker) => marker.remove());
+    placeLabelMarkersRef.current = labels;
+    return () => {
+      labels.forEach((marker) => marker.remove());
+      placeLabelMarkersRef.current = [];
+    };
   }, [endpointNames, isReady, preparedPath, settings.accentColor, settings.showPlaceNames]);
 
   // Station icons are images in the style: redraw them when the accent colour changes.
@@ -1031,6 +1036,12 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
             // Let React paint the overlay for this frame, then wait for the map tiles.
             await waitMs(0);
             await waitForMapIdle(map, 6_000);
+            // DOM markers take the terrain height known when the camera moved; the finer elevation
+            // tiles loaded since can lift the station icons drawn by the map. Place them again so
+            // every bubble sits on its icon in the captured frame.
+            for (const marker of [...aidBubblesRef.current.map((bubble) => bubble.marker), ...placeLabelMarkersRef.current, progressMarkerRef.current]) {
+              marker?.setLngLat(marker.getLngLat());
+            }
           },
           mapCanvas: () => map.getCanvas(),
           frameElement: () => {
