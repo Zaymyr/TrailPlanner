@@ -70,8 +70,14 @@ export const videoCompositionSettingsSchema = z.object({
   routeCasing: z.boolean().default(true),
   // Colour of the route on the climb, descent or rolling section being told.
   accentColor: hexColorSchema.default("#2d5016"),
+  // The climb or descent being told, coloured by slope on the map and lit on the profile.
+  highlightToldSlopes: z.boolean().default(true),
+  // Logo and CTA on the outro card.
   showLogo: z.boolean().default(true),
   showCta: z.boolean().default(true),
+  // Logo and CTA in the bottom-left corner during the flyover; off by default because Instagram
+  // already overlays its own follow button there on reels.
+  showFooterBrand: z.boolean().default(false),
   introEnabled: z.boolean().default(true),
   outroEnabled: z.boolean().default(true),
   disabledAidStationIds: z.array(z.string()).default([]),
@@ -591,6 +597,60 @@ export const buildElevationProfile = (path: PreparedAnimationPath, height = 220)
   }
   closeRun(samples.length - 1);
   return profile;
+};
+
+export const TOLD_SLOPE_FADE_MS = 400;
+
+export type ToldSlope = { id: string; kind: "climb" | "descent"; startKm: number; endKm: number; opacity: number };
+
+/**
+ * The climb or descent being told: the leg of its caption ("km 12,4 → 15,1"), lit from the moment
+ * the runner reaches its foot (the beat starts there) until the caption leaves, with short fades.
+ */
+export const getToldSlope = (frame: Pick<VideoFrameState, "phase" | "beat" | "timeMs">): ToldSlope | null => {
+  const beat = frame.phase === "flyover" ? frame.beat : null;
+  if (!beat || (beat.kind !== "climb" && beat.kind !== "descent") || beat.endKm <= beat.startKm) return null;
+  const opacity = clamp(Math.min((frame.timeMs - beat.startMs) / TOLD_SLOPE_FADE_MS, (beat.endMs - frame.timeMs) / TOLD_SLOPE_FADE_MS), 0, 1);
+  return { id: beat.id, kind: beat.kind, startKm: beat.startKm, endKm: beat.endKm, opacity };
+};
+
+/** Map lines of a told slope, split where the slope class changes, in the profile colours. */
+export const buildToldSlopeGeoJson = (path: PreparedAnimationPath, startKm: number, endKm: number) => {
+  const inside = path.samples.filter((sample) => sample.distanceKm > startKm && sample.distanceKm < endKm);
+  const points = [getRoutePointAtDistance(path, startKm), ...inside, getRoutePointAtDistance(path, endKm)];
+  const features: { type: "Feature"; properties: { color: string }; geometry: { type: "LineString"; coordinates: number[][] } }[] = [];
+  let run: number[][] = [];
+  let runColor: string | null = null;
+  for (let index = 1; index < points.length; index += 1) {
+    const from = points[index - 1];
+    const to = points[index];
+    const color = getSlopeClass(getGradeAtDistance(path, (from.distanceKm + to.distanceKm) / 2)).color;
+    if (color !== runColor) {
+      if (runColor && run.length > 1) features.push({ type: "Feature", properties: { color: runColor }, geometry: { type: "LineString", coordinates: run } });
+      run = [[from.lon, from.lat]];
+      runColor = color;
+    }
+    run.push([to.lon, to.lat]);
+  }
+  if (runColor && run.length > 1) features.push({ type: "Feature", properties: { color: runColor }, geometry: { type: "LineString", coordinates: run } });
+  return { type: "FeatureCollection" as const, features };
+};
+
+export type ProfileShade = { fromKm: number; toKm: number; opacity: number };
+
+/**
+ * Dimming of the profile ahead of the cursor. The told slope ahead is left bright (its dimming
+ * fades out with the highlight) so the profile shows what the voice is talking about.
+ */
+export const getProfileShades = (cursorKm: number, totalKm: number, told: ToldSlope | null, dim = 0.45): ProfileShade[] => {
+  if (cursorKm >= totalKm) return [];
+  if (!told || told.opacity <= 0 || told.endKm <= cursorKm) return [{ fromKm: cursorKm, toKm: totalKm, opacity: dim }];
+  const litFrom = Math.max(cursorKm, told.startKm);
+  return [
+    { fromKm: cursorKm, toKm: litFrom, opacity: dim },
+    { fromKm: litFrom, toKm: told.endKm, opacity: dim * (1 - told.opacity) },
+    { fromKm: told.endKm, toKm: totalKm, opacity: dim },
+  ].filter((shade) => shade.toKm > shade.fromKm && shade.opacity > 0);
 };
 
 export type ProfileWindow = { startKm: number; endKm: number };

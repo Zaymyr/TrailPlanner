@@ -56,6 +56,8 @@ import {
 } from "./route-story";
 import { StoryEditor, type AsyncActionState, type ScriptStyleChoice, type VoiceOptions } from "./StoryEditor";
 import {
+  buildToldSlopeGeoJson,
+  getToldSlope,
   buildElevationProfile,
   buildVideoTimeline,
   DEFAULT_VIDEO_COMPOSITION_SETTINGS,
@@ -99,6 +101,10 @@ const ROUTE_GLOW_LAYER_ID = "video-route-line-glow";
 const ROUTE_CASING_LAYER_ID = "video-route-line-casing";
 const MARKER_SOURCE_ID = "video-route-markers";
 const MARKER_ICON_LAYER_ID = "video-route-marker-icons";
+// The climb or descent being told, in the profile slope colours over a white casing.
+const TOLD_SLOPE_SOURCE_ID = "video-told-slope";
+const TOLD_SLOPE_LAYER_ID = "video-told-slope-line";
+const TOLD_SLOPE_CASING_LAYER_ID = "video-told-slope-casing";
 export const VIDEO_ROUTE_COLOR = DEFAULT_VIDEO_COMPOSITION_SETTINGS.routeColor;
 const FUTURE_ROUTE_ALPHA_HEX = "38";
 const GLOW_ROUTE_ALPHA_HEX = "8c";
@@ -109,6 +115,8 @@ const OWN_LAYER_IDS = new Set([
   ROUTE_CASING_LAYER_ID,
   MARKER_ICON_LAYER_ID,
   PEAKS_LAYER_ID,
+  TOLD_SLOPE_LAYER_ID,
+  TOLD_SLOPE_CASING_LAYER_ID,
 ]);
 
 const EMPTY_FEATURES = { type: "FeatureCollection", features: [] } as const;
@@ -510,6 +518,32 @@ const syncMapData = (
     });
   }
 
+  // Above the revealed route (so it also shows in "full" reveal mode), under the station icons.
+  if (!map.getSource(TOLD_SLOPE_SOURCE_ID)) {
+    map.addSource(TOLD_SLOPE_SOURCE_ID, { type: "geojson", data: EMPTY_FEATURES as unknown as GeoJsonSourceData, tolerance: 0 });
+  }
+  const beforeIcons = map.getLayer(MARKER_ICON_LAYER_ID) ? MARKER_ICON_LAYER_ID : undefined;
+  if (!map.getLayer(TOLD_SLOPE_CASING_LAYER_ID)) {
+    map.addLayer({
+      id: TOLD_SLOPE_CASING_LAYER_ID,
+      type: "line",
+      source: TOLD_SLOPE_SOURCE_ID,
+      slot: "top",
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: { "line-color": "#ffffff", "line-width": ROUTE_CASING_WIDTHS[settings.routeWidth], "line-opacity": 0, "line-emissive-strength": 1 },
+    }, beforeIcons);
+  }
+  if (!map.getLayer(TOLD_SLOPE_LAYER_ID)) {
+    map.addLayer({
+      id: TOLD_SLOPE_LAYER_ID,
+      type: "line",
+      source: TOLD_SLOPE_SOURCE_ID,
+      slot: "top",
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: { "line-color": ["get", "color"], "line-width": lineWidth, "line-opacity": 0, "line-emissive-strength": 1 },
+    }, beforeIcons);
+  }
+
   const markerSource = map.getSource(MARKER_SOURCE_ID) as GeoJSONSource | undefined;
   if (markerSource) markerSource.setData(markerData as GeoJsonSourceData);
   else map.addSource(MARKER_SOURCE_ID, { type: "geojson", data: markerData as GeoJsonSourceData });
@@ -556,6 +590,9 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   const resizeRef = useRef<MapResizeController | null>(null);
   const progressMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const aidBubblesRef = useRef<AidBubble[]>([]);
+  // Told slope on the map: data changes once per beat, opacity only when its rounded value moves.
+  const toldSlopeIdRef = useRef<string | null>(null);
+  const toldSlopeOpacityRef = useRef(-1);
   const placeLabelMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const narrationPlayerRef = useRef<NarrationPlayer | null>(null);
   // `map.isStyleLoaded()` is false whenever a tile is loading or a source was just updated, which is
@@ -738,6 +775,18 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     const routePoint = getRoutePointAtDistance(path, frame.distanceKm);
     progressMarkerRef.current?.setLngLat([routePoint.lon, routePoint.lat]);
     updateAidBubbles(aidBubblesRef.current, timelineRef.current, frame.phase === "flyover" && settingsRef.current.showAidBubbles ? frame.timeMs : null);
+    const toldSlope = settingsRef.current.highlightToldSlopes ? getToldSlope(frame) : null;
+    const toldSource = map.getSource(TOLD_SLOPE_SOURCE_ID) as GeoJSONSource | undefined;
+    if (toldSource && (toldSlope?.id ?? null) !== toldSlopeIdRef.current) {
+      toldSlopeIdRef.current = toldSlope?.id ?? null;
+      toldSource.setData((toldSlope ? buildToldSlopeGeoJson(path, toldSlope.startKm, toldSlope.endKm) : EMPTY_FEATURES) as unknown as GeoJsonSourceData);
+    }
+    const toldOpacity = Math.round((toldSlope?.opacity ?? 0) * 20) / 20;
+    if (toldOpacity !== toldSlopeOpacityRef.current && map.getLayer(TOLD_SLOPE_LAYER_ID)) {
+      toldSlopeOpacityRef.current = toldOpacity;
+      map.setPaintProperty(TOLD_SLOPE_LAYER_ID, "line-opacity", toldOpacity);
+      if (map.getLayer(TOLD_SLOPE_CASING_LAYER_ID)) map.setPaintProperty(TOLD_SLOPE_CASING_LAYER_ID, "line-opacity", toldOpacity);
+    }
     if (frame.daylight) {
       const { level, warmth, sunAzimuthDeg } = frame.daylight;
       const key = `${Math.round(level * 50)}|${Math.round(warmth * 20)}|${Math.round(sunAzimuthDeg / 10)}`;
@@ -784,7 +833,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
 
   useEffect(() => {
     refreshCurrentFrame();
-  }, [refreshCurrentFrame, settings.revealMode, settings.showAidBubbles]);
+  }, [refreshCurrentFrame, settings.highlightToldSlopes, settings.revealMode, settings.showAidBubbles]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -800,6 +849,8 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       map.setPaintProperty(ROUTE_LAYER_ID, "line-color", `${settings.routeColor}${FUTURE_ROUTE_ALPHA_HEX}`);
       map.setPaintProperty(ROUTE_LAYER_ID, "line-width", lineWidth);
     }
+    if (map.getLayer(TOLD_SLOPE_LAYER_ID)) map.setPaintProperty(TOLD_SLOPE_LAYER_ID, "line-width", lineWidth);
+    if (map.getLayer(TOLD_SLOPE_CASING_LAYER_ID)) map.setPaintProperty(TOLD_SLOPE_CASING_LAYER_ID, "line-width", ROUTE_CASING_WIDTHS[settings.routeWidth]);
     if (map.getLayer(ROUTE_GLOW_LAYER_ID)) {
       map.setPaintProperty(ROUTE_GLOW_LAYER_ID, "line-color", `${settings.routeColor}${GLOW_ROUTE_ALPHA_HEX}`);
       map.setLayoutProperty(ROUTE_GLOW_LAYER_ID, "visibility", settings.routeGlow ? "visible" : "none");
@@ -1237,6 +1288,8 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       appearanceStateRef.current = captureMapAppearanceState(map, OWN_LAYER_IDS);
       applyMapAppearance(map, settingsRef.current, appearanceStateRef.current, OWN_LAYER_IDS);
       daylightKeyRef.current = null;
+      toldSlopeIdRef.current = null;
+      toldSlopeOpacityRef.current = -1;
       layersReadyRef.current = true;
       resizeController.schedule();
       window.requestAnimationFrame(() => {
