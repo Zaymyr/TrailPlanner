@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-11-05
+last_verified: 2026-11-08
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-organizer-analytics.ts
@@ -100,6 +100,18 @@ Le regroupement des liens organisateur, la suppression des sorties de barre bass
 The compact aligned passage/cutoff reflection, late-warning disclosure, plan-derived segment duration, hero departure clock, title-aligned supporter permissions, icon-only supporter map actions, and route-scoped plan warm starts contain no additional analytics payload or event.
 
 ## Runner monetisation events
+
+## Runner course purchase funnel (2026-11-08)
+
+Mobile runner one-time course payments have a dedicated funnel, separate from annual Premium subscriptions:
+
+- `premium paywall viewed` continues to measure actual modal impressions, adding `purchase_type: course|subscription` and, when a saved course plan is linked, its `plan_id`, public `race_id`, and public `race_name`. A mounted sheet is counted once, including when billing data refreshes. `paywall_type: modal|inline` continues to distinguish presentation.
+- `runner course checkout started` is emitted after the server accepts the purchase intent as store-started and immediately before invoking the native store purchase API. It includes `purchase_type: course`, the selected public course context, provider/store and product id, but no transaction id or private plan contents.
+- `runner course purchase verified` is emitted only when the authenticated purchase sync endpoint confirms a grant, never merely when RevenueCat reports a transaction. It includes the same bounded course metadata and `verification_source: server_sync`.
+- Restoring an already granted purchase or reconciling an interrupted intent does not emit another successful purchase event from this immediate checkout path. Provider webhooks and the database purchase ledger remain the authoritative accounting and entitlement sources; PostHog's device-side capture is best-effort and may miss a purchase when the application closes during verification.
+
+For commercial dashboards, keep the two funnels separate: annual subscriptions use `premium purchase verified`, while one-time course purchases use `runner course purchase verified`. The `premium checkout started` subscription event is not a measure of one-time course checkouts. Neither PostHog event is a billing ledger. Non-identifying public course names and IDs are acceptable; do not send plan text, financial transaction identifiers, customer data, or share tokens.
+
 
 The informational runner launch announcement creates no new analytics subscription or purchase event. Its local once-per-campaign `seen` marker is not checkout, revenue, an entitlement, or an analytics identity transition; do not include campaign markers, price strings, or stored plan details in telemetry.
 
