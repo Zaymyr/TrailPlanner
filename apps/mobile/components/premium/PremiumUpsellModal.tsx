@@ -89,7 +89,7 @@ function PremiumUpsellModalContent({
         purchase_type: planId ? 'course' : 'subscription',
         placement,
         store: Platform.OS === 'ios' ? 'app_store' : 'play_store',
-        product_id: planId ? billing.coursePriceStatus === 'available' ? 'runner_course_unlock' : undefined : billing.currentPackage?.product.identifier,
+        product_id: planId ? undefined : billing.currentPackage?.product.identifier,
         ...courseContext,
       });
     }
