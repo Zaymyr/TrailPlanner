@@ -122,7 +122,7 @@ describe("/api/admin/event-publication-requests PATCH", () => {
   it("enables an edition analytics module through the audited capability function", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(Response.json([{
       edition_id: "33333333-3333-3333-3333-333333333333",
-      capability_key: "racebook_analytics.view",
+      capability_key: "capability.racebook_analytics",
       status: "active",
     }]));
     const request = new NextRequest("http://localhost/api/admin/event-publication-requests", {
@@ -131,7 +131,7 @@ describe("/api/admin/event-publication-requests PATCH", () => {
       body: JSON.stringify({
         action: "setEditionCapabilityGrant",
         editionId: "33333333-3333-3333-3333-333333333333",
-        capabilityKey: "racebook_analytics.view",
+        capabilityKey: "capability.racebook_analytics",
         enabled: true,
       }),
     });
@@ -143,7 +143,7 @@ describe("/api/admin/event-publication-requests PATCH", () => {
     expect(JSON.parse(init?.body as string)).toEqual({
       p_edition_id: "33333333-3333-3333-3333-333333333333",
       p_admin_id: "00000000-0000-0000-0000-000000000099",
-      p_capability_key: "racebook_analytics.view",
+      p_capability_key: "capability.racebook_analytics",
       p_enabled: true,
     });
   });
@@ -236,9 +236,10 @@ describe("/api/admin/event-publication-requests PATCH", () => {
       }]))
       .mockResolvedValueOnce(Response.json([{
         edition_id: "33333333-3333-3333-3333-333333333333",
-        capability_key: "racebook_analytics.view",
+        capability_key: "capability.racebook_analytics",
         status: "active",
-      }]));
+      }]))
+      .mockResolvedValueOnce(Response.json([]));
 
     const response = await GET(new NextRequest("http://localhost/api/admin/event-publication-requests", {
       headers: { authorization: "Bearer admin-token" },
@@ -252,13 +253,13 @@ describe("/api/admin/event-publication-requests PATCH", () => {
     expect(payload.events[0].races[0].name).toBe("42 km");
     expect(payload.events[0].entitlement.tier).toBe("complete");
     expect(payload.events[0].payments[0].payment_channel).toBe("stripe");
-    expect(payload.events[0].analyticsCapabilityGrant.status).toBe("active");
+    expect(payload.events[0].featureGrants[0].status).toBe("active");
     expect(payload.events[1]).toMatchObject({
       editionId: "66666666-6666-6666-6666-666666666666",
       editionYear: 2025,
       isCurrentEdition: false,
       entitlement: null,
-      analyticsCapabilityGrant: null,
+      featureGrants: [],
     });
     expect(payload.events[1].races[0].name).toBe("Ancienne édition");
     expect(payload.publicationRequests[0].requested_race.name).toBe("42 km");

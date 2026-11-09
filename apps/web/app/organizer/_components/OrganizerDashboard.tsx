@@ -20,6 +20,7 @@ import {
 } from "../../../lib/organizer-dashboard-details";
 import type { FuelProduct } from "../../../lib/product-types";
 import type { OrganizerTier } from "../../../lib/organizer-entitlements";
+import type { OrganizerFeatureKey } from "../../../lib/organizer-features";
 import {
   ORGANIZER_MODULES,
   ORGANIZER_TIER_LABEL,
@@ -275,6 +276,7 @@ type PaidOrganizerTier = Exclude<OrganizerTier, "visibility">;
 type OrganizerModuleSettingsPayload = {
   setupCompletedAt: string | null;
   tier: OrganizerTier;
+  featureGrants: OrganizerFeatureKey[];
   edition: Record<OrganizerEditionModuleKey, boolean>;
   races: Record<string, Record<OrganizerRaceModuleKey, boolean>>;
 };
@@ -3285,7 +3287,7 @@ export function OrganizerDashboard({
       && !activeRace
       && racePersistedValues.some(Boolean)
       && racePersistedValues.some((value) => !value);
-    return { ...module, enabled, persistedEnabled, mixed, state: getOrganizerModuleState(activeTier, module.key, enabled) };
+    return { ...module, enabled, persistedEnabled, mixed, state: getOrganizerModuleState(activeTier, module.key, enabled, moduleSettings?.featureGrants ?? []) };
   });
   const moduleIdByKey: Partial<Record<OrganizerModuleKey, OrganizerModuleId>> = {
     equipment: "equipment",
@@ -3316,7 +3318,10 @@ export function OrganizerDashboard({
     ...(raceForm.organizerDetails.bibPickup.overrideEnabled ? ["format_bib_pickup" as const] : []),
     ...(raceForm.organizerDetails.access.overrideEnabled ? ["format_access" as const] : []),
   ] : [];
-  const requiredPublicationTier = getMinimumOrganizerPublicationTier(usedModuleKeys, usedAdvancedGroups);
+  const grantedFeatures = moduleSettings?.featureGrants ?? [];
+  const ungrantedUsedModules = usedModuleKeys.filter((key) => !grantedFeatures.includes(`module.${key}` as OrganizerFeatureKey));
+  const ungrantedAdvancedGroups = usedAdvancedGroups.filter((key) => !grantedFeatures.includes(`advanced.${key}` as OrganizerFeatureKey));
+  const requiredPublicationTier = getMinimumOrganizerPublicationTier(ungrantedUsedModules, ungrantedAdvancedGroups);
   const privateDraftModules = visibleModuleChoices.filter(
     (module) => usedModuleKeys.includes(module.key)
       && ORGANIZER_TIER_RANK[module.minimumTier] > ORGANIZER_TIER_RANK[activeTier],

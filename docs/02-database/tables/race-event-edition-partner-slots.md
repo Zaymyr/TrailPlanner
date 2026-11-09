@@ -28,6 +28,8 @@ related_tables:
 
 # race_event_edition_partner_slots
 
+Partner-slot public output follows the exact effective sponsor/module access resolved by the RaceBook routes. Independent invoice rows do not change slot visibility or table access.
+
 <!-- NEEDS REVIEW: 2026-11-09 — migration written but not yet applied to any Supabase project; verify on the dev database before relying on production behavior. -->
 
 ## Purpose

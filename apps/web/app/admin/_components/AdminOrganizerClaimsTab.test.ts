@@ -11,7 +11,7 @@ describe("Admin Organizer publication grants", () => {
     expect(source).toContain("Paiement par virement");
     expect(source).toContain("Offert");
     expect(source).toContain('action: "setEditionGrant"');
-    expect(source).toContain("Montant HT");
+    expect(source).toContain("Montant réellement facturé HT");
     expect(source).toContain("ORGANIZER_TIER_PRICE_EUR");
     expect(source).toContain("€ HT");
     expect(source).toContain("readOnly");
@@ -31,13 +31,16 @@ describe("Admin Organizer publication grants", () => {
     expect(source).not.toContain("<LiveToggle");
     expect(source).not.toContain('action: "setRacebookVisibility"');
     expect(source).toContain("Modules offerts hors pack");
-    expect(source).toContain("Statistiques Livret coureur");
+    expect(source).toContain("ORGANIZER_FEATURES.map");
     expect(source).toContain('action: "setEditionCapabilityGrant"');
-    expect(source).toContain('capabilityKey: "racebook_analytics.view"');
-    expect(source).toContain("Inclus dans Signature");
+    expect(source).toContain("feature.key");
+    expect(source).toContain('`Inclus dans ${feature.minimumTier === "complete" ? "Complet" : "Signature"}`');
     expect(source).toContain("Offert manuellement pour cette édition");
-    expect(source).toContain("analyticsGrantEnabled !== initialAnalyticsGrantEnabled");
-    expect(source).toContain("setInitialAnalyticsGrantEnabled(analyticsGrantIsActive)");
+    expect(source).toContain("enabledFeatureGrants.includes(feature.key) !== initialFeatureGrants.includes(feature.key)");
+    expect(source).toContain("setInitialFeatureGrants(activeFeatures)");
+    expect(source).toContain("Créer une facture");
+    expect(source).toContain("Cette facture et son règlement ne modifient aucun droit d’accès");
+    expect(source).toContain("Émettre la rectificative");
   });
 
   it("lets admins search and paginate the organizer publication events", () => {

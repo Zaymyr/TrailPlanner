@@ -97,6 +97,8 @@ related_tables:
 
 # `race_events`
 
+Admin organizer responses may aggregate independent invoice summaries and exact feature grants through an event's editions. Those projections do not alter event publication, membership, dates or catalog visibility.
+
 Event-level `organizer_details.bibPickup` may now include nullable `thirdPartyPickupConditions`. It is preserved when the organizer selects Non, rendered only when third-party pickup is allowed, and inherited by formats unless their complete bib-pickup override is enabled. No relational column or event visibility rule changes.
 
 The organizer event form now validates its date range, HTTPS links, and emergency phone before autosave. These client safeguards do not change the `race_events` schema or server authorization contract.

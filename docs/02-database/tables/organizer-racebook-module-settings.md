@@ -19,6 +19,8 @@ related_tables:
 
 # `organizer_racebook_module_settings`
 
+Effective module state now combines the selected plan with exact active feature grants. Services, start waves, awards, branding, sponsors, relay and official products each map to their own gift key; enabling or gifting one module never widens another module or the entire higher plan.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 Format-level private-demo visibility is deliberately not another module setting. It lives on `races.racebook_preview_is_visible`, can be changed without an entitlement, and excludes the entire format from both organizer preview and the next edition publication without deleting any module content.

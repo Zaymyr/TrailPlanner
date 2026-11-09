@@ -1,7 +1,7 @@
 ---
 title: organizer_edition_payments
 scope: database
-last_verified: 2026-11-01
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
@@ -39,7 +39,7 @@ related_tables:
 
 ## Purpose
 
-Stores Stripe attempts and paid bank transfers, with their settlement values and invoice references, separately from the effective edition right. New admin-recorded bank transfers generate a VAT-exempt Pace Yourself invoice; an older paid zero-VAT bank transfer without an invoice can receive one later from the admin action, while earlier manually uploaded PDFs remain valid historical attachments.
+Stores Stripe attempts and historical paid bank transfers, with their settlement values and legacy invoice references, separately from the effective edition right. New manual invoices and their settlements use `organizer_invoices`; existing payment-backed generated/uploaded PDFs remain valid and downloadable without a data rewrite.
 
 ## Key Concepts
 
@@ -125,9 +125,11 @@ order by created_at desc;
 - A Supabase signed response beginning with `/object/sign/` is relative to the Storage API. Returning it as a project-root URL drops `/storage/v1` and produces `requested path is invalid`.
 - A standard PDF download is not by itself a French e-invoicing platform transmission. The application must still be connected to an approved platform when that obligation applies.
 - Never rebuild a historical invoice from the current pack price or a browser amount. Use the immutable payment row's stored subtotal, paid date, tier and currency.
+- Do not insert a new manual invoice into this payment ledger. `organizer_invoices` is the independent document/settlement source and must not trigger entitlement recalculation.
 - Although the edition foreign key is historically `on delete cascade`, the issued-invoice protection trigger rejects that cascade for a numbered row. An edition with an issued invoice must therefore be retained.
 
 ## Related Docs
 
 - [organizer_edition_entitlements](organizer-edition-entitlements.md)
 - [Stripe](../../05-integrations/stripe.md)
+- [organizer_invoices](organizer-invoices.md)

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { OrganizerCapability, OrganizerTier } from "./organizer-entitlements";
+import { organizerFeatureForModule, type OrganizerFeatureKey } from "./organizer-features";
 
 export const organizerEditionModuleKeySchema = z.enum([
   "equipment",
@@ -80,10 +81,18 @@ export const ORGANIZER_ADVANCED_GROUP_MINIMUM_TIER: Record<OrganizerAdvancedGrou
 const byKey = new Map(ORGANIZER_MODULES.map((module) => [module.key, module]));
 
 export const getOrganizerModule = (key: OrganizerModuleKey) => byKey.get(key)!;
-export const isOrganizerModuleAvailable = (tier: OrganizerTier, key: OrganizerModuleKey) =>
-  ORGANIZER_TIER_RANK[tier] >= ORGANIZER_TIER_RANK[getOrganizerModule(key).minimumTier];
-export const getOrganizerModuleState = (tier: OrganizerTier, key: OrganizerModuleKey, enabled: boolean): OrganizerModuleState =>
-  !enabled ? "inactive" : isOrganizerModuleAvailable(tier, key) ? "active" : "draftOnly";
+export const isOrganizerModuleAvailable = (
+  tier: OrganizerTier,
+  key: OrganizerModuleKey,
+  grantedFeatures: readonly OrganizerFeatureKey[] = [],
+) => ORGANIZER_TIER_RANK[tier] >= ORGANIZER_TIER_RANK[getOrganizerModule(key).minimumTier]
+  || Boolean(organizerFeatureForModule(key) && grantedFeatures.includes(organizerFeatureForModule(key)!));
+export const getOrganizerModuleState = (
+  tier: OrganizerTier,
+  key: OrganizerModuleKey,
+  enabled: boolean,
+  grantedFeatures: readonly OrganizerFeatureKey[] = [],
+): OrganizerModuleState => !enabled ? "inactive" : isOrganizerModuleAvailable(tier, key, grantedFeatures) ? "active" : "draftOnly";
 
 export const getMinimumOrganizerPublicationTier = (
   usedModules: Iterable<OrganizerModuleKey>,

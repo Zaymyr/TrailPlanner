@@ -72,7 +72,7 @@ RLS is enabled with no client grants. Only service role can read or mutate rows.
 - A direct bank transfer may replace a higher operational Admin/Offert grant with the lower tier actually purchased; paid-ledger rights still reject downgrade purchases.
 - Legacy RaceBook and Pro editions are mapped to Complete and Signature without charge.
 - `branding.manage` is granted only by an active Signature entitlement and controls publication of the branding snapshot. Membership still permits reading and editing the private draft; a downgrade masks the published identity and preserves both snapshots.
-- `racebook_analytics.view` is included in Signature. Lower tiers can receive it through an independent active `organizer_edition_capability_grants` row; pack changes do not delete that complimentary module grant.
+- Higher-tier modules, advanced per-format groups and operations can be granted individually through active `organizer_edition_capability_grants` rows. Pack changes do not delete redundant gifts, and manual invoice issuance or settlement never changes this entitlement projection.
 
 ## Common Queries
 

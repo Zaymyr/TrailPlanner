@@ -20,6 +20,8 @@ related_tables:
 
 # Mode opératoire Livret coureur organisateur
 
+Dans l’administration, la facturation et les droits sont désormais deux opérations distinctes. Une facture manuelle peut rester impayée, être rectifiée puis réglée sans ouvrir le pack ni les options ; l’ouverture du pack et des fonctionnalités offertes se fait séparément, fonctionnalité par fonctionnalité.
+
 Dans l'écran des points de course, l'édition et la sauvegarde automatique restent suspendues jusqu'au chargement complet des ravitos, relais et points de suivi du format actif. Une sauvegarde du même format ne vide plus brièvement l'écran et ne peut plus envoyer une collection vide transitoire.
 
 Les modifications sont enregistrées automatiquement après une courte pause de saisie. L'état de sauvegarde reste visible et propose **Réessayer** en cas d'échec ; il n'y a plus de bouton général **Sauvegarder**. Un nouveau format reprend uniquement la date, le lieu et éventuellement le site de l'événement, avec des métriques vides. Son site officiel reste facultatif.

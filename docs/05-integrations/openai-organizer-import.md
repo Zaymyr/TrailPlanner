@@ -26,6 +26,8 @@ related_tables:
 
 # OpenAI Organizer Import Reconciliation
 
+When assisted import is exposed to organizers, authorization must resolve `capability.assisted_import` specifically in addition to the plan. No other gift and no manual invoice status may be treated as import authority; existing admin-only reconciliation boundaries remain unchanged.
+
 The normal Organizer course-point autosave now waits for active-format sidecars and preserves them across same-format refreshes. This runtime guard is independent from reviewed import selections and does not change reconciliation evidence, signed snapshots, or apply semantics.
 
 Format website evidence is optional during discovery, reconciliation, draft creation, and apply. The required format evidence set is name, date, location, and distance; a selected website claim is still persisted when present.

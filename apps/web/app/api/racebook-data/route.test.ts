@@ -18,6 +18,7 @@ vi.mock("../../../lib/supabase", () => ({
 vi.mock("../../../lib/organizer", () => ({ serviceHeaders: () => ({}), isOrganizerForEvent: mocks.isOrganizer }));
 vi.mock("../../../lib/organizer-entitlements", () => ({
   loadOrganizerEditionEntitlement: () => Promise.resolve({ status: "active", tier: "signature" }),
+  loadOrganizerEditionCapabilityGrants: () => Promise.resolve({}),
 }));
 vi.mock("../../../lib/racebook-publications", () => ({
   loadCurrentRacebookPublication: mocks.loadCurrent,

@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { withSecurityHeaders } from "../../../../lib/http";
 import { jsonError, requireAdminAuth, serviceHeaders } from "../../../../lib/organizer";
+import { organizerFeatureKeySchema } from "../../../../lib/organizer-features";
 
 const publicationRequestSchema = z.object({
   id: z.string().uuid(),
@@ -73,8 +74,15 @@ const paymentSchema = z.object({
 
 const capabilityGrantSchema = z.object({
   edition_id: z.string().uuid(),
-  capability_key: z.literal("racebook_analytics.view"),
+  capability_key: organizerFeatureKeySchema,
   status: z.enum(["active", "revoked"]),
+});
+const manualInvoiceSchema = z.object({
+  id: z.string().uuid(), edition_id: z.string().uuid(), invoice_number: z.string(), invoice_issued_at: z.string(),
+  document_status: z.enum(["active", "replaced"]), tier: z.enum(["essential", "complete", "signature"]),
+  service_date: z.string(), due_date: z.string(), original_subtotal: z.number().int(), discount_total: z.number().int(),
+  net_total: z.number().int(), paid_at: z.string().nullable(), replaces_invoice_id: z.string().uuid().nullable(),
+  invoice_storage_path: z.string().nullable(), legal_snapshot: z.object({ lines: z.array(z.object({ description: z.string(), offered: z.boolean() })).optional() }).passthrough(),
 });
 
 const reviewSchema = z.object({
@@ -99,7 +107,7 @@ const grantSchema = z.object({
 const capabilityGrantActionSchema = z.object({
   action: z.literal("setEditionCapabilityGrant"),
   editionId: z.string().uuid(),
-  capabilityKey: z.literal("racebook_analytics.view"),
+  capabilityKey: organizerFeatureKeySchema,
   enabled: z.boolean(),
 });
 
@@ -107,7 +115,7 @@ export async function GET(request: NextRequest) {
   const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
 
-  const [response, eventsResponse, entitlementsResponse, paymentsResponse, capabilityGrantsResponse] = await Promise.all([
+  const [response, eventsResponse, entitlementsResponse, paymentsResponse, capabilityGrantsResponse, invoicesResponse] = await Promise.all([
     fetch(
       `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_publication_requests?status=eq.pending&select=id,created_at,user_id,event_id,race_id,status,reviewer_notes,race_events(name,location,race_date),requested_race:races(name,race_date)&order=created_at.asc`,
       { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
@@ -125,11 +133,15 @@ export async function GET(request: NextRequest) {
       { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
     ),
     fetch(
-      `${auth.serviceConfig.supabaseUrl}/rest/v1/organizer_edition_capability_grants?capability_key=eq.racebook_analytics.view&select=edition_id,capability_key,status`,
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/organizer_edition_capability_grants?select=edition_id,capability_key,status`,
+      { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
+    ),
+    fetch(
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/organizer_invoices?select=id,edition_id,invoice_number,invoice_issued_at,document_status,tier,service_date,due_date,original_subtotal,discount_total,net_total,paid_at,replaces_invoice_id,invoice_storage_path,legal_snapshot&order=invoice_issued_at.desc`,
       { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
     ),
   ]);
-  if (!response.ok || !eventsResponse.ok || !entitlementsResponse.ok || !paymentsResponse.ok || !capabilityGrantsResponse.ok) {
+  if (!response.ok || !eventsResponse.ok || !entitlementsResponse.ok || !paymentsResponse.ok || !capabilityGrantsResponse.ok || !invoicesResponse.ok) {
     return jsonError("Unable to load Racebook publication controls.", 502);
   }
 
@@ -137,6 +149,7 @@ export async function GET(request: NextRequest) {
   const entitlements = z.array(entitlementSchema).parse(await entitlementsResponse.json());
   const payments = z.array(paymentSchema).parse(await paymentsResponse.json());
   const capabilityGrants = z.array(capabilityGrantSchema).parse(await capabilityGrantsResponse.json());
+  const manualInvoices = z.array(manualInvoiceSchema).parse(await invoicesResponse.json());
   const events = z.array(publicationEventSchema).parse(await eventsResponse.json()).flatMap((event) => {
     const editions = [...(event.race_event_editions ?? [])].sort((left, right) => (
       Number(right.is_current) - Number(left.is_current)
@@ -155,7 +168,8 @@ export async function GET(request: NextRequest) {
         isCurrentEdition: edition?.is_current ?? false,
         entitlement: entitlements.find((item) => item.edition_id === editionId) ?? null,
         payments: payments.filter((item) => item.edition_id === editionId),
-        analyticsCapabilityGrant: capabilityGrants.find((item) => item.edition_id === editionId) ?? null,
+        featureGrants: capabilityGrants.filter((item) => item.edition_id === editionId),
+        invoices: manualInvoices.filter((item) => item.edition_id === editionId),
         races: (event.races ?? [])
           .filter((race) => !editionId || race.edition_id === editionId)
           .sort((left, right) => left.name.localeCompare(right.name, "fr")),

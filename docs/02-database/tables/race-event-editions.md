@@ -58,6 +58,8 @@ related_tables:
 
 # race_event_editions
 
+An edition can now own independent manual invoices and exact feature-grant projections in addition to its commercial entitlement. Invoice issuance/settlement never changes the edition entitlement, while a stored grant may be masked by a higher current plan and become effective again after a downgrade.
+
 Organizer editor changes are autosaved with a debounced, revision-aware client queue. Edition dates are validated before persistence, while the table contract and edition ownership rules remain unchanged.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.

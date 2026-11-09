@@ -24,6 +24,8 @@ related_tables:
 
 # `race_event_edition_requests`
 
+Edition creation requests remain operational workflow records. The admin organizer screen may display them beside the new billing and rights controls, but issuing, correcting or settling an invoice never approves a request or changes an edition entitlement.
+
 The Organizer dashboard now preserves loaded course-point sidecars across same-format refreshes and blocks their autosave while loading. This client integrity guard does not revive or mutate the retired edition-request workflow.
 
 Debounced organizer autosave applies only to editable event/format content. Edition creation remains an explicit confirmed action and therefore keeps the existing request lifecycle unchanged.

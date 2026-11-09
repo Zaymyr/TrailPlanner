@@ -50,6 +50,8 @@ related_tables:
 
 # Add New Table
 
+For immutable service-only financial records, follow the `organizer_invoices` pattern: revoke client privileges, keep RLS enabled without client policies, index every foreign key, serialize legal numbering transactionally, reject deletion, and allow only narrowly defined settlement/replacement transitions. Mutable global prices belong in a separate catalog so issued snapshots never change retroactively.
+
 `user_notifications` is the owner-readable, server-authored example: clients receive explicit safe-column reads and `read_at`-only updates under owner RLS, while message creation and external delivery metadata stay service-only. Its race-request review RPC is invoker-security, service-role-only and commits the status plus inbox row atomically.
 
 The versioned RaceBook publication cluster is the current multi-table service-only example. `racebook_publication_states`, immutable `racebook_publications`, retained asset references and the cleanup queue all enable RLS without client policies, revoke client privileges, and expose only narrowly granted `SECURITY INVOKER` RPCs. When rollout requires existing public rows, build and validate the initial snapshot in the same migration before enabling snapshot-only reads; a state-only backfill is insufficient.

@@ -79,6 +79,8 @@ related_tables:
 
 # Analytics
 
+Organizer analytics access is checked against the active plan plus the exact `capability.racebook_analytics` feature grant. A different Signature feature gift must not authorize analytics, and manual invoice creation or settlement has no analytics effect.
+
 Organizer course-point autosave now waits for the active-format sidecars and no longer resets them after a same-format response. Successful save analytics retain their existing event names and fields; blocked pre-load saves emit no false successful-update event.
 
 Additive third-party bib-pickup conditions are runner-visible content only. They are never attached to analytics events; existing RaceBook navigation, equipment-state, linked-workspace, and organizer-save event schemas remain unchanged.

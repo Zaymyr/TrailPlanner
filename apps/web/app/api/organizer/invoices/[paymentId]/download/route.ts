@@ -22,6 +22,25 @@ export async function GET(request: NextRequest, context: { params: { paymentId?:
   if ("error" in auth) return auth.error;
   const paymentId = z.string().uuid().safeParse(context.params.paymentId);
   if (!paymentId.success) return jsonError("Identifiant de paiement invalide.", 400);
+  const manualResponse = await fetch(
+    `${auth.serviceConfig.supabaseUrl}/rest/v1/organizer_invoices?id=eq.${paymentId.data}&select=id,invoice_storage_path,invoice_original_name,race_event_editions(event_id)&limit=1`,
+    { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" },
+  );
+  if (manualResponse.ok) {
+    const manual = z.array(z.object({
+      id: z.string().uuid(),
+      invoice_storage_path: z.string().nullable(),
+      invoice_original_name: z.string().nullable(),
+      race_event_editions: z.object({ event_id: z.string().uuid() }),
+    })).parse(await manualResponse.json())[0];
+    if (manual) {
+      const authorized = await requireEventOrganizer(auth.serviceConfig, auth.user, manual.race_event_editions.event_id);
+      if (authorized !== true) return authorized.error;
+      if (!manual.invoice_storage_path) return jsonError("Cette facture n’est pas encore disponible.", 409);
+      const url = await createOrganizerInvoiceDownloadUrl(auth.serviceConfig, manual.invoice_storage_path, manual.invoice_original_name ?? `facture-${manual.id}.pdf`);
+      return withSecurityHeaders(NextResponse.json({ url }));
+    }
+  }
   const response = await fetch(
     `${auth.serviceConfig.supabaseUrl}/rest/v1/organizer_edition_payments?id=eq.${paymentId.data}&status=in.(paid,refunded,disputed)&select=id,payment_channel,status,stripe_checkout_session_id,stripe_invoice_id,invoice_storage_path,invoice_original_name,race_event_editions(event_id)&limit=1`,
     { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }

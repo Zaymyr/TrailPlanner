@@ -17,6 +17,7 @@ import { Label } from "../../../components/ui/label";
 import { TabsList } from "../../../components/ui/tabs";
 import { cn } from "../../../components/utils";
 import { ORGANIZER_TIER_PRICE_EUR } from "../../../lib/organizer-modules";
+import { ORGANIZER_FEATURES, giftableOrganizerFeatures, type OrganizerFeatureKey } from "../../../lib/organizer-features";
 
 type OrganizerUserSummary = {
   id: string;
@@ -103,6 +104,11 @@ const currentParisDate = () => new Intl.DateTimeFormat("en-CA", {
   month: "2-digit",
   day: "2-digit",
 }).format(new Date());
+const datePlusDays = (value: string, days: number) => {
+  const result = new Date(`${value}T12:00:00Z`);
+  result.setUTCDate(result.getUTCDate() + days);
+  return result.toISOString().slice(0, 10);
+};
 
 type RaceEventOption = {
   id: string;
@@ -132,11 +138,21 @@ type RacebookPublicationEvent = RaceEventOption & {
     source: "system" | "stripe" | "manual_payment" | "admin" | "complimentary" | "legacy_admin";
     status: "active" | "revoked";
   } | null;
-  analyticsCapabilityGrant: {
+  featureGrants: Array<{
     edition_id: string;
-    capability_key: "racebook_analytics.view";
+    capability_key: OrganizerFeatureKey;
     status: "active" | "revoked";
-  } | null;
+  }>;
+  invoices: Array<{
+    id: string; invoice_number: string; invoice_issued_at: string; document_status: "active" | "replaced";
+    tier: "essential" | "complete" | "signature"; service_date: string; due_date: string;
+    original_subtotal: number; discount_total: number; net_total: number; paid_at: string | null;
+    replaces_invoice_id: string | null; invoice_storage_path: string | null;
+    legal_snapshot: {
+      customer: { legalName: string; billingAddress: string; siren?: string | null; vatNumber?: string | null; purchaseOrderNumber?: string | null };
+      lines?: Array<{ featureKey?: OrganizerFeatureKey; description: string; offered: boolean }>;
+    };
+  }>;
   payments: Array<{
     id: string;
     to_tier: string;
@@ -320,15 +336,23 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
   const [memberships, setMemberships] = useState<OrganizerMembership[]>([]);
   const [events, setEvents] = useState<RaceEventOption[]>([]);
   const [publicationEvents, setPublicationEvents] = useState<RacebookPublicationEvent[]>([]);
+  const [featureCatalog, setFeatureCatalog] = useState<Array<{ feature_key: OrganizerFeatureKey; label: string; minimum_tier: "complete" | "signature"; unit_price_cents: number; is_active: boolean }>>([]);
   const [tierFilter, setTierFilter] = useState<"all" | "visibility" | "essential" | "complete" | "signature">("all");
   const [publicationSearch, setPublicationSearch] = useState("");
   const [publicationPage, setPublicationPage] = useState(1);
   const [purchaseEvent, setPurchaseEvent] = useState<RacebookPublicationEvent | null>(null);
   const [invoicePayment, setInvoicePayment] = useState<{ event: RacebookPublicationEvent; payment: OrganizerPayment } | null>(null);
+  const [manualInvoiceEvent, setManualInvoiceEvent] = useState<RacebookPublicationEvent | null>(null);
+  const [correctedInvoiceId, setCorrectedInvoiceId] = useState<string | null>(null);
+  const [manualInvoiceTier, setManualInvoiceTier] = useState<"essential" | "complete" | "signature">("essential");
+  const [manualInvoiceNet, setManualInvoiceNet] = useState("99");
+  const [manualInvoiceServiceDate, setManualInvoiceServiceDate] = useState(currentParisDate);
+  const [manualInvoiceDueDate, setManualInvoiceDueDate] = useState(() => datePlusDays(currentParisDate(), 30));
+  const [manualInvoiceFeatures, setManualInvoiceFeatures] = useState<OrganizerFeatureKey[]>([]);
   const [purchaseTier, setPurchaseTier] = useState<"visibility" | "essential" | "complete" | "signature">("essential");
   const [purchaseOrigin, setPurchaseOrigin] = useState<PublicationOrigin>("admin");
-  const [analyticsGrantEnabled, setAnalyticsGrantEnabled] = useState(false);
-  const [initialAnalyticsGrantEnabled, setInitialAnalyticsGrantEnabled] = useState(false);
+  const [enabledFeatureGrants, setEnabledFeatureGrants] = useState<OrganizerFeatureKey[]>([]);
+  const [initialFeatureGrants, setInitialFeatureGrants] = useState<OrganizerFeatureKey[]>([]);
   const [purchaseDate, setPurchaseDate] = useState(currentParisDate);
   const [purchaseSubtotal, setPurchaseSubtotal] = useState("");
   const [purchaseTax, setPurchaseTax] = useState("");
@@ -357,6 +381,8 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
   const [revokeReasonByMembership, setRevokeReasonByMembership] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<"idle" | "loading" | "saving" | "previewing">("idle");
   const [error, setError] = useState<string | null>(null);
+  const availableGiftableFeatures = (tier: typeof manualInvoiceTier) => giftableOrganizerFeatures(tier)
+    .filter((feature) => featureCatalog.some((item) => item.feature_key === feature.key && item.is_active));
 
   useEffect(() => () => {
     if (invoicePreviewUrl) URL.revokeObjectURL(invoicePreviewUrl);
@@ -376,12 +402,16 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
     setStatus("loading");
     setError(null);
     try {
-      const [response, publicationResponse] = await Promise.all([
+      const [response, publicationResponse, catalogResponse] = await Promise.all([
         fetch("/api/admin/organizer-claims", {
           headers: { Authorization: `Bearer ${accessToken}` },
           cache: "no-store",
         }),
         fetch("/api/admin/event-publication-requests", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          cache: "no-store",
+        }),
+        fetch("/api/admin/organizer-feature-catalog", {
           headers: { Authorization: `Bearer ${accessToken}` },
           cache: "no-store",
         }),
@@ -398,7 +428,8 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
         events?: RacebookPublicationEvent[];
         message?: string;
       } | null;
-      if (!response.ok || !publicationResponse.ok) {
+      const catalogData = await catalogResponse.json().catch(() => null) as { features?: typeof featureCatalog; message?: string } | null;
+      if (!response.ok || !publicationResponse.ok || !catalogResponse.ok) {
         setError(data?.message ?? publicationData?.message ?? "Unable to load organizer requests.");
         return;
       }
@@ -415,6 +446,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
       });
       setPublicationRequests(publicationData?.publicationRequests ?? []);
       setPublicationEvents(publicationData?.events ?? []);
+      setFeatureCatalog(catalogData?.features ?? []);
     } catch (caught) {
       console.error("Unable to load organizer claims", caught);
       setError("Unable to load organizer claims.");
@@ -478,6 +510,20 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
     } finally {
       setStatus("idle");
     }
+  };
+
+  const saveFeaturePrice = async (feature: (typeof featureCatalog)[number]) => {
+    if (!accessToken) return;
+    setStatus("saving");
+    setError(null);
+    try {
+      const response = await fetch("/api/admin/organizer-feature-catalog", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ featureKey: feature.feature_key, unitPriceCents: feature.unit_price_cents, isActive: feature.is_active }),
+      });
+      if (!response.ok) setError((await response.json().catch(() => null) as { message?: string } | null)?.message ?? "Impossible de modifier ce tarif.");
+    } finally { setStatus("idle"); }
   };
 
   useEffect(() => {
@@ -603,53 +649,40 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
         && payment.payment_channel === "bank_transfer"
         && payment.to_tier === purchaseTier
       ));
-      let response: Response;
       if (purchaseTier !== "visibility" && purchaseOrigin === "manual_payment" && !hasMatchingBankTransfer) {
-        const formData = new FormData();
-        formData.set("editionId", purchaseEvent.editionId);
-        formData.set("tier", purchaseTier);
-        formData.set("paidDate", purchaseDate);
-        formData.set("customerLegalName", invoiceCustomerLegalName);
-        formData.set("customerBillingAddress", invoiceCustomerAddress);
-        formData.set("customerSiren", invoiceCustomerSiren);
-        formData.set("customerVatNumber", invoiceCustomerVatNumber);
-        formData.set("purchaseOrderNumber", invoicePurchaseOrderNumber);
-        response = await fetch("/api/admin/organizer-payments", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${accessToken}` },
-          body: formData,
-        });
-      } else {
-        response = await fetch("/api/admin/event-publication-requests", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-          body: JSON.stringify({
-            action: "setEditionGrant",
-            editionId: purchaseEvent.editionId,
-            tier: purchaseTier,
-            origin: purchaseTier === "visibility" ? "admin" : purchaseOrigin,
-          }),
-        });
+        setError("Aucun virement réglé ne correspond à ce pack. Créez la facture séparément ou ouvrez les droits avec l’origine Admin.");
+        return;
       }
+      const response = await fetch("/api/admin/event-publication-requests", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({
+          action: "setEditionGrant",
+          editionId: purchaseEvent.editionId,
+          tier: purchaseTier,
+          origin: purchaseTier === "visibility" ? "admin" : purchaseOrigin,
+        }),
+      });
       const data = (await response.json().catch(() => null)) as { message?: string; warning?: string } | null;
       if (!response.ok) {
         setError(data?.message ?? "Impossible de modifier le droit de publication.");
         return;
       }
-      if (analyticsGrantEnabled !== initialAnalyticsGrantEnabled) {
+      const changedFeatures = ORGANIZER_FEATURES.filter((feature) => enabledFeatureGrants.includes(feature.key) !== initialFeatureGrants.includes(feature.key));
+      for (const feature of changedFeatures) {
         const capabilityResponse = await fetch("/api/admin/event-publication-requests", {
           method: "PATCH",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
           body: JSON.stringify({
             action: "setEditionCapabilityGrant",
             editionId: purchaseEvent.editionId,
-            capabilityKey: "racebook_analytics.view",
-            enabled: analyticsGrantEnabled,
+            capabilityKey: feature.key,
+            enabled: enabledFeatureGrants.includes(feature.key),
           }),
         });
         const capabilityData = await capabilityResponse.json().catch(() => null) as { message?: string } | null;
         if (!capabilityResponse.ok) {
-          setError(capabilityData?.message ?? "Le pack a été enregistré, mais le module Statistiques n’a pas pu être mis à jour.");
+          setError(capabilityData?.message ?? `Le pack a été enregistré, mais ${feature.label} n’a pas pu être mis à jour.`);
           await load();
           return;
         }
@@ -818,6 +851,116 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
     }
   };
 
+  const manualInvoicePayload = () => ({
+    editionId: manualInvoiceEvent?.editionId,
+    tier: manualInvoiceTier,
+    packNetCents: Math.round(Number(manualInvoiceNet.replace(",", ".")) * 100),
+    giftedFeatures: manualInvoiceFeatures,
+    serviceDate: manualInvoiceServiceDate,
+    dueDate: manualInvoiceDueDate,
+    replacesInvoiceId: correctedInvoiceId,
+    customer: {
+      legalName: invoiceCustomerLegalName,
+      billingAddress: invoiceCustomerAddress,
+      siren: invoiceCustomerSiren,
+      vatNumber: invoiceCustomerVatNumber,
+      purchaseOrderNumber: invoicePurchaseOrderNumber,
+    },
+  });
+
+  const previewManualInvoice = async () => {
+    if (!accessToken || !manualInvoiceEvent?.editionId) return;
+    setStatus("previewing");
+    setError(null);
+    try {
+      const response = await fetch("/api/admin/organizer-invoices/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify(manualInvoicePayload()),
+      });
+      if (!response.ok) throw new Error((await response.json().catch(() => null) as { message?: string } | null)?.message ?? "Impossible de prévisualiser la facture.");
+      const nextUrl = URL.createObjectURL(await response.blob());
+      if (invoicePreviewUrl) URL.revokeObjectURL(invoicePreviewUrl);
+      setInvoicePreviewUrl(nextUrl);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Impossible de prévisualiser la facture.");
+    } finally { setStatus("idle"); }
+  };
+
+  const issueManualInvoice = async () => {
+    if (!accessToken || !manualInvoiceEvent?.editionId) return;
+    setStatus("saving");
+    setError(null);
+    try {
+      const response = await fetch("/api/admin/organizer-invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify(manualInvoicePayload()),
+      });
+      const data = await response.json().catch(() => null) as { message?: string; warning?: string } | null;
+      if (!response.ok) throw new Error(data?.message ?? "Impossible d’émettre la facture.");
+      setManualInvoiceEvent(null);
+      if (invoicePreviewUrl) URL.revokeObjectURL(invoicePreviewUrl);
+      setInvoicePreviewUrl(null);
+      await load();
+      if (data?.warning) setError(data.warning);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Impossible d’émettre la facture.");
+    } finally { setStatus("idle"); }
+  };
+
+  const settleManualInvoice = async (invoiceId: string) => {
+    if (!accessToken) return;
+    setStatus("saving");
+    setError(null);
+    try {
+      const response = await fetch(`/api/admin/organizer-invoices/${invoiceId}/settlement`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ paidAt: new Date().toISOString(), paymentReference: null }),
+      });
+      if (!response.ok) setError((await response.json().catch(() => null) as { message?: string } | null)?.message ?? "Impossible d’enregistrer le règlement.");
+      await load();
+    } finally { setStatus("idle"); }
+  };
+
+  const downloadManualInvoice = async (invoiceId: string) => {
+    if (!accessToken) return;
+    const response = await fetch(`/api/admin/organizer-invoices/${invoiceId}/download`, { headers: { Authorization: `Bearer ${accessToken}` } });
+    const data = await response.json().catch(() => null) as { url?: string; message?: string } | null;
+    if (!response.ok || !data?.url) { setError(data?.message ?? "Impossible de télécharger la facture."); return; }
+    window.open(data.url, "_blank", "noopener,noreferrer");
+  };
+
+  const regenerateManualInvoice = async (invoiceId: string) => {
+    if (!accessToken) return;
+    setStatus("saving");
+    const response = await fetch(`/api/admin/organizer-invoices/${invoiceId}/pdf`, { method: "POST", headers: { Authorization: `Bearer ${accessToken}` } });
+    if (!response.ok) setError((await response.json().catch(() => null) as { message?: string } | null)?.message ?? "Impossible de régénérer le PDF.");
+    await load();
+    setStatus("idle");
+  };
+
+  const openManualInvoiceDialog = (event: RacebookPublicationEvent, invoice?: RacebookPublicationEvent["invoices"][number]) => {
+    const tier = invoice?.tier ?? (event.entitlement?.tier === "visibility" || !event.entitlement ? "essential" : event.entitlement.tier);
+    const today = currentParisDate();
+    setManualInvoiceTier(tier);
+    setManualInvoiceNet(String((invoice?.net_total ?? ORGANIZER_TIER_PRICE_EUR[tier] * 100) / 100));
+    setManualInvoiceServiceDate(invoice?.service_date ?? today);
+    setManualInvoiceDueDate(invoice?.due_date ?? datePlusDays(today, 30));
+    setManualInvoiceFeatures((invoice?.legal_snapshot.lines ?? []).flatMap((line) => line.featureKey ? [line.featureKey] : []));
+    setCorrectedInvoiceId(invoice?.id ?? null);
+    setInvoiceCustomerLegalName(invoice?.legal_snapshot.customer.legalName ?? "");
+    setInvoiceCustomerAddress(invoice?.legal_snapshot.customer.billingAddress ?? "");
+    setInvoiceCustomerSiren(invoice?.legal_snapshot.customer.siren ?? "");
+    setInvoiceCustomerVatNumber(invoice?.legal_snapshot.customer.vatNumber ?? "");
+    setInvoicePurchaseOrderNumber(invoice?.legal_snapshot.customer.purchaseOrderNumber ?? "");
+    if (invoicePreviewUrl) URL.revokeObjectURL(invoicePreviewUrl);
+    setInvoicePreviewUrl(null);
+    setError(null);
+    setManualInvoiceEvent(event);
+  };
+
   const openHistoricalInvoiceDialog = (event: RacebookPublicationEvent, payment: OrganizerPayment) => {
     setInvoiceCustomerLegalName("");
     setInvoiceCustomerAddress("");
@@ -840,9 +983,9 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
         ? currentSource
         : "admin"
     );
-    const analyticsGrantIsActive = event.analyticsCapabilityGrant?.status === "active";
-    setAnalyticsGrantEnabled(analyticsGrantIsActive);
-    setInitialAnalyticsGrantEnabled(analyticsGrantIsActive);
+    const activeFeatures = event.featureGrants.filter((grant) => grant.status === "active").map((grant) => grant.capability_key);
+    setEnabledFeatureGrants(activeFeatures);
+    setInitialFeatureGrants(activeFeatures);
     setPurchaseDate(currentParisDate());
     const amounts = getOrganizerPaymentAmounts(currentTier);
     setPurchaseSubtotal(amounts.subtotal);
@@ -868,7 +1011,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
     && payment.payment_channel === "bank_transfer"
     && payment.to_tier === purchaseTier
   )) ?? false;
-  const needsBankTransferDetails = purchaseTier !== "visibility" && purchaseOrigin === "manual_payment" && !hasSelectedBankTransfer;
+  const needsBankTransferDetails = false;
   const invoiceCustomerComplete = invoiceCustomerLegalName.trim().length >= 2
     && invoiceCustomerAddress.trim().length >= 5;
   const filteredPublicationEvents = useMemo(() => {
@@ -912,6 +1055,31 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
       />
 
       {error ? <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+
+      {organizerAdminTab === "publication" ? <Card className="rounded-lg">
+        <CardHeader><CardTitle>Tarifs des options offertes</CardTitle><CardDescription>Ces prix alimentent les prochaines factures. Les factures déjà émises restent inchangées.</CardDescription></CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2">
+          {featureCatalog.map((feature, index) => <div key={feature.feature_key} className="grid grid-cols-[1fr_7rem_auto] items-end gap-2 rounded-md border p-3">
+            <div>
+              <p className="text-sm font-medium">{feature.label}</p>
+              <p className="text-xs text-muted-foreground">{feature.minimum_tier === "complete" ? "Complet" : "Signature"}</p>
+              <label className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={feature.is_active}
+                  onChange={(event) => setFeatureCatalog((current) => current.map((item) => item.feature_key === feature.feature_key ? { ...item, is_active: event.target.checked } : item))}
+                />
+                Disponible pour les prochaines factures
+              </label>
+            </div>
+            <div><Label htmlFor={`feature-price-${index}`}>Prix HT (€)</Label><Input id={`feature-price-${index}`} inputMode="decimal" value={feature.unit_price_cents / 100} onChange={(event) => {
+              const cents = Math.max(0, Math.round(Number(event.target.value.replace(",", ".")) * 100) || 0);
+              setFeatureCatalog((current) => current.map((item) => item.feature_key === feature.feature_key ? { ...item, unit_price_cents: cents } : item));
+            }} /></div>
+            <Button type="button" variant="outline" disabled={status !== "idle"} onClick={() => void saveFeaturePrice(feature)}>Enregistrer</Button>
+          </div>)}
+        </CardContent>
+      </Card> : null}
 
       <Card className="rounded-lg">
         <CardHeader>
@@ -1185,11 +1353,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
                       {latestPayment ? ` · dernier paiement ${latestPayment.payment_channel === "bank_transfer" ? "virement" : "Stripe"} (${latestPayment.status})` : ""}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Statistiques : {tier === "signature"
-                        ? "Inclus dans Signature"
-                        : event.analyticsCapabilityGrant?.status === "active"
-                          ? "Offert manuellement"
-                          : "Non disponible"}
+                      Options offertes : {event.featureGrants.filter((grant) => grant.status === "active").length}
                     </p>
                     {event.races.length > 0 ? (
                       <p className="truncate text-xs text-muted-foreground">{event.races.map((race) => race.name).join(" · ")}</p>
@@ -1199,6 +1363,24 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
                     <Button type="button" disabled={status === "saving" || !event.editionId} onClick={() => openPurchaseDialog(event)}>
                       Gérer le pack et les accès
                     </Button>
+                    <Button type="button" variant="outline" disabled={status === "saving" || !event.editionId} onClick={() => openManualInvoiceDialog(event)}>
+                      Créer une facture
+                    </Button>
+                    {event.invoices.map((invoice) => {
+                      const overdue = invoice.document_status === "active" && !invoice.paid_at && invoice.net_total > 0 && invoice.due_date < currentParisDate();
+                      return <div key={invoice.id} className="rounded-md border border-border p-2 text-xs">
+                        <p className="font-medium text-foreground">{invoice.invoice_number} · {invoice.tier}</p>
+                        <p className="text-muted-foreground">
+                          {invoice.document_status === "replaced" ? "Remplacée" : invoice.net_total === 0 ? "Aucun montant à régler" : invoice.paid_at ? "Réglée" : overdue ? "En retard" : `À régler avant le ${new Date(`${invoice.due_date}T12:00:00`).toLocaleDateString("fr-FR")}`}
+                        </p>
+                        <p className="text-muted-foreground">Origine {(invoice.original_subtotal / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR" })} · net {(invoice.net_total / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}</p>
+                        {invoice.invoice_storage_path ? <Button type="button" variant="outline" className="mt-2" onClick={() => void downloadManualInvoice(invoice.id)}>Télécharger</Button> : <Button type="button" variant="outline" className="mt-2" onClick={() => void regenerateManualInvoice(invoice.id)}>Régénérer le PDF</Button>}
+                        {invoice.document_status === "active" && !invoice.paid_at ? <div className="mt-2 flex flex-wrap gap-2">
+                          <Button type="button" variant="outline" disabled={status !== "idle"} onClick={() => openManualInvoiceDialog(event, invoice)}>Modifier</Button>
+                          {invoice.net_total > 0 ? <Button type="button" variant="outline" disabled={status !== "idle"} onClick={() => void settleManualInvoice(invoice.id)}>Marquer réglée</Button> : null}
+                        </div> : null}
+                      </div>;
+                    })}
                     {event.payments.filter((payment) => payment.payment_channel === "bank_transfer" && payment.status === "paid").map((payment) => (
                       <div key={payment.id} className="rounded-md border border-border p-2 text-xs">
                         <p className="font-medium text-foreground">
@@ -1361,25 +1543,19 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
             ) : null}
             <fieldset className="space-y-2 rounded-lg border border-border bg-muted/20 p-4 sm:col-span-2">
               <legend className="px-1 text-sm font-semibold text-foreground">Modules offerts hors pack</legend>
-              <label className={`flex items-start gap-3 ${purchaseTier === "signature" ? "cursor-default" : "cursor-pointer"}`}>
-                <input
-                  type="checkbox"
-                  className="mt-1 h-4 w-4 shrink-0"
-                  checked={purchaseTier === "signature" || analyticsGrantEnabled}
-                  disabled={purchaseTier === "signature"}
-                  onChange={(event) => setAnalyticsGrantEnabled(event.target.checked)}
-                />
-                <span>
-                  <span className="block text-sm font-medium text-foreground">Statistiques Livret coureur</span>
-                  <span className="block text-xs text-muted-foreground">
-                    {purchaseTier === "signature"
-                      ? "Inclus dans Signature"
-                      : analyticsGrantEnabled
-                        ? "Offert manuellement pour cette édition"
-                        : "Non disponible avec ce pack"}
+              {ORGANIZER_FEATURES.map((feature) => {
+                const giftable = giftableOrganizerFeatures(purchaseTier).some((item) => item.key === feature.key)
+                  && (featureCatalog.some((item) => item.feature_key === feature.key && item.is_active) || enabledFeatureGrants.includes(feature.key));
+                const included = !giftable;
+                const checked = included || enabledFeatureGrants.includes(feature.key);
+                return <label key={feature.key} className={`flex items-start gap-3 ${included ? "cursor-default opacity-70" : "cursor-pointer"}`}>
+                  <input type="checkbox" className="mt-1 h-4 w-4 shrink-0" checked={checked} disabled={included} onChange={(event) => setEnabledFeatureGrants((current) => event.target.checked ? Array.from(new Set([...current, feature.key])) : current.filter((key) => key !== feature.key))} />
+                  <span>
+                    <span className="block text-sm font-medium text-foreground">{feature.label}</span>
+                    <span className="block text-xs text-muted-foreground">{included ? `Inclus dans ${feature.minimumTier === "complete" ? "Complet" : "Signature"}` : checked ? "Offert manuellement pour cette édition" : `${((featureCatalog.find((item) => item.feature_key === feature.key)?.unit_price_cents ?? feature.defaultPriceCents) / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR" })} · non disponible avec ce pack`}</span>
                   </span>
-                </span>
-              </label>
+                </label>;
+              })}
               <p className="text-xs text-muted-foreground">La dérogation reste mémorisée lors d’un changement de pack jusqu’à sa révocation explicite.</p>
             </fieldset>
             {needsBankTransferDetails ? <>
@@ -1442,6 +1618,62 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
                     ? "Émettre la facture et enregistrer le virement"
                     : "Enregistrer"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(manualInvoiceEvent)} onOpenChange={(open) => {
+        if (!open) {
+          if (invoicePreviewUrl) URL.revokeObjectURL(invoicePreviewUrl);
+          setInvoicePreviewUrl(null);
+          setManualInvoiceEvent(null);
+        }
+      }}>
+        <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{correctedInvoiceId ? "Rectifier la facture" : "Créer une facture"}</DialogTitle>
+            <DialogDescription>
+              Cette facture et son règlement ne modifient aucun droit d’accès. Les droits se gèrent séparément.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="manual-invoice-tier">Pack facturé</Label>
+              <select id="manual-invoice-tier" className="min-h-11 w-full rounded-md border border-input bg-card px-3 text-sm" value={manualInvoiceTier} onChange={(event) => {
+                const tier = event.target.value as typeof manualInvoiceTier;
+                setManualInvoiceTier(tier);
+                setManualInvoiceNet(String(ORGANIZER_TIER_PRICE_EUR[tier]));
+                setManualInvoiceFeatures((current) => current.filter((key) => availableGiftableFeatures(tier).some((feature) => feature.key === key)));
+              }}>
+                <option value="essential">Essentiel</option><option value="complete">Complet</option><option value="signature">Signature</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="manual-invoice-net">Montant réellement facturé HT (€)</Label>
+              <Input id="manual-invoice-net" inputMode="decimal" value={manualInvoiceNet} onChange={(event) => setManualInvoiceNet(event.target.value)} />
+              <p className="text-xs text-muted-foreground">Maximum catalogue : {ORGANIZER_TIER_PRICE_EUR[manualInvoiceTier]} € HT.</p>
+            </div>
+            <div className="space-y-1.5"><Label htmlFor="manual-service-date">Date de prestation</Label><Input id="manual-service-date" type="date" value={manualInvoiceServiceDate} onChange={(event) => setManualInvoiceServiceDate(event.target.value)} /></div>
+            <div className="space-y-1.5"><Label htmlFor="manual-due-date">Date d’échéance</Label><Input id="manual-due-date" type="date" min={manualInvoiceServiceDate} value={manualInvoiceDueDate} onChange={(event) => setManualInvoiceDueDate(event.target.value)} /></div>
+            <fieldset className="space-y-2 rounded-lg border border-border p-4 sm:col-span-2">
+              <legend className="px-1 text-sm font-semibold">Fonctionnalités offertes</legend>
+              {availableGiftableFeatures(manualInvoiceTier).map((feature) => <label key={feature.key} className="flex items-center gap-3 text-sm">
+                <input type="checkbox" checked={manualInvoiceFeatures.includes(feature.key)} onChange={(event) => setManualInvoiceFeatures((current) => event.target.checked ? Array.from(new Set([...current, feature.key])) : current.filter((key) => key !== feature.key))} />
+                <span>{feature.label} · {((featureCatalog.find((item) => item.feature_key === feature.key)?.unit_price_cents ?? feature.defaultPriceCents) / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR" })} offert</span>
+              </label>)}
+              {availableGiftableFeatures(manualInvoiceTier).length === 0 ? <p className="text-xs text-muted-foreground">Aucune fonctionnalité supplémentaire n’est disponible pour ce pack.</p> : null}
+            </fieldset>
+            <div className="space-y-1.5"><Label htmlFor="manual-customer-name">Raison sociale</Label><Input id="manual-customer-name" value={invoiceCustomerLegalName} onChange={(event) => setInvoiceCustomerLegalName(event.target.value)} /></div>
+            <div className="space-y-1.5"><Label htmlFor="manual-customer-siren">SIREN</Label><Input id="manual-customer-siren" inputMode="numeric" value={invoiceCustomerSiren} onChange={(event) => setInvoiceCustomerSiren(event.target.value)} /></div>
+            <div className="space-y-1.5 sm:col-span-2"><Label htmlFor="manual-customer-address">Adresse de facturation</Label><textarea id="manual-customer-address" value={invoiceCustomerAddress} onChange={(event) => setInvoiceCustomerAddress(event.target.value)} rows={3} className="w-full rounded-md border border-input bg-card px-3 py-2 text-sm" /></div>
+            <div className="space-y-1.5"><Label htmlFor="manual-customer-vat">N° TVA intracommunautaire</Label><Input id="manual-customer-vat" value={invoiceCustomerVatNumber} onChange={(event) => setInvoiceCustomerVatNumber(event.target.value)} /></div>
+            <div className="space-y-1.5"><Label htmlFor="manual-order-number">Bon de commande</Label><Input id="manual-order-number" value={invoicePurchaseOrderNumber} onChange={(event) => setInvoicePurchaseOrderNumber(event.target.value)} /></div>
+            {invoicePreviewUrl ? <iframe title="Prévisualisation de la facture manuelle" src={invoicePreviewUrl} className="h-[32rem] w-full rounded-md border sm:col-span-2" /> : null}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setManualInvoiceEvent(null)}>Annuler</Button>
+            <Button type="button" variant="outline" disabled={status !== "idle" || !invoiceCustomerComplete} onClick={() => void previewManualInvoice()}>{status === "previewing" ? "Préparation…" : "Prévisualiser"}</Button>
+            <Button type="button" disabled={status !== "idle" || !invoiceCustomerComplete || !manualInvoiceServiceDate || !manualInvoiceDueDate} onClick={() => void issueManualInvoice()}>{status === "saving" ? "Émission…" : correctedInvoiceId ? "Émettre la rectificative" : "Émettre la facture"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

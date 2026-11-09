@@ -33,7 +33,7 @@ describe("GET /api/organizer/invoices/[paymentId]/download", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it("returns a short private signed URL for an event member", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(Response.json([payment({})]));
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json([])).mockResolvedValueOnce(Response.json([payment({})]));
     const response = await GET(request(), { params: { paymentId } });
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ url: "https://signed.example/facture.pdf" });
@@ -44,7 +44,7 @@ describe("GET /api/organizer/invoices/[paymentId]/download", () => {
 
   it("denies a revoked or unrelated member before signing", async () => {
     authState.allowed = false;
-    vi.mocked(fetch).mockResolvedValueOnce(Response.json([payment({})]));
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json([])).mockResolvedValueOnce(Response.json([payment({})]));
     const response = await GET(request(), { params: { paymentId } });
     expect(response.status).toBe(403);
     expect(createOrganizerInvoiceDownloadUrl).not.toHaveBeenCalled();
@@ -52,6 +52,7 @@ describe("GET /api/organizer/invoices/[paymentId]/download", () => {
 
   it("resolves and persists a legacy Stripe invoice on first download", async () => {
     vi.mocked(fetch)
+      .mockResolvedValueOnce(Response.json([]))
       .mockResolvedValueOnce(Response.json([payment({
         payment_channel: "stripe",
         stripe_checkout_session_id: "cs_old",
@@ -68,13 +69,13 @@ describe("GET /api/organizer/invoices/[paymentId]/download", () => {
     expect(await response.json()).toEqual({ url: "https://stripe.example/invoice.pdf" });
     expect(getStripeJson).toHaveBeenNthCalledWith(1, "/v1/checkout/sessions/cs_old", "sk_test");
     expect(getStripeJson).toHaveBeenNthCalledWith(2, "/v1/invoices/in_resolved", "sk_test");
-    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[1]?.[1]?.body))).toMatchObject({
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[2]?.[1]?.body))).toMatchObject({
       stripe_invoice_id: "in_resolved",
     });
   });
 
   it("reports a Stripe invoice that is still being prepared", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(Response.json([payment({
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json([])).mockResolvedValueOnce(Response.json([payment({
       payment_channel: "stripe",
       stripe_checkout_session_id: "cs_pending",
       invoice_storage_path: null,
