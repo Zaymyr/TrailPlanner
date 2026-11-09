@@ -28,6 +28,7 @@ import { ProfileChangelogModal } from '../../components/profile/ProfileChangelog
 import { ProfileEstimatorModal } from '../../components/profile/ProfileEstimatorModal';
 import { ProfileLanguageSection } from '../../components/profile/ProfileLanguageSection';
 import { ProfilePerformanceSection } from '../../components/profile/ProfilePerformanceSection';
+import { ProfilePlanToolsSection } from '../../components/profile/ProfilePlanToolsSection';
 import { ProfilePersonalSection } from '../../components/profile/ProfilePersonalSection';
 import { ProfileOnboardingSection } from '../../components/profile/ProfileOnboardingSection';
 import { ProfileNotificationsSection } from '../../components/profile/ProfileNotificationsSection';
@@ -452,6 +453,29 @@ export default function ProfileScreen() {
               onChangeHeightCm={handleChangeHeightCm}
             />
           </TutorialTarget>
+        ) : null}
+
+        {activeProfileTab === 'performance' ? (
+          <ProfilePlanToolsSection
+            title={t.profile.planToolsTitle}
+            subtitle={t.profile.planToolsSubtitle}
+            rows={[
+              {
+                key: 'products',
+                icon: 'nutrition-outline',
+                label: t.profile.planToolsProducts,
+                hint: t.profile.planToolsProductsHint,
+                onPress: () => router.push('/(app)/nutrition'),
+              },
+              {
+                key: 'training',
+                icon: 'walk-outline',
+                label: t.profile.planToolsTraining,
+                hint: t.profile.planToolsTrainingHint,
+                onPress: () => router.push('/(app)/training-live' as never),
+              },
+            ]}
+          />
         ) : null}
 
         {activeProfileTab === 'performance' ? (

@@ -287,7 +287,7 @@ export function OnboardingRaceSelectionStep({
                       </Text>
                       <Text style={styles.formatSubtitle}>
                         {race.elevation_gain_m === null
-                          ? 'D+ non renseigné'
+                          ? 'D+ inconnu'
                           : `${formatDistance(race.distance_km)} km • D+ ${Math.round(race.elevation_gain_m)} m`}
                       </Text>
                     </View>

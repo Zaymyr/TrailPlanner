@@ -80,6 +80,11 @@ export type MobileTranslations = {
     title: string;
     empty: string;
     emptySubtitle: string;
+    emptyPlansOptionalTitle: string;
+    emptyPlansOptionalSubtitle: string;
+    followedTitle: string;
+    followedSubtitle: string;
+    followedPastSubtitle: string;
     browseRaces: string;
     noRace: string;
     noRaceWarning: string;
@@ -326,6 +331,12 @@ export type MobileTranslations = {
     languageEn: string;
     personalTabLabel: string;
     performanceTabLabel: string;
+    planToolsTitle: string;
+    planToolsSubtitle: string;
+    planToolsProducts: string;
+    planToolsProductsHint: string;
+    planToolsTraining: string;
+    planToolsTrainingHint: string;
     notificationsTabLabel: string;
     settingsTabLabel: string;
     notificationsTitle: string;
@@ -677,7 +688,7 @@ export type MobileTranslations = {
     skipOnboardingConfirmBody: string;
     skipOnboardingError: string;
     tours: {
-      choiceTitle: string; choiceSubtitle: string; planChoiceTitle: string; planChoiceBody: string;
+      choiceTitle: string; choiceSubtitle: string; planChoiceTitle: string; planChoiceBody: string; planOptionalLabel: string;
       racebookChoiceTitle: string; racebookChoiceBody: string; discoverLater: string;
       chooseRaceTitle: string; chooseRaceBody: string; openRacebookTitle: string;
       openRacebookBody: string; searchRacebookTitle: string; searchRacebookBody: string;
@@ -685,7 +696,9 @@ export type MobileTranslations = {
       noRacebookBody: string; productsTitle: string;
       productsBody: string; continueToPlan: string; exploreRacebookTitle: string;
       exploreRacebookBody: string; unavailableTitle: string; unavailableBody: string;
-      understood: string; skip: string; profileTitle: string; profileSubtitle: string;
+      understood: string; skip: string;
+      planOfferTitle: string; planOfferBody: string; planOfferLater: string;
+      profileTitle: string; profileSubtitle: string;
       planTitle: string; racebookTitle: string; statusPending: string;
       statusInProgress: string; statusSkipped: string; statusCompleted: string;
       actionStart: string; actionResume: string; actionReview: string;
@@ -720,6 +733,7 @@ export type MobileTranslations = {
     racebookUnavailableBody: string;
     createPlan: string;
     viewFormats: string;
+    livretAvailableBadge: string;
     organizerUpdatesTitle: string;
     organizerUpdatesLoading: string;
     organizerUpdatesViewAll: string;
@@ -803,7 +817,11 @@ export type MobileTranslations = {
     racebookExpectedTime: string;
     racebookPace: string;
     racebookCreatePlan: string;
-    racebookRefinePlan: string;
+    racebookCountdownDays: string;
+    racebookCountdownToday: string;
+    racebookMyPlan: string;
+    racebookPlanInviteTitle: string;
+    racebookPlanInviteBody: string;
     racebookReviewPlan: string;
     racebookPlanRevisionMessage: string;
     racebookPlanCheckFailed: string;
@@ -852,6 +870,8 @@ export type MobileTranslations = {
     racebookAccessOpenGeneralMap: string;
     racebookAccessShowDetails: string;
     racebookAccessHideDetails: string;
+    racebookAccessBookShuttle: string;
+    racebookAccessOpenLink: string;
     racebookAccessSchedule: string;
     racebookGearRequired: string;
     racebookGearRecommended: string;

@@ -1,7 +1,7 @@
 ---
 title: Plan Storage
 scope: business-rule
-last_verified: 2026-11-02
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - apps/web/app/onboarding/account/page.tsx
@@ -152,7 +152,7 @@ When the in-app recap opens, mobile sends the regenerated recap snapshot to `app
 
 The public shared page can persist limited crew-side tracking data through `apps/web/app/api/plan-shares/crew-state/route.ts`. That route validates the secret URL token, hashes it server-side, and updates only `plan_share_links.departure_time` plus `plan_share_links.crew_state`. The crew marks assistance points as done; the page records the current clock time, recalculates the next crew point from that confirmed passage, and treats no-assistance checkpoints as planned-time passages by default. If the crew validates too early, the tracking card can clear confirmed passages and return calculations to the planned snapshot values while keeping the entered departure time.
 
-Linked plan creation first resolves the existing `(user_id, race_id)` row before applying the free-plan limit. This applies to identified and anonymous Supabase sessions. A concurrent uniqueness conflict reloads that row instead of surfacing a creation failure. The mobile Livret and linked-plan editor share a persistent `Livret officiel | Mon plan` switch below their collapsing headers. Both directions use route replacement; entering the plan preserves the Livret tab/course-tab context, leaving the plan flushes the current draft first, and native back/exit still targets Courses or Plans rather than the opposite workspace. The editor may include its plan id as a return-route hint so the Livret can open that row immediately, but the Livret still reloads the `(user_id, race_id)` owner row on every focus and clears an invalid hint instead of entering the creation route.
+Linked plan creation first resolves the existing `(user_id, race_id)` row before applying the free-plan limit. This applies to identified and anonymous Supabase sessions. A concurrent uniqueness conflict reloads that row instead of surfacing a creation failure. The mobile Livret and linked-plan editor share a persistent `Livret officiel | Mon plan` switch below their collapsing headers; in the Livret it is rendered only once the owner row exists. Both directions use route replacement; entering the plan preserves the Livret tab/course-tab context, leaving the plan flushes the current draft first, and native back/exit still targets Courses or Plans rather than the opposite workspace. The editor may include its plan id as a return-route hint so the Livret can open that row immediately, but the Livret still reloads the `(user_id, race_id)` owner row on every focus and clears an invalid hint instead of entering the creation route.
 
 The general rule that a saved local draft must not bypass a fresh database read still applies to entries from Plans and other unrelated routes. The workspace switch is a narrow, one-use exception: after the plan-to-Livret save succeeds, mobile stages the current draft and product bootstrap in memory for the immediate return to that same plan. When the Livret was instead opened directly, it first reloads the owner-scoped row and then stages the persisted values, best available elevation profile and product bootstrap. Consuming either handoff avoids a second loading screen; the handoff is never persisted and its token plus returned `planId` must both match the current dynamic editor route. A route change therefore discards the previous format's warm start before any draft state or autosave target is initialized.
 
@@ -237,4 +237,4 @@ The recap keeps the local runner departure authoritative, displays its official 
 - [Organizer Race Management](organizer-race-management.md)
 - [Premium Entitlement](premium-entitlement.md)
 
-The RaceBook workspace switch is the only plan creation/opening entry in the RaceBook header area. Removing the duplicate creation card, localizing its remaining revision warning, and sharing distance/clock presentation do not add writes or alter the persisted plan snapshot. Official station locks remain display-only constraints over organizer-owned fields.
+The RaceBook workspace switch is the only plan opening entry in the RaceBook header area and exists only for an owned plan; creation without a plan goes through the Course-tab invite card, which reuses the same existing-row check before routing to `/plan/new`. Removing the duplicate creation card, localizing its remaining revision warning, and sharing distance/clock presentation do not add writes or alter the persisted plan snapshot. Official station locks remain display-only constraints over organizer-owned fields.

@@ -183,7 +183,7 @@ export default function AppLayout() {
         }}
       />
 
-      {/* Left of center: My Plans */}
+      {/* Center: My races (followed races + optional plans). Route kept as `plans`. */}
       <Tabs.Screen
         name="plans"
         listeners={() => ({
@@ -200,20 +200,7 @@ export default function AppLayout() {
           tabBarLabel: ({ color }) => renderTabLabel(plansTabLabel, color),
           tabBarButtonTestID: 'nav-tab-plans',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="map" size={size} color={color} />
-          ),
-        }}
-      />
-
-      {/* Right of center: Nutrition */}
-      <Tabs.Screen
-        name="nutrition"
-        options={{
-          title: 'Nutrition',
-          tabBarLabel: ({ color }) => renderTabLabel(nutritionLabel, color),
-          tabBarButtonTestID: 'nav-tab-nutrition',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="nutrition" size={size} color={color} />
+            <Ionicons name="flag" size={size} color={color} />
           ),
         }}
       />
@@ -283,6 +270,11 @@ export default function AppLayout() {
       <Tabs.Screen
         name="plan/[id]/summary"
         options={{ href: null, headerRight: () => null, tabBarStyle: { display: 'none' } }}
+      />
+      {/* Product catalog: no longer a root tab, reached from Profil and the plan workspace. */}
+      <Tabs.Screen
+        name="nutrition"
+        options={{ href: null, title: nutritionLabel }}
       />
       <Tabs.Screen
         name="training-live"

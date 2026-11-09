@@ -34,6 +34,7 @@ type Props = {
   expandedBodyHeight?: number;
   eventName: string | null;
   raceName: string;
+  /** Race/event photo, shown blurred and veiled so it never competes with the identity text. */
   imageUrl: string | null;
   logoUrl: string | null;
   dateLabel: string | null;
@@ -50,6 +51,8 @@ type Props = {
   elevationLossLabel: string | null;
   elevationCaption: string;
   descentCaption: string;
+  /** Plan metrics are shown only to runners who own a plan for this race. */
+  showPlanMetrics: boolean;
   planDurationLabel: string | null;
   planDurationCaption: string;
   planPaceLabel: string | null;
@@ -96,6 +99,7 @@ export function RacebookCollapsibleHero({
   elevationLossLabel,
   elevationCaption,
   descentCaption,
+  showPlanMetrics,
   planDurationLabel,
   planDurationCaption,
   planPaceLabel,
@@ -122,14 +126,23 @@ export function RacebookCollapsibleHero({
     outputRange: [expandedHeight, compactHeight],
     extrapolate: 'clamp',
   });
+  // The expanded block is fully faded out before the compact identity starts
+  // to appear, so the two titles never overlap mid-collapse.
   const expandedOpacity = scrollY.interpolate({
-    inputRange: [0, collapseDistance * 0.58, collapseDistance * 0.82],
-    outputRange: [1, 0.86, 0],
+    inputRange: [0, collapseDistance * 0.3, collapseDistance * 0.55],
+    outputRange: [1, 0.7, 0],
     extrapolate: 'clamp',
   });
   const compactOpacity = scrollY.interpolate({
-    inputRange: [collapseDistance * 0.68, collapseDistance],
+    inputRange: [collapseDistance * 0.6, collapseDistance * 0.9],
     outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+  // The expanded block moves up with the shrinking hero, so its bottom edge
+  // (metrics, footer) is never clipped by the hero's lower border.
+  const expandedTranslateY = scrollY.interpolate({
+    inputRange: [0, collapseDistance],
+    outputRange: [0, -collapseDistance],
     extrapolate: 'clamp',
   });
   const compactActionCount = (socialLinks.length > 0 ? 1 : 0) + (isCompact && emergency && onCallEmergency ? 1 : 0);
@@ -143,8 +156,9 @@ export function RacebookCollapsibleHero({
   }, [collapseDistance, scrollY]);
 
   const handleExpandedLayout = useCallback((event: LayoutChangeEvent) => {
-    onExpandedBodyHeightChange?.(Math.ceil(event.nativeEvent.layout.height - topInset));
-  }, [onExpandedBodyHeightChange, topInset]);
+    // The block sits below the toolbar inside its clip, so add the toolbar back.
+    onExpandedBodyHeightChange?.(Math.ceil(event.nativeEvent.layout.height + RACE_WORKSPACE_TOOLBAR_HEIGHT));
+  }, [onExpandedBodyHeightChange]);
 
   return (
     <Animated.View
@@ -160,11 +174,10 @@ export function RacebookCollapsibleHero({
       <StatusBar style={theme.onPrimaryColor === '#FFFFFF' ? 'light' : 'dark'} />
       {imageUrl ? (
         <Animated.View style={[styles.heroImage, { top: topInset, opacity: expandedOpacity }]}>
-          <Animated.Image source={{ uri: imageUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" accessible={false} />
+          <Animated.Image source={{ uri: imageUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" blurRadius={24} accessible={false} />
         </Animated.View>
       ) : null}
-      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: theme.primaryColor, opacity: imageUrl ? 0.92 : 1 }]} />
-      {imageUrl ? <Animated.View style={[StyleSheet.absoluteFill, styles.contrastVeil, { opacity: expandedOpacity }]} /> : null}
+      {imageUrl ? <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.primaryColor, opacity: HERO_PHOTO_VEIL_OPACITY }]} /> : null}
 
       <Pressable
         accessibilityLabel={backLabel}
@@ -226,9 +239,11 @@ export function RacebookCollapsibleHero({
         </View>
       ) : null}
 
+      {/* Clipped below the toolbar so the rising block never slides under the back/link buttons. */}
+      <View pointerEvents="box-none" style={[styles.expandedClip, { top: topInset + RACE_WORKSPACE_TOOLBAR_HEIGHT }]}>
       <Animated.View
         onLayout={handleExpandedLayout}
-        style={[styles.expandedContent, { paddingTop: topInset + RACE_WORKSPACE_TOOLBAR_HEIGHT, opacity: expandedOpacity }]}
+        style={[styles.expandedContent, { opacity: expandedOpacity, transform: [{ translateY: expandedTranslateY }] }]}
       >
         <RaceWorkspaceCommonBlock
           title={raceName}
@@ -244,8 +259,10 @@ export function RacebookCollapsibleHero({
             { label: distanceCaption, value: distanceLabel },
             { label: elevationCaption, value: elevationGainLabel },
             { label: descentCaption, value: elevationLossLabel ?? '—' },
-            { label: planDurationCaption, value: planDurationLabel ?? '—' },
-            { label: planPaceCaption, value: planPaceLabel ?? '—' },
+            ...(showPlanMetrics ? [
+              { label: planDurationCaption, value: planDurationLabel ?? '—' },
+              { label: planPaceCaption, value: planPaceLabel ?? '—' },
+            ] : []),
           ]}
           footer={participationLabel || logoUrl || (emergency && onCallEmergency) ? (
             <View style={styles.footerRow}>
@@ -287,6 +304,7 @@ export function RacebookCollapsibleHero({
           ) : null}
         />
       </Animated.View>
+      </View>
       <Modal
         animationType="fade"
         onRequestClose={() => setLinksVisible(false)}
@@ -328,14 +346,16 @@ export function RacebookCollapsibleHero({
   );
 }
 
+const HERO_PHOTO_VEIL_OPACITY = 0.9;
+
 const styles = StyleSheet.create({
+  heroImage: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   hero: { position: 'absolute', zIndex: 20, top: 0, left: 0, right: 0, overflow: 'hidden', borderBottomLeftRadius: 24, borderBottomRightRadius: 24, shadowColor: '#1A1A1A', shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 7 }, elevation: 8 },
   heroAttached: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, shadowOpacity: 0, elevation: 0 },
-  heroImage: { position: 'absolute', left: 0, right: 0, bottom: 0 },
-  contrastVeil: { backgroundColor: 'rgba(0,0,0,0.14)' },
   backButton: { position: 'absolute', zIndex: 4, left: 16, width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.34)', backgroundColor: 'rgba(0,0,0,0.22)' },
   pressed: { opacity: 0.64 },
   compactContent: { position: 'absolute', left: 72, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  expandedClip: { position: 'absolute', left: 0, right: 0, bottom: 0, overflow: 'hidden' },
   expandedContent: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 16, paddingBottom: 16 },
   logoSurface: { width: 44, height: 36, flexShrink: 0, padding: 4, borderRadius: 10, backgroundColor: Colors.surface },
   footerRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10 },

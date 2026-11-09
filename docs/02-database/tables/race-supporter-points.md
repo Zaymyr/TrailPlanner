@@ -1,7 +1,7 @@
 ---
 title: race_supporter_points
 scope: database
-last_verified: 2026-11-03
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - supabase/migrations/20261029091807_add_race_supporter_points.sql
@@ -27,7 +27,7 @@ Supporter points are read on mobile only from the immutable RaceBook publication
 
 ## Purpose
 
-Supporter points stay official, public RaceBook content. The user-facing section is named **Suivi coureur** while database and API identifiers keep `supporter_points`. They are not copied into a runner plan or personalized by the Livret plan reflection.
+Supporter points stay official, public RaceBook content. The organizer module is named **Suivi coureur**; the runner-facing mobile Course sub-tab is labelled **Où encourager**. Database and API identifiers keep `supporter_points`. They are not copied into a runner plan or personalized by the Livret plan reflection.
 
 Stores organizer-authored locations where supporters may encourage a runner, provide assistance, or both. The course kilometer and the supporter access location are deliberately separate: `km` positions the runner on the course while the coordinates and Maps URL describe how a supporter reaches the location.
 

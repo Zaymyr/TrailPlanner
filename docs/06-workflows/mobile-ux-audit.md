@@ -1,7 +1,7 @@
 ---
 title: Mobile UX Audit
 scope: workflow
-last_verified: 2026-11-05
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - .agents/skills/mobile-ux-ui-auditor/SKILL.md
@@ -39,7 +39,7 @@ The repository skill `$mobile-ux-ui-auditor` turns this workflow into a dedicate
 
 ## Key Concepts
 
-- Functional smoke test: confirms that login and the four root tabs remain reachable.
+- Functional smoke test: confirms that login and the three root tabs (Courses, Mes courses, Profil) remain reachable.
 - Unit test: validates pure mobile scheduling and RaceBook normalization in Node; it complements but does not replace the device journey.
 - Visual audit: human review of named screenshots and screen recordings from the same journey.
 - Stable selector: a locale-independent React Native `testID` such as `nav-tab-catalog`.
@@ -54,7 +54,7 @@ The repository skill `$mobile-ux-ui-auditor` turns this workflow into a dedicate
    The flow defaults to `com.paceyourself.app`, clears state, restarts the target and opens the login deep link. A physical-device audit of the development client must instead target its login route explicitly through ADB, then pass `APP_ID=com.paceyourself.app.dev`, `CLEAR_STATE=false`, and `SKIP_DEEP_LINK=true`; this preserves the active Metro connection and prevents state clearing or ambiguous shared-scheme routing from touching the installed production app. After a development-only integration error has been recorded, a capture-only rerun may additionally pass `SKIP_LOGIN=true` and `DISMISS_LOGBOX=true` to retain the authenticated session and close LogBox between screens without hiding the underlying defect in application code.
 3. From the repository root, run `npm run test:e2e:ux -w @trailplanner/mobile`. The local runner fails without printing credentials when Maestro or the secrets are unavailable.
 4. For the cloud matrix, first confirm that the Expo account includes hosted Maestro jobs. The current project plan does not. After a plan upgrade, change to `apps/mobile` and run `eas workflow:run .eas/workflows/mobile-ux-audit.yml`. Android and iOS then build and test in parallel; the jobs record video, retry one failure, and retain the nine named screenshots.
-5. Compare the login, Courses, Mes plans/My plans, Nutrition, and Profile captures in the established bottom-tab order Courses → Mes plans/My plans → Nutrition → Profile. Confirm the saved-plans tab and collapsible header use the same localized title. Review both the initial viewport and the post-scroll viewport; on iOS also confirm the dark status-bar content remains legible over the light palette.
+5. Compare the login, Courses, Mes courses/My races, and Profile captures in the established bottom-tab order Courses → Mes courses/My races → Profile (the Maestro flow now captures `04-my-races-*` and no Nutrition tab). Confirm the Mes courses tab and collapsible header use the same localized title. Review both the initial viewport and the post-scroll viewport; on iOS also confirm the dark status-bar content remains legible over the light palette.
 6. Record every finding using the rubric below. Link the platform, screenshot, affected user goal, severity, and proposed correction.
 7. After a correction, rerun the same flow and compare the same named artifact. Add a focused Maestro flow only when a new critical interaction cannot be represented safely in the shell journey.
 8. On iOS, focus at least one numeric or decimal field and confirm the shared `Terminé` accessory dismisses the keyboard without closing the form or discarding its value.
@@ -67,8 +67,8 @@ The repository skill `$mobile-ux-ui-auditor` turns this workflow into a dedicate
 12. Exercise auto-fill with all favorites selected, one excluded product, an unlimited selected product and a capped selected product. Confirm preview is unavailable with no selection and shortage copy names carbohydrates and sodium.
 13. Open a previously verified plan offline and confirm cached access is reused. Open a never-verified plan with the access API unavailable and confirm the retry state appears instead of the paywall. Deploy compatible web routes before publishing any dependent OTA.
 14. For each root tab, capture the 76-point expanded and 60-point compact header. Confirm the 16-point action gutters, fixed title left edge, stable lower corners and header accessibility role at normal and 130% text size.
-15. Return from a plan detail to Mes plans/My plans and confirm the visual header state matches the real list offset. In the plan editor, confirm matching back/help controls and visible first content on a 6.1-inch viewport.
-16. Compare first-level content edges across Courses, Mes plans/My plans, Nutrition and Profile; cards, section titles and selectors must use the same 16-point gutter. Confirm sticky Courses search is fully opaque.
+15. Return from a plan detail to Mes courses/My races and confirm the visual header state matches the real list offset. In the plan editor, confirm matching back/help controls and visible first content on a 6.1-inch viewport.
+16. Compare first-level content edges across Courses, Mes courses/My races, Profile and the pushed Nutrition screen; cards, section titles and selectors must use the same 16-point gutter. Confirm sticky Courses search is fully opaque.
 17. Compare filter chips, segmented selectors, profile inputs, modal closes and primary/secondary buttons across the same journey. Verify event locations truncate before the protected date and sans/mono typography follows the documented value rule.
 18. In Profile, inspect the four-sub-tab segmented scroller at normal and enlarged text sizes. Create both pending-onboarding and unread-notification conditions and confirm that the bottom Profile icon shows one red dot whose screen-reader label announces both. Open Notifications, verify its own unread dot, loading/error/empty/list states, pagination and retry, then confirm a card becomes read only after opening it and the bulk action clears remaining unread dots. Open a push href targeting `/(app)/profile?tab=notifications&notificationId=<uuid>` and confirm the owner-visible card expands and becomes read even when it was outside the first page.
 
