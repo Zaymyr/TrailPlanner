@@ -2,10 +2,12 @@
 title: Migrations
 scope: database
 
-last_verified: 2026-11-05
+last_verified: 2026-11-09
 
 ai_priority: high
 related_files:
+  - supabase/migrations/20261109080000_fix_bulk_racebook_publish_ambiguous_race_id.sql
+  - supabase/tests/racebook_bulk_publication_checks.sql
   - supabase/migrations/20261105180000_add_app_feedback_review.sql
   - supabase/tests/app_feedback_review_checks.sql
   - .github/workflows/db-migrate.yml
@@ -124,6 +126,8 @@ related_tables:
 ---
 
 # Migrations
+
+`20261109080000_fix_bulk_racebook_publish_ambiguous_race_id.sql` fixes `publish_racebook_snapshots`: its local `race_id` variable collided with `racebook_publication_states.race_id`, so every edition-wide organizer publication failed with `42702 column reference "race_id" is ambiguous` while single-format publication kept working. The variables are renamed (`v_race_id`, `v_expected_revision`) and the state table is aliased; signature, SECURITY INVOKER and service-role-only grants are unchanged. `supabase/tests/racebook_bulk_publication_checks.sql` asserts the batch RPC reaches its `PT409` stale-revision preflight.
 
 `20261105180000_add_app_feedback_review.sql` gives `app_feedback` the race-request review lifecycle (`status` pending/completed/rejected, `reviewed_at`, `reviewed_by`, trigger-maintained `updated_at`), adds a generated `is_pending` column to `app_feedback` and `race_requests` so the admin inbox lists pending items first, and narrows `app_feedback` client privileges to an authenticated column INSERT (it was `GRANT ALL` to `anon` and `authenticated` behind an insert-only policy). `user_notifications` gains `feedback_id` (reply to a bug or feedback, set null on delete) and `deleted_at` (runner-side hiding, client-updatable). The service-role-only `review_app_feedback_with_notification` RPC commits a feedback status and its reply atomically. `supabase/tests/app_feedback_review_checks.sql` checks the grants, the RPC boundary and the foreign key.
 
@@ -505,6 +509,7 @@ Organizer import cleanup additionally uses `organizer-import-cleanup-hourly` at 
 
 - `20261102063210_add_runner_launch_grandfathering.sql` was first committed as `20261031092049_…`, but production recorded it under `20261102063210` (applied outside the workflow, byte-identical content). The file was renamed to the recorded version on 2026-11-04 so the history check reconciles; `20261031092338` and `20261101120000` were still pending in production at that date and apply out of order through `--include-all`.
 
+- In PL/pgSQL, never name a local variable like a column the function queries (`race_id`, `edition_id`…): Postgres raises `42702 ambiguous` at runtime only, never at `create function`. Prefix variables (`v_`) and alias tables. `publish_racebook_snapshots` shipped broken this way until `20261109080000`.
 - Do not copy old `race_catalog` DDL from `docs/_archive/db/schema.sql`.
 - Do not add `user_metadata` admin checks in new policies.
 - Do not grant authority from `user_profiles.role`; the final security migration keeps it as server-managed legacy data only.
