@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Image, Pressable, StyleSheet, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Text } from '../themed/Text';
@@ -79,7 +79,7 @@ function getEventDistanceRange(races: RaceEventSummaryRace[], locale: 'fr' | 'en
   return formatDistanceRange(minDistance, maxDistance, locale);
 }
 
-export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
+function RaceEventSummaryCardBase<T extends RaceEventSummaryRace>({
   event,
   locale,
   viewFormatsLabel,
@@ -97,7 +97,6 @@ export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
   onOpenFormats,
 }: RaceEventSummaryCardProps<T>) {
   const favoriteScale = useRef(new Animated.Value(1)).current;
-  const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
   const [displayedFavorite, setDisplayedFavorite] = useState(isFavorite);
   const eventImageUrl = getEventImageUrl(event);
   const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
@@ -111,21 +110,6 @@ export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
       : multipleFormatsLabel.replace('{count}', String(event.races.length));
 
   useEffect(() => {
-    let mounted = true;
-    void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
-      if (mounted) setReduceMotionEnabled(enabled);
-    });
-    const subscription = AccessibilityInfo.addEventListener(
-      'reduceMotionChanged',
-      setReduceMotionEnabled,
-    );
-    return () => {
-      mounted = false;
-      subscription.remove();
-    };
-  }, []);
-
-  useEffect(() => {
     setDisplayedFavorite(isFavorite);
   }, [isFavorite]);
 
@@ -133,7 +117,10 @@ export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
     if (allowOptimisticFavoriteToggle) {
       setDisplayedFavorite((current) => !current);
     }
-    if (!reduceMotionEnabled) {
+    // Reduce-motion is read on press rather than subscribed per card: a long
+    // catalog would otherwise mount one accessibility listener per row.
+    void AccessibilityInfo.isReduceMotionEnabled().then((reduceMotionEnabled) => {
+      if (reduceMotionEnabled) return;
       favoriteScale.stopAnimation();
       Animated.sequence([
         Animated.spring(favoriteScale, {
@@ -149,7 +136,7 @@ export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
           useNativeDriver: true,
         }),
       ]).start();
-    }
+    });
     onToggleFavorite?.();
   };
 
@@ -161,7 +148,7 @@ export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
     >
       {visibleEventImageUrl ? <View style={styles.imageRail}>
-          <Image source={{ uri: visibleEventImageUrl }} style={styles.railImage} resizeMode="cover" onError={() => setFailedImageUrl(visibleEventImageUrl)} />
+          <Image source={{ uri: visibleEventImageUrl }} style={styles.railImage} resizeMode="cover" resizeMethod="resize" onError={() => setFailedImageUrl(visibleEventImageUrl)} />
       </View> : (
         // Events without an image (or with a broken one) keep the same rail so
         // every card in the list shares one layout.
@@ -395,3 +382,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
+
+/** Memoized so scrolling a long catalog does not re-render rows whose props are unchanged. */
+export const RaceEventSummaryCard = memo(RaceEventSummaryCardBase) as typeof RaceEventSummaryCardBase;

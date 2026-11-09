@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
 import {
   Alert,
   Animated,
   FlatList,
   Image,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -880,6 +881,32 @@ export default function CatalogScreen() {
     setQuickFilter('all');
   }
 
+  // Stable row callbacks: the memoized catalog rows only re-render when their
+  // own data changes, while presses still reach the latest handlers.
+  const rowHandlersRef = useRef<{ toggle: (eventId: string) => void; open: (event: EventGroup) => void } | null>(null);
+  const handleRowToggleFavorite = useCallback((eventId: string) => rowHandlersRef.current?.toggle(eventId), []);
+  const handleRowOpenFormats = useCallback((event: EventGroup) => rowHandlersRef.current?.open(event), []);
+
+  useEffect(() => {
+    rowHandlersRef.current = {
+      toggle: (eventId) => { void handleToggleFavorite(eventId); },
+      open: (event) => {
+        if (onboardingMode === 'racebook') {
+          captureRacebookOnboardingSearch();
+          captureAnalyticsEvent('racebook onboarding race selected', {
+            onboarding_kind: 'racebook',
+            event_id: event.id,
+            event_name: event.name,
+            query_length: normalizeRacebookOnboardingSearch(nameFilter).length,
+            racebook_count: event.races.length,
+            selection_method: racebookOnboardingSelectionMethod,
+          });
+        }
+        setSelectedEvent(event);
+      },
+    };
+  });
+
   async function handleToggleFavorite(eventId: string) {
     if (!canFavoriteEvents) {
       promptGuestAccount({
@@ -1208,8 +1235,12 @@ export default function CatalogScreen() {
             }
           />
         }
+        initialNumToRender={6}
+        maxToRenderPerBatch={4}
+        windowSize={9}
+        removeClippedSubviews={Platform.OS === 'android'}
         renderItem={({ item: event }) => (
-          <RaceEventSummaryCard
+          <CatalogEventRow
             event={event}
             locale={locale}
             viewFormatsLabel={t.catalog.viewFormats}
@@ -1227,23 +1258,8 @@ export default function CatalogScreen() {
                 ? t.catalog.livretAvailableBadge
                 : null
             }
-            onToggleFavorite={() => {
-              void handleToggleFavorite(event.id);
-            }}
-            onOpenFormats={() => {
-              if (onboardingMode === 'racebook') {
-                captureRacebookOnboardingSearch();
-                captureAnalyticsEvent('racebook onboarding race selected', {
-                  onboarding_kind: 'racebook',
-                  event_id: event.id,
-                  event_name: event.name,
-                  query_length: normalizeRacebookOnboardingSearch(nameFilter).length,
-                  racebook_count: event.races.length,
-                  selection_method: racebookOnboardingSelectionMethod,
-                });
-              }
-              setSelectedEvent(event);
-            }}
+            onToggleFavoriteEvent={handleRowToggleFavorite}
+            onOpenEvent={handleRowOpenFormats}
           />
         )}
         ListFooterComponent={<View style={styles.listFooterSpacing} />}
@@ -1516,6 +1532,19 @@ export default function CatalogScreen() {
     </>
   );
 }
+
+type CatalogEventRowProps = Omit<ComponentProps<typeof RaceEventSummaryCard<Race>>, 'event' | 'onToggleFavorite' | 'onOpenFormats'> & {
+  event: EventGroup;
+  onToggleFavoriteEvent: (eventId: string) => void;
+  onOpenEvent: (event: EventGroup) => void;
+};
+
+/** One catalog row; memoized so scrolling and unrelated state changes skip unchanged cards. */
+const CatalogEventRow = memo(function CatalogEventRow({ event, onToggleFavoriteEvent, onOpenEvent, ...cardProps }: CatalogEventRowProps) {
+  const handleToggle = useCallback(() => onToggleFavoriteEvent(event.id), [event.id, onToggleFavoriteEvent]);
+  const handleOpen = useCallback(() => onOpenEvent(event), [event, onOpenEvent]);
+  return <RaceEventSummaryCard {...cardProps} event={event} onToggleFavorite={handleToggle} onOpenFormats={handleOpen} />;
+});
 
 const styles = StyleSheet.create({
   container: {

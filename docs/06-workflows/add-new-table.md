@@ -159,3 +159,5 @@ RaceBook lot 6 is explicitly not a database task: localized display formatting, 
 Changing an existing client-writable table follows the same discipline: `20261105180000_add_app_feedback_review.sql` replaces the legacy `GRANT ALL` on `app_feedback` with a column-scoped INSERT for `authenticated`, so new server-managed columns (`status`, `reviewed_by`) cannot be set by clients, and lets owners update only `user_notifications.deleted_at` (soft delete) rather than granting DELETE.
 
 `race_event_edition_partner_slots` (2026-11-09) follows this workflow: service-only RLS table, composite same-edition FK, reuse of an existing draft-revision trigger function, transactional SQL checks, and a dedicated table doc.
+
+Note (2026-11-09): `schema-overview.md` received a presentation-only note about the mobile catalog scroll performance; no table, column or workflow step changed.

@@ -434,3 +434,5 @@ Livret-first navigation (2026-11-09): the new `Mes courses` followed-race cards,
 ## Partner slot reporting (2026-11-09)
 
 Organizer partner slots report only aggregate counters: `POST /api/racebook-partner-slots/impression` (one per reader session and slot once its tab is shown) and the counted click redirect. Presses on an organizer partner card do not emit `racebook action clicked`; default affiliate presses keep `partner_decathlon` / `partner_booking`. The publish dialog checks add no analytics event.
+
+Catalog scroll performance (2026-11-09): the Courses list renders memoized `CatalogEventRow` rows (stable callbacks through a handler ref) over a memoized `RaceEventSummaryCard`, tunes FlatList virtualization (`initialNumToRender` 6, `maxToRenderPerBatch` 4, `windowSize` 9, `removeClippedSubviews` on Android), downsamples rail images (`resizeMethod="resize"`) and reads reduce-motion on favorite press instead of subscribing one accessibility listener per card. Presentation only: no query, payload, analytics event or favorite/update-read behavior changes.
