@@ -14,7 +14,7 @@ import { Label } from "../../components/ui/label";
 import { persistSessionToStorage } from "../../lib/auth-storage";
 import { SIGN_IN_ERROR_CODES } from "../../lib/auth-errors";
 import { redirectToAppleOAuth, redirectToGoogleOAuth } from "../../lib/oauth";
-import { buildAuthCallbackPath, normalizeInternalReturnPath } from "../../lib/organizer-acquisition";
+import { buildAuthCallbackPath, readCurrentReturnPath } from "../../lib/organizer-acquisition";
 import { useI18n } from "../i18n-provider";
 import type { Translations } from "../../locales/types";
 
@@ -26,11 +26,7 @@ const createSignInSchema = (authCopy: Translations["auth"]) =>
 
 type SignInForm = z.infer<ReturnType<typeof createSignInSchema>>;
 
-type SignInPageProps = {
-  searchParams?: { next?: string | string[] };
-};
-
-export default function SignInPage({ searchParams }: SignInPageProps) {
+export default function SignInPage() {
   const router = useRouter();
   const { t } = useI18n();
   const [formError, setFormError] = useState<string | null>(null);
@@ -38,7 +34,6 @@ export default function SignInPage({ searchParams }: SignInPageProps) {
   const [oauthError, setOauthError] = useState<string | null>(null);
 
   const signInSchema = useMemo(() => createSignInSchema(t.auth), [t]);
-  const returnPath = normalizeInternalReturnPath(searchParams?.next);
 
   const {
     register,
@@ -82,7 +77,7 @@ export default function SignInPage({ searchParams }: SignInPageProps) {
       });
 
       setFormMessage(t.auth.signIn.success);
-      router.push(returnPath as Route);
+      router.push(readCurrentReturnPath() as Route);
       router.refresh();
     } catch (error) {
       console.error("Unable to sign in", error);
@@ -94,7 +89,7 @@ export default function SignInPage({ searchParams }: SignInPageProps) {
     setOauthError(null);
 
     try {
-      redirectToGoogleOAuth(buildAuthCallbackPath(returnPath));
+      redirectToGoogleOAuth(buildAuthCallbackPath(readCurrentReturnPath()));
     } catch (error) {
       console.error("Unable to start Google sign-in", error);
       setOauthError(
@@ -107,7 +102,7 @@ export default function SignInPage({ searchParams }: SignInPageProps) {
     setOauthError(null);
 
     try {
-      redirectToAppleOAuth(buildAuthCallbackPath(returnPath));
+      redirectToAppleOAuth(buildAuthCallbackPath(readCurrentReturnPath()));
     } catch (error) {
       console.error("Unable to start Apple sign-in", error);
       setOauthError(

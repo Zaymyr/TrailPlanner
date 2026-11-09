@@ -22,7 +22,7 @@ describe("RaceBook CDN cache", () => {
     expect(response.headers.get("Vercel-Cache-Tag")).toBe(
       "racebook:race:race-1,racebook:edition:edition-1,racebook:event:event-1",
     );
-    expect(response.headers.get("Vercel-CDN-Cache-Control")).toContain("stale-while-revalidate=3600");
+    expect(response.headers.get("Vercel-CDN-Cache-Control")).toContain("stale-while-revalidate=86400");
   });
 
   it("invalidates matching tags on Vercel", async () => {

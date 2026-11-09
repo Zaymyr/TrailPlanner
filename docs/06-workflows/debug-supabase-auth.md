@@ -1,7 +1,7 @@
 ---
 title: Debug Supabase Auth
 scope: workflow
-last_verified: 2026-11-02
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - apps/web/app/api/auth/session/route.ts
@@ -44,6 +44,7 @@ Use this workflow when a user cannot sign in, a session is stale, trial state is
 
 1. Read [../04-auth-and-security/auth-flows.md](../04-auth-and-security/auth-flows.md).
 2. Check the web session context path in `apps/web/app/hooks/useVerifiedSession.tsx`.
+   Tab focus/visibility does not re-verify within five minutes of the last successful verification of the same stored token; a change made elsewhere may take up to that long to appear unless the page reloads or a session-update event fires.
 3. Check `/api/auth/session` response handling in `apps/web/app/api/auth/session/route.ts`.
    If sign-in succeeds but the destination still looks signed out, verify that `trailplanner:session-updated` waits for any older in-flight refresh, that the older response cannot clear the new token, and that the provider then verifies the latest stored token.
    For an invite that remains on `Vérification de session...`, confirm the password page rejects non-200 session responses, awaits `refresh({ afterCurrent: true })`, and navigates client-side only after that refresh succeeds. In production logs, a successful password update and session endpoint followed by no second client verification indicates a redirect/hydration race rather than invalid credentials.

@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-11-05
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - apps/web/app/admin/video-generator/export-frame.test.ts
@@ -438,6 +438,7 @@ The client session entry point is `apps/web/app/hooks/useVerifiedSession.tsx`. I
 - fetches entitlements through `apps/web/lib/entitlements-client.ts` after verification without keeping the verified-session loading state active;
 - triggers the authenticated Resend contact sync for identified, non-anonymous sessions;
 - clears planner local storage on sign-out.
+- re-verifies on tab focus/visibility only when the last successful verification for the current stored token is older than five minutes; the initial load, session-update and storage events and the 30-minute interval are not throttled.
 - reruns verification from the latest stored token when a session-update event overlaps an older in-flight request.
 - aborts a browser session-verification request after 10 seconds and releases the loading state so a stalled endpoint cannot freeze protected route presentation.
 
@@ -515,7 +516,7 @@ The calculator's bounded duration/tolerance interpolation lives in `apps/web/lib
 
 `/a-propos` and `/methodologie` explain the product mission, editorial safeguards, calculator assumptions, source policy, and correction path. They are linked from the global footer and included in the sitemap to provide public trust and provenance signals.
 
-`sitemap.ts` includes the organizer landing page, Premium, French and English partner acquisition, support, race catalog, every currently published race slug, qualified distance pages, the calculator, trust pages, and existing blog pages. Race URLs use the latest format/event `updated_at` as evidence-based `<lastmod>`; distance landing pages use the newest timestamp among their listed races. Blog discovery resolves `content/blog` from both the web workspace and monorepo/runtime ancestors and fails explicitly when the directory is absent, preventing a successful but empty blog sitemap. `robots.ts` permits public crawling but excludes `/api/`. Account, admin, onboarding, organizer-dashboard, organizer-creation, planner-print, and token-share route layouts reuse `noindex-metadata.ts`; they remain crawlable so search engines can observe the noindex directive, but should not remain in the index. The legal notice publishes the maintainer-confirmed micro-enterprise identity, registration, contact, VAT exemption, publication director, and Vercel hosting details. The four legal routes keep distinct self-canonicals and remain `noindex,follow` pending broader legal validation, including designation of the consumer mediator required for paid consumer offers.
+`sitemap.ts` includes the organizer landing page, Premium, French and English partner acquisition, support, race catalog, every currently published race slug, qualified distance pages, the calculator, trust pages, and existing blog pages. Race URLs use the latest format/event `updated_at` as evidence-based `<lastmod>`; distance landing pages use the newest timestamp among their listed races. Blog discovery resolves `content/blog` from both the web workspace and monorepo/runtime ancestors and fails explicitly when the directory is absent, preventing a successful but empty blog sitemap. `robots.ts` permits public crawling but excludes `/api/` and `/courses` filter combinations (`q`, `distance`, `period`), which are already `noindex` and each cost a server render; `?page=` pagination stays crawlable. Account, admin, onboarding, organizer-dashboard, organizer-creation, planner-print, and token-share route layouts reuse `noindex-metadata.ts`; they remain crawlable so search engines can observe the noindex directive, but should not remain in the index. The legal notice publishes the maintainer-confirmed micro-enterprise identity, registration, contact, VAT exemption, publication director, and Vercel hosting details. The four legal routes keep distinct self-canonicals and remain `noindex,follow` pending broader legal validation, including designation of the consumer mediator required for paid consumer offers.
 
 ### Organizer Portal
 
@@ -583,7 +584,7 @@ The equipment editor layout should keep each item on one compact flexible row so
 
 The optional Organizer `Sponsors` tile is Signature-only for runner presentation. Opening the selected private draft lazily reads the edition list; metadata includes the partnership level, optional category, loading/hero flags, and one exact contextual placement. Organizer routes repeat active-membership and selected-module checks for writes. Ordering submits the complete list to one service-only transaction; partial lists, foreign ids and duplicate positions are rejected. The same tile reports active rows plus aggregate raw clicks and impressions. All database and `race-images/organizer-sponsors/{editionId}/` writes remain server-side; route validation repeats the ten-row/two-loading database limits and removes superseded objects.
 
-`/api/racebook-data?raceId=...` resolves one immutable publication containing the race, ravitos/products, supporter and relay points, SAS, awards, services, sponsors, branding, and asset references. `/api/racebook-sponsors` can be pinned to that publication id, and `/api/racebook-gpx` resolves the GPX path from the same service-only snapshot. Public responses use a five-minute Vercel CDN TTL with stale-while-revalidate and race/edition/event cache tags; private organizer reads remain authenticated and `private, no-store`. Autosaves only increment the draft revision and never invalidate the public cache. Publication, restoration, visibility, and effective entitlement changes invalidate the relevant tags; the previous immutable version remains safe if invalidation is temporarily unavailable.
+`/api/racebook-data?raceId=...` resolves one immutable publication containing the race, ravitos/products, supporter and relay points, SAS, awards, services, sponsors, branding, and asset references. `/api/racebook-sponsors` can be pinned to that publication id, and `/api/racebook-gpx` resolves the GPX path from the same service-only snapshot. Public responses use a one-hour Vercel CDN TTL (one-day stale-while-revalidate) with race/edition/event cache tags, so tag purges rather than the TTL deliver organizer changes; the shared helper also serves `/api/onboarding/race-profile`, whose admin catalog GPX edits do not purge and are therefore visible within the hour; private organizer reads remain authenticated and `private, no-store`. Autosaves only increment the draft revision and never invalidate the public cache. Publication, restoration, visibility, and effective entitlement changes invalidate the relevant tags; the previous immutable version remains safe if invalidation is temporarily unavailable.
 
 
 
@@ -660,6 +661,8 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Never render stale race content at a former slug. Resolve its stable race id, verify current public visibility, then issue the permanent redirect before loading discovery links.
 - Keep catalog, slug resolution, sitemap, detail visibility, and route ISR aligned to 15 minutes so a refreshed catalog cannot link to a longer-lived negative detail cache. Raw GPX bytes may use the durable one-year data cache only while upload/replacement paths remain immutable and versioned.
 - Keep every legacy/blog redirect target inside the route-or-canonical integrity test, and never introduce a redirect chain or a target without a real page.
+- Legacy/blog path redirects are served by `staticPathRedirects` in `next.config.mjs`, not middleware. Adding an entry to `lib/legacy-redirects.ts` or `lib/blog/redirects.ts` requires the same entry there; the integrity test fails otherwise.
+- `/sign-in` and `/sign-up` must stay statically prerendered: read `?next=` with `readCurrentReturnPath()` at action time, never through the `searchParams` page prop, which makes every visit and header `<Link>` prefetch a billed function run.
 - Do not call `headers()` from the root layout solely to localize `<html lang>`; that opts the complete public surface into dynamic rendering. A future server-correct English document language requires a deliberate multi-root-layout route structure.
 
 - Do not store service-role keys in client code. `getSupabaseServiceConfig` is server-only by usage.

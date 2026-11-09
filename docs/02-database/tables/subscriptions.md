@@ -1,7 +1,7 @@
 ---
 title: subscriptions Table
 scope: database
-last_verified: 2026-10-31
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - supabase/migrations/20250701100000_add_subscriptions_table.sql
@@ -104,7 +104,7 @@ set stripe_customer_id = excluded.stripe_customer_id,
 - Keep reconciliation writes on the shared idempotent persistence path. Direct cron writes could diverge from webhook and mobile-repair behavior.
 - Never insert organizer RaceBook purchases into this runner entitlement snapshot.
 - Do not store a EUR 9.99 course purchase here: it belongs to `runner_plan_unlocks` and is scoped to one canonical format/edition.
-- Multiple mounted mobile screens share one subscription refresh; keep this table read inside the central Premium monitor instead of adding screen-local copies.
+- Multiple mounted mobile screens share one subscription refresh; keep this table read inside the central Premium monitor instead of adding screen-local copies. Routine triggers (app foreground, `TOKEN_REFRESHED`) reuse a check younger than five minutes for the same user; sign-in/out and purchase/RevenueCat events still re-read immediately.
 
 ## Related Docs
 

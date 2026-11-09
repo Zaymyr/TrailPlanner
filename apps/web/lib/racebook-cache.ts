@@ -25,9 +25,13 @@ export function setPublicRacebookCacheHeaders(
   scope: { raceId: string; editionId?: string | null; eventId?: string | null },
 ) {
   response.headers.set("Cache-Control", "public, max-age=0, must-revalidate");
+  // One hour at the CDN: organizer writes and publications purge these tags
+  // explicitly (invalidateRacebookCache), so the TTL only bounds staleness for
+  // the few writers that do not purge (admin catalog GPX edits). A shorter TTL
+  // multiplies function invocations, since the CDN cache is per region.
   response.headers.set(
     "Vercel-CDN-Cache-Control",
-    "public, max-age=300, stale-while-revalidate=3600, stale-if-error=86400",
+    "public, max-age=3600, stale-while-revalidate=86400, stale-if-error=86400",
   );
   response.headers.set("Vercel-Cache-Tag", racebookCacheTags(scope).join(","));
   return response;

@@ -1,7 +1,7 @@
 ---
 title: Packages Architecture
 scope: architecture
-last_verified: 2026-11-02
+last_verified: 2026-11-09
 ai_priority: medium
 related_files:
   - package.json
@@ -112,6 +112,7 @@ Keep logic inside an app when:
 - Keep color contrast derivation in this shared resolver; app surfaces must not independently darken bright organizer colors.
 - The package name `@trailplanner/shared` still uses the old TrailPlanner naming. Do not rename it casually; workspace package names affect imports.
 - Alert scheduling currently has a broader package implementation and a time-only mobile implementation. Preserve their explicit tests and reconcile their product contract before removing either copy.
+- `apps/web/next.config.mjs` also exports `staticPathRedirects` (served through `redirects()` instead of middleware). Edit it together with `lib/legacy-redirects.ts` / `lib/blog/redirects.ts`.
 - `apps/web/next.config.mjs` transpiles `@trailplanner/shared` and `@pace-yourself/design-system` and owns route-scoped response headers such as the English subtree's `Content-Language`. Preserve both responsibilities when editing the config; a new package that exports TS/TSX directly may need a matching transpile entry.
 - The local `@tanstack/react-query` package can mask assumptions about the upstream package. Inspect it before changing data-fetching code.
 - Keep the root `packageManager` field present when upgrading npm/Turbo; current Turbo versions refuse to resolve this workspace graph without it.

@@ -44,6 +44,25 @@ const browserSecurityHeaders = [
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(self), payment=(self "https://js.stripe.com")' },
 ];
 
+// Permanent path redirects, applied by Vercel's router without running any
+// function. They used to live in `middleware.ts`, which executed on every page
+// view and was billed as Fluid compute. The source of truth stays in
+// `lib/legacy-redirects.ts` and `lib/blog/redirects.ts`; `redirect-integrity.test.ts`
+// fails if this list drifts from them.
+export const staticPathRedirects = [
+  // lib/legacy-redirects.ts
+  ['/trail-nutrition-planner', '/race-planner'],
+  ['/ultra-trail-fueling', '/blog/quelle-nutrition-pour-un-trail'],
+  ['/ravitaillement-trail', '/blog/ravitaillement-trail'],
+  ['/hydration-trail-running', '/blog/hydration-for-trail-running'],
+  // lib/blog/redirects.ts
+  ['/blog/60g-par-heure', '/blog/60g-glucide-par-heure'],
+  ['/blog/quoi-manger-trail-50k', '/blog/nutrition-trail-30-50-km'],
+  ['/blog/trail-des-templier', '/blog/trail-des-templiers'],
+  ['/blog/soduim-heure', '/blog/sodium-par-heure'],
+  ['/blog/probl-mes-digestifs-ultra', '/blog/problemes-digestifs-ultra'],
+];
+
 /** @type {() => Promise<import('next').NextConfig>} */
 const createConfig = async () => {
   const { mdxEnabled, withMDX } = await loadMdxPlugin();
@@ -58,6 +77,9 @@ const createConfig = async () => {
     },
     transpilePackages: ['@trailplanner/shared', '@pace-yourself/design-system'],
     pageExtensions: ['ts', 'tsx', ...(mdxEnabled ? ['mdx'] : [])],
+    async redirects() {
+      return staticPathRedirects.map(([source, destination]) => ({ source, destination, permanent: true }));
+    },
     async headers() {
       return [
         {

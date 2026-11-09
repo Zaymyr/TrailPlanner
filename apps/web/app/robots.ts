@@ -7,7 +7,17 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: "/api/",
+      // Catalog filter combinations are already `noindex` (see courses/page.tsx)
+      // and each one is a server render. Pagination (`?page=`) stays crawlable.
+      disallow: [
+        "/api/",
+        "/courses?q=",
+        "/courses?*&q=",
+        "/courses?distance=",
+        "/courses?*&distance=",
+        "/courses?period=",
+        "/courses?*&period=",
+      ],
     },
     sitemap: new URL("/sitemap.xml", SITE_URL).toString(),
   };

@@ -1,7 +1,7 @@
 ---
 title: Architecture Overview
 scope: architecture
-last_verified: 2026-11-02
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - package.json
@@ -106,6 +106,7 @@ The web app is configured for Vercel in `vercel.json`. It declares:
 - `buildCommand: "npm run build"`
 - `installCommand: "npm install --workspace @trailplanner/web --legacy-peer-deps --prefer-offline --no-audit --no-fund"`, which installs only the web workspace dependency graph, preserves Vercel's restored `node_modules` cache, and avoids unrelated Expo/mobile packages and install-time audit requests
 - `outputDirectory: ".next"`
+- `regions: ["cdg1"]`, so functions run in Paris next to the Supabase `eu-west-3` database (see `infrastructure.md` for the Fluid compute budget rationale)
 - a Git deployment filter that prevents creation of `dependabot/**` Preview deployments, backed by an ignored-build fallback; other Vercel deployments are skipped when `apps/web`, shared packages, workspace manifests, the lockfile, Turbo configuration, and Vercel configuration are unchanged, while the approved merge on `main` still produces the single production deployment
 - permanent redirects from `www.pace-yourself.com`, `trailplanner.app`, and `trail-planner.vercel.app` to `https://pace-yourself.com/:path*`
 - a daily authenticated RevenueCat reconciliation cron that repairs missed subscription events without trusting the mobile client
@@ -169,6 +170,7 @@ When docs and code disagree, use this order:
 
 ## Gotchas
 
+- `apps/web/next.config.mjs` also owns the static legacy/blog path redirects (`staticPathRedirects`); there is no `middleware.ts`. Keep that list identical to `lib/legacy-redirects.ts` and `lib/blog/redirects.ts`, which `redirect-integrity.test.ts` enforces.
 - `apps/web/next.config.mjs` owns browser security headers as well as package transpilation and route language. Keep the CSP in report-only mode until production reports confirm every required Stripe, Supabase, analytics and image origin.
 
 - `docs/_archive/db/schema.sql` is not the current schema source of truth. It still uses old `race_catalog` names.

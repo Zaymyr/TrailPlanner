@@ -66,7 +66,7 @@ describe("GET /api/racebook-data", () => {
     expect(response.status).toBe(200);
     expect(payload).toMatchObject({ publicationId: publication.id, publicationRevision: 7, organizerPreview: false });
     expect(payload.stationRows).toEqual([{ id: "station" }]);
-    expect(response.headers.get("Vercel-CDN-Cache-Control")).toContain("max-age=300");
+    expect(response.headers.get("Vercel-CDN-Cache-Control")).toContain("max-age=3600");
   });
 
   it("lets an organizer read the last publication of a private format", async () => {

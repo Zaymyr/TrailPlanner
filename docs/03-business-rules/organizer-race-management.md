@@ -2,7 +2,7 @@
 title: Organizer Race Management
 scope: business-rule
 
-last_verified: 2026-11-05
+last_verified: 2026-11-09
 
 ai_priority: high
 related_files:
@@ -281,7 +281,7 @@ Legacy service text is never parsed or deleted automatically. While SAS exist, t
 
 Structured mobile reads are additive and deployment-tolerant: an unavailable services, SAS or awards table yields an empty optional module while the existing published RaceBook continues to render. This does not relax the core catalog-live, RaceBook-live and meaningful-content gate.
 
-Published mobile RaceBooks are immutable per-format snapshots selected explicitly by the organizer. Autosaved race, edition, event, GPX, module, services, sponsor, and branding changes update only the draft revision and do not invalidate the current public snapshot. Publication or restoration invalidates the corresponding race, edition and event tags; the `/api/racebook-data`, sponsor, and published GPX responses resolve one same publication. An organizer may read the last snapshot of a private format; no mobile route falls back to draft tables. If invalidation is unavailable, the previous publication remains safe and the bounded CDN TTL is the consistency fallback.
+Published mobile RaceBooks are immutable per-format snapshots selected explicitly by the organizer. Autosaved race, edition, event, GPX, module, services, sponsor, and branding changes update only the draft revision and do not invalidate the current public snapshot. Publication or restoration invalidates the corresponding race, edition and event tags; the `/api/racebook-data`, sponsor, and published GPX responses resolve one same publication. An organizer may read the last snapshot of a private format; no mobile route falls back to draft tables. If invalidation is unavailable, the previous publication remains safe and the bounded CDN TTL is the consistency fallback. That TTL is one hour (one-day stale-while-revalidate): tag purges, not expiry, are the normal delivery path for organizer changes. Organizer password, sign-up, and OAuth returns to `/organizers` or `/organizer` keep the same `next` validation; the auth pages now read it from the URL at submission time.
 
 ## Module activation
 

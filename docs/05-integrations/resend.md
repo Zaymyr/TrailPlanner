@@ -1,7 +1,7 @@
 ---
 title: Resend Integration
 scope: integration
-last_verified: 2026-11-05
+last_verified: 2026-11-09
 ai_priority: medium
 related_files:
   - package.json
@@ -75,6 +75,7 @@ The per-user contact route:
 - upserts the Resend contact without custom properties;
 - always sends `unsubscribed: false` for identified users, per the current product decision;
 - is called by `apps/web/app/hooks/useVerifiedSession.tsx` after web session verification;
+  verification on tab focus/visibility is skipped when the last success is under five minutes old, so contact sync is attempted on load and on genuine re-verifications only;
 - runs independently from the background entitlement refresh and does not extend the verified-session loading state;
 - is called by `apps/mobile/lib/resendContactSync.ts` from `apps/mobile/hooks/useSessionSideEffects.ts` after a mobile non-anonymous session is active.
 - stores its successful mobile idempotency marker under a SecureStore-safe key made from the user id and a SHA-256 digest of the normalized email; an email change therefore triggers a new sync without putting the address itself in the key.
