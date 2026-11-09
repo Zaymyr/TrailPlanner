@@ -20,6 +20,8 @@ related_files:
   - apps/mobile/components/themed/StatusPill.tsx
   - apps/mobile/components/themed/TopoCard.tsx
   - apps/mobile/components/themed/TopoContourPattern.tsx
+  - apps/mobile/components/themed/Card.tsx
+  - apps/mobile/components/themed/Screen.tsx
   - apps/mobile/components/profile/ProfileSaveButton.tsx
   - apps/mobile/components/themed/LoadingState.tsx
   - apps/mobile/components/themed/ErrorState.tsx
@@ -131,9 +133,12 @@ callers own all visible strings so they can use the locale files.
 
 The warm Topo identity is expressed through a deliberately small vocabulary:
 
-- `TopoCard` provides standard, interactive and featured cards; featured cards
-  use the asymmetric lower-right corner, a faint decorative contour pattern,
-  and a non-informational elevation mark.
+- `TopoCard` provides standard, interactive, signature and featured cards.
+  Signature cards use the asymmetric lower-right corner and a
+  non-informational elevation mark; featured cards additionally use the faint
+  decorative contour pattern. The legacy shared `Card` delegates to the
+  signature variant, so existing screens inherit the identity without local
+  geometry.
 - `ChoiceChip` is interactive selection, while `StatusPill` is non-interactive
   status. Full-radius geometry is not used for ordinary data or buttons.
 - `MetricTile` pairs a normal-language label with a JetBrains Mono race value
@@ -142,14 +147,19 @@ The warm Topo identity is expressed through a deliberately small vocabulary:
   44-point icon targets, and labelled/helper/error input states.
 - `TopoContourPattern` is decorative only (`accessible={false}`) and is limited
   to identity/featured surfaces rather than ordinary content cards.
+- Shared `LoadingState`, `ErrorState`, and `EmptyState` use matching signature
+  surfaces while preserving their semantic roles, live-region behavior and
+  localized actions.
 
 `RootCollapsibleHeader` is the shared header for the four primary mobile tabs.
-It uses the forest brand surface, respects the native top inset, and progressively
+It uses the forest brand surface with a faint decorative contour pattern,
+respects the native top inset, and progressively
 contracts from a 76-point body to a 60-point sticky body. Both states keep one
 horizontal row: a 44-point leading target at the 16-point gutter, a title whose
 left edge does not move during collapse, and an optional matching trailing target.
-The large title shrinks to fit one line, the lower corner shape remains stable,
-and scrolling content begins below the expanded height.
+The large title shrinks to fit one line, the shortened lower-right corner remains
+stable, icon actions use the 12-point control radius, and scrolling content begins
+below the expanded height.
 
 Shared React Native geometry comes from `mobileComponents`. Filter chips use the
 same selected/unselected structure across Courses and Nutrition; Profile and plan

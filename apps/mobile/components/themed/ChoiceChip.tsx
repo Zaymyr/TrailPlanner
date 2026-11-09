@@ -8,10 +8,11 @@ type Props = Omit<PressableProps, 'children' | 'style'> & {
   label: string;
   selected: boolean;
   icon?: ReactNode;
+  trailing?: ReactNode;
   style?: StyleProp<ViewStyle>;
 };
 
-export function ChoiceChip({ label, selected, icon, disabled, accessibilityState, style, ...props }: Props) {
+export function ChoiceChip({ label, selected, icon, trailing, disabled, accessibilityState, style, ...props }: Props) {
   return (
     <Pressable
       {...props}
@@ -30,6 +31,7 @@ export function ChoiceChip({ label, selected, icon, disabled, accessibilityState
       <Text tone={selected ? 'inverse' : 'secondary'} size="sm" weight="semibold" numberOfLines={1}>
         {label}
       </Text>
+      {trailing}
     </Pressable>
   );
 }

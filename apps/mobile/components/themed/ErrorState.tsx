@@ -9,6 +9,7 @@ import {
 import { Button } from './Button';
 import { Heading } from './Heading';
 import { Text } from './Text';
+import { TopoCard } from './TopoCard';
 
 type Props = {
   title: string;
@@ -30,7 +31,14 @@ export function ErrorState({
   testID,
 }: Props) {
   return (
-    <View accessibilityRole="alert" style={[styles.container, style]} testID={testID}>
+    <TopoCard
+      accessibilityRole="alert"
+      accentColor={colors.accent.terracotta}
+      surface="danger"
+      variant="signature"
+      style={[styles.container, style]}
+      testID={testID}
+    >
       <View style={styles.icon} />
       <Heading style={styles.centered} variant="h3">{title}</Heading>
       {description ? <Text tone="secondary" style={styles.description}>{description}</Text> : null}
@@ -39,7 +47,7 @@ export function ErrorState({
           {retryLabel}
         </Button>
       ) : null}
-    </View>
+    </TopoCard>
   );
 }
 

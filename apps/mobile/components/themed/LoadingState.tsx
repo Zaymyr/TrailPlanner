@@ -2,12 +2,12 @@ import { colors, spacing } from '@pace-yourself/design-system';
 import {
   ActivityIndicator,
   StyleSheet,
-  View,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
 
 import { Text } from './Text';
+import { TopoCard } from './TopoCard';
 
 type Props = {
   label?: string;
@@ -25,17 +25,19 @@ export function LoadingState({
   testID,
 }: Props) {
   return (
-    <View
+    <TopoCard
       accessibilityLabel={accessibilityLabel}
       accessibilityLiveRegion="polite"
       accessibilityRole="progressbar"
       accessibilityState={{ busy: true }}
+      surface="cream"
+      variant="signature"
       style={[styles.container, style]}
       testID={testID}
     >
       <ActivityIndicator color={colors.brand.forest} size={size} />
       {label ? <Text size="sm" tone="secondary" style={styles.label}>{label}</Text> : null}
-    </View>
+    </TopoCard>
   );
 }
 
