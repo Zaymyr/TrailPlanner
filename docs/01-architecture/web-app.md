@@ -345,6 +345,8 @@ related_tables:
 
 # Web App Architecture
 
+Manual organizer billing now has dedicated admin preview, issue, corrective-invoice, settlement, PDF-repair and catalog endpoints. These service-role routes write `organizer_invoices` independently from access rights; organizer invoice list/download endpoints merge those rows with the legacy payment-backed history. The admin screen presents billing and rights as separate actions, and exact feature grants flow through organizer and public RaceBook reads without granting the rest of a higher plan.
+
 The admin area exposes a top-level `Demandes de course` queue backed by a protected, paginated service-role route. An admin can filter requests and move one to `pending`, `completed`, or `rejected`; the status update and required in-app notification are written atomically by `review_race_request_with_notification`. The reusable notification dialog also lets an admin message a user directly from the Users tab. In-app delivery is fixed on, while e-mail and push are explicit opt-ins. Each opened dialog generates one notification UUID and retains it across failed or lost-response retries until success or cancellation, so the server and providers deduplicate one logical action. Provider delivery runs after the durable write, records its outcome on `user_notifications`, and cannot roll back the request status or in-app message.
 
 Organizer course-point autosave now waits for the active race sidecars to finish loading, and a same-race server refresh no longer clears those loaded collections. This prevents transient empty ravito/supporter payloads and removes the editor jump caused by resetting the workspace after each format save.

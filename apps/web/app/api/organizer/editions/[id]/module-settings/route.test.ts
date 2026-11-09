@@ -48,6 +48,7 @@ vi.mock("../../../../../../lib/organizer", () => ({
 }));
 vi.mock("../../../../../../lib/organizer-entitlements", () => ({
   loadOrganizerEditionEntitlement: () => Promise.resolve({ tier: "essential", status: "active" }),
+  loadOrganizerEditionCapabilityGrants: () => Promise.resolve({}),
 }));
 vi.mock("../../../../../../lib/organizer-module-settings", () => ({
   loadOrganizerModuleSettings: () => Promise.resolve({

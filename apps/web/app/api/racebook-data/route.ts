@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { withSecurityHeaders } from "../../../lib/http";
-import { loadOrganizerEditionEntitlement } from "../../../lib/organizer-entitlements";
+import { loadOrganizerEditionCapabilityGrants, loadOrganizerEditionEntitlement } from "../../../lib/organizer-entitlements";
 import { isOrganizerModuleAvailable, ORGANIZER_MODULES } from "../../../lib/organizer-modules";
 import { isOrganizerForEvent, serviceHeaders } from "../../../lib/organizer";
 import { setPrivateRacebookCacheHeaders, setPublicRacebookCacheHeaders } from "../../../lib/racebook-cache";
@@ -44,13 +44,15 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const [{ publication }, entitlement] = await Promise.all([
+    const [{ publication }, entitlement, grantMap] = await Promise.all([
       loadCurrentRacebookPublication(config, race.id),
       loadOrganizerEditionEntitlement(config, race.edition_id),
+      loadOrganizerEditionCapabilityGrants(config, [race.edition_id]),
     ]);
     if (!publication) return jsonError("Race Book not available. Publish it from the organizer area.", 404);
     const tier = entitlement?.status === "active" ? entitlement.tier : "visibility";
-    const allowed = Object.fromEntries(ORGANIZER_MODULES.map((module) => [module.key, isOrganizerModuleAvailable(tier, module.key)])) as Record<(typeof ORGANIZER_MODULES)[number]["key"], boolean>;
+    const grantedFeatures = (grantMap[race.edition_id] ?? []).filter((grant) => grant.status === "active").map((grant) => grant.capabilityKey);
+    const allowed = Object.fromEntries(ORGANIZER_MODULES.map((module) => [module.key, isOrganizerModuleAvailable(tier, module.key, grantedFeatures)])) as Record<(typeof ORGANIZER_MODULES)[number]["key"], boolean>;
     const modules = moduleMask(publication.content.modules, allowed);
     const snapshot = publicSnapshot(publication);
     const response = withSecurityHeaders(NextResponse.json({

@@ -35,6 +35,7 @@ related_files:
   - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
   - supabase/migrations/20260923070437_separate_web_and_mobile_race_visibility.sql
   - supabase/migrations/20260915104528_add_organizer_edition_capability_grants.sql
+  - supabase/migrations/20261109190500_separate_organizer_invoices_and_feature_grants.sql
   - supabase/migrations/20260928123934_add_partner_link_settings.sql
   - supabase/migrations/20261103123918_racebook_versioned_publications.sql
   - supabase/migrations/20261103124133_index_racebook_publication_foreign_keys.sql
@@ -72,6 +73,8 @@ related_tables:
   - organizer_edition_entitlements
   - organizer_edition_payments
   - organizer_edition_capability_grants
+  - organizer_invoices
+  - organizer_feature_catalog
   - partner_link_settings
   - racebook_publication_states
   - racebook_publications
@@ -245,6 +248,11 @@ Organizer portal tables added by `20260528120000_add_organizer_portal.sql` relat
 - `organizer_edition_capability_grants.revoked_by -> auth.users(id) on delete set null`
 - `organizer_edition_payments.edition_id -> race_event_editions(id) on delete cascade`
 - `organizer_edition_payments.purchaser_user_id -> auth.users(id) on delete set null`
+- `organizer_invoices.edition_id -> race_event_editions(id) on delete restrict`
+- `organizer_invoices.replaces_invoice_id -> organizer_invoices(id) on delete restrict`
+- `organizer_invoices.created_by -> auth.users(id) on delete set null`
+- `organizer_invoices.paid_by -> auth.users(id) on delete set null`
+- `organizer_feature_catalog.updated_by -> auth.users(id) on delete set null`
 
 Organizer access should be checked through an active `race_event_organizers` row, then the parent event relationship. Trusted admins use the separate Auth `raw_app_meta_data` role boundary and do not require artificial membership rows. Claimed catalog race rows should not be reassigned through `races.created_by`.
 

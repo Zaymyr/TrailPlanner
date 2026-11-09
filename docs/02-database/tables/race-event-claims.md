@@ -29,6 +29,8 @@ related_tables:
 
 # `race_event_claims`
 
+Claim review remains separate from organizer billing and edition rights. The shared admin surface may expose all three workflows, but invoice issuance/settlement does not approve a claim or create an organizer membership.
+
 The Organizer dashboard now preserves loaded course-point sidecars across same-format refreshes and gates their autosave until loading completes. This client integrity guard does not create, review, approve, or otherwise mutate organizer claims.
 
 The organizer Matériel and Dossard editors now keep saved rows visible and editable without nested accordions, including read-first address autocomplete for pickup locations. This presentation change and the additive third-party pickup conditions field do not alter claim review, membership creation, authorization, or publication.

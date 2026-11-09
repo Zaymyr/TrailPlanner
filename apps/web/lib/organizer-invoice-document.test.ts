@@ -6,6 +6,7 @@ import {
   generateOrganizerInvoicePdf,
   ORGANIZER_INVOICE_SELLER,
   organizerInvoiceCustomerSchema,
+  organizerInvoiceSnapshotSchema,
 } from "./organizer-invoice-document";
 
 describe("organizer invoice document", () => {
@@ -66,5 +67,24 @@ describe("organizer invoice document", () => {
     expect(pdf.getPageCount()).toBe(1);
     expect(pdf.getTitle()).toBe("Facture PY-2026-000001");
     expect(pdf.getAuthor()).toBe("Pace Yourself");
+  });
+
+  it("renders an unpaid corrective invoice with offered line values", async () => {
+    const snapshot = organizerInvoiceSnapshotSchema.parse({
+      seller: ORGANIZER_INVOICE_SELLER,
+      customer: organizerInvoiceCustomerSchema.parse({ legalName: "Club Trail", billingAddress: "1 rue des Cimes\n75001 Paris", siren: "" }),
+      service: { description: "Pack Essentiel", category: "Prestations de services", serviceDate: "2026-11-09", dueDate: "2026-12-09" },
+      amounts: { subtotalCents: 5000, taxCents: 0, totalCents: 5000, currency: "EUR" },
+      lines: [
+        { description: "Pack Essentiel", unitPriceCents: 9900, discountCents: 4900, netCents: 5000, offered: false },
+        ...Array.from({ length: 14 }, (_, index) => ({ description: `Option offerte ${index + 1}`, unitPriceCents: index < 8 ? 1250 : 2500, discountCents: index < 8 ? 1250 : 2500, netCents: 0, offered: true })),
+      ],
+      commercialTotals: { originalSubtotalCents: 34900, discountTotalCents: 29900, netTotalCents: 5000 },
+      correction: { replacesInvoiceNumber: "PY-2026-000001", replacesIssuedAt: "2026-11-01T12:00:00Z" },
+    });
+    const bytes = await generateOrganizerInvoicePdf({ snapshot, invoiceNumber: "PY-2026-000002", issuedAt: new Date("2026-11-09T12:00:00Z") });
+    const pdf = await PDFDocument.load(bytes);
+    expect(pdf.getPageCount()).toBe(2);
+    expect(pdf.getTitle()).toBe("Facture PY-2026-000002");
   });
 });

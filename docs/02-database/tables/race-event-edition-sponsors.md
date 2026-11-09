@@ -39,6 +39,8 @@ related_tables:
 
 # race_event_edition_sponsors
 
+Sponsor authoring and public sponsor endpoints accept the exact `module.sponsors` gift when Signature is not active. Other feature gifts and all invoice states remain insufficient; sponsor storage, counters and RLS are unchanged.
+
 The shared RaceBook screen accepts additive bib-pickup conditions. Sponsor eligibility, placement, stable presentation, click tracking, and protected draft reads are unchanged.
 
 Existing sponsor text fields persist on blur and switches persist immediately, so the redundant per-row **Enregistrer** action is no longer shown. Sponsor creation, deletion, ordering, validation, authorization, and aggregate reporting contracts are unchanged.

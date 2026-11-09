@@ -1,7 +1,7 @@
 ---
 title: Stripe Integration
 scope: integration
-last_verified: 2026-11-02
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - apps/web/lib/stripe.ts
@@ -21,6 +21,7 @@ related_tables:
   - subscriptions
   - organizer_edition_payments
   - organizer_edition_entitlements
+  - organizer_invoices
   - user_profiles
 ---
 
@@ -128,6 +129,8 @@ Course Checkout first creates a durable server intent and carries its id in Stri
 Checkout enables Stripe Tax, billing address and tax-id collection, and invoice creation. Metadata binds the payment row, edition, user, and transition. The webhook records subtotal, tax, total, currency, Customer, Session, PaymentIntent, and the Checkout Session Invoice before recalculating the effective edition entitlement. A browser success return never grants access by itself. When the checkout was opened from the publication action, the return marker only asks the dashboard to wait for that trusted entitlement and then call the normal protected edition publication route; URL parameters cannot publish directly.
 
 The authenticated organizer invoice download route retrieves `invoice_pdf` from the stored Invoice id. For historical rows without that id, it retrieves the bound Checkout Session once, persists its Invoice reference, then resolves the PDF. A missing Invoice or `invoice_pdf` is returned as “still being prepared”; Stripe identifiers are never returned in the organizer list DTO.
+
+Independent manual invoices do not call Stripe and do not create or recalculate an organizer entitlement. Their issue, correction, due date and complete bank-transfer settlement live in `organizer_invoices`. This separation does not change webhook-confirmed Stripe fulfillment, which continues to activate the purchased edition tier automatically.
 
 Before creating the Checkout Session, the server recomputes the minimum publication tier from selected, populated persisted modules and records that recommendation in Checkout and PaymentIntent metadata. The requested target tier still determines the server-owned Price: choosing a lower paid tier is valid, with higher-tier draft sections retained but excluded from public responses.
 

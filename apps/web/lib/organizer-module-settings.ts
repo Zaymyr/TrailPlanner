@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-import { hasOrganizerCapability, loadOrganizerEditionEntitlement, type OrganizerEditionEntitlement, type OrganizerTier } from "./organizer-entitlements";
+import { hasOrganizerCapability, loadOrganizerEditionCapabilityGrants, loadOrganizerEditionEntitlement, type OrganizerEditionEntitlement, type OrganizerTier } from "./organizer-entitlements";
+import { organizerFeatureForModule, type OrganizerFeatureKey } from "./organizer-features";
 import {
   ORGANIZER_MODULES,
   defaultEditionModuleSettings,
@@ -60,10 +61,11 @@ export const effectiveOrganizerModules = (
   tier: OrganizerTier,
   settings: OrganizerModuleSettings,
   raceId: string,
+  grantedFeatures: readonly OrganizerFeatureKey[] = [],
 ): Record<OrganizerModuleKey, boolean> => Object.fromEntries(
   ORGANIZER_MODULES.map((module) => [
     module.key,
-    isOrganizerModuleAvailable(tier, module.key) && (
+    isOrganizerModuleAvailable(tier, module.key, grantedFeatures) && (
       module.scope === "edition"
         ? settings.edition[module.key as OrganizerEditionModuleKey]
         : settings.races[raceId]?.[module.key as OrganizerRaceModuleKey] ?? module.defaultEnabled
@@ -74,19 +76,23 @@ export const effectiveOrganizerModules = (
 export const canEnableOrganizerModule = (
   entitlement: Pick<OrganizerEditionEntitlement, "tier" | "status"> | null | undefined,
   moduleKey: OrganizerModuleKey,
-) => hasOrganizerCapability(entitlement, getOrganizerModule(moduleKey).capability);
+  grantedFeatures: readonly OrganizerFeatureKey[] = [],
+) => hasOrganizerCapability(entitlement, getOrganizerModule(moduleKey).capability)
+  || Boolean(organizerFeatureForModule(moduleKey) && grantedFeatures.includes(organizerFeatureForModule(moduleKey)!));
 
 export async function isOrganizerEditionModuleEnabled(
   config: SupabaseServiceConfig,
   editionId: string,
   moduleKey: OrganizerEditionModuleKey,
 ) {
-  const [settings, entitlement] = await Promise.all([
+  const [settings, entitlement, grantMap] = await Promise.all([
     loadOrganizerModuleSettings(config, editionId, []),
     loadOrganizerEditionEntitlement(config, editionId),
+    loadOrganizerEditionCapabilityGrants(config, [editionId]),
   ]);
   const tier = entitlement?.status === "active" ? entitlement.tier : "visibility";
-  return canEnableOrganizerModule(entitlement, moduleKey) && isOrganizerModuleAvailable(tier, moduleKey) && settings.edition[moduleKey];
+  const grants = (grantMap[editionId] ?? []).filter((grant) => grant.status === "active").map((grant) => grant.capabilityKey);
+  return canEnableOrganizerModule(entitlement, moduleKey, grants) && isOrganizerModuleAvailable(tier, moduleKey, grants) && settings.edition[moduleKey];
 }
 
 export async function isOrganizerEditionModuleSelected(
@@ -104,12 +110,14 @@ export async function isOrganizerRaceModuleEnabled(
   raceId: string,
   moduleKey: OrganizerRaceModuleKey,
 ) {
-  const [settings, entitlement] = await Promise.all([
+  const [settings, entitlement, grantMap] = await Promise.all([
     loadOrganizerModuleSettings(config, editionId, [raceId]),
     loadOrganizerEditionEntitlement(config, editionId),
+    loadOrganizerEditionCapabilityGrants(config, [editionId]),
   ]);
   const tier = entitlement?.status === "active" ? entitlement.tier : "visibility";
-  return canEnableOrganizerModule(entitlement, moduleKey) && isOrganizerModuleAvailable(tier, moduleKey) && settings.races[raceId]![moduleKey];
+  const grants = (grantMap[editionId] ?? []).filter((grant) => grant.status === "active").map((grant) => grant.capabilityKey);
+  return canEnableOrganizerModule(entitlement, moduleKey, grants) && isOrganizerModuleAvailable(tier, moduleKey, grants) && settings.races[raceId]![moduleKey];
 }
 
 export async function isOrganizerRaceModuleSelected(

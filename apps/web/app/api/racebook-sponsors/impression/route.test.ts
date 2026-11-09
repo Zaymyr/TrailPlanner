@@ -10,7 +10,10 @@ vi.mock("../../../../lib/http", async () => ({
 }));
 vi.mock("../../../../lib/organizer", () => ({ serviceHeaders: () => ({}) }));
 vi.mock("../../../../lib/racebook-publications", () => ({ loadCurrentRacebookPublication: mocks.loadCurrent }));
-vi.mock("../../../../lib/organizer-entitlements", () => ({ loadOrganizerEditionEntitlement: mocks.loadEntitlement }));
+vi.mock("../../../../lib/organizer-entitlements", () => ({
+  loadOrganizerEditionEntitlement: mocks.loadEntitlement,
+  loadOrganizerEditionCapabilityGrants: () => Promise.resolve({}),
+}));
 vi.mock("../../../../lib/supabase", () => ({ getSupabaseServiceConfig: () => ({ supabaseUrl: "https://db.example.com", supabaseServiceRoleKey: "service" }) }));
 
 const sponsorId = "44444444-4444-4444-8444-444444444444";

@@ -165,7 +165,7 @@ set local role service_role;
 select public.set_admin_organizer_edition_capability_grant(
   (select edition_id from _organizer_capability_fixture),
   (select admin_id from _organizer_capability_fixture),
-  'racebook_analytics.view',
+  'capability.racebook_analytics',
   true
 );
 
@@ -175,7 +175,7 @@ begin
     select 1
     from public.organizer_edition_capability_grants
     where edition_id = (select edition_id from _organizer_capability_fixture)
-      and capability_key = 'racebook_analytics.view'
+      and capability_key = 'capability.racebook_analytics'
       and status = 'active'
       and granted_by = (select admin_id from _organizer_capability_fixture)
       and granted_at is not null
@@ -191,7 +191,7 @@ end $$;
 select public.set_admin_organizer_edition_capability_grant(
   (select edition_id from _organizer_capability_fixture),
   '10000000-0000-0000-0000-000000000098',
-  'racebook_analytics.view',
+  'capability.racebook_analytics',
   true
 );
 
@@ -201,7 +201,7 @@ begin
     select 1
     from public.organizer_edition_capability_grants
     where edition_id = (select edition_id from _organizer_capability_fixture)
-      and capability_key = 'racebook_analytics.view'
+      and capability_key = 'capability.racebook_analytics'
       and granted_by = '10000000-0000-0000-0000-000000000098'
   ) then
     raise exception 'An idempotent activation must not rewrite the original grant audit.';
@@ -221,7 +221,7 @@ begin
     select 1
     from public.organizer_edition_capability_grants
     where edition_id = (select edition_id from _organizer_capability_fixture)
-      and capability_key = 'racebook_analytics.view'
+      and capability_key = 'capability.racebook_analytics'
       and status = 'active'
   ) then
     raise exception 'Changing the commercial tier must not remove an independent module grant.';
@@ -231,7 +231,7 @@ end $$;
 select public.set_admin_organizer_edition_capability_grant(
   (select edition_id from _organizer_capability_fixture),
   (select admin_id from _organizer_capability_fixture),
-  'racebook_analytics.view',
+  'capability.racebook_analytics',
   false
 );
 
@@ -241,7 +241,7 @@ begin
     select 1
     from public.organizer_edition_capability_grants
     where edition_id = (select edition_id from _organizer_capability_fixture)
-      and capability_key = 'racebook_analytics.view'
+      and capability_key = 'capability.racebook_analytics'
       and status = 'revoked'
       and granted_by = (select admin_id from _organizer_capability_fixture)
       and granted_at is not null
@@ -255,7 +255,7 @@ end $$;
 select public.set_admin_organizer_edition_capability_grant(
   (select edition_id from _organizer_capability_fixture),
   '10000000-0000-0000-0000-000000000098',
-  'racebook_analytics.view',
+  'capability.racebook_analytics',
   false
 );
 
@@ -265,7 +265,7 @@ begin
     select 1
     from public.organizer_edition_capability_grants
     where edition_id = (select edition_id from _organizer_capability_fixture)
-      and capability_key = 'racebook_analytics.view'
+      and capability_key = 'capability.racebook_analytics'
       and revoked_by = '10000000-0000-0000-0000-000000000098'
   ) then
     raise exception 'An idempotent revocation must not rewrite the original revoke audit.';
@@ -293,7 +293,7 @@ begin
     perform public.set_admin_organizer_edition_capability_grant(
       (select edition_id from _organizer_capability_fixture),
       (select admin_id from _organizer_capability_fixture),
-      'racebook_analytics.view',
+      'capability.racebook_analytics',
       null
     );
   exception when sqlstate '22023' then
@@ -304,7 +304,7 @@ begin
     perform public.set_admin_organizer_edition_capability_grant(
       (select edition_id from _organizer_capability_fixture),
       null,
-      'racebook_analytics.view',
+      'capability.racebook_analytics',
       true
     );
   exception when sqlstate '22023' then
@@ -324,12 +324,12 @@ end $$;
 
 delete from public.organizer_edition_capability_grants
 where edition_id = (select edition_id from _organizer_capability_fixture)
-  and capability_key = 'racebook_analytics.view';
+  and capability_key = 'capability.racebook_analytics';
 
 select public.set_admin_organizer_edition_capability_grant(
   (select edition_id from _organizer_capability_fixture),
   (select admin_id from _organizer_capability_fixture),
-  'racebook_analytics.view',
+  'capability.racebook_analytics',
   false
 );
 
@@ -339,7 +339,7 @@ begin
     select 1
     from public.organizer_edition_capability_grants
     where edition_id = (select edition_id from _organizer_capability_fixture)
-      and capability_key = 'racebook_analytics.view'
+      and capability_key = 'capability.racebook_analytics'
   ) then
     raise exception 'Revoking an absent capability must not fabricate an audit row.';
   end if;

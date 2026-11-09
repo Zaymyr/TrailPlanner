@@ -95,7 +95,7 @@ export async function GET(request: NextRequest, context: { params: { id?: string
         },
       ),
       loadOrganizerEditionEntitlement(auth.serviceConfig, edition.id),
-      loadOrganizerEditionCapabilityGrant(auth.serviceConfig, edition.id, "racebook_analytics.view"),
+      loadOrganizerEditionCapabilityGrant(auth.serviceConfig, edition.id, "capability.racebook_analytics"),
     ]);
 
     if (!racesResponse.ok) {

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { withSecurityHeaders } from "../../../../../../lib/http";
-import { loadOrganizerEditionEntitlement } from "../../../../../../lib/organizer-entitlements";
+import { loadOrganizerEditionCapabilityGrants, loadOrganizerEditionEntitlement } from "../../../../../../lib/organizer-entitlements";
 import { loadOrganizerModuleSettings } from "../../../../../../lib/organizer-module-settings";
 import { organizerModuleSettingsPatchSchema } from "../../../../../../lib/organizer-modules";
 import { jsonError, requireEventOrganizer, requireOrganizerAuth, serviceHeaders, uuidParamSchema } from "../../../../../../lib/organizer";
@@ -32,13 +32,15 @@ async function authorize(request: NextRequest, editionId: string) {
 
 async function responsePayload(auth: Exclude<Awaited<ReturnType<typeof authorize>>, { error: NextResponse }>) {
   const raceIds = auth.races.map((race) => race.id);
-  const [settings, entitlement] = await Promise.all([
+  const [settings, entitlement, grantMap] = await Promise.all([
     loadOrganizerModuleSettings(auth.serviceConfig, auth.edition.id, raceIds),
     loadOrganizerEditionEntitlement(auth.serviceConfig, auth.edition.id),
+    loadOrganizerEditionCapabilityGrants(auth.serviceConfig, [auth.edition.id]),
   ]);
   return {
     setupCompletedAt: auth.edition.module_setup_completed_at,
     tier: entitlement?.status === "active" ? entitlement.tier : "visibility",
+    featureGrants: (grantMap[auth.edition.id] ?? []).filter((grant) => grant.status === "active").map((grant) => grant.capabilityKey),
     ...settings,
   };
 }

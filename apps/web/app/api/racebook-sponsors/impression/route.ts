@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { checkRateLimit, withSecurityHeaders } from "../../../../lib/http";
-import { loadOrganizerEditionEntitlement } from "../../../../lib/organizer-entitlements";
+import { loadOrganizerEditionCapabilityGrants, loadOrganizerEditionEntitlement } from "../../../../lib/organizer-entitlements";
 import { isOrganizerModuleAvailable } from "../../../../lib/organizer-modules";
 import { serviceHeaders } from "../../../../lib/organizer";
 import { loadCurrentRacebookPublication } from "../../../../lib/racebook-publications";
@@ -39,9 +39,14 @@ export async function POST(request: NextRequest) {
 
   const { publication } = await loadCurrentRacebookPublication(serviceConfig, input.data.raceId);
   const editionId = publication?.edition_id ?? null;
-  const entitlement = editionId ? await loadOrganizerEditionEntitlement(serviceConfig, editionId) : null;
+  const [entitlement, grantMap] = editionId ? await Promise.all([
+    loadOrganizerEditionEntitlement(serviceConfig, editionId),
+    loadOrganizerEditionCapabilityGrants(serviceConfig, [editionId]),
+  ]) : [null, {}];
   const tier = entitlement?.status === "active" ? entitlement.tier : "visibility";
-  const sponsor = publication?.content.modules.sponsors && isOrganizerModuleAvailable(tier, "sponsors")
+  const grants = editionId ? ((grantMap as Record<string, Array<{ status: "active" | "revoked"; capabilityKey: import("../../../../lib/organizer-features").OrganizerFeatureKey }>>)[editionId] ?? []) : [];
+  const grantedFeatures = grants.filter((grant) => grant.status === "active").map((grant) => grant.capabilityKey);
+  const sponsor = publication?.content.modules.sponsors && isOrganizerModuleAvailable(tier, "sponsors", grantedFeatures)
     ? publication.content.sponsors.find((row) => row.id === input.data.sponsorId)
     : null;
   if (!sponsor) return noContent();

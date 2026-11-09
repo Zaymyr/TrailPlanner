@@ -37,6 +37,8 @@ related_files:
   - supabase/tests/organizer_generated_invoice_checks.sql
   - supabase/migrations/20260915104528_add_organizer_edition_capability_grants.sql
   - supabase/tests/organizer_edition_capability_grants_checks.sql
+  - supabase/migrations/20261109190500_separate_organizer_invoices_and_feature_grants.sql
+  - supabase/tests/organizer_manual_invoices_checks.sql
   - supabase/tests/organizer_atomic_course_collections_checks.sql
   - supabase/tests/racebook_branding_checks.sql
   - supabase/tests/structured_racebook_content_checks.sql
@@ -77,6 +79,8 @@ related_tables:
   - race_event_edition_sponsors
   - race_event_edition_branding
   - organizer_edition_capability_grants
+  - organizer_invoices
+  - organizer_feature_catalog
   - race_event_publication_requests
   - race_event_organizers
   - race_event_publication_requests
@@ -290,7 +294,9 @@ Manual permission, constraint, draft-transition, and RPC checks live in `supabas
 
 `organizer_edition_entitlements` and `organizer_edition_payments` are RLS-enabled service-only tables with explicit client revokes. The bank-transfer and invoice-issuance RPCs are `SECURITY INVOKER`, executable only by `service_role`, and are reached only after trusted admin authorization. Issuance serializes number allocation and an internal trigger prevents later deletion or mutation of numbered invoice facts. The `organizer-invoices` bucket is private and has no client Storage policy; organizers receive only short signed URLs after active event-membership verification. A fixed-search-path private function returns only whether an edition is Pro so public relay/product child policies can enforce the commercial gate without exposing payment or grant rows.
 
-`organizer_edition_capability_grants` is a separate RLS-enabled service-only projection with no client policies or privileges. Its `SECURITY INVOKER` grant/revoke RPC accepts only `racebook_analytics.view`, is executable only by `service_role`, and retains actor/timestamp audit fields. Organizer and admin APIs must authorize the caller before reading the projection or invoking the RPC.
+`organizer_edition_capability_grants` is a separate RLS-enabled service-only projection with no client policies or privileges. Its `SECURITY INVOKER` grant/revoke RPC accepts only the fourteen stable feature keys, is executable only by `service_role`, and retains actor/timestamp audit fields. Organizer and admin APIs must authorize the caller before reading the projection or invoking the RPC.
+
+`organizer_invoices` and `organizer_feature_catalog` are likewise service-only. Invoice issuance/correction and settlement RPCs are invoker functions granted only to `service_role`; an immutability trigger protects numbered legal facts and deletion. Application routes return bounded DTOs or private signed Storage URLs only after trusted admin or active event-membership authorization.
 
 `organizer_social_proofs` is RLS-enabled and service-only, with explicit CRUD grants only for `service_role`. The protected admin route authorizes trusted `app_metadata` before capturing analytics or writing a row. The public organizer landing does not gain an anonymous table policy: its server component performs an explicit-column service read restricted to `status = published`, then maps a sanitized presentation DTO.
 
