@@ -39,7 +39,7 @@ related_tables:
 
 ## Purpose
 
-Stores Stripe attempts and historical paid bank transfers, with their settlement values and legacy invoice references, separately from the effective edition right. New manual invoices and their settlements use `organizer_invoices`; existing payment-backed generated/uploaded PDFs remain valid and downloadable without a data rewrite.
+Stores Stripe attempts and historical paid bank transfers, with their settlement values and legacy invoice references, separately from the effective edition right. New manual invoices and their settlements use `organizer_invoices`; their gifted features are non-monetary `OFFERT` lines that never alter pack totals. Existing payment-backed generated/uploaded PDFs remain valid and downloadable without a data rewrite.
 
 ## Key Concepts
 

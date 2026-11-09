@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
     discountTotal: invoice.discount_total,
     netTotal: invoice.net_total,
     replacesInvoiceId: invoice.replaces_invoice_id,
-    giftedFeatures: (invoice.legal_snapshot.lines ?? []).filter((line) => line.offered).map((line) => line.description),
+    giftedFeatures: (invoice.legal_snapshot.lines ?? []).filter((line) => Boolean(line.featureKey)).map((line) => line.description),
   })) : [];
   const invoices = [...manualInvoices, ...legacyInvoices].sort((left, right) => (right.invoiceIssuedAt ?? right.paidAt ?? "").localeCompare(left.invoiceIssuedAt ?? left.paidAt ?? ""));
 

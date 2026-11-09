@@ -9,15 +9,15 @@ describe("organizer giftable features", () => {
     expect(giftableOrganizerFeatures("signature")).toEqual([]);
   });
 
-  it("keeps seeded feature prices aligned with plan upgrade deltas", () => {
-    expect(ORGANIZER_FEATURES.filter((feature) => feature.minimumTier === "complete").reduce((sum, feature) => sum + feature.defaultPriceCents, 0)).toBe(10_000);
-    expect(ORGANIZER_FEATURES.filter((feature) => feature.minimumTier === "signature").reduce((sum, feature) => sum + feature.defaultPriceCents, 0)).toBe(15_000);
+  it("keeps the fourteen features free of standalone prices", () => {
+    expect(ORGANIZER_FEATURES).toHaveLength(14);
+    expect(ORGANIZER_FEATURES.every((feature) => !("defaultPriceCents" in feature))).toBe(true);
   });
 
-  it("shows original value and removes every gift from the net total", () => {
-    expect(calculateOrganizerInvoiceAmounts({ packCatalogCents: 9_900, packNetCents: 5_000, giftedFeaturePrices: [1_250, 2_500] })).toEqual({
-      originalSubtotal: 13_650,
-      discountTotal: 8_650,
+  it("calculates original value and discount from the pack only", () => {
+    expect(calculateOrganizerInvoiceAmounts({ packCatalogCents: 9_900, packNetCents: 5_000 })).toEqual({
+      originalSubtotal: 9_900,
+      discountTotal: 4_900,
       netTotal: 5_000,
     });
   });

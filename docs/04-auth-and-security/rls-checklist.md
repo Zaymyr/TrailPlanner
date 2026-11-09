@@ -91,7 +91,7 @@ related_tables:
 
 # RLS Checklist
 
-Independent organizer invoices and feature prices are service-only despite organizer-facing projections. Validate no `anon`/`authenticated` table privileges or RPC execution, verify all foreign-key indexes, and prove issuance/settlement cannot mutate entitlements. Exact feature grants must remain allowlisted and audited as active/revoked rows.
+Independent organizer invoices and feature availability are service-only despite organizer-facing projections. Validate no `anon`/`authenticated` table privileges or RPC execution, verify all foreign-key indexes, and prove issuance/settlement cannot mutate entitlements. Exact feature grants must remain allowlisted, non-monetized and audited as active/revoked rows.
 
 ## Runner monetisation additions
 

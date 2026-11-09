@@ -69,7 +69,7 @@ describe("organizer invoice document", () => {
     expect(pdf.getAuthor()).toBe("Pace Yourself");
   });
 
-  it("renders an unpaid corrective invoice with offered line values", async () => {
+  it("renders an unpaid corrective invoice without valuing offered features", async () => {
     const snapshot = organizerInvoiceSnapshotSchema.parse({
       seller: ORGANIZER_INVOICE_SELLER,
       customer: organizerInvoiceCustomerSchema.parse({ legalName: "Club Trail", billingAddress: "1 rue des Cimes\n75001 Paris", siren: "" }),
@@ -77,14 +77,30 @@ describe("organizer invoice document", () => {
       amounts: { subtotalCents: 5000, taxCents: 0, totalCents: 5000, currency: "EUR" },
       lines: [
         { description: "Pack Essentiel", unitPriceCents: 9900, discountCents: 4900, netCents: 5000, offered: false },
-        ...Array.from({ length: 14 }, (_, index) => ({ description: `Option offerte ${index + 1}`, unitPriceCents: index < 8 ? 1250 : 2500, discountCents: index < 8 ? 1250 : 2500, netCents: 0, offered: true })),
+        ...Array.from({ length: 14 }, (_, index) => ({ featureKey: `feature.${index + 1}`, description: `Option offerte ${index + 1}`, offered: true })),
       ],
-      commercialTotals: { originalSubtotalCents: 34900, discountTotalCents: 29900, netTotalCents: 5000 },
+      commercialTotals: { originalSubtotalCents: 9900, discountTotalCents: 4900, netTotalCents: 5000 },
       correction: { replacesInvoiceNumber: "PY-2026-000001", replacesIssuedAt: "2026-11-01T12:00:00Z" },
     });
     const bytes = await generateOrganizerInvoicePdf({ snapshot, invoiceNumber: "PY-2026-000002", issuedAt: new Date("2026-11-09T12:00:00Z") });
     const pdf = await PDFDocument.load(bytes);
     expect(pdf.getPageCount()).toBe(2);
     expect(pdf.getTitle()).toBe("Facture PY-2026-000002");
+  });
+
+  it("keeps legacy valued gift snapshots readable", () => {
+    const snapshot = organizerInvoiceSnapshotSchema.parse({
+      seller: ORGANIZER_INVOICE_SELLER,
+      customer: organizerInvoiceCustomerSchema.parse({ legalName: "Club Trail", billingAddress: "1 rue des Cimes\n75001 Paris", siren: "" }),
+      service: { description: "Pack Essentiel", category: "Prestations de services", serviceDate: "2026-11-09", dueDate: "2026-12-09" },
+      amounts: { subtotalCents: 9900, taxCents: 0, totalCents: 9900, currency: "EUR" },
+      lines: [
+        { description: "Pack Essentiel", unitPriceCents: 9900, discountCents: 0, netCents: 9900, offered: false },
+        { featureKey: "module.services", description: "Services", unitPriceCents: 1250, discountCents: 1250, netCents: 0, offered: true },
+      ],
+      commercialTotals: { originalSubtotalCents: 11150, discountTotalCents: 1250, netTotalCents: 9900 },
+    });
+
+    expect(snapshot.lines?.[1]?.unitPriceCents).toBe(1250);
   });
 });

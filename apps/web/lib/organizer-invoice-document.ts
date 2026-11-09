@@ -49,9 +49,9 @@ export const organizerInvoiceSnapshotSchema = z.object({
   lines: z.array(z.object({
     featureKey: z.string().optional(),
     description: z.string().min(1).max(300),
-    unitPriceCents: z.number().int().nonnegative(),
-    discountCents: z.number().int().nonnegative(),
-    netCents: z.number().int().nonnegative(),
+    unitPriceCents: z.number().int().nonnegative().optional(),
+    discountCents: z.number().int().nonnegative().optional(),
+    netCents: z.number().int().nonnegative().optional(),
     offered: z.boolean(),
   })).min(1).max(20).optional(),
   commercialTotals: z.object({
@@ -211,7 +211,7 @@ export async function generateOrganizerInvoicePdf(input: {
   for (const line of firstPageLines) {
     page.drawText(`${line.description}${line.offered ? " — OFFERT" : ""}`.slice(0, 62), { x: 58, y: lineY, font: line.offered ? bold : regular, size: 7.8, color: line.offered ? green : undefined });
     page.drawText("1", { x: 380, y: lineY, font: regular, size: 7.8 });
-    page.drawText(money(line.unitPriceCents), { x: 454, y: lineY, font: regular, size: 7.8 });
+    page.drawText(line.featureKey ? "—" : money(line.unitPriceCents ?? 0), { x: 454, y: lineY, font: regular, size: 7.8 });
     lineY -= 13;
   }
   page.drawLine({ start: { x: left, y: lineY + 3 }, end: { x: right, y: lineY + 3 }, color: rgb(0.82, 0.85, 0.87), thickness: 0.8 });
@@ -231,15 +231,15 @@ export async function generateOrganizerInvoicePdf(input: {
     for (const line of invoiceLines.slice(firstPageLines.length)) {
       detailsPage.drawText(`${line.description}${line.offered ? " — OFFERT" : ""}`.slice(0, 62), { x: 58, y: lineY, font: line.offered ? bold : regular, size: 7.8, color: line.offered ? green : undefined });
       detailsPage.drawText("1", { x: 380, y: lineY, font: regular, size: 7.8 });
-      detailsPage.drawText(money(line.unitPriceCents), { x: 454, y: lineY, font: regular, size: 7.8 });
+      detailsPage.drawText(line.featureKey ? "—" : money(line.unitPriceCents ?? 0), { x: 454, y: lineY, font: regular, size: 7.8 });
       lineY -= 18;
     }
     detailsPage.drawLine({ start: { x: left, y: lineY + 3 }, end: { x: right, y: lineY + 3 }, color: rgb(0.82, 0.85, 0.87), thickness: 0.8 });
   }
 
   const totals = snapshot.commercialTotals ? [
-    ["Montant d'origine", money(snapshot.commercialTotals.originalSubtotalCents)],
-    ["Offert / remises", `- ${money(snapshot.commercialTotals.discountTotalCents)}`],
+    ["Prix catalogue du pack", money(snapshot.commercialTotals.originalSubtotalCents)],
+    ["Remise sur le pack", `- ${money(snapshot.commercialTotals.discountTotalCents)}`],
     ["Net à payer", money(snapshot.commercialTotals.netTotalCents)],
   ] : [
     ["Total HT", money(snapshot.amounts.subtotalCents)],

@@ -130,7 +130,7 @@ Checkout enables Stripe Tax, billing address and tax-id collection, and invoice 
 
 The authenticated organizer invoice download route retrieves `invoice_pdf` from the stored Invoice id. For historical rows without that id, it retrieves the bound Checkout Session once, persists its Invoice reference, then resolves the PDF. A missing Invoice or `invoice_pdf` is returned as “still being prepared”; Stripe identifiers are never returned in the organizer list DTO.
 
-Independent manual invoices do not call Stripe and do not create or recalculate an organizer entitlement. Their issue, correction, due date and complete bank-transfer settlement live in `organizer_invoices`. This separation does not change webhook-confirmed Stripe fulfillment, which continues to activate the purchased edition tier automatically.
+Independent manual invoices do not call Stripe and do not create or recalculate an organizer entitlement. Their issue, correction, due date and complete bank-transfer settlement live in `organizer_invoices`; gifted features have no standalone price and do not affect pack totals. This separation does not change webhook-confirmed Stripe fulfillment, which continues to activate the purchased edition tier automatically.
 
 Before creating the Checkout Session, the server recomputes the minimum publication tier from selected, populated persisted modules and records that recommendation in Checkout and PaymentIntent metadata. The requested target tier still determines the server-owned Price: choosing a lower paid tier is valid, with higher-tier draft sections retained but excluded from public responses.
 

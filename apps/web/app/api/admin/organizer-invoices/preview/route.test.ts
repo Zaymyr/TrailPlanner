@@ -45,7 +45,7 @@ vi.mock("../../../../../lib/organizer-manual-invoices", async (importOriginal) =
     ...actual,
     buildManualOrganizerInvoice: vi.fn().mockResolvedValue({
       lines: [{ description: "Pack Essentiel", unitPriceCents: 9900, discountCents: 4900, netCents: 5000, offered: false }],
-      totals: { originalSubtotal: 11150, discountTotal: 6150, netTotal: 5000 },
+      totals: { originalSubtotal: 9900, discountTotal: 4900, netTotal: 5000 },
     }),
   };
 });

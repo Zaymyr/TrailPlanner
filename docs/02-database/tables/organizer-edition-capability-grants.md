@@ -7,6 +7,7 @@ related_files:
   - supabase/migrations/20260915104528_add_organizer_edition_capability_grants.sql
   - supabase/tests/organizer_edition_capability_grants_checks.sql
   - supabase/migrations/20261109190500_separate_organizer_invoices_and_feature_grants.sql
+  - supabase/migrations/20261109192905_remove_organizer_gift_feature_prices.sql
   - supabase/tests/organizer_manual_invoices_checks.sql
   - apps/web/lib/organizer-entitlements.ts
   - apps/web/lib/organizer-entitlements.test.ts
@@ -75,7 +76,7 @@ where edition_id = :edition_id;
 
 - Do not expose this table directly to organizers. Server routes combine it with the pack entitlement and return a bounded effective-capability DTO.
 - Revocation is an update to `status`, not deletion.
-- Adding another feature requires coordinated SQL allowlist, TypeScript catalog/mapping, tests, pricing and offer documentation changes.
+- Adding another feature requires coordinated SQL allowlist, TypeScript catalog/mapping, availability, tests and offer documentation changes. Gifted capabilities must not receive standalone prices.
 - Keep the RPC's target-status `CASE` parenthesized inside its PL/pgSQL `IF` condition; otherwise PostgreSQL can parse the inner `THEN` as the procedural delimiter.
 
 ## Related Docs
