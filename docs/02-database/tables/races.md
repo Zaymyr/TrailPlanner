@@ -2,7 +2,7 @@
 title: races Table
 scope: database
 
-last_verified: 2026-11-05
+last_verified: 2026-11-09
 
 ai_priority: high
 related_files:
@@ -236,7 +236,7 @@ where web_catalog_is_live = true
 - Do not infer relay participation from ravitos; use `participation_mode` and `race_relay_points`.
 - Do not bulk-update slugs without reviewing the read-only audit and using the service-only rename RPC after its migration is deployed.
 - Never expose `gpx_storage_path` or raw `organizer_details` from a public client contract. The public route may receive only the server-parsed, bounded GPX preview and allowlisted practical fields.
-- The server-filtered supporter-point collection is the mobile authority for showing `Suivi coureur`; do not hide complete public points again from a separately cached module presentation response.
+- The server-filtered supporter-point collection is the mobile authority for showing the runner `Où encourager` sub-tab (organizer `Suivi coureur`); do not hide complete public points again from a separately cached module presentation response.
 - Admin thumbnail replacement writes a bounded versioned WebP with long-cache metadata. The reference migration script updates only rows still pointing at the source URL and preserves old Storage objects for rollback.
 - Do not add per-format logo/color columns to `races`; all formats in one canonical edition deliberately share the branding projection.
 - Do not parse `location_text` into geographic filters. It may describe a start-to-finish route crossing several communes; use the parent event's normalized geography for broad catalog filters.
@@ -253,3 +253,5 @@ where web_catalog_is_live = true
 - [Schema Overview](../schema-overview.md)
 
 RaceBook course distances, ranges, and D+/D− labels now use a shared localized display formatter. Stored race distance/elevation values and GPX-derived authority are unchanged.
+
+RaceBook polish (2026-11-09): the runner hero no longer renders the format/event thumbnail behind the identity (solid organizer primary color only), omits the default `Solo` participation label, appends a `J-N`/`Aujourd'hui` countdown to the date line (hidden after race day), and moves its expanded block up with the collapse so titles never overlap and metrics are never clipped. Runner wording was simplified (`Où encourager`, `Barrière horaire`, `Sac d'allègement`, `Nourriture`, `Relais {n}`, weather-alert and partial-route sentences). Access transport notes turn pasted URLs into labelled buttons (`Réserver ma navette` / `Ouvrir le lien`) and bib pickup addresses without an organizer maps link fall back to a Google Maps search (`lib/racebookTextLinks.ts`). Profile cumulative tiles show `—` until the runner touches the curve. This is runner presentation only: no row, contract or tracking of this domain changes.

@@ -60,6 +60,7 @@ import { RacebookGearSection } from '../../../../components/racebook/RacebookGea
 import { RacebookServicesSection } from '../../../../components/racebook/RacebookServicesSection';
 import { RacebookSupporterPointsSection } from '../../../../components/racebook/RacebookSupporterPointsSection';
 import { RacebookPersonalPlanCard, RacebookPlanInviteCard } from '../../../../components/racebook/RacebookPersonalPlanCard';
+import { buildMapsSearchUrl } from '../../../../lib/racebookTextLinks';
 import { RacebookStructuredCourseSections } from '../../../../components/racebook/RacebookStructuredCourseSections';
 import { RacebookTabBar } from '../../../../components/racebook/RacebookTabBar';
 import { RacebookElevationProfile } from '../../../../components/racebook/RacebookElevationProfile';
@@ -1134,7 +1135,6 @@ export default function RaceRacebookScreen() {
     locale,
   );
   const formattedRaceDate = formatDate(data?.race.raceDate ?? null, locale);
-  const heroImageUrl = data?.race.thumbnailUrl ?? data?.event.thumbnailUrl ?? null;
   const eventLocationDetails = data?.event.organizerDetails.eventLocation;
   const raceLocationDetails = data?.race.organizerDetails.raceLocation;
   const headerLocation =
@@ -1264,7 +1264,9 @@ export default function RaceRacebookScreen() {
         return {
           key: `${pickupLocation.location}-${locationIndex}`,
           location: pickupLocation.location,
-          actionUrl: pickupLocation.locationDetails.googleMapsUrl,
+          // Organizers often type a plain pickup address: fall back to a maps
+          // search so every pickup location offers directions like Accès does.
+          actionUrl: pickupLocation.locationDetails.googleMapsUrl ?? buildMapsSearchUrl(pickupLocation.location),
           days: groupBibPickupSlots(pickupLocation.slots, locale, t.catalog.racebookFieldBibWindow),
         };
       })
@@ -1313,13 +1315,22 @@ export default function RaceRacebookScreen() {
     }));
   }, [data, t.catalog.racebookMapFinish, t.catalog.racebookMapStart]);
 
+  // Solo is the default participation mode: only relay formats get a label,
+  // which keeps the hero one line shorter for most races.
   const participationLabels = data?.race.participationMode === 'solo'
-    ? [t.catalog.racebookParticipationSolo]
+    ? []
     : data?.race.participationMode === 'relay'
       ? [t.catalog.racebookParticipationRelay]
       : data?.race.participationMode === 'solo_and_relay'
         ? [t.catalog.racebookParticipationSolo, t.catalog.racebookParticipationRelay]
         : [];
+
+  const raceCountdownDays = getDaysBeforeRace(data?.race.raceDate ?? null);
+  const raceCountdownLabel = raceCountdownDays === null || raceCountdownDays < 0
+    ? null
+    : raceCountdownDays === 0
+      ? t.catalog.racebookCountdownToday
+      : t.catalog.racebookCountdownDays.replace('{days}', String(raceCountdownDays));
 
   const courseTabs = useMemo(() => {
     const availableTabs: { key: CourseTabKey; label: string }[] = [
@@ -1703,7 +1714,7 @@ export default function RaceRacebookScreen() {
   // once the runner owns a plan, so runners without one read a pure RaceBook.
   const showPlanWorkspace = Boolean(existingPlanId);
   const planLookupResolved = Boolean(existingPlan && existingPlan.raceId === id);
-  const raceDaysRemaining = getDaysBeforeRace(data?.race.raceDate ?? null);
+  const raceDaysRemaining = raceCountdownDays;
   const showPlanInvite = planLookupResolved
     && !existingPlanId
     && onboarding !== 'racebook'
@@ -1919,9 +1930,8 @@ export default function RaceRacebookScreen() {
           expandedBodyHeight={heroBodyHeight}
           eventName={data.event.name}
           raceName={data.race.name}
-          imageUrl={heroImageUrl}
           logoUrl={RACEBOOK_EDITION_LOGO_ENABLED ? brandTheme.logoUrl : null}
-          dateLabel={formattedRaceDate ?? eventDateRange}
+          dateLabel={[formattedRaceDate ?? eventDateRange, raceCountdownLabel].filter(Boolean).join(' · ') || null}
           locationLabel={headerLocation}
           participationLabel={participationLabels.join(' + ') || null}
           participationIcon={data.race.participationMode === 'solo' ? 'person-outline' : 'people-outline'}
@@ -2395,6 +2405,8 @@ export default function RaceRacebookScreen() {
                   showDetailsLabel: t.catalog.racebookAccessShowDetails,
                   hideDetailsLabel: t.catalog.racebookAccessHideDetails,
                   scheduleLabel: t.catalog.racebookAccessSchedule,
+                  bookShuttleLabel: t.catalog.racebookAccessBookShuttle,
+                  openLinkLabel: t.catalog.racebookAccessOpenLink,
                 }}
               />
               <RacebookSponsorBanner

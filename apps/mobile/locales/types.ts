@@ -803,6 +803,8 @@ export type MobileTranslations = {
     racebookExpectedTime: string;
     racebookPace: string;
     racebookCreatePlan: string;
+    racebookCountdownDays: string;
+    racebookCountdownToday: string;
     racebookMyPlan: string;
     racebookPlanInviteTitle: string;
     racebookPlanInviteBody: string;
@@ -854,6 +856,8 @@ export type MobileTranslations = {
     racebookAccessOpenGeneralMap: string;
     racebookAccessShowDetails: string;
     racebookAccessHideDetails: string;
+    racebookAccessBookShuttle: string;
+    racebookAccessOpenLink: string;
     racebookAccessSchedule: string;
     racebookGearRequired: string;
     racebookGearRecommended: string;

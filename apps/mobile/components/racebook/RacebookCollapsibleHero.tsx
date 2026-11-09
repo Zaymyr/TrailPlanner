@@ -34,7 +34,6 @@ type Props = {
   expandedBodyHeight?: number;
   eventName: string | null;
   raceName: string;
-  imageUrl: string | null;
   logoUrl: string | null;
   dateLabel: string | null;
   locationLabel: string | null;
@@ -82,7 +81,6 @@ export function RacebookCollapsibleHero({
   expandedBodyHeight = RACEBOOK_HERO_BODY_HEIGHT,
   eventName,
   raceName,
-  imageUrl,
   logoUrl,
   dateLabel,
   locationLabel,
@@ -125,14 +123,23 @@ export function RacebookCollapsibleHero({
     outputRange: [expandedHeight, compactHeight],
     extrapolate: 'clamp',
   });
+  // The expanded block is fully faded out before the compact identity starts
+  // to appear, so the two titles never overlap mid-collapse.
   const expandedOpacity = scrollY.interpolate({
-    inputRange: [0, collapseDistance * 0.58, collapseDistance * 0.82],
-    outputRange: [1, 0.86, 0],
+    inputRange: [0, collapseDistance * 0.3, collapseDistance * 0.55],
+    outputRange: [1, 0.7, 0],
     extrapolate: 'clamp',
   });
   const compactOpacity = scrollY.interpolate({
-    inputRange: [collapseDistance * 0.68, collapseDistance],
+    inputRange: [collapseDistance * 0.6, collapseDistance * 0.9],
     outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+  // The expanded block moves up with the shrinking hero, so its bottom edge
+  // (metrics, footer) is never clipped by the hero's lower border.
+  const expandedTranslateY = scrollY.interpolate({
+    inputRange: [0, collapseDistance],
+    outputRange: [0, -collapseDistance],
     extrapolate: 'clamp',
   });
   const compactActionCount = (socialLinks.length > 0 ? 1 : 0) + (isCompact && emergency && onCallEmergency ? 1 : 0);
@@ -161,13 +168,6 @@ export function RacebookCollapsibleHero({
       ]}
     >
       <StatusBar style={theme.onPrimaryColor === '#FFFFFF' ? 'light' : 'dark'} />
-      {imageUrl ? (
-        <Animated.View style={[styles.heroImage, { top: topInset, opacity: expandedOpacity }]}>
-          <Animated.Image source={{ uri: imageUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" accessible={false} />
-        </Animated.View>
-      ) : null}
-      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: theme.primaryColor, opacity: imageUrl ? 0.92 : 1 }]} />
-      {imageUrl ? <Animated.View style={[StyleSheet.absoluteFill, styles.contrastVeil, { opacity: expandedOpacity }]} /> : null}
 
       <Pressable
         accessibilityLabel={backLabel}
@@ -231,7 +231,7 @@ export function RacebookCollapsibleHero({
 
       <Animated.View
         onLayout={handleExpandedLayout}
-        style={[styles.expandedContent, { paddingTop: topInset + RACE_WORKSPACE_TOOLBAR_HEIGHT, opacity: expandedOpacity }]}
+        style={[styles.expandedContent, { paddingTop: topInset + RACE_WORKSPACE_TOOLBAR_HEIGHT, opacity: expandedOpacity, transform: [{ translateY: expandedTranslateY }] }]}
       >
         <RaceWorkspaceCommonBlock
           title={raceName}
@@ -336,8 +336,6 @@ export function RacebookCollapsibleHero({
 const styles = StyleSheet.create({
   hero: { position: 'absolute', zIndex: 20, top: 0, left: 0, right: 0, overflow: 'hidden', borderBottomLeftRadius: 24, borderBottomRightRadius: 24, shadowColor: '#1A1A1A', shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 7 }, elevation: 8 },
   heroAttached: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, shadowOpacity: 0, elevation: 0 },
-  heroImage: { position: 'absolute', left: 0, right: 0, bottom: 0 },
-  contrastVeil: { backgroundColor: 'rgba(0,0,0,0.14)' },
   backButton: { position: 'absolute', zIndex: 4, left: 16, width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.34)', backgroundColor: 'rgba(0,0,0,0.22)' },
   pressed: { opacity: 0.64 },
   compactContent: { position: 'absolute', left: 72, flexDirection: 'row', alignItems: 'center', gap: 10 },

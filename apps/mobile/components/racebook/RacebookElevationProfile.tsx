@@ -55,6 +55,9 @@ export function RacebookElevationProfile({
   const [width, setWidth] = useState(0);
   const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
   const [inspectedDistanceKm, setInspectedDistanceKm] = useState<number | null>(points[0]?.distanceKm ?? null);
+  // Cumulative tiles show a placeholder until the runner touches the curve,
+  // instead of a meaningless "0 km / 0 m" at the start line.
+  const [hasInspected, setHasInspected] = useState(false);
   const chartHeight = profileHeight ?? (expanded ? 250 : 190);
 
   const onLayout = (event: LayoutChangeEvent) => {
@@ -120,6 +123,7 @@ export function RacebookElevationProfile({
       return closest;
     }, null);
 
+    setHasInspected(true);
     setInspectedDistanceKm(hoveredStation?.station.km ?? distanceKm);
     setSelectedStationId(hoveredStation?.station.id ?? null);
   }, [chart]);
@@ -261,6 +265,7 @@ export function RacebookElevationProfile({
                 key={station.id}
                 style={[styles.stationHitArea, { left: x - 22, top: y - 22 }]}
                 onPress={() => {
+                  setHasInspected(true);
                   setInspectedDistanceKm(station.km);
                   setSelectedStationId((current) => current === station.id ? null : station.id);
                 }}
@@ -383,15 +388,15 @@ export function RacebookElevationProfile({
         <View style={styles.metricsRow} accessibilityLiveRegion="polite">
           <View style={styles.metric}>
             <Text style={styles.metricLabel}>{t.catalog.racebookCumulativeDistance}</Text>
-            <DataText style={styles.metricValue}>{formatDistance(inspection.distanceKm, locale)}</DataText>
+            <DataText style={styles.metricValue}>{hasInspected ? formatDistance(inspection.distanceKm, locale) : '—'}</DataText>
           </View>
           <View style={styles.metric}>
             <Text style={styles.metricLabel}>{t.catalog.racebookCumulativeGain}</Text>
-            <DataText style={styles.metricValue}>{formatNumber(inspection.elevationGainM, locale)} m</DataText>
+            <DataText style={styles.metricValue}>{hasInspected ? `${formatNumber(inspection.elevationGainM, locale)} m` : '—'}</DataText>
           </View>
           <View style={styles.metric}>
             <Text style={styles.metricLabel}>{t.catalog.racebookCumulativeLoss}</Text>
-            <DataText style={styles.metricValue}>{formatNumber(inspection.elevationLossM, locale)} m</DataText>
+            <DataText style={styles.metricValue}>{hasInspected ? `${formatNumber(inspection.elevationLossM, locale)} m` : '—'}</DataText>
           </View>
         </View>
       ) : null}

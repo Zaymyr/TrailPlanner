@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Card } from '../themed/Card';
 import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
+import { extractTextLinks } from '../../lib/racebookTextLinks';
 
 export type RacebookAccessLocation = {
   key: string;
@@ -43,6 +44,8 @@ type RacebookAccessSectionProps = {
     showDetailsLabel: string;
     hideDetailsLabel: string;
     scheduleLabel: string;
+    bookShuttleLabel: string;
+    openLinkLabel: string;
   };
   onOpenMap: (location: string) => void;
   onOpenUrl: (url: string) => void;
@@ -159,6 +162,9 @@ function TransportCard({
   showDetailsLabel,
   hideDetailsLabel,
   scheduleLabel,
+  bookShuttleLabel,
+  openLinkLabel,
+  onOpenUrl,
 }: {
   title: string;
   items: RacebookAccessTransport[];
@@ -167,12 +173,17 @@ function TransportCard({
   showDetailsLabel: string;
   hideDetailsLabel: string;
   scheduleLabel: string;
+  bookShuttleLabel: string;
+  openLinkLabel: string;
+  onOpenUrl: (url: string) => void;
 }) {
   return (
     <SectionCard title={title}>
       <View style={styles.transportList}>
         {items.map((item, index) => {
           const isExpanded = expanded[item.key];
+          const note = extractTextLinks(item.description);
+          const linkLabel = item.key === 'shuttles' ? bookShuttleLabel : openLinkLabel;
           return (
             <Pressable
               key={item.key}
@@ -196,7 +207,19 @@ function TransportCard({
                 </View>
                 <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={Colors.textSecondary} />
               </View>
-              <Text numberOfLines={isExpanded ? undefined : 2} style={styles.transportText}>{item.description}</Text>
+              <Text numberOfLines={isExpanded ? undefined : 2} style={styles.transportText}>{note.text}</Text>
+              {note.links.map((link) => (
+                <Pressable
+                  key={link.url}
+                  accessibilityRole="link"
+                  accessibilityLabel={`${linkLabel} - ${link.host}`}
+                  onPress={() => onOpenUrl(link.url)}
+                  style={({ pressed }) => [styles.mapAction, pressed ? styles.actionPressed : null]}
+                >
+                  <Ionicons name="open-outline" size={16} color={Colors.brandPrimary} />
+                  <Text style={[styles.mapActionText, { color: Colors.brandPrimary }]}>{linkLabel}</Text>
+                </Pressable>
+              ))}
               {isExpanded && item.schedule ? (
                 <View style={[styles.scheduleRow, { backgroundColor: Colors.brandSurface, borderColor: Colors.brandBorder }]}>
                   <Ionicons name="time-outline" size={16} color={Colors.brandPrimary} />
@@ -255,6 +278,9 @@ export function RacebookAccessSection({
           showDetailsLabel={copy.showDetailsLabel}
           hideDetailsLabel={copy.hideDetailsLabel}
           scheduleLabel={copy.scheduleLabel}
+          bookShuttleLabel={copy.bookShuttleLabel}
+          openLinkLabel={copy.openLinkLabel}
+          onOpenUrl={onOpenUrl}
         />
       ) : null}
     </>

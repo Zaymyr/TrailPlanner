@@ -125,7 +125,7 @@ The mobile Livret may separately load an owner's linked plan for personal reflec
 
 - Event grouping: multiple `races` can belong to one event.
 - Event image: `thumbnail_url` can be used as a shared event thumbnail; organizer and admin uploads pass through server routes that store a bounded, versioned WebP public Storage URL here.
-- RaceBook identity hero: mobile prefers the format thumbnail and falls back to this event thumbnail beneath the published primary-color gradient; this display choice does not alter image ownership or visibility.
+- RaceBook identity hero: mobile no longer draws the format or event thumbnail behind the identity (solid published primary color); thumbnails remain catalog imagery and their ownership or visibility is unchanged.
 - Event liveness: mobile and onboarding use event/race live state for course catalog visibility; it no longer determines Racebook visibility.
 - Edition liveness: `race_event_editions.is_visible` can hide one year by forcing only that edition's formats and Racebooks off while leaving the parent event and other years unchanged.
 - Organizer event: created catalog-visible, while its Racebook formats remain hidden until approved.
@@ -373,7 +373,7 @@ where is_live = true
 - Decorative location and access actions now use published edition accent variants. Personal Material completion is stored by exact `race_id` in `racebook_gear_checks`; neither change mutates event organizer metadata.
 - Interactive ravito points and fullscreen map/profile presentation are derived from format-scoped GPX and station data. They do not use the event anchor coordinates as route geometry and do not mutate event metadata.
 
-A format with at least one complete, effective supporter point counts as meaningful Livret coureur content. The `Suivi coureur` Course sub-tab is driven by that normalized public point collection rather than a separate module response, so a newer published snapshot cannot hide a valid point. The points remain owned by the child `races` row and are removed through its cascade, not stored in event organizer JSON.
+A format with at least one complete, effective supporter point counts as meaningful Livret coureur content. The runner `Où encourager` Course sub-tab (organizer module `Suivi coureur`) is driven by that normalized public point collection rather than a separate module response, so a newer published snapshot cannot hide a valid point. The points remain owned by the child `races` row and are removed through its cascade, not stored in event organizer JSON.
 
 The mobile catalog may hide the image rail when no event/format thumbnail exists and may warn before creating a plan for a past `race_date`. Both are derived presentation; they do not rewrite the event date, image, edition visibility, or publication state.
 
@@ -392,3 +392,5 @@ The mobile sheet retains stable distance ordering, adds distance-range typograph
 - [Mobile App](../../01-architecture/mobile-app.md)
 
 The mobile summary card now removes its image rail after an image load failure and uses the shared localized distance/range formatter. Neither behavior mutates event media, distances, dates, or visibility.
+
+RaceBook polish (2026-11-09): the runner hero no longer renders the format/event thumbnail behind the identity (solid organizer primary color only), omits the default `Solo` participation label, appends a `J-N`/`Aujourd'hui` countdown to the date line (hidden after race day), and moves its expanded block up with the collapse so titles never overlap and metrics are never clipped. Runner wording was simplified (`Où encourager`, `Barrière horaire`, `Sac d'allègement`, `Nourriture`, `Relais {n}`, weather-alert and partial-route sentences). Access transport notes turn pasted URLs into labelled buttons (`Réserver ma navette` / `Ouvrir le lien`) and bib pickup addresses without an organizer maps link fall back to a Google Maps search (`lib/racebookTextLinks.ts`). Profile cumulative tiles show `—` until the runner touches the curve.
