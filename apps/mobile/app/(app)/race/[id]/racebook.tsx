@@ -1338,7 +1338,8 @@ export default function RaceRacebookScreen() {
         ? [t.catalog.racebookParticipationSolo, t.catalog.racebookParticipationRelay]
         : [];
 
-  const raceCountdownDays = getDaysBeforeRace(data?.race.raceDate ?? null);
+  // A format without its own date counts down to the first day of the event range.
+  const raceCountdownDays = getDaysBeforeRace(data?.race.raceDate ?? data?.event.raceDate ?? null);
   const raceCountdownLabel = raceCountdownDays === null || raceCountdownDays < 0
     ? null
     : raceCountdownDays === 0
