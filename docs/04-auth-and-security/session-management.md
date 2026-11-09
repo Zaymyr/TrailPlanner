@@ -1,7 +1,7 @@
 ---
 title: Session Management
 scope: auth
-last_verified: 2026-09-16
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - apps/web/app/hooks/useVerifiedSession.tsx
@@ -51,7 +51,7 @@ Persisting a session dispatches:
 `useVerifiedSession` refreshes verification on:
 
 - initial mount;
-- page visibility/focus;
+- page visibility/focus, only when the last successful verification of the current stored token is older than five minutes (each verification costs two serverless calls: `/api/auth/session` and `/api/entitlements`);
 - browser storage changes;
 - `trailplanner:session-updated`;
 - periodic interval around 30 minutes.

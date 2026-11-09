@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 
 import { blogRedirectMap } from "./blog/redirects";
 import { legacyRedirectMap } from "./legacy-redirects";
+import { staticPathRedirects } from "../next.config.mjs";
 
 const WEB_DIRECTORY = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -80,6 +81,11 @@ describe("redirect integrity", () => {
       .map(([source, target]) => `${source} -> ${target}`);
 
     expect(missingTargets).toEqual([]);
+  });
+
+  it("serves every redirect from next.config (no middleware needed)", () => {
+    const redirectMap = { ...legacyRedirectMap, ...blogRedirectMap };
+    expect(Object.fromEntries(staticPathRedirects)).toEqual(redirectMap);
   });
 
   it("does not introduce redirect chains", () => {

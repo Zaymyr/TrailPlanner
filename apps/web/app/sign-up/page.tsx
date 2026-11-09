@@ -12,7 +12,7 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { persistSessionToStorage } from "../../lib/auth-storage";
 import { redirectToAppleOAuth, redirectToGoogleOAuth } from "../../lib/oauth";
-import { buildAuthCallbackPath, normalizeInternalReturnPath } from "../../lib/organizer-acquisition";
+import { buildAuthCallbackPath, readCurrentReturnPath } from "../../lib/organizer-acquisition";
 import { clearOnboardingFromLocalStorage, loadOnboardingFromLocalStorage } from "../../lib/supabase-onboarding";
 
 import { useI18n } from "../i18n-provider";
@@ -40,11 +40,7 @@ const createSignUpSchema = (authCopy: Translations["auth"]) =>
 
 type SignUpForm = z.infer<ReturnType<typeof createSignUpSchema>>;
 
-type SignUpPageProps = {
-  searchParams?: { next?: string | string[] };
-};
-
-export default function SignUpPage({ searchParams }: SignUpPageProps) {
+export default function SignUpPage() {
   const router = useRouter();
   const { t } = useI18n();
   const [formError, setFormError] = useState<string | null>(null);
@@ -52,7 +48,6 @@ export default function SignUpPage({ searchParams }: SignUpPageProps) {
   const [oauthError, setOauthError] = useState<string | null>(null);
 
   const signUpSchema = useMemo(() => createSignUpSchema(t.auth), [t]);
-  const returnPath = normalizeInternalReturnPath(searchParams?.next);
 
   const {
     register,
@@ -128,7 +123,7 @@ export default function SignUpPage({ searchParams }: SignUpPageProps) {
         }
 
         setFormMessage(t.auth.signUp.success);
-        router.push(returnPath as Route);
+        router.push(readCurrentReturnPath() as Route);
         router.refresh();
         return;
       }
@@ -149,7 +144,7 @@ export default function SignUpPage({ searchParams }: SignUpPageProps) {
     setOauthError(null);
 
     try {
-      redirectToGoogleOAuth(buildAuthCallbackPath(returnPath));
+      redirectToGoogleOAuth(buildAuthCallbackPath(readCurrentReturnPath()));
     } catch (error) {
       console.error("Unable to start Google sign up", error);
       setOauthError(error instanceof Error ? error.message : "Unable to start Google sign up.");
@@ -160,7 +155,7 @@ export default function SignUpPage({ searchParams }: SignUpPageProps) {
     setOauthError(null);
 
     try {
-      redirectToAppleOAuth(buildAuthCallbackPath(returnPath));
+      redirectToAppleOAuth(buildAuthCallbackPath(readCurrentReturnPath()));
     } catch (error) {
       console.error("Unable to start Apple sign up", error);
       setOauthError(error instanceof Error ? error.message : "Unable to start Apple sign up.");

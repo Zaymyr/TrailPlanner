@@ -50,6 +50,12 @@ type RefreshOptions = {
   afterCurrent?: boolean;
 };
 
+// Tab focus / visibility changes re-verify the session (two serverless calls:
+// /api/auth/session + /api/entitlements) only when the last successful check is
+// older than this. Explicit session updates, storage changes, the initial load and
+// the periodic refresh are not throttled.
+const FOCUS_REVERIFY_MIN_INTERVAL_MS = 5 * 60 * 1000;
+
 const VerifiedSessionContext = createContext<VerifiedSessionContextValue | null>(null);
 const RESEND_CONTACT_SYNCED_KEY_PREFIX = "trailplanner.resendContactSynced";
 const SESSION_VERIFICATION_TIMEOUT_MS = 10_000;
@@ -90,9 +96,11 @@ const useVerifiedSessionState = (): VerifiedSessionContextValue => {
   const [isEntitlementsLoading, setIsEntitlementsLoading] = useState(false);
   const refreshInFlight = useRef<Promise<boolean> | null>(null);
   const hasInitialized = useRef(false);
+  const lastVerified = useRef<{ accessToken: string; at: number } | null>(null);
 
   const clearSession = useCallback(() => {
     void fetch("/api/auth/signout", { method: "POST" }).catch(() => null);
+    lastVerified.current = null;
     clearStoredSession();
     clearRacePlannerStorage();
     setSession(null);
@@ -192,6 +200,7 @@ const useVerifiedSessionState = (): VerifiedSessionContextValue => {
         };
 
         setSession(nextSession);
+        lastVerified.current = { accessToken: nextAccessToken, at: Date.now() };
         void syncResendContactOnce(nextSession);
 
         setIsLoading(false);
@@ -223,14 +232,27 @@ const useVerifiedSessionState = (): VerifiedSessionContextValue => {
   }, [refresh]);
 
   useEffect(() => {
+    const refreshIfStale = () => {
+      const verified = lastVerified.current;
+      const stored = readStoredSession();
+      if (
+        verified &&
+        stored?.accessToken === verified.accessToken &&
+        Date.now() - verified.at < FOCUS_REVERIFY_MIN_INTERVAL_MS
+      ) {
+        return;
+      }
+      void refresh();
+    };
+
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        void refresh();
+        refreshIfStale();
       }
     };
 
     const handleFocus = () => {
-      void refresh();
+      refreshIfStale();
     };
 
     const handleSessionUpdated = () => {

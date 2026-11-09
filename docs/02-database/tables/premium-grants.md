@@ -1,7 +1,7 @@
 ---
 title: premium_grants Table
 scope: database
-last_verified: 2026-09-30
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - supabase/migrations/20260301090000_add_premium_grants.sql
@@ -97,7 +97,7 @@ values ('<user-id>', now(), 30, 'manual support grant', '<admin-user-id>');
 - Admin checks use trusted app metadata or server-side Auth verification, never `user_profiles.role` or `user_metadata`.
 - Keep mobile and web entitlement logic aligned when changing grant semantics.
 - Do not use a grant to model a EUR 9.99 course purchase; use the canonical `runner_plan_unlocks` ledger instead.
-- Mobile consumers share one entitlement refresh queue; the query still reads the current user's grants ordered by newest `starts_at` and resolves the first active window.
+- Mobile consumers share one entitlement refresh queue; the query still reads the current user's grants ordered by newest `starts_at` and resolves the first active window. Routine triggers (app foreground, `TOKEN_REFRESHED`) reuse a check younger than five minutes for the same user; sign-in/out and purchase/RevenueCat events still re-read immediately.
 
 ## Related Docs
 

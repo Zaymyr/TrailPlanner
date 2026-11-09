@@ -1,7 +1,7 @@
 ---
 title: Infrastructure
 scope: architecture
-last_verified: 2026-11-03
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - apps/web/.env.example
@@ -73,6 +73,7 @@ The Vercel Production environment tracks `main`. The long-lived Git branch `prev
   "buildCommand": "npm run build",
   "installCommand": "npm install --workspace @trailplanner/web --legacy-peer-deps --prefer-offline --no-audit --no-fund",
   "outputDirectory": ".next",
+  "regions": ["cdg1"],
   "crons": [
     {
       "path": "/api/cron/revenuecat-reconciliation",
@@ -88,6 +89,8 @@ It also redirects:
 - `www.pace-yourself.com/*` to `https://pace-yourself.com/*`
 - `trailplanner.app/*` to `https://pace-yourself.com/*`
 - `trail-planner.vercel.app/*` to `https://pace-yourself.com/*`
+
+Functions run in `cdg1` (Paris), next to the Supabase project in `eu-west-3`. The default `iad1` put a transatlantic round trip on every database call and kept functions alive (and billed) for the whole wait. The project is on the Hobby plan, whose Fluid compute allowance (notably 4 hours of Active CPU per month) is the binding limit; the web app therefore avoids per-request compute where a static or CDN response works: no `middleware.ts` (path redirects live in `next.config.mjs`), statically prerendered auth pages, a one-hour CDN TTL on purge-tagged public RaceBook routes, and throttled session/entitlement re-checks on web focus and mobile foreground.
 
 Because the Vercel project root is `apps/web`, the build command maps to the web workspace's `build` script and runs `next build`. npm still discovers the workspace root from that directory, so the install command explicitly selects `@trailplanner/web` while avoiding the unrelated Expo/mobile dependency graph. `npm install` is intentional here: unlike `npm ci`, it preserves a `node_modules` tree restored by Vercel's build cache; `--prefer-offline` prioritizes cached package data, while audit and funding requests are disabled during deployment. Server-only dependencies such as `pdf-lib` for organizer invoice rendering are included by this workspace-scoped install.
 
@@ -251,6 +254,8 @@ For local setup, copy `apps/web/.env.example` to the ignored `apps/web/.env.loca
 - Keep Vercel branch tracking aligned with the documented flow: Production follows `main`, while `preview/web` remains an ordinary Preview branch with a stable branch URL. Do not create a paid Custom Environment for this purpose.
 - Keep the `dependabot/**` Git deployment exclusion and its ignored-build fallback limited to that branch prefix. The merge commit on `main` must continue to trigger the single production deployment after a dependency batch is approved.
 - Keep every alternate production hostname on a permanent redirect to `https://pace-yourself.com`; temporary host redirects split canonical signals and should not be configured in the Vercel domain settings.
+- Keep `regions` on `cdg1`, co-located with Supabase `eu-west-3`. Moving functions away from the database lengthens every invocation and raises Fluid compute usage.
+- Do not reintroduce a root `middleware.ts` for static work. Middleware runs, and is billed as Fluid compute, on every matched page view in every edge region; static path redirects belong in `next.config.mjs` `redirects()`.
 - Keep the Vercel dependency install scoped to `@trailplanner/web`. Removing the workspace filter makes npm install every workspace, including the mobile Expo graph, even though Vercel builds only the web app. Do not replace it with `npm ci` without re-evaluating build timings because `npm ci` deletes the dependency tree restored from Vercel's cache.
 - The app sends events through the public Web and Expo PostHog keys. The admin dashboard still uses Supabase metrics only; the organizer statistics route separately reads one named PostHog Endpoint with a server-only `endpoint:read` key and a 15-minute Endpoint cache, then enriches the response with an exact event-favorite count from Supabase.
 - Never reuse a `NEXT_PUBLIC_` or `EXPO_PUBLIC_` PostHog token as `POSTHOG_API_KEY` or `POSTHOG_PERSONAL_API_KEY`, and never expose the server key in a bootstrap or analytics response. The API host must be the HTTPS PostHog application origin without a path or embedded credentials.

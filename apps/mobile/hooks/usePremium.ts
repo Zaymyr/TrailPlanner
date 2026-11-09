@@ -371,6 +371,23 @@ async function checkPremium(
     trialEndsAt,
     isLoading: false,
   });
+  lastCompletedPremiumCheck = { userId: uid, at: Date.now() };
+}
+
+// Each premium check calls two web API routes (/api/trial/status and
+// /api/entitlements), each a billed Vercel function run. Routine triggers —
+// app foregrounding and hourly token refreshes — reuse a check younger than this
+// for the same user. Sign-in/out, user changes and RevenueCat purchase events
+// always re-check immediately.
+const ROUTINE_PREMIUM_RECHECK_MIN_INTERVAL_MS = 5 * 60 * 1000;
+let lastCompletedPremiumCheck: { userId: string; at: number } | null = null;
+
+function hasFreshPremiumCheck(userId: string | null | undefined) {
+  return Boolean(
+    userId &&
+      lastCompletedPremiumCheck?.userId === userId &&
+      Date.now() - lastCompletedPremiumCheck.at < ROUTINE_PREMIUM_RECHECK_MIN_INTERVAL_MS,
+  );
 }
 
 function queuePremiumCheck(
@@ -427,15 +444,20 @@ function startPremiumMonitor() {
   const monitorGeneration = ++premiumMonitorGeneration;
   const {
     data: { subscription },
-  } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
+  } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
     const nextUser = session?.user ?? null;
+    // A token refresh keeps the same user and RevenueCat identity: nothing to re-attach.
+    if (event === 'TOKEN_REFRESHED' && hasFreshPremiumCheck(nextUser?.id)) return;
     void attachRevenueCatListener(nextUser);
     void queuePremiumCheck(nextUser);
   });
   const appStateSubscription = AppState.addEventListener('change', (nextState) => {
-    if (nextState === 'active') {
+    if (nextState !== 'active') return;
+    void (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (hasFreshPremiumCheck(data.session?.user?.id)) return;
       void queuePremiumCheck();
-    }
+    })();
   });
   const removePremiumStatusChangeListener = addPremiumStatusChangeListener(({ customerInfo }) => {
     void queuePremiumCheck(undefined, customerInfo);
@@ -446,6 +468,7 @@ function startPremiumMonitor() {
     revenueCatListenerGeneration += 1;
     premiumCheckVersion += 1;
     pendingPremiumCheck = null;
+    lastCompletedPremiumCheck = null;
     removeRevenueCatCustomerInfoListener?.();
     removeRevenueCatCustomerInfoListener = null;
     removePremiumStatusChangeListener();
