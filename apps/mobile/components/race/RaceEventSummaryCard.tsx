@@ -35,6 +35,8 @@ type RaceEventSummaryCardProps<T extends RaceEventSummaryRace> = {
   isFavorite?: boolean;
   allowOptimisticFavoriteToggle?: boolean;
   hasNewUpdate?: boolean;
+  /** Shown as a badge when at least one format has a published RaceBook. */
+  racebookAvailableLabel?: string | null;
   onToggleFavorite?: () => void;
   onOpenFormats: () => void;
 };
@@ -58,8 +60,9 @@ function getEventImageUrl(event: Pick<RaceEventSummaryEvent, 'thumbnail_url' | '
   return event.thumbnail_url ?? event.races.find((race) => race.thumbnail_url)?.thumbnail_url ?? null;
 }
 
-function formatElevation(elevationGainM: number | null) {
-  return elevationGainM === null ? 'D+ non renseigné' : `D+ ${Math.round(elevationGainM)} m`;
+function formatElevation(elevationGainM: number | null, locale: 'fr' | 'en') {
+  if (elevationGainM === null) return locale === 'fr' ? 'D+ inconnu' : 'D+ unknown';
+  return `D+ ${Math.round(elevationGainM)} m`;
 }
 
 function getEventDistanceRange(races: RaceEventSummaryRace[], locale: 'fr' | 'en') {
@@ -89,6 +92,7 @@ export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
   isFavorite = false,
   allowOptimisticFavoriteToggle = false,
   hasNewUpdate = false,
+  racebookAvailableLabel = null,
   onToggleFavorite,
   onOpenFormats,
 }: RaceEventSummaryCardProps<T>) {
@@ -179,6 +183,12 @@ export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
               </View>
             ) : null}
           </View>
+          {racebookAvailableLabel ? (
+            <View style={styles.racebookBadge} testID="race-event-racebook-badge">
+              <Ionicons color={Colors.brandPrimary} name="book-outline" size={12} />
+              <Text style={styles.racebookBadgeText}>{racebookAvailableLabel}</Text>
+            </View>
+          ) : null}
           {event.location || dateStr ? (
             <View style={styles.metaRow}>
               {event.location ? <Text numberOfLines={1} style={[styles.meta, styles.location]}>{event.location}</Text> : null}
@@ -228,7 +238,7 @@ export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
         {primaryRace && (event.races.length === 1 || showChooseFormatHint) ? (
           <Text style={styles.supportText} numberOfLines={2}>
             {event.races.length === 1
-              ? `${getRaceShortLabel(primaryRace.name, event.name)} • ${formatDistance(primaryRace.distance_km, locale)} • ${formatElevation(primaryRace.elevation_gain_m)}`
+              ? `${getRaceShortLabel(primaryRace.name, event.name)} • ${formatDistance(primaryRace.distance_km, locale)} • ${formatElevation(primaryRace.elevation_gain_m, locale)}`
               : chooseFormatHint}
           </Text>
         ) : null}
@@ -288,6 +298,22 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.5,
+  },
+  racebookBadge: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: Colors.surfaceSecondary,
+  },
+  racebookBadgeText: {
+    color: Colors.brandPrimary,
+    fontSize: 11,
+    fontWeight: '800',
   },
   meta: {
     fontSize: 13,

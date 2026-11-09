@@ -1,7 +1,7 @@
 ---
 title: race_event_updates Table
 scope: database
-last_verified: 2026-11-05
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
@@ -152,3 +152,5 @@ Private-demo selection changes only a format's RaceBook entry visibility; it doe
 - [Web App](../../01-architecture/web-app.md)
 
 Catalog image-error fallback and the edge-to-edge sticky search surface are client presentation changes only. They do not alter announcement scope, content, targeting, or lifecycle.
+
+Livret-first navigation (2026-11-09): the catalog ordering (upcoming before past, favorites pinned inside each group), the `Livret disponible` card badge and the RaceBook-first event-sheet actions are mobile presentation only. They read no new field and add no table, column, RLS policy or write path; organizer-update previews, deep links and read receipts are unchanged.

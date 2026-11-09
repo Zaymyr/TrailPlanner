@@ -35,29 +35,34 @@ export function CatalogLoadingCard() {
   );
 }
 
+/**
+ * One format of an event. The RaceBook is the primary (filled) action; the
+ * optional personal plan is a secondary (outlined) action.
+ */
 export function CatalogRaceRow({
   title,
   subtitle,
   isDimmed = false,
-  secondaryActionLabel,
-  secondaryActionDimmed = false,
-  secondaryActionDisabled = false,
-  onSecondaryPressIn,
-  onSecondaryPress,
-  primaryActionLabel,
-  onPrimaryPress,
+  racebookActionLabel,
+  racebookActionDimmed = false,
+  racebookActionDisabled = false,
+  onRacebookPressIn,
+  onRacebookPress,
+  planActionLabel,
+  onPlanPress,
 }: {
   title: string;
   subtitle: string;
   isDimmed?: boolean;
-  secondaryActionLabel?: string;
-  secondaryActionDimmed?: boolean;
-  secondaryActionDisabled?: boolean;
-  onSecondaryPressIn?: () => void;
-  onSecondaryPress?: () => void;
-  primaryActionLabel?: string;
-  onPrimaryPress?: () => void;
+  racebookActionLabel?: string;
+  racebookActionDimmed?: boolean;
+  racebookActionDisabled?: boolean;
+  onRacebookPressIn?: () => void;
+  onRacebookPress?: () => void;
+  planActionLabel?: string;
+  onPlanPress?: () => void;
 }) {
+  const racebookMuted = racebookActionDimmed || racebookActionDisabled;
   return (
     <View style={[styles.formatRow, isDimmed && styles.formatRowDimmed]}>
       <View style={styles.formatRowContent}>
@@ -65,26 +70,23 @@ export function CatalogRaceRow({
         <Text style={styles.formatSubtitle}>{subtitle}</Text>
       </View>
       <View style={styles.formatActions}>
-        {secondaryActionLabel && onSecondaryPress ? (
+        {racebookActionLabel && onRacebookPress ? (
           <TouchableOpacity
-            accessibilityState={{ disabled: secondaryActionDisabled }}
-            disabled={secondaryActionDisabled}
-            style={[
-              styles.formatSecondaryActionButton,
-              (secondaryActionDimmed || secondaryActionDisabled) && styles.formatSecondaryActionButtonDimmed,
-            ]}
-            onPressIn={onSecondaryPressIn}
-            onPress={onSecondaryPress}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: racebookActionDisabled }}
+            disabled={racebookActionDisabled}
+            style={[styles.formatRacebookButton, racebookMuted && styles.formatRacebookButtonDimmed]}
+            onPressIn={onRacebookPressIn}
+            onPress={onRacebookPress}
           >
-            <Text style={[
-              styles.formatSecondaryActionButtonText,
-              (secondaryActionDimmed || secondaryActionDisabled) && styles.formatSecondaryActionButtonTextDimmed,
-            ]}>{secondaryActionLabel}</Text>
+            <Text style={[styles.formatRacebookButtonText, racebookMuted && styles.formatRacebookButtonTextDimmed]}>
+              {racebookActionLabel}
+            </Text>
           </TouchableOpacity>
         ) : null}
-        {primaryActionLabel && onPrimaryPress ? (
-          <TouchableOpacity style={styles.formatActionButton} onPress={onPrimaryPress}>
-            <Text style={styles.formatActionButtonText}>{primaryActionLabel}</Text>
+        {planActionLabel && onPlanPress ? (
+          <TouchableOpacity accessibilityRole="button" style={styles.formatPlanButton} onPress={onPlanPress}>
+            <Text style={styles.formatPlanButtonText}>{planActionLabel}</Text>
           </TouchableOpacity>
         ) : null}
       </View>
@@ -243,13 +245,13 @@ const styles = StyleSheet.create({
   formatRowContent: { flex: 1, gap: 4 },
   formatTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700' },
   formatSubtitle: { color: Colors.textSecondary, fontSize: 13 },
-  formatActionButton: { flex: 1, minHeight: 44, borderRadius: 10, borderWidth: 1.5, borderColor: Colors.brandPrimary, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
-  formatActionButtonText: { color: Colors.brandPrimary, fontSize: 13, fontWeight: '700' },
   formatActions: { flexDirection: 'row', alignItems: 'center', gap: 8, width: '100%' },
-  formatSecondaryActionButton: { flex: 1, minHeight: 44, borderRadius: 10, borderWidth: 1.5, borderColor: Colors.brandPrimary, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
-  formatSecondaryActionButtonText: { color: Colors.brandPrimary, fontSize: 13, fontWeight: '700' },
-  formatSecondaryActionButtonDimmed: { borderColor: Colors.border, backgroundColor: Colors.surfaceSecondary },
-  formatSecondaryActionButtonTextDimmed: { color: Colors.textMuted },
+  formatRacebookButton: { flex: 3, minHeight: 44, borderRadius: 10, borderWidth: 1.5, borderColor: Colors.brandPrimary, backgroundColor: Colors.brandPrimary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  formatRacebookButtonText: { color: Colors.textOnBrand, fontSize: 13, fontWeight: '800' },
+  formatRacebookButtonDimmed: { borderColor: Colors.border, backgroundColor: Colors.surfaceSecondary },
+  formatRacebookButtonTextDimmed: { color: Colors.textMuted },
+  formatPlanButton: { flex: 2, minHeight: 44, borderRadius: 10, borderWidth: 1.5, borderColor: Colors.brandBorder, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  formatPlanButtonText: { color: Colors.brandPrimary, fontSize: 13, fontWeight: '700' },
   skeletonHeaderRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   skeletonBadge: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.surfaceSecondary },
   skeletonHeaderText: { flex: 1, gap: 8 },

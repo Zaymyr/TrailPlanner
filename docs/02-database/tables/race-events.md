@@ -393,4 +393,8 @@ The mobile sheet retains stable distance ordering, adds distance-range typograph
 
 The mobile summary card now removes its image rail after an image load failure and uses the shared localized distance/range formatter. Neither behavior mutates event media, distances, dates, or visibility.
 
+<<<<<<< HEAD
 RaceBook polish (2026-11-09): the runner hero no longer renders the format/event thumbnail behind the identity (solid organizer primary color only), omits the default `Solo` participation label, appends a `J-N`/`Aujourd'hui` countdown to the date line (hidden after race day), and moves its expanded block up with the collapse so titles never overlap and metrics are never clipped. Runner wording was simplified (`Où encourager`, `Barrière horaire`, `Sac d'allègement`, `Nourriture`, `Relais {n}`, weather-alert and partial-route sentences). Access transport notes turn pasted URLs into labelled buttons (`Réserver ma navette` / `Ouvrir le lien`) and bib pickup addresses without an organizer maps link fall back to a Google Maps search (`lib/racebookTextLinks.ts`). Profile cumulative tiles show `—` until the runner touches the curve.
+=======
+Livret-first navigation (2026-11-09): catalog cards add a `Livret disponible` badge computed from the existing format publication flags, upcoming events sort before past ones, and the event sheet makes the RaceBook the primary format action. `Mes courses` reads `id,name,location,race_date,thumbnail_url` plus format publication flags for followed live events. Presentation only: no column, RLS or visibility rule changes.
+>>>>>>> origin/dev/livret-first-navigation

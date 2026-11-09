@@ -1,7 +1,7 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-11-05
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - supabase/migrations/20261105180000_add_app_feedback_review.sql
@@ -51,7 +51,7 @@ related_tables:
 
 The versioned RaceBook publication cluster is the current multi-table service-only example. `racebook_publication_states`, immutable `racebook_publications`, retained asset references and the cleanup queue all enable RLS without client policies, revoke client privileges, and expose only narrowly granted `SECURITY INVOKER` RPCs. When rollout requires existing public rows, build and validate the initial snapshot in the same migration before enabling snapshot-only reads; a state-only backfill is insufficient.
 
-Presentation-only mobile changes that touch files referenced by `schema-overview.md` (such as the Courses card image placeholder) still update that overview's note, but add no table and need no migration.
+Presentation-only mobile changes that touch files referenced by `schema-overview.md` (such as the Courses card image placeholder, or the 2026-11-09 livret-first catalog ordering and `Livret disponible` badge) still update that overview's note, but add no table and need no migration.
 
 ## Purpose
 

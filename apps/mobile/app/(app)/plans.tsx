@@ -1,10 +1,9 @@
-import { useCallback, useRef } from 'react';
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { colors } from '@pace-yourself/design-system';
-import { useFocusEffect } from 'expo-router';
-import { Animated, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useCallback, useMemo, useRef } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { Animated, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { FollowedRacesSection } from '../../components/plans/FollowedRacesSection';
 import { PlansList } from '../../components/plans/PlansList';
 import {
   ROOT_HEADER_EXPANDED_BODY_HEIGHT,
@@ -18,11 +17,18 @@ import { ErrorState } from '../../components/themed/ErrorState';
 import { LoadingState } from '../../components/themed/LoadingState';
 import { Screen } from '../../components/themed/Screen';
 import { Text } from '../../components/themed/Text';
+import { useFollowedRaces } from '../../hooks/useFollowedRaces';
 import { usePlansScreen } from '../../hooks/usePlansScreen';
 import { FREE_PLAN_LIMIT } from '../../lib/planAccess';
 
+/**
+ * "Mes courses": upcoming followed races first (RaceBook-led), then the
+ * optional personal plans grouped by event. The route stays `plans`.
+ */
 export default function PlansScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const followedEvents = useFollowedRaces();
   const scrollY = useRef(new Animated.Value(0)).current;
   useFocusEffect(useCallback(() => {
     scrollY.stopAnimation();
@@ -48,7 +54,6 @@ export default function PlansScreen() {
     handleDelete,
     toggleSection,
     handleBrowseRaces,
-    handleStartFreeTraining,
     handleOpenGuestAccountUpgrade,
     handleOpenEditPlan,
     handleRenamePlan,
@@ -58,6 +63,20 @@ export default function PlansScreen() {
     handleOpenLockedPlan,
     closePremiumModal,
   } = usePlansScreen();
+  // Events that already carry a plan are listed in their plan section instead.
+  const followedEventsWithoutPlan = useMemo(() => {
+    const plannedEventIds = new Set(
+      sections.flatMap((section) => section.data.map((plan) => plan.races?.race_events?.id).filter(Boolean)),
+    );
+    return followedEvents.filter((event) => !plannedEventIds.has(event.id));
+  }, [followedEvents, sections]);
+  const hasFollowedRaces = followedEventsWithoutPlan.length > 0;
+  const handleOpenFollowedEvent = useCallback((eventId: string) => {
+    router.push({ pathname: '/(app)/catalog', params: { eventId } });
+  }, [router]);
+  const handleOpenRacebook = useCallback((raceId: string) => {
+    router.push({ pathname: '/(app)/race/[id]/racebook', params: { id: raceId, returnTo: 'plans' } });
+  }, [router]);
   const rootHelpAction = (
     <RootScreenActionMenu
       contextLabel={t.plans.title}
@@ -126,8 +145,8 @@ export default function PlansScreen() {
             .replace('{seconds}', String(seconds).padStart(2, '0')),
         }}
         departureLabel={t.plans.departureLabel}
-        emptySubtitle={t.plans.emptySubtitle}
-        emptyTitle={t.plans.empty}
+        emptySubtitle={hasFollowedRaces ? t.plans.emptyPlansOptionalSubtitle : t.plans.emptySubtitle}
+        emptyTitle={hasFollowedRaces ? t.plans.emptyPlansOptionalTitle : t.plans.empty}
         inProgressLabel={t.plans.inProgress}
         isPremium={isPremium}
         accessiblePlanIds={accessiblePlanIds}
@@ -148,22 +167,19 @@ export default function PlansScreen() {
         refreshing={refreshing}
         sharingPlanId={sharingPlanId}
         sections={sections}
+        onOpenRacebook={handleOpenRacebook}
+        racebookButtonLabel={t.catalog.racebookCta}
         listHeaderComponent={
           <>
-            <TouchableOpacity activeOpacity={0.86} onPress={handleStartFreeTraining} style={styles.trainingCta}>
-              <View style={styles.trainingCtaIcon}>
-                <Ionicons color={colors.text.inverse} name="walk-outline" size={20} />
-              </View>
-              <View style={styles.trainingCtaCopy}>
-                <Text tone="brand" size="base" weight="bold">
-                  {t.trainingLive.menuLabel}
-                </Text>
-                <Text tone="secondary" size="sm" lineHeight="normal">
-                  {t.trainingLive.introTitle}
-                </Text>
-              </View>
-              <Ionicons color={colors.brand.forest} name="chevron-forward" size={20} />
-            </TouchableOpacity>
+            <FollowedRacesSection
+              events={followedEventsWithoutPlan}
+              locale={locale}
+              title={t.plans.followedTitle}
+              subtitle={t.plans.followedSubtitle}
+              racebookLabel={t.catalog.racebookCta}
+              noRacebookLabel={t.catalog.viewFormats}
+              onOpenEvent={handleOpenFollowedEvent}
+            />
 
             {isAnonymous ? (
               <Card surface="cream" style={styles.guestBanner}>
@@ -216,30 +232,6 @@ const styles = StyleSheet.create({
   },
   guestBanner: {
     gap: 14,
-  },
-  trainingCta: {
-    minHeight: 58,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border.brand,
-    backgroundColor: colors.surface.white,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  trainingCtaIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.brand.forest,
-  },
-  trainingCtaCopy: {
-    flex: 1,
-    gap: 3,
   },
   guestBannerCopy: {
     gap: 6,

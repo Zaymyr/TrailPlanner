@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ErrorState } from '../../components/themed/ErrorState';
@@ -82,7 +83,9 @@ export default function NutritionScreen() {
     handleUpdateSelectedProduct,
     handleDeleteSelectedProduct,
   } = useNutritionScreen();
-  const rootHelpAction = (
+  // Nutrition is no longer a root tab: during plan onboarding it keeps the help
+  // menu, otherwise it is a pushed screen (Profil or plan workspace) with a back action.
+  const rootHelpAction = onboarding === 'plan' ? (
     <RootScreenActionMenu
       contextLabel="Nutrition"
       help={{
@@ -92,6 +95,17 @@ export default function NutritionScreen() {
       }}
       topInset={insets.top}
     />
+  ) : (
+    <Pressable
+      accessibilityLabel={t.common.back}
+      accessibilityRole="button"
+      hitSlop={6}
+      onPress={() => (router.canGoBack() ? router.back() : router.replace('/(app)/profile'))}
+      style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
+      testID="nutrition-back"
+    >
+      <Ionicons color={Colors.textOnBrand} name="chevron-back" size={24} />
+    </Pressable>
   );
 
   async function continuePlanOnboarding() {
@@ -117,7 +131,8 @@ export default function NutritionScreen() {
     setOnboardingBusy(true);
     try {
       await skipOnboardingKind('plan', 'nutrition');
-      router.replace('/(app)/nutrition');
+      // Nutrition is not a root tab anymore: leave the guided step to "Mes courses".
+      router.replace('/(app)/plans');
     } finally {
       setOnboardingBusy(false);
     }
@@ -251,6 +266,17 @@ export default function NutritionScreen() {
 }
 
 const styles = StyleSheet.create({
+  backButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.34)',
+    backgroundColor: 'rgba(0,0,0,0.16)',
+  },
+  backButtonPressed: { opacity: 0.68 },
   screen: {
     flex: 1,
     backgroundColor: Colors.background,

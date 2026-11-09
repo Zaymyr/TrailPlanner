@@ -91,29 +91,13 @@ tags:
       - tapOn:
           text: Dismiss
           optional: true
-- takeScreenshot: 04-plans-top
+- takeScreenshot: 04-my-races-top
 - swipe:
     direction: UP
     duration: 500
-- takeScreenshot: 05-plans-scroll
-- tapOn:
-    id: nav-tab-nutrition
-- waitForAnimationToEnd
-- runFlow:
-    when:
-      true: ${DISMISS_LOGBOX === "true"}
-    commands:
-      - tapOn:
-          text: Dismiss
-          optional: true
-      - tapOn:
-          text: Dismiss
-          optional: true
-- takeScreenshot: 06-nutrition-top
-- swipe:
-    direction: UP
-    duration: 500
-- takeScreenshot: 07-nutrition-scroll
+- takeScreenshot: 05-my-races-scroll
+# Nutrition is no longer a root tab: the product catalog is reached from
+# Profil > Mon plan > Mes produits and from the plan workspace.
 - tapOn:
     id: nav-tab-profile
 - waitForAnimationToEnd

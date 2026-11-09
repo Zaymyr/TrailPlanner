@@ -1293,6 +1293,7 @@ export default function OnboardingScreen() {
         subtitle={copy.choiceSubtitle}
         planTitle={copy.planChoiceTitle}
         planBody={copy.planChoiceBody}
+        planOptionalLabel={copy.planOptionalLabel}
         racebookTitle={copy.racebookChoiceTitle}
         racebookBody={copy.racebookChoiceBody}
         discoverLaterLabel={copy.discoverLater}
