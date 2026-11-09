@@ -1,9 +1,11 @@
 ---
 title: racebook_publications
 scope: database
-last_verified: 2026-11-03
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
+  - apps/web/lib/racebook-publication-checks.ts
+  - apps/web/lib/racebook-partner-slots.ts
   - supabase/migrations/20261103123918_racebook_versioned_publications.sql
   - supabase/migrations/20261103124133_index_racebook_publication_foreign_keys.sql
   - supabase/tests/racebook_versioned_publications_checks.sql
@@ -82,3 +84,6 @@ limit 10;
 - [racebook_publication_states](racebook-publication-states.md)
 - [racebook_publication_assets](racebook-publication-assets.md)
 
+## Partner slots and publication checks (2026-11-09)
+
+Snapshot schema version 1 gains an optional `partnerSlots` array (`{ slot, mode, partner }`, partner with sponsor id, name, logo, destination and headline). It is filled only when the effective `sponsors` module is on; absent in older rows, it parses to `[]` (affiliate defaults). Partner logos join `assets.imageUrls`; `publicSnapshot` strips `destinationUrl`. Change descriptions list `Emplacements partenaires`. Publication routes run the pre-publication checks on the built snapshot and refuse blocking issues with 409 before calling `publish_racebook_snapshot(s)`; the RPCs and stored columns are unchanged.

@@ -427,8 +427,10 @@ Opening the organizer publication confirmation, its changed-field list, or the `
 
 The admin "Messagerie" tab (bugs, feedback, race requests) and the prefilled greeting and signature of the Users tab message add no PostHog event; replies are audited in `user_notifications` and its delivery columns. The mobile inbox contact buttons reuse the existing feedback and race-request forms, and hiding a message emits no event.
 
-<<<<<<< HEAD
 RaceBook polish (2026-11-09): the runner hero no longer renders the format/event thumbnail behind the identity (solid organizer primary color only), omits the default `Solo` participation label, appends a `J-N`/`Aujourd'hui` countdown to the date line (hidden after race day), and moves its expanded block up with the collapse so titles never overlap and metrics are never clipped. Runner wording was simplified (`Où encourager`, `Barrière horaire`, `Sac d'allègement`, `Nourriture`, `Relais {n}`, weather-alert and partial-route sentences). Access transport notes turn pasted URLs into labelled buttons (`Réserver ma navette` / `Ouvrir le lien`) and bib pickup addresses without an organizer maps link fall back to a Google Maps search (`lib/racebookTextLinks.ts`). Profile cumulative tiles show `—` until the runner touches the curve. Opening an access-note link reuses the existing external-URL path and bib pickup directions reuse the existing `map_opened` action with `bib_<location>` context; no new event or property is added.
-=======
+
 Livret-first navigation (2026-11-09): the new `Mes courses` followed-race cards, the plan-card `Livret coureur` action, the profile `Pour mon plan` shortcuts and the reordered onboarding choice add no analytics event and change no payload; existing catalog, RaceBook and onboarding events keep their names and properties.
->>>>>>> origin/dev/livret-first-navigation
+
+## Partner slot reporting (2026-11-09)
+
+Organizer partner slots report only aggregate counters: `POST /api/racebook-partner-slots/impression` (one per reader session and slot once its tab is shown) and the counted click redirect. Presses on an organizer partner card do not emit `racebook action clicked`; default affiliate presses keep `partner_decathlon` / `partner_booking`. The publish dialog checks add no analytics event.

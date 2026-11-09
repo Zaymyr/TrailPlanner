@@ -277,8 +277,8 @@ For RaceBook or plan-workspace changes, verify two-line hero titles at 100% and 
 
 - Inbox actions: the Notifications sub-tab reuses `FeedbackHeaderButton` (`initialKind`) and `RaceRequestHeaderButton` through their render-prop `children` instead of new forms, and deletes a message by hiding it (`deleted_at`), never with a client DELETE.
 
-<<<<<<< HEAD
 RaceBook polish (2026-11-09): the runner hero no longer renders the format/event thumbnail behind the identity (solid organizer primary color only), omits the default `Solo` participation label, appends a `J-N`/`Aujourd'hui` countdown to the date line (hidden after race day), and moves its expanded block up with the collapse so titles never overlap and metrics are never clipped. Runner wording was simplified (`Où encourager`, `Barrière horaire`, `Sac d'allègement`, `Nourriture`, `Relais {n}`, weather-alert and partial-route sentences). Access transport notes turn pasted URLs into labelled buttons (`Réserver ma navette` / `Ouvrir le lien`) and bib pickup addresses without an organizer maps link fall back to a Google Maps search (`lib/racebookTextLinks.ts`). Profile cumulative tiles show `—` until the runner touches the curve. This is runner presentation only: no row, contract or tracking of this domain changes.
-=======
+
 Livret-first navigation (2026-11-09): when a screen leaves the tab bar, keep its route registered with `href: null` so deep links and pushes keep working, and give it a leading back action in place of `RootScreenActionMenu`. Plan-only entry points (products, free training) belong in Profil > Mon plan or the plan workspace, not in a root tab.
->>>>>>> origin/dev/livret-first-navigation
+
+When a RaceBook card can be replaced by an organizer partner slot, keep the affiliate card component and override its copy/logo from `sponsorPresentation.partnerSlots`; organizer partner presses use the counted redirect and stay out of identified analytics.

@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 
 import { Colors } from '../../constants/colors';
 import { getRacebookGearItemKey, type RacebookGearGroupKey } from '../../lib/racebookGearChecklist';
@@ -40,6 +40,8 @@ export type RacebookGearSectionProps = {
   pendingItemKeys: ReadonlySet<string>;
   onToggleItem: (itemKey: string, checked: boolean) => void;
   decathlonLink?: { isAffiliate: boolean } | null;
+  /** Logo of an organizer partner replacing the default affiliate card. */
+  decathlonLogoUrl?: string | null;
   onOpenDecathlonLink?: () => void;
 };
 
@@ -154,6 +156,7 @@ export function RacebookGearSection({
   pendingItemKeys = EMPTY_ITEM_KEYS,
   onToggleItem = NOOP_TOGGLE,
   decathlonLink = null,
+  decathlonLogoUrl = null,
   onOpenDecathlonLink = NOOP_TOGGLE,
 }: RacebookGearSectionProps) {
   const hasItems = requiredItems.length + recommendedItems.length + weatherItems.length > 0;
@@ -198,9 +201,15 @@ export function RacebookGearSection({
             onPress={onOpenDecathlonLink}
             style={({ pressed }) => [styles.decathlonLink, pressed ? styles.gearRowPressed : null]}
           >
-            <View style={styles.decathlonIcon}>
-              <Ionicons color={Colors.textOnBrand} name="bag-handle-outline" size={20} />
-            </View>
+            {decathlonLogoUrl ? (
+              <View style={styles.partnerLogoFrame}>
+                <Image accessibilityIgnoresInvertColors resizeMode="contain" source={{ uri: decathlonLogoUrl }} style={styles.partnerLogo} />
+              </View>
+            ) : (
+              <View style={styles.decathlonIcon}>
+                <Ionicons color={Colors.textOnBrand} name="bag-handle-outline" size={20} />
+              </View>
+            )}
             <View style={styles.decathlonContent}>
               <Text style={styles.decathlonTitle}>{copy.decathlonTitle}</Text>
               <Text style={styles.decathlonDescription}>{copy.decathlonDescription}</Text>
@@ -237,6 +246,8 @@ const styles = StyleSheet.create({
   progressText: { flex: 1, color: Colors.textSecondary, fontSize: 14, lineHeight: 18, fontWeight: '800' },
   progressTextComplete: { color: Colors.brandPrimary },
   decathlonLink: { minHeight: 84, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: Colors.brandBorder, backgroundColor: Colors.brandSurface },
+  partnerLogoFrame: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 12, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface, padding: 4 },
+  partnerLogo: { width: '100%', height: '100%' },
   decathlonIcon: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: Colors.brandPrimary },
   decathlonContent: { flex: 1, gap: 2 },
   decathlonTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700' },

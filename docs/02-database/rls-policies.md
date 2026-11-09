@@ -1,7 +1,7 @@
 ---
 title: RLS Policies
 scope: database
-last_verified: 2026-11-05
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -60,6 +60,7 @@ related_files:
   - apps/web/app/api/plan-shares/route.ts
   - apps/web/app/api/plan-shares/crew-state/route.ts
 related_tables:
+  - race_event_edition_partner_slots
   - race_plans
   - organizer_import_sessions
   - plan_share_links
@@ -478,3 +479,5 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - [Plan Share Links](tables/plan-share-links.md)
 - [Race Slug Redirects](tables/race-slug-redirects.md)
 - [Organizer Race Management](../03-business-rules/organizer-race-management.md)
+
+`race_event_edition_partner_slots`: RLS enabled, no client policy or privilege; `service_role` only. `increment_racebook_partner_slot_metric` is invoker-security, empty search path, service-role execute only. See [race_event_edition_partner_slots](tables/race-event-edition-partner-slots.md).

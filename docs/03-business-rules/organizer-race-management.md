@@ -6,6 +6,10 @@ last_verified: 2026-11-09
 
 ai_priority: high
 related_files:
+  - apps/web/lib/racebook-publication-checks.ts
+  - apps/web/lib/racebook-publication-checks.test.ts
+  - apps/web/app/organizer/_components/dashboard/publication-review.tsx
+  - apps/web/app/organizer/_components/dashboard/partner-slots-editor.tsx
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
   - supabase/migrations/20260907170842_fix_structured_racebook_rls_dependencies.sql
   - supabase/migrations/20261029110000_add_plan_source_revisions.sql
@@ -686,3 +690,16 @@ Address suggestions in every organizer location field now come from Photon and N
 Progressive plan disclosure (2026-11-09): the plan is optional in the RaceBook. Runners without an owned plan for the format see no `Livret officiel | Mon plan` switch, no `Temps prévu`/`Allure` hero metrics and an unattached hero; the only plan entry is the discreet `RacebookPlanInviteCard` at the end of the Course route/ravitos sub-tabs (hidden in guided RaceBook onboarding, for past races and when D+ is unknown). Once a plan exists, the switch (labelled `Mon plan`) and plan metrics appear and the plan keeps enriching the Livret. This is runner presentation only: it reads and writes no row of this domain.
 
 RaceBook polish (2026-11-09): the runner hero no longer renders the format/event thumbnail behind the identity (solid organizer primary color only), omits the default `Solo` participation label, appends a `J-N`/`Aujourd'hui` countdown to the date line (hidden after race day), and moves its expanded block up with the collapse so titles never overlap and metrics are never clipped. Runner wording was simplified (`Où encourager`, `Barrière horaire`, `Sac d'allègement`, `Nourriture`, `Relais {n}`, weather-alert and partial-route sentences). Access transport notes turn pasted URLs into labelled buttons (`Réserver ma navette` / `Ouvrir le lien`) and bib pickup addresses without an organizer maps link fall back to a Google Maps search (`lib/racebookTextLinks.ts`). Profile cumulative tiles show `—` until the runner touches the curve. This is runner presentation only: no row, contract or tracking of this domain changes.
+
+## Pre-publication checks
+
+Before a format or edition publication, the server builds the draft snapshot and runs the pure checks of `apps/web/lib/racebook-publication-checks.ts` (edition dates read from `race_event_editions`):
+
+- **Blocking**: an aid station still named `Nouveau ravito` (the editor's default) or with an empty name; an intermediate aid station at kilometre 0 or less (it duplicates the start card). `POST /api/organizer/races/:id/publications` answers 409 with `checks`; the edition bulk route answers 409 with the blocked format names and publishes nothing.
+- **Warnings (never block)**: one place name (accent-, punctuation- and `St`/`Saint`-insensitive) used by a ravito and a supporter point more than 0.5 km apart (supporter points between ravitos stay legitimate); a format date outside the edition start/end dates; event/format names, locations or course points starting with a lowercase letter.
+
+`GET .../publications?includeChanges=true` returns `checks` and a `partnerSlots` summary; the publish dialog (`publication-review.tsx`) shows blocking items in red (Publish disabled), warnings in amber, and the slots that will still show Pace Yourself affiliate links with an invitation to replace them (Signature).
+
+## Partner slots (emplacements partenaires)
+
+The Matériel (Decathlon) and Services hébergement (Booking.com) cards are partner slots. They show the Pace Yourself affiliate link by default. With Signature and the selected `sponsors` module, the Sponsors section exposes `Emplacements partenaires`: per slot the organizer keeps the affiliate link, picks one of their edition sponsors (with an optional 120-character text) or hides the card, and sees per-slot views and clicks. Choices are draft content published with the RaceBook snapshot. See [race_event_edition_partner_slots](../02-database/tables/race-event-edition-partner-slots.md).

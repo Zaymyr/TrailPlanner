@@ -82,6 +82,7 @@ import {
   EMPTY_RACEBOOK_SPONSORS,
   fetchRacebookSponsors,
   RACEBOOK_SPONSOR_MINIMUM_MS,
+  reportRacebookPartnerSlotImpression,
   reportRacebookSponsorImpression,
   type RacebookSponsorImpression,
   type RacebookSponsorPresentation,
@@ -1207,14 +1208,24 @@ export default function RaceRacebookScreen() {
         : null),
     }));
   }, [data]);
-  const bookingPartnerLinks = useMemo(
-    () => partnerLinks.filter((link) => link.partnerKey === 'booking'),
-    [partnerLinks],
-  );
-  const decathlonPartnerLink = useMemo(
-    () => partnerLinks.find((link) => link.partnerKey === 'decathlon') ?? null,
-    [partnerLinks],
-  );
+  // Partner slots: the Pace Yourself affiliate card by default, replaced by
+  // the organizer's partner or hidden when the edition has the Signature option.
+  const equipmentPartnerSlot = sponsorPresentation.partnerSlots.equipment;
+  const lodgingPartnerSlot = sponsorPresentation.partnerSlots.lodging;
+  const bookingPartnerLinks = useMemo(() => {
+    if (lodgingPartnerSlot.mode === 'hidden') return [];
+    if (lodgingPartnerSlot.mode === 'partner') {
+      return [{ partnerKey: 'booking' as const, url: lodgingPartnerSlot.clickUrl ?? '', isAffiliate: false }];
+    }
+    return partnerLinks.filter((link) => link.partnerKey === 'booking');
+  }, [lodgingPartnerSlot, partnerLinks]);
+  const decathlonPartnerLink = useMemo(() => {
+    if (equipmentPartnerSlot.mode === 'hidden') return null;
+    if (equipmentPartnerSlot.mode === 'partner') {
+      return { partnerKey: 'decathlon' as const, url: equipmentPartnerSlot.clickUrl ?? '', isAffiliate: false };
+    }
+    return partnerLinks.find((link) => link.partnerKey === 'decathlon') ?? null;
+  }, [equipmentPartnerSlot, partnerLinks]);
 
   const awardsByTime = useMemo(() => {
     const groups = new Map<string, NonNullable<typeof data>['awards']>();
@@ -1872,6 +1883,23 @@ export default function RaceRacebookScreen() {
     void reportRacebookSponsorImpression(id, sponsorViewId, impression);
   }, [id, sponsorViewId]);
 
+  // Organizer partner slots count one aggregate view per reader session once
+  // their tab is shown; affiliate defaults are not counted here.
+  const reportedPartnerSlotsRef = useRef(new Set<string>());
+  useEffect(() => {
+    if (!id || showLoading) return;
+    const visibleSlot = activeTab === 'gear' && equipmentPartnerSlot.mode === 'partner'
+      ? 'equipment'
+      : activeTab === 'services' && lodgingPartnerSlot.mode === 'partner'
+        ? 'lodging'
+        : null;
+    if (!visibleSlot) return;
+    const key = `${id}:${visibleSlot}`;
+    if (reportedPartnerSlotsRef.current.has(key)) return;
+    reportedPartnerSlotsRef.current.add(key);
+    void reportRacebookPartnerSlotImpression(id, sponsorViewId, visibleSlot);
+  }, [activeTab, equipmentPartnerSlot.mode, id, lodgingPartnerSlot.mode, showLoading, sponsorViewId]);
+
   useEffect(() => {
     navigation.setOptions({ headerRight: showLoading ? () => null : undefined });
     return () => navigation.setOptions({ headerRight: undefined });
@@ -2076,8 +2104,13 @@ export default function RaceRacebookScreen() {
                 pendingItemKeys={pendingGearItemKeys}
                 onToggleItem={toggleGearItem}
                 decathlonLink={decathlonPartnerLink}
+                decathlonLogoUrl={equipmentPartnerSlot.mode === 'partner' ? equipmentPartnerSlot.logoUrl : null}
                 onOpenDecathlonLink={() => {
-                  if (decathlonPartnerLink) {
+                  if (equipmentPartnerSlot.mode === 'partner') {
+                    // Organizer partner presses stay out of identified analytics; the
+                    // counted redirect records the aggregate click.
+                    if (equipmentPartnerSlot.clickUrl) openExternalUrl(equipmentPartnerSlot.clickUrl);
+                  } else if (decathlonPartnerLink) {
                     openTrackedUrl(decathlonPartnerLink.url, 'partner_decathlon', 'equipment');
                   }
                 }}
@@ -2091,9 +2124,9 @@ export default function RaceRacebookScreen() {
                   checkedLabel: t.catalog.racebookGearChecked,
                   uncheckedLabel: t.catalog.racebookGearUnchecked,
                   progressLabel: t.catalog.racebookGearProgress,
-                  decathlonTitle: t.catalog.racebookDecathlonTitle,
-                  decathlonDescription: t.catalog.racebookDecathlonDescription,
-                  decathlonAction: t.catalog.racebookDecathlonAction,
+                  decathlonTitle: equipmentPartnerSlot.mode === 'partner' ? equipmentPartnerSlot.name : t.catalog.racebookDecathlonTitle,
+                  decathlonDescription: equipmentPartnerSlot.mode === 'partner' ? equipmentPartnerSlot.headline ?? '' : t.catalog.racebookDecathlonDescription,
+                  decathlonAction: equipmentPartnerSlot.mode === 'partner' ? t.catalog.racebookSponsorDiscover : t.catalog.racebookDecathlonAction,
                   affiliateDisclosure: t.catalog.racebookAffiliateDisclosure,
                 }}
               />
@@ -2441,6 +2474,7 @@ export default function RaceRacebookScreen() {
                   value: section.value,
                 }))}
                 partnerLinks={bookingPartnerLinks}
+                partnerLogoUrls={lodgingPartnerSlot.mode === 'partner' ? { booking: lodgingPartnerSlot.logoUrl } : undefined}
                 onOpenUrl={(url, action, service) => {
                   const trackedAction = action === 'directions'
                     ? 'service_directions'
@@ -2450,6 +2484,10 @@ export default function RaceRacebookScreen() {
                   openTrackedUrl(url, trackedAction, service.category);
                 }}
                 onOpenPartnerLink={(link) => {
+                  if (link.partnerKey === 'booking' && lodgingPartnerSlot.mode === 'partner') {
+                    if (lodgingPartnerSlot.clickUrl) openExternalUrl(lodgingPartnerSlot.clickUrl);
+                    return;
+                  }
                   openTrackedUrl(link.url, `partner_${link.partnerKey}`, 'services');
                 }}
                 copy={{
@@ -2460,7 +2498,11 @@ export default function RaceRacebookScreen() {
                   partnerLinksTitle: t.catalog.racebookPartnerLinksTitle,
                   affiliateDisclosure: t.catalog.racebookAffiliateDisclosure,
                   partnerLinks: {
-                    booking: {
+                    booking: lodgingPartnerSlot.mode === 'partner' ? {
+                      title: lodgingPartnerSlot.name,
+                      description: lodgingPartnerSlot.headline ?? '',
+                      actionLabel: t.catalog.racebookSponsorDiscover,
+                    } : {
                       title: t.catalog.racebookBookingTitle,
                       description: t.catalog.racebookBookingDescription,
                       actionLabel: t.catalog.racebookBookingAction,

@@ -6,6 +6,7 @@ last_verified: 2026-11-09
 
 ai_priority: high
 related_files:
+  - apps/web/lib/racebook-partner-slots.ts
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
   - supabase/migrations/20260924093224_add_racebook_sponsor_presentation_analytics.sql
   - supabase/migrations/20260829204032_seed_trail_tst_sponsors.sql
@@ -172,3 +173,7 @@ RaceBook hero sizing, plan-switch deduplication, and shared numeric formatting d
 Progressive plan disclosure (2026-11-09): the plan is optional in the RaceBook. Runners without an owned plan for the format see no `Livret officiel | Mon plan` switch, no `Temps prévu`/`Allure` hero metrics and an unattached hero; the only plan entry is the discreet `RacebookPlanInviteCard` at the end of the Course route/ravitos sub-tabs (hidden in guided RaceBook onboarding, for past races and when D+ is unknown). Once a plan exists, the switch (labelled `Mon plan`) and plan metrics appear and the plan keeps enriching the Livret. This is runner presentation only: it reads and writes no row of this domain.
 
 RaceBook polish (2026-11-09): the runner hero no longer renders the format/event thumbnail behind the identity (solid organizer primary color only), omits the default `Solo` participation label, appends a `J-N`/`Aujourd'hui` countdown to the date line (hidden after race day), and moves its expanded block up with the collapse so titles never overlap and metrics are never clipped. Runner wording was simplified (`Où encourager`, `Barrière horaire`, `Sac d'allègement`, `Nourriture`, `Relais {n}`, weather-alert and partial-route sentences). Access transport notes turn pasted URLs into labelled buttons (`Réserver ma navette` / `Ouvrir le lien`) and bib pickup addresses without an organizer maps link fall back to a Google Maps search (`lib/racebookTextLinks.ts`). Profile cumulative tiles show `—` until the runner touches the curve. This is runner presentation only: no row, contract or tracking of this domain changes.
+
+## Partner slots (2026-11-09)
+
+[`race_event_edition_partner_slots`](race-event-edition-partner-slots.md) reuses sponsor rows as the organizer partner of the Matériel and hébergement slots. The new `unique (edition_id, id)` constraint backs its same-edition composite FK; deleting a sponsor cascades to its slot row. Slot views/clicks are counted on the slot row, not on the sponsor counters, so a sponsor also shown in the banner keeps separate reporting. A slot-only sponsor may stay inactive.

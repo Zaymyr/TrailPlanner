@@ -5,6 +5,7 @@ import {
   LEGACY_RACEBOOK_MODULES,
   createRacebookSponsorImpressionReporter,
   isRacebookSponsorSurfaceViewable,
+  normalizeRacebookPartnerSlots,
   normalizeRacebookSponsorPresentation,
 } from './racebookSponsorPresentation';
 
@@ -112,5 +113,27 @@ describe('normalizeRacebookSponsorPresentation', () => {
     expect(isRacebookSponsorSurfaceViewable(740, 160, 800)).toBe(false);
     expect(isRacebookSponsorSurfaceViewable(720, 160, 800)).toBe(true);
     expect(isRacebookSponsorSurfaceViewable(-40, 160, 800)).toBe(true);
+  });
+});
+
+describe('normalizeRacebookPartnerSlots', () => {
+  it('keeps affiliate cards for older payloads and unknown values', () => {
+    expect(normalizeRacebookPartnerSlots(undefined)).toEqual({ equipment: { mode: 'affiliate' }, lodging: { mode: 'affiliate' } });
+    expect(normalizeRacebookPartnerSlots({ equipment: { mode: 'other' } }).equipment).toEqual({ mode: 'affiliate' });
+  });
+
+  it('reads hidden and organizer partner slots', () => {
+    expect(normalizeRacebookPartnerSlots({
+      equipment: { mode: 'partner', name: ' Trail Shop ', logoUrl: 'https://cdn.example.com/logo.png', headline: '', clickUrl: 'https://app.example.com/click' },
+      lodging: { mode: 'hidden' },
+    })).toEqual({
+      equipment: { mode: 'partner', name: 'Trail Shop', logoUrl: 'https://cdn.example.com/logo.png', headline: null, clickUrl: 'https://app.example.com/click' },
+      lodging: { mode: 'hidden' },
+    });
+  });
+
+  it('falls back to the affiliate card when a partner lacks a valid logo', () => {
+    expect(normalizeRacebookPartnerSlots({ lodging: { mode: 'partner', name: 'Hotel', logoUrl: 'http://insecure.example.com/logo.png' } }).lodging)
+      .toEqual({ mode: 'affiliate' });
   });
 });

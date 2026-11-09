@@ -315,6 +315,7 @@ erDiagram
 - [race_event_editions](tables/race-event-editions.md)
 - [organizer_social_proofs](tables/organizer-social-proofs.md)
 - [race_event_edition_sponsors](tables/race-event-edition-sponsors.md)
+- [race_event_edition_partner_slots](tables/race-event-edition-partner-slots.md)
 - [race_event_edition_branding](tables/race-event-edition-branding.md)
 - [organizer_edition_entitlements](tables/organizer-edition-entitlements.md)
 - [organizer_edition_capability_grants](tables/organizer-edition-capability-grants.md)

@@ -107,6 +107,8 @@ import {
 import { shouldOpenOrganizerOnboarding } from "./dashboard/onboarding";
 import { OrganizerInvoicesDialog } from "./dashboard/invoices-dialog";
 import { OrganizerAnalyticsPanel } from "./dashboard/analytics-panel";
+import { PublicationReview, type PublicationAffiliateSlot } from "./dashboard/publication-review";
+import { hasBlockingRacebookPublicationIssue, type RacebookPublicationIssue } from "../../../lib/racebook-publication-checks";
 import {
   buildInitialWebsiteImportFieldSelections,
   buildInitialWebsiteImportFormatDecisions,
@@ -319,6 +321,9 @@ export function OrganizerDashboard({
     raceId: string;
     label: string;
     changedFields: string[];
+    checks: RacebookPublicationIssue[];
+    affiliateSlots: PublicationAffiliateSlot[];
+    partnersOptionAvailable: boolean;
     loading: boolean;
   } | null>(null);
   const [publicationHistoryDialog, setPublicationHistoryDialog] = useState<{
@@ -2841,8 +2846,12 @@ export function OrganizerDashboard({
       const data = (await response.json().catch(() => null)) as {
         state?: RacebookPublicationState;
         message?: string;
+        checks?: RacebookPublicationIssue[];
       } | null;
       if (!response.ok || !data?.state) {
+        if (response.status === 409 && data?.checks) {
+          setPublicationDialog((current) => current?.raceId === raceId ? { ...current, checks: data.checks! } : current);
+        }
         if (response.status === 403 && shouldOpenPublicationOffer(activeTier)) openPricingDialog("publication");
         else showToast("error", data?.message ?? "Impossible de publier ce Livret coureur.");
         return false;
@@ -2874,7 +2883,7 @@ export function OrganizerDashboard({
 
   const openRacePublicationDialog = async (raceId: string, label: string) => {
     if (!accessToken || status !== "idle" || autosaveState !== "saved") return;
-    setPublicationDialog({ raceId, label, changedFields: [], loading: true });
+    setPublicationDialog({ raceId, label, changedFields: [], checks: [], affiliateSlots: [], partnersOptionAvailable: false, loading: true });
     try {
       const response = await fetch(`/api/organizer/races/${raceId}/publications?limit=1&includeChanges=true`, {
         headers: authHeaders,
@@ -2883,6 +2892,8 @@ export function OrganizerDashboard({
       const data = (await response.json().catch(() => null)) as {
         state?: RacebookPublicationState;
         changedFields?: string[];
+        checks?: RacebookPublicationIssue[];
+        partnerSlots?: { affiliateSlots?: PublicationAffiliateSlot[]; partnersOptionAvailable?: boolean };
         message?: string;
       } | null;
       if (!response.ok || !data?.state) {
@@ -2895,6 +2906,9 @@ export function OrganizerDashboard({
         raceId,
         label,
         changedFields: data.changedFields?.length ? data.changedFields : ["Mise à jour du Livret coureur"],
+        checks: data.checks ?? [],
+        affiliateSlots: data.partnerSlots?.affiliateSlots ?? [],
+        partnersOptionAvailable: data.partnerSlots?.partnersOptionAvailable === true,
         loading: false,
       });
     } catch (caught) {
@@ -3510,11 +3524,18 @@ export function OrganizerDashboard({
               ))}
             </ul>
           )}
+          {publicationDialog && !publicationDialog.loading ? (
+            <PublicationReview
+              checks={publicationDialog.checks}
+              affiliateSlots={publicationDialog.affiliateSlots}
+              partnersOptionAvailable={publicationDialog.partnersOptionAvailable}
+            />
+          ) : null}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setPublicationDialog(null)} disabled={status !== "idle"}>Annuler</Button>
             <Button
               type="button"
-              disabled={!publicationDialog || publicationDialog.loading || status !== "idle"}
+              disabled={!publicationDialog || publicationDialog.loading || status !== "idle" || hasBlockingRacebookPublicationIssue(publicationDialog.checks)}
               onClick={() => publicationDialog && void publishRaceRacebook(publicationDialog.raceId)}
             >
               {status === "saving" ? "Publication…" : "Publier"}
