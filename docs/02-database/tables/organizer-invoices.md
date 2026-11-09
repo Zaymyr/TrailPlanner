@@ -5,6 +5,7 @@ last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - supabase/migrations/20261109190500_separate_organizer_invoices_and_feature_grants.sql
+  - supabase/migrations/20261109192905_remove_organizer_gift_feature_prices.sql
   - supabase/tests/organizer_manual_invoices_checks.sql
   - apps/web/lib/organizer-manual-invoices.ts
   - apps/web/lib/organizer-invoice-document.ts
@@ -32,13 +33,16 @@ Stores issued manual organizer invoices independently from payment attempts and 
 - Legal facts, dates, amounts and the JSON snapshot are immutable after issuance. PDF attachment metadata can be repaired.
 - An unpaid active invoice may be corrected only by issuing a new numbered `corrective` row. The original becomes `replaced` and remains downloadable.
 - `paid_at`/`paid_by` record one complete bank-transfer settlement. Zero-net invoices have no settlement and display “Aucun montant à régler”.
-- `due_date`, `service_date`, `original_subtotal`, `discount_total` and `net_total` are explicit server-validated facts. `net_total = original_subtotal - discount_total`.
+- `due_date`, `service_date`, `original_subtotal`, `discount_total` and `net_total` are explicit server-validated facts. The three totals describe only the pack: `net_total = original_subtotal - discount_total`.
+- Gifted feature lines contain a feature key and `OFFERT`, never a unit price or monetary discount. Historical valued snapshots remain readable but cannot be emitted again.
+- A numbered row whose PDF attachment is absent is rendered and stored on its first authorized admin or organizer download.
 - RLS is enabled with no client policy. Only `service_role` can read or mutate rows; application routes authorize admins or active event organizers before returning DTOs or signed URLs.
 
 ## Gotchas
 
 - Do not mutate a numbered row to implement editing. Use `issue_admin_organizer_invoice` with `p_replaces_invoice_id`.
 - Do not call entitlement recalculation after issuing or settling a manual invoice.
+- Do not value gifted features or add them to `original_subtotal`/`discount_total`; those fields are pack-only.
 - Legacy generated/uploaded invoices remain on `organizer_edition_payments`; list and download routes normalize both stores.
 
 ## Related Docs

@@ -251,7 +251,7 @@ related_tables:
 
 # Organizer Race Management
 
-Organizer administration separates billing from effective access. A manual invoice can be emitted, corrected and settled without changing the edition tier or any feature grant; conversely an admin can grant a tier or one of the 14 higher-plan features without an invoice. Every protected module, advanced format field and operation resolves its own feature key, so one gift never unlocks sibling capabilities. Stripe-confirmed purchases keep their existing automatic entitlement activation.
+Organizer administration separates billing from effective access. A manual invoice can be emitted, corrected and settled without changing the edition tier or any feature grant; conversely an admin can grant a tier or one of the 14 higher-plan features without an invoice. Gifted features have no standalone price and appear on manual invoices only as `OFFERT`. Every protected module, advanced format field and operation resolves its own feature key, so one gift never unlocks sibling capabilities. Stripe-confirmed purchases keep their existing automatic entitlement activation.
 
 Ravito, relay, and supporter-point autosave is gated on the active race sidecar load. Saving the same format no longer resets those collections merely because the refreshed race object has a new identity, so an unloaded empty array cannot replace persisted course points.
 

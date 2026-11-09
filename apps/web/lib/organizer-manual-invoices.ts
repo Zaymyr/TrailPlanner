@@ -27,8 +27,6 @@ export const organizerFeatureCatalogRowSchema = z.object({
   feature_key: organizerFeatureKeySchema,
   label: z.string(),
   minimum_tier: z.enum(["complete", "signature"]),
-  unit_price_cents: z.number().int().nonnegative(),
-  currency: z.literal("EUR"),
   is_active: z.boolean(),
   sort_order: z.number().int(),
 });
@@ -63,7 +61,7 @@ const headers = (config: SupabaseServiceConfig, json = false) => ({
 });
 
 export async function loadOrganizerFeatureCatalog(config: SupabaseServiceConfig) {
-  const response = await fetch(`${config.supabaseUrl}/rest/v1/organizer_feature_catalog?select=feature_key,label,minimum_tier,unit_price_cents,currency,is_active,sort_order&order=sort_order.asc`, { headers: headers(config), cache: "no-store" });
+  const response = await fetch(`${config.supabaseUrl}/rest/v1/organizer_feature_catalog?select=feature_key,label,minimum_tier,is_active,sort_order&order=sort_order.asc`, { headers: headers(config), cache: "no-store" });
   if (!response.ok) throw new Error(`Unable to load organizer feature catalog: ${await response.text()}`);
   return z.array(organizerFeatureCatalogRowSchema).parse(await response.json());
 }
@@ -84,7 +82,6 @@ export async function buildManualOrganizerInvoice(config: SupabaseServiceConfig,
   const totals = calculateOrganizerInvoiceAmounts({
     packCatalogCents,
     packNetCents: parsed.packNetCents,
-    giftedFeaturePrices: selected.map((feature) => feature.unit_price_cents),
   });
   const lines = [{
     description: `Pack ${ORGANIZER_TIER_LABEL[parsed.tier]} Pace Yourself`,
@@ -95,9 +92,6 @@ export async function buildManualOrganizerInvoice(config: SupabaseServiceConfig,
   }, ...selected.map((feature) => ({
     featureKey: feature.feature_key,
     description: feature.label,
-    unitPriceCents: feature.unit_price_cents,
-    discountCents: feature.unit_price_cents,
-    netCents: 0,
     offered: true,
   }))];
 
@@ -111,7 +105,7 @@ export function buildManualOrganizerInvoiceSnapshot(input: {
   tier: "essential" | "complete" | "signature";
   serviceDate: string;
   dueDate: string;
-  lines: Array<{ featureKey?: string; description: string; unitPriceCents: number; discountCents: number; netCents: number; offered: boolean }>;
+  lines: Array<{ featureKey?: string; description: string; unitPriceCents?: number; discountCents?: number; netCents?: number; offered: boolean }>;
   totals: { originalSubtotal: number; discountTotal: number; netTotal: number };
   correction?: { replacesInvoiceNumber: string; replacesIssuedAt: string };
 }): OrganizerInvoiceSnapshot {

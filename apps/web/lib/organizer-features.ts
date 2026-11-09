@@ -25,24 +25,23 @@ export type OrganizerFeatureDefinition = {
   key: OrganizerFeatureKey;
   label: string;
   minimumTier: "complete" | "signature";
-  defaultPriceCents: number;
 };
 
 export const ORGANIZER_FEATURES: readonly OrganizerFeatureDefinition[] = [
-  { key: "module.services", label: "Services & alentours", minimumTier: "complete", defaultPriceCents: 1250 },
-  { key: "module.start_waves", label: "SAS", minimumTier: "complete", defaultPriceCents: 1250 },
-  { key: "module.awards", label: "Podiums & récompenses", minimumTier: "complete", defaultPriceCents: 1250 },
-  { key: "advanced.format_equipment", label: "Matériel par format", minimumTier: "complete", defaultPriceCents: 1250 },
-  { key: "advanced.format_bib_pickup", label: "Dossard par format", minimumTier: "complete", defaultPriceCents: 1250 },
-  { key: "advanced.format_access", label: "Accès par format", minimumTier: "complete", defaultPriceCents: 1250 },
-  { key: "capability.followers_notify", label: "Notifications aux abonnés", minimumTier: "complete", defaultPriceCents: 1250 },
-  { key: "capability.edition_duplicate", label: "Duplication annuelle", minimumTier: "complete", defaultPriceCents: 1250 },
-  { key: "module.branding", label: "Identité visuelle", minimumTier: "signature", defaultPriceCents: 2500 },
-  { key: "module.sponsors", label: "Sponsors", minimumTier: "signature", defaultPriceCents: 2500 },
-  { key: "module.relay", label: "Relais", minimumTier: "signature", defaultPriceCents: 2500 },
-  { key: "module.official_products", label: "Produits officiels", minimumTier: "signature", defaultPriceCents: 2500 },
-  { key: "capability.assisted_import", label: "Import assisté", minimumTier: "signature", defaultPriceCents: 2500 },
-  { key: "capability.racebook_analytics", label: "Statistiques Livret coureur", minimumTier: "signature", defaultPriceCents: 2500 },
+  { key: "module.services", label: "Services & alentours", minimumTier: "complete" },
+  { key: "module.start_waves", label: "SAS", minimumTier: "complete" },
+  { key: "module.awards", label: "Podiums & récompenses", minimumTier: "complete" },
+  { key: "advanced.format_equipment", label: "Matériel par format", minimumTier: "complete" },
+  { key: "advanced.format_bib_pickup", label: "Dossard par format", minimumTier: "complete" },
+  { key: "advanced.format_access", label: "Accès par format", minimumTier: "complete" },
+  { key: "capability.followers_notify", label: "Notifications aux abonnés", minimumTier: "complete" },
+  { key: "capability.edition_duplicate", label: "Duplication annuelle", minimumTier: "complete" },
+  { key: "module.branding", label: "Identité visuelle", minimumTier: "signature" },
+  { key: "module.sponsors", label: "Sponsors", minimumTier: "signature" },
+  { key: "module.relay", label: "Relais", minimumTier: "signature" },
+  { key: "module.official_products", label: "Produits officiels", minimumTier: "signature" },
+  { key: "capability.assisted_import", label: "Import assisté", minimumTier: "signature" },
+  { key: "capability.racebook_analytics", label: "Statistiques Livret coureur", minimumTier: "signature" },
 ] as const;
 
 const tierRank: Record<OrganizerTier, number> = { visibility: 0, essential: 1, complete: 2, signature: 3 };
@@ -65,15 +64,14 @@ export const organizerFeatureForCapability = (capability: string): OrganizerFeat
 export function calculateOrganizerInvoiceAmounts(input: {
   packCatalogCents: number;
   packNetCents: number;
-  giftedFeaturePrices: readonly number[];
 }) {
   if (!Number.isInteger(input.packCatalogCents) || !Number.isInteger(input.packNetCents)
-    || input.packNetCents < 0 || input.packNetCents > input.packCatalogCents
-    || input.giftedFeaturePrices.some((price) => !Number.isInteger(price) || price < 0)) {
+    || input.packNetCents < 0 || input.packNetCents > input.packCatalogCents) {
     throw new Error("Invalid organizer invoice amounts.");
   }
-  const giftedTotal = input.giftedFeaturePrices.reduce((total, price) => total + price, 0);
-  const originalSubtotal = input.packCatalogCents + giftedTotal;
-  const discountTotal = input.packCatalogCents - input.packNetCents + giftedTotal;
-  return { originalSubtotal, discountTotal, netTotal: input.packNetCents };
+  return {
+    originalSubtotal: input.packCatalogCents,
+    discountTotal: input.packCatalogCents - input.packNetCents,
+    netTotal: input.packNetCents,
+  };
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { withSecurityHeaders } from "../../../../../../lib/http";
+import { organizerInvoiceRowSchema, renderAndStoreManualOrganizerInvoice } from "../../../../../../lib/organizer-manual-invoices";
 import { createOrganizerInvoiceDownloadUrl } from "../../../../../../lib/organizer-invoices";
 import { jsonError, requireEventOrganizer, requireOrganizerAuth, serviceHeaders } from "../../../../../../lib/organizer";
 import { getStripeConfig, getStripeJson } from "../../../../../../lib/stripe";
@@ -23,21 +24,27 @@ export async function GET(request: NextRequest, context: { params: { paymentId?:
   const paymentId = z.string().uuid().safeParse(context.params.paymentId);
   if (!paymentId.success) return jsonError("Identifiant de paiement invalide.", 400);
   const manualResponse = await fetch(
-    `${auth.serviceConfig.supabaseUrl}/rest/v1/organizer_invoices?id=eq.${paymentId.data}&select=id,invoice_storage_path,invoice_original_name,race_event_editions(event_id)&limit=1`,
+    `${auth.serviceConfig.supabaseUrl}/rest/v1/organizer_invoices?id=eq.${paymentId.data}&select=id,edition_id,invoice_number,invoice_sequence,invoice_issued_at,invoice_type,replaces_invoice_id,document_status,tier,service_date,due_date,original_subtotal,discount_total,net_total,currency,legal_snapshot,invoice_storage_path,invoice_original_name,paid_at,payment_reference,race_event_editions(event_id)&limit=1`,
     { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" },
   );
   if (manualResponse.ok) {
-    const manual = z.array(z.object({
-      id: z.string().uuid(),
-      invoice_storage_path: z.string().nullable(),
-      invoice_original_name: z.string().nullable(),
+    const manual = z.array(organizerInvoiceRowSchema.extend({
       race_event_editions: z.object({ event_id: z.string().uuid() }),
     })).parse(await manualResponse.json())[0];
     if (manual) {
       const authorized = await requireEventOrganizer(auth.serviceConfig, auth.user, manual.race_event_editions.event_id);
       if (authorized !== true) return authorized.error;
-      if (!manual.invoice_storage_path) return jsonError("Cette facture n’est pas encore disponible.", 409);
-      const url = await createOrganizerInvoiceDownloadUrl(auth.serviceConfig, manual.invoice_storage_path, manual.invoice_original_name ?? `facture-${manual.id}.pdf`);
+      let availableInvoice = manual;
+      if (!availableInvoice.invoice_storage_path) {
+        try {
+          availableInvoice = { ...availableInvoice, ...await renderAndStoreManualOrganizerInvoice(auth.serviceConfig, auth.user.id, availableInvoice) };
+        } catch (error) {
+          console.error("Unable to lazily generate organizer invoice PDF", error);
+          return jsonError("Impossible de générer le PDF de cette facture.", 502);
+        }
+      }
+      if (!availableInvoice.invoice_storage_path) return jsonError("Cette facture n’est pas disponible.", 502);
+      const url = await createOrganizerInvoiceDownloadUrl(auth.serviceConfig, availableInvoice.invoice_storage_path, availableInvoice.invoice_original_name ?? `facture-${availableInvoice.id}.pdf`);
       return withSecurityHeaders(NextResponse.json({ url }));
     }
   }

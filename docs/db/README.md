@@ -927,6 +927,33 @@
 
 ---
 
+### Table `public.organizer_feature_catalog`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `feature_key` | `t` | ✅ | `` |
+| `label` | `t` | ✅ | `` |
+| `minimum_tier` | `t` | ✅ | `` |
+| `unit_price_cents` | `i` | ✅ | `` |
+| `currency` | `t` | ✅ | `` |
+| `is_active` | `b` | ✅ | `` |
+| `sort_order` | `i` | ✅ | `` |
+| `updated_by` | `u` | ❌ | `` |
+| `created_at` | `t` | ✅ | `` |
+| `updated_at` | `t` | ✅ | `` |
+
+**Primary keys**
+- `organizer_feature_catalog_pkey` on (feature_key)
+
+**Foreign keys**
+- `organizer_feature_catalog_updated_by_fkey`: (updated_by) → auth.users(id)
+
+**RLS**: ❌ disabled
+
+---
+
 ### Table `public.organizer_import_sessions`
 
 **Columns**
@@ -953,6 +980,51 @@
 - `organizer_import_sessions_created_by_fkey`: (created_by) → auth.users(id)
 - `organizer_import_sessions_edition_id_fkey`: (edition_id) → public.race_event_editions(id)
 - `organizer_import_sessions_event_id_fkey`: (event_id) → public.race_events(id)
+
+**RLS**: ❌ disabled
+
+---
+
+### Table `public.organizer_invoices`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `id` | `u` | ✅ | `` |
+| `edition_id` | `u` | ✅ | `` |
+| `invoice_number` | `t` | ✅ | `` |
+| `invoice_sequence` | `i` | ✅ | `` |
+| `invoice_issued_at` | `t` | ✅ | `` |
+| `invoice_type` | `t` | ✅ | `` |
+| `replaces_invoice_id` | `u` | ❌ | `` |
+| `document_status` | `t` | ✅ | `` |
+| `tier` | `t` | ✅ | `` |
+| `service_date` | `d` | ✅ | `` |
+| `due_date` | `d` | ✅ | `` |
+| `original_subtotal` | `i` | ✅ | `` |
+| `discount_total` | `i` | ✅ | `` |
+| `net_total` | `i` | ✅ | `` |
+| `currency` | `t` | ✅ | `` |
+| `legal_snapshot` | `j` | ✅ | `` |
+| `invoice_storage_path` | `t` | ❌ | `` |
+| `invoice_original_name` | `t` | ❌ | `` |
+| `pdf_stored_at` | `t` | ❌ | `` |
+| `created_by` | `u` | ❌ | `` |
+| `paid_at` | `t` | ❌ | `` |
+| `paid_by` | `u` | ❌ | `` |
+| `payment_reference` | `t` | ❌ | `` |
+| `created_at` | `t` | ✅ | `` |
+| `updated_at` | `t` | ✅ | `` |
+
+**Primary keys**
+- `organizer_invoices_pkey` on (id)
+
+**Foreign keys**
+- `organizer_invoices_created_by_fkey`: (created_by) → auth.users(id)
+- `organizer_invoices_edition_id_fkey`: (edition_id) → public.race_event_editions(id)
+- `organizer_invoices_paid_by_fkey`: (paid_by) → auth.users(id)
+- `organizer_invoices_replaces_invoice_id_fkey`: (replaces_invoice_id) → public.organizer_invoices(id)
 
 **RLS**: ❌ disabled
 

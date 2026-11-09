@@ -36,6 +36,10 @@ describe("Admin Organizer publication grants", () => {
     expect(source).toContain("feature.key");
     expect(source).toContain('`Inclus dans ${feature.minimumTier === "complete" ? "Complet" : "Signature"}`');
     expect(source).toContain("Offert manuellement pour cette édition");
+    expect(source).toContain("Fonctionnalités pouvant être offertes");
+    expect(source).toContain("— OFFERT");
+    expect(source).not.toContain("unit_price_cents");
+    expect(source).not.toContain("Prix HT (€)");
     expect(source).toContain("enabledFeatureGrants.includes(feature.key) !== initialFeatureGrants.includes(feature.key)");
     expect(source).toContain("setInitialFeatureGrants(activeFeatures)");
     expect(source).toContain("Créer une facture");

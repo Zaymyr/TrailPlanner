@@ -36,6 +36,7 @@ related_files:
   - supabase/migrations/20260923070437_separate_web_and_mobile_race_visibility.sql
   - supabase/migrations/20260915104528_add_organizer_edition_capability_grants.sql
   - supabase/migrations/20261109190500_separate_organizer_invoices_and_feature_grants.sql
+  - supabase/migrations/20261109192905_remove_organizer_gift_feature_prices.sql
   - supabase/migrations/20260928123934_add_partner_link_settings.sql
   - supabase/migrations/20261103123918_racebook_versioned_publications.sql
   - supabase/migrations/20261103124133_index_racebook_publication_foreign_keys.sql
@@ -253,6 +254,8 @@ Organizer portal tables added by `20260528120000_add_organizer_portal.sql` relat
 - `organizer_invoices.created_by -> auth.users(id) on delete set null`
 - `organizer_invoices.paid_by -> auth.users(id) on delete set null`
 - `organizer_feature_catalog.updated_by -> auth.users(id) on delete set null`
+
+`organizer_feature_catalog` keeps only availability metadata; removing its former price and currency columns changes no foreign key or cascade.
 
 Organizer access should be checked through an active `race_event_organizers` row, then the parent event relationship. Trusted admins use the separate Auth `raw_app_meta_data` role boundary and do not require artificial membership rows. Claimed catalog race rows should not be reassigned through `races.created_by`.
 
