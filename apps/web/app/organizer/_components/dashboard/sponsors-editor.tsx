@@ -5,6 +5,7 @@ import { Button } from "../../../../components/ui/button";
 import { Input } from "../../../../components/ui/input";
 import { Label } from "../../../../components/ui/label";
 import type { OrganizerSponsor } from "./types";
+import { PartnerSlotsEditor } from "./partner-slots-editor";
 
 const toPatch = (sponsor: OrganizerSponsor) => ({
   name: sponsor.name,
@@ -275,6 +276,7 @@ export function SponsorsEditor({
       <div className="rounded-md border border-border bg-background p-4 text-sm text-muted-foreground">
         Jusqu&apos;à 10 sponsors par édition, dont 2 maximum sur l&apos;écran de chargement. Le niveau détermine leur importance dans le bloc partenaires ; le placement contextuel les rapproche du contenu pertinent.
       </div>
+      <PartnerSlotsEditor editionId={editionId} authHeaders={authHeaders} sponsors={sponsors} onToast={onToast} />
       {sponsors.map((sponsor, index) => {
         const loadingDisabled = !sponsor.showOnLoading && loadingSponsorCount >= 2;
         const activationDisabled = !sponsor.isActive && sponsor.showOnLoading && loadingSponsorCount >= 2;

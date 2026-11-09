@@ -2,7 +2,7 @@
 title: race_edition_services Table
 scope: database
 
-last_verified: 2026-11-03
+last_verified: 2026-11-09
 
 ai_priority: high
 related_files:
@@ -104,3 +104,5 @@ Format-scoped supporter directions and assistance permissions are not edition se
 The Livret/Mon plan switch may reuse an already saved owner plan without showing the plan-creation loader. Its owner-specific hero departure/duration/pace and compact ravito passage, segment duration and cutoff warning are not service data; route-local warm state is scoped to the exact plan id and remains separate from the edition-scoped services payload and cache.
 
 Service distance labels now use the shared localized formatter. This changes only rendering and leaves service categories, links, ordering, and edition scope intact.
+
+Publication checks and partner slots (2026-11-09): pre-publication checks and the Matériel/hébergement partner slots read the built snapshot and their own table only. They do not read, write or change this domain's rows or contracts.

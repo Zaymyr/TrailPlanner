@@ -9,11 +9,15 @@ import {
   buildRacebookPublishedSnapshot,
   describeRacebookSnapshotChanges,
   loadCurrentRacebookPublication,
+  loadRacebookPublicationChecks,
   publishRacebookSnapshot,
   racebookPublicationRowSchema,
   serializePublicationState,
 } from "../../../../../../lib/racebook-publications";
 import { invalidateRacebookCache } from "../../../../../../lib/racebook-cache";
+import { hasBlockingRacebookPublicationIssue } from "../../../../../../lib/racebook-publication-checks";
+import { listAffiliatePartnerSlots } from "../../../../../../lib/racebook-partner-slots";
+import { isOrganizerModuleAvailable } from "../../../../../../lib/organizer-modules";
 
 const publishBodySchema = z.object({ makePublic: z.boolean().optional().default(false) });
 const limitSchema = z.coerce.number().int().min(1).max(10).default(10);
@@ -55,13 +59,23 @@ export async function GET(request: NextRequest, context: { params: { id?: string
     );
     if (!response.ok) return jsonError("Impossible de charger l’historique de publication.", 502);
     const publications = z.array(racebookPublicationRowSchema).parse(await response.json());
-    const changedFields = includeChanges.data === "true"
-      ? describeRacebookSnapshotChanges((await buildRacebookPublishedSnapshot(auth.serviceConfig, auth.race.id)).snapshot, current.publication?.content ?? null)
+    const draft = includeChanges.data === "true"
+      ? (await buildRacebookPublishedSnapshot(auth.serviceConfig, auth.race.id)).snapshot
+      : null;
+    const changedFields = draft ? describeRacebookSnapshotChanges(draft, current.publication?.content ?? null) : undefined;
+    const checks = draft ? await loadRacebookPublicationChecks(auth.serviceConfig, draft) : undefined;
+    const partnerSlots = draft
+      ? await loadOrganizerEditionEntitlement(auth.serviceConfig, auth.race.edition_id!).then((entitlement) => ({
+        affiliateSlots: listAffiliatePartnerSlots(draft.partnerSlots),
+        partnersOptionAvailable: isOrganizerModuleAvailable(entitlement?.status === "active" ? entitlement.tier : "visibility", "sponsors"),
+      }))
       : undefined;
     return withSecurityHeaders(NextResponse.json({
       state: serializePublicationState(current.state, current.publication),
       publications: publications.map(historyItem),
       ...(changedFields ? { changedFields } : {}),
+      ...(checks ? { checks } : {}),
+      ...(partnerSlots ? { partnerSlots } : {}),
     }));
   } catch (error) {
     console.error("Unable to load RaceBook publication history", error);
@@ -83,6 +97,16 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
   }
 
   try {
+    const checks = await loadRacebookPublicationChecks(
+      auth.serviceConfig,
+      (await buildRacebookPublishedSnapshot(auth.serviceConfig, auth.race.id)).snapshot,
+    );
+    if (hasBlockingRacebookPublicationIssue(checks)) {
+      return withSecurityHeaders(NextResponse.json({
+        message: "Corrige les points bloquants avant de publier ce Livret coureur.",
+        checks,
+      }, { status: 409 }));
+    }
     const result = await publishRacebookSnapshot(auth.serviceConfig, auth.race.id, auth.user.id, body.data.makePublic);
     await invalidateRacebookCache({ raceId: auth.race.id, editionId: auth.race.edition_id, eventId: auth.race.event_id });
     return withSecurityHeaders(NextResponse.json({

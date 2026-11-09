@@ -1,7 +1,7 @@
 ---
 title: Mode opératoire Livret coureur organisateur
 scope: workflow
-last_verified: 2026-11-03
+last_verified: 2026-11-09
 ai_priority: medium
 related_files:
   - scripts/generate-racebook-organizer-manual.mjs
@@ -92,3 +92,7 @@ Ce document accompagne le PDF utilisateur [`docs/mode-operatoire-racebook-organi
 - [Organizer Race Management](../03-business-rules/organizer-race-management.md)
 - [Organizer Commercial Offers](../03-business-rules/organizer-commercial-offers.md)
 - [Web App](../01-architecture/web-app.md)
+
+## Avant de publier (2026-11-09)
+
+La fenêtre de publication liste désormais les points bloquants (ravito encore nommé « Nouveau ravito », ravito à 0 km) à corriger avant de pouvoir publier, les points à vérifier (même lieu à deux kilomètres différents entre ravitos et suivi coureur, date du format hors de l’édition, noms commençant par une minuscule) et les emplacements partenaires qui afficheront encore les liens Decathlon / Booking proposés par Pace Yourself. Avec l’offre Signature, la section Sponsors permet de les remplacer par ses partenaires ou de les masquer.

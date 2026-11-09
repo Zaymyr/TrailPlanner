@@ -1,9 +1,11 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-11-05
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
+  - supabase/migrations/20261109140000_add_racebook_edition_partner_slots.sql
+  - supabase/tests/racebook_partner_slots_checks.sql
   - supabase/migrations/20261105180000_add_app_feedback_review.sql
   - supabase/tests/app_feedback_review_checks.sql
   - supabase/migrations/20260915100443_add_generated_organizer_invoices.sql
@@ -155,3 +157,5 @@ RaceBook lot 6 is explicitly not a database task: localized display formatting, 
 `video_render_jobs` (background reel renders) follows the service-role-only pattern: RLS on, no policy, every privilege revoked from `anon` and `authenticated`, covering indexes on its foreign keys, and `supabase/tests/video_render_jobs_checks.sql` asserting the grants.
 
 Changing an existing client-writable table follows the same discipline: `20261105180000_add_app_feedback_review.sql` replaces the legacy `GRANT ALL` on `app_feedback` with a column-scoped INSERT for `authenticated`, so new server-managed columns (`status`, `reviewed_by`) cannot be set by clients, and lets owners update only `user_notifications.deleted_at` (soft delete) rather than granting DELETE.
+
+`race_event_edition_partner_slots` (2026-11-09) follows this workflow: service-only RLS table, composite same-edition FK, reuse of an existing draft-revision trigger function, transactional SQL checks, and a dedicated table doc.

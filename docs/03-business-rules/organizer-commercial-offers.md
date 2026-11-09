@@ -1,7 +1,7 @@
 ---
 title: Organizer Commercial Offers
 scope: business-rule
-last_verified: 2026-11-03
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-entitlements.ts
@@ -158,3 +158,7 @@ Publication is a versioned snapshot operation per format. Tier checks are repeat
 - [organizer_edition_entitlements](../02-database/tables/organizer-edition-entitlements.md)
 - [organizer_edition_capability_grants](../02-database/tables/organizer-edition-capability-grants.md)
 - [organizer_edition_payments](../02-database/tables/organizer-edition-payments.md)
+
+## Partner slots option (2026-11-09)
+
+The base RaceBook (every paid tier) shows Pace Yourself affiliate cards in the Matériel (Decathlon) and Services hébergement (Booking.com) slots. Replacing them with the organizer's own partners, or hiding them, is part of the Signature `sponsors.manage` capability (same gate as sponsors); no new module key, price or capability was added. <!-- TODO: verify with maintainer: dedicated pricing for a standalone "Partenaires" option is a business decision. -->

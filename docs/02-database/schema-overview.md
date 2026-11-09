@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-11-05
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - supabase/migrations/20261105180000_add_app_feedback_review.sql
@@ -315,6 +315,7 @@ erDiagram
 - [race_event_editions](tables/race-event-editions.md)
 - [organizer_social_proofs](tables/organizer-social-proofs.md)
 - [race_event_edition_sponsors](tables/race-event-edition-sponsors.md)
+- [race_event_edition_partner_slots](tables/race-event-edition-partner-slots.md)
 - [race_event_edition_branding](tables/race-event-edition-branding.md)
 - [organizer_edition_entitlements](tables/organizer-edition-entitlements.md)
 - [organizer_edition_capability_grants](tables/organizer-edition-capability-grants.md)

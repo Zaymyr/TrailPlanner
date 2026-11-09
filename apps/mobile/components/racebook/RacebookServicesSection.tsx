@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 
 import { Colors } from '../../constants/colors';
 import { Card } from '../themed/Card';
@@ -53,6 +53,8 @@ type RacebookServicesSectionProps = {
   services: RacebookServiceItem[];
   legacySections?: RacebookLegacyServiceSection[];
   partnerLinks?: RacebookPartnerLink[];
+  /** Logos of organizer partners replacing a default affiliate card. */
+  partnerLogoUrls?: Partial<Record<RacebookPartnerLink['partnerKey'], string>>;
   copy: RacebookServicesCopy;
   onOpenUrl: (url: string, action: 'directions' | 'website' | 'phone', service: RacebookServiceItem) => void;
   onOpenPartnerLink: (link: RacebookPartnerLink) => void;
@@ -166,6 +168,7 @@ export function RacebookServicesSection({
   services,
   legacySections = [],
   partnerLinks = [],
+  partnerLogoUrls = {},
   copy,
   onOpenUrl,
   onOpenPartnerLink,
@@ -240,9 +243,15 @@ export function RacebookServicesSection({
                     pressed ? styles.actionPressed : null,
                   ]}
                 >
-                  <View style={[styles.partnerIcon, { backgroundColor: Colors.brandSurface }]}>
-                    <Ionicons color={Colors.brandPrimary} name={icon} size={20} />
-                  </View>
+                  {partnerLogoUrls[link.partnerKey] ? (
+                    <View style={styles.partnerLogoFrame}>
+                      <Image accessibilityIgnoresInvertColors resizeMode="contain" source={{ uri: partnerLogoUrls[link.partnerKey] }} style={styles.partnerLogo} />
+                    </View>
+                  ) : (
+                    <View style={[styles.partnerIcon, { backgroundColor: Colors.brandSurface }]}>
+                      <Ionicons color={Colors.brandPrimary} name={icon} size={20} />
+                    </View>
+                  )}
                   <View style={styles.partnerContent}>
                     <Text style={styles.serviceName}>{partnerCopy.title}</Text>
                     <Text style={styles.description}>{partnerCopy.description}</Text>
@@ -293,6 +302,8 @@ const styles = StyleSheet.create({
   partnerRow: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
   partnerIcon: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
   partnerContent: { flex: 1, gap: 2 },
+  partnerLogoFrame: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 12, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface, padding: 4 },
+  partnerLogo: { width: '100%', height: '100%' },
   partnerAction: { fontSize: 12, fontWeight: '700', marginTop: 2 },
   disclosure: { color: Colors.textSecondary, fontSize: 11, lineHeight: 16, paddingTop: 2 },
 });

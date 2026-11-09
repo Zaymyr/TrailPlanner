@@ -2,7 +2,7 @@
 title: races Table
 scope: database
 
-last_verified: 2026-11-05
+last_verified: 2026-11-09
 
 ai_priority: high
 related_files:
@@ -253,3 +253,5 @@ where web_catalog_is_live = true
 - [Schema Overview](../schema-overview.md)
 
 RaceBook course distances, ranges, and D+/D− labels now use a shared localized display formatter. Stored race distance/elevation values and GPX-derived authority are unchanged.
+
+Publication checks and partner slots (2026-11-09): pre-publication checks and the Matériel/hébergement partner slots read the built snapshot and their own table only. They do not read, write or change this domain's rows or contracts.

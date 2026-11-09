@@ -2,7 +2,7 @@
 title: race_relay_points Table
 scope: database
 
-last_verified: 2026-11-05
+last_verified: 2026-11-09
 
 ai_priority: high
 related_files:
@@ -148,3 +148,5 @@ Supporter points are neither handover points nor aid stations. They have no rela
 - [Organizer Race Management](../../03-business-rules/organizer-race-management.md)
 
 Relay distances and ranges use the shared localized one-decimal formatter in RaceBook. This is presentation-only and preserves relay ordering, leg derivation, and handover semantics.
+
+Publication checks and partner slots (2026-11-09): pre-publication checks and the Matériel/hébergement partner slots read the built snapshot and their own table only. They do not read, write or change this domain's rows or contracts.
