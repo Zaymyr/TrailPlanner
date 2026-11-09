@@ -1,4 +1,4 @@
-import { colors, mobileComponents, spacing } from '@pace-yourself/design-system';
+import { colors, mobileComponents, shadows, spacing } from '@pace-yourself/design-system';
 import type { ReactNode } from 'react';
 import {
   ActivityIndicator,
@@ -93,6 +93,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing[2],
     borderRadius: mobileComponents.buttonRadius,
+    borderBottomRightRadius: mobileComponents.signature.actionBottomRightRadius,
   },
   fullWidth: {
     alignSelf: 'stretch',
@@ -129,6 +130,7 @@ const variantStyles = StyleSheet.create({
     backgroundColor: colors.brand.forest,
     borderColor: colors.brand.forest,
     borderWidth: 1,
+    boxShadow: shadows.sm,
   },
   secondary: {
     backgroundColor: colors.surface.cream,

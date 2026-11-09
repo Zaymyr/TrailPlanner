@@ -18,7 +18,8 @@ export function MetricTile({ label, value, unit, trend, tone = 'neutral', style 
 
   return (
     <View style={[styles.base, toneStyles[tone], style]}>
-      <Text tone="secondary" size="xs" weight="semibold" numberOfLines={1}>
+      <View accessible={false} style={[styles.waypoint, waypointToneStyles[tone]]} />
+      <Text tone="secondary" size="xs" weight="semibold" numberOfLines={1} style={styles.label}>
         {label}
       </Text>
       <View style={styles.valueRow}>
@@ -36,16 +37,34 @@ const styles = StyleSheet.create({
   base: {
     minWidth: 88,
     borderRadius: mobileComponents.dataRadius,
+    borderBottomRightRadius: mobileComponents.signature.dataBottomRightRadius,
     borderWidth: 1,
     paddingHorizontal: spacing[3],
     paddingVertical: spacing[2],
     gap: spacing[0.5],
   },
+  waypoint: {
+    position: 'absolute',
+    right: spacing[2],
+    top: spacing[2],
+    width: 7,
+    height: 7,
+    borderRadius: 2,
+    transform: [{ rotate: '45deg' }],
+    opacity: 0.7,
+  },
+  label: { paddingRight: spacing[3] },
   valueRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
     gap: spacing[1],
   },
+});
+
+const waypointToneStyles = StyleSheet.create({
+  neutral: { backgroundColor: colors.text.tertiary },
+  brand: { backgroundColor: colors.brand.forest },
+  info: { backgroundColor: colors.semantic.info },
 });
 
 const toneStyles = StyleSheet.create({
