@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 1e3dgxLS5odLJ3DnN93teaEOYUgZSY20VcXV9bJxfhq4Wqac2HqXiUeUJFH8oes
+\restrict xw6WGRDmejLXJyT0xdCs2kSdSy71PaGAothz3pht54Qvfz0Z3hyxoOIrnJP9NbT
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.11
@@ -915,6 +915,34 @@ $$;
 --
 
 COMMENT ON FUNCTION private.protect_issued_organizer_invoice() IS 'Prevents deletion or mutation of the legal facts of an issued organizer invoice while allowing its private PDF attachment metadata to be repaired.';
+
+
+--
+-- Name: protect_organizer_invoice(); Type: FUNCTION; Schema: private; Owner: -
+--
+
+CREATE FUNCTION private.protect_organizer_invoice() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+begin
+  if tg_op = 'DELETE' then raise exception 'An issued organizer invoice cannot be deleted.'; end if;
+  if new.invoice_number is distinct from old.invoice_number or new.invoice_sequence is distinct from old.invoice_sequence
+    or new.invoice_issued_at is distinct from old.invoice_issued_at or new.invoice_type is distinct from old.invoice_type
+    or new.replaces_invoice_id is distinct from old.replaces_invoice_id or new.edition_id is distinct from old.edition_id
+    or new.tier is distinct from old.tier or new.service_date is distinct from old.service_date
+    or new.due_date is distinct from old.due_date or new.original_subtotal is distinct from old.original_subtotal
+    or new.discount_total is distinct from old.discount_total or new.net_total is distinct from old.net_total
+    or new.currency is distinct from old.currency or new.legal_snapshot is distinct from old.legal_snapshot
+    or new.created_by is distinct from old.created_by
+  then raise exception 'Issued organizer invoice facts are immutable.'; end if;
+  if old.document_status = 'replaced' and new.document_status <> 'replaced' then raise exception 'A replaced invoice cannot be restored.'; end if;
+  if old.paid_at is not null and (new.paid_at is distinct from old.paid_at or new.paid_by is distinct from old.paid_by or new.payment_reference is distinct from old.payment_reference) then
+    raise exception 'Invoice settlement facts are immutable.';
+  end if;
+  return new;
+end;
+$$;
 
 
 --
@@ -3985,6 +4013,112 @@ COMMENT ON FUNCTION public.issue_admin_organizer_invoice(p_payment_id uuid, p_ad
 
 
 --
+-- Name: organizer_invoices; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.organizer_invoices (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    edition_id uuid NOT NULL,
+    invoice_number text NOT NULL,
+    invoice_sequence integer NOT NULL,
+    invoice_issued_at timestamp with time zone DEFAULT now() NOT NULL,
+    invoice_type text DEFAULT 'standard'::text NOT NULL,
+    replaces_invoice_id uuid,
+    document_status text DEFAULT 'active'::text NOT NULL,
+    tier text NOT NULL,
+    service_date date NOT NULL,
+    due_date date NOT NULL,
+    original_subtotal integer NOT NULL,
+    discount_total integer NOT NULL,
+    net_total integer NOT NULL,
+    currency text DEFAULT 'EUR'::text NOT NULL,
+    legal_snapshot jsonb NOT NULL,
+    invoice_storage_path text,
+    invoice_original_name text,
+    pdf_stored_at timestamp with time zone,
+    created_by uuid,
+    paid_at timestamp with time zone,
+    paid_by uuid,
+    payment_reference text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT organizer_invoices_amounts_check CHECK (((discount_total <= original_subtotal) AND (net_total = (original_subtotal - discount_total)))),
+    CONSTRAINT organizer_invoices_correction_check CHECK ((((invoice_type = 'standard'::text) AND (replaces_invoice_id IS NULL)) OR ((invoice_type = 'corrective'::text) AND (replaces_invoice_id IS NOT NULL)))),
+    CONSTRAINT organizer_invoices_currency_check CHECK ((currency = 'EUR'::text)),
+    CONSTRAINT organizer_invoices_dates_check CHECK ((due_date >= service_date)),
+    CONSTRAINT organizer_invoices_discount_total_check CHECK ((discount_total >= 0)),
+    CONSTRAINT organizer_invoices_document_status_check CHECK ((document_status = ANY (ARRAY['active'::text, 'replaced'::text]))),
+    CONSTRAINT organizer_invoices_invoice_sequence_check CHECK ((invoice_sequence > 0)),
+    CONSTRAINT organizer_invoices_invoice_type_check CHECK ((invoice_type = ANY (ARRAY['standard'::text, 'corrective'::text]))),
+    CONSTRAINT organizer_invoices_legal_snapshot_check CHECK ((jsonb_typeof(legal_snapshot) = 'object'::text)),
+    CONSTRAINT organizer_invoices_net_total_check CHECK ((net_total >= 0)),
+    CONSTRAINT organizer_invoices_original_subtotal_check CHECK ((original_subtotal >= 0)),
+    CONSTRAINT organizer_invoices_payment_check CHECK ((((paid_at IS NULL) AND (paid_by IS NULL)) OR ((paid_at IS NOT NULL) AND (paid_by IS NOT NULL) AND (net_total > 0)))),
+    CONSTRAINT organizer_invoices_pdf_check CHECK ((((invoice_storage_path IS NULL) AND (invoice_original_name IS NULL) AND (pdf_stored_at IS NULL)) OR ((invoice_storage_path IS NOT NULL) AND (invoice_original_name IS NOT NULL) AND (pdf_stored_at IS NOT NULL)))),
+    CONSTRAINT organizer_invoices_tier_check CHECK ((tier = ANY (ARRAY['essential'::text, 'complete'::text, 'signature'::text])))
+);
+
+
+--
+-- Name: TABLE organizer_invoices; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.organizer_invoices IS 'Immutable manual organizer invoices, corrections and settlement facts, independent from edition entitlements.';
+
+
+--
+-- Name: issue_admin_organizer_invoice(uuid, uuid, text, date, date, integer, integer, integer, jsonb, uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.issue_admin_organizer_invoice(p_edition_id uuid, p_admin_id uuid, p_tier text, p_service_date date, p_due_date date, p_original_subtotal integer, p_discount_total integer, p_net_total integer, p_legal_snapshot jsonb, p_replaces_invoice_id uuid DEFAULT NULL::uuid) RETURNS public.organizer_invoices
+    LANGUAGE plpgsql
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+declare
+  invoice_row public.organizer_invoices;
+  replaced_row public.organizer_invoices;
+  issued_at timestamptz := now();
+  issued_year integer := extract(year from timezone('Europe/Paris', now()))::integer;
+  next_sequence integer;
+begin
+  if p_admin_id is null or p_tier not in ('essential', 'complete', 'signature')
+    or p_service_date is null or p_due_date is null or p_due_date < p_service_date
+    or p_original_subtotal < 0 or p_discount_total < 0 or p_net_total < 0
+    or p_discount_total > p_original_subtotal or p_net_total <> p_original_subtotal - p_discount_total
+    or p_legal_snapshot is null or jsonb_typeof(p_legal_snapshot) <> 'object'
+  then raise exception 'Invalid organizer invoice facts.' using errcode = '22023'; end if;
+
+  if p_replaces_invoice_id is not null then
+    select * into replaced_row from public.organizer_invoices where id = p_replaces_invoice_id for update;
+    if replaced_row.id is null or replaced_row.edition_id <> p_edition_id or replaced_row.document_status <> 'active' or replaced_row.paid_at is not null then
+      raise exception 'Only an active unpaid invoice can be corrected.' using errcode = '23514';
+    end if;
+  end if;
+
+  perform pg_advisory_xact_lock(hashtext('organizer_invoice_' || issued_year::text));
+  select greatest(
+    coalesce((select max(invoice_sequence) from public.organizer_invoices where invoice_issued_at >= make_timestamptz(issued_year,1,1,0,0,0,'Europe/Paris') and invoice_issued_at < make_timestamptz(issued_year+1,1,1,0,0,0,'Europe/Paris')), 0),
+    coalesce((select max(invoice_sequence) from public.organizer_edition_payments where invoice_issued_at >= make_timestamptz(issued_year,1,1,0,0,0,'Europe/Paris') and invoice_issued_at < make_timestamptz(issued_year+1,1,1,0,0,0,'Europe/Paris')), 0)
+  ) + 1 into next_sequence;
+
+  insert into public.organizer_invoices (
+    edition_id, invoice_number, invoice_sequence, invoice_issued_at, invoice_type, replaces_invoice_id,
+    tier, service_date, due_date, original_subtotal, discount_total, net_total, legal_snapshot, created_by
+  ) values (
+    p_edition_id, 'PY-' || issued_year::text || '-' || lpad(next_sequence::text, 6, '0'), next_sequence, issued_at,
+    case when p_replaces_invoice_id is null then 'standard' else 'corrective' end, p_replaces_invoice_id,
+    p_tier, p_service_date, p_due_date, p_original_subtotal, p_discount_total, p_net_total, p_legal_snapshot, p_admin_id
+  ) returning * into invoice_row;
+
+  if p_replaces_invoice_id is not null then
+    update public.organizer_invoices set document_status = 'replaced', updated_at = issued_at where id = p_replaces_invoice_id;
+  end if;
+  return invoice_row;
+end;
+$$;
+
+
+--
 -- Name: normalize_product_brand(text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -6710,7 +6844,7 @@ CREATE TABLE public.organizer_edition_capability_grants (
     revoked_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
-    CONSTRAINT organizer_edition_capability_grants_capability_key_check CHECK ((capability_key = 'racebook_analytics.view'::text)),
+    CONSTRAINT organizer_edition_capability_grants_capability_key_check CHECK ((capability_key = ANY (ARRAY['module.services'::text, 'module.start_waves'::text, 'module.awards'::text, 'advanced.format_equipment'::text, 'advanced.format_bib_pickup'::text, 'advanced.format_access'::text, 'capability.followers_notify'::text, 'capability.edition_duplicate'::text, 'module.branding'::text, 'module.sponsors'::text, 'module.relay'::text, 'module.official_products'::text, 'capability.assisted_import'::text, 'capability.racebook_analytics'::text]))),
     CONSTRAINT organizer_edition_capability_grants_lifecycle_check CHECK ((((status = 'active'::text) AND (granted_at IS NOT NULL) AND (revoked_by IS NULL) AND (revoked_at IS NULL)) OR ((status = 'revoked'::text) AND (revoked_at IS NOT NULL)))),
     CONSTRAINT organizer_edition_capability_grants_status_check CHECK ((status = ANY (ARRAY['active'::text, 'revoked'::text])))
 );
@@ -6740,73 +6874,36 @@ CREATE FUNCTION public.set_admin_organizer_edition_capability_grant(p_edition_id
     AS $$
 declare
   grant_row public.organizer_edition_capability_grants;
-  changed_at timestamptz := timezone('utc', now());
+  changed_at timestamptz := now();
 begin
-  if p_capability_key is distinct from 'racebook_analytics.view' then
-    raise exception 'Invalid organizer edition capability.' using errcode = '22023';
-  end if;
+  if p_capability_key not in (
+    'module.services', 'module.start_waves', 'module.awards',
+    'advanced.format_equipment', 'advanced.format_bib_pickup', 'advanced.format_access',
+    'capability.followers_notify', 'capability.edition_duplicate',
+    'module.branding', 'module.sponsors', 'module.relay', 'module.official_products',
+    'capability.assisted_import', 'capability.racebook_analytics'
+  ) then raise exception 'Invalid organizer edition feature.' using errcode = '22023'; end if;
+  if p_enabled is null then raise exception 'Feature enabled state is required.' using errcode = '22023'; end if;
+  if p_admin_id is null then raise exception 'Administrator attribution is required.' using errcode = '22023'; end if;
 
-  if p_enabled is null then
-    raise exception 'Capability enabled state is required.' using errcode = '22023';
-  end if;
-
-  if p_admin_id is null then
-    raise exception 'Administrator attribution is required.' using errcode = '22023';
-  end if;
-
-  select *
-  into grant_row
-  from public.organizer_edition_capability_grants
-  where edition_id = p_edition_id
-    and capability_key = p_capability_key
-  for update;
-
-  -- Repeated requests must not rewrite the administrator or timestamp that
-  -- actually performed the transition. Revoking a capability that has never
-  -- been granted is likewise a no-op, rather than a fabricated audit event.
-  if found and grant_row.status = (case when p_enabled then 'active' else 'revoked' end) then
-    return grant_row;
-  end if;
-
-  if not found and not p_enabled then
-    return null;
-  end if;
+  select * into grant_row from public.organizer_edition_capability_grants
+  where edition_id = p_edition_id and capability_key = p_capability_key for update;
+  if found and grant_row.status = (case when p_enabled then 'active' else 'revoked' end) then return grant_row; end if;
+  if not found and not p_enabled then return null; end if;
 
   insert into public.organizer_edition_capability_grants (
-    edition_id,
-    capability_key,
-    status,
-    granted_by,
-    granted_at,
-    revoked_by,
-    revoked_at,
-    updated_at
+    edition_id, capability_key, status, granted_by, granted_at, revoked_by, revoked_at, updated_at
   ) values (
-    p_edition_id,
-    p_capability_key,
-    case when p_enabled then 'active' else 'revoked' end,
-    case when p_enabled then p_admin_id else null end,
-    case when p_enabled then changed_at else null end,
-    case when p_enabled then null else p_admin_id end,
-    case when p_enabled then null else changed_at end,
-    changed_at
-  )
-  on conflict (edition_id, capability_key) do update set
+    p_edition_id, p_capability_key, case when p_enabled then 'active' else 'revoked' end,
+    case when p_enabled then p_admin_id else null end, case when p_enabled then changed_at else null end,
+    case when p_enabled then null else p_admin_id end, case when p_enabled then null else changed_at end, changed_at
+  ) on conflict (edition_id, capability_key) do update set
     status = excluded.status,
-    granted_by = case
-      when excluded.status = 'active' then excluded.granted_by
-      else public.organizer_edition_capability_grants.granted_by
-    end,
-    granted_at = case
-      when excluded.status = 'active' then excluded.granted_at
-      else public.organizer_edition_capability_grants.granted_at
-    end,
-    revoked_by = excluded.revoked_by,
-    revoked_at = excluded.revoked_at,
-    updated_at = excluded.updated_at
+    granted_by = case when excluded.status = 'active' then excluded.granted_by else public.organizer_edition_capability_grants.granted_by end,
+    granted_at = case when excluded.status = 'active' then excluded.granted_at else public.organizer_edition_capability_grants.granted_at end,
+    revoked_by = excluded.revoked_by, revoked_at = excluded.revoked_at, updated_at = excluded.updated_at
   where public.organizer_edition_capability_grants.status is distinct from excluded.status
   returning * into grant_row;
-
   return grant_row;
 end;
 $$;
@@ -7408,6 +7505,32 @@ BEGIN new.updated_at = timezone('utc', now()); RETURN new; END; $$;
 
 
 --
+-- Name: settle_admin_organizer_invoice(uuid, uuid, timestamp with time zone, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.settle_admin_organizer_invoice(p_invoice_id uuid, p_admin_id uuid, p_paid_at timestamp with time zone, p_payment_reference text DEFAULT NULL::text) RETURNS public.organizer_invoices
+    LANGUAGE plpgsql
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+declare invoice_row public.organizer_invoices;
+begin
+  select * into invoice_row from public.organizer_invoices where id = p_invoice_id for update;
+  if invoice_row.id is null or invoice_row.document_status <> 'active' or invoice_row.net_total = 0 then
+    raise exception 'This invoice cannot be settled.' using errcode = '23514';
+  end if;
+  if invoice_row.paid_at is not null then return invoice_row; end if;
+  if p_admin_id is null or p_paid_at is null or p_paid_at > now() + interval '1 minute' then
+    raise exception 'Invalid settlement facts.' using errcode = '22023';
+  end if;
+  update public.organizer_invoices set paid_at = p_paid_at, paid_by = p_admin_id,
+    payment_reference = nullif(btrim(p_payment_reference), ''), updated_at = now()
+  where id = p_invoice_id returning * into invoice_row;
+  return invoice_row;
+end;
+$$;
+
+
+--
 -- Name: sync_current_race_event_edition_dates(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -7523,6 +7646,60 @@ begin
     set user_id = new.user_id
     where plan_id = new.id and user_id = old.user_id;
   return new;
+end;
+$$;
+
+
+--
+-- Name: organizer_feature_catalog; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.organizer_feature_catalog (
+    feature_key text NOT NULL,
+    label text NOT NULL,
+    minimum_tier text NOT NULL,
+    unit_price_cents integer NOT NULL,
+    currency text DEFAULT 'EUR'::text NOT NULL,
+    is_active boolean DEFAULT true NOT NULL,
+    sort_order integer NOT NULL,
+    updated_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT organizer_feature_catalog_currency_check CHECK ((currency = 'EUR'::text)),
+    CONSTRAINT organizer_feature_catalog_minimum_tier_check CHECK ((minimum_tier = ANY (ARRAY['complete'::text, 'signature'::text]))),
+    CONSTRAINT organizer_feature_catalog_unit_price_cents_check CHECK ((unit_price_cents >= 0))
+);
+
+
+--
+-- Name: TABLE organizer_feature_catalog; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.organizer_feature_catalog IS 'Service-only prices for individually giftable organizer features.';
+
+
+--
+-- Name: update_admin_organizer_feature_catalog(uuid, text, integer, boolean); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_admin_organizer_feature_catalog(p_admin_id uuid, p_feature_key text, p_unit_price_cents integer, p_is_active boolean) RETURNS public.organizer_feature_catalog
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+declare catalog_row public.organizer_feature_catalog;
+begin
+  if p_admin_id is null or p_unit_price_cents is null or p_unit_price_cents < 0 or p_is_active is null then
+    raise exception 'Invalid organizer feature catalog update.' using errcode = '22023';
+  end if;
+  update public.organizer_feature_catalog
+  set unit_price_cents = p_unit_price_cents, is_active = p_is_active,
+      updated_by = p_admin_id, updated_at = now()
+  where feature_key = p_feature_key
+  returning * into catalog_row;
+  if catalog_row.feature_key is null then
+    raise exception 'Unknown organizer feature.' using errcode = '22023';
+  end if;
+  return catalog_row;
 end;
 $$;
 
@@ -13536,11 +13713,35 @@ ALTER TABLE ONLY public.organizer_edition_payments
 
 
 --
+-- Name: organizer_feature_catalog organizer_feature_catalog_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizer_feature_catalog
+    ADD CONSTRAINT organizer_feature_catalog_pkey PRIMARY KEY (feature_key);
+
+
+--
 -- Name: organizer_import_sessions organizer_import_sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.organizer_import_sessions
     ADD CONSTRAINT organizer_import_sessions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: organizer_invoices organizer_invoices_invoice_number_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizer_invoices
+    ADD CONSTRAINT organizer_invoices_invoice_number_key UNIQUE (invoice_number);
+
+
+--
+-- Name: organizer_invoices organizer_invoices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizer_invoices
+    ADD CONSTRAINT organizer_invoices_pkey PRIMARY KEY (id);
 
 
 --
@@ -14947,6 +15148,13 @@ CREATE UNIQUE INDEX organizer_edition_payments_stripe_invoice_idx ON public.orga
 
 
 --
+-- Name: organizer_feature_catalog_updated_by_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX organizer_feature_catalog_updated_by_idx ON public.organizer_feature_catalog USING btree (updated_by) WHERE (updated_by IS NOT NULL);
+
+
+--
 -- Name: organizer_import_sessions_active_event_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -14979,6 +15187,34 @@ CREATE INDEX organizer_import_sessions_event_id_idx ON public.organizer_import_s
 --
 
 CREATE INDEX organizer_import_sessions_expires_at_idx ON public.organizer_import_sessions USING btree (expires_at);
+
+
+--
+-- Name: organizer_invoices_created_by_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX organizer_invoices_created_by_idx ON public.organizer_invoices USING btree (created_by) WHERE (created_by IS NOT NULL);
+
+
+--
+-- Name: organizer_invoices_edition_issued_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX organizer_invoices_edition_issued_idx ON public.organizer_invoices USING btree (edition_id, invoice_issued_at DESC);
+
+
+--
+-- Name: organizer_invoices_paid_by_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX organizer_invoices_paid_by_idx ON public.organizer_invoices USING btree (paid_by) WHERE (paid_by IS NOT NULL);
+
+
+--
+-- Name: organizer_invoices_replaces_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX organizer_invoices_replaces_idx ON public.organizer_invoices USING btree (replaces_invoice_id) WHERE (replaces_invoice_id IS NOT NULL);
 
 
 --
@@ -16123,6 +16359,13 @@ CREATE TRIGGER protect_issued_organizer_invoice_trigger BEFORE DELETE OR UPDATE 
 
 
 --
+-- Name: organizer_invoices protect_organizer_invoice_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER protect_organizer_invoice_trigger BEFORE DELETE OR UPDATE ON public.organizer_invoices FOR EACH ROW EXECUTE FUNCTION private.protect_organizer_invoice();
+
+
+--
 -- Name: user_profiles protect_server_managed_profile_fields_insert; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -16790,6 +17033,14 @@ ALTER TABLE ONLY public.organizer_edition_payments
 
 
 --
+-- Name: organizer_feature_catalog organizer_feature_catalog_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizer_feature_catalog
+    ADD CONSTRAINT organizer_feature_catalog_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
 -- Name: organizer_import_sessions organizer_import_sessions_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -16811,6 +17062,38 @@ ALTER TABLE ONLY public.organizer_import_sessions
 
 ALTER TABLE ONLY public.organizer_import_sessions
     ADD CONSTRAINT organizer_import_sessions_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.race_events(id) ON DELETE CASCADE;
+
+
+--
+-- Name: organizer_invoices organizer_invoices_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizer_invoices
+    ADD CONSTRAINT organizer_invoices_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: organizer_invoices organizer_invoices_edition_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizer_invoices
+    ADD CONSTRAINT organizer_invoices_edition_id_fkey FOREIGN KEY (edition_id) REFERENCES public.race_event_editions(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: organizer_invoices organizer_invoices_paid_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizer_invoices
+    ADD CONSTRAINT organizer_invoices_paid_by_fkey FOREIGN KEY (paid_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: organizer_invoices organizer_invoices_replaces_invoice_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizer_invoices
+    ADD CONSTRAINT organizer_invoices_replaces_invoice_id_fkey FOREIGN KEY (replaces_invoice_id) REFERENCES public.organizer_invoices(id) ON DELETE RESTRICT;
 
 
 --
@@ -18454,10 +18737,22 @@ ALTER TABLE public.organizer_edition_entitlements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.organizer_edition_payments ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: organizer_feature_catalog; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.organizer_feature_catalog ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: organizer_import_sessions; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.organizer_import_sessions ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: organizer_invoices; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.organizer_invoices ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: organizer_racebook_module_settings; Type: ROW SECURITY; Schema: public; Owner: -
@@ -20065,6 +20360,14 @@ GRANT ALL ON FUNCTION private.protect_issued_organizer_invoice() TO service_role
 
 
 --
+-- Name: FUNCTION protect_organizer_invoice(); Type: ACL; Schema: private; Owner: -
+--
+
+REVOKE ALL ON FUNCTION private.protect_organizer_invoice() FROM PUBLIC;
+GRANT ALL ON FUNCTION private.protect_organizer_invoice() TO service_role;
+
+
+--
 -- Name: FUNCTION prune_racebook_publications(p_race_id uuid); Type: ACL; Schema: private; Owner: -
 --
 
@@ -20516,6 +20819,21 @@ GRANT ALL ON TABLE public.organizer_edition_payments TO service_role;
 
 REVOKE ALL ON FUNCTION public.issue_admin_organizer_invoice(p_payment_id uuid, p_admin_id uuid, p_invoice_legal_snapshot jsonb) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.issue_admin_organizer_invoice(p_payment_id uuid, p_admin_id uuid, p_invoice_legal_snapshot jsonb) TO service_role;
+
+
+--
+-- Name: TABLE organizer_invoices; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.organizer_invoices TO service_role;
+
+
+--
+-- Name: FUNCTION issue_admin_organizer_invoice(p_edition_id uuid, p_admin_id uuid, p_tier text, p_service_date date, p_due_date date, p_original_subtotal integer, p_discount_total integer, p_net_total integer, p_legal_snapshot jsonb, p_replaces_invoice_id uuid); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.issue_admin_organizer_invoice(p_edition_id uuid, p_admin_id uuid, p_tier text, p_service_date date, p_due_date date, p_original_subtotal integer, p_discount_total integer, p_net_total integer, p_legal_snapshot jsonb, p_replaces_invoice_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.issue_admin_organizer_invoice(p_edition_id uuid, p_admin_id uuid, p_tier text, p_service_date date, p_due_date date, p_original_subtotal integer, p_discount_total integer, p_net_total integer, p_legal_snapshot jsonb, p_replaces_invoice_id uuid) TO service_role;
 
 
 --
@@ -21225,6 +21543,14 @@ GRANT ALL ON FUNCTION public.set_user_profiles_updated_at() TO service_role;
 
 
 --
+-- Name: FUNCTION settle_admin_organizer_invoice(p_invoice_id uuid, p_admin_id uuid, p_paid_at timestamp with time zone, p_payment_reference text); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.settle_admin_organizer_invoice(p_invoice_id uuid, p_admin_id uuid, p_paid_at timestamp with time zone, p_payment_reference text) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.settle_admin_organizer_invoice(p_invoice_id uuid, p_admin_id uuid, p_paid_at timestamp with time zone, p_payment_reference text) TO service_role;
+
+
+--
 -- Name: FUNCTION sync_current_race_event_edition_dates(); Type: ACL; Schema: public; Owner: -
 --
 
@@ -21263,6 +21589,21 @@ GRANT ALL ON FUNCTION public.sync_race_web_catalog_visibility() TO service_role;
 
 REVOKE ALL ON FUNCTION public.sync_runner_launch_grandfathered_plan_owner() FROM PUBLIC;
 GRANT ALL ON FUNCTION public.sync_runner_launch_grandfathered_plan_owner() TO service_role;
+
+
+--
+-- Name: TABLE organizer_feature_catalog; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.organizer_feature_catalog TO service_role;
+
+
+--
+-- Name: FUNCTION update_admin_organizer_feature_catalog(p_admin_id uuid, p_feature_key text, p_unit_price_cents integer, p_is_active boolean); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.update_admin_organizer_feature_catalog(p_admin_id uuid, p_feature_key text, p_unit_price_cents integer, p_is_active boolean) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.update_admin_organizer_feature_catalog(p_admin_id uuid, p_feature_key text, p_unit_price_cents integer, p_is_active boolean) TO service_role;
 
 
 --
@@ -22733,5 +23074,5 @@ CREATE EVENT TRIGGER pgrst_drop_watch ON sql_drop
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 1e3dgxLS5odLJ3DnN93teaEOYUgZSY20VcXV9bJxfhq4Wqac2HqXiUeUJFH8oes
+\unrestrict xw6WGRDmejLXJyT0xdCs2kSdSy71PaGAothz3pht54Qvfz0Z3hyxoOIrnJP9NbT
 
