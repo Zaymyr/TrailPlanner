@@ -2,7 +2,7 @@
 title: race_events Table
 scope: database
 
-last_verified: 2026-11-05
+last_verified: 2026-11-09
 
 ai_priority: high
 related_files:
@@ -392,3 +392,5 @@ The mobile sheet retains stable distance ordering, adds distance-range typograph
 - [Mobile App](../../01-architecture/mobile-app.md)
 
 The mobile summary card now removes its image rail after an image load failure and uses the shared localized distance/range formatter. Neither behavior mutates event media, distances, dates, or visibility.
+
+Livret-first navigation (2026-11-09): catalog cards add a `Livret disponible` badge computed from the existing format publication flags, upcoming events sort before past ones, and the event sheet makes the RaceBook the primary format action. `Mes courses` reads `id,name,location,race_date,thumbnail_url` plus format publication flags for followed live events. Presentation only: no column, RLS or visibility rule changes.

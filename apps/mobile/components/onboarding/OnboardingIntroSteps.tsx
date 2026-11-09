@@ -89,6 +89,8 @@ type OnboardingTourChoiceProps = {
   onChooseRacebook: () => void;
   onDiscoverLater: () => void;
   planBody: string;
+  /** Introduces the optional plan path below the default RaceBook path. */
+  planOptionalLabel: string;
   planTitle: string;
   racebookBody: string;
   racebookTitle: string;
@@ -104,6 +106,7 @@ export function OnboardingTourChoice({
   onChooseRacebook,
   onDiscoverLater,
   planBody,
+  planOptionalLabel,
   planTitle,
   racebookBody,
   racebookTitle,
@@ -111,18 +114,21 @@ export function OnboardingTourChoice({
   subtitle,
   title,
 }: OnboardingTourChoiceProps) {
+  // The RaceBook tour is the default path; the plan tour is offered after it as optional.
   return (
     <OnboardingShell step={1} totalSteps={1} stepLabel={stepLabel}>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.subtitle}>{subtitle}</Text>
-      <TourChoiceCard icon="map-outline" title={planTitle} body={planBody} disabled={busy} onPress={onChoosePlan} />
       <TourChoiceCard
         icon="book-outline"
         title={racebookTitle}
         body={racebookBody}
         disabled={busy}
+        highlighted
         onPress={onChooseRacebook}
       />
+      <Text style={styles.optionalLabel}>{planOptionalLabel}</Text>
+      <TourChoiceCard icon="map-outline" title={planTitle} body={planBody} disabled={busy} onPress={onChoosePlan} />
       <TouchableOpacity disabled={busy} onPress={onDiscoverLater} style={styles.secondaryButton}>
         {busy ? (
           <ActivityIndicator color={Colors.brandPrimary} />
@@ -137,18 +143,25 @@ export function OnboardingTourChoice({
 function TourChoiceCard({
   body,
   disabled,
+  highlighted = false,
   icon,
   onPress,
   title,
 }: {
   body: string;
   disabled: boolean;
+  highlighted?: boolean;
   icon: 'book-outline' | 'map-outline';
   onPress: () => void;
   title: string;
 }) {
   return (
-    <TouchableOpacity disabled={disabled} onPress={onPress} style={styles.phaseCard}>
+    <TouchableOpacity
+      accessibilityRole="button"
+      disabled={disabled}
+      onPress={onPress}
+      style={[styles.phaseCard, highlighted && styles.phaseCardHighlighted]}
+    >
       <View style={styles.phaseBadge}>
         <Ionicons name={icon} size={20} color={Colors.brandPrimary} />
       </View>
@@ -456,6 +469,17 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surfaceSecondary,
     borderWidth: 1,
     borderColor: Colors.border,
+  },
+  phaseCardHighlighted: {
+    borderWidth: 2,
+    borderColor: Colors.brandPrimary,
+    backgroundColor: Colors.surface,
+  },
+  optionalLabel: {
+    marginTop: 8,
+    color: Colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '700',
   },
   phaseBadge: {
     width: 32,

@@ -80,6 +80,10 @@ export type MobileTranslations = {
     title: string;
     empty: string;
     emptySubtitle: string;
+    emptyPlansOptionalTitle: string;
+    emptyPlansOptionalSubtitle: string;
+    followedTitle: string;
+    followedSubtitle: string;
     browseRaces: string;
     noRace: string;
     noRaceWarning: string;
@@ -326,6 +330,12 @@ export type MobileTranslations = {
     languageEn: string;
     personalTabLabel: string;
     performanceTabLabel: string;
+    planToolsTitle: string;
+    planToolsSubtitle: string;
+    planToolsProducts: string;
+    planToolsProductsHint: string;
+    planToolsTraining: string;
+    planToolsTrainingHint: string;
     notificationsTabLabel: string;
     settingsTabLabel: string;
     notificationsTitle: string;
@@ -677,7 +687,7 @@ export type MobileTranslations = {
     skipOnboardingConfirmBody: string;
     skipOnboardingError: string;
     tours: {
-      choiceTitle: string; choiceSubtitle: string; planChoiceTitle: string; planChoiceBody: string;
+      choiceTitle: string; choiceSubtitle: string; planChoiceTitle: string; planChoiceBody: string; planOptionalLabel: string;
       racebookChoiceTitle: string; racebookChoiceBody: string; discoverLater: string;
       chooseRaceTitle: string; chooseRaceBody: string; openRacebookTitle: string;
       openRacebookBody: string; searchRacebookTitle: string; searchRacebookBody: string;
@@ -720,6 +730,7 @@ export type MobileTranslations = {
     racebookUnavailableBody: string;
     createPlan: string;
     viewFormats: string;
+    livretAvailableBadge: string;
     organizerUpdatesTitle: string;
     organizerUpdatesLoading: string;
     organizerUpdatesViewAll: string;

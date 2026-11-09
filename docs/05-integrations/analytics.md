@@ -426,3 +426,5 @@ Versioned publication does not snapshot analytics counters. Sponsor click and im
 Opening the organizer publication confirmation, its changed-field list, or the `…` version menu emits no runner analytics event and does not alter sponsor counters.
 
 The admin "Messagerie" tab (bugs, feedback, race requests) and the prefilled greeting and signature of the Users tab message add no PostHog event; replies are audited in `user_notifications` and its delivery columns. The mobile inbox contact buttons reuse the existing feedback and race-request forms, and hiding a message emits no event.
+
+Livret-first navigation (2026-11-09): the new `Mes courses` followed-race cards, the plan-card `Livret coureur` action, the profile `Pour mon plan` shortcuts and the reordered onboarding choice add no analytics event and change no payload; existing catalog, RaceBook and onboarding events keep their names and properties.

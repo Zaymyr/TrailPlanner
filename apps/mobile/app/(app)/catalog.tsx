@@ -40,6 +40,7 @@ import { isAnonymousSession } from '../../lib/appSession';
 import {
   filterCatalogRacesByEditionRetention,
   isCatalogEventVisible,
+  sortCatalogEvents,
 } from '../../lib/catalogVisibility';
 import { useI18n } from '../../lib/i18n';
 import { lightHaptic } from '../../lib/haptics';
@@ -57,6 +58,8 @@ import { supabase } from '../../lib/supabase';
 import { saveOnboardingProgress, skipOnboardingKind } from '../../lib/onboardingStatus';
 import { WEB_API_BASE_URL } from '../../lib/webApi';
 import { readOrganizerStartTime } from '../../lib/planDeparture';
+import { formatDistanceValue } from '../../lib/displayFormat';
+import { fetchRaceFavoriteEventIds } from '../../lib/raceFavorites';
 
 type Race = {
   id: string;
@@ -151,15 +154,17 @@ function getEventImageUrl(event: Pick<EventGroup, 'thumbnail_url' | 'races'>): s
   return event.thumbnail_url ?? event.races.find((race) => race.thumbnail_url)?.thumbnail_url ?? null;
 }
 
-function formatDistance(distanceKm: number) {
-  return distanceKm >= 100 ? distanceKm.toFixed(0) : distanceKm.toFixed(1);
+function formatDistance(distanceKm: number, locale: 'fr' | 'en') {
+  // Locale-aware decimal separator (4,9 in French) shared with the event cards.
+  return formatDistanceValue(distanceKm >= 100 ? Math.round(distanceKm) : distanceKm, locale);
 }
 
-function formatElevation(elevationGainM: number | null) {
-  return elevationGainM === null ? 'D+ non renseigné' : `D+ ${Math.round(elevationGainM)} m`;
+function formatElevation(elevationGainM: number | null, locale: 'fr' | 'en') {
+  if (elevationGainM === null) return locale === 'fr' ? 'D+ inconnu' : 'D+ unknown';
+  return `D+ ${Math.round(elevationGainM)} m`;
 }
 
-function getEventDistanceRange(races: Race[]) {
+function getEventDistanceRange(races: Race[], locale: 'fr' | 'en') {
   if (races.length === 0) return null;
 
   const distances = races.map((race) => race.distance_km);
@@ -167,10 +172,10 @@ function getEventDistanceRange(races: Race[]) {
   const maxDistance = Math.max(...distances);
 
   if (Math.abs(maxDistance - minDistance) < 0.05) {
-    return `${formatDistance(maxDistance)} km`;
+    return `${formatDistance(maxDistance, locale)} km`;
   }
 
-  return `${formatDistance(minDistance)}–${formatDistance(maxDistance)} km`;
+  return `${formatDistance(minDistance, locale)}–${formatDistance(maxDistance, locale)} km`;
 }
 
 function isRacePast(race: Race, eventDate: string | null) {
@@ -259,24 +264,20 @@ function sortRaces(races: Race[]) {
 }
 
 function sortEvents(events: EventGroup[], favoriteEventIds: string[] = []) {
-  const getTimestamp = (value: string | null) => {
-    if (!value) return Number.MAX_SAFE_INTEGER;
-    const parsed = new Date(value).getTime();
-    return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
-  };
+  return sortCatalogEvents(events, favoriteEventIds);
+}
 
-  const favoriteIds = new Set(favoriteEventIds);
-
-  return [...events].sort((left, right) => {
-    const leftFavorite = favoriteIds.has(left.id);
-    const rightFavorite = favoriteIds.has(right.id);
-    if (leftFavorite !== rightFavorite) {
-      return leftFavorite ? -1 : 1;
-    }
-
-    const timestampDiff = getTimestamp(left.race_date) - getTimestamp(right.race_date);
-    if (timestampDiff !== 0) return timestampDiff;
-    return left.name.localeCompare(right.name);
+/** A format has a runner-visible RaceBook when the shared publication gate allows it. */
+function isRaceRacebookAvailable(event: EventGroup, race: Race) {
+  return canShowRacebook({
+    raceIsLive: race.is_live,
+    racebookIsLive: race.racebook_is_live,
+    racebookPreviewIsVisible: race.racebook_preview_is_visible,
+    hasOrganizerAccess: false,
+    hasAidStations: race.has_aid_stations,
+    hasRelayCourse: race.participation_mode === 'relay' || race.participation_mode === 'solo_and_relay',
+    eventOrganizerDetails: event.organizer_details,
+    raceOrganizerDetails: race.organizer_details,
   });
 }
 
@@ -301,28 +302,6 @@ function formatUpdateDate(value: string, locale: 'fr' | 'en') {
     day: 'numeric',
     month: 'short',
   });
-}
-
-async function fetchRaceFavoriteEventIds() {
-  const { data } = await supabase.auth.getSession();
-  const session = data.session;
-
-  if (!session?.access_token || isAnonymousSession(session)) {
-    return [] as string[];
-  }
-
-  const response = await fetch(`${WEB_API_BASE_URL}/api/race-favorites`, {
-    headers: {
-      Authorization: `Bearer ${session.access_token}`,
-    },
-  });
-
-  const payload = (await response.json().catch(() => null)) as { eventIds?: unknown } | null;
-  if (!response.ok || !Array.isArray(payload?.eventIds)) {
-    throw new Error('Unable to load race favorites.');
-  }
-
-  return payload.eventIds.filter((value): value is string => typeof value === 'string');
 }
 
 async function saveRaceFavoriteEventIds(eventIds: string[]) {
@@ -886,7 +865,7 @@ export default function CatalogScreen() {
     ? [selectedEvent.location, selectedEventDate].filter(Boolean).join(' • ')
     : null;
   const selectedEventImage = selectedEvent ? getEventImageUrl(selectedEvent) : null;
-  const selectedEventDistanceRange = selectedEvent ? getEventDistanceRange(selectedEvent.races) : null;
+  const selectedEventDistanceRange = selectedEvent ? getEventDistanceRange(selectedEvent.races, locale) : null;
   const selectedFormatsLabel = selectedEvent
     ? selectedEvent.races.length === 1
       ? t.catalog.singleFormatLabel
@@ -1243,6 +1222,11 @@ export default function CatalogScreen() {
             isFavorite={favoriteEventIds.includes(event.id)}
             allowOptimisticFavoriteToggle={canFavoriteEvents}
             hasNewUpdate={eventsWithUnreadUpdates.has(event.id)}
+            racebookAvailableLabel={
+              event.races.some((race) => isRaceRacebookAvailable(event, race))
+                ? t.catalog.livretAvailableBadge
+                : null
+            }
             onToggleFavorite={() => {
               void handleToggleFavorite(event.id);
             }}
@@ -1357,7 +1341,12 @@ export default function CatalogScreen() {
             </View>
 
             {selectedEventImage ? (
-              <Image source={{ uri: selectedEventImage }} style={styles.sheetImage} resizeMode="cover" />
+              // Organizer images are often small logos: show them whole over a
+              // blurred fill instead of stretching them into a pixelated banner.
+              <View style={styles.sheetImage}>
+                <Image blurRadius={18} source={{ uri: selectedEventImage }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                <Image source={{ uri: selectedEventImage }} style={StyleSheet.absoluteFill} resizeMode="contain" />
+              </View>
             ) : null}
 
             <View style={styles.eventSummaryRow}>
@@ -1373,7 +1362,7 @@ export default function CatalogScreen() {
               ) : null}
             </View>
 
-            <Text style={styles.sheetHint}>{locale === 'fr' ? 'Choisis ton format par distance et dénivelé, puis ouvre le Livret coureur ou ton plan.' : 'Choose your format by distance and elevation, then open the Race Book or your plan.'}</Text>
+            <Text style={styles.sheetHint}>{locale === 'fr' ? 'Choisis ta distance, puis ouvre son Livret coureur.' : 'Choose your distance, then open its Race Book.'}</Text>
 
             <ScrollView contentContainerStyle={styles.sheetContent}>
               {selectedEvent?.races.map((race) => {
@@ -1388,24 +1377,29 @@ export default function CatalogScreen() {
                   raceOrganizerDetails: race.organizer_details,
                 });
                 const ownedPlanId = ownedPlanIdsByRaceId[race.id];
+                const racePast = isRacePast(race, selectedEvent.race_date);
                 const showPlanAction = onboardingMode !== 'racebook' && race.elevation_gain_m !== null
-                  && (!isRacePast(race, selectedEvent.race_date) || Boolean(ownedPlanId));
+                  && (!racePast || Boolean(ownedPlanId));
+                // A finished format never promises a RaceBook "coming soon".
+                const showRacebookAction = racebookAvailable || !racePast;
                 const startTime = readOrganizerStartTime(race.organizer_details);
                 return <CatalogRaceRow
                   key={race.id}
                   title={getRaceShortLabel(race.name, selectedEvent.name)}
-                  secondaryActionDimmed={
+                  racebookActionDimmed={
                     organizerEventIds.has(selectedEvent.id) &&
                     race.racebook_is_live !== true
                   }
-                  secondaryActionLabel={
-                    racebookAvailable ? t.catalog.racebookCta : (locale === 'fr' ? 'Bientôt disponible' : 'Coming soon')
+                  racebookActionLabel={
+                    !showRacebookAction
+                      ? undefined
+                      : racebookAvailable ? t.catalog.racebookCta : (locale === 'fr' ? 'Bientôt disponible' : 'Coming soon')
                   }
-                  secondaryActionDisabled={!racebookAvailable}
-                  onSecondaryPressIn={() => {
+                  racebookActionDisabled={!racebookAvailable}
+                  onRacebookPressIn={() => {
                     void prefetchRacebookSponsors(race.id);
                   }}
-                  onSecondaryPress={() => {
+                  onRacebookPress={() => {
                     void prefetchRacebookSponsors(race.id);
                     if (onboardingMode === 'racebook') {
                       captureRacebookOnboardingSearch();
@@ -1437,13 +1431,13 @@ export default function CatalogScreen() {
                       params: { id: race.id },
                     });
                   }}
-                  subtitle={`${formatDistance(race.distance_km)} km · ${formatElevation(race.elevation_gain_m)}${startTime ? ` · ${locale === 'fr' ? 'Départ' : 'Start'} ${startTime}` : ''}${race.id === selectedRaceIdParam ? ' · Format concerné' : ''}`}
-                  primaryActionLabel={!showPlanAction
+                  subtitle={`${formatDistance(race.distance_km, locale)} km · ${formatElevation(race.elevation_gain_m, locale)}${startTime ? ` · ${locale === 'fr' ? 'Départ' : 'Start'} ${startTime}` : ''}${race.id === selectedRaceIdParam ? (locale === 'fr' ? ' · Distance concernée' : ' · This distance') : ''}`}
+                  planActionLabel={!showPlanAction
                     ? undefined
                     : ownedPlanId
                       ? (locale === 'fr' ? 'Voir mon plan' : 'View my plan')
                       : t.catalog.createPlan}
-                  onPrimaryPress={!showPlanAction ? undefined : () => {
+                  onPlanPress={!showPlanAction ? undefined : () => {
                     setSelectedEvent(null);
                     handleCreatePlan(race.id);
                   }}
@@ -1744,6 +1738,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     backgroundColor: Colors.surfaceSecondary,
+    overflow: 'hidden',
   },
   sheetHint: {
     color: Colors.textSecondary,
