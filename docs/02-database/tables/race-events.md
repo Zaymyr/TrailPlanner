@@ -2,7 +2,7 @@
 title: race_events Table
 scope: database
 
-last_verified: 2026-11-05
+last_verified: 2026-11-09
 
 ai_priority: high
 related_files:
@@ -125,7 +125,7 @@ The mobile Livret may separately load an owner's linked plan for personal reflec
 
 - Event grouping: multiple `races` can belong to one event.
 - Event image: `thumbnail_url` can be used as a shared event thumbnail; organizer and admin uploads pass through server routes that store a bounded, versioned WebP public Storage URL here.
-- RaceBook identity hero: mobile prefers the format thumbnail and falls back to this event thumbnail beneath the published primary-color gradient; this display choice does not alter image ownership or visibility.
+- RaceBook identity hero: mobile no longer draws the format or event thumbnail behind the identity (solid published primary color); thumbnails remain catalog imagery and their ownership or visibility is unchanged.
 - Event liveness: mobile and onboarding use event/race live state for course catalog visibility; it no longer determines Racebook visibility.
 - Edition liveness: `race_event_editions.is_visible` can hide one year by forcing only that edition's formats and Racebooks off while leaving the parent event and other years unchanged.
 - Organizer event: created catalog-visible, while its Racebook formats remain hidden until approved.
@@ -306,7 +306,7 @@ where is_live = true
 - Keeping Courses search and quick filters sticky, entering date bounds through native pickers, and placing format actions below the full-width format name are presentation-only. They do not alter event/format relationships, visibility, or stored dates.
 - Catalog create/refine wording and RaceBook start-time rendering are presentation only; they do not alter event data or visibility.
 
-- Showing `Affiner mon plan` for a runner-owned format instead of another create CTA is a catalog/RaceBook presentation decision. It does not change event visibility, event ownership, or organizer content.
+- Showing `Voir mon plan` (catalog) or the `Mon plan` switch (RaceBook) for a runner-owned format instead of another create CTA is a catalog/RaceBook presentation decision. It does not change event visibility, event ownership, or organizer content.
 
 - The shared Courses bootstrap, recoverable-error, empty-result, and pull-to-refresh presentation repeats the existing event/format query and visibility filters. It must not persist an empty result, alter event liveness, or turn a failed request into a catalog-empty conclusion.
 - Expanding or compacting the Courses root header changes only layout. It must not re-run, widen, or reorder the event query outside the existing scroll/list behavior.
@@ -373,7 +373,7 @@ where is_live = true
 - Decorative location and access actions now use published edition accent variants. Personal Material completion is stored by exact `race_id` in `racebook_gear_checks`; neither change mutates event organizer metadata.
 - Interactive ravito points and fullscreen map/profile presentation are derived from format-scoped GPX and station data. They do not use the event anchor coordinates as route geometry and do not mutate event metadata.
 
-A format with at least one complete, effective supporter point counts as meaningful Livret coureur content. The `Suivi coureur` Course sub-tab is driven by that normalized public point collection rather than a separate module response, so a newer published snapshot cannot hide a valid point. The points remain owned by the child `races` row and are removed through its cascade, not stored in event organizer JSON.
+A format with at least one complete, effective supporter point counts as meaningful Livret coureur content. The runner `Où encourager` Course sub-tab (organizer module `Suivi coureur`) is driven by that normalized public point collection rather than a separate module response, so a newer published snapshot cannot hide a valid point. The points remain owned by the child `races` row and are removed through its cascade, not stored in event organizer JSON.
 
 The mobile catalog may hide the image rail when no event/format thumbnail exists and may warn before creating a plan for a past `race_date`. Both are derived presentation; they do not rewrite the event date, image, edition visibility, or publication state.
 
@@ -392,3 +392,11 @@ The mobile sheet retains stable distance ordering, adds distance-range typograph
 - [Mobile App](../../01-architecture/mobile-app.md)
 
 The mobile summary card now removes its image rail after an image load failure and uses the shared localized distance/range formatter. Neither behavior mutates event media, distances, dates, or visibility.
+
+RaceBook polish (2026-11-09): the runner hero keeps the format/event thumbnail but renders it blurred (`blurRadius` 24) under a 90% organizer-primary veil, so no artwork text is readable behind the identity, omits the default `Solo` participation label, appends a `J-N`/`Aujourd'hui` countdown to the date line (hidden after race day), and moves its expanded block up with the collapse so titles never overlap and metrics are never clipped. Runner wording was simplified (`Où encourager`, `Barrière horaire`, `Sac d'allègement`, `Nourriture`, `Relais {n}`, weather-alert and partial-route sentences). Access transport notes turn pasted URLs into labelled buttons (`Réserver ma navette` / `Ouvrir le lien`) and bib pickup addresses without an organizer maps link fall back to a Google Maps search (`lib/racebookTextLinks.ts`). Profile cumulative tiles show `—` until the runner touches the curve.
+
+Livret-first navigation (2026-11-09): catalog cards add a `Livret disponible` badge computed from the existing format publication flags, upcoming events sort before past ones, and the event sheet makes the RaceBook the primary format action. `Mes courses` reads `id,name,location,race_date,thumbnail_url` plus format publication flags for followed live events. Presentation only: no column, RLS or visibility rule changes.
+
+Publication checks and partner slots (2026-11-09): pre-publication checks and the Matériel/hébergement partner slots read the built snapshot and their own table only. They do not read, write or change this domain's rows or contracts.
+
+Catalog scroll performance (2026-11-09): the Courses list renders memoized `CatalogEventRow` rows (stable callbacks through a handler ref) over a memoized `RaceEventSummaryCard`, tunes FlatList virtualization (`initialNumToRender` 6, `maxToRenderPerBatch` 4, `windowSize` 9, `removeClippedSubviews` on Android), downsamples rail images (`resizeMethod="resize"`) and reads reduce-motion on favorite press instead of subscribing one accessibility listener per card. Presentation only: no query, payload, analytics event or favorite/update-read behavior changes.

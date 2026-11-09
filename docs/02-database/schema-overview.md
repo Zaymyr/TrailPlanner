@@ -1,9 +1,10 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-11-05
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
+  - supabase/migrations/20261106142000_add_lut_by_night_2026_gpx.sql
   - supabase/migrations/20261105180000_add_app_feedback_review.sql
   - supabase/tests/app_feedback_review_checks.sql
   - supabase/migrations
@@ -126,6 +127,8 @@ related_tables:
 ---
 
 # Schema Overview
+
+The 2026 Radiance Mutuelle LUT By Night data-only enrichment attaches the three official downloadable GPX objects to the 10 km, 20 km and 30 km catalog formats, preserving their official distance/D+ labels and adding hashes plus parsed route metadata. The 10 km Rando remains without a GPX because its official page has no downloadable trace URL. No schema, grant, policy, visibility, or publication-state contract changes.
 
 Bugs and feedback (`app_feedback`) now share the race-request review lifecycle; an admin reply is a `user_notifications` row linked by `feedback_id`, created atomically with the status by a service-role RPC. Runners hide a message with `deleted_at` instead of deleting it, so the admin keeps the reply and its read and deletion state.
 
@@ -315,6 +318,7 @@ erDiagram
 - [race_event_editions](tables/race-event-editions.md)
 - [organizer_social_proofs](tables/organizer-social-proofs.md)
 - [race_event_edition_sponsors](tables/race-event-edition-sponsors.md)
+- [race_event_edition_partner_slots](tables/race-event-edition-partner-slots.md)
 - [race_event_edition_branding](tables/race-event-edition-branding.md)
 - [organizer_edition_entitlements](tables/organizer-edition-entitlements.md)
 - [organizer_edition_capability_grants](tables/organizer-edition-capability-grants.md)
@@ -410,3 +414,7 @@ The separate `20261101120000_normalize_decathlon_product_brand_aliases.sql` corr
 - [Organizer Race Management](../03-business-rules/organizer-race-management.md)
 
 Mobile lot 6 is presentation-only: shared distance/clock formatting, failed-image fallback, sticky control styling, and RaceBook hero sizing add no columns, tables, policies, or persistence paths.
+
+Livret-first navigation (2026-11-09): the catalog ordering (upcoming before past, favorites pinned inside each group), the `Livret disponible` card badge and the RaceBook-first event-sheet actions are mobile presentation only. They read no new field and add no table, column, RLS policy or write path; organizer-update previews, deep links and read receipts are unchanged.
+
+Catalog scroll performance (2026-11-09): the Courses list renders memoized `CatalogEventRow` rows (stable callbacks through a handler ref) over a memoized `RaceEventSummaryCard`, tunes FlatList virtualization (`initialNumToRender` 6, `maxToRenderPerBatch` 4, `windowSize` 9, `removeClippedSubviews` on Android), downsamples rail images (`resizeMethod="resize"`) and reads reduce-motion on favorite press instead of subscribing one accessibility listener per card. Presentation only: no query, payload, analytics event or favorite/update-read behavior changes.

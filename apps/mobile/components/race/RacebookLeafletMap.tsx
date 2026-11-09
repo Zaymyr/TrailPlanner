@@ -140,7 +140,7 @@ function buildMapHtml(
 
       const serviceLabel = (station) => [
         station.water ? (locale === 'fr' ? 'Eau' : 'Water') : null,
-        station.solid ? (locale === 'fr' ? 'Solide' : 'Food') : null,
+        station.solid ? (locale === 'fr' ? 'Nourriture' : 'Food') : null,
         station.assistance ? (locale === 'fr' ? 'Assistance' : 'Crew') : null,
       ].filter(Boolean).join(' · ');
 

@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-11-03
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
@@ -290,3 +290,5 @@ The admin reel animation (`route-animation.ts`) no longer computes a slope frami
 The admin reel page also passes the shortened organizer start place (`startPlace`) to the generator for the start label on the map; it reads the existing `start_location` only.
 
 The video generator format picker labels each format "GPX" or "sans GPX" from the catalog `gpx_storage_path`; it reads no GPX until the format is opened.
+
+Publication checks and partner slots (2026-11-09): pre-publication checks and the Matériel/hébergement partner slots read the built snapshot and their own table only. They do not read, write or change this domain's rows or contracts.

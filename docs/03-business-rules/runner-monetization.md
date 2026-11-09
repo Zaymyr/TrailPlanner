@@ -1,7 +1,7 @@
 ---
 title: Runner Monetization
 scope: business-rule
-last_verified: 2026-11-02
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - apps/mobile/components/plan-workspace/LockedPlanContent.tsx
@@ -70,7 +70,7 @@ The algorithm uses its actual pace/capacity/target inputs; it must not claim tha
 
 The legacy web onboarding routes defer to the new planner while monetization is enabled. The authenticated profile API includes `birthDate`, `heightCm`, `weightKg` and `defaultCarbsGPerHour` alongside existing fields.
 
-The mobile Livret coureur exposes `Créer mon plan` when no owned plan exists and `Affiner mon plan` otherwise. The shared switch remains below the collapsing heroes. In a locked preview, the real departure and its first following section are clear; remaining real course cards/sections remain scrollable but non-interactive and accessibility-hidden behind the implemented light veil. There is no cutoff or automatic paywall. One full CTA card (title, description and button) remains vertically centered in the usable area below headers/tabs and above the scroll bottom while scrolling, then returns inline at the top; measured geometry is clamped on small screens. Exactly one CTA is visible and accessibility-active. Visible first-sample edit/add/split actions and auto-fill open that same central paywall without mutation. A plan-specific paywall leads with the EUR 9.99 course purchase (provider price is authoritative) and offers EUR 29.99 annual access second; without a plan, annual remains primary.
+The mobile Livret coureur shows the shared `Livret officiel | Mon plan` switch below the collapsing heroes only when the runner owns a plan for the format. Without one, plan creation is offered only by the discreet `RacebookPlanInviteCard` at the end of the Course tab; it routes to the same creation flow and purchase gates. In a locked preview, the real departure and its first following section are clear; remaining real course cards/sections remain scrollable but non-interactive and accessibility-hidden behind the implemented light veil. There is no cutoff or automatic paywall. One full CTA card (title, description and button) remains vertically centered in the usable area below headers/tabs and above the scroll bottom while scrolling, then returns inline at the top; measured geometry is clamped on small screens. Exactly one CTA is visible and accessibility-active. Visible first-sample edit/add/split actions and auto-fill open that same central paywall without mutation. A plan-specific paywall leads with the EUR 9.99 course purchase (provider price is authoritative) and offers EUR 29.99 annual access second; without a plan, annual remains primary.
 
 The locked free Recap relies on the persistent workspace header for total estimated time and average pace instead of repeating them in its body, then offers `Voir le reste des statistiques`. Lower down, a passage preview shows real departure and subsequent public point names/distances but no paid times, with `Voir les temps de passage`. Both CTAs open the central paywall and never write, share, or activate access. Separately authorized historical detailed recap remains available.
 

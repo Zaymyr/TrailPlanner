@@ -6,9 +6,11 @@ import { loadOrganizerEditionEntitlement } from "../../../../../../lib/organizer
 import { jsonError, requireEventOrganizer, requireOrganizerAuth, serviceHeaders, uuidParamSchema } from "../../../../../../lib/organizer";
 import { validateOrganizerEditionPublication } from "../../../../../../lib/organizer-publication";
 import { invalidateRacebookCache } from "../../../../../../lib/racebook-cache";
+import { hasBlockingRacebookPublicationIssue } from "../../../../../../lib/racebook-publication-checks";
 import {
   buildRacebookPublishedSnapshot,
   loadRacebookPublication,
+  loadRacebookPublicationChecks,
   loadRacebookPublicationState,
   racebookPublicationResultSchema,
   serializePublicationState,
@@ -59,6 +61,19 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
       raceId: state.race_id,
       ...(await buildRacebookPublishedSnapshot(auth.serviceConfig, state.race_id)),
     })));
+    const blocked = (await Promise.all(built.map(async (item) => ({
+      raceName: typeof item.snapshot.raceRow.name === "string" ? item.snapshot.raceRow.name : "Format",
+      checks: await loadRacebookPublicationChecks(auth.serviceConfig, item.snapshot),
+    })))).filter((item) => hasBlockingRacebookPublicationIssue(item.checks));
+    if (blocked.length > 0) {
+      return withSecurityHeaders(NextResponse.json({
+        message: `Aucun format n’a été publié : corrige d’abord les points bloquants de ${blocked.map((item) => `« ${item.raceName} »`).join(", ")}.`,
+        blocked: blocked.map((item) => ({
+          raceName: item.raceName,
+          checks: item.checks.filter((issue) => issue.severity === "blocking"),
+        })),
+      }, { status: 409 }));
+    }
     const response = await fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/rpc/publish_racebook_snapshots`, {
       method: "POST",
       headers: serviceHeaders(auth.serviceConfig),

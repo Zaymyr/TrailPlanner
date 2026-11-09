@@ -2,10 +2,11 @@
 title: races Table
 scope: database
 
-last_verified: 2026-11-05
+last_verified: 2026-11-09
 
 ai_priority: high
 related_files:
+  - supabase/migrations/20261106142000_add_lut_by_night_2026_gpx.sql
   - supabase/migrations/20261105082511_enrich_saintelyon_2026_formats.sql
   - supabase/migrations/20251220120000_add_race_catalog.sql
   - supabase/migrations/20260324000000_refactor_race_catalog_to_races.sql
@@ -151,6 +152,8 @@ Authenticated non-admin users can no longer insert races. Trusted `app_metadata`
 
 ## Business Invariants
 
+- The 2026 Radiance Mutuelle LUT By Night snapshot keeps the official published distance and D+ labels for the 10 km, 20 km and 30 km formats while attaching their three official GPX objects, hashes and parsed route metadata. The 10 km Rando remains without a GPX because its official page exposes no downloadable trace URL.
+
 - The 2026 SaintéLyon snapshot keeps official published distance and D+ labels in the primary format metrics. Six organizer GPX files provide hashes, private Storage paths and parsed route metadata for nine formats because the solo and relay races share the 80 km trace; SaintéGones remains null when no official downloadable GPX exists.
 
 - `data_status = complete` requires an empty `missing_required_fields` array.
@@ -236,7 +239,7 @@ where web_catalog_is_live = true
 - Do not infer relay participation from ravitos; use `participation_mode` and `race_relay_points`.
 - Do not bulk-update slugs without reviewing the read-only audit and using the service-only rename RPC after its migration is deployed.
 - Never expose `gpx_storage_path` or raw `organizer_details` from a public client contract. The public route may receive only the server-parsed, bounded GPX preview and allowlisted practical fields.
-- The server-filtered supporter-point collection is the mobile authority for showing `Suivi coureur`; do not hide complete public points again from a separately cached module presentation response.
+- The server-filtered supporter-point collection is the mobile authority for showing the runner `Où encourager` sub-tab (organizer `Suivi coureur`); do not hide complete public points again from a separately cached module presentation response.
 - Admin thumbnail replacement writes a bounded versioned WebP with long-cache metadata. The reference migration script updates only rows still pointing at the source URL and preserves old Storage objects for rollback.
 - Do not add per-format logo/color columns to `races`; all formats in one canonical edition deliberately share the branding projection.
 - Do not parse `location_text` into geographic filters. It may describe a start-to-finish route crossing several communes; use the parent event's normalized geography for broad catalog filters.
@@ -253,3 +256,7 @@ where web_catalog_is_live = true
 - [Schema Overview](../schema-overview.md)
 
 RaceBook course distances, ranges, and D+/D− labels now use a shared localized display formatter. Stored race distance/elevation values and GPX-derived authority are unchanged.
+
+RaceBook polish (2026-11-09): the runner hero keeps the format/event thumbnail but renders it blurred (`blurRadius` 24) under a 90% organizer-primary veil, so no artwork text is readable behind the identity, omits the default `Solo` participation label, appends a `J-N`/`Aujourd'hui` countdown to the date line (hidden after race day), and moves its expanded block up with the collapse so titles never overlap and metrics are never clipped. Runner wording was simplified (`Où encourager`, `Barrière horaire`, `Sac d'allègement`, `Nourriture`, `Relais {n}`, weather-alert and partial-route sentences). Access transport notes turn pasted URLs into labelled buttons (`Réserver ma navette` / `Ouvrir le lien`) and bib pickup addresses without an organizer maps link fall back to a Google Maps search (`lib/racebookTextLinks.ts`). Profile cumulative tiles show `—` until the runner touches the curve. This is runner presentation only: no row, contract or tracking of this domain changes.
+
+Publication checks and partner slots (2026-11-09): pre-publication checks and the Matériel/hébergement partner slots read the built snapshot and their own table only. They do not read, write or change this domain's rows or contracts.

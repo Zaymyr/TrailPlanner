@@ -43,7 +43,7 @@ export function RaceWorkspaceSwitch({
 }: Props) {
   const { t } = useI18n();
   const racebookLabel = t.planWorkspace.officialRacebook;
-  const planLabel = planExists ? t.catalog.racebookRefinePlan : t.catalog.racebookCreatePlan;
+  const planLabel = planExists ? t.catalog.racebookMyPlan : t.catalog.racebookCreatePlan;
   const collapseDistance = expandedHeaderHeight - compactHeaderHeight;
   const top = scrollY.interpolate({
     inputRange: [0, collapseDistance],

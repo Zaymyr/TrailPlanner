@@ -37,6 +37,7 @@ import type { PlanRow, RaceSection } from './types';
 type PlansListProps = {
   contentTopInset?: number;
   listHeaderComponent?: ReactNode;
+  listFooterComponent?: ReactNode;
   onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   sections: RaceSection[];
   collapsedSections: Set<string>;
@@ -71,11 +72,15 @@ type PlansListProps = {
   onSharePlan: (planId: string) => void;
   onOpenLockedPlan: () => void;
   onBrowseRaces: () => void;
+  /** Opens the format's RaceBook; plans of catalog formats lead with it. */
+  onOpenRacebook?: (raceId: string) => void;
+  racebookButtonLabel?: string;
 };
 
 export const PlansList = memo(function PlansList({
   contentTopInset = 0,
   listHeaderComponent,
+  listFooterComponent,
   onScroll,
   sections,
   collapsedSections,
@@ -110,6 +115,8 @@ export const PlansList = memo(function PlansList({
   onSharePlan,
   onOpenLockedPlan,
   onBrowseRaces,
+  onOpenRacebook,
+  racebookButtonLabel,
 }: PlansListProps) {
   const [managedPlan, setManagedPlan] = useState<PlanRow | null>(null);
   const [managedPlanName, setManagedPlanName] = useState('');
@@ -148,6 +155,7 @@ export const PlansList = memo(function PlansList({
         ]}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={listHeaderComponent ? <View style={styles.listHeader}>{listHeaderComponent}</View> : null}
+        ListFooterComponent={listFooterComponent ? <View style={styles.listFooter}>{listFooterComponent}</View> : null}
         onScroll={onScroll}
         refreshControl={
           <RefreshControl
@@ -200,6 +208,12 @@ export const PlansList = memo(function PlansList({
                 onOpenSummary={() => onOpenSummary(item.id)}
                 onShare={() => onSharePlan(item.id)}
                 onStart={() => onOpenRacePlan(item.id)}
+                onOpenRacebook={
+                  onOpenRacebook && racebookButtonLabel && item.race_id && item.races?.race_events
+                    ? () => onOpenRacebook(item.race_id!)
+                    : undefined
+                }
+                racebookButtonLabel={racebookButtonLabel}
                 primaryAction={resolvePlanPrimaryAction(item, nowMs, activePlanId)}
                 recapButtonLabel={recapButtonLabel}
                 shareButtonLabel={shareButtonLabel}
@@ -357,6 +371,8 @@ type PlanCardProps = {
   onShare: () => void;
   onStart: () => void;
   onLockedPress: () => void;
+  onOpenRacebook?: () => void;
+  racebookButtonLabel?: string;
 };
 
 function PlanCard({
@@ -384,7 +400,11 @@ function PlanCard({
   onShare,
   onStart,
   onLockedPress,
+  onOpenRacebook,
+  racebookButtonLabel,
 }: PlanCardProps) {
+  // Catalog formats lead with their RaceBook; the plan action becomes secondary.
+  const leadsWithRacebook = Boolean(onOpenRacebook && racebookButtonLabel);
   const aidStationCount = getIntermediateAidStationCount(item.planner_values?.aidStations);
   const countdown = formatDepartureCountdown(item.departureAt, nowMs, departureCountdownCopy);
   const primaryLabel = primaryAction === 'start'
@@ -507,19 +527,37 @@ function PlanCard({
       </View>
 
       <View style={styles.cardActions}>
+          {leadsWithRacebook ? (
+            <TouchableOpacity
+              accessibilityLabel={`${racebookButtonLabel} — ${item.name}`}
+              accessibilityRole="button"
+              activeOpacity={0.85}
+              onPress={onOpenRacebook}
+              style={styles.primaryCardAction}
+              testID="plan-card-racebook"
+            >
+              <Ionicons color={colors.text.inverse} name="book-outline" size={18} />
+              <Text tone="inverse" size="xs" weight="bold">
+                {racebookButtonLabel}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
           <TouchableOpacity
             accessibilityLabel={`${primaryLabel} — ${item.name}`}
             accessibilityRole="button"
             activeOpacity={0.85}
             onPress={isAccessible ? handlePrimaryPress : onLockedPress}
-            style={[styles.primaryCardAction, !isAccessible && styles.iconBtnLocked]}
+            style={[
+              leadsWithRacebook ? styles.secondaryCardAction : styles.primaryCardAction,
+              !isAccessible && styles.iconBtnLocked,
+            ]}
           >
             <Ionicons
-              color={isAccessible ? colors.text.inverse : colors.accent.amber}
+              color={!isAccessible ? colors.accent.amber : leadsWithRacebook ? colors.brand.forest : colors.text.inverse}
               name={!isAccessible ? 'lock-closed' : primaryIcon}
               size={18}
             />
-            <Text tone={isAccessible ? 'inverse' : 'brand'} size="xs" weight="bold">
+            <Text tone={isAccessible && !leadsWithRacebook ? 'inverse' : 'brand'} size="xs" weight="bold">
               {primaryLabel}
             </Text>
           </TouchableOpacity>
@@ -576,6 +614,9 @@ const styles = StyleSheet.create({
   listHeader: {
     gap: spacing[3],
     marginBottom: spacing[1],
+  },
+  listFooter: {
+    marginTop: spacing[4],
   },
   listEmpty: {
     flex: 1,
@@ -728,6 +769,18 @@ const styles = StyleSheet.create({
     gap: spacing[2],
     paddingHorizontal: spacing[3],
     paddingBottom: spacing[3],
+  },
+  secondaryCardAction: {
+    minHeight: 44,
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing[2],
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border.brand,
+    backgroundColor: colors.surface.white,
   },
   primaryCardAction: {
     minHeight: 44,

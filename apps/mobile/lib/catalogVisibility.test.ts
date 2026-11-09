@@ -2,8 +2,39 @@ import { describe, expect, it } from 'vitest';
 
 import {
   filterCatalogRacesByEditionRetention,
+  isCatalogEventPast,
   isCatalogEventVisible,
+  sortCatalogEvents,
 } from './catalogVisibility';
+
+describe('sortCatalogEvents', () => {
+  const now = new Date(2026, 8, 28, 15, 30);
+  const event = (id: string, race_date: string | null) => ({ id, name: id, race_date });
+
+  it('never pins a past favorite above upcoming events', () => {
+    const sorted = sortCatalogEvents(
+      [event('past-fav', '2026-09-20'), event('later', '2026-10-10'), event('soon', '2026-10-01')],
+      ['past-fav'],
+      now,
+    );
+    expect(sorted.map((item) => item.id)).toEqual(['soon', 'later', 'past-fav']);
+  });
+
+  it('pins upcoming favorites first and lists past events most recent first', () => {
+    const sorted = sortCatalogEvents(
+      [event('soon', '2026-10-01'), event('fav', '2026-11-01'), event('old', '2026-09-15'), event('recent', '2026-09-25')],
+      ['fav'],
+      now,
+    );
+    expect(sorted.map((item) => item.id)).toEqual(['fav', 'soon', 'recent', 'old']);
+  });
+
+  it('flags only strictly past dates as past', () => {
+    expect(isCatalogEventPast('2026-09-27', now)).toBe(true);
+    expect(isCatalogEventPast('2026-09-28', now)).toBe(false);
+    expect(isCatalogEventPast(null, now)).toBe(false);
+  });
+});
 
 const NOW = new Date(2026, 8, 28, 15, 30);
 

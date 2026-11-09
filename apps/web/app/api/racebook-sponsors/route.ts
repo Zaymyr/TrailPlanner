@@ -7,6 +7,7 @@ import { isOrganizerModuleAvailable } from "../../../lib/organizer-modules";
 import { isOrganizerForEvent, serviceHeaders } from "../../../lib/organizer";
 import { setPrivateRacebookCacheHeaders, setPublicRacebookCacheHeaders } from "../../../lib/racebook-cache";
 import { loadCurrentRacebookPublication, loadRacebookPublication } from "../../../lib/racebook-publications";
+import { toRunnerPartnerSlots } from "../../../lib/racebook-partner-slots";
 import { extractBearerToken, fetchSupabaseUser, getSupabaseAnonConfig, getSupabaseServiceConfig } from "../../../lib/supabase";
 
 const accessSchema = z.object({
@@ -70,6 +71,13 @@ export async function GET(request: NextRequest) {
       loadingSponsors: sponsors.filter((sponsor) => sponsor.showOnLoading).slice(0, 2).map(mapSponsor),
       bannerSponsors: sponsors.filter((sponsor) => sponsor.showInBanner).map(mapSponsor),
       contextualSponsors: sponsors.filter((sponsor) => sponsor.contextualPlacement !== "none").map(mapSponsor),
+      // Partner slots replace or hide the default affiliate cards; older
+      // clients ignore this field and keep their affiliate presentation.
+      partnerSlots: toRunnerPartnerSlots(
+        publication.content.partnerSlots ?? [],
+        sponsorModule,
+        (slot) => new URL(`/api/racebook-partner-slots/${slot}/click?raceId=${encodeURIComponent(race.id)}`, request.nextUrl.origin).toString(),
+      ),
       branding: modules.branding === true ? publication.content.branding : { logoUrl: null, primaryColor: "#2D5016", accentColor: "#3F6F8F" },
       modules,
       publicationId: publication.id,

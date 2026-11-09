@@ -33,6 +33,23 @@ export function isRacebookSponsorSurfaceViewable(y: number, height: number, view
   return visibleHeight >= Math.min(height * 0.5, 80);
 }
 
+export type RacebookPartnerSlotKey = 'equipment' | 'lodging';
+
+/**
+ * A partner slot shows the Pace Yourself affiliate card by default. An
+ * organizer with the Signature sponsors option may replace it with their own
+ * partner (counted redirect) or hide it.
+ */
+export type RacebookPartnerSlot =
+  | { mode: 'affiliate' }
+  | { mode: 'hidden' }
+  | { mode: 'partner'; name: string; logoUrl: string; headline: string | null; clickUrl: string | null };
+
+export const DEFAULT_RACEBOOK_PARTNER_SLOTS: Record<RacebookPartnerSlotKey, RacebookPartnerSlot> = {
+  equipment: { mode: 'affiliate' },
+  lodging: { mode: 'affiliate' },
+};
+
 export type RacebookSponsorPresentation = {
   loadingSponsors: RacebookSponsor[];
   bannerSponsors: RacebookSponsor[];
@@ -40,6 +57,7 @@ export type RacebookSponsorPresentation = {
   contextualSponsors: RacebookSponsor[];
   branding: RacebookBranding;
   modules: RacebookModuleVisibility;
+  partnerSlots: Record<RacebookPartnerSlotKey, RacebookPartnerSlot>;
 };
 
 export type RacebookModuleVisibility = {
@@ -82,6 +100,7 @@ export const EMPTY_RACEBOOK_SPONSORS: RacebookSponsorPresentation = {
     accentColor: DEFAULT_RACEBOOK_ACCENT_COLOR,
   },
   modules: LEGACY_RACEBOOK_MODULES,
+  partnerSlots: DEFAULT_RACEBOOK_PARTNER_SLOTS,
 };
 
 export const RACEBOOK_SPONSOR_MINIMUM_MS = 2_500;
@@ -138,6 +157,40 @@ export function createRacebookSponsorImpressionReporter(report: RacebookSponsorI
   };
 }
 
+const isHttpsUrl = (value: unknown): value is string => {
+  if (typeof value !== 'string') return false;
+  try {
+    return new URL(value).protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
+function normalizePartnerSlot(value: unknown): RacebookPartnerSlot {
+  if (!value || typeof value !== 'object') return { mode: 'affiliate' };
+  const slot = value as Record<string, unknown>;
+  if (slot.mode === 'hidden') return { mode: 'hidden' };
+  if (slot.mode === 'partner' && typeof slot.name === 'string' && slot.name.trim() && isHttpsUrl(slot.logoUrl)) {
+    return {
+      mode: 'partner',
+      name: slot.name.trim(),
+      logoUrl: slot.logoUrl,
+      headline: typeof slot.headline === 'string' && slot.headline.trim() ? slot.headline.trim() : null,
+      clickUrl: typeof slot.clickUrl === 'string' && slot.clickUrl ? slot.clickUrl : null,
+    };
+  }
+  return { mode: 'affiliate' };
+}
+
+/** Older payloads omit partner slots: every slot keeps its affiliate card. */
+export function normalizeRacebookPartnerSlots(value: unknown): Record<RacebookPartnerSlotKey, RacebookPartnerSlot> {
+  const raw = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  return {
+    equipment: normalizePartnerSlot(raw.equipment),
+    lodging: normalizePartnerSlot(raw.lodging),
+  };
+}
+
 export function normalizeRacebookSponsorPresentation(payload: unknown): RacebookSponsorPresentation {
   if (!payload || typeof payload !== 'object') return EMPTY_RACEBOOK_SPONSORS;
   const presentation = payload as Partial<RacebookSponsorPresentation>;
@@ -171,5 +224,6 @@ export function normalizeRacebookSponsorPresentation(payload: unknown): Racebook
           : legacyDefault,
       ]),
     ) as RacebookModuleVisibility,
+    partnerSlots: normalizeRacebookPartnerSlots((presentation as { partnerSlots?: unknown }).partnerSlots),
   };
 }

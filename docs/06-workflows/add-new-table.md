@@ -1,9 +1,12 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-11-05
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
+  - supabase/migrations/20261109140000_add_racebook_edition_partner_slots.sql
+  - supabase/tests/racebook_partner_slots_checks.sql
+  - supabase/migrations/20261106142000_add_lut_by_night_2026_gpx.sql
   - supabase/migrations/20261105180000_add_app_feedback_review.sql
   - supabase/tests/app_feedback_review_checks.sql
   - supabase/migrations/20260915100443_add_generated_organizer_invoices.sql
@@ -51,7 +54,7 @@ related_tables:
 
 The versioned RaceBook publication cluster is the current multi-table service-only example. `racebook_publication_states`, immutable `racebook_publications`, retained asset references and the cleanup queue all enable RLS without client policies, revoke client privileges, and expose only narrowly granted `SECURITY INVOKER` RPCs. When rollout requires existing public rows, build and validate the initial snapshot in the same migration before enabling snapshot-only reads; a state-only backfill is insufficient.
 
-Presentation-only mobile changes that touch files referenced by `schema-overview.md` (such as the Courses card image placeholder) still update that overview's note, but add no table and need no migration.
+Presentation-only mobile changes that touch files referenced by `schema-overview.md` (such as the Courses card image placeholder, or the 2026-11-09 livret-first catalog ordering and `Livret disponible` badge) still update that overview's note, but add no table and need no migration.
 
 ## Purpose
 
@@ -63,7 +66,7 @@ Mobile catalog/RaceBook CTA wording, an existing-plan refine action, a read-only
 
 For column-only migrations on existing tables, use the relevant table doc plus [../02-database/migrations.md](../02-database/migrations.md) instead; do not create a new table doc unless a new primary table is introduced. Recent examples include organizer edition grouping on `races.edition_group_id` / `series_name`, the checked Plan/RaceBook onboarding statuses on `user_profiles`, sponsor hierarchy/contextual/aggregate-impression columns on the already service-only `race_event_edition_sponsors` table, and the RaceBook branding accent-default migration on `race_event_edition_branding`. A default-only change should preserve the table's existing RLS/grants and backfill only rows that can be identified as still carrying the former application defaults. Each still requires schema and business/auth-doc updates plus focused SQL checks for any new service-only RPC. `racebook_gear_checks` is the current owner-scoped table example, with explicit authenticated select/insert/delete grants and separate matching `auth.uid()` policies. `organizer_import_sessions` is the service-only workflow-state example: RLS remains enabled without client policies, every client grant is revoked, service-role grants are explicit, and a SQL check verifies both table and RPC privileges. `partner_link_settings` is the small global-configuration example: its natural key is allowlisted, seed rows remain disabled, and its SQL check proves the service-only privilege boundary.
 
-Data-only catalog/showcase/roadbook migrations are outside this new-table workflow. They must still be created with the migration CLI, remain idempotent, preserve existing RLS/grants, document any external Storage assets, and update the migration documentation. The 2026 SaintéLyon enrichment is the current multi-format example: it updates existing rows, structured stations and relay points, and references verified GPX objects without adding a table. The Les Amaz’Eaunes 2026 final-roadbook synchronization and the 23 September 2026 canonical event-website backfill are other data-correction examples.
+Data-only catalog/showcase/roadbook migrations are outside this new-table workflow. They must still be created with the migration CLI, remain idempotent, preserve existing RLS/grants, document any external Storage assets, and update the migration documentation. The 2026 LUT By Night GPX enrichment is a narrow example: it attaches three verified, versioned Storage objects and parsed route metadata to existing formats while leaving the unverified Rando trace null. The 2026 SaintéLyon enrichment is the broader multi-format example: it updates existing rows, structured stations and relay points, and references verified GPX objects without adding a table. The Les Amaz’Eaunes 2026 final-roadbook synchronization and the 23 September 2026 canonical event-website backfill are other data-correction examples.
 
 A column-and-trigger migration on an existing table is outside this workflow too. For example, `20260923070437_separate_web_and_mobile_race_visibility.sql` adds a `races` visibility column while deliberately preserving existing client policies; verify that RLS decision, update the existing table documentation, and add a focused rollback SQL check instead.
 
@@ -155,3 +158,7 @@ RaceBook lot 6 is explicitly not a database task: localized display formatting, 
 `video_render_jobs` (background reel renders) follows the service-role-only pattern: RLS on, no policy, every privilege revoked from `anon` and `authenticated`, covering indexes on its foreign keys, and `supabase/tests/video_render_jobs_checks.sql` asserting the grants.
 
 Changing an existing client-writable table follows the same discipline: `20261105180000_add_app_feedback_review.sql` replaces the legacy `GRANT ALL` on `app_feedback` with a column-scoped INSERT for `authenticated`, so new server-managed columns (`status`, `reviewed_by`) cannot be set by clients, and lets owners update only `user_notifications.deleted_at` (soft delete) rather than granting DELETE.
+
+`race_event_edition_partner_slots` (2026-11-09) follows this workflow: service-only RLS table, composite same-edition FK, reuse of an existing draft-revision trigger function, transactional SQL checks, and a dedicated table doc.
+
+Note (2026-11-09): `schema-overview.md` received a presentation-only note about the mobile catalog scroll performance; no table, column or workflow step changed.

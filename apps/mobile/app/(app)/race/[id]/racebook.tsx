@@ -59,7 +59,8 @@ import {
 import { RacebookGearSection } from '../../../../components/racebook/RacebookGearSection';
 import { RacebookServicesSection } from '../../../../components/racebook/RacebookServicesSection';
 import { RacebookSupporterPointsSection } from '../../../../components/racebook/RacebookSupporterPointsSection';
-import { RacebookPersonalPlanCard } from '../../../../components/racebook/RacebookPersonalPlanCard';
+import { RacebookPersonalPlanCard, RacebookPlanInviteCard } from '../../../../components/racebook/RacebookPersonalPlanCard';
+import { buildMapsSearchUrl } from '../../../../lib/racebookTextLinks';
 import { RacebookStructuredCourseSections } from '../../../../components/racebook/RacebookStructuredCourseSections';
 import { RacebookTabBar } from '../../../../components/racebook/RacebookTabBar';
 import { RacebookElevationProfile } from '../../../../components/racebook/RacebookElevationProfile';
@@ -81,6 +82,7 @@ import {
   EMPTY_RACEBOOK_SPONSORS,
   fetchRacebookSponsors,
   RACEBOOK_SPONSOR_MINIMUM_MS,
+  reportRacebookPartnerSlotImpression,
   reportRacebookSponsorImpression,
   type RacebookSponsorImpression,
   type RacebookSponsorPresentation,
@@ -643,6 +645,8 @@ export default function RaceRacebookScreen() {
   const [gearChecksLoadedRaceId, setGearChecksLoadedRaceId] = useState<string | null>(null);
   const [courseConstraintsExpanded, setCourseConstraintsExpanded] = useState(false);
   const [onboardingBusy, setOnboardingBusy] = useState(false);
+  // After the guided RaceBook tour, the optional plan is offered once.
+  const [onboardingPlanOffer, setOnboardingPlanOffer] = useState(false);
   const [loading, setLoading] = useState(() => !initialSnapshot);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<RacebookScreenData | null>(() => initialSnapshot?.data ?? null);
@@ -1134,7 +1138,6 @@ export default function RaceRacebookScreen() {
     locale,
   );
   const formattedRaceDate = formatDate(data?.race.raceDate ?? null, locale);
-  const heroImageUrl = data?.race.thumbnailUrl ?? data?.event.thumbnailUrl ?? null;
   const eventLocationDetails = data?.event.organizerDetails.eventLocation;
   const raceLocationDetails = data?.race.organizerDetails.raceLocation;
   const headerLocation =
@@ -1207,14 +1210,24 @@ export default function RaceRacebookScreen() {
         : null),
     }));
   }, [data]);
-  const bookingPartnerLinks = useMemo(
-    () => partnerLinks.filter((link) => link.partnerKey === 'booking'),
-    [partnerLinks],
-  );
-  const decathlonPartnerLink = useMemo(
-    () => partnerLinks.find((link) => link.partnerKey === 'decathlon') ?? null,
-    [partnerLinks],
-  );
+  // Partner slots: the Pace Yourself affiliate card by default, replaced by
+  // the organizer's partner or hidden when the edition has the Signature option.
+  const equipmentPartnerSlot = sponsorPresentation.partnerSlots.equipment;
+  const lodgingPartnerSlot = sponsorPresentation.partnerSlots.lodging;
+  const bookingPartnerLinks = useMemo(() => {
+    if (lodgingPartnerSlot.mode === 'hidden') return [];
+    if (lodgingPartnerSlot.mode === 'partner') {
+      return [{ partnerKey: 'booking' as const, url: lodgingPartnerSlot.clickUrl ?? '', isAffiliate: false }];
+    }
+    return partnerLinks.filter((link) => link.partnerKey === 'booking');
+  }, [lodgingPartnerSlot, partnerLinks]);
+  const decathlonPartnerLink = useMemo(() => {
+    if (equipmentPartnerSlot.mode === 'hidden') return null;
+    if (equipmentPartnerSlot.mode === 'partner') {
+      return { partnerKey: 'decathlon' as const, url: equipmentPartnerSlot.clickUrl ?? '', isAffiliate: false };
+    }
+    return partnerLinks.find((link) => link.partnerKey === 'decathlon') ?? null;
+  }, [equipmentPartnerSlot, partnerLinks]);
 
   const awardsByTime = useMemo(() => {
     const groups = new Map<string, NonNullable<typeof data>['awards']>();
@@ -1264,7 +1277,9 @@ export default function RaceRacebookScreen() {
         return {
           key: `${pickupLocation.location}-${locationIndex}`,
           location: pickupLocation.location,
-          actionUrl: pickupLocation.locationDetails.googleMapsUrl,
+          // Organizers often type a plain pickup address: fall back to a maps
+          // search so every pickup location offers directions like Accès does.
+          actionUrl: pickupLocation.locationDetails.googleMapsUrl ?? buildMapsSearchUrl(pickupLocation.location),
           days: groupBibPickupSlots(pickupLocation.slots, locale, t.catalog.racebookFieldBibWindow),
         };
       })
@@ -1313,13 +1328,23 @@ export default function RaceRacebookScreen() {
     }));
   }, [data, t.catalog.racebookMapFinish, t.catalog.racebookMapStart]);
 
+  // Solo is the default participation mode: only relay formats get a label,
+  // which keeps the hero one line shorter for most races.
   const participationLabels = data?.race.participationMode === 'solo'
-    ? [t.catalog.racebookParticipationSolo]
+    ? []
     : data?.race.participationMode === 'relay'
       ? [t.catalog.racebookParticipationRelay]
       : data?.race.participationMode === 'solo_and_relay'
         ? [t.catalog.racebookParticipationSolo, t.catalog.racebookParticipationRelay]
         : [];
+
+  // A format without its own date counts down to the first day of the event range.
+  const raceCountdownDays = getDaysBeforeRace(data?.race.raceDate ?? data?.event.raceDate ?? null);
+  const raceCountdownLabel = raceCountdownDays === null || raceCountdownDays < 0
+    ? null
+    : raceCountdownDays === 0
+      ? t.catalog.racebookCountdownToday
+      : t.catalog.racebookCountdownDays.replace('{days}', String(raceCountdownDays));
 
   const courseTabs = useMemo(() => {
     const availableTabs: { key: CourseTabKey; label: string }[] = [
@@ -1699,7 +1724,18 @@ export default function RaceRacebookScreen() {
   );
 
   const existingPlanId = existingPlan && existingPlan.raceId === id ? existingPlan.planId : null;
-  const handlePlanCtaPress = useCallback(async () => {
+  // The plan is optional: the Livret/Plan switch and plan metrics only exist
+  // once the runner owns a plan, so runners without one read a pure RaceBook.
+  const showPlanWorkspace = Boolean(existingPlanId);
+  const planLookupResolved = Boolean(existingPlan && existingPlan.raceId === id);
+  const raceDaysRemaining = raceCountdownDays;
+  const canOfferPlan = planLookupResolved
+    && !existingPlanId
+    && data?.race.elevationGainM !== null
+    && data?.race.elevationGainM !== undefined
+    && (raceDaysRemaining === null || raceDaysRemaining >= 0);
+  const showPlanInvite = canOfferPlan && onboarding !== 'racebook';
+  const handlePlanCtaPress = useCallback(async (entryPoint: 'course_invite' | 'onboarding_end' = 'course_invite') => {
     if (!id || planCtaBusy) return;
 
     const raceId = id;
@@ -1713,6 +1749,7 @@ export default function RaceRacebookScreen() {
       setExistingPlan({ raceId, planId: currentPlanId });
       captureRacebookInteraction('racebook action clicked', {
         action: currentPlanId ? 'refine_plan' : 'create_plan',
+        entry_point: entryPoint,
       });
 
       if (currentPlanId) {
@@ -1849,6 +1886,23 @@ export default function RaceRacebookScreen() {
     void reportRacebookSponsorImpression(id, sponsorViewId, impression);
   }, [id, sponsorViewId]);
 
+  // Organizer partner slots count one aggregate view per reader session once
+  // their tab is shown; affiliate defaults are not counted here.
+  const reportedPartnerSlotsRef = useRef(new Set<string>());
+  useEffect(() => {
+    if (!id || showLoading) return;
+    const visibleSlot = activeTab === 'gear' && equipmentPartnerSlot.mode === 'partner'
+      ? 'equipment'
+      : activeTab === 'services' && lodgingPartnerSlot.mode === 'partner'
+        ? 'lodging'
+        : null;
+    if (!visibleSlot) return;
+    const key = `${id}:${visibleSlot}`;
+    if (reportedPartnerSlotsRef.current.has(key)) return;
+    reportedPartnerSlotsRef.current.add(key);
+    void reportRacebookPartnerSlotImpression(id, sponsorViewId, visibleSlot);
+  }, [activeTab, equipmentPartnerSlot.mode, id, lodgingPartnerSlot.mode, showLoading, sponsorViewId]);
+
   useEffect(() => {
     navigation.setOptions({ headerRight: showLoading ? () => null : undefined });
     return () => navigation.setOptions({ headerRight: undefined });
@@ -1890,6 +1944,12 @@ export default function RaceRacebookScreen() {
     try {
       if (completed) await completeOnboarding('racebook');
       else await skipOnboardingKind('racebook', 'racebook');
+      if (completed && canOfferPlan) {
+        // The tour is recorded as done; the plan is then offered as an option.
+        setOnboardingPlanOffer(true);
+        setOnboardingBusy(false);
+        return;
+      }
       router.replace(id ? `/(app)/race/${id}/racebook` : '/(app)/catalog');
     } catch (caught) {
       console.error('Unable to finish RaceBook onboarding:', caught);
@@ -1907,9 +1967,9 @@ export default function RaceRacebookScreen() {
           expandedBodyHeight={heroBodyHeight}
           eventName={data.event.name}
           raceName={data.race.name}
-          imageUrl={heroImageUrl}
+          imageUrl={data.race.thumbnailUrl ?? data.event.thumbnailUrl ?? null}
           logoUrl={RACEBOOK_EDITION_LOGO_ENABLED ? brandTheme.logoUrl : null}
-          dateLabel={formattedRaceDate ?? eventDateRange}
+          dateLabel={[formattedRaceDate ?? eventDateRange, raceCountdownLabel].filter(Boolean).join(' · ') || null}
           locationLabel={headerLocation}
           participationLabel={participationLabels.join(' + ') || null}
           participationIcon={data.race.participationMode === 'solo' ? 'person-outline' : 'people-outline'}
@@ -1923,6 +1983,7 @@ export default function RaceRacebookScreen() {
           elevationLossLabel={data.race.elevationLossM !== null ? formatElevation(data.race.elevationLossM, locale) : null}
           elevationCaption={t.planWorkspace.elevationGain}
           descentCaption={t.planWorkspace.elevationLoss}
+          showPlanMetrics={showPlanWorkspace}
           planDurationLabel={linkedPlan ? `${formatDuration(linkedPlan.summary.totalDurationMin)}${planBeyondCutoff ? ` · ${t.planWorkspace.beyondCutoff}` : ''}` : null}
           planDurationCaption={t.catalog.racebookExpectedTime}
           planPaceLabel={linkedPlanAveragePace && linkedPlanAveragePace !== '—' ? `${linkedPlanAveragePace}/km` : linkedPlanAveragePace}
@@ -1947,19 +2008,19 @@ export default function RaceRacebookScreen() {
           onCallEmergency={emergencyTelephoneUrl ? () => openTrackedUrl(emergencyTelephoneUrl, 'emergency_call_started') : undefined}
           onOpenSocial={(url, action) => openTrackedUrl(url, action)}
           onExpandedBodyHeightChange={handleHeroBodyHeightChange}
-          attachedBelow={!showLoading && !unavailable && Boolean(data)}
+          attachedBelow={showPlanWorkspace && !showLoading && !unavailable && Boolean(data)}
         />
       ) : null}
-      {!showLoading && !unavailable && data ? (
+      {showPlanWorkspace && !showLoading && !unavailable && data ? (
         <RaceWorkspaceSwitch
           active="racebook"
           backgroundColor={brandTheme.primaryColor}
           foregroundColor={brandTheme.onPrimaryColor}
           compactHeaderHeight={RACEBOOK_HERO_COMPACT_BODY_HEIGHT}
           expandedHeaderHeight={heroBodyHeight}
-          onOpenPlan={existingPlanId ? openLinkedPlan : () => { void handlePlanCtaPress(); }}
+          onOpenPlan={openLinkedPlan}
           onOpenRacebook={() => undefined}
-          planExists={Boolean(existingPlanId)}
+          planExists
           planDisabled={planCtaBusy}
           scrollY={scrollY}
           topInset={insets.top}
@@ -1970,7 +2031,12 @@ export default function RaceRacebookScreen() {
         contentContainerStyle={[
           styles.container,
           { backgroundColor: brandTheme.primarySurfaceColor },
-          !showLoading && !unavailable && data ? { paddingTop: heroExpandedHeight + RACE_WORKSPACE_SWITCH_HEIGHT + 16 } : null,
+          !showLoading && !unavailable && data ? {
+            paddingTop: heroExpandedHeight + (showPlanWorkspace ? RACE_WORKSPACE_SWITCH_HEIGHT : 0) + 16,
+            // A short tab must still scroll far enough to fully collapse the hero,
+            // otherwise it rests half-collapsed with neither title visible.
+            minHeight: viewportHeight + Math.max(0, heroBodyHeight - RACEBOOK_HERO_COMPACT_BODY_HEIGHT),
+          } : null,
           showLoading || unavailable ? { paddingTop: insets.top + 16 } : null,
           showLoading && { minHeight: Math.max(520, viewportHeight - 120) },
         ]}
@@ -2053,8 +2119,13 @@ export default function RaceRacebookScreen() {
                 pendingItemKeys={pendingGearItemKeys}
                 onToggleItem={toggleGearItem}
                 decathlonLink={decathlonPartnerLink}
+                decathlonLogoUrl={equipmentPartnerSlot.mode === 'partner' ? equipmentPartnerSlot.logoUrl : null}
                 onOpenDecathlonLink={() => {
-                  if (decathlonPartnerLink) {
+                  if (equipmentPartnerSlot.mode === 'partner') {
+                    // Organizer partner presses stay out of identified analytics; the
+                    // counted redirect records the aggregate click.
+                    if (equipmentPartnerSlot.clickUrl) openExternalUrl(equipmentPartnerSlot.clickUrl);
+                  } else if (decathlonPartnerLink) {
                     openTrackedUrl(decathlonPartnerLink.url, 'partner_decathlon', 'equipment');
                   }
                 }}
@@ -2068,9 +2139,9 @@ export default function RaceRacebookScreen() {
                   checkedLabel: t.catalog.racebookGearChecked,
                   uncheckedLabel: t.catalog.racebookGearUnchecked,
                   progressLabel: t.catalog.racebookGearProgress,
-                  decathlonTitle: t.catalog.racebookDecathlonTitle,
-                  decathlonDescription: t.catalog.racebookDecathlonDescription,
-                  decathlonAction: t.catalog.racebookDecathlonAction,
+                  decathlonTitle: equipmentPartnerSlot.mode === 'partner' ? equipmentPartnerSlot.name : t.catalog.racebookDecathlonTitle,
+                  decathlonDescription: equipmentPartnerSlot.mode === 'partner' ? equipmentPartnerSlot.headline ?? '' : t.catalog.racebookDecathlonDescription,
+                  decathlonAction: equipmentPartnerSlot.mode === 'partner' ? t.catalog.racebookSponsorDiscover : t.catalog.racebookDecathlonAction,
                   affiliateDisclosure: t.catalog.racebookAffiliateDisclosure,
                 }}
               />
@@ -2342,6 +2413,13 @@ export default function RaceRacebookScreen() {
                     onOpenUrl={(url, action) => openTrackedUrl(url, action === 'directions' ? 'supporter_directions_opened' : 'supporter_plan_opened')}
                   />
                 ) : null}
+                {showPlanInvite && activeCourseTab !== 'supporters' ? (
+                  <RacebookPlanInviteCard
+                    accentColor={brandTheme.primaryForegroundColor}
+                    disabled={planCtaBusy}
+                    onCreatePlan={() => { void handlePlanCtaPress(); }}
+                  />
+                ) : null}
 
               </>
             ) : null}
@@ -2375,6 +2453,8 @@ export default function RaceRacebookScreen() {
                   showDetailsLabel: t.catalog.racebookAccessShowDetails,
                   hideDetailsLabel: t.catalog.racebookAccessHideDetails,
                   scheduleLabel: t.catalog.racebookAccessSchedule,
+                  bookShuttleLabel: t.catalog.racebookAccessBookShuttle,
+                  openLinkLabel: t.catalog.racebookAccessOpenLink,
                 }}
               />
               <RacebookSponsorBanner
@@ -2409,6 +2489,7 @@ export default function RaceRacebookScreen() {
                   value: section.value,
                 }))}
                 partnerLinks={bookingPartnerLinks}
+                partnerLogoUrls={lodgingPartnerSlot.mode === 'partner' ? { booking: lodgingPartnerSlot.logoUrl } : undefined}
                 onOpenUrl={(url, action, service) => {
                   const trackedAction = action === 'directions'
                     ? 'service_directions'
@@ -2418,6 +2499,10 @@ export default function RaceRacebookScreen() {
                   openTrackedUrl(url, trackedAction, service.category);
                 }}
                 onOpenPartnerLink={(link) => {
+                  if (link.partnerKey === 'booking' && lodgingPartnerSlot.mode === 'partner') {
+                    if (lodgingPartnerSlot.clickUrl) openExternalUrl(lodgingPartnerSlot.clickUrl);
+                    return;
+                  }
                   openTrackedUrl(link.url, `partner_${link.partnerKey}`, 'services');
                 }}
                 copy={{
@@ -2428,7 +2513,11 @@ export default function RaceRacebookScreen() {
                   partnerLinksTitle: t.catalog.racebookPartnerLinksTitle,
                   affiliateDisclosure: t.catalog.racebookAffiliateDisclosure,
                   partnerLinks: {
-                    booking: {
+                    booking: lodgingPartnerSlot.mode === 'partner' ? {
+                      title: lodgingPartnerSlot.name,
+                      description: lodgingPartnerSlot.headline ?? '',
+                      actionLabel: t.catalog.racebookSponsorDiscover,
+                    } : {
                       title: t.catalog.racebookBookingTitle,
                       description: t.catalog.racebookBookingDescription,
                       actionLabel: t.catalog.racebookBookingAction,
@@ -2471,7 +2560,22 @@ export default function RaceRacebookScreen() {
           onPress={handleTabPress}
         />
       ) : null}
-      {onboarding === 'racebook' && !showLoading ? (
+      {onboarding === 'racebook' && !showLoading && onboardingPlanOffer ? (
+        <OnboardingGuideCard
+          title={t.onboarding.tours.planOfferTitle}
+          body={t.onboarding.tours.planOfferBody}
+          actionLabel={t.catalog.racebookCreatePlan}
+          onAction={() => { void handlePlanCtaPress('onboarding_end'); }}
+          skipLabel={t.onboarding.tours.planOfferLater}
+          onSkip={() => {
+            // Stay on this RaceBook: only leave the guided mode.
+            setOnboardingPlanOffer(false);
+            router.setParams({ onboarding: undefined });
+          }}
+          busy={planCtaBusy}
+        />
+      ) : null}
+      {onboarding === 'racebook' && !showLoading && !onboardingPlanOffer ? (
         <OnboardingGuideCard
           title={
             unavailable

@@ -95,3 +95,46 @@ export function filterCatalogRacesByEditionRetention<TRace extends CatalogEditio
     || retainedEditionIds.has(race.edition_id)
   ));
 }
+
+/** True when the event date is strictly before today (local calendar day). */
+export function isCatalogEventPast(isoDate: string | null | undefined, now = new Date()) {
+  if (!isoDate) return false;
+  const raceDate = parseCatalogDate(isoDate);
+  if (!raceDate) return false;
+  return raceDate < startOfLocalDay(now);
+}
+
+type SortableCatalogEvent = { id: string; name: string; race_date: string | null };
+
+/**
+ * Upcoming events always come before past ones; favorites are pinned first only
+ * inside each group so a finished favorite never sits above an upcoming race.
+ */
+export function sortCatalogEvents<TEvent extends SortableCatalogEvent>(
+  events: TEvent[],
+  favoriteEventIds: string[] = [],
+  now = new Date(),
+) {
+  const getTimestamp = (value: string | null) => {
+    if (!value) return Number.MAX_SAFE_INTEGER;
+    const parsed = parseCatalogDate(value);
+    return parsed ? parsed.getTime() : Number.MAX_SAFE_INTEGER;
+  };
+  const favoriteIds = new Set(favoriteEventIds);
+
+  return [...events].sort((left, right) => {
+    const leftPast = isCatalogEventPast(left.race_date, now);
+    const rightPast = isCatalogEventPast(right.race_date, now);
+    if (leftPast !== rightPast) return leftPast ? 1 : -1;
+
+    const leftFavorite = favoriteIds.has(left.id);
+    const rightFavorite = favoriteIds.has(right.id);
+    if (leftFavorite !== rightFavorite) return leftFavorite ? -1 : 1;
+
+    const timestampDiff = leftPast
+      ? getTimestamp(right.race_date) - getTimestamp(left.race_date)
+      : getTimestamp(left.race_date) - getTimestamp(right.race_date);
+    if (timestampDiff !== 0) return timestampDiff;
+    return left.name.localeCompare(right.name);
+  });
+}
