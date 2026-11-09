@@ -5,11 +5,13 @@ last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - supabase/migrations/20261109190500_separate_organizer_invoices_and_feature_grants.sql
+  - supabase/migrations/20261109192905_remove_organizer_gift_feature_prices.sql
   - supabase/tests/organizer_manual_invoices_checks.sql
   - apps/web/lib/organizer-features.ts
   - apps/web/lib/organizer-features.test.ts
   - apps/web/lib/organizer-manual-invoices.ts
   - apps/web/app/api/admin/organizer-feature-catalog/route.ts
+  - apps/web/app/api/admin/organizer-feature-catalog/route.test.ts
 related_tables:
   - organizer_feature_catalog
   - organizer_edition_capability_grants
@@ -19,13 +21,13 @@ related_tables:
 
 ## Purpose
 
-Stores the current EUR list price and availability of the fourteen individually giftable organizer features. Invoice snapshots retain the price used at issuance, so later catalog edits never rewrite history.
+Stores the availability and minimum tier of the fourteen individually giftable organizer features. These features are pack exceptions, not products sold a la carte, and have no standalone price.
 
-## Initial pricing
+## Catalog contract
 
-- Eight Complet features cost 1,250 cents each, totaling the 100 € Essentiel→Complet difference.
-- Six Signature features cost 2,500 cents each, totaling the 150 € Complet→Signature difference.
-- The stable keys and minimum-tier mapping are application allowlists. Admins may update price and active state, not invent access keys.
+- Eight features require Complet and six require Signature.
+- The stable keys and minimum-tier mapping are application allowlists. Admins may update availability, not invent access keys.
+- Invoice gift lines carry the feature key and `OFFERT` label without unit price, discount amount or net amount.
 
 ## Access
 
@@ -33,7 +35,7 @@ RLS is enabled with no client policy. `anon` and `authenticated` have no privile
 
 ## Gotchas
 
-- Browser-supplied option prices are never accepted during preview or issuance.
+- Do not add prices to this catalog or infer a la carte prices from pack upgrade differences.
 - Disabling a catalog row prevents future invoice selection but does not revoke an existing edition grant.
 
 ## Related Docs

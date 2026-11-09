@@ -103,6 +103,8 @@ This table is retained publication-review history. New organizer publication use
 
 ## Gotchas
 
+- The shared admin organizer screen may configure non-monetized gifted features and manual invoices, but neither action approves or closes a publication request.
+
 - Current admin pack changes, Visibilité downgrades, and direct-virement recording do not create or reopen legacy publication-request rows.
 - The admin rights search, offer filter, and ten-event pagination are client-side presentation controls; they do not change or narrow the dedicated pending-request review queue.
 - The access-tab assignment card is positioned above the following active-access card because the shared blur creates a stacking context; its autocomplete listboxes therefore remain visible, and this visual fix does not read or mutate publication requests.

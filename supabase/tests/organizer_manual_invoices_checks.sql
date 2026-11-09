@@ -14,15 +14,14 @@ begin
   end if;
   if has_function_privilege('authenticated', 'public.issue_admin_organizer_invoice(uuid,uuid,text,date,date,integer,integer,integer,jsonb,uuid)', 'EXECUTE')
     or has_function_privilege('authenticated', 'public.settle_admin_organizer_invoice(uuid,uuid,timestamptz,text)', 'EXECUTE')
-    or has_function_privilege('authenticated', 'public.update_admin_organizer_feature_catalog(uuid,text,integer,boolean)', 'EXECUTE') then
+    or has_function_privilege('authenticated', 'public.update_admin_organizer_feature_catalog(uuid,text,boolean)', 'EXECUTE') then
     raise exception 'Authenticated clients must not issue or settle organizer invoices.';
   end if;
   if (select count(*) from public.organizer_feature_catalog) <> 14 then
     raise exception 'Expected fourteen giftable organizer features.';
   end if;
-  if (select sum(unit_price_cents) from public.organizer_feature_catalog where minimum_tier = 'complete') <> 10000
-    or (select sum(unit_price_cents) from public.organizer_feature_catalog where minimum_tier = 'signature') <> 15000 then
-    raise exception 'Feature prices must match the current plan upgrade deltas.';
+  if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'organizer_feature_catalog' and column_name in ('unit_price_cents', 'currency')) then
+    raise exception 'Giftable organizer features must not expose standalone prices.';
   end if;
 end $$;
 
@@ -43,11 +42,29 @@ insert into _manual_invoice_fixture(edition_id) select id from edition;
 
 set local role service_role;
 
+do $$
+declare valued_gift_rejected boolean := false;
+begin
+  begin
+    perform public.issue_admin_organizer_invoice(
+      (select edition_id from _manual_invoice_fixture), '10000000-0000-0000-0000-000000000096', 'essential',
+      current_date, current_date + 30, 9900, 0, 9900,
+      '{"lines":[{"description":"Pack Essentiel","unitPriceCents":9900,"discountCents":0,"netCents":9900,"offered":false},{"featureKey":"module.services","description":"Services","unitPriceCents":1250,"discountCents":1250,"netCents":0,"offered":true}]}'::jsonb,
+      null
+    );
+  exception when check_violation then
+    valued_gift_rejected := true;
+  end;
+  if not valued_gift_rejected then
+    raise exception 'New organizer invoices must reject monetary values on gifted features.';
+  end if;
+end $$;
+
 with issued as (
   select public.issue_admin_organizer_invoice(
     (select edition_id from _manual_invoice_fixture), '10000000-0000-0000-0000-000000000096', 'essential',
     current_date, current_date + 30, 34900, 29900, 5000,
-    '{"customer":{"legalName":"Fixture"},"lines":[{"description":"Statistiques","offered":true}]}'::jsonb, null
+    '{"customer":{"legalName":"Fixture"},"lines":[{"description":"Pack Essentiel","unitPriceCents":34900,"discountCents":29900,"netCents":5000,"offered":false},{"featureKey":"module.services","description":"Services","offered":true}]}'::jsonb, null
   ) row
 )
 update _manual_invoice_fixture set invoice_id = (select (row).id from issued);
@@ -66,7 +83,7 @@ end $$;
 with corrected as (
   select public.issue_admin_organizer_invoice(
     (select edition_id from _manual_invoice_fixture), '10000000-0000-0000-0000-000000000096', 'essential',
-    current_date, current_date + 45, 34900, 34900, 0, '{"customer":{"legalName":"Corrected Fixture"}}'::jsonb,
+    current_date, current_date + 45, 34900, 34900, 0, '{"customer":{"legalName":"Corrected Fixture"},"lines":[{"description":"Pack Essentiel","unitPriceCents":34900,"discountCents":34900,"netCents":0,"offered":true}]}'::jsonb,
     (select invoice_id from _manual_invoice_fixture)
   ) row
 )
@@ -76,7 +93,7 @@ with issued_for_settlement as (
   select public.issue_admin_organizer_invoice(
     (select edition_id from _manual_invoice_fixture), '10000000-0000-0000-0000-000000000096', 'complete',
     current_date, current_date + 30, 69900, 19900, 50000,
-    '{"customer":{"legalName":"Settlement Fixture"}}'::jsonb, null
+    '{"customer":{"legalName":"Settlement Fixture"},"lines":[{"description":"Pack Complet","unitPriceCents":69900,"discountCents":19900,"netCents":50000,"offered":false}]}'::jsonb, null
   ) row
 )
 update _manual_invoice_fixture set paid_invoice_id = (select (row).id from issued_for_settlement);

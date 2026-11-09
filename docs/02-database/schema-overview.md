@@ -46,6 +46,7 @@ related_files:
   - supabase/migrations/20260915104528_add_organizer_edition_capability_grants.sql
   - supabase/tests/organizer_edition_capability_grants_checks.sql
   - supabase/migrations/20261109190500_separate_organizer_invoices_and_feature_grants.sql
+  - supabase/migrations/20261109192905_remove_organizer_gift_feature_prices.sql
   - supabase/tests/organizer_manual_invoices_checks.sql
   - supabase/migrations/20260910083131_correct_translantau_country_code.sql
   - supabase/tests/racebook_branding_checks.sql
@@ -219,7 +220,7 @@ The November 2026 mobile plan-flow polish changes catalog search controls, image
 | `organizer_import_sessions` | Temporary service-only source snapshots and two-pass Organizer import state. |
 | `organizer_edition_entitlements` | Current commercial tier for one organizer event edition. |
 | `organizer_edition_capability_grants` | Current complimentary module access and grant/revoke audit for one organizer event edition. |
-| `organizer_feature_catalog` | Current service-only EUR prices and availability for the fourteen giftable organizer features. |
+| `organizer_feature_catalog` | Service-only availability and minimum tiers for the fourteen non-monetized giftable organizer features. |
 | `organizer_invoices` | Independent manual invoice, correction, due-date, PDF and complete-settlement history. |
 | `organizer_social_proofs` | Admin-curated edition proof cards with consent and aggregate RaceBook usage snapshots. |
 | `organizer_edition_payments` | Stripe and paid-bank-transfer history, generated invoice identities/legal snapshots, private PDF references, and ledger used to derive organizer edition rights. |

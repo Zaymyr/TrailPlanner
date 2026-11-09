@@ -336,7 +336,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
   const [memberships, setMemberships] = useState<OrganizerMembership[]>([]);
   const [events, setEvents] = useState<RaceEventOption[]>([]);
   const [publicationEvents, setPublicationEvents] = useState<RacebookPublicationEvent[]>([]);
-  const [featureCatalog, setFeatureCatalog] = useState<Array<{ feature_key: OrganizerFeatureKey; label: string; minimum_tier: "complete" | "signature"; unit_price_cents: number; is_active: boolean }>>([]);
+  const [featureCatalog, setFeatureCatalog] = useState<Array<{ feature_key: OrganizerFeatureKey; label: string; minimum_tier: "complete" | "signature"; is_active: boolean }>>([]);
   const [tierFilter, setTierFilter] = useState<"all" | "visibility" | "essential" | "complete" | "signature">("all");
   const [publicationSearch, setPublicationSearch] = useState("");
   const [publicationPage, setPublicationPage] = useState(1);
@@ -512,7 +512,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
     }
   };
 
-  const saveFeaturePrice = async (feature: (typeof featureCatalog)[number]) => {
+  const saveFeatureAvailability = async (feature: (typeof featureCatalog)[number]) => {
     if (!accessToken) return;
     setStatus("saving");
     setError(null);
@@ -520,9 +520,9 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
       const response = await fetch("/api/admin/organizer-feature-catalog", {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ featureKey: feature.feature_key, unitPriceCents: feature.unit_price_cents, isActive: feature.is_active }),
+        body: JSON.stringify({ featureKey: feature.feature_key, isActive: feature.is_active }),
       });
-      if (!response.ok) setError((await response.json().catch(() => null) as { message?: string } | null)?.message ?? "Impossible de modifier ce tarif.");
+      if (!response.ok) setError((await response.json().catch(() => null) as { message?: string } | null)?.message ?? "Impossible de modifier cette fonctionnalité.");
     } finally { setStatus("idle"); }
   };
 
@@ -1057,26 +1057,26 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
       {error ? <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
 
       {organizerAdminTab === "publication" ? <Card className="rounded-lg">
-        <CardHeader><CardTitle>Tarifs des options offertes</CardTitle><CardDescription>Ces prix alimentent les prochaines factures. Les factures déjà émises restent inchangées.</CardDescription></CardHeader>
+        <CardHeader><CardTitle>Fonctionnalités pouvant être offertes</CardTitle><CardDescription>Activez les fonctionnalités que l’administration peut offrir hors du pack sélectionné.</CardDescription></CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
-          {featureCatalog.map((feature, index) => <div key={feature.feature_key} className="grid grid-cols-[1fr_7rem_auto] items-end gap-2 rounded-md border p-3">
+          {featureCatalog.map((feature) => <div key={feature.feature_key} className="flex items-center justify-between gap-3 rounded-md border p-3">
             <div>
               <p className="text-sm font-medium">{feature.label}</p>
               <p className="text-xs text-muted-foreground">{feature.minimum_tier === "complete" ? "Complet" : "Signature"}</p>
-              <label className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                <input
-                  type="checkbox"
-                  checked={feature.is_active}
-                  onChange={(event) => setFeatureCatalog((current) => current.map((item) => item.feature_key === feature.feature_key ? { ...item, is_active: event.target.checked } : item))}
-                />
-                Disponible pour les prochaines factures
-              </label>
             </div>
-            <div><Label htmlFor={`feature-price-${index}`}>Prix HT (€)</Label><Input id={`feature-price-${index}`} inputMode="decimal" value={feature.unit_price_cents / 100} onChange={(event) => {
-              const cents = Math.max(0, Math.round(Number(event.target.value.replace(",", ".")) * 100) || 0);
-              setFeatureCatalog((current) => current.map((item) => item.feature_key === feature.feature_key ? { ...item, unit_price_cents: cents } : item));
-            }} /></div>
-            <Button type="button" variant="outline" disabled={status !== "idle"} onClick={() => void saveFeaturePrice(feature)}>Enregistrer</Button>
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={feature.is_active}
+                disabled={status !== "idle"}
+                onChange={(event) => {
+                  const updated = { ...feature, is_active: event.target.checked };
+                  setFeatureCatalog((current) => current.map((item) => item.feature_key === feature.feature_key ? updated : item));
+                  void saveFeatureAvailability(updated);
+                }}
+              />
+              Disponible
+            </label>
           </div>)}
         </CardContent>
       </Card> : null}
@@ -1552,7 +1552,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
                   <input type="checkbox" className="mt-1 h-4 w-4 shrink-0" checked={checked} disabled={included} onChange={(event) => setEnabledFeatureGrants((current) => event.target.checked ? Array.from(new Set([...current, feature.key])) : current.filter((key) => key !== feature.key))} />
                   <span>
                     <span className="block text-sm font-medium text-foreground">{feature.label}</span>
-                    <span className="block text-xs text-muted-foreground">{included ? `Inclus dans ${feature.minimumTier === "complete" ? "Complet" : "Signature"}` : checked ? "Offert manuellement pour cette édition" : `${((featureCatalog.find((item) => item.feature_key === feature.key)?.unit_price_cents ?? feature.defaultPriceCents) / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR" })} · non disponible avec ce pack`}</span>
+                    <span className="block text-xs text-muted-foreground">{included ? `Inclus dans ${feature.minimumTier === "complete" ? "Complet" : "Signature"}` : checked ? "Offert manuellement pour cette édition" : "Non inclus dans ce pack"}</span>
                   </span>
                 </label>;
               })}
@@ -1659,7 +1659,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
               <legend className="px-1 text-sm font-semibold">Fonctionnalités offertes</legend>
               {availableGiftableFeatures(manualInvoiceTier).map((feature) => <label key={feature.key} className="flex items-center gap-3 text-sm">
                 <input type="checkbox" checked={manualInvoiceFeatures.includes(feature.key)} onChange={(event) => setManualInvoiceFeatures((current) => event.target.checked ? Array.from(new Set([...current, feature.key])) : current.filter((key) => key !== feature.key))} />
-                <span>{feature.label} · {((featureCatalog.find((item) => item.feature_key === feature.key)?.unit_price_cents ?? feature.defaultPriceCents) / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR" })} offert</span>
+                <span>{feature.label} — OFFERT</span>
               </label>)}
               {availableGiftableFeatures(manualInvoiceTier).length === 0 ? <p className="text-xs text-muted-foreground">Aucune fonctionnalité supplémentaire n’est disponible pour ce pack.</p> : null}
             </fieldset>

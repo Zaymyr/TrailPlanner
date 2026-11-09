@@ -5,6 +5,7 @@ last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - supabase/migrations/20261109140000_add_racebook_edition_partner_slots.sql
+  - supabase/migrations/20261109192905_remove_organizer_gift_feature_prices.sql
   - supabase/tests/racebook_partner_slots_checks.sql
   - supabase/migrations/20261106142000_add_lut_by_night_2026_gpx.sql
   - supabase/migrations/20261105180000_add_app_feedback_review.sql
@@ -50,7 +51,7 @@ related_tables:
 
 # Add New Table
 
-For immutable service-only financial records, follow the `organizer_invoices` pattern: revoke client privileges, keep RLS enabled without client policies, index every foreign key, serialize legal numbering transactionally, reject deletion, and allow only narrowly defined settlement/replacement transitions. Mutable global prices belong in a separate catalog so issued snapshots never change retroactively.
+For immutable service-only financial records, follow the `organizer_invoices` pattern: revoke client privileges, keep RLS enabled without client policies, index every foreign key, serialize legal numbering transactionally, reject deletion, and allow only narrowly defined settlement/replacement transitions. Giftable organizer features are availability metadata rather than products: keep them non-monetized, reject monetary gift lines on insert, and calculate invoice totals from the pack only.
 
 `user_notifications` is the owner-readable, server-authored example: clients receive explicit safe-column reads and `read_at`-only updates under owner RLS, while message creation and external delivery metadata stay service-only. Its race-request review RPC is invoker-security, service-role-only and commits the status plus inbox row atomically.
 
