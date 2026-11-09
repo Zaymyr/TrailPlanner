@@ -71,8 +71,10 @@ The repository skill `$mobile-ux-ui-auditor` turns this workflow into a dedicate
 16. Compare first-level content edges across Courses, Mes courses/My races, Profile and the pushed Nutrition screen; cards, section titles and selectors must use the same 16-point gutter. Confirm sticky Courses search is fully opaque.
 17. Compare filter chips, segmented selectors, profile inputs, modal closes and primary/secondary buttons across the same journey. Verify event locations truncate before the protected date and sans/mono typography follows the documented value rule.
     For the warm Topo system, verify both auth screens and root headers keep
-    their short lower-right corner and faint contour pattern; legacy shared
-    cards and loading/error/empty states use the quieter signature geometry;
+    their cut lower-right corner and faint contour pattern; legacy shared
+    cards and loading/error/empty states use a leading vertical trail marker
+    without the removed lower-right horizontal mark; buttons, fields, icon
+    actions and metric blocks share the cut corner without becoming pills;
     Courses format actions use sentence-case shared buttons/fields; Profile
     tabs are visibly selected beyond color; and the Profile save dock matches
     the same action geometry. Check the Livret and plan contextual bars use the

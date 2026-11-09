@@ -1,7 +1,7 @@
 ---
 title: Design Components
 scope: design-system
-last_verified: 2026-11-02
+last_verified: 2026-11-09
 ai_priority: medium
 related_files:
   - apps/web/components/ui/button.tsx
@@ -134,17 +134,24 @@ callers own all visible strings so they can use the locale files.
 The warm Topo identity is expressed through a deliberately small vocabulary:
 
 - `TopoCard` provides standard, interactive, signature and featured cards.
-  Signature cards use the asymmetric lower-right corner and a
-  non-informational elevation mark; featured cards additionally use the faint
+  Signature cards use the asymmetric 4-point lower-right corner and a short
+  vertical trail marker on the leading edge; the former lower-right horizontal
+  mark is intentionally removed. Featured cards additionally use the faint
   decorative contour pattern. The legacy shared `Card` delegates to the
   signature variant, so existing screens inherit the identity without local
   geometry.
 - `ChoiceChip` is interactive selection, while `StatusPill` is non-interactive
-  status. Full-radius geometry is not used for ordinary data or buttons.
+  status. A selected chip without an icon gains a diamond waypoint; a status
+  without an icon gains a small semantic dot. Full-radius geometry is not used
+  for ordinary data or buttons.
 - `MetricTile` pairs a normal-language label with a JetBrains Mono race value
-  in the shared 10-point data block.
+  in the shared 10-point data block, whose waypoint diamond and cut lower-right
+  corner make technical values recognisable without adding another pill.
 - `SectionHeading`, `IconAction`, and `Field` normalize section hierarchy,
-  44-point icon targets, and labelled/helper/error input states.
+  44-point icon targets, and labelled/helper/error input states. Section titles
+  use the short vertical trail marker; icon actions and fields share the cut
+  lower-right corner. A field uses its leading marker plus border for focus and
+  error, so state is not represented by color alone.
 - `TopoContourPattern` is decorative only (`accessible={false}`) and is limited
   to identity/featured surfaces rather than ordinary content cards.
 - Shared `LoadingState`, `ErrorState`, and `EmptyState` use matching signature
@@ -165,8 +172,9 @@ Shared React Native geometry comes from `mobileComponents`. Filter chips use the
 same selected/unselected structure across Courses and Nutrition; Profile and plan
 workspace selectors use the same segmented-control geometry; input shells keep
 one surface/border/radius with units or clear actions inside; modal dismiss actions
-use a labelled 44-point circular close; primary and secondary buttons share one
-radius. Screen-specific components own copy, state, color roles and behavior.
+use a labelled 44-point target; primary and secondary buttons share the same
+12-point family plus a 4-point lower-right signature corner. Screen-specific
+components own copy, state, color roles and behavior.
 
 `BriefToast` provides short success or network-error feedback above the mobile tab bar, with an optional action. Its default duration remains 2.6 seconds for success and 5 seconds for errors; callers may supply a longer duration for an actionable informational notice or `null` for an explicitly persistent notice. It is reserved for informational outcomes; destructive confirmation remains modal. Root tab headers add elevation only after collapsing, while the bottom tab bar keeps a subtle top divider and shadow.
 
@@ -187,6 +195,8 @@ radius. Screen-specific components own copy, state, color roles and behavior.
   their interaction semantics must remain visually distinct.
 - Keep contour artwork low-contrast and decorative. It must not sit behind
   dense body copy or communicate elevation/status information.
+- Do not restore the former horizontal mark at the lower-right of cards. The
+  leading trail marker and asymmetric corner are the shared card signature.
 - Do not make routine success toasts persistent. A longer or unbounded duration is for notices whose action must remain reachable, and the caller must still provide a clear dismissal path or bounded lifecycle.
 
 ## Related Docs

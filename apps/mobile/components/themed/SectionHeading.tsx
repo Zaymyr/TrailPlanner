@@ -1,4 +1,4 @@
-import { spacing } from '@pace-yourself/design-system';
+import { colors, mobileComponents, spacing } from '@pace-yourself/design-system';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
@@ -26,6 +26,7 @@ export function SectionHeading({
 }: Props) {
   return (
     <View style={[styles.container, style]}>
+      <View accessible={false} style={styles.trailMarker} />
       <View style={styles.copy}>
         {eyebrow ? <Text tone="brand" size="xs" weight="bold" letterSpacing="caps">{eyebrow.toUpperCase()}</Text> : null}
         <View style={styles.titleRow}>
@@ -49,6 +50,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing[3],
+  },
+  trailMarker: {
+    width: 4,
+    height: 28,
+    borderRadius: mobileComponents.signature.markerRadius,
+    backgroundColor: colors.brand.forest,
   },
   copy: { flex: 1, gap: spacing[1] },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
