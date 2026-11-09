@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { mobileComponents } from '@pace-yourself/design-system';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -28,7 +29,7 @@ export function RacebookTabBar<T extends string>({ tabs, activeTab, onPress }: P
               onPress={() => onPress(tab.key)}
               style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
             >
-              <View style={styles.iconSurface}>
+              <View style={[styles.iconSurface, active && styles.iconSurfaceActive]}>
                 <Ionicons
                   name={tab.icon}
                   size={24}
@@ -77,6 +78,11 @@ const styles = StyleSheet.create({
     height: 29,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: mobileComponents.dataRadius,
+  },
+  iconSurfaceActive: {
+    backgroundColor: Colors.brandSurface,
+    borderBottomRightRadius: 4,
   },
   text: { color: Colors.textMuted, fontSize: 10, lineHeight: 13, fontWeight: '700' },
   textActive: { color: Colors.brandPrimary },

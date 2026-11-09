@@ -6,7 +6,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -14,10 +13,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import { DatePickerField } from '../inputs/DatePickerField';
+import { ActionButton } from '../themed/ActionButton';
+import { Field } from '../themed/Field';
+import { IconAction } from '../themed/IconAction';
+import { SectionHeading } from '../themed/SectionHeading';
+import { TopoCard } from '../themed/TopoCard';
 
 export function CatalogLoadingCard() {
   return (
-    <View style={[styles.eventCard, { opacity: 0.6 }]}>
+    <TopoCard surface="cream" variant="featured" style={styles.eventCard}>
       <View style={styles.skeletonHeaderRow}>
         <View style={styles.skeletonBadge} />
         <View style={styles.skeletonHeaderText}>
@@ -31,7 +35,7 @@ export function CatalogLoadingCard() {
       </View>
       <View style={styles.skeletonSupportText} />
       <View style={styles.skeletonButton} />
-    </View>
+    </TopoCard>
   );
 }
 
@@ -64,33 +68,33 @@ export function CatalogRaceRow({
 }) {
   const racebookMuted = racebookActionDimmed || racebookActionDisabled;
   return (
-    <View style={[styles.formatRow, isDimmed && styles.formatRowDimmed]}>
+    <TopoCard style={[styles.formatRow, isDimmed && styles.formatRowDimmed]}>
       <View style={styles.formatRowContent}>
         <Text style={styles.formatTitle}>{title}</Text>
         <Text style={styles.formatSubtitle}>{subtitle}</Text>
       </View>
       <View style={styles.formatActions}>
         {racebookActionLabel && onRacebookPress ? (
-          <TouchableOpacity
-            accessibilityRole="button"
+          <ActionButton
             accessibilityState={{ disabled: racebookActionDisabled }}
             disabled={racebookActionDisabled}
+            size="sm"
             style={[styles.formatRacebookButton, racebookMuted && styles.formatRacebookButtonDimmed]}
             onPressIn={onRacebookPressIn}
             onPress={onRacebookPress}
+            textStyle={racebookMuted ? styles.formatRacebookButtonTextDimmed : undefined}
+            variant={racebookMuted ? 'secondary' : 'primary'}
           >
-            <Text style={[styles.formatRacebookButtonText, racebookMuted && styles.formatRacebookButtonTextDimmed]}>
-              {racebookActionLabel}
-            </Text>
-          </TouchableOpacity>
+            {racebookActionLabel}
+          </ActionButton>
         ) : null}
         {planActionLabel && onPlanPress ? (
-          <TouchableOpacity accessibilityRole="button" style={styles.formatPlanButton} onPress={onPlanPress}>
-            <Text style={styles.formatPlanButtonText}>{planActionLabel}</Text>
-          </TouchableOpacity>
+          <ActionButton size="sm" variant="secondary" style={styles.formatPlanButton} onPress={onPlanPress}>
+            {planActionLabel}
+          </ActionButton>
         ) : null}
       </View>
-    </View>
+    </TopoCard>
   );
 }
 
@@ -151,15 +155,12 @@ export function CatalogFiltersModal({
         <SafeAreaView accessibilityViewIsModal edges={['bottom']} style={styles.modalSheet}>
           <View style={styles.modalHeader}>
             <Text accessibilityRole="header" style={styles.modalTitle}>{text.modalTitle}</Text>
-            <TouchableOpacity
+            <IconAction
               accessibilityLabel="Fermer"
-              accessibilityRole="button"
-              hitSlop={8}
+              icon={<Ionicons name="close" size={22} color={Colors.textPrimary} />}
               onPress={onClose}
               style={styles.modalCloseButton}
-            >
-              <Ionicons name="close" size={22} color={Colors.textPrimary} />
-            </TouchableOpacity>
+            />
           </View>
           <ScrollView
             contentContainerStyle={styles.modalContent}
@@ -167,12 +168,12 @@ export function CatalogFiltersModal({
             keyboardShouldPersistTaps="handled"
             style={styles.modalScroll}
           >
-            <Text style={styles.modalSectionTitle}>{text.distanceTitle}</Text>
+            <SectionHeading title={text.distanceTitle} />
             <View style={styles.rangeRow}>
-              <TextInput value={distanceMin} onChangeText={onChangeDistanceMin} placeholder={text.minKm} placeholderTextColor={Colors.textMuted} keyboardType="decimal-pad" inputAccessoryViewID="pace-yourself-numeric-keyboard" style={[styles.filterInput, styles.rangeInput]} />
-              <TextInput value={distanceMax} onChangeText={onChangeDistanceMax} placeholder={text.maxKm} placeholderTextColor={Colors.textMuted} keyboardType="decimal-pad" inputAccessoryViewID="pace-yourself-numeric-keyboard" style={[styles.filterInput, styles.rangeInput]} />
+              <Field value={distanceMin} onChangeText={onChangeDistanceMin} placeholder={text.minKm} keyboardType="decimal-pad" inputAccessoryViewID="pace-yourself-numeric-keyboard" containerStyle={styles.rangeInput} />
+              <Field value={distanceMax} onChangeText={onChangeDistanceMax} placeholder={text.maxKm} keyboardType="decimal-pad" inputAccessoryViewID="pace-yourself-numeric-keyboard" containerStyle={styles.rangeInput} />
             </View>
-            <Text style={styles.modalSectionTitle}>{text.dateTitle}</Text>
+            <SectionHeading title={text.dateTitle} />
             <View style={styles.rangeRow}>
               <View style={styles.dateFieldColumn}>
                 <DatePickerField
@@ -211,12 +212,8 @@ export function CatalogFiltersModal({
             </View>
           </ScrollView>
           <View style={styles.modalFooter}>
-            <TouchableOpacity style={styles.secondaryActionButton} onPress={onReset}>
-              <Text style={styles.secondaryActionButtonText}>{text.reset}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.primaryActionButton} onPress={onClose}>
-              <Text style={styles.primaryActionButtonText}>{text.apply}</Text>
-            </TouchableOpacity>
+            <ActionButton variant="secondary" style={styles.footerAction} onPress={onReset}>{text.reset}</ActionButton>
+            <ActionButton style={styles.footerAction} onPress={onClose}>{text.apply}</ActionButton>
           </View>
         </SafeAreaView>
       </KeyboardAvoidingView>
@@ -239,19 +236,17 @@ function formatIsoDate(date: Date): string {
 }
 
 const styles = StyleSheet.create({
-  eventCard: { backgroundColor: Colors.surface, borderRadius: 18, borderWidth: 1, borderColor: Colors.border, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 3, gap: 14 },
-  formatRow: { gap: 12, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
+  eventCard: { opacity: 0.6, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 3, gap: 14 },
+  formatRow: { gap: 12, padding: 14 },
   formatRowDimmed: { opacity: 0.58 },
   formatRowContent: { flex: 1, gap: 4 },
   formatTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700' },
   formatSubtitle: { color: Colors.textSecondary, fontSize: 13 },
   formatActions: { flexDirection: 'row', alignItems: 'center', gap: 8, width: '100%' },
-  formatRacebookButton: { flex: 3, minHeight: 44, borderRadius: 10, borderWidth: 1.5, borderColor: Colors.brandPrimary, backgroundColor: Colors.brandPrimary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
-  formatRacebookButtonText: { color: Colors.textOnBrand, fontSize: 13, fontWeight: '800' },
-  formatRacebookButtonDimmed: { borderColor: Colors.border, backgroundColor: Colors.surfaceSecondary },
+  formatRacebookButton: { flex: 3 },
+  formatRacebookButtonDimmed: { borderColor: Colors.border },
   formatRacebookButtonTextDimmed: { color: Colors.textMuted },
-  formatPlanButton: { flex: 2, minHeight: 44, borderRadius: 10, borderWidth: 1.5, borderColor: Colors.brandBorder, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
-  formatPlanButtonText: { color: Colors.brandPrimary, fontSize: 13, fontWeight: '700' },
+  formatPlanButton: { flex: 2 },
   skeletonHeaderRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   skeletonBadge: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.surfaceSecondary },
   skeletonHeaderText: { flex: 1, gap: 8 },
@@ -265,20 +260,15 @@ const styles = StyleSheet.create({
   modalDismissArea: { ...StyleSheet.absoluteFillObject },
   modalSheet: { maxHeight: '90%', backgroundColor: Colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: Colors.border, backgroundColor: Colors.surface },
-  modalCloseButton: { width: 44, height: 44, marginVertical: -10, marginRight: -10, alignItems: 'center', justifyContent: 'center', borderRadius: 22 },
+  modalCloseButton: { marginVertical: -10, marginRight: -10 },
   modalTitle: { color: Colors.textPrimary, fontSize: 18, fontWeight: '700' },
   modalScroll: { flexShrink: 1 },
   modalContent: { padding: 20, gap: 14 },
-  modalSectionTitle: { color: Colors.brandPrimary, fontSize: 14, fontWeight: '700', marginTop: 4 },
   rangeRow: { flexDirection: 'row', gap: 10 },
-  filterInput: { backgroundColor: Colors.surfaceSecondary, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 14, paddingVertical: 11, color: Colors.textPrimary, fontSize: 15 },
   rangeInput: { flex: 1 },
   dateFieldColumn: { flex: 1, gap: 6 },
   clearDateText: { color: Colors.brandPrimary, fontSize: 12, fontWeight: '700', textAlign: 'center' },
   modalHint: { color: Colors.textSecondary, fontSize: 12, lineHeight: 18 },
   modalFooter: { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 20, borderTopWidth: 1, borderTopColor: Colors.border, backgroundColor: Colors.surface },
-  secondaryActionButton: { flex: 1, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surfaceSecondary, borderRadius: 14, paddingVertical: 14 },
-  secondaryActionButtonText: { color: Colors.textPrimary, fontSize: 14, fontWeight: '600' },
-  primaryActionButton: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.brandPrimary, borderRadius: 14, paddingVertical: 14 },
-  primaryActionButtonText: { color: Colors.textOnBrand, fontSize: 14, fontWeight: '700' },
+  footerAction: { flex: 1 },
 });

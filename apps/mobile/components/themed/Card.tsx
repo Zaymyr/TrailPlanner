@@ -1,48 +1,16 @@
-import { colors, radius, shadows, spacing } from '@pace-yourself/design-system';
-import {
-  StyleSheet,
-  View,
-  type StyleProp,
-  type ViewProps,
-  type ViewStyle,
-} from 'react-native';
+import type { StyleProp, ViewProps, ViewStyle } from 'react-native';
+
+import { TopoCard, type TopoCardVariant } from './TopoCard';
 
 type CardSurface = 'white' | 'cream' | 'sandLight';
 
 type Props = ViewProps & {
   surface?: CardSurface;
   padded?: boolean;
+  variant?: TopoCardVariant;
   style?: StyleProp<ViewStyle>;
 };
 
-const surfaceByVariant: Record<CardSurface, string> = {
-  white: colors.surface.white,
-  cream: colors.surface.cream,
-  sandLight: colors.surface.sandLight,
-};
-
-export function Card({ surface = 'white', padded = true, style, ...props }: Props) {
-  return (
-    <View
-      {...props}
-      style={[
-        styles.base,
-        { backgroundColor: surfaceByVariant[surface] },
-        padded && styles.padded,
-        style,
-      ]}
-    />
-  );
+export function Card({ surface = 'white', padded = true, variant = 'signature', style, children, ...props }: Props) {
+  return <TopoCard {...props} padded={padded} style={style} surface={surface} variant={variant}>{children}</TopoCard>;
 }
-
-const styles = StyleSheet.create({
-  base: {
-    borderRadius: radius.card,
-    borderWidth: 1,
-    borderColor: colors.border.subtle,
-    boxShadow: shadows.sm,
-  } as ViewStyle,
-  padded: {
-    padding: spacing[4],
-  },
-});
