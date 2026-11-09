@@ -2,10 +2,11 @@
 title: race_event_edition_sponsors Table
 scope: database
 
-last_verified: 2026-11-03
+last_verified: 2026-11-09
 
 ai_priority: high
 related_files:
+  - apps/web/lib/racebook-partner-slots.ts
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
   - supabase/migrations/20260924093224_add_racebook_sponsor_presentation_analytics.sql
   - supabase/migrations/20260829204032_seed_trail_tst_sponsors.sql
@@ -168,3 +169,7 @@ The first supporter-points version has no dedicated sponsor placement. Showing o
 - [Mobile App Architecture](../../01-architecture/mobile-app.md)
 
 RaceBook hero sizing, plan-switch deduplication, and shared numeric formatting do not create sponsor impressions, alter placement, or change sponsor loading.
+
+## Partner slots (2026-11-09)
+
+[`race_event_edition_partner_slots`](race-event-edition-partner-slots.md) reuses sponsor rows as the organizer partner of the Matériel and hébergement slots. The new `unique (edition_id, id)` constraint backs its same-edition composite FK; deleting a sponsor cascades to its slot row. Slot views/clicks are counted on the slot row, not on the sponsor counters, so a sponsor also shown in the banner keeps separate reporting. A slot-only sponsor may stay inactive.

@@ -1,7 +1,7 @@
 ---
 title: race_event_publication_requests Table
 scope: database
-last_verified: 2026-11-03
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
@@ -134,3 +134,5 @@ This table is retained publication-review history. New organizer publication use
 - [race_event_organizers](race-event-organizers.md)
 - [race_event_editions](race-event-editions.md)
 - [RLS Policies](../rls-policies.md)
+
+Publication checks and partner slots (2026-11-09): pre-publication checks and the Matériel/hébergement partner slots read the built snapshot and their own table only. They do not read, write or change this domain's rows or contracts.

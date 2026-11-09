@@ -1,7 +1,7 @@
 ---
 title: OpenAI Organizer Import Reconciliation
 scope: integration
-last_verified: 2026-11-03
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-source-intelligence.ts
@@ -115,3 +115,5 @@ After import, the visibility row may report unpublished changes and list the aff
 - [Organizer Race Management](../03-business-rules/organizer-race-management.md)
 - [Web App](../01-architecture/web-app.md)
 - [RLS Checklist](../04-auth-and-security/rls-checklist.md)
+
+Publication checks and partner slots (2026-11-09): pre-publication checks and the Matériel/hébergement partner slots read the built snapshot and their own table only. They do not read, write or change this domain's rows or contracts.

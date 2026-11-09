@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_requests Table
 scope: database
-last_verified: 2026-11-03
+last_verified: 2026-11-09
 ai_priority: medium
 related_files:
   - supabase/migrations/20260721110000_add_race_event_edition_requests.sql
@@ -102,3 +102,5 @@ The table retains `id`, timestamps, `user_id`, `event_id`, `source_year`, `reque
 - [race_event_publication_requests](race-event-publication-requests.md)
 - [race_event_editions](race-event-editions.md)
 - [Organizer Race Management](../../03-business-rules/organizer-race-management.md)
+
+Publication checks and partner slots (2026-11-09): pre-publication checks and the Matériel/hébergement partner slots read the built snapshot and their own table only. They do not read, write or change this domain's rows or contracts.

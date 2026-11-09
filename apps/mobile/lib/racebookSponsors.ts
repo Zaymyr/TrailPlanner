@@ -48,6 +48,19 @@ export async function reportRacebookSponsorImpression(
   }, 2_500).catch(() => null);
 }
 
+/** Aggregate-only viewability count for an organizer partner slot. */
+export async function reportRacebookPartnerSlotImpression(
+  raceId: string,
+  viewId: string,
+  slot: 'equipment' | 'lodging',
+) {
+  await fetchWithTimeout(`${WEB_API_BASE_URL}/api/racebook-partner-slots/impression`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ raceId, viewId, slot }),
+  }, 2_500).catch(() => null);
+}
+
 export async function fetchRacebookSponsors(raceId: string, publicationId?: string): Promise<RacebookSponsorPresentation> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;

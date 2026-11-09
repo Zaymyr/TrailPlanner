@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_branding
 scope: database
-last_verified: 2026-11-03
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
@@ -161,3 +161,5 @@ The supporter chronology inherits the published RaceBook theme like other Course
 - [Design Tokens](../../07-design-system/tokens.md)
 
 The measured two-line RaceBook hero, standardized segmented controls, and labeled Maps action continue to consume the resolved edition theme. They add no branding fields and do not change color precedence.
+
+Publication checks and partner slots (2026-11-09): pre-publication checks and the Matériel/hébergement partner slots read the built snapshot and their own table only. They do not read, write or change this domain's rows or contracts.

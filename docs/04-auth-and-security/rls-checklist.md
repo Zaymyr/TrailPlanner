@@ -1,7 +1,7 @@
 ---
 title: RLS Checklist
 scope: auth
-last_verified: 2026-11-05
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -174,6 +174,7 @@ Use:
 - `supabase/tests/race_slug_redirects_checks.sql` for public parent-gated redirect reads, service-only mutations/RPC execution, invoker security, and reserved-slug behavior;
 - `supabase/tests/web_race_visibility_checks.sql` for web/mobile separation, masked-row client denial, trigger security, and forced clearing of non-public web state;
 - `supabase/tests/racebook_sponsors_checks.sql` for sponsor-table RLS/privileges, edition limits, loading limits, and atomic aggregate click/impression increments against an already-published, preview-visible fixture;
+- `supabase/tests/racebook_partner_slots_checks.sql` for service-only partner-slot privileges, same-edition partner FK, partner/sponsor consistency, sponsor-deletion cascade and metric input validation;
 - `supabase/tests/organizer_atomic_course_collections_checks.sql` for client execute revocations, parent ownership validation and rollback of Organizer collection/product mutations;
 - `supabase/tests/plan_source_revision_checks.sql` for client execute revocations on trigger helpers, authenticated owner-only acknowledgement, null-safe no-op guards, parent revision propagation, and plan review initialization;
 - `supabase/tests/racebook_branding_checks.sql` for service-only branding privileges, one-row edition scope, cascade, checked colors, and atomic draft publication;

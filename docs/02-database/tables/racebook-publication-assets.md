@@ -1,7 +1,7 @@
 ---
 title: racebook_publication_assets
 scope: database
-last_verified: 2026-11-03
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - supabase/migrations/20261103123918_racebook_versioned_publications.sql
@@ -70,3 +70,4 @@ where publication_id = :publication_id;
 - [racebook_publications](racebook-publications.md)
 - [cleanup queue](racebook-publication-asset-cleanup-queue.md)
 
+Publication checks and partner slots (2026-11-09): pre-publication checks and the Matériel/hébergement partner slots read the built snapshot and their own table only. They do not read, write or change this domain's rows or contracts.

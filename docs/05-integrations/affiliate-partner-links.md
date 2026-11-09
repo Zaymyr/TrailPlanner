@@ -2,10 +2,11 @@
 title: Affiliate Partner Links
 scope: integration
 
-last_verified: 2026-11-05
+last_verified: 2026-11-09
 
 ai_priority: medium
 related_files:
+  - apps/web/lib/racebook-partner-slots.ts
   - apps/web/lib/partner-links.ts
   - apps/web/lib/partner-links.test.ts
   - apps/web/app/api/admin/partner-links/route.ts
@@ -116,3 +117,7 @@ Supporter `S’y rendre` and `Voir le plan` actions open organizer-authored acce
 The labeled RaceBook Maps action, shared distance formatting, and plan-switch visual standardization do not change affiliate destinations, redirect accounting, or partner parameters.
 
 Booking and Decathlon remain outside the versioned RaceBook snapshot. Mobile loads their current server-resolved destinations in parallel with published RaceBook content; restoring a RaceBook version never restores or rewrites a partner destination.
+
+## Organizer partner slots (2026-11-09)
+
+The Decathlon (Matériel) and Booking (Services) cards are partner slots. The default remains the resolved affiliate link and its disclosure. When a published Signature RaceBook replaces a slot with an organizer partner, mobile renders the partner name, logo, headline and `Découvrir` action through the counted `/api/racebook-partner-slots/:slot/click` redirect, without the affiliate disclosure and without a `partner_*` RaceBook action; a hidden slot renders no card. The partner-links endpoint and affiliate destinations are unchanged.

@@ -426,3 +426,7 @@ Versioned publication does not snapshot analytics counters. Sponsor click and im
 Opening the organizer publication confirmation, its changed-field list, or the `…` version menu emits no runner analytics event and does not alter sponsor counters.
 
 The admin "Messagerie" tab (bugs, feedback, race requests) and the prefilled greeting and signature of the Users tab message add no PostHog event; replies are audited in `user_notifications` and its delivery columns. The mobile inbox contact buttons reuse the existing feedback and race-request forms, and hiding a message emits no event.
+
+## Partner slot reporting (2026-11-09)
+
+Organizer partner slots report only aggregate counters: `POST /api/racebook-partner-slots/impression` (one per reader session and slot once its tab is shown) and the counted click redirect. Presses on an organizer partner card do not emit `racebook action clicked`; default affiliate presses keep `partner_decathlon` / `partner_booking`. The publish dialog checks add no analytics event.

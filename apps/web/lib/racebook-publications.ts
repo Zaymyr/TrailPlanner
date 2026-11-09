@@ -7,6 +7,16 @@ import { ORGANIZER_MODULES, organizerModuleKeySchema, type OrganizerModuleKey } 
 import { serviceHeaders } from "./organizer";
 import { racebookBrandingRowSchema, toDraftBranding } from "./racebook-branding";
 import { racebookSponsorRowSchema } from "./racebook-sponsors";
+import {
+  buildPublishedPartnerSlots,
+  racebookPartnerSlotRowSchema,
+  racebookPublishedPartnerSlotSchema,
+} from "./racebook-partner-slots";
+import {
+  evaluateRacebookPublicationChecks,
+  racebookPublicationCheckInputFromSnapshot,
+  type RacebookPublicationIssue,
+} from "./racebook-publication-checks";
 import type { SupabaseServiceConfig } from "./supabase";
 
 const jsonObjectSchema = z.record(z.unknown());
@@ -42,6 +52,8 @@ export const racebookPublishedSnapshotV1Schema = z.object({
   editionServiceRows: rowArraySchema,
   supporterPointRows: rowArraySchema,
   sponsors: z.array(racebookPublishedSponsorSchema),
+  /** Absent from snapshots published before partner slots: every slot then uses its affiliate default. */
+  partnerSlots: z.array(racebookPublishedPartnerSlotSchema).default([]),
   branding: z.object({
     logoUrl: z.string().url().nullable(),
     primaryColor: z.string().regex(/^#[0-9A-F]{6}$/),
@@ -215,6 +227,7 @@ export function describeRacebookSnapshotChanges(
     ["awardRows", "Podiums et récompenses"],
     ["editionServiceRows", "Services et alentours"],
     ["sponsors", "Sponsors"],
+    ["partnerSlots", "Emplacements partenaires"],
     ["branding", "Identité visuelle"],
     ["modules", "Sections affichées"],
   ];
@@ -252,6 +265,36 @@ export const toRacebookPublicationAssets = (
     }),
   ];
 };
+
+const partnerSlotSponsorSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  logo_url: z.string().url(),
+  website_url: z.string().url().nullable(),
+});
+
+/**
+ * Reads draft partner slots plus their sponsors. A missing table during a
+ * staggered deployment keeps every slot on its affiliate default.
+ */
+async function loadDraftPartnerSlots(config: SupabaseServiceConfig, editionId: string) {
+  const headers = serviceHeaders(config, "");
+  const slotsResponse = await fetch(
+    `${config.supabaseUrl}/rest/v1/race_event_edition_partner_slots?edition_id=eq.${encodeURIComponent(editionId)}&select=edition_id,slot_key,mode,sponsor_id,headline,impression_count,click_count`,
+    { headers, cache: "no-store" },
+  );
+  if (slotsResponse.status === 404) return [];
+  if (!slotsResponse.ok) throw new Error(`Unable to load RaceBook partner slots: ${await slotsResponse.text()}`);
+  const rows = z.array(racebookPartnerSlotRowSchema).parse(await slotsResponse.json());
+  const sponsorIds = [...new Set(rows.flatMap((row) => row.mode === "partner" && row.sponsor_id ? [row.sponsor_id] : []))];
+  if (sponsorIds.length === 0) return buildPublishedPartnerSlots(rows, [], true);
+  const sponsorsResponse = await fetch(
+    `${config.supabaseUrl}/rest/v1/race_event_edition_sponsors?edition_id=eq.${encodeURIComponent(editionId)}&id=in.(${sponsorIds.join(",")})&select=id,name,logo_url,website_url`,
+    { headers, cache: "no-store" },
+  );
+  if (!sponsorsResponse.ok) throw new Error(`Unable to load partner slot sponsors: ${await sponsorsResponse.text()}`);
+  return buildPublishedPartnerSlots(rows, z.array(partnerSlotSponsorSchema).parse(await sponsorsResponse.json()), true);
+}
 
 async function readRequiredRows(response: Response, label: string) {
   if (!response.ok) throw new Error(`Unable to load ${label}: ${await response.text()}`);
@@ -344,11 +387,13 @@ export async function buildRacebookPublishedSnapshot(
   const sponsorRows = sponsorsResponse ? z.array(racebookSponsorRowSchema).parse(await sponsorsResponse.json()) : [];
   const brandingRows = brandingResponse ? z.array(racebookBrandingRowSchema).parse(await brandingResponse.json()) : [];
   const branding = toDraftBranding(brandingRows[0] ?? null);
+  const partnerSlots = modules.sponsors ? await loadDraftPartnerSlots(config, race.edition_id) : [];
 
   const { gpx_storage_path: gpxStoragePath, ...publicRace } = race;
   const imageUrls = new Set<string>();
   if (publicRace.thumbnail_url) imageUrls.add(publicRace.thumbnail_url);
   for (const sponsor of sponsorRows) imageUrls.add(sponsor.logo_url);
+  for (const slot of partnerSlots) if (slot.partner) imageUrls.add(slot.partner.logoUrl);
   if (branding.logoUrl) imageUrls.add(branding.logoUrl);
   for (const station of collections.stationRows) {
     const stationProducts = Array.isArray(station.race_aid_station_products) ? station.race_aid_station_products : [];
@@ -378,6 +423,7 @@ export async function buildRacebookPublishedSnapshot(
       showInBanner: sponsor.show_in_banner,
       position: sponsor.position,
     })),
+    partnerSlots,
     branding,
     modules,
     assets: { gpxStoragePath: gpxStoragePath ?? null, imageUrls: [...imageUrls] },
@@ -398,10 +444,14 @@ export const serializePublicationState = (
 });
 
 export const publicSnapshot = (publication: RacebookPublicationRow) => {
-  const { assets: _assets, sponsors, ...content } = publication.content;
+  const { assets: _assets, sponsors, partnerSlots, ...content } = publication.content;
   return {
     ...content,
     sponsors: sponsors.map(({ destinationUrl: _destinationUrl, ...sponsor }) => sponsor),
+    partnerSlots: (partnerSlots ?? []).map((slot) => ({
+      ...slot,
+      partner: slot.partner ? (({ destinationUrl: _destinationUrl, ...partner }) => partner)(slot.partner) : null,
+    })),
     publicationId: publication.id,
     publicationRevision: publication.source_draft_revision,
     publishedAt: publication.published_at,
@@ -448,4 +498,20 @@ export async function publishRacebookSnapshot(
     return { publication, state };
   }
   throw Object.assign(new Error("RaceBook draft changed during publication."), { status: 409 });
+}
+
+const editionDatesSchema = z.object({ start_date: z.string().nullable(), end_date: z.string().nullable() });
+
+/** Runs the pure pre-publication checks against a built draft snapshot. */
+export async function loadRacebookPublicationChecks(
+  config: SupabaseServiceConfig,
+  snapshot: RacebookPublishedSnapshotV1,
+): Promise<RacebookPublicationIssue[]> {
+  const response = await fetch(
+    `${config.supabaseUrl}/rest/v1/race_event_editions?id=eq.${encodeURIComponent(snapshot.raceRow.edition_id)}&select=start_date,end_date&limit=1`,
+    { headers: serviceHeaders(config, ""), cache: "no-store" },
+  );
+  if (!response.ok) throw new Error(`Unable to load edition dates: ${await response.text()}`);
+  const edition = z.array(editionDatesSchema).parse(await response.json())[0] ?? null;
+  return evaluateRacebookPublicationChecks(racebookPublicationCheckInputFromSnapshot(snapshot, edition));
 }

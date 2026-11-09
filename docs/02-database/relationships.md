@@ -1,7 +1,7 @@
 ---
 title: Database Relationships
 scope: database
-last_verified: 2026-11-05
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - supabase/migrations/20241215010000_create_race_plans.sql
@@ -42,6 +42,7 @@ related_files:
   - supabase/migrations/20261105115106_admin_user_notifications.sql
   - supabase/tests/admin_user_notifications_checks.sql
 related_tables:
+  - race_event_edition_partner_slots
   - race_plans
   - plan_share_links
   - plan_aid_stations
@@ -216,6 +217,8 @@ Organizer portal tables added by `20260528120000_add_organizer_portal.sql` relat
 - `organizer_social_proofs.edition_id -> race_event_editions(id) on delete cascade`
 - `races.edition_id -> race_event_editions(id) on delete cascade`
 - `race_event_edition_sponsors.edition_id -> race_event_editions(id) on delete cascade`
+- `race_event_edition_partner_slots.edition_id -> race_event_editions(id) on delete cascade`
+- `race_event_edition_partner_slots(edition_id, sponsor_id) -> race_event_edition_sponsors(edition_id, id) on delete cascade`
 - `race_event_edition_branding.edition_id -> race_event_editions(id) on delete cascade`
 - `race_event_organizers.event_id -> race_events(id) on delete cascade`
 - `race_event_organizers.user_id -> auth.users(id) on delete cascade`
