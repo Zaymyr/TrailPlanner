@@ -64,11 +64,14 @@ export default function PlansScreen() {
     closePremiumModal,
   } = usePlansScreen();
   // Events that already carry a plan are listed in their plan section instead.
-  const followedEventsWithoutPlan = useMemo(() => {
+  const { followedEventsWithoutPlan, pastFollowedEventsWithoutPlan } = useMemo(() => {
     const plannedEventIds = new Set(
       sections.flatMap((section) => section.data.map((plan) => plan.races?.race_events?.id).filter(Boolean)),
     );
-    return followedEvents.filter((event) => !plannedEventIds.has(event.id));
+    return {
+      followedEventsWithoutPlan: followedEvents.upcoming.filter((event) => !plannedEventIds.has(event.id)),
+      pastFollowedEventsWithoutPlan: followedEvents.past.filter((event) => !plannedEventIds.has(event.id)),
+    };
   }, [followedEvents, sections]);
   const hasFollowedRaces = followedEventsWithoutPlan.length > 0;
   const handleOpenFollowedEvent = useCallback((eventId: string) => {
@@ -198,6 +201,17 @@ export default function PlansScreen() {
             ) : null}
           </>
         }
+        listFooterComponent={pastFollowedEventsWithoutPlan.length > 0 ? (
+          <FollowedRacesSection
+            events={pastFollowedEventsWithoutPlan}
+            locale={locale}
+            title={t.plans.pastRaces}
+            subtitle={t.plans.followedPastSubtitle}
+            racebookLabel={t.catalog.racebookCta}
+            noRacebookLabel={t.catalog.viewFormats}
+            onOpenEvent={handleOpenFollowedEvent}
+          />
+        ) : undefined}
         startButtonLabel={t.plans.startButton}
         editButtonLabel={t.plans.editButton}
         recapButtonLabel={t.planSummary.openRecap}

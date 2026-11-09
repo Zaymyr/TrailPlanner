@@ -645,6 +645,8 @@ export default function RaceRacebookScreen() {
   const [gearChecksLoadedRaceId, setGearChecksLoadedRaceId] = useState<string | null>(null);
   const [courseConstraintsExpanded, setCourseConstraintsExpanded] = useState(false);
   const [onboardingBusy, setOnboardingBusy] = useState(false);
+  // After the guided RaceBook tour, the optional plan is offered once.
+  const [onboardingPlanOffer, setOnboardingPlanOffer] = useState(false);
   const [loading, setLoading] = useState(() => !initialSnapshot);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<RacebookScreenData | null>(() => initialSnapshot?.data ?? null);
@@ -1726,13 +1728,13 @@ export default function RaceRacebookScreen() {
   const showPlanWorkspace = Boolean(existingPlanId);
   const planLookupResolved = Boolean(existingPlan && existingPlan.raceId === id);
   const raceDaysRemaining = raceCountdownDays;
-  const showPlanInvite = planLookupResolved
+  const canOfferPlan = planLookupResolved
     && !existingPlanId
-    && onboarding !== 'racebook'
     && data?.race.elevationGainM !== null
     && data?.race.elevationGainM !== undefined
     && (raceDaysRemaining === null || raceDaysRemaining >= 0);
-  const handlePlanCtaPress = useCallback(async () => {
+  const showPlanInvite = canOfferPlan && onboarding !== 'racebook';
+  const handlePlanCtaPress = useCallback(async (entryPoint: 'course_invite' | 'onboarding_end' = 'course_invite') => {
     if (!id || planCtaBusy) return;
 
     const raceId = id;
@@ -1746,7 +1748,7 @@ export default function RaceRacebookScreen() {
       setExistingPlan({ raceId, planId: currentPlanId });
       captureRacebookInteraction('racebook action clicked', {
         action: currentPlanId ? 'refine_plan' : 'create_plan',
-        entry_point: 'course_invite',
+        entry_point: entryPoint,
       });
 
       if (currentPlanId) {
@@ -1941,6 +1943,12 @@ export default function RaceRacebookScreen() {
     try {
       if (completed) await completeOnboarding('racebook');
       else await skipOnboardingKind('racebook', 'racebook');
+      if (completed && canOfferPlan) {
+        // The tour is recorded as done; the plan is then offered as an option.
+        setOnboardingPlanOffer(true);
+        setOnboardingBusy(false);
+        return;
+      }
       router.replace(id ? `/(app)/race/${id}/racebook` : '/(app)/catalog');
     } catch (caught) {
       console.error('Unable to finish RaceBook onboarding:', caught);
@@ -1958,6 +1966,7 @@ export default function RaceRacebookScreen() {
           expandedBodyHeight={heroBodyHeight}
           eventName={data.event.name}
           raceName={data.race.name}
+          imageUrl={data.race.thumbnailUrl ?? data.event.thumbnailUrl ?? null}
           logoUrl={RACEBOOK_EDITION_LOGO_ENABLED ? brandTheme.logoUrl : null}
           dateLabel={[formattedRaceDate ?? eventDateRange, raceCountdownLabel].filter(Boolean).join(' · ') || null}
           locationLabel={headerLocation}
@@ -2545,7 +2554,18 @@ export default function RaceRacebookScreen() {
           onPress={handleTabPress}
         />
       ) : null}
-      {onboarding === 'racebook' && !showLoading ? (
+      {onboarding === 'racebook' && !showLoading && onboardingPlanOffer ? (
+        <OnboardingGuideCard
+          title={t.onboarding.tours.planOfferTitle}
+          body={t.onboarding.tours.planOfferBody}
+          actionLabel={t.catalog.racebookCreatePlan}
+          onAction={() => { void handlePlanCtaPress('onboarding_end'); }}
+          skipLabel={t.onboarding.tours.planOfferLater}
+          onSkip={() => router.replace(id ? `/(app)/race/${id}/racebook` : '/(app)/catalog')}
+          busy={planCtaBusy}
+        />
+      ) : null}
+      {onboarding === 'racebook' && !showLoading && !onboardingPlanOffer ? (
         <OnboardingGuideCard
           title={
             unavailable

@@ -37,6 +37,7 @@ import type { PlanRow, RaceSection } from './types';
 type PlansListProps = {
   contentTopInset?: number;
   listHeaderComponent?: ReactNode;
+  listFooterComponent?: ReactNode;
   onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   sections: RaceSection[];
   collapsedSections: Set<string>;
@@ -79,6 +80,7 @@ type PlansListProps = {
 export const PlansList = memo(function PlansList({
   contentTopInset = 0,
   listHeaderComponent,
+  listFooterComponent,
   onScroll,
   sections,
   collapsedSections,
@@ -153,6 +155,7 @@ export const PlansList = memo(function PlansList({
         ]}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={listHeaderComponent ? <View style={styles.listHeader}>{listHeaderComponent}</View> : null}
+        ListFooterComponent={listFooterComponent ? <View style={styles.listFooter}>{listFooterComponent}</View> : null}
         onScroll={onScroll}
         refreshControl={
           <RefreshControl
@@ -611,6 +614,9 @@ const styles = StyleSheet.create({
   listHeader: {
     gap: spacing[3],
     marginBottom: spacing[1],
+  },
+  listFooter: {
+    marginTop: spacing[4],
   },
   listEmpty: {
     flex: 1,

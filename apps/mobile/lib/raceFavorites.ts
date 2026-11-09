@@ -49,14 +49,32 @@ type FollowedRaceEventRow = {
   }[] | null;
 };
 
+function eventTime(event: FollowedRaceEvent) {
+  return event.race_date ? new Date(event.race_date).getTime() : Number.MAX_SAFE_INTEGER;
+}
+
 /**
- * Upcoming followed events, soonest first. Past events are left to the catalog
- * retention window and to the plan history so "Mes courses" stays forward-looking.
+ * Followed events split for "Mes courses": upcoming ones soonest first, then
+ * past ones (shown below in a "Courses passées" group) most recent first.
  */
+export function selectFollowedEvents(rows: FollowedRaceEventRow[], now = new Date()) {
+  const events = rows.map((row) => toFollowedEvent(row));
+  const upcoming = events
+    .filter((event) => !isCatalogEventPast(event.race_date, now))
+    .sort((left, right) => eventTime(left) - eventTime(right) || left.name.localeCompare(right.name));
+  const past = events
+    .filter((event) => isCatalogEventPast(event.race_date, now))
+    .sort((left, right) => eventTime(right) - eventTime(left) || left.name.localeCompare(right.name));
+  return { upcoming, past };
+}
+
+/** Upcoming followed events, soonest first. */
 export function selectUpcomingFollowedEvents(rows: FollowedRaceEventRow[], now = new Date()): FollowedRaceEvent[] {
-  return rows
-    .filter((row) => !isCatalogEventPast(row.race_date, now))
-    .map((row) => ({
+  return selectFollowedEvents(rows, now).upcoming;
+}
+
+function toFollowedEvent(row: FollowedRaceEventRow): FollowedRaceEvent {
+  return {
       id: row.id,
       name: row.name,
       location: row.location,
@@ -67,17 +85,14 @@ export function selectUpcomingFollowedEvents(rows: FollowedRaceEventRow[], now =
         && race.racebook_is_live === true
         && race.racebook_preview_is_visible !== false
       )),
-    }))
-    .sort((left, right) => {
-      const leftTime = left.race_date ? new Date(left.race_date).getTime() : Number.MAX_SAFE_INTEGER;
-      const rightTime = right.race_date ? new Date(right.race_date).getTime() : Number.MAX_SAFE_INTEGER;
-      return leftTime - rightTime || left.name.localeCompare(right.name);
-    });
+  };
 }
 
-export async function fetchUpcomingFollowedEvents(): Promise<FollowedRaceEvent[]> {
+export type FollowedEvents = { upcoming: FollowedRaceEvent[]; past: FollowedRaceEvent[] };
+
+export async function fetchFollowedEvents(): Promise<FollowedEvents> {
   const eventIds = await fetchRaceFavoriteEventIds();
-  if (eventIds.length === 0) return [];
+  if (eventIds.length === 0) return { upcoming: [], past: [] };
 
   const { data, error } = await supabase
     .from('race_events')
@@ -86,5 +101,5 @@ export async function fetchUpcomingFollowedEvents(): Promise<FollowedRaceEvent[]
     .eq('is_live', true);
 
   if (error) throw error;
-  return selectUpcomingFollowedEvents((data as FollowedRaceEventRow[] | null) ?? []);
+  return selectFollowedEvents((data as FollowedRaceEventRow[] | null) ?? []);
 }

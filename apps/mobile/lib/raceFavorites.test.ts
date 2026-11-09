@@ -4,7 +4,7 @@ vi.mock('./supabase', () => ({ supabase: {} }));
 vi.mock('./webApi', () => ({ WEB_API_BASE_URL: 'https://example.test' }));
 vi.mock('./appSession', () => ({ isAnonymousSession: () => false }));
 
-import { selectUpcomingFollowedEvents } from './raceFavorites';
+import { selectFollowedEvents, selectUpcomingFollowedEvents } from './raceFavorites';
 
 const NOW = new Date(2026, 10, 9, 12, 0);
 
@@ -42,5 +42,16 @@ describe('selectUpcomingFollowedEvents', () => {
     expect(published.hasRacebook).toBe(true);
     expect(hidden.hasRacebook).toBe(false);
     expect(draft.hasRacebook).toBe(false);
+  });
+});
+
+describe('selectFollowedEvents', () => {
+  it('lists past followed events separately, most recent first', () => {
+    const { upcoming, past } = selectFollowedEvents(
+      [row('old', '2026-09-01'), row('soon', '2026-11-15'), row('recent', '2026-11-01')],
+      NOW,
+    );
+    expect(upcoming.map((event) => event.id)).toEqual(['soon']);
+    expect(past.map((event) => event.id)).toEqual(['recent', 'old']);
   });
 });

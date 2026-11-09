@@ -84,6 +84,7 @@ export type MobileTranslations = {
     emptyPlansOptionalSubtitle: string;
     followedTitle: string;
     followedSubtitle: string;
+    followedPastSubtitle: string;
     browseRaces: string;
     noRace: string;
     noRaceWarning: string;
@@ -695,7 +696,9 @@ export type MobileTranslations = {
       noRacebookBody: string; productsTitle: string;
       productsBody: string; continueToPlan: string; exploreRacebookTitle: string;
       exploreRacebookBody: string; unavailableTitle: string; unavailableBody: string;
-      understood: string; skip: string; profileTitle: string; profileSubtitle: string;
+      understood: string; skip: string;
+      planOfferTitle: string; planOfferBody: string; planOfferLater: string;
+      profileTitle: string; profileSubtitle: string;
       planTitle: string; racebookTitle: string; statusPending: string;
       statusInProgress: string; statusSkipped: string; statusCompleted: string;
       actionStart: string; actionResume: string; actionReview: string;

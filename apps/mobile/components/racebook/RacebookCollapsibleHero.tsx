@@ -34,6 +34,8 @@ type Props = {
   expandedBodyHeight?: number;
   eventName: string | null;
   raceName: string;
+  /** Race/event photo, shown blurred and veiled so it never competes with the identity text. */
+  imageUrl: string | null;
   logoUrl: string | null;
   dateLabel: string | null;
   locationLabel: string | null;
@@ -81,6 +83,7 @@ export function RacebookCollapsibleHero({
   expandedBodyHeight = RACEBOOK_HERO_BODY_HEIGHT,
   eventName,
   raceName,
+  imageUrl,
   logoUrl,
   dateLabel,
   locationLabel,
@@ -168,6 +171,12 @@ export function RacebookCollapsibleHero({
       ]}
     >
       <StatusBar style={theme.onPrimaryColor === '#FFFFFF' ? 'light' : 'dark'} />
+      {imageUrl ? (
+        <Animated.View style={[styles.heroImage, { top: topInset, opacity: expandedOpacity }]}>
+          <Animated.Image source={{ uri: imageUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" blurRadius={8} accessible={false} />
+        </Animated.View>
+      ) : null}
+      {imageUrl ? <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.primaryColor, opacity: HERO_PHOTO_VEIL_OPACITY }]} /> : null}
 
       <Pressable
         accessibilityLabel={backLabel}
@@ -333,7 +342,10 @@ export function RacebookCollapsibleHero({
   );
 }
 
+const HERO_PHOTO_VEIL_OPACITY = 0.9;
+
 const styles = StyleSheet.create({
+  heroImage: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   hero: { position: 'absolute', zIndex: 20, top: 0, left: 0, right: 0, overflow: 'hidden', borderBottomLeftRadius: 24, borderBottomRightRadius: 24, shadowColor: '#1A1A1A', shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 7 }, elevation: 8 },
   heroAttached: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, shadowOpacity: 0, elevation: 0 },
   backButton: { position: 'absolute', zIndex: 4, left: 16, width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.34)', backgroundColor: 'rgba(0,0,0,0.22)' },
