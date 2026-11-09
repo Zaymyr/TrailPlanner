@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 3zgAMydVr6T2bJibt6fkt5rorI8GVCPXXBT1egCb30i0WCEkqVV21XSxMKhq8zY
+\restrict 1e3dgxLS5odLJ3DnN93teaEOYUgZSY20VcXV9bJxfhq4Wqac2HqXiUeUJFH8oes
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.11
@@ -3522,6 +3522,54 @@ $$;
 
 
 --
+-- Name: increment_racebook_partner_slot_metric(uuid, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.increment_racebook_partner_slot_metric(p_race_id uuid, p_slot_key text, p_metric text) RETURNS bigint
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+declare
+  updated_count bigint;
+begin
+  if p_slot_key not in ('equipment', 'lodging') or p_metric not in ('impression', 'click') then
+    raise exception 'Invalid partner slot metric.' using errcode = '22023';
+  end if;
+
+  update public.race_event_edition_partner_slots as slot
+  set impression_count = slot.impression_count + case when p_metric = 'impression' then 1 else 0 end,
+      click_count = slot.click_count + case when p_metric = 'click' then 1 else 0 end
+  from public.races as race,
+       public.race_events as event_row
+  where slot.slot_key = p_slot_key
+    and slot.mode = 'partner'
+    and race.id = p_race_id
+    and race.edition_id = slot.edition_id
+    and race.event_id = event_row.id
+    and race.is_live
+    and race.racebook_is_live
+    and coalesce(race.racebook_preview_is_visible, true)
+    and event_row.is_live
+  returning case when p_metric = 'impression' then slot.impression_count else slot.click_count end
+  into updated_count;
+
+  if updated_count is null then
+    raise exception 'Partner slot target not found.' using errcode = 'P0002';
+  end if;
+
+  return updated_count;
+end;
+$$;
+
+
+--
+-- Name: FUNCTION increment_racebook_partner_slot_metric(p_race_id uuid, p_slot_key text, p_metric text); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.increment_racebook_partner_slot_metric(p_race_id uuid, p_slot_key text, p_metric text) IS 'Atomically counts one impression or click of a published organizer partner slot; aggregate only.';
+
+
+--
 -- Name: increment_racebook_sponsor_click(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -4416,8 +4464,8 @@ CREATE FUNCTION public.publish_racebook_snapshots(p_items jsonb, p_actor_id uuid
 declare
   item jsonb;
   result_items jsonb := '[]'::jsonb;
-  race_id uuid;
-  expected_revision bigint;
+  v_race_id uuid;
+  v_expected_revision bigint;
 begin
   if jsonb_typeof(coalesce(p_items, '[]'::jsonb)) <> 'array' or jsonb_array_length(coalesce(p_items, '[]'::jsonb)) = 0 then
     raise exception 'RaceBook publication items must be a non-empty array.' using errcode = '22023';
@@ -4433,11 +4481,11 @@ begin
 
   for item in select value from jsonb_array_elements(p_items)
   loop
-    race_id := (item ->> 'raceId')::uuid;
-    expected_revision := (item ->> 'expectedDraftRevision')::bigint;
-    perform 1 from public.racebook_publication_states
-    where racebook_publication_states.race_id = race_id
-      and racebook_publication_states.draft_revision = expected_revision
+    v_race_id := (item ->> 'raceId')::uuid;
+    v_expected_revision := (item ->> 'expectedDraftRevision')::bigint;
+    perform 1 from public.racebook_publication_states s
+    where s.race_id = v_race_id
+      and s.draft_revision = v_expected_revision
     for update;
     if not found then raise exception 'RaceBook draft revision changed.' using errcode = 'PT409'; end if;
   end loop;
@@ -6068,6 +6116,170 @@ $$;
 
 
 --
+-- Name: user_notifications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_notifications (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    created_by uuid,
+    race_request_id bigint,
+    kind text NOT NULL,
+    title text NOT NULL,
+    body text NOT NULL,
+    read_at timestamp with time zone,
+    email_requested boolean DEFAULT false NOT NULL,
+    email_status text DEFAULT 'not_requested'::text NOT NULL,
+    email_provider_id text,
+    email_error text,
+    push_requested boolean DEFAULT false NOT NULL,
+    push_status text DEFAULT 'not_requested'::text NOT NULL,
+    push_sent_count integer DEFAULT 0 NOT NULL,
+    push_error text,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    feedback_id bigint,
+    deleted_at timestamp with time zone,
+    CONSTRAINT user_notifications_body_check CHECK (((char_length(btrim(body)) >= 1) AND (char_length(btrim(body)) <= 4000))),
+    CONSTRAINT user_notifications_email_request_consistency_check CHECK (((email_requested AND (email_status <> 'not_requested'::text)) OR ((NOT email_requested) AND (email_status = 'not_requested'::text)))),
+    CONSTRAINT user_notifications_email_status_check CHECK ((email_status = ANY (ARRAY['not_requested'::text, 'pending'::text, 'sent'::text, 'failed'::text, 'unavailable'::text]))),
+    CONSTRAINT user_notifications_kind_check CHECK ((kind = ANY (ARRAY['admin_message'::text, 'race_request_status'::text]))),
+    CONSTRAINT user_notifications_push_request_consistency_check CHECK (((push_requested AND (push_status <> 'not_requested'::text)) OR ((NOT push_requested) AND (push_status = 'not_requested'::text)))),
+    CONSTRAINT user_notifications_push_sent_count_check CHECK ((push_sent_count >= 0)),
+    CONSTRAINT user_notifications_push_status_check CHECK ((push_status = ANY (ARRAY['not_requested'::text, 'pending'::text, 'sent'::text, 'failed'::text, 'unavailable'::text]))),
+    CONSTRAINT user_notifications_title_check CHECK (((char_length(btrim(title)) >= 1) AND (char_length(btrim(title)) <= 160)))
+);
+
+
+--
+-- Name: TABLE user_notifications; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.user_notifications IS 'Owner-readable in-app notifications created by trusted server-side administrative workflows.';
+
+
+--
+-- Name: review_app_feedback_with_notification(bigint, uuid, text, uuid, text, text, boolean, boolean); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.review_app_feedback_with_notification(p_feedback_id bigint, p_admin_id uuid, p_status text, p_notification_id uuid, p_title text, p_body text, p_email_requested boolean, p_push_requested boolean) RETURNS public.user_notifications
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+declare
+  feedback_row public.app_feedback%rowtype;
+  existing_notification public.user_notifications%rowtype;
+  notification_row public.user_notifications%rowtype;
+begin
+  if p_status is null or p_status not in ('pending', 'completed', 'rejected') then
+    raise exception 'Unsupported feedback status: %', p_status
+      using errcode = '22023';
+  end if;
+
+  if p_admin_id is null then
+    raise exception 'Admin id is required.'
+      using errcode = '22023';
+  end if;
+
+  if p_notification_id is null then
+    raise exception 'Notification id is required.'
+      using errcode = '22023';
+  end if;
+
+  if p_title is null or char_length(btrim(p_title)) not between 1 and 160 then
+    raise exception 'Notification title must contain between 1 and 160 characters.'
+      using errcode = '22023';
+  end if;
+
+  if p_body is null or char_length(btrim(p_body)) not between 1 and 4000 then
+    raise exception 'Notification body must contain between 1 and 4000 characters.'
+      using errcode = '22023';
+  end if;
+
+  select feedback.*
+  into feedback_row
+  from public.app_feedback feedback
+  where feedback.id = p_feedback_id
+  for update;
+
+  if not found then
+    raise exception 'Feedback % was not found.', p_feedback_id
+      using errcode = 'P0002';
+  end if;
+
+  if feedback_row.user_id is null then
+    raise exception 'Feedback % has no account to reply to.', p_feedback_id
+      using errcode = '22023';
+  end if;
+
+  select notification.*
+  into existing_notification
+  from public.user_notifications notification
+  where notification.id = p_notification_id;
+
+  if found then
+    if feedback_row.status <> p_status
+      or existing_notification.user_id <> feedback_row.user_id
+      or existing_notification.created_by is distinct from p_admin_id
+      or existing_notification.feedback_id is distinct from p_feedback_id
+      or existing_notification.kind <> 'admin_message'
+      or existing_notification.title <> btrim(p_title)
+      or existing_notification.body <> btrim(p_body)
+      or existing_notification.email_requested <> coalesce(p_email_requested, false)
+      or existing_notification.push_requested <> coalesce(p_push_requested, false) then
+      raise exception 'Notification id % is already used for another payload.', p_notification_id
+        using errcode = '23505';
+    end if;
+
+    return existing_notification;
+  end if;
+
+  update public.app_feedback
+  set status = p_status,
+      reviewed_at = timezone('utc', now()),
+      reviewed_by = p_admin_id
+  where id = p_feedback_id;
+
+  insert into public.user_notifications (
+    id,
+    user_id,
+    created_by,
+    feedback_id,
+    kind,
+    title,
+    body,
+    email_requested,
+    email_status,
+    push_requested,
+    push_status
+  ) values (
+    p_notification_id,
+    feedback_row.user_id,
+    p_admin_id,
+    p_feedback_id,
+    'admin_message',
+    btrim(p_title),
+    btrim(p_body),
+    coalesce(p_email_requested, false),
+    case when coalesce(p_email_requested, false) then 'pending' else 'not_requested' end,
+    coalesce(p_push_requested, false),
+    case when coalesce(p_push_requested, false) then 'pending' else 'not_requested' end
+  )
+  returning * into notification_row;
+
+  return notification_row;
+end;
+$$;
+
+
+--
+-- Name: FUNCTION review_app_feedback_with_notification(p_feedback_id bigint, p_admin_id uuid, p_status text, p_notification_id uuid, p_title text, p_body text, p_email_requested boolean, p_push_requested boolean); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.review_app_feedback_with_notification(p_feedback_id bigint, p_admin_id uuid, p_status text, p_notification_id uuid, p_title text, p_body text, p_email_requested boolean, p_push_requested boolean) IS 'Atomically sets a bug or feedback review status and creates the reply in the author inbox. Service role only.';
+
+
+--
 -- Name: race_event_publication_requests; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -6210,6 +6422,122 @@ begin
   return reviewed_request;
 end;
 $$;
+
+
+--
+-- Name: review_race_request_with_notification(bigint, uuid, text, uuid, text, text, boolean, boolean); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.review_race_request_with_notification(p_request_id bigint, p_admin_id uuid, p_status text, p_notification_id uuid, p_title text, p_body text, p_email_requested boolean, p_push_requested boolean) RETURNS public.user_notifications
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+declare
+  request_row public.race_requests%rowtype;
+  existing_notification public.user_notifications%rowtype;
+  notification_row public.user_notifications%rowtype;
+begin
+  if p_status is null or p_status not in ('pending', 'completed', 'rejected') then
+    raise exception 'Unsupported race request status: %', p_status
+      using errcode = '22023';
+  end if;
+
+  if p_admin_id is null then
+    raise exception 'Admin id is required.'
+      using errcode = '22023';
+  end if;
+
+  if p_notification_id is null then
+    raise exception 'Notification id is required.'
+      using errcode = '22023';
+  end if;
+
+  if p_title is null or char_length(btrim(p_title)) not between 1 and 160 then
+    raise exception 'Notification title must contain between 1 and 160 characters.'
+      using errcode = '22023';
+  end if;
+
+  if p_body is null or char_length(btrim(p_body)) not between 1 and 4000 then
+    raise exception 'Notification body must contain between 1 and 4000 characters.'
+      using errcode = '22023';
+  end if;
+
+  select request.*
+  into request_row
+  from public.race_requests request
+  where request.id = p_request_id
+  for update;
+
+  if not found then
+    raise exception 'Race request % was not found.', p_request_id
+      using errcode = 'P0002';
+  end if;
+
+  select notification.*
+  into existing_notification
+  from public.user_notifications notification
+  where notification.id = p_notification_id;
+
+  if found then
+    if request_row.status <> p_status
+      or existing_notification.user_id <> request_row.user_id
+      or existing_notification.created_by is distinct from p_admin_id
+      or existing_notification.race_request_id is distinct from p_request_id
+      or existing_notification.kind <> 'race_request_status'
+      or existing_notification.title <> btrim(p_title)
+      or existing_notification.body <> btrim(p_body)
+      or existing_notification.email_requested <> coalesce(p_email_requested, false)
+      or existing_notification.push_requested <> coalesce(p_push_requested, false) then
+      raise exception 'Notification id % is already used for another payload.', p_notification_id
+        using errcode = '23505';
+    end if;
+
+    return existing_notification;
+  end if;
+
+  update public.race_requests
+  set status = p_status,
+      reviewed_at = timezone('utc', now()),
+      reviewed_by = p_admin_id
+  where id = p_request_id;
+
+  insert into public.user_notifications (
+    id,
+    user_id,
+    created_by,
+    race_request_id,
+    kind,
+    title,
+    body,
+    email_requested,
+    email_status,
+    push_requested,
+    push_status
+  ) values (
+    p_notification_id,
+    request_row.user_id,
+    p_admin_id,
+    p_request_id,
+    'race_request_status',
+    btrim(p_title),
+    btrim(p_body),
+    coalesce(p_email_requested, false),
+    case when coalesce(p_email_requested, false) then 'pending' else 'not_requested' end,
+    coalesce(p_push_requested, false),
+    case when coalesce(p_push_requested, false) then 'pending' else 'not_requested' end
+  )
+  returning * into notification_row;
+
+  return notification_row;
+end;
+$$;
+
+
+--
+-- Name: FUNCTION review_race_request_with_notification(p_request_id bigint, p_admin_id uuid, p_status text, p_notification_id uuid, p_title text, p_body text, p_email_requested boolean, p_push_requested boolean); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.review_race_request_with_notification(p_request_id bigint, p_admin_id uuid, p_status text, p_notification_id uuid, p_title text, p_body text, p_email_requested boolean, p_push_requested boolean) IS 'Atomically reviews a runner race request and creates its mandatory in-app notification. Service role only.';
 
 
 --
@@ -6589,6 +6917,21 @@ COMMENT ON FUNCTION public.set_admin_organizer_edition_grant(p_edition_id uuid, 
 
 
 --
+-- Name: set_admin_user_notification_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.set_admin_user_notification_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+begin
+  new.updated_at = timezone('utc', now());
+  return new;
+end;
+$$;
+
+
+--
 -- Name: set_affiliate_offers_updated_at(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -6814,6 +7157,21 @@ $$;
 --
 
 CREATE FUNCTION public.set_race_event_edition_branding_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+begin
+  new.updated_at = timezone('utc', now());
+  return new;
+end;
+$$;
+
+
+--
+-- Name: set_race_event_edition_partner_slots_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.set_race_event_edition_partner_slots_updated_at() RETURNS trigger
     LANGUAGE plpgsql
     SET search_path TO ''
     AS $$
@@ -7318,6 +7676,14 @@ declare
     -- previous identity values for update/delete
     old_columns realtime.wal_column[];
 
+    -- the same values as wal2json sent them, which is what filters compare against
+    raw_columns realtime.wal_column[] =
+        array_agg((x->>'name', x->>'type', x->>'typeoid', x->'value', null, null)::realtime.wal_column)
+        from jsonb_array_elements(wal -> 'columns') x;
+    raw_old_columns realtime.wal_column[] =
+        array_agg((x->>'name', x->>'type', x->>'typeoid', x->'value', null, null)::realtime.wal_column)
+        from jsonb_array_elements(wal -> 'identity') x;
+
     error_record_exceeds_max_size boolean = octet_length(wal::text) > max_record_bytes;
 
     -- Primary jsonb output for record
@@ -7476,10 +7842,10 @@ begin
                         subs.entity = entity_
                         and subs.claims_role = working_role
                         and (
-                            realtime.is_visible_through_filters(columns, subs.filters)
+                            realtime.is_visible_through_filters(raw_columns, subs.filters)
                             or (
                               action = 'DELETE'
-                              and realtime.is_visible_through_filters(old_columns, subs.filters)
+                              and realtime.is_visible_through_filters(raw_old_columns, subs.filters)
                             )
                         )
             ) loop
@@ -7903,6 +8269,18 @@ begin
 
     return case when negate then not res else res end;
 end;
+$$;
+
+
+--
+-- Name: filters_hash(realtime.user_defined_filter[]); Type: FUNCTION; Schema: realtime; Owner: -
+--
+
+CREATE FUNCTION realtime.filters_hash(filters realtime.user_defined_filter[]) RETURNS bytea
+    LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE
+    AS $$
+  select pg_catalog.int8send(pg_catalog.hash_array_extended(filters, 0))
+      || pg_catalog.int8send(pg_catalog.hash_array_extended(filters, 1))
 $$;
 
 
@@ -11206,8 +11584,14 @@ CREATE TABLE public.app_feedback (
     source text DEFAULT 'unknown'::text NOT NULL,
     screen text,
     app_version text,
+    status text DEFAULT 'pending'::text NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    reviewed_at timestamp with time zone,
+    reviewed_by uuid,
+    is_pending boolean GENERATED ALWAYS AS ((status = 'pending'::text)) STORED,
     CONSTRAINT app_feedback_kind_check CHECK ((kind = ANY (ARRAY['bug'::text, 'feedback'::text]))),
-    CONSTRAINT app_feedback_source_check CHECK ((source = ANY (ARRAY['mobile'::text, 'web'::text, 'unknown'::text])))
+    CONSTRAINT app_feedback_source_check CHECK ((source = ANY (ARRAY['mobile'::text, 'web'::text, 'unknown'::text]))),
+    CONSTRAINT app_feedback_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'completed'::text, 'rejected'::text])))
 );
 
 
@@ -11579,6 +11963,42 @@ CREATE TABLE public.race_event_claims (
 
 
 --
+-- Name: race_event_edition_partner_slots; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.race_event_edition_partner_slots (
+    edition_id uuid NOT NULL,
+    slot_key text NOT NULL,
+    mode text DEFAULT 'affiliate'::text NOT NULL,
+    sponsor_id uuid,
+    headline text,
+    impression_count bigint DEFAULT 0 NOT NULL,
+    click_count bigint DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    CONSTRAINT race_event_edition_partner_slots_counts_check CHECK (((impression_count >= 0) AND (click_count >= 0))),
+    CONSTRAINT race_event_edition_partner_slots_headline_check CHECK (((headline IS NULL) OR ((headline = btrim(headline)) AND ((char_length(headline) >= 1) AND (char_length(headline) <= 120))))),
+    CONSTRAINT race_event_edition_partner_slots_mode_check CHECK ((mode = ANY (ARRAY['affiliate'::text, 'partner'::text, 'hidden'::text]))),
+    CONSTRAINT race_event_edition_partner_slots_partner_sponsor_check CHECK (((mode = 'partner'::text) = (sponsor_id IS NOT NULL))),
+    CONSTRAINT race_event_edition_partner_slots_slot_key_check CHECK ((slot_key = ANY (ARRAY['equipment'::text, 'lodging'::text])))
+);
+
+
+--
+-- Name: TABLE race_event_edition_partner_slots; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.race_event_edition_partner_slots IS 'Edition RaceBook partner slots: default Pace Yourself affiliate, an organizer sponsor (Signature sponsors module) or hidden.';
+
+
+--
+-- Name: COLUMN race_event_edition_partner_slots.headline; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.race_event_edition_partner_slots.headline IS 'Optional short organizer text shown under the partner name.';
+
+
+--
 -- Name: race_event_edition_requests; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -11870,7 +12290,11 @@ CREATE TABLE public.race_requests (
     location text NOT NULL,
     requested_date date NOT NULL,
     status text DEFAULT 'pending'::text NOT NULL,
-    CONSTRAINT race_requests_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])))
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    reviewed_at timestamp with time zone,
+    reviewed_by uuid,
+    is_pending boolean GENERATED ALWAYS AS ((status = 'pending'::text)) STORED,
+    CONSTRAINT race_requests_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'completed'::text, 'rejected'::text])))
 );
 
 
@@ -12369,6 +12793,22 @@ COMMENT ON COLUMN public.user_profiles.racebook_onboarding_status IS 'Runner-fac
 
 
 --
+-- Name: video_narrations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.video_narrations (
+    race_id uuid NOT NULL,
+    settings jsonb DEFAULT '{}'::jsonb NOT NULL,
+    narration_overrides jsonb DEFAULT '{}'::jsonb NOT NULL,
+    voice jsonb DEFAULT '{}'::jsonb NOT NULL,
+    clip_count integer DEFAULT 0 NOT NULL,
+    updated_by uuid,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    CONSTRAINT video_narrations_clip_count_check CHECK ((clip_count >= 0))
+);
+
+
+--
 -- Name: video_render_jobs; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -12412,7 +12852,8 @@ CREATE TABLE realtime.messages (
     inserted_at timestamp without time zone DEFAULT timezone('utc'::text, clock_timestamp()) NOT NULL,
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     binary_payload bytea,
-    skip_broadcast boolean DEFAULT false NOT NULL
+    skip_broadcast boolean DEFAULT false NOT NULL,
+    expires_at timestamp without time zone
 )
 PARTITION BY RANGE (inserted_at);
 
@@ -13279,11 +13720,27 @@ ALTER TABLE ONLY public.race_event_edition_branding
 
 
 --
+-- Name: race_event_edition_partner_slots race_event_edition_partner_slots_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.race_event_edition_partner_slots
+    ADD CONSTRAINT race_event_edition_partner_slots_pkey PRIMARY KEY (edition_id, slot_key);
+
+
+--
 -- Name: race_event_edition_requests race_event_edition_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.race_event_edition_requests
     ADD CONSTRAINT race_event_edition_requests_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: race_event_edition_sponsors race_event_edition_sponsors_edition_id_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.race_event_edition_sponsors
+    ADD CONSTRAINT race_event_edition_sponsors_edition_id_id_key UNIQUE (edition_id, id);
 
 
 --
@@ -13671,11 +14128,27 @@ ALTER TABLE ONLY public.user_favorite_race_events
 
 
 --
+-- Name: user_notifications user_notifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_notifications
+    ADD CONSTRAINT user_notifications_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: user_profiles user_profiles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.user_profiles
     ADD CONSTRAINT user_profiles_pkey PRIMARY KEY (user_id);
+
+
+--
+-- Name: video_narrations video_narrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.video_narrations
+    ADD CONSTRAINT video_narrations_pkey PRIMARY KEY (race_id);
 
 
 --
@@ -14341,6 +14814,20 @@ CREATE INDEX app_feedback_created_at_idx ON public.app_feedback USING btree (cre
 
 
 --
+-- Name: app_feedback_kind_pending_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX app_feedback_kind_pending_created_idx ON public.app_feedback USING btree (kind, is_pending DESC, created_at DESC);
+
+
+--
+-- Name: app_feedback_reviewed_by_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX app_feedback_reviewed_by_idx ON public.app_feedback USING btree (reviewed_by) WHERE (reviewed_by IS NOT NULL);
+
+
+--
 -- Name: app_feedback_user_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -14719,6 +15206,13 @@ CREATE INDEX race_event_claims_user_idx ON public.race_event_claims USING btree 
 
 
 --
+-- Name: race_event_edition_partner_slots_sponsor_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX race_event_edition_partner_slots_sponsor_idx ON public.race_event_edition_partner_slots USING btree (sponsor_id) WHERE (sponsor_id IS NOT NULL);
+
+
+--
 -- Name: race_event_edition_requests_event_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -14919,6 +15413,13 @@ CREATE INDEX race_relay_points_race_order_idx ON public.race_relay_points USING 
 --
 
 CREATE INDEX race_requests_created_at_idx ON public.race_requests USING btree (created_at DESC);
+
+
+--
+-- Name: race_requests_reviewed_by_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX race_requests_reviewed_by_idx ON public.race_requests USING btree (reviewed_by) WHERE (reviewed_by IS NOT NULL);
 
 
 --
@@ -15202,6 +15703,48 @@ CREATE INDEX user_favorite_race_events_user_idx ON public.user_favorite_race_eve
 
 
 --
+-- Name: user_notifications_created_by_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_notifications_created_by_idx ON public.user_notifications USING btree (created_by) WHERE (created_by IS NOT NULL);
+
+
+--
+-- Name: user_notifications_feedback_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_notifications_feedback_idx ON public.user_notifications USING btree (feedback_id) WHERE (feedback_id IS NOT NULL);
+
+
+--
+-- Name: user_notifications_race_request_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_notifications_race_request_idx ON public.user_notifications USING btree (race_request_id) WHERE (race_request_id IS NOT NULL);
+
+
+--
+-- Name: user_notifications_user_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_notifications_user_created_idx ON public.user_notifications USING btree (user_id, created_at DESC);
+
+
+--
+-- Name: user_notifications_user_unread_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_notifications_user_unread_idx ON public.user_notifications USING btree (user_id, created_at DESC) WHERE (read_at IS NULL);
+
+
+--
+-- Name: video_narrations_updated_by_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX video_narrations_updated_by_idx ON public.video_narrations USING btree (updated_by);
+
+
+--
 -- Name: video_render_jobs_created_by_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -15230,17 +15773,17 @@ CREATE INDEX ix_realtime_subscription_entity ON realtime.subscription USING btre
 
 
 --
--- Name: messages_inserted_at_topic_index; Type: INDEX; Schema: realtime; Owner: -
+-- Name: messages_replay_index; Type: INDEX; Schema: realtime; Owner: -
 --
 
-CREATE INDEX messages_inserted_at_topic_index ON ONLY realtime.messages USING btree (inserted_at DESC, topic) WHERE ((extension = 'broadcast'::text) AND (private IS TRUE));
+CREATE INDEX messages_replay_index ON ONLY realtime.messages USING btree (topic, inserted_at DESC, COALESCE(expires_at, 'infinity'::timestamp without time zone)) WHERE ((extension = 'broadcast'::text) AND (private = true));
 
 
 --
--- Name: subscription_subscription_id_entity_filters_action_filter_selec; Type: INDEX; Schema: realtime; Owner: -
+-- Name: subscription_subscription_id_entity_filters_hash_key; Type: INDEX; Schema: realtime; Owner: -
 --
 
-CREATE UNIQUE INDEX subscription_subscription_id_entity_filters_action_filter_selec ON realtime.subscription USING btree (subscription_id, entity, filters, action_filter, COALESCE(selected_columns, '{}'::text[]));
+CREATE UNIQUE INDEX subscription_subscription_id_entity_filters_hash_key ON realtime.subscription USING btree (subscription_id, entity, realtime.filters_hash(filters), action_filter, COALESCE(selected_columns, '{}'::text[]));
 
 
 --
@@ -15440,6 +15983,13 @@ CREATE TRIGGER bump_racebook_module_draft_revisions_trigger AFTER INSERT OR DELE
 
 
 --
+-- Name: race_event_edition_partner_slots bump_racebook_partner_slot_draft_revisions_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER bump_racebook_partner_slot_draft_revisions_trigger AFTER INSERT OR DELETE OR UPDATE ON public.race_event_edition_partner_slots FOR EACH ROW EXECUTE FUNCTION public.bump_racebook_sponsor_draft_revisions();
+
+
+--
 -- Name: products bump_racebook_product_draft_revisions_trigger; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -15615,6 +16165,13 @@ CREATE TRIGGER set_affiliate_offers_updated_at BEFORE UPDATE ON public.affiliate
 
 
 --
+-- Name: app_feedback set_app_feedback_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER set_app_feedback_updated_at BEFORE UPDATE ON public.app_feedback FOR EACH ROW EXECUTE FUNCTION public.set_admin_user_notification_updated_at();
+
+
+--
 -- Name: organizer_import_sessions set_organizer_import_sessions_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -15692,6 +16249,13 @@ CREATE TRIGGER set_race_event_edition_branding_updated_at BEFORE UPDATE ON publi
 
 
 --
+-- Name: race_event_edition_partner_slots set_race_event_edition_partner_slots_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER set_race_event_edition_partner_slots_updated_at BEFORE UPDATE ON public.race_event_edition_partner_slots FOR EACH ROW EXECUTE FUNCTION public.set_race_event_edition_partner_slots_updated_at();
+
+
+--
 -- Name: race_event_edition_requests set_race_event_edition_requests_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -15727,6 +16291,13 @@ CREATE TRIGGER set_race_plans_updated_at BEFORE UPDATE ON public.race_plans FOR 
 
 
 --
+-- Name: race_requests set_race_requests_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER set_race_requests_updated_at BEFORE UPDATE ON public.race_requests FOR EACH ROW EXECUTE FUNCTION public.set_admin_user_notification_updated_at();
+
+
+--
 -- Name: race_start_waves set_race_start_waves_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -15759,6 +16330,13 @@ CREATE TRIGGER set_runner_plan_unlocks_updated_at BEFORE UPDATE ON public.runner
 --
 
 CREATE TRIGGER set_subscriptions_updated_at BEFORE UPDATE ON public.subscriptions FOR EACH ROW EXECUTE FUNCTION public.set_subscriptions_updated_at();
+
+
+--
+-- Name: user_notifications set_user_notifications_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER set_user_notifications_updated_at BEFORE UPDATE ON public.user_notifications FOR EACH ROW EXECUTE FUNCTION public.set_admin_user_notification_updated_at();
 
 
 --
@@ -16116,6 +16694,14 @@ ALTER TABLE ONLY public.affiliate_offers
 
 
 --
+-- Name: app_feedback app_feedback_reviewed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.app_feedback
+    ADD CONSTRAINT app_feedback_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
 -- Name: app_feedback app_feedback_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -16444,6 +17030,22 @@ ALTER TABLE ONLY public.race_event_edition_branding
 
 
 --
+-- Name: race_event_edition_partner_slots race_event_edition_partner_slots_edition_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.race_event_edition_partner_slots
+    ADD CONSTRAINT race_event_edition_partner_slots_edition_id_fkey FOREIGN KEY (edition_id) REFERENCES public.race_event_editions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: race_event_edition_partner_slots race_event_edition_partner_slots_sponsor_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.race_event_edition_partner_slots
+    ADD CONSTRAINT race_event_edition_partner_slots_sponsor_fk FOREIGN KEY (edition_id, sponsor_id) REFERENCES public.race_event_edition_sponsors(edition_id, id) ON DELETE CASCADE;
+
+
+--
 -- Name: race_event_edition_requests race_event_edition_requests_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -16625,6 +17227,14 @@ ALTER TABLE ONLY public.race_relay_points
 
 ALTER TABLE ONLY public.race_relay_points
     ADD CONSTRAINT race_relay_points_race_id_fkey FOREIGN KEY (race_id) REFERENCES public.races(id) ON DELETE CASCADE;
+
+
+--
+-- Name: race_requests race_requests_reviewed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.race_requests
+    ADD CONSTRAINT race_requests_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES auth.users(id) ON DELETE SET NULL;
 
 
 --
@@ -16932,11 +17542,59 @@ ALTER TABLE ONLY public.user_favorite_race_events
 
 
 --
+-- Name: user_notifications user_notifications_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_notifications
+    ADD CONSTRAINT user_notifications_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: user_notifications user_notifications_feedback_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_notifications
+    ADD CONSTRAINT user_notifications_feedback_id_fkey FOREIGN KEY (feedback_id) REFERENCES public.app_feedback(id) ON DELETE SET NULL;
+
+
+--
+-- Name: user_notifications user_notifications_race_request_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_notifications
+    ADD CONSTRAINT user_notifications_race_request_id_fkey FOREIGN KEY (race_request_id) REFERENCES public.race_requests(id) ON DELETE SET NULL;
+
+
+--
+-- Name: user_notifications user_notifications_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_notifications
+    ADD CONSTRAINT user_notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
 -- Name: user_profiles user_profiles_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.user_profiles
     ADD CONSTRAINT user_profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: video_narrations video_narrations_race_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.video_narrations
+    ADD CONSTRAINT video_narrations_race_id_fkey FOREIGN KEY (race_id) REFERENCES public.races(id) ON DELETE CASCADE;
+
+
+--
+-- Name: video_narrations video_narrations_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.video_narrations
+    ADD CONSTRAINT video_narrations_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id) ON DELETE SET NULL;
 
 
 --
@@ -17496,6 +18154,13 @@ CREATE POLICY "Users can manage their favorite products" ON public.user_favorite
 
 
 --
+-- Name: user_notifications Users can mark own notifications as read; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can mark own notifications as read" ON public.user_notifications FOR UPDATE TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id)) WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
+
+
+--
 -- Name: race_event_update_reads Users can mark own race event updates read; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -17614,6 +18279,13 @@ CREATE POLICY "Users can view own RaceBook gear checks" ON public.racebook_gear_
 --
 
 CREATE POLICY "Users can view own favorite race events" ON public.user_favorite_race_events FOR SELECT TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id));
+
+
+--
+-- Name: user_notifications Users can view own notifications; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can view own notifications" ON public.user_notifications FOR SELECT TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id));
 
 
 --
@@ -17918,6 +18590,12 @@ ALTER TABLE public.race_event_claims ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.race_event_edition_branding ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: race_event_edition_partner_slots; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.race_event_edition_partner_slots ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: race_event_edition_requests; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -18164,10 +18842,22 @@ ALTER TABLE public.user_favorite_products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_favorite_race_events ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: user_notifications; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.user_notifications ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: user_profiles; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: video_narrations; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.video_narrations ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: video_render_jobs; Type: ROW SECURITY; Schema: public; Owner: -
@@ -19732,6 +20422,14 @@ GRANT ALL ON FUNCTION public.handle_new_user_profile() TO service_role;
 
 
 --
+-- Name: FUNCTION increment_racebook_partner_slot_metric(p_race_id uuid, p_slot_key text, p_metric text); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.increment_racebook_partner_slot_metric(p_race_id uuid, p_slot_key text, p_metric text) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.increment_racebook_partner_slot_metric(p_race_id uuid, p_slot_key text, p_metric text) TO service_role;
+
+
+--
 -- Name: FUNCTION increment_racebook_sponsor_click(p_sponsor_id uuid, p_race_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
@@ -20107,6 +20805,91 @@ GRANT ALL ON FUNCTION public.restore_runner_payment_transaction(p_provider text,
 
 
 --
+-- Name: TABLE user_notifications; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.user_notifications TO service_role;
+
+
+--
+-- Name: COLUMN user_notifications.id; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT(id) ON TABLE public.user_notifications TO authenticated;
+
+
+--
+-- Name: COLUMN user_notifications.user_id; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT(user_id) ON TABLE public.user_notifications TO authenticated;
+
+
+--
+-- Name: COLUMN user_notifications.race_request_id; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT(race_request_id) ON TABLE public.user_notifications TO authenticated;
+
+
+--
+-- Name: COLUMN user_notifications.kind; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT(kind) ON TABLE public.user_notifications TO authenticated;
+
+
+--
+-- Name: COLUMN user_notifications.title; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT(title) ON TABLE public.user_notifications TO authenticated;
+
+
+--
+-- Name: COLUMN user_notifications.body; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT(body) ON TABLE public.user_notifications TO authenticated;
+
+
+--
+-- Name: COLUMN user_notifications.read_at; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT(read_at),UPDATE(read_at) ON TABLE public.user_notifications TO authenticated;
+
+
+--
+-- Name: COLUMN user_notifications.created_at; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT(created_at) ON TABLE public.user_notifications TO authenticated;
+
+
+--
+-- Name: COLUMN user_notifications.feedback_id; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT(feedback_id) ON TABLE public.user_notifications TO authenticated;
+
+
+--
+-- Name: COLUMN user_notifications.deleted_at; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT(deleted_at),UPDATE(deleted_at) ON TABLE public.user_notifications TO authenticated;
+
+
+--
+-- Name: FUNCTION review_app_feedback_with_notification(p_feedback_id bigint, p_admin_id uuid, p_status text, p_notification_id uuid, p_title text, p_body text, p_email_requested boolean, p_push_requested boolean); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.review_app_feedback_with_notification(p_feedback_id bigint, p_admin_id uuid, p_status text, p_notification_id uuid, p_title text, p_body text, p_email_requested boolean, p_push_requested boolean) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.review_app_feedback_with_notification(p_feedback_id bigint, p_admin_id uuid, p_status text, p_notification_id uuid, p_title text, p_body text, p_email_requested boolean, p_push_requested boolean) TO service_role;
+
+
+--
 -- Name: TABLE race_event_publication_requests; Type: ACL; Schema: public; Owner: -
 --
 
@@ -20123,6 +20906,14 @@ REVOKE ALL ON FUNCTION public.review_race_event_publication_request(p_request_id
 GRANT ALL ON FUNCTION public.review_race_event_publication_request(p_request_id uuid, p_reviewer_id uuid, p_status text, p_reviewer_notes text) TO anon;
 GRANT ALL ON FUNCTION public.review_race_event_publication_request(p_request_id uuid, p_reviewer_id uuid, p_status text, p_reviewer_notes text) TO authenticated;
 GRANT ALL ON FUNCTION public.review_race_event_publication_request(p_request_id uuid, p_reviewer_id uuid, p_status text, p_reviewer_notes text) TO service_role;
+
+
+--
+-- Name: FUNCTION review_race_request_with_notification(p_request_id bigint, p_admin_id uuid, p_status text, p_notification_id uuid, p_title text, p_body text, p_email_requested boolean, p_push_requested boolean); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.review_race_request_with_notification(p_request_id bigint, p_admin_id uuid, p_status text, p_notification_id uuid, p_title text, p_body text, p_email_requested boolean, p_push_requested boolean) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.review_race_request_with_notification(p_request_id bigint, p_admin_id uuid, p_status text, p_notification_id uuid, p_title text, p_body text, p_email_requested boolean, p_push_requested boolean) TO service_role;
 
 
 --
@@ -20204,6 +20995,13 @@ GRANT ALL ON FUNCTION public.set_admin_organizer_edition_entitlement(p_edition_i
 
 REVOKE ALL ON FUNCTION public.set_admin_organizer_edition_grant(p_edition_id uuid, p_admin_id uuid, p_tier text, p_origin text) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.set_admin_organizer_edition_grant(p_edition_id uuid, p_admin_id uuid, p_tier text, p_origin text) TO service_role;
+
+
+--
+-- Name: FUNCTION set_admin_user_notification_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.set_admin_user_notification_updated_at() FROM PUBLIC;
 
 
 --
@@ -20310,6 +21108,14 @@ GRANT ALL ON FUNCTION public.set_race_event_claims_updated_at() TO service_role;
 GRANT ALL ON FUNCTION public.set_race_event_edition_branding_updated_at() TO anon;
 GRANT ALL ON FUNCTION public.set_race_event_edition_branding_updated_at() TO authenticated;
 GRANT ALL ON FUNCTION public.set_race_event_edition_branding_updated_at() TO service_role;
+
+
+--
+-- Name: FUNCTION set_race_event_edition_partner_slots_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.set_race_event_edition_partner_slots_updated_at() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.set_race_event_edition_partner_slots_updated_at() TO service_role;
 
 
 --
@@ -20562,6 +21368,17 @@ GRANT ALL ON FUNCTION realtime.check_equality_op(op realtime.equality_op, type_ 
 GRANT ALL ON FUNCTION realtime.check_equality_op(op realtime.equality_op, type_ regtype, val_1 text, val_2 text, negate boolean) TO anon;
 GRANT ALL ON FUNCTION realtime.check_equality_op(op realtime.equality_op, type_ regtype, val_1 text, val_2 text, negate boolean) TO authenticated;
 GRANT ALL ON FUNCTION realtime.check_equality_op(op realtime.equality_op, type_ regtype, val_1 text, val_2 text, negate boolean) TO service_role;
+
+
+--
+-- Name: FUNCTION filters_hash(filters realtime.user_defined_filter[]); Type: ACL; Schema: realtime; Owner: -
+--
+
+GRANT ALL ON FUNCTION realtime.filters_hash(filters realtime.user_defined_filter[]) TO postgres;
+GRANT ALL ON FUNCTION realtime.filters_hash(filters realtime.user_defined_filter[]) TO dashboard_user;
+GRANT ALL ON FUNCTION realtime.filters_hash(filters realtime.user_defined_filter[]) TO anon;
+GRANT ALL ON FUNCTION realtime.filters_hash(filters realtime.user_defined_filter[]) TO authenticated;
+GRANT ALL ON FUNCTION realtime.filters_hash(filters realtime.user_defined_filter[]) TO service_role;
 
 
 --
@@ -21028,18 +21845,64 @@ GRANT ALL ON SEQUENCE public.app_changelog_id_seq TO service_role;
 -- Name: TABLE app_feedback; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT ALL ON TABLE public.app_feedback TO anon;
-GRANT ALL ON TABLE public.app_feedback TO authenticated;
 GRANT ALL ON TABLE public.app_feedback TO service_role;
+
+
+--
+-- Name: COLUMN app_feedback.subject; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT INSERT(subject) ON TABLE public.app_feedback TO authenticated;
+
+
+--
+-- Name: COLUMN app_feedback.detail; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT INSERT(detail) ON TABLE public.app_feedback TO authenticated;
+
+
+--
+-- Name: COLUMN app_feedback.user_id; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT INSERT(user_id) ON TABLE public.app_feedback TO authenticated;
+
+
+--
+-- Name: COLUMN app_feedback.kind; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT INSERT(kind) ON TABLE public.app_feedback TO authenticated;
+
+
+--
+-- Name: COLUMN app_feedback.source; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT INSERT(source) ON TABLE public.app_feedback TO authenticated;
+
+
+--
+-- Name: COLUMN app_feedback.screen; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT INSERT(screen) ON TABLE public.app_feedback TO authenticated;
+
+
+--
+-- Name: COLUMN app_feedback.app_version; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT INSERT(app_version) ON TABLE public.app_feedback TO authenticated;
 
 
 --
 -- Name: SEQUENCE app_feedback_id_seq; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT ALL ON SEQUENCE public.app_feedback_id_seq TO anon;
-GRANT ALL ON SEQUENCE public.app_feedback_id_seq TO authenticated;
 GRANT ALL ON SEQUENCE public.app_feedback_id_seq TO service_role;
+GRANT USAGE ON SEQUENCE public.app_feedback_id_seq TO authenticated;
 
 
 --
@@ -21152,6 +22015,13 @@ GRANT ALL ON TABLE public.race_event_claims TO service_role;
 
 
 --
+-- Name: TABLE race_event_edition_partner_slots; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.race_event_edition_partner_slots TO service_role;
+
+
+--
 -- Name: TABLE race_event_edition_requests; Type: ACL; Schema: public; Owner: -
 --
 
@@ -21216,18 +22086,16 @@ GRANT ALL ON TABLE public.race_plans TO service_role;
 -- Name: TABLE race_requests; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT ALL ON TABLE public.race_requests TO anon;
-GRANT ALL ON TABLE public.race_requests TO authenticated;
 GRANT ALL ON TABLE public.race_requests TO service_role;
+GRANT SELECT,INSERT ON TABLE public.race_requests TO authenticated;
 
 
 --
 -- Name: SEQUENCE race_requests_id_seq; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT ALL ON SEQUENCE public.race_requests_id_seq TO anon;
-GRANT ALL ON SEQUENCE public.race_requests_id_seq TO authenticated;
 GRANT ALL ON SEQUENCE public.race_requests_id_seq TO service_role;
+GRANT SELECT,USAGE ON SEQUENCE public.race_requests_id_seq TO authenticated;
 
 
 --
@@ -21405,6 +22273,13 @@ GRANT ALL ON TABLE public.user_favorite_race_events TO service_role;
 GRANT ALL ON TABLE public.user_profiles TO anon;
 GRANT ALL ON TABLE public.user_profiles TO authenticated;
 GRANT ALL ON TABLE public.user_profiles TO service_role;
+
+
+--
+-- Name: TABLE video_narrations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.video_narrations TO service_role;
 
 
 --
@@ -21858,5 +22733,5 @@ CREATE EVENT TRIGGER pgrst_drop_watch ON sql_drop
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 3zgAMydVr6T2bJibt6fkt5rorI8GVCPXXBT1egCb30i0WCEkqVV21XSxMKhq8zY
+\unrestrict 1e3dgxLS5odLJ3DnN93teaEOYUgZSY20VcXV9bJxfhq4Wqac2HqXiUeUJFH8oes
 
