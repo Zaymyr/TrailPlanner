@@ -1,6 +1,11 @@
 import { z } from "zod";
 
 import type { SupabaseServiceConfig } from "./supabase";
+import {
+  organizerFeatureForCapability,
+  organizerFeatureKeySchema,
+  type OrganizerFeatureKey,
+} from "./organizer-features";
 
 export const organizerTierSchema = z.enum(["visibility", "essential", "complete", "signature"]);
 export type OrganizerTier = z.infer<typeof organizerTierSchema>;
@@ -48,8 +53,8 @@ export const ORGANIZER_TIER_CAPABILITIES: Record<OrganizerTier, readonly Organiz
   ],
 };
 
-export const complimentaryOrganizerCapabilitySchema = z.enum(["racebook_analytics.view"]);
-export type ComplimentaryOrganizerCapability = z.infer<typeof complimentaryOrganizerCapabilitySchema>;
+export const complimentaryOrganizerCapabilitySchema = organizerFeatureKeySchema;
+export type ComplimentaryOrganizerCapability = OrganizerFeatureKey;
 
 export type OrganizerEditionEntitlement = {
   id: string;
@@ -140,13 +145,8 @@ export const resolveOrganizerCapabilityAccess = (
 ): OrganizerCapabilityAccess => {
   if (hasOrganizerCapability(entitlement, capability)) return { allowed: true, source: "tier" };
 
-  const complimentaryCapability = complimentaryOrganizerCapabilitySchema.safeParse(capability);
-  if (
-    complimentaryCapability.success &&
-    grants?.some(
-      (grant) => grant.capabilityKey === complimentaryCapability.data && grant.status === "active"
-    )
-  ) {
+  const featureKey = organizerFeatureForCapability(capability);
+  if (featureKey && grants?.some((grant) => grant.capabilityKey === featureKey && grant.status === "active")) {
     return { allowed: true, source: "complimentary" };
   }
 
@@ -158,6 +158,11 @@ export const hasEffectiveOrganizerCapability = (
   grants: readonly Pick<OrganizerEditionCapabilityGrant, "capabilityKey" | "status">[] | null | undefined,
   capability: OrganizerCapability
 ) => resolveOrganizerCapabilityAccess(entitlement, grants, capability).allowed;
+
+export const hasOrganizerFeatureGrant = (
+  grants: readonly Pick<OrganizerEditionCapabilityGrant, "capabilityKey" | "status">[] | null | undefined,
+  featureKey: OrganizerFeatureKey | null | undefined,
+) => Boolean(featureKey && grants?.some((grant) => grant.capabilityKey === featureKey && grant.status === "active"));
 
 export async function loadOrganizerEditionEntitlement(
   config: SupabaseServiceConfig,
@@ -253,10 +258,9 @@ export async function requireOrganizerEditionCapability(
   const entitlement = await loadOrganizerEditionEntitlement(config, editionId);
   if (hasOrganizerCapability(entitlement, capability)) return true;
 
-  const complimentaryCapability = complimentaryOrganizerCapabilitySchema.safeParse(capability);
-  if (!complimentaryCapability.success) return false;
-
-  const grant = await loadOrganizerEditionCapabilityGrant(config, editionId, complimentaryCapability.data);
+  const featureKey = organizerFeatureForCapability(capability);
+  if (!featureKey) return false;
+  const grant = await loadOrganizerEditionCapabilityGrant(config, editionId, featureKey);
   return hasEffectiveOrganizerCapability(entitlement, grant ? [grant] : [], capability);
 }
 

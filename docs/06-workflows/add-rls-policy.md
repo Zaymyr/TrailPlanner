@@ -35,6 +35,8 @@ related_tables:
 
 # Add RLS Policy
 
+`organizer_invoices` and `organizer_feature_catalog` are examples where no client policy is intentional: RLS is enabled, client privileges are revoked, and service-role routes expose only authorized projections. Their issuance, correction, settlement, catalog and gift RPCs must explicitly revoke `PUBLIC`, `anon` and `authenticated` execution.
+
 ## Purpose
 
 Use this workflow when adding or changing row-level security policies.

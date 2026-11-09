@@ -55,6 +55,8 @@ related_tables:
 
 # `race_event_organizers`
 
+Active organizer membership authorizes the unified invoice list/download routes for the edition's parent event. Membership does not grant access to the service-only invoice/catalog tables and is not created, revoked or otherwise changed by invoice issuance or settlement.
+
 The organizer-details schema now preserves additive third-party bib-pickup conditions and supports glanceable equipment/bib editors. Membership authorization, onboarding state, role semantics, admin trust, and organizer preview access remain unchanged.
 
 The organizer editor's autosave and revised tutoiement copy do not change membership authorization. Every event and format write still requires the same active organizer relationship.

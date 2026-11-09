@@ -34,6 +34,8 @@ related_tables:
 
 # `race_event_edition_branding`
 
+Branding availability can be supplied by the exact `module.branding` feature grant. A manual invoice line describing branding is only a legal/commercial snapshot and does not itself create that grant.
+
 The shared RaceBook screen accepts additive bib-pickup conditions, but branding resolution and its primary/accent ownership remain unchanged. The new Dossard copy continues to use app-owned semantic and control colors.
 
 Valid organizer color changes autosave to the private draft after an 800 ms debounce and expose a local save state. Publication remains a separate explicit action and still copies the complete draft atomically to published fields.

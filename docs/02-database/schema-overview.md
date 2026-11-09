@@ -45,6 +45,8 @@ related_files:
   - supabase/tests/organizer_generated_invoice_checks.sql
   - supabase/migrations/20260915104528_add_organizer_edition_capability_grants.sql
   - supabase/tests/organizer_edition_capability_grants_checks.sql
+  - supabase/migrations/20261109190500_separate_organizer_invoices_and_feature_grants.sql
+  - supabase/tests/organizer_manual_invoices_checks.sql
   - supabase/migrations/20260910083131_correct_translantau_country_code.sql
   - supabase/tests/racebook_branding_checks.sql
   - supabase/tests/structured_racebook_content_checks.sql
@@ -99,6 +101,8 @@ related_tables:
   - organizer_edition_entitlements
   - organizer_edition_payments
   - organizer_edition_capability_grants
+  - organizer_invoices
+  - organizer_feature_catalog
   - organizer_social_proofs
   - race_event_claims
   - race_event_edition_requests
@@ -188,8 +192,8 @@ The November 2026 mobile plan-flow polish changes catalog search controls, image
 - Entitlement source: subscription, trial, or premium grant.
 - Runner billing ledger: server-verified annual subscriptions, canonical per-format/edition unlocks, payment intents/events, rollout configuration, historical detail provenance, and trusted-admin session modes. See [Runner Billing Tables](tables/runner-billing.md).
 - Organizer edition entitlement: permanent Visibilité/Essential/Complete/Signature capability projection, derived from one-time payments or an admin grant and separate from runner Premium.
-- Organizer edition capability grant: service-only active/revoked complimentary module projection that supplements an edition pack without changing it; V1 supports `racebook_analytics.view`.
-- Organizer bank-transfer invoicing: the canonical pack subtotal is server-owned and currently VAT-exempt under article 293 B CGI. Issuance stores a chronological number and immutable legal snapshot on the service-only payment ledger, while the PDF remains in private Storage.
+- Organizer edition feature grant: service-only active/revoked projection for fourteen exact higher-tier modules, advanced groups and operations. Redundant grants survive pack changes.
+- Organizer manual invoicing: independent immutable invoices with due dates, corrective replacements, option-price snapshots and one complete settlement. These facts never activate rights; Stripe payment confirmation keeps its existing entitlement behavior.
 - Organizer social proof: one service-only editorial row per edition combines an optional consented testimonial with a server-captured aggregate RaceBook readership snapshot for the public organizer landing.
 
 ## Tables
@@ -215,6 +219,8 @@ The November 2026 mobile plan-flow polish changes catalog search controls, image
 | `organizer_import_sessions` | Temporary service-only source snapshots and two-pass Organizer import state. |
 | `organizer_edition_entitlements` | Current commercial tier for one organizer event edition. |
 | `organizer_edition_capability_grants` | Current complimentary module access and grant/revoke audit for one organizer event edition. |
+| `organizer_feature_catalog` | Current service-only EUR prices and availability for the fourteen giftable organizer features. |
+| `organizer_invoices` | Independent manual invoice, correction, due-date, PDF and complete-settlement history. |
 | `organizer_social_proofs` | Admin-curated edition proof cards with consent and aggregate RaceBook usage snapshots. |
 | `organizer_edition_payments` | Stripe and paid-bank-transfer history, generated invoice identities/legal snapshots, private PDF references, and ledger used to derive organizer edition rights. |
 | `race_aid_stations` | Aid stations attached to `races`, with service availability flags and optional organizer details. |
@@ -323,6 +329,8 @@ erDiagram
 - [organizer_edition_entitlements](tables/organizer-edition-entitlements.md)
 - [organizer_edition_capability_grants](tables/organizer-edition-capability-grants.md)
 - [organizer_edition_payments](tables/organizer-edition-payments.md)
+- [organizer_invoices](tables/organizer-invoices.md)
+- [organizer_feature_catalog](tables/organizer-feature-catalog.md)
 - [race_event_claims](tables/race-event-claims.md)
 - [race_event_edition_requests](tables/race-event-edition-requests.md)
 - [race_event_organizers](tables/race-event-organizers.md)

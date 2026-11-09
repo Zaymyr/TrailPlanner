@@ -34,6 +34,8 @@ related_tables:
 
 # Infrastructure
 
+Independent organizer invoices use the existing private invoice Storage boundary. Only server-side service-role routes may read invoice rows or catalog prices, render PDFs, or produce short-lived downloads; PostHog remains unrelated to settlement, while its organizer analytics route recognizes only the exact analytics feature grant.
+
 ## Runner billing configuration
 
 Runner monetisation is deliberately off after migration. Enabling it requires server-only Stripe and RevenueCat credentials, configured annual and course products, verified webhook delivery, and an explicit database rollout-flag change. The public/mobile app must never receive provider secret keys.

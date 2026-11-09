@@ -156,7 +156,7 @@ describe("/api/organizer/events/[id]", () => {
       .mockResolvedValueOnce(buildJsonResponse([{
         id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
         edition_id: editionId,
-        capability_key: "racebook_analytics.view",
+        capability_key: "capability.racebook_analytics",
         status: "active",
         granted_by: null,
         granted_at: "2026-09-16T07:13:46.000Z",

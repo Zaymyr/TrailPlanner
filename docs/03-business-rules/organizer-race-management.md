@@ -251,6 +251,8 @@ related_tables:
 
 # Organizer Race Management
 
+Organizer administration separates billing from effective access. A manual invoice can be emitted, corrected and settled without changing the edition tier or any feature grant; conversely an admin can grant a tier or one of the 14 higher-plan features without an invoice. Every protected module, advanced format field and operation resolves its own feature key, so one gift never unlocks sibling capabilities. Stripe-confirmed purchases keep their existing automatic entitlement activation.
+
 Ravito, relay, and supporter-point autosave is gated on the active race sidecar load. Saving the same format no longer resets those collections merely because the refreshed race object has a new identity, so an unloaded empty array cannot replace persisted course points.
 
 Organizer edits autosave after 800 ms with visible pending/saving/saved/error states and explicit retry. Validation blocks invalid date ranges, phones, HTTPS links, and incomplete required identity before persistence. New formats inherit event date/location and may prefill the event website, but never clone another format; the format website itself is optional.

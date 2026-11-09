@@ -41,7 +41,7 @@ describe("organizer edition capabilities", () => {
   });
 
   it("supplements a lower tier with an active complimentary analytics grant", () => {
-    const activeGrant = [{ capabilityKey: "racebook_analytics.view" as const, status: "active" as const }];
+    const activeGrant = [{ capabilityKey: "capability.racebook_analytics" as const, status: "active" as const }];
 
     expect(hasEffectiveOrganizerCapability(entitlement("essential"), activeGrant, "racebook_analytics.view")).toBe(true);
     expect(resolveOrganizerCapabilityAccess(entitlement("essential"), activeGrant, "racebook_analytics.view")).toEqual({
@@ -55,7 +55,7 @@ describe("organizer edition capabilities", () => {
   });
 
   it("does not let revoked or unrelated grants unlock a capability", () => {
-    const revokedGrant = [{ capabilityKey: "racebook_analytics.view" as const, status: "revoked" as const }];
+    const revokedGrant = [{ capabilityKey: "capability.racebook_analytics" as const, status: "revoked" as const }];
 
     expect(hasEffectiveOrganizerCapability(entitlement("essential"), revokedGrant, "racebook_analytics.view")).toBe(false);
     expect(hasEffectiveOrganizerCapability(entitlement("essential"), [], "branding.manage")).toBe(false);

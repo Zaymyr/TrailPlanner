@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { checkRateLimitAsync, withSecurityHeaders } from "../../../../../lib/http";
 import { serviceHeaders } from "../../../../../lib/organizer";
-import { loadOrganizerEditionEntitlement } from "../../../../../lib/organizer-entitlements";
+import { loadOrganizerEditionCapabilityGrants, loadOrganizerEditionEntitlement } from "../../../../../lib/organizer-entitlements";
 import { isOrganizerModuleAvailable } from "../../../../../lib/organizer-modules";
 import { loadCurrentRacebookPublication } from "../../../../../lib/racebook-publications";
 import { getSupabaseServiceConfig } from "../../../../../lib/supabase";
@@ -27,12 +27,14 @@ export async function GET(request: NextRequest, context: { params: { id?: string
     ? z.array(z.object({ id: z.string().uuid(), edition_id: z.string().uuid() })).parse(await raceResponse.json())[0]
     : null;
   if (!matchingRace) return withSecurityHeaders(NextResponse.json({ message: "Sponsor link unavailable." }, { status: 410 }));
-  const [{ publication }, entitlement] = await Promise.all([
+  const [{ publication }, entitlement, grantMap] = await Promise.all([
     loadCurrentRacebookPublication(serviceConfig, matchingRace.id),
     loadOrganizerEditionEntitlement(serviceConfig, matchingRace.edition_id),
+    loadOrganizerEditionCapabilityGrants(serviceConfig, [matchingRace.edition_id]),
   ]);
   const tier = entitlement?.status === "active" ? entitlement.tier : "visibility";
-  const target = publication?.content.modules.sponsors && isOrganizerModuleAvailable(tier, "sponsors")
+  const grantedFeatures = (grantMap[matchingRace.edition_id] ?? []).filter((grant) => grant.status === "active").map((grant) => grant.capabilityKey);
+  const target = publication?.content.modules.sponsors && isOrganizerModuleAvailable(tier, "sponsors", grantedFeatures)
     ? publication.content.sponsors.find((sponsor) => sponsor.id === parsedParams.data.id && sponsor.destinationUrl)
     : null;
   if (!target?.destinationUrl) return withSecurityHeaders(NextResponse.json({ message: "Sponsor link unavailable." }, { status: 410 }));

@@ -19,6 +19,8 @@ related_tables:
 
 # `racebook_publications`
 
+Published RaceBook payloads resolve exact module gifts alongside the edition plan. Manual invoice status, due dates and settlement are not publication authority and are never used to unlock a RaceBook.
+
 ## Purpose
 
 Stores immutable, versioned RaceBook snapshots assembled and validated by the server. Public APIs resolve the current snapshot through `racebook_publication_states` rather than joining draft tables.

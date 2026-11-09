@@ -19,6 +19,8 @@ related_tables:
 
 # race_supporter_points
 
+Public supporter-point serialization continues to depend on the exact effective module state. Independent organizer invoices do not expose supporter points and do not change their existing client grants or RLS.
+
 The shared RaceBook payload parser now accepts additive bib-pickup conditions. Supporter-point validation, GPX/address coordinate rules, ordering, publication filtering, and RLS remain unchanged.
 
 Mobile présente maintenant le nom puis les autorisations sur deux lignes, centre ce bloc face à la distance et aux actions et localise tous les libellés visibles. Les URL, permissions, coordonnées, ordre et limites analytics restent inchangés.

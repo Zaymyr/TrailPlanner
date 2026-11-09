@@ -1,13 +1,16 @@
 ---
 title: organizer_edition_capability_grants
 scope: database
-last_verified: 2026-09-16
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - supabase/migrations/20260915104528_add_organizer_edition_capability_grants.sql
   - supabase/tests/organizer_edition_capability_grants_checks.sql
+  - supabase/migrations/20261109190500_separate_organizer_invoices_and_feature_grants.sql
+  - supabase/tests/organizer_manual_invoices_checks.sql
   - apps/web/lib/organizer-entitlements.ts
   - apps/web/lib/organizer-entitlements.test.ts
+  - apps/web/lib/organizer-features.ts
 related_tables:
   - organizer_edition_capability_grants
   - organizer_edition_entitlements
@@ -18,7 +21,7 @@ related_tables:
 
 ## Purpose
 
-Stores edition-scoped complimentary module access that supplements the commercial organizer pack without changing it.
+Stores edition-scoped complimentary feature access that supplements the commercial organizer pack without changing it, its invoice state or its payment state.
 
 ## Key Concepts
 
@@ -30,7 +33,7 @@ The table is a current-state projection, not an append-only history. An active g
 | --- | --- | --- | --- |
 | `id` | `uuid` | primary key | Grant id. |
 | `edition_id` | `uuid` | non-null FK, unique with capability | Covered event edition. |
-| `capability_key` | `text` | `racebook_analytics.view` | Supported complimentary module. |
+| `capability_key` | `text` | fourteen allowlisted feature keys | Supported complimentary module, advanced group or operation. |
 | `status` | `text` | `active\|revoked` | Current grant state. |
 | `granted_by`, `revoked_by` | `uuid` | nullable Auth FKs | Admin actors; deletion preserves the audit timestamps. |
 | `granted_at`, `revoked_at` | `timestamptz` | lifecycle-constrained | Activation and revocation timestamps. |
@@ -53,11 +56,12 @@ RLS is enabled with no client policy. `PUBLIC`, `anon`, and `authenticated` priv
 
 ## Business Invariants
 
-- Only `racebook_analytics.view` can be stored in V1.
+- The allowlist contains eight Complet and six Signature features. Keys use `module.*`, `advanced.*` or `capability.*` namespaces.
 - Active rows require `granted_at` and cannot retain revocation fields.
 - Revoked rows require `revoked_at`; prior grant attribution is retained when an active row is revoked.
 - Regranting resets the revoke fields and records the new granting actor/time.
-- Signature grants analytics through its tier. A lower tier needs an active complimentary row; the row itself never upgrades or downgrades the pack.
+- A pack continues to grant every feature at or below its tier. An active row grants only its exact feature above the current tier; it never unlocks siblings or upgrades the pack.
+- Redundant active rows remain stored after a tier upgrade and become effective again after a later downgrade.
 
 ## Common Queries
 
@@ -71,7 +75,7 @@ where edition_id = :edition_id;
 
 - Do not expose this table directly to organizers. Server routes combine it with the pack entitlement and return a bounded effective-capability DTO.
 - Revocation is an update to `status`, not deletion.
-- Adding another capability requires coordinated SQL allowlist, TypeScript schema, tests, and offer documentation changes.
+- Adding another feature requires coordinated SQL allowlist, TypeScript catalog/mapping, tests, pricing and offer documentation changes.
 - Keep the RPC's target-status `CASE` parenthesized inside its PL/pgSQL `IF` condition; otherwise PostgreSQL can parse the inner `THEN` as the procedural delimiter.
 
 ## Related Docs
