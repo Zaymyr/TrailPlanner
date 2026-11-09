@@ -52,8 +52,9 @@ jobs:
           docker build -t "${IMAGE}:${GITHUB_SHA}" apps/video-render-worker
           docker push "${IMAGE}:${GITHUB_SHA}"
 
-      # One NVIDIA L4 (needs at least 4 CPU and 16 GiB). The task timeout matches MAX_RENDER_HOURS in
-      # apps/web/lib/video-render.ts; the worker gives up a little earlier (RENDER_TIMEOUT_MS).
+      # One NVIDIA L4 (needs at least 4 CPU and 16 GiB). A GPU task over 1 hour is a Preview feature
+      # ("Long running GPU jobs") the GA deploy rejects, and Google advises 1 hour at most for GPU jobs
+      # (no live migration). The worker gives up 5 minutes earlier to report the failure itself.
       - name: Deploy the Cloud Run job
         run: |
           gcloud run jobs deploy "${JOB}" \
@@ -66,6 +67,7 @@ jobs:
             --gpu 1 \
             --gpu-type nvidia-l4 \
             --no-gpu-zonal-redundancy \
-            --task-timeout 8h \
+            --task-timeout 1h \
+            --set-env-vars RENDER_TIMEOUT_MS=3300000 \
             --max-retries 0 \
             --tasks 1

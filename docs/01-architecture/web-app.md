@@ -4,6 +4,8 @@ scope: architecture
 last_verified: 2026-11-05
 ai_priority: high
 related_files:
+  - apps/web/app/admin/video-generator/export-frame.test.ts
+  - apps/web/app/admin/video-generator/export-frame.ts
   - apps/web/app/admin/_components/AdminMessagingTab.tsx
   - apps/web/app/admin/_components/AdminFeedbackTab.tsx
   - apps/web/app/admin/_components/AdminReplyStatus.tsx
@@ -751,3 +753,11 @@ The admin reel generator saves each race's narration in Supabase (`video_narrati
 The admin "Messagerie" tab (`AdminMessagingTab`) replaced "Demandes de course". It has three sub-tabs with pending counts from `GET /api/admin/inbox-counts`: Bugs and Feedback (`AdminFeedbackTab`, `GET`/`PATCH /api/admin/feedback`) and Demandes de course (`AdminRaceRequestsTab`). Lists put pending items first (`is_pending`); handled ones sink below and their row is greyed (`handledRowClassName`). A status change on an item whose author has an account opens `AdminNotificationDialog`, and the reply and status commit together (`review_app_feedback_with_notification` / `review_race_request_with_notification`); "Répondre" sends a reply without changing the status; an author without an account gets a silent status change. Each row shows the last reply sent and its state (`AdminReplyStatus`: read, unread, deleted by the runner). Every prefilled message, including the free message of the Users tab, opens with "Bonjour," and ends with "Faustin de Pace Yourself" (`admin-message-template.ts`). `loadAdminUserIdentities` and `loadLatestReplies` in `lib/admin-user-notifications.ts` serve both list routes.
 
 Pending bugs, feedback and race requests also have a one-click "Clôturer" button: the item goes to completed with no dialog and no message to the runner (`PATCH /api/admin/feedback` without `notification`, `PATCH /api/admin/race-requests` with `silent: true`, a plain service-role update of `status`, `reviewed_at` and `reviewed_by`).
+
+Reel exports (in the browser and in the background render) keep the preview frame's CSS size and raise only the map's pixel density to the video resolution (`export-frame.ts`), so the framing, map detail and station bubbles match the preview.
+
+Background renders can be deleted from the reel panel ("Supprimer" on finished or failed renders), and every exported frame re-places the DOM markers after the map is idle so the aid bubbles stay on their station icon.
+
+Reel aid bubbles and place labels are centred by layout inside zero-size markers, so the rasterised export clone keeps them on their station whatever its fonts; the aid bubbles float 28 px above their icon so the tail does not touch it.
+
+Reels light the told climb or descent in the profile slope colours on the map and on the elevation profile while its caption is shown (setting "Pente racontée en couleur"), and no longer show the logo and CTA in the bottom-left corner by default ("Logo et CTA en bas"), where Instagram puts its follow button.

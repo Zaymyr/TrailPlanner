@@ -5,12 +5,14 @@ import { getRoutePointAtDistance, prepareAnimationPath } from "./route-animation
 import { buildStoryBeats, type StoryBeat } from "./route-story";
 import {
   buildElevationProfile,
+  buildToldSlopeGeoJson,
   buildVideoTimeline,
   DEFAULT_VIDEO_COMPOSITION_SETTINGS,
   getDistanceAtFlyoverFraction,
   getFlyoverFractionAtDistance,
   getGradeAtDistance,
   getLegPassages,
+  getProfileShades,
   getProfileTicks,
   getProfileWindow,
   getSlopeClass,
@@ -21,6 +23,7 @@ import {
   getTimeSmoothedHeading,
   getRawVideoCameraPose,
   getVideoCameraPose,
+  getToldSlope,
   getVideoFrameState,
   NARRATION_LEAD_MS,
   videoCompositionSettingsSchema,
@@ -66,6 +69,10 @@ describe("videoCompositionSettingsSchema", () => {
       routeWidth: "normal",
       routeGlow: false,
       showPeaks: true,
+      highlightToldSlopes: true,
+      showLogo: true,
+      showCta: true,
+      showFooterBrand: false,
     });
     const restored = videoCompositionSettingsSchema.parse(JSON.parse(JSON.stringify(DEFAULT_VIDEO_COMPOSITION_SETTINGS)));
     expect(restored).toEqual(DEFAULT_VIDEO_COMPOSITION_SETTINGS);
@@ -372,5 +379,59 @@ describe("elevation profile", () => {
     const path = prepareAnimationPath(flatThenClimb);
     expect(getGradeAtDistance(path, 5)).toBeCloseTo(0, 6);
     expect(getGradeAtDistance(path, 15)).toBeCloseTo(0.2, 6);
+  });
+});
+
+describe("told slope highlight", () => {
+  const scheduled = (kind: StoryBeat["kind"]) => ({
+    ...beat("leg", kind, 10, 20, "On attaque la montée."),
+    startMs: 10_000,
+    endMs: 20_000,
+    narrationStartMs: 10_000,
+    narrationMs: 4_000,
+    subtitles: [],
+  });
+
+  it("lights a told climb or descent from its foot with short fades, never other legs", () => {
+    const frame = (timeMs: number, kind: StoryBeat["kind"] = "climb") => ({ phase: "flyover" as const, timeMs, beat: scheduled(kind) });
+    expect(getToldSlope(frame(10_000))).toMatchObject({ id: "leg", kind: "climb", startKm: 10, endKm: 20, opacity: 0 });
+    expect(getToldSlope(frame(10_200))?.opacity).toBeCloseTo(0.5, 6);
+    expect(getToldSlope(frame(15_000))?.opacity).toBe(1);
+    expect(getToldSlope(frame(19_800))?.opacity).toBeCloseTo(0.5, 6);
+    expect(getToldSlope(frame(15_000, "descent"))?.kind).toBe("descent");
+    expect(getToldSlope(frame(15_000, "flat"))).toBeNull();
+    expect(getToldSlope(frame(15_000, "aid"))).toBeNull();
+    expect(getToldSlope({ phase: "outro", timeMs: 15_000, beat: scheduled("climb") })).toBeNull();
+  });
+
+  it("draws the told leg on the map in the profile slope colours", () => {
+    const path = prepareAnimationPath(flatThenClimb);
+    const lines = buildToldSlopeGeoJson(path, 8, 14);
+    const colours = lines.features.map((feature) => feature.properties.color);
+    expect(colours[0]).toBe(getSlopeClass(0).color);
+    expect(colours[colours.length - 1]).toBe(getSlopeClass(0.2).color);
+    const first = lines.features[0].geometry.coordinates[0];
+    const start = getRoutePointAtDistance(path, 8);
+    expect(first[0]).toBeCloseTo(start.lon, 6);
+    expect(first[1]).toBeCloseTo(start.lat, 6);
+    // Consecutive runs share their boundary point, so the line has no gap.
+    lines.features.slice(1).forEach((feature, index) => {
+      expect(feature.geometry.coordinates[0]).toEqual(lines.features[index].geometry.coordinates.at(-1));
+    });
+  });
+
+  it("keeps the told slope ahead bright on the profile while the rest ahead is dimmed", () => {
+    const told = { id: "leg", kind: "climb" as const, startKm: 10, endKm: 20, opacity: 1 };
+    expect(getProfileShades(5, 40, null)).toEqual([{ fromKm: 5, toKm: 40, opacity: 0.45 }]);
+    expect(getProfileShades(5, 40, told)).toEqual([
+      { fromKm: 5, toKm: 10, opacity: 0.45 },
+      { fromKm: 20, toKm: 40, opacity: 0.45 },
+    ]);
+    expect(getProfileShades(12, 40, { ...told, opacity: 0.5 })).toEqual([
+      { fromKm: 12, toKm: 20, opacity: 0.225 },
+      { fromKm: 20, toKm: 40, opacity: 0.45 },
+    ]);
+    expect(getProfileShades(25, 40, told)).toEqual([{ fromKm: 25, toKm: 40, opacity: 0.45 }]);
+    expect(getProfileShades(40, 40, told)).toEqual([]);
   });
 });

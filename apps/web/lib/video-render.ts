@@ -34,9 +34,9 @@ export type VideoRenderJobRow = z.infer<typeof videoRenderJobRowSchema>;
 export const VIDEO_RENDER_JOB_COLUMNS = "id,race_id,race_title,status,progress,message,width,height,output_size_bytes,created_at,updated_at,started_at,finished_at";
 
 /**
- * Longest render the pipeline allows, end to end. The Cloud Run task timeout
- * (.github/workflows/video-render-worker.yml) and the worker's own wait (RENDER_TIMEOUT_MS) stay
- * just under it; a GPU task may run up to 12 h.
+ * Upper bound on a render, end to end, for the page token, the upload URL and the stale rule. The
+ * Cloud Run GPU task itself stops at 1 h (.github/workflows/video-render-worker.yml): a GPU task
+ * over 1 h is a Preview feature. The margin keeps these limits valid if that timeout grows.
  */
 export const MAX_RENDER_HOURS = 8;
 
@@ -254,6 +254,18 @@ export const getStorageObjectSize = async (config: VideoRenderConfig, accessToke
   return size;
 };
 
+/**
+ * Deletes a stored object; true when it is gone (already absent included). A refused deletion
+ * (missing IAM permission) returns false: the bucket's 30-day lifecycle removes it anyway.
+ */
+export const deleteStorageObject = async (config: VideoRenderConfig, accessToken: string, objectName: string, fetcher: typeof fetch = fetch) => {
+  const response = await fetcher(
+    `https://storage.googleapis.com/storage/v1/b/${encodeURIComponent(config.bucket)}/o/${encodeURIComponent(objectName)}`,
+    { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" },
+  );
+  return response.ok || response.status === 404;
+};
+
 // ---------------------------------------------------------------------------------------------
 // Cloud Run job
 
@@ -331,6 +343,16 @@ export const updateRenderJob = async (
   });
   if (!response.ok) throw new Error(`Unable to update render job: ${await response.text()}`);
   return z.array(videoRenderJobRowSchema).parse(await response.json())[0] ?? null;
+};
+
+/** Deletes a finished or failed job row; an active one is left alone (false). */
+export const deleteRenderJob = async (supabase: SupabaseServiceConfig, jobId: string) => {
+  const response = await fetch(
+    `${supabase.supabaseUrl}/rest/v1/video_render_jobs?id=eq.${jobId}&status=in.(done,failed)&select=id`,
+    { method: "DELETE", headers: { ...serviceHeaders(supabase), Prefer: "return=representation" }, cache: "no-store" },
+  );
+  if (!response.ok) throw new Error(`Unable to delete render job: ${await response.text()}`);
+  return z.array(z.object({ id: z.string() })).parse(await response.json()).length > 0;
 };
 
 /** Filename-safe slug of the race title, like the in-browser export. */

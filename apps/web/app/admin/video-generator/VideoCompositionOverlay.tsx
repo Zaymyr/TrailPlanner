@@ -4,6 +4,8 @@ import React, { memo, useSyncExternalStore } from "react";
 import Image from "next/image";
 
 import {
+  getProfileShades,
+  getToldSlope,
   getProfileTicks,
   getProfileWindow,
   getProfileY,
@@ -184,7 +186,8 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, frameStore, gra
   const toWindowPercent = (distanceKm: number) => ((distanceKm - profileWindow.startKm) / windowSpanKm) * 100;
   const currentElevationM = elevationAtDistance(frame.distanceKm);
   const cursorX = frame.distanceKm * PROFILE_UNITS_PER_KM;
-  const totalUnits = profile.totalDistanceKm * PROFILE_UNITS_PER_KM;
+  const toldSlope = settings.highlightToldSlopes ? getToldSlope(frame) : null;
+  const profileShades = getProfileShades(frame.distanceKm, profile.totalDistanceKm, toldSlope);
 
   return (
     <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden text-white" style={{ textShadow: TEXT_SHADOW }}>
@@ -266,8 +269,28 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, frameStore, gra
                   preserveAspectRatio="none"
                   aria-hidden="true"
                 >
+                  {toldSlope && toldSlope.opacity > 0 ? (
+                    <rect
+                      x={toldSlope.startKm * PROFILE_UNITS_PER_KM}
+                      y={0}
+                      width={(toldSlope.endKm - toldSlope.startKm) * PROFILE_UNITS_PER_KM}
+                      height={profile.height}
+                      fill="white"
+                      fillOpacity={0.16 * toldSlope.opacity}
+                    />
+                  ) : null}
                   <ProfileSegments profile={profile} />
-                  <rect x={cursorX} y={0} width={Math.max(0, totalUnits - cursorX)} height={profile.height} fill="black" fillOpacity={0.45} />
+                  {profileShades.map((shade) => (
+                    <rect
+                      key={shade.fromKm}
+                      x={shade.fromKm * PROFILE_UNITS_PER_KM}
+                      y={0}
+                      width={(shade.toKm - shade.fromKm) * PROFILE_UNITS_PER_KM}
+                      height={profile.height}
+                      fill="black"
+                      fillOpacity={shade.opacity}
+                    />
+                  ))}
                   <line x1={cursorX} x2={cursorX} y1={0} y2={profile.height} stroke="white" strokeWidth={2} vectorEffect="non-scaling-stroke" />
                 </svg>
                 <span
@@ -307,7 +330,7 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, frameStore, gra
         </section>
       ) : null}
 
-      {(settings.showLogo || settings.showCta) && !isOutro ? (
+      {settings.showFooterBrand && (settings.showLogo || settings.showCta) && !isOutro ? (
         <footer className="absolute flex items-center" style={{ left: "4cqmin", bottom: "4cqmin", gap: "2cqmin", opacity: chromeOpacity }}>
           {settings.showLogo ? <Image src={LOGO_SRC} alt="" width={256} height={256} unoptimized style={{ width: "7cqmin", height: "7cqmin" }} /> : null}
           {settings.showCta ? (

@@ -18,6 +18,7 @@ import { Colors } from '../../constants/colors';
 import { useRevenueCatBilling } from '../../hooks/useRevenueCatBilling';
 import { useI18n } from '../../lib/i18n';
 import { captureAnalyticsEvent } from '../../lib/posthog';
+import { supabase } from '../../lib/supabase';
 import { WEB_API_BASE_URL } from '../../lib/webApi';
 import { Text } from '../themed/Text';
 
@@ -63,12 +64,38 @@ function PremiumUpsellModalContent({
   const isCourseOffer = Boolean(planId);
 
   useEffect(() => {
-    captureAnalyticsEvent('premium paywall viewed', {
-      billing_provider: billing.isAvailable ? 'revenuecat' : 'web_fallback',
-      paywall_type: 'modal',
-      placement,
-    });
-  }, [billing.isAvailable, placement]);
+    let cancelled = false;
+    async function trackVisiblePaywall() {
+      let courseContext: { plan_id?: string; race_id?: string; race_name?: string } = {};
+      if (planId) {
+        const { data: plan } = await supabase
+          .from('race_plans')
+          .select('race_id')
+          .eq('id', planId)
+          .maybeSingle();
+        const { data: race } = plan?.race_id
+          ? await supabase.from('races').select('name').eq('id', plan.race_id).maybeSingle()
+          : { data: null };
+        courseContext = {
+          plan_id: planId,
+          race_id: plan?.race_id ?? undefined,
+          race_name: race?.name ?? undefined,
+        };
+      }
+      if (cancelled) return;
+      captureAnalyticsEvent('premium paywall viewed', {
+        billing_provider: billing.isAvailable ? 'revenuecat' : 'web_fallback',
+        paywall_type: 'modal',
+        purchase_type: planId ? 'course' : 'subscription',
+        placement,
+        store: Platform.OS === 'ios' ? 'app_store' : 'play_store',
+        product_id: planId ? undefined : billing.currentPackage?.product.identifier,
+        ...courseContext,
+      });
+    }
+    void trackVisiblePaywall();
+    return () => { cancelled = true; };
+  }, [planId, placement]);
 
   useEffect(() => {
     if (!isCourseOffer || billing.coursePriceStatus !== 'unavailable') return;

@@ -35,10 +35,12 @@ Tracks background renders of the admin 3D reel. The render runs in a Google Clou
 | `output_size_bytes` | `bigint` | null or ≥ 0 | Size of the uploaded MP4, checked against Storage. |
 | `cloud_run_execution` | `text` | nullable | Cloud Run execution name, for the logs. |
 | `created_by` | `uuid` | references `auth.users(id)` on delete set null | Admin who started it. |
-| `created_at`, `updated_at`, `started_at`, `finished_at` | `timestamptz` | | Timing; `updated_at` is refreshed by every progress report, and an active job silent for 15 minutes (or older than `MAX_RENDER_HOURS` + 1 h) is marked failed. |
+| `created_at`, `updated_at`, `started_at`, `finished_at` | `timestamptz` | | Timing; `updated_at` is refreshed by every progress report, and an active job silent for 15 minutes (or older than `MAX_RENDER_HOURS` + 1 h) is marked failed; the GPU task itself stops at 1 h. |
 
 ## Access
 
 RLS is enabled with no policy and every privilege is revoked from `anon` and `authenticated`: only the service role (admin routes, and render-page routes after their per-job token check) reads and writes rows. Status updates are guarded by the expected current status, so a finished job is never reopened.
 
 `started_at` and `finished_at` are returned by the admin job list to show each render's duration, and finished (`done`) jobs are counted per race for the video generator picker (`race-stats`).
+
+The admin can delete a finished or failed job (`DELETE /api/admin/video-generator/render-jobs/<id>`, service role, guarded by `status=in.(done,failed)`); its Cloud Storage objects are deleted best-effort and otherwise expire with the 30-day lifecycle.

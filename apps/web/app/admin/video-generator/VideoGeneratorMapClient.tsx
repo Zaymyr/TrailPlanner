@@ -13,6 +13,7 @@ import { savedNarrationResponseSchema } from "../../../lib/video-narrations";
 import { instagramCaptionResponseSchema, NARRATION_STYLE_LABELS, narrationScriptResponseSchema, narrationVoiceResponseSchema } from "../../../lib/video-narration";
 import { InstagramPanel } from "./InstagramPanel";
 import { ExportPanel, type ExportState } from "./ExportPanel";
+import { getExportFrame, overrideDevicePixelRatio } from "./export-frame";
 import { exportVideo } from "./video-export";
 import { AnimationControls } from "./AnimationControls";
 import {
@@ -55,6 +56,8 @@ import {
 } from "./route-story";
 import { StoryEditor, type AsyncActionState, type ScriptStyleChoice, type VoiceOptions } from "./StoryEditor";
 import {
+  buildToldSlopeGeoJson,
+  getToldSlope,
   buildElevationProfile,
   buildVideoTimeline,
   DEFAULT_VIDEO_COMPOSITION_SETTINGS,
@@ -98,6 +101,10 @@ const ROUTE_GLOW_LAYER_ID = "video-route-line-glow";
 const ROUTE_CASING_LAYER_ID = "video-route-line-casing";
 const MARKER_SOURCE_ID = "video-route-markers";
 const MARKER_ICON_LAYER_ID = "video-route-marker-icons";
+// The climb or descent being told, in the profile slope colours over a white casing.
+const TOLD_SLOPE_SOURCE_ID = "video-told-slope";
+const TOLD_SLOPE_LAYER_ID = "video-told-slope-line";
+const TOLD_SLOPE_CASING_LAYER_ID = "video-told-slope-casing";
 export const VIDEO_ROUTE_COLOR = DEFAULT_VIDEO_COMPOSITION_SETTINGS.routeColor;
 const FUTURE_ROUTE_ALPHA_HEX = "38";
 const GLOW_ROUTE_ALPHA_HEX = "8c";
@@ -108,6 +115,8 @@ const OWN_LAYER_IDS = new Set([
   ROUTE_CASING_LAYER_ID,
   MARKER_ICON_LAYER_ID,
   PEAKS_LAYER_ID,
+  TOLD_SLOPE_LAYER_ID,
+  TOLD_SLOPE_CASING_LAYER_ID,
 ]);
 
 const EMPTY_FEATURES = { type: "FeatureCollection", features: [] } as const;
@@ -239,13 +248,33 @@ const createClockIcon = (color: string) => {
 };
 
 /**
+ * Marker element of zero size whose card is centred above the anchor point by layout (flex), not
+ * by Mapbox's `translate(-50%, -100%)` anchor. That translate is resolved in pixels from the live
+ * card width; the export rasterises a clone with its own embedded fonts, whose text can be wider
+ * or narrower, which slid the bubbles sideways off their station in rendered videos. Used with
+ * the "center" anchor, which is a no-op on a zero-size element.
+ */
+const createPinnedMarkerElement = () => {
+  const element = document.createElement("div");
+  element.setAttribute("aria-hidden", "true");
+  Object.assign(element.style, {
+    width: "0",
+    height: "0",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "flex-end",
+    overflow: "visible",
+  });
+  return element;
+};
+
+/**
  * Card shown above a station icon while the runner arrives: name, kilometre, cumulative D+ and
  * cutoff. Mapbox owns the marker element (position, transform, occlusion opacity), so all styles
  * and the fading live on the inner card, which sizes to its text.
  */
 const createAidCardElement = (station: VideoAidStation, cumulativeGainM: number, accent: string) => {
-  const element = document.createElement("div");
-  element.setAttribute("aria-hidden", "true");
+  const element = createPinnedMarkerElement();
   const card = document.createElement("div");
   Object.assign(card.style, {
     position: "relative",
@@ -257,6 +286,7 @@ const createAidCardElement = (station: VideoAidStation, cumulativeGainM: number,
     boxShadow: "0 0.4cqmin 1.6cqmin rgba(0, 0, 0, 0.35)",
     whiteSpace: "nowrap",
     width: "max-content",
+    flex: "none",
     pointerEvents: "none",
     opacity: "0",
   });
@@ -297,8 +327,7 @@ const createAidCardElement = (station: VideoAidStation, cumulativeGainM: number,
 
 /** Small white pill with the accent edge, like the aid bubbles: "DÉPART" over the place name. */
 const createPlaceLabelElement = (kind: string, name: string, accent: string) => {
-  const element = document.createElement("div");
-  element.setAttribute("aria-hidden", "true");
+  const element = createPinnedMarkerElement();
   const card = document.createElement("div");
   Object.assign(card.style, {
     padding: "0.6cqmin 1.4cqmin",
@@ -308,6 +337,7 @@ const createPlaceLabelElement = (kind: string, name: string, accent: string) => 
     boxShadow: "0 0.4cqmin 1.6cqmin rgba(0, 0, 0, 0.35)",
     whiteSpace: "nowrap",
     width: "max-content",
+    flex: "none",
     pointerEvents: "none",
   });
   const kindLine = document.createElement("div");
@@ -488,6 +518,32 @@ const syncMapData = (
     });
   }
 
+  // Above the revealed route (so it also shows in "full" reveal mode), under the station icons.
+  if (!map.getSource(TOLD_SLOPE_SOURCE_ID)) {
+    map.addSource(TOLD_SLOPE_SOURCE_ID, { type: "geojson", data: EMPTY_FEATURES as unknown as GeoJsonSourceData, tolerance: 0 });
+  }
+  const beforeIcons = map.getLayer(MARKER_ICON_LAYER_ID) ? MARKER_ICON_LAYER_ID : undefined;
+  if (!map.getLayer(TOLD_SLOPE_CASING_LAYER_ID)) {
+    map.addLayer({
+      id: TOLD_SLOPE_CASING_LAYER_ID,
+      type: "line",
+      source: TOLD_SLOPE_SOURCE_ID,
+      slot: "top",
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: { "line-color": "#ffffff", "line-width": ROUTE_CASING_WIDTHS[settings.routeWidth], "line-opacity": 0, "line-emissive-strength": 1 },
+    }, beforeIcons);
+  }
+  if (!map.getLayer(TOLD_SLOPE_LAYER_ID)) {
+    map.addLayer({
+      id: TOLD_SLOPE_LAYER_ID,
+      type: "line",
+      source: TOLD_SLOPE_SOURCE_ID,
+      slot: "top",
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: { "line-color": ["get", "color"], "line-width": lineWidth, "line-opacity": 0, "line-emissive-strength": 1 },
+    }, beforeIcons);
+  }
+
   const markerSource = map.getSource(MARKER_SOURCE_ID) as GeoJSONSource | undefined;
   if (markerSource) markerSource.setData(markerData as GeoJsonSourceData);
   else map.addSource(MARKER_SOURCE_ID, { type: "geojson", data: markerData as GeoJsonSourceData });
@@ -534,6 +590,10 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   const resizeRef = useRef<MapResizeController | null>(null);
   const progressMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const aidBubblesRef = useRef<AidBubble[]>([]);
+  // Told slope on the map: data changes once per beat, opacity only when its rounded value moves.
+  const toldSlopeIdRef = useRef<string | null>(null);
+  const toldSlopeOpacityRef = useRef(-1);
+  const placeLabelMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const narrationPlayerRef = useRef<NarrationPlayer | null>(null);
   // `map.isStyleLoaded()` is false whenever a tile is loading or a source was just updated, which is
   // permanently the case while the camera flies. Gating frames on it skipped most of them.
@@ -715,6 +775,18 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     const routePoint = getRoutePointAtDistance(path, frame.distanceKm);
     progressMarkerRef.current?.setLngLat([routePoint.lon, routePoint.lat]);
     updateAidBubbles(aidBubblesRef.current, timelineRef.current, frame.phase === "flyover" && settingsRef.current.showAidBubbles ? frame.timeMs : null);
+    const toldSlope = settingsRef.current.highlightToldSlopes ? getToldSlope(frame) : null;
+    const toldSource = map.getSource(TOLD_SLOPE_SOURCE_ID) as GeoJSONSource | undefined;
+    if (toldSource && (toldSlope?.id ?? null) !== toldSlopeIdRef.current) {
+      toldSlopeIdRef.current = toldSlope?.id ?? null;
+      toldSource.setData((toldSlope ? buildToldSlopeGeoJson(path, toldSlope.startKm, toldSlope.endKm) : EMPTY_FEATURES) as unknown as GeoJsonSourceData);
+    }
+    const toldOpacity = Math.round((toldSlope?.opacity ?? 0) * 20) / 20;
+    if (toldOpacity !== toldSlopeOpacityRef.current && map.getLayer(TOLD_SLOPE_LAYER_ID)) {
+      toldSlopeOpacityRef.current = toldOpacity;
+      map.setPaintProperty(TOLD_SLOPE_LAYER_ID, "line-opacity", toldOpacity);
+      if (map.getLayer(TOLD_SLOPE_CASING_LAYER_ID)) map.setPaintProperty(TOLD_SLOPE_CASING_LAYER_ID, "line-opacity", toldOpacity);
+    }
     if (frame.daylight) {
       const { level, warmth, sunAzimuthDeg } = frame.daylight;
       const key = `${Math.round(level * 50)}|${Math.round(warmth * 20)}|${Math.round(sunAzimuthDeg / 10)}`;
@@ -761,7 +833,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
 
   useEffect(() => {
     refreshCurrentFrame();
-  }, [refreshCurrentFrame, settings.revealMode, settings.showAidBubbles]);
+  }, [refreshCurrentFrame, settings.highlightToldSlopes, settings.revealMode, settings.showAidBubbles]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -777,6 +849,8 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       map.setPaintProperty(ROUTE_LAYER_ID, "line-color", `${settings.routeColor}${FUTURE_ROUTE_ALPHA_HEX}`);
       map.setPaintProperty(ROUTE_LAYER_ID, "line-width", lineWidth);
     }
+    if (map.getLayer(TOLD_SLOPE_LAYER_ID)) map.setPaintProperty(TOLD_SLOPE_LAYER_ID, "line-width", lineWidth);
+    if (map.getLayer(TOLD_SLOPE_CASING_LAYER_ID)) map.setPaintProperty(TOLD_SLOPE_CASING_LAYER_ID, "line-width", ROUTE_CASING_WIDTHS[settings.routeWidth]);
     if (map.getLayer(ROUTE_GLOW_LAYER_ID)) {
       map.setPaintProperty(ROUTE_GLOW_LAYER_ID, "line-color", `${settings.routeColor}${GLOW_ROUTE_ALPHA_HEX}`);
       map.setLayoutProperty(ROUTE_GLOW_LAYER_ID, "visibility", settings.routeGlow ? "visible" : "none");
@@ -816,8 +890,9 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       .map((station): AidBubble => {
         const point = getRoutePointAtDistance(preparedPath, station.distanceKm);
         const { element, card } = createAidCardElement(station, getCumulativeGainAt(preparedPath, station.distanceKm), settings.accentColor);
-        // The card tail points at the station icon drawn by the map (about 15 px radius).
-        const marker = new mapboxgl.Marker({ element, anchor: "bottom", offset: [0, -18], occludedOpacity: 1 })
+        // The card tail stops a few pixels above the station icon drawn by the map (about 15 px
+        // radius), so the bubble floats over its station instead of touching it.
+        const marker = new mapboxgl.Marker({ element, anchor: "center", offset: [0, -28], occludedOpacity: 1 })
           .setLngLat([point.lon, point.lat])
           .addTo(map);
         return { distanceKm: station.distanceKm, card, marker, opacity: -1 };
@@ -839,12 +914,16 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
         const name = endpointNames[key];
         if (!name) return [];
         const point = getRoutePointAtDistance(preparedPath, distanceKm);
-        const marker = new mapboxgl.Marker({ element: createPlaceLabelElement(kind, name, settings.accentColor), anchor: "bottom", offset: [0, -18], occludedOpacity: 1 })
+        const marker = new mapboxgl.Marker({ element: createPlaceLabelElement(kind, name, settings.accentColor), anchor: "center", offset: [0, -18], occludedOpacity: 1 })
           .setLngLat([point.lon, point.lat])
           .addTo(map);
         return [marker];
       });
-    return () => labels.forEach((marker) => marker.remove());
+    placeLabelMarkersRef.current = labels;
+    return () => {
+      labels.forEach((marker) => marker.remove());
+      placeLabelMarkersRef.current = [];
+    };
   }, [endpointNames, isReady, preparedPath, settings.accentColor, settings.showPlaceNames]);
 
   // Station icons are images in the style: redraw them when the accent colour changes.
@@ -990,8 +1069,15 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     }
   };
 
-  // MP4 export: the preview frame is laid out at the exact video size (scaled down on screen),
-  // then every frame is rendered, waited for and captured.
+  /** CSS size of the preview frame (inside its border), while it is not laid out for an export. */
+  const measurePreviewFrame = () => {
+    const frame = frameRef.current;
+    return frame && !exportLayout ? { width: frame.clientWidth, height: frame.clientHeight } : null;
+  };
+
+  // MP4 export: the frame keeps the preview's CSS size (so the camera, the map details and the
+  // bubbles match the preview) while the map renders at the video resolution; then every frame is
+  // rendered, waited for and captured at the video size.
   const startExport = async () => {
     const map = mapRef.current;
     if (!map || !isReady || exportAbortRef.current) return;
@@ -999,18 +1085,17 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     narrationPlayerRef.current?.stop();
     const base = VIDEO_RESOLUTIONS[settings.resolution];
     const size = settings.viewport === "portrait" ? base : { width: base.height, height: base.width };
-    // The background renderer opens a window of the exact video size.
-    const scale = render ? 1 : Math.min(1, Math.max(0.15, (window.innerHeight - 224) / size.height));
+    const frame = getExportFrame(size, render ? renderSnapshot?.previewSize : measurePreviewFrame());
+    // The background render page already forces the ratio before creating the map.
+    const restorePixelRatio = render ? null : overrideDevicePixelRatio(frame.pixelRatio);
     if (exportState.status === "done") URL.revokeObjectURL(exportState.url);
     const controller = new AbortController();
     exportAbortRef.current = controller;
     setExportState({ status: "running" });
-    setExportLayout({ ...size, scale });
+    setExportLayout({ width: frame.width, height: frame.height, scale: 1 });
     let lastProgressAt = 0;
     try {
       await waitMs(80);
-      // One CSS pixel per video pixel; on a high-density screen the map canvas is larger and is
-      // scaled down to the video size when composited.
       map.resize();
       await waitForMapIdle(map, 10_000);
       const blob = await exportVideo({
@@ -1024,6 +1109,12 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
             // Let React paint the overlay for this frame, then wait for the map tiles.
             await waitMs(0);
             await waitForMapIdle(map, 6_000);
+            // DOM markers take the terrain height known when the camera moved; the finer elevation
+            // tiles loaded since can lift the station icons drawn by the map. Place them again so
+            // every bubble sits on its icon in the captured frame.
+            for (const marker of [...aidBubblesRef.current.map((bubble) => bubble.marker), ...placeLabelMarkersRef.current, progressMarkerRef.current]) {
+              marker?.setLngLat(marker.getLngLat());
+            }
           },
           mapCanvas: () => map.getCanvas(),
           frameElement: () => {
@@ -1051,6 +1142,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       else setExportState({ status: "error", message });
     } finally {
       exportAbortRef.current = null;
+      restorePixelRatio?.();
       setExportLayout(null);
       window.requestAnimationFrame(() => {
         map.resize();
@@ -1137,6 +1229,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     landmarks,
     placeNames: endpointNames,
     voiceClips: freshClips,
+    previewSize: measurePreviewFrame(),
   });
 
   useEffect(() => {
@@ -1195,6 +1288,8 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       appearanceStateRef.current = captureMapAppearanceState(map, OWN_LAYER_IDS);
       applyMapAppearance(map, settingsRef.current, appearanceStateRef.current, OWN_LAYER_IDS);
       daylightKeyRef.current = null;
+      toldSlopeIdRef.current = null;
+      toldSlopeOpacityRef.current = -1;
       layersReadyRef.current = true;
       resizeController.schedule();
       window.requestAnimationFrame(() => {
