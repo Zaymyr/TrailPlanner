@@ -81,3 +81,14 @@ export function buildAuthCallbackPath(returnPath: string): string {
   const params = new URLSearchParams({ next: normalizeInternalReturnPath(returnPath) });
   return `/auth/callback?${params.toString()}`;
 }
+
+/**
+ * Client-only: reads `?next=` from the current URL at call time.
+ * Auth pages use this instead of the `searchParams` page prop so Next.js can
+ * prerender them statically (a `searchParams` prop forces a function run on
+ * every visit and on every `<Link>` prefetch).
+ */
+export function readCurrentReturnPath(): string {
+  if (typeof window === "undefined") return DEFAULT_RETURN_PATH;
+  return normalizeInternalReturnPath(new URLSearchParams(window.location.search).get("next"));
+}

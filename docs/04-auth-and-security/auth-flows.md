@@ -1,7 +1,7 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-11-05
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - apps/web/app/sign-in/page.tsx
@@ -53,7 +53,7 @@ related_tables:
 
 The runner launch announcement uses cached `getSession()` identity and a user-scoped launch-information fetch from the root layout, but installs no new Auth listener. Its local once-per-campaign `seen` preference is presentation state, not an access decision. Existing trials and grants retain their recorded dates; the announcement makes no profile or Auth write.
 
-Launch information is fetched by a user-scoped mobile hook only after a cached authenticated session is known and refreshes on foreground. It exposes cohort/badge state, not a new authorization source; failures do not grant access.
+Launch information is fetched by a user-scoped mobile hook only after a cached authenticated session is known and refreshes on foreground at most every ten minutes. It exposes cohort/badge state, not a new authorization source; failures do not grant access.
 
 Guests may browse catalog data but cannot create a runner plan. Plan creation requires a non-anonymous account and the runner profile defaults needed for generation (name, comfortable pace, water capacity and carbohydrate target; body/UTMB values remain optional). New sign-ups do not start a trial; existing trial dates remain honored unchanged. The protected plan-access API resolves global entitlement, a canonical course/edition unlock, or historical read-only detail access server-side. Admin free/premium simulation is trusted `app_metadata` plus current JWT session only.
 
@@ -93,7 +93,7 @@ A session-update event raised while a previous verification is still running que
 
 ## Web Return Destinations
 
-The organizer acquisition flow may send `next=/organizers` (event creation) or `next=/organizer` (the authenticated dashboard) through password sign-in, immediate sign-up, or the OAuth callback. `apps/web/lib/organizer-acquisition.ts` accepts only these exact internal pathnames. It retains only the five supported UTM parameters for `/organizers`; for `/organizer`, it retains only one syntactically valid UUID `eventId` so an existing-account assignment e-mail can authenticate first and return to the selected event. It falls back to `/race-planner` for missing, external, protocol-relative, backslash-based, malformed, or unsupported destinations. OAuth providers receive the validated destination nested in the existing `/auth/callback` URL; the callback validates it again before navigation.
+The organizer acquisition flow may send `next=/organizers` (event creation) or `next=/organizer` (the authenticated dashboard) through password sign-in, immediate sign-up, or the OAuth callback. `apps/web/lib/organizer-acquisition.ts` accepts only these exact internal pathnames. It retains only the five supported UTM parameters for `/organizers`; for `/organizer`, it retains only one syntactically valid UUID `eventId` so an existing-account assignment e-mail can authenticate first and return to the selected event. It falls back to `/race-planner` for missing, external, protocol-relative, backslash-based, malformed, or unsupported destinations. OAuth providers receive the validated destination nested in the existing `/auth/callback` URL; the callback validates it again before navigation. The `/sign-in` and `/sign-up` pages read `next` from the current URL at action time through `readCurrentReturnPath()` (same validation), so both pages stay statically prerendered.
 
 An admin-created organizer account follows the Supabase invitation flow rather than receiving an application-generated password. The protected admin route passes `/reset-password` through GoTrue's `redirect_to` query parameter and includes the canonical race name as `user_metadata.event_name` (`{{ .Data.event_name }}` in the Supabase invite template). That metadata is display-only and must never authorize access. The password page accepts both `invite` and `recovery` token fragments, updates the password through the anon-key server route, rejects an unsuccessful session response, persists the verified tokens, then waits for the shared session provider to verify that exact stored session before using client-side navigation. When either kind of link is missing, invalid, or expired, the page exposes a prominent action to the existing public password-recovery form; that form collects the address again and lets Supabase Auth send a fresh recovery e-mail without revealing whether the account exists. The recovery API passes `/reset-password` in GoTrue's `redirect_to` query parameter while keeping only the e-mail address in the JSON body, so `{{ .ConfirmationURL }}` returns to the password page instead of falling back to the configured Site URL. An invite flow opens `/organizer`; ordinary password recovery returns to `/race-planner`. The organizer membership is created before the e-mail is sent, so the first verified dashboard load is already authorized without depending on a full-page reload.
 

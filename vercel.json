@@ -9,6 +9,7 @@
   "buildCommand": "npm run build",
   "installCommand": "npm install --workspace @trailplanner/web --legacy-peer-deps --prefer-offline --no-audit --no-fund",
   "outputDirectory": ".next",
+  "regions": ["cdg1"],
   "crons": [
     {
       "path": "/api/cron/revenuecat-reconciliation",

@@ -1,14 +1,22 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { fetchWithTimeout } from '../lib/fetchWithTimeout';
 import { EMPTY_RUNNER_LAUNCH, type RunnerLaunchInfo } from '../lib/runnerLaunchAnnouncement';
 import { WEB_API_BASE_URL } from '../lib/webApi';
 
+// Foregrounding the app re-reads launch status (a billed Vercel function run) at
+// most this often; the launch announcement does not change minute to minute.
+const FOREGROUND_RELOAD_MIN_INTERVAL_MS = 10 * 60 * 1000;
+
 export function useRunnerLaunchInfo(userId: string | null, enabled = true) {
   const [result, setResult] = useState<{ userId: string; info: RunnerLaunchInfo } | null>(null);
   const [refresh, setRefresh] = useState(0);
-  const reload = useCallback(() => setRefresh((value) => value + 1), []);
+  const lastLoadedAt = useRef(0);
+  const reload = useCallback(() => {
+    if (Date.now() - lastLoadedAt.current < FOREGROUND_RELOAD_MIN_INTERVAL_MS) return;
+    setRefresh((value) => value + 1);
+  }, []);
   useEffect(() => {
     if (!userId || !enabled) return;
     const controller = new AbortController();
@@ -22,7 +30,10 @@ export function useRunnerLaunchInfo(userId: string | null, enabled = true) {
         }, 8_000);
         if (!response.ok) throw new Error('Launch status unavailable');
         const info = await response.json() as RunnerLaunchInfo;
-        if (active) setResult({ userId, info });
+        if (active) {
+          lastLoadedAt.current = Date.now();
+          setResult({ userId, info });
+        }
       } catch {
         if (active) setResult({ userId, info: EMPTY_RUNNER_LAUNCH });
       }

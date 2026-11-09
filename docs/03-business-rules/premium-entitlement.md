@@ -1,7 +1,7 @@
 ---
 title: Premium Entitlement
 scope: business-rule
-last_verified: 2026-11-08
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - apps/web/lib/entitlements.ts
@@ -91,7 +91,7 @@ If RevenueCat reports an active entitlement but the server row is not synced, mo
 
 The server also performs a daily, authenticated reconciliation over Supabase Auth users. It re-reads RevenueCat and repairs the provider ledger plus the compatible legacy projection. A missing credential, transport failure, or invalid provider response must leave the last verified database state unchanged; only a successfully parsed subscriber without an active Premium entitlement may expire an existing mobile subscription.
 
-The hook exposes one shared external-store snapshot. Its Auth, foreground, premium-status, and RevenueCat listeners are installed once across all mounted consumers; overlapping signals are serialized and coalesced before the Supabase, API, and RevenueCat checks run. Equivalent results do not notify screens again.
+The hook exposes one shared external-store snapshot. Its Auth, foreground, premium-status, and RevenueCat listeners are installed once across all mounted consumers; overlapping signals are serialized and coalesced before the Supabase, API, and RevenueCat checks run. App foregrounding and `TOKEN_REFRESHED` auth events reuse a completed check younger than five minutes for the same user (each check calls the billed `/api/trial/status` and `/api/entitlements` web routes); sign-in/out, user changes, purchases, and RevenueCat customer-info events always re-check immediately. Equivalent results do not notify screens again.
 
 An SDK purchase return is not sufficient by itself for success UI or purchase analytics. The billing hook resolves the configured Premium entitlement from the returned `CustomerInfo` and requires it to be active and backed by the same product as the completed transaction before returning `purchased`. A missing, inactive, or mismatched entitlement returns `unverified`, keeps the success alert hidden, and is tracked separately from verified purchases. Sandbox and production purchases can both unlock Premium, but analytics retain their environment distinction.
 

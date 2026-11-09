@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-11-08
+last_verified: 2026-11-09
 ai_priority: high
 related_files:
   - apps/mobile/components/plan-workspace/LockedPlanContent.tsx
@@ -433,7 +433,7 @@ The preview CTA transition uses measured viewport, preview section and inline po
 - active `premium_grants`;
 - RevenueCat customer info.
 
-All `usePremium()` consumers subscribe to one module-level monitor. Auth, foreground, purchase, and RevenueCat signals are coalesced into a single refresh queue, so mounting several screens does not duplicate the Supabase/API reads or native listeners. State snapshots are emitted only when an entitlement field changes.
+All `usePremium()` consumers subscribe to one module-level monitor. Auth, foreground, purchase, and RevenueCat signals are coalesced into a single refresh queue, so mounting several screens does not duplicate the Supabase/API reads or native listeners. App foregrounding and `TOKEN_REFRESHED` auth events reuse a completed check younger than five minutes for the same user (each check calls the billed `/api/trial/status` and `/api/entitlements` web routes); sign-in/out, user changes, purchases, and RevenueCat customer-info events always re-check immediately. State snapshots are emitted only when an entitlement field changes.
 
 When RevenueCat has an active entitlement and the server is not synced, mobile calls the web sync endpoint to persist the purchase into `subscriptions`.
 

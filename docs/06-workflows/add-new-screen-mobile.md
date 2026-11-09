@@ -1,7 +1,7 @@
 ---
 title: Add New Mobile Screen
 scope: workflow
-last_verified: 2026-11-05
+last_verified: 2026-11-09
 ai_priority: medium
 related_files:
   - apps/mobile/app
@@ -113,7 +113,7 @@ RaceBook screens must treat the effective module map as additive server data: hi
 
 - Route file: file under `apps/mobile/app`.
 - App shell: global providers and auth handling in `_layout.tsx`.
-- Premium gate: access checks from `usePremium`; every consumer shares the same entitlement monitor and must not add screen-local Auth/AppState refresh listeners.
+- Premium gate: access checks from `usePremium`; every consumer shares the same entitlement monitor and must not add screen-local Auth/AppState refresh listeners. The shared monitor already throttles routine foreground and token-refresh re-checks to once per five minutes, because each check calls billed web API routes.
 - Analytics screen: PostHog screen name from route segments.
 - RaceBook analytics: the existing RaceBook route adds stable race/event properties and foreground engagement events after its publication/content gate succeeds; sponsor reporting stays separate.
 - App-wide session side effect: behavior coordinated by `_layout.tsx` or its `useSessionSideEffects` helper, such as push registration or Resend contact sync, not inside an individual screen.
