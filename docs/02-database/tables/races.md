@@ -6,6 +6,7 @@ last_verified: 2026-11-09
 
 ai_priority: high
 related_files:
+  - supabase/migrations/20261106142000_add_lut_by_night_2026_gpx.sql
   - supabase/migrations/20261105082511_enrich_saintelyon_2026_formats.sql
   - supabase/migrations/20251220120000_add_race_catalog.sql
   - supabase/migrations/20260324000000_refactor_race_catalog_to_races.sql
@@ -150,6 +151,8 @@ Existing `races` policies control the whole row, including import status. Organi
 Authenticated non-admin users can no longer insert races. Trusted `app_metadata` admins retain direct catalog insertion; organizer mutations remain service-route operations. Legacy standalone owners retain the existing update/delete boundary so old data can still be maintained or removed without reopening creation.
 
 ## Business Invariants
+
+- The 2026 Radiance Mutuelle LUT By Night snapshot keeps the official published distance and D+ labels for the 10 km, 20 km and 30 km formats while attaching their three official GPX objects, hashes and parsed route metadata. The 10 km Rando remains without a GPX because its official page exposes no downloadable trace URL.
 
 - The 2026 SaintéLyon snapshot keeps official published distance and D+ labels in the primary format metrics. Six organizer GPX files provide hashes, private Storage paths and parsed route metadata for nine formats because the solo and relay races share the 80 km trace; SaintéGones remains null when no official downloadable GPX exists.
 
