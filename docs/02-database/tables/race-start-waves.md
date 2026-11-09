@@ -2,7 +2,7 @@
 title: race_start_waves Table
 scope: database
 
-last_verified: 2026-11-03
+last_verified: 2026-11-09
 
 ai_priority: high
 related_files:
@@ -95,3 +95,5 @@ Supporter points intentionally carry no personalized or official passage time in
 When a linked plan exists, its duration-based pace belongs with the Livret identity metrics; each matched ravito shows a resolved clock aligned above the red cutoff and each blue connector may show its pause-excluded expected duration. A late passage exposes a disclosure icon. Tapping the clock row opens the targeted plan editor without a second CTA. Switching back can reuse local editor warm state only for the exact plan id; none of these presentation actions rewrites SAS rows or their time authority.
 
 Departure and passage clocks now share normalized `HH:MM` presentation. The authoritative wave/start resolution and stored source values are unchanged.
+
+Progressive plan disclosure (2026-11-09): the plan is optional in the RaceBook. Runners without an owned plan for the format see no `Livret officiel | Mon plan` switch, no `Temps prévu`/`Allure` hero metrics and an unattached hero; the only plan entry is the discreet `RacebookPlanInviteCard` at the end of the Course route/ravitos sub-tabs (hidden in guided RaceBook onboarding, for past races and when D+ is unknown). Once a plan exists, the switch (labelled `Mon plan`) and plan metrics appear and the plan keeps enriching the Livret. This is runner presentation only: it reads and writes no row of this domain.

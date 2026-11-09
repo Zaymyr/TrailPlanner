@@ -2,7 +2,7 @@
 title: Affiliate Partner Links
 scope: integration
 
-last_verified: 2026-11-05
+last_verified: 2026-11-09
 
 ai_priority: medium
 related_files:
@@ -116,3 +116,5 @@ Supporter `S’y rendre` and `Voir le plan` actions open organizer-authored acce
 The labeled RaceBook Maps action, shared distance formatting, and plan-switch visual standardization do not change affiliate destinations, redirect accounting, or partner parameters.
 
 Booking and Decathlon remain outside the versioned RaceBook snapshot. Mobile loads their current server-resolved destinations in parallel with published RaceBook content; restoring a RaceBook version never restores or rewrites a partner destination.
+
+Progressive plan disclosure (2026-11-09): the plan is optional in the RaceBook. Runners without an owned plan for the format see no `Livret officiel | Mon plan` switch, no `Temps prévu`/`Allure` hero metrics and an unattached hero; the only plan entry is the discreet `RacebookPlanInviteCard` at the end of the Course route/ravitos sub-tabs (hidden in guided RaceBook onboarding, for past races and when D+ is unknown). Once a plan exists, the switch (labelled `Mon plan`) and plan metrics appear and the plan keeps enriching the Livret. This is runner presentation only: it reads and writes no row of this domain.

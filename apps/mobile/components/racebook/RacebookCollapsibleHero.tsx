@@ -50,6 +50,8 @@ type Props = {
   elevationLossLabel: string | null;
   elevationCaption: string;
   descentCaption: string;
+  /** Plan metrics are shown only to runners who own a plan for this race. */
+  showPlanMetrics: boolean;
   planDurationLabel: string | null;
   planDurationCaption: string;
   planPaceLabel: string | null;
@@ -96,6 +98,7 @@ export function RacebookCollapsibleHero({
   elevationLossLabel,
   elevationCaption,
   descentCaption,
+  showPlanMetrics,
   planDurationLabel,
   planDurationCaption,
   planPaceLabel,
@@ -244,8 +247,10 @@ export function RacebookCollapsibleHero({
             { label: distanceCaption, value: distanceLabel },
             { label: elevationCaption, value: elevationGainLabel },
             { label: descentCaption, value: elevationLossLabel ?? '—' },
-            { label: planDurationCaption, value: planDurationLabel ?? '—' },
-            { label: planPaceCaption, value: planPaceLabel ?? '—' },
+            ...(showPlanMetrics ? [
+              { label: planDurationCaption, value: planDurationLabel ?? '—' },
+              { label: planPaceCaption, value: planPaceLabel ?? '—' },
+            ] : []),
           ]}
           footer={participationLabel || logoUrl || (emergency && onCallEmergency) ? (
             <View style={styles.footerRow}>

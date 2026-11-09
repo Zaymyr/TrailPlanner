@@ -803,7 +803,9 @@ export type MobileTranslations = {
     racebookExpectedTime: string;
     racebookPace: string;
     racebookCreatePlan: string;
-    racebookRefinePlan: string;
+    racebookMyPlan: string;
+    racebookPlanInviteTitle: string;
+    racebookPlanInviteBody: string;
     racebookReviewPlan: string;
     racebookPlanRevisionMessage: string;
     racebookPlanCheckFailed: string;

@@ -2,7 +2,7 @@
 title: race_edition_services Table
 scope: database
 
-last_verified: 2026-11-03
+last_verified: 2026-11-09
 
 ai_priority: high
 related_files:
@@ -104,3 +104,5 @@ Format-scoped supporter directions and assistance permissions are not edition se
 The Livret/Mon plan switch may reuse an already saved owner plan without showing the plan-creation loader. Its owner-specific hero departure/duration/pace and compact ravito passage, segment duration and cutoff warning are not service data; route-local warm state is scoped to the exact plan id and remains separate from the edition-scoped services payload and cache.
 
 Service distance labels now use the shared localized formatter. This changes only rendering and leaves service categories, links, ordering, and edition scope intact.
+
+Progressive plan disclosure (2026-11-09): the plan is optional in the RaceBook. Runners without an owned plan for the format see no `Livret officiel | Mon plan` switch, no `Temps prévu`/`Allure` hero metrics and an unattached hero; the only plan entry is the discreet `RacebookPlanInviteCard` at the end of the Course route/ravitos sub-tabs (hidden in guided RaceBook onboarding, for past races and when D+ is unknown). Once a plan exists, the switch (labelled `Mon plan`) and plan metrics appear and the plan keeps enriching the Livret. This is runner presentation only: it reads and writes no row of this domain.

@@ -682,3 +682,5 @@ Lot 6 keeps organizer data read-only in the runner experience: official station 
 
 
 Address suggestions in every organizer location field now come from Photon and Nominatim merged (OpenStreetMap data, storable coordinates). The stored location object, its `source`, the canonical text field and the manual free-text fallback are unchanged.
+
+Progressive plan disclosure (2026-11-09): the plan is optional in the RaceBook. Runners without an owned plan for the format see no `Livret officiel | Mon plan` switch, no `Temps prévu`/`Allure` hero metrics and an unattached hero; the only plan entry is the discreet `RacebookPlanInviteCard` at the end of the Course route/ravitos sub-tabs (hidden in guided RaceBook onboarding, for past races and when D+ is unknown). Once a plan exists, the switch (labelled `Mon plan`) and plan metrics appear and the plan keeps enriching the Livret. This is runner presentation only: it reads and writes no row of this domain.

@@ -2,7 +2,7 @@
 title: race_event_edition_sponsors Table
 scope: database
 
-last_verified: 2026-11-03
+last_verified: 2026-11-09
 
 ai_priority: high
 related_files:
@@ -168,3 +168,5 @@ The first supporter-points version has no dedicated sponsor placement. Showing o
 - [Mobile App Architecture](../../01-architecture/mobile-app.md)
 
 RaceBook hero sizing, plan-switch deduplication, and shared numeric formatting do not create sponsor impressions, alter placement, or change sponsor loading.
+
+Progressive plan disclosure (2026-11-09): the plan is optional in the RaceBook. Runners without an owned plan for the format see no `Livret officiel | Mon plan` switch, no `Temps prévu`/`Allure` hero metrics and an unattached hero; the only plan entry is the discreet `RacebookPlanInviteCard` at the end of the Course route/ravitos sub-tabs (hidden in guided RaceBook onboarding, for past races and when D+ is unknown). Once a plan exists, the switch (labelled `Mon plan`) and plan metrics appear and the plan keeps enriching the Livret. This is runner presentation only: it reads and writes no row of this domain.

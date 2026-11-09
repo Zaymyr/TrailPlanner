@@ -201,7 +201,7 @@ Opening, replaying, stepping through, or closing the Organizer spotlight guide e
 
 Mobile additionally emits `race favorite updated` only after the server returns the persisted favorite set, and `push notification opened` after a notification interaction with a bounded notification kind/action. The optimistic heart animation, stable current ordering, in-memory quick-filter changes, and fourteen-day post-race visibility of an existing favorite emit no additional analytics event. Guest account gates emit `guest account prompt viewed` with a bounded `race_favorite` or `plan_limit` source, then `guest account conversion started` only when the runner chooses account creation or existing-account sign-in. Notification hrefs, message bodies, and guest-prompt copy are excluded.
 
-The linked mobile race workspace emits `race workspace switched` only after the user chooses a direction. Its payload is limited to `racebook_to_plan` or `plan_to_racebook` and, for the former, the bounded `open|create` action. It never contains plan values, an address, coordinates, notes, or free text.
+The linked mobile race workspace emits `race workspace switched` only after the user chooses a direction. Its payload is limited to `racebook_to_plan` or `plan_to_racebook` and, for the former, the bounded `open|create` action. In the Livret the switch is rendered only for an owned plan, so `create` there only occurs if the owner row disappeared between lookups. It never contains plan values, an address, coordinates, notes, or free text.
 
 Courses root loading, retry, empty-result presentation, and pull-to-refresh emit no additional analytics event. A reload may update the ordinary catalog snapshot, but it must not be interpreted as a race selection, favorite mutation, or plan-creation click.
 Pinned search/quick-filter presentation, native date-filter entry, and the revised format action layout also emit no new event. The shared root `?` menu reuses the existing help, feedback, and race-request handlers so their established analytics boundaries remain unchanged.
@@ -254,7 +254,7 @@ The Profile debug/admin presentation uses the same pure trusted-role helper: `ap
 Profile dirty-state detection, the conditional bottom save dock, native birth-date entry, and moving runner onboarding shortcuts from personal information to Settings are presentation changes only. They emit no new analytics event; `profile saved` still fires only after a successful persisted profile mutation.
 Initial Profile loading and an explicit retry after a recoverable profile fetch failure are also presentation/data-retrieval actions. They emit no profile or Premium funnel event and do not repeat a persisted mutation.
 
-The Livret coureur plan entry emits racebook action clicked with the bounded create_plan or refine_plan action after resolving the current owned plan. These are navigation intents only; neither an existing-plan lookup, a blurred placeholder, nor an admin simulation is a persisted plan or purchase outcome.
+The Livret coureur plan entry emits racebook action clicked with the bounded create_plan or refine_plan action after resolving the current owned plan, plus the bounded `entry_point: course_invite` (the Course-tab invite card is now the only Livret creation entry). These are navigation intents only; neither an existing-plan lookup, a blurred placeholder, nor an admin simulation is a persisted plan or purchase outcome.
 
 ## RaceBook Engagement
 

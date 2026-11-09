@@ -2,7 +2,7 @@
 title: race_events Table
 scope: database
 
-last_verified: 2026-11-05
+last_verified: 2026-11-09
 
 ai_priority: high
 related_files:
@@ -306,7 +306,7 @@ where is_live = true
 - Keeping Courses search and quick filters sticky, entering date bounds through native pickers, and placing format actions below the full-width format name are presentation-only. They do not alter event/format relationships, visibility, or stored dates.
 - Catalog create/refine wording and RaceBook start-time rendering are presentation only; they do not alter event data or visibility.
 
-- Showing `Affiner mon plan` for a runner-owned format instead of another create CTA is a catalog/RaceBook presentation decision. It does not change event visibility, event ownership, or organizer content.
+- Showing `Voir mon plan` (catalog) or the `Mon plan` switch (RaceBook) for a runner-owned format instead of another create CTA is a catalog/RaceBook presentation decision. It does not change event visibility, event ownership, or organizer content.
 
 - The shared Courses bootstrap, recoverable-error, empty-result, and pull-to-refresh presentation repeats the existing event/format query and visibility filters. It must not persist an empty result, alter event liveness, or turn a failed request into a catalog-empty conclusion.
 - Expanding or compacting the Courses root header changes only layout. It must not re-run, widen, or reorder the event query outside the existing scroll/list behavior.

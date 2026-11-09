@@ -59,7 +59,7 @@ import {
 import { RacebookGearSection } from '../../../../components/racebook/RacebookGearSection';
 import { RacebookServicesSection } from '../../../../components/racebook/RacebookServicesSection';
 import { RacebookSupporterPointsSection } from '../../../../components/racebook/RacebookSupporterPointsSection';
-import { RacebookPersonalPlanCard } from '../../../../components/racebook/RacebookPersonalPlanCard';
+import { RacebookPersonalPlanCard, RacebookPlanInviteCard } from '../../../../components/racebook/RacebookPersonalPlanCard';
 import { RacebookStructuredCourseSections } from '../../../../components/racebook/RacebookStructuredCourseSections';
 import { RacebookTabBar } from '../../../../components/racebook/RacebookTabBar';
 import { RacebookElevationProfile } from '../../../../components/racebook/RacebookElevationProfile';
@@ -1699,6 +1699,17 @@ export default function RaceRacebookScreen() {
   );
 
   const existingPlanId = existingPlan && existingPlan.raceId === id ? existingPlan.planId : null;
+  // The plan is optional: the Livret/Plan switch and plan metrics only exist
+  // once the runner owns a plan, so runners without one read a pure RaceBook.
+  const showPlanWorkspace = Boolean(existingPlanId);
+  const planLookupResolved = Boolean(existingPlan && existingPlan.raceId === id);
+  const raceDaysRemaining = getDaysBeforeRace(data?.race.raceDate ?? null);
+  const showPlanInvite = planLookupResolved
+    && !existingPlanId
+    && onboarding !== 'racebook'
+    && data?.race.elevationGainM !== null
+    && data?.race.elevationGainM !== undefined
+    && (raceDaysRemaining === null || raceDaysRemaining >= 0);
   const handlePlanCtaPress = useCallback(async () => {
     if (!id || planCtaBusy) return;
 
@@ -1713,6 +1724,7 @@ export default function RaceRacebookScreen() {
       setExistingPlan({ raceId, planId: currentPlanId });
       captureRacebookInteraction('racebook action clicked', {
         action: currentPlanId ? 'refine_plan' : 'create_plan',
+        entry_point: 'course_invite',
       });
 
       if (currentPlanId) {
@@ -1923,6 +1935,7 @@ export default function RaceRacebookScreen() {
           elevationLossLabel={data.race.elevationLossM !== null ? formatElevation(data.race.elevationLossM, locale) : null}
           elevationCaption={t.planWorkspace.elevationGain}
           descentCaption={t.planWorkspace.elevationLoss}
+          showPlanMetrics={showPlanWorkspace}
           planDurationLabel={linkedPlan ? `${formatDuration(linkedPlan.summary.totalDurationMin)}${planBeyondCutoff ? ` · ${t.planWorkspace.beyondCutoff}` : ''}` : null}
           planDurationCaption={t.catalog.racebookExpectedTime}
           planPaceLabel={linkedPlanAveragePace && linkedPlanAveragePace !== '—' ? `${linkedPlanAveragePace}/km` : linkedPlanAveragePace}
@@ -1947,19 +1960,19 @@ export default function RaceRacebookScreen() {
           onCallEmergency={emergencyTelephoneUrl ? () => openTrackedUrl(emergencyTelephoneUrl, 'emergency_call_started') : undefined}
           onOpenSocial={(url, action) => openTrackedUrl(url, action)}
           onExpandedBodyHeightChange={handleHeroBodyHeightChange}
-          attachedBelow={!showLoading && !unavailable && Boolean(data)}
+          attachedBelow={showPlanWorkspace && !showLoading && !unavailable && Boolean(data)}
         />
       ) : null}
-      {!showLoading && !unavailable && data ? (
+      {showPlanWorkspace && !showLoading && !unavailable && data ? (
         <RaceWorkspaceSwitch
           active="racebook"
           backgroundColor={brandTheme.primaryColor}
           foregroundColor={brandTheme.onPrimaryColor}
           compactHeaderHeight={RACEBOOK_HERO_COMPACT_BODY_HEIGHT}
           expandedHeaderHeight={heroBodyHeight}
-          onOpenPlan={existingPlanId ? openLinkedPlan : () => { void handlePlanCtaPress(); }}
+          onOpenPlan={openLinkedPlan}
           onOpenRacebook={() => undefined}
-          planExists={Boolean(existingPlanId)}
+          planExists
           planDisabled={planCtaBusy}
           scrollY={scrollY}
           topInset={insets.top}
@@ -1970,7 +1983,7 @@ export default function RaceRacebookScreen() {
         contentContainerStyle={[
           styles.container,
           { backgroundColor: brandTheme.primarySurfaceColor },
-          !showLoading && !unavailable && data ? { paddingTop: heroExpandedHeight + RACE_WORKSPACE_SWITCH_HEIGHT + 16 } : null,
+          !showLoading && !unavailable && data ? { paddingTop: heroExpandedHeight + (showPlanWorkspace ? RACE_WORKSPACE_SWITCH_HEIGHT : 0) + 16 } : null,
           showLoading || unavailable ? { paddingTop: insets.top + 16 } : null,
           showLoading && { minHeight: Math.max(520, viewportHeight - 120) },
         ]}
@@ -2340,6 +2353,13 @@ export default function RaceRacebookScreen() {
                     locale={locale}
                     points={data.supporterPoints}
                     onOpenUrl={(url, action) => openTrackedUrl(url, action === 'directions' ? 'supporter_directions_opened' : 'supporter_plan_opened')}
+                  />
+                ) : null}
+                {showPlanInvite && activeCourseTab !== 'supporters' ? (
+                  <RacebookPlanInviteCard
+                    accentColor={brandTheme.primaryForegroundColor}
+                    disabled={planCtaBusy}
+                    onCreatePlan={() => { void handlePlanCtaPress(); }}
                   />
                 ) : null}
 

@@ -2,7 +2,7 @@
 title: racebook_gear_checks Table
 scope: database
 
-last_verified: 2026-11-03
+last_verified: 2026-11-09
 
 ai_priority: high
 related_files:
@@ -98,3 +98,5 @@ Opening supporter directions or an external access plan does not read or mutate 
 Checklist progress remains visually neutral until every required item is checked, then becomes successful. This state styling does not alter row ownership, checked persistence, or analytics snapshots.
 
 Versioned RaceBook publication changes only the source equipment payload. Owner-scoped checked rows remain live user state and are never copied into, restored from, or exposed through a public publication.
+
+Progressive plan disclosure (2026-11-09): the plan is optional in the RaceBook. Runners without an owned plan for the format see no `Livret officiel | Mon plan` switch, no `Temps prévu`/`Allure` hero metrics and an unattached hero; the only plan entry is the discreet `RacebookPlanInviteCard` at the end of the Course route/ravitos sub-tabs (hidden in guided RaceBook onboarding, for past races and when D+ is unknown). Once a plan exists, the switch (labelled `Mon plan`) and plan metrics appear and the plan keeps enriching the Livret. This is runner presentation only: it reads and writes no row of this domain.
