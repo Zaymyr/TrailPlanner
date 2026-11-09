@@ -469,6 +469,25 @@ export function useRevenueCatBilling() {
     if (!intentResponse.ok) return 'unavailable';
     const intent = await intentResponse.json() as { intentId?: string; productId?: string; recovered?: boolean; storeStarted?: boolean };
     if (!intent.intentId || !intent.productId) return 'unavailable';
+    const { data: ownedPlan } = await supabase
+      .from('race_plans')
+      .select('race_id')
+      .eq('id', planId)
+      .eq('user_id', session.user.id)
+      .maybeSingle();
+    const { data: race } = ownedPlan?.race_id
+      ? await supabase.from('races').select('name').eq('id', ownedPlan.race_id).maybeSingle()
+      : { data: null };
+    const analyticsContext = {
+      billing_provider: 'revenuecat',
+      purchase_type: 'course',
+      placement: 'course_paywall',
+      store: getBillingStore(),
+      product_id: intent.productId,
+      plan_id: planId,
+      race_id: ownedPlan?.race_id ?? undefined,
+      race_name: race?.name ?? undefined,
+    };
     try {
       setState((current) => ({ ...current, isPurchasing: true }));
       if (intent.recovered) {
@@ -481,13 +500,21 @@ export function useRevenueCatBilling() {
       }
       const startResponse = await fetch(`${baseUrl}/api/runner/purchase-intents`, { method: 'PATCH', headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ intentId: intent.intentId }) });
       if (!startResponse.ok) return 'unverified';
+      captureAnalyticsEvent('runner course checkout started', analyticsContext);
       const result = await purchaseRevenueCatCourse(session.user.id, intent.productId);
       const transactionId = result?.transaction?.transactionIdentifier;
       if (!result || !transactionId) return 'unverified';
       const syncResponse = await fetch(`${baseUrl}/api/runner/purchases/sync`, { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ intentId: intent.intentId, transactionId }) });
       if (!syncResponse.ok) return 'unverified';
       const synced = await syncResponse.json().catch(() => null) as { granted?: boolean } | null;
-      return synced?.granted ? 'purchased' : 'unverified';
+      if (synced?.granted) {
+        captureAnalyticsEvent('runner course purchase verified', {
+          ...analyticsContext,
+          verification_source: 'server_sync',
+        });
+        return 'purchased';
+      }
+      return 'unverified';
     } catch (error) {
       if (isRevenueCatPurchaseCancelled(error)) {
         await fetch(`${baseUrl}/api/runner/purchase-intents`, { method: 'DELETE', headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ intentId: intent.intentId }) }).catch(() => undefined);

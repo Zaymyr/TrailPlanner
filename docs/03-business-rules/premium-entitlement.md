@@ -1,7 +1,7 @@
 ---
 title: Premium Entitlement
 scope: business-rule
-last_verified: 2026-11-01
+last_verified: 2026-11-08
 ai_priority: high
 related_files:
   - apps/web/lib/entitlements.ts
@@ -152,3 +152,5 @@ RevenueCat writes a provider-scoped `runner_subscription_accounts` row first. It
 - [Premium Grants Table](../02-database/tables/premium-grants.md)
 - [Trial Lifecycle](trial-lifecycle.md)
 - [Stripe](../05-integrations/stripe.md)
+
+Mobile course-purchase analytics are informational only: `runner course checkout started` records store initiation, while `runner course purchase verified` is emitted solely after the authenticated server confirms the plan unlock. Neither creates access or substitutes for the database entitlement ledger. Public race context can accompany these events, but no personal plan contents or transaction identifiers are tracked.
