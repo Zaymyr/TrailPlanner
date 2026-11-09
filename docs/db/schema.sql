@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict xw6WGRDmejLXJyT0xdCs2kSdSy71PaGAothz3pht54Qvfz0Z3hyxoOIrnJP9NbT
+\restrict 24tvjvOIgzZSJ54RabMUplpfdn0asgJ88PDKp8f9K6cofdwz6ojDAGvOh2oHeh9
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.11
@@ -1081,6 +1081,59 @@ $$;
 --
 
 COMMENT ON FUNCTION private.user_has_trusted_admin_role(p_user_id uuid) IS 'Returns whether one server-authorized actor has a trusted Auth app-metadata admin role.';
+
+
+--
+-- Name: validate_organizer_invoice_gift_lines(); Type: FUNCTION; Schema: private; Owner: -
+--
+
+CREATE FUNCTION private.validate_organizer_invoice_gift_lines() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+declare
+  pack_line jsonb;
+begin
+  if jsonb_typeof(new.legal_snapshot -> 'lines') <> 'array' then
+    raise exception 'Organizer invoice lines are required.' using errcode = '23514';
+  end if;
+
+  if exists (
+    select 1
+    from jsonb_array_elements(new.legal_snapshot -> 'lines') line
+    where line ? 'featureKey'
+      and (
+        coalesce((line ->> 'offered')::boolean, false) is not true
+        or line ? 'unitPriceCents'
+        or line ? 'discountCents'
+        or line ? 'netCents'
+      )
+  ) then
+    raise exception 'Gifted organizer features cannot carry monetary values.' using errcode = '23514';
+  end if;
+
+  if (select count(*) from jsonb_array_elements(new.legal_snapshot -> 'lines') line where not (line ? 'featureKey')) <> 1 then
+    raise exception 'An organizer invoice must contain exactly one priced pack line.' using errcode = '23514';
+  end if;
+
+  select line into pack_line
+  from jsonb_array_elements(new.legal_snapshot -> 'lines') line
+  where not (line ? 'featureKey')
+  limit 1;
+
+  if jsonb_typeof(pack_line -> 'unitPriceCents') <> 'number'
+    or jsonb_typeof(pack_line -> 'discountCents') <> 'number'
+    or jsonb_typeof(pack_line -> 'netCents') <> 'number'
+    or new.original_subtotal <> (pack_line ->> 'unitPriceCents')::integer
+    or new.discount_total <> (pack_line ->> 'discountCents')::integer
+    or new.net_total <> (pack_line ->> 'netCents')::integer
+  then
+    raise exception 'Organizer invoice totals must describe only the priced pack.' using errcode = '23514';
+  end if;
+
+  return new;
+end;
+$$;
 
 
 --
@@ -4064,6 +4117,20 @@ CREATE TABLE public.organizer_invoices (
 --
 
 COMMENT ON TABLE public.organizer_invoices IS 'Immutable manual organizer invoices, corrections and settlement facts, independent from edition entitlements.';
+
+
+--
+-- Name: COLUMN organizer_invoices.original_subtotal; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.organizer_invoices.original_subtotal IS 'Catalog price of the pack only, excluding gifted features.';
+
+
+--
+-- Name: COLUMN organizer_invoices.discount_total; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.organizer_invoices.discount_total IS 'Discount applied to the pack only, excluding gifted features.';
 
 
 --
@@ -7658,16 +7725,12 @@ CREATE TABLE public.organizer_feature_catalog (
     feature_key text NOT NULL,
     label text NOT NULL,
     minimum_tier text NOT NULL,
-    unit_price_cents integer NOT NULL,
-    currency text DEFAULT 'EUR'::text NOT NULL,
     is_active boolean DEFAULT true NOT NULL,
     sort_order integer NOT NULL,
     updated_by uuid,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT organizer_feature_catalog_currency_check CHECK ((currency = 'EUR'::text)),
-    CONSTRAINT organizer_feature_catalog_minimum_tier_check CHECK ((minimum_tier = ANY (ARRAY['complete'::text, 'signature'::text]))),
-    CONSTRAINT organizer_feature_catalog_unit_price_cents_check CHECK ((unit_price_cents >= 0))
+    CONSTRAINT organizer_feature_catalog_minimum_tier_check CHECK ((minimum_tier = ANY (ARRAY['complete'::text, 'signature'::text])))
 );
 
 
@@ -7675,27 +7738,30 @@ CREATE TABLE public.organizer_feature_catalog (
 -- Name: TABLE organizer_feature_catalog; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.organizer_feature_catalog IS 'Service-only prices for individually giftable organizer features.';
+COMMENT ON TABLE public.organizer_feature_catalog IS 'Service-only availability catalog for individually giftable organizer features; features have no standalone price.';
 
 
 --
--- Name: update_admin_organizer_feature_catalog(uuid, text, integer, boolean); Type: FUNCTION; Schema: public; Owner: -
+-- Name: update_admin_organizer_feature_catalog(uuid, text, boolean); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.update_admin_organizer_feature_catalog(p_admin_id uuid, p_feature_key text, p_unit_price_cents integer, p_is_active boolean) RETURNS public.organizer_feature_catalog
+CREATE FUNCTION public.update_admin_organizer_feature_catalog(p_admin_id uuid, p_feature_key text, p_is_active boolean) RETURNS public.organizer_feature_catalog
     LANGUAGE plpgsql
     SET search_path TO ''
     AS $$
 declare catalog_row public.organizer_feature_catalog;
 begin
-  if p_admin_id is null or p_unit_price_cents is null or p_unit_price_cents < 0 or p_is_active is null then
+  if p_admin_id is null or p_is_active is null then
     raise exception 'Invalid organizer feature catalog update.' using errcode = '22023';
   end if;
+
   update public.organizer_feature_catalog
-  set unit_price_cents = p_unit_price_cents, is_active = p_is_active,
-      updated_by = p_admin_id, updated_at = now()
+  set is_active = p_is_active,
+      updated_by = p_admin_id,
+      updated_at = now()
   where feature_key = p_feature_key
   returning * into catalog_row;
+
   if catalog_row.feature_key is null then
     raise exception 'Unknown organizer feature.' using errcode = '22023';
   end if;
@@ -16632,6 +16698,13 @@ CREATE TRIGGER validate_organizer_import_session_scope BEFORE INSERT OR UPDATE O
 
 
 --
+-- Name: organizer_invoices validate_organizer_invoice_gift_lines_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER validate_organizer_invoice_gift_lines_trigger BEFORE INSERT ON public.organizer_invoices FOR EACH ROW EXECUTE FUNCTION private.validate_organizer_invoice_gift_lines();
+
+
+--
 -- Name: organizer_racebook_module_settings validate_organizer_racebook_module_setting_trigger; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -20403,6 +20476,14 @@ GRANT ALL ON FUNCTION private.user_has_trusted_admin_role(p_user_id uuid) TO ser
 
 
 --
+-- Name: FUNCTION validate_organizer_invoice_gift_lines(); Type: ACL; Schema: private; Owner: -
+--
+
+REVOKE ALL ON FUNCTION private.validate_organizer_invoice_gift_lines() FROM PUBLIC;
+GRANT ALL ON FUNCTION private.validate_organizer_invoice_gift_lines() TO service_role;
+
+
+--
 -- Name: FUNCTION acknowledge_race_plan_source_revision(p_plan_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
@@ -21599,11 +21680,11 @@ GRANT ALL ON TABLE public.organizer_feature_catalog TO service_role;
 
 
 --
--- Name: FUNCTION update_admin_organizer_feature_catalog(p_admin_id uuid, p_feature_key text, p_unit_price_cents integer, p_is_active boolean); Type: ACL; Schema: public; Owner: -
+-- Name: FUNCTION update_admin_organizer_feature_catalog(p_admin_id uuid, p_feature_key text, p_is_active boolean); Type: ACL; Schema: public; Owner: -
 --
 
-REVOKE ALL ON FUNCTION public.update_admin_organizer_feature_catalog(p_admin_id uuid, p_feature_key text, p_unit_price_cents integer, p_is_active boolean) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.update_admin_organizer_feature_catalog(p_admin_id uuid, p_feature_key text, p_unit_price_cents integer, p_is_active boolean) TO service_role;
+REVOKE ALL ON FUNCTION public.update_admin_organizer_feature_catalog(p_admin_id uuid, p_feature_key text, p_is_active boolean) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.update_admin_organizer_feature_catalog(p_admin_id uuid, p_feature_key text, p_is_active boolean) TO service_role;
 
 
 --
@@ -23074,5 +23155,5 @@ CREATE EVENT TRIGGER pgrst_drop_watch ON sql_drop
 -- PostgreSQL database dump complete
 --
 
-\unrestrict xw6WGRDmejLXJyT0xdCs2kSdSy71PaGAothz3pht54Qvfz0Z3hyxoOIrnJP9NbT
+\unrestrict 24tvjvOIgzZSJ54RabMUplpfdn0asgJ88PDKp8f9K6cofdwz6ojDAGvOh2oHeh9
 

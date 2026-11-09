@@ -936,8 +936,6 @@
 | `feature_key` | `t` | ✅ | `` |
 | `label` | `t` | ✅ | `` |
 | `minimum_tier` | `t` | ✅ | `` |
-| `unit_price_cents` | `i` | ✅ | `` |
-| `currency` | `t` | ✅ | `` |
 | `is_active` | `b` | ✅ | `` |
 | `sort_order` | `i` | ✅ | `` |
 | `updated_by` | `u` | ❌ | `` |
