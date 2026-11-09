@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { mobileComponents } from '@pace-yourself/design-system';
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { Text } from '../themed/Text';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { ChoiceChip } from '../themed/ChoiceChip';
 import { Colors } from '../../constants/colors';
 import type { ProfileTabKey } from './types';
 
@@ -28,24 +28,16 @@ function ProfileTabsComponent({ activeTab, tabs, onChange }: ProfileTabsProps) {
         {tabs.map((tab) => {
           const isActive = activeTab === tab.key;
           return (
-            <TouchableOpacity
+            <ChoiceChip
               accessibilityRole="tab"
               accessibilityLabel={tab.accessibilityLabel ?? tab.label}
-              accessibilityState={{ selected: isActive }}
               key={tab.key}
-              style={[styles.button, isActive && styles.buttonActive]}
+              label={tab.label}
+              selected={isActive}
+              style={styles.button}
+              trailing={tab.hasUnread ? <View style={styles.unreadDot} /> : undefined}
               onPress={() => onChange(tab.key)}
-            >
-              <View style={styles.labelRow}>
-                <Text
-                  numberOfLines={1}
-                  style={[styles.buttonText, isActive && styles.buttonTextActive]}
-                >
-                  {tab.label}
-                </Text>
-                {tab.hasUnread ? <View style={styles.unreadDot} /> : null}
-              </View>
-            </TouchableOpacity>
+            />
           );
         })}
       </View>
@@ -77,23 +69,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: mobileComponents.segment.paddingHorizontal,
   },
-  buttonActive: {
-    backgroundColor: Colors.surface,
-    shadowColor: '#1A1A1A',
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  buttonText: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  buttonTextActive: {
-    color: Colors.brandPrimary,
-  },
-  labelRow: { alignItems: 'center', flexDirection: 'row', gap: 6 },
   unreadDot: {
     backgroundColor: Colors.danger,
     borderRadius: 4,

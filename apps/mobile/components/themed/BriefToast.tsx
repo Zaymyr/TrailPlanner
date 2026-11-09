@@ -38,12 +38,13 @@ export function BriefToast({ actionLabel, bottom = 88, durationMs, message, onAc
 const styles = StyleSheet.create({
   toast: {
     position: 'absolute', zIndex: 80, left: 16, right: 16, minHeight: 48,
-    flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14,
+    flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 12,
+    borderBottomRightRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.26)',
     backgroundColor: Colors.brandPrimary, paddingHorizontal: 14, paddingVertical: 10,
     shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.18,
     shadowRadius: 8, elevation: 8,
   },
-  error: { backgroundColor: Colors.danger },
+  error: { backgroundColor: Colors.danger, borderColor: 'rgba(255,255,255,0.32)' },
   message: { flex: 1, color: Colors.textOnBrand },
   action: { minHeight: 36, justifyContent: 'center', paddingHorizontal: 6 },
   actionText: { color: Colors.textOnBrand },

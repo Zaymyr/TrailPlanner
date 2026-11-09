@@ -12,14 +12,15 @@ import {
 
 import { TopoContourPattern } from './TopoContourPattern';
 
-type TopoCardVariant = 'standard' | 'interactive' | 'featured';
-type TopoCardSurface = 'white' | 'cream' | 'brand' | 'info';
+export type TopoCardVariant = 'standard' | 'interactive' | 'signature' | 'featured';
+export type TopoCardSurface = 'white' | 'cream' | 'sandLight' | 'brand' | 'info' | 'danger';
 
 type Props = Omit<ViewProps, 'children' | 'style'> & {
   children: ReactNode;
   variant?: TopoCardVariant;
   surface?: TopoCardSurface;
   padded?: boolean;
+  accentColor?: string;
   onPress?: PressableProps['onPress'];
   style?: StyleProp<ViewStyle>;
 };
@@ -27,8 +28,10 @@ type Props = Omit<ViewProps, 'children' | 'style'> & {
 const surfaceByVariant: Record<TopoCardSurface, string> = {
   white: colors.surface.white,
   cream: colors.surface.cream,
+  sandLight: colors.surface.sandLight,
   brand: colors.brand.surface,
   info: colors.semantic.infoSurface,
+  danger: colors.semantic.dangerSurface,
 };
 
 export function TopoCard({
@@ -36,6 +39,7 @@ export function TopoCard({
   variant = 'standard',
   surface = 'white',
   padded = true,
+  accentColor = colors.brand.forest,
   onPress,
   style,
   ...props
@@ -44,14 +48,16 @@ export function TopoCard({
     styles.base,
     { backgroundColor: surfaceByVariant[surface] },
     padded && styles.padded,
-    variant === 'featured' && styles.featured,
+    (variant === 'signature' || variant === 'featured') && styles.signature,
     style,
   ];
   const content = (
     <>
       {variant === 'featured' ? <TopoContourPattern /> : null}
       {children}
-      {variant === 'featured' ? <View accessible={false} style={styles.elevationMark} /> : null}
+      {variant === 'signature' || variant === 'featured' ? (
+        <View accessible={false} style={[styles.elevationMark, { backgroundColor: accentColor }]} />
+      ) : null}
     </>
   );
 
@@ -87,7 +93,7 @@ const styles = StyleSheet.create({
   padded: {
     padding: mobileComponents.topoCard.padding,
   },
-  featured: {
+  signature: {
     borderColor: colors.brand.border,
     borderBottomRightRadius: mobileComponents.topoCard.featuredBottomRightRadius,
   },

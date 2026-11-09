@@ -121,11 +121,14 @@ Mobile account entry points live in `apps/mobile/app/(auth)/login.tsx`, `apps/mo
 Guest-only feature gates reuse `apps/mobile/hooks/useGuestAccountPrompt.ts`. It presents separate account-creation and existing-account sign-in choices, then routes through those same auth screens so guest conversion/merge behavior remains centralized. The race-favorite and additional-plan gates invoke it before optimistic UI or persistence.
 The onboarding route injects the guest account controls into its extracted presentational overview component. Apple/Google callbacks, loading state, guest continuation, and auth errors remain owned by the route so the component split does not create a second authentication lifecycle.
 The password-login inputs and submit action expose stable `auth-login-*` test ids and localized accessibility labels. The Maestro UX journey uses those hooks so translations can change without breaking authentication tests. Credentials enter the process through ignored local environment files or secret EAS `preview` variables; they are never embedded in the app bundle or flow YAML.
-The login presentation uses the shared `Field`, `ActionButton`, and featured
-`TopoCard` primitives. This is presentation-only: password/social handlers,
-guest merge preparation, session ownership, stable test ids, and localized
-accessibility labels remain on the route.
-Login uses the same scrollable keyboard-avoidance layout as signup, so account actions remain reachable when the iOS keyboard is open or Dynamic Type enlarges the form. Its content starts near the top instead of vertically centering a long guest notice, and the social-auth separator is localized.
+Login and signup use the shared `Field`, `ActionButton`, and featured `TopoCard`
+primitives, including the signup confirmation surface. This is presentation-only:
+password/social handlers, guest merge preparation or conversion, session
+ownership, stable login test ids, and localized accessibility labels remain on
+their routes. Both screens use the same scrollable keyboard-avoidance layout,
+so account actions remain reachable when the iOS keyboard is open or Dynamic
+Type enlarges the form. Their content starts near the top instead of vertically
+centering a long guest notice, and the social-auth separator is localized.
 The session shell resolves required onboarding before navigation; otherwise it opens the Courses catalog directly and does not preload the Plans screen.
 The Profile root may retry its own `getSession()` plus `user_profiles` bootstrap after a recoverable read failure. That retry reuses the existing session and does not create a second auth listener, navigation gate, guest conversion, or onboarding lifecycle.
 Profile dirty-state retention, its single save dock, and native birth-date entry remain local form presentation. Changing Profile sub-tabs or root tabs does not write, discard, or create a session; only the existing explicit save path persists the normalized ISO date and validated fields.

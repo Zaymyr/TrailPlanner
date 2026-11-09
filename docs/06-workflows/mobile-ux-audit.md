@@ -70,10 +70,13 @@ The repository skill `$mobile-ux-ui-auditor` turns this workflow into a dedicate
 15. Return from a plan detail to Mes courses/My races and confirm the visual header state matches the real list offset. In the plan editor, confirm matching back/help controls and visible first content on a 6.1-inch viewport.
 16. Compare first-level content edges across Courses, Mes courses/My races, Profile and the pushed Nutrition screen; cards, section titles and selectors must use the same 16-point gutter. Confirm sticky Courses search is fully opaque.
 17. Compare filter chips, segmented selectors, profile inputs, modal closes and primary/secondary buttons across the same journey. Verify event locations truncate before the protected date and sans/mono typography follows the documented value rule.
-    For the warm Topo pilot, also verify that the login featured card keeps its
-    short lower-right corner and faint contour pattern, Courses format actions
-    use sentence-case shared buttons/fields, and the Profile save dock matches
-    the same action geometry. At 130% text, labels must wrap or shrink without
+    For the warm Topo system, verify both auth screens and root headers keep
+    their short lower-right corner and faint contour pattern; legacy shared
+    cards and loading/error/empty states use the quieter signature geometry;
+    Courses format actions use sentence-case shared buttons/fields; Profile
+    tabs are visibly selected beyond color; and the Profile save dock matches
+    the same action geometry. Check the Livret and plan contextual bars use the
+    selected icon surface. At 130% text, labels must wrap or shrink without
     obscuring actions; pills remain limited to statuses and selections.
 18. In Profile, inspect the four-sub-tab segmented scroller at normal and enlarged text sizes. Create both pending-onboarding and unread-notification conditions and confirm that the bottom Profile icon shows one red dot whose screen-reader label announces both. Open Notifications, verify its own unread dot, loading/error/empty/list states, pagination and retry, then confirm a card becomes read only after opening it and the bulk action clears remaining unread dots. Open a push href targeting `/(app)/profile?tab=notifications&notificationId=<uuid>` and confirm the owner-visible card expands and becomes read even when it was outside the first page.
 

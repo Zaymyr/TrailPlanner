@@ -407,9 +407,16 @@ the lower-right corner to 8 points and add the shared low-contrast contour
 pattern; ordinary cards remain quiet. Bricolage Grotesque carries interface
 copy in sentence case, while JetBrains Mono is reserved for race measurements.
 Forest remains the primary interaction color, alpine blue marks information or
-hydration, and terracotta is an attention/danger accent. The login hero,
-Courses presentation components, and the Profile save dock are the first pilot
-surfaces; their data/auth/persistence behavior is unchanged.
+hydration, and terracotta is an attention/danger accent.
+
+This grammar is app-wide rather than limited to pilot routes. The legacy shared
+`Card` renders the signature Topo geometry, and shared loading, error and empty
+states use matching surfaces. Root headers add the decorative contour pattern
+and shortened lower-right corner; Profile selection uses `ChoiceChip`, while
+the shared RaceBook/plan contextual tab bar gives its selected icon a 10-point
+data surface. `Screen` and the shared root compositions use the 16-point gutter.
+These presentation changes do not alter navigation, fetching, form persistence,
+accessibility roles or plan/RaceBook state machines.
 
 Plans align section headers and cards on that gutter and expose one labelled primary card action: Edit before race day, Start on race day, and Recap after it. Remaining Edit/Recap and Share actions are secondary icons with the existing accessibility labels and handlers; the separate top-right destructive action is the only red card control. Nutrition uses a brand initial when a group has no image and vertically centers the name/badge block. Courses uses a secondary transparent 44-point heart; its sticky search surface is opaque, and the event location truncates before the non-breaking localized date.
 
