@@ -1,4 +1,4 @@
-import { colors, spacing } from '@pace-yourself/design-system';
+import { colors, mobileComponents, spacing } from '@pace-yourself/design-system';
 import {
   StyleSheet,
   View,
@@ -27,7 +27,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface.sand,
   },
   padded: {
-    paddingHorizontal: spacing.gutter,
+    paddingHorizontal: mobileComponents.screenGutter,
     paddingVertical: spacing[5],
   },
 });

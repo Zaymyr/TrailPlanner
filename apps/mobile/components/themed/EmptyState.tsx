@@ -10,6 +10,7 @@ import {
 import { Button } from './Button';
 import { Heading } from './Heading';
 import { Text } from './Text';
+import { TopoCard } from './TopoCard';
 
 type Props = {
   title: string;
@@ -31,14 +32,14 @@ export function EmptyState({
   testID,
 }: Props) {
   return (
-    <View style={[styles.container, style]} testID={testID}>
+    <TopoCard surface="cream" variant="featured" style={[styles.container, style]} testID={testID}>
       {icon ? <View style={styles.icon}>{icon}</View> : null}
       <Heading style={styles.centered} variant="h3">{title}</Heading>
       {description ? <Text tone="secondary" style={styles.description}>{description}</Text> : null}
       {onActionPress && actionLabel ? (
         <Button onPress={onActionPress} style={styles.action}>{actionLabel}</Button>
       ) : null}
-    </View>
+    </TopoCard>
   );
 }
 

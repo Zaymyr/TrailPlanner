@@ -4,6 +4,7 @@ import { Animated, Pressable, StyleSheet, View } from 'react-native';
 
 import { Colors } from '../../constants/colors';
 import { Text } from '../themed/Text';
+import { TopoContourPattern } from '../themed/TopoContourPattern';
 
 export const ROOT_HEADER_EXPANDED_BODY_HEIGHT = 76;
 export const ROOT_HEADER_COMPACT_BODY_HEIGHT = 60;
@@ -60,6 +61,7 @@ export function RootCollapsibleHeader({ action, helpAction, icon, scrollY, title
         { height },
       ]}
     >
+      <TopoContourPattern color={Colors.textOnBrand} opacity={0.1} />
       <Animated.View
         accessibilityElementsHidden={compact}
         importantForAccessibility={compact ? 'no-hide-descendants' : 'auto'}
@@ -136,7 +138,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: Colors.brandPrimary,
     borderBottomLeftRadius: 22,
-    borderBottomRightRadius: 22,
+    borderBottomRightRadius: 8,
   },
   headerScrolled: {
     shadowColor: '#1A1A1A',
@@ -160,7 +162,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 22,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.34)',
     backgroundColor: 'rgba(0,0,0,0.16)',
@@ -208,7 +210,7 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 22,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.34)',
     backgroundColor: 'rgba(0,0,0,0.16)',

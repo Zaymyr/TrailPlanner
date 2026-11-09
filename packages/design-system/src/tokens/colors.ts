@@ -32,6 +32,9 @@ export const colors = {
   },
   semantic: {
     success: "#2D5016",
+    info: "#3F6F8F",
+    infoSurface: "#EAF1F5",
+    infoBorder: "#B9CFDC",
     danger: "#C0392B",
     dangerSurface: "#FDECEA",
     warning: "#D97706",

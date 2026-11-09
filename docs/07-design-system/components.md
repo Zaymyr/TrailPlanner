@@ -11,6 +11,18 @@ related_files:
   - apps/web/components/ui/tabs.tsx
   - apps/web/components/utils.ts
   - apps/mobile/components/themed/Button.tsx
+  - apps/mobile/components/themed/ActionButton.tsx
+  - apps/mobile/components/themed/ChoiceChip.tsx
+  - apps/mobile/components/themed/Field.tsx
+  - apps/mobile/components/themed/IconAction.tsx
+  - apps/mobile/components/themed/MetricTile.tsx
+  - apps/mobile/components/themed/SectionHeading.tsx
+  - apps/mobile/components/themed/StatusPill.tsx
+  - apps/mobile/components/themed/TopoCard.tsx
+  - apps/mobile/components/themed/TopoContourPattern.tsx
+  - apps/mobile/components/themed/Card.tsx
+  - apps/mobile/components/themed/Screen.tsx
+  - apps/mobile/components/profile/ProfileSaveButton.tsx
   - apps/mobile/components/themed/LoadingState.tsx
   - apps/mobile/components/themed/ErrorState.tsx
   - apps/mobile/components/themed/EmptyState.tsx
@@ -108,21 +120,46 @@ Card subcomponents:
 ## Mobile primitives
 
 The themed mobile folder provides small shared React Native building blocks.
-`Button` has primary, secondary, and ghost variants, a 48-point minimum action
-height, pressed and disabled states, and an `isLoading` state that disables the
-action with a native spinner. `LoadingState` presents an accessible busy
+`ActionButton` is the canonical action primitive with primary, secondary,
+ghost and destructive variants; small/medium/large sizes all preserve at least
+a 44-point target, support leading/trailing content, and expose pressed,
+disabled and loading states. `Button` remains a compatibility export of this
+primitive, so existing screens adopt the same sentence-case label and geometry
+without a second implementation. `LoadingState` presents an accessible busy
 indicator and optional localized label. `ErrorState` provides a title,
 description, and optional retry action. `EmptyState` provides a title,
 description, optional illustration, and optional primary action. Screen-level
 callers own all visible strings so they can use the locale files.
 
+The warm Topo identity is expressed through a deliberately small vocabulary:
+
+- `TopoCard` provides standard, interactive, signature and featured cards.
+  Signature cards use the asymmetric lower-right corner and a
+  non-informational elevation mark; featured cards additionally use the faint
+  decorative contour pattern. The legacy shared `Card` delegates to the
+  signature variant, so existing screens inherit the identity without local
+  geometry.
+- `ChoiceChip` is interactive selection, while `StatusPill` is non-interactive
+  status. Full-radius geometry is not used for ordinary data or buttons.
+- `MetricTile` pairs a normal-language label with a JetBrains Mono race value
+  in the shared 10-point data block.
+- `SectionHeading`, `IconAction`, and `Field` normalize section hierarchy,
+  44-point icon targets, and labelled/helper/error input states.
+- `TopoContourPattern` is decorative only (`accessible={false}`) and is limited
+  to identity/featured surfaces rather than ordinary content cards.
+- Shared `LoadingState`, `ErrorState`, and `EmptyState` use matching signature
+  surfaces while preserving their semantic roles, live-region behavior and
+  localized actions.
+
 `RootCollapsibleHeader` is the shared header for the four primary mobile tabs.
-It uses the forest brand surface, respects the native top inset, and progressively
+It uses the forest brand surface with a faint decorative contour pattern,
+respects the native top inset, and progressively
 contracts from a 76-point body to a 60-point sticky body. Both states keep one
 horizontal row: a 44-point leading target at the 16-point gutter, a title whose
 left edge does not move during collapse, and an optional matching trailing target.
-The large title shrinks to fit one line, the lower corner shape remains stable,
-and scrolling content begins below the expanded height.
+The large title shrinks to fit one line, the shortened lower-right corner remains
+stable, icon actions use the 12-point control radius, and scrolling content begins
+below the expanded height.
 
 Shared React Native geometry comes from `mobileComponents`. Filter chips use the
 same selected/unselected structure across Courses and Nutrition; Profile and plan
@@ -146,6 +183,10 @@ radius. Screen-specific components own copy, state, color roles and behavior.
 - Do not create a local loading, error, or empty state when a themed state can
   express the screen; pass localized labels and preserve the shared retry CTA.
 - Use `DataText` only for comparable numeric values. Counts or statuses containing words use the normal themed `Text` component.
+- Do not use `StatusPill` for an action or `ChoiceChip` for passive information;
+  their interaction semantics must remain visually distinct.
+- Keep contour artwork low-contrast and decorative. It must not sit behind
+  dense body copy or communicate elevation/status information.
 - Do not make routine success toasts persistent. A longer or unbounded duration is for notices whose action must remain reachable, and the caller must still provide a clear dismissal path or bounded lifecycle.
 
 ## Related Docs
