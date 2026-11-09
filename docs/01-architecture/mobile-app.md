@@ -104,6 +104,16 @@ related_files:
   - apps/mobile/components/racebook/RacebookStructuredCourseSections.tsx
   - apps/mobile/components/premium/PremiumUpsellModal.tsx
   - apps/mobile/components/themed/Button.tsx
+  - apps/mobile/components/themed/ActionButton.tsx
+  - apps/mobile/components/themed/ChoiceChip.tsx
+  - apps/mobile/components/themed/Field.tsx
+  - apps/mobile/components/themed/IconAction.tsx
+  - apps/mobile/components/themed/MetricTile.tsx
+  - apps/mobile/components/themed/SectionHeading.tsx
+  - apps/mobile/components/themed/StatusPill.tsx
+  - apps/mobile/components/themed/TopoCard.tsx
+  - apps/mobile/components/themed/TopoContourPattern.tsx
+  - apps/mobile/components/profile/ProfileSaveButton.tsx
   - packages/design-system/src/tokens/mobile-components.ts
   - apps/mobile/components/profile/ProfileLanguageSection.tsx
   - apps/mobile/components/profile/ProfilePremiumSection.tsx
@@ -390,6 +400,17 @@ Race detail stacks use minimal iOS back indicators so dynamic route segments suc
 
 First-level cards, selectors, section titles and root actions use the shared 16-point screen gutter. Filter chips, segmented selectors, input shells, modal close controls and primary/secondary button radii derive their geometry from `packages/design-system/src/tokens/mobile-components.ts`; route-local code supplies colors and content, not competing dimensions. `DataText` is reserved for comparable numeric values such as time, pace, distance and nutrition metrics. Text-bearing states such as “Departure passed”, “in 11 days” or “1 product” use the normal sans text component.
 
+The mobile identity follows the warm Topo grammar. Ordinary controls use a
+12-point radius, compact numeric blocks 10 points, cards 18 points, and only
+status/selection pills use full rounding. Featured identity cards may shorten
+the lower-right corner to 8 points and add the shared low-contrast contour
+pattern; ordinary cards remain quiet. Bricolage Grotesque carries interface
+copy in sentence case, while JetBrains Mono is reserved for race measurements.
+Forest remains the primary interaction color, alpine blue marks information or
+hydration, and terracotta is an attention/danger accent. The login hero,
+Courses presentation components, and the Profile save dock are the first pilot
+surfaces; their data/auth/persistence behavior is unchanged.
+
 Plans align section headers and cards on that gutter and expose one labelled primary card action: Edit before race day, Start on race day, and Recap after it. Remaining Edit/Recap and Share actions are secondary icons with the existing accessibility labels and handlers; the separate top-right destructive action is the only red card control. Nutrition uses a brand initial when a group has no image and vertically centers the name/badge block. Courses uses a secondary transparent 44-point heart; its sticky search surface is opaque, and the event location truncates before the non-breaking localized date.
 
 The plan detail header is intentionally centered while root-tab titles are left-aligned. Its 184-point expanded body keeps time, pace and distance on the primary metric row and D+/D− on a quieter secondary row; its 76-point compact state retains the plan name with time and pace. Back and help use matching 44-point framed actions at the 16-point gutters. These presentation rules do not alter plan calculations, access checks, navigation analytics or persistence.
@@ -398,7 +419,7 @@ The plan detail header is intentionally centered while root-tab titles are left-
 
 `apps/mobile/app/(app)/catalog.tsx` is now the runner surface for event favorites and organizer announcements:
 
-Its reusable loading card, race row, and filter modal live in `apps/mobile/components/catalog/CatalogPresentation.tsx`; the route retains catalog queries, filtering state, favorites, analytics, and navigation. Runner-owned personal races are no longer queried or displayed.
+Its reusable loading card, race row, and filter modal live in `apps/mobile/components/catalog/CatalogPresentation.tsx`; they consume the shared Topo card, action, field, section-heading and icon-action primitives. The route retains catalog queries, filtering state, favorites, analytics, and navigation. Runner-owned personal races are no longer queried or displayed.
 
 The three root tabs expose the same 44-point `?` header action (Nutrition, now pushed, shows a back action instead) in expanded and compact modes. It opens contextual help, feedback, and race request actions and consumes Android back while open; guided Courses onboarding intentionally omits it. Courses keeps search and quick filters pinned below the compact header. Native date fields preserve ISO values while rendering locale dates and are loaded lazily so an OTA reaching an older binary reports that a new build is required instead of crashing. Profile uses one dirty-only bottom save dock, while Nutrition keeps brand accordions only for the unfiltered catalog and switches to flat product rows for search/type results.
 
