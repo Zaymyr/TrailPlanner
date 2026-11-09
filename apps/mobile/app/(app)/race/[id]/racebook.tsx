@@ -2030,7 +2030,12 @@ export default function RaceRacebookScreen() {
         contentContainerStyle={[
           styles.container,
           { backgroundColor: brandTheme.primarySurfaceColor },
-          !showLoading && !unavailable && data ? { paddingTop: heroExpandedHeight + (showPlanWorkspace ? RACE_WORKSPACE_SWITCH_HEIGHT : 0) + 16 } : null,
+          !showLoading && !unavailable && data ? {
+            paddingTop: heroExpandedHeight + (showPlanWorkspace ? RACE_WORKSPACE_SWITCH_HEIGHT : 0) + 16,
+            // A short tab must still scroll far enough to fully collapse the hero,
+            // otherwise it rests half-collapsed with neither title visible.
+            minHeight: viewportHeight + Math.max(0, heroBodyHeight - RACEBOOK_HERO_COMPACT_BODY_HEIGHT),
+          } : null,
           showLoading || unavailable ? { paddingTop: insets.top + 16 } : null,
           showLoading && { minHeight: Math.max(520, viewportHeight - 120) },
         ]}
@@ -2561,7 +2566,11 @@ export default function RaceRacebookScreen() {
           actionLabel={t.catalog.racebookCreatePlan}
           onAction={() => { void handlePlanCtaPress('onboarding_end'); }}
           skipLabel={t.onboarding.tours.planOfferLater}
-          onSkip={() => router.replace(id ? `/(app)/race/${id}/racebook` : '/(app)/catalog')}
+          onSkip={() => {
+            // Stay on this RaceBook: only leave the guided mode.
+            setOnboardingPlanOffer(false);
+            router.setParams({ onboarding: undefined });
+          }}
           busy={planCtaBusy}
         />
       ) : null}

@@ -156,8 +156,9 @@ export function RacebookCollapsibleHero({
   }, [collapseDistance, scrollY]);
 
   const handleExpandedLayout = useCallback((event: LayoutChangeEvent) => {
-    onExpandedBodyHeightChange?.(Math.ceil(event.nativeEvent.layout.height - topInset));
-  }, [onExpandedBodyHeightChange, topInset]);
+    // The block sits below the toolbar inside its clip, so add the toolbar back.
+    onExpandedBodyHeightChange?.(Math.ceil(event.nativeEvent.layout.height + RACE_WORKSPACE_TOOLBAR_HEIGHT));
+  }, [onExpandedBodyHeightChange]);
 
   return (
     <Animated.View
@@ -173,7 +174,7 @@ export function RacebookCollapsibleHero({
       <StatusBar style={theme.onPrimaryColor === '#FFFFFF' ? 'light' : 'dark'} />
       {imageUrl ? (
         <Animated.View style={[styles.heroImage, { top: topInset, opacity: expandedOpacity }]}>
-          <Animated.Image source={{ uri: imageUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" blurRadius={8} accessible={false} />
+          <Animated.Image source={{ uri: imageUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" blurRadius={24} accessible={false} />
         </Animated.View>
       ) : null}
       {imageUrl ? <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.primaryColor, opacity: HERO_PHOTO_VEIL_OPACITY }]} /> : null}
@@ -238,9 +239,11 @@ export function RacebookCollapsibleHero({
         </View>
       ) : null}
 
+      {/* Clipped below the toolbar so the rising block never slides under the back/link buttons. */}
+      <View pointerEvents="box-none" style={[styles.expandedClip, { top: topInset + RACE_WORKSPACE_TOOLBAR_HEIGHT }]}>
       <Animated.View
         onLayout={handleExpandedLayout}
-        style={[styles.expandedContent, { paddingTop: topInset + RACE_WORKSPACE_TOOLBAR_HEIGHT, opacity: expandedOpacity, transform: [{ translateY: expandedTranslateY }] }]}
+        style={[styles.expandedContent, { opacity: expandedOpacity, transform: [{ translateY: expandedTranslateY }] }]}
       >
         <RaceWorkspaceCommonBlock
           title={raceName}
@@ -301,6 +304,7 @@ export function RacebookCollapsibleHero({
           ) : null}
         />
       </Animated.View>
+      </View>
       <Modal
         animationType="fade"
         onRequestClose={() => setLinksVisible(false)}
@@ -351,6 +355,7 @@ const styles = StyleSheet.create({
   backButton: { position: 'absolute', zIndex: 4, left: 16, width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.34)', backgroundColor: 'rgba(0,0,0,0.22)' },
   pressed: { opacity: 0.64 },
   compactContent: { position: 'absolute', left: 72, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  expandedClip: { position: 'absolute', left: 0, right: 0, bottom: 0, overflow: 'hidden' },
   expandedContent: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 16, paddingBottom: 16 },
   logoSurface: { width: 44, height: 36, flexShrink: 0, padding: 4, borderRadius: 10, backgroundColor: Colors.surface },
   footerRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10 },
