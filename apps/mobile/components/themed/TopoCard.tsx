@@ -39,11 +39,17 @@ export function TopoCard({
   variant = 'standard',
   surface = 'white',
   padded = true,
-  accentColor = colors.brand.forest,
+  accentColor,
   onPress,
   style,
   ...props
 }: Props) {
+  const resolvedAccentColor = accentColor
+    ?? (surface === 'danger'
+      ? colors.accent.terracotta
+      : surface === 'info'
+        ? colors.semantic.info
+        : colors.brand.forest);
   const cardStyle = [
     styles.base,
     { backgroundColor: surfaceByVariant[surface] },
@@ -56,7 +62,7 @@ export function TopoCard({
       {variant === 'featured' ? <TopoContourPattern /> : null}
       {children}
       {variant === 'signature' || variant === 'featured' ? (
-        <View accessible={false} style={[styles.elevationMark, { backgroundColor: accentColor }]} />
+        <View accessible={false} style={[styles.trailMarker, { backgroundColor: resolvedAccentColor }]} />
       ) : null}
     </>
   );
@@ -95,20 +101,20 @@ const styles = StyleSheet.create({
   },
   signature: {
     borderColor: colors.brand.border,
-    borderBottomRightRadius: mobileComponents.topoCard.featuredBottomRightRadius,
+    borderBottomRightRadius: mobileComponents.topoCard.signatureBottomRightRadius,
   },
   pressed: {
     opacity: 0.88,
     transform: [{ scale: mobileComponents.motion.pressScale }],
   },
-  elevationMark: {
+  trailMarker: {
     position: 'absolute',
-    right: 10,
-    bottom: 7,
-    width: 24,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: colors.brand.forest,
-    opacity: 0.28,
+    left: 0,
+    top: 20,
+    width: mobileComponents.topoCard.markerWidth,
+    height: mobileComponents.topoCard.markerHeight,
+    borderTopRightRadius: mobileComponents.signature.markerRadius,
+    borderBottomRightRadius: mobileComponents.signature.markerRadius,
+    opacity: 0.9,
   },
 });

@@ -1,6 +1,6 @@
 import { colors, mobileComponents, spacing } from '@pace-yourself/design-system';
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, View, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
 
 import { Text } from './Text';
 
@@ -27,6 +27,7 @@ export function ChoiceChip({ label, selected, icon, trailing, disabled, accessib
         style,
       ]}
     >
+      {selected && !icon ? <View accessible={false} style={styles.selectionMark} /> : null}
       {icon}
       <Text tone={selected ? 'inverse' : 'secondary'} size="sm" weight="semibold" numberOfLines={1}>
         {label}
@@ -50,6 +51,13 @@ const styles = StyleSheet.create({
   selected: {
     backgroundColor: colors.brand.forest,
     borderColor: colors.brand.forest,
+  },
+  selectionMark: {
+    width: 7,
+    height: 7,
+    borderRadius: 2,
+    backgroundColor: colors.text.inverse,
+    transform: [{ rotate: '45deg' }],
   },
   unselected: {
     backgroundColor: colors.surface.cream,

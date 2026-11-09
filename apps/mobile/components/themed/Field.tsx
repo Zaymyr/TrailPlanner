@@ -1,5 +1,5 @@
 import { colors, mobileComponents, spacing } from '@pace-yourself/design-system';
-import { forwardRef, type ReactNode } from 'react';
+import { forwardRef, useState, type ReactNode } from 'react';
 import {
   StyleSheet,
   TextInput,
@@ -31,20 +31,36 @@ export const Field = forwardRef<TextInput, Props>(function Field(
     editable = true,
     placeholderTextColor = colors.text.tertiary,
     style,
+    onFocus,
+    onBlur,
     ...props
   },
   ref,
 ) {
+  const [focused, setFocused] = useState(false);
+
   return (
     <View style={[styles.container, containerStyle]}>
       {label ? <Text size="sm" weight="semibold">{label}</Text> : null}
-      <View style={[styles.shell, error && styles.shellError, !editable && styles.disabled]}>
+      <View style={[styles.shell, focused && styles.shellFocused, error && styles.shellError, !editable && styles.disabled]}>
+        <View
+          accessible={false}
+          style={[styles.focusMarker, focused && styles.focusMarkerActive, error && styles.focusMarkerError]}
+        />
         {leading}
         <TextInput
           {...props}
           ref={ref}
           editable={editable}
           placeholderTextColor={placeholderTextColor}
+          onBlur={(event) => {
+            setFocused(false);
+            onBlur?.(event);
+          }}
+          onFocus={(event) => {
+            setFocused(true);
+            onFocus?.(event);
+          }}
           style={[styles.input, style]}
         />
         {trailing}
@@ -65,6 +81,7 @@ const styles = StyleSheet.create({
   shell: {
     minHeight: mobileComponents.input.minHeight,
     borderRadius: mobileComponents.input.borderRadius,
+    borderBottomRightRadius: mobileComponents.input.signatureBottomRightRadius,
     borderWidth: 1,
     borderColor: colors.border.subtle,
     backgroundColor: colors.surface.white,
@@ -73,7 +90,20 @@ const styles = StyleSheet.create({
     gap: spacing[2],
     paddingHorizontal: mobileComponents.input.paddingHorizontal,
   },
+  shellFocused: { borderColor: colors.brand.forest, borderWidth: 1.5 },
   shellError: { borderColor: colors.semantic.danger },
+  focusMarker: {
+    position: 'absolute',
+    left: -1,
+    top: 11,
+    bottom: 11,
+    width: 3,
+    borderTopRightRadius: 3,
+    borderBottomRightRadius: 3,
+    backgroundColor: colors.border.strong,
+  },
+  focusMarkerActive: { backgroundColor: colors.brand.forest, width: 4 },
+  focusMarkerError: { backgroundColor: colors.accent.terracotta, width: 4 },
   disabled: { opacity: 0.55 },
   input: {
     flex: 1,

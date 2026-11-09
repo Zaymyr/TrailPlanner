@@ -1,7 +1,7 @@
 ---
 title: Design Tokens
 scope: design-system
-last_verified: 2026-11-01
+last_verified: 2026-11-09
 ai_priority: medium
 related_files:
   - packages/design-system/src/tokens/colors.ts
@@ -103,8 +103,11 @@ Shadows include `sm`, `md`, and `lg` with brand-tinted rgba values.
 `mobileComponents` composes those base tokens into shared React Native control
 geometry: a 16-point screen gutter, 10-point data blocks, 12-point
 action/button/input radii, 18-point cards, full-radius filter chips, and
-44-point minimum selection/close targets. Its featured Topo card keeps three
-18-point corners and one 8-point lower-right signature corner. It also owns the
+44-point minimum selection/close targets. The signature geometry keeps the
+ordinary family radius on three corners and uses a 4-point lower-right corner
+for Topo cards, actions, fields, icon actions, and data blocks. The Topo-card
+tokens also own the 4 by 32-point leading trail marker; callers may color it
+with brand, information, or semantic danger roles. It also owns the
 small/medium/large action heights and the restrained 0.98 press feedback plus
 140/180 ms motion durations. Mobile callers continue to apply semantic colors
 from `Colors`/`colors`.

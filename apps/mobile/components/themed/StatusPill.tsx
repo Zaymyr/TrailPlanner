@@ -20,7 +20,7 @@ export function StatusPill({ label, tone = 'neutral', icon, accessibilityLabel, 
       accessibilityLabel={accessibilityLabel ?? label}
       style={[styles.base, toneStyles[tone], style]}
     >
-      {icon}
+      {icon ?? <View accessible={false} style={[styles.statusMark, toneMarkStyles[tone]]} />}
       <Text size="xs" weight="semibold" style={toneTextStyles[tone]}>
         {label}
       </Text>
@@ -40,6 +40,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing[1],
   },
+  statusMark: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+});
+
+const toneMarkStyles = StyleSheet.create({
+  neutral: { backgroundColor: colors.text.tertiary },
+  brand: { backgroundColor: colors.brand.forest },
+  info: { backgroundColor: colors.semantic.info },
+  success: { backgroundColor: colors.semantic.success },
+  warning: { backgroundColor: colors.semantic.warning },
+  danger: { backgroundColor: colors.semantic.danger },
 });
 
 const toneStyles = StyleSheet.create({

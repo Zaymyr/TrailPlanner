@@ -24,8 +24,10 @@ export const mobileComponents = {
   },
   topoCard: {
     borderRadius: radius.card,
-    featuredBottomRightRadius: radius.md,
+    signatureBottomRightRadius: radius.sm,
     padding: spacing[4],
+    markerWidth: spacing[1],
+    markerHeight: spacing[8],
   },
   filterChip: {
     minHeight: 44,
@@ -35,7 +37,13 @@ export const mobileComponents = {
   input: {
     minHeight: 48,
     borderRadius: radius.lg,
+    signatureBottomRightRadius: radius.sm,
     paddingHorizontal: spacing[3],
+  },
+  signature: {
+    actionBottomRightRadius: radius.sm,
+    dataBottomRightRadius: radius.sm,
+    markerRadius: radius.sm,
   },
   segmentedControl: {
     borderRadius: radius.xl,
