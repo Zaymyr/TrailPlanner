@@ -24,10 +24,35 @@ export const mobileComponents = {
   },
   topoCard: {
     borderRadius: radius.card,
-    signatureBottomRightRadius: radius.sm,
     padding: spacing[4],
-    markerWidth: spacing[1],
-    markerHeight: spacing[8],
+    /** Distance from the card top to the leading-edge trail blaze. */
+    blazeTop: spacing[5],
+  },
+  /**
+   * Pace Yourself trail blaze: two painted bands (light over strong), the
+   * product's own waymark. Never the red/white GR waymark.
+   */
+  blaze: {
+    sm: { width: 10, bandHeight: 3, gap: 2 },
+    md: { width: 14, bandHeight: 4, gap: 2 },
+    lg: { width: 20, bandHeight: 5, gap: 3 },
+    radius: 1,
+  },
+  /** Ridge-line motif (dividers, loaders, course silhouettes, celebration). */
+  ridge: {
+    strokeWidth: 2,
+    dividerHeight: 14,
+    loaderHeight: 40,
+    silhouetteHeight: 34,
+    samples: 48,
+    loaderDurationMs: 1600,
+    celebrationDurationMs: 1100,
+  },
+  /** Dotted trail line linking timeline steps. */
+  timeline: {
+    railWidth: 2,
+    dash: 4,
+    gap: 4,
   },
   filterChip: {
     minHeight: 44,
@@ -37,13 +62,7 @@ export const mobileComponents = {
   input: {
     minHeight: 48,
     borderRadius: radius.lg,
-    signatureBottomRightRadius: radius.sm,
     paddingHorizontal: spacing[3],
-  },
-  signature: {
-    actionBottomRightRadius: radius.sm,
-    dataBottomRightRadius: radius.sm,
-    markerRadius: radius.sm,
   },
   segmentedControl: {
     borderRadius: radius.xl,

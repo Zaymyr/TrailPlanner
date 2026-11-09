@@ -9,6 +9,7 @@ import {
 
 import { Button } from './Button';
 import { Heading } from './Heading';
+import { CourseRidge } from './Ridge';
 import { Text } from './Text';
 import { TopoCard } from './TopoCard';
 
@@ -33,7 +34,7 @@ export function EmptyState({
 }: Props) {
   return (
     <TopoCard surface="cream" variant="featured" style={[styles.container, style]} testID={testID}>
-      {icon ? <View style={styles.icon}>{icon}</View> : null}
+      {icon ? <View style={styles.icon}>{icon}</View> : <CourseRidge height={34} style={styles.ridge} />}
       <Heading style={styles.centered} variant="h3">{title}</Heading>
       {description ? <Text tone="secondary" style={styles.description}>{description}</Text> : null}
       {onActionPress && actionLabel ? (
@@ -51,6 +52,11 @@ const styles = StyleSheet.create({
     padding: spacing[5],
   },
   icon: {
+    marginBottom: spacing[3],
+  },
+  ridge: {
+    width: 132,
+    alignSelf: 'center',
     marginBottom: spacing[3],
   },
   centered: {

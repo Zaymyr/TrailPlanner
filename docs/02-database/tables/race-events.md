@@ -383,6 +383,8 @@ The mobile catalog may hide the image rail when no event/format thumbnail exists
 
 The mobile sheet retains stable distance ordering, adds distance-range typography and equal outline actions, and hides plan creation for past formats unless the runner already owns a plan. These are presentation rules and do not mutate event or race rows.
 
+Trail signature (2026-11-09): the runner RaceBook screen adds presentation only: faint contour lines in the hero derived from the already-loaded course elevation profile (drawn only when the organizer publishes it through `gpxDisplay.showElevationProfile`) and a ridge-line divider inside the course essentials card. It reads and writes no row of this domain and changes no query, payload or analytics event.
+
 ## Related Docs
 
 

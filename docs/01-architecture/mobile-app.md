@@ -113,6 +113,14 @@ related_files:
   - apps/mobile/components/themed/StatusPill.tsx
   - apps/mobile/components/themed/TopoCard.tsx
   - apps/mobile/components/themed/TopoContourPattern.tsx
+  - apps/mobile/components/themed/TrailBlaze.tsx
+  - apps/mobile/components/themed/Cote.tsx
+  - apps/mobile/components/themed/Ridge.tsx
+  - apps/mobile/components/themed/TrailRail.tsx
+  - apps/mobile/components/themed/SummitCelebration.tsx
+  - apps/mobile/lib/trailSignature.ts
+  - apps/mobile/lib/trailSignature.test.ts
+  - apps/mobile/hooks/useReduceMotion.ts
   - apps/mobile/components/profile/ProfileSaveButton.tsx
   - packages/design-system/src/tokens/mobile-components.ts
   - apps/mobile/components/profile/ProfileLanguageSection.tsx
@@ -245,7 +253,9 @@ The announcement lists the real free capabilities and keeps offer wording price-
 
 Trusted Auth-admins also have a Profile-screen control below the existing admin controls to locally preview the 1.0 announcement in Free status. It mounts the same presentation component with local close state only: it does not invoke the campaign hook, read or write its marker, consult the rollout flag, change access, or consume the real announcement for that account/device.
 
-Plan creation, editing, recap, onboarding handoff, and live-mode preparation share `PlanLoadingScreen`. These operations combine network requests, local reads, entitlement checks, and synchronous calculations, so their percentage values are milestones rather than measurable elapsed progress. The UI must not expose a determinate progress bar or percentage: it uses an indeterminate branded trail animation, a context-specific title, the plan name once, and plain-language phase copy. Creation, editor, and recap routes also set their header while loading so a previous screen title or action cannot remain visible during navigation. When a load lasts longer than six seconds, a neutral reassurance appears without blaming the connection or promising a completion time. The editor always exposes a back/cancel action, aborts stale work after 20 seconds, and then presents Retry plus Back. Locked free previews skip the editable nutrition-product bootstrap; loading them must not wait for global Premium resolution. The component respects the system reduce-motion preference and exposes the active status as a polite busy accessibility announcement. The root Plans list uses the same shared indeterminate `LoadingState` as the other root tabs because it is a screen bootstrap rather than a plan calculation.
+Plan creation, editing, recap, onboarding handoff, and live-mode preparation share `PlanLoadingScreen`. These operations combine network requests, local reads, entitlement checks, and synchronous calculations, so their percentage values are milestones rather than measurable elapsed progress. The UI must not expose a determinate progress bar or percentage: it uses the indeterminate `RidgeLoader` (the brand ridge drawing itself), a context-specific title, the plan name once, and plain-language phase copy. Creation, editor, and recap routes also set their header while loading so a previous screen title or action cannot remain visible during navigation. When a load lasts longer than six seconds, a neutral reassurance appears without blaming the connection or promising a completion time. The editor always exposes a back/cancel action, aborts stale work after 20 seconds, and then presents Retry plus Back. Locked free previews skip the editable nutrition-product bootstrap; loading them must not wait for global Premium resolution. The component respects the system reduce-motion preference and exposes the active status as a polite busy accessibility announcement. The root Plans list uses the same shared indeterminate `LoadingState` as the other root tabs because it is a screen bootstrap rather than a plan calculation.
+
+A plan created from the standard (non-onboarding) creation flow opens its editor with a one-use `created=1` route parameter. Once the editor has loaded, `SummitCelebration` draws the plan's elevation profile, plants a flag on its summit, plays the success haptic and announces "Plan prêt, sommet en vue !". It dismisses on tap or after about four seconds and then clears the parameter, so returning to the editor never replays it. Opening an existing plan, the onboarding handoff (which already opens the editor tutorial with `showHelp=1`) and reduced-motion users never get an animated celebration (reduced motion shows the finished drawing). It adds no write, analytics event or persisted state.
 
 ## Linked race workspace
 
@@ -382,7 +392,7 @@ The initial chooser is skippable and offers independent Plan and RaceBook tours.
 The shared onboarding shell, initial tour chooser, overview, workflow explanation, and completion summary are presentational components in `apps/mobile/components/onboarding/OnboardingIntroSteps.tsx`. Personal details, performance inputs, and nutrition targets live in `OnboardingProfileSteps.tsx`. Course search, event-format selection, and its format sheet live in `OnboardingRaceSelectionStep.tsx`; searchable brand/product selection lives in `OnboardingNutritionProductsStep.tsx`, with each product row delegated to `OnboardingProductChoice.tsx`. The route remains responsible for state, validation, loading, persistence, authentication callbacks, analytics, and navigation; extracted onboarding components must stay free of session and Supabase side effects.
 Profile Settings exposes both tours with their statuses. Its tab icon shows a notification dot until both are completed; skipped tours intentionally keep the dot visible. Replaying a completed tour does not downgrade its durable status.
 On cold start and after authentication, sessions that do not require onboarding open on the `catalog` Courses tab by default. The tab shell in `apps/mobile/app/(app)/_layout.tsx` also registers hidden detail routes such as `race/[id]/racebook` explicitly so Expo Router does not surface them as bottom-tab destinations while keeping normal pushed navigation behavior. The tabs use history-based back behavior for ordinary hidden detail routes. RaceBook is the deliberate exception: its hero return action and Android hardware back replace the active route with `catalog`, or `plans` for the explicit plan-workspace origin, so opening several formats can never reveal a previously viewed RaceBook.
-The visible bottom tab bar orders its primary destinations as Courses, Mes courses/My races, then Profile; Nutrition is a hidden route. The Mes courses tab and its root header consume the same localized `plans.title` value. It derives its bottom padding and total height from `react-native-safe-area-context`, keeping all three actions above Android's three-button navigation area while preserving the existing minimum spacing on gesture-navigation devices and iOS. While a loaded RaceBook is focused, this global bar is replaced by an inset-aware contextual bar for its five sections without a duplicated exit; leaving the route restores the global navigation. The contextual bar deliberately mirrors the global bar's sand background, 60-point content height, filled Ionicons and Pace Yourself forest selected state; its selected icon additionally sits on the 10-point data surface with the cut lower-right corner, so selection is not color-only. Organizer branding never recolors this native navigation surface.
+The visible bottom tab bar orders its primary destinations as Courses, Mes courses/My races, then Profile; Nutrition is a hidden route. The Mes courses tab and its root header consume the same localized `plans.title` value. It derives its bottom padding and total height from `react-native-safe-area-context`, keeping all three actions above Android's three-button navigation area while preserving the existing minimum spacing on gesture-navigation devices and iOS. While a loaded RaceBook is focused, this global bar is replaced by an inset-aware contextual bar for its five sections without a duplicated exit; leaving the route restores the global navigation. The contextual bar deliberately mirrors the global bar's sand background, 60-point content height, filled Ionicons and Pace Yourself forest selected state; its selected icon additionally sits on the 10-point data surface under a trail blaze, so selection is not color-only. Organizer branding never recolors this native navigation surface.
 The login route follows the signup scroll/keyboard-avoidance pattern so its password, account-creation, and platform sign-in actions remain reachable on compact iPhones and at enlarged text sizes. Profile keeps its runner onboarding shortcuts in Settings rather than inside personal identity fields, and its save action is enabled only while persisted profile fields have changed. Modal sheets isolate VoiceOver focus with `accessibilityViewIsModal`, identify their titles as headers, and give icon-only dismiss actions an explicit label and at least a 44-point touch target or equivalent hit slop.
 Numeric, decimal, and pace inputs attach to the shared iOS `NumericKeyboardAccessory`, which exposes a visible `Terminé` action because those native keyboards do not provide a return key. The accessory is mounted once by the authenticated app shell and is inert on Android.
 The four visible tab actions expose stable `nav-tab-*` test ids for cross-locale Maestro navigation. These ids are test hooks only and do not alter labels, routing, or accessibility state. Each root tab renders the shared `RootCollapsibleHeader`: expanded and compact states use one row with the 44-point help target at the 16-point screen gutter, the title at the same horizontal position, and an optional trailing action at the matching gutter. The title changes size without sliding, both states retain the same bottom shape, and an oversized single-line title shrinks before it can wrap. The body contracts from 76 to 60 points. Courses, Plans and Profile keep secondary actions in content or the help menu; Nutrition alone uses the optional trailing product-create action. Guided catalog routes may omit contextual help to keep their required selection task focused.
@@ -400,28 +410,38 @@ Race detail stacks use minimal iOS back indicators so dynamic route segments suc
 
 First-level cards, selectors, section titles and root actions use the shared 16-point screen gutter. Filter chips, segmented selectors, input shells, modal close controls and primary/secondary button radii derive their geometry from `packages/design-system/src/tokens/mobile-components.ts`; route-local code supplies colors and content, not competing dimensions. `DataText` is reserved for comparable numeric values such as time, pace, distance and nutrition metrics. Text-bearing states such as “Departure passed”, “in 11 days” or “1 product” use the normal sans text component.
 
-The mobile identity follows the warm Topo grammar. Ordinary controls use a
+The mobile identity follows the Pace Yourself trail signature (see
+`docs/07-design-system/components.md`). Ordinary controls use a symmetric
 12-point radius, compact numeric blocks 10 points, cards 18 points, and only
-status/selection pills use full rounding. Signature cards, actions, fields,
-icon actions, and technical data blocks shorten the lower-right corner to 4
-points. Signature cards use a short vertical leading trail marker; featured
-cards additionally add the shared low-contrast contour pattern. The discarded
-horizontal lower-right card mark must not be restored. Bricolage Grotesque carries interface
-copy in sentence case, while JetBrains Mono is reserved for race measurements.
-Forest remains the primary interaction color, alpine blue marks information or
-hydration, and terracotta is an attention/danger accent.
+status/selection pills use full rounding; the former shortened lower-right
+corner was removed everywhere. The recurring motifs are terrain objects: the
+two-band `TrailBlaze` waymark, map-style `Cote` measurements, the ridge line
+(`RidgeDivider`, `RidgeLoader`, `CourseRidge`), the dotted `TrailRail`, and
+contour lines that can be derived from a course's own profile. Bricolage
+Grotesque carries interface copy in sentence case, while JetBrains Mono is
+reserved for race measurements. Forest remains the primary interaction color,
+alpine blue marks information or hydration, and terracotta is an
+attention/danger accent.
 
-This grammar is app-wide rather than limited to pilot routes. The legacy shared
-`Card` renders the signature Topo geometry, and shared loading, error and empty
-states use matching surfaces. Root headers add the decorative contour pattern
-and shortened lower-right corner; Profile selection uses `ChoiceChip`, while
-the shared RaceBook/plan contextual tab bar gives its selected icon a 10-point
-data surface. Section headings use the leading trail marker, metrics and
-icon-free selected chips use a waypoint diamond, passive statuses retain their
-own semantic dot, and field focus/error combines a leading marker with its
-border. `Screen` and the shared root compositions use the 16-point gutter.
-These presentation changes do not alter navigation, fetching, form persistence,
-accessibility roles or plan/RaceBook state machines.
+This grammar is app-wide. The legacy shared `Card` renders the signature card
+(leading-edge blaze); shared loading states and the launch splash use the ridge
+loader, error states a danger blaze and empty states the brand ridge when no icon is supplied. The
+active root tab and the active RaceBook/plan contextual tab carry a blaze above
+their icon. Root headers keep the decorative contour pattern with symmetric
+lower corners. Section headings start with a blaze; Plans cards show distance
+and D+ as cotes, the course's real skyline (`CourseRidge`) when a stored
+`elevation_profile` exists, and the active plan as a warning `StatusPill`. The
+plan recap shows its carbohydrate and sodium totals as `MetricTile`s. Profile
+performance groups and the RaceBook course essentials are separated by a
+`RidgeDivider`. RaceBook ravito and supporter timelines and the onboarding steps
+use the dotted `TrailRail`. The shared race header metrics typeset their unit as
+a cote. The RaceBook hero draws faint contours from the course profile only when
+the organizer publishes the elevation profile (`gpxDisplay.showElevationProfile`).
+Trail-voice microcopy covers plan loading phases, the generic error title
+(`Hors piste : …`) and the empty followed-races title. `Screen` and the shared
+root compositions use the 16-point gutter. These presentation changes do not
+alter navigation, fetching, form persistence, accessibility roles or
+plan/RaceBook state machines.
 
 Plans align section headers and cards on that gutter and expose one labelled primary card action: Edit before race day, Start on race day, and Recap after it. Remaining Edit/Recap and Share actions are secondary icons with the existing accessibility labels and handlers; the separate top-right destructive action is the only red card control. Nutrition uses a brand initial when a group has no image and vertically centers the name/badge block. Courses uses a secondary transparent 44-point heart; its sticky search surface is opaque, and the event location truncates before the non-breaking localized date.
 

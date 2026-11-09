@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -7,6 +7,7 @@ import { AppHeaderTitle } from '../../components/navigation/AppHeaderTitle';
 import { NumericKeyboardAccessory } from '../../components/inputs/NumericKeyboardAccessory';
 import { FeedbackHeaderButton } from '../../components/feedback/FeedbackHeaderButton';
 import { NativeBuildUpdatePrompt } from '../../components/updates/NativeBuildUpdatePrompt';
+import { TrailBlaze } from '../../components/themed/TrailBlaze';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
 import { getActivePlanEditHref } from '../../lib/planEditSession';
@@ -177,8 +178,10 @@ export default function AppLayout() {
           title: catalogLabel,
           tabBarLabel: ({ color }) => renderTabLabel(catalogLabel, color),
           tabBarButtonTestID: 'nav-tab-catalog',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="trail-sign" size={size} color={color} />
+          tabBarIcon: ({ color, focused, size }) => (
+            <TabIconWithBlaze focused={focused}>
+              <Ionicons name="trail-sign" size={size} color={color} />
+            </TabIconWithBlaze>
           ),
         }}
       />
@@ -199,8 +202,10 @@ export default function AppLayout() {
           title: t.plans.title,
           tabBarLabel: ({ color }) => renderTabLabel(plansTabLabel, color),
           tabBarButtonTestID: 'nav-tab-plans',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="flag" size={size} color={color} />
+          tabBarIcon: ({ color, focused, size }) => (
+            <TabIconWithBlaze focused={focused}>
+              <Ionicons name="flag" size={size} color={color} />
+            </TabIconWithBlaze>
           ),
         }}
       />
@@ -212,22 +217,24 @@ export default function AppLayout() {
           title: t.profile.title,
           tabBarLabel: ({ color }) => renderTabLabel(t.profile.title, color),
           tabBarButtonTestID: 'nav-tab-profile',
-          tabBarIcon: ({ color, size }) => (
-            <View style={styles.profileIconWrap}>
-              <Ionicons name="person" size={size} color={color} />
-              {showProfileAttentionDot ? (
-                <View
-                  accessibilityLabel={
-                    unreadNotifications.hasUnread && showProfileOnboardingDot
-                      ? `${t.profile.notificationsProfileDotLabel}. ${t.onboarding.tours.profileDotLabel}`
-                      : unreadNotifications.hasUnread
-                      ? t.profile.notificationsProfileDotLabel
-                      : t.onboarding.tours.profileDotLabel
-                  }
-                  style={styles.attentionDot}
-                />
-              ) : null}
-            </View>
+          tabBarIcon: ({ color, focused, size }) => (
+            <TabIconWithBlaze focused={focused}>
+              <View style={styles.profileIconWrap}>
+                <Ionicons name="person" size={size} color={color} />
+                {showProfileAttentionDot ? (
+                  <View
+                    accessibilityLabel={
+                      unreadNotifications.hasUnread && showProfileOnboardingDot
+                        ? `${t.profile.notificationsProfileDotLabel}. ${t.onboarding.tours.profileDotLabel}`
+                        : unreadNotifications.hasUnread
+                        ? t.profile.notificationsProfileDotLabel
+                        : t.onboarding.tours.profileDotLabel
+                    }
+                    style={styles.attentionDot}
+                  />
+                ) : null}
+              </View>
+            </TabIconWithBlaze>
           ),
         }}
       />
@@ -293,7 +300,19 @@ export default function AppLayout() {
   );
 }
 
+/** Active root tab carries the trail blaze above its icon. */
+function TabIconWithBlaze({ focused, children }: { focused: boolean; children: ReactNode }) {
+  return (
+    <View style={styles.tabIconWrap}>
+      {focused ? <TrailBlaze size="sm" style={styles.tabBlaze} /> : null}
+      {children}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  tabIconWrap: { alignItems: 'center', justifyContent: 'center' },
+  tabBlaze: { position: 'absolute', top: -11 },
   tabBarLabel: {
     width: '100%',
     fontSize: 12,

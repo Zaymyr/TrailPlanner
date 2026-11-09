@@ -675,6 +675,8 @@ The pricing dialog snapshots and displays the selected event and canonical editi
 
 The runner catalog presents organizer RaceBook availability independently from plan availability. Unpublished RaceBooks of upcoming formats render a disabled `Bientôt disponible` action (a past format without a RaceBook shows no RaceBook action), while past formats keep RaceBook access and expose a plan action only for an existing owner plan. Organizer publication authority is unchanged.
 
+Trail signature (2026-11-09): runner RaceBook presentation only. The ravito and supporter timelines use a dotted trail rail, the hero may show faint contours derived from the published course profile (never when `gpxDisplay.showElevationProfile` is off), hero metrics typeset units as map-style cotes, and the course essentials card uses a ridge-line divider. Organizer data stays read-only; publication, module visibility and ownership are unchanged.
+
 ## Related Docs
 
 - [race_event_claims](../02-database/tables/race-event-claims.md)

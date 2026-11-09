@@ -7,6 +7,8 @@ import { Animated, Modal, Pressable, StyleSheet, View, type LayoutChangeEvent } 
 import { DataText } from '../themed/DataText';
 import { Heading } from '../themed/Heading';
 import { Text } from '../themed/Text';
+import { TopoContourPattern } from '../themed/TopoContourPattern';
+import type { TrailProfilePoint } from '../../lib/trailSignature';
 import { Colors } from '../../constants/colors';
 import { RacebookBrandLogo } from './RacebookSponsorExperience';
 import {
@@ -75,6 +77,11 @@ type Props = {
   onExpandedBodyHeightChange?: (height: number) => void;
   /** A workspace switch is attached below: it carries the rounded edge and shadow. */
   attachedBelow?: boolean;
+  /**
+   * Course profile drawn as faint contour lines (the race's fingerprint).
+   * Pass it only when the organizer publishes the elevation profile.
+   */
+  contourProfile?: readonly TrailProfilePoint[] | null;
 };
 
 export function RacebookCollapsibleHero({
@@ -115,6 +122,7 @@ export function RacebookCollapsibleHero({
   onOpenSocial,
   onExpandedBodyHeightChange,
   attachedBelow = false,
+  contourProfile = null,
 }: Props) {
   const [isCompact, setIsCompact] = useState(false);
   const [linksVisible, setLinksVisible] = useState(false);
@@ -178,6 +186,11 @@ export function RacebookCollapsibleHero({
         </Animated.View>
       ) : null}
       {imageUrl ? <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.primaryColor, opacity: HERO_PHOTO_VEIL_OPACITY }]} /> : null}
+      {contourProfile ? (
+        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: expandedOpacity }]}>
+          <TopoContourPattern color={theme.onPrimaryColor} opacity={0.12} profile={contourProfile} />
+        </Animated.View>
+      ) : null}
 
       <Pressable
         accessibilityLabel={backLabel}

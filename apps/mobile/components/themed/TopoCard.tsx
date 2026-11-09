@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { TopoContourPattern } from './TopoContourPattern';
+import { TrailBlaze, type TrailBlazeTone } from './TrailBlaze';
 
 export type TopoCardVariant = 'standard' | 'interactive' | 'signature' | 'featured';
 export type TopoCardSurface = 'white' | 'cream' | 'sandLight' | 'brand' | 'info' | 'danger';
@@ -20,7 +21,8 @@ type Props = Omit<ViewProps, 'children' | 'style'> & {
   variant?: TopoCardVariant;
   surface?: TopoCardSurface;
   padded?: boolean;
-  accentColor?: string;
+  /** Tone of the leading-edge trail blaze on signature/featured cards. */
+  blazeTone?: TrailBlazeTone;
   onPress?: PressableProps['onPress'];
   style?: StyleProp<ViewStyle>;
 };
@@ -39,17 +41,13 @@ export function TopoCard({
   variant = 'standard',
   surface = 'white',
   padded = true,
-  accentColor,
+  blazeTone,
   onPress,
   style,
   ...props
 }: Props) {
-  const resolvedAccentColor = accentColor
-    ?? (surface === 'danger'
-      ? colors.accent.terracotta
-      : surface === 'info'
-        ? colors.semantic.info
-        : colors.brand.forest);
+  const resolvedBlazeTone: TrailBlazeTone = blazeTone
+    ?? (surface === 'danger' ? 'danger' : surface === 'info' ? 'info' : 'brand');
   const cardStyle = [
     styles.base,
     { backgroundColor: surfaceByVariant[surface] },
@@ -62,7 +60,7 @@ export function TopoCard({
       {variant === 'featured' ? <TopoContourPattern /> : null}
       {children}
       {variant === 'signature' || variant === 'featured' ? (
-        <View accessible={false} style={[styles.trailMarker, { backgroundColor: resolvedAccentColor }]} />
+        <TrailBlaze size="sm" style={styles.blaze} tone={resolvedBlazeTone} />
       ) : null}
     </>
   );
@@ -101,20 +99,14 @@ const styles = StyleSheet.create({
   },
   signature: {
     borderColor: colors.brand.border,
-    borderBottomRightRadius: mobileComponents.topoCard.signatureBottomRightRadius,
   },
   pressed: {
     opacity: 0.88,
     transform: [{ scale: mobileComponents.motion.pressScale }],
   },
-  trailMarker: {
+  blaze: {
     position: 'absolute',
     left: 0,
-    top: 20,
-    width: mobileComponents.topoCard.markerWidth,
-    height: mobileComponents.topoCard.markerHeight,
-    borderTopRightRadius: mobileComponents.signature.markerRadius,
-    borderBottomRightRadius: mobileComponents.signature.markerRadius,
-    opacity: 0.9,
+    top: mobileComponents.topoCard.blazeTop,
   },
 });

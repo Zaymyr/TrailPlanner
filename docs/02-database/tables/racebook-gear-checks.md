@@ -83,6 +83,8 @@ The Livret may read this durable completion when no linked plan is available to 
 
 When a saved plan exists, the Livret shows planned duration, pace and departure in the identity hero; matched ravito passage/segment timing and late-cutoff disclosure stay separate from equipment state. Warm state is accepted only for the exact plan id, and none of these display/navigation values changes a checked row.
 
+Trail signature (2026-11-09): the runner RaceBook screen adds presentation only: faint contour lines in the hero derived from the already-loaded course elevation profile (drawn only when the organizer publishes it through `gpxDisplay.showElevationProfile`) and a ridge-line divider inside the course essentials card. It reads and writes no row of this domain and changes no query, payload or analytics event.
+
 ## Related Docs
 
 This table remains the source of truth for current checked state. PostHog organizer rankings use the latest observed state per person, race, and published analytics item inside the selected reporting window; they exclude runners who never started the checklist and must not be presented as a live table snapshot. The marker-guarded `racebook_gear_state_2026_09_28` import seeded checked and missing states only for users represented by existing rows.

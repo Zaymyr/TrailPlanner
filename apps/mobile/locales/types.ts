@@ -171,6 +171,9 @@ export type MobileTranslations = {
     shareFailed: string;
   };
   planWorkspace: {
+    summitTitle: string;
+    summitSubtitle: string;
+    summitDismiss: string;
     myPlan: string;
     officialRacebook: string;
     racebookUnavailable: string;

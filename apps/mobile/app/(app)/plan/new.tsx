@@ -141,10 +141,12 @@ export default function NewPlanScreen() {
   const pendingProfilePlan = useRef<{ race: RaceInfo; values: PlanFormValues; elevation: ElevationPoint[] } | null>(null);
   const [profileDraft, setProfileDraft] = useState({ firstName: '', pace: '', water: '1.5', carbs: '60', birthDate: '', height: '', weight: '', utmb: '' });
 
-  const openPlan = useCallback(async (planId: string, showHelp = false) => {
+  const openPlan = useCallback(async (planId: string, showHelp = false, created = false) => {
     if (onboarding === 'plan') await completeOnboarding('plan');
     const params = new URLSearchParams();
     if (showHelp) params.set('showHelp', '1');
+    // A brand-new plan opens with the one-off summit celebration.
+    if (created && !showHelp) params.set('created', '1');
     if (racebookTab) params.set('racebookTab', racebookTab);
     if (racebookCourseTab) params.set('racebookCourseTab', racebookCourseTab);
     if (targetAidStationId) params.set('targetAidStationId', targetAidStationId);
@@ -280,7 +282,7 @@ export default function NewPlanScreen() {
         return;
       }
       await clearPendingRunnerRace();
-      await openPlan(data.id);
+      await openPlan(data.id, false, true);
     },
     [
       findExistingPlanId,

@@ -1,4 +1,4 @@
-import { memo, useEffect, useState, type ReactNode } from 'react';
+import { memo, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -25,11 +25,14 @@ import {
 } from '@pace-yourself/design-system';
 import { Button } from '../themed/Button';
 import { Card } from '../themed/Card';
-import { DataText } from '../themed/DataText';
+import { Cote } from '../themed/Cote';
 import { EmptyState } from '../themed/EmptyState';
 import { Heading } from '../themed/Heading';
+import { CourseRidge } from '../themed/Ridge';
+import { StatusPill } from '../themed/StatusPill';
 import { Text } from '../themed/Text';
-import { formatDistance } from '../../lib/displayFormat';
+import { formatDistance, formatElevation } from '../../lib/displayFormat';
+import { asTrailProfile } from '../../lib/trailSignature';
 import { estimateDuration, getPlanCardTitle } from './plansHelpers';
 import { formatDepartureCountdown, resolvePlanPrimaryAction, type DepartureCountdownCopy, type PlanPrimaryAction } from '../../lib/plansListPresentation';
 import type { PlanRow, RaceSection } from './types';
@@ -407,6 +410,8 @@ function PlanCard({
   const leadsWithRacebook = Boolean(onOpenRacebook && racebookButtonLabel);
   const aidStationCount = getIntermediateAidStationCount(item.planner_values?.aidStations);
   const countdown = formatDepartureCountdown(item.departureAt, nowMs, departureCountdownCopy);
+  // Only a real stored profile draws the skyline; never a placeholder ridge.
+  const courseProfile = useMemo(() => asTrailProfile(item.elevation_profile), [item.elevation_profile]);
   const primaryLabel = primaryAction === 'start'
     ? isActivePlan ? inProgressLabel : startButtonLabel
     : primaryAction === 'edit'
@@ -463,45 +468,37 @@ function PlanCard({
               <Heading variant="h2" numberOfLines={2} style={styles.planName}>
                 {displayName}
               </Heading>
-              {isActivePlan ? (
-                <View style={styles.liveBadge}>
-                  <Text tone="brand" size="xs" weight="bold" style={styles.liveBadgeText}>
-                    {liveLabel}
-                  </Text>
-                </View>
-              ) : null}
+              {isActivePlan ? <StatusPill label={liveLabel} tone="warning" /> : null}
             </View>
             <View style={styles.meta}>
               {item.planner_values?.raceDistanceKm != null ? (
-                <DataText tone="secondary" size="xs" weight="medium">
-                  {formatDistance(item.planner_values.raceDistanceKm, locale)}
-                </DataText>
+                <Cote size="sm" tone="secondary" value={formatDistance(item.planner_values.raceDistanceKm, locale)} />
               ) : null}
               {item.planner_values?.elevationGain != null ? (
                 <View style={styles.metaInline}>
                   <SummitIcon color={colors.brand.forest} size={14} strokeWidth={2.1} />
-                  <DataText tone="secondary" size="xs" weight="medium">
-                    D+ {item.planner_values.elevationGain}m
-                  </DataText>
+                  <Cote
+                    prefix="D+"
+                    size="sm"
+                    tone="secondary"
+                    value={formatElevation(item.planner_values.elevationGain, locale)}
+                  />
                 </View>
               ) : null}
             </View>
+            {courseProfile ? <CourseRidge profile={courseProfile} height={30} style={styles.courseRidge} /> : null}
             <View style={styles.planInsights}>
               <View style={[styles.planInsight, styles.planInsightDuration]}>
                 <Text tone="secondary" size="xs" weight="semibold">
                   {locale === 'fr' ? 'Temps total' : 'Total time'}
                 </Text>
-                <DataText tone="brand" size="sm" weight="bold">
-                  {duration ?? '—'}
-                </DataText>
+                <Cote size="sm" tone="brand" value={duration ?? '—'} />
               </View>
               <View style={[styles.planInsight, styles.planInsightRavitos, styles.planInsightDivider]}>
                 <Text tone="secondary" size="xs" weight="semibold">
                   {locale === 'fr' ? 'Ravitos' : 'Aid stops'}
                 </Text>
-                <DataText tone="brand" size="sm" weight="bold">
-                  {aidStationCount}
-                </DataText>
+                <Cote size="sm" tone="brand" value={aidStationCount} />
               </View>
               <View style={[styles.planInsight, styles.planInsightDivider]}>
                 <Text tone="secondary" size="xs" weight="semibold">
@@ -700,18 +697,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     lineHeight: 21,
   },
-  liveBadge: {
-    borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: colors.accent.amber,
-    backgroundColor: colors.surface.sandLight,
-    paddingHorizontal: spacing[2],
-    paddingVertical: spacing[1],
-  },
-  liveBadgeText: {
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
   meta: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -722,6 +707,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[0.5],
+  },
+  courseRidge: {
+    marginTop: spacing[2],
   },
   planInsights: {
     flexDirection: 'row',

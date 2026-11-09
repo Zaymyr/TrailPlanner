@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '../themed/Text';
+import { TrailBlaze } from '../themed/TrailBlaze';
 import { Colors } from '../../constants/colors';
 
 type Props<T extends string> = {
@@ -29,6 +30,7 @@ export function RacebookTabBar<T extends string>({ tabs, activeTab, onPress }: P
               onPress={() => onPress(tab.key)}
               style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
             >
+              {active ? <TrailBlaze size="sm" style={styles.blaze} /> : null}
               <View style={[styles.iconSurface, active && styles.iconSurfaceActive]}>
                 <Ionicons
                   name={tab.icon}
@@ -82,8 +84,8 @@ const styles = StyleSheet.create({
   },
   iconSurfaceActive: {
     backgroundColor: Colors.brandSurface,
-    borderBottomRightRadius: 4,
   },
+  blaze: { position: 'absolute', top: 2 },
   text: { color: Colors.textMuted, fontSize: 10, lineHeight: 13, fontWeight: '700' },
   textActive: { color: Colors.brandPrimary },
 });

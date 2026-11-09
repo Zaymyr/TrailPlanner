@@ -35,7 +35,6 @@ const styles = StyleSheet.create({
     width: mobileComponents.closeButtonSize,
     height: mobileComponents.closeButtonSize,
     borderRadius: mobileComponents.actionRadius,
-    borderBottomRightRadius: mobileComponents.signature.actionBottomRightRadius,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',

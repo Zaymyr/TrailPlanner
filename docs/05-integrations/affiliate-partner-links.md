@@ -106,6 +106,8 @@ Standard links are not described as affiliate links. Each mobile surface disclos
 - Adding another Admin tab must not merge its persistence with the partner-link atomic upsert. Social proofs and partner destinations remain separate service-only contracts.
 - The owner-only Livret/Mon plan switch can reuse a saved-plan editor warm state only for the exact plan id; personal duration, pace and departure appear in the Livret hero, while compact ravito passage/segment timing and its late warning remain local presentation. None of those values may become partner-link parameters, destinations, or analytics properties.
 
+Trail signature (2026-11-09): the runner RaceBook screen adds presentation only: faint contour lines in the hero derived from the already-loaded course elevation profile (drawn only when the organizer publishes it through `gpxDisplay.showElevationProfile`) and a ridge-line divider inside the course essentials card. It reads and writes no row of this domain and changes no query, payload or analytics event.
+
 ## Related Docs
 
 Supporter `S’y rendre` and `Voir le plan` actions open organizer-authored access URLs directly. They are not affiliate destinations and must not pass through partner redirects or counters.

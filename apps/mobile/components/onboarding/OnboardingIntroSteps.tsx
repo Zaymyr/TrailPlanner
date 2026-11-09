@@ -10,6 +10,7 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Colors } from '../../constants/colors';
 import { Text } from '../themed/Text';
+import { TrailRail } from '../themed/TrailRail';
 
 type OnboardingShellProps = {
   children: ReactNode;
@@ -303,7 +304,7 @@ export function OnboardingWorkflowStep({
                       <View style={styles.timelineBadge}>
                         <Text style={styles.timelineBadgeText}>{globalIndex + 1}</Text>
                       </View>
-                      {!isLast ? <View style={styles.timelineLine} /> : null}
+                      {!isLast ? <TrailRail color={Colors.brandPrimary} style={styles.timelineLine} /> : null}
                     </View>
                     <View style={styles.timelineCard}>
                       <Text style={styles.timelineTitle}>{item.title}</Text>
@@ -525,11 +526,10 @@ const styles = StyleSheet.create({
   },
   timelineBadgeText: { color: Colors.textOnBrand, fontSize: 13, fontWeight: '700' },
   timelineLine: {
-    width: 2,
     flex: 1,
-    backgroundColor: Colors.brandBorder,
     marginTop: 6,
     marginBottom: -6,
+    opacity: 0.5,
   },
   timelineCard: {
     flex: 1,

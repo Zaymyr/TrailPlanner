@@ -20,6 +20,13 @@ related_files:
   - apps/mobile/components/themed/StatusPill.tsx
   - apps/mobile/components/themed/TopoCard.tsx
   - apps/mobile/components/themed/TopoContourPattern.tsx
+  - apps/mobile/components/themed/TrailBlaze.tsx
+  - apps/mobile/components/themed/Cote.tsx
+  - apps/mobile/components/themed/Ridge.tsx
+  - apps/mobile/components/themed/TrailRail.tsx
+  - apps/mobile/components/themed/SummitCelebration.tsx
+  - apps/mobile/lib/trailSignature.ts
+  - apps/mobile/hooks/useReduceMotion.ts
   - apps/mobile/components/themed/Card.tsx
   - apps/mobile/components/themed/Screen.tsx
   - apps/mobile/components/profile/ProfileSaveButton.tsx
@@ -131,32 +138,58 @@ description, and optional retry action. `EmptyState` provides a title,
 description, optional illustration, and optional primary action. Screen-level
 callers own all visible strings so they can use the locale files.
 
-The warm Topo identity is expressed through a deliberately small vocabulary:
+The Pace Yourself trail signature is expressed through a small vocabulary of
+terrain objects. Every element is structural (shape/motif) rather than a
+color, so it survives organizer RaceBook colors:
 
+- `TrailBlaze` is the product waymark: two painted bands, light over strong
+  (olive over forest by default; info, warning, danger, muted and inverse tones;
+  explicit `bandColors` for themed surfaces). It is the product's own blaze,
+  never the red/white GR waymark. It marks the active root tab and the active
+  RaceBook/plan contextual tab, section starts (`SectionHeading`), the leading
+  edge of signature/featured cards, toasts, the error state and the summit flag.
+  It is decorative and hidden from assistive technologies.
+- `Cote` typesets a measurement like an elevation mark on a topographic map:
+  bold JetBrains Mono figure and its unit in spaced capitals (`42,3 KM`,
+  `D+ 1 240 M`). It accepts a raw value plus unit or an already formatted label,
+  split by `splitCoteLabel` in `apps/mobile/lib/trailSignature.ts`; labels with
+  no short trailing unit stay unchanged. `MetricTile` renders its value through
+  `Cote`, and the shared race header metrics use the same split.
+- `Ridge.tsx` holds the ridge-line motif: `RidgeDivider` (a thin ridge replacing
+  flat separators between major blocks), `RidgeLoader` (the indeterminate busy
+  indicator: the brand ridge draws and erases itself, static under reduced
+  motion) and `CourseRidge` (a compact filled silhouette of a real course
+  profile with its summit point). Geometry comes from pure, tested helpers in
+  `apps/mobile/lib/trailSignature.ts` (profile resampling, smooth paths clamped
+  to the frame, summit and dash length).
+- `TrailRail` is the dotted vertical trail line linking timeline steps (RaceBook
+  ravitos and supporter points, onboarding steps).
+- `TopoContourPattern` draws the brand contour lines, or, when given a usable
+  `profile`, nested iso-lines derived from that course's real elevation profile
+  so each race carries its own fingerprint.
+- `SummitCelebration` is the one-off reward when a plan is created: the course
+  ridge draws itself, a flag carrying the blaze is planted on the summit, a
+  success haptic plays and the title is announced to assistive technologies.
+  It dismisses on tap or by itself and stays static under reduced motion.
 - `TopoCard` provides standard, interactive, signature and featured cards.
-  Signature cards use the asymmetric 4-point lower-right corner and a short
-  vertical trail marker on the leading edge; the former lower-right horizontal
-  mark is intentionally removed. Featured cards additionally use the faint
-  decorative contour pattern. The legacy shared `Card` delegates to the
-  signature variant, so existing screens inherit the identity without local
-  geometry.
+  Signature and featured cards carry a small trail blaze on their leading edge
+  (tone follows the surface, or `blazeTone`); featured cards add the faint
+  contour pattern. The legacy shared `Card` delegates to the signature variant.
 - `ChoiceChip` is interactive selection, while `StatusPill` is non-interactive
-  status. A selected chip without an icon gains a diamond waypoint; a status
-  without an icon gains a small semantic dot. Full-radius geometry is not used
-  for ordinary data or buttons.
-- `MetricTile` pairs a normal-language label with a JetBrains Mono race value
-  in the shared 10-point data block, whose waypoint diamond and cut lower-right
-  corner make technical values recognisable without adding another pill.
+  status (for example the live badge of an active plan). A selected chip without
+  an icon gains a diamond waypoint; a status without an icon gains a small
+  semantic dot.
 - `SectionHeading`, `IconAction`, and `Field` normalize section hierarchy,
-  44-point icon targets, and labelled/helper/error input states. Section titles
-  use the short vertical trail marker; icon actions and fields share the cut
-  lower-right corner. A field uses its leading marker plus border for focus and
-  error, so state is not represented by color alone.
-- `TopoContourPattern` is decorative only (`accessible={false}`) and is limited
-  to identity/featured surfaces rather than ordinary content cards.
-- Shared `LoadingState`, `ErrorState`, and `EmptyState` use matching signature
-  surfaces while preserving their semantic roles, live-region behavior and
-  localized actions.
+  44-point icon targets, and labelled/helper/error input states. A field uses its
+  leading marker plus border for focus and error, so state is not represented by
+  color alone.
+- Shared `LoadingState` (ridge loader), `ErrorState` (danger blaze) and
+  `EmptyState` (brand ridge when the caller gives no icon) keep their semantic
+  roles, live-region behavior and localized actions.
+
+Controls, fields, data blocks and cards use symmetric radii: the former
+shortened lower-right "signature corner" was removed because it read as a
+rendering defect rather than an identity.
 
 `RootCollapsibleHeader` is the shared header for the four primary mobile tabs.
 It uses the forest brand surface with a faint decorative contour pattern,
@@ -164,8 +197,8 @@ respects the native top inset, and progressively
 contracts from a 76-point body to a 60-point sticky body. Both states keep one
 horizontal row: a 44-point leading target at the 16-point gutter, a title whose
 left edge does not move during collapse, and an optional matching trailing target.
-The large title shrinks to fit one line, the shortened lower-right corner remains
-stable, icon actions use the 12-point control radius, and scrolling content begins
+The large title shrinks to fit one line, both lower corners share the same
+radius, icon actions use the 12-point control radius, and scrolling content begins
 below the expanded height.
 
 Shared React Native geometry comes from `mobileComponents`. Filter chips use the
@@ -173,10 +206,10 @@ same selected/unselected structure across Courses and Nutrition; Profile and pla
 workspace selectors use the same segmented-control geometry; input shells keep
 one surface/border/radius with units or clear actions inside; modal dismiss actions
 use a labelled 44-point target; primary and secondary buttons share the same
-12-point family plus a 4-point lower-right signature corner. Screen-specific
+symmetric 12-point family. Screen-specific
 components own copy, state, color roles and behavior.
 
-`BriefToast` provides short success or network-error feedback above the mobile tab bar, with an optional action. Its default duration remains 2.6 seconds for success and 5 seconds for errors; callers may supply a longer duration for an actionable informational notice or `null` for an explicitly persistent notice. It is reserved for informational outcomes; destructive confirmation remains modal. Root tab headers add elevation only after collapsing, while the bottom tab bar keeps a subtle top divider and shadow.
+`BriefToast` provides short success or network-error feedback above the mobile tab bar, with an optional action. It leads with a small inverse trail blaze and uses symmetric corners. Its default duration remains 2.6 seconds for success and 5 seconds for errors; callers may supply a longer duration for an actionable informational notice or `null` for an explicitly persistent notice. It is reserved for informational outcomes; destructive confirmation remains modal. Root tab headers add elevation only after collapsing, while the bottom tab bar keeps a subtle top divider and shadow.
 
 ## Gotchas
 
@@ -195,8 +228,19 @@ components own copy, state, color roles and behavior.
   their interaction semantics must remain visually distinct.
 - Keep contour artwork low-contrast and decorative. It must not sit behind
   dense body copy or communicate elevation/status information.
-- Do not restore the former horizontal mark at the lower-right of cards. The
-  leading trail marker and asymmetric corner are the shared card signature.
+- Do not restore the former horizontal mark at the lower-right of cards or the
+  shortened lower-right corner. The leading trail blaze is the card signature.
+- Never draw the red/white GR waymark or another federation mark: `TrailBlaze`
+  is the product's own olive-over-forest blaze.
+- Never pass a course profile the viewer is not allowed to see to
+  `TopoContourPattern`, `CourseRidge` or `SummitCelebration`; in the RaceBook the
+  hero contours require the organizer's `showElevationProfile`. `CourseRidge`
+  must only receive a real stored profile, never a placeholder that would look
+  like course data.
+- Use `RidgeLoader` for milestone-based loading. Do not turn plan or launch
+  milestones into a determinate ridge or percentage.
+- `Cote` is for measurements; counts or statuses containing words still use the
+  normal themed `Text`.
 - Do not make routine success toasts persistent. A longer or unbounded duration is for notices whose action must remain reachable, and the caller must still provide a clear dismissal path or bounded lifecycle.
 
 ## Related Docs

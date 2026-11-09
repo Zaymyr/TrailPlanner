@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: Colors.brandPrimary,
     borderBottomLeftRadius: 22,
-    borderBottomRightRadius: 8,
+    borderBottomRightRadius: 22,
   },
   headerScrolled: {
     shadowColor: '#1A1A1A',

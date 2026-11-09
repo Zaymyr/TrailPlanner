@@ -93,7 +93,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing[2],
     borderRadius: mobileComponents.buttonRadius,
-    borderBottomRightRadius: mobileComponents.signature.actionBottomRightRadius,
   },
   fullWidth: {
     alignSelf: 'stretch',

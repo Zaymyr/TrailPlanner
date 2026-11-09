@@ -81,7 +81,6 @@ const styles = StyleSheet.create({
   shell: {
     minHeight: mobileComponents.input.minHeight,
     borderRadius: mobileComponents.input.borderRadius,
-    borderBottomRightRadius: mobileComponents.input.signatureBottomRightRadius,
     borderWidth: 1,
     borderColor: colors.border.subtle,
     backgroundColor: colors.surface.white,

@@ -157,6 +157,8 @@ The two-line clamp for bib-pickup address links is independent from sponsor layo
 - The global Booking action in Services and Decathlon action in Matériel are not edition sponsor placements. Their presses use bounded RaceBook action analytics and must not increment sponsor click/impression counters or inherit sponsor redirect behavior.
 - Returning from the Livret to an already saved owner plan can reuse the editor's short-lived warm state only for that exact plan id. It must not replay the sponsor gate or create a sponsor view/click event.
 
+Trail signature (2026-11-09): the runner RaceBook screen adds presentation only: faint contour lines in the hero derived from the already-loaded course elevation profile (drawn only when the organizer publishes it through `gpxDisplay.showElevationProfile`) and a ridge-line divider inside the course essentials card. It reads and writes no row of this domain and changes no query, payload or analytics event.
+
 ## Related Docs
 
 Format-owned GPX route/profile choices do not change sponsor loading, placement, redirect counting, or edition scope.

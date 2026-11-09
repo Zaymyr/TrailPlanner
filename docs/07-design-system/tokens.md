@@ -103,14 +103,24 @@ Shadows include `sm`, `md`, and `lg` with brand-tinted rgba values.
 `mobileComponents` composes those base tokens into shared React Native control
 geometry: a 16-point screen gutter, 10-point data blocks, 12-point
 action/button/input radii, 18-point cards, full-radius filter chips, and
-44-point minimum selection/close targets. The signature geometry keeps the
-ordinary family radius on three corners and uses a 4-point lower-right corner
-for Topo cards, actions, fields, icon actions, and data blocks. The Topo-card
-tokens also own the 4 by 32-point leading trail marker; callers may color it
-with brand, information, or semantic danger roles. It also owns the
+44-point minimum selection/close targets. All of these use symmetric radii; the
+former 4-point lower-right signature corner was removed. It also owns the
 small/medium/large action heights and the restrained 0.98 press feedback plus
-140/180 ms motion durations. Mobile callers continue to apply semantic colors
-from `Colors`/`colors`.
+140/180 ms motion durations.
+
+The trail signature tokens live in the same object:
+
+- `topoCard.blazeTop`: where the leading-edge blaze sits on signature cards.
+- `blaze`: small/medium/large band width, band height and gap for the
+  two-band trail blaze, plus its 1-point band radius.
+- `ridge`: stroke width, divider/loader/silhouette heights, the resampling
+  count for course profiles, and the loader (1.6 s) and celebration (1.1 s)
+  durations.
+- `timeline`: the dotted trail rail width, dash and gap.
+
+Mobile callers continue to apply semantic colors from `Colors`/`colors`; the
+blaze bands reuse existing tokens (olive over forest by default) and add no new
+palette value.
 
 ## Web Tailwind Bridge
 

@@ -70,16 +70,25 @@ The repository skill `$mobile-ux-ui-auditor` turns this workflow into a dedicate
 15. Return from a plan detail to Mes courses/My races and confirm the visual header state matches the real list offset. In the plan editor, confirm matching back/help controls and visible first content on a 6.1-inch viewport.
 16. Compare first-level content edges across Courses, Mes courses/My races, Profile and the pushed Nutrition screen; cards, section titles and selectors must use the same 16-point gutter. Confirm sticky Courses search is fully opaque.
 17. Compare filter chips, segmented selectors, profile inputs, modal closes and primary/secondary buttons across the same journey. Verify event locations truncate before the protected date and sans/mono typography follows the documented value rule.
-    For the warm Topo system, verify both auth screens and root headers keep
-    their cut lower-right corner and faint contour pattern; legacy shared
-    cards and loading/error/empty states use a leading vertical trail marker
-    without the removed lower-right horizontal mark; buttons, fields, icon
-    actions and metric blocks share the cut corner without becoming pills;
-    Courses format actions use sentence-case shared buttons/fields; Profile
-    tabs are visibly selected beyond color; and the Profile save dock matches
-    the same action geometry. Check the Livret and plan contextual bars use the
-    selected icon surface. At 130% text, labels must wrap or shrink without
-    obscuring actions; pills remain limited to statuses and selections.
+    For the trail signature, verify auth screens and root headers keep their
+    faint contour pattern with symmetric lower corners; legacy shared cards
+    carry the two-band trail blaze on their leading edge; loading states and
+    the launch splash draw the ridge loader (static under reduced motion);
+    error states show a danger blaze and icon-less empty states the brand
+    ridge; buttons, fields, icon actions and metric blocks use symmetric radii
+    without becoming pills; measurements read as cotes (mono figure, unit in
+    spaced capitals); Courses format actions use sentence-case shared
+    buttons/fields; Profile tabs are visibly selected beyond color; and the
+    Profile save dock matches the same action geometry. Check the global tab
+    bar and the Livret/plan contextual bars place a blaze above the selected
+    icon in addition to the icon surface and color. Plans cards with a stored
+    profile show the course skyline; RaceBook ravito/supporter timelines use the
+    dotted trail rail; the RaceBook hero shows course contours only when the
+    organizer publishes the elevation profile. Create a new plan from a catalog
+    course and confirm the summit celebration plays once, dismisses on tap and
+    does not replay when returning to the editor. At 130% text, labels must wrap
+    or shrink without obscuring actions; pills remain limited to statuses and
+    selections.
 18. In Profile, inspect the four-sub-tab segmented scroller at normal and enlarged text sizes. Create both pending-onboarding and unread-notification conditions and confirm that the bottom Profile icon shows one red dot whose screen-reader label announces both. Open Notifications, verify its own unread dot, loading/error/empty/list states, pagination and retry, then confirm a card becomes read only after opening it and the bulk action clears remaining unread dots. Open a push href targeting `/(app)/profile?tab=notifications&notificationId=<uuid>` and confirm the owner-visible card expands and becomes read even when it was outside the first page.
 
 ## Visual Review Rubric

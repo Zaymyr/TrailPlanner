@@ -117,6 +117,8 @@ Summary:
 
 The in-app recap now shows the runner departure, official departure and signed delta, and offers ordered start waves before the free time picker. The existing per-plan local runner override remains the source sent to reusable share snapshots; wave selection does not write organizer rows.
 
+Trail signature (2026-11-09): the plan recap pack list now presents the same carbohydrate and sodium totals as metric tiles. Share-link creation, visibility and payload are unchanged.
+
 ## Related Docs
 
 - [race_plans](race-plans.md)

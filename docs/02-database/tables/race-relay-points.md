@@ -127,6 +127,8 @@ Selecting the conditional `Relais` sub-tab is recorded as RaceBook product engag
 
 The owner-only Livret/Mon plan switch may warm an already saved plan editor only when the warm state's plan id matches the route, but it never turns a relay handover into a personalized passage or changes the `Relais` collection.
 
+Trail signature (2026-11-09): the runner RaceBook screen adds presentation only: faint contour lines in the hero derived from the already-loaded course elevation profile (drawn only when the organizer publishes it through `gpxDisplay.showElevationProfile`) and a ridge-line divider inside the course essentials card. It reads and writes no row of this domain and changes no query, payload or analytics event.
+
 ## Related Docs
 
 Masking a format from the private RaceBook demo suppresses its complete mobile RaceBook entry point without deleting relay points.

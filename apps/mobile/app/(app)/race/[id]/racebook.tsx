@@ -31,6 +31,7 @@ import { Card } from '../../../../components/themed/Card';
 import { DataText } from '../../../../components/themed/DataText';
 import { Heading } from '../../../../components/themed/Heading';
 import { Text } from '../../../../components/themed/Text';
+import { RidgeDivider } from '../../../../components/themed/Ridge';
 import { OnboardingGuideCard } from '../../../../components/onboarding/OnboardingGuideCard';
 import {
   RacebookLoadingScreen as SponsorLoadingScreen,
@@ -1967,6 +1968,7 @@ export default function RaceRacebookScreen() {
           expandedBodyHeight={heroBodyHeight}
           eventName={data.event.name}
           raceName={data.race.name}
+          contourProfile={data.race.organizerDetails.gpxDisplay.showElevationProfile && elevationProfile.length >= 2 ? elevationProfile : null}
           imageUrl={data.race.thumbnailUrl ?? data.event.thumbnailUrl ?? null}
           logoUrl={RACEBOOK_EDITION_LOGO_ENABLED ? brandTheme.logoUrl : null}
           dateLabel={[formattedRaceDate ?? eventDateRange, raceCountdownLabel].filter(Boolean).join(' · ') || null}
@@ -2279,7 +2281,7 @@ export default function RaceRacebookScreen() {
                   <SectionCard title={t.catalog.racebookSectionCourseEssentials}>
                     {courseItems.length > 0 ? <LabeledInfoList items={courseItems} emphasis onOpenUrl={openExternalUrl} /> : null}
                     {courseItems.length > 0 && courseConstraintLines.length > 0 ? (
-                      <View style={styles.sectionDivider} />
+                      <RidgeDivider />
                     ) : null}
                     {courseConstraintLines.length > 0 ? (
                       <View style={styles.inlineBlock}>
@@ -3146,10 +3148,6 @@ const styles = StyleSheet.create({
   },
   inlineBlock: {
     gap: 8,
-  },
-  sectionDivider: {
-    height: 1,
-    backgroundColor: Colors.border,
   },
   inlineBlockTitle: {
     color: Colors.textPrimary,

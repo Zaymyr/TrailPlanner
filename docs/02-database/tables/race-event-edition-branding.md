@@ -148,6 +148,8 @@ where edition_id = :edition_id;
 - Hero, contextual, and Android back actions replace the active route with Courses rather than exposing an earlier RaceBook; this navigation rule does not change the published branding payload or resolver.
 - Branding draft mutation does not require a paid entitlement. Publication does require active Signature; inactive or draft-only branding remains stored while runner bootstrap returns Pace Yourself defaults.
 
+Trail signature (2026-11-09): the RaceBook hero may draw faint course contour lines in the resolved `onPrimaryColor` (only when the organizer publishes the elevation profile), and the ravito chronology rail becomes a dotted trail line in the contrast-safe `accentGraphicColor` variant. Hero metrics typeset their unit as a map-style cote. The contextual tab bar keeps the app-owned forest selection and adds a trail blaze above the selected icon. No branding field, resolver or color precedence changes.
+
 ## Related Docs
 
 Format-owned GPX visibility may omit a branded route or profile card; it does not change edition color resolution or the branding table contract.

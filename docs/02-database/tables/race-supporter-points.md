@@ -67,6 +67,8 @@ Clients cannot insert, update, or delete rows directly. `PUT /api/organizer/race
 - Organizer ownership is checked by the API before the service mutation.
 - Analytics must never include addresses, coordinates, access notes, Maps URLs, or external plan URLs.
 
+Trail signature (2026-11-09): the runner supporter-point timeline links its points with a dotted trail rail instead of a solid line. Presentation only: no query, field or directions-link change.
+
 ## Related Docs
 
 - [Organizer RaceBook Module Settings](organizer-racebook-module-settings.md)

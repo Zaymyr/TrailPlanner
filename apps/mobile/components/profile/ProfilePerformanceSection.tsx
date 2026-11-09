@@ -7,6 +7,7 @@ import {
   View
 } from 'react-native';
 import { Text } from '../themed/Text';
+import { RidgeDivider } from '../themed/Ridge';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Colors } from '../../constants/colors';
 
@@ -108,7 +109,7 @@ function ProfilePerformanceSectionComponent({
         </View>
       </View>
 
-      <View style={styles.divider} />
+      <RidgeDivider style={styles.divider} />
 
       <View style={styles.group}>
         <Text style={styles.groupTitle}>{effortTitle}</Text>
@@ -169,7 +170,7 @@ function ProfilePerformanceSectionComponent({
         </View>
       </View>
 
-      <View style={styles.divider} />
+      <RidgeDivider style={styles.divider} />
 
       <View style={styles.group}>
         <Text style={styles.inlineSectionTitle}>{planDefaultsTitle}</Text>
@@ -299,9 +300,7 @@ const styles = StyleSheet.create({
     marginTop: -2,
   },
   divider: {
-    height: 1,
-    backgroundColor: Colors.border,
-    marginVertical: 14,
+    marginVertical: 8,
   },
   waterBagRow: {
     flexDirection: 'row',

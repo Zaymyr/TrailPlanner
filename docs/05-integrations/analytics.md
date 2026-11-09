@@ -408,6 +408,8 @@ Clearing the Courses search and omitting an empty card image rail emit no event.
 
 Favorite toasts and decorative haptics remain presentation-only. Existing successful favorite and gear interaction events retain their names and payloads; failed retries do not emit a false success event.
 
+Trail signature (2026-11-09): the visual signature (trail blazes, cotes, ridge loader/divider, course skyline, dotted ravito rail, RaceBook hero contours) and the one-off summit celebration shown when a new plan opens emit no analytics event and change no existing event payload; the celebration's route parameter is not tracked.
+
 ## Related Docs
 
 Selecting or masking a private-demo format is configuration, not a runner RaceBook open or publication analytics event.

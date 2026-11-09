@@ -384,6 +384,8 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 
 The recap shows combined carbohydrate/sodium totals and a rounded ten-minute drinking rhythm. The editor chronology keeps product intakes and emits a plain-water row only when the rounded 10 ml quantity changes. This compaction is presentation-only and does not alter allocation totals, reminders, or saved plan values. All-uppercase product labels receive display-only normal casing with known acronym preservation.
 
+Trail signature (2026-11-09): after a standard plan creation, `plan/new` opens the editor with a one-use `created=1` route parameter that only triggers the summit celebration overlay. It does not change seeding, allocation, persistence or any nutrition calculation.
+
 ## Related Docs
 
 - [Products Table](../02-database/tables/products.md)
