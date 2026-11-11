@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import {
-  ActivityIndicator,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -9,6 +8,7 @@ import {
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Colors } from '../../constants/colors';
+import { ActionButton } from '../themed/ActionButton';
 import { Text } from '../themed/Text';
 import { TrailRail } from '../themed/TrailRail';
 
@@ -44,21 +44,16 @@ export function OnboardingShell({
             <View style={styles.heroTitleRow}>
               <Text style={styles.logo}>Pace Yourself</Text>
               {onSkip && skipLabel ? (
-                <TouchableOpacity
-                  accessibilityRole="button"
+                <ActionButton
                   accessibilityLabel={skipLabel}
-                  activeOpacity={0.7}
-                  disabled={skipDisabled}
                   hitSlop={8}
+                  isLoading={skipDisabled}
                   onPress={onSkip}
-                  style={[styles.skipOnboardingButton, skipDisabled && styles.buttonDisabled]}
+                  size="sm"
+                  variant="ghost"
                 >
-                  {skipDisabled ? (
-                    <ActivityIndicator color={Colors.textSecondary} size="small" />
-                  ) : (
-                    <Text style={styles.skipOnboardingButtonText}>{skipLabel}</Text>
-                  )}
-                </TouchableOpacity>
+                  {skipLabel}
+                </ActionButton>
               ) : null}
             </View>
             <Text style={styles.stepIndicator}>
@@ -130,13 +125,9 @@ export function OnboardingTourChoice({
       />
       <Text style={styles.optionalLabel}>{planOptionalLabel}</Text>
       <TourChoiceCard icon="map-outline" title={planTitle} body={planBody} disabled={busy} onPress={onChoosePlan} />
-      <TouchableOpacity disabled={busy} onPress={onDiscoverLater} style={styles.secondaryButton}>
-        {busy ? (
-          <ActivityIndicator color={Colors.brandPrimary} />
-        ) : (
-          <Text style={styles.secondaryButtonText}>{discoverLaterLabel}</Text>
-        )}
-      </TouchableOpacity>
+      <ActionButton isLoading={busy} onPress={onDiscoverLater} style={styles.softExitButton} variant="ghost">
+        {discoverLaterLabel}
+      </ActionButton>
     </OnboardingShell>
   );
 }
@@ -235,9 +226,9 @@ export function OnboardingOverviewStep({
         ))}
       </View>
       {accountContent ?? (
-        <TouchableOpacity style={styles.primaryButton} onPress={onStart}>
-          <Text style={styles.primaryButtonText}>{startLabel}</Text>
-        </TouchableOpacity>
+        <ActionButton fullWidth onPress={onStart} size="lg">
+          {startLabel}
+        </ActionButton>
       )}
     </OnboardingShell>
   );
@@ -317,9 +308,9 @@ export function OnboardingWorkflowStep({
           </View>
         ))}
       </View>
-      <TouchableOpacity style={styles.primaryButton} onPress={onStart}>
-        <Text style={styles.primaryButtonText}>{startLabel}</Text>
-      </TouchableOpacity>
+      <ActionButton fullWidth onPress={onStart} size="lg">
+        {startLabel}
+      </ActionButton>
     </OnboardingShell>
   );
 }
@@ -362,12 +353,12 @@ export function OnboardingCompletionStep({
           <Text key={`${index}-${line}`} style={styles.noticeText}>{line}</Text>
         ))}
       </View>
-      <TouchableOpacity style={styles.primaryButton} onPress={onContinue}>
-        <Text style={styles.primaryButtonText}>{primaryLabel}</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.secondaryButton} onPress={onNewPlan}>
-        <Text style={styles.secondaryButtonText}>{newPlanLabel}</Text>
-      </TouchableOpacity>
+      <ActionButton fullWidth onPress={onContinue} size="lg">
+        {primaryLabel}
+      </ActionButton>
+      <ActionButton fullWidth onPress={onNewPlan} style={styles.secondaryButton} variant="secondary">
+        {newPlanLabel}
+      </ActionButton>
     </OnboardingShell>
   );
 }
@@ -396,18 +387,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     textAlign: 'center',
   },
-  skipOnboardingButton: {
-    width: 64,
-    minHeight: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
-    paddingHorizontal: 8,
-  },
-  skipOnboardingButtonText: { color: Colors.textSecondary, fontSize: 13, fontWeight: '600' },
   stepIndicator: {
     marginTop: 8,
     color: Colors.textSecondary,
@@ -541,24 +520,8 @@ const styles = StyleSheet.create({
   },
   timelineTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700', marginBottom: 4 },
   timelineText: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20 },
-  primaryButton: {
-    backgroundColor: Colors.brandPrimary,
-    borderRadius: 16,
-    paddingVertical: 18,
-    alignItems: 'center',
-  },
-  primaryButtonText: { color: Colors.textOnBrand, fontSize: 16, fontWeight: '700' },
-  secondaryButton: {
-    marginTop: 10,
-    paddingVertical: 14,
-    borderRadius: 14,
-    alignItems: 'center',
-    backgroundColor: Colors.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  secondaryButtonText: { color: Colors.textSecondary, fontSize: 15, fontWeight: '600' },
-  buttonDisabled: { opacity: 0.6 },
+  secondaryButton: { marginTop: 10 },
+  softExitButton: { alignSelf: 'center', marginTop: 10 },
   notificationIconWrap: {
     width: 72,
     height: 72,

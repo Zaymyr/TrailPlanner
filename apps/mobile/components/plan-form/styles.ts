@@ -338,20 +338,6 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
   },
-  sectionTimingResetButton: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.brandPrimary,
-    backgroundColor: Colors.surface,
-  },
-  sectionTimingResetButtonText: {
-    color: Colors.brandPrimary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
   scrollContextBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -972,9 +958,7 @@ export const styles = StyleSheet.create({
   qtyText: { color: Colors.textPrimary, fontWeight: '700', minWidth: 24, textAlign: 'center', fontSize: 15 },
   removeSupplyBtn: { width: 44, height: 44, marginLeft: 8, alignItems: 'center', justifyContent: 'center' },
   removeSupplyText: { color: Colors.danger, fontSize: 18 },
-  saveButton: { backgroundColor: Colors.brandPrimary, borderRadius: 12, paddingVertical: 18, alignItems: 'center', marginTop: 32 },
   saveButtonDisabled: { opacity: 0.6 },
-  saveButtonText: { color: Colors.textOnBrand, fontSize: 17, fontWeight: '700' },
   saveSpacer: { height: 88 },
   floatingSaveButtonAnchor: {
     position: 'absolute',
@@ -1038,19 +1022,6 @@ export const styles = StyleSheet.create({
   },
   settingsSheetContent: {
     paddingBottom: 18,
-  },
-  settingsSheetDoneButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 46,
-    borderRadius: 12,
-    backgroundColor: Colors.brandPrimary,
-    marginTop: 18,
-  },
-  settingsSheetDoneButtonText: {
-    color: Colors.textOnBrand,
-    fontSize: 15,
-    fontWeight: '800',
   },
   pickerSheet: { backgroundColor: Colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 40, maxHeight: '80%' },
   pickerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
@@ -1162,27 +1133,6 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     marginTop: 16,
-  },
-  autoFillLimitsSecondaryButton: {
-    flex: 1,
-    minHeight: 46,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceSecondary,
-  },
-  autoFillLimitsPrimaryButton: {
-    flex: 1.35,
-    minHeight: 46,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    backgroundColor: Colors.brandPrimary,
-  },
-  autoFillLimitsPrimaryButtonDisabled: {
-    opacity: 0.55,
   },
   autoFillLimitsSecondaryText: {
     color: Colors.textSecondary,
@@ -1297,32 +1247,6 @@ export const styles = StyleSheet.create({
   },
   pickerSearchField: {
     marginBottom: 12,
-  },
-  pickerSortRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 8,
-  },
-  pickerSortBtn: {
-    flex: 1,
-    backgroundColor: Colors.surfaceSecondary,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingVertical: 9,
-    alignItems: 'center',
-  },
-  pickerSortBtnActive: {
-    backgroundColor: Colors.brandSurface,
-    borderColor: Colors.brandBorder,
-  },
-  pickerSortBtnText: {
-    color: Colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  pickerSortBtnTextActive: {
-    color: Colors.brandPrimary,
   },
   pickerSectionTitle: {
     color: Colors.textMuted,

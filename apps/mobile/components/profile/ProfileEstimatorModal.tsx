@@ -10,6 +10,7 @@ import {
   View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActionButton } from '../themed/ActionButton';
 import { Field } from '../themed/Field';
 import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
@@ -245,13 +246,9 @@ function ProfileEstimatorModalComponent({
             </View>
           </ScrollView>
 
-          <TouchableOpacity
-            style={[styles.applyButton, !estimatedTargets && styles.applyButtonDisabled]}
-            onPress={onApply}
-            disabled={!estimatedTargets}
-          >
-            <Text style={styles.applyButtonText}>{applyLabel}</Text>
-          </TouchableOpacity>
+          <ActionButton disabled={!estimatedTargets} fullWidth onPress={onApply} size="lg">
+            {applyLabel}
+          </ActionButton>
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -436,19 +433,5 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 12,
     lineHeight: 18,
-  },
-  applyButton: {
-    backgroundColor: Colors.brandPrimary,
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  applyButtonDisabled: {
-    opacity: 0.6,
-  },
-  applyButtonText: {
-    color: Colors.textOnBrand,
-    fontSize: 16,
-    fontWeight: '600',
   },
 });

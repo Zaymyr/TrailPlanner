@@ -40,6 +40,7 @@ import { ChoiceChip } from '../../components/themed/ChoiceChip';
 import { Cote } from '../../components/themed/Cote';
 import { Field } from '../../components/themed/Field';
 import { IconAction } from '../../components/themed/IconAction';
+import { StatusPill } from '../../components/themed/StatusPill';
 import { MilestoneCompassButton } from '../../components/themed/trail/MilestoneGlyphs';
 import { Colors } from '../../constants/colors';
 import { isAnonymousSession } from '../../lib/appSession';
@@ -1503,9 +1504,7 @@ export default function CatalogScreen() {
                           <View style={styles.eventUpdateMetaRow}>
                             {raceName ? <Text style={styles.eventUpdateScope}>{raceName}</Text> : null}
                             {isNew ? (
-                              <View style={styles.newBadge}>
-                                <Text style={styles.newBadgeText}>NEW</Text>
-                              </View>
+                              <StatusPill label="NEW" tone="brand" style={styles.newBadge} />
                             ) : null}
                           </View>
                         ) : null}
@@ -1860,16 +1859,7 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
   },
   newBadge: {
-    backgroundColor: Colors.brandPrimary,
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  newBadgeText: {
-    color: Colors.textOnBrand,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+    alignSelf: 'center',
   },
   eventUpdateMessage: {
     color: Colors.textPrimary,

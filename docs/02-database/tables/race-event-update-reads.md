@@ -89,6 +89,8 @@ The mobile catalog (`apps/mobile/app/(app)/catalog.tsx`) now shows its quick fil
 
 The catalog search is a road-notebook `Field variant="search"` and the race sheet header actions are watch `IconAction`s; update reads are unchanged.
 
+The unread organizer-update marker (« NEW ») is a brand `StatusPill` wristband on event cards and in the update list; reads and writes are unchanged.
+
 ## Related Docs
 
 Private-demo format selection does not create or clear announcement read receipts.

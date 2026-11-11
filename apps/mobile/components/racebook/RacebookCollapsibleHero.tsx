@@ -7,7 +7,6 @@ import { Animated, Modal, Pressable, StyleSheet, View, type LayoutChangeEvent } 
 import { DataText } from '../themed/DataText';
 import { Heading } from '../themed/Heading';
 import { IconAction } from '../themed/IconAction';
-import { WatchBackChevron } from '../themed/trail/WatchButton';
 import { Text } from '../themed/Text';
 import { TopoContourPattern } from '../themed/TopoContourPattern';
 import type { TrailProfilePoint } from '../../lib/trailSignature';
@@ -196,11 +195,10 @@ export function RacebookCollapsibleHero({
         </Animated.View>
       ) : null}
 
-      {/* Blade in the on-primary color, chevron in the primary: same contrast pair as the header text. */}
+      {/* Blade in the on-primary color: same contrast pair as the header text. */}
       <IconAction
         accessibilityLabel={backLabel}
         bladeColor={theme.onPrimaryColor}
-        icon={<WatchBackChevron color={theme.primaryColor} />}
         onPress={onBack}
         style={[styles.backButton, { top: topInset + RACE_WORKSPACE_ACTION_TOP_OFFSET - 1 }]}
         testID="racebook-back-to-catalog"

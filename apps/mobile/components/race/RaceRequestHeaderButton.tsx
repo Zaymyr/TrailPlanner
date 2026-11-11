@@ -1,6 +1,5 @@
 import { useState, type ReactNode } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Modal,
@@ -10,6 +9,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { ActionButton } from '../themed/ActionButton';
 import { Field } from '../themed/Field';
 import { IconAction } from '../themed/IconAction';
 import { Text } from '../themed/Text';
@@ -158,21 +158,13 @@ export function RaceRequestHeaderButton({ children }: RaceRequestHeaderButtonPro
               </TouchableOpacity>
             ) : null}
 
-            <TouchableOpacity
-              disabled={submitting}
-              onPress={handleSubmit}
-              style={[styles.primaryButton, submitting && styles.primaryButtonDisabled]}
-            >
-              {submitting ? (
-                <ActivityIndicator color={Colors.textOnBrand} />
-              ) : (
-                <Text style={styles.primaryButtonText}>{t.raceRequests.submit}</Text>
-              )}
-            </TouchableOpacity>
+            <ActionButton fullWidth isLoading={submitting} onPress={handleSubmit} style={styles.primaryButton}>
+              {t.raceRequests.submit}
+            </ActionButton>
 
-            <TouchableOpacity disabled={submitting} onPress={handleClose} style={styles.secondaryButton}>
-              <Text style={styles.secondaryButtonText}>{t.common.cancel}</Text>
-            </TouchableOpacity>
+            <ActionButton disabled={submitting} onPress={handleClose} style={styles.secondaryButton} variant="ghost">
+              {t.common.cancel}
+            </ActionButton>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -235,30 +227,10 @@ const styles = StyleSheet.create({
   clearDateButton: { alignSelf: 'flex-start', marginBottom: 14, marginTop: 6 },
   clearDateText: { color: Colors.brandPrimary, fontSize: 13, fontWeight: '700' },
   primaryButton: {
-    backgroundColor: Colors.brandPrimary,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 50,
     marginTop: 4,
   },
-  primaryButtonDisabled: {
-    opacity: 0.72,
-  },
-  primaryButtonText: {
-    color: Colors.textOnBrand,
-    fontSize: 15,
-    fontWeight: '800',
-  },
   secondaryButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 14,
-    paddingBottom: 2,
-  },
-  secondaryButtonText: {
-    color: Colors.textSecondary,
-    fontSize: 14,
-    fontWeight: '700',
+    alignSelf: 'center',
+    marginTop: 10,
   },
 });

@@ -193,6 +193,8 @@ Forms and headers use the themed trail components: inputs are road-notebook `Fie
 
 Plan cards in Mes courses lead with two `TrailSignButton` signs (Livret coureur, plan action) keyed by plan id; recap, share and delete are watch `IconAction`s, and deleting from the manage sheet uses `ActionButton variant="destructive-outline"`.
 
+Profile sections are `Card` posters; language and admin access simulation use `TrailTabs`; account deletion is a `destructive` `ActionButton`; the tutorial hides « Précédent » on its first step instead of showing a disabled button.
+
 ## Related Docs
 
 - [Mobile App](../01-architecture/mobile-app.md)

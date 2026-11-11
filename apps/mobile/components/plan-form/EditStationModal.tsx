@@ -12,6 +12,7 @@ import {
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
 import { splitLabelUnit } from '../../lib/fieldLabel';
+import { ActionButton } from '../themed/ActionButton';
 import { Field } from '../themed/Field';
 import { IconAction } from '../themed/IconAction';
 import { Text } from '../themed/Text';
@@ -149,9 +150,9 @@ export function EditStationModal({ editingStation, setEditingStation, onSave, of
               {renderServiceOption('solidRefill', t.planForm.foodLabel, t.planForm.foodHint, 'nutrition-outline')}
               {renderServiceOption('assistanceAllowed', t.planForm.assistanceLabel, t.planForm.assistanceHint, 'people-outline')}
             </View>
-            <TouchableOpacity style={styles.saveButton} onPress={onSave}>
-              <Text style={styles.saveButtonText}>{isCreateMode ? t.planForm.addAidStationAction : t.planForm.saveAidStationAction}</Text>
-            </TouchableOpacity>
+            <ActionButton fullWidth onPress={onSave} style={{ marginTop: 32 }}>
+              {isCreateMode ? t.planForm.addAidStationAction : t.planForm.saveAidStationAction}
+            </ActionButton>
           </ScrollView>
         </View>
       </KeyboardAvoidingView>

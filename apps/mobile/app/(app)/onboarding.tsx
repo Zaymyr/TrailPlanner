@@ -2,10 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   View,
-  TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
 } from 'react-native';
+import { ActionButton } from '../../components/themed/ActionButton';
 import { Text } from '../../components/themed/Text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -1347,27 +1346,26 @@ export default function OnboardingScreen() {
             ) : null}
 
             {googleAvailable ? (
-              <TouchableOpacity
-                style={[styles.googleStartButton, authChoiceLoading && styles.buttonDisabled]}
+              <ActionButton
+                fullWidth
+                isLoading={authChoiceLoading}
+                leading={<Ionicons name="logo-google" size={18} color={Colors.brandPrimary} />}
                 onPress={() => void handleStartWithGoogle()}
-                disabled={authChoiceLoading}
+                size="lg"
+                variant="secondary"
               >
-                <Ionicons name="logo-google" size={18} color={Colors.brandPrimary} />
-                <Text style={styles.googleStartButtonText}>
-                  {authChoiceLoading ? t.auth.loggingIn : t.onboarding.welcomeAccountGoogleCta}
-                </Text>
-              </TouchableOpacity>
+                {authChoiceLoading ? t.auth.loggingIn : t.onboarding.welcomeAccountGoogleCta}
+              </ActionButton>
             ) : null}
 
-            <TouchableOpacity
-              style={[styles.secondaryButton, authChoiceLoading && styles.buttonDisabled]}
-              onPress={handleContinueWithoutAccount}
+            <ActionButton
               disabled={authChoiceLoading}
+              onPress={handleContinueWithoutAccount}
+              style={styles.skipButton}
+              variant="ghost"
             >
-              <Text style={styles.secondaryButtonText}>
-                {t.onboarding.welcomeAccountGuestCta}
-              </Text>
-            </TouchableOpacity>
+              {t.onboarding.welcomeAccountGuestCta}
+            </ActionButton>
 
             {authChoiceError ? <Text style={styles.errorText}>{authChoiceError}</Text> : null}
 
@@ -1596,23 +1594,13 @@ export default function OnboardingScreen() {
             <Text style={styles.noticeText}>{t.onboarding.notificationsItem3}</Text>
           </View>
 
-          <TouchableOpacity
-            style={[styles.primaryButton, saving && styles.buttonDisabled]}
-            onPress={handleNotifStep}
-            disabled={saving}
-          >
-            {saving ? (
-              <ActivityIndicator color={Colors.textOnBrand} />
-            ) : (
-              <Text style={styles.primaryButtonText}>
-                {selectedRace ? t.onboarding.notificationsDemoPlanCta : t.onboarding.notificationsCta}
-              </Text>
-            )}
-          </TouchableOpacity>
+          <ActionButton fullWidth isLoading={saving} onPress={handleNotifStep} size="lg">
+            {selectedRace ? t.onboarding.notificationsDemoPlanCta : t.onboarding.notificationsCta}
+          </ActionButton>
 
-          <TouchableOpacity style={styles.secondaryButton} onPress={finishOnboarding} disabled={saving}>
-            <Text style={styles.secondaryButtonText}>{t.onboarding.skipCta}</Text>
-          </TouchableOpacity>
+          <ActionButton disabled={saving} onPress={finishOnboarding} style={styles.skipButton} variant="ghost">
+            {t.onboarding.skipCta}
+          </ActionButton>
         </OnboardingShell>
 
         {renderEstimatorModal()}
@@ -1636,21 +1624,13 @@ export default function OnboardingScreen() {
           <Text style={styles.noticeText}>{t.onboarding.notificationsItem3}</Text>
         </View>
 
-        <TouchableOpacity
-          style={[styles.primaryButton, saving && styles.buttonDisabled]}
-          onPress={handleNotifStep}
-          disabled={saving}
-        >
-          {saving ? (
-            <ActivityIndicator color={Colors.textOnBrand} />
-          ) : (
-            <Text style={styles.primaryButtonText}>{t.onboarding.notificationsCta}</Text>
-          )}
-        </TouchableOpacity>
+        <ActionButton fullWidth isLoading={saving} onPress={handleNotifStep} size="lg">
+          {t.onboarding.notificationsCta}
+        </ActionButton>
 
-        <TouchableOpacity style={styles.secondaryButton} onPress={finishOnboarding} disabled={saving}>
-          <Text style={styles.secondaryButtonText}>{t.onboarding.skipCta}</Text>
-        </TouchableOpacity>
+        <ActionButton disabled={saving} onPress={finishOnboarding} style={styles.skipButton} variant="ghost">
+          {t.onboarding.skipCta}
+        </ActionButton>
       </OnboardingShell>
 
       {renderEstimatorModal()}
@@ -1705,34 +1685,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     textAlign: 'center',
   },
-  primaryButton: {
-    backgroundColor: Colors.brandPrimary,
-    borderRadius: 16,
-    paddingVertical: 18,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    color: Colors.textOnBrand,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  googleStartButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 18,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-    backgroundColor: Colors.surfaceSecondary,
-  },
-  googleStartButtonText: {
-    color: Colors.brandPrimary,
-    fontSize: 16,
-    fontWeight: '700',
-  },
   appleStartButton: {
     width: '100%',
     height: 54,
@@ -1740,19 +1692,9 @@ const styles = StyleSheet.create({
   appleStartButtonWrap: {
     alignSelf: 'stretch',
   },
-  secondaryButton: {
+  skipButton: {
+    alignSelf: 'center',
     marginTop: 10,
-    paddingVertical: 14,
-    borderRadius: 14,
-    alignItems: 'center',
-    backgroundColor: Colors.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  secondaryButtonText: {
-    color: Colors.textSecondary,
-    fontSize: 15,
-    fontWeight: '600',
   },
   buttonDisabled: {
     opacity: 0.6,

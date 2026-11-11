@@ -18,10 +18,12 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { ActionButton } from '../themed/ActionButton';
 import { DataText } from '../themed/DataText';
 import { Field } from '../themed/Field';
 import { IconAction } from '../themed/IconAction';
 import { Text } from '../themed/Text';
+import { TrailTabs, type TrailTab } from '../themed/TrailTabs';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
 import type { AccordionSection, PlanFormValues } from './contracts';
@@ -158,6 +160,10 @@ export function PlanBasicsSection({
 }: Props) {
   const { locale, t } = useI18n();
   const [fatigueTrackWidth, setFatigueTrackWidth] = useState(0);
+  const paceTypeTabs: TrailTab<PlanFormValues['paceType']>[] = [
+    { key: 'pace', label: 'Allure (min/km)' },
+    { key: 'speed', label: 'Vitesse (km/h)' },
+  ];
   const paceSummary =
     values.paceType === 'pace'
       ? `${String(values.paceMinutes).padStart(2, '0')}:${String(values.paceSeconds).padStart(2, '0')} min/km`
@@ -354,14 +360,12 @@ export function PlanBasicsSection({
         {renderAccordionHeader('pace', 'Allure de base sur le plat', [paceSummary, fatigueDescriptor], true)}
           <>
             <Text style={styles.waterBagHint}>L'allure moyenne de course tient compte du dénivelé et de la fatigue.</Text>
-            <View style={styles.toggleRow}>
-              <TouchableOpacity style={[styles.toggleBtn, values.paceType === 'pace' && styles.toggleBtnActive]} onPress={() => update('paceType', 'pace')}>
-                <Text style={[styles.toggleBtnText, values.paceType === 'pace' && styles.toggleBtnTextActive]}>Allure (min/km)</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.toggleBtn, values.paceType === 'speed' && styles.toggleBtnActive]} onPress={() => update('paceType', 'speed')}>
-                <Text style={[styles.toggleBtnText, values.paceType === 'speed' && styles.toggleBtnTextActive]}>Vitesse (km/h)</Text>
-              </TouchableOpacity>
-            </View>
+            <TrailTabs
+              activeKey={values.paceType}
+              onChange={(key) => update('paceType', key)}
+              stretch
+              tabs={paceTypeTabs}
+            />
             {values.paceType === 'pace' ? (
               <View style={styles.row}>
                 <View style={styles.rowItem}>
@@ -403,9 +407,9 @@ export function PlanBasicsSection({
             {hasSectionTimingOverrides ? (
               <View style={styles.sectionTimingResetBox}>
                 <Text style={styles.sectionTimingResetHint}>{t.plans.sectionTimingLockedHint}</Text>
-                <TouchableOpacity style={styles.sectionTimingResetButton} onPress={onResetSectionTimingOverrides}>
-                  <Text style={styles.sectionTimingResetButtonText}>{t.plans.sectionTimingReset}</Text>
-                </TouchableOpacity>
+                <ActionButton onPress={onResetSectionTimingOverrides} size="sm" variant="ghost">
+                  {t.plans.sectionTimingReset}
+                </ActionButton>
               </View>
             ) : null}
           </>
@@ -540,24 +544,12 @@ export function PlanBasicsSection({
               {expandedSections.pace && (
                 <>
                   <Text style={styles.waterBagHint}>L'allure moyenne de course tient compte du dénivelé et de la fatigue.</Text>
-                  <View style={styles.toggleRow}>
-                    <TouchableOpacity
-                      style={[styles.toggleBtn, values.paceType === 'pace' && styles.toggleBtnActive]}
-                      onPress={() => update('paceType', 'pace')}
-                    >
-                      <Text style={[styles.toggleBtnText, values.paceType === 'pace' && styles.toggleBtnTextActive]}>
-                        Allure (min/km)
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.toggleBtn, values.paceType === 'speed' && styles.toggleBtnActive]}
-                      onPress={() => update('paceType', 'speed')}
-                    >
-                      <Text style={[styles.toggleBtnText, values.paceType === 'speed' && styles.toggleBtnTextActive]}>
-                        Vitesse (km/h)
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+                  <TrailTabs
+                    activeKey={values.paceType}
+                    onChange={(key) => update('paceType', key)}
+                    stretch
+                    tabs={paceTypeTabs}
+                  />
                   {values.paceType === 'pace' ? (
                     <View style={styles.row}>
                       <View style={styles.rowItem}>
@@ -609,9 +601,9 @@ export function PlanBasicsSection({
                   {hasSectionTimingOverrides ? (
                     <View style={styles.sectionTimingResetBox}>
                       <Text style={styles.sectionTimingResetHint}>{t.plans.sectionTimingLockedHint}</Text>
-                      <TouchableOpacity style={styles.sectionTimingResetButton} onPress={onResetSectionTimingOverrides}>
-                        <Text style={styles.sectionTimingResetButtonText}>{t.plans.sectionTimingReset}</Text>
-                      </TouchableOpacity>
+                      <ActionButton onPress={onResetSectionTimingOverrides} size="sm" variant="ghost">
+                        {t.plans.sectionTimingReset}
+                      </ActionButton>
                     </View>
                   ) : null}
                 </>
@@ -668,9 +660,9 @@ export function PlanBasicsSection({
                 </>
               )}
 
-              <TouchableOpacity activeOpacity={0.86} onPress={onCloseSettings} style={styles.settingsSheetDoneButton}>
-                <Text style={styles.settingsSheetDoneButtonText}>Terminé</Text>
-              </TouchableOpacity>
+              <ActionButton fullWidth onPress={onCloseSettings} style={{ marginTop: 18 }}>
+                Terminé
+              </ActionButton>
             </ScrollView>
           </View>
         </KeyboardAvoidingView>

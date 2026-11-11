@@ -281,13 +281,17 @@ Rule of use: a sign (`TrailSignButton`) means "I go elsewhere", a plate (primary
   diagonal red/white striped tape under a light label plate, never the GR
   waymark. Destructive and disabled never vary. Callers must not add their own
   disabled opacity or shadows.
-- `IconAction` is a 48-point GPS-watch button (notched dashed bezel, domed
-  button) in neutral, brand or danger tones, always with an
-  `accessibilityLabel`; `tone="onBrand"` (forest-dark case, cream bezel,
+- `IconAction` is a 48-point round watch button: a case with a solid ring and
+  twelve hour ticks around a concentric push button (lip drawn as a ring, soft
+  top highlight, sinks 4 % when pressed). Face and icon live in a fixed
+  48-point box so the icon stays centred even when a caller stretches or pads
+  the button in neutral, brand or danger tones, always with an
+  `accessibilityLabel`. `tone="onBrand"` (forest-dark case, cream bezel,
   forest-light dome) is for forest headers. `variant="back"` draws a small sign
-  blade pointing left, drawn as a small painted plank (rounded post end,
-  thickness, cast shadow, routed groove, two bolts; cream with a forest chevron
-  with `tone="onBrand"`, or `bladeColor` for organizer headers, the relief
+  blade pointing left with no glyph (the pointed plank is the arrow; an
+  explicit `icon` is still honoured), drawn as a small painted plank (rounded post end,
+  thickness, cast shadow, routed groove, two bolts; cream with
+  `tone="onBrand"`, or `bladeColor` for organizer headers, the relief
   being dark overlays so any colour keeps its hue). Root header actions are 48-point watch
   buttons. Screens never use a raw `TextInput` or pressable icon: they use
   `Field` (units split from labels by `splitLabelUnit`) and `IconAction`.

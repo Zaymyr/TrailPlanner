@@ -1,18 +1,21 @@
 import { colors } from '@pace-yourself/design-system';
 import { useId } from 'react';
 import { StyleSheet } from 'react-native';
-import Svg, { Circle, ClipPath, Defs, G, Path } from 'react-native-svg';
+import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop } from 'react-native-svg';
 
 /**
- * Decorative faces behind `IconAction`: the GPS-watch button (notched bezel
- * drawn as a dashed ring around a domed push button) and the small sign
- * blade pointing left used for "back". Never focusable or hit-testable.
+ * Decorative faces behind `IconAction`: the round "watch" button (solid case
+ * ring with twelve hour ticks around a concentric push button) and the small
+ * sign blade pointing left used for "back". Every circle shares the same
+ * centre as the icon, so the icon is always centred. Never focusable or
+ * hit-testable.
  */
 
 export const WATCH_SIZE = 48;
-const WATCH_BEZEL_WIDTH = 2;
-const WATCH_BEZEL_GAP = 3;
-const WATCH_DOME_EDGE = 2;
+const WATCH_RING = 1.5;
+const WATCH_TICK_OUTER = 3.5;
+const WATCH_TICK_LENGTH = 3;
+const WATCH_BUTTON_INSET = 9;
 
 export const WATCH_BLADE_WIDTH = 62;
 export const WATCH_BLADE_HEIGHT = 46;
@@ -21,36 +24,57 @@ export const WATCH_BLADE_TIP = 16;
 /** `onBrand` = dark watch for forest headers: pass a light icon (`colors.text.inverse`). */
 export type WatchTone = 'neutral' | 'brand' | 'danger' | 'onBrand';
 
-/** Case plate behind the bezel, bezel notches, dome face and the darker lower rim of the dome. */
+/** Case, case ring and hour ticks, push-button face and its lower lip. */
 export const watchPalette: Record<WatchTone, { plate: string; bezel: string; dome: string; rim: string }> = {
-  neutral: { plate: colors.surface.cream, bezel: colors.trail.stone, dome: colors.surface.white, rim: colors.border.subtle },
+  neutral: { plate: colors.surface.cream, bezel: colors.trail.stone, dome: colors.surface.white, rim: colors.border.strong },
   brand: { plate: colors.surface.cream, bezel: colors.trail.watchBezelBrand, dome: colors.brand.surface, rim: colors.brand.border },
   danger: { plate: colors.surface.cream, bezel: colors.accent.terracotta, dome: colors.semantic.danger, rim: colors.trail.dangerEdge },
-  // Cream bezel 8.7:1 on forest; cream icon 5.9:1 on the forestLight dome.
+  // Cream ring 8.7:1 on forest; cream icon 5.9:1 on the forestLight button.
   onBrand: { plate: colors.brand.forestDark, bezel: colors.text.inverse, dome: colors.brand.forestLight, rim: colors.brand.forestDark },
 };
 
+const TICKS = Array.from({ length: 12 }, (_, index) => (index * Math.PI) / 6);
+
 export function WatchFace({ tone, pressed }: { tone: WatchTone; pressed: boolean }) {
-  const clipId = `watch-dome-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
+  const gradientId = `watch-face-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   const { plate, bezel, dome, rim } = watchPalette[tone];
   const c = WATCH_SIZE / 2;
-  const ring = c - WATCH_BEZEL_WIDTH / 2;
-  const domeRadius = c - WATCH_BEZEL_WIDTH - WATCH_BEZEL_GAP;
+  const caseRadius = c - 1;
+  const buttonRadius = c - WATCH_BUTTON_INSET;
+  const tickOuter = caseRadius - WATCH_TICK_OUTER;
+  const tickInner = tickOuter - WATCH_TICK_LENGTH;
 
   return (
     <Svg accessible={false} height={WATCH_SIZE} pointerEvents="none" style={styles.face} width={WATCH_SIZE}>
       <Defs>
-        <ClipPath id={clipId}>
-          <Circle cx={c} cy={c} r={domeRadius} />
-        </ClipPath>
+        <LinearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
+          <Stop offset="0" stopColor="#FFFFFF" stopOpacity={pressed ? 0 : 0.35} />
+          <Stop offset="0.6" stopColor="#FFFFFF" stopOpacity={0} />
+        </LinearGradient>
       </Defs>
-      <Circle cx={c} cy={c} fill={plate} r={c - 0.5} />
-      <Circle cx={c} cy={c} fill="none" r={ring} stroke={bezel} strokeDasharray="4 3" strokeWidth={WATCH_BEZEL_WIDTH} />
-      {pressed ? null : <Circle cx={c} cy={c + 1} fill={colors.text.primary} opacity={0.15} r={domeRadius} />}
-      <G clipPath={`url(#${clipId})`}>
-        <Circle cx={c} cy={c} fill={pressed ? dome : rim} r={domeRadius} />
-        <Circle cx={c} cy={c - (pressed ? 0 : WATCH_DOME_EDGE)} fill={dome} r={domeRadius} />
-      </G>
+      {/* Case with a solid ring and twelve hour ticks, all on the icon's centre. */}
+      <Circle cx={c} cy={c} fill={plate} r={caseRadius} stroke={bezel} strokeWidth={WATCH_RING} />
+      {TICKS.map((angle, index) => {
+        const major = index % 3 === 0;
+        const inner = major ? tickInner - 0.5 : tickInner + 0.5;
+        return (
+          <Line
+            key={index}
+            stroke={bezel}
+            strokeLinecap="round"
+            strokeOpacity={major ? 1 : 0.6}
+            strokeWidth={major ? 1.6 : 1}
+            x1={c + Math.sin(angle) * inner}
+            x2={c + Math.sin(angle) * tickOuter}
+            y1={c - Math.cos(angle) * inner}
+            y2={c - Math.cos(angle) * tickOuter}
+          />
+        );
+      })}
+      {/* Push button: concentric, its lip is a ring (not an offset) so the icon stays centred. */}
+      <Circle cx={c} cy={c} fill={rim} r={buttonRadius + (pressed ? 0.5 : 1.5)} />
+      <Circle cx={c} cy={c} fill={dome} r={buttonRadius} />
+      <Circle cx={c} cy={c} fill={`url(#${gradientId})`} r={buttonRadius} />
     </Svg>
   );
 }

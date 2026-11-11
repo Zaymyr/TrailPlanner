@@ -274,6 +274,8 @@ The RaceBook Course tab (Tracé, Ravitos, Où encourager) uses `TrailTabs` with 
 
 The RaceBook Course map and profile cards open fullscreen through watch `IconAction`s (labels `racebookMapExpand` / `racebookProfileExpand`) instead of ad-hoc square buttons; behaviour unchanged.
 
+Section cards are `Card`s with a stable `variationKey`; status badges and counters are `StatusPill`s; segmented choices are `TrailTabs` (`stretch`); modal actions are one primary `ActionButton` plus ghost or secondary ones.
+
 ## Related Docs
 
 Mobile RaceBook entry points must pass preview selection plus publication/organizer access through `canShowRacebook`; screens must not recreate those gates locally.

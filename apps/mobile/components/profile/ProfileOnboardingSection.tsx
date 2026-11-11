@@ -1,9 +1,11 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Colors } from '../../constants/colors';
 import type { OnboardingKind, OnboardingStatuses, OnboardingStatus } from '../../lib/onboardingStatus';
 import type { MobileTranslations } from '../../locales/types';
+import { ActionButton } from '../themed/ActionButton';
+import { Card } from '../themed/Card';
 import { Text } from '../themed/Text';
 
 type Props = {
@@ -35,7 +37,7 @@ export function ProfileOnboardingSection({ copy, statuses, onLaunch }: Props) {
   ];
 
   return (
-    <View style={styles.section}>
+    <Card style={styles.section} variationKey="profile-onboarding">
       <Text style={styles.title}>{copy.profileTitle}</Text>
       <Text style={styles.subtitle}>{copy.profileSubtitle}</Text>
       {rows.map((row) => {
@@ -51,18 +53,23 @@ export function ProfileOnboardingSection({ copy, statuses, onLaunch }: Props) {
                 {statusLabel(status, copy)}
               </Text>
             </View>
-            <TouchableOpacity onPress={() => onLaunch(row.kind)} style={styles.button}>
-              <Text style={styles.buttonText}>{actionLabel(status, copy)}</Text>
-            </TouchableOpacity>
+            <ActionButton
+              onPress={() => onLaunch(row.kind)}
+              size="sm"
+              variant="secondary"
+              variationKey={`profile-onboarding-${row.kind}`}
+            >
+              {actionLabel(status, copy)}
+            </ActionButton>
           </View>
         );
       })}
-    </View>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  section: { borderRadius: 18, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface, padding: 16, gap: 10 },
+  section: { gap: 10 },
   title: { color: Colors.textPrimary, fontSize: 17, fontWeight: '800' },
   subtitle: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18, marginBottom: 2 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: Colors.border },
@@ -71,6 +78,4 @@ const styles = StyleSheet.create({
   rowTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700' },
   status: { color: Colors.warning, fontSize: 12, fontWeight: '700' },
   statusCompleted: { color: Colors.success },
-  button: { borderRadius: 11, backgroundColor: Colors.brandPrimary, paddingHorizontal: 12, paddingVertical: 9 },
-  buttonText: { color: Colors.textOnBrand, fontSize: 12, fontWeight: '800' },
 });

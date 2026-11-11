@@ -192,6 +192,8 @@ Mobile Profile admin/debug presentation follows the same boundary: it accepts on
 
 The Google fallback `ActionButton` on login and signup no longer adds its own reduced opacity while loading: the shared disabled (closed-trail) look already signals it. Auth logic is unchanged.
 
+The onboarding Google sign-in is a secondary `ActionButton` with the Google icon and a busy state; « continue without account » is a ghost soft exit. Auth logic is unchanged.
+
 ## Related Docs
 
 - [Session Management](session-management.md)

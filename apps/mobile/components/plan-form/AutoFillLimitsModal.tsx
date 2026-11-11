@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { ActionButton } from '../themed/ActionButton';
 import { IconAction } from '../themed/IconAction';
 import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
@@ -240,16 +241,17 @@ export const AutoFillLimitsModal = React.memo(function AutoFillLimitsModal({
           )}
 
           <View style={styles.autoFillLimitsActions}>
-            <TouchableOpacity onPress={preview ? onBack : onClose} style={styles.autoFillLimitsSecondaryButton}>
-              <Text style={styles.autoFillLimitsSecondaryText}>{preview ? t.autoFillLimits.back : t.autoFillLimits.cancel}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              disabled={previewLoading || productsLoading || (!preview && !hasSelectedProduct)}
+            <ActionButton onPress={preview ? onBack : onClose} style={{ flex: 1 }} variant="secondary">
+              {preview ? t.autoFillLimits.back : t.autoFillLimits.cancel}
+            </ActionButton>
+            <ActionButton
+              disabled={productsLoading || (!preview && !hasSelectedProduct)}
+              isLoading={previewLoading}
               onPress={preview ? onConfirm : applyLimits}
-              style={[styles.autoFillLimitsPrimaryButton, (previewLoading || productsLoading || (!preview && !hasSelectedProduct)) && styles.autoFillLimitsPrimaryButtonDisabled]}
+              style={{ flex: 1.35 }}
             >
-              <Text style={styles.autoFillLimitsPrimaryText}>{preview ? t.autoFillLimits.apply : t.autoFillLimits.preview}</Text>
-            </TouchableOpacity>
+              {preview ? t.autoFillLimits.apply : t.autoFillLimits.preview}
+            </ActionButton>
           </View>
         </View>
       </KeyboardAvoidingView>

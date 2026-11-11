@@ -1,6 +1,5 @@
 import { memo, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Image,
   KeyboardAvoidingView,
@@ -17,7 +16,11 @@ import * as DocumentPicker from 'expo-document-picker';
 
 import { Colors } from '../../constants/colors';
 import { DataText } from '../themed/DataText';
+import { ActionButton } from '../themed/ActionButton';
 import { Field } from '../themed/Field';
+import { IconAction } from '../themed/IconAction';
+import { StatusPill } from '../themed/StatusPill';
+import { HeartMark } from '../themed/trail/HeartMark';
 import { Text } from '../themed/Text';
 import { FUEL_TYPE_LABELS, FUEL_TYPE_OPTIONS } from './nutritionConstants';
 import type { FuelType, Product, ProductEditDraft, ProductFavoriteUsage, ProductImageDraft } from './types';
@@ -190,11 +193,7 @@ export const ProductDetailModal = memo(function ProductDetailModal({
           <View style={styles.header}>
             <View style={styles.titleBlock}>
               <Text style={styles.modalTitle}>Fiche produit</Text>
-              <View style={[styles.accessPill, canManage ? styles.accessPillEdit : styles.accessPillRead]}>
-                <Text style={[styles.accessPillText, canManage ? styles.accessTextEdit : styles.accessTextRead]}>
-                  {accessLabel}
-                </Text>
-              </View>
+              <StatusPill label={accessLabel} tone={canManage ? 'brand' : 'neutral'} />
             </View>
 
             <TouchableOpacity
@@ -362,61 +361,55 @@ export const ProductDetailModal = memo(function ProductDetailModal({
               </View>
             ) : null}
 
-            <TouchableOpacity
-              disabled={busy}
-              onPress={onToggleFavorite}
-              style={[styles.favoriteAction, isFavorite && styles.favoriteActionActive]}
-            >
-              <Ionicons
-                color={isFavorite ? Colors.textOnBrand : Colors.brandPrimary}
-                name={isFavorite ? 'star' : 'star-outline'}
-                size={18}
+            <View style={styles.favoriteAction}>
+              <IconAction
+                accessibilityLabel={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+                accessibilityState={{ selected: isFavorite }}
+                disabled={busy}
+                icon={<HeartMark filled={isFavorite} size={22} />}
+                onPress={onToggleFavorite}
+                tone="brand"
               />
-              <Text style={[styles.favoriteActionText, isFavorite && styles.favoriteActionTextActive]}>
+              <Text
+                accessibilityElementsHidden
+                importantForAccessibility="no"
+                style={styles.favoriteActionText}
+              >
                 {isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
               </Text>
-            </TouchableOpacity>
+            </View>
 
             {canManage ? (
               isEditing ? (
                 <View style={styles.actionsRow}>
-                  <TouchableOpacity
-                    disabled={busy}
-                    onPress={handleCancelEdit}
-                    style={[styles.secondaryButton, busy && styles.disabledButton]}
-                  >
-                    <Text style={styles.secondaryButtonText}>Annuler</Text>
-                  </TouchableOpacity>
+                  <ActionButton disabled={busy} onPress={handleCancelEdit} style={styles.actionButton} variant="ghost">
+                    Annuler
+                  </ActionButton>
 
-                  <TouchableOpacity
+                  <ActionButton
                     disabled={busy || !hasChanges}
+                    isLoading={saving}
                     onPress={() => void handleSave()}
-                    style={[styles.primaryButton, (busy || !hasChanges) && styles.disabledButton]}
+                    style={styles.actionButton}
                   >
-                    {saving ? (
-                      <ActivityIndicator color={Colors.textOnBrand} />
-                    ) : (
-                      <Text style={styles.primaryButtonText}>Enregistrer</Text>
-                    )}
-                  </TouchableOpacity>
+                    Enregistrer
+                  </ActionButton>
                 </View>
               ) : (
                 <View style={styles.actionsRow}>
-                  <TouchableOpacity disabled={busy} onPress={() => setIsEditing(true)} style={styles.primaryButton}>
-                    <Text style={styles.primaryButtonText}>Modifier</Text>
-                  </TouchableOpacity>
+                  <ActionButton disabled={busy} onPress={() => setIsEditing(true)} style={styles.actionButton}>
+                    Modifier
+                  </ActionButton>
 
-                  <TouchableOpacity
+                  <ActionButton
                     disabled={busy}
+                    isLoading={deleting}
                     onPress={onDelete}
-                    style={[styles.deleteButton, busy && styles.disabledButton]}
+                    style={styles.actionButton}
+                    variant="destructive-outline"
                   >
-                    {deleting ? (
-                      <ActivityIndicator color={Colors.danger} />
-                    ) : (
-                      <Text style={styles.deleteButtonText}>Supprimer</Text>
-                    )}
-                  </TouchableOpacity>
+                    Supprimer
+                  </ActionButton>
                 </View>
               )
             ) : (
@@ -467,31 +460,6 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontSize: 18,
     fontWeight: '800',
-  },
-  accessPill: {
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  accessPillEdit: {
-    backgroundColor: Colors.brandSurface,
-    borderColor: Colors.brandBorder,
-  },
-  accessPillRead: {
-    backgroundColor: Colors.surfaceSecondary,
-    borderColor: Colors.border,
-  },
-  accessPillText: {
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  accessTextEdit: {
-    color: Colors.brandPrimary,
-  },
-  accessTextRead: {
-    color: Colors.textMuted,
   },
   closeButton: {
     width: 44,
@@ -689,79 +657,22 @@ const styles = StyleSheet.create({
     color: Colors.danger,
   },
   favoriteAction: {
-    minHeight: 46,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-    backgroundColor: Colors.brandSurface,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  favoriteActionActive: {
-    backgroundColor: Colors.brandPrimary,
-    borderColor: Colors.brandPrimary,
+    gap: 10,
   },
   favoriteActionText: {
     color: Colors.brandPrimary,
     fontSize: 14,
     fontWeight: '800',
   },
-  favoriteActionTextActive: {
-    color: Colors.textOnBrand,
-  },
   actionsRow: {
     flexDirection: 'row',
     gap: 10,
     marginTop: 2,
   },
-  primaryButton: {
+  actionButton: {
     flex: 1,
-    minHeight: 48,
-    borderRadius: 14,
-    backgroundColor: Colors.brandPrimary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
-  primaryButtonText: {
-    color: Colors.textOnBrand,
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  secondaryButton: {
-    flex: 1,
-    minHeight: 48,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
-  secondaryButtonText: {
-    color: Colors.textSecondary,
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  deleteButton: {
-    flex: 1,
-    minHeight: 48,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.danger,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
-  deleteButtonText: {
-    color: Colors.danger,
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  disabledButton: {
-    opacity: 0.55,
   },
   readOnlyHint: {
     color: Colors.textMuted,

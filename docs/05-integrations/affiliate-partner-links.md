@@ -121,6 +121,8 @@ The RaceBook Course tab (Tracé, Ravitos, Où encourager) uses `TrailTabs` with 
 
 The RaceBook Course map and profile cards open fullscreen through watch `IconAction`s (labels `racebookMapExpand` / `racebookProfileExpand`) instead of ad-hoc square buttons; behaviour unchanged.
 
+The RaceBook weather alert renders through the same `TapeAlertBanner` as the last-minute message (replacing the former inline alert card); data unchanged.
+
 ## Related Docs
 
 Supporter `S’y rendre` and `Voir le plan` actions open organizer-authored access URLs directly. They are not affiliate destinations and must not pass through partner redirects or counters.

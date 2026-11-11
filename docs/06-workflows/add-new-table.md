@@ -155,6 +155,8 @@ When a new table feeds a mobile list or card, the screen renders it with the tra
 
 Catalog race cards read format profiles lazily from the existing GPX-derived endpoint; a table added for profile previews should store a small downsampled series (about 48 points) per format rather than raw GPX.
 
+Status flags read from a new table (for example an unread marker) are shown with `StatusPill` wristbands on mobile, never with ad-hoc badges.
+
 ## Related Docs
 
 The `race_supporter_points` addition follows this workflow: cascade ownership by `races`, explicit client/service grants, a completeness-filtered SELECT policy, a service-only atomic collection RPC, static SQL checks, and a dedicated table reference document.

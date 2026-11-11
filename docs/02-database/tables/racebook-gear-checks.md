@@ -98,6 +98,8 @@ The RaceBook Course tab (Tracé, Ravitos, Où encourager) uses `TrailTabs` with 
 
 The RaceBook Course map and profile cards open fullscreen through watch `IconAction`s (labels `racebookMapExpand` / `racebookProfileExpand`) instead of ad-hoc square buttons; behaviour unchanged.
 
+The RaceBook weather alert renders through the same `TapeAlertBanner` as the last-minute message (replacing the former inline alert card); data unchanged.
+
 ## Related Docs
 
 This table remains the source of truth for current checked state. PostHog organizer rankings use the latest observed state per person, race, and published analytics item inside the selected reporting window; they exclude runners who never started the checklist and must not be presented as a live table snapshot. The marker-guarded `racebook_gear_state_2026_09_28` import seeded checked and missing states only for users represented by existing rows.

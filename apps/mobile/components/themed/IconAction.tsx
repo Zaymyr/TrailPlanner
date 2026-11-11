@@ -8,7 +8,6 @@ import {
   WATCH_BLADE_WIDTH,
   WATCH_SIZE,
   WatchBackBlade,
-  WatchBackChevron,
   WatchFace,
   type WatchTone,
 } from './trail/WatchButton';
@@ -20,13 +19,13 @@ type BaseProps = Omit<PressableProps, 'children' | 'style'> & {
 };
 
 type Props = BaseProps & (
-  /** GPS-watch button: notched bezel around a domed push button. */
+  /** Round watch button: case ring with hour ticks around a centred push button. */
   | { variant?: 'watch'; icon: ReactNode }
   /**
-   * "Back": small sign blade pointing left. Forest blade by default; on a
-   * forest header use `tone="onBrand"` (cream blade, forest chevron); any
-   * other tone is ignored. `bladeColor` overrides the fill (organizer
-   * themes: pass the on-primary color and a matching `icon`).
+   * "Back": small wooden sign blade pointing left, without a glyph (the
+   * pointed plank is the arrow). Forest blade by default; on a forest header
+   * use `tone="onBrand"` (cream blade); any other tone is ignored.
+   * `bladeColor` overrides the fill (organizer themes: on-primary color).
    */
   | { variant: 'back'; icon?: ReactNode; bladeColor?: string }
 );
@@ -62,16 +61,17 @@ export function IconAction(allProps: Props) {
         const isPressed = pressed && !disabled;
         return isBack ? (
           <>
+            {/* The pointed plank alone says "back"; an explicit icon is still honoured. */}
             <WatchBackBlade color={bladeColor} />
-            <View style={styles.bladeIcon}>
-              {icon ?? <WatchBackChevron color={onBrandBack ? colors.brand.forest : undefined} />}
-            </View>
+            {icon ? <View style={styles.bladeIcon}>{icon}</View> : null}
           </>
         ) : (
-          <>
+          // Fixed 48pt box: the face and the icon share one centre even when a
+          // caller stretches or pads the pressable.
+          <View style={[styles.watchBox, isPressed && styles.watchBoxPressed]}>
             <WatchFace pressed={isPressed} tone={tone} />
-            <View style={[styles.watchIcon, isPressed && styles.watchIconPressed]}>{icon}</View>
-          </>
+            <View style={styles.watchIcon}>{icon}</View>
+          </View>
         );
       }}
     </Pressable>
@@ -86,13 +86,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  watchBox: {
+    width: WATCH_SIZE,
+    height: WATCH_SIZE,
+  },
+  watchBoxPressed: { transform: [{ scale: 0.96 }] },
   watchIcon: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  // The dome sinks flush with the bezel when pressed.
-  watchIconPressed: {
-    transform: [{ translateY: 1 }],
   },
   blade: {
     width: WATCH_BLADE_WIDTH,

@@ -7,7 +7,6 @@ import {
   RefreshControl,
   SectionList,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   View,
   type NativeScrollEvent,
@@ -27,6 +26,7 @@ import { Button } from '../themed/Button';
 import { Card } from '../themed/Card';
 import { Cote } from '../themed/Cote';
 import { EmptyState } from '../themed/EmptyState';
+import { Field } from '../themed/Field';
 import { Heading } from '../themed/Heading';
 import { IconAction } from '../themed/IconAction';
 import { StatusPill } from '../themed/StatusPill';
@@ -380,22 +380,18 @@ export const PlansList = memo(function PlansList({
                 <Ionicons color={colors.text.secondary} name="close" size={20} />
               </TouchableOpacity>
             </View>
-            <Text tone="secondary" size="sm" style={styles.inputLabel}>
-              {locale === 'fr' ? 'Nom du plan' : 'Plan name'}
-            </Text>
-            <TextInput
-              accessibilityLabel={locale === 'fr' ? 'Nom du plan' : 'Plan name'}
+            <Field
               autoCapitalize="sentences"
               autoFocus
+              containerStyle={styles.nameField}
               editable={!renamingPlan}
+              label={locale === 'fr' ? 'Nom du plan' : 'Plan name'}
               maxLength={120}
               onChangeText={setManagedPlanName}
               onSubmitEditing={() => void submitPlanName()}
               placeholder={locale === 'fr' ? 'Nom du plan' : 'Plan name'}
-              placeholderTextColor={colors.text.tertiary}
               returnKeyType="done"
               selectTextOnFocus
-              style={styles.nameInput}
               value={managedPlanName}
             />
             <Button
@@ -863,20 +859,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.surface.cream,
   },
-  inputLabel: {
+  nameField: {
     marginTop: spacing[5],
-    marginBottom: spacing[2],
-  },
-  nameInput: {
-    minHeight: 52,
-    borderWidth: 1,
-    borderColor: colors.border.subtle,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface.cream,
-    color: colors.text.primary,
-    fontSize: 17,
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
   },
   saveButton: {
     marginTop: spacing[4],

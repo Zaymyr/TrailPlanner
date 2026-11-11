@@ -488,47 +488,6 @@ function CourseMapCard({
   );
 }
 
-function InlineAlertCard({
-  icon,
-  title,
-  message,
-  collapsible = false,
-  expandLabel,
-  collapseLabel,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  message: string;
-  collapsible?: boolean;
-  expandLabel?: string;
-  collapseLabel?: string;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  return (
-    <View style={styles.alertCard}>
-      <View style={styles.alertHeader}>
-        <View style={styles.alertIconWrap}>
-          <Ionicons name={icon} size={14} color={Colors.warning} />
-        </View>
-        <Text numberOfLines={collapsible && !expanded ? 1 : undefined} style={styles.alertInlineText}>
-          <Text style={styles.alertTitle}>{title}</Text>
-          <Text style={styles.alertBody}>{` - ${message}`}</Text>
-        </Text>
-        {collapsible ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ expanded }}
-            onPress={() => setExpanded((current) => !current)}
-            style={({ pressed }) => [styles.alertToggle, pressed && styles.alertTogglePressed]}
-          >
-            <Text style={styles.alertToggleText}>{expanded ? collapseLabel : expandLabel}</Text>
-          </Pressable>
-        ) : null}
-      </View>
-    </View>
-  );
-}
-
 function InfoList({ values }: { values: string[] }) {
   const brandTheme = useRacebookBrandTheme();
   return (
@@ -2093,7 +2052,13 @@ export default function RaceRacebookScreen() {
             </Card>
           ) : null}
 
-          {weatherAlertMessage ? <InlineAlertCard icon={weatherAlertIcon} title={t.catalog.racebookWeatherAlertTitle} message={weatherAlertMessage} /> : null}
+          {weatherAlertMessage ? (
+            <TapeAlertBanner
+              icon={weatherAlertIcon}
+              message={weatherAlertMessage}
+              title={t.catalog.racebookWeatherAlertTitle}
+            />
+          ) : null}
 
           {lastMinuteMessage ? (
             <TapeAlertBanner
@@ -2639,56 +2604,6 @@ const styles = StyleSheet.create({
     paddingTop: 22,
     paddingBottom: 20,
   },
-  alertCard: {
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E7C97A',
-    backgroundColor: Colors.warningSurface,
-  },
-  alertHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-  },
-  alertInlineText: {
-    flex: 1,
-    color: Colors.textPrimary,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  alertIconWrap: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFF6DA',
-  },
-  alertTitle: {
-    color: Colors.textPrimary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  alertBody: {
-    color: Colors.textPrimary,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  alertToggle: {
-    minHeight: 28,
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-  },
-  alertToggleText: {
-    color: Colors.warning,
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '800',
-  },
-  alertTogglePressed: { opacity: 0.64 },
   heroKicker: {
     color: Colors.brandPrimary,
     fontSize: 12,

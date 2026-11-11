@@ -1,10 +1,7 @@
 import { memo } from 'react';
-import {
-  ActivityIndicator,
-  StyleSheet,
-  TouchableOpacity,
-  View
-} from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { ActionButton } from '../themed/ActionButton';
+import { Card } from '../themed/Card';
 import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 
@@ -42,7 +39,7 @@ function ProfileUpdatesSectionComponent({
 }: ProfileUpdatesSectionProps) {
   return (
     <View style={styles.group}>
-      <View style={styles.card}>
+      <Card style={styles.card} variationKey="profile-updates">
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.versionText}>{versionText}</Text>
 
@@ -62,24 +59,16 @@ function ProfileUpdatesSectionComponent({
 
         {emergencyLaunchMessage ? <Text style={styles.message}>{emergencyLaunchMessage}</Text> : null}
 
-        <TouchableOpacity
-          style={[styles.updateButton, checkingUpdates && styles.actionDisabled]}
-          onPress={onCheckForUpdates}
-          disabled={checkingUpdates}
-        >
-          {checkingUpdates ? (
-            <ActivityIndicator color={Colors.textPrimary} />
-          ) : (
-            <Text style={styles.updateButtonText}>{updateCheckButtonLabel}</Text>
-          )}
-        </TouchableOpacity>
+        <ActionButton fullWidth isLoading={checkingUpdates} onPress={onCheckForUpdates} variant="secondary">
+          {updateCheckButtonLabel}
+        </ActionButton>
 
         {updateCheckMessage ? <Text style={styles.message}>{updateCheckMessage}</Text> : null}
-      </View>
+      </Card>
 
-      <TouchableOpacity style={styles.changelogButton} onPress={onOpenChangelog}>
-        <Text style={styles.changelogButtonText}>{changelogButtonLabel}</Text>
-      </TouchableOpacity>
+      <ActionButton fullWidth onPress={onOpenChangelog} variant="secondary">
+        {changelogButtonLabel}
+      </ActionButton>
     </View>
   );
 }
@@ -92,11 +81,6 @@ const styles = StyleSheet.create({
   },
   card: {
     gap: 12,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
-    padding: 16,
   },
   title: {
     color: Colors.textPrimary,
@@ -129,38 +113,5 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 12,
     lineHeight: 18,
-  },
-  updateButton: {
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceSecondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-  },
-  updateButtonText: {
-    color: Colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  actionDisabled: {
-    opacity: 0.7,
-  },
-  changelogButton: {
-    minHeight: 48,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-    backgroundColor: Colors.brandSurface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-  },
-  changelogButtonText: {
-    color: Colors.brandPrimary,
-    fontSize: 14,
-    fontWeight: '800',
   },
 });

@@ -81,6 +81,8 @@ Mobile owner history selects rows filtered by `user_id = auth.uid()`. Admin queu
 
 Forms and headers use the themed trail components: inputs are road-notebook `Field`s (units shown as cotes, searches with `variant="search"`), header and modal icon buttons are `IconAction` watch buttons (`tone="onBrand"` on forest headers) and back buttons are `IconAction variant="back"` sign blades. Parsing, validation and the data written are unchanged.
 
+Submit and cancel actions use `ActionButton` (primary with a loading state, ghost cancel); payloads and writes are unchanged.
+
 ## Related Docs
 
 - [user_notifications](user-notifications.md)

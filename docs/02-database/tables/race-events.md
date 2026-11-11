@@ -398,6 +398,10 @@ The RaceBook screen (`apps/mobile/app/(app)/race/[id]/racebook.tsx`) renders its
 
 The RaceBook Course map and profile cards open fullscreen through watch `IconAction`s (labels `racebookMapExpand` / `racebookProfileExpand`) instead of ad-hoc square buttons; behaviour unchanged.
 
+The RaceBook weather alert renders through the same `TapeAlertBanner` as the last-minute message (replacing the former inline alert card); data unchanged.
+
+The unread organizer-update marker (« NEW ») is a brand `StatusPill` wristband on event cards and in the update list; reads and writes are unchanged.
+
 ## Related Docs
 
 

@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { Card } from '../themed/Card';
 import { Field } from '../themed/Field';
 import { Text } from '../themed/Text';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -64,7 +65,7 @@ function ProfilePersonalSectionComponent({
   onChangeHeightCm,
 }: ProfilePersonalSectionProps) {
   return (
-    <View style={styles.card}>
+    <Card variationKey="profile-personal">
       <View style={styles.header}>
         <View style={styles.iconBadge}>
           <Ionicons name="person-circle-outline" size={20} color={Colors.brandPrimary} />
@@ -132,25 +133,13 @@ function ProfilePersonalSectionComponent({
           />
         </View>
       </View>
-    </View>
+    </Card>
   );
 }
 
 export const ProfilePersonalSection = memo(ProfilePersonalSectionComponent);
 
 const styles = StyleSheet.create({
-  card: {
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
-    elevation: 3,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',

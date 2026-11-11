@@ -14,7 +14,9 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import type { Locale, MobileTranslations } from '../../locales/types';
 import { Colors } from '../../constants/colors';
 import { RaceEventSummaryCard } from '../race/RaceEventSummaryCard';
+import { ActionButton } from '../themed/ActionButton';
 import { Field } from '../themed/Field';
+import { StatusPill } from '../themed/StatusPill';
 import { Text } from '../themed/Text';
 import { OnboardingShell } from './OnboardingIntroSteps';
 
@@ -196,9 +198,9 @@ export function OnboardingRaceSelectionStep({
           ) : raceLoadError ? (
             <View style={styles.raceCenteredState}>
               <Text style={styles.errorText}>{raceLoadError}</Text>
-              <TouchableOpacity style={styles.retryButtonInline} onPress={onRetryRaces}>
-                <Text style={styles.retryButtonInlineText}>{copy.common.retry}</Text>
-              </TouchableOpacity>
+              <ActionButton onPress={onRetryRaces} size="sm" variant="secondary">
+                {copy.common.retry}
+              </ActionButton>
             </View>
           ) : filteredRaceEventGroups.length === 0 ? (
             <View style={styles.raceCenteredState}>
@@ -256,14 +258,10 @@ export function OnboardingRaceSelectionStep({
 
             <View style={styles.eventSummaryRow}>
               {selectedRaceEventFormatsLabel ? (
-                <View style={styles.summaryPill}>
-                  <Text style={styles.summaryPillText}>{selectedRaceEventFormatsLabel}</Text>
-                </View>
+                <StatusPill label={selectedRaceEventFormatsLabel} />
               ) : null}
               {selectedRaceEventDistanceRange ? (
-                <View style={styles.summaryPill}>
-                  <Text style={styles.summaryPillText}>{selectedRaceEventDistanceRange}</Text>
-                </View>
+                <StatusPill label={selectedRaceEventDistanceRange} />
               ) : null}
             </View>
 
@@ -294,11 +292,7 @@ export function OnboardingRaceSelectionStep({
                     </View>
 
                     {selected ? (
-                      <View style={styles.raceSelectedBadge}>
-                        <Text style={styles.raceSelectedBadgeText}>
-                          {copy.onboarding.raceSelectedBadge}
-                        </Text>
-                      </View>
+                      <StatusPill label={copy.onboarding.raceSelectedBadge} tone="brand" />
                     ) : (
                       <View style={styles.formatActionButton}>
                         <Text style={styles.formatActionButtonText}>{copy.catalog.selectRace}</Text>
@@ -324,19 +318,13 @@ const styles = StyleSheet.create({
   errorText: { color: Colors.danger, fontSize: 13, textAlign: 'center', marginTop: 4, marginBottom: 16 },
   raceCenteredState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 28, gap: 10 },
   raceStateText: { color: Colors.textSecondary, fontSize: 14, textAlign: 'center' },
-  retryButtonInline: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: Colors.brandBorder, backgroundColor: Colors.brandSurface },
-  retryButtonInlineText: { color: Colors.brandPrimary, fontSize: 13, fontWeight: '700' },
   emptyTitle: { color: Colors.textPrimary, fontSize: 16, fontWeight: '700', textAlign: 'center' },
   emptySubtitle: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20, textAlign: 'center' },
   inlineInfoRow: { flexDirection: 'row', justifyContent: 'flex-start', marginBottom: 12 },
   raceEventList: { gap: 16 },
   eventSummaryRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  summaryPill: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 999, backgroundColor: Colors.surfaceSecondary, borderWidth: 1, borderColor: Colors.border },
-  summaryPillText: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700' },
   selectionCountPill: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: Colors.brandSurface, borderWidth: 1, borderColor: Colors.brandBorder },
   selectionCountText: { color: Colors.brandPrimary, fontSize: 12, fontWeight: '700' },
-  raceSelectedBadge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: Colors.brandPrimary },
-  raceSelectedBadgeText: { color: Colors.textOnBrand, fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
   modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(18, 24, 16, 0.24)' },
   sheetOverlay: { ...StyleSheet.absoluteFillObject },
   sheetCard: { maxHeight: '82%', backgroundColor: Colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 20, paddingTop: 10, paddingBottom: 24, gap: 14 },

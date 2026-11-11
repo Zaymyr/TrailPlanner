@@ -1,5 +1,6 @@
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../constants/colors';
+import { ActionButton } from '../themed/ActionButton';
 import { Field } from '../themed/Field';
 import { Text } from '../themed/Text';
 import { OnboardingShell } from './OnboardingIntroSteps';
@@ -369,9 +370,9 @@ function StepFooter({
   return (
     <>
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
-      <TouchableOpacity style={styles.primaryButton} onPress={onContinue}>
-        <Text style={styles.primaryButtonText}>{continueLabel}</Text>
-      </TouchableOpacity>
+      <ActionButton fullWidth onPress={onContinue} size="lg">
+        {continueLabel}
+      </ActionButton>
     </>
   );
 }
@@ -397,6 +398,4 @@ const styles = StyleSheet.create({
   estimateButtonText: { color: Colors.brandPrimary, fontSize: 13, fontWeight: '700' },
   targetsStack: { gap: 4 },
   errorText: { color: Colors.danger, fontSize: 13, textAlign: 'center', marginTop: 4, marginBottom: 16 },
-  primaryButton: { backgroundColor: Colors.brandPrimary, borderRadius: 16, paddingVertical: 18, alignItems: 'center' },
-  primaryButtonText: { color: Colors.textOnBrand, fontSize: 16, fontWeight: '700' },
 });

@@ -393,6 +393,8 @@ Trail signature iteration (2026-11-11): runner presentation only. In-page RaceBo
 
 Plan and product numeric inputs (`NumberInput`, plan basics, aid-station editor, product creation and detail, live-training targets, plan creation profile) are themed `Field`s with their unit shown as a cote (g/h, ml/h, mg/h, km, min, kg); parsing, validation and the nutrition computations are unchanged.
 
+Plan-form pace-type (Allure / Vitesse) and product-sort selectors use `TrailTabs`; save, preview and apply actions use `ActionButton`. The nutrition product favourite is a forest `HeartMark` watch button (no star), product deletion is `destructive-outline`, and the verified brand badge is a success `StatusPill`. Computations are unchanged.
+
 ## Related Docs
 
 - [Products Table](../02-database/tables/products.md)

@@ -153,6 +153,10 @@ The RaceBook screen (`apps/mobile/app/(app)/race/[id]/racebook.tsx`) renders its
 
 The RaceBook Course tab (Tracé, Ravitos, Où encourager) uses `TrailTabs` with `stretch` + `scrollable`: tabs share the full width, the active one on a raised painted wooden plank and the others on flat bare-wood planks. The Livret / plan bib switch is 56 points high (`RACE_WORKSPACE_SWITCH_HEIGHT`).
 
+The RaceBook weather alert renders through the same `TapeAlertBanner` as the last-minute message (replacing the former inline alert card); data unchanged.
+
+The unread organizer-update marker (« NEW ») is a brand `StatusPill` wristband on event cards and in the update list; reads and writes are unchanged.
+
 ## Related Docs
 
 Private-demo selection changes only a format's RaceBook entry visibility; it does not publish, delete, or retarget organizer announcements.

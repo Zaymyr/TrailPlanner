@@ -15,6 +15,9 @@ import { Field } from '../themed/Field';
 import { Text } from '../themed/Text';
 import { DataText } from '../themed/DataText';
 import { EmptyState } from '../themed/EmptyState';
+import { IconAction } from '../themed/IconAction';
+import { StatusPill } from '../themed/StatusPill';
+import { HeartMark } from '../themed/trail/HeartMark';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { mobileComponents } from '@pace-yourself/design-system';
 import { Colors } from '../../constants/colors';
@@ -421,14 +424,10 @@ export const NutritionContent = memo(function NutritionContent({
                       {group.brandLabel}
                     </Text>
                     {group.items.some((favorite) => isVerifiedProduct(favorite.products)) ? (
-                      <View style={styles.verifiedBrandBadge}>
-                        <Text style={styles.verifiedBrandBadgeText}>{verifiedLabel}</Text>
-                      </View>
+                      <StatusPill label={verifiedLabel} tone="success" />
                     ) : null}
                     <View style={styles.brandHeaderActions}>
-                      <View style={styles.brandCountPill}>
-                        <Text style={styles.brandCountText}>{group.items.length}</Text>
-                      </View>
+                      <StatusPill label={String(group.items.length)} />
                     </View>
                   </View>
 
@@ -538,9 +537,7 @@ export const NutritionContent = memo(function NutritionContent({
                   {item.brandLabel}
                 </Text>
                 {item.hasVerifiedProduct ? (
-                  <View style={styles.verifiedBrandBadge}>
-                    <Text style={styles.verifiedBrandBadgeText}>{verifiedLabel}</Text>
-                  </View>
+                  <StatusPill label={verifiedLabel} style={styles.verifiedBrandBadge} tone="success" />
                 ) : null}
               </View>
             </View>
@@ -742,23 +739,17 @@ function ProductCard({
         ) : null}
       </View>
 
-      <TouchableOpacity
+      <IconAction
         accessibilityLabel={`${isFavorite ? 'Retirer' : 'Ajouter'} ${product.name} ${isFavorite ? 'des' : 'aux'} favoris`}
-        accessibilityRole="button"
         accessibilityState={{ selected: isFavorite }}
-        activeOpacity={0.8}
+        icon={<HeartMark filled={isFavorite} size={22} />}
         onPress={(event) => {
           event.stopPropagation();
           onToggleFavorite();
         }}
-        style={[styles.favButton, isFavorite && styles.favButtonActive]}
-      >
-        <Ionicons
-          color={isFavorite ? Colors.textOnBrand : Colors.brandPrimary}
-          name={isFavorite ? 'heart' : 'heart-outline'}
-          size={20}
-        />
-      </TouchableOpacity>
+        style={styles.favButton}
+        tone="brand"
+      />
     </TouchableOpacity>
   );
 }
@@ -940,32 +931,10 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
   verifiedBrandBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: Colors.brandSurface,
-    borderColor: Colors.brandBorder,
-    borderRadius: 999,
-    borderWidth: 1,
     marginTop: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  verifiedBrandBadgeText: {
-    color: Colors.brandPrimary,
-    fontSize: 11,
-    fontWeight: '700',
   },
   brandItems: {
     gap: 0,
-  },
-  brandCountPill: {
-    minWidth: 30,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: Colors.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    alignItems: 'center',
   },
   brandCountText: {
     fontSize: 12,
@@ -1071,19 +1040,7 @@ const styles = StyleSheet.create({
   },
   favButton: {
     position: 'absolute',
-    right: 12,
-    top: 12,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.brandSurface,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  favButtonActive: {
-    backgroundColor: Colors.brandPrimary,
-    borderColor: Colors.brandPrimary,
+    right: 8,
+    top: 8,
   },
 });

@@ -1,6 +1,5 @@
 import { memo, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -11,6 +10,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { ActionButton } from '../themed/ActionButton';
 import { Field } from '../themed/Field';
 import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
@@ -169,15 +169,13 @@ export const NutritionCreateProductModal = memo(function NutritionCreateProductM
             </View>
 
             <View style={styles.imageActions}>
-              <TouchableOpacity onPress={onPickImage} style={styles.secondaryActionButton}>
-                <Text style={styles.secondaryActionText}>
-                  {imagePreviewUri ? "Changer l'image" : 'Choisir une image'}
-                </Text>
-              </TouchableOpacity>
+              <ActionButton onPress={onPickImage} size="sm" style={styles.imagePickButton} variant="secondary">
+                {imagePreviewUri ? "Changer l'image" : 'Choisir une image'}
+              </ActionButton>
               {imagePreviewUri ? (
-                <TouchableOpacity onPress={onRemoveImage} style={styles.ghostActionButton}>
-                  <Text style={styles.ghostActionText}>Retirer</Text>
-                </TouchableOpacity>
+                <ActionButton onPress={onRemoveImage} size="sm" variant="ghost">
+                  Retirer
+                </ActionButton>
               ) : null}
             </View>
 
@@ -239,21 +237,13 @@ export const NutritionCreateProductModal = memo(function NutritionCreateProductM
               </View>
             </View>
 
-            <TouchableOpacity
-              disabled={creating}
-              onPress={onSubmit}
-              style={[styles.submitButton, creating && styles.submitButtonDisabled]}
-            >
-              {creating ? (
-                <ActivityIndicator color={Colors.textOnBrand} />
-              ) : (
-                <Text style={styles.submitButtonText}>Créer et ajouter aux favoris</Text>
-              )}
-            </TouchableOpacity>
+            <ActionButton fullWidth isLoading={creating} onPress={onSubmit} style={styles.submitButton}>
+              Créer et ajouter aux favoris
+            </ActionButton>
 
-            <TouchableOpacity onPress={onCancel} style={styles.cancelButton}>
-              <Text style={styles.cancelButtonText}>Annuler</Text>
-            </TouchableOpacity>
+            <ActionButton onPress={onCancel} style={styles.cancelButton} variant="ghost">
+              Annuler
+            </ActionButton>
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
@@ -382,34 +372,8 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 10,
   },
-  secondaryActionButton: {
+  imagePickButton: {
     flex: 1,
-    minHeight: 42,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.brandPrimary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
-  secondaryActionText: {
-    color: Colors.brandPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  ghostActionButton: {
-    minHeight: 42,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-  },
-  ghostActionText: {
-    color: Colors.textSecondary,
-    fontSize: 14,
-    fontWeight: '600',
   },
   filterScroll: {
     marginBottom: 12,
@@ -447,28 +411,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   submitButton: {
-    backgroundColor: Colors.brandPrimary,
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
     marginTop: 24,
   },
-  submitButtonDisabled: {
-    opacity: 0.6,
-  },
-  submitButtonText: {
-    color: Colors.textOnBrand,
-    fontSize: 16,
-    fontWeight: '700',
-  },
   cancelButton: {
-    paddingVertical: 14,
-    alignItems: 'center',
+    alignSelf: 'center',
     marginTop: 8,
-  },
-  cancelButtonText: {
-    color: Colors.textSecondary,
-    fontSize: 15,
-    fontWeight: '600',
   },
 });

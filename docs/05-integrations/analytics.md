@@ -425,6 +425,8 @@ Catalog search, sheet header and header buttons were restyled (`Field`, `IconAct
 
 The RaceBook Course map and profile cards open fullscreen through watch `IconAction`s (labels `racebookMapExpand` / `racebookProfileExpand`) instead of ad-hoc square buttons; behaviour unchanged.
 
+Weather alert, NEW markers, profile, nutrition and onboarding controls were restyled with themed components; analytics events and properties are unchanged.
+
 ## Related Docs
 
 Selecting or masking a private-demo format is configuration, not a runner RaceBook open or publication analytics event.

@@ -46,3 +46,6 @@ Bug reports (`kind = 'bug'`) and feedback (`kind = 'feedback'`) sent from the ap
 ## Mobile presentation
 
 Forms and headers use the themed trail components: inputs are road-notebook `Field`s (units shown as cotes, searches with `variant="search"`), header and modal icon buttons are `IconAction` watch buttons (`tone="onBrand"` on forest headers) and back buttons are `IconAction variant="back"` sign blades. Parsing, validation and the data written are unchanged.
+
+Submit and cancel actions use `ActionButton` (primary with a loading state, ghost cancel); payloads and writes are unchanged.
+

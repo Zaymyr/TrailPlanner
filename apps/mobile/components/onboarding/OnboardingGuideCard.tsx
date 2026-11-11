@@ -1,7 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Colors } from '../../constants/colors';
+import { ActionButton } from '../themed/ActionButton';
 import { Text } from '../themed/Text';
 
 type Props = {
@@ -35,17 +36,13 @@ export function OnboardingGuideCard({
         </View>
       </View>
       <View style={styles.actions}>
-        <TouchableOpacity disabled={busy} onPress={onSkip} style={styles.skipButton}>
-          <Text style={styles.skipText}>{skipLabel}</Text>
-        </TouchableOpacity>
+        <ActionButton disabled={busy} onPress={onSkip} size="sm" variant="ghost">
+          {skipLabel}
+        </ActionButton>
         {actionLabel && onAction ? (
-          <TouchableOpacity disabled={busy} onPress={onAction} style={styles.actionButton}>
-            {busy ? (
-              <ActivityIndicator color={Colors.textOnBrand} size="small" />
-            ) : (
-              <Text style={styles.actionText}>{actionLabel}</Text>
-            )}
-          </TouchableOpacity>
+          <ActionButton isLoading={busy} onPress={onAction} size="sm" style={styles.actionButton} variant="secondary">
+            {actionLabel}
+          </ActionButton>
         ) : null}
       </View>
     </View>
@@ -82,16 +79,6 @@ const styles = StyleSheet.create({
   copy: { flex: 1, gap: 3 },
   title: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800' },
   body: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
-  actions: { marginTop: 12, flexDirection: 'row', justifyContent: 'flex-end', gap: 10 },
-  skipButton: { paddingHorizontal: 12, paddingVertical: 10 },
-  skipText: { color: Colors.textSecondary, fontSize: 13, fontWeight: '700' },
-  actionButton: {
-    minWidth: 120,
-    alignItems: 'center',
-    borderRadius: 12,
-    backgroundColor: Colors.brandPrimary,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  actionText: { color: Colors.textOnBrand, fontSize: 13, fontWeight: '800' },
+  actions: { marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10 },
+  actionButton: { minWidth: 120 },
 });

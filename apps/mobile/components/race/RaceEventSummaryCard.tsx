@@ -192,9 +192,7 @@ function RaceEventSummaryCardBase<T extends RaceEventSummaryRace>({
               {event.name}
             </Text>
             {hasNewUpdate ? (
-              <View style={styles.newBadge}>
-                <Text style={styles.newBadgeText}>NEW</Text>
-              </View>
+              <StatusPill label="NEW" tone="brand" style={styles.newBadge} />
             ) : null}
           </View>
           {racebookAvailableLabel ? (
@@ -296,16 +294,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   newBadge: {
-    backgroundColor: Colors.brandPrimary,
-    borderRadius: 999,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-  },
-  newBadgeText: {
-    color: Colors.textOnBrand,
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+    alignSelf: 'center',
   },
   racebookBadge: {
     alignSelf: 'flex-start',

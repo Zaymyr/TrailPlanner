@@ -14,6 +14,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Field } from '../themed/Field';
 import { IconAction } from '../themed/IconAction';
 import { Text } from '../themed/Text';
+import { TrailTabs, type TrailTab } from '../themed/TrailTabs';
 import { Colors } from '../../constants/colors';
 import type { PlanProduct } from './contracts';
 import { styles } from './styles';
@@ -90,7 +91,7 @@ export const ProductPickerModal = React.memo(function ProductPickerModal({
   onClose,
   onAddProduct,
 }: Props) {
-  const sortOptions: Array<{ key: 'name' | 'carbs' | 'sodium'; label: string }> = [
+  const sortOptions: TrailTab<Props['pickerSort']>[] = [
     { key: 'name', label: 'Nom' },
     { key: 'carbs', label: 'Glucides' },
     { key: 'sodium', label: 'Sodium' },
@@ -174,19 +175,13 @@ export const ProductPickerModal = React.memo(function ProductPickerModal({
             variant="search"
           />
 
-          <View style={styles.pickerSortRow}>
-            {sortOptions.map((option) => (
-              <TouchableOpacity
-                key={option.key}
-                style={[styles.pickerSortBtn, pickerSort === option.key && styles.pickerSortBtnActive]}
-                onPress={() => setPickerSort(option.key)}
-              >
-                <Text style={[styles.pickerSortBtnText, pickerSort === option.key && styles.pickerSortBtnTextActive]}>
-                  {option.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <TrailTabs
+            activeKey={pickerSort}
+            onChange={setPickerSort}
+            stretch
+            style={{ marginBottom: 8 }}
+            tabs={sortOptions}
+          />
 
           {productsLoading ? (
             <ActivityIndicator color={Colors.brandPrimary} style={{ marginTop: 24 }} />

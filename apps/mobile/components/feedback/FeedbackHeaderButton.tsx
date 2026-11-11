@@ -1,18 +1,18 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
   StyleSheet,
-  TouchableOpacity,
   View
 } from 'react-native';
+import { ActionButton } from '../themed/ActionButton';
 import { Field } from '../themed/Field';
 import { IconAction } from '../themed/IconAction';
 import { Text } from '../themed/Text';
+import { TrailTabs, type TrailTab } from '../themed/TrailTabs';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Constants from 'expo-constants';
 import { Colors } from '../../constants/colors';
@@ -37,6 +37,10 @@ export function FeedbackHeaderButton({ children, contextLabel, initialKind = 'bu
   const [detail, setDetail] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const kindTabs: TrailTab<FeedbackKind>[] = [
+    { key: 'bug', label: t.feedback.bugOption },
+    { key: 'feedback', label: t.feedback.feedbackOption },
+  ];
   const submitLabel = kind === 'bug' ? t.feedback.sendBug : t.feedback.sendFeedback;
   const appVersion = Constants.expoConfig?.version?.trim() || null;
   const metadata = useMemo(() => {
@@ -138,24 +142,13 @@ export function FeedbackHeaderButton({ children, contextLabel, initialKind = 'bu
             <Text style={styles.title}>{t.feedback.modalTitle}</Text>
             <Text style={styles.subtitle}>{t.feedback.modalSubtitle}</Text>
 
-            <View style={styles.switchRow}>
-              <TouchableOpacity
-                onPress={() => setKind('bug')}
-                style={[styles.switchChip, kind === 'bug' && styles.switchChipActive]}
-              >
-                <Text style={[styles.switchChipText, kind === 'bug' && styles.switchChipTextActive]}>
-                  {t.feedback.bugOption}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setKind('feedback')}
-                style={[styles.switchChip, kind === 'feedback' && styles.switchChipActive]}
-              >
-                <Text style={[styles.switchChipText, kind === 'feedback' && styles.switchChipTextActive]}>
-                  {t.feedback.feedbackOption}
-                </Text>
-              </TouchableOpacity>
-            </View>
+            <TrailTabs
+              activeKey={kind}
+              onChange={setKind}
+              stretch
+              style={styles.switchRow}
+              tabs={kindTabs}
+            />
 
             <Field
               containerStyle={styles.field}
@@ -179,21 +172,13 @@ export function FeedbackHeaderButton({ children, contextLabel, initialKind = 'bu
               value={detail}
             />
 
-            <TouchableOpacity
-              disabled={submitting}
-              onPress={handleSubmit}
-              style={[styles.primaryButton, submitting && styles.primaryButtonDisabled]}
-            >
-              {submitting ? (
-                <ActivityIndicator color={Colors.textOnBrand} />
-              ) : (
-                <Text style={styles.primaryButtonText}>{submitLabel}</Text>
-              )}
-            </TouchableOpacity>
+            <ActionButton fullWidth isLoading={submitting} onPress={handleSubmit} style={styles.primaryButton}>
+              {submitLabel}
+            </ActionButton>
 
-            <TouchableOpacity disabled={submitting} onPress={handleClose} style={styles.secondaryButton}>
-              <Text style={styles.secondaryButtonText}>{t.common.cancel}</Text>
-            </TouchableOpacity>
+            <ActionButton disabled={submitting} onPress={handleClose} style={styles.secondaryButton} variant="ghost">
+              {t.common.cancel}
+            </ActionButton>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -236,30 +221,7 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   switchRow: {
-    flexDirection: 'row',
-    gap: 10,
     marginBottom: 18,
-  },
-  switchChip: {
-    flex: 1,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceSecondary,
-    paddingVertical: 11,
-    alignItems: 'center',
-  },
-  switchChipActive: {
-    backgroundColor: Colors.brandSurface,
-    borderColor: Colors.brandBorder,
-  },
-  switchChipText: {
-    color: Colors.textSecondary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  switchChipTextActive: {
-    color: Colors.brandPrimary,
   },
   field: {
     marginBottom: 14,
@@ -269,30 +231,10 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   primaryButton: {
-    backgroundColor: Colors.brandPrimary,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 50,
     marginTop: 4,
   },
-  primaryButtonDisabled: {
-    opacity: 0.72,
-  },
-  primaryButtonText: {
-    color: Colors.textOnBrand,
-    fontSize: 15,
-    fontWeight: '800',
-  },
   secondaryButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 14,
-    paddingBottom: 2,
-  },
-  secondaryButtonText: {
-    color: Colors.textSecondary,
-    fontSize: 14,
-    fontWeight: '700',
+    alignSelf: 'center',
+    marginTop: 10,
   },
 });

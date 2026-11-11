@@ -15,6 +15,7 @@ import {
   type NativeMethods,
   type ViewStyle
 } from 'react-native';
+import { ActionButton } from '../themed/ActionButton';
 import { Text } from '../themed/Text';
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
 import { Colors } from '../../constants/colors';
@@ -388,19 +389,18 @@ export function SpotlightTutorial<TTargetKey extends string = string>({
         </ScrollView>
 
         <View style={styles.actionsRow}>
-          <TouchableOpacity
-            disabled={!hasPrevious}
-            onPress={onPrevious}
-            style={[styles.secondaryButton, !hasPrevious && styles.secondaryButtonDisabled]}
-          >
-            <Text style={[styles.secondaryButtonText, !hasPrevious && styles.secondaryButtonTextDisabled]}>
+          {/* No closed-trail "Précédent" on the first step: the slot stays empty. */}
+          {hasPrevious ? (
+            <ActionButton onPress={onPrevious} size="sm" style={styles.actionButton} variant="ghost">
               {previousLabel}
-            </Text>
-          </TouchableOpacity>
+            </ActionButton>
+          ) : (
+            <View style={styles.actionButton} />
+          )}
 
-          <TouchableOpacity onPress={onNext} style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>{isLastStep ? doneLabel : nextLabel}</Text>
-          </TouchableOpacity>
+          <ActionButton onPress={onNext} size="sm" style={styles.actionButton}>
+            {isLastStep ? doneLabel : nextLabel}
+          </ActionButton>
         </View>
       </View>
     </View>
@@ -510,40 +510,7 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 18,
   },
-  secondaryButton: {
+  actionButton: {
     flex: 1,
-    minHeight: 46,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceSecondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-  },
-  secondaryButtonDisabled: {
-    opacity: 0.45,
-  },
-  secondaryButtonText: {
-    color: Colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  secondaryButtonTextDisabled: {
-    color: Colors.textMuted,
-  },
-  primaryButton: {
-    flex: 1,
-    minHeight: 46,
-    borderRadius: 14,
-    backgroundColor: Colors.brandPrimary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-  },
-  primaryButtonText: {
-    color: Colors.textOnBrand,
-    fontSize: 14,
-    fontWeight: '800',
   },
 });
