@@ -476,9 +476,8 @@ plan recap shows its carbohydrate and sodium totals as `MetricTile`s. Profile
 performance groups and the RaceBook course essentials are separated by a
 `RidgeDivider`. RaceBook ravito and supporter timelines and the onboarding steps
 use the dotted `TrailRail`. The shared race header metrics typeset their unit as
-a cote. The RaceBook hero draws very faint contours (opacity 0.05, so the identity
-metrics stay legible) from the course profile only when the organizer
-publishes the elevation profile (`gpxDisplay.showElevationProfile`).
+a cote. The RaceBook hero no longer draws course contour lines behind its
+identity and metrics (removed on 2026-11-11 to keep the header calm).
 Trail-voice microcopy covers plan loading phases, the generic error title
 (`Hors piste : …`) and the empty followed-races title. `Screen` and the shared
 root compositions use the 16-point gutter. These presentation changes do not

@@ -395,8 +395,8 @@ components own copy, state, color roles and behavior.
 - Never draw the red/white GR waymark or another federation mark: `TrailBlaze`
   is the product's own olive-over-forest blaze.
 - Never pass a course profile the viewer is not allowed to see to
-  `TopoContourPattern`, `CourseRidge` or `SummitCelebration`; in the RaceBook the
-  hero contours require the organizer's `showElevationProfile`. `CourseRidge`
+  `TopoContourPattern`, `CourseRidge` or `SummitCelebration`; the RaceBook hero no
+  longer draws course contours. `CourseRidge`
   must only receive a real stored profile, never a placeholder that would look
   like course data.
 - Use `RidgeLoader` for milestone-based loading. Do not turn plan or launch
@@ -408,8 +408,6 @@ components own copy, state, color roles and behavior.
   curve, a blaze flag on the summit carrying the summit elevation as a cote (it
   replaces the redundant highest graduation label), mono map-style graduations
   and cote metric tiles. Never smooth or reshape the measured curve for style.
-- Keep RaceBook hero contours faint (opacity 0.05): they sit behind the identity
-  metrics and must never compete with their legibility.
 - Do not make routine success toasts persistent. A longer or unbounded duration is for notices whose action must remain reachable, and the caller must still provide a clear dismissal path or bounded lifecycle.
 
 ## Related Docs

@@ -171,6 +171,8 @@ The RaceBook instructions accordion paints its borne cap, chevron and trail with
 
 The RaceBook Course map and profile cards are drawn without the contour corner (`contours={false}`), keeping the course visuals uncluttered.
 
+The RaceBook hero no longer draws the course contour lines behind its header (the published elevation profile is still shown in the Course tab).
+
 ## Related Docs
 
 Format-owned GPX visibility may omit a branded route or profile card; it does not change edition color resolution or the branding table contract.

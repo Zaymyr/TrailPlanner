@@ -176,6 +176,8 @@ Sheets and modals use the shared `SheetHeader` (dotted trail handle, slender bla
 
 The RaceBook Course map and profile cards are drawn without the contour corner (`contours={false}`), keeping the course visuals uncluttered.
 
+The RaceBook hero no longer draws the course contour lines behind its header (the published elevation profile is still shown in the Course tab).
+
 ## Related Docs
 
 Format-owned GPX route/profile choices do not change sponsor loading, placement, redirect counting, or edition scope.

@@ -282,6 +282,8 @@ In Mes courses, event groups show only the borne header (no trail line), plan ca
 
 The RaceBook Course map and profile cards are drawn without the contour corner (`contours={false}`), keeping the course visuals uncluttered.
 
+The RaceBook hero no longer draws the course contour lines behind its header (the published elevation profile is still shown in the Course tab).
+
 ## Related Docs
 
 Mobile RaceBook entry points must pass preview selection plus publication/organizer access through `canShowRacebook`; screens must not recreate those gates locally.

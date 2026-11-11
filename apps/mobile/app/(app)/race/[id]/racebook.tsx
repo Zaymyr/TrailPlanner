@@ -1925,7 +1925,6 @@ export default function RaceRacebookScreen() {
           expandedBodyHeight={heroBodyHeight}
           eventName={data.event.name}
           raceName={data.race.name}
-          contourProfile={data.race.organizerDetails.gpxDisplay.showElevationProfile && elevationProfile.length >= 2 ? elevationProfile : null}
           imageUrl={data.race.thumbnailUrl ?? data.event.thumbnailUrl ?? null}
           logoUrl={RACEBOOK_EDITION_LOGO_ENABLED ? brandTheme.logoUrl : null}
           dateLabel={[formattedRaceDate ?? eventDateRange, raceCountdownLabel].filter(Boolean).join(' · ') || null}

@@ -710,6 +710,8 @@ Catalog race cards stretch every format's profile across the full strip and smoo
 
 The RaceBook Course map and profile cards are drawn without the contour corner (`contours={false}`), keeping the course visuals uncluttered.
 
+The RaceBook hero no longer draws the course contour lines behind its header (the published elevation profile is still shown in the Course tab).
+
 ## Related Docs
 
 - [race_event_claims](../02-database/tables/race-event-claims.md)
