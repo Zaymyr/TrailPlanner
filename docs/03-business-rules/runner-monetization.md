@@ -1,7 +1,7 @@
 ---
 title: Runner Monetization
 scope: business-rule
-last_verified: 2026-11-09
+last_verified: 2026-11-11
 ai_priority: high
 related_files:
   - apps/mobile/components/plan-workspace/LockedPlanContent.tsx
@@ -138,6 +138,11 @@ Trail signature iteration (2026-11-11): runner presentation only. In-page RaceBo
 Trail signature iteration 3 (2026-11-11): presentation only. The active-state accent becomes a tri-color line (light green, amber, dark green in fixed 2:1:4 proportions) under the selected tab-bar label, the active in-page tab and the active Livret/plan segment, and RaceBook map/transport links plus catalog RaceBook actions are drawn as textured direction signs. No query, row, route, purchase gate or analytics event changes.
 
 Trail signature iteration 4 (2026-11-11): presentation only. The Livret/plan switch underlines the whole active label, and the plan action next to the RaceBook action in catalog formats becomes a soft trail sign. Disabled states, routes and purchase gates are unchanged.
+
+
+## Mobile presentation
+
+The Livret / plan switch (`RaceWorkspaceSwitch`) is now drawn as a pinned bib (active view) over a flipped bib (other view), 70 points high (`RACE_WORKSPACE_SWITCH_HEIGHT`); which view is available or locked is unchanged.
 
 ## Related Docs
 

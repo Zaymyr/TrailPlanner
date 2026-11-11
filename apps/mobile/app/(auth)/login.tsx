@@ -230,7 +230,6 @@ export default function LoginScreen() {
                 <ActionButton
                   fullWidth
                   variant="secondary"
-                  style={loading && styles.buttonDisabled}
                   onPress={handleGoogleLogin}
                   disabled={loading}
                 >

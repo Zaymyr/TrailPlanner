@@ -62,6 +62,18 @@ export const colors = {
     pinRed: "#C0392B",
     pinAmber: "#F0873A",
     pinGreen: "#2D5016",
+    stone: "#A9A595",
+    amberInk: "#B45309",
+    ticketInk: "#7A5A22",
+    signPost: "#6E5A3C",
+    watchBezelBrand: "#8FB06E",
+    climbBorder: "#E8A36A",
+    climbPlinth: "#F6D3B5",
+    braceletInfo: "#DCE8F0",
+    braceletInfoInk: "#2F5875",
+    bibBack: "#F1EFE8",
+    tapeBannerBorder: "#F0C36A",
+    tapeBannerIconSurface: "#FDE7B0",
   },
 } as const;
 

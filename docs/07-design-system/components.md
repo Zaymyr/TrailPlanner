@@ -27,6 +27,24 @@ related_files:
   - apps/mobile/components/themed/TrailSignButton.tsx
   - apps/mobile/components/themed/TrailTabs.tsx
   - apps/mobile/components/themed/TrailSeedProvider.tsx
+  - apps/mobile/components/themed/trail/ActionPlates.tsx
+  - apps/mobile/components/themed/trail/WatchButton.tsx
+  - apps/mobile/components/themed/trail/MilestoneGlyphs.tsx
+  - apps/mobile/components/themed/trail/MilestoneLabel.ts
+  - apps/mobile/components/themed/trail/BraceletTab.tsx
+  - apps/mobile/components/themed/trail/NotebookParts.tsx
+  - apps/mobile/components/themed/trail/BibParts.tsx
+  - apps/mobile/components/themed/trail/PosterGeometry.ts
+  - apps/mobile/components/themed/trail/PosterBackdrop.tsx
+  - apps/mobile/components/themed/trail/PosterPins.tsx
+  - apps/mobile/components/themed/trail/WoodGeometry.ts
+  - apps/mobile/components/themed/trail/CardProfile.tsx
+  - apps/mobile/components/themed/trail/HeartMark.tsx
+  - apps/mobile/components/themed/trail/TapeStrip.tsx
+  - apps/mobile/components/themed/trail/StampMark.tsx
+  - apps/mobile/components/themed/trail/TrailEmptyIllustration.tsx
+  - apps/mobile/components/race-workspace/RaceWorkspaceSwitch.tsx
+  - scripts/generate-paper-textures.py
   - apps/mobile/components/catalog/CatalogPresentation.tsx
   - apps/mobile/components/themed/SummitCelebration.tsx
   - apps/mobile/lib/trailSignature.ts
@@ -134,7 +152,8 @@ The themed mobile folder provides small shared React Native building blocks.
 `ActionButton` is the canonical action primitive with primary, secondary,
 ghost and destructive variants; small/medium/large sizes all preserve at least
 a 44-point target, support leading/trailing content, and expose pressed,
-disabled and loading states. `Button` remains a compatibility export of this
+disabled and loading states (each variant is a trail object, see "Trail
+objects" below). `Button` remains a compatibility export of this
 primitive, so existing screens adopt the same sentence-case label and geometry
 without a second implementation. `LoadingState` presents an accessible busy
 indicator and optional localized label. `ErrorState` provides a title,
@@ -178,7 +197,12 @@ color, so it survives organizer RaceBook colors:
   Each sign leans 0.4° to 2.9° either way and sits up to 1.5 points higher or
   lower, drawn from the session seed and its label (plus an optional
   `variationKey`, e.g. the race id); a disabled sign stays upright. Pressing
-  straightens it slightly. In catalog formats both signs keep their natural
+  straightens it slightly. The plate is painted wood: per-sign tip length
+  (16 ± 3) and paint tone (±5 %), slightly jittered edges with chipped
+  shoulders, a soft layered shadow, grain fibres and a knot, worn paint near
+  the edges and tip, a top bevel, a routed groove and two ringed bolts, all
+  drawn from the sign's `useTrailRandom` key; tab planks stay calm (grain and
+  bevel only). In catalog formats both signs keep their natural
   width side by side with full labels and only wrap on a phone too narrow for
   both. Variants are
   `solid` (forest), `soft` (brand surface) and `muted`. It carries RaceBook map,
@@ -216,21 +240,65 @@ color, so it survives organizer RaceBook colors:
   ridge draws itself, a flag carrying the blaze is planted on the summit, a
   success haptic plays and the title is announced to assistive technologies.
   It dismisses on tap or by itself and stays static under reduced motion.
-- `TopoCard` provides standard, interactive, signature and featured cards.
-  Signature and featured cards carry a small trail blaze on their leading edge
-  (tone follows the surface, or `blazeTone`); featured cards add the faint
-  contour pattern. The legacy shared `Card` delegates to the signature variant.
-- `ChoiceChip` is interactive filter selection, while `StatusPill` is non-interactive
-  status (for example the live badge of an active plan). A selected chip without
-  an icon gains a diamond waypoint; a status without an icon gains a small
-  semantic dot.
-- `SectionHeading`, `IconAction`, and `Field` normalize section hierarchy,
-  44-point icon targets, and labelled/helper/error input states. A field uses its
-  leading marker plus border for focus and error, so state is not represented by
-  color alone.
-- Shared `LoadingState` (ridge loader), `ErrorState` (danger blaze) and
-  `EmptyState` (brand ridge when the caller gives no icon) keep their semantic
-  roles, live-region behavior and localized actions.
+- `TopoCard` (standard, interactive, signature, featured) is drawn as a poster
+  pinned on the start-line board: a slightly crumpled sheet (one of four baked
+  PNG textures from `scripts/generate-paper-textures.py`, 0.65 opacity, clipped
+  to the sheet), irregular inward-only edges (at most 1.2 % of the side, capped
+  at 4 points), a cast shadow and a pin: red (standard), amber plus a painted
+  arrow (interactive), green plus the trail blaze (signature); featured is green
+  paper with two pins and tear-off tabs (one missing, one hanging 4-8° askew).
+  Lean ±1.1°, texture, edges and pin offset come from `useTrailRandom` keyed by
+  the optional `variationKey` (pass an id in lists; `Card` forwards it). The card
+  has no native border, shadow or clipping: decoration is drawn in Svg up to
+  8 points outside, so parents must not clip it. The legacy `Card` delegates to
+  the signature variant.
+- `SectionHeading` normalizes section hierarchy.
+- Shared `LoadingState` (ridge loader) and `ErrorState` (danger blaze) keep
+  their semantic roles, live-region behavior and localized actions.
+  `EmptyState` is a dashed cream "blank trail" card; with `signLabel` and no
+  icon it draws the trail, a cairn and a start sign.
+
+### Trail objects
+
+Rule of use: a sign (`TrailSignButton`) means "I go elsewhere", a plate (primary
+`ActionButton`) means "I act here", and a screen shows at most one plate.
+
+- `ActionButton` primary is an enamelled riveted plate (forest enamel lit from
+  above, cream liner, four rivets, 3-point thickness, uppercase label tracked
+  0.08em). Secondary is an aid-station ticket with a stub and dotted
+  perforation, leaning ±0.9° per label. Ghost is an amber arrow painted on the
+  ground under the label (soft exits: Plus tard, Passer, Annuler). Destructive
+  is the red "wrong way" cross. Disabled (any variant) is the closed trail: a
+  diagonal red/white striped tape under a light label plate, never the GR
+  waymark. Destructive and disabled never vary. Callers must not add their own
+  disabled opacity or shadows.
+- `IconAction` is a 48-point GPS-watch button (notched dashed bezel, domed
+  button) in neutral, brand or danger tones, always with an
+  `accessibilityLabel`; `variant="back"` draws a small forest sign blade
+  pointing left for green headers.
+- `ChoiceChip` is a kilometre milestone: 18-point rounded top, 11-point painted
+  cap (forest when active, grey when idle, amber with `tone="climb"`), figure in
+  JetBrains Mono and unit in spaced capitals split from the label;
+  `kind="favorite"` paints a heart. `MilestoneCompassButton` opens all filters.
+- `StatusPill` is a control wristband (24 points, coloured tab with a dotted
+  tear line, mono capitals, danger tab in tape stripes) leaning ±0.75°; it is
+  never pressable.
+- `Field` is a road notebook: cardboard label tab, faint IGN grid, unit as a
+  cote (`unit`), green tab plus `TrailBlaze` on focus, closed-trail tape strip
+  on error, and `variant="search"` with a compass ring. State is never carried
+  by colour alone; the input keeps a 48-point minimum height.
+- `RaceWorkspaceSwitch` (Livret / plan) shows the active view as a pinned bib
+  (four safety pins, header band, number, tear-off foot) over the other view's
+  flipped bib, with leans from `trailVariation.bib`; tabs keep their selected
+  state and 44-point targets.
+- Trail cards: race cards end with a 34-point elevation strip
+  (`CardProfileStrip`, real profile when available, brand ridge otherwise);
+  list rows use a 72x26 `CardMiniProfile` beside a `StatusPill`. The favourite
+  is a forest `HeartMark` (filled = favourite, never red) in a 44-point
+  pressable. Warning banners such as "Dernière minute" carry an orange/white
+  `TapeStrip`. The plan invitation shows aid stations as a dashed trail.
+  Checklists stamp checked rows with `StampMark` (rotated -10 to -4° per item,
+  upright when unchecked) above a static dotted progress trail.
 
 Controls, fields, data blocks and cards use symmetric radii: the former
 shortened lower-right "signature corner" was removed because it read as a
@@ -249,7 +317,7 @@ below the expanded height.
 Shared React Native geometry comes from `mobileComponents`. Filter chips use the
 same selected/unselected structure across Courses and Nutrition; Profile, RaceBook Course
 and plan view selectors use `TrailTabs` while the attached Livret/plan header
-switch keeps its segmented pill; input shells keep
+switch is the bib switch; input shells keep
 one surface/border/radius with units or clear actions inside; modal dismiss actions
 use a labelled 44-point target; primary and secondary buttons share the same
 symmetric 12-point family. Screen-specific

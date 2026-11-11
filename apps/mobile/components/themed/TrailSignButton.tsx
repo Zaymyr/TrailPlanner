@@ -1,10 +1,12 @@
 import { colors, mobileComponents, spacing } from '@pace-yourself/design-system';
-import { useId, useState, type ReactNode } from 'react';
+import { useId, useMemo, useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, View, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
-import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop } from 'react-native-svg';
+import Svg, { Circle, ClipPath, Defs, G, LinearGradient, Path, Stop } from 'react-native-svg';
 
 import { Text } from './Text';
 import { useTrailRandom } from './TrailSeedProvider';
+import { shadeHex } from './trail/PosterGeometry';
+import { buildWoodSign } from './trail/WoodGeometry';
 
 export type TrailSignVariant = 'solid' | 'soft' | 'muted';
 export type SignPlateShape = 'arrow' | 'plank';
@@ -13,42 +15,72 @@ const { height: HEIGHT, tipWidth: TIP, depth: DEPTH, radius: RADIUS, inset: INSE
 const BOLT_X = 11;
 const BOLT_OFFSET = 9;
 
-/** Face lit from above (top → bottom), darker plank edge, ink for engraving. */
-const palette: Record<TrailSignVariant, { top: string; bottom: string; edge: string; ink: string }> = {
-  solid: { top: colors.brand.forestLight, bottom: colors.brand.forest, edge: colors.brand.forestDark, ink: colors.text.inverse },
-  soft: { top: colors.surface.cream, bottom: colors.brand.surface, edge: colors.brand.border, ink: colors.brand.forest },
-  muted: { top: colors.surface.sandLight, bottom: colors.surface.muted, edge: colors.border.strong, ink: colors.text.tertiary },
+/**
+ * Wood finish retained from the sign mockup (maxTilt 2.9, variation 0.8,
+ * shadow 1.6, grain 0.13, wear 0.15, routed 0.8, bolts on).
+ */
+const WOOD = {
+  variation: 0.8,
+  grain: 0.13,
+  wear: 0.15,
+  routed: 0.8,
+  /** Routed groove of the calm tab plank. */
+  plankRouted: 0.3,
+  bolts: 0.6,
+} as const;
+/** Canvas room right of / below the plate for the cast shadow. */
+const SHADOW_ROOM = SHADOW + 3;
+/** Blurred cast shadow (offset ~2.5/4, blur ~2) approximated by stacked layers. */
+const SHADOW_LAYERS = [
+  { dx: 1.5, dy: 1.5, opacity: 0.08 },
+  { dx: 2.5, dy: 2.5, opacity: 0.07 },
+  { dx: 3.5, dy: 3.5, opacity: 0.05 },
+] as const;
+
+type WoodPalette = {
+  top: string;
+  bottom: string;
+  edge: string;
+  ink: string;
+  grainInk: string;
+  wearInk: string;
+  boltRing: string;
+  bevel: number;
 };
 
-/** Plate outline. Arrow: rounded post side, pointed end. Plank: rounded both ends. */
-function platePath(shape: SignPlateShape, width: number, height: number, dy: number) {
-  const bottom = dy + height;
-  const r = Math.min(RADIUS, height / 2);
-  const start = `M${r} ${dy}`;
-  const left = `H${r} Q0 ${bottom} 0 ${bottom - r} V${dy + r} Q0 ${dy} ${r} ${dy} Z`;
-  if (shape === 'arrow') {
-    return `${start} H${width - TIP} L${width} ${dy + height / 2} L${width - TIP} ${bottom} ${left}`;
-  }
-  return `${start} H${width - r} Q${width} ${dy} ${width} ${dy + r} V${bottom - r} Q${width} ${bottom} ${width - r} ${bottom} ${left}`;
-}
-
-/** Routed border running parallel to the plate edge, like an engraved sign. */
-function borderPath(shape: SignPlateShape, width: number, height: number) {
-  const inset = Math.min(INSET, height / 6);
-  const r = Math.max(1, Math.min(RADIUS, height / 2) - 2);
-  const top = inset;
-  const bottom = height - inset;
-  const left = `H${inset + r} Q${inset} ${bottom} ${inset} ${bottom - r} V${top + r} Q${inset} ${top} ${inset + r} ${top} Z`;
-  if (shape === 'arrow') {
-    const half = height / 2;
-    // Horizontal shift that keeps the inner tip parallel to the outer one.
-    const apexX = width - (inset * Math.hypot(TIP, half)) / half;
-    const shoulderX = apexX - (TIP * (half - inset)) / half;
-    return `M${inset + r} ${top} H${shoulderX} L${apexX} ${half} L${shoulderX} ${bottom} ${left}`;
-  }
-  const right = width - inset;
-  return `M${inset + r} ${top} H${right - r} Q${right} ${top} ${right} ${top + r} V${bottom - r} Q${right} ${bottom} ${right - r} ${bottom} ${left}`;
-}
+/** Face lit from above (top -> bottom), darker plank edge, ink for engraving. */
+const palette: Record<TrailSignVariant, WoodPalette> = {
+  solid: {
+    top: colors.brand.forestLight,
+    bottom: colors.brand.forest,
+    edge: colors.brand.forestDark,
+    ink: colors.text.inverse,
+    grainInk: shadeHex(colors.brand.forestDark, -0.35),
+    wearInk: shadeHex(colors.brand.border, 0.15),
+    boltRing: colors.brand.forestDark,
+    bevel: 0.18,
+  },
+  soft: {
+    top: colors.surface.cream,
+    bottom: colors.brand.surface,
+    edge: colors.brand.border,
+    ink: colors.brand.forest,
+    grainInk: shadeHex(colors.brand.forestLight, 0.3),
+    wearInk: colors.surface.white,
+    boltRing: colors.brand.border,
+    bevel: 0.7,
+  },
+  muted: {
+    top: colors.surface.sandLight,
+    bottom: colors.surface.muted,
+    edge: colors.border.strong,
+    ink: colors.text.tertiary,
+    grainInk: colors.text.tertiary,
+    wearInk: colors.surface.white,
+    boltRing: colors.trail.rivet,
+    bevel: 0.6,
+  },
+};
 
 type PlateProps = {
   width: number;
@@ -57,47 +89,112 @@ type PlateProps = {
   variant?: TrailSignVariant;
   /** Fixing bolts on the post side (signs); planks behind tab labels omit them. */
   bolts?: boolean;
+  /** Stable key for the wood's grain, knot, wear, tip and tone. */
+  variationKey?: string;
+  /** Disabled signs: regular outline, no tone shift (grain stays). */
+  neutral?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
 /**
- * The painted plank behind a trail sign or an active tab: soft cast shadow,
- * visible thickness, face lit from above, faint grain and a routed border.
- * Decorative only.
+ * The painted plank behind a trail sign or an active tab: blurred cast
+ * shadow, visible thickness, a face lit from above with wood grain, a knot,
+ * worn paint and chipped shoulders, a top bevel, a routed border and bolts.
+ * Tab planks (`shape="plank"`) keep only grain and bevel. Decorative only.
  */
-export function SignPlate({ width, height = HEIGHT, shape = 'arrow', variant = 'soft', bolts = shape === 'arrow', style }: PlateProps) {
-  const gradientId = `sign-face-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
-  const { top, bottom, edge, ink } = palette[variant];
+export function SignPlate({
+  width,
+  height = HEIGHT,
+  shape = 'arrow',
+  variant = 'soft',
+  bolts = shape === 'arrow',
+  variationKey,
+  neutral = false,
+  style,
+}: PlateProps) {
+  const id = useId().replace(/[^a-zA-Z0-9_-]/g, '');
+  const gradientId = `sign-face-${id}`;
+  const clipId = `sign-clip-${id}`;
+  const random = useTrailRandom(variationKey ?? `plate|${shape}|${variant}`, { neutral });
+  const calm = shape === 'plank';
+  const finish = palette[variant];
+  // Session-stable tone: each sign's paint is a touch lighter or darker.
+  const tone = random.jitter('wood:tone', mobileComponents.trailVariation.sign.tone * WOOD.variation);
+  const wood = useMemo(() => buildWoodSign({
+    shape,
+    width,
+    height,
+    radius: RADIUS,
+    inset: INSET,
+    tipWidth: TIP,
+    random,
+    tipJitter: mobileComponents.trailVariation.sign.tip,
+    variation: WOOD.variation,
+    wear: WOOD.wear,
+  }), [shape, width, height, random]);
   if (width <= 0) return null;
+
+  const { edge, ink, grainInk, wearInk, boltRing, bevel } = finish;
+  const face = wood.outline(0);
+  const thickness = wood.outline(DEPTH);
+  const shadowScale = calm ? 0.6 : 1;
 
   return (
     <Svg
       accessible={false}
-      height={height + DEPTH + SHADOW}
+      height={height + DEPTH + SHADOW_ROOM}
+      importantForAccessibility="no-hide-descendants"
       pointerEvents="none"
       style={[styles.plate, style]}
-      width={width + SHADOW}
+      width={width + SHADOW_ROOM}
     >
       <Defs>
         <LinearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
-          <Stop offset="0" stopColor={top} />
-          <Stop offset="1" stopColor={bottom} />
+          <Stop offset="0" stopColor={shadeHex(finish.top, tone)} />
+          <Stop offset="1" stopColor={shadeHex(finish.bottom, tone)} />
         </LinearGradient>
+        <ClipPath id={clipId}>
+          <Path d={face} />
+        </ClipPath>
       </Defs>
-      {/* Soft cast shadow (two faint offset layers), plank thickness, then the face. */}
-      <Path d={platePath(shape, width, height, DEPTH + SHADOW)} fill={colors.text.primary} opacity={0.07} transform={`translate(${SHADOW / 2} 0)`} />
-      <Path d={platePath(shape, width, height, DEPTH + SHADOW / 2)} fill={colors.text.primary} opacity={0.06} />
-      <Path d={platePath(shape, width, height, DEPTH)} fill={edge} />
-      <Path d={platePath(shape, width, height, 0)} fill={`url(#${gradientId})`} />
-      <Line stroke={ink} strokeLinecap="round" strokeOpacity={0.07} x1={width * 0.12} x2={width * 0.62} y1={height * 0.3} y2={height * 0.3} />
-      <Line stroke={ink} strokeLinecap="round" strokeOpacity={0.07} x1={width * 0.3} x2={width * 0.82} y1={height * 0.72} y2={height * 0.72} />
-      <Path d={borderPath(shape, width, height)} fill="none" stroke={ink} strokeLinejoin="round" strokeOpacity={0.3} strokeWidth={1} />
-      {bolts ? (
-        <>
-          <Circle cx={BOLT_X} cy={height / 2 - BOLT_OFFSET} fill={ink} fillOpacity={0.55} r={1.75} />
-          <Circle cx={BOLT_X} cy={height / 2 + BOLT_OFFSET} fill={ink} fillOpacity={0.55} r={1.75} />
-        </>
-      ) : null}
+      {SHADOW_LAYERS.map((layer) => (
+        <Path
+          d={thickness}
+          fill={colors.text.primary}
+          key={`${layer.dx}-${layer.dy}`}
+          opacity={layer.opacity * shadowScale}
+          transform={`translate(${layer.dx} ${layer.dy})`}
+        />
+      ))}
+      <Path d={thickness} fill={edge} />
+      <Path d={face} fill={`url(#${gradientId})`} />
+      <G clipPath={`url(#${clipId})`}>
+        {wood.grainDark ? (
+          <Path d={wood.grainDark} fill="none" stroke={grainInk} strokeOpacity={calm ? WOOD.grain * 0.7 : WOOD.grain} strokeWidth={1} />
+        ) : null}
+        {wood.grainLight ? (
+          <Path d={wood.grainLight} fill="none" stroke={colors.surface.white} strokeOpacity={WOOD.grain * 0.8} strokeWidth={0.8} />
+        ) : null}
+        {wood.knot ? <Path d={wood.knot} fill="none" stroke={grainInk} strokeOpacity={WOOD.grain * 1.1} strokeWidth={0.8} /> : null}
+        {wood.wear ? (
+          <Path d={wood.wear} fill={wearInk} fillOpacity={WOOD.wear * (variant === 'solid' ? 0.22 : 0.5)} />
+        ) : null}
+        <Path d={wood.topLight} fill="none" stroke={colors.surface.white} strokeOpacity={bevel} strokeWidth={1.5} />
+      </G>
+      <Path
+        d={wood.border}
+        fill="none"
+        stroke={ink}
+        strokeLinejoin="round"
+        strokeOpacity={calm ? WOOD.plankRouted : WOOD.routed}
+        strokeWidth={1}
+      />
+      {bolts ? [height / 2 - BOLT_OFFSET, height / 2 + BOLT_OFFSET].map((cy) => (
+        <G key={cy}>
+          <Circle cx={BOLT_X} cy={cy} fill={boltRing} fillOpacity={WOOD.bolts} r={2} />
+          <Circle cx={BOLT_X} cy={cy} fill={ink} fillOpacity={WOOD.bolts} r={1.2} />
+        </G>
+      )) : null}
     </Svg>
   );
 }
@@ -140,7 +237,8 @@ export function TrailSignButton({
 }: Props) {
   const [width, setWidth] = useState(0);
   // Disabled signs stay upright: only live decoration varies.
-  const random = useTrailRandom(`sign|${variationKey ?? ''}|${label}`, { neutral: Boolean(disabled) });
+  const signKey = `sign|${variationKey ?? ''}|${label}`;
+  const random = useTrailRandom(signKey, { neutral: Boolean(disabled) });
   const variation = mobileComponents.trailVariation.sign;
   const lean = tilt ?? random.lean('tilt', variation.tilt);
   const drop = random.jitter('dy', variation.dy);
@@ -166,7 +264,7 @@ export function TrailSignButton({
         style,
       ]}
     >
-      <SignPlate shape="arrow" variant={variant} width={width} />
+      <SignPlate neutral={Boolean(disabled)} shape="arrow" variant={variant} variationKey={signKey} width={width} />
       <View style={styles.content}>
         {icon}
         <Text numberOfLines={1} size="sm" weight="bold" style={[styles.label, { color: palette[variant].ink }]}>

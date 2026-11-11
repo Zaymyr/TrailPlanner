@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-11-09
+last_verified: 2026-11-11
 ai_priority: high
 related_files:
   - supabase/migrations/20261106142000_add_lut_by_night_2026_gpx.sql
@@ -415,6 +415,13 @@ The format-sheet, favorite-feedback, recap, and product-label changes are consum
 The separate `20261101120000_normalize_decathlon_product_brand_aliases.sql` correction changes no schema shape or access boundary. It extends the existing immutable brand normalizer and limits its backfill to curated catalog rows.
 
 Trail signature iteration (2026-11-11): runner presentation only. In-page RaceBook Course, Profile and plan view selectors become trail tabs, map/transport links and the catalog format RaceBook action become signpost buttons, catalog format distance/D+ read as cotes, tab-bar blazes move to the left of the selected icon, the hero contours are lightened and the elevation profile gains a decorative summit flag and iso-line echo. No query, row, payload, navigation target or analytics event changes.
+
+
+## Mobile presentation
+
+The mobile catalog (`apps/mobile/app/(app)/catalog.tsx`) now shows its quick filters as kilometre-milestone `ChoiceChip`s behind a compass filter button (Favoris first, heart variant) and the race sheet favourite as a forest `HeartMark`; this is presentation only — queries, favourite writes and analytics events are unchanged.
+
+`RaceEventSummaryCard` (catalog race card) shows the RaceBook availability as a `StatusPill` wristband, counts and distances as `Cote`s and a profile strip at its foot; it accepts an optional `elevation_profile` but the catalog query does not fetch one, so the brand ridge is drawn instead. No data contract changes.
 
 ## Related Docs
 

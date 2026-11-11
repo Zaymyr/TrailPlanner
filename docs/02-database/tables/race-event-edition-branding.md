@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_branding
 scope: database
-last_verified: 2026-11-09
+last_verified: 2026-11-11
 ai_priority: high
 related_files:
   - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
@@ -151,6 +151,13 @@ where edition_id = :edition_id;
 Trail signature (2026-11-09): the RaceBook hero may draw faint course contour lines in the resolved `onPrimaryColor` (only when the organizer publishes the elevation profile), and the ravito chronology rail becomes a dotted trail line in the contrast-safe `accentGraphicColor` variant. Hero metrics typeset their unit as a map-style cote. The contextual tab bar keeps the app-owned forest selection and adds a trail blaze above the selected icon. No branding field, resolver or color precedence changes.
 
 Trail signature iteration (2026-11-11): runner presentation only. In-page RaceBook Course, Profile and plan view selectors become trail tabs, map/transport links and the catalog format RaceBook action become signpost buttons, catalog format distance/D+ read as cotes, tab-bar blazes move to the left of the selected icon, the hero contours are lightened and the elevation profile gains a decorative summit flag and iso-line echo. No query, row, payload, navigation target or analytics event changes. Organizer colors keep their roles: the signposts and trail tabs use app-owned forest, the hero contours use the resolved `onPrimaryColor`, and the profile curve, echo and markers keep the edition accent.
+
+
+## Mobile presentation
+
+The RaceBook screen (`apps/mobile/app/(app)/race/[id]/racebook.tsx`) renders its last-minute update through `components/racebook/TapeAlertBanner` (orange/white tape strip, 44-point expand toggle) and passes the resolved start time to the plan invitation card; data loading and writes are unchanged.
+
+`RacebookGearSection` presents mandatory gear as a stamped checklist (session-stable stamp rotation, static dotted progress trail, 44-point rows); gear-check storage and partner slots are unchanged.
 
 ## Related Docs
 

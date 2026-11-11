@@ -123,6 +123,7 @@ related_files:
   - apps/mobile/lib/trailSignature.ts
   - apps/mobile/lib/trailSignature.test.ts
   - apps/mobile/components/themed/TrailSeedProvider.tsx
+  - apps/mobile/components/racebook/TapeAlertBanner.tsx
   - apps/mobile/hooks/useReduceMotion.ts
   - apps/mobile/components/profile/ProfileSaveButton.tsx
   - packages/design-system/src/tokens/mobile-components.ts
@@ -432,6 +433,19 @@ texture choice of trail objects through `useTrailRandom(key)`. Values are
 stable for the whole session and bounded by `mobileComponents.trailVariation`;
 colors, sizes, text, spacing, touch targets and disabled or destructive states
 never vary. Set `EXPO_PUBLIC_TRAIL_SEED` to freeze the seed for screenshots.
+
+Controls and cards are trail objects (details in
+`docs/07-design-system/components.md`): signs to go elsewhere, one enamel
+plate per screen for the main local action, aid-station tickets, ground
+arrows, the closed-trail tape for disabled actions, GPS-watch icon buttons,
+kilometre-milestone filters (catalog quick filters behind a compass button,
+Favoris first), control wristbands for every status, road-notebook fields,
+the bib Livret / plan switch (70 points high via
+`RACE_WORKSPACE_SWITCH_HEIGHT`) and pinned crumpled posters for `TopoCard`.
+The RaceBook screen renders its last-minute update through
+`components/racebook/TapeAlertBanner` and passes the resolved start time to
+`RacebookPlanInviteCard`; Mes courses rows show a mini profile and a « Prêt » /
+« Brouillon » wristband (ready = a pace plus at least one planned supply).
 
 This grammar is app-wide. The legacy shared `Card` renders the signature card
 (leading-edge blaze); shared loading states and the launch splash use the ridge

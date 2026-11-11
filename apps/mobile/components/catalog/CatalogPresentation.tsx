@@ -80,7 +80,7 @@ export function CatalogRaceRow({
   const racebookMuted = racebookActionDimmed || racebookActionDisabled;
   const visibleCotes = (cotes ?? []).filter((cote): cote is RaceRowCote => cote !== null);
   return (
-    <TopoCard style={[styles.formatRow, isDimmed && styles.formatRowDimmed]}>
+    <TopoCard style={[styles.formatRow, isDimmed && styles.formatRowDimmed]} variationKey={title}>
       <View accessible accessibilityLabel={`${title}. ${subtitle}`} style={styles.formatRowContent}>
         <Text style={styles.formatTitle}>{title}</Text>
         {visibleCotes.length > 0 ? (

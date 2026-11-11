@@ -1,7 +1,7 @@
 ---
 title: Mobile UX Audit
 scope: workflow
-last_verified: 2026-11-09
+last_verified: 2026-11-11
 ai_priority: high
 related_files:
   - .agents/skills/mobile-ux-ui-auditor/SKILL.md
@@ -181,6 +181,13 @@ Android production candidates additionally require an internal-track smoke test 
 ## Lot 8 verification scope
 
 The launch-polish audit covers personal-versus-official departure copy, wave selection, compact nutrition chronology, format-sheet action parity, catalog grouping, delayed skeletons, shared toasts, reduced-motion-aware haptics, and root navigation elevation. Native haptics require a runtime `1.1.2` build before device feedback can be validated.
+
+
+## Mobile presentation
+
+The Google fallback `ActionButton` on login and signup no longer adds its own reduced opacity while loading: the shared disabled (closed-trail) look already signals it. Auth logic is unchanged.
+
+Mobile controls follow the trail-object grammar (`docs/07-design-system/components.md`): one enamel plate (primary action) per screen, closed-trail look for disabled actions, and profile contact buttons now keep a 44-point minimum height.
 
 ## Related Docs
 

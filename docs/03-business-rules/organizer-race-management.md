@@ -2,7 +2,7 @@
 title: Organizer Race Management
 scope: business-rule
 
-last_verified: 2026-11-09
+last_verified: 2026-11-11
 
 ai_priority: high
 related_files:
@@ -680,6 +680,17 @@ Trail signature (2026-11-09): runner RaceBook presentation only. The ravito and 
 Trail signature iteration (2026-11-11): runner presentation only. In-page RaceBook Course, Profile and plan view selectors become trail tabs, map/transport links and the catalog format RaceBook action become signpost buttons, catalog format distance/D+ read as cotes, tab-bar blazes move to the left of the selected icon, the hero contours are lightened and the elevation profile gains a decorative summit flag and iso-line echo. No query, row, payload, navigation target or analytics event changes.
 
 Trail signature iteration 3 (2026-11-11): presentation only. The active-state accent becomes a tri-color line (light green, amber, dark green in fixed 2:1:4 proportions) under the selected tab-bar label, the active in-page tab and the active Livret/plan segment, and RaceBook map/transport links plus catalog RaceBook actions are drawn as textured direction signs. No query, row, route, purchase gate or analytics event changes.
+
+
+## Mobile presentation
+
+The mobile catalog (`apps/mobile/app/(app)/catalog.tsx`) now shows its quick filters as kilometre-milestone `ChoiceChip`s behind a compass filter button (Favoris first, heart variant) and the race sheet favourite as a forest `HeartMark`; this is presentation only — queries, favourite writes and analytics events are unchanged.
+
+`RaceEventSummaryCard` (catalog race card) shows the RaceBook availability as a `StatusPill` wristband, counts and distances as `Cote`s and a profile strip at its foot; it accepts an optional `elevation_profile` but the catalog query does not fetch one, so the brand ridge is drawn instead. No data contract changes.
+
+The RaceBook screen (`apps/mobile/app/(app)/race/[id]/racebook.tsx`) renders its last-minute update through `components/racebook/TapeAlertBanner` (orange/white tape strip, 44-point expand toggle) and passes the resolved start time to the plan invitation card; data loading and writes are unchanged.
+
+`RacebookGearSection` presents mandatory gear as a stamped checklist (session-stable stamp rotation, static dotted progress trail, 44-point rows); gear-check storage and partner slots are unchanged.
 
 ## Related Docs
 

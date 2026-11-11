@@ -1,7 +1,7 @@
 ---
 title: Plan Storage
 scope: business-rule
-last_verified: 2026-11-09
+last_verified: 2026-11-11
 ai_priority: high
 related_files:
   - apps/web/app/onboarding/account/page.tsx
@@ -230,6 +230,11 @@ It:
 The recap keeps the local runner departure authoritative, displays its official delta, and can replace it from an ordered SAS or reset it to the organizer clock. Checkpoint passage labels display clock time before elapsed time. These actions update only the existing local departure key and never alter `planner_values` or `race_start_waves`.
 
 Trail signature (2026-11-09): a standard plan creation opens the editor with a one-use `created=1` route parameter that shows the summit celebration once and is then cleared; the onboarding handoff (`showHelp=1`) never sets it. The recap pack list shows its existing carbohydrate and sodium totals as metric tiles. Neither adds a write, a column or a change to the persisted plan snapshot.
+
+
+## Mobile presentation
+
+The RaceBook plan invitation card shows the race start time on its dashed aid-station trail. In Mes courses, a plan is labelled « Prêt » when it has a pace (pace or speed) and at least one planned supply, otherwise « Brouillon »; this is a presentation-only rule computed in `PlansList`. <!-- TODO: verify with maintainer -->
 
 ## Related Docs
 

@@ -1,9 +1,14 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Image, Pressable, StyleSheet, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { Cote } from '../themed/Cote';
+import { StatusPill } from '../themed/StatusPill';
 import { Text } from '../themed/Text';
+import { CardProfileStrip } from '../themed/trail/CardProfile';
+import { HeartMark } from '../themed/trail/HeartMark';
 import { Colors } from '../../constants/colors';
 import { formatDistance, formatDistanceRange } from '../../lib/displayFormat';
+import { asTrailProfile, type TrailProfilePoint } from '../../lib/trailSignature';
 
 export type RaceEventSummaryRace = {
   id: string;
@@ -11,6 +16,8 @@ export type RaceEventSummaryRace = {
   distance_km: number;
   elevation_gain_m: number | null;
   thumbnail_url?: string | null;
+  /** Stored elevation profile, when the query provides it; drawn at the card foot. */
+  elevation_profile?: unknown;
 };
 
 export type RaceEventSummaryEvent<T extends RaceEventSummaryRace = RaceEventSummaryRace> = {
@@ -79,6 +86,22 @@ function getEventDistanceRange(races: RaceEventSummaryRace[], locale: 'fr' | 'en
   return formatDistanceRange(minDistance, maxDistance, locale);
 }
 
+/** Longest format with a usable stored profile; null lets the strip fall back to the brand ridge. */
+function getEventProfile(races: RaceEventSummaryRace[]): TrailProfilePoint[] | null {
+  let best: { distance: number; profile: TrailProfilePoint[] } | null = null;
+  for (const race of races) {
+    const profile = asTrailProfile(race.elevation_profile);
+    if (profile && (!best || race.distance_km > best.distance)) best = { distance: race.distance_km, profile };
+  }
+  return best?.profile ?? null;
+}
+
+/** "5 distances" -> cote 5 + DISTANCES; labels without a leading count stay whole. */
+function splitCountLabel(label: string): { value: string; unit: string | null } {
+  const match = /^(\d+)\s+(.+)$/u.exec(label.trim());
+  return match ? { value: match[1], unit: match[2] } : { value: label, unit: null };
+}
+
 function RaceEventSummaryCardBase<T extends RaceEventSummaryRace>({
   event,
   locale,
@@ -108,6 +131,8 @@ function RaceEventSummaryCardBase<T extends RaceEventSummaryRace>({
     event.races.length === 1
       ? singleFormatLabel
       : multipleFormatsLabel.replace('{count}', String(event.races.length));
+  const formatsCote = splitCountLabel(formatsLabel);
+  const eventProfile = useMemo(() => getEventProfile(event.races), [event.races]);
 
   useEffect(() => {
     setDisplayedFavorite(isFavorite);
@@ -147,6 +172,7 @@ function RaceEventSummaryCardBase<T extends RaceEventSummaryRace>({
       onPress={onOpenFormats}
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
     >
+      <View style={styles.cardBody}>
       {visibleEventImageUrl ? <View style={styles.imageRail}>
           <Image source={{ uri: visibleEventImageUrl }} style={styles.railImage} resizeMode="cover" resizeMethod="resize" onError={() => setFailedImageUrl(visibleEventImageUrl)} />
       </View> : (
@@ -172,8 +198,7 @@ function RaceEventSummaryCardBase<T extends RaceEventSummaryRace>({
           </View>
           {racebookAvailableLabel ? (
             <View style={styles.racebookBadge} testID="race-event-racebook-badge">
-              <Ionicons color={Colors.brandPrimary} name="book-outline" size={12} />
-              <Text style={styles.racebookBadgeText}>{racebookAvailableLabel}</Text>
+              <StatusPill label={racebookAvailableLabel} tone="brand" />
             </View>
           ) : null}
           {event.location || dateStr ? (
@@ -188,6 +213,7 @@ function RaceEventSummaryCardBase<T extends RaceEventSummaryRace>({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={displayedFavorite ? unfavoriteLabel : favoriteLabel}
+              accessibilityState={{ selected: displayedFavorite }}
               hitSlop={6}
               onPress={(pressEvent) => {
                 pressEvent.stopPropagation();
@@ -196,11 +222,7 @@ function RaceEventSummaryCardBase<T extends RaceEventSummaryRace>({
               style={[styles.favoriteButton, displayedFavorite && styles.favoriteButtonActive]}
             >
               <Animated.View style={{ transform: [{ scale: favoriteScale }] }}>
-                <Ionicons
-                  name={displayedFavorite ? 'heart' : 'heart-outline'}
-                  size={21}
-                  color={Colors.brandPrimary}
-                />
+                <HeartMark filled={displayedFavorite} size={22} />
               </Animated.View>
             </Pressable>
           ) : null}
@@ -208,14 +230,8 @@ function RaceEventSummaryCardBase<T extends RaceEventSummaryRace>({
 
       <View>
         <View style={styles.summaryRow}>
-          <View style={styles.summaryPill}>
-            <Text style={styles.summaryPillText}>{formatsLabel}</Text>
-          </View>
-          {distanceRange ? (
-            <View style={styles.summaryPill}>
-              <Text style={styles.summaryPillText}>{distanceRange}</Text>
-            </View>
-          ) : null}
+          <Cote accessibilityLabel={formatsLabel} size="sm" tone="primary" unit={formatsCote.unit} value={formatsCote.value} />
+          {distanceRange ? <Cote size="sm" tone="primary" value={distanceRange} /> : null}
           <View style={styles.primaryAction}>
             <Text style={styles.primaryActionText}>{viewFormatsLabel}</Text>
             <Ionicons color={Colors.brandPrimary} name="chevron-forward" size={16} />
@@ -232,19 +248,23 @@ function RaceEventSummaryCardBase<T extends RaceEventSummaryRace>({
 
         </View>
       </View>
+      </View>
+      <CardProfileStrip profile={eventProfile} />
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
     overflow: 'hidden',
     borderRadius: 18,
     borderWidth: 1,
     borderColor: Colors.border,
     backgroundColor: Colors.surface,
+  },
+  cardBody: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
   },
   cardPressed: {
     opacity: 0.82,
@@ -288,19 +308,7 @@ const styles = StyleSheet.create({
   },
   racebookBadge: {
     alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
     marginTop: 4,
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    backgroundColor: Colors.surfaceSecondary,
-  },
-  racebookBadgeText: {
-    color: Colors.brandPrimary,
-    fontSize: 11,
-    fontWeight: '800',
   },
   meta: {
     fontSize: 13,
@@ -317,7 +325,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   imageRail: {
-    width: 58,
+    width: 64,
     alignSelf: 'stretch',
     alignItems: 'center',
     justifyContent: 'center',
@@ -346,21 +354,9 @@ const styles = StyleSheet.create({
   summaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    columnGap: 14,
+    rowGap: 4,
     flexWrap: 'wrap',
-  },
-  summaryPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
-    backgroundColor: Colors.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  summaryPillText: {
-    color: Colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '700',
   },
   supportText: {
     color: Colors.textSecondary,

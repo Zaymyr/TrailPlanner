@@ -62,6 +62,7 @@ import { RacebookGearSection } from '../../../../components/racebook/RacebookGea
 import { RacebookServicesSection } from '../../../../components/racebook/RacebookServicesSection';
 import { RacebookSupporterPointsSection } from '../../../../components/racebook/RacebookSupporterPointsSection';
 import { RacebookPersonalPlanCard, RacebookPlanInviteCard } from '../../../../components/racebook/RacebookPersonalPlanCard';
+import { TapeAlertBanner } from '../../../../components/racebook/TapeAlertBanner';
 import { buildMapsSearchUrl } from '../../../../lib/racebookTextLinks';
 import { RacebookStructuredCourseSections } from '../../../../components/racebook/RacebookStructuredCourseSections';
 import { RacebookTabBar } from '../../../../components/racebook/RacebookTabBar';
@@ -2100,7 +2101,7 @@ export default function RaceRacebookScreen() {
           {weatherAlertMessage ? <InlineAlertCard icon={weatherAlertIcon} title={t.catalog.racebookWeatherAlertTitle} message={weatherAlertMessage} /> : null}
 
           {lastMinuteMessage ? (
-            <InlineAlertCard
+            <TapeAlertBanner
               collapseLabel={t.catalog.racebookAlertCollapse}
               collapsible
               expandLabel={t.catalog.racebookAlertExpand}
@@ -2403,6 +2404,7 @@ export default function RaceRacebookScreen() {
                     accentColor={brandTheme.primaryForegroundColor}
                     disabled={planCtaBusy}
                     onCreatePlan={() => { void handlePlanCtaPress(); }}
+                    startTime={resolvedStartTime}
                   />
                 ) : null}
 

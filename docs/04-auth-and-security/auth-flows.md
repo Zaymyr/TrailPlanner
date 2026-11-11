@@ -1,7 +1,7 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-11-09
+last_verified: 2026-11-11
 ai_priority: high
 related_files:
   - apps/web/app/sign-in/page.tsx
@@ -186,6 +186,11 @@ Mobile Profile admin/debug presentation follows the same boundary: it accepts on
 - Keep Profile fetch retry local to the screen data bootstrap; do not turn it into a new global auth-state subscription or session side effect.
 - Keep admin access simulation server-verified. The mobile selector may explain an unavailable route or stale administrator session, but it must not fall back to a client-only Premium/free override.
 - The app shell's route-derived light status-bar style for the four branded root headers is presentation-only; it must not become an auth gate, redirect condition, or session listener.
+
+
+## Mobile presentation
+
+The Google fallback `ActionButton` on login and signup no longer adds its own reduced opacity while loading: the shared disabled (closed-trail) look already signals it. Auth logic is unchanged.
 
 ## Related Docs
 

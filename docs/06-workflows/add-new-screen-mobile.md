@@ -1,7 +1,7 @@
 ---
 title: Add New Mobile Screen
 scope: workflow
-last_verified: 2026-11-09
+last_verified: 2026-11-11
 ai_priority: medium
 related_files:
   - apps/mobile/app
@@ -260,6 +260,13 @@ Equivalent mobile controls must reuse `mobileComponents`: 16-point first-level g
 ## Shared launch-polish primitives
 
 Prefer the shared brief toast for non-destructive feedback, the existing empty state for no-content screens, and the delayed skeleton pattern for short initial reads. Root headers receive shadow only after scroll; tab bars retain their subtle top divider. Decorative haptics must no-op on web and with reduced motion.
+
+
+## Mobile presentation
+
+New mobile screens use the trail objects: `TrailSignButton` to go elsewhere, at most one primary `ActionButton` (enamel plate) per screen, `StatusPill` wristbands for states, `TopoCard` posters for blocks. Components in lists pass a stable `variationKey` (id) so their decorative variation differs per item while staying stable for the session.
+
+The Livret / plan switch (`RaceWorkspaceSwitch`) is now drawn as a pinned bib (active view) over a flipped bib (other view), 70 points high (`RACE_WORKSPACE_SWITCH_HEIGHT`); which view is available or locked is unchanged.
 
 ## Related Docs
 

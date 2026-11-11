@@ -1,7 +1,7 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-11-09
+last_verified: 2026-11-11
 ai_priority: high
 related_files:
   - supabase/migrations/20261109140000_add_racebook_edition_partner_slots.sql
@@ -147,6 +147,11 @@ The catalog format sheet, favorite toast, recap hierarchy, and product-label saf
 The separate Decathlon alias migration is likewise not a new-table task: it replaces an existing normalization function and updates only curated rows while preserving current grants and RLS.
 
 Trail signature iteration (2026-11-11): `schema-overview.md` only received a presentation-only note for the mobile catalog; no table, column, policy or migration workflow changed.
+
+
+## Mobile presentation
+
+When a new table feeds a mobile list or card, the screen renders it with the trail objects (see `docs/07-design-system/components.md`) and passes the row id as `variationKey`, so decorative variation stays stable per item for the session. Presentation-only fields are never added to the schema for decoration.
 
 ## Related Docs
 

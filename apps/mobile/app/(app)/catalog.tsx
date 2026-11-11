@@ -1,3 +1,4 @@
+import { HeartMark } from '../../components/themed/trail/HeartMark';
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
 import {
   Alert,
@@ -36,6 +37,8 @@ import {
 import { EmptyState } from '../../components/themed/EmptyState';
 import { ErrorState } from '../../components/themed/ErrorState';
 import { BriefToast } from '../../components/themed/BriefToast';
+import { ChoiceChip } from '../../components/themed/ChoiceChip';
+import { MilestoneCompassButton } from '../../components/themed/trail/MilestoneGlyphs';
 import { Colors } from '../../constants/colors';
 import { isAnonymousSession } from '../../lib/appSession';
 import {
@@ -1172,14 +1175,13 @@ export default function CatalogScreen() {
                 ) : null}
               </View>
               {onboardingMode !== 'racebook' ? <View style={styles.filterActionsRow}>
-                <TouchableOpacity style={styles.filterButton} onPress={() => setFiltersOpen(true)}>
-                  <Ionicons name="options-outline" size={16} color={Colors.brandPrimary} />
-                  <Text style={styles.filterButtonText}>
-                    {activeFiltersCount > 0
-                      ? `${t.catalog.filters} (${activeFiltersCount})`
-                      : t.catalog.filters}
-                  </Text>
-                </TouchableOpacity>
+                <MilestoneCompassButton
+                  accessibilityLabel={activeFiltersCount > 0
+                    ? `${t.catalog.filters} (${activeFiltersCount})`
+                    : t.catalog.filters}
+                  activeCount={activeFiltersCount}
+                  onPress={() => setFiltersOpen(true)}
+                />
                 <ScrollView
                   horizontal
                   contentContainerStyle={styles.quickFiltersContent}
@@ -1189,18 +1191,13 @@ export default function CatalogScreen() {
                   {QUICK_CATALOG_FILTERS.map((filter) => {
                     const active = quickFilter === filter.key;
                     return (
-                      <TouchableOpacity
-                        accessibilityRole="button"
-                        accessibilityState={{ selected: active }}
+                      <ChoiceChip
                         key={filter.key}
-                        activeOpacity={0.78}
+                        kind={filter.key === 'favorites' ? 'favorite' : 'value'}
+                        label={locale === 'fr' ? filter.fr : filter.en}
                         onPress={() => setQuickFilter(active ? 'all' : filter.key)}
-                        style={[styles.quickFilterChip, active && styles.quickFilterChipActive]}
-                      >
-                        <Text style={[styles.quickFilterText, active && styles.quickFilterTextActive]}>
-                          {locale === 'fr' ? filter.fr : filter.en}
-                        </Text>
-                      </TouchableOpacity>
+                        selected={active}
+                      />
                     );
                   })}
                 </ScrollView>
@@ -1331,19 +1328,12 @@ export default function CatalogScreen() {
                     : (locale === 'fr' ? 'Ajouter cette course aux favoris' : 'Add this race to favorites')}
                   accessibilityRole="button"
                   accessibilityState={{ selected: favoriteEventIds.includes(selectedEvent.id) }}
-                  style={[
-                    styles.sheetFavoriteButton,
-                    favoriteEventIds.includes(selectedEvent.id) && styles.sheetFavoriteButtonActive,
-                  ]}
+                  style={styles.sheetFavoriteButton}
                   onPress={() => {
                     void handleToggleFavorite(selectedEvent.id);
                   }}
                 >
-                  <Ionicons
-                    name={favoriteEventIds.includes(selectedEvent.id) ? 'heart' : 'heart-outline'}
-                    size={18}
-                    color={favoriteEventIds.includes(selectedEvent.id) ? Colors.textOnBrand : Colors.brandPrimary}
-                  />
+                  <HeartMark filled={favoriteEventIds.includes(selectedEvent.id)} size={22} />
                 </TouchableOpacity>
               ) : null}
               <TouchableOpacity
@@ -1632,50 +1622,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  filterButton: {
-    minHeight: mobileComponents.filterChip.minHeight,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: Colors.brandSurface,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-    borderRadius: mobileComponents.filterChip.borderRadius,
-    paddingHorizontal: mobileComponents.filterChip.paddingHorizontal,
-    paddingVertical: 10,
-  },
-  filterButtonText: {
-    color: Colors.brandPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
   quickFilters: {
     flex: 1,
   },
   quickFiltersContent: {
-    gap: 7,
+    alignItems: 'flex-end',
+    gap: 8,
     paddingRight: 4,
-  },
-  quickFilterChip: {
-    minHeight: mobileComponents.filterChip.minHeight,
-    justifyContent: 'center',
-    paddingHorizontal: mobileComponents.filterChip.paddingHorizontal,
-    borderRadius: mobileComponents.filterChip.borderRadius,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceSecondary,
-  },
-  quickFilterChipActive: {
-    borderColor: Colors.brandPrimary,
-    backgroundColor: Colors.brandPrimary,
-  },
-  quickFilterText: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  quickFilterTextActive: {
-    color: Colors.textOnBrand,
   },
   listEmpty: {
     flex: 1,
@@ -1748,10 +1701,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.brandSurface,
     borderWidth: 1,
     borderColor: Colors.brandBorder,
-  },
-  sheetFavoriteButtonActive: {
-    backgroundColor: Colors.brandPrimary,
-    borderColor: Colors.brandPrimary,
   },
   sheetTitle: {
     color: Colors.textPrimary,

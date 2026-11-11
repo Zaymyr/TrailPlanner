@@ -8,6 +8,8 @@ type Props = ViewProps & {
   surface?: CardSurface;
   padded?: boolean;
   variant?: TopoCardVariant;
+  /** Stable id so each card in a list gets its own decorative variation. */
+  variationKey?: string;
   style?: StyleProp<ViewStyle>;
 };
 

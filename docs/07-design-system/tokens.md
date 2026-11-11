@@ -137,7 +137,9 @@ accent rather than a third primary color.
 Mobile callers continue to apply semantic colors from `Colors`/`colors`; the
 blaze bands reuse existing tokens (olive, amber and forest by default) and add
 no new palette value. The trail objects (enamel plate, aid-station ticket,
-closed-trail tape, wristband, poster pins) use `colors.trail`.
+closed-trail tape, wristband, poster pins, ticket ink, milestone climb cap,
+info wristband, bib back, banner tape, sign post and the neutral `stone` used
+for watch bezels, compass rings, pin clasps and cairns) use `colors.trail`.
 
 ## Web Tailwind Bridge
 

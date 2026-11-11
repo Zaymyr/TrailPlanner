@@ -16,7 +16,6 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { getIntermediateAidStationCount } from '../../lib/planPersistence';
 import {
-  EmptyPlanIcon,
   SummitIcon,
   TrailIcon,
   colors,
@@ -28,9 +27,9 @@ import { Card } from '../themed/Card';
 import { Cote } from '../themed/Cote';
 import { EmptyState } from '../themed/EmptyState';
 import { Heading } from '../themed/Heading';
-import { CourseRidge } from '../themed/Ridge';
 import { StatusPill } from '../themed/StatusPill';
 import { Text } from '../themed/Text';
+import { CardMiniProfile } from '../themed/trail/CardProfile';
 import { formatDistance, formatElevation } from '../../lib/displayFormat';
 import { asTrailProfile } from '../../lib/trailSignature';
 import { estimateDuration, getPlanCardTitle } from './plansHelpers';
@@ -78,7 +77,23 @@ type PlansListProps = {
   /** Opens the format's RaceBook; plans of catalog formats lead with it. */
   onOpenRacebook?: (raceId: string) => void;
   racebookButtonLabel?: string;
+  /** Status wristband labels; default to built-in FR/EN copy. */
+  readyLabel?: string;
+  draftLabel?: string;
 };
+
+/**
+ * A plan is "ready" once it has a pace and at least one planned supply;
+ * otherwise it is still a draft. Presentation only.
+ */
+function isPlanReady(item: PlanRow): boolean {
+  const values = item.planner_values;
+  if (!values) return false;
+  const hasPace = values.paceMinutes != null || values.speedKph != null;
+  const hasSupplies = (values.startSupplies?.length ?? 0) > 0
+    || (values.aidStations ?? []).some((station) => (station.supplies?.length ?? 0) > 0);
+  return hasPace && hasSupplies;
+}
 
 export const PlansList = memo(function PlansList({
   contentTopInset = 0,
@@ -120,7 +135,11 @@ export const PlansList = memo(function PlansList({
   onBrowseRaces,
   onOpenRacebook,
   racebookButtonLabel,
+  readyLabel,
+  draftLabel,
 }: PlansListProps) {
+  const resolvedReadyLabel = readyLabel ?? (locale === 'fr' ? 'Prêt' : 'Ready');
+  const resolvedDraftLabel = draftLabel ?? (locale === 'fr' ? 'Brouillon' : 'Draft');
   const [managedPlan, setManagedPlan] = useState<PlanRow | null>(null);
   const [managedPlanName, setManagedPlanName] = useState('');
   const [renamingPlan, setRenamingPlan] = useState(false);
@@ -191,6 +210,7 @@ export const PlansList = memo(function PlansList({
                 displayName={getPlanCardTitle(item, planEventName, locale)}
                 departureCountdownCopy={departureCountdownCopy}
                 departureLabel={departureLabel}
+                draftLabel={resolvedDraftLabel}
                 duration={duration}
                 editButtonLabel={editButtonLabel}
                 inProgressLabel={inProgressLabel}
@@ -218,6 +238,7 @@ export const PlansList = memo(function PlansList({
                 }
                 racebookButtonLabel={racebookButtonLabel}
                 primaryAction={resolvePlanPrimaryAction(item, nowMs, activePlanId)}
+                readyLabel={resolvedReadyLabel}
                 recapButtonLabel={recapButtonLabel}
                 shareButtonLabel={shareButtonLabel}
                 startButtonLabel={startButtonLabel}
@@ -265,8 +286,8 @@ export const PlansList = memo(function PlansList({
           <EmptyState
             actionLabel={browseRacesLabel}
             description={emptySubtitle}
-            icon={<EmptyPlanIcon color={colors.brand.forest} size={72} strokeWidth={1.8} />}
             onActionPress={onBrowseRaces}
+            signLabel={departureLabel}
             style={styles.emptyState}
             title={emptyTitle}
           />
@@ -376,6 +397,8 @@ type PlanCardProps = {
   onLockedPress: () => void;
   onOpenRacebook?: () => void;
   racebookButtonLabel?: string;
+  readyLabel: string;
+  draftLabel: string;
 };
 
 function PlanCard({
@@ -405,6 +428,8 @@ function PlanCard({
   onLockedPress,
   onOpenRacebook,
   racebookButtonLabel,
+  readyLabel,
+  draftLabel,
 }: PlanCardProps) {
   // Catalog formats lead with their RaceBook; the plan action becomes secondary.
   const leadsWithRacebook = Boolean(onOpenRacebook && racebookButtonLabel);
@@ -412,6 +437,7 @@ function PlanCard({
   const countdown = formatDepartureCountdown(item.departureAt, nowMs, departureCountdownCopy);
   // Only a real stored profile draws the skyline; never a placeholder ridge.
   const courseProfile = useMemo(() => asTrailProfile(item.elevation_profile), [item.elevation_profile]);
+  const ready = isPlanReady(item);
   const primaryLabel = primaryAction === 'start'
     ? isActivePlan ? inProgressLabel : startButtonLabel
     : primaryAction === 'edit'
@@ -429,7 +455,7 @@ function PlanCard({
       : onOpenSummary;
 
   return (
-    <Card padded={false} surface="white" style={[styles.card, isActivePlan && styles.cardActive]}>
+    <Card padded={false} surface="white" style={[styles.card, isActivePlan && styles.cardActive]} variationKey={String(item.id)}>
       <View style={styles.cardMainArea}>
         <TouchableOpacity
           accessibilityActions={[
@@ -444,7 +470,7 @@ function PlanCard({
               ? 'Touchez deux fois pour ouvrir. Maintenez pour modifier le nom ou supprimer.'
               : 'Double tap to open. Long press to edit the name or delete.'
           }
-          accessibilityLabel={item.name}
+          accessibilityLabel={`${item.name}, ${isActivePlan ? liveLabel : ready ? readyLabel : draftLabel}`}
           accessibilityRole="button"
           activeOpacity={0.8}
           delayLongPress={550}
@@ -468,7 +494,9 @@ function PlanCard({
               <Heading variant="h2" numberOfLines={2} style={styles.planName}>
                 {displayName}
               </Heading>
-              {isActivePlan ? <StatusPill label={liveLabel} tone="warning" /> : null}
+              {isActivePlan
+                ? <StatusPill label={liveLabel} tone="warning" />
+                : <StatusPill label={ready ? readyLabel : draftLabel} tone={ready ? 'success' : 'neutral'} />}
             </View>
             <View style={styles.meta}>
               {item.planner_values?.raceDistanceKm != null ? (
@@ -485,8 +513,10 @@ function PlanCard({
                   />
                 </View>
               ) : null}
+              {courseProfile ? (
+                <CardMiniProfile profile={courseProfile} style={styles.miniProfile} variant={ready ? 'ready' : 'draft'} />
+              ) : null}
             </View>
-            {courseProfile ? <CourseRidge profile={courseProfile} height={30} style={styles.courseRidge} /> : null}
             <View style={styles.planInsights}>
               <View style={[styles.planInsight, styles.planInsightDuration]}>
                 <Text tone="secondary" size="xs" weight="semibold">
@@ -656,7 +686,6 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     marginBottom: spacing[2],
     marginLeft: 0,
-    overflow: 'hidden',
   },
   cardActive: {
     borderColor: colors.border.brand,
@@ -708,8 +737,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing[0.5],
   },
-  courseRidge: {
-    marginTop: spacing[2],
+  miniProfile: {
+    marginLeft: 'auto',
   },
   planInsights: {
     flexDirection: 'row',
