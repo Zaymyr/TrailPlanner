@@ -235,6 +235,8 @@ For local setup, copy `apps/web/.env.example` to the ignored `apps/web/.env.loca
 - `OPENAI_API_KEY`
 - `OPENAI_ORGANIZER_IMPORT_MODEL`
 - `CRON_SECRET`
+- `TRACEDETRAIL_ENRICHMENT_SECRET` (server-only bearer secret dedicated to the bounded Trace de Trail enrichment API)
+- `TRACEDETRAIL_LOGIN` and `TRACEDETRAIL_PASSWORD` (optional server-only provider credentials; configure both or neither)
 - `REVENUECAT_*`
 - `EXPO_PUBLIC_REVENUECAT_*`
 - `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`
@@ -270,6 +272,7 @@ For local setup, copy `apps/web/.env.example` to the ignored `apps/web/.env.loca
 - The cron migrations depend on Supabase extensions and Vault secrets; local migration application may require project-specific setup.
 - Organizer cleanup additionally requires matching Vault values `web_app_url` and `cron_secret`; `cron_secret` must equal the web deployment's `CRON_SECRET`.
 - Vercel's RevenueCat reconciliation also requires `CRON_SECRET`, RevenueCat app API keys, entitlement/product identifiers, and server-side webhook verification configuration. Missing provider configuration must fail closed without revoking existing access.
+- Automated Trace de Trail enrichment requires `TRACEDETRAIL_ENRICHMENT_SECRET` in every Vercel environment that may call the internal endpoint. Keep it distinct from `CRON_SECRET`; the endpoint accepts only race ids and obtains both the Supabase service role and optional Trace de Trail credentials from server-only deployment variables.
 - Do not replace the cleanup HTTP job with direct SQL deletion. The private Storage objects must be removed before their manifest row.
 - The archived storage doc predates the image buckets.
 - Organizer event image upload is mediated by a server route and stores only PNG files in `race-images`; clients should not receive service-role credentials.

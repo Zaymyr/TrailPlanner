@@ -23,6 +23,10 @@ related_files:
   - apps/web/app/api/admin/race-catalog/tracedetrail/route.ts
   - apps/web/app/api/admin/race-catalog/tracedetrail/route.test.ts
   - apps/web/app/api/admin/race-catalog/tracedetrail/importer.test.ts
+  - apps/web/app/api/internal/race-catalog/tracedetrail/enrich/route.ts
+  - apps/web/app/api/internal/race-catalog/tracedetrail/enrich/route.test.ts
+  - apps/web/lib/tracedetrail-gpx-enrichment.ts
+  - apps/web/lib/tracedetrail-gpx-enrichment.test.ts
   - apps/web/lib/tracedetrail-race-import.ts
   - apps/web/app/api/plans/route.ts
   - apps/web/app/api/plans/from-catalog/route.ts
@@ -118,7 +122,11 @@ The parser does not use a DOM/XML parser; it uses regex-based extraction tuned t
 
 The Trace de Trail admin adapter first tries the official download with the credentials supplied for the current dialog, then retries the public download endpoint. When both downloads remain protected but the public trace page already exposes its route geometry, it rebuilds an importable GPX from that embedded geometry. The admin preview identifies this result as `embedded`. From the same reviewed preview, the admin can either create the catalog race or download the recovered GPX directly; the download action does not create a `race_events`/`races` row and does not upload anything to Supabase Storage.
 
-The same admin route accepts an `enrich` action for an existing `raceId`. It loads that format's stored Trace de Trail reference, preferring a Trace de Trail `source_url`/`external_site_url` and otherwise rebuilding the canonical URL from `trace_id`, then downloads and parses the GPX through the normal adapter. The action rejects another trace provider and any mismatch between the stored and downloaded trace ids. A successful run writes a new versioned object under the existing format's `catalog/{raceId}/` prefix and updates only the trace provider/id, source URL, GPX path/hash aliases, and parsed bounds/start/altitude metadata. It never creates or renames an event or format, changes the official distance/D+/D- labels, or replaces existing ravitos. Re-running with the same stored SHA-256 is a no-op. The admin format editor exposes this action and may pass one-shot Trace de Trail credentials; scheduled callers can use the same admin-authenticated contract.
+The admin route accepts an `enrich` action for an existing `raceId`, and the dedicated server-to-server route accepts up to 50 race ids with one result per format. Both delegate to the same server-only enrichment function. That function requires the stored provider to be Trace de Trail and a non-null `trace_id`, rebuilds the canonical provider URL from that id, and rejects a downloaded id mismatch. Enrichment requires the genuine official GPX (`public` or `authenticated` access mode); embedded page geometry remains available to preview/download/create flows but is rejected here.
+
+A successful run writes a new versioned object under the existing format's `catalog/{raceId}/` prefix, downloads that object back to verify its SHA-256, and updates only the trace provider/id, source URL, GPX path/hash aliases, and parsed bounds/start/altitude metadata. It then verifies the referenced object again. A missing or mismatched object fails the operation and restores the previous GPX metadata when the database update already occurred. The operation never creates or renames an event or format, changes official distance/D+/D- labels, publication/commercial fields, replaces existing ravitos, or mutates saved plans. Re-running with the same stored SHA-256 is a no-op only after the existing Storage object and its content hash have been verified.
+
+The admin format editor may pass one-shot provider credentials. Automated callers use `POST /api/internal/race-catalog/tracedetrail/enrich` with the dedicated `TRACEDETRAIL_ENRICHMENT_SECRET` bearer secret; optional provider credentials come only from the server-side `TRACEDETRAIL_LOGIN` and `TRACEDETRAIL_PASSWORD` deployment variables. The route never accepts or returns a Supabase service-role key.
 
 New Trace de Trail catalog races initialize `edition_group_id` with their own race id and `series_name` with the imported course name. These values are required by the edition-group schema even for the first edition of a format.
 

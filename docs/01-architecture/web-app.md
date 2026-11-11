@@ -164,6 +164,10 @@ related_files:
   - apps/web/app/api/admin/race-catalog/tracedetrail/route.ts
   - apps/web/app/api/admin/race-catalog/tracedetrail/route.test.ts
   - apps/web/app/api/admin/race-catalog/tracedetrail/importer.test.ts
+  - apps/web/app/api/internal/race-catalog/tracedetrail/enrich/route.ts
+  - apps/web/app/api/internal/race-catalog/tracedetrail/enrich/route.test.ts
+  - apps/web/lib/tracedetrail-gpx-enrichment.ts
+  - apps/web/lib/tracedetrail-gpx-enrichment.test.ts
   - apps/web/lib/tracedetrail-race-import.ts
   - apps/web/lib/organizer.ts
   - apps/web/app/organisateurs/page.tsx
@@ -482,7 +486,9 @@ The detail route verifies trusted `app_metadata` before service-role reads, pars
 
 Admin catalog creation lives in `apps/web/app/api/race-catalog/route.ts`. It requires an admin user, validates GPX, can create a `race_events` row, uploads GPX to the private `race-gpx` bucket, normalizes an optional image to a bounded WebP before uploading it to `race-images`, and inserts `races` plus `race_aid_stations`. New event/race rows from this flow should start as draft (`is_live = false`) unless the admin explicitly marks them live. A new catalog race initializes its required series identity with `edition_group_id = id` and `series_name = name`.
 
-The Trace de Trail admin dialog uses `/api/admin/race-catalog/tracedetrail` for preview, import, direct GPX download, and enrichment of an existing format. The adapter tries authenticated then public provider downloads and may rebuild a GPX from geometry already embedded in the accessible trace page. Direct download returns the GPX without database or Storage writes. Catalog creation initializes the required edition-series fields for the first imported edition. Existing-format enrichment resolves the provider URL from the targeted row's Trace de Trail source or `trace_id`, rejects provider/id conflicts, stores a versioned object under that race id, and patches only trace/GPX and parsed geometry metadata. It does not create an event or format, overwrite official distance/elevation labels, or replace ravitos; an identical stored hash makes the action idempotent. The admin format editor can invoke the same action with optional one-shot provider credentials, and authenticated automation may call the same `enrich` contract.
+The Trace de Trail admin dialog uses `/api/admin/race-catalog/tracedetrail` for preview, import, direct GPX download, and enrichment of an existing format. The adapter tries authenticated then public provider downloads and may rebuild a GPX from geometry already embedded in the accessible trace page. Direct download returns the GPX without database or Storage writes. Catalog creation initializes the required edition-series fields for the first imported edition.
+
+Existing-format enrichment is implemented once in a server-only library shared by the admin action and `POST /api/internal/race-catalog/tracedetrail/enrich`. The internal route uses a dedicated constant-time-checked bearer secret and accepts a bounded list of race ids, returning success, unchanged, or failure independently for each race. The library requires the recorded Trace de Trail provider/id, downloads only the genuine official GPX for enrichment, rejects id conflicts, stores a versioned object, verifies its bytes in Storage before and after the selective race patch, and patches only trace/GPX and parsed geometry metadata. It does not create an event or format, overwrite official distance/elevation labels, publication/commercial data, plans, or ravitos. An identical hash is unchanged only when the referenced Storage object exists with that hash.
 
 Runner-created private races are retired. `GET /api/races` returns only public live catalog formats and `POST /api/races` returns `410 Gone`; the planner selector no longer offers personal creation. Organizer and admin race authoring continue through their dedicated server routes.
 
