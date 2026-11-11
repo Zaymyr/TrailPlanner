@@ -101,6 +101,7 @@ export function CatalogRaceRow({
             icon={<Ionicons color={racebookMuted ? Colors.textMuted : Colors.textOnBrand} name="book-outline" size={16} />}
             label={racebookActionLabel}
             style={styles.formatRacebookButton}
+            variationKey={title}
             onPressIn={onRacebookPressIn}
             onPress={onRacebookPress}
             variant={racebookMuted ? 'muted' : 'solid'}
@@ -111,6 +112,7 @@ export function CatalogRaceRow({
             icon={<Ionicons color={Colors.brandPrimary} name="flag-outline" size={16} />}
             label={planActionLabel}
             style={styles.formatPlanButton}
+            variationKey={title}
             onPress={onPlanPress}
             variant="soft"
           />
@@ -265,9 +267,10 @@ const styles = StyleSheet.create({
   formatTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700' },
   formatSubtitle: { color: Colors.textSecondary, fontSize: 13 },
   formatCotes: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 12, rowGap: 4 },
-  formatActions: { flexDirection: 'row', alignItems: 'center', gap: 12, width: '100%' },
-  formatRacebookButton: { flex: 3 },
-  formatPlanButton: { flex: 2 },
+  // Signs keep their natural width (full labels); they wrap only if a phone is too narrow.
+  formatActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 8, rowGap: 10, width: '100%' },
+  formatRacebookButton: { flexGrow: 1, flexShrink: 0 },
+  formatPlanButton: { flexGrow: 1, flexShrink: 0 },
   skeletonHeaderRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   skeletonBadge: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.surfaceSecondary },
   skeletonHeaderText: { flex: 1, gap: 8 },

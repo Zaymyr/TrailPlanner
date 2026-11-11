@@ -1,7 +1,7 @@
 ---
 title: Design Components
 scope: design-system
-last_verified: 2026-11-09
+last_verified: 2026-11-11
 ai_priority: medium
 related_files:
   - apps/web/components/ui/button.tsx
@@ -26,6 +26,8 @@ related_files:
   - apps/mobile/components/themed/TrailRail.tsx
   - apps/mobile/components/themed/TrailSignButton.tsx
   - apps/mobile/components/themed/TrailTabs.tsx
+  - apps/mobile/components/themed/TrailSeedProvider.tsx
+  - apps/mobile/components/catalog/CatalogPresentation.tsx
   - apps/mobile/components/themed/SummitCelebration.tsx
   - apps/mobile/lib/trailSignature.ts
   - apps/mobile/hooks/useReduceMotion.ts
@@ -165,20 +167,33 @@ color, so it survives organizer RaceBook colors:
   the width (or evenly stretched), labels sit on a dotted trail line, the active
   leg becomes the `BlazeLine` and slides to the next tab (static under reduced
   motion), and the active label is bold and forest, painted on a small wooden
-  plank (`SignPlate`, plank shape, no bolts) that leans at most 1°. A scrollable
+  plank (`SignPlate`, plank shape, no bolts) that leans 0.5° to 1° either way
+  (session-random, see trail variation below). A scrollable
   row still scrolls when the labels overflow.
 - `TrailSignButton` is the "go somewhere" action drawn as a trail direction
   sign by `SignPlate`: a 44-point plank with a soft cast shadow, a 2-point
   visible thickness, a face lit from above (gradient from a lighter tone to the
   plate color), a routed border parallel to its edge, two fixing bolts on the
   post side, faint grain and a pointed 16-point end towards the destination.
-  Each sign leans by a stable, label-derived angle between 0.5° and 1.4° either
-  way (`signTilt` in `apps/mobile/lib/trailSignature.ts`), so a sign never
-  wobbles between renders; pressing straightens it slightly. Variants are
+  Each sign leans 0.4° to 2.9° either way and sits up to 1.5 points higher or
+  lower, drawn from the session seed and its label (plus an optional
+  `variationKey`, e.g. the race id); a disabled sign stays upright. Pressing
+  straightens it slightly. In catalog formats both signs keep their natural
+  width side by side with full labels and only wrap on a phone too narrow for
+  both. Variants are
   `solid` (forest), `soft` (brand surface) and `muted`. It carries RaceBook map,
   general-map and transport links and both actions of each catalog format
   (RaceBook as `solid`, plan as `soft`); it is never used for form submission or
   destructive actions.
+- Trail variation (`TrailSeedProvider`, `useTrailRandom(key)`,
+  `createTrailRandom` in `apps/mobile/lib/trailSignature.ts`): a seed is drawn
+  once per cold launch (forced with `EXPO_PUBLIC_TRAIL_SEED` or the provider
+  `seed` prop; tests pass a fixed seed). Each element derives every decorative
+  value statelessly from FNV-1a + mulberry32 over `seed | key | name`, so it
+  never changes on re-render, tab switch or scroll — only on the next launch.
+  Ranges live in `mobileComponents.trailVariation`; `amount` scales them all
+  (0 = identical and upright). Only decoration varies; destructive and disabled
+  elements use `neutral` and never vary. No `Math.random()` during render.
 - `Cote` typesets a measurement like an elevation mark on a topographic map:
   bold JetBrains Mono figure and its unit in spaced capitals (`42,3 KM`,
   `D+ 1 240 M`). It accepts a raw value plus unit or an already formatted label,

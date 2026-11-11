@@ -40,6 +40,29 @@ export const colors = {
     warning: "#D97706",
     warningSurface: "#FEF3C7",
   },
+  /**
+   * Trail-object palette for the mobile signature controls (enamel plate,
+   * aid-station ticket, closed-trail tape, wristband, pins). Never the red and
+   * white GR waymark: the closed-trail tape is a diagonal striped ribbon.
+   */
+  trail: {
+    enamelTop: "#3A6420",
+    enamelLiner: "#FAF8F2",
+    rivet: "#C9C5B8",
+    ticket: "#F6EBD0",
+    ticketBorder: "#D9C9A3",
+    ticketPerforation: "#C2AE80",
+    dangerEdge: "#8E2A20",
+    closedTrail: "#EAE8E1",
+    closedTrailInk: "#2F3524",
+    tapeRed: "#C0392B",
+    tapeOrange: "#F0873A",
+    tapeWhite: "#FFFFFF",
+    braceletMuted: "#D6D2C6",
+    pinRed: "#C0392B",
+    pinAmber: "#F0873A",
+    pinGreen: "#2D5016",
+  },
 } as const;
 
 export type Colors = typeof colors;

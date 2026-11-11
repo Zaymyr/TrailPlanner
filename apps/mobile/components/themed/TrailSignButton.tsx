@@ -3,8 +3,8 @@ import { useId, useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, View, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop } from 'react-native-svg';
 
-import { signTilt } from '../../lib/trailSignature';
 import { Text } from './Text';
+import { useTrailRandom } from './TrailSeedProvider';
 
 export type TrailSignVariant = 'solid' | 'soft' | 'muted';
 export type SignPlateShape = 'arrow' | 'plank';
@@ -108,8 +108,13 @@ type Props = Omit<PressableProps, 'children' | 'style'> & {
   icon?: ReactNode;
   variant?: TrailSignVariant;
   fullWidth?: boolean;
-  /** Degrees; defaults to a stable label-derived lean. Pass 0 for an upright sign. */
+  /** Degrees; defaults to a session-stable random lean. Pass 0 for an upright sign. */
   tilt?: number;
+  /**
+   * Stable id that makes two signs with the same label lean differently
+   * (e.g. the race id). The label alone is used when omitted.
+   */
+  variationKey?: string;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -126,6 +131,7 @@ export function TrailSignButton({
   variant = 'soft',
   fullWidth = false,
   tilt,
+  variationKey,
   disabled,
   accessibilityLabel,
   accessibilityRole,
@@ -133,7 +139,11 @@ export function TrailSignButton({
   ...props
 }: Props) {
   const [width, setWidth] = useState(0);
-  const lean = tilt ?? signTilt(label, mobileComponents.trailSign.maxTilt);
+  // Disabled signs stay upright: only live decoration varies.
+  const random = useTrailRandom(`sign|${variationKey ?? ''}|${label}`, { neutral: Boolean(disabled) });
+  const variation = mobileComponents.trailVariation.sign;
+  const lean = tilt ?? random.lean('tilt', variation.tilt);
+  const drop = random.jitter('dy', variation.dy);
 
   return (
     <Pressable
@@ -150,7 +160,7 @@ export function TrailSignButton({
         styles.root,
         fullWidth && styles.fullWidth,
         // Pressing straightens the sign a little and pushes it into its post.
-        { transform: [{ rotate: `${pressed && !disabled ? lean * 0.4 : lean}deg` }, { translateY: pressed && !disabled ? 1 : 0 }] },
+        { transform: [{ rotate: `${pressed && !disabled ? lean * 0.4 : lean}deg` }, { translateY: drop + (pressed && !disabled ? 1 : 0) }] },
         pressed && !disabled && styles.pressed,
         disabled && styles.disabled,
         style,
@@ -180,8 +190,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing[1.5],
-    paddingLeft: BOLT_X + spacing[3],
-    paddingRight: TIP + spacing[2],
+    // Tight enough for two full labels side by side on a phone card.
+    paddingLeft: BOLT_X + spacing[2],
+    paddingRight: TIP + spacing[1],
   },
   label: { flexShrink: 1 },
   pressed: { opacity: 0.92 },

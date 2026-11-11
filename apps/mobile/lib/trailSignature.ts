@@ -214,22 +214,76 @@ export function formatCoteUnit(unit: string): string {
   return unit.toLocaleUpperCase('fr-FR');
 }
 
-const MIN_TILT_DEGREES = 0.5;
-
-/**
- * A stable, slightly "hand-set" tilt for a trail sign: derived from a seed
- * (usually the label) so the same sign always leans the same way and never
- * wobbles between renders. Never upright, never beyond `maxDegrees`.
- */
-export function signTilt(seed: string, maxDegrees = 1.4): number {
-  // FNV-1a: tiny, deterministic, well spread for short labels.
+/** FNV-1a: tiny, deterministic, well spread for short keys. */
+export function hashTrailKey(key: string): number {
   let hash = 0x811c9dc5;
-  for (let index = 0; index < seed.length; index += 1) {
-    hash ^= seed.charCodeAt(index);
+  for (let index = 0; index < key.length; index += 1) {
+    hash ^= key.charCodeAt(index);
     hash = Math.imul(hash, 0x01000193) >>> 0;
   }
-  const span = Math.max(0, maxDegrees - MIN_TILT_DEGREES);
-  const magnitude = MIN_TILT_DEGREES + ((hash % 1000) / 999) * span;
-  const sign = (hash >>> 16) % 2 === 0 ? 1 : -1;
-  return Math.round(sign * magnitude * 100) / 100;
+  return hash >>> 0;
+}
+
+/** mulberry32: a fast seeded PRNG returning floats in [0, 1). */
+export function mulberry32(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** A fresh launch seed. Call once per app launch, never during render. */
+export function drawLaunchSeed(): number {
+  return Math.floor(Math.random() * 0x7fffffff) + 1;
+}
+
+/** Parses a forced seed (env or test); null when absent or not a positive integer. */
+export function parseTrailSeed(value: unknown): number | null {
+  const parsed = typeof value === 'number' ? value : typeof value === 'string' && value.trim() !== '' ? Number(value) : Number.NaN;
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+export type TrailRandom = {
+  /** Uniform float in [0, 1). */
+  unit: (name: string) => number;
+  /** Magnitude in [min, max] with a random sign, scaled by the variation amount. */
+  lean: (name: string, range: readonly [number, number]) => number;
+  /** Uniform value in [-amplitude, amplitude], scaled by the variation amount. */
+  jitter: (name: string, amplitude: number) => number;
+  /** Uniform value in the signed range [from, to], scaled by the variation amount. */
+  between: (name: string, range: readonly [number, number]) => number;
+  /** Integer in [0, count). Not scaled: picks one of several decorative assets. */
+  pick: (name: string, count: number) => number;
+  /** True with the given probability (scaled by the variation amount). */
+  chance: (name: string, probability: number) => boolean;
+};
+
+const round2 = (value: number) => Math.round(value * 100) / 100 || 0;
+
+/**
+ * Stateless decorative randomness for one element. Every draw is derived from
+ * `hash(seed | key | name)`, so values never depend on render order and the
+ * same element keeps the same look for the whole session. `amount` 0 returns a
+ * neutral element (no lean, no jitter, first asset).
+ */
+export function createTrailRandom(seed: number, key: string, amount = 1): TrailRandom {
+  const scale = Math.min(1, Math.max(0, Number.isFinite(amount) ? amount : 0));
+  const unit = (name: string) => mulberry32(hashTrailKey(`${seed}|${key}|${name}`))();
+  return {
+    unit,
+    lean: (name, [min, max]) => {
+      if (scale === 0) return 0;
+      const magnitude = min + unit(name) * (max - min);
+      const sign = unit(`${name}:sign`) < 0.5 ? -1 : 1;
+      return round2(sign * magnitude * scale);
+    },
+    jitter: (name, amplitude) => (scale === 0 ? 0 : round2((unit(name) * 2 - 1) * amplitude * scale)),
+    between: (name, [from, to]) => (scale === 0 ? 0 : round2((from + unit(name) * (to - from)) * scale)),
+    pick: (name, count) => (scale === 0 || count <= 1 ? 0 : Math.min(count - 1, Math.floor(unit(name) * count))),
+    chance: (name, probability) => scale > 0 && unit(name) < probability * scale,
+  };
 }

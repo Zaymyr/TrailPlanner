@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-11-09
+last_verified: 2026-11-11
 ai_priority: high
 related_files:
   - apps/mobile/components/plan-workspace/LockedPlanContent.tsx
@@ -122,6 +122,7 @@ related_files:
   - apps/mobile/components/themed/SummitCelebration.tsx
   - apps/mobile/lib/trailSignature.ts
   - apps/mobile/lib/trailSignature.test.ts
+  - apps/mobile/components/themed/TrailSeedProvider.tsx
   - apps/mobile/hooks/useReduceMotion.ts
   - apps/mobile/components/profile/ProfileSaveButton.tsx
   - packages/design-system/src/tokens/mobile-components.ts
@@ -425,6 +426,13 @@ reserved for race measurements. Forest remains the primary interaction color,
 alpine blue marks information or hydration, and terracotta is an
 attention/danger accent.
 
+The app is deliberately never quite identical twice: a seed drawn once per
+cold launch (`TrailSeedProvider`) drives the decorative lean, offset and
+texture choice of trail objects through `useTrailRandom(key)`. Values are
+stable for the whole session and bounded by `mobileComponents.trailVariation`;
+colors, sizes, text, spacing, touch targets and disabled or destructive states
+never vary. Set `EXPO_PUBLIC_TRAIL_SEED` to freeze the seed for screenshots.
+
 This grammar is app-wide. The legacy shared `Card` renders the signature card
 (leading-edge blaze); shared loading states and the launch splash use the ridge
 loader, error states a danger blaze and empty states the brand ridge when no icon is supplied. The
@@ -464,7 +472,7 @@ The plan detail header is intentionally centered while root-tab titles are left-
 
 `apps/mobile/app/(app)/catalog.tsx` is now the runner surface for event favorites and organizer announcements:
 
-Its reusable loading card, race row, and filter modal live in `apps/mobile/components/catalog/CatalogPresentation.tsx`; they consume the shared Topo card, action, field, section-heading and icon-action primitives. The route retains catalog queries, filtering state, favorites, analytics, and navigation. Runner-owned personal races are no longer queried or displayed.
+Its reusable loading card, race row, and filter modal live in `apps/mobile/components/catalog/CatalogPresentation.tsx`; each format's RaceBook and plan signs sit side by side at their natural width with full labels (wrapping only when a phone is too narrow); they consume the shared Topo card, action, field, section-heading and icon-action primitives. The route retains catalog queries, filtering state, favorites, analytics, and navigation. Runner-owned personal races are no longer queried or displayed.
 
 The three root tabs expose the same 44-point `?` header action (Nutrition, now pushed, shows a back action instead) in expanded and compact modes. It opens contextual help, feedback, and race request actions and consumes Android back while open; guided Courses onboarding intentionally omits it. Courses keeps search and quick filters pinned below the compact header. Native date fields preserve ISO values while rendering locale dates and are loaded lazily so an OTA reaching an older binary reports that a new build is required instead of crashing. Profile uses one dirty-only bottom save dock, while Nutrition keeps brand accordions only for the unfiltered catalog and switches to flat product rows for search/type results.
 

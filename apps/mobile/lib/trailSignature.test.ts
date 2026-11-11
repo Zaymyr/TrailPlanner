@@ -11,7 +11,10 @@ import {
   ridgeLength,
   ridgePoints,
   ridgeSummit,
-  signTilt,
+  createTrailRandom,
+  hashTrailKey,
+  mulberry32,
+  parseTrailSeed,
   splitCoteLabel,
 } from './trailSignature';
 
@@ -132,21 +135,70 @@ describe('trail signature cotes', () => {
   });
 });
 
-describe('trail sign tilt', () => {
-  it('is stable for a given seed and stays within a readable range', () => {
-    const labels = ['Ouvrir dans Maps', 'Livret coureur', 'Créer un plan', 'Tracé', 'Ravitos', 'Où encourager', ''];
-    for (const label of labels) {
-      const tilt = signTilt(label);
-      expect(signTilt(label)).toBe(tilt);
-      expect(Math.abs(tilt)).toBeGreaterThanOrEqual(0.5);
-      expect(Math.abs(tilt)).toBeLessThanOrEqual(1.4);
-    }
-    expect(Math.abs(signTilt('Tracé', 0.9))).toBeLessThanOrEqual(0.9);
+describe('trail variation', () => {
+  const labels = ['Ouvrir dans Maps', 'Livret coureur', 'Créer un plan', 'Voir mon plan', 'Tracé', 'Ravitos', 'Où encourager', 'Relais'];
+
+  it('is deterministic for a seed and key, whatever the draw order', () => {
+    const first = createTrailRandom(42, 'sign|Livret coureur');
+    const tilt = first.lean('tilt', [0.4, 2.9]);
+    const dy = first.jitter('dy', 1.5);
+    const again = createTrailRandom(42, 'sign|Livret coureur');
+    expect(again.jitter('dy', 1.5)).toBe(dy);
+    expect(again.lean('tilt', [0.4, 2.9])).toBe(tilt);
+    expect(hashTrailKey('abc')).toBe(hashTrailKey('abc'));
+    const prng = mulberry32(7);
+    const values = [prng(), prng(), prng()];
+    const replay = mulberry32(7);
+    expect([replay(), replay(), replay()]).toEqual(values);
   });
 
-  it('leans signs both ways across labels', () => {
-    const tilts = ['Ouvrir dans Maps', 'Livret coureur', 'Créer un plan', 'Voir mon plan', 'Tracé', 'Ravitos', 'Où encourager', 'Relais'].map((label) => signTilt(label));
+  it('changes with the launch seed', () => {
+    const tilts = (seed: number) => labels.map((label) => createTrailRandom(seed, label).lean('tilt', [0.4, 2.9]));
+    expect(tilts(1)).not.toEqual(tilts(2));
+  });
+
+  it('stays within the token ranges and leans both ways', () => {
+    for (let seed = 1; seed <= 50; seed += 1) {
+      for (const label of labels) {
+        const random = createTrailRandom(seed, label);
+        const tilt = random.lean('tilt', [0.4, 2.9]);
+        expect(Math.abs(tilt)).toBeGreaterThanOrEqual(0.4);
+        expect(Math.abs(tilt)).toBeLessThanOrEqual(2.9);
+        expect(Math.abs(random.jitter('dy', 1.5))).toBeLessThanOrEqual(1.5);
+        const stamp = random.between('stamp', [-10, -4]);
+        expect(stamp).toBeGreaterThanOrEqual(-10);
+        expect(stamp).toBeLessThanOrEqual(-4);
+        const texture = random.pick('texture', 4);
+        expect(texture).toBeGreaterThanOrEqual(0);
+        expect(texture).toBeLessThan(4);
+      }
+    }
+    const tilts = labels.map((label) => createTrailRandom(3, label).lean('tilt', [0.4, 2.9]));
     expect(tilts.some((tilt) => tilt > 0)).toBe(true);
     expect(tilts.some((tilt) => tilt < 0)).toBe(true);
+  });
+
+  it('is neutral when the variation amount is 0 (disabled, destructive, reduced)', () => {
+    const neutral = createTrailRandom(42, 'sign|Livret coureur', 0);
+    expect(neutral.lean('tilt', [0.4, 2.9])).toBe(0);
+    expect(neutral.jitter('dy', 1.5)).toBe(0);
+    expect(neutral.between('stamp', [-10, -4])).toBe(0);
+    expect(neutral.pick('texture', 4)).toBe(0);
+    expect(neutral.chance('missing', 1)).toBe(false);
+  });
+
+  it('scales with the global amount', () => {
+    const full = createTrailRandom(9, 'k').lean('tilt', [1, 2]);
+    const half = createTrailRandom(9, 'k', 0.5).lean('tilt', [1, 2]);
+    expect(Math.abs(half - full / 2)).toBeLessThanOrEqual(0.01);
+  });
+
+  it('parses forced seeds', () => {
+    expect(parseTrailSeed('42')).toBe(42);
+    expect(parseTrailSeed(7)).toBe(7);
+    expect(parseTrailSeed('')).toBeNull();
+    expect(parseTrailSeed('abc')).toBeNull();
+    expect(parseTrailSeed(0)).toBeNull();
+    expect(parseTrailSeed(undefined)).toBeNull();
   });
 });

@@ -63,8 +63,28 @@ export const mobileComponents = {
     inset: 4,
     /** Soft cast shadow offset below/right of the plank. */
     shadow: 3,
-    /** Maximum lean (degrees) of a sign or active-tab plank. */
-    maxTilt: 1.4,
+  },
+  /**
+   * Decorative randomness of the trail signature. Every element draws its
+   * variation from `hash(launch seed + stable element key)`: stable for the
+   * whole app session (renders, tab switches, scroll), it only changes on the
+   * next cold launch. Only decoration varies — never colors, sizes, blaze
+   * ratios, text, spacing, touch targets, nor destructive or disabled states.
+   * Angles are degrees; `[min, max]` magnitudes get a random sign unless noted.
+   */
+  trailVariation: {
+    /** Global multiplier (0 = every element upright and identical, 1 = full). */
+    amount: 1,
+    sign: { tilt: [0.4, 2.9], dy: 1.5, tip: 3, tone: 0.05 },
+    tabPlank: { tilt: [0.5, 1] },
+    ticket: { tilt: 0.9 },
+    bracelet: { tilt: 0.75 },
+    /** Signed ranges: the pinned bib leans left, the flipped one right. */
+    bib: { active: [-2, -0.5], flipped: [1, 3] },
+    poster: { tilt: 1.1, textures: 4, edge: 0.012, pin: 4 },
+    featured: { missingTabEvery: 5, skewedTab: [4, 8] },
+    /** Signed range for the checklist stamp rotation. */
+    stamp: [-10, -4],
   },
   /** Trail-style in-page tabs: labels on a dotted path, active leg solid. */
   trailTabs: {

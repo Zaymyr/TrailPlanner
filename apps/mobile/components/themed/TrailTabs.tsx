@@ -15,9 +15,10 @@ import Svg, { Line } from 'react-native-svg';
 
 import { useReduceMotion } from '../../hooks/useReduceMotion';
 import { Text } from './Text';
-import { signTilt } from '../../lib/trailSignature';
+import { createTrailRandom } from '../../lib/trailSignature';
 import { BlazeLine } from './TrailBlaze';
 import { SignPlate } from './TrailSignButton';
+import { useTrailSeed } from './TrailSeedProvider';
 
 export type TrailTab<T extends string> = {
   key: T;
@@ -43,8 +44,6 @@ type Leg = { x: number; width: number; height: number };
 
 const { minHeight, trackHeight, paddingHorizontal } = mobileComponents.trailTabs;
 const { dash, gap } = mobileComponents.timeline;
-/** Planks lean less than signs: they carry the label being read. */
-const PLANK_MAX_TILT = 1;
 const PLANK_INSET = 4;
 
 /**
@@ -63,6 +62,8 @@ export function TrailTabs<T extends string>({
   style,
 }: Props<T>) {
   const reduceMotion = useReduceMotion();
+  // Planks lean less than signs (they carry the label being read).
+  const trailSeed = useTrailSeed();
   const [legs, setLegs] = useState<Partial<Record<T, Leg>>>({});
   const [rowWidth, setRowWidth] = useState(0);
   const legX = useRef(new Animated.Value(0)).current;
@@ -142,7 +143,7 @@ export function TrailTabs<T extends string>({
               styles.tab,
               stretch && styles.tabStretch,
               // The active label sits on a slightly hand-set wooden plank.
-              active && { transform: [{ rotate: `${signTilt(tab.label, PLANK_MAX_TILT)}deg` }] },
+              active && { transform: [{ rotate: `${createTrailRandom(trailSeed.seed, `tab|${tab.label}`, trailSeed.amount).lean('tilt', mobileComponents.trailVariation.tabPlank.tilt)}deg` }] },
               pressed && styles.pressed,
             ]}
             testID={tab.testID}

@@ -1,7 +1,7 @@
 ---
 title: Design Tokens
 scope: design-system
-last_verified: 2026-11-09
+last_verified: 2026-11-11
 ai_priority: medium
 related_files:
   - packages/design-system/src/tokens/colors.ts
@@ -123,7 +123,12 @@ The trail signature tokens live in the same object:
   `TrailTabs` track).
 - `trailSign`: the 44-point sign plate, its 16-point pointed end, 2-point plank
   depth, 6-point post-side radius, 4-point routed-border inset, 3-point cast
-  shadow and the 1.4° maximum lean.
+  shadow.
+- `trailVariation`: the bounded ranges of the session-random decoration
+  (sign lean 0.4°–2.9°, dy ±1.5, tip ±3, tone ±5 %; tab plank 0.5°–1°; ticket
+  ±0.9°; bracelet ±0.75°; bib −2°…−0.5° pinned and 1°…3° flipped; poster ±1.1°,
+  4 paper textures, edge ±1.2 %, pin ±4; featured one tab in five missing and
+  one skewed 4°–8°; stamp −10°…−4°) and the global `amount` multiplier.
 - `trailTabs`: the 44-point tab height, 3-point trail track and tab padding.
 
 In the 2:1:4 ratio the amber is the shortest share, so the orange stays a light
@@ -131,7 +136,8 @@ accent rather than a third primary color.
 
 Mobile callers continue to apply semantic colors from `Colors`/`colors`; the
 blaze bands reuse existing tokens (olive, amber and forest by default) and add
-no new palette value.
+no new palette value. The trail objects (enamel plate, aid-station ticket,
+closed-trail tape, wristband, poster pins) use `colors.trail`.
 
 ## Web Tailwind Bridge
 
