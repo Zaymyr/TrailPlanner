@@ -1,6 +1,6 @@
 import { memo } from 'react';
-import { mobileComponents } from '@pace-yourself/design-system';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Field } from '../themed/Field';
 import { Text } from '../themed/Text';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Colors } from '../../constants/colors';
@@ -76,15 +76,13 @@ function ProfilePersonalSectionComponent({
       </View>
 
       <View style={styles.fieldGroup}>
-        <Text style={styles.label}>{firstNameLabel}</Text>
-        <TextInput
-          style={styles.textInput}
-          value={fullName}
+        <Field
+          autoCapitalize="words"
+          label={firstNameLabel}
           onChangeText={onChangeFullName}
           placeholder={firstNamePlaceholder}
-          placeholderTextColor={Colors.textMuted}
-          autoCapitalize="words"
           textContentType="givenName"
+          value={fullName}
         />
       </View>
 
@@ -107,39 +105,31 @@ function ProfilePersonalSectionComponent({
 
       <View style={styles.bodyMetricsRow}>
         <View style={styles.bodyMetricField}>
-          <Text style={styles.label}>{weightLabel}</Text>
-          <View style={styles.metricInputShell}>
-            <TextInput
-              style={styles.metricInput}
-              value={weightKg}
-              onChangeText={onChangeWeightKg}
-              placeholder={weightPlaceholder}
-              placeholderTextColor={Colors.textMuted}
-              keyboardType="number-pad"
-              inputAccessoryViewID="pace-yourself-numeric-keyboard"
-              maxLength={3}
-            />
-            <Text style={styles.metricInputUnit}>kg</Text>
-          </View>
-          {weightError ? <Text style={styles.fieldError}>{weightError}</Text> : null}
+          <Field
+            error={weightError ?? undefined}
+            inputAccessoryViewID="pace-yourself-numeric-keyboard"
+            keyboardType="number-pad"
+            label={weightLabel}
+            maxLength={3}
+            onChangeText={onChangeWeightKg}
+            placeholder={weightPlaceholder}
+            unit="kg"
+            value={weightKg}
+          />
         </View>
 
         <View style={styles.bodyMetricField}>
-          <Text style={styles.label}>{heightLabel}</Text>
-          <View style={styles.metricInputShell}>
-            <TextInput
-              style={styles.metricInput}
-              value={heightCm}
-              onChangeText={onChangeHeightCm}
-              placeholder={heightPlaceholder}
-              placeholderTextColor={Colors.textMuted}
-              keyboardType="number-pad"
-              inputAccessoryViewID="pace-yourself-numeric-keyboard"
-              maxLength={3}
-            />
-            <Text style={styles.metricInputUnit}>cm</Text>
-          </View>
-          {heightError ? <Text style={styles.fieldError}>{heightError}</Text> : null}
+          <Field
+            error={heightError ?? undefined}
+            inputAccessoryViewID="pace-yourself-numeric-keyboard"
+            keyboardType="number-pad"
+            label={heightLabel}
+            maxLength={3}
+            onChangeText={onChangeHeightCm}
+            placeholder={heightPlaceholder}
+            unit="cm"
+            value={heightCm}
+          />
         </View>
       </View>
     </View>
@@ -202,17 +192,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     marginTop: 0,
   },
-  textInput: {
-    minHeight: mobileComponents.input.minHeight,
-    backgroundColor: Colors.surface,
-    color: Colors.textPrimary,
-    borderRadius: mobileComponents.input.borderRadius,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: mobileComponents.input.paddingHorizontal,
-    paddingVertical: 12,
-    fontSize: 16,
-  },
   helperText: {
     color: Colors.textMuted,
     fontSize: 13,
@@ -231,32 +210,5 @@ const styles = StyleSheet.create({
   bodyMetricField: {
     flex: 1,
     marginTop: 12,
-  },
-  metricInputShell: {
-    minHeight: mobileComponents.input.minHeight,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: mobileComponents.input.paddingHorizontal,
-    paddingVertical: 3,
-    borderRadius: mobileComponents.input.borderRadius,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
-  },
-  metricInput: {
-    flex: 1,
-    minWidth: 0,
-    backgroundColor: 'transparent',
-    color: Colors.textPrimary,
-    paddingHorizontal: 0,
-    paddingVertical: 8,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  metricInputUnit: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '700',
   },
 });

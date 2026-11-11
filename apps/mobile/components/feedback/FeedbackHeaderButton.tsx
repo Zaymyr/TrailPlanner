@@ -7,10 +7,11 @@ import {
   Platform,
   Pressable,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
+import { Field } from '../themed/Field';
+import { IconAction } from '../themed/IconAction';
 import { Text } from '../themed/Text';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Constants from 'expo-constants';
@@ -114,14 +115,11 @@ export function FeedbackHeaderButton({ children, contextLabel, initialKind = 'bu
       ) : (
         <View style={styles.headerActions}>
           {leading}
-          <TouchableOpacity
+          <IconAction
             accessibilityLabel={t.feedback.triggerLabel}
-            accessibilityRole="button"
+            icon={<Ionicons name="bug-outline" size={20} color={Colors.textPrimary} />}
             onPress={handleOpen}
-            style={styles.iconButton}
-          >
-            <Ionicons name="bug-outline" size={20} color={Colors.textPrimary} />
-          </TouchableOpacity>
+          />
         </View>
       )}
 
@@ -159,25 +157,24 @@ export function FeedbackHeaderButton({ children, contextLabel, initialKind = 'bu
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.label}>{t.feedback.subjectLabel}</Text>
-            <TextInput
+            <Field
+              containerStyle={styles.field}
               editable={!submitting}
+              label={t.feedback.subjectLabel}
               onChangeText={setSubject}
               placeholder={t.feedback.subjectPlaceholder}
-              placeholderTextColor={Colors.textMuted}
-              style={styles.input}
               value={subject}
             />
 
-            <Text style={styles.label}>{t.feedback.detailLabel}</Text>
-            <TextInput
+            <Field
+              containerStyle={styles.field}
               editable={!submitting}
+              label={t.feedback.detailLabel}
               multiline
               numberOfLines={6}
               onChangeText={setDetail}
               placeholder={t.feedback.detailPlaceholder}
-              placeholderTextColor={Colors.textMuted}
-              style={[styles.input, styles.textarea]}
+              style={styles.textarea}
               textAlignVertical="top"
               value={detail}
             />
@@ -209,13 +206,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-  },
-  iconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   modalWrapper: {
     flex: 1,
@@ -271,25 +261,12 @@ const styles = StyleSheet.create({
   switchChipTextActive: {
     color: Colors.brandPrimary,
   },
-  label: {
-    color: Colors.textPrimary,
-    fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 6,
-  },
-  input: {
-    backgroundColor: Colors.surfaceSecondary,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    color: Colors.textPrimary,
-    fontSize: 15,
+  field: {
     marginBottom: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
   },
   textarea: {
     minHeight: 132,
+    paddingTop: 12,
   },
   primaryButton: {
     backgroundColor: Colors.brandPrimary,

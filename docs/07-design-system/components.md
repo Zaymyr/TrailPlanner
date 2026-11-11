@@ -39,6 +39,9 @@ related_files:
   - apps/mobile/components/themed/trail/PosterPins.tsx
   - apps/mobile/components/themed/trail/WoodGeometry.ts
   - apps/mobile/components/themed/trail/CardProfile.tsx
+  - apps/mobile/lib/catalogCourseProfiles.ts
+  - apps/mobile/lib/planReadiness.ts
+  - apps/mobile/lib/fieldLabel.ts
   - apps/mobile/components/themed/trail/HeartMark.tsx
   - apps/mobile/components/themed/trail/TapeStrip.tsx
   - apps/mobile/components/themed/trail/StampMark.tsx
@@ -181,14 +184,16 @@ color, so it survives organizer RaceBook colors:
   across the whole label width (the label and line share a shrink-wrapped
   container; in the tab bars the line is always laid out and hidden when
   inactive so labels never shift), and it is the active `TrailTabs` leg.
-- `TrailTabs` is the in-page tab selector (RaceBook Course sub-tabs, Profile
-  sub-tabs, the plan Ravitos/Allures/Chronologie view). Tabs are centered across
-  the width (or evenly stretched), labels sit on a dotted trail line, the active
-  leg becomes the `BlazeLine` and slides to the next tab (static under reduced
-  motion), and the active label is bold and forest, painted on a small wooden
-  plank (`SignPlate`, plank shape, no bolts) that leans 0.5° to 1° either way
-  (session-random, see trail variation below). A scrollable
-  row still scrolls when the labels overflow.
+- `TrailTabs` draws in-page tabs as a trail: every label sits on a wooden
+  plank along a dotted path. The active tab is a raised plank painted in the
+  `solid` sign wood (grain, small knot, routed groove, top bevel, thickness,
+  cast shadow, slight hand-set lean) with a bold inverse label, and its leg of
+  the path becomes the `BlazeLine` (static under reduced motion). Unselected
+  tabs are flat bare-wood planks (`SignPlate raised={false}`, muted wood, no
+  shadow) with a semibold secondary label, so selection never relies on colour
+  alone. Tabs are centered by default; `stretch` shares the full width, and
+  with `scrollable` each tab is at least 1/n of the visible width (RaceBook ›
+  Course). Targets are 44 points with tab roles and selected state.
 - `TrailSignButton` is the "go somewhere" action drawn as a trail direction
   sign by `SignPlate`: a 44-point plank with a soft cast shadow, a 2-point
   visible thickness, a face lit from above (gradient from a lighter tone to the
@@ -268,14 +273,21 @@ Rule of use: a sign (`TrailSignButton`) means "I go elsewhere", a plate (primary
   0.08em). Secondary is an aid-station ticket with a stub and dotted
   perforation, leaning ±0.9° per label. Ghost is an amber arrow painted on the
   ground under the label (soft exits: Plus tard, Passer, Annuler). Destructive
-  is the red "wrong way" cross. Disabled (any variant) is the closed trail: a
+  is the red "wrong way" cross, reserved for confirming a deletion;
+  `destructive-outline` (red cross and label on cream, 1.5-point red border, no
+  fill) is for delete actions in lists, rows and management sheets. Disabled
+  (any variant) is the closed trail: a
   diagonal red/white striped tape under a light label plate, never the GR
   waymark. Destructive and disabled never vary. Callers must not add their own
   disabled opacity or shadows.
 - `IconAction` is a 48-point GPS-watch button (notched dashed bezel, domed
   button) in neutral, brand or danger tones, always with an
-  `accessibilityLabel`; `variant="back"` draws a small forest sign blade
-  pointing left for green headers.
+  `accessibilityLabel`; `tone="onBrand"` (forest-dark case, cream bezel,
+  forest-light dome) is for forest headers. `variant="back"` draws a small sign
+  blade pointing left (cream with a forest chevron with `tone="onBrand"`, or
+  `bladeColor` for organizer headers). Root header actions are 48-point watch
+  buttons. Screens never use a raw `TextInput` or pressable icon: they use
+  `Field` (units split from labels by `splitLabelUnit`) and `IconAction`.
 - `ChoiceChip` is a kilometre milestone: 18-point rounded top, 11-point painted
   cap (forest when active, grey when idle, amber with `tone="climb"`), figure in
   JetBrains Mono and unit in spaced capitals split from the label;
@@ -287,13 +299,22 @@ Rule of use: a sign (`TrailSignButton`) means "I go elsewhere", a plate (primary
   cote (`unit`), green tab plus `TrailBlaze` on focus, closed-trail tape strip
   on error, and `variant="search"` with a compass ring. State is never carried
   by colour alone; the input keeps a 48-point minimum height.
-- `RaceWorkspaceSwitch` (Livret / plan) shows the active view as a pinned bib
-  (four safety pins, header band, number, tear-off foot) over the other view's
-  flipped bib, with leans from `trailVariation.bib`; tabs keep their selected
-  state and 44-point targets.
+- `RaceWorkspaceSwitch` (Livret / plan, 56 points, `RACE_WORKSPACE_SWITCH_HEIGHT`)
+  shows the active view as a white bib pinned by two safety pins with one bold
+  label and one accent, the perforated tear-off line; the other view is a
+  flipped hatched bib tucked behind. Leans come from `trailVariation.bib`;
+  disabled bibs stay upright; each bib is a 44-point tab with its selected
+  state.
 - Trail cards: race cards end with a 34-point elevation strip
-  (`CardProfileStrip`, real profile when available, brand ridge otherwise);
-  list rows use a 72x26 `CardMiniProfile` beside a `StatusPill`. The favourite
+  (`CardProfileStrip`; with `layers` from `buildCatalogProfileLayers` it
+  overlays up to five formats longest first on a shared distance axis and
+  elevation range, in sober map inks — forest, blue-grey, sign-post brown,
+  ochre, stone — thin strokes, light fill only under the longest; brand ridge
+  when no layer exists);
+  list rows use a 72x26 `CardMiniProfile` beside a `StatusPill`. Mes courses
+  plan cards lead with two signs (Livret coureur solid, plan action soft, keyed
+  by plan id), then watch buttons; their wristband is Brouillon (neutral), En
+  cours (info) or Prêt (success) from `computePlanReadiness`. The favourite
   is a forest `HeartMark` (filled = favourite, never red) in a 44-point
   pressable. Warning banners such as "Dernière minute" carry an orange/white
   `TapeStrip`. The plan invitation shows aid stations as a dashed trail.

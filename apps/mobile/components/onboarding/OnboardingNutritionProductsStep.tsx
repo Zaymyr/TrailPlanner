@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
-import { ActivityIndicator, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { Locale, MobileTranslations } from '../../locales/types';
 import { Colors } from '../../constants/colors';
 import type { FuelType, Product } from '../nutrition/types';
+import { Field } from '../themed/Field';
 import { Text } from '../themed/Text';
 import { OnboardingShell } from './OnboardingIntroSteps';
 import { OnboardingProductChoice } from './OnboardingProductChoice';
@@ -200,13 +201,14 @@ export function OnboardingNutritionProductsStep({
           </Text>
         </View>
 
-        <TextInput
-          style={styles.textInput}
-          value={search}
+        <Field
+          accessibilityLabel={copy.onboarding.nutritionSearchPlaceholder}
+          autoCapitalize="none"
+          containerStyle={styles.searchField}
           onChangeText={onChangeSearch}
           placeholder={copy.onboarding.nutritionSearchPlaceholder}
-          placeholderTextColor={Colors.textMuted}
-          autoCapitalize="none"
+          value={search}
+          variant="search"
         />
 
         {loading ? (
@@ -324,7 +326,7 @@ const styles = StyleSheet.create({
   noticeTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700', marginBottom: 2 },
   noticeText: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20 },
   nutritionSelectionStatus: { color: Colors.brandPrimary, fontSize: 13, fontWeight: '700', marginTop: 2 },
-  textInput: { backgroundColor: Colors.surfaceSecondary, color: Colors.textPrimary, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, marginBottom: 8 },
+  searchField: { marginBottom: 8 },
   centeredState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 28, gap: 10 },
   stateText: { color: Colors.textSecondary, fontSize: 14, textAlign: 'center' },
   errorText: { color: Colors.danger, fontSize: 13, textAlign: 'center', marginTop: 4, marginBottom: 16 },

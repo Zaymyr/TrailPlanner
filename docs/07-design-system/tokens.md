@@ -126,7 +126,7 @@ The trail signature tokens live in the same object:
   shadow.
 - `trailVariation`: the bounded ranges of the session-random decoration
   (sign lean 0.4°–2.9°, dy ±1.5, tip ±3, tone ±5 %; tab plank 0.5°–1°; ticket
-  ±0.9°; bracelet ±0.75°; bib −2°…−0.5° pinned and 1°…3° flipped; poster ±1.1°,
+  ±0.9°; bracelet ±0.75°; bib −1°…−0.25° pinned and 0.5°…1.5° flipped; poster ±1.1°,
   4 paper textures, edge ±1.2 %, pin ±4; featured one tab in five missing and
   one skewed 4°–8°; stamp −10°…−4°) and the global `amount` multiplier.
 - `trailTabs`: the 44-point tab height, 3-point trail track and tab padding.

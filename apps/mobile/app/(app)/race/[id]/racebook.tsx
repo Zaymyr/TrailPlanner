@@ -2191,6 +2191,7 @@ export default function RaceRacebookScreen() {
                   activeKey={activeCourseTab}
                   onChange={handleCourseTabPress}
                   scrollable
+                  stretch
                   style={styles.courseTabsWrap}
                   tabs={courseTabs.map((tab) => ({ key: tab.key, label: tab.label }))}
                 />

@@ -18,18 +18,21 @@ export const WATCH_BLADE_WIDTH = 62;
 export const WATCH_BLADE_HEIGHT = 46;
 export const WATCH_BLADE_TIP = 16;
 
-export type WatchTone = 'neutral' | 'brand' | 'danger';
+/** `onBrand` = dark watch for forest headers: pass a light icon (`colors.text.inverse`). */
+export type WatchTone = 'neutral' | 'brand' | 'danger' | 'onBrand';
 
-/** Bezel notches, dome face and the darker lower rim of the dome. */
-export const watchPalette: Record<WatchTone, { bezel: string; dome: string; rim: string }> = {
-  neutral: { bezel: colors.trail.stone, dome: colors.surface.white, rim: colors.border.subtle },
-  brand: { bezel: colors.trail.watchBezelBrand, dome: colors.brand.surface, rim: colors.brand.border },
-  danger: { bezel: colors.accent.terracotta, dome: colors.semantic.danger, rim: colors.trail.dangerEdge },
+/** Case plate behind the bezel, bezel notches, dome face and the darker lower rim of the dome. */
+export const watchPalette: Record<WatchTone, { plate: string; bezel: string; dome: string; rim: string }> = {
+  neutral: { plate: colors.surface.cream, bezel: colors.trail.stone, dome: colors.surface.white, rim: colors.border.subtle },
+  brand: { plate: colors.surface.cream, bezel: colors.trail.watchBezelBrand, dome: colors.brand.surface, rim: colors.brand.border },
+  danger: { plate: colors.surface.cream, bezel: colors.accent.terracotta, dome: colors.semantic.danger, rim: colors.trail.dangerEdge },
+  // Cream bezel 8.7:1 on forest; cream icon 5.9:1 on the forestLight dome.
+  onBrand: { plate: colors.brand.forestDark, bezel: colors.text.inverse, dome: colors.brand.forestLight, rim: colors.brand.forestDark },
 };
 
 export function WatchFace({ tone, pressed }: { tone: WatchTone; pressed: boolean }) {
   const clipId = `watch-dome-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
-  const { bezel, dome, rim } = watchPalette[tone];
+  const { plate, bezel, dome, rim } = watchPalette[tone];
   const c = WATCH_SIZE / 2;
   const ring = c - WATCH_BEZEL_WIDTH / 2;
   const domeRadius = c - WATCH_BEZEL_WIDTH - WATCH_BEZEL_GAP;
@@ -41,7 +44,7 @@ export function WatchFace({ tone, pressed }: { tone: WatchTone; pressed: boolean
           <Circle cx={c} cy={c} r={domeRadius} />
         </ClipPath>
       </Defs>
-      <Circle cx={c} cy={c} fill={colors.surface.cream} r={c - 0.5} />
+      <Circle cx={c} cy={c} fill={plate} r={c - 0.5} />
       <Circle cx={c} cy={c} fill="none" r={ring} stroke={bezel} strokeDasharray="4 3" strokeWidth={WATCH_BEZEL_WIDTH} />
       {pressed ? null : <Circle cx={c} cy={c + 1} fill={colors.text.primary} opacity={0.15} r={domeRadius} />}
       <G clipPath={`url(#${clipId})`}>
@@ -52,13 +55,16 @@ export function WatchFace({ tone, pressed }: { tone: WatchTone; pressed: boolean
   );
 }
 
-/** Forest sign blade pointing left, for "back" in green headers. */
-export function WatchBackBlade() {
+/**
+ * Sign blade pointing left, for "back". Forest by default; on a forest (or
+ * organizer-colored) header pass a light fill, e.g. `colors.surface.cream`.
+ */
+export function WatchBackBlade({ color = colors.brand.forest }: { color?: string } = {}) {
   const w = WATCH_BLADE_WIDTH;
   const h = WATCH_BLADE_HEIGHT;
   return (
     <Svg accessible={false} height={h} pointerEvents="none" style={styles.face} width={w}>
-      <Path d={`M${WATCH_BLADE_TIP} 0 H${w} V${h} H${WATCH_BLADE_TIP} L0 ${h / 2} Z`} fill={colors.brand.forest} />
+      <Path d={`M${WATCH_BLADE_TIP} 0 H${w} V${h} H${WATCH_BLADE_TIP} L0 ${h / 2} Z`} fill={color} />
     </Svg>
   );
 }

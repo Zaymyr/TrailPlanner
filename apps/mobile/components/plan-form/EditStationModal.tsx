@@ -5,13 +5,15 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
+import { splitLabelUnit } from '../../lib/fieldLabel';
+import { Field } from '../themed/Field';
+import { IconAction } from '../themed/IconAction';
 import { Text } from '../themed/Text';
 import { styles } from './styles';
 
@@ -41,6 +43,8 @@ export function EditStationModal({ editingStation, setEditingStation, onSave, of
     setEditingStation((prev) => (prev ? { ...prev, [field]: !prev[field] } : prev));
   };
   const lockedLabel = (label: string) => [label, readOnlyOfficialFields ? t.planForm.notEditable : null].filter(Boolean).join(', ');
+  const distanceField = splitLabelUnit(t.planForm.distanceLabel);
+  const pauseField = splitLabelUnit(t.planForm.pauseLabel);
   const renderServiceOption = (
     field: 'waterRefill' | 'solidRefill' | 'assistanceAllowed',
     label: string,
@@ -91,9 +95,7 @@ export function EditStationModal({ editingStation, setEditingStation, onSave, of
               <Text accessibilityRole="header" style={styles.editModalTitle}>
                 {isCreateMode ? t.planForm.addAidStationTitle : t.planForm.editAidStationTitle}
               </Text>
-              <TouchableOpacity accessibilityLabel={t.planForm.closeEditor} accessibilityRole="button" onPress={() => setEditingStation(null)} style={[styles.pickerCloseBtn, styles.editModalCloseButton]}>
-                <Ionicons color={Colors.textPrimary} name="close" size={22} />
-              </TouchableOpacity>
+              <IconAction accessibilityLabel={t.planForm.closeEditor} icon={<Ionicons color={Colors.textPrimary} name="close" size={22} />} onPress={() => setEditingStation(null)} />
             </View>
             {readOnlyOfficialFields ? (
               <View style={styles.officialFieldsHint}>
@@ -102,20 +104,44 @@ export function EditStationModal({ editingStation, setEditingStation, onSave, of
               </View>
             ) : null}
 
-            <Text style={styles.label}>{t.planForm.nameLabel}</Text>
-            <View style={readOnlyOfficialFields ? styles.lockedInputWrap : undefined}>
-              <TextInput accessibilityLabel={lockedLabel(t.planForm.nameLabel)} accessibilityState={{ disabled: readOnlyOfficialFields }} editable={!readOnlyOfficialFields} onChangeText={(value) => setEditingStation((prev) => (prev ? { ...prev, name: value } : prev))} placeholder={t.planForm.namePlaceholder} placeholderTextColor={Colors.textMuted} style={[styles.textInput, readOnlyOfficialFields && styles.textInputLocked]} value={editingStation?.name ?? ''} />
-              {readOnlyOfficialFields ? <Ionicons color={Colors.textMuted} name="lock-closed-outline" size={16} style={styles.lockedInputIcon} /> : null}
-            </View>
+            <Field
+              accessibilityLabel={lockedLabel(t.planForm.nameLabel)}
+              accessibilityState={{ disabled: readOnlyOfficialFields }}
+              containerStyle={styles.formField}
+              editable={!readOnlyOfficialFields}
+              label={t.planForm.nameLabel}
+              onChangeText={(value) => setEditingStation((prev) => (prev ? { ...prev, name: value } : prev))}
+              placeholder={t.planForm.namePlaceholder}
+              trailing={readOnlyOfficialFields ? <Ionicons color={Colors.textMuted} name="lock-closed-outline" size={16} /> : null}
+              value={editingStation?.name ?? ''}
+            />
 
-            <Text style={styles.label}>{t.planForm.distanceLabel}</Text>
-            <View style={readOnlyOfficialFields ? styles.lockedInputWrap : undefined}>
-              <TextInput accessibilityLabel={lockedLabel(t.planForm.distanceLabel)} accessibilityState={{ disabled: readOnlyOfficialFields }} editable={!readOnlyOfficialFields} inputAccessoryViewID="pace-yourself-numeric-keyboard" keyboardType="decimal-pad" onChangeText={(value) => setEditingStation((prev) => (prev ? { ...prev, km: value } : prev))} placeholder="0" placeholderTextColor={Colors.textMuted} style={[styles.textInput, { marginBottom: 20 }, readOnlyOfficialFields && styles.textInputLocked]} value={editingStation?.km ?? ''} />
-              {readOnlyOfficialFields ? <Ionicons color={Colors.textMuted} name="lock-closed-outline" size={16} style={styles.lockedInputIcon} /> : null}
-            </View>
+            <Field
+              accessibilityLabel={lockedLabel(t.planForm.distanceLabel)}
+              accessibilityState={{ disabled: readOnlyOfficialFields }}
+              containerStyle={[styles.formField, { marginBottom: 20 }]}
+              editable={!readOnlyOfficialFields}
+              inputAccessoryViewID="pace-yourself-numeric-keyboard"
+              keyboardType="decimal-pad"
+              label={distanceField.label}
+              onChangeText={(value) => setEditingStation((prev) => (prev ? { ...prev, km: value } : prev))}
+              placeholder="0"
+              trailing={readOnlyOfficialFields ? <Ionicons color={Colors.textMuted} name="lock-closed-outline" size={16} /> : null}
+              unit={distanceField.unit}
+              value={editingStation?.km ?? ''}
+            />
 
-            <Text style={styles.label}>{t.planForm.pauseLabel}</Text>
-            <TextInput accessibilityLabel={t.planForm.pauseLabel} inputAccessoryViewID="pace-yourself-numeric-keyboard" keyboardType="numeric" onChangeText={(value) => setEditingStation((prev) => (prev ? { ...prev, pauseMinutes: value } : prev))} placeholder="0" placeholderTextColor={Colors.textMuted} style={[styles.textInput, { marginBottom: 20 }]} value={editingStation?.pauseMinutes ?? ''} />
+            <Field
+              accessibilityLabel={t.planForm.pauseLabel}
+              containerStyle={[styles.formField, { marginBottom: 20 }]}
+              inputAccessoryViewID="pace-yourself-numeric-keyboard"
+              keyboardType="numeric"
+              label={pauseField.label}
+              onChangeText={(value) => setEditingStation((prev) => (prev ? { ...prev, pauseMinutes: value } : prev))}
+              placeholder="0"
+              unit={pauseField.unit}
+              value={editingStation?.pauseMinutes ?? ''}
+            />
 
             <Text style={styles.label}>{t.planForm.servicesLabel}</Text>
             <View pointerEvents={readOnlyOfficialFields ? 'none' : 'auto'} style={styles.stationServiceOptions}>

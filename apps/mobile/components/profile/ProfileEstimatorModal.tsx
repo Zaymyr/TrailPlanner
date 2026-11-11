@@ -6,11 +6,11 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Field } from '../themed/Field';
 import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import type {
@@ -165,41 +165,29 @@ function ProfileEstimatorModalComponent({
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>{bodyMetricsTitle}</Text>
               <View style={styles.bodyMetricsRow}>
-                <View style={styles.bodyMetricField}>
-                  <Text style={styles.label}>{weightLabel}</Text>
-                  <View style={styles.metricInputShell}>
-                    <TextInput
-                      accessibilityLabel={weightLabel}
-                      style={styles.metricInput}
-                      value={estimatorWeightKg}
-                      onChangeText={onChangeEstimatorWeightKg}
-                      placeholder={weightPlaceholder}
-                      placeholderTextColor={Colors.textMuted}
-                      keyboardType="number-pad"
-                      inputAccessoryViewID="pace-yourself-numeric-keyboard"
-                      maxLength={3}
-                    />
-                    <Text style={styles.metricInputUnit}>kg</Text>
-                  </View>
-                </View>
+                <Field
+                  containerStyle={styles.bodyMetricField}
+                  inputAccessoryViewID="pace-yourself-numeric-keyboard"
+                  keyboardType="number-pad"
+                  label={weightLabel}
+                  maxLength={3}
+                  onChangeText={onChangeEstimatorWeightKg}
+                  placeholder={weightPlaceholder}
+                  unit="kg"
+                  value={estimatorWeightKg}
+                />
 
-                <View style={styles.bodyMetricField}>
-                  <Text style={styles.label}>{heightLabel}</Text>
-                  <View style={styles.metricInputShell}>
-                    <TextInput
-                      accessibilityLabel={heightLabel}
-                      style={styles.metricInput}
-                      value={estimatorHeightCm}
-                      onChangeText={onChangeEstimatorHeightCm}
-                      placeholder={heightPlaceholder}
-                      placeholderTextColor={Colors.textMuted}
-                      keyboardType="number-pad"
-                      inputAccessoryViewID="pace-yourself-numeric-keyboard"
-                      maxLength={3}
-                    />
-                    <Text style={styles.metricInputUnit}>cm</Text>
-                  </View>
-                </View>
+                <Field
+                  containerStyle={styles.bodyMetricField}
+                  inputAccessoryViewID="pace-yourself-numeric-keyboard"
+                  keyboardType="number-pad"
+                  label={heightLabel}
+                  maxLength={3}
+                  onChangeText={onChangeEstimatorHeightCm}
+                  placeholder={heightPlaceholder}
+                  unit="cm"
+                  value={estimatorHeightCm}
+                />
               </View>
             </View>
 
@@ -357,32 +345,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 8,
     marginTop: 0,
-  },
-  metricInputShell: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 3,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceSecondary,
-  },
-  metricInput: {
-    flex: 1,
-    minWidth: 0,
-    backgroundColor: 'transparent',
-    color: Colors.textPrimary,
-    paddingHorizontal: 0,
-    paddingVertical: 8,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  metricInputUnit: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '700',
   },
   optionsList: {
     gap: 8,

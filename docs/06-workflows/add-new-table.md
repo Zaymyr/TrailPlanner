@@ -153,6 +153,8 @@ Trail signature iteration (2026-11-11): `schema-overview.md` only received a pre
 
 When a new table feeds a mobile list or card, the screen renders it with the trail objects (see `docs/07-design-system/components.md`) and passes the row id as `variationKey`, so decorative variation stays stable per item for the session. Presentation-only fields are never added to the schema for decoration.
 
+Catalog race cards read format profiles lazily from the existing GPX-derived endpoint; a table added for profile previews should store a small downsampled series (about 48 points) per format rather than raw GPX.
+
 ## Related Docs
 
 The `race_supporter_points` addition follows this workflow: cascade ownership by `races`, explicit client/service grants, a completeness-filtered SELECT policy, a service-only atomic collection RPC, static SQL checks, and a dedicated table reference document.

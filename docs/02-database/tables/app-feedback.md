@@ -1,7 +1,7 @@
 ---
 title: app_feedback Table
 scope: database
-last_verified: 2026-11-05
+last_verified: 2026-11-11
 ai_priority: medium
 related_files:
   - supabase/migrations/20261105180000_add_app_feedback_review.sql
@@ -42,3 +42,7 @@ Bug reports (`kind = 'bug'`) and feedback (`kind = 'feedback'`) sent from the ap
 - RLS on. `authenticated` may only INSERT the submission columns (`user_id, kind, source, screen, app_version, subject, detail`) under the existing `auth.uid() = user_id` policy: no read-back, no update, and the review columns stay server-managed. `anon` has no privilege (the web route inserts with the service role).
 - `review_app_feedback_with_notification` (`SECURITY INVOKER`, `service_role` only) sets the status and inserts the reply into `user_notifications` (`kind = 'admin_message'`, `feedback_id`) in one transaction, idempotent on the notification UUID like the race-request RPC.
 - A status change without a reply (author without an account, or a silent triage) is a plain service-role PATCH from `/api/admin/feedback`.
+
+## Mobile presentation
+
+Forms and headers use the themed trail components: inputs are road-notebook `Field`s (units shown as cotes, searches with `variant="search"`), header and modal icon buttons are `IconAction` watch buttons (`tone="onBrand"` on forest headers) and back buttons are `IconAction variant="back"` sign blades. Parsing, validation and the data written are unchanged.

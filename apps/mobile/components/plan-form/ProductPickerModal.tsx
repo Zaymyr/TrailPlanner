@@ -7,11 +7,12 @@ import {
   Platform,
   Pressable,
   SectionList,
-  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { Field } from '../themed/Field';
+import { IconAction } from '../themed/IconAction';
 import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import type { PlanProduct } from './contracts';
@@ -160,18 +161,17 @@ export const ProductPickerModal = React.memo(function ProductPickerModal({
         <View accessibilityViewIsModal style={styles.pickerSheet}>
           <View style={styles.pickerHeader}>
             <Text accessibilityRole="header" style={styles.pickerTitle}>Choisir un produit</Text>
-            <TouchableOpacity accessibilityLabel="Fermer" accessibilityRole="button" hitSlop={6} onPress={onClose} style={styles.pickerCloseBtn}>
-              <Text style={styles.pickerCloseText}>✕</Text>
-            </TouchableOpacity>
+            <IconAction accessibilityLabel="Fermer" icon={<Ionicons color={Colors.textPrimary} name="close" size={22} />} onPress={onClose} />
           </View>
 
-          <TextInput
-            style={styles.pickerSearchInput}
-            value={pickerSearch}
+          <Field
+            accessibilityLabel="Rechercher un produit ou une marque"
+            autoCorrect={false}
+            containerStyle={styles.pickerSearchField}
             onChangeText={setPickerSearch}
             placeholder="Rechercher un produit ou une marque..."
-            placeholderTextColor={Colors.textMuted}
-            autoCorrect={false}
+            value={pickerSearch}
+            variant="search"
           />
 
           <View style={styles.pickerSortRow}>

@@ -28,7 +28,7 @@ import {
   TICKET_SHADOW,
 } from './trail/ActionPlates';
 
-export type ActionButtonVariant = 'primary' | 'secondary' | 'ghost' | 'destructive';
+export type ActionButtonVariant = 'primary' | 'secondary' | 'ghost' | 'destructive' | 'destructive-outline';
 export type ActionButtonSize = 'sm' | 'md' | 'lg';
 
 export type ActionButtonProps = Omit<PressableProps, 'children' | 'style'> & {
@@ -73,7 +73,11 @@ function ticketNumber(label: string) {
  * - primary: enamelled riveted plate, "j'agis ici". One plate per screen.
  * - secondary: aid-station ticket with a stub, set with a slight hand lean.
  * - ghost: label over an amber arrow painted on the ground (soft exit).
- * - destructive: "wrong way" red cross plate. Never varies.
+ * - destructive: "wrong way" red cross plate, filled. Reserved for the
+ *   confirmation step (dialogs, sheets that confirm). Never varies.
+ * - destructive-outline: the same "wrong way" cross and label in danger red
+ *   on cream, red border, no fill, no thickness. For delete actions inside
+ *   lists and rows. Never varies.
  * - disabled (any variant, not while loading): closed trail, a striped tape
  *   across and the label on a light plate above it. Never varies.
  */
@@ -100,7 +104,7 @@ export function ActionButton({
   const [layout, setLayout] = useState({ width: 0, height: 0 });
   const [labelWidth, setLabelWidth] = useState(0);
   const random = useTrailRandom(`action|${variant}|${variationKey ?? ''}|${children}`, {
-    neutral: look === 'closed' || look === 'destructive',
+    neutral: look === 'closed' || look === 'destructive' || look === 'destructive-outline',
   });
   const lean = look === 'secondary' ? random.jitter('tilt', mobileComponents.trailVariation.ticket.tilt) : 0;
   const wobble = random.jitter('wobble', 1);
@@ -115,7 +119,8 @@ export function ActionButton({
   const raised = look === 'primary' || look === 'destructive';
   const stub = STUB_WIDTH[size];
   const textSize = size === 'sm' ? 'sm' : 'base';
-  const spinnerColor = raised ? colors.text.inverse : colors.brand.forest;
+  const outlined = look === 'destructive-outline';
+  const spinnerColor = raised ? colors.text.inverse : outlined ? colors.semantic.danger : colors.brand.forest;
 
   return (
     <Pressable
@@ -204,13 +209,16 @@ export function ActionButton({
               <View style={[styles.row, raised && isPressed && styles.contentSunk]}>
                 {look === 'destructive'
                   ? leading ?? <ActionCrossMark color={colors.text.inverse} />
-                  : look === 'secondary' ? null : leading}
+                  : outlined
+                    ? leading ?? <ActionCrossMark color={colors.semantic.danger} />
+                    : look === 'secondary' ? null : leading}
                 <Text
                   size={textSize}
                   tone={raised ? 'inverse' : 'primary'}
                   weight={look === 'primary' ? 'bold' : 'semibold'}
                   style={[
                     look === 'primary' && styles.enamelLabel,
+                    outlined && styles.dangerOutlineLabel,
                     look === 'primary' && { letterSpacing: ENAMEL_TRACKING * (textSize === 'sm' ? 14 : 16) },
                     textStyle,
                   ]}
@@ -312,6 +320,10 @@ const styles = StyleSheet.create({
   closedLabel: {
     color: colors.trail.closedTrailInk,
   },
+  /** #C0392B on #FAF8F2: 5.1:1. */
+  dangerOutlineLabel: {
+    color: colors.semantic.danger,
+  },
 });
 
 const sizeStyles = {
@@ -337,6 +349,12 @@ const lookStyles: Record<Look, ViewStyle> = StyleSheet.create({
   secondary: {},
   ghost: { paddingVertical: 6, paddingHorizontal: spacing[3] },
   destructive: { borderRadius: DESTRUCTIVE_RADIUS },
+  'destructive-outline': {
+    borderRadius: DESTRUCTIVE_RADIUS,
+    borderWidth: 1.5,
+    borderColor: colors.semantic.danger,
+    backgroundColor: colors.surface.cream,
+  },
   closed: {
     borderRadius: CLOSED_TRAIL_RADIUS,
     borderWidth: 1.5,
@@ -351,5 +369,7 @@ const pressedStyles: Record<Look, ViewStyle> = StyleSheet.create({
   secondary: { opacity: 0.9 },
   ghost: { opacity: 0.7 },
   destructive: {},
+  /** Tinted, never filled: #C0392B on #FDECEA stays 4.7:1. */
+  'destructive-outline': { backgroundColor: colors.semantic.dangerSurface },
   closed: {},
 });

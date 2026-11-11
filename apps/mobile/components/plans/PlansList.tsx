@@ -22,16 +22,26 @@ import {
   radius,
   spacing
 } from '@pace-yourself/design-system';
+import { ActionButton } from '../themed/ActionButton';
 import { Button } from '../themed/Button';
 import { Card } from '../themed/Card';
 import { Cote } from '../themed/Cote';
 import { EmptyState } from '../themed/EmptyState';
 import { Heading } from '../themed/Heading';
+import { IconAction } from '../themed/IconAction';
 import { StatusPill } from '../themed/StatusPill';
 import { Text } from '../themed/Text';
+import { TrailSignButton } from '../themed/TrailSignButton';
 import { CardMiniProfile } from '../themed/trail/CardProfile';
 import { formatDistance, formatElevation } from '../../lib/displayFormat';
 import { asTrailProfile } from '../../lib/trailSignature';
+import {
+  collectStoredPlanProductIds,
+  computePlanReadiness,
+  type PlanReadiness,
+  type ReadinessProduct,
+} from '../../lib/planReadiness';
+import { supabase } from '../../lib/supabase';
 import { estimateDuration, getPlanCardTitle } from './plansHelpers';
 import { formatDepartureCountdown, resolvePlanPrimaryAction, type DepartureCountdownCopy, type PlanPrimaryAction } from '../../lib/plansListPresentation';
 import type { PlanRow, RaceSection } from './types';
@@ -80,20 +90,63 @@ type PlansListProps = {
   /** Status wristband labels; default to built-in FR/EN copy. */
   readyLabel?: string;
   draftLabel?: string;
+  /** "Plan en cours" wristband (not the live race one). */
+  inProgressStatusLabel?: string;
 };
 
+/** Product nutrition shared by every list mount: products rarely change. */
+const productNutritionCache = new Map<string, ReadinessProduct | null>();
+
 /**
- * A plan is "ready" once it has a pace and at least one planned supply;
- * otherwise it is still a draft. Presentation only.
+ * Loads carbs / sodium / fuel type of the products the listed plans use, so
+ * the wristband applies the editor's gauge rule. `null` until loaded.
  */
-function isPlanReady(item: PlanRow): boolean {
-  const values = item.planner_values;
-  if (!values) return false;
-  const hasPace = values.paceMinutes != null || values.speedKph != null;
-  const hasSupplies = (values.startSupplies?.length ?? 0) > 0
-    || (values.aidStations ?? []).some((station) => (station.supplies?.length ?? 0) > 0);
-  return hasPace && hasSupplies;
+function usePlanListProductMap(sections: RaceSection[]): Record<string, ReadinessProduct> | null {
+  const idsKey = useMemo(() => {
+    const ids = new Set<string>();
+    sections.forEach((section) => section.data.forEach((plan) =>
+      collectStoredPlanProductIds(plan.planner_values).forEach((id) => ids.add(id)),
+    ));
+    return [...ids].sort().join(',');
+  }, [sections]);
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const missing = idsKey ? idsKey.split(',').filter((id) => !productNutritionCache.has(id)) : [];
+    if (missing.length === 0) {
+      setLoadedKey(idsKey);
+      return undefined;
+    }
+    void (async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select('id, name, fuel_type, carbs_g, sodium_mg')
+        .in('id', missing);
+      if (cancelled || error) return;
+      ((data ?? []) as ReadinessProduct[]).forEach((product) => productNutritionCache.set(product.id, product));
+      // Unknown ids (deleted products) count as zero, like in the editor.
+      missing.forEach((id) => {
+        if (!productNutritionCache.has(id)) productNutritionCache.set(id, null);
+      });
+      setLoadedKey(idsKey);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [idsKey]);
+
+  return useMemo(() => {
+    if (loadedKey !== idsKey) return null;
+    const map: Record<string, ReadinessProduct> = {};
+    productNutritionCache.forEach((product, id) => {
+      if (product) map[id] = product;
+    });
+    return map;
+  }, [idsKey, loadedKey]);
 }
+
+const READINESS_TONE = { draft: 'neutral', inProgress: 'info', ready: 'success' } as const;
 
 export const PlansList = memo(function PlansList({
   contentTopInset = 0,
@@ -137,9 +190,14 @@ export const PlansList = memo(function PlansList({
   racebookButtonLabel,
   readyLabel,
   draftLabel,
+  inProgressStatusLabel,
 }: PlansListProps) {
-  const resolvedReadyLabel = readyLabel ?? (locale === 'fr' ? 'Prêt' : 'Ready');
-  const resolvedDraftLabel = draftLabel ?? (locale === 'fr' ? 'Brouillon' : 'Draft');
+  const readinessLabels: Record<PlanReadiness, string> = {
+    draft: draftLabel ?? (locale === 'fr' ? 'Brouillon' : 'Draft'),
+    inProgress: inProgressStatusLabel ?? (locale === 'fr' ? 'En cours' : 'In progress'),
+    ready: readyLabel ?? (locale === 'fr' ? 'Prêt' : 'Ready'),
+  };
+  const productMap = usePlanListProductMap(sections);
   const [managedPlan, setManagedPlan] = useState<PlanRow | null>(null);
   const [managedPlanName, setManagedPlanName] = useState('');
   const [renamingPlan, setRenamingPlan] = useState(false);
@@ -210,7 +268,6 @@ export const PlansList = memo(function PlansList({
                 displayName={getPlanCardTitle(item, planEventName, locale)}
                 departureCountdownCopy={departureCountdownCopy}
                 departureLabel={departureLabel}
-                draftLabel={resolvedDraftLabel}
                 duration={duration}
                 editButtonLabel={editButtonLabel}
                 inProgressLabel={inProgressLabel}
@@ -238,7 +295,8 @@ export const PlansList = memo(function PlansList({
                 }
                 racebookButtonLabel={racebookButtonLabel}
                 primaryAction={resolvePlanPrimaryAction(item, nowMs, activePlanId)}
-                readyLabel={resolvedReadyLabel}
+                productMap={productMap}
+                readinessLabels={readinessLabels}
                 recapButtonLabel={recapButtonLabel}
                 shareButtonLabel={shareButtonLabel}
                 startButtonLabel={startButtonLabel}
@@ -348,21 +406,19 @@ export const PlansList = memo(function PlansList({
             >
               {renamingPlan ? savingLabel : saveButtonLabel}
             </Button>
-            <TouchableOpacity
-              accessibilityRole="button"
+            <ActionButton
               disabled={renamingPlan}
+              fullWidth
               onPress={() => {
                 const planId = managedPlan?.id;
                 setManagedPlan(null);
                 if (planId) onDeletePlan(planId);
               }}
               style={styles.deleteButton}
+              variant="destructive-outline"
             >
-              <Ionicons color={colors.accent.terracotta} name="trash-outline" size={18} />
-              <Text size="sm" weight="bold" style={styles.deleteButtonText}>
-                {deleteButtonLabel}
-              </Text>
-            </TouchableOpacity>
+              {deleteButtonLabel}
+            </ActionButton>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -397,8 +453,8 @@ type PlanCardProps = {
   onLockedPress: () => void;
   onOpenRacebook?: () => void;
   racebookButtonLabel?: string;
-  readyLabel: string;
-  draftLabel: string;
+  productMap: Record<string, ReadinessProduct> | null;
+  readinessLabels: Record<PlanReadiness, string>;
 };
 
 function PlanCard({
@@ -428,8 +484,8 @@ function PlanCard({
   onLockedPress,
   onOpenRacebook,
   racebookButtonLabel,
-  readyLabel,
-  draftLabel,
+  productMap,
+  readinessLabels,
 }: PlanCardProps) {
   // Catalog formats lead with their RaceBook; the plan action becomes secondary.
   const leadsWithRacebook = Boolean(onOpenRacebook && racebookButtonLabel);
@@ -437,17 +493,18 @@ function PlanCard({
   const countdown = formatDepartureCountdown(item.departureAt, nowMs, departureCountdownCopy);
   // Only a real stored profile draws the skyline; never a placeholder ridge.
   const courseProfile = useMemo(() => asTrailProfile(item.elevation_profile), [item.elevation_profile]);
-  const ready = isPlanReady(item);
+  const readiness = useMemo(
+    () => computePlanReadiness(item.planner_values, item.elevation_profile, productMap),
+    [item.planner_values, item.elevation_profile, productMap],
+  );
+  const ready = readiness === 'ready';
+  const statusLabel = isActivePlan ? liveLabel : readinessLabels[readiness];
+  const planKey = String(item.id);
   const primaryLabel = primaryAction === 'start'
     ? isActivePlan ? inProgressLabel : startButtonLabel
     : primaryAction === 'edit'
       ? editButtonLabel
       : recapButtonLabel;
-  const primaryIcon = primaryAction === 'start'
-    ? isActivePlan ? 'radio-button-on' : 'play'
-    : primaryAction === 'edit'
-      ? 'create-outline'
-      : 'document-text-outline';
   const handlePrimaryPress = primaryAction === 'start'
     ? onStart
     : primaryAction === 'edit'
@@ -470,7 +527,7 @@ function PlanCard({
               ? 'Touchez deux fois pour ouvrir. Maintenez pour modifier le nom ou supprimer.'
               : 'Double tap to open. Long press to edit the name or delete.'
           }
-          accessibilityLabel={`${item.name}, ${isActivePlan ? liveLabel : ready ? readyLabel : draftLabel}`}
+          accessibilityLabel={`${item.name}, ${statusLabel}`}
           accessibilityRole="button"
           activeOpacity={0.8}
           delayLongPress={550}
@@ -496,7 +553,7 @@ function PlanCard({
               </Heading>
               {isActivePlan
                 ? <StatusPill label={liveLabel} tone="warning" />
-                : <StatusPill label={ready ? readyLabel : draftLabel} tone={ready ? 'success' : 'neutral'} />}
+                : <StatusPill label={statusLabel} tone={READINESS_TONE[readiness]} />}
             </View>
             <View style={styles.meta}>
               {item.planner_values?.raceDistanceKm != null ? (
@@ -541,88 +598,78 @@ function PlanCard({
             </View>
           </View>
         </TouchableOpacity>
-        <TouchableOpacity
+        <IconAction
           accessibilityLabel={`${locale === 'fr' ? 'Supprimer le plan' : 'Delete plan'} — ${item.name}`}
-          accessibilityRole="button"
-          activeOpacity={0.75}
-          hitSlop={6}
+          icon={<Ionicons color={colors.semantic.danger} name="trash-outline" size={18} />}
           onPress={onDelete}
           style={styles.cardDeleteButton}
-        >
-          <Ionicons color={colors.accent.terracotta} name="trash-outline" size={18} />
-        </TouchableOpacity>
+        />
       </View>
 
+      {/* Signs lead elsewhere (RaceBook, plan); recap/share stay small watch buttons on their own row. */}
+      <View style={styles.cardSigns}>
+        {leadsWithRacebook ? (
+          <TrailSignButton
+            accessibilityLabel={`${racebookButtonLabel} — ${item.name}`}
+            fullWidth
+            label={racebookButtonLabel ?? ''}
+            onPress={onOpenRacebook}
+            style={styles.cardSign}
+            testID="plan-card-racebook"
+            variant="solid"
+            variationKey={`${planKey}|racebook`}
+          />
+        ) : null}
+        <TrailSignButton
+          accessibilityLabel={`${primaryLabel} — ${item.name}`}
+          fullWidth
+          icon={isAccessible ? undefined : <Ionicons color={colors.accent.amber} name="lock-closed" size={15} />}
+          label={primaryLabel}
+          onPress={isAccessible ? handlePrimaryPress : onLockedPress}
+          style={styles.cardSign}
+          variant={leadsWithRacebook ? 'soft' : 'solid'}
+          variationKey={`${planKey}|plan`}
+        />
+      </View>
       <View style={styles.cardActions}>
-          {leadsWithRacebook ? (
-            <TouchableOpacity
-              accessibilityLabel={`${racebookButtonLabel} — ${item.name}`}
-              accessibilityRole="button"
-              activeOpacity={0.85}
-              onPress={onOpenRacebook}
-              style={styles.primaryCardAction}
-              testID="plan-card-racebook"
-            >
-              <Ionicons color={colors.text.inverse} name="book-outline" size={18} />
-              <Text tone="inverse" size="xs" weight="bold">
-                {racebookButtonLabel}
-              </Text>
-            </TouchableOpacity>
-          ) : null}
-          <TouchableOpacity
-            accessibilityLabel={`${primaryLabel} — ${item.name}`}
-            accessibilityRole="button"
-            activeOpacity={0.85}
-            onPress={isAccessible ? handlePrimaryPress : onLockedPress}
-            style={[
-              leadsWithRacebook ? styles.secondaryCardAction : styles.primaryCardAction,
-              !isAccessible && styles.iconBtnLocked,
-            ]}
-          >
-            <Ionicons
-              color={!isAccessible ? colors.accent.amber : leadsWithRacebook ? colors.brand.forest : colors.text.inverse}
-              name={!isAccessible ? 'lock-closed' : primaryIcon}
-              size={18}
-            />
-            <Text tone={isAccessible && !leadsWithRacebook ? 'inverse' : 'brand'} size="xs" weight="bold">
-              {primaryLabel}
-            </Text>
-          </TouchableOpacity>
-          {primaryAction !== 'recap' ? (
-          <TouchableOpacity
+        {primaryAction !== 'recap' ? (
+          <IconAction
             accessibilityLabel={`${recapButtonLabel} — ${item.name}`}
-            accessibilityRole="button"
-            activeOpacity={0.8}
+            icon={
+              <Ionicons
+                color={isAccessible ? colors.brand.forest : colors.accent.amber}
+                name={isAccessible ? 'document-text-outline' : 'lock-closed'}
+                size={18}
+              />
+            }
             onPress={isAccessible ? onOpenSummary : onLockedPress}
-            style={styles.iconBtn}
-          >
-            <Ionicons color={colors.brand.forest} name="document-text-outline" size={18} />
-          </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              accessibilityLabel={`${editButtonLabel} — ${item.name}`}
-              accessibilityRole="button"
-              activeOpacity={0.8}
-              onPress={isAccessible ? onOpenMain : onLockedPress}
-              style={[styles.iconBtn, !isAccessible && styles.iconBtnLocked]}
-            >
-              <Ionicons color={isAccessible ? colors.brand.forest : colors.accent.amber} name={!isAccessible ? 'lock-closed' : 'create-outline'} size={18} />
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            accessibilityLabel={`${shareButtonLabel} — ${item.name}`}
-            accessibilityRole="button"
-            activeOpacity={0.8}
-            disabled={isSharing}
-            onPress={isAccessible ? onShare : onLockedPress}
-            style={styles.iconBtn}
-          >
+          />
+        ) : (
+          <IconAction
+            accessibilityLabel={`${editButtonLabel} — ${item.name}`}
+            icon={
+              <Ionicons
+                color={isAccessible ? colors.brand.forest : colors.accent.amber}
+                name={isAccessible ? 'create-outline' : 'lock-closed'}
+                size={18}
+              />
+            }
+            onPress={isAccessible ? onOpenMain : onLockedPress}
+          />
+        )}
+        <IconAction
+          accessibilityLabel={`${shareButtonLabel} — ${item.name}`}
+          accessibilityState={{ busy: isSharing }}
+          disabled={isSharing}
+          icon={
             <Ionicons
               color={colors.brand.forest}
               name={isSharing ? 'hourglass-outline' : 'share-social-outline'}
               size={18}
             />
-          </TouchableOpacity>
+          }
+          onPress={isAccessible ? onShare : onLockedPress}
+        />
       </View>
     </Card>
   );
@@ -687,6 +734,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing[2],
     marginLeft: 0,
   },
+  cardDeleteButton: {
+    position: 'absolute',
+    right: spacing[1],
+    top: spacing[1],
+  },
   cardActive: {
     borderColor: colors.border.brand,
   },
@@ -702,18 +754,6 @@ const styles = StyleSheet.create({
     paddingLeft: spacing[4],
     paddingRight: 52,
     paddingVertical: spacing[3],
-  },
-  cardDeleteButton: {
-    position: 'absolute',
-    right: spacing[2],
-    top: spacing[2],
-    width: 36,
-    height: 36,
-    borderRadius: radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surface.cream,
-    zIndex: 2,
   },
   planTitleRow: {
     flexDirection: 'row',
@@ -765,19 +805,17 @@ const styles = StyleSheet.create({
     borderLeftWidth: 1,
     borderLeftColor: colors.border.subtle,
   },
-  iconBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.lg,
+  cardSigns: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surface.white,
-    borderWidth: 1,
-    borderColor: colors.border.subtle,
+    gap: spacing[2],
+    paddingHorizontal: spacing[3],
+    paddingBottom: spacing[2],
   },
-  iconBtnLocked: {
-    backgroundColor: colors.surface.cream,
-    borderColor: colors.accent.amber,
+  /** Two full-label signs share the row (~163pt each on a 390pt phone). */
+  cardSign: {
+    flex: 1,
+    minWidth: 0,
   },
   cardActions: {
     flexDirection: 'row',
@@ -786,29 +824,6 @@ const styles = StyleSheet.create({
     gap: spacing[2],
     paddingHorizontal: spacing[3],
     paddingBottom: spacing[3],
-  },
-  secondaryCardAction: {
-    minHeight: 44,
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing[2],
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border.brand,
-    backgroundColor: colors.surface.white,
-  },
-  primaryCardAction: {
-    minHeight: 44,
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing[2],
-    borderRadius: radius.lg,
-    backgroundColor: colors.brand.forest,
-    borderColor: colors.brand.forest,
   },
   modalWrapper: {
     flex: 1,
@@ -867,15 +882,7 @@ const styles = StyleSheet.create({
     marginTop: spacing[4],
   },
   deleteButton: {
-    minHeight: 48,
-    marginTop: spacing[2],
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing[2],
-  },
-  deleteButtonText: {
-    color: colors.accent.terracotta,
+    marginTop: spacing[3],
   },
   emptyState: {
     flex: 1,

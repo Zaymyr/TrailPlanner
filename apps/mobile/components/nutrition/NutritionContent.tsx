@@ -5,13 +5,13 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   View,
   type ListRenderItemInfo,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
+import { Field } from '../themed/Field';
 import { Text } from '../themed/Text';
 import { DataText } from '../themed/DataText';
 import { EmptyState } from '../themed/EmptyState';
@@ -454,12 +454,13 @@ export const NutritionContent = memo(function NutritionContent({
           <Text style={styles.sectionTitle}>Catalogue produits</Text>
         </View>
 
-        <TextInput
+        <Field
+          accessibilityLabel="Rechercher un produit"
+          containerStyle={styles.catalogSearchField}
           onChangeText={onChangeCatalogSearch}
           placeholder="Rechercher un produit..."
-          placeholderTextColor={Colors.textMuted}
-          style={styles.catalogSearchInput}
           value={catalogSearch}
+          variant="search"
         />
 
         <View style={styles.filterBar}>
@@ -826,16 +827,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
     marginBottom: 8,
   },
-  catalogSearchInput: {
-    minHeight: mobileComponents.input.minHeight,
-    backgroundColor: Colors.surface,
-    borderRadius: mobileComponents.input.borderRadius,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: mobileComponents.input.paddingHorizontal,
-    paddingVertical: 10,
-    fontSize: 15,
-    color: Colors.textPrimary,
+  catalogSearchField: {
     marginBottom: 12,
   },
   filterBar: {

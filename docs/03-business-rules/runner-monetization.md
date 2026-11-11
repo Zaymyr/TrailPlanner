@@ -144,6 +144,8 @@ Trail signature iteration 4 (2026-11-11): presentation only. The Livret/plan swi
 
 The Livret / plan switch (`RaceWorkspaceSwitch`) is now drawn as a pinned bib (active view) over a flipped bib (other view), 70 points high (`RACE_WORKSPACE_SWITCH_HEIGHT`); which view is available or locked is unchanged.
 
+The RaceBook Course tab (Tracé, Ravitos, Où encourager) uses `TrailTabs` with `stretch` + `scrollable`: tabs share the full width, the active one on a raised painted wooden plank and the others on flat bare-wood planks. The Livret / plan bib switch is 56 points high (`RACE_WORKSPACE_SWITCH_HEIGHT`).
+
 ## Related Docs
 
 - [Runner Billing Tables](../02-database/tables/runner-billing.md)

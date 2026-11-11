@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { IconAction } from '../themed/IconAction';
 import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import type { PlanProduct } from './contracts';
@@ -138,9 +139,7 @@ export const AutoFillLimitsModal = React.memo(function AutoFillLimitsModal({
               </Text>
               {!preview ? <Text style={styles.autoFillLimitsSubtitle}>{t.autoFillLimits.help}</Text> : null}
             </View>
-            <TouchableOpacity accessibilityLabel={t.autoFillLimits.close} accessibilityRole="button" hitSlop={6} onPress={onClose} style={styles.pickerCloseBtn}>
-              <Ionicons color={Colors.textSecondary} name="close" size={18} />
-            </TouchableOpacity>
+            <IconAction accessibilityLabel={t.autoFillLimits.close} icon={<Ionicons color={Colors.textPrimary} name="close" size={20} />} onPress={onClose} />
           </View>
 
           {previewLoading || productsLoading ? (

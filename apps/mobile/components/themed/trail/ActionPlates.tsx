@@ -195,7 +195,8 @@ export function ActionClosedTrailTape({ width, height }: Size) {
   );
 }
 
-/** "Wrong way" cross drawn before destructive labels. */
+/** "Wrong way" cross drawn before destructive labels: inverse on the filled
+ * plate, danger red on the outline variant. */
 export function ActionCrossMark({ color, size = 14 }: { color: string; size?: number }) {
   return (
     <Svg accessible={false} height={size} pointerEvents="none" viewBox="0 0 14 14" width={size}>

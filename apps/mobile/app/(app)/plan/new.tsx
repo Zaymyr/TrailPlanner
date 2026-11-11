@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Field } from '../../../components/themed/Field';
 import { Text } from '../../../components/themed/Text';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -21,6 +22,7 @@ import { clearUnfinishedPlanReminder, syncUnfinishedPlanReminder } from '../../.
 import { supabase } from '../../../lib/supabase';
 import { completeOnboarding } from '../../../lib/onboardingStatus';
 import { parseRunnerProfile } from '../../../lib/runnerProfile';
+import { splitLabelUnit } from '../../../lib/fieldLabel';
 import { rememberRunnerRace, clearPendingRunnerRace } from '../../../lib/runnerPlanIntent';
 
 type RaceInfo = {
@@ -547,9 +549,10 @@ export default function NewPlanScreen() {
           <ScrollView style={styles.profileCard} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
             <Text style={styles.profileTitle}>Ton profil de course</Text>
             <Text style={styles.profileHint}>Ces informations personnalisent ton estimation.</Text>
-            {([['firstName','Prénom *'],['pace','Allure confortable (min/km) *'],['water','Volume poche à eau (L) *'],['carbs','Cible glucidique (g/h) *'],['birthDate','Date de naissance'],['height','Taille (cm)'],['weight','Poids (kg)'],['utmb','Indice UTMB']] as const).map(([key,label]) => (
-              <TextInput key={key} value={profileDraft[key]} onChangeText={(value) => setProfileDraft((current) => ({ ...current, [key]: value }))} placeholder={label} placeholderTextColor={Colors.textMuted} style={styles.profileInput} keyboardType={key === 'firstName' || key === 'birthDate' ? 'default' : 'decimal-pad'} />
-            ))}
+            {([['firstName','Prénom *'],['pace','Allure confortable (min/km) *'],['water','Volume poche à eau (L) *'],['carbs','Cible glucidique (g/h) *'],['birthDate','Date de naissance'],['height','Taille (cm)'],['weight','Poids (kg)'],['utmb','Indice UTMB']] as const).map(([key,label]) => {
+              const field = splitLabelUnit(label);
+              return <Field key={key} accessibilityLabel={label} containerStyle={styles.profileField} keyboardType={key === 'firstName' || key === 'birthDate' ? 'default' : 'decimal-pad'} label={field.label} onChangeText={(value) => setProfileDraft((current) => ({ ...current, [key]: value }))} placeholder={key === 'birthDate' ? 'AAAA-MM-JJ' : undefined} unit={field.unit} value={profileDraft[key]} />;
+            })}
             <Pressable style={styles.profileButton} onPress={async () => {
               if (!profileDraft.firstName.trim() || !profileDraft.pace.trim() || !profileDraft.water.trim() || !profileDraft.carbs.trim() || !userId) { Alert.alert(t.common.error, 'Renseigne les champs obligatoires.'); return; }
               const profile = parseRunnerProfile(profileDraft);
@@ -589,7 +592,7 @@ const styles = StyleSheet.create({
   profileCard: { backgroundColor: Colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, gap: 10 },
   profileTitle: { color: Colors.textPrimary, fontSize: 22, fontWeight: '700' },
   profileHint: { color: Colors.textSecondary, marginBottom: 4 },
-  profileInput: { borderWidth: 1, borderColor: Colors.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: Colors.textPrimary },
+  profileField: { marginBottom: 10 },
   profileButton: { backgroundColor: Colors.brandPrimary, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 4 },
   profileButtonText: { color: Colors.textOnBrand, fontWeight: '700' },
 });

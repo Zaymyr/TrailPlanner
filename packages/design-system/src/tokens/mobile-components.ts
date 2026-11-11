@@ -80,7 +80,7 @@ export const mobileComponents = {
     ticket: { tilt: 0.9 },
     bracelet: { tilt: 0.75 },
     /** Signed ranges: the pinned bib leans left, the flipped one right. */
-    bib: { active: [-2, -0.5], flipped: [1, 3] },
+    bib: { active: [-1, -0.25], flipped: [0.5, 1.5] },
     poster: { tilt: 1.1, textures: 4, edge: 0.012, pin: 4 },
     featured: { missingTabEvery: 5, skewedTab: [4, 8] },
     /** Signed range for the checklist stamp rotation. */

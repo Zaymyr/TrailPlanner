@@ -19,6 +19,8 @@ import {
   View
 } from 'react-native';
 import { DataText } from '../themed/DataText';
+import { Field } from '../themed/Field';
+import { IconAction } from '../themed/IconAction';
 import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
@@ -116,12 +118,13 @@ function WaterBagCapacitySelector({ value, options, onChange, onCustomValueFocus
         ))}
       </View>
       <View style={styles.waterBagCustomField}>
-        <Text style={styles.label}>Valeur personnalisée (L)</Text>
-        <TextInput
+        <Field
           ref={customValueInputRef}
           accessibilityLabel="Volume personnalisé de la poche à eau en litres"
+          containerStyle={styles.formField}
           inputAccessoryViewID="pace-yourself-numeric-keyboard"
           keyboardType="decimal-pad"
+          label="Valeur personnalisée"
           onBlur={handleCustomValueBlur}
           onChangeText={handleCustomValueChange}
           onFocus={() => {
@@ -129,8 +132,7 @@ function WaterBagCapacitySelector({ value, options, onChange, onCustomValueFocus
             onCustomValueFocus?.(customValueInputRef.current);
           }}
           placeholder="Ex : 1,75"
-          placeholderTextColor={Colors.textMuted}
-          style={styles.textInput}
+          unit="L"
           value={customValueDraft}
         />
       </View>
@@ -319,13 +321,12 @@ export function PlanBasicsSection({
           `D+ ${values.elevationGain || 0} m`,
         ])}
           <>
-            <Text style={styles.label}>Nom du plan</Text>
-            <TextInput
-              style={styles.textInput}
-              value={values.name}
+            <Field
+              containerStyle={styles.formField}
+              label="Nom du plan"
               onChangeText={(text) => update('name', text)}
               placeholder="Ex : UTMB 2025"
-              placeholderTextColor={Colors.textMuted}
+              value={values.name}
             />
             {isLinkedRace ? (
               <View style={styles.row}>
@@ -340,12 +341,10 @@ export function PlanBasicsSection({
               </View>
             ) : <View style={styles.row}>
               <View style={styles.rowItem}>
-                <Text style={styles.label}>Distance (km)</Text>
-                <NumberInput value={values.raceDistanceKm} onChange={(value) => update('raceDistanceKm', value)} placeholder="50" />
+                <NumberInput label="Distance" unit="km" value={values.raceDistanceKm} onChange={(value) => update('raceDistanceKm', value)} placeholder="50" />
               </View>
               <View style={[styles.rowItem, { marginLeft: 12 }]}>
-                <Text style={styles.label}>D+ (m)</Text>
-                <NumberInput value={values.elevationGain} onChange={(value) => update('elevationGain', value)} placeholder="3000" />
+                <NumberInput label="D+" unit="m" value={values.elevationGain} onChange={(value) => update('elevationGain', value)} placeholder="3000" />
               </View>
             </View>}
           </>
@@ -366,18 +365,15 @@ export function PlanBasicsSection({
             {values.paceType === 'pace' ? (
               <View style={styles.row}>
                 <View style={styles.rowItem}>
-                  <Text style={styles.label}>Minutes</Text>
-                  <NumberInput value={values.paceMinutes} onChange={(value) => update('paceMinutes', Math.floor(value))} placeholder="6" />
+                  <NumberInput label="Minutes" unit="min" value={values.paceMinutes} onChange={(value) => update('paceMinutes', Math.floor(value))} placeholder="6" />
                 </View>
                 <View style={[styles.rowItem, { marginLeft: 12 }]}>
-                  <Text style={styles.label}>Secondes</Text>
-                  <NumberInput value={values.paceSeconds} onChange={(value) => update('paceSeconds', Math.min(59, Math.floor(value)))} placeholder="30" />
+                  <NumberInput label="Secondes" unit="s" value={values.paceSeconds} onChange={(value) => update('paceSeconds', Math.min(59, Math.floor(value)))} placeholder="30" />
                 </View>
               </View>
             ) : (
               <>
-                <Text style={styles.label}>Vitesse (km/h)</Text>
-                <NumberInput value={values.speedKph} onChange={(value) => update('speedKph', value)} placeholder="10" />
+                <NumberInput label="Vitesse" unit="km/h" value={values.speedKph} onChange={(value) => update('speedKph', value)} placeholder="10" />
               </>
             )}
             <Text style={styles.label}>{t.plans.fatigueLabel}</Text>
@@ -425,18 +421,15 @@ export function PlanBasicsSection({
           <>
             <View style={styles.row}>
               <View style={styles.rowItem}>
-                <Text style={styles.label}>Glucides (g/h)</Text>
-                <NumberInput value={values.targetIntakePerHour} onChange={(value) => update('targetIntakePerHour', value)} placeholder="70" />
+                <NumberInput label="Glucides" unit="g/h" value={values.targetIntakePerHour} onChange={(value) => update('targetIntakePerHour', value)} placeholder="70" />
               </View>
               <View style={[styles.rowItem, { marginLeft: 12 }]}>
-                <Text style={styles.label}>Eau (ml/h)</Text>
-                <NumberInput value={values.waterIntakePerHour} onChange={(value) => update('waterIntakePerHour', value)} placeholder="500" />
+                <NumberInput label="Eau" unit="ml/h" value={values.waterIntakePerHour} onChange={(value) => update('waterIntakePerHour', value)} placeholder="500" />
               </View>
             </View>
             <View style={styles.row}>
               <View style={styles.rowItem}>
-                <Text style={styles.label}>Sodium (mg/h)</Text>
-                <NumberInput value={values.sodiumIntakePerHour} onChange={(value) => update('sodiumIntakePerHour', value)} placeholder="600" />
+                <NumberInput label="Sodium" unit="mg/h" value={values.sodiumIntakePerHour} onChange={(value) => update('sodiumIntakePerHour', value)} placeholder="600" />
               </View>
               <View style={[styles.rowItem, { marginLeft: 12 }]} />
             </View>
@@ -485,15 +478,11 @@ export function PlanBasicsSection({
                 <Text accessibilityRole="header" style={styles.settingsSheetTitle}>Paramètres du plan</Text>
                 <Text style={styles.settingsSheetSubtitle}>Course, allure et cibles nutritionnelles</Text>
               </View>
-              <TouchableOpacity
+              <IconAction
                 accessibilityLabel="Fermer les paramètres du plan"
-                accessibilityRole="button"
-                hitSlop={6}
+                icon={<Ionicons name="close" size={20} color={Colors.textPrimary} />}
                 onPress={onCloseSettings}
-                style={styles.pickerCloseBtn}
-              >
-                <Ionicons name="close" size={18} color={Colors.textSecondary} />
-              </TouchableOpacity>
+              />
             </View>
 
             <ScrollView
@@ -508,13 +497,12 @@ export function PlanBasicsSection({
               ])}
               {expandedSections.course && (
                 <>
-                  <Text style={styles.label}>Nom du plan</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={values.name}
+                  <Field
+                    containerStyle={styles.formField}
+                    label="Nom du plan"
                     onChangeText={(text) => update('name', text)}
                     placeholder="Ex : UTMB 2025"
-                    placeholderTextColor={Colors.textMuted}
+                    value={values.name}
                   />
 
                   {isLinkedRace ? (
@@ -530,16 +518,14 @@ export function PlanBasicsSection({
                     </View>
                   ) : <View style={styles.row}>
                     <View style={styles.rowItem}>
-                      <Text style={styles.label}>Distance (km)</Text>
-                      <NumberInput
+                      <NumberInput label="Distance" unit="km"
                         value={values.raceDistanceKm}
                         onChange={(v) => update('raceDistanceKm', v)}
                         placeholder="50"
                       />
                     </View>
                     <View style={[styles.rowItem, { marginLeft: 12 }]}>
-                      <Text style={styles.label}>D+ (m)</Text>
-                      <NumberInput value={values.elevationGain} onChange={(v) => update('elevationGain', v)} placeholder="3000" />
+                      <NumberInput label="D+" unit="m" value={values.elevationGain} onChange={(v) => update('elevationGain', v)} placeholder="3000" />
                     </View>
                   </View>}
                 </>
@@ -575,12 +561,10 @@ export function PlanBasicsSection({
                   {values.paceType === 'pace' ? (
                     <View style={styles.row}>
                       <View style={styles.rowItem}>
-                        <Text style={styles.label}>Minutes</Text>
-                        <NumberInput value={values.paceMinutes} onChange={(v) => update('paceMinutes', Math.floor(v))} placeholder="6" />
+                        <NumberInput label="Minutes" unit="min" value={values.paceMinutes} onChange={(v) => update('paceMinutes', Math.floor(v))} placeholder="6" />
                       </View>
                       <View style={[styles.rowItem, { marginLeft: 12 }]}>
-                        <Text style={styles.label}>Secondes</Text>
-                        <NumberInput
+                        <NumberInput label="Secondes" unit="s"
                           value={values.paceSeconds}
                           onChange={(v) => update('paceSeconds', Math.min(59, Math.floor(v)))}
                           placeholder="30"
@@ -589,8 +573,7 @@ export function PlanBasicsSection({
                     </View>
                   ) : (
                     <>
-                      <Text style={styles.label}>Vitesse (km/h)</Text>
-                      <NumberInput value={values.speedKph} onChange={(v) => update('speedKph', v)} placeholder="10" />
+                      <NumberInput label="Vitesse" unit="km/h" value={values.speedKph} onChange={(v) => update('speedKph', v)} placeholder="10" />
                     </>
                   )}
 
@@ -649,16 +632,14 @@ export function PlanBasicsSection({
                 <>
                   <View style={styles.row}>
                     <View style={styles.rowItem}>
-                      <Text style={styles.label}>Glucides (g/h)</Text>
-                      <NumberInput
+                      <NumberInput label="Glucides" unit="g/h"
                         value={values.targetIntakePerHour}
                         onChange={(v) => update('targetIntakePerHour', v)}
                         placeholder="70"
                       />
                     </View>
                     <View style={[styles.rowItem, { marginLeft: 12 }]}>
-                      <Text style={styles.label}>Eau (ml/h)</Text>
-                      <NumberInput
+                      <NumberInput label="Eau" unit="ml/h"
                         value={values.waterIntakePerHour}
                         onChange={(v) => update('waterIntakePerHour', v)}
                         placeholder="500"
@@ -667,8 +648,7 @@ export function PlanBasicsSection({
                   </View>
                   <View style={styles.row}>
                     <View style={styles.rowItem}>
-                      <Text style={styles.label}>Sodium (mg/h)</Text>
-                      <NumberInput
+                      <NumberInput label="Sodium" unit="mg/h"
                         value={values.sodiumIntakePerHour}
                         onChange={(v) => update('sodiumIntakePerHour', v)}
                         placeholder="600"

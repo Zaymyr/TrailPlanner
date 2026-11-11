@@ -11,7 +11,6 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
@@ -38,6 +37,9 @@ import { EmptyState } from '../../components/themed/EmptyState';
 import { ErrorState } from '../../components/themed/ErrorState';
 import { BriefToast } from '../../components/themed/BriefToast';
 import { ChoiceChip } from '../../components/themed/ChoiceChip';
+import { Cote } from '../../components/themed/Cote';
+import { Field } from '../../components/themed/Field';
+import { IconAction } from '../../components/themed/IconAction';
 import { MilestoneCompassButton } from '../../components/themed/trail/MilestoneGlyphs';
 import { Colors } from '../../constants/colors';
 import { isAnonymousSession } from '../../lib/appSession';
@@ -49,7 +51,10 @@ import {
 import { useI18n } from '../../lib/i18n';
 import { lightHaptic } from '../../lib/haptics';
 import { captureAnalyticsEvent } from '../../lib/posthog';
-import { canShowRacebook } from '../../lib/racebook';
+import { canShowRacebook, resolveRacebookGpxDisplay } from '../../lib/racebook';
+import { CATALOG_PROFILE_STORED_POINTS, downsampleProfile } from '../../lib/catalogCourseProfiles';
+import { fetchRaceElevationProfile } from '../../lib/raceProfile';
+import type { TrailProfilePoint } from '../../lib/trailSignature';
 import {
   getOrganizerDemoResults,
   getRacebookOnboardingResults,
@@ -80,6 +85,8 @@ type Race = {
   gpx_storage_path: string | null;
   thumbnail_url?: string | null;
   organizer_details?: unknown;
+  /** Never selected: filled client-side from the lazily fetched course profile. */
+  elevation_profile?: TrailProfilePoint[];
 };
 
 type EventGroup = {
@@ -180,6 +187,12 @@ function getEventDistanceRange(races: Race[], locale: 'fr' | 'en') {
   }
 
   return `${formatDistance(minDistance, locale)}–${formatDistance(maxDistance, locale)} km`;
+}
+
+/** "5 distances" -> cote 5 + DISTANCES, as on the race card; other labels stay whole. */
+function splitCountLabel(label: string): { value: string; unit: string | null } {
+  const match = /^(\d+)\s+(.+)$/u.exec(label.trim());
+  return match ? { value: match[1], unit: match[2] } : { value: label, unit: null };
 }
 
 function isRacePast(race: Race, eventDate: string | null) {
@@ -875,6 +888,7 @@ export default function CatalogScreen() {
       ? t.catalog.singleFormatLabel
       : t.catalog.multipleFormatsLabel.replace('{count}', String(selectedEvent.races.length))
     : null;
+  const selectedFormatsCote = selectedFormatsLabel ? splitCountLabel(selectedFormatsLabel) : null;
 
   function resetFilters() {
     setDistanceMinFilter('');
@@ -1148,21 +1162,19 @@ export default function CatalogScreen() {
             ]}
           >
             <View style={styles.filtersCard}>
-              <View style={styles.searchRow}>
-                <TextInput
-                  value={nameFilter}
-                  onChangeText={(value) => {
-                    setNameFilter(value);
-                    lastTrackedRacebookSearchRef.current = null;
-                  }}
-                  onSubmitEditing={captureRacebookOnboardingSearch}
-                  placeholder={t.catalog.searchPlaceholder}
-                  placeholderTextColor={Colors.textMuted}
-                  autoFocus={onboardingMode === 'racebook'}
-                  returnKeyType="search"
-                  style={styles.filterInput}
-                />
-                {nameFilter ? (
+              <Field
+                variant="search"
+                accessibilityLabel={t.catalog.searchPlaceholder}
+                value={nameFilter}
+                onChangeText={(value) => {
+                  setNameFilter(value);
+                  lastTrackedRacebookSearchRef.current = null;
+                }}
+                onSubmitEditing={captureRacebookOnboardingSearch}
+                placeholder={t.catalog.searchPlaceholder}
+                autoFocus={onboardingMode === 'racebook'}
+                returnKeyType="search"
+                trailing={nameFilter ? (
                   <TouchableOpacity
                     accessibilityLabel={locale === 'fr' ? 'Effacer la recherche' : 'Clear search'}
                     accessibilityRole="button"
@@ -1173,7 +1185,7 @@ export default function CatalogScreen() {
                     <Ionicons name="close-circle" size={22} color={Colors.textMuted} />
                   </TouchableOpacity>
                 ) : null}
-              </View>
+              />
               {onboardingMode !== 'racebook' ? <View style={styles.filterActionsRow}>
                 <MilestoneCompassButton
                   accessibilityLabel={activeFiltersCount > 0
@@ -1322,28 +1334,23 @@ export default function CatalogScreen() {
                 {selectedEventMeta ? <Text style={styles.sheetSubtitle}>{selectedEventMeta}</Text> : null}
               </View>
               {selectedEvent ? (
-                <TouchableOpacity
+                <IconAction
                   accessibilityLabel={favoriteEventIds.includes(selectedEvent.id)
                     ? (locale === 'fr' ? 'Retirer cette course des favoris' : 'Remove this race from favorites')
                     : (locale === 'fr' ? 'Ajouter cette course aux favoris' : 'Add this race to favorites')}
-                  accessibilityRole="button"
                   accessibilityState={{ selected: favoriteEventIds.includes(selectedEvent.id) }}
-                  style={styles.sheetFavoriteButton}
+                  icon={<HeartMark filled={favoriteEventIds.includes(selectedEvent.id)} size={22} />}
                   onPress={() => {
                     void handleToggleFavorite(selectedEvent.id);
                   }}
-                >
-                  <HeartMark filled={favoriteEventIds.includes(selectedEvent.id)} size={22} />
-                </TouchableOpacity>
+                  tone="brand"
+                />
               ) : null}
-              <TouchableOpacity
+              <IconAction
                 accessibilityLabel={t.common.close}
-                accessibilityRole="button"
-                style={styles.sheetCloseButton}
+                icon={<Ionicons name="close" size={22} color={Colors.textPrimary} />}
                 onPress={() => setSelectedEvent(null)}
-              >
-                <Ionicons name="close" size={20} color={Colors.textPrimary} />
-              </TouchableOpacity>
+              />
             </View>
 
             {selectedEventImage ? (
@@ -1356,16 +1363,16 @@ export default function CatalogScreen() {
             ) : null}
 
             <View style={styles.eventSummaryRow}>
-              {selectedFormatsLabel ? (
-                <View style={styles.summaryPill}>
-                  <Text style={styles.summaryPillText}>{selectedFormatsLabel}</Text>
-                </View>
+              {selectedFormatsCote ? (
+                <Cote
+                  accessibilityLabel={selectedFormatsLabel ?? undefined}
+                  size="sm"
+                  tone="primary"
+                  unit={selectedFormatsCote.unit}
+                  value={selectedFormatsCote.value}
+                />
               ) : null}
-              {selectedEventDistanceRange ? (
-                <View style={styles.summaryPill}>
-                  <Text style={styles.summaryPillText}>{selectedEventDistanceRange}</Text>
-                </View>
-              ) : null}
+              {selectedEventDistanceRange ? <Cote size="sm" tone="primary" value={selectedEventDistanceRange} /> : null}
             </View>
 
             <Text style={styles.sheetHint}>{locale === 'fr' ? 'Choisis ta distance, puis ouvre son Livret coureur.' : 'Choose your distance, then open its Race Book.'}</Text>
@@ -1534,6 +1541,92 @@ export default function CatalogScreen() {
   );
 }
 
+/**
+ * Catalog card profiles. The list query carries no profile (the only source is
+ * the format GPX, parsed by the public race-profile endpoint), so each mounted
+ * row fetches the profiles of its formats lazily, a few at a time, and keeps a
+ * downsampled copy for the session. Formats without a GPX, or whose organizer
+ * hides the elevation profile, are never requested.
+ */
+const CATALOG_PROFILE_CONCURRENCY = 3;
+const catalogProfileCache = new Map<string, TrailProfilePoint[] | null>();
+const catalogProfileRequests = new Map<string, Promise<TrailProfilePoint[] | null>>();
+const catalogProfileQueue: Array<() => void> = [];
+let catalogProfileActive = 0;
+
+function runNextCatalogProfileRequest() {
+  while (catalogProfileActive < CATALOG_PROFILE_CONCURRENCY && catalogProfileQueue.length > 0) {
+    catalogProfileQueue.shift()?.();
+  }
+}
+
+function loadCatalogCourseProfile(raceId: string): Promise<TrailProfilePoint[] | null> {
+  if (catalogProfileCache.has(raceId)) return Promise.resolve(catalogProfileCache.get(raceId) ?? null);
+  const pending = catalogProfileRequests.get(raceId);
+  if (pending) return pending;
+  const request = new Promise<TrailProfilePoint[] | null>((resolve) => {
+    catalogProfileQueue.push(() => {
+      catalogProfileActive += 1;
+      fetchRaceElevationProfile(raceId)
+        .then((points) => downsampleProfile(points, CATALOG_PROFILE_STORED_POINTS))
+        .catch(() => null)
+        .then((profile) => {
+          catalogProfileCache.set(raceId, profile);
+          catalogProfileRequests.delete(raceId);
+          catalogProfileActive -= 1;
+          resolve(profile);
+          runNextCatalogProfileRequest();
+        });
+    });
+  });
+  catalogProfileRequests.set(raceId, request);
+  runNextCatalogProfileRequest();
+  return request;
+}
+
+function canDrawCatalogCourseProfile(race: Race): boolean {
+  if (!race.gpx_storage_path) return false;
+  const details = race.organizer_details;
+  const gpxDisplay = details && typeof details === 'object' ? (details as Record<string, unknown>).gpxDisplay : undefined;
+  return resolveRacebookGpxDisplay(gpxDisplay).showElevationProfile;
+}
+
+function readCachedCatalogProfiles(races: readonly Race[]): Record<string, TrailProfilePoint[]> {
+  const profiles: Record<string, TrailProfilePoint[]> = {};
+  for (const race of races) {
+    const cached = catalogProfileCache.get(race.id);
+    if (cached) profiles[race.id] = cached;
+  }
+  return profiles;
+}
+
+/** Profiles of the event formats, keyed by race id; grows as lazy fetches resolve. */
+function useCatalogCourseProfiles(races: readonly Race[]): Record<string, TrailProfilePoint[]> {
+  const [profiles, setProfiles] = useState(() => readCachedCatalogProfiles(races));
+
+  useEffect(() => {
+    let active = true;
+    const missing = races.filter((race) => canDrawCatalogCourseProfile(race) && !catalogProfileCache.has(race.id));
+    setProfiles((current) => {
+      const next = readCachedCatalogProfiles(races);
+      const same = Object.keys(next).length === Object.keys(current).length
+        && Object.keys(next).every((id) => current[id] === next[id]);
+      return same ? current : next;
+    });
+    for (const race of missing) {
+      void loadCatalogCourseProfile(race.id).then((profile) => {
+        if (!active || !profile) return;
+        setProfiles((current) => (current[race.id] === profile ? current : { ...current, [race.id]: profile }));
+      });
+    }
+    return () => {
+      active = false;
+    };
+  }, [races]);
+
+  return profiles;
+}
+
 type CatalogEventRowProps = Omit<ComponentProps<typeof RaceEventSummaryCard<Race>>, 'event' | 'onToggleFavorite' | 'onOpenFormats'> & {
   event: EventGroup;
   onToggleFavoriteEvent: (eventId: string) => void;
@@ -1544,7 +1637,15 @@ type CatalogEventRowProps = Omit<ComponentProps<typeof RaceEventSummaryCard<Race
 const CatalogEventRow = memo(function CatalogEventRow({ event, onToggleFavoriteEvent, onOpenEvent, ...cardProps }: CatalogEventRowProps) {
   const handleToggle = useCallback(() => onToggleFavoriteEvent(event.id), [event.id, onToggleFavoriteEvent]);
   const handleOpen = useCallback(() => onOpenEvent(event), [event, onOpenEvent]);
-  return <RaceEventSummaryCard {...cardProps} event={event} onToggleFavorite={handleToggle} onOpenFormats={handleOpen} />;
+  const profiles = useCatalogCourseProfiles(event.races);
+  const cardEvent = useMemo(() => {
+    if (Object.keys(profiles).length === 0) return event;
+    return {
+      ...event,
+      races: event.races.map((race) => (profiles[race.id] ? { ...race, elevation_profile: profiles[race.id] } : race)),
+    };
+  }, [event, profiles]);
+  return <RaceEventSummaryCard {...cardProps} event={cardEvent} onToggleFavorite={handleToggle} onOpenFormats={handleOpen} />;
 });
 
 const styles = StyleSheet.create({
@@ -1577,26 +1678,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
     gap: 10,
   },
-  filterInput: {
-    flex: 1,
-    minHeight: mobileComponents.input.minHeight,
-    backgroundColor: Colors.surface,
-    borderRadius: mobileComponents.input.borderRadius,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: mobileComponents.input.paddingHorizontal,
-    paddingVertical: 11,
-    color: Colors.textPrimary,
-    fontSize: 15,
-  },
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
   clearSearchButton: {
     width: 44,
     height: 44,
+    marginRight: -10,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1640,21 +1725,10 @@ const styles = StyleSheet.create({
   },
   eventSummaryRow: {
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'center',
+    columnGap: 14,
+    rowGap: 4,
     flexWrap: 'wrap',
-  },
-  summaryPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 999,
-    backgroundColor: Colors.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  summaryPillText: {
-    color: Colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '700',
   },
   modalBackdrop: {
     flex: 1,
@@ -1692,16 +1766,6 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 4,
   },
-  sheetFavoriteButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.brandSurface,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-  },
   sheetTitle: {
     color: Colors.textPrimary,
     fontSize: 20,
@@ -1711,14 +1775,6 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 13,
     lineHeight: 18,
-  },
-  sheetCloseButton: {
-    width: mobileComponents.closeButtonSize,
-    height: mobileComponents.closeButtonSize,
-    borderRadius: mobileComponents.closeButtonSize / 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.surfaceSecondary,
   },
   sheetImage: {
     width: '100%',

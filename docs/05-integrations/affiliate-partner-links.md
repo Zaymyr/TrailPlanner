@@ -117,6 +117,8 @@ The RaceBook screen (`apps/mobile/app/(app)/race/[id]/racebook.tsx`) renders its
 
 `RacebookGearSection` presents mandatory gear as a stamped checklist (session-stable stamp rotation, static dotted progress trail, 44-point rows); gear-check storage and partner slots are unchanged.
 
+The RaceBook Course tab (Tracé, Ravitos, Où encourager) uses `TrailTabs` with `stretch` + `scrollable`: tabs share the full width, the active one on a raised painted wooden plank and the others on flat bare-wood planks. The Livret / plan bib switch is 56 points high (`RACE_WORKSPACE_SWITCH_HEIGHT`).
+
 ## Related Docs
 
 Supporter `S’y rendre` and `Voir le plan` actions open organizer-authored access URLs directly. They are not affiliate destinations and must not pass through partner redirects or counters.

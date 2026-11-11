@@ -159,6 +159,8 @@ The RaceBook screen (`apps/mobile/app/(app)/race/[id]/racebook.tsx`) renders its
 
 `RacebookGearSection` presents mandatory gear as a stamped checklist (session-stable stamp rotation, static dotted progress trail, 44-point rows); gear-check storage and partner slots are unchanged.
 
+The RaceBook hero back blade is painted in `onPrimaryColor` with a `primaryColor` chevron, and its round actions are watch `IconAction`s, so their contrast follows the organizer branding pair.
+
 ## Related Docs
 
 Format-owned GPX visibility may omit a branded route or profile card; it does not change edition color resolution or the branding table contract.

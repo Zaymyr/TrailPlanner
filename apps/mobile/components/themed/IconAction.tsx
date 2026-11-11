@@ -1,3 +1,4 @@
+import { colors } from '@pace-yourself/design-system';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
 
@@ -21,17 +22,27 @@ type BaseProps = Omit<PressableProps, 'children' | 'style'> & {
 type Props = BaseProps & (
   /** GPS-watch button: notched bezel around a domed push button. */
   | { variant?: 'watch'; icon: ReactNode }
-  /** "Back" in green headers: small forest sign blade pointing left. `tone` is ignored. */
-  | { variant: 'back'; icon?: ReactNode }
+  /**
+   * "Back": small sign blade pointing left. Forest blade by default; on a
+   * forest header use `tone="onBrand"` (cream blade, forest chevron); any
+   * other tone is ignored. `bladeColor` overrides the fill (organizer
+   * themes: pass the on-primary color and a matching `icon`).
+   */
+  | { variant: 'back'; icon?: ReactNode; bladeColor?: string }
 );
 
 /**
  * Short unlabelled action, always with an accessibility label. Drawn as a
  * GPS-watch button (48pt). Tones: neutral (white dome), brand (sage dome),
- * danger (red dome: pass a light icon, e.g. `colors.text.inverse`).
+ * danger (red dome: pass a light icon, e.g. `colors.text.inverse`), onBrand
+ * (dark watch with cream bezel for forest headers: pass a light icon).
  */
-export function IconAction({ accessibilityLabel, icon, tone = 'neutral', variant = 'watch', disabled, style, ...props }: Props) {
+export function IconAction(allProps: Props) {
+  const { accessibilityLabel, icon, tone = 'neutral', variant = 'watch', disabled, style, ...rest } = allProps;
+  const { bladeColor: bladeColorProp, ...props } = rest as typeof rest & { bladeColor?: string };
   const isBack = variant === 'back';
+  const onBrandBack = isBack && tone === 'onBrand';
+  const bladeColor = bladeColorProp ?? (onBrandBack ? colors.surface.cream : undefined);
   return (
     <Pressable
       {...props}
@@ -51,8 +62,10 @@ export function IconAction({ accessibilityLabel, icon, tone = 'neutral', variant
         const isPressed = pressed && !disabled;
         return isBack ? (
           <>
-            <WatchBackBlade />
-            <View style={styles.bladeIcon}>{icon ?? <WatchBackChevron />}</View>
+            <WatchBackBlade color={bladeColor} />
+            <View style={styles.bladeIcon}>
+              {icon ?? <WatchBackChevron color={onBrandBack ? colors.brand.forest : undefined} />}
+            </View>
           </>
         ) : (
           <>

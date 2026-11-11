@@ -94,6 +94,8 @@ The RaceBook screen (`apps/mobile/app/(app)/race/[id]/racebook.tsx`) renders its
 
 `RacebookGearSection` presents mandatory gear as a stamped checklist (session-stable stamp rotation, static dotted progress trail, 44-point rows); gear-check storage and partner slots are unchanged.
 
+The RaceBook Course tab (Tracé, Ravitos, Où encourager) uses `TrailTabs` with `stretch` + `scrollable`: tabs share the full width, the active one on a raised painted wooden plank and the others on flat bare-wood planks. The Livret / plan bib switch is 56 points high (`RACE_WORKSPACE_SWITCH_HEIGHT`).
+
 ## Related Docs
 
 This table remains the source of truth for current checked state. PostHog organizer rankings use the latest observed state per person, race, and published analytics item inside the selected reporting window; they exclude runners who never started the checklist and must not be presented as a live table snapshot. The marker-guarded `racebook_gear_state_2026_09_28` import seeded checked and missing states only for users represented by existing rows.

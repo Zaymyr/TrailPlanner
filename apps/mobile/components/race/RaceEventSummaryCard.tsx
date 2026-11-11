@@ -8,7 +8,8 @@ import { CardProfileStrip } from '../themed/trail/CardProfile';
 import { HeartMark } from '../themed/trail/HeartMark';
 import { Colors } from '../../constants/colors';
 import { formatDistance, formatDistanceRange } from '../../lib/displayFormat';
-import { asTrailProfile, type TrailProfilePoint } from '../../lib/trailSignature';
+import { buildCatalogProfileLayers, type CatalogProfileLayer } from '../../lib/catalogCourseProfiles';
+import { asTrailProfile } from '../../lib/trailSignature';
 
 export type RaceEventSummaryRace = {
   id: string;
@@ -16,7 +17,10 @@ export type RaceEventSummaryRace = {
   distance_km: number;
   elevation_gain_m: number | null;
   thumbnail_url?: string | null;
-  /** Stored elevation profile, when the query provides it; drawn at the card foot. */
+  /**
+   * Course elevation profile (`{ distanceKm, elevationM }[]`), when the caller
+   * loaded it. Every format with one is overlaid in the strip at the card foot.
+   */
   elevation_profile?: unknown;
 };
 
@@ -86,14 +90,11 @@ function getEventDistanceRange(races: RaceEventSummaryRace[], locale: 'fr' | 'en
   return formatDistanceRange(minDistance, maxDistance, locale);
 }
 
-/** Longest format with a usable stored profile; null lets the strip fall back to the brand ridge. */
-function getEventProfile(races: RaceEventSummaryRace[]): TrailProfilePoint[] | null {
-  let best: { distance: number; profile: TrailProfilePoint[] } | null = null;
-  for (const race of races) {
-    const profile = asTrailProfile(race.elevation_profile);
-    if (profile && (!best || race.distance_km > best.distance)) best = { distance: race.distance_km, profile };
-  }
-  return best?.profile ?? null;
+/** One overlaid line per format with a usable profile; empty lets the strip fall back to the brand ridge. */
+function getEventProfileLayers(races: RaceEventSummaryRace[]): CatalogProfileLayer[] {
+  return buildCatalogProfileLayers(
+    races.map((race) => ({ key: race.id, profile: asTrailProfile(race.elevation_profile) })),
+  );
 }
 
 /** "5 distances" -> cote 5 + DISTANCES; labels without a leading count stay whole. */
@@ -132,7 +133,7 @@ function RaceEventSummaryCardBase<T extends RaceEventSummaryRace>({
       ? singleFormatLabel
       : multipleFormatsLabel.replace('{count}', String(event.races.length));
   const formatsCote = splitCountLabel(formatsLabel);
-  const eventProfile = useMemo(() => getEventProfile(event.races), [event.races]);
+  const profileLayers = useMemo(() => getEventProfileLayers(event.races), [event.races]);
 
   useEffect(() => {
     setDisplayedFavorite(isFavorite);
@@ -249,7 +250,7 @@ function RaceEventSummaryCardBase<T extends RaceEventSummaryRace>({
         </View>
       </View>
       </View>
-      <CardProfileStrip profile={eventProfile} />
+      <CardProfileStrip layers={profileLayers} />
     </Pressable>
   );
 }

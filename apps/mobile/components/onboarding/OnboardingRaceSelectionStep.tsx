@@ -7,7 +7,6 @@ import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -15,6 +14,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import type { Locale, MobileTranslations } from '../../locales/types';
 import { Colors } from '../../constants/colors';
 import { RaceEventSummaryCard } from '../race/RaceEventSummaryCard';
+import { Field } from '../themed/Field';
 import { Text } from '../themed/Text';
 import { OnboardingShell } from './OnboardingIntroSteps';
 
@@ -178,13 +178,14 @@ export function OnboardingRaceSelectionStep({
             </View>
           ) : null}
 
-          <TextInput
-            style={styles.textInput}
-            value={raceSearch}
+          <Field
+            accessibilityLabel={copy.onboarding.raceSearchPlaceholder}
+            autoCapitalize="none"
+            containerStyle={styles.searchField}
             onChangeText={onChangeRaceSearch}
             placeholder={copy.onboarding.raceSearchPlaceholder}
-            placeholderTextColor={Colors.textMuted}
-            autoCapitalize="none"
+            value={raceSearch}
+            variant="search"
           />
 
           {loadingRaces ? (
@@ -319,7 +320,7 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 15, color: Colors.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
   predictionHint: { color: Colors.brandPrimary, fontSize: 13, lineHeight: 18, textAlign: 'center', marginTop: -8, marginBottom: 20, fontWeight: '600' },
   racePickerPanel: { gap: 14, marginBottom: 16 },
-  textInput: { backgroundColor: Colors.surfaceSecondary, color: Colors.textPrimary, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, marginBottom: 8 },
+  searchField: { marginBottom: 8 },
   errorText: { color: Colors.danger, fontSize: 13, textAlign: 'center', marginTop: 4, marginBottom: 16 },
   raceCenteredState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 28, gap: 10 },
   raceStateText: { color: Colors.textSecondary, fontSize: 14, textAlign: 'center' },

@@ -151,6 +151,8 @@ The mobile catalog (`apps/mobile/app/(app)/catalog.tsx`) now shows its quick fil
 
 The RaceBook screen (`apps/mobile/app/(app)/race/[id]/racebook.tsx`) renders its last-minute update through `components/racebook/TapeAlertBanner` (orange/white tape strip, 44-point expand toggle) and passes the resolved start time to the plan invitation card; data loading and writes are unchanged.
 
+The RaceBook Course tab (Tracé, Ravitos, Où encourager) uses `TrailTabs` with `stretch` + `scrollable`: tabs share the full width, the active one on a raised painted wooden plank and the others on flat bare-wood planks. The Livret / plan bib switch is 56 points high (`RACE_WORKSPACE_SWITCH_HEIGHT`).
+
 ## Related Docs
 
 Private-demo selection changes only a format's RaceBook entry visibility; it does not publish, delete, or retarget organizer announcements.

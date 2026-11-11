@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,6 +7,7 @@ import { AppHeaderTitle } from '../../components/navigation/AppHeaderTitle';
 import { NumericKeyboardAccessory } from '../../components/inputs/NumericKeyboardAccessory';
 import { FeedbackHeaderButton } from '../../components/feedback/FeedbackHeaderButton';
 import { NativeBuildUpdatePrompt } from '../../components/updates/NativeBuildUpdatePrompt';
+import { IconAction } from '../../components/themed/IconAction';
 import { BlazeLine } from '../../components/themed/TrailBlaze';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
@@ -250,16 +251,13 @@ export default function AppLayout() {
         options={{
           href: null,
           headerLeft: () => (
-            <TouchableOpacity
+            <IconAction
               accessibilityLabel={t.common.back}
-              accessibilityRole="button"
-              hitSlop={8}
               onPress={() => router.replace('/(app)/catalog')}
               style={styles.headerBackButton}
               testID="racebook-back-to-catalog"
-            >
-              <Ionicons name="chevron-back" size={28} color={Colors.textPrimary} />
-            </TouchableOpacity>
+              variant="back"
+            />
           ),
         }}
       />
@@ -322,11 +320,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.background,
     backgroundColor: Colors.danger,
   },
-  headerBackButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  headerBackButton: { marginLeft: 4 },
 });
 

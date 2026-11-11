@@ -87,6 +87,8 @@ Trail signature iteration (2026-11-11): runner presentation only. In-page RaceBo
 
 The mobile catalog (`apps/mobile/app/(app)/catalog.tsx`) now shows its quick filters as kilometre-milestone `ChoiceChip`s behind a compass filter button (Favoris first, heart variant) and the race sheet favourite as a forest `HeartMark`; this is presentation only — queries, favourite writes and analytics events are unchanged.
 
+The catalog search is a road-notebook `Field variant="search"` and the race sheet header actions are watch `IconAction`s; update reads are unchanged.
+
 ## Related Docs
 
 Private-demo format selection does not create or clear announcement read receipts.

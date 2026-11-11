@@ -212,6 +212,7 @@ export const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: Colors.brandPrimary, marginBottom: 12 },
   label: { fontSize: 13, color: Colors.textSecondary, marginBottom: 6, marginTop: 4 },
+  formField: { marginTop: 4, marginBottom: 4 },
   textInput: {
     backgroundColor: Colors.surface,
     color: Colors.textPrimary,
@@ -830,7 +831,6 @@ export const styles = StyleSheet.create({
   editModalContent: { padding: 24 },
   editModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   editModalTitle: { fontSize: 17, fontWeight: '700', color: Colors.textPrimary },
-  editModalCloseButton: { width: mobileComponents.closeButtonSize, height: mobileComponents.closeButtonSize, borderRadius: mobileComponents.closeButtonSize / 2 },
   officialFieldsHint: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 10, marginBottom: 8, borderRadius: 10, backgroundColor: Colors.surfaceSecondary },
   officialFieldsHintText: { flex: 1, color: Colors.textSecondary, fontSize: 12, lineHeight: 17 },
   stationServiceOptions: {
@@ -1055,8 +1055,6 @@ export const styles = StyleSheet.create({
   pickerSheet: { backgroundColor: Colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 40, maxHeight: '80%' },
   pickerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   pickerTitle: { fontSize: 17, fontWeight: '700', color: Colors.textPrimary },
-  pickerCloseBtn: { width: mobileComponents.closeButtonSize, height: mobileComponents.closeButtonSize, borderRadius: mobileComponents.closeButtonSize / 2, backgroundColor: Colors.surfaceSecondary, justifyContent: 'center', alignItems: 'center' },
-  pickerCloseText: { color: Colors.textSecondary, fontSize: 14, fontWeight: '700' },
   autoFillLimitsSheet: {
     backgroundColor: Colors.surface,
     borderTopLeftRadius: 24,
@@ -1297,15 +1295,7 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '900',
   },
-  pickerSearchInput: {
-    backgroundColor: Colors.surfaceSecondary,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-    color: Colors.textPrimary,
+  pickerSearchField: {
     marginBottom: 12,
   },
   pickerSortRow: {

@@ -234,7 +234,15 @@ Trail signature (2026-11-09): a standard plan creation opens the editor with a o
 
 ## Mobile presentation
 
-The RaceBook plan invitation card shows the race start time on its dashed aid-station trail. In Mes courses, a plan is labelled « Prêt » when it has a pace (pace or speed) and at least one planned supply, otherwise « Brouillon »; this is a presentation-only rule computed in `PlansList`. <!-- TODO: verify with maintainer -->
+The RaceBook plan invitation card shows the race start time on its dashed aid-station trail. Plan status in Mes courses (`apps/mobile/lib/planReadiness.ts`, presentation only, nothing stored):
+
+- **Brouillon**: no planned time (race distance plus a stored pace or speed) or no intermediate aid station.
+- **En cours**: planned time and aid stations exist, but at least one section of the plan has a carbohydrate, sodium or water gauge in red (below 88 % of the tolerated minimum) or empty while it has a target.
+- **Prêt**: planned time, aid stations, and every carbohydrate, sodium and water gauge of every section at least orange.
+
+Thresholds and section combination are those of the editor gauges (`components/plan-form/metrics.ts`, `PlanForm`); a gauge whose target is 0 is not applicable. The list loads the nutrition of the products its plans use in one `products` query; until it answers a complete plan shows « En cours ».
+
+Plan cards in Mes courses lead with two `TrailSignButton` signs (Livret coureur, plan action) keyed by plan id; recap, share and delete are watch `IconAction`s, and deleting from the manage sheet uses `ActionButton variant="destructive-outline"`.
 
 ## Related Docs
 

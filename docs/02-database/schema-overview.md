@@ -421,7 +421,7 @@ Trail signature iteration (2026-11-11): runner presentation only. In-page RaceBo
 
 The mobile catalog (`apps/mobile/app/(app)/catalog.tsx`) now shows its quick filters as kilometre-milestone `ChoiceChip`s behind a compass filter button (Favoris first, heart variant) and the race sheet favourite as a forest `HeartMark`; this is presentation only — queries, favourite writes and analytics events are unchanged.
 
-`RaceEventSummaryCard` (catalog race card) shows the RaceBook availability as a `StatusPill` wristband, counts and distances as `Cote`s and a profile strip at its foot; it accepts an optional `elevation_profile` but the catalog query does not fetch one, so the brand ridge is drawn instead. No data contract changes.
+`RaceEventSummaryCard` (catalog race card) shows the RaceBook availability as a `StatusPill` wristband, counts and distances as `Cote`s and, at its foot, the real elevation profiles of up to five formats overlaid on a shared distance axis and elevation range (one sober line colour per format, longest in forest with a light fill; brand ridge only when no format has a profile). The catalog list query is unchanged: each visible row lazily reads profiles through the existing public `/api/onboarding/race-profile` path (`fetchRaceElevationProfile`), only for formats with a non-null `gpx_storage_path` whose `organizer_details.gpxDisplay.showElevationProfile` is not false, three requests at a time, downsampled to 48 points and cached for the session (`apps/mobile/lib/catalogCourseProfiles.ts`). No column, write or migration; a stored ~48-point preview per format would be the lighter long-term source. <!-- TODO: verify with maintainer -->
 
 ## Related Docs
 

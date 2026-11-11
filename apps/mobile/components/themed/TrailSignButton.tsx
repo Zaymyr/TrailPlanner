@@ -24,8 +24,8 @@ const WOOD = {
   grain: 0.13,
   wear: 0.15,
   routed: 0.8,
-  /** Routed groove of the calm tab plank. */
-  plankRouted: 0.3,
+  /** Routed groove of a flat (unselected) tab plank. */
+  plankRouted: 0.35,
   bolts: 0.6,
 } as const;
 /** Canvas room right of / below the plate for the cast shadow. */
@@ -93,6 +93,13 @@ type PlateProps = {
   variationKey?: string;
   /** Disabled signs: regular outline, no tone shift (grain stays). */
   neutral?: boolean;
+  /**
+   * Planks only. `true` (default): a painted plank set proud of the trail,
+   * with full thickness, cast shadow and routed groove (active tab). `false`:
+   * a flat plank lying on the trail, thin edge, no cast shadow and a faint
+   * groove (unselected tabs).
+   */
+  raised?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -100,7 +107,9 @@ type PlateProps = {
  * The painted plank behind a trail sign or an active tab: blurred cast
  * shadow, visible thickness, a face lit from above with wood grain, a knot,
  * worn paint and chipped shoulders, a top bevel, a routed border and bolts.
- * Tab planks (`shape="plank"`) keep only grain and bevel. Decorative only.
+ * Tab planks (`shape="plank"`) keep a regular outline, grain, a small knot,
+ * the bevel and the routed groove, without bolts or worn paint; `raised`
+ * sets them proud (active tab) or flat (unselected). Decorative only.
  */
 export function SignPlate({
   width,
@@ -110,13 +119,15 @@ export function SignPlate({
   bolts = shape === 'arrow',
   variationKey,
   neutral = false,
+  raised = true,
   style,
 }: PlateProps) {
   const id = useId().replace(/[^a-zA-Z0-9_-]/g, '');
   const gradientId = `sign-face-${id}`;
   const clipId = `sign-clip-${id}`;
   const random = useTrailRandom(variationKey ?? `plate|${shape}|${variant}`, { neutral });
-  const calm = shape === 'plank';
+  const plank = shape === 'plank';
+  const flat = plank && !raised;
   const finish = palette[variant];
   // Session-stable tone: each sign's paint is a touch lighter or darker.
   const tone = random.jitter('wood:tone', mobileComponents.trailVariation.sign.tone * WOOD.variation);
@@ -136,8 +147,8 @@ export function SignPlate({
 
   const { edge, ink, grainInk, wearInk, boltRing, bevel } = finish;
   const face = wood.outline(0);
-  const thickness = wood.outline(DEPTH);
-  const shadowScale = calm ? 0.6 : 1;
+  const thickness = wood.outline(flat ? DEPTH / 2 : DEPTH);
+  const shadowScale = flat ? 0 : 1;
 
   return (
     <Svg
@@ -157,7 +168,7 @@ export function SignPlate({
           <Path d={face} />
         </ClipPath>
       </Defs>
-      {SHADOW_LAYERS.map((layer) => (
+      {shadowScale > 0 ? SHADOW_LAYERS.map((layer) => (
         <Path
           d={thickness}
           fill={colors.text.primary}
@@ -165,12 +176,12 @@ export function SignPlate({
           opacity={layer.opacity * shadowScale}
           transform={`translate(${layer.dx} ${layer.dy})`}
         />
-      ))}
+      )) : null}
       <Path d={thickness} fill={edge} />
       <Path d={face} fill={`url(#${gradientId})`} />
       <G clipPath={`url(#${clipId})`}>
         {wood.grainDark ? (
-          <Path d={wood.grainDark} fill="none" stroke={grainInk} strokeOpacity={calm ? WOOD.grain * 0.7 : WOOD.grain} strokeWidth={1} />
+          <Path d={wood.grainDark} fill="none" stroke={grainInk} strokeOpacity={flat ? WOOD.grain * 0.8 : WOOD.grain} strokeWidth={1} />
         ) : null}
         {wood.grainLight ? (
           <Path d={wood.grainLight} fill="none" stroke={colors.surface.white} strokeOpacity={WOOD.grain * 0.8} strokeWidth={0.8} />
@@ -186,7 +197,7 @@ export function SignPlate({
         fill="none"
         stroke={ink}
         strokeLinejoin="round"
-        strokeOpacity={calm ? WOOD.plankRouted : WOOD.routed}
+        strokeOpacity={flat ? WOOD.plankRouted : WOOD.routed}
         strokeWidth={1}
       />
       {bolts ? [height / 2 - BOLT_OFFSET, height / 2 + BOLT_OFFSET].map((cy) => (

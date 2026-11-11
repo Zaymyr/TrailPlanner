@@ -1,13 +1,17 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Animated, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, StyleSheet, View } from 'react-native';
 
 import { Colors } from '../../constants/colors';
+import { IconAction } from '../themed/IconAction';
 import { Text } from '../themed/Text';
 import { TopoContourPattern } from '../themed/TopoContourPattern';
 
 export const ROOT_HEADER_EXPANDED_BODY_HEIGHT = 76;
 export const ROOT_HEADER_COMPACT_BODY_HEIGHT = 60;
+/** Centers the 48pt watch buttons in the 60pt compact bar. */
+const HEADER_ACTION_TOP = 6;
+const HEADER_ACTION_SIZE = 48;
 
 type HeaderAction = {
   accessibilityLabel: string;
@@ -100,29 +104,21 @@ export function RootCollapsibleHeader({ action, helpAction, icon, scrollY, title
       </Animated.View>
 
       {helpAction ? (
-        <View pointerEvents="box-none" style={[styles.helpAction, { top: topInset + 8 }]}>
+        <View pointerEvents="box-none" style={[styles.helpAction, { top: topInset + HEADER_ACTION_TOP }]}>
           {helpAction}
         </View>
       ) : null}
 
       {action ? (
-        <Pressable
+        <IconAction
           accessibilityLabel={action.accessibilityLabel}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: Boolean(action.disabled) }}
           disabled={action.disabled}
-          hitSlop={6}
+          icon={<Ionicons color={Colors.textOnBrand} name={action.icon} size={21} />}
           onPress={action.onPress}
-          style={({ pressed }) => [
-            styles.action,
-            { top: topInset + 8 },
-            action.disabled && styles.actionDisabled,
-            pressed && styles.actionPressed,
-          ]}
+          style={[styles.action, { top: topInset + HEADER_ACTION_TOP }]}
           testID={action.testID}
-        >
-          <Ionicons color={Colors.textOnBrand} name={action.icon} size={21} />
-        </Pressable>
+          tone="onBrand"
+        />
       ) : null}
     </Animated.View>
   );
@@ -168,8 +164,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.16)',
   },
   leadingActionSpacer: {
-    width: 44,
-    height: 44,
+    width: HEADER_ACTION_SIZE,
+    height: HEADER_ACTION_SIZE,
     flexShrink: 0,
   },
   expandedTitle: {
@@ -199,22 +195,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     zIndex: 5,
     left: 16,
-    width: 44,
-    height: 44,
+    // The slot grows for a back blade (62pt) passed instead of a watch button.
+    minWidth: HEADER_ACTION_SIZE,
+    minHeight: HEADER_ACTION_SIZE,
   },
   action: {
     position: 'absolute',
     zIndex: 4,
     right: 16,
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.34)',
-    backgroundColor: 'rgba(0,0,0,0.16)',
   },
-  actionDisabled: { opacity: 0.45 },
-  actionPressed: { opacity: 0.68 },
 });

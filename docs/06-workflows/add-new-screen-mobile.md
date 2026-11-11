@@ -268,6 +268,10 @@ New mobile screens use the trail objects: `TrailSignButton` to go elsewhere, at 
 
 The Livret / plan switch (`RaceWorkspaceSwitch`) is now drawn as a pinned bib (active view) over a flipped bib (other view), 70 points high (`RACE_WORKSPACE_SWITCH_HEIGHT`); which view is available or locked is unchanged.
 
+New screens use `Field` (never a raw `TextInput`) and `IconAction` (never a raw pressable icon), with `tone="onBrand"` on forest headers and `variant="back"` for back buttons.
+
+The RaceBook Course tab (Tracé, Ravitos, Où encourager) uses `TrailTabs` with `stretch` + `scrollable`: tabs share the full width, the active one on a raised painted wooden plank and the others on flat bare-wood planks. The Livret / plan bib switch is 56 points high (`RACE_WORKSPACE_SWITCH_HEIGHT`).
+
 ## Related Docs
 
 Mobile RaceBook entry points must pass preview selection plus publication/organizer access through `canShowRacebook`; screens must not recreate those gates locally.

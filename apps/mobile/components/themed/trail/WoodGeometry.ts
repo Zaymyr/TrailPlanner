@@ -1,8 +1,8 @@
 import type { TrailRandom } from '../../../lib/trailSignature';
 
 /**
- * Geometry of a painted wooden trail sign (TrailSignButton) or plank (active
- * TrailTabs label). Pure path builders: every irregularity comes from the
+ * Geometry of a painted wooden trail sign (TrailSignButton) or plank (TrailTabs
+ * labels). Pure path builders: every irregularity comes from the
  * element's TrailRandom, so a sign keeps its look for the whole session.
  * Outline jitter only ever moves inwards so nothing is clipped by the canvas.
  */
@@ -84,14 +84,18 @@ export function buildWoodSign({
   }
 
   if (shape === 'plank') {
-    // Calm plank: grain and bevel only, regular outline, no knot or wear.
+    // Tab plank: regular outline, routed groove, grain, one small knot kept
+    // near an end (away from the centered label), bevel; no worn paint.
+    const leftEnd = u('knot:side') < 0.5;
+    const kx = width * (leftEnd ? 0.1 + u('knot:x') * 0.08 : 0.82 + u('knot:x') * 0.08);
+    const ky = H * (0.35 + u('knot:y') * 0.3);
     return {
       tip: 0,
       outline: (oy) => roundedPlank(width, H, R, oy),
       border: plankBorder(width, H, radius, inset),
       grainDark,
       grainLight,
-      knot: '',
+      knot: width >= 56 ? ellipse(kx, ky, 2.6, 1) + ellipse(kx, ky, 4.6, 1.8) : '',
       wear: '',
       topLight: `M${R} 1 H${f(width - R)}`,
     };

@@ -1,7 +1,7 @@
 ---
 title: race_requests Table
 scope: database
-last_verified: 2026-11-05
+last_verified: 2026-11-11
 ai_priority: high
 related_files:
   - supabase/migrations/20261105180000_add_app_feedback_review.sql
@@ -75,6 +75,11 @@ Mobile owner history selects rows filtered by `user_id = auth.uid()`. Admin queu
 
 - The original table did not reference `auth.users` from `user_id`; do not add that foreign key without first auditing existing rows.
 - Retrying a review must reuse the same notification UUID so the RPC returns the existing matching notification instead of duplicating it.
+
+
+## Mobile presentation
+
+Forms and headers use the themed trail components: inputs are road-notebook `Field`s (units shown as cotes, searches with `variant="search"`), header and modal icon buttons are `IconAction` watch buttons (`tone="onBrand"` on forest headers) and back buttons are `IconAction variant="back"` sign blades. Parsing, validation and the data written are unchanged.
 
 ## Related Docs
 

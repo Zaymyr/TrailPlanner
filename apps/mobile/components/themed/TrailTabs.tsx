@@ -35,7 +35,11 @@ type Props<T extends string> = {
   onChange: (key: T) => void;
   /** Lets the row scroll horizontally when labels overflow. */
   scrollable?: boolean;
-  /** Spreads tabs evenly across the width (fixed short tab sets). */
+  /**
+   * Tabs share the full width in equal parts. With `scrollable`, each tab is
+   * at least 1/n of the visible width and the row scrolls only when a label
+   * does not fit its share.
+   */
   stretch?: boolean;
   style?: StyleProp<ViewStyle>;
 };
@@ -44,14 +48,20 @@ type Leg = { x: number; width: number; height: number };
 
 const { minHeight, trackHeight, paddingHorizontal } = mobileComponents.trailTabs;
 const { dash, gap } = mobileComponents.timeline;
-const PLANK_INSET = 4;
+const PLANK_INSET = 3;
+/** Unselected planks sit a little lower and smaller than the active one. */
+const FLAT_PLANK_INSET = 6;
+const PLANK_DEPTH = mobileComponents.trailSign.depth;
 
 /**
- * In-page tabs drawn as a trail, centered across the width: labels sit on a
- * dotted path, the active label is painted on a small wooden plank and the
- * active leg of the path becomes the tri-color signature line (light green,
- * amber, dark green in the blaze proportions). Selection is carried by label
- * weight, color, plank and line together, never by color alone.
+ * In-page tabs drawn as a trail: every label sits on a wooden plank along a
+ * dotted path. The active one is a raised, painted plank (the `solid` trail
+ * sign wood: grain, knot, routed groove, bevel, thickness, cast shadow, light
+ * hand-set lean) with a bold light label, and the active leg of the path
+ * becomes the tri-color signature line. Unselected tabs are flat bare-wood
+ * planks (`muted` wood, no shadow) with a semibold secondary label. Selection
+ * is carried by label weight, plank finish and relief and the line together,
+ * never by color alone. Centered by default; `stretch` fills the width.
  */
 export function TrailTabs<T extends string>({
   tabs,
@@ -66,6 +76,9 @@ export function TrailTabs<T extends string>({
   const trailSeed = useTrailSeed();
   const [legs, setLegs] = useState<Partial<Record<T, Leg>>>({});
   const [rowWidth, setRowWidth] = useState(0);
+  const [viewportWidth, setViewportWidth] = useState(0);
+  // Scrollable stretch: equal shares of the visible width, growing if needed.
+  const minTabWidth = stretch && scrollable && viewportWidth > 0 ? Math.floor(viewportWidth / Math.max(1, tabs.length)) : 0;
   const legX = useRef(new Animated.Value(0)).current;
   const legWidth = useRef(new Animated.Value(0)).current;
   const placed = useRef(false);
@@ -141,27 +154,29 @@ export function TrailTabs<T extends string>({
             onPress={() => onChange(tab.key)}
             style={({ pressed }) => [
               styles.tab,
-              stretch && styles.tabStretch,
+              stretch && (scrollable ? { flexGrow: 1, minWidth: minTabWidth } : styles.tabStretch),
               // The active label sits on a slightly hand-set wooden plank.
               active && { transform: [{ rotate: `${createTrailRandom(trailSeed.seed, `tab|${tab.label}`, trailSeed.amount).lean('tilt', mobileComponents.trailVariation.tabPlank.tilt)}deg` }] },
               pressed && styles.pressed,
             ]}
             testID={tab.testID}
           >
-            {active && leg ? (
+            {leg ? (
               <SignPlate
-                height={Math.max(0, leg.height - PLANK_INSET * 2)}
+                height={Math.max(0, leg.height - (active ? PLANK_INSET * 2 : FLAT_PLANK_INSET * 2) - PLANK_DEPTH)}
+                raised={active}
                 shape="plank"
-                style={styles.plank}
-                variant="soft"
-                width={Math.max(0, leg.width - PLANK_INSET * 2)}
+                style={active ? styles.plank : styles.flatPlank}
+                variant={active ? 'solid' : 'muted'}
+                variationKey={`tab|${tab.key}|${active ? 'on' : 'off'}`}
+                width={Math.max(0, leg.width - (active ? PLANK_INSET : FLAT_PLANK_INSET) * 2)}
               />
             ) : null}
             <Text
               numberOfLines={1}
               size="sm"
               weight={active ? 'bold' : 'semibold'}
-              style={{ color: active ? colors.brand.forest : colors.text.secondary }}
+              style={[styles.label, { color: active ? colors.text.inverse : colors.text.secondary }]}
             >
               {tab.label}
             </Text>
@@ -178,6 +193,10 @@ export function TrailTabs<T extends string>({
     <ScrollView
       contentContainerStyle={styles.scrollContent}
       horizontal
+      onLayout={(event) => {
+        const next = Math.round(event.nativeEvent.layout.width);
+        setViewportWidth((current) => (current === next ? current : next));
+      }}
       showsHorizontalScrollIndicator={false}
       style={style}
     >
@@ -213,5 +232,8 @@ const styles = StyleSheet.create({
   },
   tabStretch: { flex: 1 },
   plank: { top: PLANK_INSET, left: PLANK_INSET },
+  flatPlank: { top: FLAT_PLANK_INSET, left: FLAT_PLANK_INSET },
+  // Keeps the label centered on the plank face, above its thickness.
+  label: { marginBottom: PLANK_DEPTH },
   pressed: { opacity: 0.7 },
 });

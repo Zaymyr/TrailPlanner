@@ -5,12 +5,14 @@ import { useI18n } from '../../lib/i18n';
 import { useTrailRandom } from '../themed/TrailSeedProvider';
 import { FlippedBib, PinnedBib } from '../themed/trail/BibParts';
 
-export const RACE_WORKSPACE_SWITCH_HEIGHT = 70;
+export const RACE_WORKSPACE_SWITCH_HEIGHT = 56;
 
-/** Decorative bib numbers: the guide is always bib 01, the plan bib 02. */
-const BIB_NUMBERS = { racebook: '01', plan: '02' } as const;
 /** How far the flipped bib slides under the pinned one. */
-const BIB_OVERLAP = 8;
+const BIB_OVERLAP = 6;
+/**
+ * The switch is read on every visit: bibs lean at half the trail-variation
+ * range so the labels stay level enough to read at a glance.
+ */
 
 type Props = {
   active: 'racebook' | 'plan';
@@ -31,11 +33,12 @@ type Props = {
 
 /**
  * Livret / plan switch attached under the workspace header, drawn as two race
- * bibs: the active view is the bib pinned on the front (four safety pins,
- * "PACE YOURSELF" band, number, tear-off foot), the other one is flipped and
- * tucked behind. Bib leans come from the session trail seed (never colors or
- * sizes); disabled bibs stay upright. Each bib is a 44 pt+ tab with its
- * selected state exposed to assistive technologies.
+ * bibs: the active view is the white bib pinned on the front (two safety
+ * pins, bold label, perforated tear-off line), the other one is flipped and
+ * tucked behind (hatched back, plain label). Slight leans come from the
+ * session trail seed (never colors or sizes); disabled bibs stay upright.
+ * Each bib is a 44 pt+ tab with its selected state exposed to assistive
+ * technologies.
  */
 export function RaceWorkspaceSwitch({
   active,
@@ -65,7 +68,7 @@ export function RaceWorkspaceSwitch({
   const { bib } = mobileComponents.trailVariation;
   const renderBib = (key: 'racebook' | 'plan', label: string, random: typeof planRandom) => (
     active === key
-      ? <PinnedBib label={label} lean={random.between('lean', bib.active)} number={BIB_NUMBERS[key]} />
+      ? <PinnedBib label={label} lean={random.between('lean', bib.active)} />
       : <FlippedBib label={label} lean={random.between('lean', bib.flipped)} />
   );
 
@@ -118,7 +121,7 @@ const styles = StyleSheet.create({
     height: RACE_WORKSPACE_SWITCH_HEIGHT,
     justifyContent: 'center',
     paddingHorizontal: mobileComponents.screenGutter,
-    paddingBottom: 6,
+    paddingBottom: 4,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
     shadowColor: '#1A1A1A',

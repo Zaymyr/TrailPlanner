@@ -9,7 +9,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -18,6 +17,7 @@ import * as DocumentPicker from 'expo-document-picker';
 
 import { Colors } from '../../constants/colors';
 import { DataText } from '../themed/DataText';
+import { Field } from '../themed/Field';
 import { Text } from '../themed/Text';
 import { FUEL_TYPE_LABELS, FUEL_TYPE_OPTIONS } from './nutritionConstants';
 import type { FuelType, Product, ProductEditDraft, ProductFavoriteUsage, ProductImageDraft } from './types';
@@ -245,25 +245,21 @@ export const ProductDetailModal = memo(function ProductDetailModal({
             ) : null}
 
             <View style={styles.fieldGroup}>
-              <Text style={styles.inputLabel}>Nom</Text>
-              <TextInput
+              <Field
                 editable={editable}
+                label="Nom"
                 onChangeText={setName}
                 placeholder="Nom du produit"
-                placeholderTextColor={Colors.textMuted}
-                style={[styles.textInput, !editable && styles.textInputReadOnly]}
                 value={name}
               />
             </View>
 
             <View style={styles.fieldGroup}>
-              <Text style={styles.inputLabel}>Marque</Text>
-              <TextInput
+              <Field
                 editable={editable}
+                label="Marque"
                 onChangeText={setBrand}
                 placeholder="Marque"
-                placeholderTextColor={Colors.textMuted}
-                style={[styles.textInput, !editable && styles.textInputReadOnly]}
                 value={brand}
               />
             </View>
@@ -299,43 +295,39 @@ export const ProductDetailModal = memo(function ProductDetailModal({
 
             <View style={styles.nutritionGrid}>
               <View style={styles.metricField}>
-                <Text style={styles.inputLabel}>Glucides (g)</Text>
-                <TextInput
+                <Field
                   editable={editable}
-                  keyboardType="decimal-pad"
                   inputAccessoryViewID="pace-yourself-numeric-keyboard"
+                  keyboardType="decimal-pad"
+                  label="Glucides"
                   onChangeText={setCarbsG}
                   placeholder="0"
-                  placeholderTextColor={Colors.textMuted}
-                  style={[styles.textInput, styles.metricInput, !editable && styles.textInputReadOnly]}
+                  unit="g"
                   value={carbsG}
                 />
               </View>
 
               <View style={styles.metricField}>
-                <Text style={styles.inputLabel}>Sodium (mg)</Text>
-                <TextInput
+                <Field
                   editable={editable}
-                  keyboardType="decimal-pad"
                   inputAccessoryViewID="pace-yourself-numeric-keyboard"
+                  keyboardType="decimal-pad"
+                  label="Sodium"
                   onChangeText={setSodiumMg}
                   placeholder="0"
-                  placeholderTextColor={Colors.textMuted}
-                  style={[styles.textInput, styles.metricInput, !editable && styles.textInputReadOnly]}
+                  unit="mg"
                   value={sodiumMg}
                 />
               </View>
 
               <View style={styles.metricField}>
-                <Text style={styles.inputLabel}>Kcal</Text>
-                <TextInput
+                <Field
                   editable={editable}
-                  keyboardType="decimal-pad"
                   inputAccessoryViewID="pace-yourself-numeric-keyboard"
+                  keyboardType="decimal-pad"
+                  label="Kcal"
                   onChangeText={setCaloriesKcal}
                   placeholder="0"
-                  placeholderTextColor={Colors.textMuted}
-                  style={[styles.textInput, styles.metricInput, !editable && styles.textInputReadOnly]}
                   value={caloriesKcal}
                 />
               </View>
@@ -593,21 +585,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  textInput: {
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceSecondary,
-    color: Colors.textPrimary,
-    fontSize: 15,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  textInputReadOnly: {
-    backgroundColor: Colors.surface,
-    color: Colors.textSecondary,
-  },
   readOnlyValue: {
     minHeight: 44,
     borderRadius: 12,
@@ -662,9 +639,6 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 92,
     gap: 6,
-  },
-  metricInput: {
-    textAlign: 'center',
   },
   adminUsageBox: {
     minHeight: 64,

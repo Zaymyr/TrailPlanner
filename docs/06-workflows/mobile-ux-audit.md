@@ -189,6 +189,10 @@ The Google fallback `ActionButton` on login and signup no longer adds its own re
 
 Mobile controls follow the trail-object grammar (`docs/07-design-system/components.md`): one enamel plate (primary action) per screen, closed-trail look for disabled actions, and profile contact buttons now keep a 44-point minimum height.
 
+Forms and headers use the themed trail components: inputs are road-notebook `Field`s (units shown as cotes, searches with `variant="search"`), header and modal icon buttons are `IconAction` watch buttons (`tone="onBrand"` on forest headers) and back buttons are `IconAction variant="back"` sign blades. Parsing, validation and the data written are unchanged.
+
+Plan cards in Mes courses lead with two `TrailSignButton` signs (Livret coureur, plan action) keyed by plan id; recap, share and delete are watch `IconAction`s, and deleting from the manage sheet uses `ActionButton variant="destructive-outline"`.
+
 ## Related Docs
 
 - [Mobile App](../01-architecture/mobile-app.md)

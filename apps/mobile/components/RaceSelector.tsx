@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors, radius, spacing } from '@pace-yourself/design-system';
-import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { useI18n } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 import { Button } from './themed/Button';
+import { Field } from './themed/Field';
+import { IconAction } from './themed/IconAction';
 import { Text } from './themed/Text';
 
 type RaceRow = { id: string; name: string; distance_km: number; elevation_gain_m: number | null; location_text: string | null };
@@ -52,11 +54,9 @@ export function RaceSelector({ visible, onClose, onSelect }: Props) {
               <Text accessibilityRole="header" style={styles.title}>{t.planForm.selectRaceTitle}</Text>
               <Text style={styles.subtitle}>{t.planForm.selectRaceSubtitle}</Text>
             </View>
-            <Pressable accessibilityLabel={t.common.close} accessibilityRole="button" hitSlop={4} onPress={onClose} style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}>
-              <Ionicons name="close" size={22} color={colors.text.primary} />
-            </Pressable>
+            <IconAction accessibilityLabel={t.common.close} icon={<Ionicons name="close" size={22} color={colors.text.primary} />} onPress={onClose} />
           </View>
-          <TextInput style={styles.searchInput} value={search} onChangeText={setSearch} placeholder={`${t.common.search}…`} placeholderTextColor={colors.text.tertiary} autoFocus />
+          <Field accessibilityLabel={t.common.search} autoFocus containerStyle={styles.searchField} onChangeText={setSearch} placeholder={`${t.common.search}…`} value={search} variant="search" />
 
           {loading ? <ActivityIndicator color={colors.brand.forest} style={styles.loader} /> : hasLoadError ? (
             <View style={styles.feedbackState}>
@@ -93,9 +93,7 @@ const styles = StyleSheet.create({
   headerCopy: { flex: 1, minWidth: 0 },
   title: { color: colors.text.primary, fontSize: 20, lineHeight: 25, fontWeight: '800', marginBottom: spacing[1] },
   subtitle: { color: colors.text.secondary, fontSize: 14, lineHeight: 20 },
-  closeButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full, borderWidth: 1, borderColor: colors.border.subtle, backgroundColor: colors.surface.white },
-  pressed: { opacity: 0.68 },
-  searchInput: { minHeight: 48, backgroundColor: colors.surface.white, borderRadius: radius.lg, paddingHorizontal: spacing[3], paddingVertical: spacing[2], color: colors.text.primary, fontSize: 15, borderWidth: 1, borderColor: colors.border.subtle, marginBottom: spacing[3] },
+  searchField: { marginBottom: spacing[3] },
   list: { maxHeight: 400 }, loader: { marginVertical: spacing[6] }, feedbackState: { alignItems: 'center', gap: spacing[3], paddingVertical: spacing[6] },
   errorText: { color: colors.text.secondary, textAlign: 'center', fontSize: 15, lineHeight: 21 }, emptyText: { color: colors.text.secondary, textAlign: 'center', marginVertical: spacing[6] },
   raceCard: { minHeight: 68, backgroundColor: colors.surface.white, borderRadius: radius.card, borderWidth: 1, borderColor: colors.border.subtle, padding: spacing[3], marginBottom: spacing[2], flexDirection: 'row', alignItems: 'center' },
