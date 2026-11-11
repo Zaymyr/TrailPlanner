@@ -557,6 +557,42 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
     },
   });
 
+  const traceDeTrailEnrichMutation = useMutation({
+    mutationFn: async (raceId: string) => {
+      const credentials =
+        traceDeTrailLogin.trim() && traceDeTrailPassword
+          ? { login: traceDeTrailLogin.trim(), password: traceDeTrailPassword }
+          : undefined;
+      const response = await fetch("/api/admin/race-catalog/tracedetrail", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ raceId, action: "enrich", credentials }),
+      });
+      const data = (await response.json().catch(() => null)) as
+        | { message?: string; race?: RaceRow }
+        | null;
+
+      if (!response.ok || !data?.race) {
+        throw new Error(data?.message ?? t.errors.traceDeTrailImportFailed);
+      }
+
+      return data;
+    },
+    onSuccess: () => {
+      setMessage(t.messages.imported);
+      setError(null);
+      setEditGpxError(null);
+      setEditRace(null);
+      void queryClient.invalidateQueries({ queryKey: ["admin", "race-catalog", accessToken] });
+    },
+    onError: (err) => {
+      setEditGpxError(err instanceof Error ? err.message : t.errors.traceDeTrailImportFailed);
+    },
+  });
+
   const editForm = useForm<EditFormValues>({
     resolver: zodResolver(editFormSchema),
   });
@@ -2003,6 +2039,34 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
                   onChange={handleEditGpxChange}
                 />
               </div>
+              {editRace?.trace_id ||
+              editRace?.trace_provider === "tracedetrail" ||
+              editRace?.external_site_url?.includes("tracedetrail.fr") ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-8 px-4 text-xs"
+                    disabled={traceDeTrailEnrichMutation.isPending || isUploadingGpx}
+                    onClick={() => traceDeTrailEnrichMutation.mutate(editRace.id)}
+                  >
+                    {traceDeTrailEnrichMutation.isPending ? t.actions.importing : t.actions.import}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-8 px-3 text-xs"
+                    onClick={() => setTraceDeTrailCredentialsOpen(true)}
+                  >
+                    {t.actions.connectTraceDeTrail}
+                  </Button>
+                  {hasTraceDeTrailCredentials ? (
+                    <span className="text-xs text-emerald-700 dark:text-emerald-300">
+                      {t.traceDeTrailCredentialsSaved}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
               {editGpxPreview ? (
                 <p className="text-xs text-muted-foreground">
                   {t.preview}
