@@ -284,6 +284,8 @@ The RaceBook Course map and profile cards are drawn without the contour corner (
 
 The RaceBook hero no longer draws the course contour lines behind its header (the published elevation profile is still shown in the Course tab).
 
+List cards should not fetch per-row detail (such as GPX-derived profiles) just for decoration; the catalog race card dropped its profile strip for that reason.
+
 ## Related Docs
 
 Mobile RaceBook entry points must pass preview selection plus publication/organizer access through `canShowRacebook`; screens must not recreate those gates locally.

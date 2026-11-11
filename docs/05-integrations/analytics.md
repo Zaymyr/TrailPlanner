@@ -435,6 +435,8 @@ The RaceBook Course map and profile cards are drawn without the contour corner (
 
 The RaceBook hero no longer draws the course contour lines behind its header (the published elevation profile is still shown in the Course tab).
 
+Catalog race cards no longer draw or fetch format elevation profiles; no analytics event changes.
+
 ## Related Docs
 
 Selecting or masking a private-demo format is configuration, not a runner RaceBook open or publication analytics event.

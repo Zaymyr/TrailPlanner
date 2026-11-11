@@ -448,8 +448,7 @@ The RaceBook screen renders its last-minute update through
 `RacebookPlanInviteCard`; Mes courses plan cards lead with Livret / plan signs and show a mini profile
 and a « Brouillon » / « En cours » / « Prêt » wristband (rule in
 `docs/03-business-rules/plan-storage.md`, `lib/planReadiness.ts`). Catalog
-cards overlay each format's real elevation profile, loaded lazily per visible
-row, stretched to the full width and smoothed. Forms use road-notebook `Field`s with unit cotes, headers use watch
+cards draw no course profile (the catalog no longer fetches format profiles). Forms use road-notebook `Field`s with unit cotes, headers use watch
 `IconAction`s (`tone="onBrand"`) and sign-blade back buttons, and the RaceBook
 Course tabs span the full width on wooden planks; its map and profile cards open fullscreen through watch `IconAction`s. Profile sections are signature `Card`s with `ActionButton` actions (one primary per tab; upgrade is secondary for guests), language and admin simulation use `TrailTabs`, and NEW / verified / counter / selected badges are `StatusPill` wristbands. The RaceBook weather alert uses `TapeAlertBanner`. Every sheet and modal header is `SheetHeader`, and collapsible groups (Mes courses events — borne only, no trail line, full-width plan cards with a right-hand watch-button column —, Nutrition favourites and brands, plan settings, live settings, RaceBook instructions and transport, onboarding brands) are `AccordionSection`s.
 

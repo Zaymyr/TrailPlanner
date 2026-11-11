@@ -1,16 +1,13 @@
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Image, Pressable, StyleSheet, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Cote } from '../themed/Cote';
 import { StatusPill } from '../themed/StatusPill';
 import { Text } from '../themed/Text';
 import { TrailSignButton } from '../themed/TrailSignButton';
-import { CardProfileStrip } from '../themed/trail/CardProfile';
 import { HeartMark } from '../themed/trail/HeartMark';
 import { Colors } from '../../constants/colors';
 import { formatDistance, formatDistanceRange } from '../../lib/displayFormat';
-import { buildCatalogProfileLayers, type CatalogProfileLayer } from '../../lib/catalogCourseProfiles';
-import { asTrailProfile } from '../../lib/trailSignature';
 
 export type RaceEventSummaryRace = {
   id: string;
@@ -18,11 +15,6 @@ export type RaceEventSummaryRace = {
   distance_km: number;
   elevation_gain_m: number | null;
   thumbnail_url?: string | null;
-  /**
-   * Course elevation profile (`{ distanceKm, elevationM }[]`), when the caller
-   * loaded it. Every format with one is overlaid in the strip at the card foot.
-   */
-  elevation_profile?: unknown;
 };
 
 export type RaceEventSummaryEvent<T extends RaceEventSummaryRace = RaceEventSummaryRace> = {
@@ -91,12 +83,6 @@ function getEventDistanceRange(races: RaceEventSummaryRace[], locale: 'fr' | 'en
   return formatDistanceRange(minDistance, maxDistance, locale);
 }
 
-/** One overlaid line per format with a usable profile; empty lets the strip fall back to the brand ridge. */
-function getEventProfileLayers(races: RaceEventSummaryRace[]): CatalogProfileLayer[] {
-  return buildCatalogProfileLayers(
-    races.map((race) => ({ key: race.id, profile: asTrailProfile(race.elevation_profile) })),
-  );
-}
 
 /** "5 distances" -> cote 5 + DISTANCES; labels without a leading count stay whole. */
 function splitCountLabel(label: string): { value: string; unit: string | null } {
@@ -134,7 +120,6 @@ function RaceEventSummaryCardBase<T extends RaceEventSummaryRace>({
       ? singleFormatLabel
       : multipleFormatsLabel.replace('{count}', String(event.races.length));
   const formatsCote = splitCountLabel(formatsLabel);
-  const profileLayers = useMemo(() => getEventProfileLayers(event.races), [event.races]);
 
   useEffect(() => {
     setDisplayedFavorite(isFavorite);
@@ -257,7 +242,6 @@ function RaceEventSummaryCardBase<T extends RaceEventSummaryRace>({
         </View>
       </View>
       </View>
-      <CardProfileStrip layers={profileLayers} />
     </Pressable>
   );
 }

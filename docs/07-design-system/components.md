@@ -38,7 +38,6 @@ related_files:
   - apps/mobile/components/themed/trail/BibParts.tsx
   - apps/mobile/components/themed/trail/WoodGeometry.ts
   - apps/mobile/components/themed/trail/CardProfile.tsx
-  - apps/mobile/lib/catalogCourseProfiles.ts
   - apps/mobile/lib/planReadiness.ts
   - apps/mobile/lib/fieldLabel.ts
   - apps/mobile/components/themed/trail/HeartMark.tsx
@@ -331,12 +330,7 @@ Rule of use: a sign (`TrailSignButton`) means "I go elsewhere", a plate (primary
   flipped hatched bib tucked behind. Leans come from `trailVariation.bib`;
   disabled bibs stay upright; each bib is a 44-point tab with its selected
   state.
-- Trail cards: race cards end with a 34-point elevation strip
-  (`CardProfileStrip`; with `layers` from `buildCatalogProfileLayers` it
-  overlays up to five formats longest first, each stretched across the full
-  width and smoothed, on a shared elevation range, in sober map inks — forest, blue-grey, sign-post brown,
-  ochre, stone — thin strokes, light fill only under the longest; brand ridge
-  when no layer exists);
+- Trail cards: race cards carry no elevation strip;
   list rows use a 72x26 `CardMiniProfile` beside a `StatusPill`. Mes courses
   plan cards lead with two signs (Livret coureur solid, plan action soft, keyed
   by plan id), then watch buttons; their wristband is Brouillon (neutral), En

@@ -151,13 +151,12 @@ Trail signature iteration (2026-11-11): runner presentation only. In-page RaceBo
 
 The mobile catalog (`apps/mobile/app/(app)/catalog.tsx`) now shows its quick filters as kilometre-milestone `ChoiceChip`s behind a compass filter button (Favoris first, heart variant) and the race sheet favourite as a forest `HeartMark`; this is presentation only — queries, favourite writes and analytics events are unchanged.
 
-`RaceEventSummaryCard` (catalog race card) shows the RaceBook availability as a `StatusPill` wristband, counts and distances as `Cote`s and, at its foot, the real elevation profiles of up to five formats overlaid on a shared distance axis and elevation range (one sober line colour per format, longest in forest with a light fill; brand ridge only when no format has a profile). The catalog list query is unchanged: each visible row lazily reads profiles through the existing public `/api/onboarding/race-profile` path (`fetchRaceElevationProfile`), only for formats with a non-null `gpx_storage_path` whose `organizer_details.gpxDisplay.showElevationProfile` is not false, three requests at a time, downsampled to 48 points and cached for the session (`apps/mobile/lib/catalogCourseProfiles.ts`). No column, write or migration; a stored ~48-point preview per format would be the lighter long-term source. <!-- TODO: verify with maintainer -->
+`RaceEventSummaryCard` (catalog race card) shows the RaceBook availability as a `StatusPill` wristband, counts and distances as `Cote`s, the favourite heart on the title line and a « Voir les distances » sign. It draws no course profile (removed on 2026-11-11) and the catalog no longer fetches format profiles. No data contract changes.
 
 The unread organizer-update marker (« NEW ») is a brand `StatusPill` wristband on event cards and in the update list; reads and writes are unchanged.
 
 Sheets and modals use the shared `SheetHeader` (dotted trail handle, slender blaze, title, watch close button) and collapsible groups use `AccordionSection` (km borne with a count or icon, forest trail along the open content); UI only, data and queries unchanged.
 
-Catalog race cards stretch every format's profile across the full strip and smooth it (`smoothValues`), so the overlaid lines read as a signature of the event; the favourite heart sits on the title line.
 
 ## Related Docs
 

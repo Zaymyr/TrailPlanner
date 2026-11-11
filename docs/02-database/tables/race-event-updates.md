@@ -159,6 +159,8 @@ The unread organizer-update marker (« NEW ») is a brand `StatusPill` wristband
 
 Sheets and modals use the shared `SheetHeader` (dotted trail handle, slender blaze, title, watch close button) and collapsible groups use `AccordionSection` (km borne with a count or icon, forest trail along the open content); UI only, data and queries unchanged.
 
+Catalog race cards no longer draw or fetch format elevation profiles; update reads are unchanged.
+
 ## Related Docs
 
 Private-demo selection changes only a format's RaceBook entry visibility; it does not publish, delete, or retarget organizer announcements.

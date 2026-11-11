@@ -53,10 +53,7 @@ import {
 import { useI18n } from '../../lib/i18n';
 import { lightHaptic } from '../../lib/haptics';
 import { captureAnalyticsEvent } from '../../lib/posthog';
-import { canShowRacebook, resolveRacebookGpxDisplay } from '../../lib/racebook';
-import { CATALOG_PROFILE_STORED_POINTS, downsampleProfile } from '../../lib/catalogCourseProfiles';
-import { fetchRaceElevationProfile } from '../../lib/raceProfile';
-import type { TrailProfilePoint } from '../../lib/trailSignature';
+import { canShowRacebook } from '../../lib/racebook';
 import {
   getOrganizerDemoResults,
   getRacebookOnboardingResults,
@@ -87,8 +84,6 @@ type Race = {
   gpx_storage_path: string | null;
   thumbnail_url?: string | null;
   organizer_details?: unknown;
-  /** Never selected: filled client-side from the lazily fetched course profile. */
-  elevation_profile?: TrailProfilePoint[];
 };
 
 type EventGroup = {
@@ -1535,92 +1530,6 @@ export default function CatalogScreen() {
   );
 }
 
-/**
- * Catalog card profiles. The list query carries no profile (the only source is
- * the format GPX, parsed by the public race-profile endpoint), so each mounted
- * row fetches the profiles of its formats lazily, a few at a time, and keeps a
- * downsampled copy for the session. Formats without a GPX, or whose organizer
- * hides the elevation profile, are never requested.
- */
-const CATALOG_PROFILE_CONCURRENCY = 3;
-const catalogProfileCache = new Map<string, TrailProfilePoint[] | null>();
-const catalogProfileRequests = new Map<string, Promise<TrailProfilePoint[] | null>>();
-const catalogProfileQueue: Array<() => void> = [];
-let catalogProfileActive = 0;
-
-function runNextCatalogProfileRequest() {
-  while (catalogProfileActive < CATALOG_PROFILE_CONCURRENCY && catalogProfileQueue.length > 0) {
-    catalogProfileQueue.shift()?.();
-  }
-}
-
-function loadCatalogCourseProfile(raceId: string): Promise<TrailProfilePoint[] | null> {
-  if (catalogProfileCache.has(raceId)) return Promise.resolve(catalogProfileCache.get(raceId) ?? null);
-  const pending = catalogProfileRequests.get(raceId);
-  if (pending) return pending;
-  const request = new Promise<TrailProfilePoint[] | null>((resolve) => {
-    catalogProfileQueue.push(() => {
-      catalogProfileActive += 1;
-      fetchRaceElevationProfile(raceId)
-        .then((points) => downsampleProfile(points, CATALOG_PROFILE_STORED_POINTS))
-        .catch(() => null)
-        .then((profile) => {
-          catalogProfileCache.set(raceId, profile);
-          catalogProfileRequests.delete(raceId);
-          catalogProfileActive -= 1;
-          resolve(profile);
-          runNextCatalogProfileRequest();
-        });
-    });
-  });
-  catalogProfileRequests.set(raceId, request);
-  runNextCatalogProfileRequest();
-  return request;
-}
-
-function canDrawCatalogCourseProfile(race: Race): boolean {
-  if (!race.gpx_storage_path) return false;
-  const details = race.organizer_details;
-  const gpxDisplay = details && typeof details === 'object' ? (details as Record<string, unknown>).gpxDisplay : undefined;
-  return resolveRacebookGpxDisplay(gpxDisplay).showElevationProfile;
-}
-
-function readCachedCatalogProfiles(races: readonly Race[]): Record<string, TrailProfilePoint[]> {
-  const profiles: Record<string, TrailProfilePoint[]> = {};
-  for (const race of races) {
-    const cached = catalogProfileCache.get(race.id);
-    if (cached) profiles[race.id] = cached;
-  }
-  return profiles;
-}
-
-/** Profiles of the event formats, keyed by race id; grows as lazy fetches resolve. */
-function useCatalogCourseProfiles(races: readonly Race[]): Record<string, TrailProfilePoint[]> {
-  const [profiles, setProfiles] = useState(() => readCachedCatalogProfiles(races));
-
-  useEffect(() => {
-    let active = true;
-    const missing = races.filter((race) => canDrawCatalogCourseProfile(race) && !catalogProfileCache.has(race.id));
-    setProfiles((current) => {
-      const next = readCachedCatalogProfiles(races);
-      const same = Object.keys(next).length === Object.keys(current).length
-        && Object.keys(next).every((id) => current[id] === next[id]);
-      return same ? current : next;
-    });
-    for (const race of missing) {
-      void loadCatalogCourseProfile(race.id).then((profile) => {
-        if (!active || !profile) return;
-        setProfiles((current) => (current[race.id] === profile ? current : { ...current, [race.id]: profile }));
-      });
-    }
-    return () => {
-      active = false;
-    };
-  }, [races]);
-
-  return profiles;
-}
-
 type CatalogEventRowProps = Omit<ComponentProps<typeof RaceEventSummaryCard<Race>>, 'event' | 'onToggleFavorite' | 'onOpenFormats'> & {
   event: EventGroup;
   onToggleFavoriteEvent: (eventId: string) => void;
@@ -1631,15 +1540,7 @@ type CatalogEventRowProps = Omit<ComponentProps<typeof RaceEventSummaryCard<Race
 const CatalogEventRow = memo(function CatalogEventRow({ event, onToggleFavoriteEvent, onOpenEvent, ...cardProps }: CatalogEventRowProps) {
   const handleToggle = useCallback(() => onToggleFavoriteEvent(event.id), [event.id, onToggleFavoriteEvent]);
   const handleOpen = useCallback(() => onOpenEvent(event), [event, onOpenEvent]);
-  const profiles = useCatalogCourseProfiles(event.races);
-  const cardEvent = useMemo(() => {
-    if (Object.keys(profiles).length === 0) return event;
-    return {
-      ...event,
-      races: event.races.map((race) => (profiles[race.id] ? { ...race, elevation_profile: profiles[race.id] } : race)),
-    };
-  }, [event, profiles]);
-  return <RaceEventSummaryCard {...cardProps} event={cardEvent} onToggleFavorite={handleToggle} onOpenFormats={handleOpen} />;
+  return <RaceEventSummaryCard {...cardProps} event={event} onToggleFavorite={handleToggle} onOpenFormats={handleOpen} />;
 });
 
 const styles = StyleSheet.create({
