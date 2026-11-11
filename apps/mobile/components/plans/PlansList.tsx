@@ -20,7 +20,7 @@ import {
   radius,
   spacing
 } from '@pace-yourself/design-system';
-import { AccordionHeader, AccordionTrail } from '../themed/AccordionHeader';
+import { AccordionHeader } from '../themed/AccordionHeader';
 import { ActionButton } from '../themed/ActionButton';
 import { Button } from '../themed/Button';
 import { Card } from '../themed/Card';
@@ -258,8 +258,9 @@ export const PlansList = memo(function PlansList({
           const planEventName = section.pastEventNames?.[item.id] ?? section.eventName;
           const startsPastEvent = section.pastEventStartIds?.includes(item.id) === true;
 
+          // Only the borne header marks the event: cards keep the full width (no trail line).
           return (
-            <AccordionTrail>
+            <View>
               {startsPastEvent ? (
                 <Heading numberOfLines={1} variant="h3" style={styles.pastEventTitle}>
                   {planEventName}
@@ -302,7 +303,7 @@ export const PlansList = memo(function PlansList({
                 shareButtonLabel={shareButtonLabel}
                 startButtonLabel={startButtonLabel}
               />
-            </AccordionTrail>
+            </View>
           );
         }}
         renderSectionHeader={({ section }) => {
@@ -567,15 +568,62 @@ function PlanCard({
             </View>
           </View>
         </TouchableOpacity>
-        <IconAction
-          accessibilityLabel={`${locale === 'fr' ? 'Supprimer le plan' : 'Delete plan'} — ${item.name}`}
-          icon={<Ionicons color={colors.semantic.danger} name="trash-outline" size={18} />}
-          onPress={onDelete}
-          style={styles.cardDeleteButton}
-        />
+        {/*
+          Watch-button column right of the content: delete on top, a 16pt gap
+          against mis-taps, then recap (or edit) and share 8pt apart. Two
+          full-label signs plus two 48pt buttons do not fit one row on a
+          360pt phone, so the signs keep the full width below.
+        */}
+        <View style={styles.cardActionColumn}>
+          <IconAction
+            accessibilityLabel={`${locale === 'fr' ? 'Supprimer le plan' : 'Delete plan'} — ${item.name}`}
+            icon={<Ionicons color={colors.semantic.danger} name="trash-outline" size={18} />}
+            onPress={onDelete}
+          />
+          <View style={styles.cardActionGroup}>
+            {primaryAction !== 'recap' ? (
+              <IconAction
+                accessibilityLabel={`${recapButtonLabel} — ${item.name}`}
+                icon={
+                  <Ionicons
+                    color={isAccessible ? colors.brand.forest : colors.accent.amber}
+                    name={isAccessible ? 'document-text-outline' : 'lock-closed'}
+                    size={18}
+                  />
+                }
+                onPress={isAccessible ? onOpenSummary : onLockedPress}
+              />
+            ) : (
+              <IconAction
+                accessibilityLabel={`${editButtonLabel} — ${item.name}`}
+                icon={
+                  <Ionicons
+                    color={isAccessible ? colors.brand.forest : colors.accent.amber}
+                    name={isAccessible ? 'create-outline' : 'lock-closed'}
+                    size={18}
+                  />
+                }
+                onPress={isAccessible ? onOpenMain : onLockedPress}
+              />
+            )}
+            <IconAction
+              accessibilityLabel={`${shareButtonLabel} — ${item.name}`}
+              accessibilityState={{ busy: isSharing }}
+              disabled={isSharing}
+              icon={
+                <Ionicons
+                  color={colors.brand.forest}
+                  name={isSharing ? 'hourglass-outline' : 'share-social-outline'}
+                  size={18}
+                />
+              }
+              onPress={isAccessible ? onShare : onLockedPress}
+            />
+          </View>
+        </View>
       </View>
 
-      {/* Signs lead elsewhere (RaceBook, plan); recap/share stay small watch buttons on their own row. */}
+      {/* Signs lead elsewhere (RaceBook, plan) and share the full card width. */}
       <View style={styles.cardSigns}>
         {leadsWithRacebook ? (
           <TrailSignButton
@@ -598,46 +646,6 @@ function PlanCard({
           style={styles.cardSign}
           variant={leadsWithRacebook ? 'soft' : 'solid'}
           variationKey={`${planKey}|plan`}
-        />
-      </View>
-      <View style={styles.cardActions}>
-        {primaryAction !== 'recap' ? (
-          <IconAction
-            accessibilityLabel={`${recapButtonLabel} — ${item.name}`}
-            icon={
-              <Ionicons
-                color={isAccessible ? colors.brand.forest : colors.accent.amber}
-                name={isAccessible ? 'document-text-outline' : 'lock-closed'}
-                size={18}
-              />
-            }
-            onPress={isAccessible ? onOpenSummary : onLockedPress}
-          />
-        ) : (
-          <IconAction
-            accessibilityLabel={`${editButtonLabel} — ${item.name}`}
-            icon={
-              <Ionicons
-                color={isAccessible ? colors.brand.forest : colors.accent.amber}
-                name={isAccessible ? 'create-outline' : 'lock-closed'}
-                size={18}
-              />
-            }
-            onPress={isAccessible ? onOpenMain : onLockedPress}
-          />
-        )}
-        <IconAction
-          accessibilityLabel={`${shareButtonLabel} — ${item.name}`}
-          accessibilityState={{ busy: isSharing }}
-          disabled={isSharing}
-          icon={
-            <Ionicons
-              color={colors.brand.forest}
-              name={isSharing ? 'hourglass-outline' : 'share-social-outline'}
-              size={18}
-            />
-          }
-          onPress={isAccessible ? onShare : onLockedPress}
         />
       </View>
     </Card>
@@ -680,11 +688,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing[2],
     marginLeft: 0,
   },
-  cardDeleteButton: {
-    position: 'absolute',
-    right: spacing[1],
-    top: spacing[1],
-  },
   cardActive: {
     borderColor: colors.border.brand,
   },
@@ -692,13 +695,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardMainArea: {
-    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  /** 48pt delete / recap / share watch buttons stacked on the right edge. */
+  cardActionColumn: {
+    alignItems: 'center',
+    paddingRight: spacing[1],
+    paddingTop: spacing[1],
+  },
+  cardActionGroup: {
+    marginTop: spacing[4],
+    gap: spacing[2],
   },
   cardContent: {
     flex: 1,
     justifyContent: 'center',
     paddingLeft: spacing[4],
-    paddingRight: 52,
+    paddingRight: spacing[2],
     paddingVertical: spacing[3],
   },
   planTitleRow: {
@@ -756,20 +770,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing[2],
     paddingHorizontal: spacing[3],
-    paddingBottom: spacing[2],
+    paddingTop: spacing[1],
+    paddingBottom: spacing[3],
   },
   /** Two full-label signs share the row (~163pt each on a 390pt phone). */
   cardSign: {
     flex: 1,
     minWidth: 0,
-  },
-  cardActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: spacing[2],
-    paddingHorizontal: spacing[3],
-    paddingBottom: spacing[3],
   },
   modalWrapper: {
     flex: 1,

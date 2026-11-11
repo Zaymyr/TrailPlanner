@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildCatalogProfileLayers, downsampleProfile } from './catalogCourseProfiles';
+import { buildCatalogProfileLayers, downsampleProfile, smoothValues } from './catalogCourseProfiles';
 
 const climb = (lengthKm: number, low: number, high: number) => [
   { distanceKm: 0, elevationM: low },
@@ -34,7 +34,7 @@ describe('downsampleProfile', () => {
 });
 
 describe('buildCatalogProfileLayers', () => {
-  it('orders longest first and scales widths on a shared distance axis', () => {
+  it('orders longest first and stretches every format across the width', () => {
     const layers = buildCatalogProfileLayers(
       [
         { key: 'short', profile: climb(20, 500, 900) },
@@ -46,7 +46,7 @@ describe('buildCatalogProfileLayers', () => {
     expect(layers.map((layer) => layer.key)).toEqual(['long', 'short']);
     expect(layers.map((layer) => layer.rank)).toEqual([0, 1]);
     expect(layers[0].widthRatio).toBe(1);
-    expect(layers[1].widthRatio).toBeCloseTo(0.25);
+    expect(layers[1].widthRatio).toBe(1);
   });
 
   it('normalises every format on one shared elevation range', () => {
@@ -57,9 +57,10 @@ describe('buildCatalogProfileLayers', () => {
       ],
       3,
     );
-    expect(Math.max(...long.values)).toBe(1);
-    expect(Math.min(...long.values)).toBe(0);
-    expect(Math.max(...short.values)).toBeCloseTo(0.5);
+    // Shared range: the long climb peaks at 1, the short one at 0.5, before smoothing.
+    expect(long.values[0]).toBe(0);
+    expect(long.values[1]).toBeCloseTo(1 / 3);
+    expect(short.values[1]).toBeCloseTo(0.5 / 3);
   });
 
   it('returns no layer without usable profiles and caps the layer count', () => {
@@ -74,5 +75,11 @@ describe('buildCatalogProfileLayers', () => {
       { key: 'flat', profile: [{ distanceKm: 0, elevationM: 10 }, { distanceKm: 5, elevationM: 10 }] },
     ], 4);
     expect(layer.values).toEqual([0.5, 0.5, 0.5, 0.5]);
+  });
+
+  it('smooths lines while keeping their ends and straight slopes', () => {
+    const wavy = smoothValues([0, 1, 0, 1, 0]);
+    [0, 1 / 3, 0.4, 1 / 3, 0].forEach((value, index) => expect(wavy[index]).toBeCloseTo(value));
+    smoothValues([0, 1, 2, 3, 4]).forEach((value, index) => expect(value).toBeCloseTo(index));
   });
 });

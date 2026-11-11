@@ -706,6 +706,8 @@ Sheets and modals use the shared `SheetHeader` (dotted trail handle, slender bla
 
 RaceBook access transport rows are accordions with an expandable trail; the `racebook access detail opened` event is unchanged.
 
+Catalog race cards stretch every format's profile across the full strip and smooth it (`smoothValues`), so the overlaid lines read as a signature of the event; the favourite heart sits on the title line.
+
 ## Related Docs
 
 - [race_event_claims](../02-database/tables/race-event-claims.md)

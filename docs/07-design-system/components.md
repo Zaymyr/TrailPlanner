@@ -331,15 +331,16 @@ Rule of use: a sign (`TrailSignButton`) means "I go elsewhere", a plate (primary
   state.
 - Trail cards: race cards end with a 34-point elevation strip
   (`CardProfileStrip`; with `layers` from `buildCatalogProfileLayers` it
-  overlays up to five formats longest first on a shared distance axis and
-  elevation range, in sober map inks — forest, blue-grey, sign-post brown,
+  overlays up to five formats longest first, each stretched across the full
+  width and smoothed, on a shared elevation range, in sober map inks — forest, blue-grey, sign-post brown,
   ochre, stone — thin strokes, light fill only under the longest; brand ridge
   when no layer exists);
   list rows use a 72x26 `CardMiniProfile` beside a `StatusPill`. Mes courses
   plan cards lead with two signs (Livret coureur solid, plan action soft, keyed
   by plan id), then watch buttons; their wristband is Brouillon (neutral), En
-  cours (info) or Prêt (success) from `computePlanReadiness`. The favourite
-  is a forest `HeartMark` (filled = favourite, never red) in a 44-point
+  cours (info) or Prêt (success) from `computePlanReadiness`. « Voir les
+  distances » on race cards is a soft `TrailSignButton`. The favourite
+  is a forest `HeartMark` on the title line (filled = favourite, never red) in a 44-point
   pressable. Warning banners such as "Dernière minute" carry an orange/white
   `TapeStrip`. The plan invitation shows aid stations as a dashed trail.
   Checklists stamp checked rows with `StampMark` (rotated -10 to -4° per item,

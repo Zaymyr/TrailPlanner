@@ -278,6 +278,8 @@ Section cards are `Card`s with a stable `variationKey`; status badges and counte
 
 New screens use `SheetHeader` for every sheet or modal header and `AccordionSection` for collapsible groups, never hand-rolled handle / title / chevron rows.
 
+In Mes courses, event groups show only the borne header (no trail line), plan cards use the full width, and each card has a right-hand column of watch buttons (delete, a 16-point gap, then recap/edit and share) beside the title, status and insights, with the two full-label signs below.
+
 ## Related Docs
 
 Mobile RaceBook entry points must pass preview selection plus publication/organizer access through `canShowRacebook`; screens must not recreate those gates locally.

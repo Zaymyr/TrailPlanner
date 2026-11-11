@@ -1,7 +1,8 @@
 /**
  * Pure helpers behind the catalog race-card profile strip: every format of an
- * event is drawn as its own thin line, overlaid on one shared distance axis
- * (shorter formats draw shorter lines) and one shared elevation range.
+ * event is drawn as its own smoothed line stretched across the full width and
+ * overlaid on one shared elevation range, so the stack reads as a signature of
+ * the event rather than a distance chart.
  * Rendering lives in `components/themed/trail/CardProfile`.
  */
 
@@ -13,6 +14,9 @@ export const CATALOG_PROFILE_STORED_POINTS = 48;
 export const CATALOG_PROFILE_DRAWN_SAMPLES = 32;
 /** Above this many formats the strip gets noisy; the shortest ones are dropped. */
 export const CATALOG_PROFILE_MAX_LAYERS = 5;
+
+/** Neighbours averaged on each side when smoothing a drawn line. */
+export const CATALOG_PROFILE_SMOOTHING_RADIUS = 2;
 
 /** Elevation spans below this are rendered as a calm, flat line. */
 const FLAT_ELEVATION_SPAN_M = 1;
@@ -67,15 +71,28 @@ export type CatalogProfileLayer = {
   key: string;
   /** Rank by length, 0 = longest format (drawn first, behind the others). */
   rank: number;
-  /** Width of this format on the shared axis, 0..1 of the longest one. */
+  /** Always 1: every format is stretched across the full strip. */
   widthRatio: number;
   /** Elevations normalised to the shared range of all formats (1 = highest). */
   values: number[];
 };
 
 /**
- * Builds the overlaid layers: longest first, each scaled on the shared
- * distance axis and the shared elevation range. Empty when no format has a
+ * Centred moving average whose window shrinks near the ends, so the first and
+ * last values (and any straight slope) are kept exactly.
+ */
+export function smoothValues(values: readonly number[], radius = CATALOG_PROFILE_SMOOTHING_RADIUS): number[] {
+  return values.map((_, index) => {
+    const span = Math.min(radius, index, values.length - 1 - index);
+    let sum = 0;
+    for (let offset = -span; offset <= span; offset += 1) sum += values[index + offset];
+    return sum / (span * 2 + 1);
+  });
+}
+
+/**
+ * Builds the overlaid layers: longest first, each stretched across the full
+ * width, smoothed, and scaled on the shared elevation range. Empty when no format has a
  * usable profile (the strip then falls back to the brand ridge).
  */
 export function buildCatalogProfileLayers(
@@ -91,7 +108,6 @@ export function buildCatalogProfileLayers(
     .slice(0, Math.max(0, maxLayers));
   if (sampled.length === 0) return [];
 
-  const longest = sampled[0].spanKm;
   let min = Infinity;
   let max = -Infinity;
   for (const entry of sampled) {
@@ -105,7 +121,7 @@ export function buildCatalogProfileLayers(
   return sampled.map((entry, rank) => ({
     key: entry.key,
     rank,
-    widthRatio: longest > 0 ? Math.min(1, entry.spanKm / longest) : 1,
-    values: entry.points.map((point) => (range < FLAT_ELEVATION_SPAN_M ? 0.5 : (point.elevationM - min) / range)),
+    widthRatio: 1,
+    values: smoothValues(entry.points.map((point) => (range < FLAT_ELEVATION_SPAN_M ? 0.5 : (point.elevationM - min) / range))),
   }));
 }

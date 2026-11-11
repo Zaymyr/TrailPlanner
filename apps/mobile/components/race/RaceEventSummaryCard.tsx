@@ -4,6 +4,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Cote } from '../themed/Cote';
 import { StatusPill } from '../themed/StatusPill';
 import { Text } from '../themed/Text';
+import { TrailSignButton } from '../themed/TrailSignButton';
 import { CardProfileStrip } from '../themed/trail/CardProfile';
 import { HeartMark } from '../themed/trail/HeartMark';
 import { Colors } from '../../constants/colors';
@@ -194,6 +195,24 @@ function RaceEventSummaryCardBase<T extends RaceEventSummaryRace>({
             {hasNewUpdate ? (
               <StatusPill label="NEW" tone="brand" style={styles.newBadge} />
             ) : null}
+            {/* Heart sits on the title line; negative margins keep its 44pt target without growing the row. */}
+            {onToggleFavorite ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={displayedFavorite ? unfavoriteLabel : favoriteLabel}
+                accessibilityState={{ selected: displayedFavorite }}
+                hitSlop={6}
+                onPress={(pressEvent) => {
+                  pressEvent.stopPropagation();
+                  handleFavoritePress();
+                }}
+                style={[styles.favoriteButton, displayedFavorite && styles.favoriteButtonActive]}
+              >
+                <Animated.View style={{ transform: [{ scale: favoriteScale }] }}>
+                  <HeartMark filled={displayedFavorite} size={22} />
+                </Animated.View>
+              </Pressable>
+            ) : null}
           </View>
           {racebookAvailableLabel ? (
             <View style={styles.racebookBadge} testID="race-event-racebook-badge">
@@ -208,33 +227,23 @@ function RaceEventSummaryCardBase<T extends RaceEventSummaryRace>({
             </View>
           ) : null}
           </View>
-          {onToggleFavorite ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={displayedFavorite ? unfavoriteLabel : favoriteLabel}
-              accessibilityState={{ selected: displayedFavorite }}
-              hitSlop={6}
-              onPress={(pressEvent) => {
-                pressEvent.stopPropagation();
-                handleFavoritePress();
-              }}
-              style={[styles.favoriteButton, displayedFavorite && styles.favoriteButtonActive]}
-            >
-              <Animated.View style={{ transform: [{ scale: favoriteScale }] }}>
-                <HeartMark filled={displayedFavorite} size={22} />
-              </Animated.View>
-            </Pressable>
-          ) : null}
         </View>
 
       <View>
         <View style={styles.summaryRow}>
           <Cote accessibilityLabel={formatsLabel} size="sm" tone="primary" unit={formatsCote.unit} value={formatsCote.value} />
           {distanceRange ? <Cote size="sm" tone="primary" value={distanceRange} /> : null}
-          <View style={styles.primaryAction}>
-            <Text style={styles.primaryActionText}>{viewFormatsLabel}</Text>
-            <Ionicons color={Colors.brandPrimary} name="chevron-forward" size={16} />
-          </View>
+          {/* Opening the formats goes elsewhere: a direction sign, not a text link. */}
+          <TrailSignButton
+            label={viewFormatsLabel}
+            onPress={(pressEvent) => {
+              pressEvent.stopPropagation();
+              onOpenFormats();
+            }}
+            style={styles.primaryAction}
+            variant="soft"
+            variationKey={String(event.id)}
+          />
         </View>
 
         {primaryRace && (event.races.length === 1 || showChooseFormatHint) ? (
@@ -289,7 +298,7 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
   nameRow: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     flexDirection: 'row',
     gap: 8,
   },
@@ -331,6 +340,9 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   favoriteButton: {
+    marginLeft: 'auto',
+    marginVertical: -10,
+    marginRight: -10,
     width: 44,
     height: 44,
     borderRadius: 22,
@@ -355,17 +367,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   primaryAction: {
-    minHeight: 28,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 4,
     marginLeft: 'auto',
-  },
-  primaryActionText: {
-    color: Colors.brandPrimary,
-    fontSize: 14,
-    fontWeight: '700',
   },
 });
 

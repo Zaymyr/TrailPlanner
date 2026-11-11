@@ -159,6 +159,8 @@ Status flags read from a new table (for example an unread marker) are shown with
 
 Lists grouped by a new table's parent rows are rendered as `AccordionSection`s whose borne shows the child count.
 
+Decorative previews derived from a new table (such as profile strips) are normalised client-side for presentation; do not store presentation-only shapes in the schema.
+
 ## Related Docs
 
 The `race_supporter_points` addition follows this workflow: cascade ownership by `races`, explicit client/service grants, a completeness-filtered SELECT policy, a service-only atomic collection RPC, static SQL checks, and a dedicated table reference document.

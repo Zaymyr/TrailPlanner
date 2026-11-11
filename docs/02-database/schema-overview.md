@@ -427,6 +427,8 @@ The unread organizer-update marker (« NEW ») is a brand `StatusPill` wristband
 
 Sheets and modals use the shared `SheetHeader` (dotted trail handle, slender blaze, title, watch close button) and collapsible groups use `AccordionSection` (km borne with a count or icon, forest trail along the open content); UI only, data and queries unchanged.
 
+Catalog race cards stretch every format's profile across the full strip and smooth it (`smoothValues`), so the overlaid lines read as a signature of the event; the favourite heart sits on the title line.
+
 ## Related Docs
 
 - [Relationships](relationships.md)
