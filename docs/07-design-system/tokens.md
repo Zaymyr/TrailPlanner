@@ -116,11 +116,17 @@ The trail signature tokens live in the same object:
 - `ridge`: stroke width, divider/loader/silhouette heights, the resampling
   count for course profiles, and the loader (1.6 s) and celebration (1.1 s)
   durations.
-- `timeline`: the dotted trail rail width, dash and gap.
+- `timeline`: the dotted trail rail width, dash and gap (also used by the
+  `TrailTabs` track).
+- `trailSign`: the 44-point signpost height and its 14-point pointed tip.
+- `trailTabs`: the 44-point tab height, 3-point trail track and tab padding.
+
+The blaze's amber stripe is half a band thick at 0.72 opacity, so the orange
+stays a light accent rather than a third primary color.
 
 Mobile callers continue to apply semantic colors from `Colors`/`colors`; the
-blaze bands reuse existing tokens (olive over forest by default) and add no new
-palette value.
+blaze bands reuse existing tokens (olive, amber and forest by default) and add
+no new palette value.
 
 ## Web Tailwind Bridge
 

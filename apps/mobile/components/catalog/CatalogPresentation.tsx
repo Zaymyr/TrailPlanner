@@ -18,6 +18,8 @@ import { Field } from '../themed/Field';
 import { IconAction } from '../themed/IconAction';
 import { SectionHeading } from '../themed/SectionHeading';
 import { TopoCard } from '../themed/TopoCard';
+import { TrailSignButton } from '../themed/TrailSignButton';
+import { Cote } from '../themed/Cote';
 
 export function CatalogLoadingCard() {
   return (
@@ -43,9 +45,13 @@ export function CatalogLoadingCard() {
  * One format of an event. The RaceBook is the primary (filled) action; the
  * optional personal plan is a secondary (outlined) action.
  */
+type RaceRowCote = { value: string; unit?: string; prefix?: string };
+
 export function CatalogRaceRow({
   title,
   subtitle,
+  cotes,
+  detail,
   isDimmed = false,
   racebookActionLabel,
   racebookActionDimmed = false,
@@ -56,7 +62,12 @@ export function CatalogRaceRow({
   onPlanPress,
 }: {
   title: string;
+  /** Full plain-language summary; also the accessible description. */
   subtitle: string;
+  /** Measurements typeset as map cotes; when given they replace the subtitle line. */
+  cotes?: (RaceRowCote | null)[];
+  /** Remaining non-measurement details shown after the cotes. */
+  detail?: string;
   isDimmed?: boolean;
   racebookActionLabel?: string;
   racebookActionDimmed?: boolean;
@@ -67,26 +78,33 @@ export function CatalogRaceRow({
   onPlanPress?: () => void;
 }) {
   const racebookMuted = racebookActionDimmed || racebookActionDisabled;
+  const visibleCotes = (cotes ?? []).filter((cote): cote is RaceRowCote => cote !== null);
   return (
     <TopoCard style={[styles.formatRow, isDimmed && styles.formatRowDimmed]}>
-      <View style={styles.formatRowContent}>
+      <View accessible accessibilityLabel={`${title}. ${subtitle}`} style={styles.formatRowContent}>
         <Text style={styles.formatTitle}>{title}</Text>
-        <Text style={styles.formatSubtitle}>{subtitle}</Text>
+        {visibleCotes.length > 0 ? (
+          <View style={styles.formatCotes}>
+            {visibleCotes.map((cote) => (
+              <Cote key={`${cote.prefix ?? ''}${cote.value}${cote.unit ?? ''}`} prefix={cote.prefix} size="sm" tone="secondary" unit={cote.unit} value={cote.value} />
+            ))}
+            {detail ? <Text style={styles.formatSubtitle}>{detail}</Text> : null}
+          </View>
+        ) : (
+          <Text style={styles.formatSubtitle}>{subtitle}</Text>
+        )}
       </View>
       <View style={styles.formatActions}>
         {racebookActionLabel && onRacebookPress ? (
-          <ActionButton
-            accessibilityState={{ disabled: racebookActionDisabled }}
+          <TrailSignButton
             disabled={racebookActionDisabled}
-            size="sm"
-            style={[styles.formatRacebookButton, racebookMuted && styles.formatRacebookButtonDimmed]}
+            icon={<Ionicons color={racebookMuted ? Colors.textMuted : Colors.textOnBrand} name="book-outline" size={16} />}
+            label={racebookActionLabel}
+            style={styles.formatRacebookButton}
             onPressIn={onRacebookPressIn}
             onPress={onRacebookPress}
-            textStyle={racebookMuted ? styles.formatRacebookButtonTextDimmed : undefined}
-            variant={racebookMuted ? 'secondary' : 'primary'}
-          >
-            {racebookActionLabel}
-          </ActionButton>
+            variant={racebookMuted ? 'muted' : 'solid'}
+          />
         ) : null}
         {planActionLabel && onPlanPress ? (
           <ActionButton size="sm" variant="secondary" style={styles.formatPlanButton} onPress={onPlanPress}>
@@ -242,10 +260,9 @@ const styles = StyleSheet.create({
   formatRowContent: { flex: 1, gap: 4 },
   formatTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700' },
   formatSubtitle: { color: Colors.textSecondary, fontSize: 13 },
+  formatCotes: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 12, rowGap: 4 },
   formatActions: { flexDirection: 'row', alignItems: 'center', gap: 8, width: '100%' },
   formatRacebookButton: { flex: 3 },
-  formatRacebookButtonDimmed: { borderColor: Colors.border },
-  formatRacebookButtonTextDimmed: { color: Colors.textMuted },
   formatPlanButton: { flex: 2 },
   skeletonHeaderRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   skeletonBadge: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.surfaceSecondary },

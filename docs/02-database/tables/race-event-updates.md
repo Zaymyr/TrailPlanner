@@ -142,6 +142,8 @@ Catalog search clearing, compact no-image cards, past-race plan warnings, and th
 
 Format-sheet polish and brief favorite toasts do not change update targeting, ordering, read tracking, or publication semantics.
 
+Trail signature iteration (2026-11-11): runner presentation only. In-page RaceBook Course, Profile and plan view selectors become trail tabs, map/transport links and the catalog format RaceBook action become signpost buttons, catalog format distance/D+ read as cotes, tab-bar blazes move to the left of the selected icon, the hero contours are lightened and the elevation profile gains a decorative summit flag and iso-line echo. No query, row, payload, navigation target or analytics event changes.
+
 ## Related Docs
 
 Private-demo selection changes only a format's RaceBook entry visibility; it does not publish, delete, or retarget organizer announcements.

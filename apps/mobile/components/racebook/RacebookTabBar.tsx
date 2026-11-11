@@ -30,8 +30,8 @@ export function RacebookTabBar<T extends string>({ tabs, activeTab, onPress }: P
               onPress={() => onPress(tab.key)}
               style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
             >
-              {active ? <TrailBlaze size="sm" style={styles.blaze} /> : null}
               <View style={[styles.iconSurface, active && styles.iconSurfaceActive]}>
+                {active ? <TrailBlaze orientation="vertical" size="sm" style={styles.blaze} /> : null}
                 <Ionicons
                   name={tab.icon}
                   size={24}
@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
   iconSurfaceActive: {
     backgroundColor: Colors.brandSurface,
   },
-  blaze: { position: 'absolute', top: 2 },
+  blaze: { position: 'absolute', right: '100%', marginRight: 4 },
   text: { color: Colors.textMuted, fontSize: 10, lineHeight: 13, fontWeight: '700' },
   textActive: { color: Colors.brandPrimary },
 });

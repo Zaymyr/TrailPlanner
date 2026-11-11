@@ -146,6 +146,8 @@ The catalog format sheet, favorite toast, recap hierarchy, and product-label saf
 
 The separate Decathlon alias migration is likewise not a new-table task: it replaces an existing normalization function and updates only curated rows while preserving current grants and RLS.
 
+Trail signature iteration (2026-11-11): `schema-overview.md` only received a presentation-only note for the mobile catalog; no table, column, policy or migration workflow changed.
+
 ## Related Docs
 
 The `race_supporter_points` addition follows this workflow: cascade ownership by `races`, explicit client/service grants, a completeness-filtered SELECT policy, a service-only atomic collection RPC, static SQL checks, and a dedicated table reference document.

@@ -133,6 +133,8 @@ On 2026-10-30 the owner explicitly authorized applying the three runner migratio
 - Local TypeScript/unit tests do not establish store acceptance or database policy execution. Run the SQL checks in a migrated disposable database before enabling the flag; no local Docker/Postgres runtime was available during initial implementation.
 - Required repository checks are `npm run verify` and the documentation protocol. Do not claim deployment or real-store purchase success from source tests alone.
 
+Trail signature iteration (2026-11-11): runner presentation only. In-page RaceBook Course, Profile and plan view selectors become trail tabs, map/transport links and the catalog format RaceBook action become signpost buttons, catalog format distance/D+ read as cotes, tab-bar blazes move to the left of the selected icon, the hero contours are lightened and the elevation profile gains a decorative summit flag and iso-line echo. No query, row, payload, navigation target or analytics event changes. The Livret/plan switch keeps the same disabled states, routes and purchase gates; only a decorative blaze is added to its active segment.
+
 ## Related Docs
 
 - [Runner Billing Tables](../02-database/tables/runner-billing.md)

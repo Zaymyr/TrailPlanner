@@ -677,6 +677,8 @@ The runner catalog presents organizer RaceBook availability independently from p
 
 Trail signature (2026-11-09): runner RaceBook presentation only. The ravito and supporter timelines use a dotted trail rail, the hero may show faint contours derived from the published course profile (never when `gpxDisplay.showElevationProfile` is off), hero metrics typeset units as map-style cotes, and the course essentials card uses a ridge-line divider. Organizer data stays read-only; publication, module visibility and ownership are unchanged.
 
+Trail signature iteration (2026-11-11): runner presentation only. In-page RaceBook Course, Profile and plan view selectors become trail tabs, map/transport links and the catalog format RaceBook action become signpost buttons, catalog format distance/D+ read as cotes, tab-bar blazes move to the left of the selected icon, the hero contours are lightened and the elevation profile gains a decorative summit flag and iso-line echo. No query, row, payload, navigation target or analytics event changes.
+
 ## Related Docs
 
 - [race_event_claims](../02-database/tables/race-event-claims.md)

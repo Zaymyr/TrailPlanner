@@ -80,8 +80,14 @@ The repository skill `$mobile-ux-ui-auditor` turns this workflow into a dedicate
     spaced capitals); Courses format actions use sentence-case shared
     buttons/fields; Profile tabs are visibly selected beyond color; and the
     Profile save dock matches the same action geometry. Check the global tab
-    bar and the Livret/plan contextual bars place a blaze above the selected
-    icon in addition to the icon surface and color. Plans cards with a stored
+    bar and the Livret/plan contextual bars place a vertical blaze to the left
+    of the selected icon in addition to the icon surface and color; that
+    RaceBook Course, Profile and plan view selectors read as trail tabs (dotted
+    track, solid active leg, blaze, bold label) without labels shifting; that
+    Maps/transport links and catalog RaceBook actions are signposts with a
+    44-point height; and that the RaceBook hero contours do not reduce metric
+    legibility. In the elevation profile, the summit flag and cote must stay
+    inside the chart and never cover the inspection cursor readout. Plans cards with a stored
     profile show the course skyline; RaceBook ravito/supporter timelines use the
     dotted trail rail; the RaceBook hero shows course contours only when the
     organizer publishes the elevation profile. Create a new plan from a catalog
@@ -89,7 +95,7 @@ The repository skill `$mobile-ux-ui-auditor` turns this workflow into a dedicate
     does not replay when returning to the editor. At 130% text, labels must wrap
     or shrink without obscuring actions; pills remain limited to statuses and
     selections.
-18. In Profile, inspect the four-sub-tab segmented scroller at normal and enlarged text sizes. Create both pending-onboarding and unread-notification conditions and confirm that the bottom Profile icon shows one red dot whose screen-reader label announces both. Open Notifications, verify its own unread dot, loading/error/empty/list states, pagination and retry, then confirm a card becomes read only after opening it and the bulk action clears remaining unread dots. Open a push href targeting `/(app)/profile?tab=notifications&notificationId=<uuid>` and confirm the owner-visible card expands and becomes read even when it was outside the first page.
+18. In Profile, inspect the four-sub-tab trail-tab scroller at normal and enlarged text sizes. Create both pending-onboarding and unread-notification conditions and confirm that the bottom Profile icon shows one red dot whose screen-reader label announces both. Open Notifications, verify its own unread dot, loading/error/empty/list states, pagination and retry, then confirm a card becomes read only after opening it and the bulk action clears remaining unread dots. Open a push href targeting `/(app)/profile?tab=notifications&notificationId=<uuid>` and confirm the owner-visible card expands and becomes read even when it was outside the first page.
 
 ## Visual Review Rubric
 

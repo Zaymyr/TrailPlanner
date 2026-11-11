@@ -1448,6 +1448,17 @@ export default function CatalogScreen() {
                     });
                   }}
                   subtitle={`${formatDistance(race.distance_km, locale)} km · ${formatElevation(race.elevation_gain_m, locale)}${startTime ? ` · ${locale === 'fr' ? 'Départ' : 'Start'} ${startTime}` : ''}${race.id === selectedRaceIdParam ? (locale === 'fr' ? ' · Distance concernée' : ' · This distance') : ''}`}
+                  cotes={[
+                    { value: formatDistance(race.distance_km, locale), unit: 'km' },
+                    race.elevation_gain_m === null
+                      ? null
+                      : { prefix: 'D+', value: String(Math.round(race.elevation_gain_m)), unit: 'm' },
+                  ]}
+                  detail={[
+                    race.elevation_gain_m === null ? formatElevation(null, locale) : null,
+                    startTime ? `${locale === 'fr' ? 'Départ' : 'Start'} ${startTime}` : null,
+                    race.id === selectedRaceIdParam ? (locale === 'fr' ? 'Distance concernée' : 'This distance') : null,
+                  ].filter(Boolean).join(' · ') || undefined}
                   planActionLabel={!showPlanAction
                     ? undefined
                     : ownedPlanId

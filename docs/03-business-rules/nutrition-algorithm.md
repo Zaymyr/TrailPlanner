@@ -386,6 +386,8 @@ The recap shows combined carbohydrate/sodium totals and a rounded ten-minute dri
 
 Trail signature (2026-11-09): after a standard plan creation, `plan/new` opens the editor with a one-use `created=1` route parameter that only triggers the summit celebration overlay. It does not change seeding, allocation, persistence or any nutrition calculation.
 
+Trail signature iteration (2026-11-11): runner presentation only. In-page RaceBook Course, Profile and plan view selectors become trail tabs, map/transport links and the catalog format RaceBook action become signpost buttons, catalog format distance/D+ read as cotes, tab-bar blazes move to the left of the selected icon, the hero contours are lightened and the elevation profile gains a decorative summit flag and iso-line echo. No query, row, payload, navigation target or analytics event changes. The plan Ravitos/Allures/Chronologie selector keeps the same view modes; no nutrition calculation changes.
+
 ## Related Docs
 
 - [Products Table](../02-database/tables/products.md)

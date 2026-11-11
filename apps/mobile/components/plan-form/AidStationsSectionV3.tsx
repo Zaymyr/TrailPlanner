@@ -23,7 +23,6 @@ import {
 import {
   AidStationIcon,
   colors,
-  mobileComponents,
   radius,
   shadows,
   spacing
@@ -32,6 +31,7 @@ import { TutorialTarget, type TutorialMeasurableTarget } from '../help/Spotlight
 import { DataText } from '../themed/DataText';
 import { Heading } from '../themed/Heading';
 import { Text, Text as ThemedText } from '../themed/Text';
+import { TrailTabs } from '../themed/TrailTabs';
 import type { GaugeMetric } from './GaugeArc';
 import { GaugesRow } from './GaugesRow';
 import { AidStationCoveragePanel } from './AidStationCoveragePanel';
@@ -205,32 +205,16 @@ export function AidStationsToolbar({
         style={compact ? planDetailStyles.toolbarTabsTargetCompact : undefined}
         targetKey="views"
       >
-        <View accessibilityRole="tablist" style={[styles.toggleRow, planDetailStyles.toolbarTabs, compact && planDetailStyles.toolbarTabsCompact]}>
-          {([
-            ['stations', 'Ravitos'],
-            ['profile', 'Allures'],
-            ['sections', 'Chronologie'],
-          ] as const).map(([key, label]) => (
-            <TouchableOpacity
-              accessibilityLabel={label}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: mode === key }}
-              key={key}
-              style={[styles.toggleBtn, compact && planDetailStyles.toolbarTabCompact, mode === key && styles.toggleBtnActive]}
-              onPress={() => onSelectMode(key)}
-              activeOpacity={0.8}
-            >
-              <Text
-                adjustsFontSizeToFit={compact}
-                minimumFontScale={0.82}
-                numberOfLines={1}
-                style={[styles.toggleBtnText, compact && planDetailStyles.toolbarTabTextCompact, mode === key && styles.toggleBtnTextActive]}
-              >
-                {label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <TrailTabs
+          activeKey={mode}
+          onChange={onSelectMode}
+          stretch
+          tabs={[
+            { key: 'stations', label: 'Ravitos' },
+            { key: 'profile', label: 'Allures' },
+            { key: 'sections', label: 'Chronologie' },
+          ]}
+        />
       </TutorialTarget>
     </View>
   );
@@ -1376,27 +1360,9 @@ const planDetailStyles = StyleSheet.create({
   hiddenToolbar: {
     opacity: 0,
   },
-  toolbarTabs: {
-    marginBottom: 0,
-  },
   toolbarTabsTargetCompact: {
     flex: 1,
     minWidth: 0,
-  },
-  toolbarTabsCompact: {
-    flex: 1,
-    minWidth: 0,
-    padding: 3,
-  },
-  toolbarTabCompact: {
-    minHeight: mobileComponents.segment.minHeight,
-    justifyContent: 'center',
-    paddingHorizontal: 3,
-    paddingVertical: 7,
-  },
-  toolbarTabTextCompact: {
-    fontSize: 11,
-    lineHeight: 14,
   },
   nutritionPreparation: {
     gap: spacing[2],

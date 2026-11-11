@@ -32,6 +32,7 @@ import { DataText } from '../../../../components/themed/DataText';
 import { Heading } from '../../../../components/themed/Heading';
 import { Text } from '../../../../components/themed/Text';
 import { RidgeDivider } from '../../../../components/themed/Ridge';
+import { TrailTabs } from '../../../../components/themed/TrailTabs';
 import { OnboardingGuideCard } from '../../../../components/onboarding/OnboardingGuideCard';
 import {
   RacebookLoadingScreen as SponsorLoadingScreen,
@@ -2185,31 +2186,13 @@ export default function RaceRacebookScreen() {
 
             {activeTab === 'course' ? (
               <>
-                <View style={styles.courseTabsWrap} accessibilityRole="tablist">
-                  <ScrollView
-                    contentContainerStyle={styles.courseTabsContent}
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                  >
-                    {courseTabs.map((tab) => {
-                      const active = activeCourseTab === tab.key;
-
-                      return (
-                        <Pressable
-                          key={tab.key}
-                          accessibilityRole="tab"
-                          accessibilityState={{ selected: active }}
-                          onPress={() => handleCourseTabPress(tab.key)}
-                          style={[styles.courseTabButton, active ? styles.courseTabButtonActive : null]}
-                        >
-                          <Text style={[styles.courseTabButtonText, active ? styles.courseTabButtonTextActive : null]}>
-                            {tab.label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </ScrollView>
-                </View>
+                <TrailTabs
+                  activeKey={activeCourseTab}
+                  onChange={handleCourseTabPress}
+                  scrollable
+                  style={styles.courseTabsWrap}
+                  tabs={courseTabs.map((tab) => ({ key: tab.key, label: tab.label }))}
+                />
 
                 <RacebookPersonalPlanCard
                   hasPlan={Boolean(linkedPlanId)}
@@ -2794,38 +2777,6 @@ const styles = StyleSheet.create({
   },
   courseTabsWrap: {
     alignSelf: 'stretch',
-    borderRadius: 14,
-    backgroundColor: Colors.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    overflow: 'hidden',
-  },
-  courseTabsContent: {
-    flexGrow: 1,
-    padding: 4,
-    gap: 4,
-  },
-  courseTabButton: {
-    flexGrow: 1,
-    minWidth: 104,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 8,
-    borderRadius: 10,
-  },
-  courseTabButtonActive: {
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-  },
-  courseTabButtonText: {
-    color: Colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  courseTabButtonTextActive: {
-    color: Colors.brandPrimary,
   },
   courseEssentials: {
     overflow: 'hidden',

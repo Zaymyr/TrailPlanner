@@ -80,6 +80,8 @@ Catalog search clearing, compact no-image cards, past-race plan warnings, and op
 
 Lot 8 changes only format-sheet presentation and favorite feedback. Opening a sheet still marks the same visible organizer updates through the existing owner-scoped read rows.
 
+Trail signature iteration (2026-11-11): runner presentation only. In-page RaceBook Course, Profile and plan view selectors become trail tabs, map/transport links and the catalog format RaceBook action become signpost buttons, catalog format distance/D+ read as cotes, tab-bar blazes move to the left of the selected icon, the hero contours are lightened and the elevation profile gains a decorative summit flag and iso-line echo. No query, row, payload, navigation target or analytics event changes.
+
 ## Related Docs
 
 Private-demo format selection does not create or clear announcement read receipts.

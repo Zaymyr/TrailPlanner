@@ -300,11 +300,11 @@ export default function AppLayout() {
   );
 }
 
-/** Active root tab carries the trail blaze above its icon. */
+/** Active root tab carries a vertical trail blaze to the left of its icon. */
 function TabIconWithBlaze({ focused, children }: { focused: boolean; children: ReactNode }) {
   return (
     <View style={styles.tabIconWrap}>
-      {focused ? <TrailBlaze size="sm" style={styles.tabBlaze} /> : null}
+      {focused ? <TrailBlaze orientation="vertical" size="sm" style={styles.tabBlaze} /> : null}
       {children}
     </View>
   );
@@ -312,7 +312,7 @@ function TabIconWithBlaze({ focused, children }: { focused: boolean; children: R
 
 const styles = StyleSheet.create({
   tabIconWrap: { alignItems: 'center', justifyContent: 'center' },
-  tabBlaze: { position: 'absolute', top: -11 },
+  tabBlaze: { position: 'absolute', right: '100%', marginRight: 5 },
   tabBarLabel: {
     width: '100%',
     fontSize: 12,

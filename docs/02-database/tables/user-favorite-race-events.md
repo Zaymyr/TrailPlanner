@@ -144,6 +144,8 @@ where event_id = '<event-id>';
 
 Favorite writes retain the existing optimistic persistence and rollback behavior. Successful add/remove operations now show a brief shared toast; network failure rolls back and exposes a retry action without changing the table contract.
 
+Trail signature iteration (2026-11-11): runner presentation only. In-page RaceBook Course, Profile and plan view selectors become trail tabs, map/transport links and the catalog format RaceBook action become signpost buttons, catalog format distance/D+ read as cotes, tab-bar blazes move to the left of the selected icon, the hero contours are lightened and the elevation profile gains a decorative summit flag and iso-line echo. No query, row, payload, navigation target or analytics event changes.
+
 ## Related Docs
 
 Private-demo format selection does not affect event favorites or catalog membership; it gates only the RaceBook action for that format.

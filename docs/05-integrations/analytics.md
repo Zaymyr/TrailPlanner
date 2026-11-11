@@ -410,6 +410,8 @@ Favorite toasts and decorative haptics remain presentation-only. Existing succes
 
 Trail signature (2026-11-09): the visual signature (trail blazes, cotes, ridge loader/divider, course skyline, dotted ravito rail, RaceBook hero contours) and the one-off summit celebration shown when a new plan opens emit no analytics event and change no existing event payload; the celebration's route parameter is not tracked.
 
+Trail signature iteration (2026-11-11): runner presentation only. In-page RaceBook Course, Profile and plan view selectors become trail tabs, map/transport links and the catalog format RaceBook action become signpost buttons, catalog format distance/D+ read as cotes, tab-bar blazes move to the left of the selected icon, the hero contours are lightened and the elevation profile gains a decorative summit flag and iso-line echo. No query, row, payload, navigation target or analytics event changes. Map opens still emit the existing map-open tracking through the same handlers.
+
 ## Related Docs
 
 Selecting or masking a private-demo format is configuration, not a runner RaceBook open or publication analytics event.

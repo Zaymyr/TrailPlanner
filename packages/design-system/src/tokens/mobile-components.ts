@@ -48,6 +48,17 @@ export const mobileComponents = {
     loaderDurationMs: 1600,
     celebrationDurationMs: 1100,
   },
+  /** Direction-signpost action: 44-point body with a pointed trailing tip. */
+  trailSign: {
+    height: 44,
+    tipWidth: 14,
+  },
+  /** Trail-style in-page tabs: labels on a dotted path, active leg solid. */
+  trailTabs: {
+    minHeight: 44,
+    trackHeight: 3,
+    paddingHorizontal: spacing[3],
+  },
   /** Dotted trail line linking timeline steps. */
   timeline: {
     railWidth: 2,

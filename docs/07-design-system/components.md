@@ -24,6 +24,8 @@ related_files:
   - apps/mobile/components/themed/Cote.tsx
   - apps/mobile/components/themed/Ridge.tsx
   - apps/mobile/components/themed/TrailRail.tsx
+  - apps/mobile/components/themed/TrailSignButton.tsx
+  - apps/mobile/components/themed/TrailTabs.tsx
   - apps/mobile/components/themed/SummitCelebration.tsx
   - apps/mobile/lib/trailSignature.ts
   - apps/mobile/hooks/useReduceMotion.ts
@@ -142,13 +144,28 @@ The Pace Yourself trail signature is expressed through a small vocabulary of
 terrain objects. Every element is structural (shape/motif) rather than a
 color, so it survives organizer RaceBook colors:
 
-- `TrailBlaze` is the product waymark: two painted bands, light over strong
-  (olive over forest by default; info, warning, danger, muted and inverse tones;
-  explicit `bandColors` for themed surfaces). It is the product's own blaze,
-  never the red/white GR waymark. It marks the active root tab and the active
-  RaceBook/plan contextual tab, section starts (`SectionHeading`), the leading
-  edge of signature/featured cards, toasts, the error state and the summit flag.
-  It is decorative and hidden from assistive technologies.
+- `TrailBlaze` is the product waymark: a light band, a thin translucent amber
+  stripe (the brand's light warm touch) and a strong band — olive, amber,
+  forest by default. Semantic tones (info, warning, danger, muted) and explicit
+  `bandColors` keep two bands; `inverse` keeps the amber stripe. It is the
+  product's own blaze, never the red/white GR waymark. Horizontal blazes mark
+  section starts (`SectionHeading`), the leading edge of signature/featured
+  cards, toasts, the error state and the summit flags; the `vertical`
+  orientation sits to the left of the selected icon in the global and
+  RaceBook/plan tab bars, of the active `TrailTabs` label and of the active
+  Livret/plan switch segment. It is decorative and hidden from assistive
+  technologies.
+- `TrailTabs` is the in-page tab selector (RaceBook Course sub-tabs, Profile
+  sub-tabs, the plan Ravitos/Allures/Chronologie view): labels sit on a dotted
+  trail line, the active leg turns solid and animates to the next tab (static
+  under reduced motion), and the active label is bold, colored and preceded by
+  a vertical blaze. Inactive tabs reserve the blaze space so labels never shift.
+  It supports a horizontally scrollable row and an evenly stretched row.
+- `TrailSignButton` is the "go somewhere" action shaped like a trail direction
+  signpost: rounded leading edge, pointed SVG tip, 44-point height. Variants are
+  `solid` (forest), `soft` (brand surface) and `muted`. It carries RaceBook map,
+  general-map and transport links and the RaceBook action of each catalog
+  format; it is never used for form submission or destructive actions.
 - `Cote` typesets a measurement like an elevation mark on a topographic map:
   bold JetBrains Mono figure and its unit in spaced capitals (`42,3 KM`,
   `D+ 1 240 M`). It accepts a raw value plus unit or an already formatted label,
@@ -175,7 +192,7 @@ color, so it survives organizer RaceBook colors:
   Signature and featured cards carry a small trail blaze on their leading edge
   (tone follows the surface, or `blazeTone`); featured cards add the faint
   contour pattern. The legacy shared `Card` delegates to the signature variant.
-- `ChoiceChip` is interactive selection, while `StatusPill` is non-interactive
+- `ChoiceChip` is interactive filter selection, while `StatusPill` is non-interactive
   status (for example the live badge of an active plan). A selected chip without
   an icon gains a diamond waypoint; a status without an icon gains a small
   semantic dot.
@@ -202,8 +219,9 @@ radius, icon actions use the 12-point control radius, and scrolling content begi
 below the expanded height.
 
 Shared React Native geometry comes from `mobileComponents`. Filter chips use the
-same selected/unselected structure across Courses and Nutrition; Profile and plan
-workspace selectors use the same segmented-control geometry; input shells keep
+same selected/unselected structure across Courses and Nutrition; Profile, RaceBook Course
+and plan view selectors use `TrailTabs` while the attached Livret/plan header
+switch keeps its segmented pill; input shells keep
 one surface/border/radius with units or clear actions inside; modal dismiss actions
 use a labelled 44-point target; primary and secondary buttons share the same
 symmetric 12-point family. Screen-specific
@@ -241,6 +259,13 @@ components own copy, state, color roles and behavior.
   milestones into a determinate ridge or percentage.
 - `Cote` is for measurements; counts or statuses containing words still use the
   normal themed `Text`.
+- The RaceBook elevation profile keeps its measured, unsmoothed curve. Its
+  signature layer is decorative only: a faint iso-line echo offset below the
+  curve, a blaze flag on the summit carrying the summit elevation as a cote (it
+  replaces the redundant highest graduation label), mono map-style graduations
+  and cote metric tiles. Never smooth or reshape the measured curve for style.
+- Keep RaceBook hero contours faint (opacity 0.05): they sit behind the identity
+  metrics and must never compete with their legibility.
 - Do not make routine success toasts persistent. A longer or unbounded duration is for notices whose action must remain reachable, and the caller must still provide a clear dismissal path or bounded lifecycle.
 
 ## Related Docs

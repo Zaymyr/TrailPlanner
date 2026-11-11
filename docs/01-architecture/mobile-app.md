@@ -117,6 +117,8 @@ related_files:
   - apps/mobile/components/themed/Cote.tsx
   - apps/mobile/components/themed/Ridge.tsx
   - apps/mobile/components/themed/TrailRail.tsx
+  - apps/mobile/components/themed/TrailSignButton.tsx
+  - apps/mobile/components/themed/TrailTabs.tsx
   - apps/mobile/components/themed/SummitCelebration.tsx
   - apps/mobile/lib/trailSignature.ts
   - apps/mobile/lib/trailSignature.test.ts
@@ -392,7 +394,7 @@ The initial chooser is skippable and offers independent Plan and RaceBook tours.
 The shared onboarding shell, initial tour chooser, overview, workflow explanation, and completion summary are presentational components in `apps/mobile/components/onboarding/OnboardingIntroSteps.tsx`. Personal details, performance inputs, and nutrition targets live in `OnboardingProfileSteps.tsx`. Course search, event-format selection, and its format sheet live in `OnboardingRaceSelectionStep.tsx`; searchable brand/product selection lives in `OnboardingNutritionProductsStep.tsx`, with each product row delegated to `OnboardingProductChoice.tsx`. The route remains responsible for state, validation, loading, persistence, authentication callbacks, analytics, and navigation; extracted onboarding components must stay free of session and Supabase side effects.
 Profile Settings exposes both tours with their statuses. Its tab icon shows a notification dot until both are completed; skipped tours intentionally keep the dot visible. Replaying a completed tour does not downgrade its durable status.
 On cold start and after authentication, sessions that do not require onboarding open on the `catalog` Courses tab by default. The tab shell in `apps/mobile/app/(app)/_layout.tsx` also registers hidden detail routes such as `race/[id]/racebook` explicitly so Expo Router does not surface them as bottom-tab destinations while keeping normal pushed navigation behavior. The tabs use history-based back behavior for ordinary hidden detail routes. RaceBook is the deliberate exception: its hero return action and Android hardware back replace the active route with `catalog`, or `plans` for the explicit plan-workspace origin, so opening several formats can never reveal a previously viewed RaceBook.
-The visible bottom tab bar orders its primary destinations as Courses, Mes courses/My races, then Profile; Nutrition is a hidden route. The Mes courses tab and its root header consume the same localized `plans.title` value. It derives its bottom padding and total height from `react-native-safe-area-context`, keeping all three actions above Android's three-button navigation area while preserving the existing minimum spacing on gesture-navigation devices and iOS. While a loaded RaceBook is focused, this global bar is replaced by an inset-aware contextual bar for its five sections without a duplicated exit; leaving the route restores the global navigation. The contextual bar deliberately mirrors the global bar's sand background, 60-point content height, filled Ionicons and Pace Yourself forest selected state; its selected icon additionally sits on the 10-point data surface under a trail blaze, so selection is not color-only. Organizer branding never recolors this native navigation surface.
+The visible bottom tab bar orders its primary destinations as Courses, Mes courses/My races, then Profile; Nutrition is a hidden route. The Mes courses tab and its root header consume the same localized `plans.title` value. It derives its bottom padding and total height from `react-native-safe-area-context`, keeping all three actions above Android's three-button navigation area while preserving the existing minimum spacing on gesture-navigation devices and iOS. While a loaded RaceBook is focused, this global bar is replaced by an inset-aware contextual bar for its five sections without a duplicated exit; leaving the route restores the global navigation. The contextual bar deliberately mirrors the global bar's sand background, 60-point content height, filled Ionicons and Pace Yourself forest selected state; its selected icon additionally sits on the 10-point data surface with a vertical trail blaze to its left, so selection is not color-only. Organizer branding never recolors this native navigation surface.
 The login route follows the signup scroll/keyboard-avoidance pattern so its password, account-creation, and platform sign-in actions remain reachable on compact iPhones and at enlarged text sizes. Profile keeps its runner onboarding shortcuts in Settings rather than inside personal identity fields, and its save action is enabled only while persisted profile fields have changed. Modal sheets isolate VoiceOver focus with `accessibilityViewIsModal`, identify their titles as headers, and give icon-only dismiss actions an explicit label and at least a 44-point touch target or equivalent hit slop.
 Numeric, decimal, and pace inputs attach to the shared iOS `NumericKeyboardAccessory`, which exposes a visible `Terminé` action because those native keyboards do not provide a return key. The accessory is mounted once by the authenticated app shell and is inert on Android.
 The four visible tab actions expose stable `nav-tab-*` test ids for cross-locale Maestro navigation. These ids are test hooks only and do not alter labels, routing, or accessibility state. Each root tab renders the shared `RootCollapsibleHeader`: expanded and compact states use one row with the 44-point help target at the 16-point screen gutter, the title at the same horizontal position, and an optional trailing action at the matching gutter. The title changes size without sliding, both states retain the same bottom shape, and an oversized single-line title shrinks before it can wrap. The body contracts from 76 to 60 points. Courses, Plans and Profile keep secondary actions in content or the help menu; Nutrition alone uses the optional trailing product-create action. Guided catalog routes may omit contextual help to keep their required selection task focused.
@@ -426,8 +428,15 @@ attention/danger accent.
 This grammar is app-wide. The legacy shared `Card` renders the signature card
 (leading-edge blaze); shared loading states and the launch splash use the ridge
 loader, error states a danger blaze and empty states the brand ridge when no icon is supplied. The
-active root tab and the active RaceBook/plan contextual tab carry a blaze above
-their icon. Root headers keep the decorative contour pattern with symmetric
+active root tab and the active RaceBook/plan contextual tab carry a vertical
+blaze to the left of their icon. In-page selectors (RaceBook Course sub-tabs,
+Profile sub-tabs, the plan Ravitos/Allures/Chronologie view) use `TrailTabs`;
+the attached Livret/plan switch keeps its pill and adds a vertical blaze to the
+active segment. RaceBook map, general-map and transport links and each catalog
+format's RaceBook action use the signpost-shaped `TrailSignButton`; catalog
+format distance and D+ read as cotes. The RaceBook elevation profile adds a
+decorative iso-line echo, a summit blaze flag with its elevation cote, mono
+map-style graduations and cote metric tiles without altering the measured curve. Root headers keep the decorative contour pattern with symmetric
 lower corners. Section headings start with a blaze; Plans cards show distance
 and D+ as cotes, the course's real skyline (`CourseRidge`) when a stored
 `elevation_profile` exists, and the active plan as a warning `StatusPill`. The
@@ -435,8 +444,9 @@ plan recap shows its carbohydrate and sodium totals as `MetricTile`s. Profile
 performance groups and the RaceBook course essentials are separated by a
 `RidgeDivider`. RaceBook ravito and supporter timelines and the onboarding steps
 use the dotted `TrailRail`. The shared race header metrics typeset their unit as
-a cote. The RaceBook hero draws faint contours from the course profile only when
-the organizer publishes the elevation profile (`gpxDisplay.showElevationProfile`).
+a cote. The RaceBook hero draws very faint contours (opacity 0.05, so the identity
+metrics stay legible) from the course profile only when the organizer
+publishes the elevation profile (`gpxDisplay.showElevationProfile`).
 Trail-voice microcopy covers plan loading phases, the generic error title
 (`Hors piste : …`) and the empty followed-races title. `Screen` and the shared
 root compositions use the 16-point gutter. These presentation changes do not
@@ -633,7 +643,7 @@ Courses delay their loading skeleton for 400 ms, format sheets use equal outline
 
 ## RaceBook polish contract (lot 6)
 
-RaceBook and its linked plan workspace share one localized distance/clock formatter: distances use at most one decimal, ranges use an en dash, metadata uses a middle dot, and clocks render as `HH:MM`. The collapsible hero measures its expanded content so two-line titles remain visible at supported text scales. Workspace selectors use the shared segmented-control treatment, sticky surfaces preserve content clearance, and numeric race values alone use the data typeface. Development-client builds identified by the development Android package skip Expo OTA checks that are unsupported in that runtime; production update behavior is unchanged.
+RaceBook and its linked plan workspace share one localized distance/clock formatter: distances use at most one decimal, ranges use an en dash, metadata uses a middle dot, and clocks render as `HH:MM`. The collapsible hero measures its expanded content so two-line titles remain visible at supported text scales. The attached Livret/plan switch keeps the shared segmented pill while in-page selectors use `TrailTabs`, sticky surfaces preserve content clearance, and numeric race values alone use the data typeface. Development-client builds identified by the development Android package skip Expo OTA checks that are unsupported in that runtime; production update behavior is unchanged.
 
 ## Notifications inbox: contact and delete
 

@@ -188,7 +188,7 @@ export function RacebookCollapsibleHero({
       {imageUrl ? <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.primaryColor, opacity: HERO_PHOTO_VEIL_OPACITY }]} /> : null}
       {contourProfile ? (
         <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: expandedOpacity }]}>
-          <TopoContourPattern color={theme.onPrimaryColor} opacity={0.12} profile={contourProfile} />
+          <TopoContourPattern color={theme.onPrimaryColor} opacity={0.05} profile={contourProfile} />
         </Animated.View>
       ) : null}
 
