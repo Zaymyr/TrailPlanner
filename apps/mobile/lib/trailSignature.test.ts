@@ -11,6 +11,7 @@ import {
   ridgeLength,
   ridgePoints,
   ridgeSummit,
+  signTilt,
   splitCoteLabel,
 } from './trailSignature';
 
@@ -128,5 +129,24 @@ describe('trail signature cotes', () => {
   it('typesets units as compact capitals', () => {
     expect(formatCoteUnit('km')).toBe('KM');
     expect(formatCoteUnit('g/h')).toBe('G/H');
+  });
+});
+
+describe('trail sign tilt', () => {
+  it('is stable for a given seed and stays within a readable range', () => {
+    const labels = ['Ouvrir dans Maps', 'Livret coureur', 'Créer un plan', 'Tracé', 'Ravitos', 'Où encourager', ''];
+    for (const label of labels) {
+      const tilt = signTilt(label);
+      expect(signTilt(label)).toBe(tilt);
+      expect(Math.abs(tilt)).toBeGreaterThanOrEqual(0.5);
+      expect(Math.abs(tilt)).toBeLessThanOrEqual(1.4);
+    }
+    expect(Math.abs(signTilt('Tracé', 0.9))).toBeLessThanOrEqual(0.9);
+  });
+
+  it('leans signs both ways across labels', () => {
+    const tilts = ['Ouvrir dans Maps', 'Livret coureur', 'Créer un plan', 'Voir mon plan', 'Tracé', 'Ravitos', 'Où encourager', 'Relais'].map((label) => signTilt(label));
+    expect(tilts.some((tilt) => tilt > 0)).toBe(true);
+    expect(tilts.some((tilt) => tilt < 0)).toBe(true);
   });
 });

@@ -42,7 +42,7 @@ export const mobileComponents = {
     lg: { width: 20, unit: 2, gap: 3 },
     radius: 1,
     /** Horizontal signature line under active tabs and navigation items. */
-    line: { thickness: 3, gap: 2, navWidth: 30 },
+    line: { thickness: 3, gap: 2 },
   },
   /** Ridge-line motif (dividers, loaders, course silhouettes, celebration). */
   ridge: {
@@ -61,6 +61,10 @@ export const mobileComponents = {
     depth: 2,
     radius: 6,
     inset: 4,
+    /** Soft cast shadow offset below/right of the plank. */
+    shadow: 3,
+    /** Maximum lean (degrees) of a sign or active-tab plank. */
+    maxTilt: 1.4,
   },
   /** Trail-style in-page tabs: labels on a dotted path, active leg solid. */
   trailTabs: {

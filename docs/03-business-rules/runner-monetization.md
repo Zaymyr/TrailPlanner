@@ -137,6 +137,8 @@ Trail signature iteration (2026-11-11): runner presentation only. In-page RaceBo
 
 Trail signature iteration 3 (2026-11-11): presentation only. The active-state accent becomes a tri-color line (light green, amber, dark green in fixed 2:1:4 proportions) under the selected tab-bar label, the active in-page tab and the active Livret/plan segment, and RaceBook map/transport links plus catalog RaceBook actions are drawn as textured direction signs. No query, row, route, purchase gate or analytics event changes.
 
+Trail signature iteration 4 (2026-11-11): presentation only. The Livret/plan switch underlines the whole active label, and the plan action next to the RaceBook action in catalog formats becomes a soft trail sign. Disabled states, routes and purchase gates are unchanged.
+
 ## Related Docs
 
 - [Runner Billing Tables](../02-database/tables/runner-billing.md)

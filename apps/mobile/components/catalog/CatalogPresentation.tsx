@@ -107,9 +107,13 @@ export function CatalogRaceRow({
           />
         ) : null}
         {planActionLabel && onPlanPress ? (
-          <ActionButton size="sm" variant="secondary" style={styles.formatPlanButton} onPress={onPlanPress}>
-            {planActionLabel}
-          </ActionButton>
+          <TrailSignButton
+            icon={<Ionicons color={Colors.brandPrimary} name="flag-outline" size={16} />}
+            label={planActionLabel}
+            style={styles.formatPlanButton}
+            onPress={onPlanPress}
+            variant="soft"
+          />
         ) : null}
       </View>
     </TopoCard>
@@ -261,7 +265,7 @@ const styles = StyleSheet.create({
   formatTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700' },
   formatSubtitle: { color: Colors.textSecondary, fontSize: 13 },
   formatCotes: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 12, rowGap: 4 },
-  formatActions: { flexDirection: 'row', alignItems: 'center', gap: 8, width: '100%' },
+  formatActions: { flexDirection: 'row', alignItems: 'center', gap: 12, width: '100%' },
   formatRacebookButton: { flex: 3 },
   formatPlanButton: { flex: 2 },
   skeletonHeaderRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },

@@ -64,8 +64,10 @@ export function RaceWorkspaceSwitch({
           style={[styles.segment, active === 'racebook' && styles.activeSegment, racebookDisabled && styles.disabled]}
           testID="race-workspace-racebook"
         >
-          <Text numberOfLines={1} style={[styles.label, { color: active === 'racebook' ? backgroundColor : foregroundColor }, active === 'racebook' && styles.activeLabel]}>{racebookLabel}</Text>
-          {active === 'racebook' ? <BlazeLine thickness={2.5} width={mobileComponents.blaze.line.navWidth} /> : null}
+          <View style={styles.labelInner}>
+            <Text numberOfLines={1} style={[styles.label, { color: active === 'racebook' ? backgroundColor : foregroundColor }, active === 'racebook' && styles.activeLabel]}>{racebookLabel}</Text>
+            {active === 'racebook' ? <BlazeLine thickness={2.5} /> : null}
+          </View>
         </Pressable>
         <Pressable
           accessibilityLabel={planLabel}
@@ -76,8 +78,10 @@ export function RaceWorkspaceSwitch({
           style={[styles.segment, active === 'plan' && styles.activeSegment, planDisabled && styles.disabled]}
           testID="race-workspace-plan"
         >
-          <Text numberOfLines={1} style={[styles.label, { color: active === 'plan' ? backgroundColor : foregroundColor }, active === 'plan' && styles.activeLabel]}>{planLabel}</Text>
-          {active === 'plan' ? <BlazeLine thickness={2.5} width={mobileComponents.blaze.line.navWidth} /> : null}
+          <View style={styles.labelInner}>
+            <Text numberOfLines={1} style={[styles.label, { color: active === 'plan' ? backgroundColor : foregroundColor }, active === 'plan' && styles.activeLabel]}>{planLabel}</Text>
+            {active === 'plan' ? <BlazeLine thickness={2.5} /> : null}
+          </View>
         </Pressable>
       </View>
     </Animated.View>
@@ -123,5 +127,6 @@ const styles = StyleSheet.create({
   },
   disabled: { opacity: 0.45 },
   label: { flexShrink: 1, fontSize: 13, lineHeight: 17, fontWeight: '700', opacity: 0.88 },
+  labelInner: { maxWidth: '100%', alignItems: 'stretch', gap: 2 },
   activeLabel: { fontWeight: '800', opacity: 1 },
 });

@@ -15,7 +15,9 @@ import Svg, { Line } from 'react-native-svg';
 
 import { useReduceMotion } from '../../hooks/useReduceMotion';
 import { Text } from './Text';
+import { signTilt } from '../../lib/trailSignature';
 import { BlazeLine } from './TrailBlaze';
+import { SignPlate } from './TrailSignButton';
 
 export type TrailTab<T extends string> = {
   key: T;
@@ -37,16 +39,20 @@ type Props<T extends string> = {
   style?: StyleProp<ViewStyle>;
 };
 
-type Leg = { x: number; width: number };
+type Leg = { x: number; width: number; height: number };
 
 const { minHeight, trackHeight, paddingHorizontal } = mobileComponents.trailTabs;
 const { dash, gap } = mobileComponents.timeline;
+/** Planks lean less than signs: they carry the label being read. */
+const PLANK_MAX_TILT = 1;
+const PLANK_INSET = 4;
 
 /**
- * In-page tabs drawn as a trail: labels sit on a dotted path and the active
- * leg of the path becomes the tri-color signature line (light green, amber,
- * dark green in the blaze proportions). Selection is carried by label weight,
- * color and that line together, never by color alone.
+ * In-page tabs drawn as a trail, centered across the width: labels sit on a
+ * dotted path, the active label is painted on a small wooden plank and the
+ * active leg of the path becomes the tri-color signature line (light green,
+ * amber, dark green in the blaze proportions). Selection is carried by label
+ * weight, color, plank and line together, never by color alone.
  */
 export function TrailTabs<T extends string>({
   tabs,
@@ -84,11 +90,11 @@ export function TrailTabs<T extends string>({
   }, [activeLeg, legWidth, legX, reduceMotion]);
 
   const handleTabLayout = (key: T) => (event: LayoutChangeEvent) => {
-    const { x, width } = event.nativeEvent.layout;
+    const { x, width, height } = event.nativeEvent.layout;
     setLegs((current) => {
       const previous = current[key];
-      if (previous && previous.x === x && previous.width === width) return current;
-      return { ...current, [key]: { x, width } };
+      if (previous && previous.x === x && previous.width === width && previous.height === height) return current;
+      return { ...current, [key]: { x, width, height } };
     });
   };
 
@@ -96,7 +102,7 @@ export function TrailTabs<T extends string>({
     <View
       accessibilityRole="tablist"
       onLayout={(event) => setRowWidth(Math.round(event.nativeEvent.layout.width))}
-      style={[styles.row, stretch && styles.rowStretch]}
+      style={[styles.row, stretch ? styles.rowStretch : styles.rowCentered]}
     >
       {rowWidth > 0 ? (
         <Svg accessible={false} height={trackHeight} style={styles.track} width={rowWidth}>
@@ -123,6 +129,7 @@ export function TrailTabs<T extends string>({
       ) : null}
       {tabs.map((tab) => {
         const active = tab.key === activeKey;
+        const leg = legs[tab.key];
         return (
           <Pressable
             accessibilityLabel={tab.accessibilityLabel ?? tab.label}
@@ -131,9 +138,24 @@ export function TrailTabs<T extends string>({
             key={tab.key}
             onLayout={handleTabLayout(tab.key)}
             onPress={() => onChange(tab.key)}
-            style={({ pressed }) => [styles.tab, stretch && styles.tabStretch, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.tab,
+              stretch && styles.tabStretch,
+              // The active label sits on a slightly hand-set wooden plank.
+              active && { transform: [{ rotate: `${signTilt(tab.label, PLANK_MAX_TILT)}deg` }] },
+              pressed && styles.pressed,
+            ]}
             testID={tab.testID}
           >
+            {active && leg ? (
+              <SignPlate
+                height={Math.max(0, leg.height - PLANK_INSET * 2)}
+                shape="plank"
+                style={styles.plank}
+                variant="soft"
+                width={Math.max(0, leg.width - PLANK_INSET * 2)}
+              />
+            ) : null}
             <Text
               numberOfLines={1}
               size="sm"
@@ -171,6 +193,7 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
     paddingBottom: trackHeight,
   },
+  rowCentered: { justifyContent: 'center' },
   rowStretch: { justifyContent: 'space-between' },
   track: { position: 'absolute', left: 0, bottom: 0 },
   leg: {
@@ -188,5 +211,6 @@ const styles = StyleSheet.create({
     paddingHorizontal,
   },
   tabStretch: { flex: 1 },
+  plank: { top: PLANK_INSET, left: PLANK_INSET },
   pressed: { opacity: 0.7 },
 });

@@ -84,10 +84,11 @@ The repository skill `$mobile-ux-ui-auditor` turns this workflow into a dedicate
     the tri-color line (light green shorter than dark green, short amber) in
     addition to the icon surface and color; that
     RaceBook Course, Profile and plan view selectors read as trail tabs (dotted
-    track, tri-color active leg, bold label) without labels shifting; that
-    Maps/transport links and catalog RaceBook actions read as textured
-    direction signs (plank depth, routed border, bolts, pointed end) with a
-    44-point plate; and that the RaceBook hero contours do not reduce metric
+    track, tri-color active leg, bold label on a plank, centered) without
+    labels shifting; that the tab-bar line underlines the whole label; that
+    Maps/transport links and both catalog format actions read as textured
+    direction signs (shadow, plank depth, lit face, routed border, bolts,
+    pointed end) whose slight lean never hinders reading or the 44-point tap; and that the RaceBook hero contours do not reduce metric
     legibility. In the elevation profile, the summit flag and cote must stay
     inside the chart and never cover the inspection cursor readout. Plans cards with a stored
     profile show the course skyline; RaceBook ravito/supporter timelines use the

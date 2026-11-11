@@ -156,21 +156,29 @@ color, so it survives organizer RaceBook colors:
   green, amber and dark green segments have the blaze's 2:1:4 proportions as
   lengths (a band's thickness in the blaze equals its length share in the
   line). It is the active-state accent: it underlines the selected label in the
-  global and RaceBook/plan tab bars (30-point line, always laid out and hidden
-  when inactive so labels never shift), the active `TrailTabs` leg and the
-  active Livret/plan switch segment.
+  global and RaceBook/plan tab bars and the active Livret/plan switch segment
+  across the whole label width (the label and line share a shrink-wrapped
+  container; in the tab bars the line is always laid out and hidden when
+  inactive so labels never shift), and it is the active `TrailTabs` leg.
 - `TrailTabs` is the in-page tab selector (RaceBook Course sub-tabs, Profile
-  sub-tabs, the plan Ravitos/Allures/Chronologie view): labels sit on a dotted
-  trail line, the active leg becomes the `BlazeLine` and slides to the next tab
-  (static under reduced motion), and the active label is bold and forest. It
-  supports a horizontally scrollable row and an evenly stretched row.
+  sub-tabs, the plan Ravitos/Allures/Chronologie view). Tabs are centered across
+  the width (or evenly stretched), labels sit on a dotted trail line, the active
+  leg becomes the `BlazeLine` and slides to the next tab (static under reduced
+  motion), and the active label is bold and forest, painted on a small wooden
+  plank (`SignPlate`, plank shape, no bolts) that leans at most 1°. A scrollable
+  row still scrolls when the labels overflow.
 - `TrailSignButton` is the "go somewhere" action drawn as a trail direction
-  sign: a 44-point plank with a 2-point visible thickness, a routed border
-  parallel to its edge, two fixing bolts on the post side, faint grain and a
-  pointed 16-point end towards the destination. Variants are `solid` (forest),
-  `soft` (brand surface) and `muted`. It carries RaceBook map, general-map and
-  transport links and the RaceBook action of each catalog format; it is never
-  used for form submission or destructive actions.
+  sign by `SignPlate`: a 44-point plank with a soft cast shadow, a 2-point
+  visible thickness, a face lit from above (gradient from a lighter tone to the
+  plate color), a routed border parallel to its edge, two fixing bolts on the
+  post side, faint grain and a pointed 16-point end towards the destination.
+  Each sign leans by a stable, label-derived angle between 0.5° and 1.4° either
+  way (`signTilt` in `apps/mobile/lib/trailSignature.ts`), so a sign never
+  wobbles between renders; pressing straightens it slightly. Variants are
+  `solid` (forest), `soft` (brand surface) and `muted`. It carries RaceBook map,
+  general-map and transport links and both actions of each catalog format
+  (RaceBook as `solid`, plan as `soft`); it is never used for form submission or
+  destructive actions.
 - `Cote` typesets a measurement like an elevation mark on a topographic map:
   bold JetBrains Mono figure and its unit in spaced capitals (`42,3 KM`,
   `D+ 1 240 M`). It accepts a raw value plus unit or an already formatted label,

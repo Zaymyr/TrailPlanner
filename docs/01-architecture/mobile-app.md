@@ -434,7 +434,9 @@ blaze's 2:1:4 proportions). In-page selectors (RaceBook Course sub-tabs,
 Profile sub-tabs, the plan Ravitos/Allures/Chronologie view) use `TrailTabs`;
 the attached Livret/plan switch keeps its pill and underlines the active segment
 with the same line. RaceBook map, general-map and transport links and each catalog
-format's RaceBook action use `TrailSignButton`, drawn as a textured trail direction sign; catalog
+format's RaceBook and plan actions use `TrailSignButton`, drawn as a textured,
+slightly leaning trail direction sign; in-page tabs are centered and paint the
+active label on a small wooden plank; catalog
 format distance and D+ read as cotes. The RaceBook elevation profile adds a
 decorative iso-line echo, a summit blaze flag with its elevation cote, mono
 map-style graduations and cote metric tiles without altering the measured curve. Root headers keep the decorative contour pattern with symmetric

@@ -7,7 +7,6 @@ import { AppHeaderTitle } from '../../components/navigation/AppHeaderTitle';
 import { NumericKeyboardAccessory } from '../../components/inputs/NumericKeyboardAccessory';
 import { FeedbackHeaderButton } from '../../components/feedback/FeedbackHeaderButton';
 import { NativeBuildUpdatePrompt } from '../../components/updates/NativeBuildUpdatePrompt';
-import { mobileComponents } from '@pace-yourself/design-system';
 import { BlazeLine } from '../../components/themed/TrailBlaze';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
@@ -39,15 +38,18 @@ export default function AppLayout() {
   const nutritionLabel = 'Nutrition';
   const renderTabLabel = (label: string, color: string, focused: boolean) => (
     <View style={styles.tabLabelWrap}>
-      <Text
-        maxFontSizeMultiplier={1.3}
-        numberOfLines={1}
-        style={[styles.tabBarLabel, { color }]}
-      >
-        {label}
-      </Text>
-      {/* Always laid out so the label never shifts; visible on the active tab. */}
-      <BlazeLine style={!focused && styles.tabLineHidden} width={mobileComponents.blaze.line.navWidth} />
+      {/* Shrink-wrapped to the text so the line underlines the whole label. */}
+      <View style={styles.tabLabelInner}>
+        <Text
+          maxFontSizeMultiplier={1.3}
+          numberOfLines={1}
+          style={[styles.tabBarLabel, { color }]}
+        >
+          {label}
+        </Text>
+        {/* Always laid out so the label never shifts; visible on the active tab. */}
+        <BlazeLine style={!focused && styles.tabLineHidden} />
+      </View>
     </View>
   );
   const [showProfileOnboardingDot, setShowProfileOnboardingDot] = useState(false);
@@ -300,10 +302,10 @@ export default function AppLayout() {
 }
 
 const styles = StyleSheet.create({
-  tabLabelWrap: { width: '100%', alignItems: 'center', gap: 2 },
+  tabLabelWrap: { width: '100%', alignItems: 'center' },
+  tabLabelInner: { maxWidth: '100%', alignItems: 'stretch', gap: 2 },
   tabLineHidden: { opacity: 0 },
   tabBarLabel: {
-    width: '100%',
     fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',

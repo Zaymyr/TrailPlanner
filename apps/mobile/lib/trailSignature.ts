@@ -213,3 +213,23 @@ export function splitCoteLabel(label: string | number | null | undefined): CoteP
 export function formatCoteUnit(unit: string): string {
   return unit.toLocaleUpperCase('fr-FR');
 }
+
+const MIN_TILT_DEGREES = 0.5;
+
+/**
+ * A stable, slightly "hand-set" tilt for a trail sign: derived from a seed
+ * (usually the label) so the same sign always leans the same way and never
+ * wobbles between renders. Never upright, never beyond `maxDegrees`.
+ */
+export function signTilt(seed: string, maxDegrees = 1.4): number {
+  // FNV-1a: tiny, deterministic, well spread for short labels.
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash ^= seed.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  const span = Math.max(0, maxDegrees - MIN_TILT_DEGREES);
+  const magnitude = MIN_TILT_DEGREES + ((hash % 1000) / 999) * span;
+  const sign = (hash >>> 16) % 2 === 0 ? 1 : -1;
+  return Math.round(sign * magnitude * 100) / 100;
+}
