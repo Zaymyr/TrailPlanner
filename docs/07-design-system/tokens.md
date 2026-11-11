@@ -1,7 +1,7 @@
 ---
 title: Design Tokens
 scope: design-system
-last_verified: 2026-11-01
+last_verified: 2026-11-09
 ai_priority: medium
 related_files:
   - packages/design-system/src/tokens/colors.ts
@@ -54,7 +54,9 @@ Token groups:
 - `text`: primary, secondary, tertiary, inverse.
 - `accent`: terracotta, amber, olive.
 - `border`: subtle, strong, brand.
-- `semantic`: success, danger, dangerSurface, warning, warningSurface.
+- `semantic`: success, danger, warning, and information roles with their soft
+  surfaces/borders. The information role aliases the alpine blue; terracotta
+  remains an attention/danger accent rather than a general action color.
 
 The web app also defines HSL CSS variables in `apps/web/app/globals.css` for light/dark runtime themes.
 
@@ -92,11 +94,23 @@ Shared typography includes:
 
 Spacing uses numeric pixel tokens plus `section` and `gutter`.
 
-Radius tokens include `none`, `sm`, `md`, `lg`, `xl`, `2xl`, `3xl`, `full`, and `card`.
+Radius tokens include `none`, `sm`, `md`, `data`, `lg`, `xl`, `2xl`, `3xl`,
+`full`, and `card`. Mobile product UI uses four semantic families: 10-point
+data blocks, 12-point controls/actions, 18-point cards, and full-radius pills.
 
 Shadows include `sm`, `md`, and `lg` with brand-tinted rgba values.
 
-`mobileComponents` composes those base tokens into shared React Native control geometry: a 16-point screen gutter, 12-point action/button/input radii, full-radius filter chips, 44-point segmented controls and modal close targets. It contains dimensions only; mobile callers continue to apply the semantic palette from `Colors`/`colors`.
+`mobileComponents` composes those base tokens into shared React Native control
+geometry: a 16-point screen gutter, 10-point data blocks, 12-point
+action/button/input radii, 18-point cards, full-radius filter chips, and
+44-point minimum selection/close targets. The signature geometry keeps the
+ordinary family radius on three corners and uses a 4-point lower-right corner
+for Topo cards, actions, fields, icon actions, and data blocks. The Topo-card
+tokens also own the 4 by 32-point leading trail marker; callers may color it
+with brand, information, or semantic danger roles. It also owns the
+small/medium/large action heights and the restrained 0.98 press feedback plus
+140/180 ms motion durations. Mobile callers continue to apply semantic colors
+from `Colors`/`colors`.
 
 ## Web Tailwind Bridge
 
@@ -118,6 +132,8 @@ It also exposes CSS-variable theme colors such as `background`, `foreground`, `b
 - Mobile `Colors` is an alias layer, not a second source of palette values; add
   a shared token before a mobile screen needs a new color.
 - Equivalent mobile filters, segmented selectors, fields, modal closes and buttons must reuse `mobileComponents`; do not copy their dimensions into route-local styles.
+- Full-radius geometry is reserved for status pills and selectable chips.
+  Numeric race information belongs in the 10-point data geometry instead.
 - Use `semantic` tokens for application status UI and `brand.surface` /
   `brand.border` for selected controls; neither is organizer-controlled.
 - Do not hardcode actual PostHog/Supabase/Stripe colors or secrets in design docs.
