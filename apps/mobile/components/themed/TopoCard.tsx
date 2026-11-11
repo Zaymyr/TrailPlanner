@@ -1,22 +1,18 @@
-import { colors, mobileComponents, spacing } from '@pace-yourself/design-system';
-import { useMemo, useState, type ReactNode } from 'react';
+import { colors, mobileComponents, shadows } from '@pace-yourself/design-system';
+import type { ReactNode } from 'react';
 import {
   Pressable,
   StyleSheet,
   View,
-  type LayoutChangeEvent,
   type PressableProps,
   type StyleProp,
   type ViewProps,
   type ViewStyle,
 } from 'react-native';
+import Svg, { Ellipse, Path } from 'react-native-svg';
 
-import { TopoContourPattern } from './TopoContourPattern';
+import { SIGNATURE_RIDGE, buildRidgeAreaPath, buildRidgePath } from '../../lib/trailSignature';
 import { TrailBlaze, type TrailBlazeTone } from './TrailBlaze';
-import { useTrailRandom } from './TrailSeedProvider';
-import { PosterBackdrop } from './trail/PosterBackdrop';
-import { buildPosterShape, maxPosterTilt } from './trail/PosterGeometry';
-import { PosterPins, type PosterPin } from './trail/PosterPins';
 
 export type TopoCardVariant = 'standard' | 'interactive' | 'signature' | 'featured';
 export type TopoCardSurface = 'white' | 'cream' | 'sandLight' | 'brand' | 'info' | 'danger';
@@ -24,15 +20,12 @@ export type TopoCardSurface = 'white' | 'cream' | 'sandLight' | 'brand' | 'info'
 type Props = Omit<ViewProps, 'children' | 'style'> & {
   children: ReactNode;
   variant?: TopoCardVariant;
-  /** Paper colour. Defaults to white, or to the green brand paper for `featured`. */
+  /** Card colour. Defaults to white, or to the green brand surface for `featured`. */
   surface?: TopoCardSurface;
   padded?: boolean;
-  /** Tone of the leading-edge trail blaze on signature/featured cards. */
+  /** Tone of the leading-edge trail blaze on interactive/signature/featured cards. */
   blazeTone?: TrailBlazeTone;
-  /**
-   * Stable id (race id, section name) giving this poster its own lean,
-   * crumple and pin position. Variant + surface + label/testID otherwise.
-   */
+  /** @deprecated Cards no longer vary per item; accepted for compatibility and ignored. */
   variationKey?: string;
   onPress?: PressableProps['onPress'];
   style?: StyleProp<ViewStyle>;
@@ -47,36 +40,69 @@ const surfaceByVariant: Record<TopoCardSurface, string> = {
   danger: colors.semantic.dangerSurface,
 };
 
-const pinColorByVariant: Record<TopoCardVariant, string> = {
-  standard: colors.trail.pinRed,
-  interactive: colors.trail.pinAmber,
-  signature: colors.trail.pinGreen,
-  featured: colors.trail.pinRed,
-};
+const { padding: PADDING, borderRadius: RADIUS, blazeTop: BLAZE_TOP, edgeBlaze: EDGE_BLAZE } = mobileComponents.topoCard;
+const BORDER_WIDTH = 1;
 
-const { padding: PADDING, borderRadius: RADIUS, blazeTop: BLAZE_TOP } = mobileComponents.topoCard;
-const POSTER = mobileComponents.trailVariation.poster;
-const FEATURED = mobileComponents.trailVariation.featured;
-/** Tear-off strip of featured posters, and its gap below the content. */
-const TAB_HEIGHT = spacing[6];
-const TAB_GAP = spacing[3];
-/** Pin centre from the top edge: inside the top padding, clear of content. */
-const PIN_TOP = 9;
-const FEATURED_PIN_INSET = 18;
+/** Contour corner: three concentric ellipses peeking from the top-right corner. */
+const CONTOUR = { width: 130, height: 90, offset: -10, opacity: 0.08 } as const;
+const CONTOUR_RINGS = [
+  { rx: 70, ry: 40 },
+  { rx: 50, ry: 28 },
+  { rx: 30, ry: 16 },
+] as const;
 
-function resolvedPaddingBottom(flat: ViewStyle, padded: boolean) {
-  const value = flat.paddingBottom ?? flat.paddingVertical ?? flat.padding;
-  if (typeof value === 'number') return value;
-  return padded ? PADDING : 0;
+/** Featured watermark: the signature course ridge in the bottom-right corner. */
+const RIDGE = { width: 200, height: 70, fillOpacity: 0.05, strokeOpacity: 0.14 } as const;
+const RIDGE_FRAME = { width: RIDGE.width, height: RIDGE.height, inset: 4 };
+const RIDGE_AREA = buildRidgeAreaPath(SIGNATURE_RIDGE, RIDGE_FRAME);
+const RIDGE_LINE = buildRidgePath(SIGNATURE_RIDGE, RIDGE_FRAME);
+
+function ContourCorner() {
+  return (
+    <Svg height={CONTOUR.height} style={styles.contour} viewBox={`0 0 ${CONTOUR.width} ${CONTOUR.height}`} width={CONTOUR.width}>
+      {CONTOUR_RINGS.map((ring) => (
+        <Ellipse
+          key={ring.rx}
+          cx={100}
+          cy={20}
+          fill="none"
+          rx={ring.rx}
+          ry={ring.ry}
+          stroke={colors.brand.forest}
+          strokeOpacity={CONTOUR.opacity}
+          strokeWidth={1}
+        />
+      ))}
+    </Svg>
+  );
+}
+
+function RidgeWatermark() {
+  return (
+    <Svg height={RIDGE.height} style={styles.ridge} width={RIDGE.width}>
+      <Path d={RIDGE_AREA} fill={colors.brand.forest} fillOpacity={RIDGE.fillOpacity} />
+      <Path
+        d={RIDGE_LINE}
+        fill="none"
+        stroke={colors.brand.forest}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeOpacity={RIDGE.strokeOpacity}
+        strokeWidth={1.5}
+      />
+    </Svg>
+  );
 }
 
 /**
- * Card drawn as a poster pinned on the start-line board: a slightly
- * crumpled sheet with irregular edges, a light hand-pinned lean and a pin.
- * Standard = red pin, interactive = amber pin + painted arrow, signature =
- * green pin + trail blaze, featured = green poster with tear-off tabs.
- * Every irregularity is session-stable (TrailSeedProvider); colours, sizes,
- * spacing and text never vary.
+ * "Fiche topo" card: a clean sheet with a thin border and no texture. Its
+ * personality comes from small, fixed details only:
+ * - standard: faint contour lines in the top-right corner;
+ * - interactive / signature: the same contour corner plus the tricolour trail
+ *   blaze flush with the left edge (interactive keeps the press feedback);
+ * - featured: brand surface, blaze, and the course ridge as a faint watermark.
+ * Decorations sit in a clipped, non-interactive layer behind the content, so
+ * the card itself never clips its children or its shadow.
  */
 export function TopoCard({
   children,
@@ -84,104 +110,45 @@ export function TopoCard({
   surface,
   padded = true,
   blazeTone,
-  variationKey,
+  variationKey: _variationKey,
   onPress,
-  onLayout,
   style,
   ...props
 }: Props) {
   const resolvedSurface: TopoCardSurface = surface ?? (variant === 'featured' ? 'brand' : 'white');
   const resolvedBlazeTone: TrailBlazeTone = blazeTone
     ?? (resolvedSurface === 'danger' ? 'danger' : resolvedSurface === 'info' ? 'info' : 'brand');
-  const fill = surfaceByVariant[resolvedSurface];
-  const accented = variant === 'signature' || variant === 'featured';
+  const hasBlaze = variant !== 'standard';
+  const featured = variant === 'featured';
   const flatStyle: ViewStyle = StyleSheet.flatten(style) ?? {};
-  // The paper edge is drawn, not a View border: a caller's borderColor
-  // (e.g. an "active" state) recolours the drawn edge instead.
-  const edgeColor = typeof flatStyle.borderColor === 'string'
-    ? flatStyle.borderColor
-    : accented ? colors.brand.border : colors.border.subtle;
+  const outerRadius = typeof flatStyle.borderRadius === 'number' ? flatStyle.borderRadius : RADIUS;
+  const borderWidth = typeof flatStyle.borderWidth === 'number' ? flatStyle.borderWidth : BORDER_WIDTH;
 
-  const [size, setSize] = useState({ width: 0, height: 0 });
-  const handleLayout = (event: LayoutChangeEvent) => {
-    const width = Math.round(event.nativeEvent.layout.width);
-    const height = Math.round(event.nativeEvent.layout.height);
-    setSize((current) => (current.width === width && current.height === height ? current : { width, height }));
-    onLayout?.(event);
-  };
-
-  const random = useTrailRandom(
-    `poster|${variationKey ?? `${variant}|${resolvedSurface}|${props.accessibilityLabel ?? props.testID ?? ''}`}`,
-  );
-  const leanLimit = maxPosterTilt(size.width, size.height);
-  const lean = Math.max(-leanLimit, Math.min(leanLimit, random.jitter('tilt', POSTER.tilt)));
-
-  const shape = useMemo(() => buildPosterShape({
-    width: size.width,
-    height: size.height,
-    radius: RADIUS,
-    edge: POSTER.edge,
-    random,
-    tabs: variant === 'featured'
-      ? { height: TAB_HEIGHT, missingEvery: FEATURED.missingTabEvery, skew: FEATURED.skewedTab }
-      : null,
-  }), [size.width, size.height, random, variant]);
-
-  const measured = size.width > 0 && size.height > 0;
-  const pinY = PIN_TOP + random.jitter('pin:y', 1);
-  const pins: PosterPin[] = !measured
-    ? []
-    : variant === 'featured'
-      ? [
-        { x: FEATURED_PIN_INSET + random.jitter('pin', POSTER.pin), y: pinY, color: pinColorByVariant.featured },
-        { x: size.width - FEATURED_PIN_INSET + random.jitter('pin:right', POSTER.pin), y: pinY, color: pinColorByVariant.featured },
-      ]
-      : [{ x: size.width / 2 + random.jitter('pin', POSTER.pin), y: pinY, color: pinColorByVariant[variant] }];
-
-  const tabSpacer = variant === 'featured'
-    ? Math.max(0, TAB_HEIGHT + TAB_GAP - resolvedPaddingBottom(flatStyle, padded))
-    : 0;
-
-  const leanTransform = { rotate: `${lean}deg` };
+  // A caller's borderColor / backgroundColor (e.g. an "active" state or a
+  // RaceBook brand theme) wins because `style` comes last.
   const cardStyle = [
     styles.base,
-    // Until measured, a plain rounded sheet keeps the content on its surface.
-    !measured && { backgroundColor: fill, borderRadius: RADIUS },
+    {
+      backgroundColor: surfaceByVariant[resolvedSurface],
+      borderColor: featured && resolvedSurface === 'brand' ? colors.brand.border : colors.border.subtle,
+    },
     padded && styles.padded,
-    { transform: [leanTransform] },
     style,
   ];
 
   const content = (
     <>
-      {measured ? (
-        <PosterBackdrop
-          edgeColor={edgeColor}
-          fill={fill}
-          shape={shape}
-          tabInk={colors.brand.forest}
-          texture={random.pick('texture', POSTER.textures)}
-          textureOffset={{ x: random.unit('texture:x'), y: random.unit('texture:y') }}
-        />
-      ) : null}
-      {variant === 'featured' ? <TopoContourPattern /> : null}
+      <View
+        accessible={false}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        pointerEvents="none"
+        style={[styles.decor, { borderRadius: Math.max(0, outerRadius - borderWidth) }]}
+      >
+        {featured ? <RidgeWatermark /> : <ContourCorner />}
+      </View>
       {children}
-      {tabSpacer > 0 ? (
-        <View accessible={false} importantForAccessibility="no-hide-descendants" pointerEvents="none" style={{ height: tabSpacer }} />
-      ) : null}
-      {accented ? (
-        <TrailBlaze
-          size="sm"
-          style={[styles.blaze, { left: measured ? shape.leftInsetAt(BLAZE_TOP + 4) : 0 }]}
-          tone={resolvedBlazeTone}
-        />
-      ) : null}
-      <PosterPins
-        arrow={variant === 'interactive' && padded ? { color: colors.trail.pinAmber } : null}
-        height={size.height}
-        pins={pins}
-        width={size.width}
-      />
+      {hasBlaze ? <TrailBlaze geometry={EDGE_BLAZE} style={styles.blaze} tone={resolvedBlazeTone} /> : null}
     </>
   );
 
@@ -190,12 +157,8 @@ export function TopoCard({
       <Pressable
         {...props}
         accessibilityRole={onPress ? 'button' : props.accessibilityRole}
-        onLayout={handleLayout}
         onPress={onPress}
-        style={({ pressed }) => [
-          cardStyle,
-          pressed && onPress && [styles.pressed, { transform: [leanTransform, { scale: mobileComponents.motion.pressScale }] }],
-        ]}
+        style={({ pressed }) => [cardStyle, pressed && onPress && styles.pressed]}
       >
         {content}
       </Pressable>
@@ -203,7 +166,7 @@ export function TopoCard({
   }
 
   return (
-    <View {...props} onLayout={handleLayout} style={cardStyle}>
+    <View {...props} style={cardStyle}>
       {content}
     </View>
   );
@@ -212,15 +175,34 @@ export function TopoCard({
 const styles = StyleSheet.create({
   base: {
     position: 'relative',
-  },
+    borderRadius: RADIUS,
+    borderWidth: BORDER_WIDTH,
+    boxShadow: shadows.sm,
+  } as ViewStyle,
   padded: {
     padding: PADDING,
   },
   pressed: {
     opacity: 0.88,
+    transform: [{ scale: mobileComponents.motion.pressScale }],
+  },
+  decor: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+  },
+  contour: {
+    position: 'absolute',
+    right: CONTOUR.offset,
+    top: CONTOUR.offset,
+  },
+  ridge: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
   },
   blaze: {
     position: 'absolute',
+    left: 0,
     top: BLAZE_TOP,
   },
 });

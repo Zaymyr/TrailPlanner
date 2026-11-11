@@ -159,3 +159,14 @@ export function buildWoodSign({
 
   return { tip, outline, border, grainDark, grainLight, knot, wear: wearPath, topLight };
 }
+
+/** Lightens (k > 0) or darkens (k < 0) a #RRGGBB colour; used for shading. */
+export function shadeHex(hex: string, k: number) {
+  const value = Number.parseInt(hex.slice(1, 7), 16);
+  if (!Number.isFinite(value) || k === 0) return hex;
+  const channels = [(value >> 16) & 255, (value >> 8) & 255, value & 255].map((channel) => {
+    const next = k >= 0 ? channel + (255 - channel) * k : channel * (1 + k);
+    return Math.max(0, Math.min(255, Math.round(next)));
+  });
+  return `#${channels.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
+}

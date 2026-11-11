@@ -36,9 +36,6 @@ related_files:
   - apps/mobile/components/themed/trail/BraceletTab.tsx
   - apps/mobile/components/themed/trail/NotebookParts.tsx
   - apps/mobile/components/themed/trail/BibParts.tsx
-  - apps/mobile/components/themed/trail/PosterGeometry.ts
-  - apps/mobile/components/themed/trail/PosterBackdrop.tsx
-  - apps/mobile/components/themed/trail/PosterPins.tsx
   - apps/mobile/components/themed/trail/WoodGeometry.ts
   - apps/mobile/components/themed/trail/CardProfile.tsx
   - apps/mobile/lib/catalogCourseProfiles.ts
@@ -49,7 +46,6 @@ related_files:
   - apps/mobile/components/themed/trail/StampMark.tsx
   - apps/mobile/components/themed/trail/TrailEmptyIllustration.tsx
   - apps/mobile/components/race-workspace/RaceWorkspaceSwitch.tsx
-  - scripts/generate-paper-textures.py
   - apps/mobile/components/catalog/CatalogPresentation.tsx
   - apps/mobile/components/themed/SummitCelebration.tsx
   - apps/mobile/lib/trailSignature.ts
@@ -248,18 +244,21 @@ color, so it survives organizer RaceBook colors:
   ridge draws itself, a flag carrying the blaze is planted on the summit, a
   success haptic plays and the title is announced to assistive technologies.
   It dismisses on tap or by itself and stays static under reduced motion.
-- `TopoCard` (standard, interactive, signature, featured) is drawn as a poster
-  pinned on the start-line board: a slightly crumpled sheet (one of four baked
-  PNG textures from `scripts/generate-paper-textures.py`, 0.65 opacity, clipped
-  to the sheet), irregular inward-only edges (at most 1.2 % of the side, capped
-  at 4 points), a cast shadow and a pin: red (standard), amber plus a painted
-  arrow (interactive), green plus the trail blaze (signature); featured is green
-  paper with two pins and tear-off tabs (one missing, one hanging 4-8° askew).
-  Lean ±1.1°, texture, edges and pin offset come from `useTrailRandom` keyed by
-  the optional `variationKey` (pass an id in lists; `Card` forwards it). The card
-  has no native border, shadow or clipping: decoration is drawn in Svg up to
-  8 points outside, so parents must not clip it. The legacy `Card` delegates to
-  the signature variant.
+- `TopoCard` (standard, interactive, signature, featured) is a "fiche topo": a
+  clean sheet in the chosen `surface` (white by default, brand green for
+  featured) with a 1-point `border.subtle` edge (`brand.border` on a featured
+  brand surface), the 18-point radius and padding, a very light `shadows.sm`,
+  and no texture or tilt. Its identity comes from fixed details in a clipped,
+  decorative layer: faint forest contour lines in the top-right corner
+  (standard, interactive, signature) or the signature course ridge as a
+  bottom-right watermark (featured), plus a slender tricolour blaze flush with
+  the left edge at `topoCard.blazeTop` (`topoCard.edgeBlaze`; interactive,
+  signature and featured, danger or info tone on those surfaces). Interactive
+  cards keep the pressed opacity and scale and add no affordance. A caller's
+  `borderColor` or `backgroundColor` overrides the defaults; the card does not
+  clip its children; `variationKey` is accepted but ignored. The legacy `Card`
+  delegates to the signature variant. `WoodGeometry` also exports `shadeHex`,
+  the shading helper used by `TrailSignButton`.
 - `SectionHeading` normalizes section hierarchy.
 - Shared `LoadingState` (ridge loader) and `ErrorState` (danger blaze) keep
   their semantic roles, live-region behavior and localized actions.

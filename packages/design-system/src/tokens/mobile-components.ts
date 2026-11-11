@@ -27,6 +27,11 @@ export const mobileComponents = {
     padding: spacing[4],
     /** Distance from the card top to the leading-edge trail blaze. */
     blazeTop: spacing[5],
+    /**
+     * Slender edge blaze flush with the card's left edge (5pt wide, ~35pt
+     * tall in the blaze's 2:1:4 proportions).
+     */
+    edgeBlaze: { width: 5, unit: 4.5, gap: 2 },
   },
   /**
    * Pace Yourself trail blaze: light band, thin amber stripe, strong band, in
@@ -81,8 +86,6 @@ export const mobileComponents = {
     bracelet: { tilt: 0.75 },
     /** Signed ranges: the pinned bib leans left, the flipped one right. */
     bib: { active: [-1, -0.25], flipped: [0.5, 1.5] },
-    poster: { tilt: 1.1, textures: 4, edge: 0.012, pin: 4 },
-    featured: { missingTabEvery: 5, skewedTab: [4, 8] },
     /** Signed range for the checklist stamp rotation. */
     stamp: [-10, -4],
   },

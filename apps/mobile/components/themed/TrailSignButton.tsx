@@ -5,8 +5,7 @@ import Svg, { Circle, ClipPath, Defs, G, LinearGradient, Path, Stop } from 'reac
 
 import { Text } from './Text';
 import { useTrailRandom } from './TrailSeedProvider';
-import { shadeHex } from './trail/PosterGeometry';
-import { buildWoodSign } from './trail/WoodGeometry';
+import { buildWoodSign, shadeHex } from './trail/WoodGeometry';
 
 export type TrailSignVariant = 'solid' | 'soft' | 'muted';
 export type SignPlateShape = 'arrow' | 'plank';

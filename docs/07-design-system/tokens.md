@@ -110,7 +110,7 @@ small/medium/large action heights and the restrained 0.98 press feedback plus
 
 The trail signature tokens live in the same object:
 
-- `topoCard.blazeTop`: where the leading-edge blaze sits on signature cards.
+- `topoCard.blazeTop`: where the leading-edge blaze sits on signature cards. `topoCard.edgeBlaze` is the slender 5-point leading-edge blaze (9 / 4.5 / 18 bands, 2-point gaps) of interactive, signature and featured cards.
 - `blaze.ratio`: the 2:1:4 light green / amber / dark green proportions shared
   by the stacked blaze (band thickness) and the `BlazeLine` (segment length);
   `blaze.sm|md|lg`: band width, thickness unit and gap; `blaze.radius`;
@@ -126,9 +126,7 @@ The trail signature tokens live in the same object:
   shadow.
 - `trailVariation`: the bounded ranges of the session-random decoration
   (sign lean 0.4°–2.9°, dy ±1.5, tip ±3, tone ±5 %; tab plank 0.5°–1°; ticket
-  ±0.9°; bracelet ±0.75°; bib −1°…−0.25° pinned and 0.5°…1.5° flipped; poster ±1.1°,
-  4 paper textures, edge ±1.2 %, pin ±4; featured one tab in five missing and
-  one skewed 4°–8°; stamp −10°…−4°) and the global `amount` multiplier.
+  ±0.9°; bracelet ±0.75°; bib −1°…−0.25° pinned and 0.5°…1.5° flipped; stamp −10°…−4°) and the global `amount` multiplier.
 - `trailTabs`: the 44-point tab height, 3-point trail track and tab padding.
 
 In the 2:1:4 ratio the amber is the shortest share, so the orange stays a light
@@ -137,7 +135,7 @@ accent rather than a third primary color.
 Mobile callers continue to apply semantic colors from `Colors`/`colors`; the
 blaze bands reuse existing tokens (olive, amber and forest by default) and add
 no new palette value. The trail objects (enamel plate, aid-station ticket,
-closed-trail tape, wristband, poster pins, ticket ink, milestone climb cap,
+closed-trail tape, wristband, pins, ticket ink, milestone climb cap,
 info wristband, bib back, banner tape, sign post and the neutral `stone` used
 for watch bezels, compass rings, pin clasps and cairns) use `colors.trail`.
 

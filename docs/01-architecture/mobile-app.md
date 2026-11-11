@@ -442,7 +442,7 @@ kilometre-milestone filters (catalog quick filters behind a compass button,
 Favoris first), control wristbands for every status, road-notebook fields,
 the bib Livret / plan switch (56 points high via
 `RACE_WORKSPACE_SWITCH_HEIGHT`; screens offset by that constant, never a
-hard-coded value) and pinned crumpled posters for `TopoCard`.
+hard-coded value) and clean « fiche topo » cards for `TopoCard` (edge blaze, faint contour corner or course-ridge watermark; cards do not vary).
 The RaceBook screen renders its last-minute update through
 `components/racebook/TapeAlertBanner` and passes the resolved start time to
 `RacebookPlanInviteCard`; Mes courses plan cards lead with Livret / plan signs and show a mini profile
@@ -451,7 +451,7 @@ and a « Brouillon » / « En cours » / « Prêt » wristband (rule in
 cards overlay each format's real elevation profile, loaded lazily per visible
 row. Forms use road-notebook `Field`s with unit cotes, headers use watch
 `IconAction`s (`tone="onBrand"`) and sign-blade back buttons, and the RaceBook
-Course tabs span the full width on wooden planks; its map and profile cards open fullscreen through watch `IconAction`s. Profile sections are `Card` posters with `ActionButton` actions (one primary per tab; upgrade is secondary for guests), language and admin simulation use `TrailTabs`, and NEW / verified / counter / selected badges are `StatusPill` wristbands. The RaceBook weather alert uses `TapeAlertBanner`. Every sheet and modal header is `SheetHeader`, and collapsible groups (Mes courses events, Nutrition favourites and brands, plan settings, live settings, RaceBook instructions and transport, onboarding brands) are `AccordionSection`s.
+Course tabs span the full width on wooden planks; its map and profile cards open fullscreen through watch `IconAction`s. Profile sections are signature `Card`s with `ActionButton` actions (one primary per tab; upgrade is secondary for guests), language and admin simulation use `TrailTabs`, and NEW / verified / counter / selected badges are `StatusPill` wristbands. The RaceBook weather alert uses `TapeAlertBanner`. Every sheet and modal header is `SheetHeader`, and collapsible groups (Mes courses events, Nutrition favourites and brands, plan settings, live settings, RaceBook instructions and transport, onboarding brands) are `AccordionSection`s.
 
 This grammar is app-wide. The legacy shared `Card` renders the signature card
 (leading-edge blaze); shared loading states and the launch splash use the ridge
