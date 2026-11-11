@@ -111,18 +111,22 @@ small/medium/large action heights and the restrained 0.98 press feedback plus
 The trail signature tokens live in the same object:
 
 - `topoCard.blazeTop`: where the leading-edge blaze sits on signature cards.
-- `blaze`: small/medium/large band width, band height and gap for the
-  two-band trail blaze, plus its 1-point band radius.
+- `blaze.ratio`: the 2:1:4 light green / amber / dark green proportions shared
+  by the stacked blaze (band thickness) and the `BlazeLine` (segment length);
+  `blaze.sm|md|lg`: band width, thickness unit and gap; `blaze.radius`;
+  `blaze.line`: the 3-point signature line thickness, segment gap and 30-point
+  navigation width.
 - `ridge`: stroke width, divider/loader/silhouette heights, the resampling
   count for course profiles, and the loader (1.6 s) and celebration (1.1 s)
   durations.
 - `timeline`: the dotted trail rail width, dash and gap (also used by the
   `TrailTabs` track).
-- `trailSign`: the 44-point signpost height and its 14-point pointed tip.
+- `trailSign`: the 44-point sign plate, its 16-point pointed end, 2-point plank
+  depth, 6-point post-side radius and 4-point routed-border inset.
 - `trailTabs`: the 44-point tab height, 3-point trail track and tab padding.
 
-The blaze's amber stripe is half a band thick at 0.72 opacity, so the orange
-stays a light accent rather than a third primary color.
+In the 2:1:4 ratio the amber is the shortest share, so the orange stays a light
+accent rather than a third primary color.
 
 Mobile callers continue to apply semantic colors from `Colors`/`colors`; the
 blaze bands reuse existing tokens (olive, amber and forest by default) and add

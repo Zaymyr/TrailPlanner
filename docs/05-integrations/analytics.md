@@ -412,6 +412,8 @@ Trail signature (2026-11-09): the visual signature (trail blazes, cotes, ridge l
 
 Trail signature iteration (2026-11-11): runner presentation only. In-page RaceBook Course, Profile and plan view selectors become trail tabs, map/transport links and the catalog format RaceBook action become signpost buttons, catalog format distance/D+ read as cotes, tab-bar blazes move to the left of the selected icon, the hero contours are lightened and the elevation profile gains a decorative summit flag and iso-line echo. No query, row, payload, navigation target or analytics event changes. Map opens still emit the existing map-open tracking through the same handlers.
 
+Trail signature iteration 3 (2026-11-11): presentation only. The active-state accent becomes a tri-color line (light green, amber, dark green in fixed 2:1:4 proportions) under the selected tab-bar label, the active in-page tab and the active Livret/plan segment, and RaceBook map/transport links plus catalog RaceBook actions are drawn as textured direction signs. No query, row, route, purchase gate or analytics event changes.
+
 ## Related Docs
 
 Selecting or masking a private-demo format is configuration, not a runner RaceBook open or publication analytics event.

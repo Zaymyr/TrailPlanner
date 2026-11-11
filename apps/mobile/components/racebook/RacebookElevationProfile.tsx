@@ -233,9 +233,10 @@ export function RacebookElevationProfile({
                 return (
                   <G>
                     <Line x1={x} x2={x} y1={flagTop} y2={y - 3} stroke={Colors.textPrimary} strokeWidth={1.5} strokeLinecap="round" />
-                    <Rect x={x + 0.75} y={flagTop} width={10} height={3} rx={1} fill={colors.accent.olive} />
-                    <Rect x={x + 0.75} y={flagTop + 4.5} width={10} height={1.5} rx={0.75} fill={colors.accent.amber} fillOpacity={0.72} />
-                    <Rect x={x + 0.75} y={flagTop + 7.5} width={10} height={3} rx={1} fill={colors.brand.forest} />
+                    {/* Blaze bands in the shared 2:1:4 proportions. */}
+                    <Rect x={x + 0.75} y={flagTop} width={10} height={2.5} rx={1} fill={colors.accent.olive} />
+                    <Rect x={x + 0.75} y={flagTop + 4} width={10} height={1.25} rx={0.6} fill={colors.accent.amber} />
+                    <Rect x={x + 0.75} y={flagTop + 6.75} width={10} height={5} rx={1} fill={colors.brand.forest} />
                     <Rect x={labelX} y={flagTop - 1} width={labelWidth} height={LABEL_HEIGHT} rx={4} fill="#FFFFFF" fillOpacity={0.9} />
                     <SvgText x={labelX + 5} y={flagTop + 10} fill={Colors.textPrimary} fontFamily={MONO_FONT} fontSize="10" letterSpacing={0.4}>
                       {label}

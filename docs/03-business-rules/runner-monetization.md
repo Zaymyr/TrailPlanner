@@ -135,6 +135,8 @@ On 2026-10-30 the owner explicitly authorized applying the three runner migratio
 
 Trail signature iteration (2026-11-11): runner presentation only. In-page RaceBook Course, Profile and plan view selectors become trail tabs, map/transport links and the catalog format RaceBook action become signpost buttons, catalog format distance/D+ read as cotes, tab-bar blazes move to the left of the selected icon, the hero contours are lightened and the elevation profile gains a decorative summit flag and iso-line echo. No query, row, payload, navigation target or analytics event changes. The Livret/plan switch keeps the same disabled states, routes and purchase gates; only a decorative blaze is added to its active segment.
 
+Trail signature iteration 3 (2026-11-11): presentation only. The active-state accent becomes a tri-color line (light green, amber, dark green in fixed 2:1:4 proportions) under the selected tab-bar label, the active in-page tab and the active Livret/plan segment, and RaceBook map/transport links plus catalog RaceBook actions are drawn as textured direction signs. No query, row, route, purchase gate or analytics event changes.
+
 ## Related Docs
 
 - [Runner Billing Tables](../02-database/tables/runner-billing.md)

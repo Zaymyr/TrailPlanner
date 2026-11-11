@@ -80,12 +80,14 @@ The repository skill `$mobile-ux-ui-auditor` turns this workflow into a dedicate
     spaced capitals); Courses format actions use sentence-case shared
     buttons/fields; Profile tabs are visibly selected beyond color; and the
     Profile save dock matches the same action geometry. Check the global tab
-    bar and the Livret/plan contextual bars place a vertical blaze to the left
-    of the selected icon in addition to the icon surface and color; that
+    bar and the Livret/plan contextual bars underline the selected label with
+    the tri-color line (light green shorter than dark green, short amber) in
+    addition to the icon surface and color; that
     RaceBook Course, Profile and plan view selectors read as trail tabs (dotted
-    track, solid active leg, blaze, bold label) without labels shifting; that
-    Maps/transport links and catalog RaceBook actions are signposts with a
-    44-point height; and that the RaceBook hero contours do not reduce metric
+    track, tri-color active leg, bold label) without labels shifting; that
+    Maps/transport links and catalog RaceBook actions read as textured
+    direction signs (plank depth, routed border, bolts, pointed end) with a
+    44-point plate; and that the RaceBook hero contours do not reduce metric
     legibility. In the elevation profile, the summit flag and cote must stay
     inside the chart and never cover the inspection cursor readout. Plans cards with a stored
     profile show the course skyline; RaceBook ravito/supporter timelines use the

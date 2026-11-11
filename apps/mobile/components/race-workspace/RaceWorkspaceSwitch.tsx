@@ -3,7 +3,7 @@ import { Animated, Pressable, StyleSheet, View } from 'react-native';
 
 import { useI18n } from '../../lib/i18n';
 import { Text } from '../themed/Text';
-import { TrailBlaze } from '../themed/TrailBlaze';
+import { BlazeLine } from '../themed/TrailBlaze';
 
 export const RACE_WORKSPACE_SWITCH_HEIGHT = 54;
 
@@ -64,8 +64,8 @@ export function RaceWorkspaceSwitch({
           style={[styles.segment, active === 'racebook' && styles.activeSegment, racebookDisabled && styles.disabled]}
           testID="race-workspace-racebook"
         >
-          {active === 'racebook' ? <TrailBlaze orientation="vertical" size="sm" /> : null}
           <Text numberOfLines={1} style={[styles.label, { color: active === 'racebook' ? backgroundColor : foregroundColor }, active === 'racebook' && styles.activeLabel]}>{racebookLabel}</Text>
+          {active === 'racebook' ? <BlazeLine thickness={2.5} width={mobileComponents.blaze.line.navWidth} /> : null}
         </Pressable>
         <Pressable
           accessibilityLabel={planLabel}
@@ -76,8 +76,8 @@ export function RaceWorkspaceSwitch({
           style={[styles.segment, active === 'plan' && styles.activeSegment, planDisabled && styles.disabled]}
           testID="race-workspace-plan"
         >
-          {active === 'plan' ? <TrailBlaze orientation="vertical" size="sm" /> : null}
           <Text numberOfLines={1} style={[styles.label, { color: active === 'plan' ? backgroundColor : foregroundColor }, active === 'plan' && styles.activeLabel]}>{planLabel}</Text>
+          {active === 'plan' ? <BlazeLine thickness={2.5} width={mobileComponents.blaze.line.navWidth} /> : null}
         </Pressable>
       </View>
     </Animated.View>
@@ -112,8 +112,7 @@ const styles = StyleSheet.create({
   segment: {
     flex: 1,
     minHeight: mobileComponents.segment.minHeight,
-    flexDirection: 'row',
-    gap: 6,
+    gap: 2,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 999,

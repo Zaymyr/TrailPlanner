@@ -15,7 +15,7 @@ import Svg, { Line } from 'react-native-svg';
 
 import { useReduceMotion } from '../../hooks/useReduceMotion';
 import { Text } from './Text';
-import { TrailBlaze } from './TrailBlaze';
+import { BlazeLine } from './TrailBlaze';
 
 export type TrailTab<T extends string> = {
   key: T;
@@ -34,8 +34,6 @@ type Props<T extends string> = {
   scrollable?: boolean;
   /** Spreads tabs evenly across the width (fixed short tab sets). */
   stretch?: boolean;
-  /** Active label and leg color; organizer-themed surfaces pass their primary. */
-  color?: string;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -45,10 +43,10 @@ const { minHeight, trackHeight, paddingHorizontal } = mobileComponents.trailTabs
 const { dash, gap } = mobileComponents.timeline;
 
 /**
- * In-page tabs drawn as a trail: labels sit on a dotted path, the active leg
- * of the path is solid and its label starts with a vertical trail blaze.
- * Selection is carried by weight, color, blaze and leg together, never by
- * color alone.
+ * In-page tabs drawn as a trail: labels sit on a dotted path and the active
+ * leg of the path becomes the tri-color signature line (light green, amber,
+ * dark green in the blaze proportions). Selection is carried by label weight,
+ * color and that line together, never by color alone.
  */
 export function TrailTabs<T extends string>({
   tabs,
@@ -56,7 +54,6 @@ export function TrailTabs<T extends string>({
   onChange,
   scrollable = false,
   stretch = false,
-  color = colors.brand.forest,
   style,
 }: Props<T>) {
   const reduceMotion = useReduceMotion();
@@ -119,8 +116,10 @@ export function TrailTabs<T extends string>({
         <Animated.View
           accessible={false}
           pointerEvents="none"
-          style={[styles.leg, { backgroundColor: color, left: legX, width: legWidth }]}
-        />
+          style={[styles.leg, { left: legX, width: legWidth }]}
+        >
+          <BlazeLine thickness={trackHeight} />
+        </Animated.View>
       ) : null}
       {tabs.map((tab) => {
         const active = tab.key === activeKey;
@@ -135,13 +134,11 @@ export function TrailTabs<T extends string>({
             style={({ pressed }) => [styles.tab, stretch && styles.tabStretch, pressed && styles.pressed]}
             testID={tab.testID}
           >
-            {/* Always laid out so labels never shift when the selection moves. */}
-            <TrailBlaze orientation="vertical" size="sm" style={!active && styles.blazeHidden} />
             <Text
               numberOfLines={1}
               size="sm"
               weight={active ? 'bold' : 'semibold'}
-              style={{ color: active ? color : colors.text.secondary }}
+              style={{ color: active ? colors.brand.forest : colors.text.secondary }}
             >
               {tab.label}
             </Text>
@@ -180,7 +177,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     height: trackHeight,
-    borderRadius: trackHeight,
+    paddingHorizontal: 4,
   },
   tab: {
     minHeight,
@@ -191,6 +188,5 @@ const styles = StyleSheet.create({
     paddingHorizontal,
   },
   tabStretch: { flex: 1 },
-  blazeHidden: { opacity: 0 },
   pressed: { opacity: 0.7 },
 });

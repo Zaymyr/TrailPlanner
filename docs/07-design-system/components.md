@@ -144,28 +144,33 @@ The Pace Yourself trail signature is expressed through a small vocabulary of
 terrain objects. Every element is structural (shape/motif) rather than a
 color, so it survives organizer RaceBook colors:
 
-- `TrailBlaze` is the product waymark: a light band, a thin translucent amber
-  stripe (the brand's light warm touch) and a strong band — olive, amber,
-  forest by default. Semantic tones (info, warning, danger, muted) and explicit
-  `bandColors` keep two bands; `inverse` keeps the amber stripe. It is the
-  product's own blaze, never the red/white GR waymark. Horizontal blazes mark
-  section starts (`SectionHeading`), the leading edge of signature/featured
-  cards, toasts, the error state and the summit flags; the `vertical`
-  orientation sits to the left of the selected icon in the global and
-  RaceBook/plan tab bars, of the active `TrailTabs` label and of the active
-  Livret/plan switch segment. It is decorative and hidden from assistive
-  technologies.
+- `TrailBlaze` is the product waymark: light green (olive), amber and dark
+  green (forest) bands stacked in fixed 2:1:4 proportions, so light green is
+  deliberately shorter than dark green and the amber stays a light accent.
+  Semantic tones (info, warning, danger, muted) and explicit `bandColors` keep
+  two bands. It is the product's own blaze, never the red/white GR waymark. It
+  marks section starts (`SectionHeading`), the leading edge of
+  signature/featured cards, toasts, the error state and the summit flags. It is
+  decorative and hidden from assistive technologies.
+- `BlazeLine` is the same blaze laid flat: one horizontal line whose light
+  green, amber and dark green segments have the blaze's 2:1:4 proportions as
+  lengths (a band's thickness in the blaze equals its length share in the
+  line). It is the active-state accent: it underlines the selected label in the
+  global and RaceBook/plan tab bars (30-point line, always laid out and hidden
+  when inactive so labels never shift), the active `TrailTabs` leg and the
+  active Livret/plan switch segment.
 - `TrailTabs` is the in-page tab selector (RaceBook Course sub-tabs, Profile
   sub-tabs, the plan Ravitos/Allures/Chronologie view): labels sit on a dotted
-  trail line, the active leg turns solid and animates to the next tab (static
-  under reduced motion), and the active label is bold, colored and preceded by
-  a vertical blaze. Inactive tabs reserve the blaze space so labels never shift.
-  It supports a horizontally scrollable row and an evenly stretched row.
-- `TrailSignButton` is the "go somewhere" action shaped like a trail direction
-  signpost: rounded leading edge, pointed SVG tip, 44-point height. Variants are
-  `solid` (forest), `soft` (brand surface) and `muted`. It carries RaceBook map,
-  general-map and transport links and the RaceBook action of each catalog
-  format; it is never used for form submission or destructive actions.
+  trail line, the active leg becomes the `BlazeLine` and slides to the next tab
+  (static under reduced motion), and the active label is bold and forest. It
+  supports a horizontally scrollable row and an evenly stretched row.
+- `TrailSignButton` is the "go somewhere" action drawn as a trail direction
+  sign: a 44-point plank with a 2-point visible thickness, a routed border
+  parallel to its edge, two fixing bolts on the post side, faint grain and a
+  pointed 16-point end towards the destination. Variants are `solid` (forest),
+  `soft` (brand surface) and `muted`. It carries RaceBook map, general-map and
+  transport links and the RaceBook action of each catalog format; it is never
+  used for form submission or destructive actions.
 - `Cote` typesets a measurement like an elevation mark on a topographic map:
   bold JetBrains Mono figure and its unit in spaced capitals (`42,3 KM`,
   `D+ 1 240 M`). It accepts a raw value plus unit or an already formatted label,

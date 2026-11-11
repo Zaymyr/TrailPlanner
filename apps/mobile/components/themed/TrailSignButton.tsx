@@ -1,7 +1,7 @@
 import { colors, mobileComponents, spacing } from '@pace-yourself/design-system';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, View, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 import { Text } from './Text';
 
@@ -12,35 +12,49 @@ type Props = Omit<PressableProps, 'children' | 'style'> & {
   /** Usually an Ionicons glyph sized 15–18, colored by the caller. */
   icon?: ReactNode;
   variant?: TrailSignVariant;
-  /** Overrides the sign color (organizer-themed RaceBook surfaces). */
-  color?: string;
-  textColor?: string;
   fullWidth?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
-const HEIGHT = mobileComponents.trailSign.height;
-const TIP = mobileComponents.trailSign.tipWidth;
-// Full-height at the seam, narrowing to a softly rounded point.
-const TIP_PATH = `M0 0 L${TIP - 3} ${HEIGHT / 2 - 3} Q${TIP} ${HEIGHT / 2} ${TIP - 3} ${HEIGHT / 2 + 3} L0 ${HEIGHT} Z`;
+const { height: HEIGHT, tipWidth: TIP, depth: DEPTH, radius: RADIUS, inset: INSET } = mobileComponents.trailSign;
+const BOLT_X = 11;
+const BOLT_OFFSET = 9;
 
-const palette: Record<TrailSignVariant, { background: string; text: string }> = {
-  solid: { background: colors.brand.forest, text: colors.text.inverse },
-  soft: { background: colors.brand.surface, text: colors.brand.forest },
-  muted: { background: colors.surface.muted, text: colors.text.tertiary },
+const palette: Record<TrailSignVariant, { plate: string; edge: string; ink: string }> = {
+  solid: { plate: colors.brand.forest, edge: colors.brand.forestDark, ink: colors.text.inverse },
+  soft: { plate: colors.brand.surface, edge: colors.brand.border, ink: colors.brand.forest },
+  muted: { plate: colors.surface.muted, edge: colors.border.strong, ink: colors.text.tertiary },
 };
 
+/** Plate outline: rounded on the post side, pointed towards the destination. */
+function platePath(width: number, dy: number) {
+  const bottom = dy + HEIGHT;
+  return `M${RADIUS} ${dy} H${width - TIP} L${width} ${dy + HEIGHT / 2} L${width - TIP} ${bottom} H${RADIUS} Q0 ${bottom} 0 ${bottom - RADIUS} V${dy + RADIUS} Q0 ${dy} ${RADIUS} ${dy} Z`;
+}
+
+/** Routed border running parallel to the plate edge, like an engraved sign. */
+function borderPath(width: number) {
+  const half = HEIGHT / 2;
+  // Horizontal shift that keeps the inner tip parallel to the outer one.
+  const apexShift = (INSET * Math.hypot(TIP, half)) / half;
+  const apexX = width - apexShift;
+  const shoulderX = apexX - (TIP * (half - INSET)) / half;
+  const r = RADIUS - 2;
+  const top = INSET;
+  const bottom = HEIGHT - INSET;
+  return `M${INSET + r} ${top} H${shoulderX} L${apexX} ${half} L${shoulderX} ${bottom} H${INSET + r} Q${INSET} ${bottom} ${INSET} ${bottom - r} V${top + r} Q${INSET} ${top} ${INSET + r} ${top} Z`;
+}
+
 /**
- * Action shaped like a trail direction signpost: rounded on the leading edge,
- * pointed on the trailing edge. Reserved for "go somewhere" actions (open a
- * map, open a RaceBook), never for form submission or destructive actions.
+ * Action drawn as a trail direction sign: a plank with visible thickness, a
+ * routed border, two fixing bolts on the post side and a pointed end towards
+ * the destination. Reserved for "go somewhere" actions (open a map, open a
+ * RaceBook), never for form submission or destructive actions.
  */
 export function TrailSignButton({
   label,
   icon,
   variant = 'soft',
-  color,
-  textColor,
   fullWidth = false,
   disabled,
   accessibilityLabel,
@@ -48,8 +62,8 @@ export function TrailSignButton({
   style,
   ...props
 }: Props) {
-  const background = color ?? palette[variant].background;
-  const foreground = textColor ?? palette[variant].text;
+  const [width, setWidth] = useState(0);
+  const { plate, edge, ink } = palette[variant];
 
   return (
     <Pressable
@@ -58,6 +72,10 @@ export function TrailSignButton({
       accessibilityRole={accessibilityRole ?? 'button'}
       accessibilityState={{ ...props.accessibilityState, disabled: Boolean(disabled) }}
       disabled={disabled}
+      onLayout={(event) => {
+        const next = Math.round(event.nativeEvent.layout.width);
+        setWidth((current) => (current === next ? current : next));
+      }}
       style={({ pressed }) => [
         styles.root,
         fullWidth && styles.fullWidth,
@@ -66,15 +84,25 @@ export function TrailSignButton({
         style,
       ]}
     >
-      <View style={[styles.body, { backgroundColor: background }]}>
+      {width > 0 ? (
+        <Svg accessible={false} height={HEIGHT + DEPTH} style={styles.art} width={width}>
+          {/* Plank thickness, then the face. */}
+          <Path d={platePath(width, DEPTH)} fill={edge} />
+          <Path d={platePath(width, 0)} fill={plate} />
+          {/* Faint grain. */}
+          <Line stroke={ink} strokeLinecap="round" strokeOpacity={0.08} x1={24} x2={width * 0.62} y1={13} y2={13} />
+          <Line stroke={ink} strokeLinecap="round" strokeOpacity={0.08} x1={width * 0.3} x2={width - TIP - 8} y1={HEIGHT - 12} y2={HEIGHT - 12} />
+          <Path d={borderPath(width)} fill="none" stroke={ink} strokeLinejoin="round" strokeOpacity={0.32} strokeWidth={1} />
+          <Circle cx={BOLT_X} cy={HEIGHT / 2 - BOLT_OFFSET} fill={ink} fillOpacity={0.55} r={1.75} />
+          <Circle cx={BOLT_X} cy={HEIGHT / 2 + BOLT_OFFSET} fill={ink} fillOpacity={0.55} r={1.75} />
+        </Svg>
+      ) : null}
+      <View style={styles.content}>
         {icon}
-        <Text numberOfLines={1} size="sm" weight="bold" style={[styles.label, { color: foreground }]}>
+        <Text numberOfLines={1} size="sm" weight="bold" style={[styles.label, { color: ink }]}>
           {label}
         </Text>
       </View>
-      <Svg accessible={false} height={HEIGHT} style={styles.tip} width={TIP}>
-        <Path d={TIP_PATH} fill={background} />
-      </Svg>
     </Pressable>
   );
 }
@@ -82,28 +110,23 @@ export function TrailSignButton({
 const styles = StyleSheet.create({
   root: {
     alignSelf: 'flex-start',
-    flexDirection: 'row',
-    height: HEIGHT,
+    height: HEIGHT + DEPTH,
   },
   fullWidth: { alignSelf: 'stretch' },
-  body: {
-    flexGrow: 1,
-    flexShrink: 1,
+  art: { position: 'absolute', left: 0, top: 0 },
+  content: {
+    height: HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing[1.5],
-    paddingLeft: spacing[3],
-    paddingRight: spacing[1],
-    borderTopLeftRadius: mobileComponents.dataRadius,
-    borderBottomLeftRadius: mobileComponents.dataRadius,
+    paddingLeft: BOLT_X + spacing[3],
+    paddingRight: TIP + spacing[2],
   },
   label: { flexShrink: 1 },
-  // Overlap the seam by a hairline so no gap shows on fractional layouts.
-  tip: { marginLeft: -0.5 },
   pressed: {
-    opacity: 0.86,
-    transform: [{ scale: mobileComponents.motion.pressScale }],
+    opacity: 0.88,
+    transform: [{ translateY: 1 }],
   },
   disabled: { opacity: 0.5 },
 });

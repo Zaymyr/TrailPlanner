@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -7,7 +7,8 @@ import { AppHeaderTitle } from '../../components/navigation/AppHeaderTitle';
 import { NumericKeyboardAccessory } from '../../components/inputs/NumericKeyboardAccessory';
 import { FeedbackHeaderButton } from '../../components/feedback/FeedbackHeaderButton';
 import { NativeBuildUpdatePrompt } from '../../components/updates/NativeBuildUpdatePrompt';
-import { TrailBlaze } from '../../components/themed/TrailBlaze';
+import { mobileComponents } from '@pace-yourself/design-system';
+import { BlazeLine } from '../../components/themed/TrailBlaze';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
 import { getActivePlanEditHref } from '../../lib/planEditSession';
@@ -36,14 +37,18 @@ export default function AppLayout() {
   const catalogLabel = locale === 'fr' ? 'Courses' : 'Races';
   const plansTabLabel = t.plans.title;
   const nutritionLabel = 'Nutrition';
-  const renderTabLabel = (label: string, color: string) => (
-    <Text
-      maxFontSizeMultiplier={1.3}
-      numberOfLines={1}
-      style={[styles.tabBarLabel, { color }]}
-    >
-      {label}
-    </Text>
+  const renderTabLabel = (label: string, color: string, focused: boolean) => (
+    <View style={styles.tabLabelWrap}>
+      <Text
+        maxFontSizeMultiplier={1.3}
+        numberOfLines={1}
+        style={[styles.tabBarLabel, { color }]}
+      >
+        {label}
+      </Text>
+      {/* Always laid out so the label never shifts; visible on the active tab. */}
+      <BlazeLine style={!focused && styles.tabLineHidden} width={mobileComponents.blaze.line.navWidth} />
+    </View>
   );
   const [showProfileOnboardingDot, setShowProfileOnboardingDot] = useState(false);
   const unreadNotifications = useUnreadNotificationCount();
@@ -176,12 +181,10 @@ export default function AppLayout() {
         name="catalog"
         options={{
           title: catalogLabel,
-          tabBarLabel: ({ color }) => renderTabLabel(catalogLabel, color),
+          tabBarLabel: ({ color, focused }) => renderTabLabel(catalogLabel, color, focused),
           tabBarButtonTestID: 'nav-tab-catalog',
-          tabBarIcon: ({ color, focused, size }) => (
-            <TabIconWithBlaze focused={focused}>
-              <Ionicons name="trail-sign" size={size} color={color} />
-            </TabIconWithBlaze>
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="trail-sign" size={size} color={color} />
           ),
         }}
       />
@@ -200,12 +203,10 @@ export default function AppLayout() {
         })}
         options={{
           title: t.plans.title,
-          tabBarLabel: ({ color }) => renderTabLabel(plansTabLabel, color),
+          tabBarLabel: ({ color, focused }) => renderTabLabel(plansTabLabel, color, focused),
           tabBarButtonTestID: 'nav-tab-plans',
-          tabBarIcon: ({ color, focused, size }) => (
-            <TabIconWithBlaze focused={focused}>
-              <Ionicons name="flag" size={size} color={color} />
-            </TabIconWithBlaze>
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="flag" size={size} color={color} />
           ),
         }}
       />
@@ -215,26 +216,24 @@ export default function AppLayout() {
         name="profile"
         options={{
           title: t.profile.title,
-          tabBarLabel: ({ color }) => renderTabLabel(t.profile.title, color),
+          tabBarLabel: ({ color, focused }) => renderTabLabel(t.profile.title, color, focused),
           tabBarButtonTestID: 'nav-tab-profile',
-          tabBarIcon: ({ color, focused, size }) => (
-            <TabIconWithBlaze focused={focused}>
-              <View style={styles.profileIconWrap}>
-                <Ionicons name="person" size={size} color={color} />
-                {showProfileAttentionDot ? (
-                  <View
-                    accessibilityLabel={
-                      unreadNotifications.hasUnread && showProfileOnboardingDot
-                        ? `${t.profile.notificationsProfileDotLabel}. ${t.onboarding.tours.profileDotLabel}`
-                        : unreadNotifications.hasUnread
-                        ? t.profile.notificationsProfileDotLabel
-                        : t.onboarding.tours.profileDotLabel
-                    }
-                    style={styles.attentionDot}
-                  />
-                ) : null}
-              </View>
-            </TabIconWithBlaze>
+          tabBarIcon: ({ color, size }) => (
+            <View style={styles.profileIconWrap}>
+              <Ionicons name="person" size={size} color={color} />
+              {showProfileAttentionDot ? (
+                <View
+                  accessibilityLabel={
+                    unreadNotifications.hasUnread && showProfileOnboardingDot
+                      ? `${t.profile.notificationsProfileDotLabel}. ${t.onboarding.tours.profileDotLabel}`
+                      : unreadNotifications.hasUnread
+                      ? t.profile.notificationsProfileDotLabel
+                      : t.onboarding.tours.profileDotLabel
+                  }
+                  style={styles.attentionDot}
+                />
+              ) : null}
+            </View>
           ),
         }}
       />
@@ -300,19 +299,9 @@ export default function AppLayout() {
   );
 }
 
-/** Active root tab carries a vertical trail blaze to the left of its icon. */
-function TabIconWithBlaze({ focused, children }: { focused: boolean; children: ReactNode }) {
-  return (
-    <View style={styles.tabIconWrap}>
-      {focused ? <TrailBlaze orientation="vertical" size="sm" style={styles.tabBlaze} /> : null}
-      {children}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  tabIconWrap: { alignItems: 'center', justifyContent: 'center' },
-  tabBlaze: { position: 'absolute', right: '100%', marginRight: 5 },
+  tabLabelWrap: { width: '100%', alignItems: 'center', gap: 2 },
+  tabLineHidden: { opacity: 0 },
   tabBarLabel: {
     width: '100%',
     fontSize: 12,

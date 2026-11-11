@@ -29,14 +29,20 @@ export const mobileComponents = {
     blazeTop: spacing[5],
   },
   /**
-   * Pace Yourself trail blaze: two painted bands (light over strong), the
-   * product's own waymark. Never the red/white GR waymark.
+   * Pace Yourself trail blaze: light band, thin amber stripe, strong band, in
+   * fixed 2:1:4 proportions (light green is deliberately shorter than dark
+   * green). The same proportions drive the horizontal signature line, so a
+   * band's thickness in the blaze equals its length share in the line.
+   * Never the red/white GR waymark.
    */
   blaze: {
-    sm: { width: 10, bandHeight: 3, gap: 2 },
-    md: { width: 14, bandHeight: 4, gap: 2 },
-    lg: { width: 20, bandHeight: 5, gap: 3 },
+    ratio: { light: 2, accent: 1, strong: 4 },
+    sm: { width: 10, unit: 1.25, gap: 2 },
+    md: { width: 14, unit: 1.5, gap: 2 },
+    lg: { width: 20, unit: 2, gap: 3 },
     radius: 1,
+    /** Horizontal signature line under active tabs and navigation items. */
+    line: { thickness: 3, gap: 2, navWidth: 30 },
   },
   /** Ridge-line motif (dividers, loaders, course silhouettes, celebration). */
   ridge: {
@@ -48,10 +54,13 @@ export const mobileComponents = {
     loaderDurationMs: 1600,
     celebrationDurationMs: 1100,
   },
-  /** Direction-signpost action: 44-point body with a pointed trailing tip. */
+  /** Direction-signpost action: 44-point plate, pointed tip, plank depth. */
   trailSign: {
     height: 44,
-    tipWidth: 14,
+    tipWidth: 16,
+    depth: 2,
+    radius: 6,
+    inset: 4,
   },
   /** Trail-style in-page tabs: labels on a dotted path, active leg solid. */
   trailTabs: {
