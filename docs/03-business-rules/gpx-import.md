@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-11-09
+last_verified: 2026-11-11
 ai_priority: high
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
@@ -23,6 +23,10 @@ related_files:
   - apps/web/app/api/admin/race-catalog/tracedetrail/route.ts
   - apps/web/app/api/admin/race-catalog/tracedetrail/route.test.ts
   - apps/web/app/api/admin/race-catalog/tracedetrail/importer.test.ts
+  - apps/web/app/api/internal/race-catalog/tracedetrail/enrich/route.ts
+  - apps/web/app/api/internal/race-catalog/tracedetrail/enrich/route.test.ts
+  - apps/web/lib/tracedetrail-gpx-enrichment.ts
+  - apps/web/lib/tracedetrail-gpx-enrichment.test.ts
   - apps/web/lib/tracedetrail-race-import.ts
   - apps/web/app/api/plans/route.ts
   - apps/web/app/api/plans/from-catalog/route.ts
@@ -117,6 +121,12 @@ The parser does not use a DOM/XML parser; it uses regex-based extraction tuned t
 7. Inserts `race_aid_stations` from manual stations or normalized GPX waypoints.
 
 The Trace de Trail admin adapter first tries the official download with the credentials supplied for the current dialog, then retries the public download endpoint. When both downloads remain protected but the public trace page already exposes its route geometry, it rebuilds an importable GPX from that embedded geometry. The admin preview identifies this result as `embedded`. From the same reviewed preview, the admin can either create the catalog race or download the recovered GPX directly; the download action does not create a `race_events`/`races` row and does not upload anything to Supabase Storage.
+
+The admin route accepts an `enrich` action for an existing `raceId`, and the dedicated server-to-server route accepts up to 50 race ids with one result per format. Both delegate to the same server-only enrichment function. That function requires the stored provider to be Trace de Trail and a non-null `trace_id`, rebuilds the canonical provider URL from that id, and rejects a downloaded id mismatch. Enrichment requires the genuine official GPX (`public` or `authenticated` access mode); embedded page geometry remains available to preview/download/create flows but is rejected here.
+
+A successful run writes a new versioned object under the existing format's `catalog/{raceId}/` prefix, downloads that object back to verify its SHA-256, and updates only the trace provider/id, source URL, GPX path/hash aliases, and parsed bounds/start/altitude metadata. It then verifies the referenced object again. A missing or mismatched object fails the operation and restores the previous GPX metadata when the database update already occurred. The operation never creates or renames an event or format, changes official distance/D+/D- labels, publication/commercial fields, replaces existing ravitos, or mutates saved plans. Re-running with the same stored SHA-256 is a no-op only after the existing Storage object and its content hash have been verified.
+
+The admin format editor may pass one-shot provider credentials. Automated callers use `POST /api/internal/race-catalog/tracedetrail/enrich` with the dedicated `TRACEDETRAIL_ENRICHMENT_SECRET` bearer secret; optional provider credentials come only from the server-side `TRACEDETRAIL_LOGIN` and `TRACEDETRAIL_PASSWORD` deployment variables. The route never accepts or returns a Supabase service-role key.
 
 New Trace de Trail catalog races initialize `edition_group_id` with their own race id and `series_name` with the imported course name. These values are required by the edition-group schema even for the first edition of a format.
 
@@ -251,6 +261,7 @@ Playback, progressive route reveal, and the 9:16/16:9 switch are presentation-on
 - Edition deletion removes source GPX objects only after the database transaction succeeds; never delete saved `plan-gpx` snapshots with the source edition.
 - Cloned editions may share a format thumbnail URL. Before deleting a `race-images` object, the edition route checks whether another remaining format still references that exact public URL.
 - A Trace de Trail GPX rebuilt from page geometry is not guaranteed to preserve every metadata field from the provider's original file.
+- Existing-format Trace de Trail enrichment must preserve official course labels and child records. Do not reuse the create-import branch or let a provider download recreate events, formats, or ravitos.
 - Organizer GPX replacement updates source race data only; saved plans remain snapshots.
 - Keep the active organizer form synchronized from the successful GPX response; reloading the event alone does not rerun race-form initialization when the active race id is unchanged.
 - Organizer GPX waypoint import is safe-mode only: detected waypoints do not replace existing source stations, because replacing rows would break station ids and product links.

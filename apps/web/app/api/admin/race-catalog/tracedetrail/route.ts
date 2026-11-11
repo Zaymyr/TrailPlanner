@@ -5,6 +5,10 @@ import { z } from "zod";
 import { parseGpx } from "../../../../../lib/gpx/parseGpx";
 import { withSecurityHeaders } from "../../../../../lib/http";
 import {
+  enrichExistingRaceWithTraceDeTrailGpx,
+  TraceDeTrailEnrichmentError,
+} from "../../../../../lib/tracedetrail-gpx-enrichment";
+import {
   extractBearerToken,
   fetchSupabaseUser,
   getSupabaseAnonConfig,
@@ -23,12 +27,26 @@ const credentialsSchema = z.object({
   password: z.string().min(1),
 });
 
-const requestSchema = z.object({
-  url: z.string().trim().url(),
-  action: z.enum(["preview", "import", "download"]).default("preview"),
-  isLive: z.boolean().optional().default(false),
-  credentials: credentialsSchema.optional(),
-});
+const requestSchema = z
+  .object({
+    url: z.string().trim().url().optional(),
+    action: z.enum(["preview", "import", "download", "enrich"]).default("preview"),
+    raceId: z.string().uuid().optional(),
+    isLive: z.boolean().optional().default(false),
+    credentials: credentialsSchema.optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.action === "enrich") {
+      if (!value.raceId) {
+        context.addIssue({ code: z.ZodIssueCode.custom, path: ["raceId"], message: "raceId is required." });
+      }
+      return;
+    }
+
+    if (!value.url) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["url"], message: "url is required." });
+    }
+  });
 
 const raceRowSchema = z.object({
   id: z.string().uuid(),
@@ -267,7 +285,25 @@ export async function POST(request: NextRequest) {
       ? { login: body.credentials.login, password: body.credentials.password }
       : null;
 
-    const traceRace = await getTraceDeTrailRaceData(body.url, { credentials });
+    if (body.action === "enrich" && body.raceId) {
+      try {
+        const result = await enrichExistingRaceWithTraceDeTrailGpx({
+          serviceConfig: admin.serviceConfig,
+          raceId: body.raceId,
+          credentials,
+        });
+        return withSecurityHeaders(NextResponse.json(result));
+      } catch (error) {
+        if (error instanceof TraceDeTrailEnrichmentError) {
+          return withSecurityHeaders(
+            NextResponse.json({ message: error.message, code: error.code }, { status: error.status })
+          );
+        }
+        throw error;
+      }
+    }
+
+    const traceRace = await getTraceDeTrailRaceData(body.url!, { credentials });
 
     if (body.action === "download") {
       return withSecurityHeaders(
