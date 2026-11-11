@@ -406,6 +406,8 @@ Sheets and modals use the shared `SheetHeader` (dotted trail handle, slender bla
 
 Catalog race cards stretch every format's profile across the full strip and smooth it (`smoothValues`), so the overlaid lines read as a signature of the event; the favourite heart sits on the title line.
 
+The RaceBook Course map and profile cards are drawn without the contour corner (`contours={false}`), keeping the course visuals uncluttered.
+
 ## Related Docs
 
 

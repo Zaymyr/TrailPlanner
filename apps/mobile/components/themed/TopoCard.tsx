@@ -25,6 +25,8 @@ type Props = Omit<ViewProps, 'children' | 'style'> & {
   padded?: boolean;
   /** Tone of the leading-edge trail blaze on interactive/signature/featured cards. */
   blazeTone?: TrailBlazeTone;
+  /** Draw the faint contour corner (standard, interactive, signature). Default true. */
+  contours?: boolean;
   /** @deprecated Cards no longer vary per item; accepted for compatibility and ignored. */
   variationKey?: string;
   onPress?: PressableProps['onPress'];
@@ -111,6 +113,7 @@ export function TopoCard({
   padded = true,
   blazeTone,
   variationKey: _variationKey,
+  contours = true,
   onPress,
   style,
   ...props
@@ -145,7 +148,7 @@ export function TopoCard({
         pointerEvents="none"
         style={[styles.decor, { borderRadius: Math.max(0, outerRadius - borderWidth) }]}
       >
-        {featured ? <RidgeWatermark /> : <ContourCorner />}
+        {featured ? <RidgeWatermark /> : contours ? <ContourCorner /> : null}
       </View>
       {children}
       {hasBlaze ? <TrailBlaze geometry={EDGE_BLAZE} style={styles.blaze} tone={resolvedBlazeTone} /> : null}

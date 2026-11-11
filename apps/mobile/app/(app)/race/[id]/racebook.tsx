@@ -339,7 +339,7 @@ function CourseProfileCard({
   const landscapeWidth = Math.max(viewportWidth, viewportHeight);
   const landscapeHeight = Math.min(viewportWidth, viewportHeight);
   return (
-    <Card style={[styles.sectionCard, { backgroundColor: brandTheme.accentSurfaceColor, borderColor: brandTheme.accentBorderColor }]}>
+    <Card contours={false} style={[styles.sectionCard, { backgroundColor: brandTheme.accentSurfaceColor, borderColor: brandTheme.accentBorderColor }]}>
       <View style={styles.courseVisualHeader}>
         <View style={styles.courseVisualTitleWrap}>
           <Text style={styles.sectionTitle}>{title}</Text>
@@ -433,7 +433,7 @@ function CourseMapCard({
   const { height: viewportHeight } = useWindowDimensions();
   const modalInsets = useSafeAreaInsets();
   return (
-    <Card style={[styles.sectionCard, { backgroundColor: brandTheme.accentSurfaceColor, borderColor: brandTheme.accentBorderColor }]}>
+    <Card contours={false} style={[styles.sectionCard, { backgroundColor: brandTheme.accentSurfaceColor, borderColor: brandTheme.accentBorderColor }]}>
       <View style={styles.courseVisualHeader}>
         <View style={styles.courseVisualTitleWrap}>
           <Text style={styles.sectionTitle}>{title}</Text>

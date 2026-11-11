@@ -708,6 +708,8 @@ RaceBook access transport rows are accordions with an expandable trail; the `rac
 
 Catalog race cards stretch every format's profile across the full strip and smooth it (`smoothValues`), so the overlaid lines read as a signature of the event; the favourite heart sits on the title line.
 
+The RaceBook Course map and profile cards are drawn without the contour corner (`contours={false}`), keeping the course visuals uncluttered.
+
 ## Related Docs
 
 - [race_event_claims](../02-database/tables/race-event-claims.md)

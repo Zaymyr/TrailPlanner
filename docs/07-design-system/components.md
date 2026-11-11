@@ -257,7 +257,8 @@ color, so it survives organizer RaceBook colors:
   signature and featured, danger or info tone on those surfaces). Interactive
   cards keep the pressed opacity and scale and add no affordance. A caller's
   `borderColor` or `backgroundColor` overrides the defaults; the card does not
-  clip its children; `variationKey` is accepted but ignored. The legacy `Card`
+  clip its children; `variationKey` is accepted but ignored; `contours={false}` drops the contour
+  corner (RaceBook › Course map and profile cards). The legacy `Card`
   delegates to the signature variant. `WoodGeometry` also exports `shadeHex`,
   the shading helper used by `TrailSignButton`.
 - `SectionHeading` normalizes section hierarchy.

@@ -169,6 +169,8 @@ Sheets and modals use the shared `SheetHeader` (dotted trail handle, slender bla
 
 The RaceBook instructions accordion paints its borne cap, chevron and trail with the organizer `accentGraphicColor`; the links card uses `SheetHeader` without handle.
 
+The RaceBook Course map and profile cards are drawn without the contour corner (`contours={false}`), keeping the course visuals uncluttered.
+
 ## Related Docs
 
 Format-owned GPX visibility may omit a branded route or profile card; it does not change edition color resolution or the branding table contract.

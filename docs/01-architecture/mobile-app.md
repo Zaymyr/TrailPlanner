@@ -442,7 +442,7 @@ kilometre-milestone filters (catalog quick filters behind a compass button,
 Favoris first), control wristbands for every status, road-notebook fields,
 the bib Livret / plan switch (56 points high via
 `RACE_WORKSPACE_SWITCH_HEIGHT`; screens offset by that constant, never a
-hard-coded value) and clean « fiche topo » cards for `TopoCard` (edge blaze, faint contour corner or course-ridge watermark; cards do not vary).
+hard-coded value) and clean « fiche topo » cards for `TopoCard` (edge blaze, faint contour corner — omitted on the RaceBook Course map and profile cards — or course-ridge watermark; cards do not vary).
 The RaceBook screen renders its last-minute update through
 `components/racebook/TapeAlertBanner` and passes the resolved start time to
 `RacebookPlanInviteCard`; Mes courses plan cards lead with Livret / plan signs and show a mini profile

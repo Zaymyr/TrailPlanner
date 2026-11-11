@@ -431,6 +431,8 @@ Sheets and modals use the shared `SheetHeader` (dotted trail handle, slender bla
 
 RaceBook access transport rows are accordions with an expandable trail; the `racebook access detail opened` event is unchanged.
 
+The RaceBook Course map and profile cards are drawn without the contour corner (`contours={false}`), keeping the course visuals uncluttered.
+
 ## Related Docs
 
 Selecting or masking a private-demo format is configuration, not a runner RaceBook open or publication analytics event.

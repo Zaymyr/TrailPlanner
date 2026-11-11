@@ -265,6 +265,8 @@ The RaceBook weather alert renders through the same `TapeAlertBanner` as the las
 
 Sheets and modals use the shared `SheetHeader` (dotted trail handle, slender blaze, title, watch close button) and collapsible groups use `AccordionSection` (km borne with a count or icon, forest trail along the open content); UI only, data and queries unchanged.
 
+The RaceBook Course map and profile cards are drawn without the contour corner (`contours={false}`), keeping the course visuals uncluttered.
+
 ## Related Docs
 
 - [organizer_import_sessions](organizer-import-sessions.md)
