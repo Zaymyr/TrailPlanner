@@ -47,7 +47,7 @@ git switch -c dev/<task-name> origin/main
 ```
 
    Never reuse a branch from an already merged or closed pull request, and never place new work on a branch from a previous task. After the pull request is merged, delete its local and remote branches.
-   Use the primary repository checkout and switch task branches there. Do not create another worktree unless the user explicitly requests isolated parallel work.
+   Use the primary repository checkout and switch task branches there for sequential work. Parallel agents each use their own worktree, branch, and claimed file scope as described in [Agentic Development](agentic-development.md#parallel-agent-work).
 2. Read root `AGENTS.md`, then `docs/AGENTS.md`, and route yourself to the relevant domain docs. The root file is the canonical entry point for every assistant.
 3. Search the existing implementation before adding new patterns:
 

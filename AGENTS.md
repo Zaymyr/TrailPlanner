@@ -32,7 +32,7 @@ Before fetching, switching branches, editing, generating files, or installing de
 
 4. **Branch discipline** — every new task MUST start on a new `dev/*` branch created from the latest `origin/main` (`git fetch origin` then `git switch -c dev/<task-name> origin/main`). Never work directly on `main`, `preview/web`, reuse a branch from an already merged or closed pull request, or continue new work on a previous task branch. Any change that affects the web deployment inputs (`apps/web`, a package consumed by web, root workspace manifests or lockfile, Turbo configuration, or Vercel configuration) MUST be pushed from its `dev/*` branch into the long-lived `preview/web` integration branch and validated on its stable Vercel Preview before the same reviewed change may be merged into `main`. Keep `preview/web` synchronized with `main`; never delete it or treat it as the source branch for unrelated new work. Mobile-only changes may bypass this web-preview gate unless they also modify one of those shared web inputs.
 
-5. **Single-worktree discipline** — use the primary repository checkout and switch `dev/*` branches in that same directory. Do not create an additional worktree unless the user explicitly requests isolated parallel work. Before any push to `main` or production promotion, audit every path returned by `git worktree list --porcelain`; any uncommitted change or local commit absent from all remotes blocks the push until it is committed and pushed, integrated, or explicitly abandoned by the user.
+5. **Worktree and scope discipline** — sequential work uses the primary repository checkout and switches `dev/*` branches in that same directory. Parallel agent work is allowed when each agent has its own registered worktree, its own `dev/*` branch, and a file scope claimed before its first edit with `node scripts/agent-scope.mjs claim <task> <paths>`; a claim that overlaps another active claim fails and the agent must ask the user instead of editing. `docs/` is never part of a scope: each branch updates the docs its code requires, and docs edited by several branches are reconciled at integration. Only one agent may write in a given worktree. Full protocol: `docs/06-workflows/agentic-development.md` § "Parallel agent work". Before any push to `main` or production promotion, audit every path returned by `git worktree list --porcelain`; any uncommitted change or local commit absent from all remotes blocks the push until it is committed and pushed, integrated, or explicitly abandoned by the user.
 
 6. **Supabase auth** — admin role is in `auth.users.raw_app_meta_data` (JWT claims), NOT in `user_profiles.role`. RLS policies reference `app_metadata`, not `user_metadata`.
 
@@ -46,10 +46,20 @@ Before fetching, switching branches, editing, generating files, or installing de
 
 - Model capability should be treated as a scarce resource. Use stronger models where their additional reasoning materially improves the expected result, not merely because they are available.
 - Handle small, clear changes directly. Delegate only bounded work that is genuinely independent, benefits from parallelism, or keeps noisy exploration and verification out of the primary context.
-- Use Luna for targeted exploration and mechanical work, Terra for clearly specified implementation, Sol for orchestration, integration, difficult development, and high-risk review, and Astra only for exceptional cross-domain architecture or a material problem Sol cannot resolve.
-- Give every delegated agent a compact handoff: objective, relevant current and expected behavior, files or boundaries, constraints and patterns, acceptance criteria, and pertinent tests. Do not ask multiple agents to repeat the same repository scan.
-- Execution agents must escalate material ambiguity, unexpected scope, architectural conflicts, security or data-integrity concerns, and risky migrations to Sol. Sol escalates to Astra only when the decision is genuinely architectural and unusually complex.
-- Parallelize only independent work with clear ownership. Keep review and tests proportional to risk, and stop review-correction loops once acceptance criteria are met and relevant checks pass.
+- Use the light tier for targeted exploration and mechanical work, the standard tier for clearly specified implementation, the strong tier for orchestration, integration, difficult development, and high-risk review, and the exceptional tier only for exceptional cross-domain architecture or a material problem the strong tier cannot resolve.
+- Each assistant maps these tiers to its own models and role files; keep both mappings aligned when a role changes:
+
+| Tier | Role | Codex (`.codex/agents/`) | Claude Code (`.claude/agents/`) |
+|---|---|---|---|
+| Light | explorer (read-only) | Luna, low effort | `haiku`, low effort |
+| Standard | developer | Terra, medium effort | `sonnet`, medium effort |
+| Strong | senior developer | Sol, medium effort | `opus`, medium effort |
+| Strong | reviewer (read-only) | Sol, high effort | `opus`, high effort |
+| Exceptional | architect (read-only) | Astra, xhigh effort | `fable`, xhigh effort |
+
+- Give every delegated agent a compact handoff: objective, relevant current and expected behavior, the file scope it owns, constraints and patterns, acceptance criteria, and pertinent tests. Do not ask multiple agents to repeat the same repository scan.
+- Execution agents must escalate material ambiguity, unexpected scope, architectural conflicts, security or data-integrity concerns, and risky migrations to the strong tier. The strong tier escalates to the exceptional tier only when the decision is genuinely architectural and unusually complex.
+- Parallelize only work whose file scopes do not overlap, following the worktree and scope discipline above. Keep review and tests proportional to risk, and stop review-correction loops once acceptance criteria are met and relevant checks pass.
 - All delegated agents inherit and must preserve the repository instructions, documentation protocol, and domain rules in this file and `docs/AGENTS.md`; role-specific configuration never overrides them.
 
 ## Quick task routing
@@ -65,3 +75,4 @@ Before fetching, switching branches, editing, generating files, or installing de
 | Mobile screen | `docs/01-architecture/mobile-app.md` + `docs/07-design-system/` |
 | New feature | `docs/06-workflows/ship-a-feature.md` |
 | AI implementation, review, or handoff | `docs/06-workflows/agentic-development.md` + `docs/06-workflows/ship-a-feature.md` |
+| Parallel agents / file-scope claims | `docs/06-workflows/agentic-development.md` § "Parallel agent work" |

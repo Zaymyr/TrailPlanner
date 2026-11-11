@@ -114,6 +114,7 @@ You modify `apps/web/lib/auth/session.ts`, which is referenced by `docs/04-auth-
 | Runner monetization / plan purchase | `docs/03-business-rules/runner-monetization.md` + `docs/02-database/tables/runner-billing.md` + `docs/04-auth-and-security/rls-checklist.md` |
 | Runner launch activation / first-hour supporter | `docs/03-business-rules/runner-monetization.md` + `docs/02-database/tables/runner-launch-grandfathered-plans.md` + `docs/02-database/tables/runner-launch-cohorts.md` |
 | Agentic implementation or review | `docs/06-workflows/agentic-development.md` + `docs/06-workflows/ship-a-feature.md` |
+| Parallel agents / file-scope claims | `docs/06-workflows/agentic-development.md` § "Parallel agent work" |
 
 ## Context Budget And Progressive Reading
 
@@ -192,7 +193,7 @@ Use the smallest reliable context first, then expand only when the task needs it
 ## Hard Rules
 
 - Run `git status --short --branch` before any fetch, branch switch, edit, generation, or dependency installation. Existing modifications and untracked files are user-owned by default: do not discard, overwrite, stash, clean, reset, or commit them without explicit approval.
-- Use the primary repository checkout as the single worktree for normal development. Switch task branches in that directory; do not create an auxiliary worktree unless the user explicitly requests isolated parallel work.
+- Use the primary repository checkout for sequential development and switch task branches in that directory. Parallel agents each get their own registered worktree and `dev/*` branch, and claim a non-overlapping file scope with `node scripts/agent-scope.mjs claim` before the first edit; an overlap means stop and ask the user. `docs/` is never claimed: docs touched by several branches are reconciled at integration. See `docs/06-workflows/agentic-development.md` § "Parallel agent work".
 - Before pushing `main` or promoting production, enumerate every registered worktree, inspect each one with `git status --short --branch`, and inspect `git log --branches --not --remotes --oneline`. A dirty worktree or a local-only commit blocks release until the work is committed and pushed, integrated into the release branch, or explicitly abandoned by the user. CI cannot detect uncommitted files stored in another local worktree.
 - Migrations are schema truth. `docs/_archive/db/schema.sql` is historical.
 - Never query `auth.users` from client code. Use server/service role or SECURITY DEFINER functions.
