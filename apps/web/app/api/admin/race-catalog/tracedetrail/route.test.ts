@@ -12,6 +12,8 @@ const mockGpx = [
   "</gpx>",
 ].join("");
 
+vi.mock("server-only", () => ({}));
+
 vi.mock("../../../../../lib/supabase", () => ({
   extractBearerToken: vi.fn(() => "admin-token"),
   fetchSupabaseUser: vi.fn(async () => ({ id: "11111111-1111-1111-1111-111111111111" })),
@@ -42,7 +44,7 @@ vi.mock("../../../../../lib/tracedetrail-race-import", () => ({
     aidStations: [],
     elevationProfile: [{ distanceKm: 0, elevationM: 100 }],
     gpxContent: mockGpx,
-    gpxAccessMode: "embedded",
+    gpxAccessMode: "public",
   })),
   TraceDeTrailImportError: class TraceDeTrailImportError extends Error {},
 }));
@@ -112,6 +114,10 @@ describe("Trace de Trail admin route", () => {
 
       if (url.includes("/storage/v1/object/race-gpx/catalog/") && init?.method === "POST") {
         return new Response(null, { status: 200 });
+      }
+
+      if (url.includes("/storage/v1/object/race-gpx/catalog/") && !init?.method) {
+        return new Response(mockGpx, { status: 200 });
       }
 
       if (url.endsWith(`/rest/v1/races?id=eq.${raceId}`) && init?.method === "PATCH") {
@@ -233,30 +239,32 @@ describe("Trace de Trail admin route", () => {
   it("does not upload or patch when the existing GPX already has the downloaded hash", async () => {
     const raceId = "44444444-4444-4444-8444-444444444444";
     const gpxSha = createHash("sha256").update(mockGpx).digest("hex");
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      Response.json([
-        {
-          id: raceId,
-          name: "Already enriched",
-          location_text: null,
-          location: null,
-          distance_km: 42,
-          elevation_gain_m: 1800,
-          elevation_loss_m: 1800,
-          trace_provider: "tracedetrail",
-          trace_id: 316035,
-          source_url: "https://tracedetrail.fr/fr/trace/316035",
-          external_site_url: null,
-          thumbnail_url: null,
-          gpx_path: `catalog/${raceId}/tracedetrail-existing.gpx`,
-          gpx_hash: gpxSha,
-          gpx_storage_path: `catalog/${raceId}/tracedetrail-existing.gpx`,
-          gpx_sha256: gpxSha,
-          is_live: true,
-          slug: "already-enriched",
-        },
-      ])
-    );
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        Response.json([
+          {
+            id: raceId,
+            name: "Already enriched",
+            location_text: null,
+            location: null,
+            distance_km: 42,
+            elevation_gain_m: 1800,
+            elevation_loss_m: 1800,
+            trace_provider: "tracedetrail",
+            trace_id: 316035,
+            source_url: "https://tracedetrail.fr/fr/trace/316035",
+            external_site_url: null,
+            thumbnail_url: null,
+            gpx_path: `catalog/${raceId}/tracedetrail-existing.gpx`,
+            gpx_hash: gpxSha,
+            gpx_storage_path: `catalog/${raceId}/tracedetrail-existing.gpx`,
+            gpx_sha256: gpxSha,
+            is_live: true,
+            slug: "already-enriched",
+          },
+        ])
+      )
+      .mockResolvedValueOnce(new Response(mockGpx, { status: 200 }));
     const request = new NextRequest("http://localhost/api/admin/race-catalog/tracedetrail", {
       method: "POST",
       headers: {
@@ -273,6 +281,6 @@ describe("Trace de Trail admin route", () => {
       unchanged: true,
       race: { id: raceId, gpx_sha256: gpxSha },
     });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
