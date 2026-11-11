@@ -181,12 +181,13 @@ color, so it survives organizer RaceBook colors:
   global and RaceBook/plan tab bars and the active Livret/plan switch segment
   across the whole label width (the label and line share a shrink-wrapped
   container; in the tab bars the line is always laid out and hidden when
-  inactive so labels never shift), and it is the active `TrailTabs` leg.
+  inactive so labels never shift). `TrailTabs` no longer draw it: their painted
+  plank marks the active tab.
 - `TrailTabs` draws in-page tabs as a trail: every label sits on a wooden
   plank along a dotted path. The active tab is a raised plank painted in the
   `solid` sign wood (grain, small knot, routed groove, top bevel, thickness,
-  cast shadow, slight hand-set lean) with a bold inverse label, and its leg of
-  the path becomes the `BlazeLine` (static under reduced motion). Unselected
+  cast shadow, slight hand-set lean) with a bold inverse label; there is no extra underline,
+  the painted plank already marks the active tab. Unselected
   tabs are flat bare-wood planks (`SignPlate raised={false}`, muted wood, no
   shadow) with a semibold secondary label, so selection never relies on colour
   alone. Tabs are centered by default; `stretch` shares the full width, and

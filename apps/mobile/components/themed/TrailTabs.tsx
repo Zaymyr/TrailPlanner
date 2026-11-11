@@ -1,8 +1,6 @@
 import { colors, mobileComponents, spacing } from '@pace-yourself/design-system';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
-  Animated,
-  Easing,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,10 +11,8 @@ import {
 } from 'react-native';
 import Svg, { Line } from 'react-native-svg';
 
-import { useReduceMotion } from '../../hooks/useReduceMotion';
 import { Text } from './Text';
 import { createTrailRandom } from '../../lib/trailSignature';
-import { BlazeLine } from './TrailBlaze';
 import { SignPlate } from './TrailSignButton';
 import { useTrailSeed } from './TrailSeedProvider';
 
@@ -57,11 +53,10 @@ const PLANK_DEPTH = mobileComponents.trailSign.depth;
  * In-page tabs drawn as a trail: every label sits on a wooden plank along a
  * dotted path. The active one is a raised, painted plank (the `solid` trail
  * sign wood: grain, knot, routed groove, bevel, thickness, cast shadow, light
- * hand-set lean) with a bold light label, and the active leg of the path
- * becomes the tri-color signature line. Unselected tabs are flat bare-wood
+ * hand-set lean) with a bold light label. Unselected tabs are flat bare-wood
  * planks (`muted` wood, no shadow) with a semibold secondary label. Selection
- * is carried by label weight, plank finish and relief and the line together,
- * never by color alone. Centered by default; `stretch` fills the width.
+ * is carried by label weight, plank finish and relief together (no extra
+ * underline: the painted plank already says "active"), never by color alone. Centered by default; `stretch` fills the width.
  */
 export function TrailTabs<T extends string>({
   tabs,
@@ -71,7 +66,6 @@ export function TrailTabs<T extends string>({
   stretch = false,
   style,
 }: Props<T>) {
-  const reduceMotion = useReduceMotion();
   // Planks lean less than signs (they carry the label being read).
   const trailSeed = useTrailSeed();
   const [legs, setLegs] = useState<Partial<Record<T, Leg>>>({});
@@ -79,30 +73,6 @@ export function TrailTabs<T extends string>({
   const [viewportWidth, setViewportWidth] = useState(0);
   // Scrollable stretch: equal shares of the visible width, growing if needed.
   const minTabWidth = stretch && scrollable && viewportWidth > 0 ? Math.floor(viewportWidth / Math.max(1, tabs.length)) : 0;
-  const legX = useRef(new Animated.Value(0)).current;
-  const legWidth = useRef(new Animated.Value(0)).current;
-  const placed = useRef(false);
-  const activeLeg = legs[activeKey];
-
-  useEffect(() => {
-    if (!activeLeg) return;
-    if (!placed.current || reduceMotion) {
-      legX.setValue(activeLeg.x);
-      legWidth.setValue(activeLeg.width);
-      placed.current = true;
-      return;
-    }
-    const config = {
-      duration: mobileComponents.motion.standardDurationMs,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    };
-    Animated.parallel([
-      Animated.timing(legX, { ...config, toValue: activeLeg.x }),
-      Animated.timing(legWidth, { ...config, toValue: activeLeg.width }),
-    ]).start();
-  }, [activeLeg, legWidth, legX, reduceMotion]);
-
   const handleTabLayout = (key: T) => (event: LayoutChangeEvent) => {
     const { x, width, height } = event.nativeEvent.layout;
     setLegs((current) => {
@@ -131,15 +101,6 @@ export function TrailTabs<T extends string>({
             y2={trackHeight / 2}
           />
         </Svg>
-      ) : null}
-      {activeLeg ? (
-        <Animated.View
-          accessible={false}
-          pointerEvents="none"
-          style={[styles.leg, { left: legX, width: legWidth }]}
-        >
-          <BlazeLine thickness={trackHeight} />
-        </Animated.View>
       ) : null}
       {tabs.map((tab) => {
         const active = tab.key === activeKey;
@@ -216,12 +177,6 @@ const styles = StyleSheet.create({
   rowCentered: { justifyContent: 'center' },
   rowStretch: { justifyContent: 'space-between' },
   track: { position: 'absolute', left: 0, bottom: 0 },
-  leg: {
-    position: 'absolute',
-    bottom: 0,
-    height: trackHeight,
-    paddingHorizontal: 4,
-  },
   tab: {
     minHeight,
     flexDirection: 'row',

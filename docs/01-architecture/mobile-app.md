@@ -459,7 +459,8 @@ loader, error states a danger blaze and empty states the brand ridge when no ico
 active root tab and the active RaceBook/plan contextual tab underline their
 label with the tri-color `BlazeLine` (light green, amber, dark green in the
 blaze's 2:1:4 proportions). In-page selectors (RaceBook Course sub-tabs,
-Profile sub-tabs, the plan Ravitos/Allures/Chronologie view) use `TrailTabs`;
+Profile sub-tabs, the plan Ravitos/Allures/Chronologie view) use `TrailTabs`
+(the painted plank marks the active tab; no tri-colour underline);
 the attached Livret/plan switch keeps its pill and underlines the active segment
 with the same line. RaceBook map, general-map and transport links and each catalog
 format's RaceBook and plan actions use `TrailSignButton`, drawn as a textured,
