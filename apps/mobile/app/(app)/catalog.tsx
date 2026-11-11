@@ -40,6 +40,7 @@ import { ChoiceChip } from '../../components/themed/ChoiceChip';
 import { Cote } from '../../components/themed/Cote';
 import { Field } from '../../components/themed/Field';
 import { IconAction } from '../../components/themed/IconAction';
+import { SheetHeader } from '../../components/themed/SheetHeader';
 import { StatusPill } from '../../components/themed/StatusPill';
 import { MilestoneCompassButton } from '../../components/themed/trail/MilestoneGlyphs';
 import { Colors } from '../../constants/colors';
@@ -1328,13 +1329,12 @@ export default function CatalogScreen() {
         <View style={styles.modalBackdrop}>
           <Pressable style={styles.sheetOverlay} onPress={() => setSelectedEvent(null)} />
           <SafeAreaView accessibilityViewIsModal style={styles.sheetCard}>
-            <View style={styles.sheetHandle} />
-            <View style={styles.sheetHeader}>
-              <View style={styles.sheetHeaderText}>
-                <Text style={styles.sheetTitle}>{selectedEvent?.name}</Text>
-                {selectedEventMeta ? <Text style={styles.sheetSubtitle}>{selectedEventMeta}</Text> : null}
-              </View>
-              {selectedEvent ? (
+            <SheetHeader
+              closeLabel={t.common.close}
+              onClose={() => setSelectedEvent(null)}
+              subtitle={selectedEventMeta}
+              title={selectedEvent?.name ?? ''}
+              trailing={selectedEvent ? (
                 <IconAction
                   accessibilityLabel={favoriteEventIds.includes(selectedEvent.id)
                     ? (locale === 'fr' ? 'Retirer cette course des favoris' : 'Remove this race from favorites')
@@ -1347,12 +1347,7 @@ export default function CatalogScreen() {
                   tone="brand"
                 />
               ) : null}
-              <IconAction
-                accessibilityLabel={t.common.close}
-                icon={<Ionicons name="close" size={22} color={Colors.textPrimary} />}
-                onPress={() => setSelectedEvent(null)}
-              />
-            </View>
+            />
 
             {selectedEventImage ? (
               // Organizer images are often small logos: show them whole over a
@@ -1748,32 +1743,6 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 24,
     gap: 14,
-  },
-  sheetHandle: {
-    width: 42,
-    height: 4,
-    borderRadius: 999,
-    backgroundColor: Colors.border,
-    alignSelf: 'center',
-  },
-  sheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  sheetHeaderText: {
-    flex: 1,
-    gap: 4,
-  },
-  sheetTitle: {
-    color: Colors.textPrimary,
-    fontSize: 20,
-    fontWeight: '800',
-  },
-  sheetSubtitle: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
   },
   sheetImage: {
     width: '100%',

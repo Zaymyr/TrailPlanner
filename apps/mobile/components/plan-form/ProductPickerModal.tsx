@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Field } from '../themed/Field';
-import { IconAction } from '../themed/IconAction';
+import { SheetHeader } from '../themed/SheetHeader';
 import { Text } from '../themed/Text';
 import { TrailTabs, type TrailTab } from '../themed/TrailTabs';
 import { Colors } from '../../constants/colors';
@@ -160,10 +160,7 @@ export const ProductPickerModal = React.memo(function ProductPickerModal({
       <KeyboardAvoidingView style={styles.modalWrapper} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <Pressable style={styles.modalOverlay} onPress={onClose} />
         <View accessibilityViewIsModal style={styles.pickerSheet}>
-          <View style={styles.pickerHeader}>
-            <Text accessibilityRole="header" style={styles.pickerTitle}>Choisir un produit</Text>
-            <IconAction accessibilityLabel="Fermer" icon={<Ionicons color={Colors.textPrimary} name="close" size={22} />} onPress={onClose} />
-          </View>
+          <SheetHeader closeLabel="Fermer" onClose={onClose} style={styles.pickerHeader} title="Choisir un produit" />
 
           <Field
             accessibilityLabel="Rechercher un produit ou une marque"

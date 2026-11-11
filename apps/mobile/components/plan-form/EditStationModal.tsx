@@ -14,7 +14,7 @@ import { useI18n } from '../../lib/i18n';
 import { splitLabelUnit } from '../../lib/fieldLabel';
 import { ActionButton } from '../themed/ActionButton';
 import { Field } from '../themed/Field';
-import { IconAction } from '../themed/IconAction';
+import { SheetHeader } from '../themed/SheetHeader';
 import { Text } from '../themed/Text';
 import { styles } from './styles';
 
@@ -92,12 +92,13 @@ export function EditStationModal({ editingStation, setEditingStation, onSave, of
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <View style={styles.editModalHeader}>
-              <Text accessibilityRole="header" style={styles.editModalTitle}>
-                {isCreateMode ? t.planForm.addAidStationTitle : t.planForm.editAidStationTitle}
-              </Text>
-              <IconAction accessibilityLabel={t.planForm.closeEditor} icon={<Ionicons color={Colors.textPrimary} name="close" size={22} />} onPress={() => setEditingStation(null)} />
-            </View>
+            <SheetHeader
+              closeLabel={t.planForm.closeEditor}
+              onClose={() => setEditingStation(null)}
+              showHandle={false}
+              style={styles.editModalHeader}
+              title={isCreateMode ? t.planForm.addAidStationTitle : t.planForm.editAidStationTitle}
+            />
             {readOnlyOfficialFields ? (
               <View style={styles.officialFieldsHint}>
                 <Ionicons color={Colors.textSecondary} name="lock-closed-outline" size={16} />

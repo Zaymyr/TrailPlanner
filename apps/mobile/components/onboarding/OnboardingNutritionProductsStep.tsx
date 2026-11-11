@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
-import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { Locale, MobileTranslations } from '../../locales/types';
 import { Colors } from '../../constants/colors';
 import type { FuelType, Product } from '../nutrition/types';
+import { AccordionSection } from '../themed/AccordionHeader';
 import { ActionButton } from '../themed/ActionButton';
 import { Field } from '../themed/Field';
 import { StatusPill } from '../themed/StatusPill';
@@ -240,40 +241,23 @@ export function OnboardingNutritionProductsStep({
               const hasVerifiedProduct = group.products.some(isVerifiedProduct);
 
               return (
-                <View key={group.brandLabel} style={styles.productBrandGroup}>
-                  <TouchableOpacity
-                    style={[styles.productBrandHeader, brandExpanded && styles.productBrandHeaderExpanded]}
-                    onPress={() => onToggleBrand(group.brandLabel)}
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.productBrandTitleRow}>
-                      <Text
-                        numberOfLines={1}
-                        style={[styles.productBrandTitle, hasVerifiedProduct && styles.productBrandTitleOfficial]}
-                      >
-                        {group.brandLabel}
-                      </Text>
-                    </View>
-
-                    <View style={styles.productBrandHeaderActions}>
-                      {selectedProductsInBrand > 0 ? (
-                        <StatusPill
-                          icon={<Ionicons name="checkmark" size={12} color={Colors.textOnBrand} />}
-                          label={String(selectedProductsInBrand)}
-                          tone="brand"
-                        />
-                      ) : null}
-                      <StatusPill label={String(group.products.length)} />
-                      <Ionicons
-                        name={brandExpanded ? 'chevron-up' : 'chevron-down'}
-                        size={18}
-                        color={Colors.brandPrimary}
+                <AccordionSection
+                  key={group.brandLabel}
+                  count={group.products.length}
+                  expanded={brandExpanded}
+                  onToggle={() => onToggleBrand(group.brandLabel)}
+                  title={group.brandLabel}
+                  titleColor={hasVerifiedProduct ? Colors.brandLight : undefined}
+                  trailing={
+                    selectedProductsInBrand > 0 ? (
+                      <StatusPill
+                        icon={<Ionicons name="checkmark" size={12} color={Colors.textOnBrand} />}
+                        label={String(selectedProductsInBrand)}
+                        tone="brand"
                       />
-                    </View>
-                  </TouchableOpacity>
-
-                  {brandExpanded ? (
-                    <View style={styles.productBrandItems}>
+                    ) : null
+                  }
+                >
                       {group.products.map((product) => (
                         <OnboardingProductChoice
                           key={product.id}
@@ -285,9 +269,7 @@ export function OnboardingNutritionProductsStep({
                           onPress={() => onToggleProduct(product.id)}
                         />
                       ))}
-                    </View>
-                  ) : null}
-                </View>
+                </AccordionSection>
               );
             })}
           </View>
@@ -328,12 +310,4 @@ const styles = StyleSheet.create({
   emptyTitle: { color: Colors.textPrimary, fontSize: 16, fontWeight: '700', textAlign: 'center' },
   emptySubtitle: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20, textAlign: 'center' },
   productList: { gap: 8 },
-  productBrandGroup: { gap: 0 },
-  productBrandHeader: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, backgroundColor: Colors.surface, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8 },
-  productBrandHeaderExpanded: { backgroundColor: Colors.brandSurface, borderColor: Colors.brandBorder },
-  productBrandHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  productBrandTitleRow: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  productBrandTitle: { flex: 1, color: Colors.textPrimary, fontSize: 15, fontWeight: '800' },
-  productBrandTitleOfficial: { color: Colors.brandLight },
-  productBrandItems: { gap: 0 },
 });

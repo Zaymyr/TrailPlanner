@@ -19,6 +19,7 @@ import { DataText } from '../themed/DataText';
 import { ActionButton } from '../themed/ActionButton';
 import { Field } from '../themed/Field';
 import { IconAction } from '../themed/IconAction';
+import { SheetHeader } from '../themed/SheetHeader';
 import { StatusPill } from '../themed/StatusPill';
 import { HeartMark } from '../themed/trail/HeartMark';
 import { Text } from '../themed/Text';
@@ -190,22 +191,14 @@ export const ProductDetailModal = memo(function ProductDetailModal({
       >
         <Pressable disabled={busy} onPress={onClose} style={styles.modalOverlay} />
         <View accessibilityViewIsModal style={styles.modalSheet}>
-          <View style={styles.header}>
-            <View style={styles.titleBlock}>
-              <Text style={styles.modalTitle}>Fiche produit</Text>
-              <StatusPill label={accessLabel} tone={canManage ? 'brand' : 'neutral'} />
-            </View>
-
-            <TouchableOpacity
-              accessibilityLabel="Fermer"
-              accessibilityRole="button"
-              disabled={busy}
-              onPress={onClose}
-              style={styles.closeButton}
-            >
-              <Ionicons color={Colors.textSecondary} name="close" size={20} />
-            </TouchableOpacity>
-          </View>
+          <SheetHeader
+            closeDisabled={busy}
+            closeLabel="Fermer"
+            onClose={onClose}
+            style={styles.header}
+            title="Fiche produit"
+            trailing={<StatusPill label={accessLabel} tone={canManage ? 'brand' : 'neutral'} />}
+          />
 
           <ScrollView
             contentContainerStyle={styles.content}
@@ -439,35 +432,11 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
-    paddingTop: 18,
+    paddingTop: 10,
     paddingBottom: 34,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
     marginBottom: 14,
-  },
-  titleBlock: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  modalTitle: {
-    color: Colors.textPrimary,
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  closeButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.surfaceSecondary,
   },
   content: {
     gap: 12,

@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { ActionButton } from '../themed/ActionButton';
 import { Field } from '../themed/Field';
+import { SheetHeader } from '../themed/SheetHeader';
 import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import { FUEL_TYPE_OPTIONS, FUEL_TYPE_LABELS } from './nutritionConstants';
@@ -94,7 +95,7 @@ export const NutritionCreateProductModal = memo(function NutritionCreateProductM
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <Text accessibilityRole="header" style={styles.modalTitle}>Créer un produit</Text>
+            <SheetHeader style={styles.modalHeader} title="Créer un produit" />
 
             <Field
               autoCapitalize="words"
@@ -265,15 +266,12 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
+    paddingTop: 10,
     paddingBottom: 40,
     maxHeight: '90%',
   },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.textPrimary,
+  modalHeader: {
     marginBottom: 20,
-    textAlign: 'center',
   },
   formField: {
     marginBottom: 12,

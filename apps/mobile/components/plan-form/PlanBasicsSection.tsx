@@ -21,7 +21,8 @@ import {
 import { ActionButton } from '../themed/ActionButton';
 import { DataText } from '../themed/DataText';
 import { Field } from '../themed/Field';
-import { IconAction } from '../themed/IconAction';
+import { AccordionHeader, AccordionTrail } from '../themed/AccordionHeader';
+import { SheetHeader } from '../themed/SheetHeader';
 import { Text } from '../themed/Text';
 import { TrailTabs, type TrailTab } from '../themed/TrailTabs';
 import { Colors } from '../../constants/colors';
@@ -286,35 +287,20 @@ export function PlanBasicsSection({
       </View>
     </View>
   ) : (
-    <TouchableOpacity
-      style={[
-        styles.sectionAccordionHeader,
-        spaced && styles.sectionAccordionHeaderSpaced,
-        !expandedSections[section] && styles.sectionAccordionHeaderCollapsed,
-      ]}
-      onPress={() => toggleSection(section)}
-      activeOpacity={0.8}
-    >
-      <View style={styles.sectionAccordionHeaderContent}>
-        <View style={styles.sectionAccordionTitleRow}>
-          <Text style={[styles.sectionTitle, styles.sectionAccordionTitle]}>{title}</Text>
-          {!expandedSections[section] && (
-            <View style={styles.sectionSummaryRowInline}>
-              {summaryChips.map((chip) => (
-                <Text key={`${section}-${chip}`} style={styles.sectionSummaryChipInline}>
-                  {chip}
-                </Text>
-              ))}
-            </View>
-          )}
-        </View>
-      </View>
-      <Ionicons
-        name={expandedSections[section] ? 'chevron-up' : 'chevron-down'}
-        size={18}
-        color={Colors.textSecondary}
-      />
-    </TouchableOpacity>
+    <AccordionHeader
+      expanded={expandedSections[section]}
+      icon={
+        <Ionicons
+          name={section === 'course' ? 'flag-outline' : section === 'pace' ? 'speedometer-outline' : 'nutrition-outline'}
+          size={18}
+          color={Colors.brandPrimary}
+        />
+      }
+      onToggle={() => toggleSection(section)}
+      style={spaced ? styles.sectionAccordionHeaderSpaced : undefined}
+      subtitle={expandedSections[section] ? null : summaryChips.join(' · ')}
+      title={title}
+    />
   );
 
   if (inline) {
@@ -476,18 +462,13 @@ export function PlanBasicsSection({
         <KeyboardAvoidingView style={styles.modalWrapper} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <Pressable accessible={false} style={styles.modalOverlay} onPress={onCloseSettings} />
           <View accessibilityViewIsModal style={styles.settingsSheet}>
-            <View style={styles.settingsSheetHandle} />
-            <View style={styles.settingsSheetHeader}>
-              <View style={styles.settingsSheetHeaderCopy}>
-                <Text accessibilityRole="header" style={styles.settingsSheetTitle}>Paramètres du plan</Text>
-                <Text style={styles.settingsSheetSubtitle}>Course, allure et cibles nutritionnelles</Text>
-              </View>
-              <IconAction
-                accessibilityLabel="Fermer les paramètres du plan"
-                icon={<Ionicons name="close" size={20} color={Colors.textPrimary} />}
-                onPress={onCloseSettings}
-              />
-            </View>
+            <SheetHeader
+              closeLabel="Fermer les paramètres du plan"
+              onClose={onCloseSettings}
+              style={styles.settingsSheetHeader}
+              subtitle="Course, allure et cibles nutritionnelles"
+              title="Paramètres du plan"
+            />
 
             <ScrollView
               contentContainerStyle={styles.settingsSheetContent}
@@ -500,7 +481,7 @@ export function PlanBasicsSection({
                 `D+ ${values.elevationGain || 0} m`,
               ])}
               {expandedSections.course && (
-                <>
+                <AccordionTrail contentStyle={styles.sectionAccordionBody}>
                   <Field
                     containerStyle={styles.formField}
                     label="Nom du plan"
@@ -532,7 +513,7 @@ export function PlanBasicsSection({
                       <NumberInput label="D+" unit="m" value={values.elevationGain} onChange={(v) => update('elevationGain', v)} placeholder="3000" />
                     </View>
                   </View>}
-                </>
+                </AccordionTrail>
               )}
 
               {renderAccordionHeader(
@@ -542,7 +523,7 @@ export function PlanBasicsSection({
                 true,
               )}
               {expandedSections.pace && (
-                <>
+                <AccordionTrail contentStyle={styles.sectionAccordionBody}>
                   <Text style={styles.waterBagHint}>L'allure moyenne de course tient compte du dénivelé et de la fatigue.</Text>
                   <TrailTabs
                     activeKey={values.paceType}
@@ -606,7 +587,7 @@ export function PlanBasicsSection({
                       </ActionButton>
                     </View>
                   ) : null}
-                </>
+                </AccordionTrail>
               )}
 
               {renderAccordionHeader(
@@ -621,7 +602,7 @@ export function PlanBasicsSection({
                 true,
               )}
               {expandedSections.nutrition && (
-                <>
+                <AccordionTrail contentStyle={styles.sectionAccordionBody}>
                   <View style={styles.row}>
                     <View style={styles.rowItem}>
                       <NumberInput label="Glucides" unit="g/h"
@@ -657,7 +638,7 @@ export function PlanBasicsSection({
                     onChange={(value) => update('waterBagLiters', value)}
                     onCustomValueFocus={onCustomWaterBagFocus}
                   />
-                </>
+                </AccordionTrail>
               )}
 
               <ActionButton fullWidth onPress={onCloseSettings} style={{ marginTop: 18 }}>

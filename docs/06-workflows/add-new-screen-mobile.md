@@ -276,6 +276,8 @@ The RaceBook Course map and profile cards open fullscreen through watch `IconAct
 
 Section cards are `Card`s with a stable `variationKey`; status badges and counters are `StatusPill`s; segmented choices are `TrailTabs` (`stretch`); modal actions are one primary `ActionButton` plus ghost or secondary ones.
 
+New screens use `SheetHeader` for every sheet or modal header and `AccordionSection` for collapsible groups, never hand-rolled handle / title / chevron rows.
+
 ## Related Docs
 
 Mobile RaceBook entry points must pass preview selection plus publication/organizer access through `canShowRacebook`; screens must not recreate those gates locally.

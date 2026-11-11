@@ -157,6 +157,8 @@ Catalog race cards read format profiles lazily from the existing GPX-derived end
 
 Status flags read from a new table (for example an unread marker) are shown with `StatusPill` wristbands on mobile, never with ad-hoc badges.
 
+Lists grouped by a new table's parent rows are rendered as `AccordionSection`s whose borne shows the child count.
+
 ## Related Docs
 
 The `race_supporter_points` addition follows this workflow: cascade ownership by `races`, explicit client/service grants, a completeness-filtered SELECT policy, a service-only atomic collection RPC, static SQL checks, and a dedicated table reference document.

@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { SheetHeader } from '../themed/SheetHeader';
 import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import type { AlertConfirmMode } from '../../lib/raceLiveSession';
@@ -69,12 +70,7 @@ export function RaceStartSheet({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>
       <View style={styles.overlay}>
         <View accessibilityViewIsModal style={styles.sheet}>
-          <View style={styles.header}>
-            <Text accessibilityRole="header" style={styles.headerTitle}>Démarrer le suivi live</Text>
-            <Text style={styles.headerSubtitle} numberOfLines={2}>
-              {raceName}
-            </Text>
-          </View>
+          <SheetHeader style={styles.header} subtitle={raceName} title="Démarrer le suivi live" />
 
           <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false}>
             <Text style={styles.description}>
@@ -147,20 +143,10 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 10,
     paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
-  },
-  headerTitle: {
-    color: Colors.textPrimary,
-    fontSize: 22,
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    color: Colors.textSecondary,
-    fontSize: 14,
   },
   scrollArea: {
     paddingHorizontal: 20,

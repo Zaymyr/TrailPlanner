@@ -15,8 +15,8 @@ import { Colors } from '../../constants/colors';
 import { DatePickerField } from '../inputs/DatePickerField';
 import { ActionButton } from '../themed/ActionButton';
 import { Field } from '../themed/Field';
-import { IconAction } from '../themed/IconAction';
 import { SectionHeading } from '../themed/SectionHeading';
+import { SheetHeader } from '../themed/SheetHeader';
 import { TopoCard } from '../themed/TopoCard';
 import { TrailSignButton } from '../themed/TrailSignButton';
 import { Cote } from '../themed/Cote';
@@ -177,15 +177,12 @@ export function CatalogFiltersModal({
       >
         <Pressable accessible={false} onPress={onClose} style={styles.modalDismissArea} />
         <SafeAreaView accessibilityViewIsModal edges={['bottom']} style={styles.modalSheet}>
-          <View style={styles.modalHeader}>
-            <Text accessibilityRole="header" style={styles.modalTitle}>{text.modalTitle}</Text>
-            <IconAction
-              accessibilityLabel="Fermer"
-              icon={<Ionicons name="close" size={22} color={Colors.textPrimary} />}
-              onPress={onClose}
-              style={styles.modalCloseButton}
-            />
-          </View>
+          <SheetHeader
+            closeLabel="Fermer"
+            onClose={onClose}
+            style={styles.modalHeader}
+            title={text.modalTitle}
+          />
           <ScrollView
             contentContainerStyle={styles.modalContent}
             keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
@@ -283,9 +280,7 @@ const styles = StyleSheet.create({
   modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(18, 24, 16, 0.24)' },
   modalDismissArea: { ...StyleSheet.absoluteFillObject },
   modalSheet: { maxHeight: '90%', backgroundColor: Colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: Colors.border, backgroundColor: Colors.surface },
-  modalCloseButton: { marginVertical: -10, marginRight: -10 },
-  modalTitle: { color: Colors.textPrimary, fontSize: 18, fontWeight: '700' },
+  modalHeader: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: Colors.border, backgroundColor: Colors.surface },
   modalScroll: { flexShrink: 1 },
   modalContent: { padding: 20, gap: 14 },
   rangeRow: { flexDirection: 'row', gap: 10 },

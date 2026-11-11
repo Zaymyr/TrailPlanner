@@ -27,6 +27,7 @@ import {
 } from '@pace-yourself/design-system';
 
 import { RacebookLeafletMap } from '../../../../components/race/RacebookLeafletMap';
+import { AccordionSection } from '../../../../components/themed/AccordionHeader';
 import { Card } from '../../../../components/themed/Card';
 import { IconAction } from '../../../../components/themed/IconAction';
 import { DataText } from '../../../../components/themed/DataText';
@@ -2193,32 +2194,21 @@ export default function RaceRacebookScreen() {
                     ) : null}
 
                     {courseConstraintLines.length > 0 ? (
-                      <>
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityState={{ expanded: courseConstraintsExpanded }}
-                          onPress={() => setCourseConstraintsExpanded((current) => !current)}
-                          style={styles.courseConstraintsButton}
-                        >
-                          <Ionicons color={Colors.warning} name="alert-circle-outline" size={18} />
-                          <Text style={styles.courseConstraintsLabel}>
-                            {(courseConstraintLines.length > 1
-                              ? t.catalog.racebookInstructionsMany
-                              : t.catalog.racebookInstructionsOne
-                            ).replace('{count}', String(courseConstraintLines.length))}
-                          </Text>
-                          <Ionicons
-                            color={Colors.textSecondary}
-                            name={courseConstraintsExpanded ? 'chevron-up' : 'chevron-down'}
-                            size={17}
-                          />
-                        </Pressable>
-                        {courseConstraintsExpanded ? (
-                          <View style={styles.courseConstraintsContent}>
-                            <InfoList values={courseConstraintLines} />
-                          </View>
-                        ) : null}
-                      </>
+                      <AccordionSection
+                        accentColor={brandTheme.accentGraphicColor}
+                        accessibilityLabel={`${t.catalog.racebookSectionCourseConstraints}, ${(courseConstraintLines.length > 1
+                          ? t.catalog.racebookInstructionsMany
+                          : t.catalog.racebookInstructionsOne
+                        ).replace('{count}', String(courseConstraintLines.length))}`}
+                        contentStyle={styles.courseConstraintsContent}
+                        count={courseConstraintLines.length}
+                        expanded={courseConstraintsExpanded}
+                        onToggle={() => setCourseConstraintsExpanded((current) => !current)}
+                        style={styles.courseConstraintsSection}
+                        title={t.catalog.racebookSectionCourseConstraints}
+                      >
+                        <InfoList values={courseConstraintLines} />
+                      </AccordionSection>
                     ) : null}
                   </View>
                 ) : !(['route', 'start-waves', 'aid-stations'] as CourseTabKey[]).includes(activeCourseTab) &&
@@ -2723,23 +2713,12 @@ const styles = StyleSheet.create({
   courseEssentialValueCritical: {
     color: Colors.danger,
   },
-  courseConstraintsButton: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  courseConstraintsSection: {
     paddingHorizontal: 14,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
   },
-  courseConstraintsLabel: {
-    flex: 1,
-    color: Colors.textPrimary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
   courseConstraintsContent: {
-    paddingHorizontal: 14,
     paddingBottom: 14,
   },
   sectionCard: {

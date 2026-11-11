@@ -26,6 +26,11 @@ type BlazeProps = {
   size?: TrailBlazeSize;
   /** Organizer-themed surfaces pass their own [light, strong] band colors. */
   bandColors?: readonly [string, string];
+  /**
+   * Overrides the size geometry (band width, height of one ratio unit, gap)
+   * for slender blazes such as the sheet-header waymark.
+   */
+  geometry?: { width: number; unit: number; gap: number };
   style?: StyleProp<ViewStyle>;
 };
 
@@ -35,8 +40,8 @@ type BlazeProps = {
  * identity) but never carries meaning on its own, so it is hidden from
  * assistive technologies.
  */
-export function TrailBlaze({ tone = 'brand', size = 'md', bandColors, style }: BlazeProps) {
-  const geometry = mobileComponents.blaze[size];
+export function TrailBlaze({ tone = 'brand', size = 'md', bandColors, geometry: geometryOverride, style }: BlazeProps) {
+  const geometry = geometryOverride ?? mobileComponents.blaze[size];
   const bands: Bands = bandColors
     ? { light: bandColors[0], accent: null, strong: bandColors[1] }
     : bandsByTone[tone];

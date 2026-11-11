@@ -395,6 +395,8 @@ Plan and product numeric inputs (`NumberInput`, plan basics, aid-station editor,
 
 Plan-form pace-type (Allure / Vitesse) and product-sort selectors use `TrailTabs`; save, preview and apply actions use `ActionButton`. The nutrition product favourite is a forest `HeartMark` watch button (no star), product deletion is `destructive-outline`, and the verified brand badge is a success `StatusPill`. Computations are unchanged.
 
+Nutrition screens changed visually only: shared sheet headers, accordion bornes with product counts, and the live-training settings accordion. Nutrition logic is unchanged.
+
 ## Related Docs
 
 - [Products Table](../02-database/tables/products.md)

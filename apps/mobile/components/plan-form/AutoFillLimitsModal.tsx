@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { ActionButton } from '../themed/ActionButton';
-import { IconAction } from '../themed/IconAction';
+import { SheetHeader } from '../themed/SheetHeader';
 import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import type { PlanProduct } from './contracts';
@@ -132,16 +132,13 @@ export const AutoFillLimitsModal = React.memo(function AutoFillLimitsModal({
       <KeyboardAvoidingView style={styles.modalWrapper} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <Pressable style={styles.modalOverlay} onPress={onClose} />
         <View accessibilityViewIsModal style={styles.autoFillLimitsSheet}>
-          <View style={styles.settingsSheetHandle} />
-          <View style={styles.autoFillLimitsHeader}>
-            <View style={styles.autoFillLimitsHeaderCopy}>
-              <Text accessibilityRole="header" style={styles.autoFillLimitsTitle}>
-                {preview ? t.autoFillLimits.preview : t.autoFillLimits.title}
-              </Text>
-              {!preview ? <Text style={styles.autoFillLimitsSubtitle}>{t.autoFillLimits.help}</Text> : null}
-            </View>
-            <IconAction accessibilityLabel={t.autoFillLimits.close} icon={<Ionicons color={Colors.textPrimary} name="close" size={20} />} onPress={onClose} />
-          </View>
+          <SheetHeader
+            closeLabel={t.autoFillLimits.close}
+            onClose={onClose}
+            style={styles.settingsSheetHeader}
+            subtitle={preview ? null : t.autoFillLimits.help}
+            title={preview ? t.autoFillLimits.preview : t.autoFillLimits.title}
+          />
 
           {previewLoading || productsLoading ? (
             <ActivityIndicator color={Colors.brandPrimary} style={styles.autoFillLimitsLoading} />

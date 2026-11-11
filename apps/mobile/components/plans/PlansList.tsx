@@ -16,11 +16,11 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { getIntermediateAidStationCount } from '../../lib/planPersistence';
 import {
   SummitIcon,
-  TrailIcon,
   colors,
   radius,
   spacing
 } from '@pace-yourself/design-system';
+import { AccordionHeader, AccordionTrail } from '../themed/AccordionHeader';
 import { ActionButton } from '../themed/ActionButton';
 import { Button } from '../themed/Button';
 import { Card } from '../themed/Card';
@@ -30,6 +30,7 @@ import { Field } from '../themed/Field';
 import { Heading } from '../themed/Heading';
 import { IconAction } from '../themed/IconAction';
 import { StatusPill } from '../themed/StatusPill';
+import { SheetHeader } from '../themed/SheetHeader';
 import { Text } from '../themed/Text';
 import { TrailSignButton } from '../themed/TrailSignButton';
 import { CardMiniProfile } from '../themed/trail/CardProfile';
@@ -258,7 +259,7 @@ export const PlansList = memo(function PlansList({
           const startsPastEvent = section.pastEventStartIds?.includes(item.id) === true;
 
           return (
-            <View>
+            <AccordionTrail>
               {startsPastEvent ? (
                 <Heading numberOfLines={1} variant="h3" style={styles.pastEventTitle}>
                   {planEventName}
@@ -301,7 +302,7 @@ export const PlansList = memo(function PlansList({
                 shareButtonLabel={shareButtonLabel}
                 startButtonLabel={startButtonLabel}
               />
-            </View>
+            </AccordionTrail>
           );
         }}
         renderSectionHeader={({ section }) => {
@@ -309,32 +310,14 @@ export const PlansList = memo(function PlansList({
           const isCollapsed = collapsedSections.has(key);
 
           return (
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityState={{ expanded: !isCollapsed }}
-              activeOpacity={0.72}
-              onPress={() => onToggleSection(key)}
+            <AccordionHeader
+              count={section.data.length}
+              expanded={!isCollapsed}
+              onToggle={() => onToggleSection(key)}
               style={styles.sectionHeader}
-            >
-              <View style={styles.sectionTitleWrap}>
-                <View style={styles.sectionTitleRow}>
-                  <TrailIcon color={colors.brand.forest} size={20} strokeWidth={2.2} />
-                  <Heading numberOfLines={1} variant="h3" style={styles.sectionTitle}>
-                    {section.eventName}
-                  </Heading>
-                  <Ionicons
-                    color={colors.brand.forest}
-                    name={isCollapsed ? 'chevron-forward' : 'chevron-down'}
-                    size={18}
-                  />
-                </View>
-                {section.sectionKey === '__orphan__' ? (
-                  <Text tone="secondary" size="xs" style={styles.orphanWarning}>
-                    {noRaceWarningLabel}
-                  </Text>
-                ) : null}
-              </View>
-            </TouchableOpacity>
+              subtitle={section.sectionKey === '__orphan__' ? noRaceWarningLabel : null}
+              title={section.eventName}
+            />
           );
         }}
         sections={sections.map((section) => ({ ...section, key: section.sectionKey }))}
@@ -364,22 +347,12 @@ export const PlansList = memo(function PlansList({
         >
           <Pressable accessible={false} onPress={closeManagePlan} style={styles.modalOverlay} />
           <View accessibilityViewIsModal style={styles.manageSheet}>
-            <View style={styles.sheetHandle} />
-            <View style={styles.manageHeader}>
-              <Heading accessibilityRole="header" variant="h2">
-                {locale === 'fr' ? 'G\u00e9rer le plan' : 'Manage plan'}
-              </Heading>
-              <TouchableOpacity
-                accessibilityLabel={locale === 'fr' ? 'Fermer' : 'Close'}
-                accessibilityRole="button"
-                disabled={renamingPlan}
-                hitSlop={8}
-                onPress={closeManagePlan}
-                style={styles.closeButton}
-              >
-                <Ionicons color={colors.text.secondary} name="close" size={20} />
-              </TouchableOpacity>
-            </View>
+            <SheetHeader
+              closeDisabled={renamingPlan}
+              closeLabel={locale === 'fr' ? 'Fermer' : 'Close'}
+              onClose={closeManagePlan}
+              title={locale === 'fr' ? 'G\u00e9rer le plan' : 'Manage plan'}
+            />
             <Field
               autoCapitalize="sentences"
               autoFocus
@@ -692,27 +665,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[2],
-    paddingHorizontal: 0,
-    paddingVertical: spacing[3],
     marginTop: spacing[2],
     backgroundColor: colors.surface.sand,
-  },
-  sectionTitleWrap: {
-    flex: 1,
-  },
-  sectionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[2],
-  },
-  sectionTitle: {
-    flex: 1,
-    color: colors.brand.forest,
-    fontSize: 21,
-    lineHeight: 25,
   },
   pastEventTitle: {
     color: colors.text.secondary,
@@ -720,10 +674,6 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     marginLeft: 0,
     marginTop: 8,
-  },
-  orphanWarning: {
-    marginTop: spacing[1],
-    paddingLeft: 28,
   },
   card: {
     flexDirection: 'column',
@@ -836,28 +786,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[5],
     paddingTop: spacing[2],
     paddingBottom: spacing[8],
-  },
-  sheetHandle: {
-    alignSelf: 'center',
-    width: 44,
-    height: 5,
-    borderRadius: radius.full,
-    backgroundColor: colors.border.subtle,
-    marginBottom: spacing[4],
-  },
-  manageHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing[3],
-  },
-  closeButton: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surface.cream,
   },
   nameField: {
     marginTop: spacing[5],

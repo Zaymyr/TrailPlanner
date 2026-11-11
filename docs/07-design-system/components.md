@@ -27,6 +27,8 @@ related_files:
   - apps/mobile/components/themed/TrailSignButton.tsx
   - apps/mobile/components/themed/TrailTabs.tsx
   - apps/mobile/components/themed/TrailSeedProvider.tsx
+  - apps/mobile/components/themed/SheetHeader.tsx
+  - apps/mobile/components/themed/AccordionHeader.tsx
   - apps/mobile/components/themed/trail/ActionPlates.tsx
   - apps/mobile/components/themed/trail/WatchButton.tsx
   - apps/mobile/components/themed/trail/MilestoneGlyphs.tsx
@@ -265,6 +267,22 @@ color, so it survives organizer RaceBook colors:
   icon it draws the trail, a cairn and a start sign.
 
 ### Trail objects
+
+- `SheetHeader` is the header of every bottom sheet and modal: a short dotted
+  trail segment (48×3 points) replaces the grey drag handle (`showHandle={false}`
+  on centred or fade cards), then one row with a slender 10×34 `TrailBlaze`
+  (`geometry` override), the title (bold 20, header role) and optional
+  secondary subtitle, an optional `trailing` slot (favourite, status pill) and
+  a neutral `IconAction` close button with `closeLabel`. It only draws; sheets
+  keep their own gestures.
+- `AccordionSection` / `AccordionHeader` / `AccordionTrail` draw collapsible
+  groups as a kilometre milestone: a 52-point row with `expanded` state, a
+  40×44 borne whose 9-point cap is forest when open and grey when closed and
+  which shows a mono `count` or an `icon`, the label and subtitle, and a
+  chevron. When open, a solid 2-point trail descends from the borne along the
+  content (indented 52 points); consecutive trails join for list rows.
+  `accentColor` takes organizer colours; `disabled` locks a section open. No
+  animation.
 
 Rule of use: a sign (`TrailSignButton`) means "I go elsewhere", a plate (primary
 `ActionButton`) means "I act here", and a screen shows at most one plate.

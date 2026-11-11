@@ -5,8 +5,8 @@ import { StatusBar } from 'expo-status-bar';
 import { Animated, Modal, Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 
 import { DataText } from '../themed/DataText';
-import { Heading } from '../themed/Heading';
 import { IconAction } from '../themed/IconAction';
+import { SheetHeader } from '../themed/SheetHeader';
 import { Text } from '../themed/Text';
 import { TopoContourPattern } from '../themed/TopoContourPattern';
 import type { TrailProfilePoint } from '../../lib/trailSignature';
@@ -321,14 +321,12 @@ export function RacebookCollapsibleHero({
       >
         <Pressable accessibilityRole="button" onPress={() => setLinksVisible(false)} style={styles.linksBackdrop}>
           <Pressable accessibilityRole="none" onPress={(event) => event.stopPropagation()} style={styles.linksSheet}>
-            <View style={styles.linksHeader}>
-              <Heading variant="h3" style={styles.linksTitle}>{linksLabel}</Heading>
-              <IconAction
-                accessibilityLabel={closeLabel}
-                icon={<Ionicons name="close" size={22} color={Colors.textPrimary} />}
-                onPress={() => setLinksVisible(false)}
-              />
-            </View>
+            <SheetHeader
+              closeLabel={closeLabel}
+              onClose={() => setLinksVisible(false)}
+              showHandle={false}
+              title={linksLabel}
+            />
             {socialLinks.map((link) => (
               <Pressable
                 key={link.action}
@@ -374,8 +372,6 @@ const styles = StyleSheet.create({
   emergencyCallLabel: { fontSize: 11, lineHeight: 14, fontWeight: '800' },
   linksBackdrop: { flex: 1, justifyContent: 'flex-end', padding: 16, backgroundColor: 'rgba(26,26,26,0.42)' },
   linksSheet: { gap: 8, padding: 16, borderRadius: 20, backgroundColor: Colors.surface },
-  linksHeader: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  linksTitle: { flex: 1, color: Colors.textPrimary },
   linkRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: 12, backgroundColor: Colors.surfaceSecondary },
   linkLabel: { flex: 1, color: Colors.textPrimary, fontSize: 14, lineHeight: 19, fontWeight: '700' },
 });

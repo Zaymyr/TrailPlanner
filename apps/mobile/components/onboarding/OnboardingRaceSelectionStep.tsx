@@ -10,12 +10,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
 import type { Locale, MobileTranslations } from '../../locales/types';
 import { Colors } from '../../constants/colors';
 import { RaceEventSummaryCard } from '../race/RaceEventSummaryCard';
 import { ActionButton } from '../themed/ActionButton';
 import { Field } from '../themed/Field';
+import { SheetHeader } from '../themed/SheetHeader';
 import { StatusPill } from '../themed/StatusPill';
 import { Text } from '../themed/Text';
 import { OnboardingShell } from './OnboardingIntroSteps';
@@ -236,21 +236,12 @@ export function OnboardingRaceSelectionStep({
         <View style={styles.modalBackdrop}>
           <Pressable style={styles.sheetOverlay} onPress={onCloseRaceEvent} />
           <SafeAreaView accessibilityViewIsModal style={styles.sheetCard}>
-            <View style={styles.sheetHandle} />
-            <View style={styles.sheetHeader}>
-              <View style={styles.sheetHeaderText}>
-                <Text style={styles.sheetTitle}>{selectedRaceEvent?.name}</Text>
-                {selectedRaceEventMeta ? <Text style={styles.sheetSubtitle}>{selectedRaceEventMeta}</Text> : null}
-              </View>
-              <TouchableOpacity
-                accessibilityLabel={copy.common.close}
-                accessibilityRole="button"
-                style={styles.sheetCloseButton}
-                onPress={onCloseRaceEvent}
-              >
-                <Ionicons name="close" size={20} color={Colors.textPrimary} />
-              </TouchableOpacity>
-            </View>
+            <SheetHeader
+              closeLabel={copy.common.close}
+              onClose={onCloseRaceEvent}
+              subtitle={selectedRaceEventMeta}
+              title={selectedRaceEvent?.name ?? ''}
+            />
 
             {selectedRaceEventImage ? (
               <Image source={{ uri: selectedRaceEventImage }} style={styles.sheetImage} resizeMode="cover" />
@@ -328,12 +319,6 @@ const styles = StyleSheet.create({
   modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(18, 24, 16, 0.24)' },
   sheetOverlay: { ...StyleSheet.absoluteFillObject },
   sheetCard: { maxHeight: '82%', backgroundColor: Colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 20, paddingTop: 10, paddingBottom: 24, gap: 14 },
-  sheetHandle: { width: 42, height: 4, borderRadius: 999, backgroundColor: Colors.border, alignSelf: 'center' },
-  sheetHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  sheetHeaderText: { flex: 1, gap: 4 },
-  sheetTitle: { color: Colors.textPrimary, fontSize: 20, fontWeight: '800' },
-  sheetSubtitle: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
-  sheetCloseButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
   sheetImage: { width: '100%', height: 132, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surfaceSecondary },
   sheetHint: { color: Colors.textSecondary, fontSize: 14, lineHeight: 19 },
   sheetContent: { gap: 10, paddingBottom: 12 },

@@ -11,6 +11,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
+import { AccordionHeader, AccordionSection, AccordionTrail } from '../themed/AccordionHeader';
 import { Field } from '../themed/Field';
 import { Text } from '../themed/Text';
 import { DataText } from '../themed/DataText';
@@ -297,7 +298,6 @@ type NutritionContentProps = {
 
 export const NutritionContent = memo(function NutritionContent({
   contentTopInset = 0,
-  locale,
   isPremium,
   isAdmin,
   favoritesExpanded,
@@ -393,17 +393,14 @@ export const NutritionContent = memo(function NutritionContent({
   const listHeader = useMemo(
     () => (
       <>
-        <TouchableOpacity activeOpacity={0.7} onPress={onToggleFavorites} style={styles.favoritesToggleRow}>
-          <Text style={[styles.sectionTitle, styles.sectionTitleCompact]}>Mes favoris ({favorites.length})</Text>
-          <Ionicons
-            color={Colors.brandPrimary}
-            name={favoritesExpanded ? 'chevron-down' : 'chevron-forward'}
-            size={18}
-          />
-        </TouchableOpacity>
-
-        {favoritesExpanded ? (
-          <>
+        <AccordionSection
+          accessibilityLabel={`Mes favoris (${favorites.length})`}
+          count={favorites.length}
+          expanded={favoritesExpanded}
+          onToggle={onToggleFavorites}
+          style={styles.favoritesSection}
+          title="Mes favoris"
+        >
             {!isPremium ? (
               <View style={styles.limitBanner}>
                 <Text style={styles.limitBannerText}>{favoriteLimitBannerLabel}</Text>
@@ -446,8 +443,7 @@ export const NutritionContent = memo(function NutritionContent({
                 </View>
               ))
             )}
-          </>
-        ) : null}
+        </AccordionSection>
 
         <View style={styles.catalogHeader}>
           <Text style={styles.sectionTitle}>Catalogue produits</Text>
@@ -509,7 +505,7 @@ export const NutritionContent = memo(function NutritionContent({
     ({ item }: ListRenderItemInfo<CatalogListRow>) => {
       if (item.type === 'brand') {
         return (
-          <TouchableOpacity
+          <AccordionHeader
             accessibilityHint={
               flatCatalogActive
                 ? undefined
@@ -518,47 +514,27 @@ export const NutritionContent = memo(function NutritionContent({
                   : 'Afficher les produits de cette marque'
             }
             accessibilityLabel={`${item.brandLabel}, ${item.count} produits`}
-            accessibilityRole="button"
-            activeOpacity={flatCatalogActive ? 1 : 0.75}
+            count={item.count}
             disabled={flatCatalogActive}
-            onPress={() => toggleCatalogBrand(item.brandLabel)}
-            style={[styles.brandHeaderButton, item.expanded && styles.brandHeaderButtonExpanded]}
-          >
-            <View style={styles.brandTitleRow}>
-              {item.brandImageUrl ? (
-                <Image source={{ uri: item.brandImageUrl }} style={styles.brandImage} />
-              ) : (
-                <View style={styles.brandImageFallback}>
-                  <Text style={styles.brandInitial}>{item.brandLabel.slice(0, 1).toLocaleUpperCase(locale)}</Text>
+            expanded={item.expanded}
+            onToggle={() => toggleCatalogBrand(item.brandLabel)}
+            style={styles.brandHeaderButton}
+            title={item.brandLabel}
+            trailing={
+              item.hasVerifiedProduct || item.brandImageUrl ? (
+                <View style={styles.brandHeaderActions}>
+                  {item.hasVerifiedProduct ? <StatusPill label={verifiedLabel} tone="success" /> : null}
+                  {item.brandImageUrl ? (
+                    <Image source={{ uri: item.brandImageUrl }} style={styles.brandImage} />
+                  ) : null}
                 </View>
-              )}
-              <View style={styles.brandTitleText}>
-                <Text numberOfLines={1} style={styles.brandTitle}>
-                  {item.brandLabel}
-                </Text>
-                {item.hasVerifiedProduct ? (
-                  <StatusPill label={verifiedLabel} style={styles.verifiedBrandBadge} tone="success" />
-                ) : null}
-              </View>
-            </View>
-            <View style={styles.brandHeaderActions}>
-              <Text style={styles.brandCountText}>
-                {item.count}{' '}
-                {locale === 'fr'
-                  ? item.count > 1 ? 'produits' : 'produit'
-                  : item.count > 1 ? 'products' : 'product'}
-              </Text>
-              <Ionicons
-                color={Colors.brandPrimary}
-                name={item.expanded ? 'chevron-up' : 'chevron-down'}
-                size={18}
-              />
-            </View>
-          </TouchableOpacity>
+              ) : null
+            }
+          />
         );
       }
 
-      return (
+      const card = (
         <ProductCard
           isFavorite={favoriteIds.has(item.product.id)}
           isOwnedByUser={item.product.created_by === userId}
@@ -566,14 +542,14 @@ export const NutritionContent = memo(function NutritionContent({
           onToggleFavorite={() => onToggleFavorite(item.product.id)}
           product={item.product}
           brandLabel={item.brandLabel}
-          nested={!flatCatalogActive}
         />
       );
+      // Grouped catalogue: products hang from the brand's open trail.
+      return flatCatalogActive ? card : <AccordionTrail>{card}</AccordionTrail>;
     },
     [
       flatCatalogActive,
       favoriteIds,
-      locale,
       onOpenProductDetail,
       onToggleFavorite,
       toggleCatalogBrand,
@@ -683,7 +659,6 @@ function ProductCard({
   isOwnedByUser,
   onPress,
   onToggleFavorite,
-  nested = false,
   brandLabel,
 }: {
   product: Product;
@@ -691,7 +666,6 @@ function ProductCard({
   isOwnedByUser: boolean;
   onPress: () => void;
   onToggleFavorite: () => void;
-  nested?: boolean;
   brandLabel?: string;
 }) {
   const isVerified = isVerifiedProduct(product);
@@ -705,7 +679,7 @@ function ProductCard({
     <TouchableOpacity
       activeOpacity={0.85}
       onPress={onPress}
-      style={[styles.productCard, nested && styles.productCardNested]}
+      style={styles.productCard}
     >
       <View style={styles.productMedia}>
         {product.image_url ? (
@@ -774,15 +748,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: 12,
   },
-  sectionTitleCompact: {
-    marginBottom: 0,
-  },
-  favoritesToggleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    marginBottom: 4,
+  favoritesSection: {
+    marginBottom: 12,
   },
   limitBanner: {
     backgroundColor: Colors.surfaceSecondary,
@@ -868,61 +835,21 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   brandHeaderButton: {
-    minHeight: 64,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginBottom: 8,
-  },
-  brandHeaderButtonExpanded: {
-    backgroundColor: Colors.brandSurface,
-    borderColor: Colors.brandBorder,
+    marginBottom: 4,
   },
   brandHeaderActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  brandTitleRow: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  brandTitleText: {
-    flex: 1,
-    minWidth: 0,
-    justifyContent: 'center',
-  },
   brandImage: {
-    width: 48,
-    height: 48,
+    width: 40,
+    height: 40,
     borderRadius: 11,
     borderWidth: 1,
     borderColor: Colors.brandBorder,
     backgroundColor: Colors.surfaceSecondary,
     resizeMode: 'contain',
-  },
-  brandImageFallback: {
-    width: 48,
-    height: 48,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.brandSurface,
-  },
-  brandInitial: {
-    color: Colors.brandPrimary,
-    fontSize: 18,
-    fontWeight: '800',
   },
   brandTitle: {
     flex: 1,
@@ -930,16 +857,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.textPrimary,
   },
-  verifiedBrandBadge: {
-    marginTop: 4,
-  },
   brandItems: {
     gap: 0,
-  },
-  brandCountText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.textSecondary,
   },
   productCard: {
     position: 'relative',
@@ -957,11 +876,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 4,
     elevation: 2,
-  },
-  productCardNested: {
-    marginLeft: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: Colors.brandBorder,
   },
   productMedia: {
     position: 'relative',

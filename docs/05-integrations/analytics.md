@@ -427,6 +427,10 @@ The RaceBook Course map and profile cards open fullscreen through watch `IconAct
 
 Weather alert, NEW markers, profile, nutrition and onboarding controls were restyled with themed components; analytics events and properties are unchanged.
 
+Sheets and modals use the shared `SheetHeader` (dotted trail handle, slender blaze, title, watch close button) and collapsible groups use `AccordionSection` (km borne with a count or icon, forest trail along the open content); UI only, data and queries unchanged.
+
+RaceBook access transport rows are accordions with an expandable trail; the `racebook access detail opened` event is unchanged.
+
 ## Related Docs
 
 Selecting or masking a private-demo format is configuration, not a runner RaceBook open or publication analytics event.

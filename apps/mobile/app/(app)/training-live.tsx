@@ -21,6 +21,7 @@ import {
 } from '../../components/plan-form/contracts';
 import { loadPlanProductsBootstrap } from '../../components/plan-form/usePlanProducts';
 import { TrainingLiveSession } from '../../components/race/TrainingLiveSession';
+import { AccordionSection } from '../../components/themed/AccordionHeader';
 import { Button } from '../../components/themed/Button';
 import { DataText } from '../../components/themed/DataText';
 import { Field } from '../../components/themed/Field';
@@ -428,30 +429,14 @@ export default function TrainingLiveScreen() {
         <BackButton label={locale === 'fr' ? 'Retour' : 'Back'} onPress={() => router.back()} />
 
         <View style={styles.card}>
-          <TouchableOpacity
-            activeOpacity={0.82}
-            onPress={() => setSettingsCollapsed((current) => !current)}
-            style={styles.settingsHeader}
+          <AccordionSection
+            contentStyle={styles.settingsBody}
+            expanded={!settingsCollapsed}
+            icon={<Ionicons color={Colors.brandPrimary} name="options-outline" size={18} />}
+            onToggle={() => setSettingsCollapsed((current) => !current)}
+            subtitle={`${parsedTargets.carbsPerHour} g/h · ${parsedTargets.waterMlPerHour} ml/h · ${parsedTargets.sodiumMgPerHour} mg/h · ${waterCapacityLiters} L`}
+            title={`${copy.targetsTitle} / ${copy.waterCapacityLabel}`}
           >
-            <View style={styles.settingsHeaderCopy}>
-              <Text style={styles.sectionHeading}>{copy.targetsTitle} / {copy.waterCapacityLabel}</Text>
-              <View style={styles.settingsSummaryRow}>
-                <DataText style={styles.settingsSummaryPill}>{parsedTargets.carbsPerHour} g/h</DataText>
-                <DataText style={styles.settingsSummaryPill}>{parsedTargets.waterMlPerHour} ml/h</DataText>
-                <DataText style={styles.settingsSummaryPill}>{parsedTargets.sodiumMgPerHour} mg/h</DataText>
-                <DataText style={styles.settingsSummaryPill}>{waterCapacityLiters}L</DataText>
-              </View>
-            </View>
-            <Ionicons
-              color={Colors.brandPrimary}
-              name={settingsCollapsed ? 'chevron-down' : 'chevron-up'}
-              size={20}
-            />
-          </TouchableOpacity>
-
-          {settingsCollapsed ? null : (
-            <>
-              <View style={styles.settingsDivider} />
               <View style={styles.targetGrid}>
                 <TargetInput label="Glucides" unit="g/h" value={targets.carbs} onChangeText={(value) => setTargets((current) => ({ ...current, carbs: sanitizeDigits(value, 3) }))} />
                 <TargetInput label="Eau" unit="ml/h" value={targets.water} onChangeText={(value) => setTargets((current) => ({ ...current, water: sanitizeDigits(value, 4) }))} />
@@ -473,8 +458,7 @@ export default function TrainingLiveScreen() {
                 ))}
               </View>
               <Text style={styles.hintText}>{copy.waterCapacityHint}</Text>
-            </>
-          )}
+          </AccordionSection>
 
           {summary.fluidOverCapacityMl > 0 ? (
             <Text style={styles.warningText}>{copy.overCapacity.replace('{ml}', String(summary.fluidOverCapacityMl))}</Text>
@@ -747,28 +731,10 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '800',
   },
-  settingsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  settingsBody: {
     gap: 12,
-  },
-  settingsHeaderCopy: {
-    flex: 1,
-    gap: 8,
-  },
-  settingsSummaryRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  settingsSummaryPill: {
-    color: Colors.brandPrimary,
-    fontSize: 12,
-    fontWeight: '800',
-    backgroundColor: Colors.brandSurface,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingTop: 4,
+    paddingBottom: 4,
   },
   settingsDivider: {
     height: 1,

@@ -1,7 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { ACCORDION_CONTENT_INSET, AccordionHeader, AccordionTrail } from '../themed/AccordionHeader';
 import { Card } from '../themed/Card';
 import { Text } from '../themed/Text';
 import { TrailSignButton } from '../themed/TrailSignButton';
@@ -176,29 +177,8 @@ function TransportCard({
           const isExpanded = expanded[item.key];
           const note = extractTextLinks(item.description);
           const linkLabel = item.key === 'shuttles' ? bookShuttleLabel : openLinkLabel;
-          return (
-            <Pressable
-              key={item.key}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: isExpanded }}
-              accessibilityLabel={`${item.title} - ${isExpanded ? hideDetailsLabel : showDetailsLabel}`}
-              onPress={() => onToggle(item.key)}
-              style={({ pressed }) => [
-                styles.transportItem,
-                index > 0 ? styles.transportItemBorder : null,
-                pressed ? styles.actionPressed : null,
-              ]}
-            >
-              <View style={styles.transportHeader}>
-                <View style={[styles.transportIcon, { backgroundColor: Colors.brandSurface }]}>
-                  <Ionicons name={item.icon} size={18} color={Colors.brandPrimary} />
-                </View>
-                <View style={styles.transportHeading}>
-                  <Text style={styles.transportTitle}>{item.title}</Text>
-                  <Text style={styles.transportHint}>{isExpanded ? hideDetailsLabel : showDetailsLabel}</Text>
-                </View>
-                <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={Colors.textSecondary} />
-              </View>
+          const body = (
+            <>
               <Text numberOfLines={isExpanded ? undefined : 2} style={styles.transportText}>{note.text}</Text>
               {note.links.map((link) => (
                 <TrailSignButton
@@ -220,7 +200,24 @@ function TransportCard({
                   </View>
                 </View>
               ) : null}
-            </Pressable>
+            </>
+          );
+          return (
+            <View key={item.key} style={[styles.transportItem, index > 0 ? styles.transportItemBorder : null]}>
+              <AccordionHeader
+                accessibilityLabel={`${item.title} - ${isExpanded ? hideDetailsLabel : showDetailsLabel}`}
+                expanded={isExpanded}
+                icon={<Ionicons name={item.icon} size={18} color={Colors.brandPrimary} />}
+                onToggle={() => onToggle(item.key)}
+                subtitle={isExpanded ? hideDetailsLabel : showDetailsLabel}
+                title={item.title}
+              />
+              {isExpanded ? (
+                <AccordionTrail contentStyle={styles.transportBody}>{body}</AccordionTrail>
+              ) : (
+                <View style={[styles.transportBody, styles.transportPreview]}>{body}</View>
+              )}
+            </View>
           );
         })}
       </View>
@@ -299,15 +296,11 @@ const styles = StyleSheet.create({
   locationLabel: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700' },
   locationValue: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600', lineHeight: 21 },
   signAction: { marginTop: 3 },
-  actionPressed: { opacity: 0.72 },
   transportList: { gap: 0 },
-  transportItem: { gap: 10, paddingVertical: 4 },
-  transportItemBorder: { marginTop: 12, paddingTop: 16, borderTopWidth: 1, borderTopColor: Colors.border },
-  transportHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  transportIcon: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: 17, backgroundColor: Colors.brandSurface },
-  transportHeading: { flex: 1, gap: 1 },
-  transportTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '800' },
-  transportHint: { color: Colors.textSecondary, fontSize: 11 },
+  transportItem: { paddingVertical: 4 },
+  transportItemBorder: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors.border },
+  transportBody: { gap: 10, paddingTop: 4, paddingBottom: 4 },
+  transportPreview: { marginLeft: ACCORDION_CONTENT_INSET },
   transportText: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20 },
   scheduleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 10, borderRadius: 12, borderWidth: 1, backgroundColor: Colors.brandSurface },
   scheduleContent: { flex: 1, gap: 2 },

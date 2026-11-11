@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActionButton } from '../themed/ActionButton';
 import { Field } from '../themed/Field';
+import { SheetHeader } from '../themed/SheetHeader';
 import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import type {
@@ -142,20 +143,13 @@ function ProfileEstimatorModalComponent({
           accessibilityViewIsModal
           style={[styles.modalSheet, { paddingBottom: Math.max(20, insets.bottom) }]}
         >
-          <View style={styles.modalHeader}>
-            <View style={styles.modalHeaderContent}>
-              <Text accessibilityRole="header" style={styles.modalTitle}>{title}</Text>
-              <Text style={styles.modalSubtitle}>{subtitle}</Text>
-            </View>
-            <TouchableOpacity
-              accessibilityLabel={closeLabel}
-              accessibilityRole="button"
-              style={styles.modalCloseButton}
-              onPress={onClose}
-            >
-              <Text style={styles.modalCloseButtonText}>{closeLabel}</Text>
-            </TouchableOpacity>
-          </View>
+          <SheetHeader
+            closeLabel={closeLabel}
+            onClose={onClose}
+            style={styles.modalHeader}
+            subtitle={subtitle}
+            title={title}
+          />
 
           <ScrollView
             contentContainerStyle={styles.estimatorContent}
@@ -271,7 +265,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 10,
     maxHeight: '90%',
     borderTopWidth: 1,
     borderLeftWidth: 1,
@@ -279,40 +273,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 12,
     marginBottom: 16,
-  },
-  modalHeaderContent: {
-    flex: 1,
-  },
-  modalTitle: {
-    color: Colors.textPrimary,
-    fontSize: 20,
-    fontWeight: '800',
-  },
-  modalSubtitle: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
-    marginTop: 6,
-  },
-  modalCloseButton: {
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-    backgroundColor: Colors.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  modalCloseButtonText: {
-    color: Colors.textPrimary,
-    fontSize: 12,
-    fontWeight: '700',
   },
   estimatorContent: {
     gap: 16,

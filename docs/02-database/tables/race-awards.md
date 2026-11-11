@@ -113,5 +113,8 @@ The RaceBook Course map and profile cards open fullscreen through watch `IconAct
 
 The RaceBook weather alert renders through the same `TapeAlertBanner` as the last-minute message (replacing the former inline alert card); data unchanged.
 
+Sheets and modals use the shared `SheetHeader` (dotted trail handle, slender blaze, title, watch close button) and collapsible groups use `AccordionSection` (km borne with a count or icon, forest trail along the open content); UI only, data and queries unchanged.
+
+
 
 
