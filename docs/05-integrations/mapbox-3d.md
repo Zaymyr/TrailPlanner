@@ -1,7 +1,7 @@
 ---
 title: Mapbox 3D Admin Course Viewer
 scope: integration
-last_verified: 2026-11-05
+last_verified: 2026-11-11
 ai_priority: high
 related_files:
   - apps/web/app/admin/video-generator/export-frame.test.ts

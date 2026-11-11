@@ -5,6 +5,10 @@ import { z } from "zod";
 import { parseGpx } from "../../../../../lib/gpx/parseGpx";
 import { withSecurityHeaders } from "../../../../../lib/http";
 import {
+  enrichExistingRaceWithTraceDeTrailGpx,
+  TraceDeTrailEnrichmentError,
+} from "../../../../../lib/tracedetrail-gpx-enrichment";
+import {
   extractBearerToken,
   fetchSupabaseUser,
   getSupabaseAnonConfig,
@@ -69,13 +73,6 @@ const raceEventSchema = z.object({
   race_date: z.string().nullable().optional(),
 });
 
-const existingRaceSchema = raceRowSchema.extend({
-  source_url: z.string().nullable().optional(),
-  gpx_path: z.string().nullable().optional(),
-  gpx_hash: z.string().nullable().optional(),
-  gpx_sha256: z.string().nullable().optional(),
-});
-
 type SupabaseAuthContext = {
   token: string;
   anonKey: string;
@@ -112,17 +109,6 @@ const normalizeComparableName = (value: string) =>
     .toLowerCase()
     .trim()
     .replace(/\s+/g, " ");
-
-const isTraceDeTrailUrl = (value: string | null | undefined) => {
-  if (!value) return false;
-
-  try {
-    const hostname = new URL(value).hostname.toLowerCase();
-    return hostname === "tracedetrail.fr" || hostname.endsWith(".tracedetrail.fr");
-  } catch {
-    return false;
-  }
-};
 
 const buildRestHeaders = (context: SupabaseAuthContext, contentType = "application/json") => ({
   apikey: context.anonKey,
@@ -217,23 +203,6 @@ async function findExistingTraceDeTrailRace(serviceConfig: SupabaseServiceConfig
   return findExistingRaceBySourceUrl(serviceConfig, sourceUrl);
 }
 
-async function loadExistingRace(serviceConfig: SupabaseServiceConfig, raceId: string) {
-  const response = await fetch(
-    `${serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=id,name,location_text,location,distance_km,elevation_gain_m,elevation_loss_m,trace_provider,trace_id,source_url,external_site_url,thumbnail_url,gpx_path,gpx_hash,gpx_storage_path,gpx_sha256,is_live,slug,created_at&limit=1`,
-    {
-      headers: buildServiceHeaders(serviceConfig, undefined),
-      cache: "no-store",
-    }
-  );
-
-  if (!response.ok) {
-    console.error("Unable to load the existing Trace de Trail race", await response.text());
-    throw new Error("Unable to load the existing race.");
-  }
-
-  return z.array(existingRaceSchema).parse(await response.json())[0] ?? null;
-}
-
 async function findExistingRaceEvent(serviceConfig: SupabaseServiceConfig, eventName: string) {
   const response = await fetch(
     `${serviceConfig.supabaseUrl}/rest/v1/race_events?select=id,name,location,race_date&name=ilike.*${encodeURIComponent(
@@ -316,55 +285,25 @@ export async function POST(request: NextRequest) {
       ? { login: body.credentials.login, password: body.credentials.password }
       : null;
 
-    const existingRace = body.action === "enrich" && body.raceId
-      ? await loadExistingRace(admin.serviceConfig, body.raceId)
-      : null;
-
-    if (body.action === "enrich" && !existingRace) {
-      return withSecurityHeaders(NextResponse.json({ message: "Course introuvable." }, { status: 404 }));
+    if (body.action === "enrich" && body.raceId) {
+      try {
+        const result = await enrichExistingRaceWithTraceDeTrailGpx({
+          serviceConfig: admin.serviceConfig,
+          raceId: body.raceId,
+          credentials,
+        });
+        return withSecurityHeaders(NextResponse.json(result));
+      } catch (error) {
+        if (error instanceof TraceDeTrailEnrichmentError) {
+          return withSecurityHeaders(
+            NextResponse.json({ message: error.message, code: error.code }, { status: error.status })
+          );
+        }
+        throw error;
+      }
     }
 
-    if (
-      existingRace?.trace_provider &&
-      existingRace.trace_provider.toLowerCase() !== "tracedetrail"
-    ) {
-      return withSecurityHeaders(
-        NextResponse.json(
-          { message: "Cette course est déjà associée à un autre fournisseur de trace." },
-          { status: 409 }
-        )
-      );
-    }
-
-    const traceUrl =
-      body.url ??
-      (isTraceDeTrailUrl(existingRace?.source_url) ? existingRace?.source_url : null) ??
-      (isTraceDeTrailUrl(existingRace?.external_site_url) ? existingRace?.external_site_url : null) ??
-      (existingRace?.trace_id ? `https://tracedetrail.fr/fr/trace/${existingRace.trace_id}` : null);
-
-    if (!traceUrl) {
-      return withSecurityHeaders(
-        NextResponse.json(
-          { message: "Cette course ne contient aucune référence Trace de Trail exploitable." },
-          { status: 422 }
-        )
-      );
-    }
-
-    const traceRace = await getTraceDeTrailRaceData(traceUrl, { credentials });
-
-    if (
-      body.action === "enrich" &&
-      existingRace?.trace_id &&
-      existingRace.trace_id !== traceRace.traceId
-    ) {
-      return withSecurityHeaders(
-        NextResponse.json(
-          { message: "L'identifiant de la trace téléchargée ne correspond pas à la course ciblée." },
-          { status: 409 }
-        )
-      );
-    }
+    const traceRace = await getTraceDeTrailRaceData(body.url!, { credentials });
 
     if (body.action === "download") {
       return withSecurityHeaders(
@@ -374,110 +313,6 @@ export async function POST(request: NextRequest) {
             "Content-Type": "application/gpx+xml; charset=utf-8",
             "Content-Disposition": `attachment; filename="${buildGpxFilename(traceRace.courseName, traceRace.traceId)}"`,
             "Cache-Control": "no-store",
-          },
-        })
-      );
-    }
-
-    if (body.action === "enrich" && existingRace) {
-      let parsedGpx;
-      try {
-        parsedGpx = parseGpx(traceRace.gpxContent);
-      } catch (error) {
-        console.error("Unable to parse Trace de Trail GPX for an existing race", error);
-        return withSecurityHeaders(
-          NextResponse.json({ message: "Impossible de parser le GPX officiel Trace de Trail." }, { status: 422 })
-        );
-      }
-
-      const gpxSha = createHash("sha256").update(traceRace.gpxContent).digest("hex");
-      if (existingRace.gpx_storage_path && existingRace.gpx_sha256 === gpxSha) {
-        return withSecurityHeaders(
-          NextResponse.json({ race: existingRace, enriched: false, unchanged: true })
-        );
-      }
-
-      const storagePath = `catalog/${existingRace.id}/tracedetrail-${Date.now()}.gpx`;
-      const uploadResponse = await fetch(
-        `${admin.serviceConfig.supabaseUrl}/storage/v1/object/race-gpx/${storagePath}`,
-        {
-          method: "POST",
-          headers: {
-            apikey: admin.serviceConfig.supabaseServiceRoleKey,
-            Authorization: `Bearer ${admin.serviceConfig.supabaseServiceRoleKey}`,
-            "Content-Type": "application/gpx+xml",
-            "x-upsert": "true",
-          },
-          body: traceRace.gpxContent,
-        }
-      );
-
-      if (!uploadResponse.ok) {
-        console.error("Unable to upload Trace de Trail GPX for an existing race", await uploadResponse.text());
-        return withSecurityHeaders(
-          NextResponse.json({ message: "Impossible d'enregistrer le GPX Trace de Trail." }, { status: 502 })
-        );
-      }
-
-      const updateResponse = await fetch(
-        `${admin.serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${existingRace.id}`,
-        {
-          method: "PATCH",
-          headers: {
-            ...buildServiceHeaders(admin.serviceConfig),
-            Prefer: "return=representation",
-          },
-          body: JSON.stringify({
-            trace_provider: "tracedetrail",
-            trace_id: traceRace.traceId,
-            source_url: traceRace.normalizedUrl,
-            gpx_path: storagePath,
-            gpx_hash: gpxSha,
-            gpx_storage_path: storagePath,
-            gpx_sha256: gpxSha,
-            min_alt_m: parsedGpx.stats.minAltM,
-            max_alt_m: parsedGpx.stats.maxAltM,
-            start_lat: parsedGpx.stats.startLat,
-            start_lng: parsedGpx.stats.startLng,
-            bounds_min_lat: parsedGpx.stats.boundsMinLat,
-            bounds_min_lng: parsedGpx.stats.boundsMinLng,
-            bounds_max_lat: parsedGpx.stats.boundsMaxLat,
-            bounds_max_lng: parsedGpx.stats.boundsMaxLng,
-          }),
-          cache: "no-store",
-        }
-      );
-
-      if (!updateResponse.ok) {
-        console.error("Unable to associate Trace de Trail GPX with existing race", await updateResponse.text());
-        await fetch(`${admin.serviceConfig.supabaseUrl}/storage/v1/object/race-gpx/${storagePath}`, {
-          method: "DELETE",
-          headers: {
-            apikey: admin.serviceConfig.supabaseServiceRoleKey,
-            Authorization: `Bearer ${admin.serviceConfig.supabaseServiceRoleKey}`,
-          },
-        });
-        return withSecurityHeaders(
-          NextResponse.json({ message: "Impossible d'associer le GPX à la course existante." }, { status: 502 })
-        );
-      }
-
-      const updatedRace = z.array(raceRowSchema).parse(await updateResponse.json())[0];
-      return withSecurityHeaders(
-        NextResponse.json({
-          race: updatedRace,
-          enriched: true,
-          preview: {
-            url: traceRace.normalizedUrl,
-            courseName: traceRace.courseName,
-            eventName: traceRace.eventName,
-            distanceKm: traceRace.distanceKm,
-            elevationGainM: traceRace.elevationGainM,
-            elevationLossM: traceRace.elevationLossM,
-            date: traceRace.date,
-            location: traceRace.location,
-            aidStationCount: traceRace.aidStations.length,
-            gpxAccessMode: traceRace.gpxAccessMode,
           },
         })
       );
