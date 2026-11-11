@@ -193,7 +193,8 @@ color, so it survives organizer RaceBook colors:
   shadow) with a semibold secondary label, so selection never relies on colour
   alone. Tabs are centered by default; `stretch` shares the full width, and
   with `scrollable` each tab is at least 1/n of the visible width (RaceBook ›
-  Course). Targets are 44 points with tab roles and selected state.
+  Course). Tabs keep at least 10 points between the label and the plank
+  edge. Targets are 44 points with tab roles and selected state.
 - `TrailSignButton` is the "go somewhere" action drawn as a trail direction
   sign by `SignPlate`: a 44-point plank with a soft cast shadow, a 2-point
   visible thickness, a face lit from above (gradient from a lighter tone to the
@@ -284,8 +285,10 @@ Rule of use: a sign (`TrailSignButton`) means "I go elsewhere", a plate (primary
   button) in neutral, brand or danger tones, always with an
   `accessibilityLabel`; `tone="onBrand"` (forest-dark case, cream bezel,
   forest-light dome) is for forest headers. `variant="back"` draws a small sign
-  blade pointing left (cream with a forest chevron with `tone="onBrand"`, or
-  `bladeColor` for organizer headers). Root header actions are 48-point watch
+  blade pointing left, drawn as a small painted plank (rounded post end,
+  thickness, cast shadow, routed groove, two bolts; cream with a forest chevron
+  with `tone="onBrand"`, or `bladeColor` for organizer headers, the relief
+  being dark overlays so any colour keeps its hue). Root header actions are 48-point watch
   buttons. Screens never use a raw `TextInput` or pressable icon: they use
   `Field` (units split from labels by `splitLabelUnit`) and `IconAction`.
 - `ChoiceChip` is a kilometre milestone: 18-point rounded top, 11-point painted

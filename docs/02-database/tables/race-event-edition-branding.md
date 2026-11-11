@@ -161,6 +161,8 @@ The RaceBook screen (`apps/mobile/app/(app)/race/[id]/racebook.tsx`) renders its
 
 The RaceBook hero back blade is painted in `onPrimaryColor` with a `primaryColor` chevron, and its round actions are watch `IconAction`s, so their contrast follows the organizer branding pair.
 
+The RaceBook Course map and profile cards open fullscreen through watch `IconAction`s (labels `racebookMapExpand` / `racebookProfileExpand`) instead of ad-hoc square buttons; behaviour unchanged.
+
 ## Related Docs
 
 Format-owned GPX visibility may omit a branded route or profile card; it does not change edition color resolution or the branding table contract.

@@ -62,9 +62,32 @@ export function WatchFace({ tone, pressed }: { tone: WatchTone; pressed: boolean
 export function WatchBackBlade({ color = colors.brand.forest }: { color?: string } = {}) {
   const w = WATCH_BLADE_WIDTH;
   const h = WATCH_BLADE_HEIGHT;
+  // A small painted plank: rounded post end, pointed tip, thickness and shadow
+  // drawn as dark overlays so any organizer colour keeps its own hue.
+  const top = 3;
+  const face = h - 9;
+  const tip = WATCH_BLADE_TIP;
+  const r = 6;
+  const right = w - 3;
+  const plank = (dy: number) => {
+    const y0 = top + dy;
+    const y1 = y0 + face;
+    return `M${tip} ${y0} H${right - r} Q${right} ${y0} ${right} ${y0 + r} V${y1 - r} Q${right} ${y1} ${right - r} ${y1} H${tip} L2 ${y0 + face / 2} Z`;
+  };
+  const inset = 3.5;
+  const y0 = top + inset;
+  const y1 = top + face - inset;
+  const groove = `M${tip + 1} ${y0} H${right - r - 1} Q${right - inset} ${y0} ${right - inset} ${y0 + r - 2} V${y1 - r + 2} Q${right - inset} ${y1} ${right - r - 1} ${y1} H${tip + 1} L${2 + inset * 1.6} ${top + face / 2} Z`;
   return (
     <Svg accessible={false} height={h} pointerEvents="none" style={styles.face} width={w}>
-      <Path d={`M${WATCH_BLADE_TIP} 0 H${w} V${h} H${WATCH_BLADE_TIP} L0 ${h / 2} Z`} fill={color} />
+      <Path d={plank(5)} fill="#000000" opacity={0.12} transform="translate(1.5 0)" />
+      <Path d={plank(2.5)} fill={color} />
+      <Path d={plank(2.5)} fill="#000000" opacity={0.28} />
+      <Path d={plank(0)} fill={color} />
+      <Path d={`M${tip + 2} ${top + 1.2} H${right - r}`} stroke="#FFFFFF" strokeLinecap="round" strokeOpacity={0.35} strokeWidth={1} />
+      <Path d={groove} fill="none" stroke="#000000" strokeLinejoin="round" strokeOpacity={0.18} strokeWidth={1} />
+      <Circle cx={right - 8} cy={top + face / 2 - 7} fill="#000000" fillOpacity={0.3} r={1.4} />
+      <Circle cx={right - 8} cy={top + face / 2 + 7} fill="#000000" fillOpacity={0.3} r={1.4} />
     </Svg>
   );
 }

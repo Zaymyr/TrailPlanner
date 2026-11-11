@@ -100,6 +100,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingLeft: WATCH_BLADE_TIP / 1.6,
+    paddingBottom: 3,
   },
   bladeIcon: {
     alignItems: 'center',

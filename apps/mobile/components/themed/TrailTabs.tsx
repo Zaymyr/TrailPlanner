@@ -228,7 +228,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing[1.5],
-    paddingHorizontal,
+    // Keeps at least 10 points between the label and the plank edge.
+    paddingHorizontal: Math.max(paddingHorizontal, FLAT_PLANK_INSET + 10),
   },
   tabStretch: { flex: 1 },
   plank: { top: PLANK_INSET, left: PLANK_INSET },

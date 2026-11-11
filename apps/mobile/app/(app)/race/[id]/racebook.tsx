@@ -28,6 +28,7 @@ import {
 
 import { RacebookLeafletMap } from '../../../../components/race/RacebookLeafletMap';
 import { Card } from '../../../../components/themed/Card';
+import { IconAction } from '../../../../components/themed/IconAction';
 import { DataText } from '../../../../components/themed/DataText';
 import { Heading } from '../../../../components/themed/Heading';
 import { Text } from '../../../../components/themed/Text';
@@ -343,14 +344,11 @@ function CourseProfileCard({
           <Text style={styles.sectionTitle}>{title}</Text>
           <Text style={styles.courseVisualHint}>{t.catalog.racebookProfileHint}</Text>
         </View>
-        <Pressable
-          style={[styles.expandButton, { borderColor: brandTheme.accentBorderColor }]}
-          onPress={() => setFullscreen(true)}
-          accessibilityRole="button"
+        <IconAction
           accessibilityLabel={t.catalog.racebookProfileExpand}
-        >
-          <Ionicons name="expand" size={18} color={brandTheme.accentGraphicColor} />
-        </Pressable>
+          icon={<Ionicons name="expand" size={18} color={brandTheme.accentGraphicColor} />}
+          onPress={() => setFullscreen(true)}
+        />
       </View>
       {points.length >= 2 ? (
         <RacebookElevationProfile
@@ -440,14 +438,11 @@ function CourseMapCard({
           <Text style={styles.sectionTitle}>{title}</Text>
           <Text style={styles.courseVisualHint}>{t.catalog.racebookMapHint}</Text>
         </View>
-        <Pressable
-          style={[styles.expandButton, { borderColor: brandTheme.accentBorderColor }]}
-          onPress={() => setFullscreen(true)}
-          accessibilityRole="button"
+        <IconAction
           accessibilityLabel={t.catalog.racebookMapExpand}
-        >
-          <Ionicons name="expand" size={18} color={brandTheme.accentGraphicColor} />
-        </Pressable>
+          icon={<Ionicons name="expand" size={18} color={brandTheme.accentGraphicColor} />}
+          onPress={() => setFullscreen(true)}
+        />
       </View>
       {points.length >= 2 ? (
         <RacebookLeafletMap points={points} aidStations={aidStations} routeColor={brandTheme.accentGraphicColor} locale={locale} />
@@ -3032,15 +3027,6 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     fontSize: 11,
     lineHeight: 15,
-  },
-  expandButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.72)',
   },
   fullscreenSurface: {
     flex: 1,

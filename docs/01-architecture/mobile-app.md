@@ -451,7 +451,7 @@ and a « Brouillon » / « En cours » / « Prêt » wristband (rule in
 cards overlay each format's real elevation profile, loaded lazily per visible
 row. Forms use road-notebook `Field`s with unit cotes, headers use watch
 `IconAction`s (`tone="onBrand"`) and sign-blade back buttons, and the RaceBook
-Course tabs span the full width on wooden planks.
+Course tabs span the full width on wooden planks; its map and profile cards open fullscreen through watch `IconAction`s.
 
 This grammar is app-wide. The legacy shared `Card` renders the signature card
 (leading-edge blaze); shared loading states and the launch splash use the ridge
