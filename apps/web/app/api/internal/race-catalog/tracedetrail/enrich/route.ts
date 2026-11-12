@@ -64,12 +64,18 @@ export async function POST(request: Request) {
   for (const raceId of parsed.data.raceIds) {
     try {
       const result = await enrichExistingRaceWithTraceDeTrailGpx({ serviceConfig, raceId, credentials });
-      results.push({ raceId, ok: true as const, ...result });
+      results.push({
+        raceId,
+        ok: true as const,
+        status: result.enriched ? ("imported" as const) : ("unchanged" as const),
+        ...result,
+      });
     } catch (error) {
       if (error instanceof TraceDeTrailEnrichmentError) {
         results.push({
           raceId,
           ok: false as const,
+          status: "error" as const,
           code: error.code,
           message: error.message,
         });
@@ -79,6 +85,7 @@ export async function POST(request: Request) {
       results.push({
         raceId,
         ok: false as const,
+        status: "error" as const,
         code: "UNEXPECTED_ERROR" as const,
         message: "Unexpected enrichment failure.",
       });

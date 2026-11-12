@@ -1,7 +1,7 @@
 ---
 title: Infrastructure
 scope: architecture
-last_verified: 2026-11-09
+last_verified: 2026-11-12
 ai_priority: high
 related_files:
   - apps/web/.env.example
@@ -19,6 +19,8 @@ related_files:
   - supabase/migrations/20260504094253_fix_push_reminders_cron_auth.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - apps/web/app/api/cron/organizer-import-cleanup/route.ts
+  - apps/web/app/api/cron/tracedetrail-catalog-enrichment/route.ts
+  - apps/web/app/api/cron/tracedetrail-catalog-enrichment/route.test.ts
   - apps/web/lib/stripe.ts
   - apps/web/app/api/organizer/publication-checkout/route.ts
   - apps/web/lib/organizer-publication-tier.ts
@@ -53,6 +55,7 @@ This document records the infrastructure visible from the repository: Vercel, EA
 - Vault-backed cron secret: secret used by pg_cron to call push reminder functions.
 - Organizer import cleanup: hourly pg_cron GET to the protected web route so Storage cleanup precedes row deletion.
 - RevenueCat reconciliation: daily Vercel Cron GET to the protected web route so missed provider events are repaired from server-verified subscriber state.
+- Trace de Trail catalog enrichment: daily Vercel Cron GET to a protected orchestrator that calls the separately authenticated internal enrichment POST route for a reviewed format allowlist.
 - Service role: server-only key used by trusted routes/functions.
 - Organizer import documents are currently selected in the browser and identified in the preview only; no document bucket or OCR provider is configured yet.
 - Organizer roadbooks use the private `organizer-imports` bucket. Browser uploads are restricted to the authenticated user's folder and to 25 MB PDF/JPEG/PNG/WebP files; the organizer website-import API removes them after analysis, including failures.
@@ -80,6 +83,10 @@ The Vercel Production environment tracks `main`. The long-lived Git branch `prev
     {
       "path": "/api/cron/revenuecat-reconciliation",
       "schedule": "17 3 * * *"
+    },
+    {
+      "path": "/api/cron/tracedetrail-catalog-enrichment",
+      "schedule": "47 3 * * *"
     }
   ],
   "ignoreCommand": "node -e \"process.exit(process.env.VERCEL_GIT_COMMIT_REF?.startsWith('dependabot/') ? 0 : 1)\" || git diff --quiet HEAD^ HEAD -- . ../../packages ../../package.json ../../package-lock.json ../../turbo.json ../../vercel.json"
@@ -179,6 +186,12 @@ Vercel invokes `/api/cron/revenuecat-reconciliation` daily at 03:17 UTC and send
 
 RevenueCat's primary delivery path remains `/api/revenuecat/webhook`. Production configuration stores public app API keys for subscriber lookup, the exact entitlement/product identifiers, and either the legacy webhook Authorization value or `REVENUECAT_WEBHOOK_SIGNING_SECRET`. The signing secret is server-only; validation covers the raw request body and rejects stale signatures.
 
+## Trace de Trail Catalog Enrichment
+
+Vercel invokes `/api/cron/tracedetrail-catalog-enrichment` daily at 03:47 UTC with `CRON_SECRET`. The route keeps `TRACEDETRAIL_ENRICHMENT_SECRET` server-side and uses it to call `POST /api/internal/race-catalog/tracedetrail/enrich`; the scheduler therefore reuses, rather than bypasses, the internal authentication boundary. The first reviewed batch is the six 2027 Trace des Maquisards formats. The response reports `imported`, `unchanged`, or `error` for each named format. The bounded allowlist prevents catalog rows from being attempted merely because they carry a Trace de Trail id; add a format only after confirming that its organizer permits the official GPX download.
+
+The internal service verifies every uploaded object by downloading it from the private `race-gpx` bucket and comparing its SHA-256 both before and after the selective race update. An unchanged result also requires a successful Storage read and matching hash. Embedded page geometry, including a trace whose official download is forbidden, is rejected before any write.
+
 ## Rate Limiting
 
 `supabase/migrations/20260304120000_add_rate_limit_entries.sql` creates:
@@ -272,7 +285,7 @@ For local setup, copy `apps/web/.env.example` to the ignored `apps/web/.env.loca
 - The cron migrations depend on Supabase extensions and Vault secrets; local migration application may require project-specific setup.
 - Organizer cleanup additionally requires matching Vault values `web_app_url` and `cron_secret`; `cron_secret` must equal the web deployment's `CRON_SECRET`.
 - Vercel's RevenueCat reconciliation also requires `CRON_SECRET`, RevenueCat app API keys, entitlement/product identifiers, and server-side webhook verification configuration. Missing provider configuration must fail closed without revoking existing access.
-- Automated Trace de Trail enrichment requires `TRACEDETRAIL_ENRICHMENT_SECRET` in every Vercel environment that may call the internal endpoint. Keep it distinct from `CRON_SECRET`; the endpoint accepts only race ids and obtains both the Supabase service role and optional Trace de Trail credentials from server-only deployment variables.
+- Automated Trace de Trail enrichment requires both `CRON_SECRET` for the scheduled GET and `TRACEDETRAIL_ENRICHMENT_SECRET` for its internal POST in every Vercel environment that may run the job. Keep them distinct; the internal endpoint accepts only race ids and obtains both the Supabase service role and optional Trace de Trail credentials from server-only deployment variables.
 - Do not replace the cleanup HTTP job with direct SQL deletion. The private Storage objects must be removed before their manifest row.
 - The archived storage doc predates the image buckets.
 - Organizer event image upload is mediated by a server route and stores only PNG files in `race-images`; clients should not receive service-role credentials.
