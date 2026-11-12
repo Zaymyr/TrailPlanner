@@ -180,6 +180,7 @@ export const en: MobileTranslations = {
     racebookUnavailable: 'The official race guide is no longer available for this format.',
     recap: 'Recap',
     settings: 'Settings',
+    nutrition: 'Nutrition',
     plans: 'Plans',
     backToPlans: 'Back to plans',
     saveAndBackToPlans: 'Save and return to plans',

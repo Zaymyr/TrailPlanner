@@ -179,6 +179,7 @@ export type MobileTranslations = {
     racebookUnavailable: string;
     recap: string;
     settings: string;
+    nutrition: string;
     plans: string;
     backToPlans: string;
     saveAndBackToPlans: string;

@@ -437,6 +437,8 @@ The RaceBook hero no longer draws the course contour lines behind its header (th
 
 Catalog race cards no longer draw or fetch format elevation profiles; no analytics event changes.
 
+The plan workspace bottom bar has a fourth « Nutrition » tab next to Mon plan, Récap and Paramètres. It is a shortcut, not a workspace view: it saves the current draft and pushes the existing Nutrition screen (product favourites), whose back action returns to the plan.
+
 ## Related Docs
 
 Selecting or masking a private-demo format is configuration, not a runner RaceBook open or publication analytics event.

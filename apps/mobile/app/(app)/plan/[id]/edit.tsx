@@ -1092,6 +1092,13 @@ export default function EditPlanScreen() {
     scrollY.setValue(event.nativeEvent.contentOffset.y);
   }, [scrollY]);
 
+  // Nutrition is a pushed screen with its own back action; save the draft first
+  // so favourites added there can be used by the plan on return.
+  const handleOpenNutrition = useCallback(async () => {
+    await saveLatestDraft(true);
+    router.push('/(app)/nutrition');
+  }, [router, saveLatestDraft]);
+
   const handleTabSelect = useCallback(async (nextTab: PlanWorkspaceTab) => {
     if (nextTab === activeTab) return;
     if (nextTab === 'recap') {
@@ -1319,6 +1326,7 @@ export default function EditPlanScreen() {
       <PlanWorkspaceTabBar
         activeTab={activeTab}
         onSelectTab={(nextTab) => { void handleTabSelect(nextTab); }}
+        onOpenNutrition={handleOpenNutrition}
       />
       <PremiumUpsellModal
         visible={previewPaywallVisible}

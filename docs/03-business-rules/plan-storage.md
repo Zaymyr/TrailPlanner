@@ -244,6 +244,8 @@ Thresholds and section combination are those of the editor gauges (`components/p
 
 Plan cards in Mes courses lead with two `TrailSignButton` signs (Livret coureur, plan action) keyed by plan id; recap, share and delete are watch `IconAction`s, and deleting from the manage sheet uses `ActionButton variant="destructive-outline"`.
 
+The plan workspace bottom bar has a fourth « Nutrition » tab next to Mon plan, Récap and Paramètres. It is a shortcut, not a workspace view: it saves the current draft and pushes the existing Nutrition screen (product favourites), whose back action returns to the plan.
+
 ## Related Docs
 
 - [race_plans](../02-database/tables/race-plans.md)

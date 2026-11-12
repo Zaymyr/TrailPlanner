@@ -180,6 +180,7 @@ export const fr: MobileTranslations = {
     racebookUnavailable: 'Le Livret officiel n\u2019est plus accessible pour ce format.',
     recap: 'Récap',
     settings: 'Paramètres',
+    nutrition: 'Nutrition',
     plans: 'Plans',
     backToPlans: 'Revenir aux plans',
     saveAndBackToPlans: 'Enregistrer et revenir aux plans',

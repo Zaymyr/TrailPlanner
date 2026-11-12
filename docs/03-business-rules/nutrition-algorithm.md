@@ -397,6 +397,8 @@ Plan-form pace-type (Allure / Vitesse) and product-sort selectors use `TrailTabs
 
 Nutrition screens changed visually only: shared sheet headers, accordion bornes with product counts, and the live-training settings accordion. Nutrition logic is unchanged.
 
+The plan workspace bottom bar has a fourth « Nutrition » tab next to Mon plan, Récap and Paramètres. It is a shortcut, not a workspace view: it saves the current draft and pushes the existing Nutrition screen (product favourites), whose back action returns to the plan.
+
 ## Related Docs
 
 - [Products Table](../02-database/tables/products.md)

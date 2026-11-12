@@ -286,6 +286,8 @@ The RaceBook hero no longer draws the course contour lines behind its header (th
 
 List cards should not fetch per-row detail (such as GPX-derived profiles) just for decoration; the catalog race card dropped its profile strip for that reason.
 
+The plan workspace bottom bar has a fourth « Nutrition » tab next to Mon plan, Récap and Paramètres. It is a shortcut, not a workspace view: it saves the current draft and pushes the existing Nutrition screen (product favourites), whose back action returns to the plan.
+
 ## Related Docs
 
 Mobile RaceBook entry points must pass preview selection plus publication/organizer access through `canShowRacebook`; screens must not recreate those gates locally.
