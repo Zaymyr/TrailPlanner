@@ -1,7 +1,7 @@
 ---
 title: Architecture Overview
 scope: architecture
-last_verified: 2026-11-09
+last_verified: 2026-11-12
 ai_priority: high
 related_files:
   - package.json
@@ -109,7 +109,7 @@ The web app is configured for Vercel in `vercel.json`. It declares:
 - `regions: ["cdg1"]`, so functions run in Paris next to the Supabase `eu-west-3` database (see `infrastructure.md` for the Fluid compute budget rationale)
 - a Git deployment filter that prevents creation of `dependabot/**` Preview deployments, backed by an ignored-build fallback; other Vercel deployments are skipped when `apps/web`, shared packages, workspace manifests, the lockfile, Turbo configuration, and Vercel configuration are unchanged, while the approved merge on `main` still produces the single production deployment
 - permanent redirects from `www.pace-yourself.com`, `trailplanner.app`, and `trail-planner.vercel.app` to `https://pace-yourself.com/:path*`
-- a daily authenticated RevenueCat reconciliation cron that repairs missed subscription events without trusting the mobile client
+- daily authenticated RevenueCat reconciliation and reviewed Trace de Trail catalog-enrichment crons; the latter calls the separately authenticated internal import service and starts with six allowlisted 2027 Trace des Maquisards formats
 
 The mobile app is configured for EAS in `apps/mobile/eas.json`:
 

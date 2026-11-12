@@ -83,8 +83,14 @@ describe("Trace de Trail server-to-server enrichment route", () => {
       ok: false,
       summary: { requested: 2, imported: 1, unchanged: 0, failed: 1 },
       results: [
-        { raceId: firstRaceId, ok: true, enriched: true, storageVerified: true },
-        { raceId: secondRaceId, ok: false, code: "PROVIDER_ERROR" },
+        {
+          raceId: firstRaceId,
+          ok: true,
+          status: "imported",
+          enriched: true,
+          storageVerified: true,
+        },
+        { raceId: secondRaceId, ok: false, status: "error", code: "PROVIDER_ERROR" },
       ],
     });
     expect(mockedEnrich).toHaveBeenNthCalledWith(1, expect.objectContaining({ raceId: firstRaceId }));

@@ -1,7 +1,7 @@
 ---
 title: Ship a Feature
 scope: workflow
-last_verified: 2026-11-03
+last_verified: 2026-11-12
 ai_priority: medium
 related_files:
   - package.json
@@ -95,7 +95,7 @@ The web CI workflow runs on pull requests and on `main`; it also accepts an expl
 
 For web delivery, open the first integration PR from the task's `dev/*` branch to `preview/web`. Record the stable Preview URL and validation result, then open or retarget the production PR for the same reviewed change to `main`. Do not merge the whole `preview/web` branch blindly when it contains multiple pending tasks; production must receive only the commits that were individually approved. The Vercel ignored-build command may show mobile-only commits as skipped deployments, but it must not be used to bypass the mandatory Preview for a web-affecting change.
 
-Vercel Cron invokes the daily RevenueCat subscription reconciliation declared in `vercel.json`. Changes to that schedule or route require the matching `CRON_SECRET` and RevenueCat server configuration to exist in the target deployment; merging code alone does not create provider webhook integrations or deployment secrets.
+Vercel Cron invokes the daily RevenueCat subscription reconciliation and Trace de Trail catalog enrichment declared in `vercel.json`. Both schedules require `CRON_SECRET`; Trace de Trail additionally requires its distinct server-only `TRACEDETRAIL_ENRICHMENT_SECRET`, while RevenueCat needs its provider configuration. Merging code alone does not create provider integrations or deployment secrets.
 
 `main` requires a pull request, the strict `web` and `static-migration-checks` statuses, and an up-to-date branch. Production GitHub jobs use the protected `Production` environment and require the configured reviewer. Supabase migrations are not coupled to a merge: dispatch the migration workflow with the exact merged SHA, the confirmation phrase, and a separate environment approval. The post-migration schema snapshot opens its own pull request instead of bypassing branch protection.
 
