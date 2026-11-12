@@ -12,7 +12,7 @@ import {
 import Svg, { Line } from 'react-native-svg';
 
 import { Text } from './Text';
-import { createTrailRandom } from '../../lib/trailSignature';
+import { capLeanForWidth, createTrailRandom } from '../../lib/trailSignature';
 import { SignPlate } from './TrailSignButton';
 import { useTrailSeed } from './TrailSeedProvider';
 
@@ -116,8 +116,9 @@ export function TrailTabs<T extends string>({
             style={({ pressed }) => [
               styles.tab,
               stretch && (scrollable ? { flexGrow: 1, minWidth: minTabWidth } : styles.tabStretch),
-              // The active label sits on a slightly hand-set wooden plank.
-              active && { transform: [{ rotate: `${createTrailRandom(trailSeed.seed, `tab|${tab.label}`, trailSeed.amount).lean('tilt', mobileComponents.trailVariation.tabPlank.tilt)}deg` }] },
+              // The active label sits on a slightly hand-set wooden plank (lean
+              // capped by its width so a wide plank stays nearly level).
+              active && { transform: [{ rotate: `${capLeanForWidth(createTrailRandom(trailSeed.seed, `tab|${tab.label}`, trailSeed.amount).lean('tilt', mobileComponents.trailVariation.tabPlank.tilt), leg?.width ?? 0)}deg` }] },
               pressed && styles.pressed,
             ]}
             testID={tab.testID}

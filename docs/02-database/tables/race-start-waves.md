@@ -122,6 +122,9 @@ The RaceBook Course map and profile cards are drawn without the contour corner (
 
 The RaceBook hero no longer draws the course contour lines behind its header (the published elevation profile is still shown in the Course tab).
 
+RaceBook onboarding guide cards now float above the RaceBook tab bar, and the post-tour « Envie d'aller plus loin ? » offer waits until the runner has opened two other tabs; « Créer mon plan » is a trail sign on the same creation path as the Course invite. Data and events are unchanged.
+
+
 
 
 

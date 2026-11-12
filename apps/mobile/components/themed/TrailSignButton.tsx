@@ -3,6 +3,7 @@ import { useId, useMemo, useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, View, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Circle, ClipPath, Defs, G, LinearGradient, Path, Stop } from 'react-native-svg';
 
+import { capLeanForWidth } from '../../lib/trailSignature';
 import { Text } from './Text';
 import { useTrailRandom } from './TrailSeedProvider';
 import { buildWoodSign, shadeHex } from './trail/WoodGeometry';
@@ -215,7 +216,10 @@ type Props = Omit<PressableProps, 'children' | 'style'> & {
   icon?: ReactNode;
   variant?: TrailSignVariant;
   fullWidth?: boolean;
-  /** Degrees; defaults to a session-stable random lean. Pass 0 for an upright sign. */
+  /**
+   * Degrees; defaults to a session-stable random lean, capped by the measured
+   * width so wide signs stay nearly level. Pass 0 for an upright sign.
+   */
   tilt?: number;
   /**
    * Stable id that makes two signs with the same label lean differently
@@ -250,7 +254,9 @@ export function TrailSignButton({
   const signKey = `sign|${variationKey ?? ''}|${label}`;
   const random = useTrailRandom(signKey, { neutral: Boolean(disabled) });
   const variation = mobileComponents.trailVariation.sign;
-  const lean = tilt ?? random.lean('tilt', variation.tilt);
+  // A wide sign (e.g. a lone full-width one) leans less, so its tip never
+  // drifts more than a few points: only short signs keep the full token lean.
+  const lean = tilt ?? capLeanForWidth(random.lean('tilt', variation.tilt), width);
   const drop = random.jitter('dy', variation.dy);
 
   return (

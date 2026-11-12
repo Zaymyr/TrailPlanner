@@ -518,39 +518,6 @@ export const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-  coveragePill: {
-    borderRadius: 999,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderWidth: 1,
-  },
-  coveragePillOk: {
-    backgroundColor: '#E3F3D7',
-    borderColor: '#B7D59C',
-  },
-  coveragePillWarning: {
-    backgroundColor: '#FCE6C8',
-    borderColor: '#EABF7B',
-  },
-  coveragePillDanger: {
-    backgroundColor: '#F9D6D6',
-    borderColor: '#E5A0A0',
-  },
-  coveragePillText: {
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  coveragePillTextOk: {
-    color: '#2D5016',
-  },
-  coveragePillTextWarning: {
-    color: '#9A5B06',
-  },
-  coveragePillTextDanger: {
-    color: '#B42318',
-  },
   coverageCompactRow: {
     flexDirection: 'row',
     alignItems: 'center',

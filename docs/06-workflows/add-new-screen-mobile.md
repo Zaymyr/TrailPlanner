@@ -288,6 +288,8 @@ List cards should not fetch per-row detail (such as GPX-derived profiles) just f
 
 The plan workspace bottom bar has a fourth « Nutrition » tab next to Mon plan, Récap and Paramètres. It is a shortcut, not a workspace view: it saves the current draft and pushes the existing Nutrition screen (product favourites), whose back action returns to the plan.
 
+Root headers show round watch `IconAction`s (`tone="onBrand"`); when no help action is shown, the screen icon is a bare decorative glyph in the same 48-point slot, never a framed button-like square. Floating guide cards must sit above any bottom navigation.
+
 ## Related Docs
 
 Mobile RaceBook entry points must pass preview selection plus publication/organizer access through `canShowRacebook`; screens must not recreate those gates locally.

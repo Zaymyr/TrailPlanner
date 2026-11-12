@@ -253,6 +253,7 @@ export default function NutritionScreen() {
           title={t.onboarding.tours.productsTitle}
           body={t.onboarding.tours.productsBody}
           actionLabel={t.onboarding.tours.continueToPlan}
+          actionKind="navigate"
           onAction={() => void continuePlanOnboarding()}
           skipLabel={t.onboarding.tours.skip}
           onSkip={() => void skipPlanOnboarding()}

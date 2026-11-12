@@ -72,9 +72,17 @@ export function RootCollapsibleHeader({ action, helpAction, icon, scrollY, title
         pointerEvents={helpAction ? 'box-none' : 'none'}
         style={[styles.expandedContent, { top: topInset, opacity: expandedOpacity }]}
       >
+        {/*
+          Without a help watch, the screen icon is decorative only: drawn bare
+          (no button frame) in the same 48pt slot so the title keeps its place.
+        */}
         {helpAction ? <View style={styles.leadingActionSpacer} /> : (
-          <View style={styles.iconSurface}>
-            <Ionicons color={Colors.textOnBrand} name={icon} size={24} />
+          <View
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            style={[styles.leadingActionSpacer, styles.decorativeIcon]}
+          >
+            <Ionicons color={Colors.textOnBrand} name={icon} size={26} />
           </View>
         )}
         <Text
@@ -152,21 +160,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  iconSurface: {
-    width: 44,
-    height: 44,
-    flexShrink: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.34)',
-    backgroundColor: 'rgba(0,0,0,0.16)',
-  },
   leadingActionSpacer: {
     width: HEADER_ACTION_SIZE,
     height: HEADER_ACTION_SIZE,
     flexShrink: 0,
+  },
+  decorativeIcon: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   expandedTitle: {
     flex: 1,

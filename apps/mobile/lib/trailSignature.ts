@@ -287,3 +287,23 @@ export function createTrailRandom(seed: number, key: string, amount = 1): TrailR
     chance: (name, probability) => scale > 0 && unit(name) < probability * scale,
   };
 }
+
+/**
+ * Largest vertical drift (pt) of a leaning element's far end from its centre
+ * line. Keeps a full-width sign or plank from looking skewed while short ones
+ * keep their full token lean.
+ */
+export const TRAIL_LEAN_MAX_DRIFT = 4.5;
+
+/**
+ * Caps a lean (degrees) by the element's measured width so its ends drift by
+ * at most `maxDrift` points: `|angle| <= atan(maxDrift / (width / 2))`.
+ * An unmeasured element (width <= 0) stays upright until laid out.
+ */
+export function capLeanForWidth(angle: number, width: number, maxDrift = TRAIL_LEAN_MAX_DRIFT): number {
+  if (!Number.isFinite(angle) || angle === 0) return 0;
+  if (!Number.isFinite(width) || width <= 0) return 0;
+  const limit = (Math.atan(maxDrift / (width / 2)) * 180) / Math.PI;
+  const capped = Math.min(limit, Math.abs(angle));
+  return round2(Math.sign(angle) * capped);
+}

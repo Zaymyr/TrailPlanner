@@ -3,10 +3,9 @@ import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
   View,
 } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { StatusBar } from 'expo-status-bar';
 import { Colors } from '../../constants/colors';
 import { ActionButton } from '../themed/ActionButton';
 import { Text } from '../themed/Text';
@@ -17,9 +16,11 @@ type OnboardingShellProps = {
   onSkip?: () => void;
   skipDisabled?: boolean;
   skipLabel?: string;
-  step: number;
-  totalSteps: number;
-  stepLabel: string;
+  /** Hide the step counter and bar when the count would not be meaningful. */
+  showProgress?: boolean;
+  step?: number;
+  totalSteps?: number;
+  stepLabel?: string;
 };
 
 export function OnboardingShell({
@@ -27,12 +28,17 @@ export function OnboardingShell({
   onSkip,
   skipDisabled = false,
   skipLabel,
-  step,
-  totalSteps,
+  showProgress = true,
+  step = 1,
+  totalSteps = 1,
   stepLabel,
 }: OnboardingShellProps) {
+  const progressVisible = showProgress && Boolean(stepLabel) && totalSteps > 1;
+
   return (
     <SafeAreaView style={styles.container}>
+      {/* Light sand/brand-surface background: keep status bar glyphs dark. */}
+      <StatusBar style="dark" />
       <View style={styles.topGlow} />
       <ScrollView
         contentContainerStyle={styles.shellScrollContent}
@@ -56,112 +62,29 @@ export function OnboardingShell({
                 </ActionButton>
               ) : null}
             </View>
-            <Text style={styles.stepIndicator}>
-              {stepLabel.replace('{step}', String(step)).replace('{total}', String(totalSteps))}
-            </Text>
-            <View style={styles.progressRow}>
-              {Array.from({ length: totalSteps }).map((_, index) => (
-                <View
-                  key={`progress-${index + 1}`}
-                  style={[
-                    styles.progressSegment,
-                    index < step ? styles.progressSegmentActive : styles.progressSegmentInactive,
-                  ]}
-                />
-              ))}
-            </View>
+            {progressVisible && stepLabel ? (
+              <>
+                <Text style={styles.stepIndicator}>
+                  {stepLabel.replace('{step}', String(step)).replace('{total}', String(totalSteps))}
+                </Text>
+                <View style={styles.progressRow}>
+                  {Array.from({ length: totalSteps }).map((_, index) => (
+                    <View
+                      key={`progress-${index + 1}`}
+                      style={[
+                        styles.progressSegment,
+                        index < step ? styles.progressSegmentActive : styles.progressSegmentInactive,
+                      ]}
+                    />
+                  ))}
+                </View>
+              </>
+            ) : null}
           </View>
           <View style={styles.card}>{children}</View>
         </View>
       </ScrollView>
     </SafeAreaView>
-  );
-}
-
-type OnboardingTourChoiceProps = {
-  busy: boolean;
-  discoverLaterLabel: string;
-  onChoosePlan: () => void;
-  onChooseRacebook: () => void;
-  onDiscoverLater: () => void;
-  planBody: string;
-  /** Introduces the optional plan path below the default RaceBook path. */
-  planOptionalLabel: string;
-  planTitle: string;
-  racebookBody: string;
-  racebookTitle: string;
-  stepLabel: string;
-  subtitle: string;
-  title: string;
-};
-
-export function OnboardingTourChoice({
-  busy,
-  discoverLaterLabel,
-  onChoosePlan,
-  onChooseRacebook,
-  onDiscoverLater,
-  planBody,
-  planOptionalLabel,
-  planTitle,
-  racebookBody,
-  racebookTitle,
-  stepLabel,
-  subtitle,
-  title,
-}: OnboardingTourChoiceProps) {
-  // The RaceBook tour is the default path; the plan tour is offered after it as optional.
-  return (
-    <OnboardingShell step={1} totalSteps={1} stepLabel={stepLabel}>
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.subtitle}>{subtitle}</Text>
-      <TourChoiceCard
-        icon="book-outline"
-        title={racebookTitle}
-        body={racebookBody}
-        disabled={busy}
-        highlighted
-        onPress={onChooseRacebook}
-      />
-      <Text style={styles.optionalLabel}>{planOptionalLabel}</Text>
-      <TourChoiceCard icon="map-outline" title={planTitle} body={planBody} disabled={busy} onPress={onChoosePlan} />
-      <ActionButton isLoading={busy} onPress={onDiscoverLater} style={styles.softExitButton} variant="ghost">
-        {discoverLaterLabel}
-      </ActionButton>
-    </OnboardingShell>
-  );
-}
-
-function TourChoiceCard({
-  body,
-  disabled,
-  highlighted = false,
-  icon,
-  onPress,
-  title,
-}: {
-  body: string;
-  disabled: boolean;
-  highlighted?: boolean;
-  icon: 'book-outline' | 'map-outline';
-  onPress: () => void;
-  title: string;
-}) {
-  return (
-    <TouchableOpacity
-      accessibilityRole="button"
-      disabled={disabled}
-      onPress={onPress}
-      style={[styles.phaseCard, highlighted && styles.phaseCardHighlighted]}
-    >
-      <View style={styles.phaseBadge}>
-        <Ionicons name={icon} size={20} color={Colors.brandPrimary} />
-      </View>
-      <View style={styles.phaseBody}>
-        <Text style={styles.phaseTitle}>{title}</Text>
-        <Text style={styles.phaseText}>{body}</Text>
-      </View>
-    </TouchableOpacity>
   );
 }
 
@@ -450,26 +373,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  phaseCardHighlighted: {
-    borderWidth: 2,
-    borderColor: Colors.brandPrimary,
-    backgroundColor: Colors.surface,
-  },
-  optionalLabel: {
-    marginTop: 8,
-    color: Colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  phaseBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.brandPrimary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
-  },
   phaseBadgeFilled: {
     width: 32,
     height: 32,
@@ -521,7 +424,6 @@ const styles = StyleSheet.create({
   timelineTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700', marginBottom: 4 },
   timelineText: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20 },
   secondaryButton: { marginTop: 10 },
-  softExitButton: { alignSelf: 'center', marginTop: 10 },
   notificationIconWrap: {
     width: 72,
     height: 72,

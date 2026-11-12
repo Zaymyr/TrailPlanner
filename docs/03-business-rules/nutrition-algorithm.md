@@ -399,6 +399,8 @@ Nutrition screens changed visually only: shared sheet headers, accordion bornes 
 
 The plan workspace bottom bar has a fourth « Nutrition » tab next to Mon plan, Récap and Paramètres. It is a shortcut, not a workspace view: it saves the current draft and pushes the existing Nutrition screen (product favourites), whose back action returns to the plan.
 
+In the plan Ravitos view, auto-fill is the primary `ActionButton` (a secondary ticket with a lock in preview mode, where « Débloquer mon plan » holds the plate), and coverage states (À préparer / OK / À ajuster / Insuffisant) use `StatusPill` (info / success / warning / danger); computations are unchanged.
+
 ## Related Docs
 
 - [Products Table](../02-database/tables/products.md)

@@ -17,9 +17,9 @@ import {
   OnboardingCompletionStep,
   OnboardingOverviewStep,
   OnboardingShell,
-  OnboardingTourChoice,
   OnboardingWorkflowStep,
 } from '../../components/onboarding/OnboardingIntroSteps';
+import { OnboardingRacebookIntro } from '../../components/onboarding/OnboardingRacebookIntro';
 import {
   OnboardingNutritionTargetsStep,
   OnboardingPerformanceStep,
@@ -192,7 +192,8 @@ export default function OnboardingScreen() {
   const completedRaceIdParam: string | null = null;
   const completedRaceNameParam: string | null = null;
   const completedHasSelectedProductsParam = false;
-  const totalSteps = 6;
+  // Reachable plan-flow screens: overview, personal, performance, targets; the tour then continues in the catalog.
+  const totalSteps = 4;
   const isGuestOnboardingSession = isAnonymousSession(session);
   const {
     appleModule,
@@ -1282,20 +1283,42 @@ export default function OnboardingScreen() {
   }
 
   if (flow !== 'plan') {
-    const copy = t.onboarding.tours;
+    const copy = t.onboarding.racebookIntro;
 
     return (
-      <OnboardingTourChoice
+      <OnboardingRacebookIntro
         busy={choiceBusy}
-        stepLabel={t.onboarding.stepLabel}
-        title={copy.choiceTitle}
-        subtitle={copy.choiceSubtitle}
-        planTitle={copy.planChoiceTitle}
-        planBody={copy.planChoiceBody}
-        planOptionalLabel={copy.planOptionalLabel}
-        racebookTitle={copy.racebookChoiceTitle}
-        racebookBody={copy.racebookChoiceBody}
-        discoverLaterLabel={copy.discoverLater}
+        copy={{
+          backLabel: t.common.back,
+          chooseRaceCta: copy.chooseRaceCta,
+          discoverLater: t.onboarding.tours.discoverLater,
+          goToPageLabel: copy.goToPageLabel,
+          kicker: copy.kicker,
+          nextCta: copy.nextCta,
+          officialBadge: copy.officialBadge,
+          pagerLabel: copy.pagerLabel,
+          planBody: t.onboarding.tours.planChoiceBody,
+          planCta: copy.planCta,
+          planOptionalLabel: t.onboarding.tours.planOptionalLabel,
+          planTitle: t.onboarding.tours.planChoiceTitle,
+          promises: [
+            { icon: 'shield-checkmark', title: copy.promiseOfficialTitle, text: copy.promiseOfficialText },
+            { icon: 'sync', title: copy.promiseUpdatedTitle, text: copy.promiseUpdatedText },
+            { icon: 'megaphone', title: copy.promiseLastMinuteTitle, text: copy.promiseLastMinuteText },
+          ],
+          subtitle: copy.subtitle,
+          tabsSubtitle: copy.tabsSubtitle,
+          tabsTitle: copy.tabsTitle,
+          title: copy.title,
+        }}
+        // Same glyphs as the RaceBook tab bar (race/[id]/racebook.tsx).
+        tabs={[
+          { icon: 'bag-check', label: t.catalog.racebookTabGear, text: copy.tabGearText },
+          { icon: 'ticket', label: t.catalog.racebookTabBib, text: copy.tabBibText },
+          { icon: 'map', label: t.catalog.racebookTabCourse, text: copy.tabCourseText },
+          { icon: 'navigate', label: t.catalog.racebookTabAccess, text: copy.tabAccessText },
+          { icon: 'grid', label: t.catalog.racebookSectionServices, text: copy.tabServicesText },
+        ]}
         onChoosePlan={() => void handleChooseOnboarding('plan')}
         onChooseRacebook={() => void handleChooseOnboarding('racebook')}
         onDiscoverLater={() => void handleSkipChoice()}

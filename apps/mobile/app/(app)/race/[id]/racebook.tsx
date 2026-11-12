@@ -173,6 +173,8 @@ type LabeledItem = {
 type BibPickupSlot = RacebookScreenData['runnerDetails']['bibPickup']['locations'][number]['slots'][number];
 
 const DAY_MS = 24 * 60 * 60 * 1_000;
+/** Single-tab RaceBook: reading time before the guided plan offer appears. */
+const RACEBOOK_ONBOARDING_SINGLE_TAB_OFFER_DELAY_MS = 8_000;
 const DEFAULT_RACEBOOK_THEME = resolveRacebookTheme(null);
 const RacebookBrandThemeContext = createContext<ResolvedRacebookTheme>(DEFAULT_RACEBOOK_THEME);
 
@@ -603,8 +605,13 @@ export default function RaceRacebookScreen() {
   const [gearChecksLoadedRaceId, setGearChecksLoadedRaceId] = useState<string | null>(null);
   const [courseConstraintsExpanded, setCourseConstraintsExpanded] = useState(false);
   const [onboardingBusy, setOnboardingBusy] = useState(false);
-  // After the guided RaceBook tour, the optional plan is offered once.
-  const [onboardingPlanOffer, setOnboardingPlanOffer] = useState(false);
+  // Guided RaceBook tour: the explore card, then free exploration of the
+  // tabs, then the optional plan offered once at a natural moment.
+  const [onboardingStage, setOnboardingStage] = useState<'explore' | 'exploring' | 'planOffer'>('explore');
+  // Tabs the runner opened from the tab bar since "J'ai compris".
+  const onboardingVisitedTabsRef = useRef(new Set<RacebookTabKey>());
+  // Measured RaceBook tab bar height (safe-area inset included): guide cards float above it.
+  const [racebookTabBarHeight, setRacebookTabBarHeight] = useState(0);
   const [loading, setLoading] = useState(() => !initialSnapshot);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<RacebookScreenData | null>(() => initialSnapshot?.data ?? null);
@@ -1752,6 +1759,7 @@ export default function RaceRacebookScreen() {
     if (tab === activeTab) return;
 
     persistCurrentScrollPosition();
+    onboardingVisitedTabsRef.current.add(tab);
     setActiveTab(tab);
     const session = analyticsSessionRef.current;
     if (!session) return;
@@ -1897,14 +1905,34 @@ export default function RaceRacebookScreen() {
     restoreCurrentScrollPosition();
   }, [activeCourseTab, activeTab, id, loadedRaceId, restoreCurrentScrollPosition, showLoading, unavailable]);
 
+  // Offer the plan after the runner opened 2 other tabs (all of them when the
+  // RaceBook has fewer), never right after "J'ai compris". A single-tab RaceBook
+  // has nothing to explore: the offer then follows a short reading delay.
+  const onboardingTabsToExplore = Math.min(2, Math.max(0, tabs.length - 1));
+  useEffect(() => {
+    if (onboarding !== 'racebook' || onboardingStage !== 'exploring') return undefined;
+    const offerPlan = () => {
+      if (canOfferPlan) setOnboardingStage('planOffer');
+      else router.setParams({ onboarding: undefined });
+    };
+    if (onboardingTabsToExplore === 0) {
+      const timer = setTimeout(offerPlan, RACEBOOK_ONBOARDING_SINGLE_TAB_OFFER_DELAY_MS);
+      return () => clearTimeout(timer);
+    }
+    if (onboardingVisitedTabsRef.current.size >= onboardingTabsToExplore) offerPlan();
+    return undefined;
+  }, [activeTab, canOfferPlan, onboarding, onboardingStage, onboardingTabsToExplore, router]);
+
   async function finishRacebookOnboarding(completed: boolean) {
     setOnboardingBusy(true);
     try {
       if (completed) await completeOnboarding('racebook');
       else await skipOnboardingKind('racebook', 'racebook');
       if (completed && canOfferPlan) {
-        // The tour is recorded as done; the plan is then offered as an option.
-        setOnboardingPlanOffer(true);
+        // The tour is recorded as done. The plan is offered later, once the
+        // runner has actually explored the tabs the card pointed to.
+        onboardingVisitedTabsRef.current.clear();
+        setOnboardingStage('exploring');
         setOnboardingBusy(false);
         return;
       }
@@ -2491,28 +2519,39 @@ export default function RaceRacebookScreen() {
       ) : null}
       </Animated.ScrollView>
       {!showLoading && !unavailable && data ? (
-        <RacebookTabBar
-          tabs={tabs}
-          activeTab={activeTab}
-          onPress={handleTabPress}
-        />
+        <View
+          onLayout={(event) => {
+            const height = Math.round(event.nativeEvent.layout.height);
+            setRacebookTabBarHeight((current) => (current === height ? current : height));
+          }}
+        >
+          <RacebookTabBar
+            tabs={tabs}
+            activeTab={activeTab}
+            onPress={handleTabPress}
+          />
+        </View>
       ) : null}
-      {onboarding === 'racebook' && !showLoading && onboardingPlanOffer ? (
+      {onboarding === 'racebook' && !showLoading && onboardingStage === 'planOffer' && canOfferPlan ? (
         <OnboardingGuideCard
           title={t.onboarding.tours.planOfferTitle}
           body={t.onboarding.tours.planOfferBody}
           actionLabel={t.catalog.racebookCreatePlan}
+          actionKind="navigate"
+          // Same path as the RaceBook course "Créer un plan" invite: opens the
+          // plan creation route for this race (or the existing plan).
           onAction={() => { void handlePlanCtaPress('onboarding_end'); }}
           skipLabel={t.onboarding.tours.planOfferLater}
           onSkip={() => {
             // Stay on this RaceBook: only leave the guided mode.
-            setOnboardingPlanOffer(false);
+            setOnboardingStage('explore');
             router.setParams({ onboarding: undefined });
           }}
           busy={planCtaBusy}
+          bottomOffset={unavailable || !data ? 0 : racebookTabBarHeight}
         />
       ) : null}
-      {onboarding === 'racebook' && !showLoading && !onboardingPlanOffer ? (
+      {onboarding === 'racebook' && !showLoading && onboardingStage === 'explore' ? (
         <OnboardingGuideCard
           title={
             unavailable
@@ -2529,6 +2568,7 @@ export default function RaceRacebookScreen() {
           skipLabel={t.onboarding.tours.skip}
           onSkip={() => void finishRacebookOnboarding(false)}
           busy={onboardingBusy}
+          bottomOffset={unavailable || !data ? 0 : racebookTabBarHeight}
         />
       ) : null}
     </View>

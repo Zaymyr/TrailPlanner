@@ -691,9 +691,20 @@ export type MobileTranslations = {
     skipOnboardingConfirmTitle: string;
     skipOnboardingConfirmBody: string;
     skipOnboardingError: string;
+    racebookIntro: {
+      pagerLabel: string; goToPageLabel: string; kicker: string; officialBadge: string;
+      title: string; subtitle: string;
+      promiseOfficialTitle: string; promiseOfficialText: string;
+      promiseUpdatedTitle: string; promiseUpdatedText: string;
+      promiseLastMinuteTitle: string; promiseLastMinuteText: string;
+      nextCta: string; tabsTitle: string; tabsSubtitle: string;
+      tabGearText: string; tabBibText: string; tabCourseText: string;
+      tabAccessText: string; tabServicesText: string;
+      chooseRaceCta: string; planCta: string;
+    };
     tours: {
-      choiceTitle: string; choiceSubtitle: string; planChoiceTitle: string; planChoiceBody: string; planOptionalLabel: string;
-      racebookChoiceTitle: string; racebookChoiceBody: string; discoverLater: string;
+      planChoiceTitle: string; planChoiceBody: string; planOptionalLabel: string;
+      discoverLater: string;
       chooseRaceTitle: string; chooseRaceBody: string; openRacebookTitle: string;
       openRacebookBody: string; searchRacebookTitle: string; searchRacebookBody: string;
       searchRacebookEmptyTitle: string; searchRacebookEmptyBody: string;

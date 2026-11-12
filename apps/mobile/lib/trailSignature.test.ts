@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   SIGNATURE_RIDGE,
   asTrailProfile,
+  capLeanForWidth,
   buildContourPaths,
   buildRidgeAreaPath,
   buildRidgePath,
@@ -191,6 +192,20 @@ describe('trail variation', () => {
     const full = createTrailRandom(9, 'k').lean('tilt', [1, 2]);
     const half = createTrailRandom(9, 'k', 0.5).lean('tilt', [1, 2]);
     expect(Math.abs(half - full / 2)).toBeLessThanOrEqual(0.01);
+  });
+
+  it('caps the lean of wide elements by their width, keeping short ones', () => {
+    // Short sign: full token lean stays.
+    expect(capLeanForWidth(2.9, 120)).toBe(2.9);
+    expect(capLeanForWidth(-2.9, 120)).toBe(-2.9);
+    // Full-width sign (~340pt): the tip drifts by at most ~4.5pt.
+    const wide = capLeanForWidth(2.9, 340);
+    expect(wide).toBeLessThan(2.9);
+    expect(170 * Math.tan((wide * Math.PI) / 180)).toBeLessThanOrEqual(4.55);
+    expect(capLeanForWidth(-2.9, 340)).toBe(-wide);
+    // Neutral and unmeasured elements stay upright.
+    expect(capLeanForWidth(0, 340)).toBe(0);
+    expect(capLeanForWidth(2.9, 0)).toBe(0);
   });
 
   it('parses forced seeds', () => {

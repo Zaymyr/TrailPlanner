@@ -194,6 +194,8 @@ The Google fallback `ActionButton` on login and signup no longer adds its own re
 
 The onboarding Google sign-in is a secondary `ActionButton` with the Google icon and a busy state; « continue without account » is a ghost soft exit. Auth logic is unchanged.
 
+The onboarding starts with a two-panel presentation of the Livret coureur and its five tabs before the race choice; auth and onboarding status persistence are unchanged.
+
 ## Related Docs
 
 - [Session Management](session-management.md)

@@ -24,7 +24,6 @@ import {
   ActionLockMark,
   ActionTicket,
   ENAMEL_RADIUS,
-  TICKET_INK,
   TICKET_SHADOW,
 } from './trail/ActionPlates';
 
@@ -50,8 +49,10 @@ export type ActionButtonProps = Omit<PressableProps, 'children' | 'style'> & {
 
 type Look = ActionButtonVariant | 'closed';
 
-/** Ticket stub width per size: room for a 16pt glyph or "N° 07". */
+/** Ticket stub width per size: room for a 16pt `leading` glyph. */
 const STUB_WIDTH: Record<ActionButtonSize, number> = { sm: 36, md: 42, lg: 44 };
+/** A stub without a glyph only carries a punched hole: kept narrow. */
+const BLANK_STUB_WIDTH = 18;
 /** Keeps primary labels clear of the corner rivets. */
 const ENAMEL_MIN_PADDING = spacing[5];
 const DESTRUCTIVE_RADIUS = 12;
@@ -61,17 +62,12 @@ const CLOSED_TRAIL_PLATE_BORDER = colors.trail.stone;
 /** Enamel plate lettering: uppercase, tracked 0.08em. */
 const ENAMEL_TRACKING = 0.08;
 
-/** Deterministic two-digit ticket number from the label (never session-random). */
-function ticketNumber(label: string) {
-  let hash = 7;
-  for (let index = 0; index < label.length; index += 1) hash = (hash * 31 + label.charCodeAt(index)) % 9973;
-  return String((hash % 98) + 1).padStart(2, '0');
-}
-
 /**
  * Trail-object actions.
  * - primary: enamelled riveted plate, "j'agis ici". One plate per screen.
  * - secondary: aid-station ticket with a stub, set with a slight hand lean.
+ *   The stub shows the `leading` glyph, otherwise a single punched hole
+ *   (never a number or other text).
  * - ghost: label over an amber arrow painted on the ground (soft exit).
  * - destructive: "wrong way" red cross plate, filled. Reserved for the
  *   confirmation step (dialogs, sheets that confirm). Never varies.
@@ -117,7 +113,7 @@ export function ActionButton({
   };
 
   const raised = look === 'primary' || look === 'destructive';
-  const stub = STUB_WIDTH[size];
+  const stub = leading ? STUB_WIDTH[size] : BLANK_STUB_WIDTH;
   const textSize = size === 'sm' ? 'sm' : 'base';
   const outlined = look === 'destructive-outline';
   const spinnerColor = raised ? colors.text.inverse : outlined ? colors.semantic.danger : colors.brand.forest;
@@ -164,15 +160,17 @@ export function ActionButton({
             ) : null}
             {look === 'secondary' ? (
               <>
-                <ActionTicket height={layout.height} stub={stub} width={layout.width} />
-                <View
-                  accessibilityElementsHidden
-                  importantForAccessibility="no-hide-descendants"
-                  pointerEvents="none"
-                  style={[styles.stub, { width: stub }]}
-                >
-                  {leading ?? <Text style={styles.stubText}>{`N°\n${ticketNumber(children)}`}</Text>}
-                </View>
+                <ActionTicket height={layout.height} punched={!leading} stub={stub} width={layout.width} />
+                {leading ? (
+                  <View
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants"
+                    pointerEvents="none"
+                    style={[styles.stub, { width: stub }]}
+                  >
+                    {leading}
+                  </View>
+                ) : null}
               </>
             ) : null}
             {look === 'closed' ? <ActionClosedTrailTape height={layout.height} width={layout.width} /> : null}
@@ -289,14 +287,6 @@ const styles = StyleSheet.create({
     bottom: TICKET_SHADOW,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  stubText: {
-    color: TICKET_INK,
-    fontFamily: 'JetBrainsMono_700Bold',
-    fontSize: 11,
-    lineHeight: 13,
-    letterSpacing: 1,
-    textAlign: 'center',
   },
   ghostColumn: {
     alignItems: 'flex-start',

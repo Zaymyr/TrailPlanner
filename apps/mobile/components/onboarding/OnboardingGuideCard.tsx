@@ -4,15 +4,31 @@ import { StyleSheet, View } from 'react-native';
 import { Colors } from '../../constants/colors';
 import { ActionButton } from '../themed/ActionButton';
 import { Text } from '../themed/Text';
+import { TrailSignButton } from '../themed/TrailSignButton';
+
+/** Gap kept between the card and whatever sits below it (screen edge or tab bar). */
+const CARD_GAP = 14;
 
 type Props = {
   title: string;
   body: string;
   actionLabel?: string;
   onAction?: () => void;
-  skipLabel: string;
-  onSkip: () => void;
+  /**
+   * - `acknowledge` (default): the action stays on this screen ("J'ai compris"):
+   *   a ground arrow next to the skip action, an enamel plate when alone.
+   * - `navigate`: the action opens another screen ("Créer mon plan"): a trail sign.
+   */
+  actionKind?: 'acknowledge' | 'navigate';
+  skipLabel?: string;
+  onSkip?: () => void;
   busy?: boolean;
+  /**
+   * Height of the navigation drawn at the bottom of the screen (e.g. the
+   * RaceBook tab bar, safe-area inset included). The card floats above it so
+   * it never covers the navigation it talks about.
+   */
+  bottomOffset?: number;
 };
 
 export function OnboardingGuideCard({
@@ -20,12 +36,17 @@ export function OnboardingGuideCard({
   body,
   actionLabel,
   onAction,
+  actionKind = 'acknowledge',
   skipLabel,
   onSkip,
   busy = false,
+  bottomOffset = 0,
 }: Props) {
+  const hasSkip = Boolean(skipLabel && onSkip);
+  const hasAction = Boolean(actionLabel && onAction);
+
   return (
-    <View accessibilityRole="summary" style={styles.card}>
+    <View accessibilityRole="summary" style={[styles.card, { bottom: bottomOffset + CARD_GAP }]}>
       <View style={styles.headingRow}>
         <View style={styles.iconWrap}>
           <Ionicons name="sparkles" color={Colors.brandPrimary} size={18} />
@@ -36,12 +57,28 @@ export function OnboardingGuideCard({
         </View>
       </View>
       <View style={styles.actions}>
-        <ActionButton disabled={busy} onPress={onSkip} size="sm" variant="ghost">
-          {skipLabel}
-        </ActionButton>
-        {actionLabel && onAction ? (
-          <ActionButton isLoading={busy} onPress={onAction} size="sm" style={styles.actionButton} variant="secondary">
-            {actionLabel}
+        {hasSkip ? (
+          <ActionButton disabled={busy} onPress={onSkip} size="sm" variant="ghost">
+            {skipLabel as string}
+          </ActionButton>
+        ) : null}
+        {hasAction && actionKind === 'navigate' ? (
+          <TrailSignButton
+            disabled={busy}
+            icon={<Ionicons color={Colors.brandPrimary} name="flag-outline" size={16} />}
+            label={actionLabel as string}
+            onPress={onAction}
+            variant="soft"
+          />
+        ) : null}
+        {hasAction && actionKind === 'acknowledge' ? (
+          <ActionButton
+            isLoading={busy}
+            onPress={onAction}
+            size="sm"
+            variant={hasSkip ? 'ghost' : 'primary'}
+          >
+            {actionLabel as string}
           </ActionButton>
         ) : null}
       </View>
@@ -54,7 +91,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 14,
     right: 14,
-    bottom: 14,
     zIndex: 100,
     borderRadius: 18,
     borderWidth: 1,
@@ -79,6 +115,12 @@ const styles = StyleSheet.create({
   copy: { flex: 1, gap: 3 },
   title: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800' },
   body: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
-  actions: { marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10 },
-  actionButton: { minWidth: 120 },
+  actions: {
+    marginTop: 12,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 10,
+  },
 });

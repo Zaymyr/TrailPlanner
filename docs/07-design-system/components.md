@@ -1,7 +1,7 @@
 ---
 title: Design Components
 scope: design-system
-last_verified: 2026-11-11
+last_verified: 2026-11-12
 ai_priority: medium
 related_files:
   - apps/web/components/ui/button.tsx
@@ -198,7 +198,8 @@ color, so it survives organizer RaceBook colors:
   visible thickness, a face lit from above (gradient from a lighter tone to the
   plate color), a routed border parallel to its edge, two fixing bolts on the
   post side, faint grain and a pointed 16-point end towards the destination.
-  Each sign leans 0.4° to 2.9° either way and sits up to 1.5 points higher or
+  Each sign leans 0.4° to 2.9° either way (capped by its measured width with
+  `capLeanForWidth` so the tip drifts at most 4.5 points) and sits up to 1.5 points higher or
   lower, drawn from the session seed and its label (plus an optional
   `variationKey`, e.g. the race id); a disabled sign stays upright. Pressing
   straightens it slightly. The plate is painted wood: per-sign tip length
@@ -290,7 +291,8 @@ Rule of use: a sign (`TrailSignButton`) means "I go elsewhere", a plate (primary
 - `ActionButton` primary is an enamelled riveted plate (forest enamel lit from
   above, cream liner, four rivets, 3-point thickness, uppercase label tracked
   0.08em). Secondary is an aid-station ticket with a stub and dotted
-  perforation, leaning ±0.9° per label. Ghost is an amber arrow painted on the
+  perforation, leaning ±0.9° per label; its stub shows the `leading` glyph,
+  otherwise a single punched hole — never a number or text. Ghost is an amber arrow painted on the
   ground under the label (soft exits: Plus tard, Passer, Annuler). Destructive
   is the red "wrong way" cross, reserved for confirming a deletion;
   `destructive-outline` (red cross and label on cream, 1.5-point red border, no

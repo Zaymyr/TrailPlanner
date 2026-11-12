@@ -24,6 +24,8 @@ const RIVET_RADIUS = 2.5;
 export const TICKET_RADIUS = 6;
 export const TICKET_SHADOW = 2;
 export const TICKET_NOTCH = 6;
+/** Punched hole on a stub that has no glyph. */
+const TICKET_PUNCH_RADIUS = 2.5;
 /** Darkened stub ink (mockup #8A6A2E is 4.24:1 on the ticket, too low). */
 export const TICKET_INK = colors.trail.ticketInk;
 
@@ -111,9 +113,10 @@ function ticketPath(width: number, height: number, stub: number, x0 = 0.5, y0 = 
 /**
  * Secondary: aid-station ticket on cream card stock, a stub on the left
  * behind a dotted perforation, a round notch top and bottom on the
- * perforation, and a 2pt card-edge shadow.
+ * perforation, and a 2pt card-edge shadow. A stub without a glyph carries a
+ * single punched hole: never a number or any other text.
  */
-export function ActionTicket({ width, height, stub }: Size & { stub: number }) {
+export function ActionTicket({ width, height, stub, punched = false }: Size & { stub: number; punched?: boolean }) {
   if (width <= 0 || height <= 0) return null;
   const bodyHeight = height - TICKET_SHADOW;
   const outline = ticketPath(width, bodyHeight, stub);
@@ -130,6 +133,16 @@ export function ActionTicket({ width, height, stub }: Size & { stub: number }) {
         y1={TICKET_NOTCH + 3}
         y2={bodyHeight - TICKET_NOTCH - 3}
       />
+      {punched ? (
+        <Circle
+          cx={stub / 2}
+          cy={bodyHeight / 2}
+          fill={colors.trail.ticketBorder}
+          r={TICKET_PUNCH_RADIUS}
+          stroke={colors.trail.ticketPerforation}
+          strokeWidth={1}
+        />
+      ) : null}
     </Svg>
   );
 }
