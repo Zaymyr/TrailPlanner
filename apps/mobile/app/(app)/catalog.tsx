@@ -62,6 +62,7 @@ import {
   normalizeRacebookOnboardingSearch,
 } from '../../lib/racebookOnboarding';
 import { prefetchRacebookSponsors } from '../../lib/racebookSponsors';
+import { resolveOnboardingDemoRace } from '../../lib/onboardingDemoRace';
 import { supabase } from '../../lib/supabase';
 import { saveOnboardingProgress, skipOnboardingKind } from '../../lib/onboardingStatus';
 import { WEB_API_BASE_URL } from '../../lib/webApi';
@@ -616,6 +617,49 @@ export default function CatalogScreen() {
     [eventGroups],
   );
 
+  // Runners without a race explore the guided tour on the Trail TST demo. It is
+  // resolved from the unfiltered catalog so search, filters and its past date
+  // never hide it.
+  const onboardingDemoRace = useMemo(
+    () => onboardingMode === 'racebook'
+      ? resolveOnboardingDemoRace<EventGroup>(eventGroups, (race, event) => canShowRacebook({
+        raceIsLive: race.is_live,
+        racebookIsLive: race.racebook_is_live,
+        racebookPreviewIsVisible: race.racebook_preview_is_visible,
+        hasOrganizerAccess: false,
+        hasAidStations: race.has_aid_stations,
+        hasRelayCourse: race.participation_mode === 'relay' || race.participation_mode === 'solo_and_relay',
+        eventOrganizerDetails: event.organizer_details,
+        raceOrganizerDetails: race.organizer_details,
+      }))
+      : null,
+    [eventGroups, onboardingMode],
+  );
+
+  /** Guided RaceBook onboarding: remembers the race, then opens its tour. */
+  function openOnboardingRacebook(event: EventGroup, race: Race, selectionMethod: string) {
+    captureAnalyticsEvent('racebook onboarding racebook selected', {
+      onboarding_kind: 'racebook',
+      event_id: event.id,
+      event_name: event.name,
+      race_id: race.id,
+      race_name: race.name,
+      query_length: normalizeRacebookOnboardingSearch(nameFilter).length,
+      selection_method: selectionMethod,
+    });
+    setSelectedEvent(null);
+    void saveOnboardingProgress({
+      kind: 'racebook',
+      stage: 'racebook',
+      selectedRaceId: race.id,
+    }).then(() => {
+      router.push({
+        pathname: '/(app)/race/[id]/racebook',
+        params: { id: race.id, onboarding: 'racebook' },
+      });
+    });
+  }
+
   async function handleSkipGuidedCatalog() {
     if (!onboardingMode) return;
     await skipOnboardingKind(onboardingMode, 'catalog');
@@ -1169,7 +1213,6 @@ export default function CatalogScreen() {
                 }}
                 onSubmitEditing={captureRacebookOnboardingSearch}
                 placeholder={t.catalog.searchPlaceholder}
-                autoFocus={onboardingMode === 'racebook'}
                 returnKeyType="search"
                 trailing={nameFilter ? (
                   <TouchableOpacity
@@ -1279,20 +1322,31 @@ export default function CatalogScreen() {
         topInset={insets.top}
       />
 
-      {onboardingMode ? (
+      {onboardingMode === 'plan' ? (
         <OnboardingGuideCard
-          title={
-            onboardingMode === 'plan'
-              ? t.onboarding.tours.chooseRaceTitle
-              : t.onboarding.tours.searchRacebookTitle
-          }
+          title={t.onboarding.tours.chooseRaceTitle}
+          body={t.onboarding.tours.chooseRaceBody}
+          skipLabel={t.onboarding.tours.skip}
+          onSkip={() => void handleSkipGuidedCatalog()}
+        />
+      ) : null}
+      {onboardingMode === 'racebook' && !selectedEvent ? (
+        // The race choice is required: pick a race, or use the Trail TST demo
+        // when the runner has none yet. Skipping stays a soft secondary exit.
+        <OnboardingGuideCard
+          title={t.onboarding.tours.pickRaceTitle}
           body={
-            onboardingMode === 'plan'
-              ? t.onboarding.tours.chooseRaceBody
-              : publishedRacebookCount > 0
-                ? t.onboarding.tours.searchRacebookBody
-                : t.onboarding.tours.noRacebookBody
+            publishedRacebookCount === 0
+              ? t.onboarding.tours.noRacebookBody
+              : onboardingDemoRace
+                ? `${t.onboarding.tours.pickRaceBody} ${t.onboarding.tours.demoRaceBody}`
+                : t.onboarding.tours.pickRaceBody
           }
+          actionLabel={onboardingDemoRace ? t.onboarding.tours.demoRaceCta : undefined}
+          actionKind="navigate"
+          onAction={onboardingDemoRace
+            ? () => openOnboardingRacebook(onboardingDemoRace.event, onboardingDemoRace.race, 'demo_race')
+            : undefined}
           skipLabel={t.onboarding.tours.skip}
           onSkip={() => void handleSkipGuidedCatalog()}
         />
@@ -1407,26 +1461,7 @@ export default function CatalogScreen() {
                     void prefetchRacebookSponsors(race.id);
                     if (onboardingMode === 'racebook') {
                       captureRacebookOnboardingSearch();
-                      captureAnalyticsEvent('racebook onboarding racebook selected', {
-                        onboarding_kind: 'racebook',
-                        event_id: selectedEvent.id,
-                        event_name: selectedEvent.name,
-                        race_id: race.id,
-                        race_name: race.name,
-                        query_length: normalizeRacebookOnboardingSearch(nameFilter).length,
-                        selection_method: racebookOnboardingSelectionMethod,
-                      });
-                      setSelectedEvent(null);
-                      void saveOnboardingProgress({
-                        kind: 'racebook',
-                        stage: 'racebook',
-                        selectedRaceId: race.id,
-                      }).then(() => {
-                        router.push({
-                          pathname: '/(app)/race/[id]/racebook',
-                          params: { id: race.id, onboarding: 'racebook' },
-                        });
-                      });
+                      openOnboardingRacebook(selectedEvent, race, racebookOnboardingSelectionMethod);
                       return;
                     }
                     setSelectedEvent(null);

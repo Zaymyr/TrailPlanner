@@ -23,6 +23,8 @@ export type OnboardingRacebookIntroTab = {
 export type OnboardingRacebookIntroCopy = {
   backLabel: string;
   chooseRaceCta: string;
+  /** Promise shown right above the race choice: race or demo, then the guided tour. */
+  chooseRaceHint?: string;
   discoverLater: string;
   goToPageLabel: string;
   kicker: string;
@@ -158,6 +160,7 @@ export function OnboardingRacebookIntro({
               </View>
             ))}
           </View>
+          {copy.chooseRaceHint ? <Text style={styles.chooseRaceHint}>{copy.chooseRaceHint}</Text> : null}
           <TrailSignButton
             disabled={busy}
             fullWidth
@@ -234,6 +237,7 @@ const styles = StyleSheet.create({
   rowTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700', marginBottom: 2 },
   rowText: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20 },
   tabList: { gap: 12, marginBottom: 24 },
+  chooseRaceHint: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20, textAlign: 'center', marginBottom: 12 },
   tabRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   tabIcon: {
     width: 40,

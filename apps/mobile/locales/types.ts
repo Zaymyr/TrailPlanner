@@ -700,7 +700,21 @@ export type MobileTranslations = {
       nextCta: string; tabsTitle: string; tabsSubtitle: string;
       tabGearText: string; tabBibText: string; tabCourseText: string;
       tabAccessText: string; tabServicesText: string;
-      chooseRaceCta: string; planCta: string;
+      chooseRaceCta: string; chooseRaceHint: string; planCta: string;
+    };
+    racebookTour: {
+      skip: string;
+      lastMinuteTitle: string; lastMinuteBody: string;
+      tabBarTitle: string; tabBarBody: string;
+      gearTitle: string; gearBody: string;
+      bibTitle: string; bibBody: string;
+      courseTitle: string; courseBody: string;
+      courseTabsTitle: string; courseTabsBody: string;
+      accessTitle: string; accessBody: string;
+      servicesTitle: string; servicesBody: string;
+      emergencyTitle: string; emergencyBody: string;
+      linksTitle: string; linksBody: string;
+      wrapUpTitle: string; wrapUpBody: string;
     };
     tours: {
       planChoiceTitle: string; planChoiceBody: string; planOptionalLabel: string;
@@ -708,7 +722,8 @@ export type MobileTranslations = {
       chooseRaceTitle: string; chooseRaceBody: string; openRacebookTitle: string;
       openRacebookBody: string; searchRacebookTitle: string; searchRacebookBody: string;
       searchRacebookEmptyTitle: string; searchRacebookEmptyBody: string;
-      noRacebookBody: string; productsTitle: string;
+      noRacebookBody: string; pickRaceTitle: string; pickRaceBody: string;
+      demoRaceBody: string; demoRaceCta: string; productsTitle: string;
       productsBody: string; continueToPlan: string; exploreRacebookTitle: string;
       exploreRacebookBody: string; unavailableTitle: string; unavailableBody: string;
       understood: string; skip: string;

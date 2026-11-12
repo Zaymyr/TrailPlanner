@@ -427,6 +427,7 @@ The unread organizer-update marker (« NEW ») is a brand `StatusPill` wristband
 
 Sheets and modals use the shared `SheetHeader` (dotted trail handle, slender blaze, title, watch close button) and collapsible groups use `AccordionSection` (km borne with a count or icon, forest trail along the open content); UI only, data and queries unchanged.
 
+Guided screens never auto-open the keyboard; a guide card's acknowledgement is a secondary ticket when a ground-arrow skip sits beside it, and onboarding copy must match the real layout (RaceBook tabs are at the bottom).
 
 ## Related Docs
 

@@ -161,6 +161,8 @@ Lists grouped by a new table's parent rows are rendered as `AccordionSection`s w
 
 Decorative previews derived from a new table (such as profile strips) are normalised client-side for presentation; do not store presentation-only shapes in the schema.
 
+Screens listing a new table's rows in a guided onboarding must not auto-focus inputs that hide the list.
+
 ## Related Docs
 
 The `race_supporter_points` addition follows this workflow: cascade ownership by `races`, explicit client/service grants, a completeness-filtered SELECT policy, a service-only atomic collection RPC, static SQL checks, and a dedicated table reference document.

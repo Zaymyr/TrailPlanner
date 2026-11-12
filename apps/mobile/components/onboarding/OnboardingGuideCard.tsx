@@ -76,7 +76,7 @@ export function OnboardingGuideCard({
             isLoading={busy}
             onPress={onAction}
             size="sm"
-            variant={hasSkip ? 'ghost' : 'primary'}
+            variant={hasSkip ? 'secondary' : 'primary'}
           >
             {actionLabel as string}
           </ActionButton>

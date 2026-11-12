@@ -150,6 +150,8 @@ The RaceBook hero no longer draws the course contour lines behind its header (th
 
 RaceBook onboarding guide cards now float above the RaceBook tab bar, and the post-tour « Envie d'aller plus loin ? » offer waits until the runner has opened two other tabs; « Créer mon plan » is a trail sign on the same creation path as the Course invite. Data and events are unchanged.
 
+The RaceBook onboarding tour only switches tabs, scrolls and highlights zones; it changes no data or visibility. Onboarding refers to the Trail TST seed ids, so they must stay stable.
+
 ## Related Docs
 
 Masking a format from the private RaceBook demo suppresses its complete mobile RaceBook entry point without deleting relay points.

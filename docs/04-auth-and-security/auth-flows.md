@@ -196,6 +196,8 @@ The onboarding Google sign-in is a secondary `ActionButton` with the Google icon
 
 The onboarding starts with a two-panel presentation of the Livret coureur and its five tabs before the race choice; auth and onboarding status persistence are unchanged.
 
+The onboarding intro now tells the runner to pick a race or discover with Trail TST; no auth change.
+
 ## Related Docs
 
 - [Session Management](session-management.md)

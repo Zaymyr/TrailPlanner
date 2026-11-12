@@ -441,6 +441,10 @@ The plan workspace bottom bar has a fourth « Nutrition » tab next to Mon plan,
 
 RaceBook onboarding guide cards now float above the RaceBook tab bar, and the post-tour « Envie d'aller plus loin ? » offer waits until the runner has opened two other tabs; « Créer mon plan » is a trail sign on the same creation path as the Course invite. Data and events are unchanged.
 
+Guided screens never auto-open the keyboard; a guide card's acknowledgement is a secondary ticket when a ground-arrow skip sits beside it, and onboarding copy must match the real layout (RaceBook tabs are at the bottom).
+
+The guided catalog's Trail TST shortcut reuses `racebook onboarding racebook selected` with `selection_method: 'demo_race'` (alongside `browse` and `search`) and skips `racebook onboarding race selected`, since no event sheet is opened; tabs switched by the onboarding tour do not fire `racebook tab viewed`. <!-- TODO: verify with maintainer -->
+
 ## Related Docs
 
 Selecting or masking a private-demo format is configuration, not a runner RaceBook open or publication analytics event.

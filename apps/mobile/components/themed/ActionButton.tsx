@@ -35,6 +35,8 @@ export type ActionButtonProps = Omit<PressableProps, 'children' | 'style'> & {
   variant?: ActionButtonVariant;
   size?: ActionButtonSize;
   leading?: ReactNode;
+  /** Ghost only: the painted ground arrow points back (left) for « Précédent » / « Retour ». */
+  arrowDirection?: 'forward' | 'back';
   trailing?: ReactNode;
   fullWidth?: boolean;
   isLoading?: boolean;
@@ -82,6 +84,7 @@ export function ActionButton({
   variant = 'primary',
   size = 'md',
   leading,
+  arrowDirection = 'forward',
   trailing,
   fullWidth = false,
   isLoading = false,
@@ -201,7 +204,7 @@ export function ActionButton({
                   </Text>
                   {trailing}
                 </View>
-                <ActionGroundArrow width={labelWidth + spacing[3]} wobble={wobble} />
+                <ActionGroundArrow direction={arrowDirection} width={labelWidth + spacing[3]} wobble={wobble} />
               </View>
             ) : (
               <View style={[styles.row, raised && isPressed && styles.contentSunk]}>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type Ref } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ResolvedRacebookTheme } from '@pace-yourself/design-system';
 import { StatusBar } from 'expo-status-bar';
@@ -76,6 +76,10 @@ type Props = {
   onExpandedBodyHeightChange?: (height: number) => void;
   /** A workspace switch is attached below: it carries the rounded edge and shadow. */
   attachedBelow?: boolean;
+  /** Measurable wrapper of the expanded emergency call action (guided tour highlight). */
+  emergencyTargetRef?: Ref<View>;
+  /** Measurable wrapper of the organizer links action (guided tour highlight). */
+  linksTargetRef?: Ref<View>;
 };
 
 export function RacebookCollapsibleHero({
@@ -116,6 +120,8 @@ export function RacebookCollapsibleHero({
   onOpenSocial,
   onExpandedBodyHeightChange,
   attachedBelow = false,
+  emergencyTargetRef,
+  linksTargetRef,
 }: Props) {
   const [isCompact, setIsCompact] = useState(false);
   const [linksVisible, setLinksVisible] = useState(false);
@@ -217,11 +223,13 @@ export function RacebookCollapsibleHero({
               tone="danger"
             />
           ) : null}
-          <IconAction
-            accessibilityLabel={linksLabel}
-            icon={<Ionicons name="link-outline" size={18} color={watchIconColor} />}
-            onPress={() => setLinksVisible(true)}
-          />
+          <View collapsable={false} ref={linksTargetRef}>
+            <IconAction
+              accessibilityLabel={linksLabel}
+              icon={<Ionicons name="link-outline" size={18} color={watchIconColor} />}
+              onPress={() => setLinksVisible(true)}
+            />
+          </View>
         </View>
       ) : isCompact && emergency && onCallEmergency ? (
         <View style={[styles.persistentSocialActions, { top: topInset + RACE_WORKSPACE_ACTION_TOP_OFFSET }]}>
@@ -285,15 +293,17 @@ export function RacebookCollapsibleHero({
                 ) : null}
               </View>
               {emergency && onCallEmergency ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={emergency.accessibilityLabel}
-                  onPress={onCallEmergency}
-                  style={({ pressed }) => [styles.emergencyCallButton, pressed && styles.pressed]}
-                >
-                  <Ionicons name="call" size={16} color={theme.onPrimaryColor} />
-                  <Text style={[styles.emergencyCallLabel, { color: theme.onPrimaryColor }]}>{emergency.callLabel}</Text>
-                </Pressable>
+                <View collapsable={false} ref={emergencyTargetRef}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={emergency.accessibilityLabel}
+                    onPress={onCallEmergency}
+                    style={({ pressed }) => [styles.emergencyCallButton, pressed && styles.pressed]}
+                  >
+                    <Ionicons name="call" size={16} color={theme.onPrimaryColor} />
+                    <Text style={[styles.emergencyCallLabel, { color: theme.onPrimaryColor }]}>{emergency.callLabel}</Text>
+                  </Pressable>
+                </View>
               ) : null}
             </View>
           ) : null}

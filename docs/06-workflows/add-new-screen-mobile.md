@@ -290,6 +290,8 @@ The plan workspace bottom bar has a fourth « Nutrition » tab next to Mon plan,
 
 Root headers show round watch `IconAction`s (`tone="onBrand"`); when no help action is shown, the screen icon is a bare decorative glyph in the same 48-point slot, never a framed button-like square. Floating guide cards must sit above any bottom navigation.
 
+Guided screens never auto-open the keyboard; a guide card's acknowledgement is a secondary ticket when a ground-arrow skip sits beside it, and onboarding copy must match the real layout (RaceBook tabs are at the bottom).
+
 ## Related Docs
 
 Mobile RaceBook entry points must pass preview selection plus publication/organizer access through `canShowRacebook`; screens must not recreate those gates locally.

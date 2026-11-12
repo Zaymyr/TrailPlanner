@@ -293,7 +293,8 @@ Rule of use: a sign (`TrailSignButton`) means "I go elsewhere", a plate (primary
   0.08em). Secondary is an aid-station ticket with a stub and dotted
   perforation, leaning ±0.9° per label; its stub shows the `leading` glyph,
   otherwise a single punched hole — never a number or text. Ghost is an amber arrow painted on the
-  ground under the label (soft exits: Plus tard, Passer, Annuler). Destructive
+  ground under the label (soft exits: Plus tard, Passer, Annuler);
+  `arrowDirection="back"` mirrors it for « Précédent ». Destructive
   is the red "wrong way" cross, reserved for confirming a deletion;
   `destructive-outline` (red cross and label on cream, 1.5-point red border, no
   fill) is for delete actions in lists, rows and management sheets. Disabled

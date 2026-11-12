@@ -152,7 +152,7 @@ export function ActionTicket({ width, height, stub, punched = false }: Size & { 
  * wobbly stroke ending in an open arrowhead. `wobble` (-1..1) only bends
  * the brush stroke, never its length or colour.
  */
-export function ActionGroundArrow({ width, wobble }: { width: number; wobble: number }) {
+export function ActionGroundArrow({ width, wobble, direction = 'forward' }: { width: number; wobble: number; direction?: 'forward' | 'back' }) {
   if (width <= 0) return null;
   const w = Math.max(40, width);
   const end = w - 10;
@@ -160,7 +160,8 @@ export function ActionGroundArrow({ width, wobble }: { width: number; wobble: nu
   const stroke = `M2 ${7 + lift * 0.5} C${w * 0.2} ${4 - lift} ${w * 0.4} ${9 + lift} ${w * 0.62} 6 S${end - 4} 5 ${end} 6`;
   const head = `M${end - 6} 2 L${end + 4} 6 L${end - 5} 10`;
   return (
-    <Svg accessible={false} height={12} pointerEvents="none" width={w}>
+    // « back » mirrors the painted arrow so it points left (Précédent, Retour).
+    <Svg accessible={false} height={12} pointerEvents="none" style={direction === 'back' ? { transform: [{ scaleX: -1 }] } : undefined} width={w}>
       <Path d={stroke} fill="none" stroke={colors.trail.tapeOrange} strokeLinecap="round" strokeWidth={3} />
       <Path d={head} fill="none" stroke={colors.trail.tapeOrange} strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} />
     </Svg>

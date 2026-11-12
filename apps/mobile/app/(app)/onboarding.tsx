@@ -1291,6 +1291,7 @@ export default function OnboardingScreen() {
         copy={{
           backLabel: t.common.back,
           chooseRaceCta: copy.chooseRaceCta,
+          chooseRaceHint: copy.chooseRaceHint,
           discoverLater: t.onboarding.tours.discoverLater,
           goToPageLabel: copy.goToPageLabel,
           kicker: copy.kicker,

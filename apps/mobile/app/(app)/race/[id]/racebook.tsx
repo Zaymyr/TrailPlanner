@@ -36,6 +36,16 @@ import { Text } from '../../../../components/themed/Text';
 import { RidgeDivider } from '../../../../components/themed/Ridge';
 import { TrailTabs } from '../../../../components/themed/TrailTabs';
 import { OnboardingGuideCard } from '../../../../components/onboarding/OnboardingGuideCard';
+import { SpotlightTutorial } from '../../../../components/help/SpotlightTutorial';
+import { useRacebookOnboardingTour } from '../../../../hooks/useRacebookOnboardingTour';
+import type { SpotlightRect, TutorialStep } from '../../../../lib/helpTutorial';
+import {
+  buildRacebookTourSteps,
+  fitRacebookTourHighlight,
+  resolveRacebookTourScrollOffset,
+  type RacebookTourStepKey,
+  type RacebookTourStepSpec,
+} from '../../../../lib/racebookOnboardingTour';
 import {
   RacebookLoadingScreen as SponsorLoadingScreen,
   SponsorBanner as RacebookSponsorBanner,
@@ -175,6 +185,8 @@ type BibPickupSlot = RacebookScreenData['runnerDetails']['bibPickup']['locations
 const DAY_MS = 24 * 60 * 60 * 1_000;
 /** Single-tab RaceBook: reading time before the guided plan offer appears. */
 const RACEBOOK_ONBOARDING_SINGLE_TAB_OFFER_DELAY_MS = 8_000;
+/** Room kept free for the guided tour card next to a highlighted zone. */
+const RACEBOOK_TOUR_MIN_CARD_SPACE = 260;
 const DEFAULT_RACEBOOK_THEME = resolveRacebookTheme(null);
 const RacebookBrandThemeContext = createContext<ResolvedRacebookTheme>(DEFAULT_RACEBOOK_THEME);
 
@@ -605,10 +617,11 @@ export default function RaceRacebookScreen() {
   const [gearChecksLoadedRaceId, setGearChecksLoadedRaceId] = useState<string | null>(null);
   const [courseConstraintsExpanded, setCourseConstraintsExpanded] = useState(false);
   const [onboardingBusy, setOnboardingBusy] = useState(false);
-  // Guided RaceBook tour: the explore card, then free exploration of the
-  // tabs, then the optional plan offered once at a natural moment.
-  const [onboardingStage, setOnboardingStage] = useState<'explore' | 'exploring' | 'planOffer'>('explore');
-  // Tabs the runner opened from the tab bar since "J'ai compris".
+  // Guided RaceBook tour: the spotlight tour of the real zones, then the
+  // optional plan offer. A skipped tour falls back to free exploration of the
+  // tabs before the offer.
+  const [onboardingStage, setOnboardingStage] = useState<'tour' | 'exploring' | 'planOffer' | 'done'>('tour');
+  // Tabs the runner opened from the tab bar after skipping the tour.
   const onboardingVisitedTabsRef = useRef(new Set<RacebookTabKey>());
   // Measured RaceBook tab bar height (safe-area inset included): guide cards float above it.
   const [racebookTabBarHeight, setRacebookTabBarHeight] = useState(0);
@@ -641,6 +654,10 @@ export default function RaceRacebookScreen() {
   const lastGearStateSignatureRef = useRef<{ raceId: string; signature: string } | null>(null);
   const activeRaceIdRef = useRef(id);
   const currentScrollOffsetRef = useRef(0);
+  // Guided tour scroll anchors (content-container y) and scroll extents.
+  const tourAnchorsRef = useRef<{ lastMinute: number | null; content: number | null }>({ lastMinute: null, content: null });
+  const scrollContentHeightRef = useRef(0);
+  const scrollViewHeightRef = useRef(0);
   const scrollRestoreFrameRef = useRef<ReturnType<typeof requestAnimationFrame> | null>(null);
   activeRaceIdRef.current = id;
 
@@ -1905,9 +1922,10 @@ export default function RaceRacebookScreen() {
     restoreCurrentScrollPosition();
   }, [activeCourseTab, activeTab, id, loadedRaceId, restoreCurrentScrollPosition, showLoading, unavailable]);
 
-  // Offer the plan after the runner opened 2 other tabs (all of them when the
-  // RaceBook has fewer), never right after "J'ai compris". A single-tab RaceBook
-  // has nothing to explore: the offer then follows a short reading delay.
+  // Skipped tour only: offer the plan after the runner opened 2 other tabs (all
+  // of them when the RaceBook has fewer), never right after skipping. A
+  // single-tab RaceBook has nothing to explore: the offer then follows a short
+  // reading delay. A finished tour offers the plan directly.
   const onboardingTabsToExplore = Math.min(2, Math.max(0, tabs.length - 1));
   useEffect(() => {
     if (onboarding !== 'racebook' || onboardingStage !== 'exploring') return undefined;
@@ -1924,28 +1942,135 @@ export default function RaceRacebookScreen() {
   }, [activeTab, canOfferPlan, onboarding, onboardingStage, onboardingTabsToExplore, router]);
 
   async function finishRacebookOnboarding(completed: boolean) {
+    if (onboardingBusy) return;
     setOnboardingBusy(true);
     try {
       if (completed) await completeOnboarding('racebook');
       else await skipOnboardingKind('racebook', 'racebook');
+      setOnboardingBusy(false);
       if (completed && canOfferPlan) {
-        // The tour is recorded as done. The plan is offered later, once the
-        // runner has actually explored the tabs the card pointed to.
-        onboardingVisitedTabsRef.current.clear();
-        setOnboardingStage('exploring');
-        setOnboardingBusy(false);
+        // The tour is recorded as done: the optional plan closes it.
+        setOnboardingStage('planOffer');
         return;
       }
-      router.replace(id ? `/(app)/race/${id}/racebook` : '/(app)/catalog');
+      if (!completed && canOfferPlan && !unavailable) {
+        // Skipped tour: the plan is offered later, once the runner has
+        // actually explored a few tabs.
+        onboardingVisitedTabsRef.current.clear();
+        setOnboardingStage('exploring');
+        return;
+      }
+      setOnboardingStage('done');
+      router.setParams({ onboarding: undefined });
     } catch (caught) {
       console.error('Unable to finish RaceBook onboarding:', caught);
       setOnboardingBusy(false);
     }
   }
 
+  // Guided spotlight tour of the real RaceBook zones (onboarding only).
+  const hasOrganizerLinks = Boolean(officialWebsiteUrl || instagramUrl || facebookUrl);
+  const tourSteps = useMemo(() => buildRacebookTourSteps({
+    hasLastMinuteMessage: Boolean(lastMinuteMessage),
+    headerTarget: hasEmergencyHeader ? 'emergency' : hasOrganizerLinks ? 'links' : null,
+    tabs: tabs.map((entry) => entry.key),
+    courseTabs: courseTabs.map((entry) => entry.key),
+  }), [courseTabs, hasEmergencyHeader, hasOrganizerLinks, lastMinuteMessage, tabs]);
+  const tourActive = onboarding === 'racebook'
+    && onboardingStage === 'tour'
+    && !showLoading
+    && !unavailable
+    && Boolean(data)
+    && loadedRaceId === id
+    && racebookTabBarHeight > 0;
+  const compactHeaderBottom = insets.top + RACEBOOK_HERO_COMPACT_BODY_HEIGHT + (showPlanWorkspace ? RACE_WORKSPACE_SWITCH_HEIGHT : 0);
+  const tourViewportHeightRef = useRef(0);
+
+  const resolveTourScrollOffset = useCallback((step: RacebookTourStepSpec) => {
+    if (step.scroll === 'top') return 0;
+    return resolveRacebookTourScrollOffset({
+      anchorY: step.scroll === 'lastMinute' ? tourAnchorsRef.current.lastMinute : tourAnchorsRef.current.content,
+      collapseDistance: Math.max(0, heroBodyHeight - RACEBOOK_HERO_COMPACT_BODY_HEIGHT),
+      compactHeaderBottom,
+      maxOffset: scrollContentHeightRef.current - scrollViewHeightRef.current,
+    });
+  }, [compactHeaderBottom, heroBodyHeight]);
+
+  const prepareTourStep = useCallback((step: RacebookTourStepSpec) => {
+    const nextTab = step.tab ?? activeTabRef.current;
+    const nextCourseTab = step.courseTab ?? activeCourseTabRef.current;
+    // The tab switch restores the remembered offset: pre-set it to the tour's.
+    if (id) setRacebookScrollOffset(id, nextTab, nextCourseTab, resolveTourScrollOffset(step));
+    if (nextTab !== activeTabRef.current) setActiveTab(nextTab);
+    if (nextCourseTab !== activeCourseTabRef.current) setActiveCourseTab(nextCourseTab);
+  }, [id, resolveTourScrollOffset]);
+
+  const alignTourStep = useCallback((step: RacebookTourStepSpec) => {
+    const offset = resolveTourScrollOffset(step);
+    scrollRef.current?.scrollTo({ y: offset, animated: false });
+    scrollY.setValue(offset);
+    currentScrollOffsetRef.current = offset;
+  }, [resolveTourScrollOffset, scrollY]);
+
+  const fitTourTarget = useCallback((step: RacebookTourStepSpec, rect: SpotlightRect) => (
+    fitRacebookTourHighlight(
+      rect,
+      step.scroll === 'top'
+        ? { top: 0, bottom: tourViewportHeightRef.current }
+        : { top: compactHeaderBottom, bottom: tourViewportHeightRef.current - racebookTabBarHeight },
+      RACEBOOK_TOUR_MIN_CARD_SPACE,
+    )
+  ), [compactHeaderBottom, racebookTabBarHeight]);
+
+  const tour = useRacebookOnboardingTour({
+    active: tourActive,
+    steps: tourSteps,
+    prepareStep: prepareTourStep,
+    alignStep: alignTourStep,
+    fitTarget: fitTourTarget,
+  });
+  tourViewportHeightRef.current = tour.viewport.height || viewportHeight;
+
+  const tourCopy = t.onboarding.racebookTour;
+  const tutorialSteps = useMemo<TutorialStep<RacebookTourStepKey>[]>(() => tourSteps.map((step) => {
+    const copy: Record<RacebookTourStepKey, { title: string; body: string }> = {
+      lastMinute: { title: tourCopy.lastMinuteTitle, body: tourCopy.lastMinuteBody },
+      tabBar: { title: tourCopy.tabBarTitle, body: tourCopy.tabBarBody },
+      gear: { title: tourCopy.gearTitle, body: tourCopy.gearBody },
+      bib: { title: tourCopy.bibTitle, body: tourCopy.bibBody },
+      course: { title: tourCopy.courseTitle, body: tourCopy.courseBody },
+      courseTabs: { title: tourCopy.courseTabsTitle, body: tourCopy.courseTabsBody },
+      access: { title: tourCopy.accessTitle, body: tourCopy.accessBody },
+      services: { title: tourCopy.servicesTitle, body: tourCopy.servicesBody },
+      emergency: { title: tourCopy.emergencyTitle, body: tourCopy.emergencyBody },
+      links: { title: tourCopy.linksTitle, body: tourCopy.linksBody },
+      wrapUp: { title: tourCopy.wrapUpTitle, body: tourCopy.wrapUpBody },
+    };
+    return {
+      screenKey: 'racebook',
+      targetKey: step.key,
+      ...copy[step.key],
+      centered: step.target === null,
+      highlightPadding: step.target === 'tabBar' ? 4 : 8,
+    };
+  }), [tourCopy, tourSteps]);
+
+  function handleTourNext() {
+    if (tour.isLastStep) {
+      void finishRacebookOnboarding(true);
+      return;
+    }
+    tour.goNext();
+  }
+
   return (
     <RacebookBrandThemeContext.Provider value={brandTheme}>
-    <View style={[styles.screen, { backgroundColor: brandTheme.primarySurfaceColor }]}>
+    <View
+      ref={tour.rootRef}
+      collapsable={false}
+      onLayout={tour.handleRootLayout}
+      style={[styles.screen, { backgroundColor: brandTheme.primarySurfaceColor }]}
+    >
       {!showLoading && !unavailable && data ? (
         <RacebookCollapsibleHero
           scrollY={scrollY}
@@ -1995,6 +2120,8 @@ export default function RaceRacebookScreen() {
           onOpenSocial={(url, action) => openTrackedUrl(url, action)}
           onExpandedBodyHeightChange={handleHeroBodyHeightChange}
           attachedBelow={showPlanWorkspace && !showLoading && !unavailable && Boolean(data)}
+          emergencyTargetRef={tour.registerTarget('emergency')}
+          linksTargetRef={tour.registerTarget('links')}
         />
       ) : null}
       {showPlanWorkspace && !showLoading && !unavailable && data ? (
@@ -2027,6 +2154,8 @@ export default function RaceRacebookScreen() {
           showLoading && { minHeight: Math.max(520, viewportHeight - 120) },
         ]}
         onScroll={handleScroll}
+        onContentSizeChange={(_, height) => { scrollContentHeightRef.current = height; }}
+        onLayout={(event) => { scrollViewHeightRef.current = event.nativeEvent.layout.height; }}
         scrollEventThrottle={16}
         alwaysBounceVertical
         refreshControl={
@@ -2089,17 +2218,28 @@ export default function RaceRacebookScreen() {
           ) : null}
 
           {lastMinuteMessage ? (
-            <TapeAlertBanner
-              collapseLabel={t.catalog.racebookAlertCollapse}
-              collapsible
-              expandLabel={t.catalog.racebookAlertExpand}
-              icon="megaphone-outline"
-              message={lastMinuteMessage}
-              title={t.catalog.racebookLastMinuteTitle}
-            />
+            <View
+              ref={tour.registerTarget('lastMinute')}
+              collapsable={false}
+              onLayout={(event) => { tourAnchorsRef.current.lastMinute = event.nativeEvent.layout.y; }}
+            >
+              <TapeAlertBanner
+                collapseLabel={t.catalog.racebookAlertCollapse}
+                collapsible
+                expandLabel={t.catalog.racebookAlertExpand}
+                icon="megaphone-outline"
+                message={lastMinuteMessage}
+                title={t.catalog.racebookLastMinuteTitle}
+              />
+            </View>
           ) : null}
 
-          <View style={styles.contentWrap}>
+          <View
+            ref={tour.registerTarget('tabContent')}
+            collapsable={false}
+            onLayout={(event) => { tourAnchorsRef.current.content = event.nativeEvent.layout.y; }}
+            style={styles.contentWrap}
+          >
             {activeTab === 'gear' ? (
               <>
               <RacebookGearSection
@@ -2175,14 +2315,16 @@ export default function RaceRacebookScreen() {
 
             {activeTab === 'course' ? (
               <>
-                <TrailTabs
-                  activeKey={activeCourseTab}
-                  onChange={handleCourseTabPress}
-                  scrollable
-                  stretch
-                  style={styles.courseTabsWrap}
-                  tabs={courseTabs.map((tab) => ({ key: tab.key, label: tab.label }))}
-                />
+                <View ref={tour.registerTarget('courseTabs')} collapsable={false}>
+                  <TrailTabs
+                    activeKey={activeCourseTab}
+                    onChange={handleCourseTabPress}
+                    scrollable
+                    stretch
+                    style={styles.courseTabsWrap}
+                    tabs={courseTabs.map((tab) => ({ key: tab.key, label: tab.label }))}
+                  />
+                </View>
 
                 <RacebookPersonalPlanCard
                   hasPlan={Boolean(linkedPlanId)}
@@ -2520,6 +2662,8 @@ export default function RaceRacebookScreen() {
       </Animated.ScrollView>
       {!showLoading && !unavailable && data ? (
         <View
+          ref={tour.registerTarget('tabBar')}
+          collapsable={false}
           onLayout={(event) => {
             const height = Math.round(event.nativeEvent.layout.height);
             setRacebookTabBarHeight((current) => (current === height ? current : height));
@@ -2544,33 +2688,39 @@ export default function RaceRacebookScreen() {
           skipLabel={t.onboarding.tours.planOfferLater}
           onSkip={() => {
             // Stay on this RaceBook: only leave the guided mode.
-            setOnboardingStage('explore');
+            setOnboardingStage('done');
             router.setParams({ onboarding: undefined });
           }}
           busy={planCtaBusy}
           bottomOffset={unavailable || !data ? 0 : racebookTabBarHeight}
         />
       ) : null}
-      {onboarding === 'racebook' && !showLoading && onboardingStage === 'explore' ? (
+      {onboarding === 'racebook' && !showLoading && onboardingStage === 'tour' && unavailable ? (
         <OnboardingGuideCard
-          title={
-            unavailable
-              ? t.onboarding.tours.unavailableTitle
-              : t.onboarding.tours.exploreRacebookTitle
-          }
-          body={
-            unavailable
-              ? t.onboarding.tours.unavailableBody
-              : t.onboarding.tours.exploreRacebookBody
-          }
-          actionLabel={unavailable ? undefined : t.onboarding.tours.understood}
-          onAction={unavailable ? undefined : () => void finishRacebookOnboarding(true)}
+          title={t.onboarding.tours.unavailableTitle}
+          body={t.onboarding.tours.unavailableBody}
           skipLabel={t.onboarding.tours.skip}
           onSkip={() => void finishRacebookOnboarding(false)}
           busy={onboardingBusy}
-          bottomOffset={unavailable || !data ? 0 : racebookTabBarHeight}
         />
       ) : null}
+      <SpotlightTutorial
+        activeStepIndex={tour.stepIndex}
+        closeLabel={tourCopy.skip}
+        dismissOnBackdropPress={false}
+        doneLabel={t.helpTutorial.done}
+        loadingLabel={t.helpTutorial.loadingTarget}
+        nextLabel={t.helpTutorial.next}
+        onClose={() => void finishRacebookOnboarding(false)}
+        onNext={handleTourNext}
+        onPrevious={tour.goPrevious}
+        previousLabel={t.helpTutorial.previous}
+        steps={tutorialSteps}
+        targetRect={tour.targetRect}
+        viewportHeight={tour.viewport.height}
+        viewportWidth={tour.viewport.width}
+        visible={tourActive}
+      />
     </View>
     </RacebookBrandThemeContext.Provider>
   );
