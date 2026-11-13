@@ -6,6 +6,7 @@ ai_priority: medium
 # Organizer UI note (2026-11-13): responsive shell changes do not alter edition request creation, selection, or status handling.
 # Form UI note (2026-11-13): responsive social fields and loading skeletons do not alter edition requests.
 # Navigation note (2026-11-13): organizer hierarchy does not alter edition requests.
+# Course-date presentation note (2026-11-13): localized display does not alter edition request dates.
 related_files:
   - supabase/migrations/20260721110000_add_race_event_edition_requests.sql
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql

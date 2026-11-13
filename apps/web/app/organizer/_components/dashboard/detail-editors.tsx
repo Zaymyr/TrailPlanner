@@ -198,7 +198,6 @@ function EquipmentFields({
                 <span className="text-xs font-semibold text-muted-foreground">({group.rows.length})</span>
               </div>
               {group.rows.map(({ item, index }) => {
-                const added = Boolean(sharedItems && !sharedItems.some((sharedItem) => isSameItem(item, sharedItem)));
                 return (
                   <InlineEditableRow key={item.id ?? index} className={cn("grid grid-cols-[minmax(0,1fr)_2rem] gap-2 sm:items-center sm:gap-3", weatherVariantsOpen ? "sm:grid-cols-[minmax(0,1fr)_auto_9rem_2rem]" : "sm:grid-cols-[minmax(0,1fr)_auto_2rem]")}>
                     <div className="col-span-2 flex min-w-0 items-center gap-2 sm:col-span-1">
@@ -208,7 +207,6 @@ function EquipmentFields({
                         onChange={(event) => updateItem(index, { label: event.target.value })}
                         className="h-9 min-w-0 border-transparent bg-transparent px-2 shadow-none hover:border-border focus-visible:border-brand-border"
                       />
-                      {added ? <span className="shrink-0 rounded-full border border-brand-border bg-brand-surface px-2 py-0.5 text-[10px] font-semibold text-brand">Ajouté</span> : null}
                     </div>
                     <div className="flex min-w-0 flex-wrap items-center gap-2 sm:contents">
                       <SegmentedChoice
@@ -624,6 +622,7 @@ function AccessFields({
   const updateSection = (key: keyof OrganizerEventDetails["access"]["enabledSections"], checked: boolean) =>
     update({ enabledSections: { ...access.enabledSections, [key]: checked } });
   const missingStartAddress = !access.startAddress?.trim();
+  const finishMatchesStart = Boolean(access.startAddress?.trim() && access.startAddress.trim() === access.finishAddress?.trim());
   const transportEnabled = !formatMode || access.enabledSections.officialParkings || access.enabledSections.shuttles;
   const missingParkingOrShuttle =
     transportEnabled &&
@@ -654,16 +653,22 @@ function AccessFields({
             onLocationChange={(startLocation) => update({ startLocation })}
             invalid={missingStartAddress}
           />
-          <AddressAutocompleteField
+          {finishMatchesStart ? null : <AddressAutocompleteField
             label="Adresse arrivée"
             value={access.finishAddress ?? ""}
             location={access.finishLocation}
             biasLocation={biasLocation}
             onChange={(value) => update({ finishAddress: value || null })}
             onLocationChange={(finishLocation) => update({ finishLocation })}
-          />
+          />}
       </div>
-      {access.startAddress?.trim() && access.startAddress.trim() === access.finishAddress?.trim() ? <p className="rounded-md bg-brand-surface px-3 py-2 text-sm font-medium text-brand">Arrivée identique au départ</p> : null}
+      <SwitchRow
+        label="Arrivée au même endroit que le départ"
+        checked={finishMatchesStart}
+        onCheckedChange={(checked) => update(checked
+          ? { finishAddress: access.startAddress, finishLocation: access.startLocation }
+          : { finishAddress: null, finishLocation: { label: null, lat: null, lng: null, googleMapsUrl: null, source: "manual" } })}
+      />
 
       <div className="grid items-start gap-3 sm:grid-cols-2">
       <OptionalModule

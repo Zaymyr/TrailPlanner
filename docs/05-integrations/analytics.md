@@ -6,6 +6,7 @@ ai_priority: medium
 # Organizer UI note (2026-11-13): the completion rail no longer duplicates an analytics button; analytics tracking and aggregation contracts are unchanged.
 # Loading UI note (2026-11-13): neutral organizer skeletons emit no additional analytics events.
 # Header/navigation note (2026-11-13): visual hierarchy changes emit no additional analytics events.
+# Dense module note (2026-11-13): logo-grid navigation and same-place access emit no new analytics events.
 related_files:
   - apps/web/lib/posthog-organizer-analytics.ts
   - apps/web/lib/posthog-organizer-analytics.test.ts

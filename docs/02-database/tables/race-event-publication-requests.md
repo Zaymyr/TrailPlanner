@@ -6,6 +6,7 @@ ai_priority: high
 # Organizer UI note (2026-11-13): publication controls keep their behavior in the wider shell; the contextual rail is presentation-only.
 # Validation UI note (2026-11-13): Requis badges expose existing prerequisites and do not change publication request rules.
 # Action-menu note (2026-11-13): moving destructive actions does not alter publication requests.
+# Dense module note (2026-11-13): access and sponsor presentation do not alter publication requests.
 related_files:
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql

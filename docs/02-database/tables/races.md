@@ -8,6 +8,7 @@ ai_priority: high
 # Organizer UI note (2026-11-13): course metrics use the flexible editor while GPX and image controls use the contextual rail; persistence is unchanged.
 # Form UI note (2026-11-13): required badges and skeletons do not alter race fields or persistence.
 # Action-menu note (2026-11-13): moving format deletion under ⋯ keeps the existing confirmed deletion contract.
+# Course form note (2026-11-13): localized date labels and shorter headings do not alter stored race dates.
 related_files:
   - supabase/migrations/20261106142000_add_lut_by_night_2026_gpx.sql
   - supabase/migrations/20261105082511_enrich_saintelyon_2026_formats.sql

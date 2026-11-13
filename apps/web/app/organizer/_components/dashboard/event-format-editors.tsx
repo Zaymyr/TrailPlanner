@@ -35,6 +35,12 @@ const fileNameFromUrl = (url: string, fallback: string) => {
   }
 };
 
+const formatOrganizerDate = (value: string) => {
+  if (!value) return "";
+  const date = new Date(`${value}T12:00:00`);
+  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", year: "numeric" }).format(date);
+};
+
 export function EventInfoEditor({
   eventForm,
   onChange,
@@ -305,7 +311,7 @@ export function FormatsEditor({
       ) : activeRace ? (
         <RaceForm
           key={activeRace.id}
-          title="Détails du format"
+          title="Format"
           values={raceForm}
           biasLocation={eventLocation}
           onChange={(values) => onRaceFormChange(values)}
@@ -418,9 +424,9 @@ function RaceForm({
         onSubmit(event);
       }}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <p className="font-semibold text-foreground">{title}</p>
-        <p className="text-xs text-muted-foreground">Ajoute d’abord les fichiers, renseigne les informations du format, puis vérifie le parcours et le profil.</p>
+        <p className="text-xs text-muted-foreground">Informations principales, parcours et profil.</p>
       </div>
       <div className="grid min-w-0 items-start gap-5 min-[900px]:grid-cols-[minmax(0,1fr)_300px]">
         <div className="min-w-0 space-y-4">
@@ -473,7 +479,7 @@ function RaceForm({
               </div>
               <div className="space-y-2 lg:col-span-4">
                 {editionStartDate ? (
-                  <div className="flex items-center justify-between gap-2 text-sm"><span>Date de l’édition <span className="font-mono text-xs text-muted-foreground">{editionStartDate}</span></span><Button type="button" variant="ghost" className="!min-h-9 !px-2" disabled={disabled} onClick={() => { const next = !usesCustomRaceDate; setUsesCustomRaceDate(next); if (!next) onChange({ ...values, raceDate: editionStartDate }); }}>{usesCustomRaceDate ? "Utiliser l’édition" : "Changer"}</Button></div>
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-sm"><span>Date de l’édition <span className="text-xs text-muted-foreground">{formatOrganizerDate(editionStartDate)}</span></span><Button type="button" variant="ghost" className="!min-h-9 !px-2" disabled={disabled} onClick={() => { const next = !usesCustomRaceDate; setUsesCustomRaceDate(next); if (!next) onChange({ ...values, raceDate: editionStartDate }); }}>{usesCustomRaceDate ? "Utiliser l’édition" : "Changer"}</Button></div>
                 ) : null}
                 {usesCustomRaceDate || !editionStartDate ? (
                   <TextField
@@ -492,7 +498,7 @@ function RaceForm({
               </div>
               <div className="space-y-2 lg:col-span-8">
                 {inheritedLocationText ? (
-                  <div className="flex items-center justify-between gap-2 text-sm"><span className="truncate">Lieu hérité : {inheritedLocationText}</span><Button type="button" variant="ghost" className="!min-h-9 !px-2" disabled={disabled} onClick={() => {
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-sm"><span className="min-w-0 break-words">Lieu hérité : {inheritedLocationText}</span><Button type="button" variant="ghost" className="!min-h-9 !px-2" disabled={disabled} onClick={() => {
                         const next = !usesCustomLocation;
                         setUsesCustomLocation(next);
                         if (!next) {
@@ -648,7 +654,9 @@ function OrganizerGpxPanel({
 }) {
   return (
     <aside className="min-w-0 rounded-lg border border-border bg-card p-3 shadow-sm">
-      <div className="space-y-3">
+      <details className="group">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between font-semibold text-foreground marker:content-none min-[900px]:hidden">Médias et aperçu <span className="text-muted-foreground transition group-open:rotate-180">⌄</span></summary>
+      <div className="hidden space-y-3 group-open:block min-[900px]:block">
         <div className="space-y-1.5">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
@@ -711,6 +719,7 @@ function OrganizerGpxPanel({
           </div>
         </div>
       </div>
+      </details>
     </aside>
   );
 }

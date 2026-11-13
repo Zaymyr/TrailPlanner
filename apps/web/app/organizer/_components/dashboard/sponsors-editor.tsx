@@ -284,11 +284,17 @@ export function SponsorsEditor({
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-semibold text-foreground">Sponsors de l’édition</h3><p className="text-sm text-muted-foreground">Logo, niveau et emplacements visibles dans le Livret coureur.</p></div><span className="font-mono text-sm text-muted-foreground">{sponsors.length} sponsor{sponsors.length > 1 ? "s" : ""}</span></div>
       <PartnerSlotsEditor editionId={editionId} authHeaders={authHeaders} sponsors={sponsors} onToast={onToast} />
+      {sponsors.length > 0 ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" aria-label="Logos des sponsors">
+        {sponsors.filter((sponsor) => sponsor.id !== pendingRemoval?.id).map((sponsor) => <button key={`logo-${sponsor.id}`} type="button" className="flex min-h-28 flex-col items-center justify-center gap-2 rounded-lg border border-border bg-card p-3 text-center hover:border-brand-border" onClick={() => document.getElementById(`sponsor-editor-${sponsor.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}>
+          <Image src={sponsor.logoUrl} alt="" width={72} height={56} sizes="72px" unoptimized className="h-14 w-[72px] object-contain" />
+          <span className="line-clamp-2 text-xs font-semibold text-foreground">{sponsor.name}</span>
+        </button>)}
+      </div> : null}
       {sponsors.filter((sponsor) => sponsor.id !== pendingRemoval?.id).map((sponsor, index) => {
         const loadingDisabled = !sponsor.showOnLoading && loadingSponsorCount >= 2;
         const activationDisabled = !sponsor.isActive && sponsor.showOnLoading && loadingSponsorCount >= 2;
         return (
-          <div key={sponsor.id} className="grid gap-4 rounded-lg border border-border p-4 lg:grid-cols-[88px_1fr_auto]">
+          <div id={`sponsor-editor-${sponsor.id}`} key={sponsor.id} className="grid scroll-mt-4 gap-4 rounded-lg border border-border p-4 lg:grid-cols-[88px_1fr_auto]">
             <div className="space-y-2">
               <div className="flex h-20 w-20 items-center justify-center rounded-md border border-border bg-white p-2">
                 <Image src={sponsor.logoUrl} alt={`Logo ${sponsor.name}`} width={80} height={80} sizes="80px" unoptimized className="max-h-full max-w-full object-contain" />

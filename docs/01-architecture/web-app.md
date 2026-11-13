@@ -7,6 +7,7 @@ ai_priority: high
 # Aid-station editor (2026-11-13): the course timeline is the selection list, with one adjacent detail panel on desktop and a full-screen detail surface after selection on mobile; arrow keys move between aid stations.
 # Organizer loading/forms (2026-11-13): lazy editors and sidecars use neutral skeletons; required inputs derive their Requis badge from the existing `required` contract.
 # Organizer hierarchy (2026-11-13): section labels wrap to two lines, the active subsection owns the strong state, headers use section-specific glyphs plus an 8%-opacity contour watermark, and destructive format actions live in the overflow menu.
+# Dense organizer modules (2026-11-13): course dates are localized, same-place access hides the duplicate finish field, equipment rows omit redundant Added badges, and sponsors expose a logo-first navigation grid.
 related_files:
   - apps/web/app/admin/video-generator/export-frame.test.ts
   - apps/web/app/admin/video-generator/export-frame.ts

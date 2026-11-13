@@ -3,6 +3,7 @@ title: race_event_edition_sponsors Table
 scope: database
 
 last_verified: 2026-11-13
+# Organizer UI note (2026-11-13): sponsors are surfaced in a responsive logo grid whose tiles scroll to the existing direct editor; sponsor records and limits are unchanged.
 
 ai_priority: high
 related_files:

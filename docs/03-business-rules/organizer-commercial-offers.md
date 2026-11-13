@@ -6,6 +6,7 @@ ai_priority: high
 # Organizer UI note (2026-11-13): completion yields the contextual rail to media-heavy editors; offer and completion rules are unchanged.
 # Form note (2026-11-13): required badges are presentation of existing completion prerequisites and do not add offer gates.
 # Navigation note (2026-11-13): the single active subsection state does not alter offer availability.
+# Dense module note (2026-11-13): sponsor and course presentation changes do not alter offers.
 related_files:
   - apps/web/lib/organizer-entitlements.ts
   - apps/web/lib/organizer-modules.ts
