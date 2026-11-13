@@ -165,3 +165,5 @@ radius. Screen-specific components own copy, state, color roles and behavior.
 - [Add New Mobile Screen](../06-workflows/add-new-screen-mobile.md)
 
 Organizer uploads reuse `FileField` for a single file and `MultiFileField` for official import documents. Both expose a human-readable format/size hint, visible selected filenames, replacement or removal actions, and visually hidden native inputs.
+
+Organizer `FieldGroup` uses a responsive label/description column (up to 200 px) beside its controls and stacks on narrow screens. `Field` owns the explicit `Requis`, `Optionnel`, and inherited markers, while `SectionHeader` provides the shared icon/title/description/status composition.

@@ -167,3 +167,5 @@ Published RaceBooks copy the already-normalized event, format, service, and supp
 - [race_events](../02-database/tables/race-events.md)
 
 Compact organizer layout and shared file fields leave address autocomplete, provider attribution and coordinate persistence unchanged.
+
+Placing address autocomplete inside a responsive Organizer field group does not change its combobox contract, provider attribution, bias, or structured coordinate persistence.

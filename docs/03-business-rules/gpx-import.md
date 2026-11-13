@@ -320,3 +320,5 @@ Publication checks and partner slots (2026-11-09): pre-publication checks and th
 The organizer GPX input now uses the shared file field with a visible filename, replacement and confirmed removal; parsing, metrics and snapshot behavior are unchanged.
 
 The three-column Organizer workspace moves Course/GPX navigation and completion guidance around the editor without changing GPX parsing, replacement, metrics, or publication snapshots.
+
+Responsive field grouping changes only the Course/GPX form hierarchy; validation and GPX behavior remain unchanged.

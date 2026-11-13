@@ -726,3 +726,5 @@ Catalog scroll performance (2026-11-09): the Courses list renders memoized `Cata
 Organizer follow-up validation blocks invalid local drafts inline without converting them into autosave failures, caps incomplete progress below 100%, focuses the first invalid add-format field, and normalizes only valid Instagram identifiers. Shared file controls preserve previews, filenames and removal flows; favorite limits remain absent.
 
 Organizer authoring now presents one compact banner, a semantic section tree, the active editor, and a read-only completion checklist in a responsive three-column workspace. This layout-only change preserves autosave scope, module settings, completion rules, visibility states, publication review, and every server payload.
+
+Organizer field groups now expose their explanation beside related controls and explicit required/optional markers derive from existing validation semantics; no required rule or completion calculation changes.

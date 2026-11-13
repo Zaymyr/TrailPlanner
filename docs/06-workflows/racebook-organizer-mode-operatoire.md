@@ -108,3 +108,5 @@ La fenêtre de publication liste désormais les points bloquants (ravito encore 
 Les erreurs locales restent affichées sous les champs et le premier champ invalide reçoit le focus. Une saisie invalide ne déclenche plus de faux échec d’enregistrement automatique ; la suppression d’un ravito se trouve dans son panneau Détails et conserve sa confirmation.
 
 Sur grand écran, les sections du Livret coureur se choisissent désormais dans la navigation à gauche ; le formulaire reste au centre et la checklist « À faire » à droite. Sur mobile, le sélecteur « Informations à modifier » remplace cette navigation. Les réglages d’événement, d’édition et de visibilité restent repliés dans le bandeau supérieur.
+
+Dans Informations, les champs sont regroupés par événement, dates, urgence, liens et couverture. Les mentions « Requis » suivent les règles existantes et « Optionnel » distingue les modules secondaires.

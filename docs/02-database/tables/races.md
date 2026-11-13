@@ -266,3 +266,5 @@ RaceBook polish (2026-11-09): the runner hero keeps the format/event thumbnail b
 Publication checks and partner slots (2026-11-09): pre-publication checks and the Matériel/hébergement partner slots read the built snapshot and their own table only. They do not read, write or change this domain's rows or contracts.
 
 The organizer format form now validates inline without native browser bubbles and uses shared cover, GPX and image file controls; race fields and storage paths are unchanged.
+
+Responsive label/control grouping changes only Organizer presentation; race fields, inheritance, and storage paths are unchanged.

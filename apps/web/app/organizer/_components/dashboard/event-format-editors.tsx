@@ -11,7 +11,7 @@ import { ADD_FORMAT_TAB_ID } from "./constants";
 import { formatKm } from "./helpers";
 import type { EventFormValues, GpxPreview, RaceFormat, RaceFormValues, RaceParticipationMode } from "./types";
 import { ContextualHelp, NumberField, OptionalModule, TextField } from "./controls";
-import { FileField, hasSignificantDistanceMismatch, hasSuspiciousEqualElevation, isValidInstagramUrl, normalizeInstagramUrl, SelectField } from "./form-kit";
+import { FieldGroup, FileField, hasSignificantDistanceMismatch, hasSuspiciousEqualElevation, isValidInstagramUrl, normalizeInstagramUrl, SelectField } from "./form-kit";
 
 const isInvalidHttpsUrl = (value: string) => {
   if (!value.trim()) return false;
@@ -63,9 +63,8 @@ export function EventInfoEditor({
   const [imageOpen, setImageOpen] = useState(Boolean(eventForm.thumbnailUrl));
 
   return (
-    <div className="flex flex-col divide-y divide-border">
-      <section className="order-1 pb-6">
-        <h3 className="mb-4 text-sm font-bold text-foreground">Informations principales</h3>
+    <div className="space-y-0">
+      <FieldGroup legend="L’événement" description="Nom et lieu affichés en tête du Livret coureur.">
         <div className="grid gap-4 lg:grid-cols-2">
           <TextField id="organizer-event-name" label="Nom" value={eventForm.name} onChange={(value) => onChange({ name: value })} required invalid={missingName} />
           <AddressAutocompleteField
@@ -88,9 +87,9 @@ export function EventInfoEditor({
             invalid={missingLocation}
           />
         </div>
-      </section>
+      </FieldGroup>
 
-      <section className="order-4 py-6">
+      <FieldGroup legend="Liens" description="Site officiel et réseaux utiles aux coureurs." optional>
         <OptionalModule title="Réseaux sociaux" addLabel="+ Ajouter les réseaux sociaux" active={socialsOpen} onAdd={() => setSocialsOpen(true)} onRemove={() => setSocialsOpen(false)}>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(16rem,1.5fr)_minmax(12rem,1fr)_minmax(12rem,1fr)]">
           <TextField
@@ -156,22 +155,16 @@ export function EventInfoEditor({
           />
         </div>
         </OptionalModule>
-      </section>
+      </FieldGroup>
 
-      <section className="order-2 py-6">
-        <div className="mb-4 flex items-center gap-2">
-          <h3 className="text-sm font-bold text-foreground">Dates de l’édition</h3>
-          <ContextualHelp text="Les formats utilisent ces dates par défaut, sauf lorsqu’une date spécifique est renseignée." />
-        </div>
+      <FieldGroup legend="Dates" description="Les formats reprennent ces dates par défaut.">
         <div className="grid max-w-2xl gap-4 sm:grid-cols-2">
           <TextField id="organizer-edition-start-date" label="Début" type="date" value={eventForm.editionStartDate} onChange={(value) => onChange({ editionStartDate: value })} invalid={missingStartDate || invalidDateRange} errorMessage={invalidDateRange ? "La date de début doit précéder la date de fin." : "Indique la date de début."} />
           <TextField id="organizer-edition-end-date" label="Fin" type="date" value={eventForm.editionEndDate} onChange={(value) => onChange({ editionEndDate: value })} invalid={missingEndDate || invalidDateRange} errorMessage={invalidDateRange ? "La date de fin doit suivre la date de début." : "Indique la date de fin."} />
         </div>
-      </section>
+      </FieldGroup>
 
-      <section className="order-3 py-6">
-        <div>
-          <h3 className="mb-4 text-sm font-bold text-foreground">Contact d’urgence</h3>
+      <FieldGroup legend="En cas d’urgence" description="Contact visible depuis chaque page du Livret coureur.">
           <div className="grid max-w-2xl gap-4 sm:grid-cols-2">
             <TextField
               label="Nom du contact"
@@ -207,10 +200,9 @@ export function EventInfoEditor({
               }
             />
           </div>
-        </div>
-      </section>
+      </FieldGroup>
 
-      <section className="order-5 pt-6">
+      <FieldGroup legend="Couverture" description="Illustration affichée dans le catalogue et le Livret." optional>
         <OptionalModule title="Image de couverture" addLabel="+ Ajouter une image de couverture" active={imageOpen} onAdd={() => setImageOpen(true)} onRemove={() => setImageOpen(false)}>
         <div className="mb-4 flex items-center gap-2"><p className="text-sm text-muted-foreground">Format PNG uniquement, 5 Mo maximum.</p></div>
         <div className="flex max-w-2xl flex-col gap-4 sm:flex-row sm:items-center">
@@ -236,7 +228,7 @@ export function EventInfoEditor({
           </div>
         </div>
         </OptionalModule>
-      </section>
+      </FieldGroup>
     </div>
   );
 }

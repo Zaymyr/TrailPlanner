@@ -210,3 +210,5 @@ Publication checks and partner slots (2026-11-09): pre-publication checks and th
 The compact organizer header, file fields and local validation follow-up do not change claims, memberships or authorization.
 
 The Organizer three-column layout and compact selector banner do not change claim, membership, or authorization reads and writes.
+
+Shared Organizer field groups are presentation-only and do not change claim or membership authorization.

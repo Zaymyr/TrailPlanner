@@ -799,3 +799,5 @@ The organizer publish dialog renders `PublicationReview` (blocking checks, warni
 Organizer follow-up UX keeps autosave validation local, uses the shared file-field kit for organizer uploads, and renders the save status beside the active section title. Runner saved-plan loading restores `planId` in the URL with `router.replace`; no route or persistence contract changed.
 
 The Organizer content workspace now uses a responsive three-column shell: semantic section navigation, a bounded central editor, and a completion rail. Event/edition/visibility controls stay in the compact top banner, statistics remain reachable from the rail, and mobile collapses to a native workspace selector before the editor.
+
+The route-local Organizer kit now supplies responsive field groups and section headers so editors share one visual hierarchy without changing their state ownership or API payloads.
