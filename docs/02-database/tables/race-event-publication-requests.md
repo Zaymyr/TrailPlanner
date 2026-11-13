@@ -8,6 +8,7 @@ ai_priority: high
 # Action-menu note (2026-11-13): moving destructive actions does not alter publication requests.
 # Dense module note (2026-11-13): access and sponsor presentation do not alter publication requests.
 # Mobile finish note (2026-11-13): collapsed media does not alter publication requests.
+# Layout polish note (2026-11-13): organizer presentation changes (aid-station detail, format metrics row, media rail visibility, equipment status action) do not alter stored data or contracts.
 related_files:
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql

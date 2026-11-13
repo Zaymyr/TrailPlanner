@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 import { AidStationBadge } from "../../../../components/race-planner/AidStationBadge";
 import { ChevronDownIcon, ChevronUpIcon } from "../../../../components/race-planner/TimelineIcons";
@@ -112,6 +113,14 @@ export function AidStationsEditor({
   const [stationDraftTouched, setStationDraftTouched] = useState(false);
   const [pendingStationRemoval, setPendingStationRemoval] = useState<{ index: number; name: string } | null>(null);
   const [mobileStationOpen, setMobileStationOpen] = useState(false);
+  const [isCompactViewport, setIsCompactViewport] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 1023.98px)");
+    const sync = () => setIsCompactViewport(query.matches);
+    sync();
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
+  }, []);
   const relayEnabled = participationMode === "relay" || participationMode === "solo_and_relay";
   const viewScopeKey = `${activeRace?.id ?? ""}:${participationMode}`;
 
@@ -183,7 +192,7 @@ export function AidStationsEditor({
         ) : null}
       </div>
 
-      <div className={cn(activeView === "aidStations" && "grid items-start gap-4 lg:grid-cols-[minmax(240px,0.8fr)_minmax(0,1.4fr)]")}>
+      <div className={cn(activeView === "aidStations" && "grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(260px,1fr)_minmax(0,1.3fr)]")}>
       <section className="rounded-xl border border-border bg-card p-3 lg:sticky lg:top-3" aria-label="Ligne de course">
         <div className="relative ml-8 border-l-2 border-brand-border pl-5">
           {courseTimelinePoints.map((point) => {
@@ -208,14 +217,10 @@ export function AidStationsEditor({
                   setMobileStationOpen(true);
                 }
               }
-            }}><span className={cn("absolute -left-[1.72rem] h-3.5 w-3.5 rounded-full border-2 border-card", point.kind === "start" || point.kind === "finish" ? "bg-brand" : "bg-muted-foreground/45")} aria-hidden="true" /><span className="w-12 shrink-0 font-mono text-xs font-semibold text-muted-foreground">{point.distanceKm.toFixed(1)}</span><span className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{point.name}</span>{station ? <span className="flex flex-wrap justify-end gap-1 text-[10px] font-bold" aria-label={`Services : ${[station.waterRefill && "eau", station.solidRefill && "solide", station.assistanceAllowed && "assistance"].filter(Boolean).join(", ") || "aucun"}`}>{station.waterRefill ? <span className="rounded bg-brand-surface px-1 text-brand">E<span className="sr-only"> eau</span></span> : null}{station.solidRefill ? <span className="rounded bg-brand-surface px-1 text-brand">S<span className="sr-only"> solide</span></span> : null}{station.assistanceAllowed ? <span className="rounded bg-brand-surface px-1 text-brand">A<span className="sr-only"> assistance</span></span> : null}</span> : null}{point.time ? <span className="font-mono text-xs text-muted-foreground">{normalizeClockInputValue(point.time)}</span> : null}</button>;
+            }}><span className={cn("absolute -left-[1.72rem] top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full border-2 border-card", point.kind === "start" || point.kind === "finish" ? "bg-brand" : "bg-brand/50")} aria-hidden="true" /><span className="w-10 shrink-0 font-mono text-xs font-semibold tabular-nums text-muted-foreground">{point.distanceKm.toFixed(1)}</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-foreground" title={point.name}>{point.name}</span>{station || point.time ? <span className="mt-0.5 flex flex-wrap items-center gap-1.5">{point.time ? <span className="font-mono text-xs tabular-nums text-muted-foreground">{normalizeClockInputValue(point.time)}</span> : null}{station ? <span className="flex gap-1 text-[11px] font-semibold leading-5" aria-label={`Services : ${[station.waterRefill && "eau", station.solidRefill && "solide", station.assistanceAllowed && "assistance"].filter(Boolean).join(", ") || "aucun"}`}>{station.waterRefill ? <span className="rounded bg-brand-surface px-1.5 text-brand" title="Eau">E<span className="sr-only"> eau</span></span> : null}{station.solidRefill ? <span className="rounded bg-brand-surface px-1.5 text-brand" title="Solide">S<span className="sr-only"> solide</span></span> : null}{station.assistanceAllowed ? <span className="rounded bg-brand-surface px-1.5 text-brand" title="Assistance">A<span className="sr-only"> assistance</span></span> : null}</span> : null}</span> : null}</span></button>;
           })}
         </div>
-        <p className="mt-2 text-xs text-muted-foreground">E eau · S solide · A assistance. Sélectionne un point pour modifier ses détails.</p>
-        <div className="mt-3 grid gap-3 border-t border-border pt-3 sm:grid-cols-2">
-          <TextField label={startWaveCount > 0 ? "Premier départ (piloté par les SAS)" : "Heure de départ"} type="time" value={normalizeClockInputValue(startTime) ?? ""} onChange={onStartTimeChange} disabled={startWaveCount > 0} />
-          <TextField label="Barrière finale" type="time" value={normalizeClockInputValue(finishCutoffTime) ?? ""} onChange={onFinishCutoffTimeChange} />
-        </div>
+        <p className="mt-2 px-2 text-xs text-muted-foreground">E eau · S solide · A assistance</p>
       </section>
 
       {activeView === "startWaves" ? startWavesSlot : activeView === "supporters" ? (
@@ -249,8 +254,8 @@ export function AidStationsEditor({
               </div>
             </section>
           ) : null}
-          {selectedAidStation ? (
-            <section className={cn("rounded-xl border border-border bg-card shadow-sm", mobileStationOpen ? "max-lg:fixed max-lg:inset-0 max-lg:z-50 max-lg:overflow-y-auto max-lg:rounded-none" : "max-lg:hidden")} aria-label={`Détails de ${selectedAidStation.name}`}>
+          {selectedAidStation ? ((section: ReactNode) => (mobileStationOpen && isCompactViewport ? createPortal(section, document.body) : section))(
+            <section className={cn("rounded-xl border border-border bg-card shadow-sm", mobileStationOpen ? "max-lg:fixed max-lg:inset-0 max-lg:z-[60] max-lg:overflow-y-auto max-lg:rounded-none max-lg:border-0" : "max-lg:hidden")} aria-label={`Détails de ${selectedAidStation.name}`}>
               <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
                 <div className="flex items-center gap-3">
                   <Button type="button" variant="ghost" className="lg:hidden" onClick={() => setMobileStationOpen(false)}>Retour</Button>
@@ -263,111 +268,10 @@ export function AidStationsEditor({
           {aidStations.length === 0 ? (
             <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">Aucun ravito.</p>
           ) : null}
-          {false ? (
-            <div className="space-y-4">
-              {aidStations.map((station, index) => {
-                if (pendingStationRemoval?.index === index) return null;
-                const key = station.id ?? `new-${index}`;
-                const isExpanded = expandedStationKey === key;
-                const productCount = station.id ? stationProducts.filter((link) => link.aidStationId === station.id).length : 0;
-                const details = station.organizerDetails;
-
-                return (
-                  <article
-                    key={key}
-                    className={cn(
-                      "overflow-hidden rounded-[1.5rem] border bg-card shadow-sm transition",
-                      isExpanded ? "border-brand-border bg-brand-surface/20 shadow-[0_12px_30px_-18px_rgba(16,185,129,0.55)]" : "border-border"
-                    )}
-                  >
-                <div className="flex flex-col gap-4 p-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="flex min-w-0 flex-1 gap-4">
-                    <AidStationBadge step={index + 1} variant="ravito" />
-                    <div className="min-w-0 flex-1 space-y-3">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <p className="min-w-0 truncate text-lg font-semibold text-foreground">{station.name || `Ravito ${index + 1}`}</p>
-                        {!station.id ? <span className="rounded-full border border-dashed border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">À sauvegarder</span> : null}
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        <StationMetaChip>{formatKm(station.distanceKm)}</StationMetaChip>
-                        <StationMetaChip>D+ {formatOptionalMeters(details.cumulativeElevationGainM)}</StationMetaChip>
-                        <StationMetaChip>D- {formatOptionalMeters(details.cumulativeElevationLossM)}</StationMetaChip>
-                        <StationMetaChip>Barrière {details.cutoffTime?.trim() || "-"}</StationMetaChip>
-                        <StationMetaChip>
-                          {productCount} produit{productCount > 1 ? "s" : ""}
-                        </StationMetaChip>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        <StationServiceChip checked={station.waterRefill} label="Eau disponible" disabled={status === "saving"} onChange={(checked) => onUpdateStation(index, { ...station, waterRefill: checked })} />
-                        <StationServiceChip checked={station.solidRefill} label="Solide disponible" disabled={status === "saving"} onChange={(checked) => onUpdateStation(index, { ...station, solidRefill: checked })} />
-                        <StationServiceChip checked={station.assistanceAllowed} label="Assistance" disabled={status === "saving"} onChange={(checked) => onUpdateStation(index, { ...station, assistanceAllowed: checked })} />
-                        {relayEnabled ? (
-                          <StationServiceChip
-                            checked={Boolean(station.id && relayPoints.some((point) => point.raceAidStationId === station.id))}
-                            label="Point de relais"
-                            disabled={!station.id || status === "saving"}
-                            onChange={(checked) => onToggleStationRelayPoint(station, checked)}
-                          />
-                        ) : null}
-                        <StationServiceChip
-                          checked={details.dropBagAvailable}
-                          label="Sac de délestage"
-                          disabled={status === "saving"}
-                          onChange={(checked) => onUpdateStation(index, { ...station, organizerDetails: { ...details, dropBagAvailable: checked } })}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="h-10 rounded-full border border-border bg-background px-4 text-xs font-semibold"
-                      onClick={() => onExpandedStationKeyChange(isExpanded ? null : key)}
-                      aria-label={isExpanded ? "Replier le ravito" : "Déplier le ravito"}
-                      title={isExpanded ? "Replier le ravito" : "Déplier le ravito"}
-                    >
-                      {isExpanded ? "Masquer" : "Détails"}
-                      {isExpanded ? <ChevronUpIcon className="h-4 w-4" aria-hidden /> : <ChevronDownIcon className="h-4 w-4" aria-hidden />}
-                    </Button>
-                  </div>
-                </div>
-
-                {isExpanded ? (
-                  <StationDetailsPanel
-                    station={station}
-                    onChange={(next) => onUpdateStation(index, next)}
-                    onRemove={() => setPendingStationRemoval({ index, name: station.name || `Ravito ${index + 1}` })}
-                    productsSlot={
-                      station.id ? (
-                        <StationProductsBlock
-                          station={station}
-                          stationProducts={stationProducts}
-                          productsById={productsById}
-                          onOpenProductPicker={() => onOpenProductPicker(station.id as string)}
-                          onRemoveProduct={(productId) => onRemoveProduct(station.id as string, productId)}
-                          productFormOpen={productStationId === station.id}
-                          onToggleProductForm={() => onToggleProductForm(station.id as string)}
-                          productForm={productForm}
-                          onProductFormChange={onProductFormChange}
-                          onCreateProduct={onCreateProduct}
-                          disabled={status === "saving"}
-                        />
-                      ) : (
-                        <p className="mt-3 text-xs text-muted-foreground">Sauvegarde le ravito avant d&apos;y ajouter des produits.</p>
-                      )
-                    }
-                  />
-                ) : null}
-                  </article>
-                );
-              })}
-            </div>
-          ) : null}
-          <section className="grid gap-4 rounded-[1.5rem] border border-border bg-background p-4 md:grid-cols-2">
+          <section className="grid gap-4 rounded-xl border border-border bg-background p-4 md:grid-cols-2 lg:col-span-2" aria-label="Horaires et consignes de course">
+            <p className="font-semibold text-foreground md:col-span-2">Horaires et consignes</p>
+            <TextField label={startWaveCount > 0 ? "Premier départ" : "Heure de départ"} hint={startWaveCount > 0 ? "Piloté par les SAS : modifie l’heure dans l’onglet SAS." : undefined} type="time" value={normalizeClockInputValue(startTime) ?? ""} onChange={onStartTimeChange} disabled={startWaveCount > 0} />
+            <TextField label="Barrière finale" type="time" value={normalizeClockInputValue(finishCutoffTime) ?? ""} onChange={onFinishCutoffTimeChange} />
             <TextAreaField label="Consignes de barrières horaires" value={cutoffNote} onChange={onCutoffNoteChange} />
             <TextAreaField label="Contraintes et consignes de course" value={scheduleNote} onChange={onScheduleNoteChange} />
           </section>
@@ -673,9 +577,9 @@ function FixedCourseCard({
 function StationDetailsPanel({ station, onChange, onRemove, productsSlot }: { station: AidStationDraft; onChange: (station: AidStationDraft) => void; onRemove: () => void; productsSlot: ReactNode }) {
   const details = station.organizerDetails;
   return (
-    <div className="border-t border-border px-4 pb-4 pt-1">
-      <div className="grid gap-3 rounded-[1.25rem] border border-dashed border-brand-border/70 bg-background/80 p-4 lg:grid-cols-2 xl:grid-cols-6">
-        <div className="xl:col-span-2">
+    <div className="space-y-5 p-4">
+      <div className="grid gap-x-3 gap-y-4 sm:grid-cols-2">
+        <div className="sm:col-span-2">
           <TextField label="Nom du ravito" value={station.name} onChange={(value) => onChange({ ...station, name: value })} required />
         </div>
         <NumberField label="Distance km" value={station.distanceKm} step="0.1" onChange={(value) => onChange({ ...station, distanceKm: value })} />
@@ -686,17 +590,17 @@ function StationDetailsPanel({ station, onChange, onRemove, productsSlot }: { st
           <SelectField id={`station-type-${station.id ?? station.name}`} className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm" value={details.stationType} onValueChange={(value) => onChange({ ...station, organizerDetails: { ...details, stationType: value as typeof details.stationType } })} options={[{ value: "water", label: "Eau" }, { value: "solid", label: "Solide" }, { value: "assistance", label: "Assistance" }, { value: "life_base", label: "Base de vie" }, { value: "other", label: "Autre" }]} />
         </div>
         <NumberField label="Altitude (m)" value={details.altitudeM ?? 0} step="1" onChange={(altitudeM) => onChange({ ...station, organizerDetails: { ...details, altitudeM } })} />
-        <div className="xl:col-span-2">
+        <div>
           <TextField label="Barrière horaire" value={details.cutoffTime ?? ""} onChange={(value) => onChange({ ...station, organizerDetails: { ...details, cutoffTime: value || null } })} />
         </div>
       </div>
 
-      <div className="mt-4 rounded-[1.25rem] border border-border bg-background p-4">
+      <div>
         <TextAreaField label="Note organisateur" value={details.organizerNote ?? station.notes ?? ""} onChange={(value) => onChange({ ...station, notes: value, organizerDetails: { ...details, organizerNote: value || null } })} />
       </div>
 
-      <div className="mt-4">{productsSlot}</div>
-      <div className="mt-4 flex justify-end border-t border-border pt-4">
+      <div className="border-t border-border pt-4">{productsSlot}</div>
+      <div className="flex justify-end">
         <details className="relative">
           <summary aria-label="Actions du ravito" className="grid h-10 w-10 cursor-pointer list-none place-items-center rounded-md border border-border text-lg font-bold marker:content-none">⋯</summary>
           <div className="absolute bottom-12 right-0 z-10 w-52 rounded-lg border border-border bg-card p-2 shadow-xl">
@@ -708,9 +612,7 @@ function StationDetailsPanel({ station, onChange, onRemove, productsSlot }: { st
   );
 }
 
-function StationMetaChip({ children }: { children: ReactNode }) {
-  return <span className="inline-flex rounded-full border border-border bg-background px-3 py-1 text-xs font-semibold text-foreground">{children}</span>;
-}
+
 
 function StationServiceChip({
   checked,

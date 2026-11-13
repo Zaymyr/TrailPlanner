@@ -8,6 +8,7 @@ ai_priority: medium
 # Navigation note (2026-11-13): section label wrapping does not alter geocoding.
 # Access editor note (2026-11-13): “same place as start” copies the existing structured start location and hides the duplicate finish control; turning it off clears the finish draft for explicit entry.
 # Mobile finish note (2026-11-13): inherited location text wraps instead of truncating; stored location data is unchanged.
+# Layout polish note (2026-11-13): organizer presentation changes (aid-station detail, format metrics row, media rail visibility, equipment status action) do not alter stored data or contracts.
 related_files:
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
   - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql

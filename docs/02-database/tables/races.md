@@ -10,6 +10,7 @@ ai_priority: high
 # Action-menu note (2026-11-13): moving format deletion under ⋯ keeps the existing confirmed deletion contract.
 # Course form note (2026-11-13): localized date labels and shorter headings do not alter stored race dates.
 # Mobile finish note (2026-11-13): compact padding and collapsed media do not alter race records.
+# Layout polish note (2026-11-13): organizer presentation changes (aid-station detail, format metrics row, media rail visibility, equipment status action) do not alter stored data or contracts.
 related_files:
   - supabase/migrations/20261106142000_add_lut_by_night_2026_gpx.sql
   - supabase/migrations/20261105082511_enrich_saintelyon_2026_formats.sql

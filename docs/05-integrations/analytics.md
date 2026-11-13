@@ -8,6 +8,7 @@ ai_priority: medium
 # Header/navigation note (2026-11-13): visual hierarchy changes emit no additional analytics events.
 # Dense module note (2026-11-13): logo-grid navigation and same-place access emit no new analytics events.
 # Mobile finish note (2026-11-13): collapsing Course media emits no new analytics events.
+# Layout polish note (2026-11-13): organizer presentation changes (aid-station detail, format metrics row, media rail visibility, equipment status action) do not alter stored data or contracts.
 related_files:
   - apps/web/lib/posthog-organizer-analytics.ts
   - apps/web/lib/posthog-organizer-analytics.test.ts

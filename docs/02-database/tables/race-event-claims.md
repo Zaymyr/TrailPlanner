@@ -10,6 +10,7 @@ ai_priority: high
 # Dense module note (2026-11-13): access, equipment, course, and sponsor layout changes do not alter membership authorization.
 # Mobile finish note (2026-11-13): compact editor layout does not alter membership authorization.
 # Regression-test note (2026-11-13): organizer source guards follow the new layout without changing claim authorization.
+# Layout polish note (2026-11-13): organizer presentation changes (aid-station detail, format metrics row, media rail visibility, equipment status action) do not alter stored data or contracts.
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
   - apps/web/app/api/organizer/claims/route.ts

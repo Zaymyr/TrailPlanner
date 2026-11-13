@@ -12,6 +12,7 @@ ai_priority: high
 # Dense module forms (2026-11-13): access can explicitly reuse the start location, equipment status stays directly editable, and sponsor logos link to their existing editor without changing persistence.
 # Mobile finish (2026-11-13): compact gutters and collapsed Course media reduce initial height without changing form or completion rules.
 # Regression guard (2026-11-13): source tests assert the wide workspace grid and the social auto-fit layout without a redundant nested title.
+# Layout polish (2026-11-13): aid-station timeline/detail, format metrics row and equipment status action are presentation-only; save and publication rules are unchanged.
 related_files:
   - apps/web/lib/racebook-publication-checks.ts
   - apps/web/lib/racebook-publication-checks.test.ts

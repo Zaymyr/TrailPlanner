@@ -8,6 +8,7 @@ ai_priority: high
 # Navigation note (2026-11-13): the single active subsection state does not alter offer availability.
 # Dense module note (2026-11-13): sponsor and course presentation changes do not alter offers.
 # Mobile gutter note (2026-11-13): compact editor padding does not alter offers.
+# Layout polish note (2026-11-13): organizer presentation changes (aid-station detail, format metrics row, media rail visibility, equipment status action) do not alter stored data or contracts.
 related_files:
   - apps/web/lib/organizer-entitlements.ts
   - apps/web/lib/organizer-modules.ts

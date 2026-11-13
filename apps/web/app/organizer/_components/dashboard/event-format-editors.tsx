@@ -436,7 +436,7 @@ function RaceForm({
               <ContextualHelp text="Nom, métriques, date et lieu propres à ce parcours." />
             </div>
             <div className="grid min-w-0 gap-3 [&>*]:min-w-0 lg:grid-cols-12">
-              <div className="lg:col-span-6">
+              <div className="lg:col-span-7">
                 <TextField
                   label="Nom du format"
                   value={values.name}
@@ -448,18 +448,18 @@ function RaceForm({
                   disabled={disabled}
                 />
               </div>
-              <div className="lg:col-span-2">
-                <NumberField label="Distance km" value={values.distanceKm} onChange={(value) => onChange({ ...values, distanceKm: value })} step="0.1" invalid={missingDistance} validationVisible={validationVisible} errorMessage="Indique une distance supérieure à 0 km." emptyWhenZero={emptyNumericFields} disabled={disabled} />
-                {distanceMismatch ? <p className="mt-1 text-xs font-medium text-amber-700">La distance saisie diffère nettement des {gpxPreview?.stats?.distanceKm.toFixed(1)} km mesurés sur le GPX.</p> : null}
+              <div className="grid grid-cols-3 items-end gap-3 lg:col-span-12">
+                <NumberField label="Distance (km)" value={values.distanceKm} onChange={(value) => onChange({ ...values, distanceKm: value })} step="0.1" invalid={missingDistance} validationVisible={validationVisible} errorMessage="Indique une distance supérieure à 0 km." emptyWhenZero={emptyNumericFields} disabled={disabled} />
+                <NumberField label="D+ (m)" value={values.elevationGainM} onChange={(value) => onChange({ ...values, elevationGainM: value })} step="0.1" invalid={missingElevationGain} validationVisible={validationVisible} errorMessage="Indique un dénivelé positif valide." emptyWhenZero={emptyNumericFields} disabled={disabled} />
+                <TextField label="D- (m)" type="number" step="0.1" value={values.elevationLossM} onChange={(value) => onChange({ ...values, elevationLossM: value })} disabled={disabled} />
               </div>
-              <div className="lg:col-span-2">
-                <NumberField label="D+" value={values.elevationGainM} onChange={(value) => onChange({ ...values, elevationGainM: value })} step="0.1" invalid={missingElevationGain} validationVisible={validationVisible} errorMessage="Indique un dénivelé positif valide." emptyWhenZero={emptyNumericFields} disabled={disabled} />
-                {suspiciousElevation ? <p className="mt-1 text-xs font-medium text-amber-700">D+ et D- sont identiques. Vérifie les dénivelés avant publication.</p> : null}
-              </div>
-              <div className="lg:col-span-2">
-                <TextField label="D-" type="number" step="0.1" value={values.elevationLossM} onChange={(value) => onChange({ ...values, elevationLossM: value })} disabled={disabled} />
-              </div>
-              <div className="space-y-1 lg:col-span-6 lg:col-start-7 lg:row-start-1">
+              {distanceMismatch || suspiciousElevation ? (
+                <ul className="space-y-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 lg:col-span-12" role="status">
+                  {distanceMismatch ? <li>La distance saisie diffère nettement des {gpxPreview?.stats?.distanceKm.toFixed(1)} km mesurés sur le GPX.</li> : null}
+                  {suspiciousElevation ? <li>D+ et D- sont identiques : vérifie les dénivelés avant publication.</li> : null}
+                </ul>
+              ) : null}
+              <div className="space-y-1 lg:col-span-5 lg:col-start-8 lg:row-start-1">
                 <div className="flex items-center gap-2">
                   <Label htmlFor={participationModeId}>Type de participation</Label>
                   <ContextualHelp text="Pour un relais, les points de passage se configurent ensuite dans Ravitos et points de course." />
@@ -477,9 +477,9 @@ function RaceForm({
                   ]}
                 />
               </div>
-              <div className="space-y-2 lg:col-span-4">
+              <div className="space-y-2 lg:col-span-5">
                 {editionStartDate ? (
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-sm"><span>Date de l’édition <span className="text-xs text-muted-foreground">{formatOrganizerDate(editionStartDate)}</span></span><Button type="button" variant="ghost" className="!min-h-9 !px-2" disabled={disabled} onClick={() => { const next = !usesCustomRaceDate; setUsesCustomRaceDate(next); if (!next) onChange({ ...values, raceDate: editionStartDate }); }}>{usesCustomRaceDate ? "Utiliser l’édition" : "Changer"}</Button></div>
+                  <div className="flex min-h-9 flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium text-foreground">Date</span><Button type="button" variant="ghost" className="!min-h-9 !px-2" disabled={disabled} onClick={() => { const next = !usesCustomRaceDate; setUsesCustomRaceDate(next); if (!next) onChange({ ...values, raceDate: editionStartDate }); }}>{usesCustomRaceDate ? "Utiliser l’édition" : "Changer"}</Button></div>
                 ) : null}
                 {usesCustomRaceDate || !editionStartDate ? (
                   <TextField
@@ -493,12 +493,12 @@ function RaceForm({
                     disabled={disabled}
                   />
                 ) : (
-                  <p className="text-xs text-muted-foreground">Date héritée : {editionStartDate}</p>
+                  <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-foreground">{formatOrganizerDate(editionStartDate)} <span className="text-xs text-muted-foreground">· comme l’édition</span></p>
                 )}
               </div>
-              <div className="space-y-2 lg:col-span-8">
+              <div className="space-y-2 lg:col-span-7">
                 {inheritedLocationText ? (
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-sm"><span className="min-w-0 break-words">Lieu hérité : {inheritedLocationText}</span><Button type="button" variant="ghost" className="!min-h-9 !px-2" disabled={disabled} onClick={() => {
+                  <div className="flex min-h-9 flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium text-foreground">Lieu</span><Button type="button" variant="ghost" className="!min-h-9 !px-2" disabled={disabled} onClick={() => {
                         const next = !usesCustomLocation;
                         setUsesCustomLocation(next);
                         if (!next) {
@@ -533,7 +533,7 @@ function RaceForm({
                     }
                   />
                 ) : (
-                  <p className="text-xs text-muted-foreground">Lieu hérité : {inheritedLocationText}</p>
+                  <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-foreground">{inheritedLocationText} <span className="text-xs text-muted-foreground">· comme l’événement</span></p>
                 )}
               </div>
               <div className="lg:col-span-12 lg:max-w-2xl">
@@ -652,11 +652,11 @@ function OrganizerGpxPanel({
   onShowRouteInRacebookChange: (checked: boolean) => void;
   onShowElevationProfileInRacebookChange: (checked: boolean) => void;
 }) {
+  const [mobileOpen, setMobileOpen] = useState(false);
   return (
-    <aside className="min-w-0 rounded-lg border border-border bg-card p-3 shadow-sm">
-      <details className="group">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between font-semibold text-foreground marker:content-none min-[900px]:hidden">Médias et aperçu <span className="text-muted-foreground transition group-open:rotate-180">⌄</span></summary>
-      <div className="hidden space-y-3 group-open:block min-[900px]:block">
+    <aside className="min-w-0 rounded-lg border border-border bg-card p-3 shadow-sm min-[900px]:sticky min-[900px]:top-3">
+        <button type="button" aria-expanded={mobileOpen} onClick={() => setMobileOpen((open) => !open)} className="flex min-h-11 w-full items-center justify-between font-semibold text-foreground min-[900px]:hidden">Tracé et médias <span aria-hidden="true" className={mobileOpen ? "rotate-180 text-muted-foreground transition" : "text-muted-foreground transition"}>⌄</span></button>
+      <div className={mobileOpen ? "space-y-3" : "hidden space-y-3 min-[900px]:block"}>
         <div className="space-y-1.5">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
@@ -703,13 +703,10 @@ function OrganizerGpxPanel({
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Image du format</p>
               <span className="text-xs text-muted-foreground">Optionnel</span>
             </div>
-            <div className="flex items-center gap-2">
-              <p className="text-sm font-medium text-foreground">Image format</p>
-              <ContextualHelp text={`JPEG, PNG, WebP ou AVIF, 5 Mo maximum.${pendingImageName && !thumbnailUrl ? " L’image sera envoyée après la création du format." : ""}`} />
-            </div>
+            {pendingImageName && !thumbnailUrl ? <p className="text-xs text-muted-foreground">L’image sera envoyée après la création du format.</p> : null}
             <fieldset disabled={disabled}>
               <FileField
-                label="Choisir l'image du format"
+                label="Image affichée sur la fiche du format"
                 accept="image/png,image/jpeg,image/webp,image/avif"
                 value={thumbnailUrl ? { name: fileNameFromUrl(thumbnailUrl, "Image du format"), previewUrl: thumbnailUrl } : pendingImageName ? { name: pendingImageName } : null}
                 maxSizeLabel="PNG, JPEG, WebP ou AVIF · 5 Mo maximum"
@@ -719,7 +716,6 @@ function OrganizerGpxPanel({
           </div>
         </div>
       </div>
-      </details>
     </aside>
   );
 }

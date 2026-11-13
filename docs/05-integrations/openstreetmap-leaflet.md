@@ -8,6 +8,7 @@ ai_priority: medium
 # Header note (2026-11-13): section icons and contour watermark do not alter Leaflet rendering.
 # Mobile course note (2026-11-13): collapsing the media surface delays only its display, not Leaflet data loading.
 # Mobile finish note (2026-11-13): the collapsed media summary is the explicit entry point to the organizer map below 900px.
+# Layout polish note (2026-11-13): organizer presentation changes (aid-station detail, format metrics row, media rail visibility, equipment status action) do not alter stored data or contracts.
 related_files:
   - apps/web/package.json
   - apps/web/app/layout.tsx

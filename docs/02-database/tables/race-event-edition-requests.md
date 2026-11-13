@@ -8,6 +8,7 @@ ai_priority: medium
 # Navigation note (2026-11-13): organizer hierarchy does not alter edition requests.
 # Course-date presentation note (2026-11-13): localized display does not alter edition request dates.
 # Mobile finish note (2026-11-13): wrapping inherited labels does not alter edition requests.
+# Layout polish note (2026-11-13): organizer presentation changes (aid-station detail, format metrics row, media rail visibility, equipment status action) do not alter stored data or contracts.
 related_files:
   - supabase/migrations/20260721110000_add_race_event_edition_requests.sql
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql

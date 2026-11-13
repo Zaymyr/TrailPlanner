@@ -16,7 +16,7 @@ import {
 } from "../../../../lib/organizer-dashboard-details";
 import { AddressAutocompleteField } from "./address-autocomplete-field";
 import { equipmentSuggestions } from "./constants";
-import { ContextualHelp, InlineEditableRow, OptionalModule, SegmentedChoice, TextAreaField, TextField, ToggleChip } from "./controls";
+import { ContextualHelp, InlineEditableRow, OptionalModule, TextAreaField, TextField, ToggleChip } from "./controls";
 import { isOutsideDateRange, SelectField, SwitchRow } from "./form-kit";
 import type { RaceFormat } from "./types";
 
@@ -185,7 +185,7 @@ function EquipmentFields({
         ) : null}
       </div>
       <div className={cn("hidden px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground sm:grid sm:items-center sm:gap-3", weatherVariantsOpen ? "sm:grid-cols-[minmax(0,1fr)_auto_9rem_2rem]" : "sm:grid-cols-[minmax(0,1fr)_auto_2rem]")}>
-        <span>Item</span><span>Statut</span>{weatherVariantsOpen ? <span>Météo</span> : null}<span className="sr-only">Action</span>
+        <span>Item</span><span>Déplacer</span>{weatherVariantsOpen ? <span>Météo</span> : null}<span className="sr-only">Action</span>
       </div>
       <div className="space-y-6">
         {groups.map((group) => {
@@ -202,6 +202,7 @@ function EquipmentFields({
                   <InlineEditableRow key={item.id ?? index} className={cn("grid grid-cols-[minmax(0,1fr)_2rem] gap-2 sm:items-center sm:gap-3", weatherVariantsOpen ? "sm:grid-cols-[minmax(0,1fr)_auto_9rem_2rem]" : "sm:grid-cols-[minmax(0,1fr)_auto_2rem]")}>
                     <div className="col-span-2 flex min-w-0 items-center gap-2 sm:col-span-1">
                       <Input
+                        title={item.label}
                         aria-label={`Item de matériel n°${index + 1}`}
                         value={item.label}
                         onChange={(event) => updateItem(index, { label: event.target.value })}
@@ -209,12 +210,13 @@ function EquipmentFields({
                       />
                     </div>
                     <div className="flex min-w-0 flex-wrap items-center gap-2 sm:contents">
-                      <SegmentedChoice
-                        label={`Statut de ${item.label || `l’item ${index + 1}`}`}
-                        value={item.required ? "required" : "recommended"}
-                        options={[{ value: "required", label: "Obligatoire" }, { value: "recommended", label: "Recommandé" }] as const}
-                        onChange={(value) => updateItem(index, { required: value === "required" })}
-                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-8 whitespace-nowrap px-2 text-xs font-medium text-muted-foreground hover:text-foreground"
+                        onClick={() => updateItem(index, { required: !item.required })}
+                        aria-label={`${item.label || `Item ${index + 1}`} : passer en ${item.required ? "recommandé" : "obligatoire"}`}
+                      >{item.required ? "→ Recommandé" : "→ Obligatoire"}</Button>
                       {weatherVariantsOpen ? (
                         <SelectField
                           aria-label={`Météo de ${item.label || `l’item ${index + 1}`}`}
@@ -555,6 +557,7 @@ export function AccessEditor({
         onAccessChange={(access) => onEventChange({ ...eventDetails, access })}
         formatMode
         showRunnerInfoToggle={false}
+        showHeader={false}
       />
     );
   }
@@ -670,7 +673,9 @@ function AccessFields({
           : { finishAddress: null, finishLocation: { label: null, lat: null, lng: null, googleMapsUrl: null, source: "manual" } })}
       />
 
-      <div className="grid items-start gap-3 sm:grid-cols-2">
+      <TextAreaField label="Information prioritaire" hint="À réserver aux consignes critiques : dernière navette, accès fermé ou horaire important." value={access.note ?? ""} onChange={(value) => update({ note: value || null })} />
+
+      <div className="grid items-start gap-x-4 gap-y-3 sm:grid-cols-2">
       <OptionalModule
         title="Carte générale"
         addLabel="+ Ajouter une carte générale"
@@ -680,11 +685,6 @@ function AccessFields({
       >
           <TextField label="Lien vers une carte générale (optionnel)" value={access.mapUrl ?? ""} onChange={(value) => update({ mapUrl: value || null })} placeholder="https://..." />
       </OptionalModule>
-
-      <div className="space-y-3 border-t border-border pt-4">
-        <p className="text-sm font-semibold text-foreground">À retenir</p>
-        <TextAreaField label="Information prioritaire" hint="À réserver aux consignes critiques : dernière navette, accès fermé ou horaire important." value={access.note ?? ""} onChange={(value) => update({ note: value || null })} />
-      </div>
 
       <OptionalModule
         title="Routes fermées"
@@ -706,6 +706,7 @@ function AccessFields({
           <TextAreaField label="Parkings officiels" value={access.officialParkings ?? ""} onChange={(value) => update({ officialParkings: value || null })} invalid={missingParkingOrShuttle} />
       </OptionalModule>
 
+      <div className="sm:col-span-2">
       <OptionalModule
         title="Navettes"
         addLabel="+ Ajouter les navettes"
@@ -718,6 +719,7 @@ function AccessFields({
             <TextAreaField label="Horaires des navettes" value={access.shuttleSchedule ?? ""} onChange={(value) => update({ shuttleSchedule: value || null })} />
           </div>
       </OptionalModule>
+      </div>
       </div>
 
       {formatMode && showRunnerInfoToggle ? (

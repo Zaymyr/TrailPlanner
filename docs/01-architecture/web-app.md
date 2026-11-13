@@ -8,8 +8,9 @@ ai_priority: high
 # Organizer loading/forms (2026-11-13): lazy editors and sidecars use neutral skeletons; required inputs derive their Requis badge from the existing `required` contract.
 # Organizer hierarchy (2026-11-13): section labels wrap to two lines, the active subsection owns the strong state, headers use section-specific glyphs plus an 8%-opacity contour watermark, and destructive format actions live in the overflow menu.
 # Dense organizer modules (2026-11-13): course dates are localized, same-place access hides the duplicate finish field, equipment rows omit redundant Added badges, and sponsors expose a logo-first navigation grid.
-# Organizer mobile finish (2026-11-13): editor content uses compact phone gutters, inherited location wraps, and Course media is collapsed behind “Médias et aperçu” below 900px.
+# Organizer mobile finish (2026-11-13): editor content uses compact phone gutters, inherited location wraps, and Course media is collapsed behind “Tracé et médias” below 900px.
 # Organizer regression guard (2026-11-13): UTF-8/source checks assert the 240/flexible/300 grid and the social auto-fit layout without a nested “Réseaux sociaux” title.
+# Organizer polish (2026-11-13): the Course media rail no longer relies on a closed <details> (its content was hidden on desktop) and collapses behind “Tracé et médias” only below 900px; format metrics sit on one row with grouped warnings and readable inherited date/location; aid stations use a single timeline plus a two-column detail panel with start/cutoff fields in “Horaires et consignes”; section headers use per-module SVG icons with the format ⋯ menu inline; equipment rows move status with a compact “→ Recommandé/Obligatoire” action instead of a segmented control.
 related_files:
   - apps/web/app/admin/video-generator/export-frame.test.ts
   - apps/web/app/admin/video-generator/export-frame.ts
@@ -367,7 +368,7 @@ The admin area exposes a top-level `Demandes de course` queue backed by a protec
 
 Organizer course-point autosave now waits for the active race sidecars to finish loading, and a same-race server refresh no longer clears those loaded collections. This prevents transient empty ravito/supporter payloads and removes the editor jump caused by resetting the workspace after each format save.
 
-Organizer Matériel and Dossard authoring is glanceable rather than accordion-driven: saved equipment, pickup locations, and dated slots remain inline and editable, with fixed-column controls on desktop and wrapped controls on narrow screens. The shared `SegmentedChoice` makes binary/status choices explicit, while read-first inputs retain normal focus and autocomplete behavior. Third-party pickup conditions are stored additively in organizer JSON and appear on the public course detail only when pickup by another person is allowed and the bib module is public.
+Organizer Matériel and Dossard authoring is glanceable rather than accordion-driven: saved equipment, pickup locations, and dated slots remain inline and editable, with fixed-column controls on desktop and wrapped controls on narrow screens. Equipment rows are already grouped by status, so each row exposes a compact “→ Recommandé / → Obligatoire” move action instead of a per-row segmented control, while read-first inputs retain normal focus and autocomplete behavior. Third-party pickup conditions are stored additively in organizer JSON and appear on the public course detail only when pickup by another person is allowed and the bib module is public.
 
 The organizer editor autosaves the active event or format scope after an 800 ms debounce, exposes a persistent save state with explicit retry, and preserves revision-aware background queues during navigation. New formats inherit only event-level date, location, and optional official website defaults; they never clone the active format. A format website is optional for completion, import, and publication readiness.
 

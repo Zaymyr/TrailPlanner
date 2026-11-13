@@ -319,7 +319,8 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(source).toContain("disabled={startWaveCount > 0}");
     expect(source).toContain('{ key: "start", kind: "start" as const, name: "Départ"');
     expect(source).toContain('{ key: "finish", kind: "finish" as const, name: "Arrivée"');
-    expect(source).toContain('StationMetaChip>Barrière {details.cutoffTime?.trim() || "-"}');
+    expect(source).toContain("time: station.organizerDetails.cutoffTime");
+    expect(source).not.toContain("{false ? (");
     expect(source).toContain('aria-label="Tronçons du relais"');
     expect(source).not.toContain('label="Passage prévu"');
     expect(source).not.toContain('label="Note de passage"');
@@ -390,7 +391,7 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(detailSource).toContain("Recommandé");
     expect(detailSource).toContain("Conditions du retrait par un tiers");
     expect(detailSource).toContain("font-mono text-sm tabular-nums");
-    expect(detailSource).toContain("SegmentedChoice");
+    expect(detailSource).toContain("→ Recommandé");
     expect(detailSource).toContain("text-red-700");
   });
 

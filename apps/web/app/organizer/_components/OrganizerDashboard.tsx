@@ -151,19 +151,27 @@ import type {
 const MAX_RACE_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const RACE_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/avif"] as const;
 const MAX_UPDATE_MESSAGE_LENGTH = 280;
-const ORGANIZER_MODULE_ICONS: Record<OrganizerModuleId, string> = {
-  event: "i",
-  formats: "⌁",
-  aidStations: "●",
-  equipment: "◇",
-  bibPickup: "#",
-  access: "↗",
-  products: "+",
-  services: "⌂",
-  awards: "★",
-  branding: "◐",
-  sponsors: "♡",
+const ORGANIZER_MODULE_ICON_PATHS: Record<OrganizerModuleId, string> = {
+  event: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z M12 11v5 M12 7.5h.01",
+  formats: "m3 19 6-10 4 6 3-4 5 8Z",
+  aidStations: "M12 3.5s6 6.6 6 10.5a6 6 0 0 1-12 0c0-3.9 6-10.5 6-10.5Z",
+  equipment: "M6 8h12a1 1 0 0 1 1 1v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V9a1 1 0 0 1 1-1Z M9 8V6a3 3 0 0 1 6 0v2 M9 13h6",
+  bibPickup: "M5 5h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z M8 10h8 M8 14h5",
+  access: "M12 21s7-6 7-11a7 7 0 0 0-14 0c0 5 7 11 7 11Z M12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z",
+  products: "M12 5v14 M5 12h14",
+  services: "M3 11.5 12 4l9 7.5 M5.5 10v10h13V10 M10 20v-5h4v5",
+  awards: "M8 4h8v5a4 4 0 0 1-8 0V4Z M8 6H5a3 3 0 0 0 3 4 M16 6h3a3 3 0 0 1-3 4 M12 13v4 M8.5 20h7",
+  branding: "M12 21a9 9 0 1 1 0-18c4.97 0 9 3.6 9 8 0 2.2-1.8 3.5-4 3.5h-2a2 2 0 0 0-1.5 3.3c.6.7.2 3.2-1.5 3.2Z M7.5 11.5h.01 M10 7.5h.01 M14.5 7.5h.01",
+  sponsors: "M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z",
 };
+
+function OrganizerModuleIcon({ moduleId }: { moduleId: OrganizerModuleId }) {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={ORGANIZER_MODULE_ICON_PATHS[moduleId]} />
+    </svg>
+  );
+}
 
 const isValidHttpsUrl = (value?: string | null) => {
   if (!value?.trim()) return true;
@@ -3862,7 +3870,7 @@ export function OrganizerDashboard({
                   : activeRace && activeModule === "access"
                     ? "Par défaut, ce format utilise les accès communs de l'événement."
                     : getModuleDescription(activeModule)) : undefined}
-            icon={<span className="text-base font-bold">{ORGANIZER_MODULE_ICONS[activeModule]}</span>}
+            icon={<OrganizerModuleIcon moduleId={activeModule} />}
             status={<div className="flex flex-wrap items-center gap-2"><SaveStatus
               state={autosaveState}
               savedAt={lastAutosavedAt?.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
@@ -3871,16 +3879,13 @@ export function OrganizerDashboard({
                 <span className="rounded-full bg-muted px-2 py-1 text-[11px] font-semibold text-muted-foreground" title={`Cette section restera privée jusqu’au passage à ${ORGANIZER_TIER_LABEL[activeModuleChoice.minimumTier]}.`}>
                   Privé · {ORGANIZER_TIER_LABEL[activeModuleChoice.minimumTier]}
                 </span>
-              ) : null}</div>}
-          />
-          <div className="ml-auto flex flex-wrap items-center justify-end gap-3">
-            {activeModule === "formats" && activeRace ? <details className="relative z-20">
-              <summary aria-label="Actions du format" className="grid h-10 w-10 cursor-pointer list-none place-items-center rounded-md border border-border bg-card text-lg font-bold marker:content-none">⋯</summary>
-              <div className="absolute right-0 top-12 z-20 w-56 rounded-lg border border-border bg-card p-2 shadow-xl">
+              ) : null}{activeModule === "formats" && activeRace ? <details className="relative z-20">
+              <summary aria-label="Actions du format" className="grid h-9 w-9 cursor-pointer list-none place-items-center rounded-md border border-border bg-card text-lg font-bold marker:content-none">⋯</summary>
+              <div className="absolute right-0 top-11 z-20 w-56 rounded-lg border border-border bg-card p-2 shadow-xl">
                 <Button type="button" variant="ghost" onClick={() => setDestructiveConfirmation("race")} disabled={status === "saving" || status === "uploading"} className="w-full justify-start text-red-700 hover:bg-red-50 hover:text-red-800">Supprimer ce format</Button>
               </div>
-            </details> : null}
-          </div>
+            </details> : null}</div>}
+          />
         </CardHeader>
         <CardContent className="px-3 pb-4 sm:px-6 sm:pb-6">
           {!eventDetail || !eventDraft ? (
