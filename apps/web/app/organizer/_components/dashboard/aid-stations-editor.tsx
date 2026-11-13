@@ -293,9 +293,6 @@ export function AidStationsEditor({
                       {isExpanded ? "Masquer" : "Détails"}
                       {isExpanded ? <ChevronUpIcon className="h-4 w-4" aria-hidden /> : <ChevronDownIcon className="h-4 w-4" aria-hidden />}
                     </Button>
-                    <Button type="button" variant="ghost" className="h-10 rounded-full border border-red-200 bg-red-50 px-4 text-xs font-semibold text-red-700 hover:bg-red-100" onClick={() => setPendingStationRemoval({ index, name: station.name || `Ravito ${index + 1}` })}>
-                      Supprimer le ravito
-                    </Button>
                   </div>
                 </div>
 
@@ -303,6 +300,7 @@ export function AidStationsEditor({
                   <StationDetailsPanel
                     station={station}
                     onChange={(next) => onUpdateStation(index, next)}
+                    onRemove={() => setPendingStationRemoval({ index, name: station.name || `Ravito ${index + 1}` })}
                     productsSlot={
                       station.id ? (
                         <StationProductsBlock
@@ -624,7 +622,7 @@ function FixedCourseCard({
   );
 }
 
-function StationDetailsPanel({ station, onChange, productsSlot }: { station: AidStationDraft; onChange: (station: AidStationDraft) => void; productsSlot: ReactNode }) {
+function StationDetailsPanel({ station, onChange, onRemove, productsSlot }: { station: AidStationDraft; onChange: (station: AidStationDraft) => void; onRemove: () => void; productsSlot: ReactNode }) {
   const details = station.organizerDetails;
   return (
     <div className="border-t border-border px-4 pb-4 pt-1">
@@ -650,6 +648,11 @@ function StationDetailsPanel({ station, onChange, productsSlot }: { station: Aid
       </div>
 
       <div className="mt-4">{productsSlot}</div>
+      <div className="mt-4 flex justify-end border-t border-border pt-4">
+        <Button type="button" variant="ghost" className="text-red-700 hover:bg-red-50 hover:text-red-800" onClick={onRemove}>
+          Supprimer le ravito
+        </Button>
+      </div>
     </div>
   );
 }

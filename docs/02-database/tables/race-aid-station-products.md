@@ -127,3 +127,5 @@ order by order_index asc;
 - [products](products.md)
 - [Nutrition Algorithm](../../03-business-rules/nutrition-algorithm.md)
 - [Organizer Race Management](../../03-business-rules/organizer-race-management.md)
+
+Moving the ravito delete action into its expanded details panel is presentation-only; product links and station deletion semantics are unchanged.

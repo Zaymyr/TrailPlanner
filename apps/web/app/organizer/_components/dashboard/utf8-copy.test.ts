@@ -233,7 +233,8 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(shellSource).toContain('module.status === "complete" ? "Complet"');
     expect(shellSource).toContain('{getStatusLabel(module)}</p>');
     expect(shellSource).toContain('activeModule === module.id && "border-brand shadow-lg ring-2 ring-brand');
-    expect(shellSource).toContain('min-h-[82px] rounded-lg');
+    expect(shellSource).toContain('min-h-[64px] rounded-lg');
+    expect(dashboardSource).toContain('className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0"');
     expect(shellSource).not.toContain('Manque : {module.missingLabels');
     expect(dashboardSource).toContain("raceSeriesGroups.filter");
     expect(dashboardSource).not.toContain("race.racebook_preview_is_visible !== false");
@@ -293,7 +294,7 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(source).toContain('label="Nom du contact"');
     expect(source).toContain('label="Téléphone"');
     expect(source).toContain('type="tel"');
-    expect(source).toContain("border-amber-200 bg-amber-50/50");
+    expect(source).not.toContain("border-amber-200 bg-amber-50/50");
   });
 
   it("separates aid stations and relay points into local views", () => {
@@ -361,7 +362,7 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(detailSource).toContain("Retrait hérité de l’événement");
     expect(detailSource).toContain("Matériel hérité de l’événement");
     expect(detailSource).toContain("Accès hérité de l’événement");
-    expect(dashboardSource).toContain('activeModule === "formats" || activeModule === "equipment" || activeModule === "bibPickup" || activeModule === "access"');
+    expect(dashboardSource).toContain('className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0"');
     expect(detailSource).toContain("showHeader={false}");
     expect(detailSource).toContain("framed={false}");
     expect(detailSource).not.toContain("<p className=\"font-semibold text-foreground\">Retrait dossard - {activeRace.name}</p>");
