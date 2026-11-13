@@ -4,6 +4,7 @@ scope: workflow
 last_verified: 2026-11-13
 ai_priority: medium
 # UI organisateur (2026-11-13) : les médias et aperçus des sections Informations, Course et Identité visuelle occupent le rail contextuel à droite sur grand écran, puis passent sous le formulaire.
+# Ravitos (2026-11-13) : sélectionner un point dans la timeline ouvre son unique panneau de détail ; sur mobile ce panneau est plein écran et le bouton Retour ramène à la liste.
 related_files:
   - scripts/generate-racebook-organizer-manual.mjs
   - apps/web/app/organizers/page.tsx

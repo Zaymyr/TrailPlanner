@@ -6,7 +6,7 @@ import { Button } from "../../../../components/ui/button";
 import { cn } from "../../../../components/utils";
 import type { FuelProduct } from "../../../../lib/product-types";
 import { ContextualHelp, NumberField, TextAreaField, TextField } from "./controls";
-import { SelectField, SwitchRow } from "./form-kit";
+import { ConfirmDialog, SelectField, SwitchRow } from "./form-kit";
 import { formatKm, getGpxCoordinateAtDistance, normalizeClockInputValue } from "./helpers";
 import { StationProductsBlock } from "./products-editor";
 import { AddressAutocompleteField } from "./address-autocomplete-field";
@@ -111,6 +111,7 @@ export function AidStationsEditor({
   const [stationDraft, setStationDraft] = useState<{ name: string; distanceKm: number } | null>(null);
   const [stationDraftTouched, setStationDraftTouched] = useState(false);
   const [pendingStationRemoval, setPendingStationRemoval] = useState<{ index: number; name: string } | null>(null);
+  const [mobileStationOpen, setMobileStationOpen] = useState(false);
   const relayEnabled = participationMode === "relay" || participationMode === "solo_and_relay";
   const viewScopeKey = `${activeRace?.id ?? ""}:${participationMode}`;
 
@@ -119,15 +120,6 @@ export function AidStationsEditor({
     setStationDraft(null);
     setStationDraftTouched(false);
   }, [viewScopeKey]);
-
-  useEffect(() => {
-    if (!pendingStationRemoval) return;
-    const timeout = window.setTimeout(() => {
-      onRemoveStation(pendingStationRemoval.index);
-      setPendingStationRemoval(null);
-    }, 6000);
-    return () => window.clearTimeout(timeout);
-  }, [onRemoveStation, pendingStationRemoval]);
 
   if (!activeRace) return <p className="text-sm text-muted-foreground">Sélectionne un format pour gérer ses ravitos.</p>;
   const activeView = viewState.scopeKey === viewScopeKey ? viewState.view : "aidStations";
@@ -139,11 +131,29 @@ export function AidStationsEditor({
   ];
   const courseTimelinePoints = [
     { key: "start", kind: "start" as const, name: "Départ", distanceKm: 0, time: startTime, index: -1 },
-    ...aidStations.map((station, index) => ({ key: station.id ?? `station-${index}`, kind: "aid" as const, name: station.name || `Ravito ${index + 1}`, distanceKm: station.distanceKm, time: station.organizerDetails.cutoffTime ?? "", index })),
+    ...aidStations.map((station, index) => ({ key: station.id ?? `new-${index}`, kind: "aid" as const, name: station.name || `Ravito ${index + 1}`, distanceKm: station.distanceKm, time: station.organizerDetails.cutoffTime ?? "", index })),
     ...supporterPoints.map((point, index) => ({ key: point.id ?? `supporter-${index}`, kind: "supporter" as const, name: point.name || `Suivi ${index + 1}`, distanceKm: point.distanceKm ?? 0, time: "", index })),
     ...relayPoints.filter((point) => !point.raceAidStationId).map((point, index) => ({ key: point.id ?? `relay-${index}`, kind: "relay" as const, name: point.name || `Relais ${index + 1}`, distanceKm: point.distanceKm, time: point.cutoffTime, index })),
     { key: "finish", kind: "finish" as const, name: "Arrivée", distanceKm: activeRace.distance_km, time: finishCutoffTime, index: -1 },
   ].sort((left, right) => left.distanceKm - right.distanceKm || (left.kind === "start" ? -1 : right.kind === "finish" ? -1 : 0));
+  const selectedAidStationIndex = Math.max(0, aidStations.findIndex((station, index) => (station.id ?? `new-${index}`) === expandedStationKey));
+  const selectedAidStation = aidStations[selectedAidStationIndex] ?? null;
+  const selectedAidStationKey = selectedAidStation ? selectedAidStation.id ?? `new-${selectedAidStationIndex}` : null;
+  const selectedProductsSlot = selectedAidStation?.id ? (
+    <StationProductsBlock
+      station={selectedAidStation}
+      stationProducts={stationProducts}
+      productsById={productsById}
+      onOpenProductPicker={() => onOpenProductPicker(selectedAidStation.id as string)}
+      onRemoveProduct={(productId) => onRemoveProduct(selectedAidStation.id as string, productId)}
+      productFormOpen={productStationId === selectedAidStation.id}
+      onToggleProductForm={() => onToggleProductForm(selectedAidStation.id as string)}
+      productForm={productForm}
+      onProductFormChange={onProductFormChange}
+      onCreateProduct={onCreateProduct}
+      disabled={status === "saving"}
+    />
+  ) : <p className="mt-3 text-xs text-muted-foreground">Sauvegarde le ravito avant d&apos;y ajouter des produits.</p>;
 
   return (
     <div className="relative space-y-4">
@@ -173,19 +183,32 @@ export function AidStationsEditor({
         ) : null}
       </div>
 
-      <section className="rounded-xl border border-border bg-card p-3" aria-label="Ligne de course">
+      <div className={cn(activeView === "aidStations" && "grid items-start gap-4 lg:grid-cols-[minmax(240px,0.8fr)_minmax(0,1.4fr)]")}>
+      <section className="rounded-xl border border-border bg-card p-3 lg:sticky lg:top-3" aria-label="Ligne de course">
         <div className="relative ml-8 border-l-2 border-brand-border pl-5">
           {courseTimelinePoints.map((point) => {
             const station = point.kind === "aid" ? aidStations[point.index] : null;
-            return <button key={`${point.kind}-${point.key}`} type="button" className="relative flex min-h-12 w-full items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring" onClick={() => {
+            const isSelected = point.kind === "aid" && point.key === selectedAidStationKey;
+            return <button key={`${point.kind}-${point.key}`} type="button" data-station-index={point.kind === "aid" ? point.index : undefined} aria-selected={point.kind === "aid" ? isSelected : undefined} className={cn("relative flex min-h-12 w-full items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring", isSelected && "bg-brand-surface text-brand")} onKeyDown={(event) => {
+              if (point.kind !== "aid" || (event.key !== "ArrowDown" && event.key !== "ArrowUp")) return;
+              event.preventDefault();
+              const nextIndex = event.key === "ArrowDown" ? Math.min(aidStations.length - 1, point.index + 1) : Math.max(0, point.index - 1);
+              const nextStation = aidStations[nextIndex];
+              if (!nextStation) return;
+              onExpandedStationKeyChange(nextStation.id ?? `new-${nextIndex}`);
+              document.querySelector<HTMLElement>(`[data-station-index="${nextIndex}"]`)?.focus();
+            }} onClick={() => {
               if (point.kind === "start") setViewState({ scopeKey: viewScopeKey, view: "startWaves" });
               else if (point.kind === "supporter") setViewState({ scopeKey: viewScopeKey, view: "supporters" });
               else if (point.kind === "relay") setViewState({ scopeKey: viewScopeKey, view: "relay" });
               else {
                 setViewState({ scopeKey: viewScopeKey, view: "aidStations" });
-                if (point.kind === "aid") onExpandedStationKeyChange(point.key);
+                if (point.kind === "aid") {
+                  onExpandedStationKeyChange(point.key);
+                  setMobileStationOpen(true);
+                }
               }
-            }}><span className={cn("absolute -left-[1.72rem] h-3.5 w-3.5 rounded-full border-2 border-card", point.kind === "start" || point.kind === "finish" ? "bg-brand" : "bg-amber-500")} aria-hidden="true" /><span className="w-14 shrink-0 font-mono text-xs font-semibold text-muted-foreground">{point.distanceKm.toFixed(1)}</span><span className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{point.name}</span>{station ? <span className="flex gap-1 text-[10px] font-bold" aria-label={`Services : ${[station.waterRefill && "eau", station.solidRefill && "solide", station.assistanceAllowed && "assistance"].filter(Boolean).join(", ") || "aucun"}`}><span className={station.waterRefill ? "text-brand" : "text-muted-foreground/30"}>E</span><span className={station.solidRefill ? "text-brand" : "text-muted-foreground/30"}>S</span><span className={station.assistanceAllowed ? "text-brand" : "text-muted-foreground/30"}>A</span></span> : null}{point.time ? <span className="font-mono text-xs text-muted-foreground">{normalizeClockInputValue(point.time)}</span> : null}</button>;
+            }}><span className={cn("absolute -left-[1.72rem] h-3.5 w-3.5 rounded-full border-2 border-card", point.kind === "start" || point.kind === "finish" ? "bg-brand" : "bg-muted-foreground/45")} aria-hidden="true" /><span className="w-12 shrink-0 font-mono text-xs font-semibold text-muted-foreground">{point.distanceKm.toFixed(1)}</span><span className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{point.name}</span>{station ? <span className="flex flex-wrap justify-end gap-1 text-[10px] font-bold" aria-label={`Services : ${[station.waterRefill && "eau", station.solidRefill && "solide", station.assistanceAllowed && "assistance"].filter(Boolean).join(", ") || "aucun"}`}>{station.waterRefill ? <span className="rounded bg-brand-surface px-1 text-brand">E<span className="sr-only"> eau</span></span> : null}{station.solidRefill ? <span className="rounded bg-brand-surface px-1 text-brand">S<span className="sr-only"> solide</span></span> : null}{station.assistanceAllowed ? <span className="rounded bg-brand-surface px-1 text-brand">A<span className="sr-only"> assistance</span></span> : null}</span> : null}{point.time ? <span className="font-mono text-xs text-muted-foreground">{normalizeClockInputValue(point.time)}</span> : null}</button>;
           })}
         </div>
         <p className="mt-2 text-xs text-muted-foreground">E eau · S solide · A assistance. Sélectionne un point pour modifier ses détails.</p>
@@ -226,9 +249,21 @@ export function AidStationsEditor({
               </div>
             </section>
           ) : null}
+          {selectedAidStation ? (
+            <section className={cn("rounded-xl border border-border bg-card shadow-sm", mobileStationOpen ? "max-lg:fixed max-lg:inset-0 max-lg:z-50 max-lg:overflow-y-auto max-lg:rounded-none" : "max-lg:hidden")} aria-label={`Détails de ${selectedAidStation.name}`}>
+              <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <Button type="button" variant="ghost" className="lg:hidden" onClick={() => setMobileStationOpen(false)}>Retour</Button>
+                  <div><p className="font-semibold text-foreground">{selectedAidStation.name || `Ravito ${selectedAidStationIndex + 1}`}</p><p className="text-xs text-muted-foreground">{formatKm(selectedAidStation.distanceKm)}</p></div>
+                </div>
+              </header>
+              <StationDetailsPanel station={selectedAidStation} onChange={(next) => onUpdateStation(selectedAidStationIndex, next)} onRemove={() => setPendingStationRemoval({ index: selectedAidStationIndex, name: selectedAidStation.name || `Ravito ${selectedAidStationIndex + 1}` })} productsSlot={selectedProductsSlot} />
+            </section>
+          ) : null}
           {aidStations.length === 0 ? (
             <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">Aucun ravito.</p>
-          ) : (
+          ) : null}
+          {false ? (
             <div className="space-y-4">
               {aidStations.map((station, index) => {
                 if (pendingStationRemoval?.index === index) return null;
@@ -331,12 +366,6 @@ export function AidStationsEditor({
                 );
               })}
             </div>
-          )}
-          {pendingStationRemoval ? (
-            <div role="status" aria-live="polite" className="sticky bottom-3 z-20 flex items-center justify-between gap-3 rounded-md border border-border bg-card px-3 py-2 text-sm shadow-lg">
-              <span>{pendingStationRemoval.name} supprimé.</span>
-              <Button type="button" variant="ghost" onClick={() => setPendingStationRemoval(null)}>Annuler</Button>
-            </div>
           ) : null}
           <section className="grid gap-4 rounded-[1.5rem] border border-border bg-background p-4 md:grid-cols-2">
             <TextAreaField label="Consignes de barrières horaires" value={cutoffNote} onChange={onCutoffNoteChange} />
@@ -408,6 +437,20 @@ export function AidStationsEditor({
           </section>
         </div>
       )}
+      </div>
+      <ConfirmDialog
+        open={pendingStationRemoval !== null}
+        onOpenChange={(open) => { if (!open) setPendingStationRemoval(null); }}
+        title={`Supprimer ${pendingStationRemoval?.name ?? "ce ravito"} ?`}
+        description="Le ravito et ses produits associés seront retirés de ce format."
+        confirmLabel="Supprimer le ravito"
+        onConfirm={() => {
+          if (!pendingStationRemoval) return;
+          onRemoveStation(pendingStationRemoval.index);
+          setPendingStationRemoval(null);
+          setMobileStationOpen(false);
+        }}
+      />
     </div>
   );
 }
@@ -654,9 +697,12 @@ function StationDetailsPanel({ station, onChange, onRemove, productsSlot }: { st
 
       <div className="mt-4">{productsSlot}</div>
       <div className="mt-4 flex justify-end border-t border-border pt-4">
-        <Button type="button" variant="ghost" className="text-red-700 hover:bg-red-50 hover:text-red-800" onClick={onRemove}>
-          Supprimer le ravito
-        </Button>
+        <details className="relative">
+          <summary aria-label="Actions du ravito" className="grid h-10 w-10 cursor-pointer list-none place-items-center rounded-md border border-border text-lg font-bold marker:content-none">⋯</summary>
+          <div className="absolute bottom-12 right-0 z-10 w-52 rounded-lg border border-border bg-card p-2 shadow-xl">
+            <Button type="button" variant="ghost" className="w-full justify-start text-red-700 hover:bg-red-50 hover:text-red-800" onClick={onRemove}>Supprimer le ravito</Button>
+          </div>
+        </details>
       </div>
     </div>
   );

@@ -6,6 +6,7 @@ last_verified: 2026-11-13
 
 ai_priority: high
 # Organizer layout (2026-11-13): wide desktop uses 240px navigation, a flexible editor, and a 300px contextual rail; below 1320px the rail follows the editor.
+# Aid-station interaction (2026-11-13): timeline selection drives a single detail editor, active E/S/A badges only are shown, and deletion requires confirmation from the station action menu.
 related_files:
   - apps/web/lib/racebook-publication-checks.ts
   - apps/web/lib/racebook-publication-checks.test.ts
