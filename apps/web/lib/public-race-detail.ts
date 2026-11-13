@@ -23,6 +23,7 @@ import {
 } from "./organizer-modules";
 import { PUBLIC_RACES_REVALIDATE_SECONDS, type PublicRace } from "./public-races";
 import { getSupabaseServiceConfig, type SupabaseServiceConfig } from "./supabase";
+import { PUBLIC_RACES_CACHE_TAG } from "./public-race-cache";
 
 const detailRaceSchema = z.object({
   id: z.string().uuid(),
@@ -201,7 +202,7 @@ const serviceHeaders = (config: SupabaseServiceConfig) => ({
 const fetchServiceRows = async <T>(config: SupabaseServiceConfig, path: string, schema: z.ZodType<T>) => {
   const response = await fetch(`${config.supabaseUrl}/rest/v1/${path}`, {
     headers: serviceHeaders(config),
-    next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS },
+    next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS, tags: [PUBLIC_RACES_CACHE_TAG] },
   });
   if (!response.ok) throw new Error(`Supabase detail read failed (${response.status})`);
   return z.array(schema).parse(await response.json());

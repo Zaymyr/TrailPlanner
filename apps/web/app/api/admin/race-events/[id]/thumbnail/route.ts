@@ -15,6 +15,7 @@ import {
   getSupabaseServiceConfig,
   isAdminUser,
 } from "../../../../../../lib/supabase";
+import { invalidatePublicRaceCache } from "../../../../../../lib/public-race-cache";
 
 const paramsSchema = z.object({
   id: z.string().uuid(),
@@ -143,5 +144,6 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
     return withSecurityHeaders(NextResponse.json({ message: "Unable to update race event thumbnail." }, { status: 502 }));
   }
 
+  invalidatePublicRaceCache({ eventId: parsedParams.data.id });
   return withSecurityHeaders(NextResponse.json({ thumbnail_url: publicUrl }));
 }

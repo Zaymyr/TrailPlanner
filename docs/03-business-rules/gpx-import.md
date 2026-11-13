@@ -163,6 +163,8 @@ The public `/courses/[slug]` detail loader can read a private `race-gpx` object 
 
 The event-edition page reuses only the sanitized common practical projection. It neither reads nor serializes a format GPX; maps and elevation profiles remain scoped to `/courses/[slug]`.
 
+Admin catalog creation and metadata/image/ravito updates invalidate public catalog data after persistence. Raw GPX bytes keep their immutable-path one-year cache; a GPX replacement uses a new path rather than purging or overwriting the previous object cache entry.
+
 Route geometry remains usable when elevation tags are absent, but the elevation profile is omitted rather than inventing zero-altitude data. Missing objects and parse failures return no preview without blocking the remaining public course facts.
 
 Public station markers on the route and profile consume only the web summary projection (name and kilometer for positioning). Detailed station altitude and cumulative elevation stay behind the effective Livret module and are never replaced with a fabricated zero when the public summary is the only available level.

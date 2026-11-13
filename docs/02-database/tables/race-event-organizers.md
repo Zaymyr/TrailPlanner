@@ -167,6 +167,8 @@ order by created_at asc;
 
 ## Gotchas
 
+- Public cache invalidation is a post-write freshness concern, not an authorization boundary. Organizer routes still validate the authenticated active event membership before every mutation, and an invalidation failure never broadens access or rolls back the durable write.
+
 - Organizer membership and publication origin are independent. The admin may change an edition between Admin, Offert, Stripe, and virement without adding or revoking a membership; paid origins remain ledger-backed.
 
 - Atomic Organizer RPCs are executable only by `service_role`; the calling route must still complete the normal active-membership/admin and entitlement checks before invoking them. The format-publication RPC repeats active membership or trusted Auth `raw_app_meta_data` admin authorization so an admin does not need an artificial membership row. Its admin lookup uses a private service-only boolean helper rather than granting `service_role` direct `auth.users` reads.

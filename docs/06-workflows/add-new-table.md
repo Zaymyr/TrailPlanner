@@ -134,6 +134,7 @@ For visibility-gated aggregate RPCs such as sponsor impressions, select an exist
 - Do not forget explicit grants for tables and functions accessed through Supabase REST/client APIs. New `postgres`-owned public functions are not client-executable by default, and RLS policies alone do not grant table privileges.
 - Do not add new grants or policies for a column-only marker when the existing owner-scoped row access remains the intended boundary.
 - Do not create a table or migration for a route-only query optimization such as replacing row materialization with a Data API exact count; document the access pattern in the existing schema/table docs instead.
+- Do not create a table or migration for cache-tag-only application changes. Race, edition, and event cache scopes are freshness hints, not persisted relationships or authorization state.
 - Do not create a table or migration for mobile header, status-bar, filter placement, or other presentation-only work; update the existing schema docs only to make the unchanged persistence boundary explicit.
 - Do not apply new-table DDL or policy steps to a data-only showcase seed; verify the existing table contracts and public visibility gates instead.
 - Do not treat a sourced catalog integration such as `20260910144806_seed_trail_ton_chateau_2026.sql` as a new-table change; validate its existing foreign keys, completeness flags, Storage paths, and publication boundaries.

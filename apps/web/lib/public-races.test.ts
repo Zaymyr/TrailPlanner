@@ -120,7 +120,7 @@ describe("public race slug resolution", () => {
     ]);
     expect(fetchMock.mock.calls[0]?.[0]).toContain("web_catalog_is_live=eq.true");
     expect(fetchMock.mock.calls[0]?.[1]).toEqual(expect.objectContaining({
-      next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS },
+      next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS, tags: ["public-races"] },
     }));
     expect(fetchMock.mock.calls[0]?.[1]?.headers).toEqual(expect.objectContaining({ apikey: "service-key" }));
   });

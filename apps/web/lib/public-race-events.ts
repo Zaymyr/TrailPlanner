@@ -5,6 +5,7 @@ import { z } from "zod";
 import { getPublicRaceDetail, type PublicRaceDetail } from "./public-race-detail";
 import { getPublicRaces, PUBLIC_RACES_REVALIDATE_SECONDS, type PublicRace } from "./public-races";
 import { getSupabaseServiceConfig } from "./supabase";
+import { PUBLIC_RACES_CACHE_TAG } from "./public-race-cache";
 
 const editionSchema = z.object({
   id: z.string().uuid(),
@@ -67,7 +68,7 @@ const fetchRows = async <T>(path: string, schema: z.ZodType<T>): Promise<T[]> =>
         apikey: config.supabaseServiceRoleKey,
         Authorization: `Bearer ${config.supabaseServiceRoleKey}`,
       },
-      next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS },
+      next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS, tags: [PUBLIC_RACES_CACHE_TAG] },
     });
     if (!response.ok) return [];
     const parsed = z.array(schema).safeParse(await response.json());

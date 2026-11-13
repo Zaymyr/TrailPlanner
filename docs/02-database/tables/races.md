@@ -231,6 +231,7 @@ where web_catalog_is_live = true
 - Do not replace an unknown D+ or absent GPX with a fabricated zero or placeholder.
 - New rows without a GPX keep `gpx_path`, `gpx_hash`, and `gpx_storage_path` null. Historical placeholders are cleared by the catalog-contract migration when no stored object exists.
 - Public RaceBook snapshots and published GPX responses are tagged by race, edition, and event. Race metadata, image, GPX, and structured-content autosaves increment the draft revision without invalidation; publication, restoration, and visibility changes invalidate the narrowest applicable tags.
+- Public web catalog/detail reads use the distinct `public-races` tag. Successful organizer/admin format metadata, image, publication/visibility, ravito, and deletion mutations invalidate it plus stable scope tags; failed mutations do not purge cache state.
 - A declarative complete-row check is intentionally deferred until legacy catalog rows have been backfilled. The column-scoped completeness trigger protects new and catalog-relevant writes without blocking unrelated updates to legacy rows.
 - Do not set a draft live. The database constraint rejects both course and Racebook visibility.
 - Do not broaden `races_insert` for convenience. It is restricted to trusted administrators; organizer writes must remain behind their authorized service routes.

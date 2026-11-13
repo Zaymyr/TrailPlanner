@@ -14,6 +14,7 @@ import {
   parseOrganizerAidStationDetails,
 } from "../../../../../../lib/organizer-dashboard-details";
 import { isOrganizerRaceModuleSelected } from "../../../../../../lib/organizer-module-settings";
+import { invalidatePublicRaceCache } from "../../../../../../lib/public-race-cache";
 
 const aidStationRowSchema = z.object({
   id: z.string().uuid(),
@@ -129,6 +130,7 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
   }
 
   const aidStations = z.array(aidStationRowSchema).parse(await replaceResponse.json());
+  invalidatePublicRaceCache({ raceId: race.id, editionId: race.edition_id, eventId: race.event_id });
   return withSecurityHeaders(
     NextResponse.json({
       aidStations: aidStations.map((station) => ({

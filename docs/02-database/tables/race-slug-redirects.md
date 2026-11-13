@@ -74,6 +74,7 @@ Both mutation functions are `SECURITY INVOKER`, use an empty `search_path`, and 
 - No slug is pre-rendered during deployment. Current and former slugs resolve on first request through dynamic ISR, so preserving redirect checks does not require rebuilding every public detail page.
 - Canonical and redirected web reads share the same service-only durable web flag and explicit parent-event projection. Adding searchable city, department, region, and country labels does not change direct-client RLS or expose organizer JSON, codes, or coordinates.
 - The parent-event projection now also allowlists `website_url` for the registration CTA after canonical resolution. It remains presentation metadata and does not participate in redirect visibility or slug identity.
+- Canonical and former-slug reads carry the shared public catalog cache tag. Successful public-facing writes invalidate that tag after persistence, while redirect identity and visibility rechecks remain unchanged.
 
 ## Common Queries
 

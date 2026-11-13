@@ -177,6 +177,7 @@ where ree.event_id = :event_id
 
 - Do not use `race_events.race_date` as the canonical organizer edition date; it is a compatibility mirror.
 - Edition visibility, deletion, publication, restoration, and effective entitlement changes invalidate edition/event RaceBook tags after their durable operation succeeds. Module, sponsor, branding, and services autosaves only increment draft revisions.
+- Those public-facing operations also invalidate the shared public catalog tag and stable edition/event tags so event-edition pages and the sitemap do not wait for the 15-minute TTL.
 - Application writes should persist `races.edition_id`. The database uses the format year only as a service-side compatibility repair when a dated event format arrives without one.
 - Do not replace `races.edition_group_id` with `edition_id`: one groups a format series across years, the other groups all formats in one event year.
 - A multi-day edition may end in the following calendar year; only its start year defines `edition_year`.

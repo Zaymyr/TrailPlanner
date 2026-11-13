@@ -547,6 +547,8 @@ The pricing dialog snapshots and displays the selected event and canonical editi
 
 ## Gotchas
 
+- Successful public-facing organizer writes invalidate the shared public-race cache after the durable mutation: format/event metadata and images, edition visibility or dates, Livret publication/restoration, ravitos, and deletions. Cache invalidation remains best effort and never changes API inputs or outputs.
+
 - Shared web prompt dismiss controls use a 44 px target. Planner breadcrumb and landmark cleanup is presentation-only and does not change organizer membership, publication, acquisition routing or Mobile App Prompt coordination.
 
 - The Courses visual-alignment pass keeps the same event/format rows, organizer preview exception, favorite scope and update panel. Opaque sticky chrome, protected date text and a lighter heart do not change organizer publication or visibility.

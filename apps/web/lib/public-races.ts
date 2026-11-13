@@ -3,6 +3,7 @@ import "server-only";
 import { z } from "zod";
 
 import { getSupabaseServiceConfig } from "./supabase";
+import { PUBLIC_RACES_CACHE_TAG } from "./public-race-cache";
 
 const raceSchema = z.object({
   id: z.string().uuid(),
@@ -116,7 +117,7 @@ const fetchPublicRows = async <T>(path: string, schema: z.ZodType<T>): Promise<T
         apikey: config.supabaseServiceRoleKey,
         Authorization: `Bearer ${config.supabaseServiceRoleKey}`,
       },
-      next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS },
+      next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS, tags: [PUBLIC_RACES_CACHE_TAG] },
     });
 
     if (!response.ok) {
@@ -146,7 +147,7 @@ const fetchPublicEditionRows = async (path: string): Promise<z.infer<typeof edit
         apikey: config.supabaseServiceRoleKey,
         Authorization: `Bearer ${config.supabaseServiceRoleKey}`,
       },
-      next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS },
+      next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS, tags: [PUBLIC_RACES_CACHE_TAG] },
     });
     if (!response.ok) return [];
     const parsed = z.array(editionSchema).safeParse(await response.json());

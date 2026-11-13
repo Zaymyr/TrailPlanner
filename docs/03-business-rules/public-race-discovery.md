@@ -17,6 +17,8 @@ related_files:
   - supabase/migrations/20261113200326_add_race_event_edition_slugs.sql
   - supabase/tests/race_event_edition_slug_redirects_checks.sql
   - apps/web/lib/public-races.ts
+  - apps/web/lib/public-race-cache.ts
+  - apps/web/lib/public-race-cache.test.ts
   - apps/web/lib/public-race-events.ts
   - apps/web/lib/public-race-events.test.ts
   - apps/web/lib/public-race-detail.ts
@@ -161,6 +163,7 @@ Edition slugs follow the same no-chain rule through `race_event_edition_slug_red
 
 - Keep the registration target event-first and HTTP(S)-only. Do not expose raw organizer JSON or silently turn an unvalidated string into an outbound link.
 - Keep catalog/detail visibility on the 15-minute public window. The raw GPX object may remain in the persistent data cache for one year only because every replacement writes a new Storage path; never overwrite or reuse a published GPX path.
+- Public reads must retain the `public-races` cache tag. Successful organizer/admin writes that can change catalog identity, publication, event/edition content, images, or ravitos invalidate it together with the applicable `public-race:*`, `public-edition:*`, and `public-event:*` tags; failed writes invalidate nothing.
 - Web course discovery uses `races.web_catalog_is_live` / `races.is_public` and live parent events. Mobile discovery continues to use `is_live`, `racebook_preview_is_visible`, and edition visibility; `racebook_is_live` independently protects practical RaceBook modules.
 - First public/mobile publication promotes `web_catalog_is_live`. Later format-private, masked, or edition-hidden transitions may clear the mobile/RaceBook flags but preserve the factual web page and its slug redirects. Setting `is_public = false` clears web visibility, and deleting an edition still cascades its formats.
 - Keep catalog, slug resolution, sitemap, detail, and private-GPX preview on the shared 15-minute public-race revalidation window. A longer negative detail cache can otherwise outlive a catalog refresh and expose a temporary crawlable 404.

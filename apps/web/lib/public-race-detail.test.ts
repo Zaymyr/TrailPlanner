@@ -138,12 +138,12 @@ describe("public race detail", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toContain("web_catalog_is_live=eq.true&is_public=eq.true");
     expect(fetchMock.mock.calls.find(([url]) => String(url).includes("race_event_editions?"))?.[0]).not.toContain("is_visible=eq.true");
     expect(fetchMock.mock.calls[0]?.[1]).toEqual(expect.objectContaining({
-      next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS },
+      next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS, tags: ["public-races"] },
     }));
     for (const endpoint of ["organizer_racebook_module_settings?", "organizer_edition_entitlements?"]) {
       const publicModuleCall = fetchMock.mock.calls.find(([url]) => String(url).includes(endpoint));
       expect(publicModuleCall?.[1]).toEqual(expect.objectContaining({
-        next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS },
+        next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS, tags: ["public-races"] },
       }));
       expect(publicModuleCall?.[1]).not.toEqual(expect.objectContaining({ cache: "no-store" }));
     }

@@ -39,6 +39,7 @@ RLS is enabled with no `anon` or `authenticated` policy or table privilege. Only
 - Do not reuse this table for format URLs; `race_slug_redirects` owns that independent namespace.
 - Do not grant client reads merely because the route is public. The service resolver is the reviewed boundary.
 - Do not update an edition slug from a browser or bypass the atomic rename function.
+- Event-edition resolution participates in the shared tagged public cache. Successful source, publication, visibility, image, and ravito writes invalidate that cache; the redirect table contract itself is unchanged.
 
 ## Related Docs
 

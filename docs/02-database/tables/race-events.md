@@ -331,6 +331,7 @@ where is_live = true
 - Organizer bootstrap and event-detail reads must also include the same edition-level effective Analytics decision. An event reload replaces the prior snapshot and must not reduce a complimentary grant to a tier-only fallback.
 - Organizer payment invalidation must hide attached RaceBooks through edition rights without setting `race_events.is_live = false`; the event remains in free catalog discovery.
 - Public RaceBook snapshots are tagged by event as well as race and edition. Event metadata/image edits mark every format draft dirty without invalidating the published version; effective visibility and publication changes invalidate the event tag. Private organizer publication reads remain uncached.
+- The server-rendered public catalog uses a separate `public-races` tag. Successful organizer/admin event metadata, date, image, publication, visibility, and deletion writes invalidate it after persistence; the 15-minute TTL covers invalidation failures.
 
 - Keep event bib pickup as the default source. A format-level pickup is active only when `overrideEnabled` is explicitly true; absent/false values preserve the event fallback, and the format variant does not require geocoded metadata.
 

@@ -139,6 +139,8 @@ values ('<race-id>', 'Aid station 1', 12.5, true, true, true, '{"stationType":"w
 
 ## Gotchas
 
+- Organizer and admin station replacement invalidates public course/event caches only after the durable write succeeds. Station rows still have no `updated_at`, so sitemap `<lastmod>` cannot reflect a station-only change even though the rendered content refreshes immediately.
+
 - Organizer collection replacement locks the parent race and preserves submitted station ids. Validation or write failure rolls the full replacement back, protecting product links from partial updates.
 
 - Public reads require the effective `aid_stations` module; organizer writes are refused while the module is inactive or locked.
