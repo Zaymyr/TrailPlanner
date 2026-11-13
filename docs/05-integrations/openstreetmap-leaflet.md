@@ -7,6 +7,7 @@ ai_priority: medium
 # Loading note (2026-11-13): organizer sidecar skeletons avoid presenting an empty map state while data loads.
 # Header note (2026-11-13): section icons and contour watermark do not alter Leaflet rendering.
 # Mobile course note (2026-11-13): collapsing the media surface delays only its display, not Leaflet data loading.
+# Mobile finish note (2026-11-13): the collapsed media summary is the explicit entry point to the organizer map below 900px.
 related_files:
   - apps/web/package.json
   - apps/web/app/layout.tsx

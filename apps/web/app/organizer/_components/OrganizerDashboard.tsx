@@ -3882,7 +3882,7 @@ export function OrganizerDashboard({
             </details> : null}
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-3 pb-4 sm:px-6 sm:pb-6">
           {!eventDetail || !eventDraft ? (
             <p className="text-sm text-muted-foreground">Chargement de l&apos;événement...</p>
           ) : activeModule === "event" ? (

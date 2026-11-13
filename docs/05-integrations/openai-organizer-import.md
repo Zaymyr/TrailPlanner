@@ -7,6 +7,7 @@ ai_priority: high
 # Form UI note (2026-11-13): imported social fields share the responsive information grid; reconciliation remains unchanged.
 # Navigation note (2026-11-13): organizer section hierarchy does not alter import reconciliation.
 # Dense module note (2026-11-13): localized dates and access presentation do not alter imported values.
+# Mobile finish note (2026-11-13): compact gutters do not alter imported drafts.
 related_files:
   - apps/web/lib/organizer-source-intelligence.ts
   - apps/web/lib/organizer-source-intelligence.test.ts

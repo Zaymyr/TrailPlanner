@@ -8,6 +8,7 @@ ai_priority: medium
 # Informations (2026-11-13) : les liens sociaux s’adaptent à la largeur disponible et les badges Requis reprennent les règles de validation existantes.
 # Navigation (2026-11-13) : la section active porte l’état principal, les libellés utilisent jusqu’à deux lignes et les actions destructives sont regroupées sous ⋯ avec confirmation.
 # Modules denses (2026-11-13) : l’arrivée peut reprendre le départ, les sponsors se sélectionnent par logo et la date de l’édition est affichée en français.
+# Mobile (2026-11-13) : Course affiche d’abord le formulaire ; « Médias et aperçu » déplie ensuite le GPX, le profil et l’image.
 related_files:
   - scripts/generate-racebook-organizer-manual.mjs
   - apps/web/app/organizers/page.tsx

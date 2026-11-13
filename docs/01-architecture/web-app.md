@@ -8,6 +8,7 @@ ai_priority: high
 # Organizer loading/forms (2026-11-13): lazy editors and sidecars use neutral skeletons; required inputs derive their Requis badge from the existing `required` contract.
 # Organizer hierarchy (2026-11-13): section labels wrap to two lines, the active subsection owns the strong state, headers use section-specific glyphs plus an 8%-opacity contour watermark, and destructive format actions live in the overflow menu.
 # Dense organizer modules (2026-11-13): course dates are localized, same-place access hides the duplicate finish field, equipment rows omit redundant Added badges, and sponsors expose a logo-first navigation grid.
+# Organizer mobile finish (2026-11-13): editor content uses compact phone gutters, inherited location wraps, and Course media is collapsed behind “Médias et aperçu” below 900px.
 related_files:
   - apps/web/app/admin/video-generator/export-frame.test.ts
   - apps/web/app/admin/video-generator/export-frame.ts

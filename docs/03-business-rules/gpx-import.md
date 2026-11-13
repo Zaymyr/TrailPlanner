@@ -7,6 +7,7 @@ ai_priority: high
 # Loading note (2026-11-13): organizer GPX sidecar loading uses skeletons and does not imply an empty dataset.
 # Navigation note (2026-11-13): GPX behavior is unchanged by section-specific organizer icons and wrapped labels.
 # Course form note (2026-11-13): localized edition dates and the collapsible mobile media surface do not alter GPX import.
+# Mobile note (2026-11-13): opening “Médias et aperçu” reveals the unchanged GPX controls.
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
   - apps/mobile/lib/gpx.ts

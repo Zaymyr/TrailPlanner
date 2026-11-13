@@ -7,6 +7,7 @@ ai_priority: medium
 # Loading UI note (2026-11-13): neutral organizer skeletons emit no additional analytics events.
 # Header/navigation note (2026-11-13): visual hierarchy changes emit no additional analytics events.
 # Dense module note (2026-11-13): logo-grid navigation and same-place access emit no new analytics events.
+# Mobile finish note (2026-11-13): collapsing Course media emits no new analytics events.
 related_files:
   - apps/web/lib/posthog-organizer-analytics.ts
   - apps/web/lib/posthog-organizer-analytics.test.ts

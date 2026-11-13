@@ -8,6 +8,7 @@ ai_priority: high
 # Loading/form UI note (2026-11-13): skeletons and required badges do not change claim authorization.
 # Navigation note (2026-11-13): active-state and overflow-menu changes do not change claim authorization.
 # Dense module note (2026-11-13): access, equipment, course, and sponsor layout changes do not alter membership authorization.
+# Mobile finish note (2026-11-13): compact editor layout does not alter membership authorization.
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
   - apps/web/app/api/organizer/claims/route.ts

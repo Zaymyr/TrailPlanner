@@ -7,6 +7,7 @@ ai_priority: high
 # Form note (2026-11-13): required badges are presentation of existing completion prerequisites and do not add offer gates.
 # Navigation note (2026-11-13): the single active subsection state does not alter offer availability.
 # Dense module note (2026-11-13): sponsor and course presentation changes do not alter offers.
+# Mobile gutter note (2026-11-13): compact editor padding does not alter offers.
 related_files:
   - apps/web/lib/organizer-entitlements.ts
   - apps/web/lib/organizer-modules.ts

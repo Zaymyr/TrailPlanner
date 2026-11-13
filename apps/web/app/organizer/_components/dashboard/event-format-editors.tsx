@@ -430,7 +430,7 @@ function RaceForm({
       </div>
       <div className="grid min-w-0 items-start gap-5 min-[900px]:grid-cols-[minmax(0,1fr)_300px]">
         <div className="min-w-0 space-y-4">
-          <div className="min-w-0 space-y-4 rounded-lg border border-border/70 bg-background px-4 py-4">
+          <div className="min-w-0 space-y-4 rounded-lg border border-border/70 bg-background p-3 sm:p-4">
             <div className="flex items-center gap-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Informations du format</p>
               <ContextualHelp text="Nom, métriques, date et lieu propres à ce parcours." />
