@@ -237,7 +237,7 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(shellSource).toContain('{getStatusLabel(module)}</p>');
     expect(shellSource).toContain('activeModule === module.id && "border-brand shadow-lg ring-2 ring-brand');
     expect(shellSource).toContain('min-h-[64px] rounded-lg');
-    expect(dashboardSource).toContain("xl:grid-cols-[220px_minmax(0,720px)_260px]");
+    expect(dashboardSource).toContain("min-[1320px]:grid-cols-[240px_minmax(0,1fr)_300px]");
     expect(dashboardSource).toContain("<OrganizerProgressRail");
     expect(shellSource).not.toContain('Manque : {module.missingLabels');
     expect(dashboardSource).toContain("raceSeriesGroups.filter");
@@ -291,7 +291,8 @@ describe("organizer dashboard UTF-8 copy", () => {
     );
 
     expect(source).toContain('legend="L’événement"');
-    expect(source).toContain('title="Réseaux sociaux"');
+    expect(source).toContain("[grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr))]");
+    expect(source).not.toContain('title="Réseaux sociaux"');
     expect(source).toContain('legend="Dates"');
     expect(source).toContain('legend="En cas d’urgence"');
     expect(source).toContain('title="Image de couverture"');

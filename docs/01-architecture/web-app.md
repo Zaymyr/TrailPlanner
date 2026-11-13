@@ -9,6 +9,7 @@ ai_priority: high
 # Organizer hierarchy (2026-11-13): section labels wrap to two lines, the active subsection owns the strong state, headers use section-specific glyphs plus an 8%-opacity contour watermark, and destructive format actions live in the overflow menu.
 # Dense organizer modules (2026-11-13): course dates are localized, same-place access hides the duplicate finish field, equipment rows omit redundant Added badges, and sponsors expose a logo-first navigation grid.
 # Organizer mobile finish (2026-11-13): editor content uses compact phone gutters, inherited location wraps, and Course media is collapsed behind “Médias et aperçu” below 900px.
+# Organizer regression guard (2026-11-13): UTF-8/source checks assert the 240/flexible/300 grid and the social auto-fit layout without a nested “Réseaux sociaux” title.
 related_files:
   - apps/web/app/admin/video-generator/export-frame.test.ts
   - apps/web/app/admin/video-generator/export-frame.ts

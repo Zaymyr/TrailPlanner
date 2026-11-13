@@ -11,6 +11,7 @@ ai_priority: high
 # Navigation/actions (2026-11-13): the selected subsection is the single strong state; deleting a format remains confirmed and is reached from its overflow menu.
 # Dense module forms (2026-11-13): access can explicitly reuse the start location, equipment status stays directly editable, and sponsor logos link to their existing editor without changing persistence.
 # Mobile finish (2026-11-13): compact gutters and collapsed Course media reduce initial height without changing form or completion rules.
+# Regression guard (2026-11-13): source tests assert the wide workspace grid and the social auto-fit layout without a redundant nested title.
 related_files:
   - apps/web/lib/racebook-publication-checks.ts
   - apps/web/lib/racebook-publication-checks.test.ts
