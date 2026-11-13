@@ -33,6 +33,8 @@ related_files:
   - apps/web/app/courses/evenements/[slug]/page.tsx
   - apps/web/app/courses/evenements/[slug]/event-structured-data.ts
   - apps/web/app/courses/evenements/[slug]/event-structured-data.test.ts
+  - apps/web/app/courses/evenements/[slug]/event-edition-status.ts
+  - apps/web/app/courses/evenements/[slug]/event-edition-status.test.ts
   - apps/web/app/courses/_components/RaceCatalogFilter.tsx
   - apps/web/app/courses/_components/RaceCatalogFilter.test.ts
   - apps/web/app/courses/_components/catalog-display.ts
@@ -116,6 +118,8 @@ Sharing uses the native Web Share sheet when available, which lets installed mob
 ## Catalog Event Grouping
 
 Every public edition with at least one web-public format has one canonical `/courses/evenements/[slug]` page. It lists only that edition's public formats, their factual distance, D+, date, location and ravito count, and sanitized practical information inherited from the event. It emits one parent `SportsEvent` with format `subEvent` entries. Former edition slugs permanently redirect after the current event and format visibility gates are rechecked. The sitemap deduplicates event-edition URLs and uses the newest edition, event, or format timestamp available; station rows currently have no `updated_at`, so station-only changes cannot improve `<lastmod>` evidence.
+
+Historical edition pages remain indexable and canonical. After the inclusive `end_date` has passed in Europe/Paris, they show an “Édition terminée” banner; if the same event has a later edition with at least one web-public format, the banner links directly to it. An already-published later edition is also highlighted from a non-past page.
 
 Each event-edition header exposes one `S’inscrire` action sourced from the shared event website. Distance-selection cards use the same target, while standalone cards fall back to the format URL and retain a separate internal course-detail link.
 

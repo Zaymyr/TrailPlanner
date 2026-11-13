@@ -9,6 +9,8 @@ related_files:
   - apps/web/lib/public-race-events.ts
   - apps/web/lib/public-race-events.test.ts
   - apps/web/app/courses/evenements/[slug]/page.tsx
+  - apps/web/app/courses/evenements/[slug]/event-edition-status.ts
+  - apps/web/app/courses/evenements/[slug]/event-edition-status.test.ts
 related_tables:
   - race_event_edition_slug_redirects
   - race_event_editions
@@ -40,6 +42,7 @@ RLS is enabled with no `anon` or `authenticated` policy or table privilege. Only
 - Do not grant client reads merely because the route is public. The service resolver is the reviewed boundary.
 - Do not update an edition slug from a browser or bypass the atomic rename function.
 - Event-edition resolution participates in the shared tagged public cache. Successful source, publication, visibility, image, and ravito writes invalidate that cache; the redirect table contract itself is unchanged.
+- Past canonical pages remain indexable and may link to the next public edition. This navigation uses the current canonical slug of each edition and never creates a redirect chain.
 
 ## Related Docs
 
