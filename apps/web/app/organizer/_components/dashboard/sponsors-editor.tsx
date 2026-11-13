@@ -1,11 +1,12 @@
 import Image from "next/image";
-import { useCallback, useEffect, useId, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useMemo, useState, type FormEvent } from "react";
 
 import { Button } from "../../../../components/ui/button";
 import { Input } from "../../../../components/ui/input";
 import { Label } from "../../../../components/ui/label";
 import type { OrganizerSponsor } from "./types";
 import { PartnerSlotsEditor } from "./partner-slots-editor";
+import { BooleanField, Field, FileField, SelectField } from "./form-kit";
 
 const toPatch = (sponsor: OrganizerSponsor) => ({
   name: sponsor.name,
@@ -55,6 +56,8 @@ export function SponsorsEditor({
   const [newTier, setNewTier] = useState<OrganizerSponsor["tier"]>("official");
   const [newCategory, setNewCategory] = useState("");
   const [newContextualPlacement, setNewContextualPlacement] = useState<OrganizerSponsor["contextualPlacement"]>("none");
+  const [newSponsorSubmitted, setNewSponsorSubmitted] = useState(false);
+  const [pendingRemoval, setPendingRemoval] = useState<OrganizerSponsor | null>(null);
   const [dirtySponsorIds, setDirtySponsorIds] = useState<Set<string>>(() => new Set());
   const formId = useId();
 
@@ -152,8 +155,8 @@ export function SponsorsEditor({
 
   const createSponsor = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!newImage) {
-      onToast("error", "Ajoute un logo au sponsor.");
+    setNewSponsorSubmitted(true);
+    if (!newName.trim() || !newImage) {
       return;
     }
     setBusyId("new");
@@ -182,6 +185,7 @@ export function SponsorsEditor({
       setNewTier("official");
       setNewCategory("");
       setNewContextualPlacement("none");
+      setNewSponsorSubmitted(false);
       onToast("success", "Sponsor ajouté.");
     } catch (error) {
       onToast("error", error instanceof Error ? error.message : "Impossible d'ajouter le sponsor.");
@@ -190,10 +194,7 @@ export function SponsorsEditor({
     }
   };
 
-  const replaceLogo = async (sponsor: OrganizerSponsor, event: ChangeEvent<HTMLInputElement>) => {
-    const image = event.target.files?.[0];
-    event.target.value = "";
-    if (!image) return;
+  const replaceLogo = async (sponsor: OrganizerSponsor, image: File) => {
     setBusyId(sponsor.id);
     try {
       const formData = new FormData();
@@ -211,7 +212,6 @@ export function SponsorsEditor({
   };
 
   const removeSponsor = async (sponsor: OrganizerSponsor) => {
-    if (!window.confirm(`Supprimer le sponsor ${sponsor.name} ?`)) return;
     setBusyId(sponsor.id);
     try {
       const response = await fetch(`/api/organizer/editions/${editionId}/sponsors/${sponsor.id}`, { method: "DELETE", headers: authHeaders });
@@ -232,6 +232,15 @@ export function SponsorsEditor({
       setBusyId(null);
     }
   };
+
+  useEffect(() => {
+    if (!pendingRemoval) return;
+    const timeout = window.setTimeout(() => {
+      void removeSponsor(pendingRemoval);
+      setPendingRemoval(null);
+    }, 6000);
+    return () => window.clearTimeout(timeout);
+  }, [pendingRemoval, removeSponsor]);
 
   const moveSponsor = async (index: number, direction: -1 | 1) => {
     const otherIndex = index + direction;
@@ -277,7 +286,7 @@ export function SponsorsEditor({
         Jusqu&apos;à 10 sponsors par édition, dont 2 maximum sur l&apos;écran de chargement. Le niveau détermine leur importance dans le bloc partenaires ; le placement contextuel les rapproche du contenu pertinent.
       </div>
       <PartnerSlotsEditor editionId={editionId} authHeaders={authHeaders} sponsors={sponsors} onToast={onToast} />
-      {sponsors.map((sponsor, index) => {
+      {sponsors.filter((sponsor) => sponsor.id !== pendingRemoval?.id).map((sponsor, index) => {
         const loadingDisabled = !sponsor.showOnLoading && loadingSponsorCount >= 2;
         const activationDisabled = !sponsor.isActive && sponsor.showOnLoading && loadingSponsorCount >= 2;
         return (
@@ -286,32 +295,28 @@ export function SponsorsEditor({
               <div className="flex h-20 w-20 items-center justify-center rounded-md border border-border bg-white p-2">
                 <Image src={sponsor.logoUrl} alt={`Logo ${sponsor.name}`} width={80} height={80} sizes="80px" unoptimized className="max-h-full max-w-full object-contain" />
               </div>
-              <Label htmlFor={`${formId}-${sponsor.id}-logo`} className="block cursor-pointer text-xs text-brand">Remplacer</Label><Input id={`${formId}-${sponsor.id}-logo`} aria-label={`Remplacer le logo de ${sponsor.name}`} className="sr-only" type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={(event) => void replaceLogo(sponsor, event)} />
+              <FileField label={`Logo de ${sponsor.name}`} value={{ name: sponsor.name, previewUrl: sponsor.logoUrl }} accept="image/png,image/jpeg,image/webp,image/avif" maxSizeLabel="PNG, JPEG, WebP ou AVIF" onChange={(image) => void replaceLogo(sponsor, image)} />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1"><Label htmlFor={`${formId}-${sponsor.id}-name`}>Nom</Label><Input id={`${formId}-${sponsor.id}-name`} value={sponsor.name} maxLength={80} onChange={(event) => changeSponsor(sponsor.id, { name: event.target.value })} onBlur={() => sponsor.name.trim() && void persistSponsor(sponsor)} /></div>
               <div className="space-y-1"><Label htmlFor={`${formId}-${sponsor.id}-website`}>Site web</Label><Input id={`${formId}-${sponsor.id}-website`} type="url" value={sponsor.websiteUrl ?? ""} onChange={(event) => changeSponsor(sponsor.id, { websiteUrl: event.target.value || null })} onBlur={() => void persistSponsor(sponsor)} placeholder="https://..." /></div>
               <div className="space-y-1">
                 <Label htmlFor={`${formId}-${sponsor.id}-tier`}>Niveau</Label>
-                <select id={`${formId}-${sponsor.id}-tier`} className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm" value={sponsor.tier} onChange={(event) => void toggleSponsor(sponsor, { tier: event.target.value as OrganizerSponsor["tier"] })}>
-                  {Object.entries(tierLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                </select>
+                <SelectField id={`${formId}-${sponsor.id}-tier`} value={sponsor.tier} options={Object.entries(tierLabels).map(([value, label]) => ({ value, label }))} onValueChange={(value) => void toggleSponsor(sponsor, { tier: value as OrganizerSponsor["tier"] })} />
               </div>
               <div className="space-y-1">
                 <Label htmlFor={`${formId}-${sponsor.id}-placement`}>Placement contextuel</Label>
-                <select id={`${formId}-${sponsor.id}-placement`} className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm" value={sponsor.contextualPlacement} onChange={(event) => void toggleSponsor(sponsor, { contextualPlacement: event.target.value as OrganizerSponsor["contextualPlacement"] })}>
-                  {Object.entries(placementLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                </select>
+                <SelectField id={`${formId}-${sponsor.id}-placement`} value={sponsor.contextualPlacement} options={Object.entries(placementLabels).map(([value, label]) => ({ value, label }))} onValueChange={(value) => void toggleSponsor(sponsor, { contextualPlacement: value as OrganizerSponsor["contextualPlacement"] })} />
               </div>
               <div className="space-y-1 sm:col-span-2"><Label htmlFor={`${formId}-${sponsor.id}-category`}>Catégorie ou rôle</Label><Input id={`${formId}-${sponsor.id}-category`} value={sponsor.category ?? ""} maxLength={60} onChange={(event) => changeSponsor(sponsor.id, { category: event.target.value || null })} onBlur={() => void persistSponsor(sponsor)} placeholder="Ex. équipementier officiel, hébergement partenaire" /></div>
-              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={sponsor.isActive} disabled={activationDisabled} onChange={(event) => void toggleSponsor(sponsor, { isActive: event.target.checked })} /> Actif</label>
-              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={sponsor.showOnLoading} disabled={loadingDisabled} onChange={(event) => void toggleSponsor(sponsor, { showOnLoading: event.target.checked })} /> Écran de chargement</label>
-              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={sponsor.showInBanner} onChange={(event) => void toggleSponsor(sponsor, { showInBanner: event.target.checked })} /> Bloc partenaires</label>
+              <BooleanField label="Actif" checked={sponsor.isActive} disabled={activationDisabled} onCheckedChange={(isActive) => void toggleSponsor(sponsor, { isActive })} />
+              <BooleanField label="Écran de chargement" checked={sponsor.showOnLoading} disabled={loadingDisabled} onCheckedChange={(showOnLoading) => void toggleSponsor(sponsor, { showOnLoading })} />
+              <BooleanField label="Bloc partenaires" checked={sponsor.showInBanner} onCheckedChange={(showInBanner) => void toggleSponsor(sponsor, { showInBanner })} />
               <p className="text-sm font-semibold text-foreground">{sponsor.impressionCount} vue{sponsor.impressionCount > 1 ? "s" : ""} · {sponsor.clickCount} clic{sponsor.clickCount > 1 ? "s" : ""}</p>
             </div>
             <div className="flex flex-row gap-2 lg:flex-col">
               <div className="flex gap-2"><Button type="button" variant="ghost" aria-label="Monter le sponsor" onClick={() => void moveSponsor(index, -1)} disabled={index === 0 || busyId !== null}>↑</Button><Button type="button" variant="ghost" aria-label="Descendre le sponsor" onClick={() => void moveSponsor(index, 1)} disabled={index === sponsors.length - 1 || busyId !== null}>↓</Button></div>
-              <Button type="button" variant="outline" className="border-red-300 text-red-700" onClick={() => void removeSponsor(sponsor)} disabled={busyId === sponsor.id}>Supprimer</Button>
+              <Button type="button" variant="outline" className="border-red-300 text-red-700" onClick={() => setPendingRemoval(sponsor)} disabled={busyId === sponsor.id}>Supprimer</Button>
             </div>
           </div>
         );
@@ -320,17 +325,18 @@ export function SponsorsEditor({
         <form className="space-y-4 rounded-lg border border-dashed border-border p-4" onSubmit={createSponsor}>
           <h3 className="font-semibold text-foreground">Ajouter un sponsor</h3>
           <div className="grid gap-3 md:grid-cols-2">
-            <div className="space-y-1"><Label htmlFor={`${formId}-new-name`}>Nom</Label><Input id={`${formId}-new-name`} required maxLength={80} value={newName} onChange={(event) => setNewName(event.target.value)} /></div>
+            <Field label="Nom" htmlFor={`${formId}-new-name`} error={newSponsorSubmitted && !newName.trim() ? "Indique le nom du sponsor." : undefined}><Input id={`${formId}-new-name`} maxLength={80} value={newName} aria-invalid={newSponsorSubmitted && !newName.trim() || undefined} onChange={(event) => setNewName(event.target.value)} /></Field>
             <div className="space-y-1"><Label htmlFor={`${formId}-new-website`}>Site web optionnel</Label><Input id={`${formId}-new-website`} type="url" value={newWebsiteUrl} onChange={(event) => setNewWebsiteUrl(event.target.value)} /></div>
-            <div className="space-y-1"><Label htmlFor={`${formId}-new-logo`}>Logo</Label><Input id={`${formId}-new-logo`} required type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={(event) => setNewImage(event.target.files?.[0] ?? null)} /></div>
-            <div className="space-y-1"><Label htmlFor={`${formId}-new-tier`}>Niveau</Label><select id={`${formId}-new-tier`} className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm" value={newTier} onChange={(event) => setNewTier(event.target.value as OrganizerSponsor["tier"])}>{Object.entries(tierLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
-            <div className="space-y-1"><Label htmlFor={`${formId}-new-placement`}>Placement contextuel</Label><select id={`${formId}-new-placement`} className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm" value={newContextualPlacement} onChange={(event) => setNewContextualPlacement(event.target.value as OrganizerSponsor["contextualPlacement"])}>{Object.entries(placementLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
+            <Field label="Logo" error={newSponsorSubmitted && !newImage ? "Ajoute un logo au sponsor." : undefined}><FileField label="Choisir un logo" accept="image/png,image/jpeg,image/webp,image/avif" value={newImage ? { name: newImage.name } : null} maxSizeLabel="PNG, JPEG, WebP ou AVIF" onChange={setNewImage} onRemove={() => setNewImage(null)} /></Field>
+            <div className="space-y-1"><Label htmlFor={`${formId}-new-tier`}>Niveau</Label><SelectField id={`${formId}-new-tier`} value={newTier} options={Object.entries(tierLabels).map(([value, label]) => ({ value, label }))} onValueChange={(value) => setNewTier(value as OrganizerSponsor["tier"])} /></div>
+            <div className="space-y-1"><Label htmlFor={`${formId}-new-placement`}>Placement contextuel</Label><SelectField id={`${formId}-new-placement`} value={newContextualPlacement} options={Object.entries(placementLabels).map(([value, label]) => ({ value, label }))} onValueChange={(value) => setNewContextualPlacement(value as OrganizerSponsor["contextualPlacement"])} /></div>
             <div className="space-y-1 md:col-span-2"><Label htmlFor={`${formId}-new-category`}>Catégorie ou rôle</Label><Input id={`${formId}-new-category`} maxLength={60} value={newCategory} onChange={(event) => setNewCategory(event.target.value)} placeholder="Ex. équipementier officiel" /></div>
-            <div className="flex flex-wrap items-end gap-4 pb-2 md:col-span-2"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={newShowOnLoading} disabled={loadingSponsorCount >= 2} onChange={(event) => setNewShowOnLoading(event.target.checked)} /> Chargement</label><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={newShowInBanner} onChange={(event) => setNewShowInBanner(event.target.checked)} /> Bloc partenaires</label></div>
+            <div className="grid gap-3 md:col-span-2 sm:grid-cols-2"><BooleanField label="Écran de chargement" checked={newShowOnLoading} disabled={loadingSponsorCount >= 2} onCheckedChange={setNewShowOnLoading} /><BooleanField label="Bloc partenaires" checked={newShowInBanner} onCheckedChange={setNewShowInBanner} /></div>
           </div>
           <Button type="submit" disabled={busyId === "new"}>{busyId === "new" ? "Ajout..." : "Ajouter le sponsor"}</Button>
         </form>
       ) : null}
+      {pendingRemoval ? <div role="status" aria-live="polite" className="flex items-center gap-3 rounded-md border border-border bg-card px-3 py-2 text-sm">Sponsor supprimé <Button type="button" variant="ghost" onClick={() => setPendingRemoval(null)}>Annuler</Button></div> : null}
     </div>
   );
 }

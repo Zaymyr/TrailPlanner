@@ -2,7 +2,7 @@
 title: race_start_waves Table
 scope: database
 
-last_verified: 2026-11-09
+last_verified: 2026-11-13
 
 ai_priority: high
 related_files:
@@ -23,6 +23,8 @@ related_tables:
 ---
 
 # `race_start_waves`
+
+The organizer's unified time fields and local repeatable-list drafts do not change SAS persistence or ordering. A draft wave is not submitted until it is valid; existing atomic replacement and membership checks remain authoritative.
 
 The shared mobile RaceBook screen now also reads additive bib-pickup conditions. SAS ordering, time precedence, structured replacement, module visibility, and RLS remain unchanged.
 

@@ -1,7 +1,7 @@
 ---
 title: race_event_publication_requests Table
 scope: database
-last_verified: 2026-11-09
+last_verified: 2026-11-13
 ai_priority: high
 related_files:
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
@@ -30,6 +30,8 @@ related_tables:
 ---
 
 # `race_event_publication_requests`
+
+Current per-format publication dirty state is derived from versioned RaceBook snapshots, not from this legacy review table. Reverting a draft to the exact published content clears the organizer publication CTA without creating, approving or changing a request row.
 
 Publication approval remains independent from manual invoicing. The admin publication route now returns exact active feature grants and independent invoice summaries for the same edition, but neither dataset changes a request status or implicitly publishes a format.
 

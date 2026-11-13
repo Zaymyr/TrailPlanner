@@ -1,7 +1,7 @@
 ---
 title: user_favorite_race_events Table
 scope: database
-last_verified: 2026-11-09
+last_verified: 2026-11-13
 ai_priority: high
 related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
@@ -22,6 +22,8 @@ related_tables:
 ---
 
 # `user_favorite_race_events`
+
+Organizer form validation, local repeatable-list drafts and announcement-delete confirmation do not alter favorite ownership, aggregate counts or notification audience selection.
 
 Organizer RaceBook analytics can be opened by the Signature tier or the exact `capability.racebook_analytics` gift. This changes only server authorization for aggregate favorite metrics; favorite ownership, client RLS and stored rows remain unchanged.
 

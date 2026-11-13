@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "../../../../components/ui/button";
 import { Input } from "../../../../components/ui/input";
@@ -17,7 +17,10 @@ import {
 import { AddressAutocompleteField } from "./address-autocomplete-field";
 import { equipmentSuggestions } from "./constants";
 import { ContextualHelp, InlineEditableRow, OptionalModule, SegmentedChoice, TextAreaField, TextField, ToggleChip } from "./controls";
+import { isOutsideDateRange, SelectField } from "./form-kit";
 import type { RaceFormat } from "./types";
+
+type EquipmentItem = OrganizerEventDetails["mandatoryEquipment"]["items"][number];
 
 export function EquipmentEditor({
   scope,
@@ -122,6 +125,12 @@ function EquipmentFields({
   const [weatherVariantsOpen, setWeatherVariantsOpen] = useState(
     equipment.weatherPlan !== "normal" || equipment.items.some((item) => item.cold || item.heat)
   );
+  const [draftItem, setDraftItem] = useState<EquipmentItem | null>(null);
+  const [draftItemTouched, setDraftItemTouched] = useState(false);
+  const draftItemInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (draftItem) draftItemInputRef.current?.focus();
+  }, [draftItem]);
   const indexedItems = equipment.items.map((item, index) => ({ item, index }));
   const groups = [
     { required: true, label: "Obligatoire", rows: indexedItems.filter(({ item }) => item.required) },
@@ -163,15 +172,12 @@ function EquipmentFields({
           weatherPlanEditable ? (
             <label className="flex items-center gap-2 text-xs text-muted-foreground">
               Conditions appliquées
-              <select
+              <SelectField
                 value={equipment.weatherPlan}
-                onChange={(event) => updateWeatherPlan(event.target.value as OrganizerEventDetails["mandatoryEquipment"]["weatherPlan"])}
+                onValueChange={(value) => updateWeatherPlan(value as OrganizerEventDetails["mandatoryEquipment"]["weatherPlan"])}
                 className="h-8 rounded-md border border-border bg-card px-2 text-xs font-medium text-foreground"
-              >
-                <option value="normal">Normales</option>
-                <option value="cold">Grand froid</option>
-                <option value="heat">Grosse chaleur</option>
-              </select>
+                options={[{ value: "normal", label: "Normales" }, { value: "cold", label: "Grand froid" }, { value: "heat", label: "Grosse chaleur" }]}
+              />
             </label>
           ) : (
             <span className="text-xs text-muted-foreground">Conditions appliquées : {effectiveWeatherPlan === "cold" ? "grand froid" : effectiveWeatherPlan === "heat" ? "grosse chaleur" : "normales"}</span>
@@ -212,17 +218,18 @@ function EquipmentFields({
                         onChange={(value) => updateItem(index, { required: value === "required" })}
                       />
                       {weatherVariantsOpen ? (
-                        <select
+                        <SelectField
                           aria-label={`Météo de ${item.label || `l’item ${index + 1}`}`}
                           value={weatherValue(item)}
-                          onChange={(event) => updateWeather(index, event.target.value)}
+                          onValueChange={(value) => updateWeather(index, value)}
                           className="h-8 min-w-32 flex-1 rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-full sm:flex-none"
-                        >
-                          <option value="always">Toujours</option>
-                          <option value="cold">Grand froid</option>
-                          <option value="heat">Grosse chaleur</option>
-                          {item.cold && item.heat ? <option value="cold_heat">Froid + chaleur</option> : null}
-                        </select>
+                          options={[
+                            { value: "always", label: "Toujours" },
+                            { value: "cold", label: "Grand froid" },
+                            { value: "heat", label: "Grosse chaleur" },
+                            ...(item.cold && item.heat ? [{ value: "cold_heat", label: "Froid + chaleur" }] : []),
+                          ]}
+                        />
                       ) : null}
                     </div>
                     <Button
@@ -249,12 +256,33 @@ function EquipmentFields({
         })}
       </div>
       <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-        <Button type="button" variant="ghost" className="h-8 px-2 text-xs font-semibold text-brand" onClick={() => updateItems([...equipment.items, { id: `item-${Date.now()}`, label: "Nouvel item", required: true, cold: false, heat: false, note: null }])}>+ Ajouter un item</Button>
+        <Button type="button" variant="ghost" className="h-8 px-2 text-xs font-semibold text-brand" onClick={() => { setDraftItemTouched(false); setDraftItem({ id: `item-${Date.now()}`, label: "", required: true, cold: false, heat: false, note: null }); }}>+ Ajouter un item</Button>
         {availableSuggestions.length > 0 ? <span className="text-xs text-muted-foreground">Suggestions :</span> : null}
         {availableSuggestions.map((suggestion) => (
           <Button key={suggestion} type="button" variant="ghost" className="h-8 px-2 text-xs text-brand" onClick={() => updateItems([...equipment.items, { id: `item-${Date.now()}`, label: suggestion, required: true, cold: false, heat: false, note: null }])}>+ {suggestion}</Button>
         ))}
       </div>
+      {draftItem ? (
+        <div className="space-y-3 rounded-md border border-dashed border-brand-border bg-brand-surface p-3">
+          <p className="text-sm font-medium text-foreground">Nouvel item</p>
+          <Input
+            ref={draftItemInputRef}
+            aria-label="Nom du nouvel item de matériel"
+            value={draftItem.label}
+            onChange={(event) => setDraftItem({ ...draftItem, label: event.target.value })}
+            onBlur={() => setDraftItemTouched(true)}
+            placeholder="Ex. couverture de survie"
+            aria-invalid={draftItemTouched && !draftItem.label.trim() || undefined}
+            aria-describedby={draftItemTouched && !draftItem.label.trim() ? "equipment-draft-error" : undefined}
+            className={cn("h-11", draftItemTouched && !draftItem.label.trim() && "border-red-500")}
+          />
+          {draftItemTouched && !draftItem.label.trim() ? <p id="equipment-draft-error" className="text-xs font-medium text-red-700">Saisis le nom de l’item avant de l’enregistrer.</p> : null}
+          <div className="flex gap-2">
+            <Button type="button" onClick={() => { setDraftItemTouched(true); if (!draftItem.label.trim()) return; updateItems([...equipment.items, { ...draftItem, label: draftItem.label.trim() }]); setDraftItem(null); }}>Enregistrer</Button>
+            <Button type="button" variant="ghost" onClick={() => setDraftItem(null)}>Annuler</Button>
+          </div>
+        </div>
+      ) : null}
       <TextAreaField
         label="Note matériel"
         value={equipment.note ?? ""}
@@ -267,9 +295,13 @@ function EquipmentFields({
 
 export function BibPickupEditor({
   eventDetails,
+  editionStartDate,
+  editionEndDate,
   onEventChange,
 }: {
   eventDetails: OrganizerEventDetails;
+  editionStartDate: string;
+  editionEndDate: string;
   onEventChange: (details: OrganizerEventDetails) => void;
 }) {
   return (
@@ -277,6 +309,8 @@ export function BibPickupEditor({
       title="Retrait dossard commun"
       description="Renseigne les infos valables pour tous les formats."
       bib={eventDetails.bibPickup}
+      editionStartDate={editionStartDate}
+      editionEndDate={editionEndDate}
       showHeader={false}
       onBibChange={(bibPickup) => onEventChange({ ...eventDetails, bibPickup })}
     />
@@ -287,11 +321,15 @@ export function RaceBibPickupEditor({
   activeRace,
   eventDetails,
   raceDetails,
+  editionStartDate,
+  editionEndDate,
   onRaceChange,
 }: {
   activeRace: RaceFormat | null;
   eventDetails: OrganizerEventDetails;
   raceDetails: OrganizerRaceDetails;
+  editionStartDate: string;
+  editionEndDate: string;
   onRaceChange: (details: OrganizerRaceDetails) => void;
 }) {
   if (!activeRace) {
@@ -301,11 +339,12 @@ export function RaceBibPickupEditor({
   const bib = raceDetails.bibPickup;
   if (!bib.overrideEnabled) {
     const inheritedLocations = getOrganizerBibPickupLocations(eventDetails.bibPickup);
+    const inheritedSlotCount = inheritedLocations.reduce((count, location) => count + location.slots.length, 0);
     return (
       <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-4">
         <p className="text-sm font-semibold text-foreground">Retrait hérité de l’événement</p>
         <p className="text-sm text-muted-foreground">
-          {inheritedLocations[0]?.location || "Lieu à compléter"} · {inheritedLocations.reduce((count, location) => count + location.slots.length, 0)} créneau(x){eventDetails.bibPickup.equipmentCheck ? " · contrôle matériel" : ""}
+          {inheritedLocations[0]?.location || "Lieu à compléter"} · {inheritedSlotCount} {inheritedSlotCount === 1 ? "créneau" : "créneaux"}{eventDetails.bibPickup.equipmentCheck ? " · contrôle matériel" : ""}
         </p>
         <Button type="button" variant="outline" onClick={() => onRaceChange({
           ...raceDetails,
@@ -326,6 +365,8 @@ export function RaceBibPickupEditor({
       title="Retrait spécifique au format"
       description="Renseigne uniquement les différences applicables à ce format."
       bib={bib}
+      editionStartDate={editionStartDate}
+      editionEndDate={editionEndDate}
       hideLocationDetails
       showHeader={false}
       framed={false}
@@ -342,6 +383,8 @@ function BibPickupFields({
   hideLocationDetails,
   showHeader = true,
   framed = false,
+  editionStartDate,
+  editionEndDate,
 }: {
   title: string;
   description: string;
@@ -350,6 +393,8 @@ function BibPickupFields({
   hideLocationDetails?: boolean;
   showHeader?: boolean;
   framed?: boolean;
+  editionStartDate: string;
+  editionEndDate: string;
 }) {
   const update = (next: Partial<OrganizerEventDetails["bibPickup"]>) => onBibChange({ ...bib, ...next });
   const locations = getOrganizerBibPickupLocations(bib);
@@ -437,6 +482,7 @@ function BibPickupFields({
                     </p>
                   ) : (
                     pickupLocation.slots.map((slot, slotIndex) => {
+                      const dateOutsideEdition = isOutsideDateRange(slot.date ?? "", editionStartDate, editionEndDate);
                       const updateSlot = (next: Partial<OrganizerBibPickupSlot>) =>
                         updateSlots(
                           locationIndex,
@@ -446,7 +492,10 @@ function BibPickupFields({
                         );
                       return (
                         <InlineEditableRow key={`bib-location-${locationIndex}-slot-${slotIndex}`} className="grid grid-cols-[minmax(0,1fr)_2rem] gap-2 sm:grid-cols-[10rem_6.25rem_1rem_6.25rem_2rem] sm:items-center">
-                          <Input aria-label={`Jour du créneau ${slotIndex + 1}, lieu ${locationIndex + 1}`} type="date" value={slot.date ?? ""} onChange={(event) => updateSlot({ date: event.target.value || null })} aria-invalid={!slot.date || undefined} className={cn("h-9 min-w-0 font-mono text-sm tabular-nums", !slot.date && "border-amber-400")} />
+                          <div>
+                            <Input aria-label={`Jour du créneau ${slotIndex + 1}, lieu ${locationIndex + 1}`} type="date" value={slot.date ?? ""} onChange={(event) => updateSlot({ date: event.target.value || null })} aria-invalid={!slot.date || undefined} className={cn("h-9 min-w-0 font-mono text-sm tabular-nums", !slot.date && "border-red-500")} />
+                            {dateOutsideEdition ? <p className="mt-1 text-xs font-medium text-amber-700">Cette date est hors de la période de l’édition.</p> : null}
+                          </div>
                           <div className="col-span-2 grid grid-cols-[minmax(0,1fr)_1rem_minmax(0,1fr)] items-center gap-2 sm:contents">
                             <Input aria-label={`Début du créneau ${slotIndex + 1}, lieu ${locationIndex + 1}`} type="time" value={slot.startTime ?? ""} onChange={(event) => updateSlot({ startTime: event.target.value || null })} aria-invalid={!slot.startTime || undefined} className={cn("h-9 min-w-0 font-mono text-sm tabular-nums", !slot.startTime && "border-amber-400")} />
                             <span className="text-center text-xs text-muted-foreground" aria-hidden>→</span>
@@ -622,7 +671,8 @@ function AccessFields({
       </div>
 
       <OptionalModule
-        title="une carte générale"
+        title="Carte générale"
+        addLabel="+ Ajouter une carte générale"
         active={mapOpen}
         onAdd={() => { setMapOpen(true); updateSection("mapUrl", true); }}
         onRemove={() => { setMapOpen(false); updateSection("mapUrl", false); }}
@@ -636,7 +686,8 @@ function AccessFields({
       </div>
 
       <OptionalModule
-        title="les routes fermées"
+        title="Routes fermées"
+        addLabel="+ Ajouter les routes fermées"
         active={restrictionsOpen}
         onAdd={() => { setRestrictionsOpen(true); updateSection("roadRestrictions", true); }}
         onRemove={() => { setRestrictionsOpen(false); updateSection("roadRestrictions", false); }}
@@ -645,7 +696,8 @@ function AccessFields({
       </OptionalModule>
 
       <OptionalModule
-        title="les parkings"
+        title="Parkings"
+        addLabel="+ Ajouter les parkings"
         active={parkingsOpen}
         onAdd={() => { setParkingsOpen(true); updateSection("officialParkings", true); }}
         onRemove={() => { setParkingsOpen(false); updateSection("officialParkings", false); }}
@@ -654,7 +706,8 @@ function AccessFields({
       </OptionalModule>
 
       <OptionalModule
-        title="les navettes"
+        title="Navettes"
+        addLabel="+ Ajouter les navettes"
         active={shuttlesOpen}
         onAdd={() => { setShuttlesOpen(true); updateSection("shuttles", true); }}
         onRemove={() => { setShuttlesOpen(false); updateSection("shuttles", false); }}

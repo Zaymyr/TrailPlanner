@@ -1,7 +1,7 @@
 ---
 title: OpenAI Organizer Import Reconciliation
 scope: integration
-last_verified: 2026-11-09
+last_verified: 2026-11-13
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-source-intelligence.ts
@@ -37,6 +37,8 @@ Imported legacy and structured content remains visible after the progressive for
 The manual `Suivi coureur` helpers do not change organizer import reconciliation. Imported ravitos may be selected as a source in the editor, but supporter permissions and access location still require organizer confirmation and are never inferred by the import pipeline.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
+
+The shared organizer form controls validate locally after interaction or an explicit save attempt. Their local repeatable drafts, undo window, focus management, and field-level errors do not create import claims or mutate an imported draft until the existing authorized autosave/apply path accepts a valid value.
 
 ## Purpose
 
@@ -89,6 +91,7 @@ Applying imported claims only updates organizer draft sources and their draft re
 - Keep resumable uploads on the direct Supabase Storage origin (`*.storage.supabase.co`) and retain completed-object cleanup on cancellation or failure; sending 25 MB files through the Next.js route reintroduces platform payload limits.
 
 - The Organizer section chooser's edition-common/per-format grouping, local draft, and batched save are independent from assisted-import sessions; opening, toggling, saving, or discarding module switches must not start or cancel an OpenAI reconciliation workflow.
+- Do not turn a field-normalization convenience (for example an Instagram handle expanded to its HTTPS URL) into import evidence. Import claims remain grounded only in their recorded source excerpt and signed review snapshot.
 - The default-enabled Essential `supporter_points` module is labelled **Suivi coureur**. Its compatibility sidecar load for a legacy settings payload without an explicit key is ordinary authorized organizer data loading, not an import source, claim, or model invocation.
 - Replaying or completing the Organizer dashboard guide does not start website discovery, upload documents, or invoke OpenAI reconciliation. Its temporary visibility-panel expansion and compact editor highlight are presentation-only; assisted import remains an explicit admin-only action.
 - Grey masked-format choices and the compact private/public labels in Organizer navigation reflect persisted visibility only. They neither invoke reconciliation nor alter imported claims, and a masked imported draft remains editable by an authorized organizer/admin.

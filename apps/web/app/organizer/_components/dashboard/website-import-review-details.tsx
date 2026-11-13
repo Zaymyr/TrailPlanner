@@ -1,4 +1,5 @@
 import { Button } from "../../../../components/ui/button";
+import { SelectField } from "./form-kit";
 import type {
   RaceFormat,
   WebsiteImportDiscoveryWorkflow,
@@ -239,54 +240,46 @@ export function WebsiteImportFormatDiscoveryReview({
               </label>
               <label className="space-y-1 text-xs font-medium text-foreground">
                 Décision
-                <select
-                  className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm font-normal text-foreground"
+                <SelectField
                   value={decision.mode}
-                  onChange={(event) => {
-                    const mode = event.target.value as WebsiteImportFormatDecision["mode"];
+                  options={[
+                    { value: "create", label: "Créer un brouillon" },
+                    { value: "bind-existing", label: "Rattacher à l’existant" },
+                    ...(!decision.manual ? [{ value: "ignore", label: "Ignorer" }] : []),
+                  ]}
+                  onValueChange={(value) => {
+                    const mode = value as WebsiteImportFormatDecision["mode"];
                     onChange(decision.groupId, {
                       mode,
                       targetRaceId: mode === "bind-existing" ? decision.targetRaceId : null,
                     });
                   }}
-                >
-                  <option value="create">Créer un brouillon</option>
-                  <option value="bind-existing">Rattacher à l’existant</option>
-                  {!decision.manual ? <option value="ignore">Ignorer</option> : null}
-                </select>
+                />
               </label>
               {decision.mode === "bind-existing" ? (
                 <label className="space-y-1 text-xs font-medium text-foreground">
                   Format existant
-                  <select
-                    className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm font-normal text-foreground"
+                  <SelectField
                     value={decision.targetRaceId ?? ""}
-                    onChange={(event) => onChange(decision.groupId, { targetRaceId: event.target.value || null })}
-                  >
-                    <option value="">Choisir une cible</option>
-                    {existingRaces.map((race) => (
-                      <option key={race.id} value={race.id}>{race.series_name || race.name} · {race.race_date?.slice(0, 10) ?? "sans date"}</option>
-                    ))}
-                  </select>
+                    options={[{ value: "", label: "Choisir une cible" }, ...existingRaces.map((race) => ({ value: race.id, label: `${race.series_name || race.name} · ${race.race_date?.slice(0, 10) ?? "sans date"}` }))]}
+                    onValueChange={(value) => onChange(decision.groupId, { targetRaceId: value || null })}
+                  />
                 </label>
               ) : !decision.manual && decisions.length > 1 ? (
                 <label className="space-y-1 text-xs font-medium text-foreground">
                   Regrouper avec
-                  <select
-                    className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm font-normal text-foreground"
+                  <SelectField
                     value=""
-                    onChange={(event) => event.target.value && onMerge(decision.groupId, event.target.value)}
-                  >
-                    <option value="">Aucun regroupement</option>
-                    {decisions
+                    options={[{ value: "", label: "Aucun regroupement" }, ...decisions
                       .filter(
                         (candidate) =>
                           candidate.groupId !== decision.groupId &&
                           candidate.mode !== "ignore" &&
                           !candidate.manual
                       )
-                      .map((candidate) => <option key={candidate.groupId} value={candidate.groupId}>{candidate.name}</option>)}
-                  </select>
+                      .map((candidate) => ({ value: candidate.groupId, label: candidate.name }))]}
+                    onValueChange={(value) => value && onMerge(decision.groupId, value)}
+                  />
                 </label>
               ) : (
                 <div />

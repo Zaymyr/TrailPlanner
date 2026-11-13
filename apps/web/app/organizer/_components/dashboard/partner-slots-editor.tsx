@@ -3,6 +3,7 @@ import { useEffect, useId, useState } from "react";
 import { Input } from "../../../../components/ui/input";
 import { Label } from "../../../../components/ui/label";
 import type { OrganizerSponsor } from "./types";
+import { SelectField } from "./form-kit";
 
 type SlotKey = "equipment" | "lodging";
 type SlotMode = "affiliate" | "partner" | "hidden";
@@ -102,24 +103,23 @@ export function PartnerSlotsEditor({
           <div key={slot.slot} className="grid gap-3 rounded-md border border-border/70 p-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label htmlFor={`${formId}-${slot.slot}-mode`}>{slot.label}</Label>
-              <select
+              <SelectField
                 id={`${formId}-${slot.slot}-mode`}
-                className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
                 value={selectValue}
                 disabled={busySlot === slot.slot}
-                onChange={(event) => {
-                  const value = event.target.value;
+                options={[
+                  { value: "affiliate", label: `Lien ${slot.affiliatePartner} (Pace Yourself)` },
+                  ...sponsors.map((sponsor) => ({ value: `partner:${sponsor.id}`, label: `Mon partenaire : ${sponsor.name}` })),
+                  { value: "hidden", label: "Masquer cet emplacement" },
+                ]}
+                onValueChange={(value) => {
                   if (value.startsWith("partner:")) {
                     void save(slot.slot, { mode: "partner", sponsorId: value.slice("partner:".length), headline: slot.headline });
                   } else {
                     void save(slot.slot, { mode: value });
                   }
                 }}
-              >
-                <option value="affiliate">Lien {slot.affiliatePartner} (Pace Yourself)</option>
-                {sponsors.map((sponsor) => <option key={sponsor.id} value={`partner:${sponsor.id}`}>Mon partenaire : {sponsor.name}</option>)}
-                <option value="hidden">Masquer cet emplacement</option>
-              </select>
+              />
               <p className="text-xs text-muted-foreground">{slotHelp[slot.slot]}</p>
             </div>
             {slot.mode === "partner" ? (

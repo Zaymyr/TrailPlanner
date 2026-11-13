@@ -648,6 +648,8 @@ Organizer navigation uses one desktop section level and a matching mobile select
 
 Legacy `TextField`, `NumberField`, and `TextAreaField` remain compatibility wrappers during migration; they now defer red accessible errors until blur or an explicit validation attempt.
 
+Organizer material, bib, access, services, sponsors, partner slots, products, analytics, and import-review editors consume the shared controls. Repeatable additions stay local until valid, and eligible removals expose a six-second undo window.
+
 ## Gotchas
 
 - `RootChrome` owns the single public `<main>` landmark and its `#main-content` skip target. Route pages rendered inside it must not add a second `<main>`. Desktop navigation keeps account-only destinations, locale, theme and sign-out inside the account menu; unauthenticated organizer links target `/organisateurs`.

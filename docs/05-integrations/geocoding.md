@@ -1,7 +1,7 @@
 ---
 title: Geocoding
 scope: integration
-last_verified: 2026-11-04
+last_verified: 2026-11-13
 ai_priority: medium
 related_files:
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
@@ -33,6 +33,8 @@ Departure and arrival addresses are now the always-visible essential access fiel
 The mobile rolling-deployment fallback reads already geocoded supporter points through RLS and does not invoke geocoding from the runner client.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
+
+Organizer form-kit field wrappers keep a uniform control height and show red field errors only after interaction or an attempted save. They do not alter `AddressAutocompleteField`: its label/input association, combobox/listbox keyboard contract, free-text fallback, and structured location write path remain authoritative.
 
 ## Purpose
 
@@ -146,6 +148,7 @@ The public `/courses` search reads only the normalized locality names alongside 
 - Keep the provider call server-side so browser clients do not depend directly on third-party geocoding availability or headers.
 - Preserve the combobox roles, active-option relationship and keyboard behavior when changing suggestion rendering; mouse-only autocomplete is not an acceptable fallback.
 - Contextual help may replace surrounding explanatory paragraphs in Organizer, but address labels, validation errors, inherited-location values, and the combobox keyboard contract must remain visible and accessible.
+- A local draft entry or its cancellation must not create a manual location object, invoke `/api/location-search`, or overwrite a previously saved address. Only the established address field and autosave flow may update canonical text or structured coordinates.
 - Google Maps links are generated locally from the selected label/coordinates; the app does not currently call a Google geocoding API.
 - In the mobile Racebook access tab, generated start/finish links are exposed through explicit Maps buttons. Equal normalized start and finish address strings render as one location while retaining the first available generated link; the optional organizer-supplied general map remains a separate labeled action.
 - Keep the organizer address/editor copy UTF-8 safe. `event-format-editors.tsx` mixes geocoded address controls with accented French labels, so a bad save/import encoding can surface mojibake such as `Ã©` right next to location fields.

@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-11-12
+last_verified: 2026-11-13
 ai_priority: high
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
@@ -69,6 +69,8 @@ The format editor is presented as one linear column so the optional GPX, editabl
 The Organizer `Suivi coureur` editor may reuse the loaded GPX preview to interpolate an access coordinate at a supporter point's course kilometer. This is an authoring aid: it persists the resulting latitude/longitude and does not alter the source GPX. If the trace cannot cover the requested kilometer, the point stays an incomplete draft until a separate access address is selected or a usable GPX is provided.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
+
+The Organizer form kit may present GPX-related additions as local drafts and field warnings. This is authoring UI only: upload, replacement and deletion still use the existing membership-checked routes and parser contracts.
 
 ## Purpose
 

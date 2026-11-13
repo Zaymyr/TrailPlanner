@@ -2,7 +2,7 @@
 title: races Table
 scope: database
 
-last_verified: 2026-11-09
+last_verified: 2026-11-13
 
 ai_priority: high
 related_files:
@@ -70,6 +70,8 @@ related_tables:
 ---
 
 # `races`
+
+The organizer form-kit keeps new repeatable entries as browser-local drafts until their required values are valid. In particular, adding then abandoning a ravito or equipment item must not persist a placeholder row to `races` or its related collections.
 
 Format `organizer_details.bibPickup` may now include nullable `thirdPartyPickupConditions` as part of a complete format override. Event inheritance and the existing `overrideEnabled` boundary remain authoritative; no relational race column, publication flag, or catalog rule changes.
 

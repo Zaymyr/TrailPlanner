@@ -7,6 +7,7 @@ import { TabsList } from "../../../../components/ui/tabs";
 import { cn } from "../../../../components/utils";
 import type { FuelProduct } from "../../../../lib/product-types";
 import { ContextualHelp, NumberField, TextAreaField, TextField } from "./controls";
+import { BooleanField, SelectField } from "./form-kit";
 import { formatKm, getGpxCoordinateAtDistance, normalizeClockInputValue } from "./helpers";
 import { StationProductsBlock } from "./products-editor";
 import { AddressAutocompleteField } from "./address-autocomplete-field";
@@ -79,7 +80,7 @@ export function AidStationsEditor({
   startWavesSlot: ReactNode;
   expandedStationKey: string | null;
   onExpandedStationKeyChange: (key: string | null) => void;
-  onAddStation: () => void;
+  onAddStation: (draft: Pick<AidStationDraft, "name" | "distanceKm">) => void;
   onAddRelayPoint: () => void;
   onAddSupporterPoint: () => void;
   onStartTimeChange: (value: string) => void;
@@ -108,12 +109,26 @@ export function AidStationsEditor({
     scopeKey: "",
     view: "aidStations",
   });
+  const [stationDraft, setStationDraft] = useState<{ name: string; distanceKm: number } | null>(null);
+  const [stationDraftTouched, setStationDraftTouched] = useState(false);
+  const [pendingStationRemoval, setPendingStationRemoval] = useState<{ index: number; name: string } | null>(null);
   const relayEnabled = participationMode === "relay" || participationMode === "solo_and_relay";
   const viewScopeKey = `${activeRace?.id ?? ""}:${participationMode}`;
 
   useEffect(() => {
     setViewState({ scopeKey: viewScopeKey, view: "aidStations" });
+    setStationDraft(null);
+    setStationDraftTouched(false);
   }, [viewScopeKey]);
+
+  useEffect(() => {
+    if (!pendingStationRemoval) return;
+    const timeout = window.setTimeout(() => {
+      onRemoveStation(pendingStationRemoval.index);
+      setPendingStationRemoval(null);
+    }, 6000);
+    return () => window.clearTimeout(timeout);
+  }, [onRemoveStation, pendingStationRemoval]);
 
   if (!activeRace) return <p className="text-sm text-muted-foreground">Sélectionne un format pour gérer ses ravitos.</p>;
   const activeView = viewState.scopeKey === viewScopeKey ? viewState.view : "aidStations";
@@ -160,7 +175,7 @@ export function AidStationsEditor({
         />
         {activeView !== "startWaves" ? (
           activeView === "aidStations" ? (
-            <Button type="button" variant="outline" onClick={onAddStation}>
+            <Button type="button" variant="outline" onClick={() => setStationDraft({ name: "", distanceKm: 0 })}>
               Ajouter un ravito
             </Button>
           ) : activeView === "supporters" ? (
@@ -187,11 +202,31 @@ export function AidStationsEditor({
         />
       ) : activeView === "aidStations" ? (
         <>
+          {stationDraft ? (
+            <section className="space-y-3 rounded-xl border border-dashed border-brand-border bg-brand-surface/30 p-4">
+              <p className="font-semibold text-foreground">Nouveau ravito</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <TextField label="Nom du ravito" value={stationDraft.name} onChange={(name) => setStationDraft((current) => current ? { ...current, name } : current)} invalid={!stationDraft.name.trim()} validationVisible={stationDraftTouched} errorMessage="Indique le nom du ravito." autoFocus />
+                <NumberField label="Distance km" value={stationDraft.distanceKm} onChange={(distanceKm) => setStationDraft((current) => current ? { ...current, distanceKm } : current)} emptyWhenZero />
+              </div>
+              <div className="flex gap-2">
+                <Button type="button" onClick={() => {
+                  setStationDraftTouched(true);
+                  if (!stationDraft.name.trim()) return;
+                  onAddStation({ name: stationDraft.name.trim(), distanceKm: stationDraft.distanceKm });
+                  setStationDraft(null);
+                  setStationDraftTouched(false);
+                }}>Enregistrer le ravito</Button>
+                <Button type="button" variant="ghost" onClick={() => { setStationDraft(null); setStationDraftTouched(false); }}>Annuler</Button>
+              </div>
+            </section>
+          ) : null}
           {aidStations.length === 0 ? (
             <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">Aucun ravito.</p>
           ) : (
             <div className="space-y-4">
               {aidStations.map((station, index) => {
+                if (pendingStationRemoval?.index === index) return null;
                 const key = station.id ?? `new-${index}`;
                 const isExpanded = expandedStationKey === key;
                 const productCount = station.id ? stationProducts.filter((link) => link.aidStationId === station.id).length : 0;
@@ -247,9 +282,6 @@ export function AidStationsEditor({
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                    <Button type="button" variant="outline" className="h-10 rounded-full px-4 text-xs font-semibold" onClick={() => station.id && onOpenProductPicker(station.id)} disabled={!station.id || status === "saving"}>
-                      Ajouter un produit
-                    </Button>
                     <Button
                       type="button"
                       variant="ghost"
@@ -261,9 +293,7 @@ export function AidStationsEditor({
                       {isExpanded ? "Masquer" : "Détails"}
                       {isExpanded ? <ChevronUpIcon className="h-4 w-4" aria-hidden /> : <ChevronDownIcon className="h-4 w-4" aria-hidden />}
                     </Button>
-                    <Button type="button" variant="ghost" className="h-10 rounded-full border border-red-200 bg-red-50 px-4 text-xs font-semibold text-red-700 hover:bg-red-100" onClick={() => {
-                      if (window.confirm(`Supprimer le ravito « ${station.name || `Ravito ${index + 1}`} » ?`)) onRemoveStation(index);
-                    }}>
+                    <Button type="button" variant="ghost" className="h-10 rounded-full border border-red-200 bg-red-50 px-4 text-xs font-semibold text-red-700 hover:bg-red-100" onClick={() => setPendingStationRemoval({ index, name: station.name || `Ravito ${index + 1}` })}>
                       Supprimer le ravito
                     </Button>
                   </div>
@@ -299,6 +329,12 @@ export function AidStationsEditor({
               })}
             </div>
           )}
+          {pendingStationRemoval ? (
+            <div role="status" aria-live="polite" className="sticky bottom-3 z-20 flex items-center justify-between gap-3 rounded-md border border-border bg-card px-3 py-2 text-sm shadow-lg">
+              <span>{pendingStationRemoval.name} supprimé.</span>
+              <Button type="button" variant="ghost" onClick={() => setPendingStationRemoval(null)}>Annuler</Button>
+            </div>
+          ) : null}
           <section className="grid gap-4 rounded-[1.5rem] border border-border bg-background p-4 md:grid-cols-2">
             <TextAreaField label="Consignes de barrières horaires" value={cutoffNote} onChange={onCutoffNoteChange} />
             <TextAreaField label="Contraintes et consignes de course" value={scheduleNote} onChange={onScheduleNoteChange} />
@@ -445,13 +481,20 @@ function SupporterPointsEditor({
             <div className="grid gap-3 md:grid-cols-2">
               <div className="space-y-1">
                 <label className="text-sm font-medium text-foreground" htmlFor={`supporter-source-${index}`}>Point de course</label>
-                <select
+                <SelectField
                   id={`supporter-source-${index}`}
                   className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
                   value={matchingStationIndex >= 0 ? String(matchingStationIndex) : ""}
-                  onChange={(event) => {
-                    if (event.target.value === "") return;
-                    const stationIndex = Number(event.target.value);
+                  options={[
+                    { value: "", label: "Créer un nouveau point" },
+                    ...aidStations.map((station, stationIndex) => ({
+                      value: String(stationIndex),
+                      label: `${station.name} · ${formatKm(station.distanceKm)}`,
+                    })),
+                  ]}
+                  onValueChange={(value) => {
+                    if (value === "") return;
+                    const stationIndex = Number(value);
                     const station = Number.isInteger(stationIndex) ? aidStations[stationIndex] : null;
                     if (!station) return;
                     onChange(index, applyCourseAccess({
@@ -461,14 +504,7 @@ function SupporterPointsEditor({
                       accessOnCourse: true,
                     }));
                   }}
-                >
-                  <option value="">Créer un nouveau point</option>
-                  {aidStations.map((station, stationIndex) => (
-                    <option key={station.id ?? `${station.name}-${stationIndex}`} value={stationIndex}>
-                      {station.name} · {formatKm(station.distanceKm)}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
               <TextField label="Nom du point" value={point.name} onChange={(name) => onChange(index, applyCourseAccess({ ...point, name }))} invalid={!point.name.trim()} />
               <TextField
@@ -487,21 +523,15 @@ function SupporterPointsEditor({
             </div>
             {!point.encouragementAllowed && !point.assistanceAllowed ? <p className="text-xs font-medium text-amber-700">Choisis au moins une autorisation pour publier ce point.</p> : null}
 
-            <label className="flex items-start gap-3 rounded-xl border border-border bg-background p-3 text-sm text-foreground">
-              <input
-                type="checkbox"
-                className="mt-0.5 h-4 w-4 accent-emerald-700"
-                checked={point.accessOnCourse === true}
-                disabled={status === "saving"}
-                onChange={(event) => onChange(index, event.target.checked
-                  ? applyCourseAccess({ ...point, accessOnCourse: true })
-                  : { ...point, accessOnCourse: false, accessLabel: "", latitude: null, longitude: null, googleMapsUrl: null })}
-              />
-              <span>
-                <span className="block font-semibold">Accès supporters au même endroit que le point de course</span>
-                <span className="mt-1 block text-xs text-muted-foreground">Les coordonnées sont prises automatiquement sur le tracé GPX à cette distance.</span>
-              </span>
-            </label>
+            <BooleanField
+              label="Accès supporters au même endroit que le point de course"
+              description="Les coordonnées sont prises automatiquement sur le tracé GPX à cette distance."
+              checked={point.accessOnCourse === true}
+              disabled={status === "saving"}
+              onCheckedChange={(checked) => onChange(index, checked
+                ? applyCourseAccess({ ...point, accessOnCourse: true })
+                : { ...point, accessOnCourse: false, accessLabel: "", latitude: null, longitude: null, googleMapsUrl: null })}
+            />
 
             {point.accessOnCourse ? (
               point.latitude !== null && point.longitude !== null ? (
@@ -606,10 +636,8 @@ function StationDetailsPanel({ station, onChange, productsSlot }: { station: Aid
         <NumberField label="D+ cumulé" hint="Calculé automatiquement à partir du tracé GPX de ce format." value={details.cumulativeElevationGainM ?? 0} step="1" readOnly onChange={() => undefined} />
         <NumberField label="D- cumulé" hint="Calculé automatiquement à partir du tracé GPX de ce format." value={details.cumulativeElevationLossM ?? 0} step="1" readOnly onChange={() => undefined} />
         <div className="space-y-1">
-          <label className="text-sm font-medium">Type de ravito</label>
-          <select className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm" value={details.stationType} onChange={(event) => onChange({ ...station, organizerDetails: { ...details, stationType: event.target.value as typeof details.stationType } })}>
-            <option value="water">Eau</option><option value="solid">Solide</option><option value="assistance">Assistance</option><option value="life_base">Base de vie</option><option value="other">Autre</option>
-          </select>
+          <label className="text-sm font-medium" htmlFor={`station-type-${station.id ?? station.name}`}>Type de ravito</label>
+          <SelectField id={`station-type-${station.id ?? station.name}`} className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm" value={details.stationType} onValueChange={(value) => onChange({ ...station, organizerDetails: { ...details, stationType: value as typeof details.stationType } })} options={[{ value: "water", label: "Eau" }, { value: "solid", label: "Solide" }, { value: "assistance", label: "Assistance" }, { value: "life_base", label: "Base de vie" }, { value: "other", label: "Autre" }]} />
         </div>
         <NumberField label="Altitude (m)" value={details.altitudeM ?? 0} step="1" onChange={(altitudeM) => onChange({ ...station, organizerDetails: { ...details, altitudeM } })} />
         <div className="xl:col-span-2">
@@ -642,16 +670,21 @@ function StationServiceChip({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      disabled={disabled}
       className={cn(
-        "inline-flex min-h-9 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition",
+        "inline-flex min-h-9 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
         checked ? "border-brand-border bg-background text-foreground" : "border-border bg-background text-muted-foreground",
         disabled && "cursor-not-allowed opacity-60"
       )}
     >
-      <input type="checkbox" checked={checked} disabled={disabled} onChange={(event) => onChange(event.target.checked)} className="h-3.5 w-3.5 rounded border-border" />
+      <span aria-hidden className={cn("h-2.5 w-2.5 rounded-full", checked ? "bg-brand" : "bg-muted-foreground/40")} />
       <span>{label}</span>
-    </label>
+    </button>
   );
 }
 

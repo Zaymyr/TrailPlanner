@@ -2,7 +2,7 @@
 title: race_awards Table
 scope: database
 
-last_verified: 2026-11-09
+last_verified: 2026-11-13
 
 ai_priority: high
 related_files:
@@ -22,6 +22,8 @@ related_tables:
 ---
 
 # `race_awards`
+
+The organizer form-kit and section-navigation changes do not alter award rows, their ordering, their module gate, or their snapshot publication behavior.
 
 The shared mobile RaceBook screen now also renders additive third-party bib-pickup conditions from organizer JSON. That presentation change does not alter award rows, replacement semantics, ordering, module gates, or RLS.
 

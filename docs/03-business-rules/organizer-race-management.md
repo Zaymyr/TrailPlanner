@@ -552,6 +552,8 @@ The shared Organizer form kit changes authoring presentation only: field errors 
 
 Compatibility wrappers preserve existing editor callbacks while fields migrate to the shared primitives; URL normalization and coherence warnings remain client-side guidance, never new publication blockers.
 
+Structured services, equipment items, aid stations, and sponsors use valid local drafts instead of persisting placeholder rows. Historical service copy remains visible and is explicitly marked for migration rather than counted as structured completion.
+
 ## Gotchas
 
 - Shared web prompt dismiss controls use a 44 px target. Planner breadcrumb and landmark cleanup is presentation-only and does not change organizer membership, publication, acquisition routing or Mobile App Prompt coordination.

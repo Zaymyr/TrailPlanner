@@ -82,6 +82,8 @@ RLS is enabled with no client policy; `PUBLIC`, `anon` and `authenticated` have 
 
 ## Gotchas
 
+- Organizer partner-slot selects use the shared route-local `SelectField`; this is presentation-only and does not change stored slot kinds or constraints.
+
 - Do not expose `website_url` / `destinationUrl` in runner payloads; `publicSnapshot` strips it from `partnerSlots` too.
 - Organizer partner presses on mobile bypass the identified `racebook action clicked` stream (like sponsor redirects); only the default affiliate presses keep `partner_decathlon` / `partner_booking` actions.
 - A slot pointing to a deleted sponsor disappears (cascade) and the slot returns to its affiliate card at the next publication.

@@ -12,6 +12,7 @@ import { ADD_FORMAT_TAB_ID } from "./constants";
 import { formatKm } from "./helpers";
 import type { EventFormValues, GpxPreview, RaceFormat, RaceFormValues, RaceParticipationMode } from "./types";
 import { ContextualHelp, NumberField, OptionalModule, TextField } from "./controls";
+import { hasSignificantDistanceMismatch, hasSuspiciousEqualElevation, isValidInstagramUrl, normalizeInstagramUrl, SelectField } from "./form-kit";
 
 const isInvalidHttpsUrl = (value: string) => {
   if (!value.trim()) return false;
@@ -46,7 +47,7 @@ export function EventInfoEditor({
   const facebookUrl = eventForm.organizerDetails.facebookUrl ?? "";
   const emergencyContact = eventForm.organizerDetails.emergencyContact;
   const invalidOfficialWebsiteUrl = isInvalidHttpsUrl(officialWebsiteUrl);
-  const invalidInstagramUrl = isInvalidHttpsUrl(instagramUrl);
+  const invalidInstagramUrl = !isValidInstagramUrl(instagramUrl);
   const invalidFacebookUrl = isInvalidHttpsUrl(facebookUrl);
   const invalidEmergencyPhone = isInvalidPhone(emergencyContact.phone ?? "");
   const [socialsOpen, setSocialsOpen] = useState(Boolean(officialWebsiteUrl || instagramUrl || facebookUrl));
@@ -57,7 +58,7 @@ export function EventInfoEditor({
       <section className="order-1 pb-6">
         <h3 className="mb-4 text-sm font-bold text-foreground">Informations principales</h3>
         <div className="grid gap-4 lg:grid-cols-2">
-          <TextField label="Nom" value={eventForm.name} onChange={(value) => onChange({ name: value })} required invalid={missingName} />
+          <TextField id="organizer-event-name" label="Nom" value={eventForm.name} onChange={(value) => onChange({ name: value })} required invalid={missingName} />
           <AddressAutocompleteField
             label="Lieu"
             value={eventForm.location}
@@ -81,7 +82,7 @@ export function EventInfoEditor({
       </section>
 
       <section className="order-4 py-6">
-        <OptionalModule title="les réseaux sociaux" active={socialsOpen} onAdd={() => setSocialsOpen(true)} onRemove={() => setSocialsOpen(false)}>
+        <OptionalModule title="Réseaux sociaux" addLabel="+ Ajouter les réseaux sociaux" active={socialsOpen} onAdd={() => setSocialsOpen(true)} onRemove={() => setSocialsOpen(false)}>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(16rem,1.5fr)_minmax(12rem,1fr)_minmax(12rem,1fr)]">
           <TextField
             label="Site officiel"
@@ -102,11 +103,18 @@ export function EventInfoEditor({
             }
           />
           <TextField
+            id="organizer-instagram-url"
             label="Instagram"
             type="url"
             value={instagramUrl}
             invalid={invalidInstagramUrl}
-            errorMessage="Saisis une adresse Instagram complète commençant par https://."
+            errorMessage="Saisis un profil Instagram valide, par exemple @montrail ou instagram.com/montrail."
+            onBlur={() => {
+              const normalized = normalizeInstagramUrl(instagramUrl);
+              if (normalized !== instagramUrl) {
+                onChange({ organizerDetails: { ...eventForm.organizerDetails, instagramUrl: normalized || null } }, "event");
+              }
+            }}
             onChange={(value) =>
               onChange(
                 {
@@ -147,8 +155,8 @@ export function EventInfoEditor({
           <ContextualHelp text="Les formats utilisent ces dates par défaut, sauf lorsqu’une date spécifique est renseignée." />
         </div>
         <div className="grid max-w-2xl gap-4 sm:grid-cols-2">
-          <TextField label="Début" type="date" value={eventForm.editionStartDate} onChange={(value) => onChange({ editionStartDate: value })} invalid={missingStartDate || invalidDateRange} errorMessage={invalidDateRange ? "La date de début doit précéder la date de fin." : "Indique la date de début."} />
-          <TextField label="Fin" type="date" value={eventForm.editionEndDate} onChange={(value) => onChange({ editionEndDate: value })} invalid={missingEndDate || invalidDateRange} errorMessage={invalidDateRange ? "La date de fin doit suivre la date de début." : "Indique la date de fin."} />
+          <TextField id="organizer-edition-start-date" label="Début" type="date" value={eventForm.editionStartDate} onChange={(value) => onChange({ editionStartDate: value })} invalid={missingStartDate || invalidDateRange} errorMessage={invalidDateRange ? "La date de début doit précéder la date de fin." : "Indique la date de début."} />
+          <TextField id="organizer-edition-end-date" label="Fin" type="date" value={eventForm.editionEndDate} onChange={(value) => onChange({ editionEndDate: value })} invalid={missingEndDate || invalidDateRange} errorMessage={invalidDateRange ? "La date de fin doit suivre la date de début." : "Indique la date de fin."} />
         </div>
       </section>
 
@@ -194,7 +202,7 @@ export function EventInfoEditor({
       </section>
 
       <section className="order-5 pt-6">
-        <OptionalModule title="une image de couverture" active={imageOpen} onAdd={() => setImageOpen(true)} onRemove={() => setImageOpen(false)}>
+        <OptionalModule title="Image de couverture" addLabel="+ Ajouter une image de couverture" active={imageOpen} onAdd={() => setImageOpen(true)} onRemove={() => setImageOpen(false)}>
         <div className="mb-4 flex items-center gap-2"><p className="text-sm text-muted-foreground">Format PNG uniquement, 5 Mo maximum.</p></div>
         <div className="flex max-w-2xl flex-col gap-4 sm:flex-row sm:items-center">
           {eventForm.thumbnailUrl ? (
@@ -365,6 +373,9 @@ function RaceForm({
   const missingElevationGain = !Number.isFinite(values.elevationGainM) || values.elevationGainM < 0;
   const missingRaceDate = requireRaceDate && !values.raceDate.trim();
   const invalidExternalSiteUrl = isInvalidHttpsUrl(values.externalSiteUrl ?? "");
+  const elevationLossM = Number(values.elevationLossM || 0);
+  const distanceMismatch = hasSignificantDistanceMismatch(values.distanceKm, gpxPreview?.stats?.distanceKm);
+  const suspiciousElevation = hasSuspiciousEqualElevation(values.elevationGainM, elevationLossM);
   const previewRace = buildPreviewRace(values, hasGpx);
   const [usesCustomRaceDate, setUsesCustomRaceDate] = useState(Boolean(values.raceDate && editionStartDate && values.raceDate !== editionStartDate));
   const [usesCustomLocation, setUsesCustomLocation] = useState(
@@ -406,16 +417,19 @@ function RaceForm({
                   value={values.name}
                   onChange={(value) => onChange({ ...values, name: value, seriesName: value })}
                   required
-                  invalid={validationVisible && missingName}
+                  invalid={missingName}
+                  validationVisible={validationVisible}
                   errorMessage="Indique le nom du format."
                   disabled={disabled}
                 />
               </div>
               <div className="lg:col-span-2">
-                <NumberField label="Distance km" value={values.distanceKm} onChange={(value) => onChange({ ...values, distanceKm: value })} step="0.1" invalid={validationVisible && missingDistance} errorMessage="Indique une distance supérieure à 0 km." emptyWhenZero={emptyNumericFields} disabled={disabled} />
+                <NumberField label="Distance km" value={values.distanceKm} onChange={(value) => onChange({ ...values, distanceKm: value })} step="0.1" invalid={missingDistance} validationVisible={validationVisible} errorMessage="Indique une distance supérieure à 0 km." emptyWhenZero={emptyNumericFields} disabled={disabled} />
+                {distanceMismatch ? <p className="mt-1 text-xs font-medium text-amber-700">La distance saisie diffère nettement des {gpxPreview?.stats?.distanceKm.toFixed(1)} km mesurés sur le GPX.</p> : null}
               </div>
               <div className="lg:col-span-2">
-                <NumberField label="D+" value={values.elevationGainM} onChange={(value) => onChange({ ...values, elevationGainM: value })} step="0.1" invalid={validationVisible && missingElevationGain} errorMessage="Indique un dénivelé positif valide." emptyWhenZero={emptyNumericFields} disabled={disabled} />
+                <NumberField label="D+" value={values.elevationGainM} onChange={(value) => onChange({ ...values, elevationGainM: value })} step="0.1" invalid={missingElevationGain} validationVisible={validationVisible} errorMessage="Indique un dénivelé positif valide." emptyWhenZero={emptyNumericFields} disabled={disabled} />
+                {suspiciousElevation ? <p className="mt-1 text-xs font-medium text-amber-700">D+ et D- sont identiques. Vérifie les dénivelés avant publication.</p> : null}
               </div>
               <div className="lg:col-span-2">
                 <TextField label="D-" type="number" step="0.1" value={values.elevationLossM} onChange={(value) => onChange({ ...values, elevationLossM: value })} disabled={disabled} />
@@ -425,18 +439,18 @@ function RaceForm({
                   <Label htmlFor={participationModeId}>Type de participation</Label>
                   <ContextualHelp text="Pour un relais, les points de passage se configurent ensuite dans Ravitos et points de course." />
                 </div>
-                <select
+                <SelectField
                   id={participationModeId}
                   value={values.participationMode}
-                  onChange={(event) => onChange({ ...values, participationMode: event.target.value as RaceParticipationMode })}
+                  onValueChange={(value) => onChange({ ...values, participationMode: value as RaceParticipationMode })}
                   disabled={disabled}
-                  className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <option value="" disabled>À confirmer</option>
-                  <option value="solo">Solo</option>
-                  <option value="relay">Relais</option>
-                  <option value="solo_and_relay">Solo et relais</option>
-                </select>
+                  options={[
+                    { value: "", label: "À confirmer" },
+                    { value: "solo", label: "Solo" },
+                    { value: "relay", label: "Relais" },
+                    { value: "solo_and_relay", label: "Solo et relais" },
+                  ]}
+                />
               </div>
               <div className="space-y-2 lg:col-span-4">
                 {editionStartDate ? (
@@ -755,7 +769,7 @@ function MiniElevationProfile({
   const lossM = preview?.stats?.lossM ?? activeRace.elevation_loss_m ?? 0;
 
   if (!hasGpx) {
-    return <div className="rounded-md border border-dashed border-border bg-background px-3 py-4 text-sm text-muted-foreground">La courbe apparaitra apres l&apos;ajout d&apos;un GPX.</div>;
+    return <div className="rounded-md border border-dashed border-border bg-background px-3 py-4 text-sm text-muted-foreground">La courbe apparaîtra après l&apos;ajout d&apos;un GPX.</div>;
   }
 
   if (!hasProfile) {
@@ -844,7 +858,7 @@ function MiniGpxMap({
   );
 
   if (!hasGpx) {
-    return <div className="rounded-md border border-dashed border-border bg-background px-3 py-4 text-sm text-muted-foreground">La carte apparaitra apres l&apos;ajout d&apos;un GPX.</div>;
+    return <div className="rounded-md border border-dashed border-border bg-background px-3 py-4 text-sm text-muted-foreground">La carte apparaîtra après l&apos;ajout d&apos;un GPX.</div>;
   }
 
   if (points.length < 2) {
@@ -859,8 +873,8 @@ function MiniGpxMap({
       </div>
       <GpxRouteMap points={points} aidStations={preview?.detectedAidStations ?? []} heightClassName="h-[34rem]" />
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-        <span>Vert: depart</span>
-        <span>Rouge: arrivee</span>
+        <span>Vert : départ</span>
+        <span>Rouge : arrivée</span>
         {preview?.detectedAidStations.length ? <span>Orange: ravitos detectes</span> : null}
       </div>
     </section>

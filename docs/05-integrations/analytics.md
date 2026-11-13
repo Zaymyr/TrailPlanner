@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-11-09
+last_verified: 2026-11-13
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-organizer-analytics.ts
@@ -100,6 +100,8 @@ The shared workspace header, quantity stepper, cutoff placement, and tri-state a
 Le regroupement des liens organisateur, la suppression des sorties de barre basse et le retour contextuel vers Courses ou Plans ne créent aucun nouvel événement. Les ouvertures de liens conservent leurs actions bornées existantes et les clics Booking/Decathlon gardent leur contexte sans URL ni contenu libre. La présentation compacte des alertes, horaires, listes et couleurs n'ajoute aucune propriété analytics.
 
 The compact aligned passage/cutoff reflection, late-warning disclosure, plan-derived segment duration, hero departure clock, title-aligned supporter permissions, icon-only supporter map actions, and route-scoped plan warm starts contain no additional analytics payload or event.
+
+The organizer form kit (local repeatable-list drafts, field-level validation, inherited-state controls, file controls, and the sticky save state) is presentation and client-validation infrastructure. It does not add an event, change existing successful-update categories, or send field errors, draft text, file names, URLs, coordinates, or save timestamps to PostHog.
 
 ## Runner monetisation events
 
@@ -368,6 +370,7 @@ Selecting a source ravito, deriving a same-course GPX access coordinate, and hid
 ## Gotchas
 
 - Header collapse, shared gutters/control geometry, plan-card action layout, protected event dates and modal close styling add no analytics event or property. Existing presses must continue through their established handlers and bounded event names.
+- A local draft, its validation error, a cancelled removal, or the six-second organizer undo notice is not a successful organizer mutation and must not emit `organizer event updated` or `organizer race updated`. Existing update telemetry remains limited to successful normal persistence.
 
 - Moving the existing Courses race-request trigger into the persistent action of the shared collapsible root header is presentation-only. Header expansion/collapse adds no PostHog event or scroll property; a submitted request keeps the existing Supabase mutation behavior.
 - Removing the runner-owned race section from Courses removes that source from catalog interactions; catalog plan analytics now describe event formats only.

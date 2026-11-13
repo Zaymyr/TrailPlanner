@@ -1,7 +1,7 @@
 ---
 title: OpenStreetMap and Leaflet
 scope: integration
-last_verified: 2026-11-09
+last_verified: 2026-11-13
 ai_priority: medium
 related_files:
   - apps/web/package.json
@@ -22,6 +22,8 @@ The add-format flow no longer carries over the active format's GPX or map state.
 Moving the format editor to a single column and labelling the ravito `Détails` control changes authoring presentation only. Route/profile maps still mount from the same explicit GPX preview data.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
+
+The form-kit migration of ravito controls (shared selects, local draft/undo interactions, and compact mobile cards) changes neither GPX parsing nor the route-preview payload. Adding, cancelling, or undoing a ravito remains outside Leaflet until the existing organizer save path has persisted the station collection.
 
 ## Purpose
 
@@ -76,6 +78,7 @@ The per-format `gpxDisplay.showRoute` preference may omit this mobile map from t
 - Keep organizer-authored station names, services, cutoffs, and notes out of raw HTML interpolation; construct popup content with DOM text nodes and preserve accessible marker labels.
 - Do not interpret a hidden RaceBook route as permission to delete or stop validating the GPX geometry.
 - Keep upload transport dependencies out of the map chunk; Organizer module code-splitting should not make TUS part of a route-preview load.
+- Do not let a transient local ravito draft or a pending six-second deletion alter map markers, bounds, profile values, or the source GPX. The preview must continue to reflect the established station collection data flow.
 
 ## Related Docs
 

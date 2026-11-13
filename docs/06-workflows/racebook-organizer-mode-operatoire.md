@@ -1,7 +1,7 @@
 ---
 title: Mode opératoire Livret coureur organisateur
 scope: workflow
-last_verified: 2026-11-09
+last_verified: 2026-11-13
 ai_priority: medium
 related_files:
   - scripts/generate-racebook-organizer-manual.mjs
@@ -29,6 +29,8 @@ Les modifications sont enregistrées automatiquement après une courte pause de 
 Les formulaires affichent d'abord l'essentiel. Utilise les boutons **+ Ajouter…** pour ouvrir les informations facultatives sans effacer leur contenu en les retirant. Dans **Matériel** et **Dossard**, tout contenu saisi reste visible et modifiable sur place : les groupes, lieux, dates et horaires se lisent sans ouvrir **Détails**. Les ravitos gardent leurs informations clés visibles et réservent **Détails** au sous-formulaire long. Pour un format, le contenu commun apparaît en résumé ; choisis **Personnaliser pour ce format** seulement lorsqu'une différence est nécessaire.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
+
+Repeatable additions begin as a local draft: complete the required field, then choose **Enregistrer**. **Annuler** does not modify the event. When an item is removed, **Supprimé — Annuler** remains available for about six seconds before normal persistence. Red field errors appear after interaction or an attempted save; they do not replace the global error summary.
 
 ## Purpose
 
@@ -80,6 +82,8 @@ Ce document accompagne le PDF utilisateur [`docs/mode-operatoire-racebook-organi
 - Dans la tuile `Départ, ravitos, suivi coureur & relais`, confirmer que l'onglet `Ravitos` est sélectionné par défaut à l'ouverture et après un changement de format. Dans `Suivi coureur`, créer un brouillon incomplet et vérifier son avertissement, puis soit sélectionner un ravito existant, soit garder `Créer un nouveau point` et saisir son nom/kilomètre. Cocher `Accès supporters au même endroit que le point de course` pour reprendre automatiquement la coordonnée du GPX à ce kilomètre; sans GPX exploitable, l'avertissement doit rester visible. Pour un parking ou accès différent, décocher l'option et choisir une adresse géocodée. Ajouter au moins une permission pour rendre le point publiable. Vérifier aussi que le départ commun utilise un sélecteur horaire, que `9h`/`10h15`/`11:10:00` sont présentés en `HH:mm`, et qu'une ancienne valeur contenant plusieurs horaires reste visible avec l'instruction de créer des SAS au lieu d'être écrasée.
 
 ## Do Not
+
+- Ne pas décrire un brouillon local, un message d’erreur ou une suppression annulable comme une donnée enregistrée ou publiée ; seule une sauvegarde automatique réussie modifie le Livret coureur.
 
 - Ne pas présenter les origines Admin et Offert comme équivalentes dans une future capture de l’administration ; Stripe et virement doivent rester adossés à un paiement réel.
 

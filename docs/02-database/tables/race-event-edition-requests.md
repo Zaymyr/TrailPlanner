@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_requests Table
 scope: database
-last_verified: 2026-11-09
+last_verified: 2026-11-13
 ai_priority: medium
 related_files:
   - supabase/migrations/20260721110000_add_race_event_edition_requests.sql
@@ -23,6 +23,8 @@ related_tables:
 ---
 
 # `race_event_edition_requests`
+
+The organizer editor's unified controls, local list drafts and accessible confirmation dialogs are presentation-only. They do not create, advance, cancel or retarget an edition request.
 
 Edition creation requests remain operational workflow records. The admin organizer screen may display them beside the new billing and rights controls, but issuing, correcting or settling an invoice never approves a request or changes an edition entitlement.
 

@@ -2,7 +2,7 @@
 title: race_event_edition_sponsors Table
 scope: database
 
-last_verified: 2026-11-09
+last_verified: 2026-11-13
 
 ai_priority: high
 related_files:
@@ -38,6 +38,8 @@ related_tables:
 ---
 
 # race_event_edition_sponsors
+
+Sponsor authoring now shares the organizer form-kit interaction rules (local validation and accessible destructive confirmation where applicable). This is UI-only: row validation, ordering, authorization and aggregate reporting remain server-authoritative.
 
 Sponsor authoring and public sponsor endpoints accept the exact `module.sponsors` gift when Signature is not active. Other feature gifts and all invoice states remain insufficient; sponsor storage, counters and RLS are unchanged.
 

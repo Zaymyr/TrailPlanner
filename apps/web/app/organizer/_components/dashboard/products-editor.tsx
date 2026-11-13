@@ -11,6 +11,7 @@ import { fuelTypeValues, type FuelType } from '../../../../lib/fuel-types';
 import type { FuelProduct } from '../../../../lib/product-types';
 import { fuelTypeLabels, productPickerQuickFilters } from './constants';
 import { NumberField, TextField } from './controls';
+import { SelectField } from './form-kit';
 import { formatKm, formatProductAmount, groupProductsByBrand } from './helpers';
 import type { AidStationDraft, ProductFormValues, StationProduct } from './types';
 
@@ -134,13 +135,7 @@ export function StationProductsBlock({
           <TextField label="Marque" value={productForm.brand} onChange={(value) => onProductFormChange({ ...productForm, brand: value })} />
           <div className="space-y-1">
             <Label htmlFor={productTypeId}>Type</Label>
-            <select id={productTypeId} className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm" value={productForm.fuelType} onChange={(event) => onProductFormChange({ ...productForm, fuelType: event.target.value as FuelType })}>
-              {fuelTypeValues.map((fuelType) => (
-                <option key={fuelType} value={fuelType}>
-                  {fuelTypeLabels[fuelType]}
-                </option>
-              ))}
-            </select>
+            <SelectField id={productTypeId} className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm" value={productForm.fuelType} onValueChange={(value) => onProductFormChange({ ...productForm, fuelType: value as FuelType })} options={fuelTypeValues.map((fuelType) => ({ value: fuelType, label: fuelTypeLabels[fuelType] }))} />
           </div>
           <NumberField label="Calories" value={productForm.caloriesKcal} onChange={(value) => onProductFormChange({ ...productForm, caloriesKcal: value })} />
           <NumberField label="Glucides g" value={productForm.carbsGrams} onChange={(value) => onProductFormChange({ ...productForm, carbsGrams: value })} />

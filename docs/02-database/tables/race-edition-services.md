@@ -2,7 +2,7 @@
 title: race_edition_services Table
 scope: database
 
-last_verified: 2026-11-09
+last_verified: 2026-11-13
 
 ai_priority: high
 related_files:
@@ -22,6 +22,8 @@ related_tables:
 ---
 
 # `race_edition_services`
+
+Service creation in the organizer now starts as a browser-local draft. Required-field errors appear only after interaction or save intent; no empty service row is sent to this table. Historical free-text service content remains legacy content: it is shown for migration but never counts as a structured service row.
 
 The shared mobile RaceBook screen now also renders additive third-party bib-pickup conditions from organizer JSON. Service categories, edition ownership, structured precedence, publication gates, and RLS remain unchanged.
 

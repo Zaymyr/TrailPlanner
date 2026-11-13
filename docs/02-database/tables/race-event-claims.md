@@ -1,7 +1,7 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-11-09
+last_verified: 2026-11-13
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -28,6 +28,8 @@ related_tables:
 ---
 
 # `race_event_claims`
+
+The 2026-11-13 organizer form-kit, accessible confirmations, inline validation and compact section navigation are client presentation changes. They use the existing membership-checked routes and do not create, approve, reject or mutate a claim.
 
 Claim review remains separate from organizer billing and edition rights. The shared admin surface may expose all three workflows, but invoice issuance/settlement does not approve a claim or create an organizer membership.
 
