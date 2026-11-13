@@ -33,6 +33,15 @@ describe("organizer dashboard UTF-8 copy", () => {
     });
   });
 
+  it("keeps organizer microcopy accented and free from technical jargon", () => {
+    const source = organizerFiles.map((relativePath) => readFileSync(resolve(process.cwd(), relativePath), "utf8")).join("\n");
+    expect(source).not.toContain("apparaitra apres");
+    expect(source).not.toContain("Vert: depart");
+    expect(source).not.toContain("Rouge: arrivee");
+    expect(source).not.toContain("créneau(x)");
+    expect(source).not.toContain("Identifiants PostHog distincts");
+  });
+
   it("keeps the website import review copy free from mojibake sequences", () => {
     const absolutePath = resolve(process.cwd(), "app/organizer/_components/OrganizerDashboard.tsx");
     const source = readFileSync(absolutePath, "utf8").replace(/\r\n/g, "\n");
@@ -189,9 +198,8 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(shellSource).toContain("Aucun événement trouvé.");
     expect(shellSource).toContain("md:grid-cols-[minmax(16rem,28rem)_10rem]");
     expect(shellSource).toContain('htmlFor="organizer-workspace-select"');
-    expect(shellSource).toContain('<optgroup label="Informations communes">');
+    expect(shellSource).toContain("SelectField");
     expect(shellSource).toContain("Commun à toutes les courses");
-    expect(shellSource).toContain('<optgroup label="Formats de course">');
     expect(shellSource).toContain("Course masquée pour le public");
     expect(shellSource).toContain("Livret coureur privé");
     expect(shellSource).toContain("Course et Livret coureur publics");
@@ -207,15 +215,11 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(shellSource).toContain("Notifier les coureurs");
     expect(shellSource).toContain("Actions");
     expect(shellSource).toContain("Factures");
-    expect(shellSource).toContain("Modifications en attente de sauvegarde…");
-    expect(shellSource).toContain("Sauvegardé automatiquement");
-    expect(shellSource).toContain("Échec de la sauvegarde automatique");
-    expect(shellSource).toContain("Réessayer");
+    expect(dashboardSource).toContain("<SaveStatus");
     expect(shellSource).toContain("Duplication de l’édition en cours…");
     expect(shellSource).toContain("Cette opération peut prendre quelques instants.");
     expect(shellSource).toContain('aria-busy={isEditionCreationPending}');
-    expect(shellSource).toContain('role="status"');
-    expect(shellSource).toContain('id="organizer-autosave-status"');
+    expect(dashboardSource).toContain('state={autosaveState}');
     expect(dashboardSource).toContain("autosaveState={autosaveState}");
     expect(shellSource).toContain("Supprimer l’édition");
     expect(shellSource).toContain("Supprimer l’événement");
@@ -226,8 +230,8 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(shellSource).toContain('module.status === "empty" && "border-slate-200');
     expect(shellSource).toContain('module.status === "incomplete" && "border-amber-300');
     expect(shellSource).toContain('module.status === "complete" && "border-emerald-300');
-    expect(shellSource).toContain('incomplete: "Partiel"');
-    expect(shellSource).toContain('{statusLabels[module.status]}</p>');
+    expect(shellSource).toContain('module.status === "complete" ? "Complet"');
+    expect(shellSource).toContain('{getStatusLabel(module)}</p>');
     expect(shellSource).toContain('activeModule === module.id && "border-brand shadow-lg ring-2 ring-brand');
     expect(shellSource).toContain('min-h-[82px] rounded-lg');
     expect(shellSource).not.toContain('Manque : {module.missingLabels');
@@ -282,10 +286,10 @@ describe("organizer dashboard UTF-8 copy", () => {
     );
 
     expect(source).toContain("Informations principales");
-    expect(source).toContain('title="les réseaux sociaux"');
+    expect(source).toContain('title="Réseaux sociaux"');
     expect(source).toContain("Dates de l’édition");
     expect(source).toContain("Contact d’urgence");
-    expect(source).toContain('title="une image de couverture"');
+    expect(source).toContain('title="Image de couverture"');
     expect(source).toContain('label="Nom du contact"');
     expect(source).toContain('label="Téléphone"');
     expect(source).toContain('type="tel"');
@@ -380,7 +384,7 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(detailSource).toContain("Conditions du retrait par un tiers");
     expect(detailSource).toContain("font-mono text-sm tabular-nums");
     expect(detailSource).toContain("SegmentedChoice");
-    expect(detailSource).not.toContain(" text-red-");
+    expect(detailSource).toContain("text-red-700");
   });
 
   it("keeps access fields aligned with the runner-facing information hierarchy", () => {
@@ -389,10 +393,10 @@ describe("organizer dashboard UTF-8 copy", () => {
       "utf8"
     );
 
-    expect(source).toContain('title="une carte générale"');
-    expect(source).toContain('title="les routes fermées"');
-    expect(source).toContain('title="les parkings"');
-    expect(source).toContain('title="les navettes"');
+    expect(source).toContain('title="Carte générale"');
+    expect(source).toContain('title="Routes fermées"');
+    expect(source).toContain('title="Parkings"');
+    expect(source).toContain('title="Navettes"');
     expect(source).toContain('label="Information prioritaire"');
     expect(source).toContain('label="Fonctionnement des navettes"');
     expect(source).toContain('label="Horaires des navettes"');

@@ -652,6 +652,8 @@ Organizer material, bib, access, services, sponsors, partner slots, products, an
 
 ## Gotchas
 
+- `utf8-copy.test.ts` also locks corrected Organizer accents, plain-language analytics help, current section-status copy, and the sticky save-status location.
+
 - The Organizer editor owns the sticky `SaveStatus`; the summary header no longer duplicates autosave state, and its compact navigation remains responsive.
 
 - `RootChrome` owns the single public `<main>` landmark and its `#main-content` skip target. Route pages rendered inside it must not add a second `<main>`. Desktop navigation keeps account-only destinations, locale, theme and sign-out inside the account menu; unauthenticated organizer links target `/organisateurs`.
