@@ -1,7 +1,7 @@
 ---
 title: Mobile UX Audit
 scope: workflow
-last_verified: 2026-11-09
+last_verified: 2026-11-13
 ai_priority: high
 related_files:
   - .agents/skills/mobile-ux-ui-auditor/SKILL.md

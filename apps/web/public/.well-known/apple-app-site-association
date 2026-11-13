@@ -1,0 +1,15 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "TODO_APPLE_TEAM_ID.com.paceyourself.app",
+        "comment": "TODO: replace TODO_APPLE_TEAM_ID with the verified Apple Team ID before deployment.",
+        "components": [
+          { "/": "/courses/*", "comment": "Open a published course or its Livret coureur." },
+          { "/": "/race-planner*", "comment": "Open the runner planner context." }
+        ]
+      }
+    ]
+  }
+}

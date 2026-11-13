@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-11-09
+last_verified: 2026-11-13
 ai_priority: high
 related_files:
   - apps/mobile/components/plan-workspace/LockedPlanContent.tsx
@@ -27,6 +27,8 @@ related_files:
   - apps/mobile/.eslintrc.js
   - apps/mobile/react-native.config.js
   - apps/mobile/app.config.ts
+  - apps/mobile/lib/runnerDeepLink.ts
+  - packages/shared/src/runnerProfile.ts
   - apps/mobile/lib/haptics.ts
   - apps/mobile/lib/hapticsPolicy.ts
   - apps/mobile/lib/planRecapDeparture.ts
@@ -198,6 +200,8 @@ related_tables:
 ---
 
 # Mobile App Architecture
+
+The native app consumes the shared runner profile definition from `@trailplanner/shared`; favorite nutrition products have no quota. Universal links for `/courses/*` and `/race-planner*` are declared in Expo configuration and resolved at the root router. They require a new native binary plus verified Apple Team ID and Android signing SHA-256 values in the web association files before release.
 
 ## Published RaceBook boundary
 
