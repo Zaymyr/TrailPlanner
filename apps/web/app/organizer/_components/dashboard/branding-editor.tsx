@@ -6,12 +6,13 @@ import {
   resolveRacebookTheme,
 } from "@pace-yourself/design-system";
 import Image from "next/image";
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { Button } from "../../../../components/ui/button";
 import { Input } from "../../../../components/ui/input";
 import { Label } from "../../../../components/ui/label";
 import { ContextualHelp } from "./controls";
+import { FileField } from "./form-kit";
 import type { OrganizerBranding, OrganizerBrandingState } from "./types";
 
 const emptyState = (): OrganizerBrandingState => ({
@@ -118,10 +119,7 @@ export function BrandingEditor({
     return () => window.clearTimeout(timer);
   }, [busy, draft.accentColor, draft.primaryColor, localDirty]);
 
-  const uploadLogo = async (event: ChangeEvent<HTMLInputElement>) => {
-    const image = event.target.files?.[0];
-    event.target.value = "";
-    if (!image) return;
+  const uploadLogo = async (image: File) => {
     if (localDirty && !(await saveColors(true))) return;
     setBusy("logo");
     try {
@@ -205,13 +203,19 @@ export function BrandingEditor({
         {RACEBOOK_EDITION_LOGO_ENABLED ? (
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Label htmlFor={`${formId}-logo`}>Logo officiel de l’édition</Label>
+              <p className="text-sm font-medium text-foreground">Logo officiel de l’édition</p>
               <ContextualHelp text="PNG, JPEG, WebP ou AVIF, 5 Mo maximum. Un fond transparent est recommandé." />
             </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <Input id={`${formId}-logo`} type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={(event) => void uploadLogo(event)} disabled={busy !== null} className="max-w-sm" />
-              {draft.logoUrl ? <Button type="button" variant="outline" onClick={() => void removeLogo()} disabled={busy !== null}>Retirer le logo</Button> : null}
-            </div>
+            <fieldset disabled={busy !== null}>
+              <FileField
+                label="Choisir un logo"
+                accept="image/png,image/jpeg,image/webp,image/avif"
+                value={draft.logoUrl ? { name: "Logo officiel de l'édition", previewUrl: draft.logoUrl } : null}
+                maxSizeLabel="PNG, JPEG, WebP ou AVIF · 5 Mo maximum"
+                onChange={(file) => void uploadLogo(file)}
+                onRemove={draft.logoUrl ? () => void removeLogo() : undefined}
+              />
+            </fieldset>
           </div>
         ) : null}
 

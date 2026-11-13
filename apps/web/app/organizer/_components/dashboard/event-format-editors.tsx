@@ -1,9 +1,8 @@
 import Image from "next/image";
-import { useEffect, useId, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 
 import { GpxRouteMap } from "../../../../components/gpx/GpxRouteMap";
 import { Button } from "../../../../components/ui/button";
-import { Input } from "../../../../components/ui/input";
 import { Label } from "../../../../components/ui/label";
 import { defaultOrganizerRaceDetails } from "../../../../lib/organizer-dashboard-details";
 import type { OrganizerModuleId } from "../completion";
@@ -12,7 +11,7 @@ import { ADD_FORMAT_TAB_ID } from "./constants";
 import { formatKm } from "./helpers";
 import type { EventFormValues, GpxPreview, RaceFormat, RaceFormValues, RaceParticipationMode } from "./types";
 import { ContextualHelp, NumberField, OptionalModule, TextField } from "./controls";
-import { hasSignificantDistanceMismatch, hasSuspiciousEqualElevation, isValidInstagramUrl, normalizeInstagramUrl, SelectField } from "./form-kit";
+import { FileField, hasSignificantDistanceMismatch, hasSuspiciousEqualElevation, isValidInstagramUrl, normalizeInstagramUrl, SelectField } from "./form-kit";
 
 const isInvalidHttpsUrl = (value: string) => {
   if (!value.trim()) return false;
@@ -25,6 +24,17 @@ const isInvalidHttpsUrl = (value: string) => {
 
 const isInvalidPhone = (value: string) => Boolean(value.trim() && !/^\+?[0-9][0-9 .()/-]{2,}$/.test(value.trim()));
 
+const toFileInputChangeEvent = (file: File) => ({ target: { files: [file], value: "" } } as unknown as ChangeEvent<HTMLInputElement>);
+
+const fileNameFromUrl = (url: string, fallback: string) => {
+  try {
+    const fileName = new URL(url).pathname.split("/").pop();
+    return fileName ? decodeURIComponent(fileName) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
 export function EventInfoEditor({
   eventForm,
   onChange,
@@ -36,7 +46,6 @@ export function EventInfoEditor({
   onUploadImage: (event: ChangeEvent<HTMLInputElement>) => void;
   status: "idle" | "loading" | "saving" | "uploading";
 }) {
-  const imageInputId = useId();
   const missingName = !eventForm.name.trim();
   const missingLocation = !eventForm.location.trim();
   const missingStartDate = !eventForm.editionStartDate.trim();
@@ -161,7 +170,7 @@ export function EventInfoEditor({
       </section>
 
       <section className="order-3 py-6">
-        <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-800 dark:bg-amber-950/20">
+        <div>
           <h3 className="mb-4 text-sm font-bold text-foreground">Contact d’urgence</h3>
           <div className="grid max-w-2xl gap-4 sm:grid-cols-2">
             <TextField
@@ -215,8 +224,15 @@ export function EventInfoEditor({
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <Label htmlFor={imageInputId} className="sr-only">Choisir l’image de couverture</Label>
-            <Input id={imageInputId} type="file" accept="image/png" onChange={onUploadImage} disabled={status === "uploading"} />
+            <fieldset disabled={status === "uploading"}>
+              <FileField
+                label="Choisir l'image de couverture"
+                accept="image/png"
+                value={eventForm.thumbnailUrl ? { name: fileNameFromUrl(eventForm.thumbnailUrl, "Image de couverture"), previewUrl: eventForm.thumbnailUrl } : null}
+                maxSizeLabel="PNG · 5 Mo maximum"
+                onChange={(file) => onUploadImage(toFileInputChangeEvent(file))}
+              />
+            </fieldset>
           </div>
         </div>
         </OptionalModule>
@@ -377,6 +393,8 @@ function RaceForm({
   const distanceMismatch = hasSignificantDistanceMismatch(values.distanceKm, gpxPreview?.stats?.distanceKm);
   const suspiciousElevation = hasSuspiciousEqualElevation(values.elevationGainM, elevationLossM);
   const previewRace = buildPreviewRace(values, hasGpx);
+  const formRef = useRef<HTMLFormElement>(null);
+  const hasValidationError = missingName || missingDistance || missingElevationGain || missingRaceDate || invalidExternalSiteUrl;
   const [usesCustomRaceDate, setUsesCustomRaceDate] = useState(Boolean(values.raceDate && editionStartDate && values.raceDate !== editionStartDate));
   const [usesCustomLocation, setUsesCustomLocation] = useState(
     Boolean(values.locationText.trim() && values.locationText.trim() !== inheritedLocationText.trim())
@@ -393,15 +411,22 @@ function RaceForm({
 
   return (
     <form
+      ref={formRef}
       className="space-y-4"
+      noValidate
       onSubmit={(event) => {
         setValidationVisible(true);
+        if (hasValidationError) {
+          event.preventDefault();
+          window.requestAnimationFrame(() => formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus());
+          return;
+        }
         onSubmit(event);
       }}
     >
       <div className="flex items-center gap-2">
         <p className="font-semibold text-foreground">{title}</p>
-        <ContextualHelp text="Ajoutez d’abord les fichiers, renseignez les informations du format, puis vérifiez le parcours et le profil." />
+        <p className="text-xs text-muted-foreground">Ajoute d’abord les fichiers, renseigne les informations du format, puis vérifie le parcours et le profil.</p>
       </div>
       <div className="grid gap-4">
         <div className="space-y-4">
@@ -558,6 +583,7 @@ function RaceForm({
             title={gpxTitle}
             statusText={gpxStatus}
             fileLabel={pendingGpxName ?? (hasGpx ? "Remplacer le GPX source" : "Ajouter un GPX")}
+            pendingGpxName={pendingGpxName}
             onGpxChange={onGpxChange}
             onDeleteGpx={onDeleteGpx}
             disabled={disabled}
@@ -623,6 +649,7 @@ function OrganizerGpxPanel({
   title,
   statusText,
   fileLabel,
+  pendingGpxName,
   onGpxChange,
   onDeleteGpx,
   disabled,
@@ -640,6 +667,7 @@ function OrganizerGpxPanel({
   title: string;
   statusText?: string;
   fileLabel: string;
+  pendingGpxName?: string | null;
   onGpxChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onDeleteGpx?: () => void;
   disabled?: boolean;
@@ -654,8 +682,6 @@ function OrganizerGpxPanel({
   onShowRouteInRacebookChange: (checked: boolean) => void;
   onShowElevationProfileInRacebookChange: (checked: boolean) => void;
 }) {
-  const gpxInputId = useId();
-  const imageInputId = useId();
   return (
     <aside className="rounded-lg border border-border/70 bg-muted/30 px-4 py-4">
       <div className="space-y-4">
@@ -663,26 +689,29 @@ function OrganizerGpxPanel({
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <p className="font-semibold text-foreground">{title}</p>
-              <ContextualHelp text="Ajoutez le GPX en premier, puis une image si nécessaire." />
+              <p className="text-xs text-muted-foreground">Ajoute le GPX en premier, puis une image si nécessaire.</p>
             </div>
             {statusText ? <span className="text-xs font-medium text-muted-foreground">{statusText}</span> : null}
           </div>
         </div>
         <div className="space-y-2 rounded-md border border-border/70 bg-background px-3 py-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Etape 1</p>
-          <Label htmlFor={gpxInputId} className="text-sm font-medium text-foreground">{fileLabel}</Label>
-          <Input id={gpxInputId} type="file" accept=".gpx,application/gpx+xml" onChange={onGpxChange} disabled={disabled} />
-          {hasGpx && onDeleteGpx ? (
-            <Button type="button" variant="outline" onClick={onDeleteGpx} disabled={disabled} className="w-full text-destructive hover:text-destructive">
-              Supprimer le GPX
-            </Button>
-          ) : null}
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Étape 1</p>
+          <fieldset disabled={disabled}>
+            <FileField
+              label={fileLabel}
+              accept=".gpx,application/gpx+xml"
+              value={hasGpx || pendingGpxName ? { name: pendingGpxName ?? "GPX source importé" } : null}
+              maxSizeLabel="Format GPX"
+              onChange={(file) => onGpxChange(toFileInputChangeEvent(file))}
+              onRemove={hasGpx && onDeleteGpx ? onDeleteGpx : undefined}
+            />
+          </fieldset>
         </div>
         <div className="space-y-3 rounded-md border border-border/70 bg-background px-3 py-3">
           <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Etape 2</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Étape 2</p>
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Affichage dans le Livret coureur</p>
-            <p className="text-xs text-muted-foreground">Choisissez les visuels GPX visibles par les coureurs.</p>
+            <p className="text-xs text-muted-foreground">Choisis les visuels GPX visibles par les coureurs.</p>
           </div>
           <GpxDisplayToggle
             label="Afficher le parcours"
@@ -700,11 +729,11 @@ function OrganizerGpxPanel({
         <div className="space-y-3 rounded-md border border-border/70 bg-background px-3 py-3">
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Etape 3</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Étape 3</p>
               <span className="text-xs text-muted-foreground">Optionnel</span>
             </div>
             <div className="flex items-center gap-2">
-              <Label htmlFor={imageInputId}>Image format</Label>
+              <p className="text-sm font-medium text-foreground">Image format</p>
               <ContextualHelp text={`JPEG, PNG, WebP ou AVIF, 5 Mo maximum.${pendingImageName && !thumbnailUrl ? " L’image sera envoyée après la création du format." : ""}`} />
             </div>
             {thumbnailUrl ? (
@@ -716,7 +745,15 @@ function OrganizerGpxPanel({
                 {pendingImageName ? pendingImageName : "Aucune image"}
               </div>
             )}
-            <Input id={imageInputId} type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={onImageChange} disabled={disabled} />
+            <fieldset disabled={disabled}>
+              <FileField
+                label="Choisir l'image du format"
+                accept="image/png,image/jpeg,image/webp,image/avif"
+                value={thumbnailUrl ? { name: fileNameFromUrl(thumbnailUrl, "Image du format") } : pendingImageName ? { name: pendingImageName } : null}
+                maxSizeLabel="PNG, JPEG, WebP ou AVIF · 5 Mo maximum"
+                onChange={(file) => onImageChange(toFileInputChangeEvent(file))}
+              />
+            </fieldset>
           </div>
         </div>
       </div>

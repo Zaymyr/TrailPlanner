@@ -165,3 +165,5 @@ Published RaceBooks copy the already-normalized event, format, service, and supp
 - [Web App](../01-architecture/web-app.md)
 - [Organizer Race Management](../03-business-rules/organizer-race-management.md)
 - [race_events](../02-database/tables/race-events.md)
+
+Compact organizer layout and shared file fields leave address autocomplete, provider attribution and coordinate persistence unchanged.

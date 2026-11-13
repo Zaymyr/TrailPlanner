@@ -163,3 +163,5 @@ radius. Screen-specific components own copy, state, color roles and behavior.
 - [Icons](icons.md)
 - [Web App](../01-architecture/web-app.md)
 - [Add New Mobile Screen](../06-workflows/add-new-screen-mobile.md)
+
+Organizer uploads reuse `FileField` for a single file and `MultiFileField` for official import documents. Both expose a human-readable format/size hint, visible selected filenames, replacement or removal actions, and visually hidden native inputs.
