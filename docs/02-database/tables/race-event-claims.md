@@ -6,6 +6,7 @@ ai_priority: high
 # Organizer UI note (2026-11-13): workspace sizing is presentation-only; claim and membership authorization remain unchanged.
 # Aid-station UI note (2026-11-13): timeline/detail presentation does not alter organizer membership authorization.
 # Loading/form UI note (2026-11-13): skeletons and required badges do not change claim authorization.
+# Navigation note (2026-11-13): active-state and overflow-menu changes do not change claim authorization.
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
   - apps/web/app/api/organizer/claims/route.ts

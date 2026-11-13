@@ -897,8 +897,10 @@ export function CompletionTabsPanel({
       )}
     >
       <span className={cn("h-2 w-2 shrink-0 rounded-full", statusTone(module.status))} aria-hidden="true" />
-      <span className="min-w-0 flex-1 truncate">{module.title}</span>
-      <span className="shrink-0 text-[11px] font-medium text-muted-foreground">{module.countLabel}</span>
+      <span className="min-w-0 flex-1">
+        <span className="line-clamp-2 block leading-snug">{module.title}</span>
+        {activeModule === module.id ? <span className="mt-0.5 block text-[11px] font-medium text-muted-foreground">{module.countLabel}</span> : null}
+      </span>
       {dirtyModules.has(module.id) ? <span className="sr-only">Modifications à sauvegarder</span> : null}
     </button>
   ));
@@ -925,7 +927,6 @@ export function CompletionTabsPanel({
 
       <div id="organizer-onboarding-scope-navigation" className="hidden min-[1320px]:block">
         <div className="pb-2">
-          <p className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Commun à l’édition</p>
           {eventTab ? (
             <button
               type="button"
@@ -942,7 +943,6 @@ export function CompletionTabsPanel({
                 <span className="block text-sm font-semibold">Commun à toutes les courses</span>
                 <span className="block text-xs font-normal text-muted-foreground">Événement</span>
               </span>
-              {isEventTab ? <span className="h-2.5 w-2.5 rounded-full bg-brand ring-4 ring-brand/15" aria-hidden="true" /> : null}
             </button>
           ) : null}
         </div>
@@ -964,12 +964,12 @@ export function CompletionTabsPanel({
                       ? "bg-muted text-muted-foreground"
                       : "text-muted-foreground hover:bg-muted/50"
                     : activeTab === tab.id
-                      ? "bg-brand-surface text-brand"
+                      ? "bg-muted/60 text-foreground"
                       : "text-foreground hover:bg-muted/50"
                 )}
               >
-                <span>
-                  <span className="block">{tab.label}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="line-clamp-2 block leading-snug">{tab.label}</span>
                   {tab.visibility ? (
                     <span className={cn(
                       "mt-0.5 block text-[11px] font-medium",
@@ -979,12 +979,6 @@ export function CompletionTabsPanel({
                     </span>
                   ) : null}
                 </span>
-                {activeTab === tab.id ? (
-                  <span className={cn(
-                    "h-2.5 w-2.5 rounded-full ring-4",
-                    tab.visibility === "hidden" ? "bg-slate-400 ring-slate-300/30" : "bg-brand ring-brand/15"
-                  )} aria-hidden="true" />
-                ) : null}
               </button>
             ))}
             {addFormatTab ? (

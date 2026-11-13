@@ -151,6 +151,19 @@ import type {
 const MAX_RACE_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const RACE_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/avif"] as const;
 const MAX_UPDATE_MESSAGE_LENGTH = 280;
+const ORGANIZER_MODULE_ICONS: Record<OrganizerModuleId, string> = {
+  event: "i",
+  formats: "⌁",
+  aidStations: "●",
+  equipment: "◇",
+  bibPickup: "#",
+  access: "↗",
+  products: "+",
+  services: "⌂",
+  awards: "★",
+  branding: "◐",
+  sponsors: "♡",
+};
 
 const isValidHttpsUrl = (value?: string | null) => {
   if (!value?.trim()) return true;
@@ -3829,8 +3842,11 @@ export function OrganizerDashboard({
         <CardHeader
           id="organizer-onboarding-editor"
           tabIndex={-1}
-          className="relative flex flex-row flex-wrap items-center justify-between gap-3 space-y-0 overflow-hidden bg-[radial-gradient(circle_at_15%_120%,hsl(var(--brand)/0.12),transparent_42%)]"
+          className="relative flex flex-row flex-wrap items-center justify-between gap-3 space-y-0 overflow-hidden bg-[radial-gradient(circle_at_15%_120%,hsl(var(--brand)/0.08),transparent_42%)]"
         >
+          <svg viewBox="0 0 320 96" aria-hidden="true" className="pointer-events-none absolute right-0 top-0 h-full w-80 text-brand opacity-[0.08]">
+            <path d="M8 75c35-50 67 18 105-24s74 19 112-14 61 5 87-27M28 91c28-38 61 5 91-19s62 18 94-10 64 9 94-20M76 8c19 20 34 21 52 4s39-8 55 8 41 18 60-2" fill="none" stroke="currentColor" strokeWidth="2" />
+          </svg>
           <SectionHeader
             title={activeRace && activeModule === "bibPickup"
                 ? `Retrait dossard - ${activeRace.name}`
@@ -3846,6 +3862,7 @@ export function OrganizerDashboard({
                   : activeRace && activeModule === "access"
                     ? "Par défaut, ce format utilise les accès communs de l'événement."
                     : getModuleDescription(activeModule)) : undefined}
+            icon={<span className="text-base font-bold">{ORGANIZER_MODULE_ICONS[activeModule]}</span>}
             status={<div className="flex flex-wrap items-center gap-2"><SaveStatus
               state={autosaveState}
               savedAt={lastAutosavedAt?.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
@@ -3857,17 +3874,12 @@ export function OrganizerDashboard({
               ) : null}</div>}
           />
           <div className="ml-auto flex flex-wrap items-center justify-end gap-3">
-            {activeModule === "formats" && activeRace ? (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setDestructiveConfirmation("race")}
-                disabled={status === "saving" || status === "uploading"}
-                className="shrink-0 border-red-300 text-red-700 hover:border-red-400 hover:bg-red-50 hover:text-red-800"
-              >
-                Supprimer ce format
-              </Button>
-            ) : null}
+            {activeModule === "formats" && activeRace ? <details className="relative z-20">
+              <summary aria-label="Actions du format" className="grid h-10 w-10 cursor-pointer list-none place-items-center rounded-md border border-border bg-card text-lg font-bold marker:content-none">⋯</summary>
+              <div className="absolute right-0 top-12 z-20 w-56 rounded-lg border border-border bg-card p-2 shadow-xl">
+                <Button type="button" variant="ghost" onClick={() => setDestructiveConfirmation("race")} disabled={status === "saving" || status === "uploading"} className="w-full justify-start text-red-700 hover:bg-red-50 hover:text-red-800">Supprimer ce format</Button>
+              </div>
+            </details> : null}
           </div>
         </CardHeader>
         <CardContent>

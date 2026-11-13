@@ -5,6 +5,7 @@ last_verified: 2026-11-13
 ai_priority: medium
 # Organizer UI note (2026-11-13): wider address fields do not change autocomplete, inherited-location behavior, or stored coordinates.
 # Information grid note (2026-11-13): location alignment remains independent from the responsive social-link grid.
+# Navigation note (2026-11-13): section label wrapping does not alter geocoding.
 related_files:
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
   - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql

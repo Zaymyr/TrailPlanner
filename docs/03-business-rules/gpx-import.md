@@ -5,6 +5,7 @@ last_verified: 2026-11-13
 ai_priority: high
 # Organizer UI note (2026-11-13): GPX preview, source file, display switches, and format image use the contextual media rail on wide screens; parsing and persistence are unchanged.
 # Loading note (2026-11-13): organizer GPX sidecar loading uses skeletons and does not imply an empty dataset.
+# Navigation note (2026-11-13): GPX behavior is unchanged by section-specific organizer icons and wrapped labels.
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
   - apps/mobile/lib/gpx.ts

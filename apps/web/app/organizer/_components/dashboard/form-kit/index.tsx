@@ -32,7 +32,7 @@ export function Field({ label, optional, required, help, error, warning, inherit
 }
 
 export function SectionHeader({ title, description, status, icon }: { title: string; description?: string; status?: React.ReactNode; icon?: React.ReactNode }) {
-  return <div className="flex w-full flex-wrap items-center justify-between gap-3"><div className="flex min-w-0 items-center gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-surface text-brand" aria-hidden="true">{icon ?? <span className="text-base font-bold">↗</span>}</span><div className="min-w-0"><h2 className="truncate text-lg font-semibold text-foreground">{title}</h2>{description ? <p className="text-xs text-muted-foreground">{description}</p> : null}</div></div>{status}</div>;
+  return <div className="relative z-10 flex w-full flex-wrap items-center justify-between gap-3"><div className="flex min-w-0 items-center gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-surface text-brand" aria-hidden="true">{icon}</span><div className="min-w-0"><h2 className="line-clamp-2 text-lg font-semibold leading-snug text-foreground">{title}</h2>{description ? <p className="text-xs text-muted-foreground">{description}</p> : null}</div></div>{status}</div>;
 }
 
 type ValueInputProps = Omit<React.ComponentProps<typeof Input>, "onChange"> & { onValueChange: (value: string) => void; error?: boolean; unit?: string };

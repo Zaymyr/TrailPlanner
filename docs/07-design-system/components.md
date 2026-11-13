@@ -2,6 +2,7 @@
 title: Design Components
 scope: design-system
 last_verified: 2026-11-13
+# Organizer headers (2026-11-13): `SectionHeader` receives a section-specific icon, supports two-line titles, and no longer supplies a generic arrow fallback.
 ai_priority: medium
 related_files:
   - apps/web/components/ui/button.tsx

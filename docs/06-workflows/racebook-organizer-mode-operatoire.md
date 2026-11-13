@@ -6,6 +6,7 @@ ai_priority: medium
 # UI organisateur (2026-11-13) : les médias et aperçus des sections Informations, Course et Identité visuelle occupent le rail contextuel à droite sur grand écran, puis passent sous le formulaire.
 # Ravitos (2026-11-13) : sélectionner un point dans la timeline ouvre son unique panneau de détail ; sur mobile ce panneau est plein écran et le bouton Retour ramène à la liste.
 # Informations (2026-11-13) : les liens sociaux s’adaptent à la largeur disponible et les badges Requis reprennent les règles de validation existantes.
+# Navigation (2026-11-13) : la section active porte l’état principal, les libellés utilisent jusqu’à deux lignes et les actions destructives sont regroupées sous ⋯ avec confirmation.
 related_files:
   - scripts/generate-racebook-organizer-manual.mjs
   - apps/web/app/organizers/page.tsx
