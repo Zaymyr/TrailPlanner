@@ -176,7 +176,7 @@ export function BrandingEditor({
   if (loading) return <p className="text-sm text-muted-foreground">Chargement de l’identité visuelle...</p>;
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+    <div className="grid items-start gap-5 min-[900px]:grid-cols-[minmax(0,1fr)_300px]">
       <div className="space-y-5">
         <div className="flex flex-wrap items-center gap-2">
           <span className={`rounded-full px-3 py-1 text-xs font-semibold ${serverState.hasUnpublishedChanges || localDirty ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>
@@ -226,7 +226,7 @@ export function BrandingEditor({
         </div>
       </div>
 
-      <div className="rounded-[28px] border border-border bg-muted p-4 shadow-sm">
+      <aside className="rounded-[28px] border border-border bg-muted p-4 shadow-sm min-[900px]:sticky min-[900px]:top-3" aria-label="Médias et aperçu">
         <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Aperçu mobile</p>
         <div className="space-y-3 rounded-2xl bg-card p-4">
           <div className="flex items-start gap-3">
@@ -238,7 +238,7 @@ export function BrandingEditor({
           <svg viewBox="0 0 240 56" role="img" aria-label="Aperçu du tracé" className="h-14 w-full"><polyline points="4,44 38,30 72,36 110,12 150,24 188,8 236,18" fill="none" stroke={theme.accentColor} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" /></svg>
           <button type="button" className="w-full rounded-xl px-3 py-2 text-sm font-bold" style={{ backgroundColor: theme.primaryColor, color: theme.onPrimaryColor }}>Action principale</button>
         </div>
-      </div>
+      </aside>
     </div>
   );
 }

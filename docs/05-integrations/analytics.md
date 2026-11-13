@@ -3,6 +3,7 @@ title: Analytics
 scope: integration
 last_verified: 2026-11-13
 ai_priority: medium
+# Organizer UI note (2026-11-13): the completion rail no longer duplicates an analytics button; analytics tracking and aggregation contracts are unchanged.
 related_files:
   - apps/web/lib/posthog-organizer-analytics.ts
   - apps/web/lib/posthog-organizer-analytics.test.ts

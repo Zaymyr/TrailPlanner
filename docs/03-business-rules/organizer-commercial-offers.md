@@ -3,6 +3,7 @@ title: Organizer Commercial Offers
 scope: business-rule
 last_verified: 2026-11-13
 ai_priority: high
+# Organizer UI note (2026-11-13): completion yields the contextual rail to media-heavy editors; offer and completion rules are unchanged.
 related_files:
   - apps/web/lib/organizer-entitlements.ts
   - apps/web/lib/organizer-modules.ts

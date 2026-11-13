@@ -904,8 +904,8 @@ export function CompletionTabsPanel({
   ));
 
   return (
-    <nav id="organizer-onboarding-module-tiles" aria-label="Sections" className="rounded-xl border border-border bg-card p-2 shadow-sm xl:sticky xl:top-3">
-      <div id="organizer-onboarding-scope-navigation" className="xl:hidden">
+    <nav id="organizer-onboarding-module-tiles" aria-label="Sections" className="rounded-xl border border-border bg-card p-2 shadow-sm min-[1320px]:sticky min-[1320px]:top-3">
+      <div id="organizer-onboarding-scope-navigation" className="min-[1320px]:hidden">
         <label htmlFor="organizer-workspace-select" className="mb-1.5 block text-sm font-medium text-foreground">
           Informations à modifier
         </label>
@@ -923,7 +923,7 @@ export function CompletionTabsPanel({
         {!isAddTab ? <div className="mt-2"><label htmlFor="organizer-section-select" className="mb-1.5 block text-sm font-medium text-foreground">Section</label><SelectField id="organizer-section-select" value={activeModule} options={modules.map((module) => ({ value: module.id, label: `${module.title} · ${module.countLabel}` }))} onValueChange={(value) => onSelectModule(value as OrganizerModuleId)} /></div> : null}
       </div>
 
-      <div id="organizer-onboarding-scope-navigation" className="hidden xl:block">
+      <div id="organizer-onboarding-scope-navigation" className="hidden min-[1320px]:block">
         <div className="pb-2">
           <p className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Commun à l’édition</p>
           {eventTab ? (
@@ -1011,14 +1011,14 @@ export function CompletionTabsPanel({
   );
 }
 
-export function OrganizerProgressRail({ completion, onOpenAnalytics }: { completion: OrganizerCompletionSummary; onOpenAnalytics: () => void }) {
+export function OrganizerProgressRail({ completion }: { completion: OrganizerCompletionSummary }) {
   const completed = completion.modules.filter((module) => module.status === "complete").length;
   const total = completion.modules.length;
   const score = total > 0 ? Math.round((completed / total) * 100) : 0;
   const remaining = completion.modules.filter((module) => module.status !== "complete").slice(0, 5);
 
   return (
-    <aside className="space-y-3 xl:sticky xl:top-3 xl:self-start" aria-label="État du Livret coureur">
+    <aside className="space-y-3 min-[1320px]:sticky min-[1320px]:top-3 min-[1320px]:self-start" aria-label="État du Livret coureur">
       <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="grid h-16 w-16 shrink-0 place-items-center rounded-full" style={{ background: `conic-gradient(hsl(var(--brand)) ${score}%, hsl(var(--muted)) ${score}% 100%)` }} aria-label={`${completed} sections complètes sur ${total}`}>
@@ -1032,7 +1032,6 @@ export function OrganizerProgressRail({ completion, onOpenAnalytics }: { complet
           )) : <li className="text-sm text-emerald-700">Toutes les sections sont renseignées.</li>}
         </ul>
       </section>
-      <section className="rounded-xl border border-border bg-card p-3 shadow-sm"><Button type="button" variant="outline" className="w-full" onClick={onOpenAnalytics}>Voir les statistiques</Button></section>
     </aside>
   );
 }

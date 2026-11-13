@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
+import { cn } from "../../../components/utils";
 import {
   OnboardingOverlay,
   type OnboardingOverlayCopy,
@@ -3445,7 +3446,7 @@ export function OrganizerDashboard({
   const modifiedFormatCount = websiteImportExistingRaces.filter((race) => publicationStatesByRace[race.id]?.hasUnpublishedChanges).length;
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-8 sm:px-6">
+    <div className="mx-auto flex max-w-[1440px] flex-col gap-5 px-4 py-8 sm:px-6">
       <OrganizerToast toast={toast} />
       <OrganizerInvoicesDialog
         open={invoicesDialogOpen}
@@ -3687,9 +3688,9 @@ export function OrganizerDashboard({
       ) : null}
 
       {dashboardView === "content" ? <>
-      <div className="grid items-start gap-4 xl:grid-cols-[220px_minmax(0,720px)_260px] xl:justify-center">
+      <div className="grid items-start gap-4 min-[1320px]:grid-cols-[240px_minmax(0,1fr)_300px]">
       {completion ? (
-        <div className="space-y-2 xl:col-start-1 xl:row-start-1">
+        <div className="space-y-2 min-[1320px]:col-start-1 min-[1320px]:row-start-1">
           <CompletionTabsPanel
             tabs={tabs}
             activeTab={activeTab}
@@ -3821,7 +3822,10 @@ export function OrganizerDashboard({
         </DialogContent>
       </Dialog>
 
-      <Card className="min-w-0 rounded-lg xl:col-start-2 xl:row-start-1">
+      <Card className={cn(
+        "min-w-0 rounded-lg min-[1320px]:col-start-2 min-[1320px]:row-start-1",
+        (activeModule === "formats" || activeModule === "event" || activeModule === "branding") && "min-[1320px]:col-span-2"
+      )}>
         <CardHeader
           id="organizer-onboarding-editor"
           tabIndex={-1}
@@ -4171,10 +4175,9 @@ export function OrganizerDashboard({
         </CardContent>
       </Card>
 
-      {completion ? <OrganizerProgressRail completion={completion} onOpenAnalytics={() => {
-        saveCurrentScopeInBackground();
-        setDashboardView("analytics");
-      }} /> : null}
+      {completion && activeModule !== "formats" && activeModule !== "event" && activeModule !== "branding"
+        ? <OrganizerProgressRail completion={completion} />
+        : null}
       </div>
 
       <ProductPickerModal

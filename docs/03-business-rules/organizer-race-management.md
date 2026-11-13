@@ -5,6 +5,7 @@ scope: business-rule
 last_verified: 2026-11-13
 
 ai_priority: high
+# Organizer layout (2026-11-13): wide desktop uses 240px navigation, a flexible editor, and a 300px contextual rail; below 1320px the rail follows the editor.
 related_files:
   - apps/web/lib/racebook-publication-checks.ts
   - apps/web/lib/racebook-publication-checks.test.ts

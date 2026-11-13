@@ -1,8 +1,9 @@
 ---
 title: race_event_edition_branding
 scope: database
-last_verified: 2026-11-09
+last_verified: 2026-11-13
 ai_priority: high
+# Organizer UI note (2026-11-13): branding preview uses the contextual rail on wide screens; logo and color draft/publish contracts are unchanged.
 related_files:
   - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
   - supabase/migrations/20260928192654_update_default_racebook_accent_color.sql

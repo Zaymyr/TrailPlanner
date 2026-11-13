@@ -3,6 +3,7 @@ title: race_event_claims Table
 scope: database
 last_verified: 2026-11-13
 ai_priority: high
+# Organizer UI note (2026-11-13): workspace sizing is presentation-only; claim and membership authorization remain unchanged.
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
   - apps/web/app/api/organizer/claims/route.ts

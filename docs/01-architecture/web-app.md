@@ -3,6 +3,7 @@ title: Web App Architecture
 scope: architecture
 last_verified: 2026-11-13
 ai_priority: high
+# Organizer shell (2026-11-13): the 1440px workspace switches at 1320px to a 240px / flexible / 300px grid; media-heavy editors span the two content columns.
 related_files:
   - apps/web/app/admin/video-generator/export-frame.test.ts
   - apps/web/app/admin/video-generator/export-frame.ts

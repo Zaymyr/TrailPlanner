@@ -3,6 +3,7 @@ title: Mode opératoire Livret coureur organisateur
 scope: workflow
 last_verified: 2026-11-13
 ai_priority: medium
+# UI organisateur (2026-11-13) : les médias et aperçus des sections Informations, Course et Identité visuelle occupent le rail contextuel à droite sur grand écran, puis passent sous le formulaire.
 related_files:
   - scripts/generate-racebook-organizer-manual.mjs
   - apps/web/app/organizers/page.tsx

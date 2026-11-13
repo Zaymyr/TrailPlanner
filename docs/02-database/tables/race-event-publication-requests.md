@@ -3,6 +3,7 @@ title: race_event_publication_requests Table
 scope: database
 last_verified: 2026-11-13
 ai_priority: high
+# Organizer UI note (2026-11-13): publication controls keep their behavior in the wider shell; the contextual rail is presentation-only.
 related_files:
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql

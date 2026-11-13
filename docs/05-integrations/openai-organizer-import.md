@@ -3,6 +3,7 @@ title: OpenAI Organizer Import Reconciliation
 scope: integration
 last_verified: 2026-11-13
 ai_priority: high
+# Organizer UI note (2026-11-13): imported fields keep the same reconciliation contract while media controls may render in the contextual rail.
 related_files:
   - apps/web/lib/organizer-source-intelligence.ts
   - apps/web/lib/organizer-source-intelligence.test.ts

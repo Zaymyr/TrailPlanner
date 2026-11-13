@@ -63,7 +63,8 @@ export function EventInfoEditor({
   const [imageOpen, setImageOpen] = useState(Boolean(eventForm.thumbnailUrl));
 
   return (
-    <div className="space-y-0">
+    <div className="grid items-start gap-5 min-[900px]:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="min-w-0 space-y-0">
       <FieldGroup legend="L’événement" description="Nom et lieu affichés en tête du Livret coureur.">
         <div className="grid gap-4 lg:grid-cols-2">
           <TextField id="organizer-event-name" label="Nom" value={eventForm.name} onChange={(value) => onChange({ name: value })} required invalid={missingName} />
@@ -202,7 +203,9 @@ export function EventInfoEditor({
           </div>
       </FieldGroup>
 
-      <FieldGroup legend="Couverture" description="Illustration affichée dans le catalogue et le Livret." optional>
+      </div>
+      <aside className="min-w-0 rounded-lg border border-border bg-card p-3 shadow-sm min-[900px]:sticky min-[900px]:top-3" aria-label="Médias et aperçu">
+      <FieldGroup legend="Couverture" description="Illustration affichée dans le catalogue et le Livret." optional className="!block !border-t-0 !py-0">
         <OptionalModule title="Image de couverture" addLabel="+ Ajouter une image de couverture" active={imageOpen} onAdd={() => setImageOpen(true)} onRemove={() => setImageOpen(false)}>
         <div className="mb-4 flex items-center gap-2"><p className="text-sm text-muted-foreground">Format PNG uniquement, 5 Mo maximum.</p></div>
         <div className="flex max-w-2xl flex-col gap-4 sm:flex-row sm:items-center">
@@ -229,6 +232,7 @@ export function EventInfoEditor({
         </div>
         </OptionalModule>
       </FieldGroup>
+      </aside>
     </div>
   );
 }
@@ -420,7 +424,7 @@ function RaceForm({
         <p className="font-semibold text-foreground">{title}</p>
         <p className="text-xs text-muted-foreground">Ajoute d’abord les fichiers, renseigne les informations du format, puis vérifie le parcours et le profil.</p>
       </div>
-      <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_250px]">
+      <div className="grid min-w-0 items-start gap-5 min-[900px]:grid-cols-[minmax(0,1fr)_300px]">
         <div className="min-w-0 space-y-4">
           <div className="min-w-0 space-y-4 rounded-lg border border-border/70 bg-background px-4 py-4">
             <div className="flex items-center gap-2">
