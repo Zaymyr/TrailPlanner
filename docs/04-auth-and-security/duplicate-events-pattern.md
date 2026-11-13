@@ -1,7 +1,7 @@
 ---
 title: Duplicate Events Pattern
 scope: auth
-last_verified: 2026-11-02
+last_verified: 2026-11-13
 ai_priority: high
 related_files:
   - apps/web/app/onboarding/account/page.tsx

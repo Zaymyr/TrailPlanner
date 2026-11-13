@@ -1,7 +1,7 @@
 ---
 title: Nutrition Algorithm
 scope: business-rule
-last_verified: 2026-11-02
+last_verified: 2026-11-13
 ai_priority: high
 related_files:
   - apps/web/lib/nutrition-planner.ts
@@ -82,6 +82,8 @@ related_tables:
 ---
 
 # Nutrition Algorithm
+
+Segment construction discards any checkpoint whose distance is not strictly greater than the previous retained checkpoint. Duplicate or backward organizer arrivals therefore cannot produce a zero-length `Arrivée → Arrivée` nutrition segment.
 
 The plan unlock badge and header-attached switch change no nutrition calculation or saved product.
 

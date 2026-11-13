@@ -54,12 +54,18 @@ const mapSavedPlan = (row: Record<string, unknown>): SavedPlan | null => {
   );
 
   // race_id is the FK column (renamed from catalog_race_id)
+  const rawPlannerValues = row.planner_values ?? row.plannerValues;
+  const plannerValuesRecord = rawPlannerValues && typeof rawPlannerValues === "object" && !Array.isArray(rawPlannerValues)
+    ? rawPlannerValues as Record<string, unknown>
+    : null;
   const catalogRaceId =
     typeof row.race_id === "string"
       ? row.race_id
       : typeof row.catalog_race_id === "string"
         ? row.catalog_race_id
-        : null;
+        : typeof plannerValuesRecord?.catalogRaceId === "string"
+          ? plannerValuesRecord.catalogRaceId
+          : null;
 
   const racesJoin = row.races as { name?: string } | null | undefined;
   const raceName = racesJoin?.name ?? null;

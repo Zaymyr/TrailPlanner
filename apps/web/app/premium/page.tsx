@@ -1,68 +1,186 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useVerifiedSession } from "../hooks/useVerifiedSession";
-import { useI18n } from "../i18n-provider";
-import { Button } from "../../components/ui/button";
+import { useEffect, useMemo, useState } from "react";
 
-type Offer = "annual" | "course";
+import { Button } from "../../components/ui/button";
+import { useVerifiedSession } from "../hooks/useVerifiedSession";
+import { type RunnerOffer, useRunnerPrice } from "../hooks/useRunnerPrice";
+import { useI18n } from "../i18n-provider";
+import { orderRunnerOffers, resolvePlanCourseName, type SavedPlanSummary } from "./offer-presentation";
+
+const isUuid = (value: string | null): value is string =>
+  Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value));
+
 export default function PremiumPage() {
   const { session } = useVerifiedSession();
   const { locale } = useI18n();
   const fr = locale === "fr";
+  const annualPrice = useRunnerPrice("annual", locale);
+  const coursePrice = useRunnerPrice("course", locale);
   const [planId, setPlanId] = useState<string | null>(null);
+  const [courseName, setCourseName] = useState<string | null>(null);
   const [enabled, setEnabled] = useState(false);
-  const [prices, setPrices] = useState<Partial<Record<Offer, string>>>({});
-  const [priceUnavailable, setPriceUnavailable] = useState<Partial<Record<Offer, boolean>>>({});
-  const [opening, setOpening] = useState<Offer | null>(null);
+  const [opening, setOpening] = useState<RunnerOffer | null>(null);
   const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get("planId");
-    if (id && /^[0-9a-f-]{36}$/i.test(id)) setPlanId(id);
+    const candidate = new URLSearchParams(window.location.search).get("planId");
+    setPlanId(isUuid(candidate) ? candidate : null);
+
     const controller = new AbortController();
-    fetch("/api/runner/config", { signal: controller.signal, cache: "no-store" }).then((r) => r.json()).then((data) => setEnabled(data.enabled === true)).catch(() => {});
-    for (const offer of ["annual", "course"] as const) {
-      fetch(`/api/stripe/price?offer=${offer}`, { signal: controller.signal, cache: "no-store" }).then(async (r) => {
-        if (!r.ok) {
-          setPriceUnavailable((previous) => ({ ...previous, [offer]: true }));
-          return;
-        }
-        const { price, available } = await r.json();
-        if (available === false || typeof price?.unitAmount !== "number" || typeof price.currency !== "string") {
-          setPriceUnavailable((previous) => ({ ...previous, [offer]: true }));
-          return;
-        }
-        const formatted = new Intl.NumberFormat(locale, { style: "currency", currency: price.currency }).format(price.unitAmount / 100);
-        setPrices((previous) => ({ ...previous, [offer]: formatted }));
-      }).catch(() => {});
-    }
+    fetch("/api/runner/config", { signal: controller.signal, cache: "no-store" })
+      .then((response) => response.json())
+      .then((data) => setEnabled(data.enabled === true))
+      .catch(() => {});
     return () => controller.abort();
-  }, [locale]);
-  async function purchase(offer: Offer) {
+  }, []);
+
+  useEffect(() => {
+    if (!planId || !session?.accessToken || session.isAnonymous) {
+      setCourseName(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    fetch("/api/plans", {
+      headers: { Authorization: `Bearer ${session.accessToken}` },
+      signal: controller.signal,
+      cache: "no-store",
+    })
+      .then(async (response) => response.ok ? response.json() : null)
+      .then((payload) => {
+        if (controller.signal.aborted || !Array.isArray(payload?.plans)) return;
+        const plan = payload.plans.find((candidate: SavedPlanSummary) => candidate.id === planId) as SavedPlanSummary | undefined;
+        setCourseName(resolvePlanCourseName(plan));
+      })
+      .catch(() => {});
+
+    return () => controller.abort();
+  }, [planId, session?.accessToken, session?.isAnonymous]);
+
+  const offers = useMemo<RunnerOffer[]>(
+    () => orderRunnerOffers(Boolean(planId)),
+    [planId],
+  );
+
+  async function purchase(offer: RunnerOffer) {
     if (!session?.accessToken || session.isAnonymous || !enabled || opening) return;
-    setOpening(offer); setError(null);
+    setOpening(offer);
+    setError(null);
     try {
-      const response = await fetch("/api/stripe/checkout", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.accessToken}` }, body: JSON.stringify({ offer, ...(offer === "course" ? { planId } : {}) }) });
+      const response = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.accessToken}`,
+        },
+        body: JSON.stringify({ offer, ...(offer === "course" ? { planId } : {}) }),
+      });
       const data = await response.json();
-      if (!response.ok || !data.url) throw new Error(data.message || (fr ? "Paiement indisponible." : "Checkout unavailable."));
-      // Same-tab checkout avoids popup blockers. Access is granted only by the verified webhook.
+      if (!response.ok || !data.url) {
+        throw new Error(data.message || (fr ? "Paiement indisponible." : "Checkout unavailable."));
+      }
       window.location.assign(data.url);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : (fr ? "Paiement indisponible." : "Checkout unavailable.")); setOpening(null); }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : (fr ? "Paiement indisponible." : "Checkout unavailable."));
+      setOpening(null);
+    }
   }
-  return <div className="mx-auto max-w-4xl space-y-8 py-8">
-    <div className="space-y-3 text-center"><h1 className="text-3xl font-semibold">{fr ? "Prépare ta course dans les détails" : "Prepare every detail of your race"}</h1>
-      <p className="text-muted-foreground">{fr ? "Ton estimation est gratuite. Débloque tes allures, tes ravitos et ton plan nutrition pour le jour J." : "Your estimate is free. Unlock pacing, aid stations and race-day nutrition."}</p></div>
-    <div className="grid gap-6 sm:grid-cols-2">{(["course", "annual"] as const).map((offer) => <section key={offer} className="space-y-5 rounded-2xl border border-border bg-card p-6">
-      <h2 className="text-xl font-semibold">{offer === "course" ? (fr ? "Cette course" : "This race") : (fr ? "Toutes mes courses" : "All my races")}</h2>
-      <p className="text-3xl font-semibold">{prices[offer] ? `${prices[offer]}${offer === "annual" ? (fr ? "/an" : "/year") : ""}` : priceUnavailable[offer] ? (fr ? "Prix temporairement indisponible" : "Price temporarily unavailable") : (fr ? "Chargement du prix…" : "Loading price…")}</p>
-      <p className="text-muted-foreground">{offer === "course" ? (fr ? "Paiement unique. Accès durable à ce format pour cette édition." : "One-time payment. Lasting access to this distance and edition.") : (fr ? "Abonnement annuel renouvelable. Plus avantageux dès 4 courses par an." : "Auto-renewing annual subscription. Better value from 4 races per year.")}</p>
-      <ul className="list-inside list-disc space-y-2 text-sm"><li>{fr ? "Allures ajustables section par section" : "Adjustable pacing by section"}</li><li>{fr ? "Produits et quantités ravito par ravito" : "Products and quantities at each aid station"}</li><li>{fr ? "Récapitulatif, assistance et exports" : "Summary, crew support and exports"}</li></ul>
-      {session && !session.isAnonymous ? <Button className="min-h-11 w-full" onClick={() => { void purchase(offer); }} disabled={!enabled || !prices[offer] || opening !== null || (offer === "course" && !planId)}>{opening === offer ? (fr ? "Ouverture…" : "Opening…") : offer === "course" ? (fr ? `Débloquer cette course${prices[offer] ? ` — ${prices[offer]}` : ""}` : `Unlock this race${prices[offer] ? ` — ${prices[offer]}` : ""}`) : (fr ? `Passer à l’annuel${prices[offer] ? ` — ${prices[offer]}/an` : ""}` : `Go annual${prices[offer] ? ` — ${prices[offer]}/year` : ""}`)}</Button> : <Link href="/sign-up" className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-brand px-3 text-sm font-medium text-brand-foreground shadow-sm hover:bg-brand-light">{fr ? "Créer mon compte" : "Create my account"}</Link>}
-      {offer === "course" && !planId ? <p className="text-sm text-muted-foreground">{fr ? "Choisis d’abord une course dans le planificateur pour la débloquer." : "Choose a race in the planner first to unlock it."}</p> : null}
-    </section>)}</div>
-    {!enabled ? <p role="status" className="text-center text-muted-foreground">{fr ? "Les nouvelles offres sont en cours de préparation." : "The new offers are being prepared."}</p> : null}
-    {error ? <p role="alert" className="text-red-600">{error}</p> : null}
-    <p className="text-sm text-muted-foreground">{fr ? "Les achats sont rattachés à ton compte et accessibles sur le web, Android et iOS. Après expiration de l’abonnement, tes plans préparés restent consultables ; leur modification nécessite un achat ou un réabonnement." : "Purchases belong to your account across web, Android and iOS. After a subscription expires, prepared plans remain readable; editing requires a purchase or resubscription."}</p>
-  </div>;
+
+  return (
+    <div className="mx-auto max-w-4xl space-y-8 py-8">
+      <div className="space-y-3 text-center">
+        <h1 className="text-3xl font-semibold">
+          {courseName
+            ? (fr ? `Prépare ${courseName} dans les détails` : `Prepare ${courseName} in detail`)
+            : (fr ? "Prépare tes courses dans les détails" : "Prepare every race in detail")}
+        </h1>
+        <p className="text-muted-foreground">
+          {fr
+            ? "Ton estimation est gratuite. Débloque les allures, les ravitos et le plan nutrition qui correspondent à ton objectif."
+            : "Your estimate is free. Unlock the pacing, aid stations and nutrition plan for your goal."}
+        </p>
+      </div>
+
+      <div className="grid gap-6 sm:grid-cols-2">
+        {offers.map((offer) => {
+          const price = offer === "course" ? coursePrice : annualPrice;
+          const needsPlan = offer === "course" && !planId;
+          const unavailable = price.status === "unavailable";
+          const disabled = !enabled || price.status !== "available" || opening !== null || needsPlan;
+          const disabledReason = needsPlan
+            ? (fr ? "Choisis d’abord une course pour obtenir l’offre qui lui correspond." : "Choose a race first to see its matching offer.")
+            : unavailable
+              ? (fr ? "Ce prix n’est pas configuré. L’achat reste désactivé pour éviter un montant incorrect." : "This price is not configured. Checkout stays disabled to avoid an incorrect amount.")
+              : !enabled
+                ? (fr ? "Les nouvelles offres sont en cours de préparation." : "The new offers are being prepared.")
+                : price.status === "loading"
+                  ? (fr ? "Le prix fourni par Stripe est en cours de chargement." : "The Stripe price is loading.")
+                  : null;
+
+          return (
+            <section key={offer} className="space-y-5 rounded-2xl border border-border bg-card p-6">
+              <h2 className="text-xl font-semibold">
+                {offer === "course"
+                  ? (courseName ? (fr ? `Cette course — ${courseName}` : `This race — ${courseName}`) : (fr ? "Cette course" : "This race"))
+                  : (fr ? "Toutes mes courses" : "All my races")}
+              </h2>
+              <p className="text-3xl font-semibold" aria-live="polite">
+                {price.status === "available"
+                  ? `${price.formatted}${offer === "annual" ? (fr ? "/an" : "/year") : ""}`
+                  : price.status === "loading"
+                    ? (fr ? "Chargement du prix…" : "Loading price…")
+                    : (fr ? "Prix indisponible" : "Price unavailable")}
+              </p>
+              <p className="text-muted-foreground">
+                {offer === "course"
+                  ? (fr ? "Paiement unique. Accès durable à ce format pour cette édition." : "One-time payment. Lasting access to this distance and edition.")
+                  : (fr ? "Abonnement annuel renouvelable pour préparer toutes tes courses." : "Auto-renewing annual subscription for all your races.")}
+              </p>
+              <ul className="list-inside list-disc space-y-2 text-sm">
+                <li>{fr ? "Allures ajustables section par section" : "Adjustable pacing by section"}</li>
+                <li>{fr ? "Produits et quantités ravito par ravito" : "Products and quantities at each aid station"}</li>
+                <li>{fr ? "Récapitulatif, assistance et exports" : "Summary, crew support and exports"}</li>
+              </ul>
+
+              {session && !session.isAnonymous ? (
+                <Button
+                  className="min-h-11 w-full disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-brand"
+                  onClick={() => { void purchase(offer); }}
+                  disabled={disabled}
+                  aria-describedby={disabledReason ? `${offer}-disabled-reason` : undefined}
+                >
+                  {opening === offer
+                    ? (fr ? "Ouverture…" : "Opening…")
+                    : offer === "course"
+                      ? (fr ? "Débloquer cette course" : "Unlock this race")
+                      : (fr ? "Passer à l’abonnement annuel" : "Choose annual access")}
+                </Button>
+              ) : (
+                <Link
+                  href="/sign-up"
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-brand px-3 text-sm font-medium text-brand-foreground shadow-sm hover:bg-brand-light"
+                >
+                  {fr ? "Créer mon compte" : "Create my account"}
+                </Link>
+              )}
+              {disabledReason ? (
+                <p id={`${offer}-disabled-reason`} className="text-sm text-muted-foreground">
+                  {disabledReason}
+                </p>
+              ) : null}
+            </section>
+          );
+        })}
+      </div>
+
+      {error ? <p role="alert" className="text-red-600">{error}</p> : null}
+      <p className="text-sm text-muted-foreground">
+        {fr
+          ? "Les achats sont rattachés à ton compte et accessibles sur le web, Android et iOS. Après expiration de l’abonnement, tes plans préparés restent consultables ; leur modification nécessite un achat ou un réabonnement."
+          : "Purchases belong to your account across web, Android and iOS. After a subscription expires, prepared plans remain readable; editing requires a purchase or resubscription."}
+      </p>
+    </div>
+  );
 }

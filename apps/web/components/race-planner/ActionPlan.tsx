@@ -157,7 +157,6 @@ type ActionPlanProps = {
   fuelProducts: FuelProduct[];
   favoriteProducts: StoredProductPreference[];
   onFavoriteToggle: (product: FuelProduct) => { updated: boolean; reason?: "limit" };
-  favoriteLimit: number;
   localProductIds?: string[];
   organizerAidStationProducts?: Record<string, OrganizerAidStationProductSuggestion[]>;
   startSupplies: StationSupply[];
@@ -1165,7 +1164,6 @@ export function ActionPlan({
   fuelProducts,
   favoriteProducts,
   onFavoriteToggle,
-  favoriteLimit,
   localProductIds,
   organizerAidStationProducts,
   startSupplies,
@@ -1239,7 +1237,6 @@ export function ActionPlan({
   const [useOrganizerProductsForAutoFill, setUseOrganizerProductsForAutoFill] = useState(false);
   const [, startUiTransition] = useTransition();
   const [pickerFavorites, setPickerFavorites] = useState<string[]>([]);
-  const [pickerFavoriteLimitHit, setPickerFavoriteLimitHit] = useState(false);
   const [pickerSearch, setPickerSearch] = useState("");
   const [pickerFuelType, setPickerFuelType] = useState<FuelType | "all">("all");
   const [pickerShowMyProducts, setPickerShowMyProducts] = useState(false);
@@ -1897,13 +1894,8 @@ export function ActionPlan({
       if (!product) return;
 
       const result = onFavoriteToggle(product);
-      if (result.reason === "limit") {
-        setPickerFavoriteLimitHit(true);
-        return;
-      }
       if (!result.updated) return;
 
-      setPickerFavoriteLimitHit(false);
       setPickerFavorites((current) => {
         const exists = current.includes(slug);
         if (exists) return current.filter((item) => item !== slug);
@@ -3190,15 +3182,8 @@ export function ActionPlan({
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <p className="text-xs text-muted-foreground dark:text-slate-300">
-                    {Number.isFinite(favoriteLimit)
-                      ? `${pickerFavorites.length}/${favoriteLimit} favoris sélectionnés`
-                      : `${pickerFavorites.length} favoris sélectionnés`}
+                    {pickerFavorites.length} favoris sélectionnés
                   </p>
-                  {pickerFavoriteLimitHit && (
-                    <p className="text-xs text-destructive dark:text-red-400">
-                      Limite atteinte. Passez en Premium pour des favoris illimités.
-                    </p>
-                  )}
                 </div>
               </div>
             </div>

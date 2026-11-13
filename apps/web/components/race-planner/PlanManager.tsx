@@ -56,7 +56,6 @@ export function PlanManager({
   onRefreshPlans,
   onLoadPlan,
   onDeletePlan,
-  onNewPlanForRace,
   onNewPlanGlobal,
   onEditRace,
   onDeleteRace,
@@ -66,6 +65,7 @@ export function PlanManager({
     accountMessage && accountMessage !== copy.messages.signedIn ? accountMessage : null;
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [confirmDeleteRaceId, setConfirmDeleteRaceId] = useState<string | null>(null);
+  const [confirmDeletePlanId, setConfirmDeletePlanId] = useState<string | null>(null);
 
   const toggleGroup = (key: string) => {
     setCollapsedGroups((prev) => {
@@ -233,38 +233,48 @@ export function PlanManager({
                                   <p className="mb-1.5 text-[10px] text-muted-foreground dark:text-slate-500">
                                     {new Date(plan.updatedAt).toLocaleDateString()}
                                   </p>
-                                  <div className="flex gap-1.5">
+                                  <div className="flex items-center gap-1.5">
                                     <Button
                                       variant="outline"
-                                      className="h-6 flex-1 px-2 text-[11px]"
+                                      className="h-7 flex-1 px-2 text-[11px]"
                                       onClick={() => onLoadPlan(plan)}
                                       disabled={deletingPlanId === plan.id}
                                     >
                                       {copy.plans.load}
                                     </Button>
-                                    <Button
-                                      variant="ghost"
-                                      className="h-6 flex-1 px-2 text-[11px] text-red-300 hover:text-red-200"
-                                      onClick={() => onDeletePlan(plan.id)}
-                                      disabled={deletingPlanId === plan.id || isSaving}
-                                    >
-                                      {deletingPlanId === plan.id ? copy.plans.saving : copy.plans.delete}
-                                    </Button>
+                                    {confirmDeletePlanId === plan.id ? (
+                                      <div className="flex items-center gap-1" role="group" aria-label={`Confirmer la suppression de ${plan.name}`}>
+                                        <Button
+                                          variant="ghost"
+                                          className="h-7 px-2 text-[11px] text-red-600"
+                                          onClick={() => {
+                                            onDeletePlan(plan.id);
+                                            setConfirmDeletePlanId(null);
+                                          }}
+                                          disabled={deletingPlanId === plan.id || isSaving}
+                                        >
+                                          {deletingPlanId === plan.id ? copy.plans.saving : "Confirmer"}
+                                        </Button>
+                                        <Button variant="ghost" className="h-7 px-2 text-[11px]" onClick={() => setConfirmDeletePlanId(null)}>
+                                          Annuler
+                                        </Button>
+                                      </div>
+                                    ) : (
+                                      <Button
+                                        variant="ghost"
+                                        className="h-7 w-7 px-0 text-base text-muted-foreground"
+                                        aria-label={`Actions pour ${plan.name}`}
+                                        title={`Actions pour ${plan.name}`}
+                                        onClick={() => setConfirmDeletePlanId(plan.id)}
+                                        disabled={deletingPlanId === plan.id || isSaving}
+                                      >
+                                        ⋯
+                                      </Button>
+                                    )}
                                   </div>
                                 </div>
                               ))}
                             </div>
-
-                            {/* + New plan for this race */}
-                            {group.raceId !== null && onNewPlanForRace && (
-                              <button
-                                type="button"
-                                onClick={() => onNewPlanForRace(group.raceId!)}
-                                className="mt-2 w-full rounded-md px-2 py-1.5 text-left text-xs text-muted-foreground transition hover:bg-muted/50 hover:text-foreground dark:text-slate-500 dark:hover:text-slate-300"
-                              >
-                                + Nouveau plan
-                              </button>
-                            )}
 
                             {/* Edit / Delete race buttons (owned races only) */}
                             {group.isOwned && group.raceId && (
@@ -329,7 +339,7 @@ export function PlanManager({
                   className="w-full text-xs"
                   onClick={onNewPlanGlobal}
                 >
-                  + Nouveau plan pour une nouvelle course
+                  + Nouvelle course
                 </Button>
               )}
             </div>

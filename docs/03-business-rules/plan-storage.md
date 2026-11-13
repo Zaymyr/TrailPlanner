@@ -1,7 +1,7 @@
 ---
 title: Plan Storage
 scope: business-rule
-last_verified: 2026-11-09
+last_verified: 2026-11-13
 ai_priority: high
 related_files:
   - apps/web/app/onboarding/account/page.tsx
@@ -54,6 +54,8 @@ related_tables:
 ---
 
 # Plan Storage
+
+Saved catalog plans are grouped by the top-level `race_id` returned by the plans API. The web mapper keeps a defensive legacy fallback to `planner_values.catalogRaceId`; it must not classify a valid catalog-linked plan as “Sans course”.
 
 The plan unlock badge is derived from the access response at runtime; nothing is added to `planner_values` or the saved plan row.
 
