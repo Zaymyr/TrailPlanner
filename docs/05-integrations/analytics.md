@@ -369,6 +369,8 @@ Selecting a source ravito, deriving a same-course GPX access coordinate, and hid
 
 ## Gotchas
 
+- Organizer analytics selectors and reader helper copy changed presentation only; event names and aggregation semantics are unchanged.
+
 - Header collapse, shared gutters/control geometry, plan-card action layout, protected event dates and modal close styling add no analytics event or property. Existing presses must continue through their established handlers and bounded event names.
 - A local draft, its validation error, a cancelled removal, or the six-second organizer undo notice is not a successful organizer mutation and must not emit `organizer event updated` or `organizer race updated`. Existing update telemetry remains limited to successful normal persistence.
 

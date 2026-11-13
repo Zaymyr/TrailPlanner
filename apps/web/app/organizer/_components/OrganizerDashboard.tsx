@@ -63,6 +63,8 @@ import {
 } from "./dashboard/data-cache";
 import { AccessEditor, BibPickupEditor, EquipmentEditor, RaceBibPickupEditor } from "./dashboard/detail-editors";
 import { EventInfoEditor, FormatsEditor } from "./dashboard/event-format-editors";
+import { isValidInstagramUrl, normalizeInstagramUrl } from "./dashboard/form-kit/validation";
+import { ConfirmDialog, SaveStatus, SelectField } from "./dashboard/form-kit";
 import {
   aidStationRowsToDrafts,
   applyGpxStatsToRaceForm,
@@ -392,6 +394,8 @@ export function OrganizerDashboard({
   const [eventUpdateError, setEventUpdateError] = useState<string | null>(null);
   const [eventUpdateSending, setEventUpdateSending] = useState(false);
   const [eventUpdateDeletingId, setEventUpdateDeletingId] = useState<string | null>(null);
+  const [eventUpdateDeleteConfirmation, setEventUpdateDeleteConfirmation] = useState<OrganizerRaceEventUpdate | null>(null);
+  const [destructiveConfirmation, setDestructiveConfirmation] = useState<"gpx" | "race" | null>(null);
   const [eventFavoriteCount, setEventFavoriteCount] = useState<number | null>(null);
   const [eventUpdates, setEventUpdates] = useState<OrganizerRaceEventUpdate[]>([]);
   const [sponsorSummary, setSponsorSummary] = useState<{ editionId: string; sponsors: number; clicks: number } | null>(null);
@@ -956,7 +960,9 @@ export function OrganizerDashboard({
       showToast("error", "Ajoute d’abord un format.");
       return;
     }
-    if (!enabled && persistedEnabled && !window.confirm("Désactiver cette section ? Ses données seront conservées et pourront être restaurées.")) return;
+    if (!enabled && persistedEnabled) {
+      showToast("success", "La section sera masquée à l’enregistrement. Ses données resteront conservées.");
+    }
     setModuleSettingsDraft((current) => {
       const next = { ...current };
       if (enabled === persistedEnabled) delete next[moduleKey];
@@ -1031,7 +1037,7 @@ export function OrganizerDashboard({
       void completeModuleSetup();
       return;
     }
-    if (Object.keys(moduleSettingsDraft).length > 0 && !window.confirm("Abandonner les modifications de sections non enregistrées ?")) return;
+    if (Object.keys(moduleSettingsDraft).length > 0) showToast("success", "Modifications de sections annulées.");
     setModuleSettingsDraft({});
     setModuleSettingsOpen(false);
   };
@@ -1429,7 +1435,14 @@ export function OrganizerDashboard({
 
   const saveEvent = async (override?: Partial<EventFormValues>, options: OrganizerSaveOptions = {}) => {
     if (!accessToken || !selectedEventId) return false;
-    const nextForm = { ...eventForm, ...override };
+    const candidateForm = { ...eventForm, ...override };
+    const nextForm = {
+      ...candidateForm,
+      organizerDetails: {
+        ...candidateForm.organizerDetails,
+        instagramUrl: normalizeInstagramUrl(candidateForm.organizerDetails.instagramUrl ?? "") || null,
+      },
+    };
     const invalidEventMessage = !nextForm.name.trim()
       ? "Indique le nom de l’événement."
       : !nextForm.location.trim()
@@ -1440,7 +1453,7 @@ export function OrganizerDashboard({
             ? "La date de fin doit suivre la date de début."
             : !isValidHttpsUrl(nextForm.organizerDetails.officialWebsiteUrl)
               ? "Le site officiel doit être une adresse complète commençant par https://."
-              : !isValidHttpsUrl(nextForm.organizerDetails.instagramUrl) || !isValidHttpsUrl(nextForm.organizerDetails.facebookUrl)
+              : !isValidInstagramUrl(nextForm.organizerDetails.instagramUrl ?? "") || !isValidHttpsUrl(nextForm.organizerDetails.facebookUrl)
                 ? "Les liens sociaux doivent être des adresses complètes commençant par https://."
                 : !isValidPhone(nextForm.organizerDetails.emergencyContact.phone)
                   ? "Le numéro du contact d’urgence est invalide."
@@ -1855,7 +1868,6 @@ export function OrganizerDashboard({
 
   const deleteGpx = async () => {
     if (!activeRace || !selectedEventId || !accessToken) return;
-    if (!window.confirm("Supprimer ce GPX source ? Les ravitaillements et les métriques du format seront conservés.")) return;
 
     setStatus("saving");
     setError(null);
@@ -2041,8 +2053,6 @@ export function OrganizerDashboard({
 
   const deleteActiveRace = async () => {
     if (!accessToken || !activeRace || !selectedEventId) return;
-    const confirmed = window.confirm(`Supprimer la course "${activeRace.name}" ? Cette action est définitive.`);
-    if (!confirmed) return;
 
     setStatus("saving");
     setError(null);
@@ -2777,7 +2787,7 @@ export function OrganizerDashboard({
       }
 
       const sentCount = data?.delivery?.sentCount ?? 0;
-      showToast("success", sentCount > 0 ? `Notification envoyée à ${sentCount} coureur(s).` : "Mise à jour publiée.");
+      showToast("success", sentCount > 0 ? `Notification envoyée à ${sentCount} ${sentCount === 1 ? "coureur" : "coureurs"}.` : "Mise à jour publiée.");
       setEventUpdateMessage("");
       setEventUpdateRaceId(null);
       setEventUpdatesDialogOpen(false);
@@ -2792,7 +2802,6 @@ export function OrganizerDashboard({
 
   const deleteEventUpdate = async (update: OrganizerRaceEventUpdate) => {
     if (!selectedEventId || !accessToken || eventUpdateDeletingId) return;
-    if (!window.confirm("Supprimer ce message de l'historique visible par les coureurs ?")) return;
 
     setEventUpdateDeletingId(update.id);
     setEventUpdateError(null);
@@ -3612,7 +3621,59 @@ export function OrganizerDashboard({
         </DialogContent>
       </Dialog>
 
-      {error ? <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+      <ConfirmDialog
+        open={destructiveConfirmation === "gpx"}
+        onOpenChange={(open) => { if (!open) setDestructiveConfirmation(null); }}
+        title="Supprimer ce GPX source ?"
+        description="Les ravitaillements et les métriques du format seront conservés."
+        confirmLabel="Supprimer le GPX"
+        onConfirm={() => void deleteGpx()}
+      />
+      <ConfirmDialog
+        open={destructiveConfirmation === "race"}
+        onOpenChange={(open) => { if (!open) setDestructiveConfirmation(null); }}
+        title={`Supprimer le format ${activeRace?.name ?? ""} ?`}
+        description="Cette action est définitive."
+        confirmLabel="Supprimer le format"
+        onConfirm={() => void deleteActiveRace()}
+      />
+      <Dialog
+        open={eventUpdateDeleteConfirmation !== null}
+        onOpenChange={(open) => {
+          if (!open && eventUpdateDeletingId === null) setEventUpdateDeleteConfirmation(null);
+        }}
+      >
+        <DialogContent role="alertdialog" aria-modal="true">
+          <DialogHeader>
+            <DialogTitle>Supprimer ce message ?</DialogTitle>
+            <DialogDescription>Il ne sera plus visible dans l’historique des coureurs.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setEventUpdateDeleteConfirmation(null)} disabled={eventUpdateDeletingId !== null}>Annuler</Button>
+            <Button
+              type="button"
+              className="bg-red-700 hover:bg-red-800"
+              disabled={eventUpdateDeletingId !== null}
+              onClick={() => {
+                const update = eventUpdateDeleteConfirmation;
+                setEventUpdateDeleteConfirmation(null);
+                if (update) void deleteEventUpdate(update);
+              }}
+            >
+              Supprimer le message
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {error ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700" role="alert">
+          <span>{error}</span>
+          {error.includes("nom de l’événement") ? <a className="font-semibold underline" href="#organizer-event-name">Corriger le nom</a> : null}
+          {error.includes("date de fin") ? <a className="font-semibold underline" href="#organizer-edition-end-date">Corriger la date de fin</a> : null}
+          {error.includes("liens sociaux") ? <a className="font-semibold underline" href="#organizer-instagram-url">Corriger les liens sociaux</a> : null}
+        </div>
+      ) : null}
 
       <nav className="flex gap-1 border-b border-border" aria-label="Espace Livret coureur">
         {([
@@ -3817,7 +3878,7 @@ export function OrganizerDashboard({
             <Button
               type="button"
               variant="outline"
-              onClick={() => void deleteActiveRace()}
+              onClick={() => setDestructiveConfirmation("race")}
               disabled={status === "saving" || status === "uploading"}
               className="shrink-0 border-red-300 text-red-700 hover:border-red-400 hover:bg-red-50 hover:text-red-800"
             >
@@ -3826,6 +3887,14 @@ export function OrganizerDashboard({
           ) : null}
         </CardHeader>
         <CardContent>
+          <SaveStatus
+            state={autosaveState}
+            savedAt={lastAutosavedAt?.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+            onRetry={() => {
+              setAutosaveState("idle");
+              saveCurrentScopeInBackground();
+            }}
+          />
           {!eventDetail || !eventDraft ? (
             <p className="text-sm text-muted-foreground">Chargement de l&apos;événement...</p>
           ) : activeModule === "event" ? (
@@ -3861,7 +3930,7 @@ export function OrganizerDashboard({
                 onSelectNewRaceGpx={selectNewRaceGpx}
                 onUploadGpx={uploadGpx}
                 onDeleteGpx={() => {
-                  void deleteGpx();
+                  setDestructiveConfirmation("gpx");
                 }}
                 gpxPreview={gpxPreview}
                 status={status}
@@ -3899,22 +3968,22 @@ export function OrganizerDashboard({
               )}
               expandedStationKey={expandedStationKey}
               onExpandedStationKeyChange={setExpandedStationKey}
-              onAddStation={() => {
+              onAddStation={(draft) => {
                 const nextKey = `new-${aidStations.length}`;
                 setAidStations((current) =>
                   sortAidStationsByDistance([
                     ...current,
                     {
-                      name: "Nouveau ravito",
-                      distanceKm: 0,
+                      name: draft.name,
+                      distanceKm: draft.distanceKm,
                       waterRefill: true,
                       solidRefill: true,
                       assistanceAllowed: true,
                       notes: "",
                       organizerDetails: syncAidStationWithGpxPreview(
                         {
-                          name: "Nouveau ravito",
-                          distanceKm: 0,
+                          name: draft.name,
+                          distanceKm: draft.distanceKm,
                           waterRefill: true,
                           solidRefill: true,
                           assistanceAllowed: true,
@@ -4064,12 +4133,14 @@ export function OrganizerDashboard({
             />
           ) : activeModule === "bibPickup" ? (
             isEventTab ? (
-              <BibPickupEditor eventDetails={eventForm.organizerDetails} onEventChange={(details) => updateEventDetails(details, "bibPickup")} />
+              <BibPickupEditor eventDetails={eventForm.organizerDetails} editionStartDate={eventForm.editionStartDate} editionEndDate={eventForm.editionEndDate} onEventChange={(details) => updateEventDetails(details, "bibPickup")} />
             ) : (
               <RaceBibPickupEditor
                 activeRace={activeRace}
                 eventDetails={eventForm.organizerDetails}
                 raceDetails={raceForm.organizerDetails}
+                editionStartDate={eventForm.editionStartDate}
+                editionEndDate={eventForm.editionEndDate}
                 onRaceChange={(details) => updateRaceForm({ organizerDetails: details }, "bibPickup")}
               />
             )
@@ -4327,7 +4398,7 @@ export function OrganizerDashboard({
             <DialogDescription>
               {eventFavoriteCount === null
                 ? "Charge le nombre de favoris et publie une mise à jour visible côté coureur."
-                : `${eventFavoriteCount} coureur(s) suivent cette course. Le message sera aussi ajouté à l'historique public de l'événement.`}
+                : `${eventFavoriteCount} ${eventFavoriteCount === 1 ? "coureur suit" : "coureurs suivent"} cette course. Le message sera aussi ajouté à l'historique public de l'événement.`}
             </DialogDescription>
           </DialogHeader>
 
@@ -4336,19 +4407,16 @@ export function OrganizerDashboard({
               <label htmlFor="organizer-update-audience" className="text-sm font-medium text-foreground">
                 Notification concernée
               </label>
-              <select
+              <SelectField
                 id="organizer-update-audience"
                 className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 value={eventUpdateRaceId ?? ""}
-                onChange={(event) => setEventUpdateRaceId(event.target.value || null)}
-              >
-                <option value="">Tout l’événement — {eventDetail?.name ?? "Événement"}</option>
-                {eventUpdateRaceOptions.map((race) => (
-                  <option key={race.id} value={race.id}>
-                    Format — {race.name}
-                  </option>
-                ))}
-              </select>
+                onValueChange={(value) => setEventUpdateRaceId(value || null)}
+                options={[
+                  { value: "", label: `Tout l’événement — ${eventDetail?.name ?? "Événement"}` },
+                  ...eventUpdateRaceOptions.map((race) => ({ value: race.id, label: `Format — ${race.name}` })),
+                ]}
+              />
               <p className="text-xs text-muted-foreground">
                 Le titre de la notification affichera le nom de l’événement ou celui du format choisi.
               </p>
@@ -4391,7 +4459,7 @@ export function OrganizerDashboard({
                         aria-label="Supprimer ce message"
                         title="Supprimer ce message"
                         disabled={eventUpdateDeletingId !== null}
-                        onClick={() => void deleteEventUpdate(update)}
+                        onClick={() => setEventUpdateDeleteConfirmation(update)}
                       >
                         {eventUpdateDeletingId === update.id ? "…" : "×"}
                       </button>

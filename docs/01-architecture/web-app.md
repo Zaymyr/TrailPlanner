@@ -652,6 +652,8 @@ Organizer material, bib, access, services, sponsors, partner slots, products, an
 
 ## Gotchas
 
+- The Organizer editor owns the sticky `SaveStatus`; the summary header no longer duplicates autosave state, and its compact navigation remains responsive.
+
 - `RootChrome` owns the single public `<main>` landmark and its `#main-content` skip target. Route pages rendered inside it must not add a second `<main>`. Desktop navigation keeps account-only destinations, locale, theme and sign-out inside the account menu; unauthenticated organizer links target `/organisateurs`.
 - Browser-wide security headers are emitted from `next.config.mjs`. The CSP starts as `Content-Security-Policy-Report-Only` so Stripe, Supabase, PostHog, Google Analytics and Cloudinary violations can be observed before enforcement.
 - The shared footer uses grouped, 44 px-tall links and the canonical support address. Cookie consent is a full-width bottom bar so it does not cover the central reading column.

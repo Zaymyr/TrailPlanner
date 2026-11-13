@@ -76,6 +76,8 @@ The table retains `id`, timestamps, `user_id`, `event_id`, `source_year`, `reque
 
 ## Gotchas
 
+- The compact Organizer edition selector is presentation-only; edition-request creation and status values are unchanged.
+
 - The shared admin organizer screen may configure non-monetized gifted features and manual invoices, but neither action changes edition-request review state.
 
 - The current admin rights dialog may return the selected current edition to Visibilité, but this does not revive or mutate the retired edition-request workflow.

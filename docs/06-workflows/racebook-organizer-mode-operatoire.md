@@ -56,6 +56,8 @@ Ce document accompagne le PDF utilisateur [`docs/mode-operatoire-racebook-organi
 
 ## Validation
 
+The active editor keeps save status visible while scrolling; destructive actions use accessible dialogs and repeatable content offers a short undo window.
+
 - Dans **Gérer la visibilité**, vérifier que chaque format affiche `Informations à jour` en vert ou `Publier les modifications` lorsqu'un brouillon diffère de la version en ligne.
 - Ouvrir `Publier les modifications` et contrôler que la confirmation liste les champs et sections modifiés avant de proposer `Annuler` ou `Publier`.
 - Utiliser le menu `…` placé après les contrôles de visibilité pour consulter l'historique des dix versions et restaurer une ancienne publication sans changer d'onglet.

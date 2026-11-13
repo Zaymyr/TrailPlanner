@@ -105,6 +105,8 @@ This table is retained publication-review history. New organizer publication use
 
 ## Gotchas
 
+- The compact Organizer publication CTA still uses the existing request contract and authorization checks.
+
 - The shared admin organizer screen may configure non-monetized gifted features and manual invoices, but neither action approves or closes a publication request.
 
 - Current admin pack changes, Visibilité downgrades, and direct-virement recording do not create or reopen legacy publication-request rows.

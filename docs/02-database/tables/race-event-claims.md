@@ -163,6 +163,8 @@ order by created_at asc;
 
 ## Gotchas
 
+- Organizer navigation and form-control harmonization do not change claim membership checks or persisted claim state.
+
 - Changing an edition publication origin between Admin, Offert, Stripe, and virement does not create, approve, or modify a management claim. Paid origins still require matching payment history.
 
 - Dashboard code-splitting, accessible form controls and abortable event loads do not alter claim authorization or lifecycle; a late event response must never retarget the currently selected claim/event.

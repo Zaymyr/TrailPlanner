@@ -231,6 +231,8 @@ Playback, progressive route reveal, and the 9:16/16:9 switch are presentation-on
 
 ## Gotchas
 
+- Organizer GPX deletion now uses the shared accessible confirmation dialog; storage deletion and retained race metrics follow the existing API contract.
+
 - Admin catalog copy may use typographic French apostrophes to remain JSX-lint safe; this presentation detail must not alter GPX parsing, upload, or publication behavior.
 - Never overwrite or reuse a public race's existing `gpx_storage_path`: the public detail loader relies on versioned replacement paths to cache raw GPX bytes durably without serving an old trace.
 - A legacy `elevation_gain_m` missing marker is cleared when the parsed trace contains elevation samples, even if the computed gain is zero; do not use a positive-gain test as a proxy for elevation availability.

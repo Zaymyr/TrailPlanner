@@ -556,6 +556,8 @@ Structured services, equipment items, aid stations, and sponsors use valid local
 
 ## Gotchas
 
+- Organizer deletion prompts use accessible dialogs for destructive GPX/format actions; ordinary repeatable-row removal uses undo instead of browser confirmation.
+
 - Shared web prompt dismiss controls use a 44 px target. Planner breadcrumb and landmark cleanup is presentation-only and does not change organizer membership, publication, acquisition routing or Mobile App Prompt coordination.
 
 - The Courses visual-alignment pass keeps the same event/format rows, organizer preview exception, favorite scope and update panel. Opaque sticky chrome, protected date text and a lighter heart do not change organizer publication or visibility.

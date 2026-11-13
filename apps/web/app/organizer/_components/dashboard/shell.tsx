@@ -12,6 +12,7 @@ import { buildEditionYearOptions, formatEventDateRange, getEventEdition, getRace
 import type { ClaimRow, EditionRequestRow, MembershipRow, OrganizerEventDetail, PublicationRequestRow, RacebookPublicationState, RaceFormat } from "./types";
 import { ContextualHelp, LiveToggle, RacebookVisibilityControl } from "./controls";
 import type { RacebookVisibilityState } from "./controls";
+import { SelectField } from "./form-kit";
 
 const FORMAT_VISIBILITY_LABEL: Record<RacebookVisibilityState, string> = {
   hidden: "Course masquée pour le public",
@@ -376,16 +377,14 @@ export function OrganizerSummaryHeader({
         />
         <div>
           <label htmlFor="organizer-event-edition-select" className="mb-1 block text-xs font-medium text-muted-foreground">Édition</label>
-          <select id="organizer-event-edition-select" title="Changer l’année à modifier sans changer d’événement." className="h-11 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground" value={selectedEditionYear} onChange={(selectEvent) => onSelectedEditionYearChange(selectEvent.target.value)}>
-            {editionYearOptions.map((option) => <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>)}
-          </select>
+          <SelectField id="organizer-event-edition-select" title="Changer l’année à modifier sans changer d’événement." value={selectedEditionYear} onValueChange={onSelectedEditionYearChange} options={editionYearOptions.map((option) => ({ value: option.value, label: option.label }))} />
         </div>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg bg-muted/30 px-3 py-2.5">
-        <span className="text-sm font-medium text-foreground">Préparation</span>
+        <span className="text-sm font-medium text-foreground">Minimum requis</span>
         <InlineProgressBar score={eventScore} className="min-w-[12rem] flex-1" />
-        <span className="text-xs font-medium text-muted-foreground">{completedSectionCount} section{completedSectionCount > 1 ? "s" : ""} sur {totalSectionCount} renseignée{completedSectionCount > 1 ? "s" : ""}</span>
+        <span className="text-xs font-medium text-muted-foreground">Complétion globale : {completedSectionCount} section{completedSectionCount > 1 ? "s" : ""} sur {totalSectionCount} renseignée{completedSectionCount > 1 ? "s" : ""}</span>
         <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", completion?.informationComplete ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800")}>{completion?.informationComplete ? "Minimum requis atteint" : "Minimum requis à compléter"}</span>
       </div>
 
@@ -495,33 +494,6 @@ export function OrganizerSummaryHeader({
           </div>
         </div> : null}
       </details>
-
-      <div
-        id="organizer-autosave-status"
-        role="status"
-        aria-live="polite"
-        className={cn(
-          "mt-3 flex min-h-11 items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm",
-          autosaveState === "error" ? "border-red-300 bg-red-50 text-red-900" : "border-border bg-muted/30 text-muted-foreground"
-        )}
-      >
-        <span>
-          {autosaveState === "saving"
-            ? "Sauvegarde automatique en cours…"
-            : autosaveState === "idle"
-              ? "Modifications en attente de sauvegarde…"
-              : autosaveState === "error"
-                ? "Échec de la sauvegarde automatique. Tes modifications sont conservées dans ce formulaire."
-                : lastAutosavedAt
-                  ? `Sauvegardé automatiquement à ${lastAutosavedAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`
-                  : "Toutes les modifications sont sauvegardées automatiquement."}
-        </span>
-        {autosaveState === "error" ? (
-          <Button type="button" variant="outline" onClick={onRetryAutosave} className="!h-9 shrink-0">
-            Réessayer
-          </Button>
-        ) : null}
-      </div>
 
       <Dialog
         open={newEditionDialogOpen}
@@ -911,26 +883,17 @@ export function CompletionTabsPanel({
         <label htmlFor="organizer-workspace-select" className="mb-1.5 block text-sm font-medium text-foreground">
           Informations à modifier
         </label>
-        <select
+        <SelectField
           id="organizer-workspace-select"
-          className="h-11 w-full min-w-0 rounded-md border border-input bg-card px-3 text-sm text-foreground"
+          className="min-w-0"
           value={activeTab}
-          onChange={(event) => onTabChange(event.target.value)}
-        >
-          {eventTab ? (
-            <optgroup label="Informations communes">
-              <option value={eventTab.id}>Commun à toutes les courses</option>
-            </optgroup>
-          ) : null}
-          <optgroup label="Formats de course">
-            {formatTabs.map((tab) => (
-              <option key={tab.id} value={tab.id} className={tab.visibility === "hidden" ? "text-muted-foreground" : undefined}>
-                {getFormatOptionLabel(tab)}
-              </option>
-            ))}
-            {addFormatTab ? <option value={addFormatTab.id}>+ Ajouter un format</option> : null}
-          </optgroup>
-        </select>
+          options={[
+            ...(eventTab ? [{ value: eventTab.id, label: "Commun à toutes les courses" }] : []),
+            ...formatTabs.map((tab) => ({ value: tab.id, label: getFormatOptionLabel(tab) })),
+            ...(addFormatTab ? [{ value: addFormatTab.id, label: "+ Ajouter un format" }] : []),
+          ]}
+          onValueChange={onTabChange}
+        />
       </div>
 
       <div id="organizer-onboarding-scope-navigation" className="hidden gap-4 border-b border-border pb-4 md:grid lg:grid-cols-[minmax(14rem,0.8fr)_minmax(0,3fr)]">
@@ -1044,11 +1007,8 @@ export function OrganizerModuleGrid({
   onSelectModule: (moduleId: OrganizerModuleId) => void;
 }) {
   const isDirty = (moduleId: OrganizerModuleId) => dirtyModules.has(moduleId);
-  const statusLabels = {
-    empty: "Aucune information",
-    incomplete: "Partiel",
-    complete: "Complet",
-  } as const;
+  const getStatusLabel = (module: OrganizerCompletionSummary["modules"][number]) =>
+    module.status === "complete" ? "Complet" : module.level === "optional" && module.status === "empty" ? "Optionnel" : "À compléter";
 
   return (
     <div id="organizer-onboarding-module-tiles" className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-7">
@@ -1056,7 +1016,7 @@ export function OrganizerModuleGrid({
         <button
           key={module.id}
           type="button"
-          aria-label={`${module.title}. ${statusLabels[module.status]}. ${module.countLabel}. ${module.description}`}
+          aria-label={`${module.title}. ${getStatusLabel(module)}. ${module.countLabel}. ${module.description}`}
           aria-current={activeModule === module.id ? "true" : undefined}
           className={cn(
             "relative min-h-[82px] rounded-lg border-2 p-3 text-left transition hover:-translate-y-0.5 hover:shadow-md lg:min-w-0",
@@ -1069,7 +1029,7 @@ export function OrganizerModuleGrid({
           onClick={() => onSelectModule(module.id)}
         >
           <h2 className="pr-5 text-sm font-bold leading-snug text-foreground">{module.title}</h2>
-          <p className="mt-1 text-[11px] font-semibold leading-snug text-foreground/80">{statusLabels[module.status]}</p>
+          <p className="mt-1 text-[11px] font-semibold leading-snug text-foreground/80">{getStatusLabel(module)}</p>
           <p className="mt-1.5 text-xs font-medium leading-snug text-muted-foreground">{module.countLabel}</p>
           {isDirty(module.id) ? <span className="sr-only">Modifications à sauvegarder</span> : null}
         </button>

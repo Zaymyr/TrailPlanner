@@ -86,6 +86,8 @@ Edition branding is also outside import reconciliation. The import model cannot 
 
 ## Gotchas
 
+- Organizer import-review selects now use the shared form control; claim reconciliation and apply semantics are unchanged.
+
 Applying imported claims only updates organizer draft sources and their draft revisions. The import workflow never creates or restores an immutable RaceBook publication; the organizer must use the normal explicit publication action afterward.
 
 - Keep resumable uploads on the direct Supabase Storage origin (`*.storage.supabase.co`) and retain completed-object cleanup on cancellation or failure; sending 25 MB files through the Next.js route reintroduces platform payload limits.
