@@ -1,7 +1,7 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-11-09
+last_verified: 2026-11-13
 ai_priority: high
 related_files:
   - supabase/migrations/20261109140000_add_racebook_edition_partner_slots.sql

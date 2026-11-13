@@ -64,6 +64,7 @@ import { fetchRaceFavoriteEventIds } from '../../lib/raceFavorites';
 
 type Race = {
   id: string;
+  slug?: string | null;
   name: string;
   distance_km: number;
   elevation_gain_m: number | null;
@@ -113,6 +114,7 @@ const EVENT_CATALOG_SELECT = `
   organizer_details,
   race_event_updates (
     id,
+    slug,
     event_id,
     race_id,
     message,
@@ -395,11 +397,13 @@ export default function CatalogScreen() {
     eventId: selectedEventIdParam,
     raceId: selectedRaceIdParam,
     updateId: selectedUpdateIdParam,
+    raceSlug: selectedRaceSlugParam,
     onboarding: onboardingMode,
   } = useLocalSearchParams<{
     eventId?: string;
     raceId?: string;
     updateId?: string;
+    raceSlug?: string;
     onboarding?: 'plan' | 'racebook';
   }>();
   const insets = useSafeAreaInsets();
@@ -987,6 +991,16 @@ export default function CatalogScreen() {
     openingEventFromParamRef.current = selectedEventIdParam;
     setSelectedEvent(matchingEvent);
   }, [organizerDemoEventGroups, selectedEventIdParam]);
+
+  useEffect(() => {
+    if (!selectedRaceSlugParam || openingEventFromParamRef.current === `slug:${selectedRaceSlugParam}`) return;
+    const matchingEvent = organizerDemoEventGroups.find((event) =>
+      event.races.some((race) => race.slug === selectedRaceSlugParam),
+    );
+    if (!matchingEvent) return;
+    openingEventFromParamRef.current = `slug:${selectedRaceSlugParam}`;
+    setSelectedEvent(matchingEvent);
+  }, [organizerDemoEventGroups, selectedRaceSlugParam]);
 
   useEffect(() => {
     if (!selectedEvent || !selectedUpdateIdParam) return;

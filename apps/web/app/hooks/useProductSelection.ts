@@ -10,9 +10,9 @@ import {
 } from "../../lib/product-preferences";
 import type { FuelProduct } from "../../lib/product-types";
 
-export type ToggleResult = { updated: boolean; reason?: "limit" };
+export type ToggleResult = { updated: boolean };
 
-export const useProductSelection = (favoriteLimit: number = Number.POSITIVE_INFINITY) => {
+export const useProductSelection = () => {
   const [selectedProducts, setSelectedProducts] = useState<StoredProductPreference[]>([]);
 
   useEffect(() => {
@@ -37,11 +37,6 @@ export const useProductSelection = (favoriteLimit: number = Number.POSITIVE_INFI
           return next;
         }
 
-        if (current.length >= favoriteLimit) {
-          result = { updated: false, reason: "limit" };
-          return current;
-        }
-
         const next = [...current, mapProductToSelection(product)];
         persistSelectedProducts(next);
         result = { updated: true };
@@ -50,7 +45,7 @@ export const useProductSelection = (favoriteLimit: number = Number.POSITIVE_INFI
 
       return result;
     },
-    [favoriteLimit]
+    []
   );
 
   return {

@@ -1167,12 +1167,10 @@ export function useProfileScreen() {
   const premiumBenefits = useMemo(
     () => [
       t.profile.premiumBenefitPlans,
-      t.profile.premiumBenefitFavorites,
       t.profile.premiumBenefitAutoFill,
     ],
     [
       t.profile.premiumBenefitAutoFill,
-      t.profile.premiumBenefitFavorites,
       t.profile.premiumBenefitPlans,
     ],
   );

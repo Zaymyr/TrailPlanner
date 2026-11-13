@@ -10,7 +10,6 @@ import {
   RootCollapsibleHeader,
 } from '../../components/navigation/RootCollapsibleHeader';
 import { RootScreenActionMenu } from '../../components/navigation/RootScreenActionMenu';
-import { PremiumUpsellModal } from '../../components/premium/PremiumUpsellModal';
 import { Button } from '../../components/themed/Button';
 import { Card } from '../../components/themed/Card';
 import { ErrorState } from '../../components/themed/ErrorState';
@@ -19,7 +18,6 @@ import { Screen } from '../../components/themed/Screen';
 import { Text } from '../../components/themed/Text';
 import { useFollowedRaces } from '../../hooks/useFollowedRaces';
 import { usePlansScreen } from '../../hooks/usePlansScreen';
-import { FREE_PLAN_LIMIT } from '../../lib/planAccess';
 
 /**
  * "Mes courses": upcoming followed races first (RaceBook-led), then the
@@ -37,9 +35,7 @@ export default function PlansScreen() {
   const {
     locale,
     t,
-    isPremium,
     loading,
-    premiumLoading,
     error,
     refreshing,
     sections,
@@ -47,8 +43,6 @@ export default function PlansScreen() {
     activePlanId,
     sharingPlanId,
     isAnonymous,
-    accessiblePlanIds,
-    premiumModalCopy,
     handleRetry,
     handleRefresh,
     handleDelete,
@@ -60,8 +54,6 @@ export default function PlansScreen() {
     handleOpenRacePlan,
     handleOpenPlanSummary,
     handleSharePlan,
-    handleOpenLockedPlan,
-    closePremiumModal,
   } = usePlansScreen();
   // Events that already carry a plan are listed in their plan section instead.
   const { followedEventsWithoutPlan, pastFollowedEventsWithoutPlan } = useMemo(() => {
@@ -91,7 +83,7 @@ export default function PlansScreen() {
       topInset={insets.top}
     />
   );
-  if (loading || premiumLoading) {
+  if (loading) {
     return (
       <Screen style={styles.screen}>
         <LoadingState
@@ -151,8 +143,6 @@ export default function PlansScreen() {
         emptySubtitle={hasFollowedRaces ? t.plans.emptyPlansOptionalSubtitle : t.plans.emptySubtitle}
         emptyTitle={hasFollowedRaces ? t.plans.emptyPlansOptionalTitle : t.plans.empty}
         inProgressLabel={t.plans.inProgress}
-        isPremium={isPremium}
-        accessiblePlanIds={accessiblePlanIds}
         liveLabel={t.plans.live}
         locale={locale}
         noRaceWarningLabel={t.plans.noRaceWarning}
@@ -161,7 +151,6 @@ export default function PlansScreen() {
         onDeletePlan={handleDelete}
         onRenamePlan={handleRenamePlan}
         onOpenEditPlan={handleOpenEditPlan}
-        onOpenLockedPlan={handleOpenLockedPlan}
         onOpenRacePlan={handleOpenRacePlan}
         onOpenSummary={handleOpenPlanSummary}
         onSharePlan={handleSharePlan}
@@ -229,13 +218,6 @@ export default function PlansScreen() {
         topInset={insets.top}
       />
 
-      <PremiumUpsellModal
-        message={premiumModalCopy?.message ?? t.plans.freeAccessMessage.replace('{count}', String(FREE_PLAN_LIMIT))}
-        onClose={closePremiumModal}
-        placement="plan_limit"
-        title={premiumModalCopy?.title ?? t.plans.freeAccessTitle}
-        visible={premiumModalCopy !== null}
-      />
     </Screen>
   );
 }

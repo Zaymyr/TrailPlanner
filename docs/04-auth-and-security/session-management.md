@@ -1,7 +1,7 @@
 ---
 title: Session Management
 scope: auth
-last_verified: 2026-11-09
+last_verified: 2026-11-13
 ai_priority: high
 related_files:
   - apps/web/app/hooks/useVerifiedSession.tsx

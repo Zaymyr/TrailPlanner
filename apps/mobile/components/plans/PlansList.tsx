@@ -42,8 +42,6 @@ type PlansListProps = {
   sections: RaceSection[];
   collapsedSections: Set<string>;
   activePlanId: string | null;
-  accessiblePlanIds: Set<string> | null;
-  isPremium: boolean;
   locale: 'fr' | 'en';
   refreshing: boolean;
   sharingPlanId: string | null;
@@ -70,7 +68,6 @@ type PlansListProps = {
   onOpenRacePlan: (planId: string) => void;
   onOpenSummary: (planId: string) => void;
   onSharePlan: (planId: string) => void;
-  onOpenLockedPlan: () => void;
   onBrowseRaces: () => void;
   /** Opens the format's RaceBook; plans of catalog formats lead with it. */
   onOpenRacebook?: (raceId: string) => void;
@@ -85,8 +82,6 @@ export const PlansList = memo(function PlansList({
   sections,
   collapsedSections,
   activePlanId,
-  accessiblePlanIds,
-  isPremium,
   locale,
   refreshing,
   sharingPlanId,
@@ -113,7 +108,6 @@ export const PlansList = memo(function PlansList({
   onOpenRacePlan,
   onOpenSummary,
   onSharePlan,
-  onOpenLockedPlan,
   onBrowseRaces,
   onOpenRacebook,
   racebookButtonLabel,
@@ -171,9 +165,6 @@ export const PlansList = memo(function PlansList({
 
           const duration = estimateDuration(item);
           const isActivePlan = activePlanId === item.id;
-          const isAccessible =
-            isPremium || accessiblePlanIds === null || accessiblePlanIds.has(item.id);
-
           const planEventName = section.pastEventNames?.[item.id] ?? section.eventName;
           const startsPastEvent = section.pastEventStartIds?.includes(item.id) === true;
 
@@ -191,7 +182,7 @@ export const PlansList = memo(function PlansList({
                 duration={duration}
                 editButtonLabel={editButtonLabel}
                 inProgressLabel={inProgressLabel}
-                isAccessible={isAccessible}
+                isAccessible
                 isActivePlan={isActivePlan}
                 isSharing={sharingPlanId === item.id}
                 item={item}
@@ -199,7 +190,7 @@ export const PlansList = memo(function PlansList({
                 locale={locale}
                 nowMs={nowMs}
                 onDelete={() => onDeletePlan(item.id)}
-                onLockedPress={onOpenLockedPlan}
+                onLockedPress={() => onOpenEditPlan(item.id)}
                 onManage={() => {
                   setManagedPlan(item);
                   setManagedPlanName(item.name);

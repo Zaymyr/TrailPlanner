@@ -106,17 +106,13 @@ export type MobileTranslations = {
     updatedAt: string;
     live: string;
     inProgress: string;
-    limitReachedTitle: string;
-    limitReachedMessage: string;
     chooseRaceTitle: string;
     createNewRace: string;
     noCatalogRace: string;
-    freeAccessTitle: string;
-    freeAccessMessage: string;
     freeAccessHint: string;
     freeLockedBadge: string;
-    guestLimitTitle: string;
-    guestLimitMessage: string;
+    accountRequiredTitle: string;
+    accountRequiredMessage: string;
     guestModeBannerTitle: string;
     guestModeBannerBody: string;
     guestModeBannerCta: string;
@@ -470,8 +466,6 @@ export type MobileTranslations = {
     premiumPaywallAutoFillMessage: string;
     premiumPaywallPaceMessage: string;
     premiumPaywallNutritionMessage: string;
-    premiumPaywallPlanLimitMessage: string;
-    premiumPaywallFavoriteLimitMessage: string;
     premiumPaywallRecapMessage: string;
     premiumPaywallSettingsMessage: string;
     restoreCancelled: string;
@@ -523,7 +517,6 @@ export type MobileTranslations = {
     changelogSnapshotFallback: string;
     premiumBenefitsTitle: string;
     premiumBenefitPlans: string;
-    premiumBenefitFavorites: string;
     premiumBenefitAutoFill: string;
     accountSectionTitle: string;
     guestAccountSectionTitle: string;
@@ -912,8 +905,6 @@ export type MobileTranslations = {
     favoriteAccountMessage: string;
   };
   nutrition: {
-    favoritesLimitBanner: string;
-    favoriteLimitMessage: string;
     createProductPremiumHint: string;
     otherBrandsLabel: string;
     verifiedLabel: string;

@@ -23,6 +23,8 @@ related_tables:
 
 # `user_favorite_race_events`
 
+The runner-journey alignment does not add a quota to favorite races or nutrition products. Catalog navigation changes preserve this table's existing ownership and uniqueness rules.
+
 Organizer form validation, local repeatable-list drafts and announcement-delete confirmation do not alter favorite ownership, aggregate counts or notification audience selection.
 
 Organizer RaceBook analytics can be opened by the Signature tier or the exact `capability.racebook_analytics` gift. This changes only server authorization for aggregate favorite metrics; favorite ownership, client RLS and stored rows remain unchanged.

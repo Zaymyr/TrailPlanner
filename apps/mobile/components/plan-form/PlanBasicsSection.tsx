@@ -440,7 +440,7 @@ export function PlanBasicsSection({
               </View>
               <View style={[styles.rowItem, { marginLeft: 12 }]} />
             </View>
-            <Text style={styles.label}>Volume de la poche à eau</Text>
+            <Text style={styles.label}>Capacité en eau</Text>
             <Text style={styles.waterBagHint}>Capacité de ta poche à eau, pas le volume total du sac/gilet.</Text>
             <WaterBagCapacitySelector
               value={values.waterBagLiters}
@@ -677,7 +677,7 @@ export function PlanBasicsSection({
                     <View style={[styles.rowItem, { marginLeft: 12 }]} />
                   </View>
 
-                  <Text style={styles.label}>Volume de la poche à eau</Text>
+                  <Text style={styles.label}>Capacité en eau</Text>
                   <Text style={styles.waterBagHint}>Capacité de ta poche à eau, pas le volume total du sac/gilet.</Text>
                   <WaterBagCapacitySelector
                     value={values.waterBagLiters}

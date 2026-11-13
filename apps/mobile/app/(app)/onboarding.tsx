@@ -639,7 +639,7 @@ export default function OnboardingScreen() {
   }
 
   useEffect(() => {
-    if (step !== 5) return;
+    if (step !== 4) return;
 
     if (hasLoadedRaceOptions || loadingRaces) return;
 
@@ -1091,8 +1091,10 @@ export default function OnboardingScreen() {
       );
       if (error) throw error;
 
-      await saveOnboardingProgress({ kind: 'plan', stage: 'catalog' });
-      router.replace('/(app)/catalog?onboarding=plan');
+      if (!selectedRaceId) throw new Error('Missing onboarding race');
+      await saveOnboardingProgress({ kind: 'plan', stage: 'nutrition', selectedRaceId });
+      setSaving(false);
+      setStep(6);
     } catch (error) {
       console.error('Unable to continue plan onboarding in catalog:', error);
       Alert.alert(t.common.error, t.onboarding.skipOnboardingError);
@@ -1131,7 +1133,7 @@ export default function OnboardingScreen() {
   function handleSelectRace(raceId: string) {
     setSelectedRaceId(raceId);
     setSelectedRaceEvent(null);
-    setStep(6);
+    setStep(5);
   }
 
   function toggleProductSelection(productId: string) {
@@ -1147,7 +1149,7 @@ export default function OnboardingScreen() {
   }
 
   function handleBackToRaceChoice() {
-    setStep(5);
+    setStep(4);
   }
 
   function toggleNutritionBrand(brandLabel: string) {
@@ -1483,11 +1485,11 @@ export default function OnboardingScreen() {
     );
   }
 
-  if (step === 4) {
+  if (step === 5) {
     return (
       <>
         <OnboardingNutritionTargetsStep
-          step={4}
+          step={5}
           totalSteps={totalSteps}
           stepLabel={t.onboarding.stepLabel}
           skipLabel={t.onboarding.skipOnboardingCta}
@@ -1525,7 +1527,7 @@ export default function OnboardingScreen() {
     );
   }
 
-  if (step === 5) {
+  if (step === 4) {
     return (
       <OnboardingRaceSelectionStep
         copy={t}

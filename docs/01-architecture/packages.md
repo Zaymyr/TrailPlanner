@@ -1,7 +1,7 @@
 ---
 title: Packages Architecture
 scope: architecture
-last_verified: 2026-11-09
+last_verified: 2026-11-13
 ai_priority: medium
 related_files:
   - package.json
@@ -17,6 +17,8 @@ related_tables: []
 ---
 
 # Packages Architecture
+
+`@trailplanner/shared` owns the canonical runner profile field order, localized labels, units, required flags and readiness predicate used by web and mobile. It contains no UI or provider-specific access logic.
 
 ## Purpose
 

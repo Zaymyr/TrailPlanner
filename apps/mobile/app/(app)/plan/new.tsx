@@ -3,21 +3,19 @@ import { Alert, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from
 import { Text } from '../../../components/themed/Text';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
+import { isRunnerProfileReady, type RunnerProfileValues } from '@trailplanner/shared';
 import { DEFAULT_PLAN_VALUES, type PlanFormValues, type ElevationPoint } from '../../../components/PlanForm';
 import { AppHeaderTitle } from '../../../components/navigation/AppHeaderTitle';
-import { PremiumUpsellModal } from '../../../components/premium/PremiumUpsellModal';
 import { PlanLoadingScreen } from '../../../components/PlanLoadingScreen';
 import { RaceSelector } from '../../../components/RaceSelector';
 import { Colors } from '../../../constants/colors';
 import { useGuestAccountPrompt } from '../../../hooks/useGuestAccountPrompt';
-import { usePremium } from '../../../hooks/usePremium';
 import { useI18n } from '../../../lib/i18n';
 import { ensureAppSession, isAnonymousSession } from '../../../lib/appSession';
 import { noteReviewPlanCreated } from '../../../lib/appReview';
-import { getCurrentUserPlanAccess } from '../../../lib/planAccess';
 import { captureAnalyticsEvent } from '../../../lib/posthog';
 import { fetchRaceAidStations, fetchRaceElevationProfile } from '../../../lib/raceProfile';
-import { clearUnfinishedPlanReminder, syncUnfinishedPlanReminder } from '../../../lib/reminderNotifications';
+import { clearUnfinishedPlanReminder } from '../../../lib/reminderNotifications';
 import { supabase } from '../../../lib/supabase';
 import { completeOnboarding } from '../../../lib/onboardingStatus';
 import { parseRunnerProfile } from '../../../lib/runnerProfile';
@@ -127,7 +125,6 @@ export default function NewPlanScreen() {
   const router = useRouter();
   const { t } = useI18n();
   const promptGuestAccount = useGuestAccountPrompt();
-  const { isPremium, isLoading: premiumLoading } = usePremium();
 
   const [selectedRace, setSelectedRace] = useState<RaceInfo | null>(null);
   const [loading, setLoading] = useState(Boolean(resolvedRaceId));
@@ -135,7 +132,6 @@ export default function NewPlanScreen() {
   const [loadingProgress, setLoadingProgress] = useState(0.08);
   const [openingExistingPlan, setOpeningExistingPlan] = useState(false);
   const [showRaceSelector, setShowRaceSelector] = useState(!resolvedRaceId);
-  const [showPremiumLimitModal, setShowPremiumLimitModal] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [profileStepVisible, setProfileStepVisible] = useState(false);
   const pendingProfilePlan = useRef<{ race: RaceInfo; values: PlanFormValues; elevation: ElevationPoint[] } | null>(null);
@@ -186,8 +182,8 @@ export default function NewPlanScreen() {
         setShowRaceSelector(false);
         promptGuestAccount({
           source: 'plan_creation',
-          title: t.plans.guestLimitTitle,
-          message: t.plans.guestLimitMessage,
+          title: t.plans.accountRequiredTitle,
+          message: t.plans.accountRequiredMessage,
         });
         return;
       }
@@ -202,12 +198,12 @@ export default function NewPlanScreen() {
       }
 
       const profileResult = await supabase.from('user_profiles').select('full_name,birth_date,height_cm,weight_kg,water_bag_liters,utmb_index,comfortable_flat_pace_min_per_km,default_carbs_g_per_hour').eq('user_id', uid).maybeSingle();
-      const profile = profileResult.data as Record<string, unknown> | null;
+      const profile = profileResult.data as RunnerProfileValues | null;
       const firstName = typeof profile?.full_name === 'string' ? profile.full_name.split(' ')[0] : '';
       const pace = typeof profile?.comfortable_flat_pace_min_per_km === 'number' ? String(profile.comfortable_flat_pace_min_per_km) : '';
       const water = typeof profile?.water_bag_liters === 'number' ? String(profile.water_bag_liters) : '';
       const carbs = typeof profile?.default_carbs_g_per_hour === 'number' ? String(profile.default_carbs_g_per_hour) : '';
-      if (!firstName || !pace || !water || !carbs) {
+      if (!isRunnerProfileReady(profile)) {
         pendingProfilePlan.current = { race, values: seedValues, elevation: elevationProfile };
         setProfileDraft({ firstName, pace, water, carbs, birthDate: String(profile?.birth_date ?? ''), height: String(profile?.height_cm ?? ''), weight: String(profile?.weight_kg ?? ''), utmb: String(profile?.utmb_index ?? '') });
         setProfileStepVisible(true);
@@ -247,18 +243,7 @@ export default function NewPlanScreen() {
         return;
       }
 
-      if (isAnonymousSession(session)) {
-        await syncUnfinishedPlanReminder({
-          planId: data.id,
-          plannerValues,
-          title: t.reminders.unfinishedPlanTitle,
-          body: t.reminders.unfinishedPlanBody.replace('{name}', seedValues.name),
-          href: `/(app)/plan/${data.id}/edit`,
-          requestIfNeeded: true,
-        });
-      } else {
-        await clearUnfinishedPlanReminder();
-      }
+      await clearUnfinishedPlanReminder();
 
       await noteReviewPlanCreated();
       captureAnalyticsEvent('plan created', {
@@ -291,10 +276,8 @@ export default function NewPlanScreen() {
       resolvedRaceId,
       router,
       t.common.error,
-      t.plans.guestLimitMessage,
-      t.plans.guestLimitTitle,
-      t.reminders.unfinishedPlanBody,
-      t.reminders.unfinishedPlanTitle,
+      t.plans.accountRequiredMessage,
+      t.plans.accountRequiredTitle,
     ],
   );
 
@@ -371,55 +354,6 @@ export default function NewPlanScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (premiumLoading) return undefined;
-
-      if (!isPremium) {
-        void (async () => {
-          if (resolvedRaceId) {
-            const session = await ensureAppSession();
-            const uid = session?.user?.id;
-            if (uid) {
-              const existingPlanId = await findExistingPlanId(uid, resolvedRaceId).catch(() => null);
-              if (existingPlanId) {
-                setOpeningExistingPlan(true);
-                await openPlan(existingPlanId, onboarding === 'plan');
-                return;
-              }
-            }
-          }
-          const planAccess = await getCurrentUserPlanAccess(false);
-          if (!planAccess.hasReachedPlanLimit) {
-            void loadRaceSeed();
-            return;
-          }
-
-          if (planAccess.isAnonymous) {
-            setLoading(false);
-            setShowRaceSelector(false);
-            setLoadingProgress(1);
-            promptGuestAccount({
-              source: 'plan_limit',
-              title: t.plans.guestLimitTitle,
-              message: t.plans.guestLimitMessage,
-            });
-            return;
-          }
-
-          setLoading(false);
-          setShowRaceSelector(false);
-          setShowPremiumLimitModal(true);
-          setLoadingProgress(1);
-        })();
-
-        return () => {
-          setSelectedRace(null);
-          setLoadingPlanName(null);
-          setLoadingProgress(0.08);
-          setLoading(Boolean(resolvedRaceId));
-          setShowRaceSelector(!resolvedRaceId);
-        };
-      }
-
       void loadRaceSeed();
 
       return () => {
@@ -430,16 +364,8 @@ export default function NewPlanScreen() {
         setShowRaceSelector(!resolvedRaceId);
       };
     }, [
-      isPremium,
-      findExistingPlanId,
       loadRaceSeed,
-      onboarding,
-      openPlan,
-      premiumLoading,
-      promptGuestAccount,
       resolvedRaceId,
-      t.plans.guestLimitMessage,
-      t.plans.guestLimitTitle,
     ]),
   );
 
@@ -488,7 +414,7 @@ export default function NewPlanScreen() {
     [createPlanDraft, userId],
   );
 
-  if (loading || premiumLoading) {
+  if (loading) {
     const visiblePlanName = loadingPlanName ?? selectedRace?.name ?? null;
 
     return (
@@ -566,18 +492,6 @@ export default function NewPlanScreen() {
         </View>
       </Modal>
 
-      {showPremiumLimitModal ? (
-        <PremiumUpsellModal
-          visible={showPremiumLimitModal}
-          title={t.plans.limitReachedTitle}
-          message={t.plans.limitReachedMessage}
-          placement="plan_limit"
-          onClose={() => {
-            setShowPremiumLimitModal(false);
-            router.replace('/(app)/plans');
-          }}
-        />
-      ) : null}
     </>
   );
 }
