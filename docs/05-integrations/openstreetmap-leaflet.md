@@ -17,6 +17,8 @@ related_tables: []
 
 # OpenStreetMap and Leaflet
 
+Removing the global historical-trial overlay does not change Leaflet loading, attribution, tile providers or map layout contracts.
+
 The add-format flow no longer carries over the active format's GPX or map state. Map rendering and Leaflet loading remain unchanged and begin only from an explicitly selected GPX.
 
 Moving the format editor to a single column and labelling the ravito `Détails` control changes authoring presentation only. Route/profile maps still mount from the same explicit GPX preview data.
