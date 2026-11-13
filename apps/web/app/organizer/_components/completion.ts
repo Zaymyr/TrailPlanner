@@ -546,7 +546,7 @@ export function buildOrganizerCompletion(
       description: "Logo et couleurs du Livret coureur pour cette édition.",
       level: "optional",
       status: brandingUnpublished ? "incomplete" : brandingConfigured ? "complete" : "empty",
-      countLabel: brandingUnpublished ? "Brouillon non publié" : brandingConfigured ? "DA publiée" : "Optionnel",
+      countLabel: brandingUnpublished ? "Brouillon non publié" : brandingConfigured ? "DA publiée" : "Thème par défaut",
     },
     {
       id: "sponsors",
@@ -554,7 +554,7 @@ export function buildOrganizerCompletion(
       description: "Logos mis en avant dans le Livret coureur de cette édition.",
       level: "optional",
       status: sponsorCount > 0 ? "complete" : "empty",
-      countLabel: sponsorCount > 0 ? `${sponsorCount} sponsor${sponsorCount > 1 ? "s" : ""} · ${sponsorClicks} clic${sponsorClicks > 1 ? "s" : ""}` : "Optionnel",
+      countLabel: sponsorCount > 0 ? `${sponsorCount} sponsor${sponsorCount > 1 ? "s" : ""} · ${sponsorClicks} clic${sponsorClicks > 1 ? "s" : ""}` : "Aucun sponsor",
     },
   ];
 
@@ -617,7 +617,7 @@ export function buildOrganizerCompletion(
       description: "Logo et couleurs du Livret coureur pour cette édition.",
       level: "optional",
       status: brandingUnpublished ? "incomplete" : brandingConfigured ? "complete" : "empty",
-      countLabel: brandingUnpublished ? "Brouillon non publié" : brandingConfigured ? "DA publiée" : "Optionnel",
+      countLabel: brandingUnpublished ? "Brouillon non publié" : brandingConfigured ? "DA publiée" : "Thème par défaut",
     },
     {
       id: "sponsors",
@@ -625,7 +625,7 @@ export function buildOrganizerCompletion(
       description: "Chargement et bandeau du Livret coureur pour l'édition.",
       level: "optional",
       status: sponsorCount > 0 ? "complete" : "empty",
-      countLabel: sponsorCount > 0 ? `${sponsorCount} sponsor${sponsorCount > 1 ? "s" : ""} · ${sponsorClicks} clic${sponsorClicks > 1 ? "s" : ""}` : "Optionnel",
+      countLabel: sponsorCount > 0 ? `${sponsorCount} sponsor${sponsorCount > 1 ? "s" : ""} · ${sponsorClicks} clic${sponsorClicks > 1 ? "s" : ""}` : "Aucun sponsor",
     },
   ];
 

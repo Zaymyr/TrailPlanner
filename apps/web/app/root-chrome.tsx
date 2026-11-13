@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { SiteFooter } from "../components/SiteFooter";
 import { HeaderAuth } from "./header-auth";
@@ -22,11 +22,22 @@ export function RootChrome({ children }: RootChromeProps) {
   const pathname = usePathname();
   const { t } = useI18n();
   const skipLinkRef = useRef<HTMLAnchorElement>(null);
+  const [keyboardNavigation, setKeyboardNavigation] = useState(false);
 
   useEffect(() => {
-    const hideSkipLinkAfterPointerInput = () => skipLinkRef.current?.blur();
+    const showSkipLinkForKeyboardInput = (event: KeyboardEvent) => {
+      if (event.key === "Tab") setKeyboardNavigation(true);
+    };
+    const hideSkipLinkAfterPointerInput = () => {
+      setKeyboardNavigation(false);
+      skipLinkRef.current?.blur();
+    };
+    document.addEventListener("keydown", showSkipLinkForKeyboardInput, true);
     document.addEventListener("pointerdown", hideSkipLinkAfterPointerInput, true);
-    return () => document.removeEventListener("pointerdown", hideSkipLinkAfterPointerInput, true);
+    return () => {
+      document.removeEventListener("keydown", showSkipLinkForKeyboardInput, true);
+      document.removeEventListener("pointerdown", hideSkipLinkAfterPointerInput, true);
+    };
   }, []);
 
   if (STANDALONE_PATHS.has(pathname) || STANDALONE_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
@@ -38,7 +49,10 @@ export function RootChrome({ children }: RootChromeProps) {
       <a
         ref={skipLinkRef}
         href="#main-content"
-        className="fixed left-4 top-4 z-[100] -translate-y-24 rounded-md bg-brand px-4 py-3 font-semibold text-brand-foreground shadow-lg transition-transform focus-visible:translate-y-0"
+        onFocus={(event) => {
+          if (!keyboardNavigation) event.currentTarget.blur();
+        }}
+        className={`fixed left-4 top-4 z-[100] rounded-md bg-brand px-4 py-3 font-semibold text-brand-foreground shadow-lg transition-transform ${keyboardNavigation ? "focus-visible:translate-y-0" : "-translate-y-24"}`}
       >
         {t.navigation.skipToContent}
       </a>
