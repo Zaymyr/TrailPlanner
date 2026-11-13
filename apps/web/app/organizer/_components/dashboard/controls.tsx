@@ -338,6 +338,7 @@ export function TextField({
     <div className="space-y-1">
       <div className="flex items-center gap-1.5">
         <Label htmlFor={inputId}>{label}</Label>
+        {required ? <span className="rounded-full bg-brand-surface px-2 py-0.5 text-[11px] font-semibold text-brand">Requis</span> : null}
         {hint ? <ContextualHelp text={hint} /> : null}
       </div>
       <Input

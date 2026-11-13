@@ -4,6 +4,7 @@ scope: integration
 last_verified: 2026-11-13
 ai_priority: high
 # Organizer UI note (2026-11-13): imported fields keep the same reconciliation contract while media controls may render in the contextual rail.
+# Form UI note (2026-11-13): imported social fields share the responsive information grid; reconciliation remains unchanged.
 related_files:
   - apps/web/lib/organizer-source-intelligence.ts
   - apps/web/lib/organizer-source-intelligence.test.ts

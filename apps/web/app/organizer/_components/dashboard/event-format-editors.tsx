@@ -91,8 +91,7 @@ export function EventInfoEditor({
       </FieldGroup>
 
       <FieldGroup legend="Liens" description="Site officiel et réseaux utiles aux coureurs." optional>
-        <OptionalModule title="Réseaux sociaux" addLabel="+ Ajouter les réseaux sociaux" active={socialsOpen} onAdd={() => setSocialsOpen(true)} onRemove={() => setSocialsOpen(false)}>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(16rem,1.5fr)_minmax(12rem,1fr)_minmax(12rem,1fr)]">
+        {socialsOpen ? <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr))]">
           <TextField
             label="Site officiel"
             type="url"
@@ -154,8 +153,7 @@ export function EventInfoEditor({
               )
             }
           />
-        </div>
-        </OptionalModule>
+        </div> : <Button type="button" variant="outline" onClick={() => setSocialsOpen(true)} className="justify-start">+ Ajouter les réseaux sociaux</Button>}
       </FieldGroup>
 
       <FieldGroup legend="Dates" description="Les formats reprennent ces dates par défaut.">

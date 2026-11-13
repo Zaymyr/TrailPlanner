@@ -227,7 +227,7 @@ const ORGANIZER_ONBOARDING_TARGETS = [
   "organizer-onboarding-visibility",
 ] as const;
 
-const editorLoading = () => <p className="text-sm text-muted-foreground">Chargement de l’éditeur…</p>;
+const editorLoading = () => <div className="space-y-3" role="status" aria-label="Chargement de l’éditeur"><div className="h-10 animate-pulse rounded-md bg-muted" /><div className="h-24 animate-pulse rounded-md bg-muted/70" /><span className="sr-only">Chargement de l’éditeur…</span></div>;
 const AidStationsEditor = dynamic(
   () => import("./dashboard/aid-stations-editor").then((module) => module.AidStationsEditor),
   { loading: editorLoading }
@@ -3917,9 +3917,7 @@ export function OrganizerDashboard({
             </div>
           ) : activeModule === "aidStations" ? (
             activeRace && !activeRaceSidecarsReady ? (
-              <div className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
-                Chargement des points de course…
-              </div>
+              <div className="space-y-3" role="status" aria-label="Chargement des points de course"><div className="h-12 animate-pulse rounded-md bg-muted" /><div className="h-32 animate-pulse rounded-md bg-muted/70" /><span className="sr-only">Chargement des points de course…</span></div>
             ) : (
               <AidStationsEditor
               activeRace={activeRace}

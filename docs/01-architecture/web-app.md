@@ -5,6 +5,7 @@ last_verified: 2026-11-13
 ai_priority: high
 # Organizer shell (2026-11-13): the 1440px workspace switches at 1320px to a 240px / flexible / 300px grid; media-heavy editors span the two content columns.
 # Aid-station editor (2026-11-13): the course timeline is the selection list, with one adjacent detail panel on desktop and a full-screen detail surface after selection on mobile; arrow keys move between aid stations.
+# Organizer loading/forms (2026-11-13): lazy editors and sidecars use neutral skeletons; required inputs derive their Requis badge from the existing `required` contract.
 related_files:
   - apps/web/app/admin/video-generator/export-frame.test.ts
   - apps/web/app/admin/video-generator/export-frame.ts

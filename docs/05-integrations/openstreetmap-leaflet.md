@@ -4,6 +4,7 @@ scope: integration
 last_verified: 2026-11-13
 ai_priority: medium
 # Organizer UI note (2026-11-13): the GPX map uses the 300px contextual rail on wide screens and follows the form below the breakpoint; map loading is unchanged.
+# Loading note (2026-11-13): organizer sidecar skeletons avoid presenting an empty map state while data loads.
 related_files:
   - apps/web/package.json
   - apps/web/app/layout.tsx

@@ -6,6 +6,7 @@ last_verified: 2026-11-13
 
 ai_priority: high
 # Organizer UI note (2026-11-13): course metrics use the flexible editor while GPX and image controls use the contextual rail; persistence is unchanged.
+# Form UI note (2026-11-13): required badges and skeletons do not alter race fields or persistence.
 related_files:
   - supabase/migrations/20261106142000_add_lut_by_night_2026_gpx.sql
   - supabase/migrations/20261105082511_enrich_saintelyon_2026_formats.sql
