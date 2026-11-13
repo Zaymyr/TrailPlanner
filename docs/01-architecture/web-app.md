@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-11-12
+last_verified: 2026-11-13
 ai_priority: high
 related_files:
   - apps/web/app/admin/video-generator/export-frame.test.ts
@@ -16,6 +16,7 @@ related_files:
   - apps/web/app/api/admin/inbox-counts/route.ts
   - apps/web/lib/organizer-structured-content.ts
   - apps/web/app/organizer/_components/dashboard/structured-content-editors.tsx
+  - apps/web/app/organizer/_components/dashboard/form-kit/index.tsx
   - apps/web/app/organizer/_components/dashboard/structured-content-editors.test.ts
   - apps/web/app/organizer/_components/dashboard/organizer-import-documents.ts
   - apps/web/app/organizer/_components/dashboard/organizer-import-documents.test.ts
@@ -640,6 +641,10 @@ Server routes generally use:
 - narrow secret-link mutations for public crew tracking; `crew-state` may update only `departure_time` and `crew_state`.
 
 See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-checklist.md) before changing a route that bypasses client RLS.
+
+## Organizer form shell
+
+Organizer navigation uses one desktop section level and a matching mobile selector. Section tiles distinguish `À compléter`, `Optionnel`, and `Complet`, while the active tile keeps a visible brand treatment. The route-local form kit owns shared select, file, switch, draft, field-error and sticky polite save-status presentation; it does not change existing autosave, API, entitlement, or publication contracts.
 
 ## Gotchas
 

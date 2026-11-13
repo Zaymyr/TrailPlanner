@@ -1,7 +1,7 @@
 ---
 title: racebook_publication_states
 scope: database
-last_verified: 2026-11-09
+last_verified: 2026-11-13
 ai_priority: high
 related_files:
   - supabase/migrations/20261103123918_racebook_versioned_publications.sql
@@ -25,7 +25,7 @@ Stores the mutable draft/publication cursor for each edition-backed RaceBook for
 
 - `draft_revision` increases when RaceBook source content changes.
 - `published_source_revision` records the draft revision used by the current immutable snapshot.
-- The two revisions differing means there are unpublished changes.
+- A revision mismatch is a conservative signal that a draft may have unpublished changes. When the organizer reads a state with a current publication, the server builds the canonical draft snapshot and compares its hash with `content_hash`: identical content is clean even when the monotonic revisions differ.
 - The organizer list reads this lightweight state for every format; the heavier draft-versus-snapshot field comparison runs only when the publication confirmation is opened.
 
 ## Columns
@@ -69,6 +69,7 @@ where race_id = :race_id;
 - Do not expose this table directly to mobile clients.
 - A restored snapshot keeps its original source revision, so a newer draft remains visibly dirty.
 - Draft autosave must not move `current_publication_id`.
+- Do not drive the publication CTA solely from `draft_revision !== published_source_revision`; add-then-remove sequences can leave revisions different while the canonical snapshot is identical.
 
 ## Related Docs
 

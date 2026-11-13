@@ -2,7 +2,7 @@
 title: Organizer Race Management
 scope: business-rule
 
-last_verified: 2026-11-09
+last_verified: 2026-11-13
 
 ai_priority: high
 related_files:
@@ -10,6 +10,7 @@ related_files:
   - apps/web/lib/racebook-publication-checks.test.ts
   - apps/web/app/organizer/_components/dashboard/publication-review.tsx
   - apps/web/app/organizer/_components/dashboard/partner-slots-editor.tsx
+  - apps/web/app/organizer/_components/dashboard/form-kit/index.tsx
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
   - supabase/migrations/20260907170842_fix_structured_racebook_rls_dependencies.sql
   - supabase/migrations/20261029110000_add_plan_source_revisions.sql
@@ -544,6 +545,10 @@ The current publication gate is edition-scoped Visibilité/Essential/Complete/Si
 Manual empty edition creation remains free and unlimited. Only cloning the previous edition requires Pro. An entitlement covers all current and later formats of the edition and every active organizer membership for the event.
 
 The pricing dialog snapshots and displays the selected event and canonical edition before checkout. A database backfill attaches legacy/imported dated formats that were created without `edition_id`, and an invoker trigger atomically creates or reuses the matching event/year edition for future service-side inserts.
+
+## Organizer form interaction
+
+The shared Organizer form kit changes authoring presentation only: field errors are connected to their fields and appear after blur or attempted save; additions are local drafts and do not create placeholder records. `SaveStatus` is a polite sticky status and does not replace autosave or server-side validation. Completion keeps the required minimum separate from completed-section counts; structured content is authoritative, while historical-only content is marked to migrate. Publication dirty state compares canonical content rather than modification timestamps.
 
 ## Gotchas
 

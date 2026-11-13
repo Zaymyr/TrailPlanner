@@ -434,13 +434,22 @@ export async function buildRacebookPublishedSnapshot(
 export const serializePublicationState = (
   state: RacebookPublicationStateRow,
   currentPublication: RacebookPublicationRow | null,
+  draftContentHash?: string,
 ) => ({
   draftRevision: state.draft_revision,
   publishedSourceRevision: state.published_source_revision,
   currentPublicationId: state.current_publication_id,
   currentVersion: currentPublication?.version ?? null,
   publishedAt: currentPublication?.published_at ?? state.last_published_at ?? null,
-  hasUnpublishedChanges: state.published_source_revision === null || state.draft_revision !== state.published_source_revision,
+  // Revisions are intentionally monotonic: an edit reverted to the exact
+  // published content still has a newer draft revision. When a caller has
+  // built the current snapshot, its canonical hash is the authoritative
+  // signal for publication work.
+  hasUnpublishedChanges: currentPublication === null
+    ? true
+    : draftContentHash === undefined
+      ? state.published_source_revision === null || state.draft_revision !== state.published_source_revision
+      : draftContentHash !== currentPublication.content_hash,
 });
 
 export const publicSnapshot = (publication: RacebookPublicationRow) => {

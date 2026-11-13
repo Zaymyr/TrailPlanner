@@ -1,13 +1,14 @@
 ---
 title: Design Components
 scope: design-system
-last_verified: 2026-11-02
+last_verified: 2026-11-13
 ai_priority: medium
 related_files:
   - apps/web/components/ui/button.tsx
   - apps/web/components/ui/card.tsx
   - apps/web/components/ui/input.tsx
   - apps/web/components/ui/dialog.tsx
+  - apps/web/app/organizer/_components/dashboard/form-kit/index.tsx
   - apps/web/components/ui/tabs.tsx
   - apps/web/components/utils.ts
   - apps/mobile/components/themed/Button.tsx
@@ -94,6 +95,11 @@ Card subcomponents:
 - a viewport-scrollable portal shell with horizontally centered content;
 - backdrop blur;
 - close-on-overlay-click behavior.
+- Escape dismissal, initial focus, Tab/Shift+Tab focus trap, and focus restoration to the trigger on close.
+
+## Organizer form kit
+
+The route-local Organizer form kit standardizes labelled fields, select/file/switch controls, local repeatable drafts, validation messages and polite sticky save status. Drafts remain client-only until valid and saved; errors appear after interaction or an attempted save.
 
 ## Input
 
@@ -141,6 +147,7 @@ radius. Screen-specific components own copy, state, color roles and behavior.
 - If moving primitives into the design-system package, update package exports, web transpilation, and docs.
 - Keep primitive variants small and consistent with existing Tailwind/CSS variable names.
 - Avoid duplicating primitives or route-local components without first checking whether an existing component can be reused or extended.
+- Use the Organizer form kit inside the Organizer route rather than adding a competing route-local form control pattern.
 - Do not introduce a new class merge library without a real collision problem; current `cn` only joins classes.
 - Since `cn` does not merge conflicting Tailwind utilities, route-specific dialogs that replace the primitive's default `grid` layout must use an explicit priority modifier such as `!flex`; otherwise constrained inner scroll regions can be clipped.
 - Do not create a local loading, error, or empty state when a themed state can

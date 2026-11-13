@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_partner_slots Table
 scope: database
-last_verified: 2026-11-09
+last_verified: 2026-11-13
 ai_priority: high
 related_files:
   - supabase/migrations/20261109140000_add_racebook_edition_partner_slots.sql
@@ -27,6 +27,8 @@ related_tables:
 ---
 
 # race_event_edition_partner_slots
+
+The shared organizer form controls and sponsor/partner slot editor cleanup do not change this table's slot modes, effective-module gate, counters, or snapshot publication contract.
 
 Partner-slot public output follows the exact effective sponsor/module access resolved by the RaceBook routes. Independent invoice rows do not change slot visibility or table access.
 

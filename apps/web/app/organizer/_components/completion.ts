@@ -180,6 +180,17 @@ const scoreModules = (modules: OrganizerModuleSummary[]) => {
 const compactMissingLabels = (entries: Array<[label: string, isFilled: boolean]>) =>
   entries.filter(([, isFilled]) => !isFilled).map(([label]) => label);
 
+const hasLegacyServices = (services: OrganizerEventDetails["services"]) =>
+  filledCount([
+    services.supporters,
+    services.accommodations,
+    services.restaurants,
+    services.recovery,
+    services.partners,
+    services.lastMinuteMessage,
+    services.note,
+  ]) > 0;
+
 const buildFormatProgressModules = (
   eventDetails: OrganizerEventDetails,
   race: CompletionRace,
@@ -341,6 +352,7 @@ export function buildOrganizerCompletion(
   const equipmentItems = runnerDetails.equipment.items;
   const access = runnerDetails.access;
   const services = runnerDetails.services;
+  const hasLegacyServiceContent = hasLegacyServices(services);
   const commonEquipment = eventDetails.mandatoryEquipment;
   const commonBibPickup = eventDetails.bibPickup;
   const commonAccess = eventDetails.access;
@@ -525,20 +537,8 @@ export function buildOrganizerCompletion(
       title: "Services & alentours",
       description: "Accompagnants, hébergement, restauration, récup, partenaires.",
       level: "optional",
-      status: structuredServiceCount > 0 ? "complete" : statusFrom(
-        filledCount([
-          services?.supporters,
-          services?.accommodations,
-          services?.restaurants,
-          services?.recovery,
-          services?.partners,
-          services?.lastMinuteMessage,
-          services?.note,
-        ]),
-        7,
-        1
-      ),
-      countLabel: structuredServiceCount > 0 ? `${structuredServiceCount} fiche${structuredServiceCount > 1 ? "s" : ""}` : hasText(services?.partners) ? "Partenaires renseignés" : "Optionnel",
+      status: structuredServiceCount > 0 ? "complete" : hasLegacyServiceContent ? "incomplete" : "empty",
+      countLabel: structuredServiceCount > 0 ? `${structuredServiceCount} fiche${structuredServiceCount > 1 ? "s" : ""}` : hasLegacyServiceContent ? "À migrer" : "Optionnel",
     },
     {
       id: "branding",
@@ -604,23 +604,11 @@ export function buildOrganizerCompletion(
       title: "Services",
       description: "Accompagnants, hébergement, restauration, partenaires.",
       level: "optional",
-      status: structuredServiceCount > 0 ? "complete" : statusFrom(
-        filledCount([
-          services.supporters,
-          services.accommodations,
-          services.restaurants,
-          services.recovery,
-          services.partners,
-          services.lastMinuteMessage,
-          services.note,
-        ]),
-        7,
-        1
-      ),
+      status: structuredServiceCount > 0 ? "complete" : hasLegacyServiceContent ? "incomplete" : "empty",
       countLabel: structuredServiceCount > 0
         ? `${structuredServiceCount} fiche${structuredServiceCount > 1 ? "s" : ""}`
-        : hasText(services.partners)
-          ? "Partenaires renseignés"
+        : hasLegacyServiceContent
+          ? "À migrer"
           : "Optionnel",
     },
     {

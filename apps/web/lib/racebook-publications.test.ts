@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { describeRacebookSnapshotChanges, hashRacebookSnapshot, racebookPublishedSnapshotV1Schema, toRacebookPublicationAssets } from "./racebook-publications";
+import {
+  describeRacebookSnapshotChanges,
+  hashRacebookSnapshot,
+  racebookPublicationRowSchema,
+  racebookPublicationStateRowSchema,
+  racebookPublishedSnapshotV1Schema,
+  serializePublicationState,
+  toRacebookPublicationAssets,
+} from "./racebook-publications";
 
 const base = {
   schemaVersion: 1 as const,
@@ -80,5 +88,37 @@ describe("RaceBook publication snapshots", () => {
     expect(describeRacebookSnapshotChanges(racebookPublishedSnapshotV1Schema.parse(base), null)).toEqual([
       "Première publication du Livret coureur",
     ]);
+  });
+
+  it("uses the current snapshot hash rather than a revision alone to detect unpublished changes", () => {
+    const published = racebookPublishedSnapshotV1Schema.parse(base);
+    const state = racebookPublicationStateRowSchema.parse({
+      race_id: base.raceRow.id,
+      event_id: base.raceRow.event_id,
+      edition_id: base.raceRow.edition_id,
+      draft_revision: 3,
+      current_publication_id: "44444444-4444-4444-8444-444444444444",
+      published_source_revision: 1,
+    });
+    const publication = racebookPublicationRowSchema.parse({
+      id: state.current_publication_id,
+      race_id: base.raceRow.id,
+      event_id: base.raceRow.event_id,
+      edition_id: base.raceRow.edition_id,
+      version: 1,
+      schema_version: 1,
+      content: published,
+      content_hash: hashRacebookSnapshot(published),
+      source_draft_revision: 1,
+      published_by: null,
+      published_at: "2026-11-13T12:00:00.000Z",
+    });
+    const changed = racebookPublishedSnapshotV1Schema.parse({
+      ...base,
+      raceRow: { ...base.raceRow, name: "Ultra modifié" },
+    });
+
+    expect(serializePublicationState(state, publication, hashRacebookSnapshot(published)).hasUnpublishedChanges).toBe(false);
+    expect(serializePublicationState(state, publication, hashRacebookSnapshot(changed)).hasUnpublishedChanges).toBe(true);
   });
 });
