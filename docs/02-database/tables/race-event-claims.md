@@ -212,3 +212,5 @@ The compact organizer header, file fields and local validation follow-up do not 
 The Organizer three-column layout and compact selector banner do not change claim, membership, or authorization reads and writes.
 
 Shared Organizer field groups are presentation-only and do not change claim or membership authorization.
+
+Compact Course/GPX media and inheritance actions do not change claims or organizer authorization.

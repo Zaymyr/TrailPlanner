@@ -96,3 +96,5 @@ RaceBook polish (2026-11-09): the runner hero keeps the format/event thumbnail b
 Organizer form compaction and file-field harmonization do not change Leaflet rendering, GPX geometry or OpenStreetMap attribution.
 
 Organizer field-group presentation does not change Leaflet rendering, GPX geometry, or attribution.
+
+The route map is now a compact preview in the Trace rail; its Leaflet component, geometry, and attribution contract remain unchanged.

@@ -420,7 +420,7 @@ function RaceForm({
         <p className="font-semibold text-foreground">{title}</p>
         <p className="text-xs text-muted-foreground">Ajoute d’abord les fichiers, renseigne les informations du format, puis vérifie le parcours et le profil.</p>
       </div>
-      <div className="grid gap-4">
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_250px]">
         <div className="space-y-4">
           <div className="space-y-4 rounded-lg border border-border/70 bg-background px-4 py-4">
             <div className="flex items-center gap-2">
@@ -471,18 +471,7 @@ function RaceForm({
               </div>
               <div className="space-y-2 lg:col-span-4">
                 {editionStartDate ? (
-                  <label className="flex items-center gap-2 text-sm font-medium text-foreground">
-                    <input
-                      type="checkbox"
-                      checked={usesCustomRaceDate}
-                      onChange={(event) => {
-                        setUsesCustomRaceDate(event.target.checked);
-                        if (!event.target.checked) onChange({ ...values, raceDate: editionStartDate });
-                      }}
-                      disabled={disabled}
-                    />
-                    Date différente de l&apos;édition
-                  </label>
+                  <div className="flex items-center justify-between gap-2 text-sm"><span>Date de l’édition <span className="font-mono text-xs text-muted-foreground">{editionStartDate}</span></span><Button type="button" variant="ghost" className="!min-h-9 !px-2" disabled={disabled} onClick={() => { const next = !usesCustomRaceDate; setUsesCustomRaceDate(next); if (!next) onChange({ ...values, raceDate: editionStartDate }); }}>{usesCustomRaceDate ? "Utiliser l’édition" : "Changer"}</Button></div>
                 ) : null}
                 {usesCustomRaceDate || !editionStartDate ? (
                   <TextField
@@ -501,13 +490,10 @@ function RaceForm({
               </div>
               <div className="space-y-2 lg:col-span-8">
                 {inheritedLocationText ? (
-                  <label className="flex items-center gap-2 text-sm font-medium text-foreground">
-                    <input
-                      type="checkbox"
-                      checked={usesCustomLocation}
-                      onChange={(event) => {
-                        setUsesCustomLocation(event.target.checked);
-                        if (!event.target.checked) {
+                  <div className="flex items-center justify-between gap-2 text-sm"><span className="truncate">Lieu hérité : {inheritedLocationText}</span><Button type="button" variant="ghost" className="!min-h-9 !px-2" disabled={disabled} onClick={() => {
+                        const next = !usesCustomLocation;
+                        setUsesCustomLocation(next);
+                        if (!next) {
                           onChange({
                             ...values,
                             locationText: inheritedLocationText,
@@ -519,11 +505,7 @@ function RaceForm({
                             },
                           });
                         }
-                      }}
-                      disabled={disabled}
-                    />
-                    Lieu différent de l&apos;événement
-                  </label>
+                      }}>{usesCustomLocation ? "Utiliser l’événement" : "Modifier"}</Button></div>
                 ) : null}
                 {usesCustomLocation || !inheritedLocationText ? (
                   <AddressAutocompleteField
@@ -561,7 +543,6 @@ function RaceForm({
               </div>
             </div>
           </div>
-          {onGpxChange ? <MiniElevationProfile preview={gpxPreview} activeRace={previewRace} hasGpx={hasGpx} /> : null}
           {!hideSubmit ? (
             <div className="flex items-end pt-1">
               <Button type="submit" disabled={disabled}>
@@ -608,17 +589,6 @@ function RaceForm({
           />
         ) : null}
       </div>
-      {onGpxChange ? (
-        <div className="space-y-3 rounded-lg border border-border/70 bg-muted/20 px-4 py-4">
-          <div className="flex flex-wrap items-end justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Parcours</p>
-              <ContextualHelp text="La carte utilise toute la largeur pour faciliter la vérification du tracé." />
-            </div>
-          </div>
-          <MiniGpxMap preview={gpxPreview} activeRace={previewRace} hasGpx={hasGpx} />
-        </div>
-      ) : null}
     </form>
   );
 }
@@ -675,19 +645,19 @@ function OrganizerGpxPanel({
   onShowElevationProfileInRacebookChange: (checked: boolean) => void;
 }) {
   return (
-    <aside className="rounded-lg border border-border/70 bg-muted/30 px-4 py-4">
-      <div className="space-y-4">
+    <aside className="rounded-lg border border-border bg-card p-3 shadow-sm">
+      <div className="space-y-3">
         <div className="space-y-1.5">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <p className="font-semibold text-foreground">{title}</p>
-              <p className="text-xs text-muted-foreground">Ajoute le GPX en premier, puis une image si nécessaire.</p>
+              <p className="font-semibold text-foreground">Tracé</p>
             </div>
             {statusText ? <span className="text-xs font-medium text-muted-foreground">{statusText}</span> : null}
           </div>
         </div>
-        <div className="space-y-2 rounded-md border border-border/70 bg-background px-3 py-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Étape 1</p>
+        <MiniGpxMap preview={preview} activeRace={activeRace} hasGpx={hasGpx} />
+        <MiniElevationProfile preview={preview} activeRace={activeRace} hasGpx={hasGpx} />
+        <div className="space-y-2 border-t border-border pt-3">
           <fieldset disabled={disabled}>
             <FileField
               label={fileLabel}
@@ -699,9 +669,8 @@ function OrganizerGpxPanel({
             />
           </fieldset>
         </div>
-        <div className="space-y-3 rounded-md border border-border/70 bg-background px-3 py-3">
+        <div className="space-y-3 border-t border-border pt-3">
           <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Étape 2</p>
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Affichage dans le Livret coureur</p>
             <p className="text-xs text-muted-foreground">Choisis les visuels GPX visibles par les coureurs.</p>
           </div>
@@ -718,30 +687,21 @@ function OrganizerGpxPanel({
             disabled={disabled || !hasGpx}
           />
         </div>
-        <div className="space-y-3 rounded-md border border-border/70 bg-background px-3 py-3">
+        <div className="space-y-3 border-t border-border pt-3">
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Étape 3</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Image du format</p>
               <span className="text-xs text-muted-foreground">Optionnel</span>
             </div>
             <div className="flex items-center gap-2">
               <p className="text-sm font-medium text-foreground">Image format</p>
               <ContextualHelp text={`JPEG, PNG, WebP ou AVIF, 5 Mo maximum.${pendingImageName && !thumbnailUrl ? " L’image sera envoyée après la création du format." : ""}`} />
             </div>
-            {thumbnailUrl ? (
-              <div className="aspect-[4/3] w-full overflow-hidden rounded-md border border-border bg-muted">
-                <Image src={thumbnailUrl} alt="" width={320} height={240} sizes="(min-width: 1280px) 308px, 100vw" unoptimized className="h-full w-full object-cover" />
-              </div>
-            ) : (
-              <div className="flex aspect-[4/3] w-full items-center justify-center rounded-md border border-dashed border-border bg-muted/60 px-3 text-sm text-muted-foreground">
-                {pendingImageName ? pendingImageName : "Aucune image"}
-              </div>
-            )}
             <fieldset disabled={disabled}>
               <FileField
                 label="Choisir l'image du format"
                 accept="image/png,image/jpeg,image/webp,image/avif"
-                value={thumbnailUrl ? { name: fileNameFromUrl(thumbnailUrl, "Image du format") } : pendingImageName ? { name: pendingImageName } : null}
+                value={thumbnailUrl ? { name: fileNameFromUrl(thumbnailUrl, "Image du format"), previewUrl: thumbnailUrl } : pendingImageName ? { name: pendingImageName } : null}
                 maxSizeLabel="PNG, JPEG, WebP ou AVIF · 5 Mo maximum"
                 onChange={(file) => onImageChange(toFileInputChangeEvent(file))}
               />
@@ -826,39 +786,39 @@ function MiniElevationProfile({
   const areaPath = `${path} L${xScale(lastProfilePoint?.distanceKm ?? 0).toFixed(1)},${height - paddingBottom} L${xScale(firstProfilePoint?.distanceKm ?? 0).toFixed(1)},${height - paddingBottom} Z`;
 
   return (
-    <section className="rounded-md border border-border/70 bg-background px-3 py-3">
+    <section className="overflow-hidden rounded-md border border-border bg-background px-2 py-2">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm">
         <p className="font-semibold text-foreground">Profil altitude</p>
         <p className="text-xs font-medium text-muted-foreground">{formatKm(distanceKm)}</p>
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-48 w-full" role="img" aria-label="Courbe de niveau GPX">
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-20 w-full text-brand" role="img" aria-label="Mini profil altimétrique GPX">
         <defs>
           <linearGradient id="organizerElevationGradient" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="#2f5d1e" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="#2f5d1e" stopOpacity="0.04" />
+            <stop offset="0%" stopColor="currentColor" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="currentColor" stopOpacity="0.04" />
           </linearGradient>
         </defs>
-        <line x1={paddingX} x2={width - paddingX} y1={height - paddingBottom} y2={height - paddingBottom} stroke="#d6d3cc" />
+        <line x1={paddingX} x2={width - paddingX} y1={height - paddingBottom} y2={height - paddingBottom} stroke="hsl(var(--border))" />
         <path d={areaPath} fill="url(#organizerElevationGradient)" />
-        <path d={path} fill="none" stroke="#2f5d1e" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-        <text x={paddingX} y={height - 10} fontSize="11" fill="#6b655c">
+        <path d={path} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        <text x={paddingX} y={height - 10} fontSize="11" fill="hsl(var(--muted-foreground))">
           0 km
         </text>
-        <text x={width - paddingX} y={height - 10} fontSize="11" fill="#6b655c" textAnchor="end">
+        <text x={width - paddingX} y={height - 10} fontSize="11" fill="hsl(var(--muted-foreground))" textAnchor="end">
           {maxDistance.toFixed(1)} km
         </text>
-        <text x={paddingX} y={paddingTop + 4} fontSize="11" fill="#6b655c">
+        <text x={paddingX} y={paddingTop + 4} fontSize="11" fill="hsl(var(--muted-foreground))">
           {Math.round(maxElevation)} m
         </text>
-        <text x={paddingX} y={height - paddingBottom - 6} fontSize="11" fill="#6b655c">
+        <text x={paddingX} y={height - paddingBottom - 6} fontSize="11" fill="hsl(var(--muted-foreground))">
           {Math.round(minElevation)} m
         </text>
         {preview?.detectedAidStations.map((station) => {
           const x = xScale(station.distanceKm);
           return (
             <g key={`${station.name}-${station.distanceKm}`}>
-              <line x1={x} x2={x} y1={paddingTop} y2={height - paddingBottom} stroke="#d89b22" strokeDasharray="3 4" />
-              <circle cx={x} cy={height - paddingBottom} r="4" fill="#d89b22" />
+              <line x1={x} x2={x} y1={paddingTop} y2={height - paddingBottom} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 4" />
+              <circle cx={x} cy={height - paddingBottom} r="4" fill="hsl(var(--muted-foreground))" />
             </g>
           );
         })}
@@ -895,12 +855,12 @@ function MiniGpxMap({
   }
 
   return (
-    <section className="rounded-md border border-border/70 bg-background px-3 py-3">
+    <section className="overflow-hidden rounded-md border border-border bg-background px-2 py-2">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm">
         <p className="font-semibold text-foreground">Carte du parcours</p>
         <p className="text-xs font-medium text-muted-foreground">{points.length} points</p>
       </div>
-      <GpxRouteMap points={points} aidStations={preview?.detectedAidStations ?? []} heightClassName="h-[34rem]" />
+      <GpxRouteMap points={points} aidStations={preview?.detectedAidStations ?? []} heightClassName="h-[7.5rem]" />
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
         <span>Vert : départ</span>
         <span>Rouge : arrivée</span>

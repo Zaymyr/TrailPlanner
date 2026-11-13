@@ -728,3 +728,5 @@ Organizer follow-up validation blocks invalid local drafts inline without conver
 Organizer authoring now presents one compact banner, a semantic section tree, the active editor, and a read-only completion checklist in a responsive three-column workspace. This layout-only change preserves autosave scope, module settings, completion rules, visibility states, publication review, and every server payload.
 
 Organizer field groups now expose their explanation beside related controls and explicit required/optional markers derive from existing validation semantics; no required rule or completion calculation changes.
+
+The Course/GPX editor now keeps its identity and metrics in the main column and all visual verification in a compact trace rail. Inheritance actions replace presentation-only checkboxes without changing effective date/location values or save payloads.

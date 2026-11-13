@@ -268,3 +268,5 @@ Publication checks and partner slots (2026-11-09): pre-publication checks and th
 The organizer format form now validates inline without native browser bubbles and uses shared cover, GPX and image file controls; race fields and storage paths are unchanged.
 
 Responsive label/control grouping changes only Organizer presentation; race fields, inheritance, and storage paths are unchanged.
+
+The compact Trace rail and explicit inheritance actions preserve race columns, organizer details, GPX paths, and effective date/location values.

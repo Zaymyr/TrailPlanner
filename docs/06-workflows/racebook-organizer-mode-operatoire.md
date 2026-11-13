@@ -110,3 +110,5 @@ Les erreurs locales restent affichées sous les champs et le premier champ inval
 Sur grand écran, les sections du Livret coureur se choisissent désormais dans la navigation à gauche ; le formulaire reste au centre et la checklist « À faire » à droite. Sur mobile, le sélecteur « Informations à modifier » remplace cette navigation. Les réglages d’événement, d’édition et de visibilité restent repliés dans le bandeau supérieur.
 
 Dans Informations, les champs sont regroupés par événement, dates, urgence, liens et couverture. Les mentions « Requis » suivent les règles existantes et « Optionnel » distingue les modules secondaires.
+
+Dans Course & GPX, la carte, le mini profil, le fichier GPX, les réglages d’affichage et l’image sont réunis dans la colonne « Tracé ». Les actions « Changer », « Modifier » et « Utiliser… » pilotent les mêmes héritages de date et de lieu.
