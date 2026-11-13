@@ -100,3 +100,5 @@ Organizer field-group presentation does not change Leaflet rendering, GPX geomet
 The route map is now a compact preview in the Trace rail; its Leaflet component, geometry, and attribution contract remain unchanged.
 
 Switch-row normalization around route visibility does not change Leaflet rendering or GPX geometry.
+
+The Organizer course timeline uses persisted kilometers and existing GPX-derived station values only; it does not alter Leaflet geometry or map attribution.

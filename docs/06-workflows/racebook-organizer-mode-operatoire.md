@@ -114,3 +114,5 @@ Dans Informations, les champs sont regroupés par événement, dates, urgence, l
 Dans Course & GPX, la carte, le mini profil, le fichier GPX, les réglages d’affichage et l’image sont réunis dans la colonne « Tracé ». Les actions « Changer », « Modifier » et « Utiliser… » pilotent les mêmes héritages de date et de lieu.
 
 Les choix oui/non utilisent désormais la même ligne d’interrupteur dans Course & GPX, Dossard, Sponsors et les points de course. Leur valeur et leur enregistrement automatique restent inchangés.
+
+Dans Départ, ravitos, suivi coureur & relais, la ligne de course affiche départ, points triés par kilomètre et arrivée. Les filtres Ravitos, SAS, Suivi et Relais ouvrent les éditeurs existants ; un clic sur un ravito ouvre ses détails.

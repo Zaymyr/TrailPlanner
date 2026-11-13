@@ -216,3 +216,5 @@ Shared Organizer field groups are presentation-only and do not change claim or m
 Compact Course/GPX media and inheritance actions do not change claims or organizer authorization.
 
 Shared Organizer switches do not change claim or membership authorization.
+
+The course timeline is a client presentation of authorized sidecars and does not change claims or membership checks.

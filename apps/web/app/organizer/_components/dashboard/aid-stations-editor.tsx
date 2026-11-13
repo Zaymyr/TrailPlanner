@@ -3,7 +3,6 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { AidStationBadge } from "../../../../components/race-planner/AidStationBadge";
 import { ChevronDownIcon, ChevronUpIcon } from "../../../../components/race-planner/TimelineIcons";
 import { Button } from "../../../../components/ui/button";
-import { TabsList } from "../../../../components/ui/tabs";
 import { cn } from "../../../../components/utils";
 import type { FuelProduct } from "../../../../lib/product-types";
 import { ContextualHelp, NumberField, TextAreaField, TextField } from "./controls";
@@ -138,41 +137,25 @@ export function AidStationsEditor({
     ...sortedRelayPoints,
     { name: "Arrivée", distanceKm: activeRace.distance_km },
   ];
+  const courseTimelinePoints = [
+    { key: "start", kind: "start" as const, name: "Départ", distanceKm: 0, time: startTime, index: -1 },
+    ...aidStations.map((station, index) => ({ key: station.id ?? `station-${index}`, kind: "aid" as const, name: station.name || `Ravito ${index + 1}`, distanceKm: station.distanceKm, time: station.organizerDetails.cutoffTime ?? "", index })),
+    ...supporterPoints.map((point, index) => ({ key: point.id ?? `supporter-${index}`, kind: "supporter" as const, name: point.name || `Suivi ${index + 1}`, distanceKm: point.distanceKm ?? 0, time: "", index })),
+    ...relayPoints.filter((point) => !point.raceAidStationId).map((point, index) => ({ key: point.id ?? `relay-${index}`, kind: "relay" as const, name: point.name || `Relais ${index + 1}`, distanceKm: point.distanceKm, time: point.cutoffTime, index })),
+    { key: "finish", kind: "finish" as const, name: "Arrivée", distanceKm: activeRace.distance_km, time: finishCutoffTime, index: -1 },
+  ].sort((left, right) => left.distanceKm - right.distanceKm || (left.kind === "start" ? -1 : right.kind === "finish" ? -1 : 0));
 
   return (
     <div className="relative space-y-4">
-      <div className="grid gap-3 md:grid-cols-2">
-        <FixedCourseCard
-          title="Départ"
-          subtitle={startWaveCount > 0
-            ? `${startWaveCount} SAS configuré${startWaveCount > 1 ? "s" : ""}. Les autres SAS se règlent dans l’onglet SAS.`
-            : "Heure de départ commune à ce format."}
-          value={startTime}
-          label={startWaveCount > 0 ? "Heure du premier départ (SAS 1)" : "Heure de départ"}
-          onChange={onStartTimeChange}
-          disabled={startWaveCount > 0}
-          timeInput
-        />
-        <FixedCourseCard
-          title="Arrivée"
-          subtitle="Dernière heure autorisée pour terminer ce format."
-          value={finishCutoffTime}
-          label="Fermeture de l’arrivée (barrière finale)"
-          onChange={onFinishCutoffTimeChange}
-        />
-      </div>
-
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <TabsList
-          tabs={[
-            { id: "startWaves", label: "SAS" },
-            { id: "aidStations", label: "Ravitos" },
-            ...(supporterPointsEnabled ? [{ id: "supporters", label: "Suivi coureur" }] : []),
-            ...(relayEnabled ? [{ id: "relay", label: "Relais" }] : []),
-          ]}
-          activeTab={activeView}
-          onTabChange={(view) => setViewState({ scopeKey: viewScopeKey, view: view as EditorView })}
-        />
+        <div className="flex flex-wrap gap-2" aria-label="Filtrer la ligne de course">
+          {([
+            ["aidStations", `Ravitos ${aidStations.length}`],
+            ["startWaves", `SAS ${startWaveCount}`],
+            ...(supporterPointsEnabled ? [["supporters", `Suivi ${supporterPoints.length}`]] : []),
+            ...(relayEnabled ? [["relay", `Relais ${relayPoints.length}`]] : []),
+          ] as Array<[EditorView, string]>).map(([view, label]) => <button key={view} type="button" aria-pressed={activeView === view} onClick={() => setViewState({ scopeKey: viewScopeKey, view })} className={cn("min-h-10 rounded-full border px-3 text-sm font-semibold transition", activeView === view ? "border-brand bg-brand-surface text-brand" : "border-border bg-card text-muted-foreground hover:text-foreground")}>{label}</button>)}
+        </div>
         {activeView !== "startWaves" ? (
           activeView === "aidStations" ? (
             <Button type="button" variant="outline" onClick={() => setStationDraft({ name: "", distanceKm: 0 })}>
@@ -189,6 +172,28 @@ export function AidStationsEditor({
           )
         ) : null}
       </div>
+
+      <section className="rounded-xl border border-border bg-card p-3" aria-label="Ligne de course">
+        <div className="relative ml-8 border-l-2 border-brand-border pl-5">
+          {courseTimelinePoints.map((point) => {
+            const station = point.kind === "aid" ? aidStations[point.index] : null;
+            return <button key={`${point.kind}-${point.key}`} type="button" className="relative flex min-h-12 w-full items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring" onClick={() => {
+              if (point.kind === "start") setViewState({ scopeKey: viewScopeKey, view: "startWaves" });
+              else if (point.kind === "supporter") setViewState({ scopeKey: viewScopeKey, view: "supporters" });
+              else if (point.kind === "relay") setViewState({ scopeKey: viewScopeKey, view: "relay" });
+              else {
+                setViewState({ scopeKey: viewScopeKey, view: "aidStations" });
+                if (point.kind === "aid") onExpandedStationKeyChange(point.key);
+              }
+            }}><span className={cn("absolute -left-[1.72rem] h-3.5 w-3.5 rounded-full border-2 border-card", point.kind === "start" || point.kind === "finish" ? "bg-brand" : "bg-amber-500")} aria-hidden="true" /><span className="w-14 shrink-0 font-mono text-xs font-semibold text-muted-foreground">{point.distanceKm.toFixed(1)}</span><span className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{point.name}</span>{station ? <span className="flex gap-1 text-[10px] font-bold" aria-label={`Services : ${[station.waterRefill && "eau", station.solidRefill && "solide", station.assistanceAllowed && "assistance"].filter(Boolean).join(", ") || "aucun"}`}><span className={station.waterRefill ? "text-brand" : "text-muted-foreground/30"}>E</span><span className={station.solidRefill ? "text-brand" : "text-muted-foreground/30"}>S</span><span className={station.assistanceAllowed ? "text-brand" : "text-muted-foreground/30"}>A</span></span> : null}{point.time ? <span className="font-mono text-xs text-muted-foreground">{normalizeClockInputValue(point.time)}</span> : null}</button>;
+          })}
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">E eau · S solide · A assistance. Sélectionne un point pour modifier ses détails.</p>
+        <div className="mt-3 grid gap-3 border-t border-border pt-3 sm:grid-cols-2">
+          <TextField label={startWaveCount > 0 ? "Premier départ (piloté par les SAS)" : "Heure de départ"} type="time" value={normalizeClockInputValue(startTime) ?? ""} onChange={onStartTimeChange} disabled={startWaveCount > 0} />
+          <TextField label="Barrière finale" type="time" value={normalizeClockInputValue(finishCutoffTime) ?? ""} onChange={onFinishCutoffTimeChange} />
+        </div>
+      </section>
 
       {activeView === "startWaves" ? startWavesSlot : activeView === "supporters" ? (
         <SupporterPointsEditor

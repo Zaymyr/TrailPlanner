@@ -805,3 +805,5 @@ The route-local Organizer kit now supplies responsive field groups and section h
 Course/GPX composes existing map/profile and file primitives into a bounded visual rail; it introduces no data or route dependency.
 
 Organizer editors consume one route-local `SwitchRow` primitive for boolean settings; state ownership remains in each existing editor.
+
+The aid-station editor derives a presentation-only course timeline from already loaded sidecars. It does not add a read, cache, or persistence contract.

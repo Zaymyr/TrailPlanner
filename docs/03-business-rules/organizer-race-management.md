@@ -732,3 +732,5 @@ Organizer field groups now expose their explanation beside related controls and 
 The Course/GPX editor now keeps its identity and metrics in the main column and all visual verification in a compact trace rail. Inheritance actions replace presentation-only checkboxes without changing effective date/location values or save payloads.
 
 Organizer binary settings now share `SwitchRow` in Course/GPX, Dossard, Sponsors, and point editors. This visual normalization does not change boolean fields, defaults, validation, entitlements, or persistence.
+
+The combined course-points editor now exposes one distance-sorted vertical course line from departure to finish. Ravitos, SAS, supporter points, and relay points remain filtered editing modes; selecting a timeline node opens the existing editor and preserves all add, edit, delete, undo, product, service, and autosave behavior.
