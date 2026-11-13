@@ -25,6 +25,8 @@ related_files:
   - apps/web/app/courses/[slug]/race-structured-data.ts
   - apps/web/app/courses/[slug]/race-structured-data.test.ts
   - apps/web/app/courses/_components/RaceCatalogFilter.tsx
+  - apps/web/app/courses/_components/RaceCatalogFilter.test.ts
+  - apps/web/app/courses/_components/catalog-display.ts
   - apps/web/app/courses/_components/PublicRaceLinks.tsx
   - apps/web/app/courses/_components/PublicRaceShare.tsx
   - apps/web/app/courses/_components/PublicElevationProfile.tsx
@@ -70,6 +72,8 @@ This document defines which public race pages Pace Yourself may expose to search
 - Former slug: a durable `race_slug_redirects.old_slug` mapping to the stable race id.
 
 ## Public Race Detail Pages
+
+Grouped event cards use the earliest and latest valid format dates for a compact French date range. A single shared valid date keeps the full date; a partially undated group stays explicit instead of implying that every format is dated. Different format locations collapse to the normalized common event city when one is available, otherwise to the number of distinct known departure labels. Each format row still prints its own date and location, including an explicit confirmation placeholder for missing facts.
 
 The lightweight catalog contract allowlists the parent event's canonical `race_events.website_url` alongside the format's `races.external_site_url`. The primary `S’inscrire` action uses the event website first, falls back to the format URL for a standalone or missing-event link, opens in a new tab, and is omitted unless the selected value is HTTP(S). The same rule applies to the course hero and the existing official-source list without exposing raw organizer JSON.
 

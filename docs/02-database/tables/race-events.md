@@ -68,6 +68,8 @@ related_files:
   - apps/web/app/courses/[slug]/page.tsx
   - apps/web/app/courses/[slug]/race-metadata.ts
   - apps/web/app/courses/_components/RaceCatalogFilter.tsx
+  - apps/web/app/courses/_components/RaceCatalogFilter.test.ts
+  - apps/web/app/courses/_components/catalog-display.ts
   - apps/web/app/courses/_components/PublicRaceLinks.tsx
   - apps/web/app/courses/distances/[category]/page.tsx
   - apps/web/app/courses/race-discovery.test.ts
@@ -139,6 +141,7 @@ The mobile Livret may separately load an owner's linked plan for personal reflec
 - Mobile Racebook contract: the mobile Courses tab reads `organizer_details`, `races.racebook_preview_is_visible`, and `races.racebook_is_live`. Ordinary runners require a live format plus RaceBook publication. Active `race_event_organizers` membership keeps managed private formats in Courses, grants an unpublished preview only when preview selection is true, and dims that private RaceBook action. Masked formats are removed from the mobile catalog for every role.
 - Public web catalog contract: `/courses` uses a server-only service read with explicit safe columns from `web_catalog_is_live` public race formats and their live parent events. Mobile edition visibility does not remove already published web formats, and the service boundary avoids exposing masked rows through direct client RLS. Its server search projection includes public format/event locations plus normalized city, department, region, and country names, but excludes codes, coordinates, organizer JSON, and operational fields; each response serializes at most 12 grouped event editions plus any formats inside those groups. The richer server-only detail read repeats the web race/event gates before loading organizer JSON, canonical edition dates, or private GPX, then returns only allowlisted runner-facing values. Its metadata helper limits titles to 60 characters and descriptions to 160, reserves a distance/year suffix, preserves the distinguishing end of long format names, and uses the shared social image only when neither format nor event supplies one.
 - Public web grouping: `/courses` groups current formats by stable `races.event_id + races.edition_id`, with an `event_id` fallback only for historical rows without an edition; event names are presentation labels and never grouping keys.
+- Group headers derive compact date ranges from child format dates. When format location labels differ, the header may display the same non-null normalized `location_city` shared by every child; otherwise it counts distinct known format location labels. This presentation never parses `race_events.location` or writes inferred geography.
 - Curated SEO seeds create or refresh a canonical visible edition per verified upcoming event, publish only source-backed formats, and may enrich existing event rows without duplicating their formats.
 - The second curated batch adds four verified event identities, refreshes the existing Foulée des Ducs edition, and enriches Nice UTMB and Terres de Saône event provenance while preserving existing format metrics.
 - The official UTMB World Series import creates or refreshes 55 event identities from their tenant-specific official domains. It stores the UTMB tenant in `organizer_details.catalogSource`, rejects ambiguous legacy matches, and keeps each event linked to one canonical upcoming edition.

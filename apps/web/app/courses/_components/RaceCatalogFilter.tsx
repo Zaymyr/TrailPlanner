@@ -5,25 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui
 import type { PublicRaceGroup } from "../../../lib/race-discovery";
 import { getPublicRaceRegistrationUrl, type PublicRace } from "../../../lib/public-races";
 import { getCatalogHref, type CatalogView } from "../catalog-query";
-
-const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
-  day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
-});
-
-const formatDate = (date: string | null) => {
-  if (!date) return "Date à confirmer";
-  const parsed = new Date(`${date.slice(0, 10)}T12:00:00Z`);
-  return Number.isNaN(parsed.getTime()) ? "Date à confirmer" : dateFormatter.format(parsed);
-};
+import { formatCatalogDate, getEventDateLabel, getEventLocationLabel } from "./catalog-display";
 
 const isHttpUrl = (value: string | null) => Boolean(value && /^https?:\/\//i.test(value));
-
-const getSharedValue = (races: PublicRace[], select: (race: PublicRace) => string | null) => {
-  const selectedValues = races.map(select);
-  if (selectedValues.some((value) => !value)) return null;
-  const values = Array.from(new Set(selectedValues.filter((value): value is string => Boolean(value))));
-  return values.length === 1 ? values[0] : null;
-};
 
 const getEditionYear = (races: PublicRace[]) => {
   const years = Array.from(
@@ -34,8 +18,8 @@ const getEditionYear = (races: PublicRace[]) => {
 
 function EventRaceGroup({ group }: { group: PublicRaceGroup }) {
   const { races, eventName } = group;
-  const sharedDate = getSharedValue(races, (race) => race.date);
-  const sharedLocation = getSharedValue(races, (race) => race.location);
+  const dateLabel = getEventDateLabel(races);
+  const locationLabel = getEventLocationLabel(races);
   const editionYear = getEditionYear(races);
   const headingId = `event-${group.key.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
   const imageUrl = races.find((race) => isHttpUrl(race.eventThumbnailUrl))?.eventThumbnailUrl ?? null;
@@ -56,8 +40,8 @@ function EventRaceGroup({ group }: { group: PublicRaceGroup }) {
                 </p>
                 <CardTitle id={headingId} className="text-2xl leading-tight">{eventName}</CardTitle>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                  <span>{sharedDate ? formatDate(sharedDate) : "Dates selon le format"}</span>
-                  <span>{sharedLocation ?? "Lieu selon le format"}</span>
+                  <span>{dateLabel}</span>
+                  <span>{locationLabel}</span>
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-3 sm:justify-end">
@@ -81,13 +65,9 @@ function EventRaceGroup({ group }: { group: PublicRaceGroup }) {
                     <Link href={`/courses/${race.slug}` as Route} className="group grid min-h-16 gap-3 px-5 py-4 transition hover:bg-brand-surface/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-6">
                       <div className="min-w-0">
                         <h3 className="font-semibold text-foreground transition group-hover:text-brand">{race.name}</h3>
-                        {!sharedDate || !sharedLocation ? (
-                          <p className="mt-1 text-sm text-muted-foreground">
-                            {!sharedDate ? formatDate(race.date) : null}
-                            {!sharedDate && !sharedLocation ? " · " : null}
-                            {!sharedLocation ? (race.location ?? "Lieu à confirmer") : null}
-                          </p>
-                        ) : null}
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {formatCatalogDate(race.date)} · {race.location ?? "Lieu à confirmer"}
+                        </p>
                       </div>
                       <div className="flex flex-wrap items-center gap-2 text-sm sm:justify-end">
                         <span className="rounded-full border border-border bg-background px-3 py-1.5 font-semibold text-foreground">{race.distanceKm !== null ? `${race.distanceKm} km` : "Distance à confirmer"}</span>
@@ -121,7 +101,7 @@ function StandaloneRaceCard({ race }: { race: PublicRace }) {
           <div><dt className="text-muted-foreground">Distance</dt><dd className="font-semibold text-foreground">{race.distanceKm !== null ? `${race.distanceKm} km` : "À confirmer"}</dd></div>
           <div><dt className="text-muted-foreground">Dénivelé</dt><dd className="font-semibold text-foreground">{race.elevationGainM !== null ? `${Math.round(race.elevationGainM)} m D+` : "À confirmer"}</dd></div>
         </dl>
-        <div className="mt-auto space-y-1 text-sm text-muted-foreground"><p>{formatDate(race.date)}</p><p>{race.location ?? "Lieu à confirmer"}</p></div>
+        <div className="mt-auto space-y-1 text-sm text-muted-foreground"><p>{formatCatalogDate(race.date)}</p><p>{race.location ?? "Lieu à confirmer"}</p></div>
         <div className={`grid gap-2 ${registrationUrl ? "sm:grid-cols-2" : ""}`}>
           <Link href={`/courses/${race.slug}` as Route} className="inline-flex min-h-11 items-center justify-center rounded-md border border-border px-3 text-sm font-semibold text-foreground transition hover:border-brand-border hover:bg-brand-surface">Voir la fiche</Link>
           {registrationUrl ? <a href={registrationUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand px-3 text-sm font-semibold text-brand-foreground transition hover:bg-brand-light">S’inscrire</a> : null}
