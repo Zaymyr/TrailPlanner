@@ -13,6 +13,7 @@ ai_priority: high
 # Mobile finish (2026-11-13): compact gutters and collapsed Course media reduce initial height without changing form or completion rules.
 # Regression guard (2026-11-13): source tests assert the wide workspace grid and the social auto-fit layout without a redundant nested title.
 # Layout polish (2026-11-13): aid-station timeline/detail, format metrics row and equipment status action are presentation-only; save and publication rules are unchanged.
+# Fill-flow pass (2026-11-13): ravito service toggles are editable again in the detail panel; Sponsors shows the add form before partner slots; legacy services status label is “Texte à convertir”. Data contracts unchanged.
 related_files:
   - apps/web/lib/racebook-publication-checks.ts
   - apps/web/lib/racebook-publication-checks.test.ts
@@ -727,7 +728,7 @@ Before a format or edition publication, the server builds the draft snapshot and
 
 ## Partner slots (emplacements partenaires)
 
-The Matériel (Decathlon) and Services hébergement (Booking.com) cards are partner slots. They show the Pace Yourself affiliate link by default. With Signature and the selected `sponsors` module, the Sponsors section exposes `Emplacements partenaires`: per slot the organizer keeps the affiliate link, picks one of their edition sponsors (with an optional 120-character text) or hides the card, and sees per-slot views and clicks. Choices are draft content published with the RaceBook snapshot. See [race_event_edition_partner_slots](../02-database/tables/race-event-edition-partner-slots.md).
+The Matériel (Decathlon) and Services hébergement (Booking.com) cards are partner slots. They show the Pace Yourself affiliate link by default. With Signature and the selected `sponsors` module, the Sponsors section exposes `Emplacements partenaires` below the sponsor form: per slot the organizer keeps the affiliate link, picks one of their edition sponsors (with an optional 120-character text) or hides the card, and sees per-slot views and clicks. Choices are draft content published with the RaceBook snapshot. See [race_event_edition_partner_slots](../02-database/tables/race-event-edition-partner-slots.md).
 
 Catalog scroll performance (2026-11-09): the Courses list renders memoized `CatalogEventRow` rows (stable callbacks through a handler ref) over a memoized `RaceEventSummaryCard`, tunes FlatList virtualization (`initialNumToRender` 6, `maxToRenderPerBatch` 4, `windowSize` 9, `removeClippedSubviews` on Android), downsamples rail images (`resizeMethod="resize"`) and reads reduce-motion on favorite press instead of subscribing one accessibility listener per card. Presentation only: no query, payload, analytics event or favorite/update-read behavior changes.
 

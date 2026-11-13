@@ -538,7 +538,7 @@ export function buildOrganizerCompletion(
       description: "Accompagnants, hébergement, restauration, récup, partenaires.",
       level: "optional",
       status: structuredServiceCount > 0 ? "complete" : hasLegacyServiceContent ? "incomplete" : "empty",
-      countLabel: structuredServiceCount > 0 ? `${structuredServiceCount} fiche${structuredServiceCount > 1 ? "s" : ""}` : hasLegacyServiceContent ? "À migrer" : "Optionnel",
+      countLabel: structuredServiceCount > 0 ? `${structuredServiceCount} fiche${structuredServiceCount > 1 ? "s" : ""}` : hasLegacyServiceContent ? "Texte à convertir" : "Optionnel",
     },
     {
       id: "branding",
@@ -608,7 +608,7 @@ export function buildOrganizerCompletion(
       countLabel: structuredServiceCount > 0
         ? `${structuredServiceCount} fiche${structuredServiceCount > 1 ? "s" : ""}`
         : hasLegacyServiceContent
-          ? "À migrer"
+          ? "Texte à convertir"
           : "Optionnel",
     },
     {

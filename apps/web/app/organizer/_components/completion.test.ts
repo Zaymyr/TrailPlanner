@@ -156,11 +156,11 @@ describe("organizer completion", () => {
 
     expect(completion.eventModules.find((module) => module.id === "services")).toMatchObject({
       status: "incomplete",
-      countLabel: "À migrer",
+      countLabel: "Texte à convertir",
     });
     expect(completion.modules.find((module) => module.id === "services")).toMatchObject({
       status: "incomplete",
-      countLabel: "À migrer",
+      countLabel: "Texte à convertir",
     });
   });
 

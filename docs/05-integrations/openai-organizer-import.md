@@ -9,6 +9,7 @@ ai_priority: high
 # Dense module note (2026-11-13): localized dates and access presentation do not alter imported values.
 # Mobile finish note (2026-11-13): compact gutters do not alter imported drafts.
 # Layout polish note (2026-11-13): organizer presentation changes (aid-station detail, format metrics row, media rail visibility, equipment status action) do not alter stored data or contracts.
+# Fill-flow note (2026-11-13): organizer form ergonomics (ravito services, Enter-to-add, slot undo, sponsor ordering) do not alter stored data or contracts.
 related_files:
   - apps/web/lib/organizer-source-intelligence.ts
   - apps/web/lib/organizer-source-intelligence.test.ts

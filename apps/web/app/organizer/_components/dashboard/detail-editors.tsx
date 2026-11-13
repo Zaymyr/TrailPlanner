@@ -270,8 +270,18 @@ function EquipmentFields({
             aria-label="Nom du nouvel item de matériel"
             value={draftItem.label}
             onChange={(event) => setDraftItem({ ...draftItem, label: event.target.value })}
-            onBlur={() => setDraftItemTouched(true)}
-            placeholder="Ex. couverture de survie"
+            onBlur={() => { if (draftItem.label.trim()) setDraftItemTouched(true); }}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") { event.preventDefault(); setDraftItem(null); setDraftItemTouched(false); return; }
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              setDraftItemTouched(true);
+              if (!draftItem.label.trim()) return;
+              updateItems([...equipment.items, { ...draftItem, label: draftItem.label.trim() }]);
+              setDraftItemTouched(false);
+              setDraftItem({ ...draftItem, id: `item-${Date.now()}`, label: "" });
+            }}
+            placeholder="Ex. couverture de survie — Entrée pour ajouter et enchaîner"
             aria-invalid={draftItemTouched && !draftItem.label.trim() || undefined}
             aria-describedby={draftItemTouched && !draftItem.label.trim() ? "equipment-draft-error" : undefined}
             className={cn("h-11", draftItemTouched && !draftItem.label.trim() && "border-red-500")}
@@ -422,6 +432,30 @@ function BibPickupFields({
     updateLocations(locations.map((location, index) => (index === locationIndex ? { ...location, ...next } : location)));
   };
   const updateSlots = (locationIndex: number, slots: OrganizerBibPickupSlot[]) => updateLocation(locationIndex, { slots });
+  const [removedSlot, setRemovedSlot] = useState<{ locationIndex: number; slotIndex: number; slot: OrganizerBibPickupSlot } | null>(null);
+  const removeSlot = (locationIndex: number, slotIndex: number) => {
+    const slots = locations[locationIndex]?.slots ?? [];
+    const slot = slots[slotIndex];
+    if (!slot) return;
+    updateSlots(locationIndex, slots.filter((_, index) => index !== slotIndex));
+    setRemovedSlot({ locationIndex, slotIndex, slot });
+  };
+  const restoreRemovedSlot = () => {
+    if (!removedSlot) return;
+    const slots = [...(locations[removedSlot.locationIndex]?.slots ?? [])];
+    slots.splice(Math.min(removedSlot.slotIndex, slots.length), 0, removedSlot.slot);
+    updateSlots(removedSlot.locationIndex, slots);
+    setRemovedSlot(null);
+  };
+  const addSlot = (locationIndex: number) => {
+    const slots = locations[locationIndex]?.slots ?? [];
+    const defaultDate = slots[slots.length - 1]?.date ?? (editionStartDate || null);
+    updateSlots(locationIndex, [...slots, { date: defaultDate, startTime: null, endTime: null }]);
+    setRemovedSlot(null);
+    window.setTimeout(() => {
+      document.querySelector<HTMLInputElement>(`input[aria-label="Début du créneau ${slots.length + 1}, lieu ${locationIndex + 1}"]`)?.focus();
+    }, 50);
+  };
 
   return (
     <section className={cn("space-y-4", framed && "rounded-lg border border-border bg-background p-4")}>
@@ -501,12 +535,18 @@ function BibPickupFields({
                             <span className="text-center text-xs text-muted-foreground" aria-hidden>→</span>
                             <Input aria-label={`Fin du créneau ${slotIndex + 1}, lieu ${locationIndex + 1}`} type="time" value={slot.endTime ?? ""} onChange={(event) => updateSlot({ endTime: event.target.value || null })} aria-invalid={!slot.endTime || undefined} className={cn("h-9 min-w-0 font-mono text-sm tabular-nums", !slot.endTime && "border-amber-400")} />
                           </div>
-                          <Button type="button" variant="ghost" className="col-start-2 row-start-1 h-8 w-8 px-0 text-muted-foreground hover:bg-red-50 hover:text-red-700 focus-visible:text-red-700 sm:col-start-auto sm:row-start-auto" onClick={() => updateSlots(locationIndex, pickupLocation.slots.filter((_, index) => index !== slotIndex))} aria-label={`Supprimer le créneau ${slotIndex + 1}, lieu ${locationIndex + 1}`} title="Supprimer le créneau">×</Button>
+                          <Button type="button" variant="ghost" className="col-start-2 row-start-1 h-8 w-8 px-0 text-muted-foreground hover:bg-red-50 hover:text-red-700 focus-visible:text-red-700 sm:col-start-auto sm:row-start-auto" onClick={() => removeSlot(locationIndex, slotIndex)} aria-label={`Supprimer le créneau ${slotIndex + 1}, lieu ${locationIndex + 1}`} title="Supprimer le créneau">×</Button>
                         </InlineEditableRow>
                       );
                     })
                   )}
-                  <Button type="button" variant="ghost" className="h-8 px-2 text-xs font-semibold text-brand" onClick={() => updateSlots(locationIndex, [...pickupLocation.slots, { date: null, startTime: null, endTime: null }])}>+ Ajouter un créneau</Button>
+                  {removedSlot?.locationIndex === locationIndex ? (
+                    <p className="flex flex-wrap items-center gap-2 rounded-md bg-muted/60 px-3 py-2 text-xs text-muted-foreground" role="status">
+                      Créneau supprimé{removedSlot.slot.date ? ` (${removedSlot.slot.date.split("-").reverse().join("/")}${removedSlot.slot.startTime ? ` · ${removedSlot.slot.startTime}` : ""})` : ""}.
+                      <Button type="button" variant="ghost" className="h-7 px-2 text-xs font-semibold text-brand" onClick={restoreRemovedSlot}>Annuler</Button>
+                    </p>
+                  ) : null}
+                  <Button type="button" variant="ghost" className="h-8 px-2 text-xs font-semibold text-brand" onClick={() => addSlot(locationIndex)}>+ Ajouter un créneau</Button>
                 </div>
               </section>
             );

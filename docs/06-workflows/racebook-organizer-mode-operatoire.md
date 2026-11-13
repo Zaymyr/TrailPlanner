@@ -10,6 +10,7 @@ ai_priority: medium
 # Modules denses (2026-11-13) : l’arrivée peut reprendre le départ, les sponsors se sélectionnent par logo et la date de l’édition est affichée en français.
 # Mobile (2026-11-13) : Course affiche d’abord le formulaire ; « Médias et aperçu » déplie ensuite le GPX, le profil et l’image.
 # Organizer polish (2026-11-13): GPX/image upload is in the Course right rail (desktop) or “Tracé et médias” (mobile); ravito start/cutoff times are under “Horaires et consignes”.
+# Fill-flow note (2026-11-13): organizer form ergonomics (ravito services, Enter-to-add, slot undo, sponsor ordering) do not alter stored data or contracts.
 related_files:
   - scripts/generate-racebook-organizer-manual.mjs
   - apps/web/app/organizers/page.tsx

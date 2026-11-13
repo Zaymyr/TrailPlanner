@@ -3,6 +3,7 @@ title: race_event_edition_partner_slots Table
 scope: database
 last_verified: 2026-11-13
 ai_priority: high
+# UI note (2026-11-13): partner slots now render after the sponsor form; slot storage is unchanged.
 related_files:
   - supabase/migrations/20261109140000_add_racebook_edition_partner_slots.sql
   - supabase/tests/racebook_partner_slots_checks.sql

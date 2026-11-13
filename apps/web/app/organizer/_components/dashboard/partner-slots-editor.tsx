@@ -145,7 +145,7 @@ export function PartnerSlotsEditor({
         );
       })}
       {sponsors.length === 0 ? (
-        <p className="text-xs text-muted-foreground">Ajoute d’abord un sponsor ci-dessous (logo, nom, site) pour pouvoir le placer ici.</p>
+        <p className="text-xs text-muted-foreground">Ajoute d’abord un sponsor ci-dessus (logo, nom, site) pour pouvoir le placer ici.</p>
       ) : null}
     </section>
   );

@@ -9,6 +9,7 @@ ai_priority: high
 # Dense module note (2026-11-13): sponsor and course presentation changes do not alter offers.
 # Mobile gutter note (2026-11-13): compact editor padding does not alter offers.
 # Layout polish note (2026-11-13): organizer presentation changes (aid-station detail, format metrics row, media rail visibility, equipment status action) do not alter stored data or contracts.
+# Fill-flow pass (2026-11-13): Sponsors/partner-slot ordering and the Services status label changed in the UI only; offer gating unchanged.
 related_files:
   - apps/web/lib/organizer-entitlements.ts
   - apps/web/lib/organizer-modules.ts

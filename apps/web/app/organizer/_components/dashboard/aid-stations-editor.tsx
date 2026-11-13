@@ -113,6 +113,15 @@ export function AidStationsEditor({
   const [stationDraftTouched, setStationDraftTouched] = useState(false);
   const [pendingStationRemoval, setPendingStationRemoval] = useState<{ index: number; name: string } | null>(null);
   const [mobileStationOpen, setMobileStationOpen] = useState(false);
+  const [pendingSelection, setPendingSelection] = useState<{ name: string; distanceKm: number } | null>(null);
+  useEffect(() => {
+    if (!pendingSelection) return;
+    const index = aidStations.findIndex((station) => station.name === pendingSelection.name && station.distanceKm === pendingSelection.distanceKm);
+    if (index < 0) return;
+    const station = aidStations[index];
+    onExpandedStationKeyChange(station.id ?? `new-${index}`);
+    if (station.id) setPendingSelection(null);
+  }, [aidStations, onExpandedStationKeyChange, pendingSelection]);
   const [isCompactViewport, setIsCompactViewport] = useState(false);
   useEffect(() => {
     const query = window.matchMedia("(max-width: 1023.98px)");
@@ -236,33 +245,54 @@ export function AidStationsEditor({
       ) : activeView === "aidStations" ? (
         <>
           {stationDraft ? (
-            <section className="space-y-3 rounded-xl border border-dashed border-brand-border bg-brand-surface/30 p-4">
+            <form noValidate className="space-y-3 rounded-xl border border-dashed border-brand-border bg-brand-surface/30 p-4" aria-label="Nouveau ravito" onSubmit={(event) => {
+              event.preventDefault();
+              setStationDraftTouched(true);
+              if (!stationDraft.name.trim()) return;
+              onAddStation({ name: stationDraft.name.trim(), distanceKm: stationDraft.distanceKm });
+              setPendingSelection({ name: stationDraft.name.trim(), distanceKm: stationDraft.distanceKm });
+              setMobileStationOpen(true);
+              setStationDraft(null);
+              setStationDraftTouched(false);
+            }}>
               <p className="font-semibold text-foreground">Nouveau ravito</p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <TextField label="Nom du ravito" value={stationDraft.name} onChange={(name) => setStationDraft((current) => current ? { ...current, name } : current)} invalid={!stationDraft.name.trim()} validationVisible={stationDraftTouched} errorMessage="Indique le nom du ravito." autoFocus />
                 <NumberField label="Distance km" value={stationDraft.distanceKm} onChange={(distanceKm) => setStationDraft((current) => current ? { ...current, distanceKm } : current)} emptyWhenZero />
               </div>
               <div className="flex gap-2">
-                <Button type="button" onClick={() => {
-                  setStationDraftTouched(true);
-                  if (!stationDraft.name.trim()) return;
-                  onAddStation({ name: stationDraft.name.trim(), distanceKm: stationDraft.distanceKm });
-                  setStationDraft(null);
-                  setStationDraftTouched(false);
-                }}>Enregistrer le ravito</Button>
+                <Button type="submit">Ajouter le ravito</Button>
                 <Button type="button" variant="ghost" onClick={() => { setStationDraft(null); setStationDraftTouched(false); }}>Annuler</Button>
               </div>
-            </section>
+            </form>
           ) : null}
-          {selectedAidStation ? ((section: ReactNode) => (mobileStationOpen && isCompactViewport ? createPortal(section, document.body) : section))(
-            <section className={cn("rounded-xl border border-border bg-card shadow-sm", mobileStationOpen ? "max-lg:fixed max-lg:inset-0 max-lg:z-[60] max-lg:overflow-y-auto max-lg:rounded-none max-lg:border-0" : "max-lg:hidden")} aria-label={`Détails de ${selectedAidStation.name}`}>
+          {selectedAidStation && !stationDraft ? ((section: ReactNode) => (mobileStationOpen && isCompactViewport ? createPortal(section, document.body) : section))(
+            <section className={cn("rounded-xl border border-border bg-card shadow-sm", mobileStationOpen ? "max-lg:fixed max-lg:inset-0 max-lg:z-50 max-lg:overflow-y-auto max-lg:rounded-none max-lg:border-0" : "max-lg:hidden")} aria-label={`Détails de ${selectedAidStation.name}`}>
               <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
                 <div className="flex items-center gap-3">
                   <Button type="button" variant="ghost" className="lg:hidden" onClick={() => setMobileStationOpen(false)}>Retour</Button>
                   <div><p className="font-semibold text-foreground">{selectedAidStation.name || `Ravito ${selectedAidStationIndex + 1}`}</p><p className="text-xs text-muted-foreground">{formatKm(selectedAidStation.distanceKm)}</p></div>
                 </div>
               </header>
-              <StationDetailsPanel station={selectedAidStation} onChange={(next) => onUpdateStation(selectedAidStationIndex, next)} onRemove={() => setPendingStationRemoval({ index: selectedAidStationIndex, name: selectedAidStation.name || `Ravito ${selectedAidStationIndex + 1}` })} productsSlot={selectedProductsSlot} />
+              <StationDetailsPanel station={selectedAidStation} onChange={(next) => onUpdateStation(selectedAidStationIndex, next)} onRemove={() => setPendingStationRemoval({ index: selectedAidStationIndex, name: selectedAidStation.name || `Ravito ${selectedAidStationIndex + 1}` })} productsSlot={selectedProductsSlot} servicesSlot={(
+                <fieldset className="space-y-2">
+                  <legend className="text-sm font-medium text-foreground">Sur place</legend>
+                  <div className="flex flex-wrap gap-2">
+                    <StationServiceChip checked={selectedAidStation.waterRefill} label="Eau" disabled={status === "saving"} onChange={(checked) => onUpdateStation(selectedAidStationIndex, { ...selectedAidStation, waterRefill: checked })} />
+                    <StationServiceChip checked={selectedAidStation.solidRefill} label="Solide" disabled={status === "saving"} onChange={(checked) => onUpdateStation(selectedAidStationIndex, { ...selectedAidStation, solidRefill: checked })} />
+                    <StationServiceChip checked={selectedAidStation.assistanceAllowed} label="Assistance autorisée" disabled={status === "saving"} onChange={(checked) => onUpdateStation(selectedAidStationIndex, { ...selectedAidStation, assistanceAllowed: checked })} />
+                    <StationServiceChip checked={selectedAidStation.organizerDetails.dropBagAvailable} label="Sac de délestage" disabled={status === "saving"} onChange={(checked) => onUpdateStation(selectedAidStationIndex, { ...selectedAidStation, organizerDetails: { ...selectedAidStation.organizerDetails, dropBagAvailable: checked } })} />
+                    {relayEnabled ? (
+                      <StationServiceChip
+                        checked={Boolean(selectedAidStation.id && relayPoints.some((point) => point.raceAidStationId === selectedAidStation.id))}
+                        label="Point de relais"
+                        disabled={!selectedAidStation.id || status === "saving"}
+                        onChange={(checked) => onToggleStationRelayPoint(selectedAidStation, checked)}
+                      />
+                    ) : null}
+                  </div>
+                </fieldset>
+              )} />
             </section>
           ) : null}
           {aidStations.length === 0 ? (
@@ -574,10 +604,11 @@ function FixedCourseCard({
   );
 }
 
-function StationDetailsPanel({ station, onChange, onRemove, productsSlot }: { station: AidStationDraft; onChange: (station: AidStationDraft) => void; onRemove: () => void; productsSlot: ReactNode }) {
+function StationDetailsPanel({ station, onChange, onRemove, productsSlot, servicesSlot }: { station: AidStationDraft; onChange: (station: AidStationDraft) => void; onRemove: () => void; productsSlot: ReactNode; servicesSlot: ReactNode }) {
   const details = station.organizerDetails;
   return (
     <div className="space-y-5 p-4">
+      {servicesSlot}
       <div className="grid gap-x-3 gap-y-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <TextField label="Nom du ravito" value={station.name} onChange={(value) => onChange({ ...station, name: value })} required />

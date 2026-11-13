@@ -48,6 +48,7 @@ export function SponsorsEditor({
   const [sponsors, setSponsors] = useState<OrganizerSponsor[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [addFormOpen, setAddFormOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newWebsiteUrl, setNewWebsiteUrl] = useState("");
   const [newImage, setNewImage] = useState<File | null>(null);
@@ -178,6 +179,7 @@ export function SponsorsEditor({
       setSponsors(items);
       updateSummary(items);
       setNewName("");
+      setAddFormOpen(false);
       setNewWebsiteUrl("");
       setNewImage(null);
       setNewShowOnLoading(false);
@@ -283,7 +285,6 @@ export function SponsorsEditor({
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-semibold text-foreground">Sponsors de l’édition</h3><p className="text-sm text-muted-foreground">Logo, niveau et emplacements visibles dans le Livret coureur.</p></div><span className="font-mono text-sm text-muted-foreground">{sponsors.length} sponsor{sponsors.length > 1 ? "s" : ""}</span></div>
-      <PartnerSlotsEditor editionId={editionId} authHeaders={authHeaders} sponsors={sponsors} onToast={onToast} />
       {sponsors.length > 0 ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" aria-label="Logos des sponsors">
         {sponsors.filter((sponsor) => sponsor.id !== pendingRemoval?.id).map((sponsor) => <button key={`logo-${sponsor.id}`} type="button" className="flex min-h-28 flex-col items-center justify-center gap-2 rounded-lg border border-border bg-card p-3 text-center hover:border-brand-border" onClick={() => document.getElementById(`sponsor-editor-${sponsor.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}>
           <Image src={sponsor.logoUrl} alt="" width={72} height={56} sizes="72px" unoptimized className="h-14 w-[72px] object-contain" />
@@ -326,9 +327,11 @@ export function SponsorsEditor({
         );
       })}
       {sponsors.length < 10 ? (
-        <details className="group rounded-lg border border-dashed border-border bg-card p-3">
-          <summary className="flex min-h-11 cursor-pointer list-none items-center font-semibold text-brand marker:content-none">+ Ajouter un sponsor<span className="ml-auto text-muted-foreground group-open:hidden">Ouvrir</span></summary>
-        <form className="space-y-4 rounded-lg border border-dashed border-border p-4" onSubmit={createSponsor}>
+        !addFormOpen && sponsors.length > 0 ? (
+          <Button type="button" variant="outline" onClick={() => setAddFormOpen(true)}>+ Ajouter un sponsor</Button>
+        ) : (
+        <form className="space-y-4 rounded-lg border border-dashed border-brand-border bg-card p-4" onSubmit={createSponsor} aria-label="Nouveau sponsor">
+          <p className="font-semibold text-foreground">{sponsors.length === 0 ? "Ajoute ton premier sponsor" : "Nouveau sponsor"}</p>
           <div className="grid gap-3 md:grid-cols-2">
             <Field label="Nom" htmlFor={`${formId}-new-name`} error={newSponsorSubmitted && !newName.trim() ? "Indique le nom du sponsor." : undefined}><Input id={`${formId}-new-name`} maxLength={80} value={newName} aria-invalid={newSponsorSubmitted && !newName.trim() || undefined} onChange={(event) => setNewName(event.target.value)} /></Field>
             <div className="space-y-1"><Label htmlFor={`${formId}-new-website`}>Site web optionnel</Label><Input id={`${formId}-new-website`} type="url" value={newWebsiteUrl} onChange={(event) => setNewWebsiteUrl(event.target.value)} /></div>
@@ -338,10 +341,14 @@ export function SponsorsEditor({
             <div className="space-y-1 md:col-span-2"><Label htmlFor={`${formId}-new-category`}>Catégorie ou rôle</Label><Input id={`${formId}-new-category`} maxLength={60} value={newCategory} onChange={(event) => setNewCategory(event.target.value)} placeholder="Ex. équipementier officiel" /></div>
             <div className="grid gap-3 md:col-span-2 sm:grid-cols-2"><SwitchRow label="Écran de chargement" checked={newShowOnLoading} disabled={loadingSponsorCount >= 2} onCheckedChange={setNewShowOnLoading} /><SwitchRow label="Bloc partenaires" checked={newShowInBanner} onCheckedChange={setNewShowInBanner} /></div>
           </div>
-          <Button type="submit" disabled={busyId === "new"}>{busyId === "new" ? "Ajout..." : "Ajouter le sponsor"}</Button>
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" disabled={busyId === "new"}>{busyId === "new" ? "Ajout..." : "Ajouter le sponsor"}</Button>
+            {sponsors.length > 0 ? <Button type="button" variant="ghost" onClick={() => setAddFormOpen(false)}>Annuler</Button> : null}
+          </div>
         </form>
-        </details>
+        )
       ) : null}
+      <PartnerSlotsEditor editionId={editionId} authHeaders={authHeaders} sponsors={sponsors} onToast={onToast} />
       {pendingRemoval ? <div role="status" aria-live="polite" className="flex items-center gap-3 rounded-md border border-border bg-card px-3 py-2 text-sm">Sponsor supprimé <Button type="button" variant="ghost" onClick={() => setPendingRemoval(null)}>Annuler</Button></div> : null}
     </div>
   );
