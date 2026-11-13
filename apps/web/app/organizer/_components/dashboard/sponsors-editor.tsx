@@ -282,9 +282,7 @@ export function SponsorsEditor({
 
   return (
     <div className="space-y-5">
-      <div className="rounded-md border border-border bg-background p-4 text-sm text-muted-foreground">
-        Jusqu&apos;à 10 sponsors par édition, dont 2 maximum sur l&apos;écran de chargement. Le niveau détermine leur importance dans le bloc partenaires ; le placement contextuel les rapproche du contenu pertinent.
-      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-semibold text-foreground">Sponsors de l’édition</h3><p className="text-sm text-muted-foreground">Logo, niveau et emplacements visibles dans le Livret coureur.</p></div><span className="font-mono text-sm text-muted-foreground">{sponsors.length} sponsor{sponsors.length > 1 ? "s" : ""}</span></div>
       <PartnerSlotsEditor editionId={editionId} authHeaders={authHeaders} sponsors={sponsors} onToast={onToast} />
       {sponsors.filter((sponsor) => sponsor.id !== pendingRemoval?.id).map((sponsor, index) => {
         const loadingDisabled = !sponsor.showOnLoading && loadingSponsorCount >= 2;
@@ -322,8 +320,9 @@ export function SponsorsEditor({
         );
       })}
       {sponsors.length < 10 ? (
+        <details className="group rounded-lg border border-dashed border-border bg-card p-3">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center font-semibold text-brand marker:content-none">+ Ajouter un sponsor<span className="ml-auto text-muted-foreground group-open:hidden">Ouvrir</span></summary>
         <form className="space-y-4 rounded-lg border border-dashed border-border p-4" onSubmit={createSponsor}>
-          <h3 className="font-semibold text-foreground">Ajouter un sponsor</h3>
           <div className="grid gap-3 md:grid-cols-2">
             <Field label="Nom" htmlFor={`${formId}-new-name`} error={newSponsorSubmitted && !newName.trim() ? "Indique le nom du sponsor." : undefined}><Input id={`${formId}-new-name`} maxLength={80} value={newName} aria-invalid={newSponsorSubmitted && !newName.trim() || undefined} onChange={(event) => setNewName(event.target.value)} /></Field>
             <div className="space-y-1"><Label htmlFor={`${formId}-new-website`}>Site web optionnel</Label><Input id={`${formId}-new-website`} type="url" value={newWebsiteUrl} onChange={(event) => setNewWebsiteUrl(event.target.value)} /></div>
@@ -335,6 +334,7 @@ export function SponsorsEditor({
           </div>
           <Button type="submit" disabled={busyId === "new"}>{busyId === "new" ? "Ajout..." : "Ajouter le sponsor"}</Button>
         </form>
+        </details>
       ) : null}
       {pendingRemoval ? <div role="status" aria-live="polite" className="flex items-center gap-3 rounded-md border border-border bg-card px-3 py-2 text-sm">Sponsor supprimé <Button type="button" variant="ghost" onClick={() => setPendingRemoval(null)}>Annuler</Button></div> : null}
     </div>

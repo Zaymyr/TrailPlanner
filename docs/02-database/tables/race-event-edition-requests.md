@@ -116,3 +116,5 @@ Publication checks and partner slots (2026-11-09): pre-publication checks and th
 Compact edition selectors and corrected completion presentation do not change edition-request writes or approval state.
 
 Repositioning the edition selector inside the compact Organizer banner does not change edition-request creation, duplication, or approval state.
+
+Organizer section-header finishing does not change edition-request state.

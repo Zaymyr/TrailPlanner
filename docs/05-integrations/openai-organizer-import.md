@@ -128,3 +128,5 @@ Publication checks and partner slots (2026-11-09): pre-publication checks and th
 The assisted-import dialog now uses a shared multi-file field while preserving the same PDF/image types, 25 Mo per-file limit, eight-document limit and upload pipeline.
 
 The compact Organizer banner keeps assisted import in its existing Actions menu; the import request, documents, limits, and reconciliation contract are unchanged.
+
+Organizer finishing styles do not change assisted-import requests, files, or reconciliation.

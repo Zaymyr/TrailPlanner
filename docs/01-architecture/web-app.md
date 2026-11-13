@@ -807,3 +807,9 @@ Course/GPX composes existing map/profile and file primitives into a bounded visu
 Organizer editors consume one route-local `SwitchRow` primitive for boolean settings; state ownership remains in each existing editor.
 
 The aid-station editor derives a presentation-only course timeline from already loaded sidecars. It does not add a read, cache, or persistence contract.
+
+Organizer finishing layouts reuse existing editor state and endpoints; section headers, Access summaries, sponsor disclosure, service conversion, and branding surfaces add no new route or dependency.
+
+The semantic section tree retains the existing Organizer onboarding/capture anchor and explicit accessible module labels for automation compatibility.
+
+On narrow screens, separate native selectors choose the event/format scope and the active section, preserving the complete desktop navigation hierarchy.

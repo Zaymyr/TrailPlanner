@@ -116,3 +116,5 @@ Dans Course & GPX, la carte, le mini profil, le fichier GPX, les réglages d’a
 Les choix oui/non utilisent désormais la même ligne d’interrupteur dans Course & GPX, Dossard, Sponsors et les points de course. Leur valeur et leur enregistrement automatique restent inchangés.
 
 Dans Départ, ravitos, suivi coureur & relais, la ligne de course affiche départ, points triés par kilomètre et arrivée. Les filtres Ravitos, SAS, Suivi et Relais ouvrent les éditeurs existants ; un clic sur un ravito ouvre ses détails.
+
+Accès regroupe ses modules en cartes compactes, l’ajout d’un sponsor reste replié jusqu’à l’action dédiée, et Services signale uniquement le texte historique réellement présent à convertir.

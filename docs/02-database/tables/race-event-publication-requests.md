@@ -148,3 +148,5 @@ Publication checks and partner slots (2026-11-09): pre-publication checks and th
 Local organizer validation no longer surfaces a background autosave failure, and an incomplete required scope is capped below 100%; publication-request state remains server-owned.
 
 The compact Organizer banner and completion rail expose the same publication actions and readiness state; publication-request persistence and review remain server-owned.
+
+Organizer finishing layouts do not change publication-request persistence or review.

@@ -449,3 +449,5 @@ Catalog scroll performance (2026-11-09): the Courses list renders memoized `Cata
 The organizer and runner follow-up changes reuse existing actions and do not introduce, rename or remove analytics events.
 
 Moving Organizer statistics from a top-level tab to the completion rail changes navigation presentation only; the existing analytics panel, access gates, requests, and event names are unchanged.
+
+Organizer finishing layouts do not introduce or rename analytics events.

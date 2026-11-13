@@ -734,3 +734,5 @@ The Course/GPX editor now keeps its identity and metrics in the main column and 
 Organizer binary settings now share `SwitchRow` in Course/GPX, Dossard, Sponsors, and point editors. This visual normalization does not change boolean fields, defaults, validation, entitlements, or persistence.
 
 The combined course-points editor now exposes one distance-sorted vertical course line from departure to finish. Ravitos, SAS, supporter points, and relay points remain filtered editing modes; selecting a timeline node opens the existing editor and preserves all add, edit, delete, undo, product, service, and autosave behavior.
+
+Organizer finishing presentation adds compact Access module cards, collapsed sponsor creation, a legacy-service conversion banner, token-only branding preview surfaces, and terrain section headers. Stored content, limits, module gates, autosave, and publication behavior are unchanged.

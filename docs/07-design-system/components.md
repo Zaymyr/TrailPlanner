@@ -33,6 +33,7 @@ This document records the current web component primitives and styling conventio
 - `cn`: class name join helper.
 - Variant: component prop that selects a style branch.
 - Theme variable: CSS HSL variable from `apps/web/app/globals.css`.
+- Full-width form controls keep `min-width: 0` so intrinsic input sizing cannot overflow narrow cards or grid columns.
 
 ## Web Primitives
 
@@ -171,3 +172,7 @@ Organizer `FieldGroup` uses a responsive label/description column (up to 200 px)
 `FileField` renders an optional 80 px preview, filename, mono metadata, and replacement/removal actions while keeping the native input visually hidden. Empty file fields use the same compact drop target.
 
 `SwitchRow` is the single Organizer yes/no presentation: label and optional explanation on the left, accessible switch on the right, and a shared focus target. `BooleanField` remains an alias for compatible callers.
+
+Organizer editor cards now use `SectionHeader` with a brand-surface icon, visible description, save state, and a subtle token-based terrain wash. Dark mode relies only on theme variables.
+
+Compact `FileField` actions wrap beneath metadata so the control remains contained in the 250 px media rail and narrow mobile layouts.

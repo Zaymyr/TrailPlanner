@@ -81,7 +81,8 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(source).not.toContain("Previsualiser ce format");
     expect(source).not.toContain("Masquer les details");
     expect(source).not.toContain("Dupliquer ce format");
-    expect(source).toContain("Lieu différent de l&apos;événement");
+    expect(source).toContain("Utiliser l’événement");
+    expect(source).toContain('{usesCustomLocation ? "Utiliser l’événement" : "Modifier"}');
   });
 
   it("keeps the organizer onboarding concise and replayable", () => {
@@ -196,8 +197,10 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(shellSource).toContain('href="/sign-in?next=%2Forganizer"');
     expect(shellSource).toContain("Rechercher ou choisir…");
     expect(shellSource).toContain("Aucun événement trouvé.");
-    expect(shellSource).toContain("md:grid-cols-[minmax(16rem,28rem)_10rem]");
+    expect(shellSource).toContain("sm:grid-cols-[minmax(12rem,1fr)_8rem]");
     expect(shellSource).toContain('htmlFor="organizer-workspace-select"');
+    expect(shellSource).toContain('htmlFor="organizer-section-select"');
+    expect(shellSource).toContain('aria-label="Sections"');
     expect(shellSource).toContain("SelectField");
     expect(shellSource).toContain("Commun à toutes les courses");
     expect(shellSource).toContain("Course masquée pour le public");
@@ -234,7 +237,8 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(shellSource).toContain('{getStatusLabel(module)}</p>');
     expect(shellSource).toContain('activeModule === module.id && "border-brand shadow-lg ring-2 ring-brand');
     expect(shellSource).toContain('min-h-[64px] rounded-lg');
-    expect(dashboardSource).toContain('className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0"');
+    expect(dashboardSource).toContain("xl:grid-cols-[220px_minmax(0,720px)_260px]");
+    expect(dashboardSource).toContain("<OrganizerProgressRail");
     expect(shellSource).not.toContain('Manque : {module.missingLabels');
     expect(dashboardSource).toContain("raceSeriesGroups.filter");
     expect(dashboardSource).not.toContain("race.racebook_preview_is_visible !== false");
@@ -286,10 +290,10 @@ describe("organizer dashboard UTF-8 copy", () => {
       "utf8"
     );
 
-    expect(source).toContain("Informations principales");
+    expect(source).toContain('legend="L’événement"');
     expect(source).toContain('title="Réseaux sociaux"');
-    expect(source).toContain("Dates de l’édition");
-    expect(source).toContain("Contact d’urgence");
+    expect(source).toContain('legend="Dates"');
+    expect(source).toContain('legend="En cas d’urgence"');
     expect(source).toContain('title="Image de couverture"');
     expect(source).toContain('label="Nom du contact"');
     expect(source).toContain('label="Téléphone"');
@@ -303,17 +307,17 @@ describe("organizer dashboard UTF-8 copy", () => {
       "utf8"
     );
 
-    expect(source).toContain('{ id: "aidStations", label: "Ravitos" }');
-    expect(source).toContain('{ id: "supporters", label: "Suivi coureur" }');
-    expect(source).toContain('{ id: "relay", label: "Relais" }');
-    expect(source.match(/view: "aidStations"/g)).toHaveLength(2);
+    expect(source).toContain('aria-label="Ligne de course"');
+    expect(source).toContain('aria-label="Filtrer la ligne de course"');
+    expect(source).toContain('`Ravitos ${aidStations.length}`');
+    expect(source).toContain('`Suivi ${supporterPoints.length}`');
+    expect(source).toContain('`Relais ${relayPoints.length}`');
+    expect(source.match(/view: "aidStations"/g)).toHaveLength(3);
     expect(source).toContain('viewState.view : "aidStations"');
     expect(source).toContain('activeView === "aidStations"');
-    expect(source.indexOf("<FixedCourseCard")).toBeLessThan(source.indexOf("<TabsList"));
     expect(source).toContain("disabled={startWaveCount > 0}");
-    expect(source).toContain("Les autres SAS se règlent dans l’onglet SAS.");
-    expect(source).toContain('title="Départ"');
-    expect(source).toContain('title="Arrivée"');
+    expect(source).toContain('{ key: "start", kind: "start" as const, name: "Départ"');
+    expect(source).toContain('{ key: "finish", kind: "finish" as const, name: "Arrivée"');
     expect(source).toContain('StationMetaChip>Barrière {details.cutoffTime?.trim() || "-"}');
     expect(source).toContain('aria-label="Tronçons du relais"');
     expect(source).not.toContain('label="Passage prévu"');
@@ -362,7 +366,8 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(detailSource).toContain("Retrait hérité de l’événement");
     expect(detailSource).toContain("Matériel hérité de l’événement");
     expect(detailSource).toContain("Accès hérité de l’événement");
-    expect(dashboardSource).toContain('className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0"');
+    expect(dashboardSource).toContain("<SectionHeader");
+    expect(dashboardSource).toContain("bg-[radial-gradient(circle_at_15%_120%");
     expect(detailSource).toContain("showHeader={false}");
     expect(detailSource).toContain("framed={false}");
     expect(detailSource).not.toContain("<p className=\"font-semibold text-foreground\">Retrait dossard - {activeRace.name}</p>");
@@ -440,7 +445,7 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(editorSource).toContain("RACEBOOK_EDITION_LOGO_ENABLED ? (");
     expect(editorSource).toContain("theme.accentSurfaceColor");
     expect(dashboardSource).toContain("Cette section restera privée jusqu’au passage à");
-    expect(dashboardSource).toContain("Offre requise pour publier toutes les sections");
+    expect(dashboardSource).toContain("<OrganizerProgressRail");
   });
 
   it("keeps course-point autosave gated by the active race sidecar load", () => {

@@ -173,3 +173,5 @@ Placing address autocomplete inside a responsive Organizer field group does not 
 Replacing the format-location inheritance checkbox with Modifier/Utiliser l’événement keeps the same address autocomplete and structured location writes.
 
 Shared yes/no presentation does not affect address autocomplete or coordinate persistence.
+
+Compact Access module cards keep the existing address autocomplete and location writes.

@@ -183,3 +183,5 @@ RaceBook polish (2026-11-09): the runner hero keeps the format/event thumbnail b
 [`race_event_edition_partner_slots`](race-event-edition-partner-slots.md) reuses sponsor rows as the organizer partner of the Matériel and hébergement slots. The new `unique (edition_id, id)` constraint backs its same-edition composite FK; deleting a sponsor cascades to its slot row. Slot views/clicks are counted on the slot row, not on the sponsor counters, so a sponsor also shown in the banner keeps separate reporting. A slot-only sponsor may stay inactive.
 
 Sponsor active/loading/banner settings now share the Organizer switch-row presentation; sponsor limits, rows, counters, and persistence are unchanged.
+
+Sponsor creation is now collapsed until requested and the edition count is visible; the ten-sponsor/loading limits, rows, ordering, counters, and API behavior are unchanged.

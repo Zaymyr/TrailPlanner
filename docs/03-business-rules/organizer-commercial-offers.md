@@ -184,3 +184,5 @@ The base RaceBook (every paid tier) shows Pace Yourself affiliate cards in the M
 The compact organizer workspace and corrected completion indicator are presentation-only and do not change tiers, checkout gates or publication entitlements.
 
 The Organizer three-column shell repositions offer-aware section states and publication actions without changing module availability, pricing, entitlements, or checkout gates.
+
+Organizer section-header and module-card finishing does not change offer availability, sponsor access, pricing, or publication entitlements.

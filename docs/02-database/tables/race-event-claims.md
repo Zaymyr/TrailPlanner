@@ -218,3 +218,5 @@ Compact Course/GPX media and inheritance actions do not change claims or organiz
 Shared Organizer switches do not change claim or membership authorization.
 
 The course timeline is a client presentation of authorized sidecars and does not change claims or membership checks.
+
+Organizer finishing layouts do not change claims, memberships, or authorization.

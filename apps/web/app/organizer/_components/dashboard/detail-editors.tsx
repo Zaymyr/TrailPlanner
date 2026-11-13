@@ -663,7 +663,9 @@ function AccessFields({
             onLocationChange={(finishLocation) => update({ finishLocation })}
           />
       </div>
+      {access.startAddress?.trim() && access.startAddress.trim() === access.finishAddress?.trim() ? <p className="rounded-md bg-brand-surface px-3 py-2 text-sm font-medium text-brand">Arrivée identique au départ</p> : null}
 
+      <div className="grid items-start gap-3 sm:grid-cols-2">
       <OptionalModule
         title="Carte générale"
         addLabel="+ Ajouter une carte générale"
@@ -711,6 +713,7 @@ function AccessFields({
             <TextAreaField label="Horaires des navettes" value={access.shuttleSchedule ?? ""} onChange={(value) => update({ shuttleSchedule: value || null })} />
           </div>
       </OptionalModule>
+      </div>
 
       {formatMode && showRunnerInfoToggle ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-border bg-background p-4">

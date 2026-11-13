@@ -404,7 +404,7 @@ function RaceForm({
   return (
     <form
       ref={formRef}
-      className="space-y-4"
+      className="min-w-0 space-y-4"
       noValidate
       onSubmit={(event) => {
         setValidationVisible(true);
@@ -420,14 +420,14 @@ function RaceForm({
         <p className="font-semibold text-foreground">{title}</p>
         <p className="text-xs text-muted-foreground">Ajoute d’abord les fichiers, renseigne les informations du format, puis vérifie le parcours et le profil.</p>
       </div>
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_250px]">
-        <div className="space-y-4">
-          <div className="space-y-4 rounded-lg border border-border/70 bg-background px-4 py-4">
+      <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_250px]">
+        <div className="min-w-0 space-y-4">
+          <div className="min-w-0 space-y-4 rounded-lg border border-border/70 bg-background px-4 py-4">
             <div className="flex items-center gap-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Informations du format</p>
               <ContextualHelp text="Nom, métriques, date et lieu propres à ce parcours." />
             </div>
-            <div className="grid gap-3 lg:grid-cols-12">
+            <div className="grid min-w-0 gap-3 [&>*]:min-w-0 lg:grid-cols-12">
               <div className="lg:col-span-6">
                 <TextField
                   label="Nom du format"
@@ -645,7 +645,7 @@ function OrganizerGpxPanel({
   onShowElevationProfileInRacebookChange: (checked: boolean) => void;
 }) {
   return (
-    <aside className="rounded-lg border border-border bg-card p-3 shadow-sm">
+    <aside className="min-w-0 rounded-lg border border-border bg-card p-3 shadow-sm">
       <div className="space-y-3">
         <div className="space-y-1.5">
           <div className="flex items-center justify-between gap-3">

@@ -226,9 +226,9 @@ export function BrandingEditor({
         </div>
       </div>
 
-      <div className="rounded-[28px] border border-border bg-[#ECEAE3] p-4 shadow-sm">
+      <div className="rounded-[28px] border border-border bg-muted p-4 shadow-sm">
         <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Aperçu mobile</p>
-        <div className="space-y-3 rounded-2xl bg-white p-4">
+        <div className="space-y-3 rounded-2xl bg-card p-4">
           <div className="flex items-start gap-3">
             {RACEBOOK_EDITION_LOGO_ENABLED && theme.logoUrl ? <Image src={theme.logoUrl} alt={`Logo ${eventName}`} width={56} height={56} sizes="56px" unoptimized className="h-14 w-14 rounded-xl border object-contain p-1" /> : null}
             <div className="min-w-0 flex-1"><p className="text-xs font-bold uppercase" style={{ color: theme.primaryColor }}>{eventName}</p><p className="truncate text-lg font-bold">Livret coureur</p><p className="text-xs text-muted-foreground">Édition sélectionnée</p></div>

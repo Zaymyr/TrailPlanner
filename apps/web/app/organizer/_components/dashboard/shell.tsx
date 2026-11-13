@@ -888,6 +888,7 @@ export function CompletionTabsPanel({
     <button
       key={module.id}
       type="button"
+      aria-label={`${module.title}. ${module.countLabel}`}
       aria-current={activeModule === module.id ? "page" : undefined}
       onClick={() => onSelectModule(module.id)}
       className={cn(
@@ -903,7 +904,7 @@ export function CompletionTabsPanel({
   ));
 
   return (
-    <nav aria-label="Sections" className="rounded-xl border border-border bg-card p-2 shadow-sm xl:sticky xl:top-3">
+    <nav id="organizer-onboarding-module-tiles" aria-label="Sections" className="rounded-xl border border-border bg-card p-2 shadow-sm xl:sticky xl:top-3">
       <div id="organizer-onboarding-scope-navigation" className="xl:hidden">
         <label htmlFor="organizer-workspace-select" className="mb-1.5 block text-sm font-medium text-foreground">
           Informations à modifier
@@ -919,6 +920,7 @@ export function CompletionTabsPanel({
           ]}
           onValueChange={onTabChange}
         />
+        {!isAddTab ? <div className="mt-2"><label htmlFor="organizer-section-select" className="mb-1.5 block text-sm font-medium text-foreground">Section</label><SelectField id="organizer-section-select" value={activeModule} options={modules.map((module) => ({ value: module.id, label: `${module.title} · ${module.countLabel}` }))} onValueChange={(value) => onSelectModule(value as OrganizerModuleId)} /></div> : null}
       </div>
 
       <div id="organizer-onboarding-scope-navigation" className="hidden xl:block">
@@ -947,7 +949,7 @@ export function CompletionTabsPanel({
         {isEventTab ? <div className="border-t border-border py-2">{renderModules(completion.eventModules)}</div> : null}
 
         <div className="min-w-0 border-t border-border pt-2">
-          <p className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Formats</p>
+          <p className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Formats de course</p>
           <div className="space-y-1">
             {formatTabs.map((tab) => (
               <button

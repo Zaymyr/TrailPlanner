@@ -64,7 +64,7 @@ import {
 import { AccessEditor, BibPickupEditor, EquipmentEditor, RaceBibPickupEditor } from "./dashboard/detail-editors";
 import { EventInfoEditor, FormatsEditor } from "./dashboard/event-format-editors";
 import { isValidInstagramUrl, normalizeInstagramUrl } from "./dashboard/form-kit/validation";
-import { ConfirmDialog, MultiFileField, SaveStatus, SelectField } from "./dashboard/form-kit";
+import { ConfirmDialog, MultiFileField, SaveStatus, SectionHeader, SelectField } from "./dashboard/form-kit";
 import {
   aidStationRowsToDrafts,
   applyGpxStatsToRaceForm,
@@ -3825,44 +3825,34 @@ export function OrganizerDashboard({
         <CardHeader
           id="organizer-onboarding-editor"
           tabIndex={-1}
-          className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0"
+          className="relative flex flex-row flex-wrap items-center justify-between gap-3 space-y-0 overflow-hidden bg-[radial-gradient(circle_at_15%_120%,hsl(var(--brand)/0.12),transparent_42%)]"
         >
-          <div>
-            <div className="flex items-center gap-2">
-              <CardTitle>
-              {activeRace && activeModule === "bibPickup"
+          <SectionHeader
+            title={activeRace && activeModule === "bibPickup"
                 ? `Retrait dossard - ${activeRace.name}`
                 : activeRace && activeModule === "equipment"
                   ? `Matériel - ${activeRace.name}`
                 : activeRace && activeModule === "access"
                   ? `Accès - ${activeRace.name}`
                   : getModuleTitle(activeModule)}
-              </CardTitle>
-              {activeModule !== "formats" ? (
-                <ContextualHelp text={activeRace && activeModule === "bibPickup"
+            description={activeModule !== "formats" ? (activeRace && activeModule === "bibPickup"
                   ? "Par défaut, ce format utilise le retrait commun de l'événement."
                   : activeRace && activeModule === "equipment"
                     ? "Par défaut, ce format utilise le matériel commun de l'événement."
                   : activeRace && activeModule === "access"
                     ? "Par défaut, ce format utilise les accès communs de l'événement."
-                    : getModuleDescription(activeModule)} />
-              ) : null}
-              {activeModuleChoice?.state === "draftOnly" ? (
+                    : getModuleDescription(activeModule)) : undefined}
+            status={<div className="flex flex-wrap items-center gap-2"><SaveStatus
+              state={autosaveState}
+              savedAt={lastAutosavedAt?.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+              onRetry={() => { setAutosaveState("idle"); saveCurrentScopeInBackground(); }}
+            />{activeModuleChoice?.state === "draftOnly" ? (
                 <span className="rounded-full bg-muted px-2 py-1 text-[11px] font-semibold text-muted-foreground" title={`Cette section restera privée jusqu’au passage à ${ORGANIZER_TIER_LABEL[activeModuleChoice.minimumTier]}.`}>
                   Privé · {ORGANIZER_TIER_LABEL[activeModuleChoice.minimumTier]}
                 </span>
-              ) : null}
-            </div>
-          </div>
+              ) : null}</div>}
+          />
           <div className="ml-auto flex flex-wrap items-center justify-end gap-3">
-            <SaveStatus
-              state={autosaveState}
-              savedAt={lastAutosavedAt?.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-              onRetry={() => {
-                setAutosaveState("idle");
-                saveCurrentScopeInBackground();
-              }}
-            />
             {activeModule === "formats" && activeRace ? (
               <Button
                 type="button"

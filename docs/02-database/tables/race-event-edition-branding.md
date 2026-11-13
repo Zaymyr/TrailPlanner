@@ -171,3 +171,5 @@ RaceBook polish (2026-11-09): the runner hero keeps the format/event thumbnail b
 Publication checks and partner slots (2026-11-09): pre-publication checks and the Matériel/hébergement partner slots read the built snapshot and their own table only. They do not read, write or change this domain's rows or contracts.
 
 The branding logo control now uses the shared file field and exposes the existing preview, replace and remove actions; the branding row and publication lifecycle are unchanged.
+
+Branding preview surfaces now use theme tokens in light and dark mode; stored colors, logo, draft state, and publication lifecycle are unchanged.
