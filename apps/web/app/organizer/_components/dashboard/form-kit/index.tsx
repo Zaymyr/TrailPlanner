@@ -56,9 +56,11 @@ export function UrlInput({ value, onValueChange, onValidationChange, className, 
   return <BaseInput {...props} type="url" value={value} onValueChange={onValueChange} error={invalid} className={className} onBlur={() => { const valid = isValidInstagramUrl(value); setInvalid(!valid); onValidationChange?.(valid); if (valid) onValueChange(normalizeInstagramUrl(value)); }} />;
 }
 
-export function BooleanField({ label, checked, onCheckedChange, description, disabled }: { label: string; checked: boolean; onCheckedChange: (checked: boolean) => void; description?: string; disabled?: boolean }) {
-  return <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-md border border-border bg-card px-3 text-sm text-foreground"><span><span className="font-medium">{label}</span>{description ? <span className="mt-0.5 block text-xs text-muted-foreground">{description}</span> : null}</span><button type="button" role="switch" aria-checked={checked} disabled={disabled} onClick={() => onCheckedChange(!checked)} className={cn("relative h-6 w-11 rounded-full transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring", checked ? "bg-brand" : "bg-muted", disabled && "cursor-not-allowed opacity-60")}><span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition", checked ? "left-5" : "left-0.5")} /></button></label>;
+export function SwitchRow({ label, checked, onCheckedChange, description, disabled }: { label: string; checked: boolean; onCheckedChange: (checked: boolean) => void; description?: string; disabled?: boolean }) {
+  return <div className="flex min-h-11 items-center justify-between gap-3 border-b border-border/70 px-1 py-2 text-sm text-foreground last:border-b-0"><span><span className="font-medium">{label}</span>{description ? <span className="mt-0.5 block text-xs text-muted-foreground">{description}</span> : null}</span><button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={() => onCheckedChange(!checked)} className={cn("relative h-6 w-11 shrink-0 rounded-full transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", checked ? "bg-brand" : "bg-muted", disabled && "cursor-not-allowed opacity-60")}><span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition", checked ? "left-5" : "left-0.5")} /></button></div>;
 }
+
+export const BooleanField = SwitchRow;
 
 export function ChoiceField<T extends string>({ label, value, options, onValueChange, disabled }: { label: string; value: T; options: ReadonlyArray<{ value: T; label: string }>; onValueChange: (value: T) => void; disabled?: boolean }) {
   const id = React.useId();

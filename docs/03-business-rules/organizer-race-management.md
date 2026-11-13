@@ -730,3 +730,5 @@ Organizer authoring now presents one compact banner, a semantic section tree, th
 Organizer field groups now expose their explanation beside related controls and explicit required/optional markers derive from existing validation semantics; no required rule or completion calculation changes.
 
 The Course/GPX editor now keeps its identity and metrics in the main column and all visual verification in a compact trace rail. Inheritance actions replace presentation-only checkboxes without changing effective date/location values or save payloads.
+
+Organizer binary settings now share `SwitchRow` in Course/GPX, Dossard, Sponsors, and point editors. This visual normalization does not change boolean fields, defaults, validation, entitlements, or persistence.

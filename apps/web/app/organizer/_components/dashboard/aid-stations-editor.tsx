@@ -7,7 +7,7 @@ import { TabsList } from "../../../../components/ui/tabs";
 import { cn } from "../../../../components/utils";
 import type { FuelProduct } from "../../../../lib/product-types";
 import { ContextualHelp, NumberField, TextAreaField, TextField } from "./controls";
-import { BooleanField, SelectField } from "./form-kit";
+import { SelectField, SwitchRow } from "./form-kit";
 import { formatKm, getGpxCoordinateAtDistance, normalizeClockInputValue } from "./helpers";
 import { StationProductsBlock } from "./products-editor";
 import { AddressAutocompleteField } from "./address-autocomplete-field";
@@ -521,7 +521,7 @@ function SupporterPointsEditor({
             </div>
             {!point.encouragementAllowed && !point.assistanceAllowed ? <p className="text-xs font-medium text-amber-700">Choisis au moins une autorisation pour publier ce point.</p> : null}
 
-            <BooleanField
+            <SwitchRow
               label="Accès supporters au même endroit que le point de course"
               description="Les coordonnées sont prises automatiquement sur le tracé GPX à cette distance."
               checked={point.accessOnCourse === true}

@@ -6,7 +6,7 @@ import { Input } from "../../../../components/ui/input";
 import { Label } from "../../../../components/ui/label";
 import type { OrganizerSponsor } from "./types";
 import { PartnerSlotsEditor } from "./partner-slots-editor";
-import { BooleanField, Field, FileField, SelectField } from "./form-kit";
+import { Field, FileField, SelectField, SwitchRow } from "./form-kit";
 
 const toPatch = (sponsor: OrganizerSponsor) => ({
   name: sponsor.name,
@@ -309,9 +309,9 @@ export function SponsorsEditor({
                 <SelectField id={`${formId}-${sponsor.id}-placement`} value={sponsor.contextualPlacement} options={Object.entries(placementLabels).map(([value, label]) => ({ value, label }))} onValueChange={(value) => void toggleSponsor(sponsor, { contextualPlacement: value as OrganizerSponsor["contextualPlacement"] })} />
               </div>
               <div className="space-y-1 sm:col-span-2"><Label htmlFor={`${formId}-${sponsor.id}-category`}>Catégorie ou rôle</Label><Input id={`${formId}-${sponsor.id}-category`} value={sponsor.category ?? ""} maxLength={60} onChange={(event) => changeSponsor(sponsor.id, { category: event.target.value || null })} onBlur={() => void persistSponsor(sponsor)} placeholder="Ex. équipementier officiel, hébergement partenaire" /></div>
-              <BooleanField label="Actif" checked={sponsor.isActive} disabled={activationDisabled} onCheckedChange={(isActive) => void toggleSponsor(sponsor, { isActive })} />
-              <BooleanField label="Écran de chargement" checked={sponsor.showOnLoading} disabled={loadingDisabled} onCheckedChange={(showOnLoading) => void toggleSponsor(sponsor, { showOnLoading })} />
-              <BooleanField label="Bloc partenaires" checked={sponsor.showInBanner} onCheckedChange={(showInBanner) => void toggleSponsor(sponsor, { showInBanner })} />
+              <SwitchRow label="Actif" checked={sponsor.isActive} disabled={activationDisabled} onCheckedChange={(isActive) => void toggleSponsor(sponsor, { isActive })} />
+              <SwitchRow label="Écran de chargement" checked={sponsor.showOnLoading} disabled={loadingDisabled} onCheckedChange={(showOnLoading) => void toggleSponsor(sponsor, { showOnLoading })} />
+              <SwitchRow label="Bloc partenaires" checked={sponsor.showInBanner} onCheckedChange={(showInBanner) => void toggleSponsor(sponsor, { showInBanner })} />
               <p className="text-sm font-semibold text-foreground">{sponsor.impressionCount} vue{sponsor.impressionCount > 1 ? "s" : ""} · {sponsor.clickCount} clic{sponsor.clickCount > 1 ? "s" : ""}</p>
             </div>
             <div className="flex flex-row gap-2 lg:flex-col">
@@ -331,7 +331,7 @@ export function SponsorsEditor({
             <div className="space-y-1"><Label htmlFor={`${formId}-new-tier`}>Niveau</Label><SelectField id={`${formId}-new-tier`} value={newTier} options={Object.entries(tierLabels).map(([value, label]) => ({ value, label }))} onValueChange={(value) => setNewTier(value as OrganizerSponsor["tier"])} /></div>
             <div className="space-y-1"><Label htmlFor={`${formId}-new-placement`}>Placement contextuel</Label><SelectField id={`${formId}-new-placement`} value={newContextualPlacement} options={Object.entries(placementLabels).map(([value, label]) => ({ value, label }))} onValueChange={(value) => setNewContextualPlacement(value as OrganizerSponsor["contextualPlacement"])} /></div>
             <div className="space-y-1 md:col-span-2"><Label htmlFor={`${formId}-new-category`}>Catégorie ou rôle</Label><Input id={`${formId}-new-category`} maxLength={60} value={newCategory} onChange={(event) => setNewCategory(event.target.value)} placeholder="Ex. équipementier officiel" /></div>
-            <div className="grid gap-3 md:col-span-2 sm:grid-cols-2"><BooleanField label="Écran de chargement" checked={newShowOnLoading} disabled={loadingSponsorCount >= 2} onCheckedChange={setNewShowOnLoading} /><BooleanField label="Bloc partenaires" checked={newShowInBanner} onCheckedChange={setNewShowInBanner} /></div>
+            <div className="grid gap-3 md:col-span-2 sm:grid-cols-2"><SwitchRow label="Écran de chargement" checked={newShowOnLoading} disabled={loadingSponsorCount >= 2} onCheckedChange={setNewShowOnLoading} /><SwitchRow label="Bloc partenaires" checked={newShowInBanner} onCheckedChange={setNewShowInBanner} /></div>
           </div>
           <Button type="submit" disabled={busyId === "new"}>{busyId === "new" ? "Ajout..." : "Ajouter le sponsor"}</Button>
         </form>

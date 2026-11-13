@@ -214,3 +214,5 @@ The Organizer three-column layout and compact selector banner do not change clai
 Shared Organizer field groups are presentation-only and do not change claim or membership authorization.
 
 Compact Course/GPX media and inheritance actions do not change claims or organizer authorization.
+
+Shared Organizer switches do not change claim or membership authorization.

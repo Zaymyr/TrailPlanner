@@ -17,7 +17,7 @@ import {
 import { AddressAutocompleteField } from "./address-autocomplete-field";
 import { equipmentSuggestions } from "./constants";
 import { ContextualHelp, InlineEditableRow, OptionalModule, SegmentedChoice, TextAreaField, TextField, ToggleChip } from "./controls";
-import { isOutsideDateRange, SelectField } from "./form-kit";
+import { isOutsideDateRange, SelectField, SwitchRow } from "./form-kit";
 import type { RaceFormat } from "./types";
 
 type EquipmentItem = OrganizerEventDetails["mandatoryEquipment"]["items"][number];
@@ -523,15 +523,9 @@ function BibPickupFields({
       ) : null}
       <TextAreaField label="Documents nécessaires" value={bib.requiredDocuments ?? ""} onChange={(value) => update({ requiredDocuments: value || null })} />
       <div className="space-y-3 border-t border-border pt-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm font-medium text-foreground">Une autre personne peut-elle retirer le dossard ?</p>
-          <SegmentedChoice label="Retrait par un tiers" value={bib.thirdPartyPickupAllowed === true ? "yes" : "no"} options={[{ value: "no", label: "Non" }, { value: "yes", label: "Oui" }] as const} onChange={(value) => update({ thirdPartyPickupAllowed: value === "yes" })} />
-        </div>
+        <SwitchRow label="Retrait par un tiers" description="Une autre personne peut récupérer le dossard." checked={bib.thirdPartyPickupAllowed === true} onCheckedChange={(thirdPartyPickupAllowed) => update({ thirdPartyPickupAllowed })} />
         {bib.thirdPartyPickupAllowed === true ? <div className="ml-0 border-l-2 border-brand-border pl-4 sm:ml-4"><TextAreaField label="Conditions du retrait par un tiers" value={bib.thirdPartyPickupConditions ?? ""} onChange={(value) => update({ thirdPartyPickupConditions: value || null })} /></div> : null}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm font-medium text-foreground">Un contrôle du matériel est-il prévu au retrait ?</p>
-          <SegmentedChoice label="Contrôle du matériel au retrait" value={bib.equipmentCheck === true ? "yes" : "no"} options={[{ value: "no", label: "Non" }, { value: "yes", label: "Oui" }] as const} onChange={(value) => update({ equipmentCheck: value === "yes" })} />
-        </div>
+        <SwitchRow label="Contrôle du matériel au retrait" checked={bib.equipmentCheck === true} onCheckedChange={(equipmentCheck) => update({ equipmentCheck })} />
       </div>
       <TextAreaField label="Note dossard" value={bib.note ?? ""} onChange={(value) => update({ note: value || null })} />
     </section>

@@ -98,3 +98,5 @@ Organizer form compaction and file-field harmonization do not change Leaflet ren
 Organizer field-group presentation does not change Leaflet rendering, GPX geometry, or attribution.
 
 The route map is now a compact preview in the Trace rail; its Leaflet component, geometry, and attribution contract remain unchanged.
+
+Switch-row normalization around route visibility does not change Leaflet rendering or GPX geometry.

@@ -270,3 +270,5 @@ The organizer format form now validates inline without native browser bubbles an
 Responsive label/control grouping changes only Organizer presentation; race fields, inheritance, and storage paths are unchanged.
 
 The compact Trace rail and explicit inheritance actions preserve race columns, organizer details, GPX paths, and effective date/location values.
+
+Switch-row presentation preserves the existing race and organizer-details boolean fields.

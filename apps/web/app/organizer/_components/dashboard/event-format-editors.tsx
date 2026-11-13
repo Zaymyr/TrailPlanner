@@ -11,7 +11,7 @@ import { ADD_FORMAT_TAB_ID } from "./constants";
 import { formatKm } from "./helpers";
 import type { EventFormValues, GpxPreview, RaceFormat, RaceFormValues, RaceParticipationMode } from "./types";
 import { ContextualHelp, NumberField, OptionalModule, TextField } from "./controls";
-import { FieldGroup, FileField, hasSignificantDistanceMismatch, hasSuspiciousEqualElevation, isValidInstagramUrl, normalizeInstagramUrl, SelectField } from "./form-kit";
+import { FieldGroup, FileField, hasSignificantDistanceMismatch, hasSuspiciousEqualElevation, isValidInstagramUrl, normalizeInstagramUrl, SelectField, SwitchRow } from "./form-kit";
 
 const isInvalidHttpsUrl = (value: string) => {
   if (!value.trim()) return false;
@@ -674,13 +674,13 @@ function OrganizerGpxPanel({
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Affichage dans le Livret coureur</p>
             <p className="text-xs text-muted-foreground">Choisis les visuels GPX visibles par les coureurs.</p>
           </div>
-          <GpxDisplayToggle
+          <SwitchRow
             label="Afficher le parcours"
             checked={showRouteInRacebook}
             onCheckedChange={onShowRouteInRacebookChange}
             disabled={disabled || !hasGpx}
           />
-          <GpxDisplayToggle
+          <SwitchRow
             label="Afficher le profil altimétrique"
             checked={showElevationProfileInRacebook}
             onCheckedChange={onShowElevationProfileInRacebookChange}
@@ -710,35 +710,6 @@ function OrganizerGpxPanel({
         </div>
       </div>
     </aside>
-  );
-}
-
-function GpxDisplayToggle({
-  label,
-  checked,
-  onCheckedChange,
-  disabled,
-}: {
-  label: string;
-  checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-sm font-medium text-foreground">{label}</span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        aria-label={label}
-        disabled={disabled}
-        onClick={() => onCheckedChange(!checked)}
-        className={`relative h-6 w-11 shrink-0 rounded-full transition ${checked ? "bg-brand" : "bg-muted"} disabled:cursor-not-allowed disabled:opacity-50`}
-      >
-        <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${checked ? "left-[22px]" : "left-0.5"}`} />
-      </button>
-    </div>
   );
 }
 

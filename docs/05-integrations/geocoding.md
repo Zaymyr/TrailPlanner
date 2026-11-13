@@ -171,3 +171,5 @@ Compact organizer layout and shared file fields leave address autocomplete, prov
 Placing address autocomplete inside a responsive Organizer field group does not change its combobox contract, provider attribution, bias, or structured coordinate persistence.
 
 Replacing the format-location inheritance checkbox with Modifier/Utiliser l’événement keeps the same address autocomplete and structured location writes.
+
+Shared yes/no presentation does not affect address autocomplete or coordinate persistence.

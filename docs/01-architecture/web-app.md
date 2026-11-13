@@ -803,3 +803,5 @@ The Organizer content workspace now uses a responsive three-column shell: semant
 The route-local Organizer kit now supplies responsive field groups and section headers so editors share one visual hierarchy without changing their state ownership or API payloads.
 
 Course/GPX composes existing map/profile and file primitives into a bounded visual rail; it introduces no data or route dependency.
+
+Organizer editors consume one route-local `SwitchRow` primitive for boolean settings; state ownership remains in each existing editor.

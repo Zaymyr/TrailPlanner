@@ -112,3 +112,5 @@ Sur grand écran, les sections du Livret coureur se choisissent désormais dans 
 Dans Informations, les champs sont regroupés par événement, dates, urgence, liens et couverture. Les mentions « Requis » suivent les règles existantes et « Optionnel » distingue les modules secondaires.
 
 Dans Course & GPX, la carte, le mini profil, le fichier GPX, les réglages d’affichage et l’image sont réunis dans la colonne « Tracé ». Les actions « Changer », « Modifier » et « Utiliser… » pilotent les mêmes héritages de date et de lieu.
+
+Les choix oui/non utilisent désormais la même ligne d’interrupteur dans Course & GPX, Dossard, Sponsors et les points de course. Leur valeur et leur enregistrement automatique restent inchangés.

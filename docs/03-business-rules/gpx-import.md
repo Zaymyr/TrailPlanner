@@ -324,3 +324,5 @@ The three-column Organizer workspace moves Course/GPX navigation and completion 
 Responsive field grouping changes only the Course/GPX form hierarchy; validation and GPX behavior remain unchanged.
 
 Course/GPX now groups the compact route map, altitude profile, GPX file, display settings, and format image in one 250 px visual rail. Date/location inheritance uses explicit change/restore actions; parsing, upload, deletion confirmation, and metrics stay unchanged.
+
+GPX route/profile visibility now uses the shared Organizer switch row without changing the stored `gpxDisplay` flags.
