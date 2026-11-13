@@ -550,6 +550,8 @@ The pricing dialog snapshots and displays the selected event and canonical editi
 
 The shared Organizer form kit changes authoring presentation only: field errors are connected to their fields and appear after blur or attempted save; additions are local drafts and do not create placeholder records. `SaveStatus` is a polite sticky status and does not replace autosave or server-side validation. Completion keeps the required minimum separate from completed-section counts; structured content is authoritative, while historical-only content is marked to migrate. Publication dirty state compares canonical content rather than modification timestamps.
 
+Compatibility wrappers preserve existing editor callbacks while fields migrate to the shared primitives; URL normalization and coherence warnings remain client-side guidance, never new publication blockers.
+
 ## Gotchas
 
 - Shared web prompt dismiss controls use a 44 px target. Planner breadcrumb and landmark cleanup is presentation-only and does not change organizer membership, publication, acquisition routing or Mobile App Prompt coordination.

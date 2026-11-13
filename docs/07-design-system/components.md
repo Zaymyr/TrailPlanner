@@ -101,6 +101,8 @@ Card subcomponents:
 
 The route-local Organizer form kit standardizes labelled fields, select/file/switch controls, local repeatable drafts, validation messages and polite sticky save status. Drafts remain client-only until valid and saved; errors appear after interaction or an attempted save.
 
+`SelectField` is the only route-level wrapper allowed to render a native `<select>`; editors consume the wrapper rather than duplicating height, focus, and error classes.
+
 ## Input
 
 `Input` is a forwardRef input with:

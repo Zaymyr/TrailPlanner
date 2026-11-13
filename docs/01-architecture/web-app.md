@@ -646,6 +646,8 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 
 Organizer navigation uses one desktop section level and a matching mobile selector. Section tiles distinguish `À compléter`, `Optionnel`, and `Complet`, while the active tile keeps a visible brand treatment. The route-local form kit owns shared select, file, switch, draft, field-error and sticky polite save-status presentation; it does not change existing autosave, API, entitlement, or publication contracts.
 
+Legacy `TextField`, `NumberField`, and `TextAreaField` remain compatibility wrappers during migration; they now defer red accessible errors until blur or an explicit validation attempt.
+
 ## Gotchas
 
 - `RootChrome` owns the single public `<main>` landmark and its `#main-content` skip target. Route pages rendered inside it must not add a second `<main>`. Desktop navigation keeps account-only destinations, locale, theme and sign-out inside the account menu; unauthenticated organizer links target `/organisateurs`.
