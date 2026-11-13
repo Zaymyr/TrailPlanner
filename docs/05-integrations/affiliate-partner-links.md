@@ -125,3 +125,5 @@ RaceBook polish (2026-11-09): the runner hero keeps the format/event thumbnail b
 ## Organizer partner slots (2026-11-09)
 
 The Decathlon (Matériel) and Booking (Services) cards are partner slots. The default remains the resolved affiliate link and its disclosure. When a published Signature RaceBook replaces a slot with an organizer partner, mobile renders the partner name, logo, headline and `Découvrir` action through the counted `/api/racebook-partner-slots/:slot/click` redirect, without the affiliate disclosure and without a `partner_*` RaceBook action; a hidden slot renders no card. The partner-links endpoint and affiliate destinations are unchanged.
+
+Runner copy and saved-plan layout changes do not modify affiliate labels, destinations or partner-slot behavior.

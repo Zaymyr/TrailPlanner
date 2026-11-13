@@ -52,7 +52,7 @@ export function RootChrome({ children }: RootChromeProps) {
         onFocus={(event) => {
           if (!keyboardNavigation) event.currentTarget.blur();
         }}
-        className={`fixed left-4 top-4 z-[100] rounded-md bg-brand px-4 py-3 font-semibold text-brand-foreground shadow-lg transition-transform ${keyboardNavigation ? "focus-visible:translate-y-0" : "-translate-y-24"}`}
+        className={`fixed left-4 top-4 z-[100] rounded-md bg-brand px-4 py-3 font-semibold text-brand-foreground shadow-lg transition ${keyboardNavigation ? "focus-visible:translate-y-0 focus-visible:opacity-100" : "pointer-events-none -translate-y-24 opacity-0"}`}
       >
         {t.navigation.skipToContent}
       </a>

@@ -527,6 +527,19 @@ export type RacePlannerTranslations = {
       empty: string;
       updatedAt: string;
       unsavedChanges: string;
+      rename: string;
+      renamePlaceholder: string;
+      confirm: string;
+      cancel: string;
+      actions: string;
+      deleteConfirm: string;
+      freePreview: string;
+      noRace: string;
+      unknownRace: string;
+      orphanDescription: string;
+      editRace: string;
+      deleteRace: string;
+      newRace: string;
     };
     messages: {
       accountCreated: string;

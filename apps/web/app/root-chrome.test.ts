@@ -11,6 +11,7 @@ describe("RootChrome skip link", () => {
     expect(source).not.toContain(" focus:translate-y-0");
     expect(source).toContain('if (event.key === "Tab") setKeyboardNavigation(true)');
     expect(source).toContain("if (!keyboardNavigation) event.currentTarget.blur()");
+    expect(source).toContain('"pointer-events-none -translate-y-24 opacity-0"');
     expect(source).toContain('document.addEventListener("pointerdown", hideSkipLinkAfterPointerInput, true)');
     expect(source).toContain("skipLinkRef.current?.blur()");
   });
