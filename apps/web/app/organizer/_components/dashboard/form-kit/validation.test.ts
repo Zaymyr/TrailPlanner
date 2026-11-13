@@ -12,6 +12,8 @@ describe("organizer form-kit validation", () => {
     expect(isValidInstagramUrl("@paceyourself")).toBe(true);
     expect(isValidInstagramUrl("http://instagram.com/paceyourself")).toBe(false);
     expect(isValidInstagramUrl("https://example.com/paceyourself")).toBe(false);
+    expect(isValidInstagramUrl("pas une url")).toBe(false);
+    expect(isValidInstagramUrl("instagram.com/pace-yourself")).toBe(false);
   });
 
   it("does not commit an invalid repeatable draft", () => {

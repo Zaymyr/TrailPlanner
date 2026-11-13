@@ -795,3 +795,5 @@ Reels light the told climb or descent in the profile slope colours on the map an
 ## RaceBook publication checks and partner slots (2026-11-09)
 
 The organizer publish dialog renders `PublicationReview` (blocking checks, warnings, affiliate slots). The Sponsors editor embeds `PartnerSlotsEditor`. New routes: `/api/organizer/editions/:id/partner-slots`, `/api/racebook-partner-slots/:slot/click`, `/api/racebook-partner-slots/impression`.
+
+Organizer follow-up UX keeps autosave validation local, uses the shared file-field kit for organizer uploads, and renders the save status beside the active section title. Runner saved-plan loading restores `planId` in the URL with `router.replace`; no route or persistence contract changed.

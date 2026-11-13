@@ -14,7 +14,10 @@ export function isValidInstagramUrl(value: string): boolean {
   if (!value.trim()) return true;
   try {
     const url = new URL(normalizeInstagramUrl(value));
-    return url.protocol === "https:" && (url.hostname === "instagram.com" || url.hostname === "www.instagram.com") && Boolean(url.pathname.replace(/\//g, ""));
+    const identifier = url.pathname.replace(/^\/+|\/+$/g, "");
+    return url.protocol === "https:"
+      && (url.hostname === "instagram.com" || url.hostname === "www.instagram.com")
+      && /^[A-Za-z0-9._]+$/.test(identifier);
   } catch {
     return false;
   }

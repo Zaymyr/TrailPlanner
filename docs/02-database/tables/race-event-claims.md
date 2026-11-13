@@ -206,3 +206,5 @@ The per-format publication confirmation and version-history menu are presentatio
 The address autocomplete popup now credits OpenStreetMap and its suggestions merge two OpenStreetMap providers; claims, memberships and authorization are unaffected.
 
 Publication checks and partner slots (2026-11-09): pre-publication checks and the Matériel/hébergement partner slots read the built snapshot and their own table only. They do not read, write or change this domain's rows or contracts.
+
+The compact organizer header, file fields and local validation follow-up do not change claims, memberships or authorization.

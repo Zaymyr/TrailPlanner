@@ -64,7 +64,7 @@ import {
 import { AccessEditor, BibPickupEditor, EquipmentEditor, RaceBibPickupEditor } from "./dashboard/detail-editors";
 import { EventInfoEditor, FormatsEditor } from "./dashboard/event-format-editors";
 import { isValidInstagramUrl, normalizeInstagramUrl } from "./dashboard/form-kit/validation";
-import { ConfirmDialog, SaveStatus, SelectField } from "./dashboard/form-kit";
+import { ConfirmDialog, MultiFileField, SaveStatus, SelectField } from "./dashboard/form-kit";
 import {
   aidStationRowsToDrafts,
   applyGpxStatsToRaceForm,
@@ -160,6 +160,22 @@ const isValidHttpsUrl = (value?: string | null) => {
 };
 
 const isValidPhone = (value?: string | null) => !value?.trim() || /^\+?[0-9][0-9 .()/-]{2,}$/.test(value.trim());
+
+const getEventValidationMessage = (form: EventFormValues) => !form.name.trim()
+  ? "Indique le nom de l’événement."
+  : !form.location.trim()
+    ? "Indique le lieu de l’événement."
+    : !form.editionStartDate || !form.editionEndDate
+      ? "Indique les dates de début et de fin de l’édition."
+      : form.editionEndDate < form.editionStartDate
+        ? "La date de fin doit suivre la date de début."
+        : !isValidHttpsUrl(form.organizerDetails.officialWebsiteUrl)
+          ? "Le site officiel doit être une adresse complète commençant par https://."
+          : !isValidInstagramUrl(form.organizerDetails.instagramUrl ?? "") || !isValidHttpsUrl(form.organizerDetails.facebookUrl)
+            ? "Les liens sociaux doivent être des adresses complètes commençant par https://."
+            : !isValidPhone(form.organizerDetails.emergencyContact.phone)
+              ? "Le numéro du contact d’urgence est invalide."
+              : null;
 type OrganizerPricingIntent = "publication" | "notification" | "upgrade";
 const WEBSITE_IMPORT_REQUIRED_FIELD_LABELS: Record<string, string> = {
   race_date: "date",
@@ -1443,24 +1459,10 @@ export function OrganizerDashboard({
         instagramUrl: normalizeInstagramUrl(candidateForm.organizerDetails.instagramUrl ?? "") || null,
       },
     };
-    const invalidEventMessage = !nextForm.name.trim()
-      ? "Indique le nom de l’événement."
-      : !nextForm.location.trim()
-        ? "Indique le lieu de l’événement."
-        : !nextForm.editionStartDate || !nextForm.editionEndDate
-          ? "Indique les dates de début et de fin de l’édition."
-          : nextForm.editionEndDate < nextForm.editionStartDate
-            ? "La date de fin doit suivre la date de début."
-            : !isValidHttpsUrl(nextForm.organizerDetails.officialWebsiteUrl)
-              ? "Le site officiel doit être une adresse complète commençant par https://."
-              : !isValidInstagramUrl(nextForm.organizerDetails.instagramUrl ?? "") || !isValidHttpsUrl(nextForm.organizerDetails.facebookUrl)
-                ? "Les liens sociaux doivent être des adresses complètes commençant par https://."
-                : !isValidPhone(nextForm.organizerDetails.emergencyContact.phone)
-                  ? "Le numéro du contact d’urgence est invalide."
-                  : null;
+    const invalidEventMessage = getEventValidationMessage(nextForm);
     if (invalidEventMessage) {
       setError(invalidEventMessage);
-      showToast("error", invalidEventMessage);
+      if (!options.background) showToast("error", invalidEventMessage);
       return false;
     }
     const persistedForm = eventDetail
@@ -2340,6 +2342,14 @@ export function OrganizerDashboard({
 
   const saveCurrentScopeInBackground = () => {
     if (!activeDirtyScopeKey || currentScopeDirtyModules.size === 0) return;
+    if (activeTab === EVENT_TAB_ID || !activeRace) {
+      const invalidEventMessage = getEventValidationMessage(eventForm);
+      if (invalidEventMessage) {
+        setError(invalidEventMessage);
+        return;
+      }
+      setError(null);
+    }
     const scopeKey = activeDirtyScopeKey;
     const scopeRevision = dirtyRevisionByScopeRef.current[scopeKey] ?? 0;
     const previousSave = backgroundSaveQueuesRef.current[scopeKey] ?? Promise.resolve(true);
@@ -3841,11 +3851,7 @@ export function OrganizerDashboard({
         <CardHeader
           id="organizer-onboarding-editor"
           tabIndex={-1}
-          className={
-            (activeModule === "formats" || activeModule === "equipment" || activeModule === "bibPickup" || activeModule === "access") && activeRace
-              ? "flex flex-row items-center justify-between gap-4 space-y-0"
-              : undefined
-          }
+          className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0"
         >
           <div>
             <div className="flex items-center gap-2">
@@ -3874,27 +3880,29 @@ export function OrganizerDashboard({
               ) : null}
             </div>
           </div>
-          {activeModule === "formats" && activeRace ? (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setDestructiveConfirmation("race")}
-              disabled={status === "saving" || status === "uploading"}
-              className="shrink-0 border-red-300 text-red-700 hover:border-red-400 hover:bg-red-50 hover:text-red-800"
-            >
-              Supprimer ce format
-            </Button>
-          ) : null}
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-3">
+            <SaveStatus
+              state={autosaveState}
+              savedAt={lastAutosavedAt?.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+              onRetry={() => {
+                setAutosaveState("idle");
+                saveCurrentScopeInBackground();
+              }}
+            />
+            {activeModule === "formats" && activeRace ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDestructiveConfirmation("race")}
+                disabled={status === "saving" || status === "uploading"}
+                className="shrink-0 border-red-300 text-red-700 hover:border-red-400 hover:bg-red-50 hover:text-red-800"
+              >
+                Supprimer ce format
+              </Button>
+            ) : null}
+          </div>
         </CardHeader>
         <CardContent>
-          <SaveStatus
-            state={autosaveState}
-            savedAt={lastAutosavedAt?.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-            onRetry={() => {
-              setAutosaveState("idle");
-              saveCurrentScopeInBackground();
-            }}
-          />
           {!eventDetail || !eventDraft ? (
             <p className="text-sm text-muted-foreground">Chargement de l&apos;événement...</p>
           ) : activeModule === "event" ? (
@@ -4595,14 +4603,12 @@ export function OrganizerDashboard({
                       <p className="text-sm font-medium text-foreground">Documents officiels</p>
                       <p className="text-xs text-muted-foreground">Règlement, roadbook, programme, PDF ou images · 25 Mo maximum par document.</p>
                     </div>
-                    <input
-                      id="organizer-website-import-documents"
-                      type="file"
+                    <MultiFileField
+                      label="Ajouter des documents officiels"
                       accept="application/pdf,image/jpeg,image/png,image/webp"
-                      multiple
-                      className="block w-full text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-brand file:px-3 file:py-2 file:text-sm file:font-medium file:text-white"
-                      onChange={(event) => {
-                        const files = Array.from(event.target.files ?? []);
+                      value={websiteImportDocuments}
+                      maxSizeLabel="PDF, JPEG, PNG ou WebP · 25 Mo maximum par document · 8 documents maximum"
+                      onChange={(files) => {
                         const unsupportedFile = files.find((file) => !isOrganizerImportDocumentMimeType(file.type));
                         if (unsupportedFile) {
                           setWebsiteImportError(`Le format du document ${unsupportedFile.name} n’est pas pris en charge.`);
@@ -4620,14 +4626,11 @@ export function OrganizerDashboard({
                         setWebsiteImportDocuments(files);
                         setWebsiteImportError(null);
                       }}
+                      onRemove={(file) => {
+                        setWebsiteImportDocuments((files) => files.filter((candidate) => candidate !== file));
+                        setWebsiteImportError(null);
+                      }}
                     />
-                    {websiteImportDocuments.length > 0 ? (
-                      <ul className="space-y-1 text-xs text-muted-foreground">
-                        {websiteImportDocuments.map((document) => (
-                          <li key={`${document.name}-${document.size}`}>{document.name}</li>
-                        ))}
-                      </ul>
-                    ) : null}
                     {websiteImportUploadProgress ? (
                       <div className="space-y-1" aria-live="polite">
                         <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">

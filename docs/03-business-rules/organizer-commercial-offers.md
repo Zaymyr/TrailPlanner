@@ -180,3 +180,5 @@ Publication is a versioned snapshot operation per format. Tier checks are repeat
 ## Partner slots option (2026-11-09)
 
 The base RaceBook (every paid tier) shows Pace Yourself affiliate cards in the Matériel (Decathlon) and Services hébergement (Booking.com) slots. Replacing them with the organizer's own partners, or hiding them, is part of the Signature `sponsors.manage` capability (same gate as sponsors); no new module key, price or capability was added. <!-- TODO: verify with maintainer: dedicated pricing for a standalone "Partenaires" option is a business decision. -->
+
+The compact organizer workspace and corrected completion indicator are presentation-only and do not change tiers, checkout gates or publication entitlements.

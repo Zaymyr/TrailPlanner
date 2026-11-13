@@ -211,7 +211,9 @@ export function OrganizerSummaryHeader({
     if (!isVisibilityOnboardingActive) setIsSummaryExpanded(false);
   }, [isVisibilityOnboardingActive]);
   const isVisibilityExpanded = isSummaryExpanded || isVisibilityOnboardingActive;
-  const eventScore = completion?.raceProgressScore ?? 0;
+  const eventScore = completion?.informationComplete
+    ? 100
+    : Math.min(completion?.raceProgressScore ?? 0, 99);
   const completedSectionCount = completion?.modules.filter((module) => module.status === "complete").length ?? 0;
   const totalSectionCount = completion?.modules.length ?? 0;
   const raceProgress = completion?.raceProgress ?? [];
@@ -250,14 +252,14 @@ export function OrganizerSummaryHeader({
       ? `Offre ${ORGANIZER_TIER_LABEL[editionTier]} offerte — valeur : ${ORGANIZER_TIER_PRICE_EUR[editionTier]} € HT`
         : "Aucun paiement actif";
   return (
-    <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5">
-      <div id="organizer-onboarding-overview" className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+    <section className="rounded-xl border border-border bg-card p-3 shadow-sm sm:p-4">
+      <div id="organizer-onboarding-overview" className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wide text-brand dark:text-emerald-300">Espace organisateur</p>
-          <h1 className="mt-1 truncate text-xl font-semibold text-foreground">
+          <h1 className="truncate text-lg font-semibold text-foreground">
             {selectedMembership?.race_events?.name ?? event?.name ?? "Événement"}
           </h1>
-          <span className={cn("mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold", publicFormatCount > 0 ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800")}>
+          <span className={cn("mt-1 inline-flex rounded-full px-2 py-0.5 text-xs font-semibold", publicFormatCount > 0 ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800")}>
             {publicFormatCount > 0 ? `En ligne · ${publicFormatCount} format${publicFormatCount > 1 ? "s" : ""} public${publicFormatCount > 1 ? "s" : ""}` : "Brouillon"}
           </span>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -369,7 +371,7 @@ export function OrganizerSummaryHeader({
         </div>
       </div>
 
-      <div id="organizer-onboarding-selectors" className="mt-5 grid max-w-2xl gap-3 border-t border-border pt-4 md:grid-cols-[minmax(16rem,28rem)_10rem]">
+      <div id="organizer-onboarding-selectors" className="mt-3 grid max-w-2xl gap-2 border-t border-border pt-3 md:grid-cols-[minmax(16rem,28rem)_10rem]">
         <OrganizerEventCombobox
           memberships={memberships}
           selectedEventId={selectedEventId}
@@ -381,14 +383,14 @@ export function OrganizerSummaryHeader({
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg bg-muted/30 px-3 py-2.5">
+      <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg bg-muted/30 px-3 py-2">
         <span className="text-sm font-medium text-foreground">Minimum requis</span>
         <InlineProgressBar score={eventScore} className="min-w-[12rem] flex-1" />
         <span className="text-xs font-medium text-muted-foreground">Complétion globale : {completedSectionCount} section{completedSectionCount > 1 ? "s" : ""} sur {totalSectionCount} renseignée{completedSectionCount > 1 ? "s" : ""}</span>
         <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", completion?.informationComplete ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800")}>{completion?.informationComplete ? "Minimum requis atteint" : "Minimum requis à compléter"}</span>
       </div>
 
-      <details open={isVisibilityExpanded} onToggle={(toggleEvent) => setIsSummaryExpanded(toggleEvent.currentTarget.open)} className="group mt-2">
+      <details open={isVisibilityExpanded} onToggle={(toggleEvent) => setIsSummaryExpanded(toggleEvent.currentTarget.open)} className="group mt-1">
         <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 rounded-md px-2 py-2 text-sm font-semibold text-foreground transition hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring marker:content-none">
           Gérer la visibilité
           <span className="font-normal text-muted-foreground">{raceRows.length} format{raceRows.length > 1 ? "s" : ""}</span>
@@ -878,7 +880,7 @@ export function CompletionTabsPanel({
     `Format · ${tab.label}${tab.visibility ? ` — ${FORMAT_VISIBILITY_LABEL[tab.visibility]}` : ""}`;
 
   return (
-    <section className="rounded-lg border border-border bg-card p-3 shadow-sm sm:p-4">
+    <section className="rounded-lg border border-border bg-card p-2 shadow-sm sm:p-3">
       <div id="organizer-onboarding-scope-navigation" className="md:hidden">
         <label htmlFor="organizer-workspace-select" className="mb-1.5 block text-sm font-medium text-foreground">
           Informations à modifier
@@ -896,7 +898,7 @@ export function CompletionTabsPanel({
         />
       </div>
 
-      <div id="organizer-onboarding-scope-navigation" className="hidden gap-4 border-b border-border pb-4 md:grid lg:grid-cols-[minmax(14rem,0.8fr)_minmax(0,3fr)]">
+      <div id="organizer-onboarding-scope-navigation" className="hidden gap-3 border-b border-border pb-2 md:grid lg:grid-cols-[minmax(14rem,0.8fr)_minmax(0,3fr)]">
         <div className="rounded-xl bg-muted/40 p-2">
           <p className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Informations communes</p>
           {eventTab ? (
@@ -905,7 +907,7 @@ export function CompletionTabsPanel({
               aria-current={isEventTab ? "page" : undefined}
               onClick={() => onTabChange(eventTab.id)}
               className={cn(
-                "flex min-h-14 w-full items-center justify-between rounded-lg border px-3 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                "flex min-h-11 w-full items-center justify-between rounded-lg border px-3 py-1.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
                 isEventTab
                   ? "border-brand bg-brand-surface text-brand shadow-sm ring-2 ring-brand/25"
                   : "border-transparent bg-card text-foreground hover:border-brand-border"
@@ -930,7 +932,7 @@ export function CompletionTabsPanel({
                 aria-current={activeTab === tab.id ? "page" : undefined}
                 onClick={() => onTabChange(tab.id)}
                 className={cn(
-                  "inline-flex min-h-14 shrink-0 items-center gap-2 rounded-lg border px-4 py-2 text-left text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                  "inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg border px-3 py-1.5 text-left text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
                   tab.visibility === "hidden"
                     ? activeTab === tab.id
                       ? "border-slate-400 bg-muted text-muted-foreground shadow-sm ring-2 ring-slate-300/40"
@@ -966,7 +968,7 @@ export function CompletionTabsPanel({
                 aria-current={isAddTab ? "page" : undefined}
                 onClick={() => onTabChange(addFormatTab.id)}
                 className={cn(
-                  "min-h-14 shrink-0 rounded-lg border border-dashed px-4 py-2 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                  "min-h-11 shrink-0 rounded-lg border border-dashed px-3 py-1.5 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
                   isAddTab
                     ? "border-brand bg-brand-surface text-brand shadow-sm ring-2 ring-brand/25"
                     : "border-border bg-card text-muted-foreground hover:border-brand-border hover:text-foreground"
@@ -1011,7 +1013,7 @@ export function OrganizerModuleGrid({
     module.status === "complete" ? "Complet" : module.level === "optional" && module.status === "empty" ? "Optionnel" : "À compléter";
 
   return (
-    <div id="organizer-onboarding-module-tiles" className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-7">
+    <div id="organizer-onboarding-module-tiles" className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-7">
       {modules.map((module) => (
         <button
           key={module.id}
@@ -1019,7 +1021,7 @@ export function OrganizerModuleGrid({
           aria-label={`${module.title}. ${getStatusLabel(module)}. ${module.countLabel}. ${module.description}`}
           aria-current={activeModule === module.id ? "true" : undefined}
           className={cn(
-            "relative min-h-[82px] rounded-lg border-2 p-3 text-left transition hover:-translate-y-0.5 hover:shadow-md lg:min-w-0",
+            "relative min-h-[64px] rounded-lg border-2 px-3 py-2 text-left transition hover:-translate-y-0.5 hover:shadow-md lg:min-w-0",
             module.status === "empty" && "border-slate-200 bg-slate-50/70 dark:border-slate-700 dark:bg-slate-900/30",
             module.status === "incomplete" && "border-amber-300 bg-amber-50/60 dark:border-amber-700 dark:bg-amber-950/20",
             module.status === "complete" && "border-emerald-300 bg-emerald-50/50 dark:border-emerald-700 dark:bg-emerald-950/20",
@@ -1030,7 +1032,7 @@ export function OrganizerModuleGrid({
         >
           <h2 className="pr-5 text-sm font-bold leading-snug text-foreground">{module.title}</h2>
           <p className="mt-1 text-[11px] font-semibold leading-snug text-foreground/80">{getStatusLabel(module)}</p>
-          <p className="mt-1.5 text-xs font-medium leading-snug text-muted-foreground">{module.countLabel}</p>
+          <p className="mt-0.5 text-xs font-medium leading-snug text-muted-foreground">{module.countLabel}</p>
           {isDirty(module.id) ? <span className="sr-only">Modifications à sauvegarder</span> : null}
         </button>
       ))}
