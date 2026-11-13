@@ -30,6 +30,8 @@ Public course details can now show additive third-party bib-pickup conditions. C
 
 `race_slug_redirects` preserves every former public course slug so indexed URLs and inbound links can permanently redirect to the current `races.slug`.
 
+This table is format-scoped. Event-edition URLs use the separate service-only `race_event_edition_slug_redirects` table and never resolve through a format redirect.
+
 ## Key Concepts
 
 - Former slug: a previously canonical course slug stored once in `old_slug`.

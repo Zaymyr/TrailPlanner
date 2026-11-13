@@ -92,6 +92,9 @@ describe("public race slug resolution", () => {
     const eventId = "22222222-2222-4222-8222-222222222222";
     const hiddenEditionId = "44444444-4444-4444-8444-444444444444";
     const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("race_event_editions?")) {
+        return jsonResponse([{ id: hiddenEditionId, slug: "festival-public-2026", updated_at: null }]);
+      }
       if (url.includes("race_events?")) {
         return jsonResponse([{
           id: eventId,
@@ -109,7 +112,11 @@ describe("public race slug resolution", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(getPublicRaces()).resolves.toEqual([
-      expect.objectContaining({ slug: "edition-cachee", editionId: hiddenEditionId }),
+      expect.objectContaining({
+        slug: "edition-cachee",
+        editionId: hiddenEditionId,
+        eventEditionSlug: "festival-public-2026",
+      }),
     ]);
     expect(fetchMock.mock.calls[0]?.[0]).toContain("web_catalog_is_live=eq.true");
     expect(fetchMock.mock.calls[0]?.[1]).toEqual(expect.objectContaining({
@@ -133,15 +140,20 @@ describe("public race slug resolution", () => {
         race_date: "2026-09-12",
         thumbnail_url: null,
         website_url: null,
+      }]))
+      .mockResolvedValueOnce(jsonResponse([{
+        id: eventRace.edition_id,
+        slug: "festival-public-2026",
+        updated_at: null,
       }]));
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(resolvePublicRaceSlug(eventRace.slug)).resolves.toEqual({
-      race: expect.objectContaining({ slug: eventRace.slug }),
+      race: expect.objectContaining({ slug: eventRace.slug, eventEditionSlug: "festival-public-2026" }),
       shouldRedirect: false,
     });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("race_event_editions?"))).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[2]?.[0]).toContain("race_event_editions?");
   });
 
   it("keeps a canonical public slug without consulting redirects", async () => {

@@ -6,6 +6,7 @@ const race = {
   id: "11111111-1111-4111-8111-111111111111",
   eventId: "22222222-2222-4222-8222-222222222222",
   editionId: "33333333-3333-4333-8333-333333333333",
+  eventEditionSlug: "trail-glazig-2027",
   slug: "trail-glazig-5-km-2027",
   name: "Trail Glazig — 5 km",
   eventName: "Trail Glazig",
@@ -75,6 +76,12 @@ describe("race SEO content", () => {
       url: race.officialWebsiteUrl,
     });
     expect(data?.offers).toEqual({ "@type": "Offer", url: race.eventWebsiteUrl });
+    expect(data?.superEvent).toEqual({
+      "@type": "SportsEvent",
+      "@id": "https://pace-yourself.com/courses/evenements/trail-glazig-2027#event",
+      name: race.eventName,
+      url: "https://pace-yourself.com/courses/evenements/trail-glazig-2027",
+    });
     expect(data.sameAs).toEqual([race.externalSiteUrl, race.officialWebsiteUrl]);
   });
 
@@ -118,6 +125,7 @@ describe("race SEO content", () => {
     const data = buildRaceStructuredData({
       ...race,
       eventName: null,
+      eventEditionSlug: null,
       eventWebsiteUrl: null,
       officialWebsiteUrl: null,
       externalSiteUrl: null,

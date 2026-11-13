@@ -174,6 +174,7 @@ Use:
 - `supabase/tests/organizer_rls_checks.sql` for event membership, race-event favorites, format-scoped updates, and owner-only update read receipts;
 - `supabase/tests/organizer_import_sessions_checks.sql` for service-only session grants, invoker RPC privileges, strict JSON payloads, and draft constraints;
 - `supabase/tests/race_slug_redirects_checks.sql` for public parent-gated redirect reads, service-only mutations/RPC execution, invoker security, and reserved-slug behavior;
+- `supabase/tests/race_event_edition_slug_redirects_checks.sql` for service-only event-edition redirect access, invoker rename execution, chained renames, and reserved-slug behavior;
 - `supabase/tests/web_race_visibility_checks.sql` for web/mobile separation, masked-row client denial, trigger security, and forced clearing of non-public web state;
 - `supabase/tests/racebook_sponsors_checks.sql` for sponsor-table RLS/privileges, edition limits, loading limits, and atomic aggregate click/impression increments against an already-published, preview-visible fixture;
 - `supabase/tests/racebook_partner_slots_checks.sql` for service-only partner-slot privileges, same-edition partner FK, partner/sponsor consistency, sponsor-deletion cascade and metric input validation;
@@ -199,6 +200,7 @@ Use:
 - The remaining admin growth KPI function is a justified `SECURITY DEFINER` exception because it reads `auth.users` and cross-owner rows. Keep its empty search path, service-role-only execute grant, bounded date range, and route-level trusted-admin authorization together. The retired affiliate reporting function and its event tables must not be recreated for application-side engagement reporting.
 - `assign_race_event_edition()` remains `SECURITY INVOKER`, receives no client table privileges, and has explicit `PUBLIC`/`anon`/`authenticated` execute revocations; it is a service-write consistency trigger, not an authorization bypass.
 - Public child mappings such as `race_slug_redirects` need an explicit client `SELECT` grant plus an RLS `exists` check against every parent visibility gate. Keep all writes and the rename RPC service-role-only.
+- `race_event_edition_slug_redirects` is intentionally service-only: RLS is enabled with no client policies, client table/function access is revoked, and the public web resolver repeats event and format publication gates with service credentials.
 - Web and mobile race visibility are separate application contracts, not separate client policy branches. Keep web-only rows behind server service-role reads with explicit safe columns, preserve existing mobile `is_live`/preview RLS and query filters, and repeat the parent-event gate in web loaders.
 
 - Service role bypasses RLS, so passing a service-route test does not prove client RLS works.

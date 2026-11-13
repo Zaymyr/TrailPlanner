@@ -142,7 +142,11 @@ export type PublicRaceDetail = PublicRace & {
   racebookAvailable: boolean;
   aidStations: PublicRaceAidStationSummary[];
   aidStationDetails: PublicRaceAidStation[] | null;
-  practical: {
+  commonPractical: PublicRacePractical;
+  practical: PublicRacePractical;
+};
+
+export type PublicRacePractical = {
     schedule: {
       startTime: string | null;
       finishCutoffTime: string | null;
@@ -187,7 +191,6 @@ export type PublicRaceDetail = PublicRace & {
       partners: string | null;
       note: string | null;
     };
-  };
 };
 
 const serviceHeaders = (config: SupabaseServiceConfig) => ({
@@ -301,6 +304,14 @@ const emptyDetail = (race: PublicRace): PublicRaceDetail => ({
   racebookAvailable: false,
   aidStations: [],
   aidStationDetails: null,
+  commonPractical: {
+    schedule: { startTime: null, finishCutoffTime: null, cutoffNote: null, note: null },
+    equipment: { items: [], note: null },
+    bibPickup: { locations: [], schedule: null, requiredDocuments: null, thirdPartyPickupAllowed: null, thirdPartyPickupConditions: null, equipmentCheck: null, note: null },
+    access: { startAddress: null, startLocation: { label: null, googleMapsUrl: null }, finishAddress: null, finishLocation: { label: null, googleMapsUrl: null }, officialParkings: null, shuttles: null, shuttleSchedule: null, roadRestrictions: null, mapUrl: null, note: null },
+    runnerInfo: { startArea: null, briefing: null, rules: null, note: null },
+    services: { supporters: null, accommodations: null, restaurants: null, recovery: null, partners: null, note: null },
+  },
   practical: {
     schedule: { startTime: null, finishCutoffTime: null, cutoffNote: null, note: null },
     equipment: { items: [], note: null },
@@ -336,6 +347,63 @@ const emptyDetail = (race: PublicRace): PublicRaceDetail => ({
     },
   },
 });
+
+const buildPublicPractical = (
+  runner: ReturnType<typeof buildRunnerOrganizerDetails>,
+  publicModules: Record<OrganizerModuleKey, boolean>,
+): PublicRacePractical => {
+  const enabled = runner.access.enabledSections;
+  return {
+    schedule: {
+      startTime: publicModules.aid_stations ? runner.schedule.startTime : null,
+      finishCutoffTime: publicModules.aid_stations ? runner.schedule.finishCutoffTime : null,
+      cutoffNote: publicModules.aid_stations ? runner.schedule.cutoffNote : null,
+      note: publicModules.aid_stations ? runner.schedule.note : null,
+    },
+    equipment: {
+      items: publicModules.equipment ? runner.equipmentStatus.items
+        .filter((item) => item.active)
+        .map((item) => ({ label: item.label, required: item.required, note: item.note })) : [],
+      note: publicModules.equipment ? runner.equipment.note : null,
+    },
+    bibPickup: {
+      locations: publicModules.bib_pickup ? getOrganizerBibPickupLocations(runner.bibPickup).map((location) => ({
+        label: location.location,
+        location: toPublicLocation(location.locationDetails),
+        slots: location.slots,
+      })) : [],
+      schedule: publicModules.bib_pickup ? runner.bibPickup.schedule : null,
+      requiredDocuments: publicModules.bib_pickup ? runner.bibPickup.requiredDocuments : null,
+      thirdPartyPickupAllowed: publicModules.bib_pickup ? runner.bibPickup.thirdPartyPickupAllowed : null,
+      thirdPartyPickupConditions: publicModules.bib_pickup ? runner.bibPickup.thirdPartyPickupConditions : null,
+      equipmentCheck: publicModules.bib_pickup ? runner.bibPickup.equipmentCheck : null,
+      note: publicModules.bib_pickup ? runner.bibPickup.note : null,
+    },
+    access: {
+      startAddress: publicModules.access ? runner.access.startAddress : null,
+      startLocation: publicModules.access ? toPublicLocation(runner.access.startLocation) : { label: null, googleMapsUrl: null },
+      finishAddress: publicModules.access ? runner.access.finishAddress : null,
+      finishLocation: publicModules.access ? toPublicLocation(runner.access.finishLocation) : { label: null, googleMapsUrl: null },
+      officialParkings: publicModules.access && enabled.officialParkings ? runner.access.officialParkings : null,
+      shuttles: publicModules.access && enabled.shuttles ? runner.access.shuttles : null,
+      shuttleSchedule: publicModules.access && enabled.shuttles ? runner.access.shuttleSchedule : null,
+      roadRestrictions: publicModules.access && enabled.roadRestrictions ? runner.access.roadRestrictions : null,
+      mapUrl: publicModules.access && enabled.mapUrl ? runner.access.mapUrl : null,
+      note: publicModules.access ? runner.access.note : null,
+    },
+    runnerInfo: publicModules.access && enabled.runnerInfo
+      ? runner.runnerInfo
+      : { startArea: null, briefing: null, rules: null, note: null },
+    services: {
+      supporters: publicModules.services ? runner.services.supporters : null,
+      accommodations: publicModules.services ? runner.services.accommodations : null,
+      restaurants: publicModules.services ? runner.services.restaurants : null,
+      recovery: publicModules.services ? runner.services.recovery : null,
+      partners: publicModules.services ? runner.services.partners : null,
+      note: publicModules.services ? runner.services.note : null,
+    },
+  };
+};
 
 async function loadRoutePreview(config: SupabaseServiceConfig, storagePath: string | null | undefined) {
   if (!storagePath) return null;
@@ -401,6 +469,7 @@ export async function getPublicRaceDetail(race: PublicRace): Promise<PublicRaceD
     const eventDetails = parseOrganizerEventDetails(events[0]?.organizer_details);
     const raceDetails = parseOrganizerRaceDetails(sourceRace.organizer_details);
     const runner = buildRunnerOrganizerDetails(eventDetails, raceDetails);
+    const eventRunner = buildRunnerOrganizerDetails(eventDetails, parseOrganizerRaceDetails(null));
     const [stationResult, routePreview] = await Promise.all([
       aidStationSummaryIsPublic ? (aidStationDetailIsPublic
         ? fetchServiceRows(
@@ -447,7 +516,6 @@ export async function getPublicRaceDetail(race: PublicRace): Promise<PublicRaceD
         })
       : null;
 
-    const enabled = runner.access.enabledSections;
     return {
       ...race,
       elevationLossM: sourceRace.elevation_loss_m ?? null,
@@ -464,56 +532,8 @@ export async function getPublicRaceDetail(race: PublicRace): Promise<PublicRaceD
       racebookAvailable: racebookIsLive,
       aidStations,
       aidStationDetails,
-      practical: {
-        schedule: {
-          startTime: publicModules.aid_stations ? runner.schedule.startTime : null,
-          finishCutoffTime: publicModules.aid_stations ? runner.schedule.finishCutoffTime : null,
-          cutoffNote: publicModules.aid_stations ? runner.schedule.cutoffNote : null,
-          note: publicModules.aid_stations ? runner.schedule.note : null,
-        },
-        equipment: {
-          items: publicModules.equipment ? runner.equipmentStatus.items
-            .filter((item) => item.active)
-            .map((item) => ({ label: item.label, required: item.required, note: item.note })) : [],
-          note: publicModules.equipment ? runner.equipment.note : null,
-        },
-        bibPickup: {
-          locations: publicModules.bib_pickup ? getOrganizerBibPickupLocations(runner.bibPickup).map((location) => ({
-            label: location.location,
-            location: toPublicLocation(location.locationDetails),
-            slots: location.slots,
-          })) : [],
-          schedule: publicModules.bib_pickup ? runner.bibPickup.schedule : null,
-          requiredDocuments: publicModules.bib_pickup ? runner.bibPickup.requiredDocuments : null,
-          thirdPartyPickupAllowed: publicModules.bib_pickup ? runner.bibPickup.thirdPartyPickupAllowed : null,
-          thirdPartyPickupConditions: publicModules.bib_pickup ? runner.bibPickup.thirdPartyPickupConditions : null,
-          equipmentCheck: publicModules.bib_pickup ? runner.bibPickup.equipmentCheck : null,
-          note: publicModules.bib_pickup ? runner.bibPickup.note : null,
-        },
-        access: {
-          startAddress: publicModules.access ? runner.access.startAddress : null,
-          startLocation: publicModules.access ? toPublicLocation(runner.access.startLocation) : { label: null, googleMapsUrl: null },
-          finishAddress: publicModules.access ? runner.access.finishAddress : null,
-          finishLocation: publicModules.access ? toPublicLocation(runner.access.finishLocation) : { label: null, googleMapsUrl: null },
-          officialParkings: publicModules.access && enabled.officialParkings ? runner.access.officialParkings : null,
-          shuttles: publicModules.access && enabled.shuttles ? runner.access.shuttles : null,
-          shuttleSchedule: publicModules.access && enabled.shuttles ? runner.access.shuttleSchedule : null,
-          roadRestrictions: publicModules.access && enabled.roadRestrictions ? runner.access.roadRestrictions : null,
-          mapUrl: publicModules.access && enabled.mapUrl ? runner.access.mapUrl : null,
-          note: publicModules.access ? runner.access.note : null,
-        },
-        runnerInfo: publicModules.access && enabled.runnerInfo
-          ? runner.runnerInfo
-          : { startArea: null, briefing: null, rules: null, note: null },
-        services: {
-          supporters: publicModules.services ? runner.services.supporters : null,
-          accommodations: publicModules.services ? runner.services.accommodations : null,
-          restaurants: publicModules.services ? runner.services.restaurants : null,
-          recovery: publicModules.services ? runner.services.recovery : null,
-          partners: publicModules.services ? runner.services.partners : null,
-          note: publicModules.services ? runner.services.note : null,
-        },
-      },
+      commonPractical: buildPublicPractical(eventRunner, publicModules),
+      practical: buildPublicPractical(runner, publicModules),
     };
   } catch (error) {
     console.error("Unable to load public race detail", error);

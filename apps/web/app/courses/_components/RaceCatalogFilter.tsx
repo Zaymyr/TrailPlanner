@@ -38,7 +38,11 @@ function EventRaceGroup({ group }: { group: PublicRaceGroup }) {
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">
                   Événement{editionYear ? ` · édition ${editionYear}` : ""}
                 </p>
-                <CardTitle id={headingId} className="text-2xl leading-tight">{eventName}</CardTitle>
+                <CardTitle id={headingId} className="text-2xl leading-tight">
+                  {races[0]?.eventEditionSlug ? (
+                    <Link href={`/courses/evenements/${races[0].eventEditionSlug}` as Route} className="hover:text-brand hover:underline">{eventName}</Link>
+                  ) : eventName}
+                </CardTitle>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
                   <span>{dateLabel}</span>
                   <span>{locationLabel}</span>

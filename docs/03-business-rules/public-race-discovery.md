@@ -14,7 +14,11 @@ related_files:
   - supabase/migrations/20260923064926_backfill_public_race_event_website_urls.sql
   - supabase/tests/race_slug_redirects_checks.sql
   - supabase/tests/web_race_visibility_checks.sql
+  - supabase/migrations/20261113200326_add_race_event_edition_slugs.sql
+  - supabase/tests/race_event_edition_slug_redirects_checks.sql
   - apps/web/lib/public-races.ts
+  - apps/web/lib/public-race-events.ts
+  - apps/web/lib/public-race-events.test.ts
   - apps/web/lib/public-race-detail.ts
   - apps/web/lib/public-race-detail.test.ts
   - apps/web/lib/race-discovery.ts
@@ -24,6 +28,9 @@ related_files:
   - apps/web/app/courses/[slug]/page.tsx
   - apps/web/app/courses/[slug]/race-structured-data.ts
   - apps/web/app/courses/[slug]/race-structured-data.test.ts
+  - apps/web/app/courses/evenements/[slug]/page.tsx
+  - apps/web/app/courses/evenements/[slug]/event-structured-data.ts
+  - apps/web/app/courses/evenements/[slug]/event-structured-data.test.ts
   - apps/web/app/courses/_components/RaceCatalogFilter.tsx
   - apps/web/app/courses/_components/RaceCatalogFilter.test.ts
   - apps/web/app/courses/_components/catalog-display.ts
@@ -51,6 +58,8 @@ related_tables:
   - race_events
   - races
   - race_slug_redirects
+  - race_event_editions
+  - race_event_edition_slug_redirects
 ---
 
 # Public Race Discovery
@@ -69,7 +78,7 @@ This document defines which public race pages Pace Yourself may expose to search
 - Similar race: a race from another event ordered by distance difference, then elevation difference when both elevations exist.
 - Indexable selection: a deterministic landing page based only on structured fields and containing at least five public races.
 - Normalized geography: explicit country, region, department and city fields, not a region guessed from `location` or `location_text`.
-- Former slug: a durable `race_slug_redirects.old_slug` mapping to the stable race id.
+- Former slug: a durable format or event-edition redirect mapping to a stable row id.
 
 ## Public Race Detail Pages
 
@@ -93,7 +102,7 @@ When a private GPX object exists, the server downloads and parses it only after 
 
 The page always exposes `BreadcrumbList` structured data and exposes `SportsEvent` only when the format has a valid calendar `startDate` in strict `YYYY-MM-DD` form. Its `Place` may use the verified start label, start coordinates, start-address string, and normalized parent city/region/country; unavailable postal components are omitted and a place name is never inserted into `PostalAddress`. `eventStatus` is `EventScheduled` because the current schema has no cancellation/postponement status. The organizer is the known event identity (falling back to the format identity) with its official HTTP(S) website when available. The registration action becomes an `Offer` containing only its URL; price, currency, and availability remain absent because the catalog does not store them.
 
-`endDate` remains the same date for a single-day edition. A later canonical edition end is emitted only when unambiguous stored start and finish-cutoff clocks prove an overnight format by wrapping past midnight; prose or incomplete clocks cannot establish that fact. `superEvent` remains absent until a durable event-edition URL exists. Open Graph and Twitter use the format image first, the event image second, and the shared Pace Yourself social image last. SEO titles are capped at 60 characters, reserve a factual distance/year suffix, and truncate the middle of long names so both the event prefix and distinguishing format suffix survive; descriptions are capped at 160 characters. It links to:
+`endDate` remains the same date for a single-day edition. A later canonical edition end is emitted only when unambiguous stored start and finish-cutoff clocks prove an overnight format by wrapping past midnight; prose or incomplete clocks cannot establish that fact. Formats attached to a slugged edition emit a `superEvent` reference to its canonical event page. Open Graph and Twitter use the format image first, the event image second, and the shared Pace Yourself social image last. SEO titles are capped at 60 characters, reserve a factual distance/year suffix, and truncate the middle of long names so both the event prefix and distinguishing format suffix survive; descriptions are capped at 160 characters. It links to:
 
 - other published formats sharing the same event edition, with the legacy event-only fallback when `edition_id` is absent;
 - up to three published races from other events with the nearest distance, using elevation only as a tie-breaker;
@@ -103,6 +112,8 @@ The page always exposes `BreadcrumbList` structured data and exposes `SportsEven
 Sharing uses the native Web Share sheet when available, which lets installed mobile apps such as Instagram participate. Facebook remains a direct action, copy is always explicit, and the main action falls back to copy when Web Share is unavailable. Native cancellation does not trigger a surprise copy. Missing Clipboard support falls back to the browser copy command and reports success/failure through an accessible live status.
 
 ## Catalog Event Grouping
+
+Every public edition with at least one web-public format has one canonical `/courses/evenements/[slug]` page. It lists only that edition's public formats, their factual distance, D+, date, location and ravito count, and sanitized practical information inherited from the event. It emits one parent `SportsEvent` with format `subEvent` entries. Former edition slugs permanently redirect after the current event and format visibility gates are rechecked. The sitemap deduplicates event-edition URLs and uses the newest edition, event, or format timestamp available; station rows currently have no `updated_at`, so station-only changes cannot improve `<lastmod>` evidence.
 
 Each event-edition header exposes one `S’inscrire` action sourced from the shared event website. Distance-selection cards use the same target, while standalone cards fall back to the format URL and retain a separate internal course-detail link.
 
@@ -139,6 +150,8 @@ Country filters may include country-only rows. City, department, region and near
 ## Slug Stability
 
 Existing race slugs remain canonical until a rename is explicitly approved. The durable mapping and permanent redirect contract now exists: the database trigger records every former slug against the stable race id, and the web route resolves directly to the current canonical slug without redirect chains.
+
+Edition slugs follow the same no-chain rule through `race_event_edition_slug_redirects`, but remain a separate namespace and service-only table. `rename_race_event_edition_slug` is the trusted atomic rename boundary.
 
 `scripts/audit-public-race-slugs.mjs` is the review-only preparation step. It reads published catalog data with an anon/publishable key, refuses elevated keys, reports technical slugs and deterministic French-readable proposals, resolves candidate collisions with location then a stable id suffix, and performs zero writes. A proposal is not authorization to rename; approved changes must use the service-only atomic RPC after the migration is deployed.
 

@@ -85,6 +85,14 @@ export const buildRaceStructuredData = (race: PublicRaceDetail, canonicalUrl: st
       name: race.eventName ?? race.name,
       ...(organizerUrl ? { url: organizerUrl } : {}),
     },
+    ...(race.eventEditionSlug && race.eventName ? {
+      superEvent: {
+        "@type": "SportsEvent",
+        "@id": `${new URL(`/courses/evenements/${race.eventEditionSlug}`, canonicalUrl).toString()}#event`,
+        name: race.eventName,
+        url: new URL(`/courses/evenements/${race.eventEditionSlug}`, canonicalUrl).toString(),
+      },
+    } : {}),
     ...(registrationUrl ? {
       offers: {
         "@type": "Offer",
