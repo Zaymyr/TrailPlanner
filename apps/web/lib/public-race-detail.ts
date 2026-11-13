@@ -11,6 +11,7 @@ import {
   parseOrganizerRaceDetails,
 } from "./organizer-dashboard-details";
 import { organizerTierSchema } from "./organizer-entitlements";
+import { organizerFeatureKeySchema } from "./organizer-features";
 import { effectiveOrganizerModules } from "./organizer-module-settings";
 import {
   ORGANIZER_MODULES,
@@ -32,6 +33,8 @@ const detailRaceSchema = z.object({
   max_alt_m: z.number().nullable().optional(),
   gpx_storage_path: z.string().nullable().optional(),
   participation_mode: z.enum(["solo", "relay", "solo_and_relay"]).nullable().optional(),
+  start_lat: z.number().nullable().optional(),
+  start_lng: z.number().nullable().optional(),
   organizer_details: z.unknown().nullable().optional(),
   racebook_is_live: z.boolean().optional().default(false),
 });
@@ -60,6 +63,14 @@ const aidStationSchema = z.object({
   organizer_details: z.unknown().nullable().optional(),
 });
 
+const aidStationSummarySchema = aidStationSchema.pick({
+  id: true,
+  name: true,
+  km: true,
+  water_available: true,
+  solid_available: true,
+});
+
 const publicEntitlementSchema = z.object({
   tier: organizerTierSchema,
   status: z.enum(["active", "revoked"]),
@@ -69,6 +80,11 @@ const publicModuleSettingSchema = z.object({
   race_id: z.string().uuid().nullable(),
   module_key: z.string(),
   is_enabled: z.boolean(),
+});
+
+const publicCapabilityGrantSchema = z.object({
+  capability_key: organizerFeatureKeySchema,
+  status: z.enum(["active", "revoked"]),
 });
 
 export type PublicRaceRoutePoint = {
@@ -104,6 +120,11 @@ export type PublicRaceAidStation = {
   note: string | null;
 };
 
+export type PublicRaceAidStationSummary = Pick<
+  PublicRaceAidStation,
+  "id" | "name" | "distanceKm" | "waterAvailable" | "solidAvailable"
+>;
+
 type PublicLocation = { label: string | null; googleMapsUrl: string | null };
 
 export type PublicRaceDetail = PublicRace & {
@@ -111,12 +132,16 @@ export type PublicRaceDetail = PublicRace & {
   minAltitudeM: number | null;
   maxAltitudeM: number | null;
   participationMode: "solo" | "relay" | "solo_and_relay" | null;
+  startLatitude: number | null;
+  startLongitude: number | null;
   eventEndDate: string | null;
   officialWebsiteUrl: string | null;
   instagramUrl: string | null;
   facebookUrl: string | null;
   routePreview: PublicRaceRoutePreview | null;
-  aidStations: PublicRaceAidStation[];
+  racebookAvailable: boolean;
+  aidStations: PublicRaceAidStationSummary[];
+  aidStationDetails: PublicRaceAidStation[] | null;
   practical: {
     schedule: {
       startTime: string | null;
@@ -188,8 +213,8 @@ async function loadPublicOrganizerModules(
   config: SupabaseServiceConfig,
   editionId: string,
   raceId: string,
-): Promise<Record<OrganizerModuleKey, boolean>> {
-  const [settingRows, entitlementRows] = await Promise.all([
+): Promise<{ modules: Record<OrganizerModuleKey, boolean>; aidStationsExplicitlyDisabled: boolean }> {
+  const [settingRows, entitlementRows, capabilityGrantMap] = await Promise.all([
     fetchServiceRows(
       config,
       `organizer_racebook_module_settings?edition_id=eq.${encodeURIComponent(editionId)}&select=race_id,module_key,is_enabled`,
@@ -199,6 +224,11 @@ async function loadPublicOrganizerModules(
       config,
       `organizer_edition_entitlements?edition_id=eq.${encodeURIComponent(editionId)}&select=tier,status&limit=1`,
       publicEntitlementSchema,
+    ),
+    fetchServiceRows(
+      config,
+      `organizer_edition_capability_grants?edition_id=eq.${encodeURIComponent(editionId)}&select=capability_key,status`,
+      publicCapabilityGrantSchema,
     ),
   ]);
   const settings = {
@@ -216,11 +246,19 @@ async function loadPublicOrganizerModules(
   }
 
   const entitlement = entitlementRows[0];
-  return effectiveOrganizerModules(
+  const grantedFeatures = capabilityGrantMap
+    .filter((grant) => grant.status === "active")
+    .map((grant) => grant.capability_key);
+  const modules = effectiveOrganizerModules(
     entitlement?.status === "active" ? entitlement.tier : "visibility",
     settings,
     raceId,
+    grantedFeatures,
   );
+  const aidStationsExplicitlyDisabled = settingRows.some(
+    (row) => row.race_id === raceId && row.module_key === "aid_stations" && row.is_enabled === false,
+  );
+  return { modules, aidStationsExplicitlyDisabled };
 }
 
 export function buildPublicRaceRoutePreview(gpxContent: string, maxPoints = 600): PublicRaceRoutePreview {
@@ -253,12 +291,16 @@ const emptyDetail = (race: PublicRace): PublicRaceDetail => ({
   minAltitudeM: null,
   maxAltitudeM: null,
   participationMode: null,
+  startLatitude: null,
+  startLongitude: null,
   eventEndDate: null,
   officialWebsiteUrl: null,
   instagramUrl: null,
   facebookUrl: null,
   routePreview: null,
+  racebookAvailable: false,
   aidStations: [],
+  aidStationDetails: null,
   practical: {
     schedule: { startTime: null, finishCutoffTime: null, cutoffNote: null, note: null },
     equipment: { items: [], note: null },
@@ -319,7 +361,7 @@ export async function getPublicRaceDetail(race: PublicRace): Promise<PublicRaceD
   try {
     const rows = await fetchServiceRows(
       config,
-      `races?id=eq.${encodeURIComponent(race.id)}&web_catalog_is_live=eq.true&is_public=eq.true&select=id,event_id,edition_id,elevation_loss_m,min_alt_m,max_alt_m,gpx_storage_path,participation_mode,organizer_details,racebook_is_live&limit=1`,
+      `races?id=eq.${encodeURIComponent(race.id)}&web_catalog_is_live=eq.true&is_public=eq.true&select=id,event_id,edition_id,elevation_loss_m,min_alt_m,max_alt_m,gpx_storage_path,participation_mode,start_lat,start_lng,organizer_details,racebook_is_live&limit=1`,
       detailRaceSchema,
     );
     const sourceRace = rows[0];
@@ -344,24 +386,66 @@ export async function getPublicRaceDetail(race: PublicRace): Promise<PublicRaceD
     if (sourceRace.edition_id && (!editions[0] || editions[0].event_id !== sourceRace.event_id)) return null;
 
     const racebookIsLive = sourceRace.racebook_is_live === true;
-    const publicModules: Record<OrganizerModuleKey, boolean> = sourceRace.edition_id && racebookIsLive
+    const moduleState = sourceRace.edition_id
       ? await loadPublicOrganizerModules(config, sourceRace.edition_id, sourceRace.id)
-      : Object.fromEntries(ORGANIZER_MODULES.map((module) => [module.key, !sourceRace.edition_id && racebookIsLive])) as Record<OrganizerModuleKey, boolean>;
+      : {
+          modules: Object.fromEntries(ORGANIZER_MODULES.map((module) => [module.key, racebookIsLive])) as Record<OrganizerModuleKey, boolean>,
+          aidStationsExplicitlyDisabled: false,
+        };
+    const publicModules = Object.fromEntries(
+      Object.entries(moduleState.modules).map(([key, enabled]) => [key, racebookIsLive && enabled]),
+    ) as Record<OrganizerModuleKey, boolean>;
+    const aidStationSummaryIsPublic = !moduleState.aidStationsExplicitlyDisabled;
+    const aidStationDetailIsPublic = publicModules.aid_stations;
 
     const eventDetails = parseOrganizerEventDetails(events[0]?.organizer_details);
     const raceDetails = parseOrganizerRaceDetails(sourceRace.organizer_details);
     const runner = buildRunnerOrganizerDetails(eventDetails, raceDetails);
-    const [stationRows, routePreview] = await Promise.all([
-      publicModules.aid_stations ? fetchServiceRows(
-        config,
-        `race_aid_stations?race_id=eq.${encodeURIComponent(race.id)}&select=id,name,km,water_available,solid_available,assistance_allowed,notes,order_index,organizer_details&order=order_index.asc,km.asc`,
-        aidStationSchema,
-      ).catch((error) => {
+    const [stationResult, routePreview] = await Promise.all([
+      aidStationSummaryIsPublic ? (aidStationDetailIsPublic
+        ? fetchServiceRows(
+            config,
+            `race_aid_stations?race_id=eq.${encodeURIComponent(race.id)}&select=id,name,km,water_available,solid_available,assistance_allowed,notes,order_index,organizer_details&order=order_index.asc,km.asc`,
+            aidStationSchema,
+          ).then((rows) => ({ detailed: true as const, rows }))
+        : fetchServiceRows(
+            config,
+            `race_aid_stations?race_id=eq.${encodeURIComponent(race.id)}&select=id,name,km,water_available,solid_available&order=order_index.asc,km.asc`,
+            aidStationSummarySchema,
+          ).then((rows) => ({ detailed: false as const, rows })))
+        .catch((error) => {
         console.error("Unable to load public race aid stations", error);
-        return [];
-      }) : Promise.resolve([]),
+        return { detailed: false as const, rows: [] };
+      }) : Promise.resolve({ detailed: false as const, rows: [] }),
       loadRoutePreview(config, sourceRace.gpx_storage_path),
     ]);
+
+    const aidStations = stationResult.rows.map((station) => ({
+      id: station.id,
+      name: station.name,
+      distanceKm: station.km,
+      waterAvailable: station.water_available ?? true,
+      solidAvailable: station.solid_available ?? true,
+    }));
+    const aidStationDetails = stationResult.detailed
+      ? stationResult.rows.map((station) => {
+          const details = parseOrganizerAidStationDetails(station.organizer_details);
+          return {
+            id: station.id,
+            name: station.name,
+            distanceKm: station.km,
+            altitudeM: details.altitudeM,
+            cumulativeElevationGainM: details.cumulativeElevationGainM,
+            cumulativeElevationLossM: details.cumulativeElevationLossM,
+            cutoffTime: details.cutoffTime,
+            waterAvailable: station.water_available ?? true,
+            solidAvailable: station.solid_available ?? true,
+            assistanceAllowed: station.assistance_allowed ?? true,
+            dropBagAvailable: details.dropBagAvailable,
+            note: details.organizerNote ?? station.notes ?? null,
+          };
+        })
+      : null;
 
     const enabled = runner.access.enabledSections;
     return {
@@ -370,28 +454,16 @@ export async function getPublicRaceDetail(race: PublicRace): Promise<PublicRaceD
       minAltitudeM: sourceRace.min_alt_m ?? routePreview?.stats.minAltM ?? null,
       maxAltitudeM: sourceRace.max_alt_m ?? routePreview?.stats.maxAltM ?? null,
       participationMode: sourceRace.participation_mode ?? null,
+      startLatitude: sourceRace.start_lat ?? null,
+      startLongitude: sourceRace.start_lng ?? null,
       eventEndDate: editions[0]?.end_date ?? (!sourceRace.edition_id ? eventDetails.dateRange.endDate : null),
       officialWebsiteUrl: eventDetails.officialWebsiteUrl,
       instagramUrl: eventDetails.instagramUrl,
       facebookUrl: eventDetails.facebookUrl,
       routePreview,
-      aidStations: stationRows.map((station) => {
-        const details = parseOrganizerAidStationDetails(station.organizer_details);
-        return {
-          id: station.id,
-          name: station.name,
-          distanceKm: station.km,
-          altitudeM: details.altitudeM,
-          cumulativeElevationGainM: details.cumulativeElevationGainM,
-          cumulativeElevationLossM: details.cumulativeElevationLossM,
-          cutoffTime: details.cutoffTime,
-          waterAvailable: station.water_available ?? true,
-          solidAvailable: station.solid_available ?? true,
-          assistanceAllowed: station.assistance_allowed ?? true,
-          dropBagAvailable: details.dropBagAvailable,
-          note: details.organizerNote ?? station.notes ?? null,
-        };
-      }),
+      racebookAvailable: racebookIsLive,
+      aidStations,
+      aidStationDetails,
       practical: {
         schedule: {
           startTime: publicModules.aid_stations ? runner.schedule.startTime : null,

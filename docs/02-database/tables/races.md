@@ -2,7 +2,7 @@
 title: races Table
 scope: database
 
-last_verified: 2026-11-09
+last_verified: 2026-11-13
 
 ai_priority: high
 related_files:
@@ -187,6 +187,7 @@ Authenticated non-admin users can no longer insert races. Trusted `app_metadata`
 - The normalized-geography migration refreshes eleven Search Console-priority `location`/`location_text` labels with source-backed city, route endpoint and administrative-area wording. Exact region/department filters belong to the parent `race_events` normalized fields rather than parsed format text.
 - Every dated row with an `event_id` is attached to the matching canonical event/year edition. The assignment trigger atomically creates or expands that edition when legacy catalog/import code omits `edition_id`.
 - Web catalog, slug, and SEO detail reads are server-only service calls requiring `web_catalog_is_live = true`, `is_public = true`, and a live optional parent event. They select only explicit public columns for the lightweight catalog, do not consult the mobile edition-visibility flag, and do not grant masked rows to direct clients. Service reads enrich details from edition dates, sanitized `organizer_details`, ravitos, and private `gpx_storage_path`. Catalog, sitemap, detail visibility, entitlement/module settings, and route ISR share a 15-minute revalidation window; none of those public detail reads may use `no-store`. Raw GPX bytes use a one-year persistent cache because replacement uploads use immutable versioned paths. RaceBook practical fields additionally require `racebook_is_live` and an effective module under the active edition tier; uncovered draft subtrees are replaced by empty public values.
+- Public web ravitos are the one narrower exception to the practical-module rule: station id, name, kilometer, water, and solid-food flags may be returned for every web-public format unless the race has an explicit `aid_stations = false` module setting. Cutoff, altitude, cumulative elevation, assistance, drop bag, notes, relay data, and products still require a published Livret and the effective aid-station module; the server must not select or serialize those columns for summary-only pages.
 - RaceBook runner content is read only from an immutable per-format publication. Source changes create unpublished draft work and cannot affect the runner payload; the publication also supplies bounded GPX visuals, while catalog and planning retain the source-course contract.
 - RaceBook branding is resolved from the format's `edition_id`, not stored on `races`; changing or publishing the edition identity never changes catalog or Racebook visibility columns.
 - Global Booking and Decathlon availability is resolved independently of `races`. Services remains a permanent tab for Booking, while Decathlon is placed in Matériel; neither partner can make a RaceBook accessible, publish a format, or alter any race visibility column.

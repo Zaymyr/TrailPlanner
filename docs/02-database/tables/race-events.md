@@ -2,7 +2,7 @@
 title: race_events Table
 scope: database
 
-last_verified: 2026-11-09
+last_verified: 2026-11-13
 
 ai_priority: high
 related_files:
@@ -204,6 +204,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - Changing `race_events.location` without updating the normalized geography in the same statement clears all normalized fields through `clear_stale_race_event_geography()`, preventing stale regional filters.
 - Public web pages must require `races.web_catalog_is_live = true` and `races.is_public = true`; related event enrichment must also require `race_events.is_live = true`. `races.is_live` remains the mobile course-publication flag.
 - Public web details deliberately exclude `organizer_details.emergencyContact`, `services.lastMinuteMessage`, and both raw organizer JSON objects even though the mobile Racebook contract may expose emergency calling. Their effective entitlement and module-setting lookups share the public 15-minute ISR cache boundary rather than the private Organizer `no-store` policy.
+- Public web aid-station summaries come from child `race_aid_stations`, not event JSON. They may expose only name, kilometer, water, and solid-food availability without an Organizer offer; exact capability grants still participate in effective public modules, and an explicit format-level aid-station opt-out suppresses the summary.
 - Former course slugs use the same rule: `race_slug_redirects` is readable and the canonical race is returned only while the optional parent event remains live.
 - Event rows can also be created by `POST /api/organizer/events`; those rows are inserted with `is_live = true`, then linked to their creator through an active owner membership. Their Racebooks stay separately hidden.
 - Admin catalog/event creation flows should also default new event rows to `is_live = false` unless the operator explicitly publishes them.

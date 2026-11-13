@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-11-12
+last_verified: 2026-11-13
 ai_priority: high
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
@@ -162,6 +162,8 @@ Catalog-derived plans remain reusable course facts, but, when runner monetisatio
 The public `/courses/[slug]` detail loader can read a private `race-gpx` object only from the server and only after independently confirming `races.web_catalog_is_live`, `races.is_public`, and optional parent-event liveness. Mobile format/edition visibility does not remove an already published web preview. It parses through the same `parseGpx` source of truth and sends the browser a bounded route/elevation DTO of about 600 points. The Storage path and GPX source content are never serialized, and the page exposes no GPX download button. Detail visibility, public entitlement/module settings, and route ISR use the shared 15-minute public-race window, while the raw multi-megabyte GPX fetch uses a one-year persistent data-cache entry because replacement uploads always use a new versioned path. Private Organizer loaders remain uncached and are not reused by this ISR path.
 
 Route geometry remains usable when elevation tags are absent, but the elevation profile is omitted rather than inventing zero-altitude data. Missing objects and parse failures return no preview without blocking the remaining public course facts.
+
+Public station markers on the route and profile consume only the web summary projection (name and kilometer for positioning). Detailed station altitude and cumulative elevation stay behind the effective Livret module and are never replaced with a fabricated zero when the public summary is the only available level.
 
 ## Organizer GPX Replacement
 

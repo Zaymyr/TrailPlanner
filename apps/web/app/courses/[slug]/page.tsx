@@ -16,6 +16,7 @@ import { RaceAidStationsTimeline } from "../_components/RaceAidStationsTimeline"
 import { RaceHeroSummary } from "../_components/RaceHeroSummary";
 import { RaceMetricsDetails } from "../_components/RaceMetricsDetails";
 import { RaceRouteExplorer } from "../_components/RaceRouteExplorer";
+import { RunnerAppBridge } from "../_components/RunnerAppBridge";
 import { buildRaceMetadataDescription, buildRaceMetadataTitle, formatPublicRaceDate } from "./race-metadata";
 import { buildRaceOverview, buildRaceStructuredData } from "./race-structured-data";
 
@@ -278,7 +279,10 @@ export default async function RacePage({ params }: PageProps) {
                 <h2 id="aid-stations-heading" className="text-2xl font-semibold text-foreground">Ravitaillements</h2>
                 <p className="mt-1 text-muted-foreground">{race.aidStations.length} point{race.aidStations.length > 1 ? "s" : ""} renseigné{race.aidStations.length > 1 ? "s" : ""}.</p>
               </div>
-              <RaceAidStationsTimeline aidStations={race.aidStations} totalDistanceKm={race.distanceKm} />
+              <RaceAidStationsTimeline aidStations={race.aidStations} aidStationDetails={race.aidStationDetails} totalDistanceKm={race.distanceKm} />
+              {race.aidStationDetails === null ? (
+                <RunnerAppBridge courseName={race.name} universalUrl={canonicalUrl} racebookAvailable={race.racebookAvailable} />
+              ) : null}
             </section>
           ) : null}
         </div>

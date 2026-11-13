@@ -1,7 +1,7 @@
 ---
 title: race_slug_redirects Table
 scope: database
-last_verified: 2026-09-28
+last_verified: 2026-11-13
 ai_priority: high
 related_files:
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
@@ -21,6 +21,8 @@ related_tables:
 ---
 
 # `race_slug_redirects`
+
+The public course page may add a summary-only ravito timeline and an app bridge after canonical slug resolution. Neither surface changes the redirect lookup, reserved-slug invariant, or current-race visibility recheck.
 
 Public course details can now show additive third-party bib-pickup conditions. Canonical slug resolution, former-slug redirects, visibility checks, and redirect integrity are unchanged.
 
