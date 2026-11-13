@@ -1,12 +1,5 @@
-"use client";
+import { permanentRedirect } from "next/navigation";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-
-export default function NutritionFoodPage() {
-  const router = useRouter();
-  useEffect(() => {
-    router.replace("/onboarding/improve");
-  }, [router]);
-  return null;
+export default function LegacyOnboardingNutritionFoodPage() {
+  permanentRedirect("/race-planner");
 }

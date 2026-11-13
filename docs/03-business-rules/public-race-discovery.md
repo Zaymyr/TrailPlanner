@@ -1,7 +1,7 @@
 ---
 title: Public Race Discovery
 scope: business-rule
-last_verified: 2026-11-02
+last_verified: 2026-11-13
 ai_priority: high
 related_files:
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
@@ -66,6 +66,7 @@ This document defines which public race pages Pace Yourself may expose to search
 - Indexable selection: a deterministic landing page based only on structured fields and containing at least five public races.
 - Normalized geography: explicit country, region, department and city fields, not a region guessed from `location` or `location_text`.
 - Former slug: a durable `race_slug_redirects.old_slug` mapping to the stable race id.
+- App bridge: the public course page may promise the Livret coureur only when `racebook_is_live` is true and the attached edition is mobile-visible; otherwise it uses generic app preparation copy.
 
 ## Public Race Detail Pages
 

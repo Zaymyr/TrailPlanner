@@ -46,6 +46,7 @@ const detailEditionSchema = z.object({
   id: z.string().uuid(),
   event_id: z.string().uuid(),
   end_date: z.string(),
+  is_visible: z.boolean().optional().default(false),
 });
 
 const aidStationSchema = z.object({
@@ -107,6 +108,7 @@ export type PublicRaceAidStation = {
 type PublicLocation = { label: string | null; googleMapsUrl: string | null };
 
 export type PublicRaceDetail = PublicRace & {
+  racebookAvailableInApp: boolean;
   elevationLossM: number | null;
   minAltitudeM: number | null;
   maxAltitudeM: number | null;
@@ -249,6 +251,7 @@ export function buildPublicRaceRoutePreview(gpxContent: string, maxPoints = 600)
 
 const emptyDetail = (race: PublicRace): PublicRaceDetail => ({
   ...race,
+  racebookAvailableInApp: false,
   elevationLossM: null,
   minAltitudeM: null,
   maxAltitudeM: null,
@@ -337,7 +340,7 @@ export async function getPublicRaceDetail(race: PublicRace): Promise<PublicRaceD
     const editions = sourceRace.edition_id
       ? await fetchServiceRows(
           config,
-          `race_event_editions?id=eq.${encodeURIComponent(sourceRace.edition_id)}&select=id,event_id,end_date&limit=1`,
+          `race_event_editions?id=eq.${encodeURIComponent(sourceRace.edition_id)}&select=id,event_id,end_date,is_visible&limit=1`,
           detailEditionSchema,
         )
       : [];
@@ -366,6 +369,7 @@ export async function getPublicRaceDetail(race: PublicRace): Promise<PublicRaceD
     const enabled = runner.access.enabledSections;
     return {
       ...race,
+      racebookAvailableInApp: racebookIsLive && (!sourceRace.edition_id || editions[0]?.is_visible === true),
       elevationLossM: sourceRace.elevation_loss_m ?? null,
       minAltitudeM: sourceRace.min_alt_m ?? routePreview?.stats.minAltM ?? null,
       maxAltitudeM: sourceRace.max_alt_m ?? routePreview?.stats.maxAltM ?? null,

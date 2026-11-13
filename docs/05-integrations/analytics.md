@@ -79,6 +79,8 @@ related_tables:
 
 # Analytics
 
+The retired multi-screen web onboarding and its `onboarding-analytics-tracker` are no longer mounted. Runner acquisition now preserves the validated planner return path; no synthetic completion event is emitted for the permanent `/onboarding/*` redirects.
+
 Organizer analytics access is checked against the active plan plus the exact `capability.racebook_analytics` feature grant. A different Signature feature gift must not authorize analytics, and manual invoice creation or settlement has no analytics effect.
 
 Organizer course-point autosave now waits for the active-format sidecars and no longer resets them after a same-format response. Successful save analytics retain their existing event names and fields; blocked pre-load saves emit no false successful-update event.

@@ -71,6 +71,8 @@ related_tables:
 
 # `races`
 
+The public runner summary endpoint reads only published web-catalog race fields and optional live event context. The app bridge checks `racebook_is_live` plus edition visibility; it introduces no table or policy change.
+
 The organizer form-kit keeps new repeatable entries as browser-local drafts until their required values are valid. In particular, adding then abandoning a ravito or equipment item must not persist a placeholder row to `races` or its related collections.
 
 Format `organizer_details.bibPickup` may now include nullable `thirdPartyPickupConditions` as part of a complete format override. Event inheritance and the existing `overrideEnabled` boundary remain authoritative; no relational race column, publication flag, or catalog rule changes.

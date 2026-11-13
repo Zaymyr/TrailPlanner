@@ -56,6 +56,8 @@ related_tables:
 
 # GPX Import
 
+The runner page and public course bridge changes do not alter GPX parsing or storage. Segment derivation now ignores non-increasing checkpoint distances after import to avoid duplicate zero-length arrivals.
+
 Assisted organizer import is now an individually giftable Signature feature (`capability.assisted_import`). Its exact grant may authorize that operation without opening other Signature features; invoice lines and settlement alone do not authorize imports.
 
 The shared course-point editor now waits for active-race sidecars before enabling ravito/supporter edits or autosave, and same-race format refreshes preserve the loaded collections. This protection changes no GPX parsing, interpolation, or waypoint-import rule.

@@ -76,16 +76,16 @@ export function RaceHeroSummary({
               href={registrationUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand px-5 text-sm font-semibold text-brand-foreground transition hover:bg-brand-light"
+              className="inline-flex min-h-11 items-center justify-center rounded-md border border-border px-5 text-sm font-semibold text-foreground transition hover:border-brand-border hover:bg-brand-surface"
             >
               S’inscrire
             </a>
           ) : null}
           <Link
             href={`/race-planner?catalogRaceId=${race.id}` as Route}
-            className="inline-flex min-h-11 items-center justify-center rounded-md border border-border px-5 text-sm font-semibold text-foreground transition hover:border-brand-border hover:bg-brand-surface"
+            className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand px-5 text-sm font-semibold text-brand-foreground transition hover:bg-brand-light"
           >
-            Planifier cette course
+            Estimer mon temps sur cette course — gratuit
           </Link>
         </div>
 

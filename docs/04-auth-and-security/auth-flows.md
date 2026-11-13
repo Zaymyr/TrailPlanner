@@ -1,7 +1,7 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-11-09
+last_verified: 2026-11-13
 ai_priority: high
 related_files:
   - apps/web/app/sign-in/page.tsx
@@ -48,6 +48,8 @@ related_tables:
 ---
 
 # Auth Flows
+
+Runner return paths may target `/race-planner?catalogRaceId=<uuid>` or `/premium?planId=<uuid>` only after strict normalization. Sign-up, sign-in, OAuth and e-mail callback preserve that normalized path; a TTL-bound localStorage copy protects the course context when confirmation opens in another tab.
 
 ## Runner plan creation and billing access
 
