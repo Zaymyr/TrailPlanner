@@ -1,7 +1,7 @@
 ---
 title: Stripe Integration
 scope: integration
-last_verified: 2026-11-09
+last_verified: 2026-11-13
 ai_priority: high
 related_files:
   - apps/web/lib/stripe.ts
@@ -61,6 +61,8 @@ This document describes both runner web subscriptions and one-time organizer edi
 - optional organizer checkout success/cancel URL overrides
 
 Product ID and active price ID are not hardcoded in the repo.
+
+Runner offers are strict: `STRIPE_ANNUAL_PRICE_ID` and `STRIPE_COURSE_PRICE_ID` must each be configured. The annual runner offer never falls back to the legacy `STRIPE_PRICE_ID`; missing configuration produces an explicit unavailable state in the API and UI.
 
 <!-- TODO: verify with maintainer: record the Stripe product ID and active price ID from deployment env or Stripe dashboard. -->
 

@@ -28,7 +28,7 @@ export const getStripeConfig = (): StripeConfig | null => {
     secretKey: process.env.STRIPE_SECRET_KEY,
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
     priceId: process.env.STRIPE_PRICE_ID,
-    annualPriceId: process.env.STRIPE_ANNUAL_PRICE_ID ?? process.env.STRIPE_PRICE_ID,
+    annualPriceId: process.env.STRIPE_ANNUAL_PRICE_ID,
     coursePriceId: process.env.STRIPE_COURSE_PRICE_ID,
     checkoutSuccessUrl: process.env.STRIPE_CHECKOUT_SUCCESS_URL,
     checkoutCancelUrl: process.env.STRIPE_CHECKOUT_CANCEL_URL,

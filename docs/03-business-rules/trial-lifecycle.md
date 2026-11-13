@@ -1,7 +1,7 @@
 ---
 title: Trial Lifecycle
 scope: business-rule
-last_verified: 2026-11-02
+last_verified: 2026-11-13
 ai_priority: high
 related_files:
   - apps/web/lib/trial.ts
@@ -52,7 +52,7 @@ The historical `trial_welcome_seen_at` and `trial_expired_seen_at` fields and ac
 
 ## Gotchas
 
-- The web expired-trial notice is a fixed bottom overlay, so entitlement hydration cannot shift the document layout. Dismissing it records a session-scoped browser marker in addition to the existing seen acknowledgement; this presentation state never extends or grants access.
+- The root web layout does not mount an expired-trial overlay. Historical trial state remains visible only in account/profile context and never changes access by itself.
 
 - Do not restore client-side trial date repair or infer a new window from account creation time.
 - Do not confuse a RevenueCat store grace period with the retired application trial.
