@@ -240,3 +240,5 @@ The recap keeps the local runner departure authoritative, displays its official 
 - [Premium Entitlement](premium-entitlement.md)
 
 The RaceBook workspace switch is the only plan opening entry in the RaceBook header area and exists only for an owned plan; creation without a plan goes through the Course-tab invite card, which reuses the same existing-row check before routing to `/plan/new`. Removing the duplicate creation card, localizing its remaining revision warning, and sharing distance/clock presentation do not add writes or alter the persisted plan snapshot. Official station locks remain display-only constraints over organizer-owned fields.
+
+The web planner now restores `?planId=` on mount and updates it with `router.replace` when a saved plan is opened. Plans with no course identifier remain grouped under “Sans course”; no database repair is performed by the client.

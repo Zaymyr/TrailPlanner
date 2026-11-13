@@ -439,6 +439,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [openSetupStep, setOpenSetupStep] = useState<PlannerSetupStepId | null>("course");
   const [pendingCatalogRaceId, setPendingCatalogRaceId] = useState<string | null>(null);
   const [pendingCatalogRace, setPendingCatalogRace] = useState<CatalogRaceSummary | null>(null);
+  const [hasImportedCourse, setHasImportedCourse] = useState(false);
 
   useEffect(() => {
     if (!feedbackOpen && !upgradeDialogOpen) return;
@@ -532,6 +533,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     handleSavePlan,
     handleLoadPlan,
     handleDeletePlan,
+    handleRenamePlan,
     handleRefreshPlans,
     handleUseCatalogRace,
     handleCreateRace,
@@ -607,6 +609,15 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       queryPlanIdRef.current = null;
     }
   }, [handleLoadPlan, savedPlans]);
+
+  useEffect(() => {
+    if (!activePlanId || !initializedQueryRef.current) return;
+    const params = new URLSearchParams(searchParams?.toString());
+    if (params.get("planId") === activePlanId && !params.has("catalogRaceId")) return;
+    params.set("planId", activePlanId);
+    params.delete("catalogRaceId");
+    router.replace(`/race-planner?${params.toString()}`, { scroll: false });
+  }, [activePlanId, router, searchParams]);
 
   useEffect(() => {
     if (!queryCatalogRaceIdRef.current) return;
@@ -1264,6 +1275,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
       setElevationProfile(parsedGpx.elevationProfile);
       setImportError(null);
+      setHasImportedCourse(true);
     } catch (error) {
       setImportError(error instanceof Error ? error.message : racePlannerCopy.gpx.errors.unableToImport);
     } finally {
@@ -1373,8 +1385,8 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     setFeedbackStatus("idle");
   };
 
-  const pagePaddingClass = enableMobileNav ? "pb-28 xl:pb-6" : "pb-6 xl:pb-6";
-  const feedbackButtonOffsetClass = enableMobileNav ? "bottom-20" : "bottom-6";
+  const pagePaddingClass = enableMobileNav ? "pb-40 xl:pb-6" : "pb-6 xl:pb-6";
+  const feedbackButtonOffsetClass = enableMobileNav ? "bottom-32" : "bottom-6";
   const handleAddAidStation = useCallback(
     (station?: { name: string; distanceKm: number; waterRefill?: boolean; solidRefill?: boolean; assistanceAllowed?: boolean }) => {
       append({
@@ -1890,7 +1902,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       <PlannerRightPanel
         planManagerProps={{
           copy: racePlannerCopy.account,
-          planName,
           planStatus,
           accountMessage,
           accountError,
@@ -1901,15 +1912,12 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           sessionEmail: session?.email,
           showPlanLimitUpsell: planLimitReached && !isPremium,
           premiumCopy,
-          onPlanNameChange: setPlanName,
           onRefreshPlans: handleRefreshPlans,
           onLoadPlan: (plan) => {
             handleLoadPlan(plan);
           },
+          onRenamePlan: handleRenamePlan,
           onDeletePlan: handleDeletePlanWithUndo,
-          onNewPlanForRace: (raceId) => {
-            void handleUseCatalogRace(raceId);
-          },
           onNewPlanGlobal: () => setIsRaceSelectorOpen(true),
           onDeleteRace: async (raceId) => {
             await handleDeleteRace(raceId);
@@ -1970,9 +1978,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     "Sans course";
   const planNameForSaveBar = planName.trim() || racePlannerCopy.account.plans.defaultName;
   const contextualRaceName = pendingCatalogRace?.name ?? activePlan?.raceName ?? null;
-  const pagePlanTitle = pendingCatalogRace
-    ? `${locale === "fr" ? "Estimer" : "Estimate"} ${pendingCatalogRace.name}`
-    : planName.trim() || activePlan?.name || racePlannerCopy.page.newPlanTitle;
+  const pagePlanTitle = racePlannerCopy.page.newPlanTitle;
   const raceReturnPath = pendingCatalogRaceId
     ? `/race-planner?catalogRaceId=${encodeURIComponent(pendingCatalogRaceId)}`
     : "/race-planner";
@@ -2048,7 +2054,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           </h1>
         </div>
         {runnerEnabled === false ? <GuestSaveBanner isAuthed={isAuthed} /> : null}
-        {runnerEnabled === null ? <p role="status">{locale === "fr" ? "Chargement des accès…" : "Loading access…"}</p> : runnerEnabled && (!session || session.isAnonymous) ? (
+        {runnerEnabled === null ? <p role="status">{locale === "fr" ? "Chargement des accès…" : "Loading access…"}</p> : runnerEnabled && (!session || session.isAnonymous) && Boolean(contextualRaceName || pendingCatalogRaceId || hasImportedCourse) ? (
           <section className="space-y-4 rounded-2xl border border-border bg-card p-6">
             <h2 className="text-xl font-semibold">
               {contextualRaceName
@@ -2078,9 +2084,9 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
               </Link>
             </div>
           </section>
-        ) : runnerEnabled && !runnerProfileLoaded && !activePlanId ? (
+        ) : runnerEnabled && session && !session.isAnonymous && !runnerProfileLoaded && !activePlanId ? (
           <PageLoadingSkeleton />
-        ) : runnerEnabled && !runnerProfileReady && !activePlanId ? (
+        ) : runnerEnabled && session && !session.isAnonymous && !runnerProfileReady && !activePlanId ? (
           <RunnerProfileStep token={session!.accessToken} locale={locale} onComplete={(profile) => {
             setRunnerProfileState({ userId: session!.id!, status: "loaded", profile });
             form.setValue("waterBagLiters", profile.waterBagLiters ?? 1.5);
@@ -2089,6 +2095,31 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
             form.setValue("paceType", pacing.paceType); form.setValue("paceMinutes", pacing.paceMinutes);
             form.setValue("paceSeconds", pacing.paceSeconds); form.setValue("speedKph", pacing.speedKph);
           }} />
+        ) : runnerEnabled && !activePlanId && !hasImportedCourse ? (
+          <section className="rounded-2xl border border-border bg-card p-6 sm:p-8">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".gpx,application/gpx+xml"
+              className="hidden"
+              onChange={handleImportGpx}
+            />
+            <div className="mx-auto max-w-2xl space-y-4 text-center">
+              <h2 className="text-2xl font-semibold">
+                {locale === "fr" ? "Choisis une course pour commencer" : "Choose a race to get started"}
+              </h2>
+              <p className="text-muted-foreground">
+                {locale === "fr"
+                  ? "Sélectionne une course du catalogue ou importe ton fichier GPX pour créer une estimation réelle."
+                  : "Select a race from the catalog or import your GPX file to create a real estimate."}
+              </p>
+              <div className="flex flex-col justify-center gap-3 sm:flex-row">
+                <Button type="button" onClick={() => setIsRaceCatalogOpen(true)}>{racePlannerCopy.buttons.chooseRace}</Button>
+                <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>{racePlannerCopy.buttons.importGpx}</Button>
+              </div>
+              {importError ? <p className="text-sm text-red-600" role="alert">{importError}</p> : null}
+            </div>
+          </section>
         ) : runnerEnabled && !runnerCanViewDetails ? (
           <div className="space-y-6">
             <RunnerPlanPreview locale={locale} planId={activePlanId} duration={pacingOverviewDuration} distanceKm={distanceForDuration} segments={segments} onSave={() => { void handleSaveWithToast(); }} />

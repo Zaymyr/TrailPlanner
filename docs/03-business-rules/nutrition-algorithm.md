@@ -397,3 +397,5 @@ The recap shows combined carbohydrate/sodium totals and a rounded ten-minute dri
 ## Plan editor presentation
 
 Official aid-station distance, name, type, and services remain read-only in the mobile editor and are now visibly marked as such with an accessibility explanation. Localized decimal parsing and shared one-decimal distance display affect input/presentation only; they do not change pacing, carbohydrate, sodium, or hydration calculations.
+
+The web runner now presents a true no-course empty state and restores selected saved plans through `planId`; these journey changes do not calculate a fictitious estimate and do not alter nutrition formulas.

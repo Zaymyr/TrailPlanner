@@ -60,7 +60,7 @@ export function RunnerAppBridge({
           </a>
           <p className="mt-2 text-sm text-muted-foreground">Scanne ce QR code avec ton téléphone</p>
           <a href={universalUrl} className="mt-1 inline-flex min-h-11 items-center font-semibold text-brand hover:underline">
-            Ouvrir le lien vers la course
+            {context === "estimate" ? "Ouvrir ce plan dans l’app" : "Ouvrir le lien vers la course"}
           </a>
         </div>
       </div>
