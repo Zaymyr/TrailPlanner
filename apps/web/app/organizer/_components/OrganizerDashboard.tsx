@@ -119,6 +119,7 @@ import {
 import {
   CompletionTabsPanel,
   OrganizerNoMembershipCard,
+  OrganizerProgressRail,
   OrganizerSignedOutCard,
   OrganizerSummaryHeader,
 } from "./dashboard/shell";
@@ -3685,40 +3686,10 @@ export function OrganizerDashboard({
         </div>
       ) : null}
 
-      <nav className="flex gap-1 border-b border-border" aria-label="Espace Livret coureur">
-        {([
-          ["content", "Contenu"],
-          ["analytics", "Statistiques"],
-        ] as const).map(([view, label]) => (
-          <button
-            key={view}
-            type="button"
-            className={`border-b-2 px-4 py-2.5 text-sm font-semibold transition ${dashboardView === view ? "border-brand text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-            aria-current={dashboardView === view ? "page" : undefined}
-            onClick={() => {
-              if (view === dashboardView) return;
-              if (view === "analytics") saveCurrentScopeInBackground();
-              setDashboardView(view);
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </nav>
-
       {dashboardView === "content" ? <>
-
+      <div className="grid items-start gap-4 xl:grid-cols-[220px_minmax(0,720px)_260px] xl:justify-center">
       {completion ? (
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-3 px-1">
-            <div className="flex items-center gap-2">
-              <p className="font-semibold text-foreground">Contenu du Livret coureur</p>
-              <ContextualHelp text={`Offre requise pour publier toutes les sections utilisées : ${ORGANIZER_TIER_LABEL[requiredPublicationTier]}.`} />
-            </div>
-            <Button type="button" variant="ghost" onClick={openModuleSettingsDialog} disabled={!moduleSettings} title="Choisir les sections affichées dans le Livret coureur sans supprimer leur contenu.">
-              Gérer les sections
-            </Button>
-          </div>
+        <div className="space-y-2 xl:col-start-1 xl:row-start-1">
           <CompletionTabsPanel
             tabs={tabs}
             activeTab={activeTab}
@@ -3739,6 +3710,9 @@ export function OrganizerDashboard({
             }}
             activeModule={activeModule}
           />
+          <Button type="button" variant="ghost" className="w-full" onClick={openModuleSettingsDialog} disabled={!moduleSettings} title="Choisir les sections affichées dans le Livret coureur sans supprimer leur contenu.">
+            Gérer les sections
+          </Button>
         </div>
       ) : null}
 
@@ -3847,7 +3821,7 @@ export function OrganizerDashboard({
         </DialogContent>
       </Dialog>
 
-      <Card className="rounded-lg">
+      <Card className="min-w-0 rounded-lg xl:col-start-2 xl:row-start-1">
         <CardHeader
           id="organizer-onboarding-editor"
           tabIndex={-1}
@@ -4207,6 +4181,12 @@ export function OrganizerDashboard({
         </CardContent>
       </Card>
 
+      {completion ? <OrganizerProgressRail completion={completion} onOpenAnalytics={() => {
+        saveCurrentScopeInBackground();
+        setDashboardView("analytics");
+      }} /> : null}
+      </div>
+
       <ProductPickerModal
         station={productPickerStation}
         products={catalogProducts}
@@ -4228,6 +4208,8 @@ export function OrganizerDashboard({
       />
 
       </> : activeEdition?.id && accessToken ? (
+        <div className="space-y-3">
+        <Button type="button" variant="ghost" onClick={() => setDashboardView("content")}>← Revenir au contenu</Button>
         <OrganizerAnalyticsPanel
           editionId={activeEdition.id}
           accessToken={accessToken}
@@ -4235,6 +4217,7 @@ export function OrganizerDashboard({
           races={websiteImportExistingRaces}
           onOpenPricing={() => openPricingDialog("upgrade")}
         />
+        </div>
       ) : (
         <p className="rounded-md border border-border bg-muted/30 p-4 text-sm text-muted-foreground">Sélectionnez une édition pour afficher ses statistiques.</p>
       )}

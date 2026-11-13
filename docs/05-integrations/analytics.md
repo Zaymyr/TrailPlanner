@@ -447,3 +447,5 @@ Organizer partner slots report only aggregate counters: `POST /api/racebook-part
 Catalog scroll performance (2026-11-09): the Courses list renders memoized `CatalogEventRow` rows (stable callbacks through a handler ref) over a memoized `RaceEventSummaryCard`, tunes FlatList virtualization (`initialNumToRender` 6, `maxToRenderPerBatch` 4, `windowSize` 9, `removeClippedSubviews` on Android), downsamples rail images (`resizeMethod="resize"`) and reads reduce-motion on favorite press instead of subscribing one accessibility listener per card. Presentation only: no query, payload, analytics event or favorite/update-read behavior changes.
 
 The organizer and runner follow-up changes reuse existing actions and do not introduce, rename or remove analytics events.
+
+Moving Organizer statistics from a top-level tab to the completion rail changes navigation presentation only; the existing analytics panel, access gates, requests, and event names are unchanged.

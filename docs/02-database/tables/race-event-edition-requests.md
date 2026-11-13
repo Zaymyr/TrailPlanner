@@ -114,3 +114,5 @@ The table retains `id`, timestamps, `user_id`, `event_id`, `source_year`, `reque
 Publication checks and partner slots (2026-11-09): pre-publication checks and the Matériel/hébergement partner slots read the built snapshot and their own table only. They do not read, write or change this domain's rows or contracts.
 
 Compact edition selectors and corrected completion presentation do not change edition-request writes or approval state.
+
+Repositioning the edition selector inside the compact Organizer banner does not change edition-request creation, duplication, or approval state.

@@ -146,3 +146,5 @@ This table is retained publication-review history. New organizer publication use
 Publication checks and partner slots (2026-11-09): pre-publication checks and the Matériel/hébergement partner slots read the built snapshot and their own table only. They do not read, write or change this domain's rows or contracts.
 
 Local organizer validation no longer surfaces a background autosave failure, and an incomplete required scope is capped below 100%; publication-request state remains server-owned.
+
+The compact Organizer banner and completion rail expose the same publication actions and readiness state; publication-request persistence and review remain server-owned.

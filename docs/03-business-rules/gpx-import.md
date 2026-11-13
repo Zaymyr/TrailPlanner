@@ -318,3 +318,5 @@ The video generator format picker labels each format "GPX" or "sans GPX" from th
 Publication checks and partner slots (2026-11-09): pre-publication checks and the Matériel/hébergement partner slots read the built snapshot and their own table only. They do not read, write or change this domain's rows or contracts.
 
 The organizer GPX input now uses the shared file field with a visible filename, replacement and confirmed removal; parsing, metrics and snapshot behavior are unchanged.
+
+The three-column Organizer workspace moves Course/GPX navigation and completion guidance around the editor without changing GPX parsing, replacement, metrics, or publication snapshots.
