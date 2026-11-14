@@ -12,6 +12,7 @@ ai_priority: medium
 # Organizer polish (2026-11-13): GPX/image upload is in the Course right rail (desktop) or “Tracé et médias” (mobile); ravito start/cutoff times are under “Horaires et consignes”.
 # Fill-flow note (2026-11-13): organizer form ergonomics (ravito services, Enter-to-add, slot undo, sponsor ordering) do not alter stored data or contracts.
 # UX pass (2026-11-14): pick a format in the left column and its sections open right below it; Matériel adds items from the bar at the top of the list.
+# Course timeline pass (2026-11-14): the Départ/ravitos editor shows one timeline filtered by Tout / Ravitos / Suivi / SAS / Relais; SAS sit right after Départ, each point kind has its own marker (ravito green dot, base de vie larger dot + badge, suivi blue ring + “Suivi” tag, relais violet diamond), aid/relay/finish rows show a clock cutoff chip or “Sans barrière”, the right panel follows the clicked point, the timeline is height-capped with its own scroll, and “Horaires et consignes” sits below the grid so the sticky timeline no longer overlaps it.
 related_files:
   - scripts/generate-racebook-organizer-manual.mjs
   - apps/web/app/organizers/page.tsx

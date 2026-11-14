@@ -22,7 +22,9 @@ import type {
   GpxPreview,
 } from "./types";
 
-type EditorView = "startWaves" | "aidStations" | "supporters" | "relay";
+type EditorView = "all" | "startWaves" | "aidStations" | "supporters" | "relay";
+type EditorPanel = "aid" | "supporter" | "startWaves" | "relay";
+type TimelineKind = "start" | "sas" | "aid" | "supporter" | "relay" | "finish";
 
 export function AidStationsEditor({
   activeRace,
@@ -107,8 +109,10 @@ export function AidStationsEditor({
 }) {
   const [viewState, setViewState] = useState<{ scopeKey: string; view: EditorView }>({
     scopeKey: "",
-    view: "aidStations",
+    view: "all",
   });
+  const [panel, setPanel] = useState<EditorPanel>("aid");
+  const [selectedSupporterIndex, setSelectedSupporterIndex] = useState(0);
   const [stationDraft, setStationDraft] = useState<{ name: string; distanceKm: number } | null>(null);
   const [stationDraftTouched, setStationDraftTouched] = useState(false);
   const [pendingStationRemoval, setPendingStationRemoval] = useState<{ index: number; name: string } | null>(null);
@@ -134,26 +138,59 @@ export function AidStationsEditor({
   const viewScopeKey = `${activeRace?.id ?? ""}:${participationMode}`;
 
   useEffect(() => {
-    setViewState({ scopeKey: viewScopeKey, view: "aidStations" });
+    setViewState({ scopeKey: viewScopeKey, view: "all" });
+    setPanel("aid");
+    setSelectedSupporterIndex(0);
     setStationDraft(null);
     setStationDraftTouched(false);
   }, [viewScopeKey]);
 
   if (!activeRace) return <p className="text-sm text-muted-foreground">Sélectionne un format pour gérer ses ravitos.</p>;
-  const activeView = viewState.scopeKey === viewScopeKey ? viewState.view : "aidStations";
+  const activeView = viewState.scopeKey === viewScopeKey ? viewState.view : "all";
   const sortedRelayPoints = [...relayPoints].sort((left, right) => left.distanceKm - right.distanceKm);
   const relayBoundaries = [
     { name: "Départ", distanceKm: 0 },
     ...sortedRelayPoints,
     { name: "Arrivée", distanceKm: activeRace.distance_km },
   ];
-  const courseTimelinePoints = [
+  const courseTimelinePoints: Array<{ key: string; kind: TimelineKind; name: string; distanceKm: number; time: string; index: number }> = [
     { key: "start", kind: "start" as const, name: "Départ", distanceKm: 0, time: startTime, index: -1 },
+    { key: "sas", kind: "sas" as const, name: startWaveCount > 0 ? `${startWaveCount} SAS de départ` : "Aucun SAS", distanceKm: 0, time: "", index: -1 },
     ...aidStations.map((station, index) => ({ key: station.id ?? `new-${index}`, kind: "aid" as const, name: station.name || `Ravito ${index + 1}`, distanceKm: station.distanceKm, time: station.organizerDetails.cutoffTime ?? "", index })),
     ...supporterPoints.map((point, index) => ({ key: point.id ?? `supporter-${index}`, kind: "supporter" as const, name: point.name || `Suivi ${index + 1}`, distanceKm: point.distanceKm ?? 0, time: "", index })),
     ...relayPoints.filter((point) => !point.raceAidStationId).map((point, index) => ({ key: point.id ?? `relay-${index}`, kind: "relay" as const, name: point.name || `Relais ${index + 1}`, distanceKm: point.distanceKm, time: point.cutoffTime, index })),
     { key: "finish", kind: "finish" as const, name: "Arrivée", distanceKm: activeRace.distance_km, time: finishCutoffTime, index: -1 },
-  ].sort((left, right) => left.distanceKm - right.distanceKm || (left.kind === "start" ? -1 : right.kind === "finish" ? -1 : 0));
+  ].sort((left, right) => left.distanceKm - right.distanceKm || TIMELINE_KIND_ORDER[left.kind] - TIMELINE_KIND_ORDER[right.kind]);
+  const linkedRelayStationIds = new Set(relayPoints.map((point) => point.raceAidStationId).filter(Boolean));
+  const visibleTimelinePoints = courseTimelinePoints.filter((point) => {
+    if (point.kind === "start" || point.kind === "finish") return true;
+    if (activeView === "all") return point.kind !== "sas" || startWaveCount > 0;
+    if (activeView === "aidStations") return point.kind === "aid";
+    if (activeView === "supporters") return point.kind === "supporter";
+    if (activeView === "startWaves") return point.kind === "sas";
+    return point.kind === "relay" || (point.kind === "aid" && Boolean(aidStations[point.index]?.id && linkedRelayStationIds.has(aidStations[point.index]?.id)));
+  });
+  const clampedSupporterIndex = Math.min(selectedSupporterIndex, Math.max(0, supporterPoints.length - 1));
+  const changeView = (view: EditorView) => {
+    setViewState({ scopeKey: viewScopeKey, view });
+    if (view === "aidStations") setPanel("aid");
+    else if (view === "supporters") setPanel("supporter");
+    else if (view === "startWaves") setPanel("startWaves");
+    else if (view === "relay") setPanel("relay");
+  };
+  const selectPoint = (point: (typeof courseTimelinePoints)[number]) => {
+    if (point.kind === "start" || point.kind === "sas") setPanel("startWaves");
+    else if (point.kind === "supporter") { setPanel("supporter"); setSelectedSupporterIndex(point.index); }
+    else if (point.kind === "relay") setPanel("relay");
+    else if (point.kind === "aid") {
+      setPanel("aid");
+      setStationDraft(null);
+      onExpandedStationKeyChange(point.key);
+      setMobileStationOpen(true);
+    } else {
+      document.getElementById("course-finish-cutoff")?.focus();
+    }
+  };
   const selectedAidStationIndex = Math.max(0, aidStations.findIndex((station, index) => (station.id ?? `new-${index}`) === expandedStationKey));
   const selectedAidStation = aidStations[selectedAidStationIndex] ?? null;
   const selectedAidStationKey = selectedAidStation ? selectedAidStation.id ?? `new-${selectedAidStationIndex}` : null;
@@ -178,62 +215,92 @@ export function AidStationsEditor({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2" aria-label="Filtrer la ligne de course">
           {([
+            ["all", "Tout"],
             ["aidStations", `Ravitos ${aidStations.length}`],
-            ["startWaves", `SAS ${startWaveCount}`],
             ...(supporterPointsEnabled ? [["supporters", `Suivi ${supporterPoints.length}`]] : []),
+            ["startWaves", `SAS ${startWaveCount}`],
             ...(relayEnabled ? [["relay", `Relais ${relayPoints.length}`]] : []),
-          ] as Array<[EditorView, string]>).map(([view, label]) => <button key={view} type="button" aria-pressed={activeView === view} onClick={() => setViewState({ scopeKey: viewScopeKey, view })} className={cn("min-h-10 rounded-full border px-3 text-sm font-semibold transition", activeView === view ? "border-brand bg-brand-surface text-brand" : "border-border bg-card text-muted-foreground hover:text-foreground")}>{label}</button>)}
+          ] as Array<[EditorView, string]>).map(([view, label]) => <button key={view} type="button" aria-pressed={activeView === view} onClick={() => changeView(view)} className={cn("min-h-10 rounded-full border px-3 text-sm font-semibold transition", activeView === view ? "border-brand bg-brand-surface text-brand" : "border-border bg-card text-muted-foreground hover:text-foreground")}>{label}</button>)}
         </div>
-        {activeView !== "startWaves" ? (
-          activeView === "aidStations" ? (
-            <Button type="button" variant="outline" onClick={() => setStationDraft({ name: "", distanceKm: 0 })}>
-              Ajouter un ravito
-            </Button>
-          ) : activeView === "supporters" ? (
-            <Button type="button" variant="outline" onClick={onAddSupporterPoint}>
-              Ajouter un point de suivi
-            </Button>
-          ) : (
-            <Button type="button" variant="outline" onClick={onAddRelayPoint}>
-              Ajouter un point de relais
-            </Button>
-          )
-        ) : null}
+        <div className="flex flex-wrap gap-2">
+          {activeView === "all" || activeView === "aidStations" ? (
+            <Button type="button" variant="outline" onClick={() => { setPanel("aid"); setStationDraft({ name: "", distanceKm: 0 }); }}>+ Ravito</Button>
+          ) : null}
+          {supporterPointsEnabled && (activeView === "all" || activeView === "supporters") ? (
+            <Button type="button" variant="outline" onClick={() => { onAddSupporterPoint(); setPanel("supporter"); setSelectedSupporterIndex(supporterPoints.length); }}>+ Point de suivi</Button>
+          ) : null}
+          {activeView === "relay" ? (
+            <Button type="button" variant="outline" onClick={onAddRelayPoint}>+ Point de relais</Button>
+          ) : null}
+        </div>
       </div>
 
-      <div className={cn(activeView === "aidStations" && "grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(260px,1fr)_minmax(0,1.3fr)]")}>
-      <section className="rounded-xl border border-border bg-card p-3 lg:sticky lg:top-3" aria-label="Ligne de course">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(260px,1fr)_minmax(0,1.3fr)]">
+      <section className="rounded-xl border border-border bg-card p-3 lg:sticky lg:top-3 lg:max-h-[calc(100vh-1.5rem)] lg:overflow-y-auto" aria-label="Ligne de course">
         <div className="relative ml-8 border-l-2 border-brand-border pl-5">
-          {courseTimelinePoints.map((point) => {
+          {visibleTimelinePoints.map((point) => {
             const station = point.kind === "aid" ? aidStations[point.index] : null;
-            const isSelected = point.kind === "aid" && point.key === selectedAidStationKey;
-            return <button key={`${point.kind}-${point.key}`} type="button" data-station-index={point.kind === "aid" ? point.index : undefined} aria-selected={point.kind === "aid" ? isSelected : undefined} className={cn("relative flex min-h-12 w-full items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring", isSelected && "bg-brand-surface text-brand")} onKeyDown={(event) => {
-              if (point.kind !== "aid" || (event.key !== "ArrowDown" && event.key !== "ArrowUp")) return;
-              event.preventDefault();
-              const nextIndex = event.key === "ArrowDown" ? Math.min(aidStations.length - 1, point.index + 1) : Math.max(0, point.index - 1);
-              const nextStation = aidStations[nextIndex];
-              if (!nextStation) return;
-              onExpandedStationKeyChange(nextStation.id ?? `new-${nextIndex}`);
-              document.querySelector<HTMLElement>(`[data-station-index="${nextIndex}"]`)?.focus();
-            }} onClick={() => {
-              if (point.kind === "start") setViewState({ scopeKey: viewScopeKey, view: "startWaves" });
-              else if (point.kind === "supporter") setViewState({ scopeKey: viewScopeKey, view: "supporters" });
-              else if (point.kind === "relay") setViewState({ scopeKey: viewScopeKey, view: "relay" });
-              else {
-                setViewState({ scopeKey: viewScopeKey, view: "aidStations" });
-                if (point.kind === "aid") {
-                  onExpandedStationKeyChange(point.key);
-                  setMobileStationOpen(true);
-                }
-              }
-            }}><span className={cn("absolute -left-[1.72rem] top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full border-2 border-card", point.kind === "start" || point.kind === "finish" ? "bg-brand" : "bg-brand/50")} aria-hidden="true" /><span className="w-10 shrink-0 font-mono text-xs font-semibold tabular-nums text-muted-foreground">{point.distanceKm.toFixed(1)}</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-foreground" title={point.name}>{point.name}</span>{station || point.time ? <span className="mt-0.5 flex flex-wrap items-center gap-1.5">{station?.organizerDetails.stationType === "life_base" ? <span className="rounded bg-brand px-1.5 text-[11px] font-semibold leading-5 text-brand-foreground">Base de vie</span> : null}{point.time ? <span className="font-mono text-xs tabular-nums text-muted-foreground">{normalizeClockInputValue(point.time)}</span> : null}{station ? <span className="flex gap-1 text-[11px] font-semibold leading-5" aria-label={`Services : ${[station.waterRefill && "eau", station.solidRefill && "solide", station.assistanceAllowed && "assistance"].filter(Boolean).join(", ") || "aucun"}`}>{station.waterRefill ? <span className="rounded bg-brand-surface px-1.5 text-brand" title="Eau">E<span className="sr-only"> eau</span></span> : null}{station.solidRefill ? <span className="rounded bg-brand-surface px-1.5 text-brand" title="Solide">S<span className="sr-only"> solide</span></span> : null}{station.assistanceAllowed ? <span className="rounded bg-brand-surface px-1.5 text-brand" title="Assistance">A<span className="sr-only"> assistance</span></span> : null}</span> : null}</span> : null}</span></button>;
+            const supporter = point.kind === "supporter" ? supporterPoints[point.index] : null;
+            const isLifeBase = station?.organizerDetails.stationType === "life_base";
+            const isSelected = (point.kind === "aid" && panel === "aid" && point.key === selectedAidStationKey)
+              || (point.kind === "supporter" && panel === "supporter" && point.index === clampedSupporterIndex)
+              || (point.kind === "sas" && panel === "startWaves")
+              || (point.kind === "relay" && panel === "relay");
+            const showsCutoff = point.kind === "aid" || point.kind === "relay" || point.kind === "finish";
+            return (
+              <button
+                key={`${point.kind}-${point.key}`}
+                type="button"
+                data-timeline-point
+                aria-current={isSelected ? "true" : undefined}
+                className={cn(
+                  "relative flex min-h-11 w-full items-start gap-3 rounded-lg px-2 py-1.5 text-left hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
+                  point.kind === "sas" && "min-h-9 py-1",
+                  isSelected && (point.kind === "supporter" ? "bg-sky-50 ring-1 ring-sky-200 dark:bg-sky-950/40 dark:ring-sky-800" : "bg-brand-surface")
+                )}
+                onKeyDown={(event) => {
+                  if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+                  event.preventDefault();
+                  const buttons = Array.from(event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>("[data-timeline-point]") ?? []);
+                  const next = buttons[buttons.indexOf(event.currentTarget) + (event.key === "ArrowDown" ? 1 : -1)];
+                  next?.focus();
+                  next?.click();
+                }}
+                onClick={() => selectPoint(point)}
+              >
+                <TimelineMarker kind={point.kind} lifeBase={isLifeBase} />
+                <span className="w-10 shrink-0 pt-0.5 font-mono text-xs font-semibold tabular-nums text-muted-foreground">{point.kind === "sas" ? "" : supporter && supporter.distanceKm === null ? "—" : point.distanceKm.toFixed(1)}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className={cn("truncate text-sm text-foreground", point.kind === "sas" ? "font-medium" : "font-semibold")} title={point.name}>{point.name}</span>
+                    {point.kind === "supporter" ? <span className="shrink-0 rounded bg-sky-100 px-1.5 text-[11px] font-semibold leading-5 text-sky-800 dark:bg-sky-900/50 dark:text-sky-200">Suivi</span> : null}
+                    {point.kind === "relay" ? <span className="shrink-0 rounded bg-violet-100 px-1.5 text-[11px] font-semibold leading-5 text-violet-800 dark:bg-violet-900/50 dark:text-violet-200">Relais</span> : null}
+                  </span>
+                  {point.kind !== "sas" ? (
+                    <span className="mt-0.5 flex flex-wrap items-center gap-1">
+                      {isLifeBase ? <span className="rounded bg-brand px-1.5 text-[11px] font-semibold leading-5 text-brand-foreground">Base de vie</span> : null}
+                      {point.kind === "start" && point.time ? <span className="font-mono text-xs tabular-nums text-muted-foreground">{normalizeClockInputValue(point.time)}</span> : null}
+                      {showsCutoff ? <CutoffChip time={normalizeClockInputValue(point.time) ?? ""} /> : null}
+                      {station ? <ServiceLetters station={station} /> : null}
+                      {supporter ? (
+                        <span className="text-[11px] text-sky-800 dark:text-sky-200">{[supporter.encouragementAllowed && "Encouragements", supporter.assistanceAllowed && "Assistance"].filter(Boolean).join(" · ") || "À configurer"}</span>
+                      ) : null}
+                    </span>
+                  ) : null}
+                </span>
+              </button>
+            );
           })}
         </div>
-        <p className="mt-2 px-2 text-xs text-muted-foreground">E eau · S solide · A assistance</p>
+        <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 px-2 text-[11px] text-muted-foreground">
+          <span>E eau · S solide · A assistance</span>
+          <span className="inline-flex items-center gap-1"><ClockGlyph /> barrière horaire</span>
+        </p>
       </section>
 
-      {activeView === "startWaves" ? startWavesSlot : activeView === "supporters" ? (
+      {panel === "startWaves" ? startWavesSlot : panel === "supporter" ? (
         <SupporterPointsEditor
+          onlyIndex={clampedSupporterIndex}
           activeRace={activeRace}
           aidStations={aidStations}
           gpxPreview={gpxPreview}
@@ -242,7 +309,7 @@ export function AidStationsEditor({
           onChange={onUpdateSupporterPoint}
           onRemove={onRemoveSupporterPoint}
         />
-      ) : activeView === "aidStations" ? (
+      ) : panel === "aid" ? (
         <>
           {stationDraft ? (
             <form noValidate className="space-y-3 rounded-xl border border-dashed border-brand-border bg-brand-surface/30 p-4" aria-label="Nouveau ravito" onSubmit={(event) => {
@@ -298,13 +365,6 @@ export function AidStationsEditor({
           {aidStations.length === 0 ? (
             <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">Aucun ravito.</p>
           ) : null}
-          <section className="grid gap-4 rounded-xl border border-border bg-background p-4 md:grid-cols-2 lg:col-span-2" aria-label="Horaires et consignes de course">
-            <p className="font-semibold text-foreground md:col-span-2">Horaires et consignes</p>
-            <TextField label={startWaveCount > 0 ? "Premier départ" : "Heure de départ"} hint={startWaveCount > 0 ? "Piloté par les SAS : modifie l’heure dans l’onglet SAS." : undefined} type="time" value={normalizeClockInputValue(startTime) ?? ""} onChange={onStartTimeChange} disabled={startWaveCount > 0} />
-            <TextField label="Barrière finale" type="time" value={normalizeClockInputValue(finishCutoffTime) ?? ""} onChange={onFinishCutoffTimeChange} />
-            <TextAreaField label="Consignes de barrières horaires" value={cutoffNote} onChange={onCutoffNoteChange} />
-            <TextAreaField label="Contraintes et consignes de course" value={scheduleNote} onChange={onScheduleNoteChange} />
-          </section>
         </>
       ) : (
         <div className="space-y-4">
@@ -372,6 +432,13 @@ export function AidStationsEditor({
         </div>
       )}
       </div>
+      <section className="grid gap-4 rounded-xl border border-border bg-background p-4 md:grid-cols-2" aria-label="Horaires et consignes de course">
+        <p className="font-semibold text-foreground md:col-span-2">Horaires et consignes</p>
+        <TextField label={startWaveCount > 0 ? "Premier départ" : "Heure de départ"} hint={startWaveCount > 0 ? "Piloté par les SAS : modifie l’heure dans l’onglet SAS." : undefined} type="time" value={normalizeClockInputValue(startTime) ?? ""} onChange={onStartTimeChange} disabled={startWaveCount > 0} />
+        <TextField id="course-finish-cutoff" label="Barrière finale" type="time" value={normalizeClockInputValue(finishCutoffTime) ?? ""} onChange={onFinishCutoffTimeChange} />
+        <TextAreaField label="Consignes de barrières horaires" value={cutoffNote} onChange={onCutoffNoteChange} />
+        <TextAreaField label="Contraintes et consignes de course" value={scheduleNote} onChange={onScheduleNoteChange} />
+      </section>
       <ConfirmDialog
         open={pendingStationRemoval !== null}
         onOpenChange={(open) => { if (!open) setPendingStationRemoval(null); }}
@@ -390,6 +457,7 @@ export function AidStationsEditor({
 }
 
 function SupporterPointsEditor({
+  onlyIndex,
   activeRace,
   aidStations,
   gpxPreview,
@@ -405,6 +473,7 @@ function SupporterPointsEditor({
   status: "idle" | "loading" | "saving" | "uploading";
   onChange: (index: number, point: SupporterPointDraft) => void;
   onRemove: (index: number) => void;
+  onlyIndex?: number;
 }) {
   if (points.length === 0) {
     return <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">Aucun point de suivi coureur.</p>;
@@ -413,6 +482,7 @@ function SupporterPointsEditor({
   return (
     <div className="space-y-4">
       {points.map((point, index) => {
+        if (onlyIndex !== undefined && index !== onlyIndex) return null;
         const matchingStationIndex = aidStations.findIndex((station) =>
           station.name.trim() === point.name.trim()
           && point.distanceKm !== null
@@ -688,4 +758,44 @@ function StationServiceChip({
 
 function formatOptionalMeters(value: number | null | undefined) {
   return value === null || value === undefined ? "-" : `${value} m`;
+}
+
+const TIMELINE_KIND_ORDER: Record<TimelineKind, number> = { start: 0, sas: 1, aid: 2, supporter: 3, relay: 4, finish: 5 };
+
+function TimelineMarker({ kind, lifeBase }: { kind: TimelineKind; lifeBase?: boolean }) {
+  const base = "absolute top-3 -translate-x-1/2";
+  if (kind === "start" || kind === "finish") return <span className={cn(base, "-left-[1.3rem] h-3.5 w-3.5 rounded-full border-2 border-card bg-brand")} aria-hidden="true" />;
+  if (kind === "sas") return <span className={cn(base, "-left-[1.3rem] top-2.5 h-2.5 w-2.5 rounded-full border-2 border-brand bg-card")} aria-hidden="true" />;
+  if (kind === "supporter") return <span className={cn(base, "-left-[1.3rem] h-3.5 w-3.5 rounded-full border-[3px] border-sky-600 bg-card")} aria-hidden="true" />;
+  if (kind === "relay") return <span className={cn(base, "-left-[1.3rem] h-3 w-3 rotate-45 bg-violet-600")} aria-hidden="true" />;
+  return <span className={cn(base, "-left-[1.3rem] rounded-full border-2 border-card bg-brand/70", lifeBase ? "h-4 w-4 bg-brand ring-2 ring-brand/30" : "h-3.5 w-3.5")} aria-hidden="true" />;
+}
+
+function ClockGlyph() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth={1.6} aria-hidden="true">
+      <circle cx="8" cy="8" r="6.2" />
+      <path d="M8 4.6V8l2.3 1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CutoffChip({ time }: { time: string }) {
+  if (!time) return <span className="rounded border border-dashed border-border px-1.5 text-[11px] leading-5 text-muted-foreground" title="Aucune barrière horaire">Sans barrière</span>;
+  return (
+    <span className="inline-flex items-center gap-1 rounded border border-border bg-background px-1.5 font-mono text-[11px] leading-5 tabular-nums text-foreground" title="Barrière horaire">
+      <ClockGlyph />
+      {time}
+    </span>
+  );
+}
+
+function ServiceLetters({ station }: { station: AidStationDraft }) {
+  return (
+    <span className="flex gap-1 text-[11px] font-semibold leading-5" aria-label={`Services : ${[station.waterRefill && "eau", station.solidRefill && "solide", station.assistanceAllowed && "assistance"].filter(Boolean).join(", ") || "aucun"}`}>
+      {station.waterRefill ? <span className="rounded bg-brand-surface px-1.5 text-brand" title="Eau">E</span> : null}
+      {station.solidRefill ? <span className="rounded bg-brand-surface px-1.5 text-brand" title="Solide">S</span> : null}
+      {station.assistanceAllowed ? <span className="rounded bg-brand-surface px-1.5 text-brand" title="Assistance">A</span> : null}
+    </span>
+  );
 }

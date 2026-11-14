@@ -313,9 +313,12 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(source).toContain('`Ravitos ${aidStations.length}`');
     expect(source).toContain('`Suivi ${supporterPoints.length}`');
     expect(source).toContain('`Relais ${relayPoints.length}`');
-    expect(source.match(/view: "aidStations"/g)).toHaveLength(3);
-    expect(source).toContain('viewState.view : "aidStations"');
+    expect(source).toContain('viewState.view : "all"');
+    expect(source).toContain('["all", "Tout"]');
     expect(source).toContain('activeView === "aidStations"');
+    expect(source).toContain('{ key: "sas", kind: "sas" as const');
+    expect(source).toContain("function CutoffChip");
+    expect(source).toContain("function TimelineMarker");
     expect(source).toContain("disabled={startWaveCount > 0}");
     expect(source).toContain('{ key: "start", kind: "start" as const, name: "Départ"');
     expect(source).toContain('{ key: "finish", kind: "finish" as const, name: "Arrivée"');
