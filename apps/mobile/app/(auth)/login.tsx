@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
   View,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   KeyboardAvoidingView,
@@ -9,6 +8,9 @@ import {
   ScrollView,
 } from 'react-native';
 import { Text } from '../../components/themed/Text';
+import { ActionButton } from '../../components/themed/ActionButton';
+import { Field } from '../../components/themed/Field';
+import { TopoCard } from '../../components/themed/TopoCard';
 import { Link } from 'expo-router';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { clearPendingGuestMerge, preparePendingGuestMerge } from '../../lib/accountConversion';
@@ -137,24 +139,25 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
-        <Text style={styles.title}>Pace Yourself</Text>
-        <Text style={styles.subtitle}>
-          {isGuestSession ? t.auth.guestLoginSubtitle : t.auth.loginSubtitle}
-        </Text>
+        <TopoCard surface="brand" variant="featured" style={styles.hero}>
+          <Text style={styles.title}>Pace Yourself</Text>
+          <Text style={styles.subtitle}>
+            {isGuestSession ? t.auth.guestLoginSubtitle : t.auth.loginSubtitle}
+          </Text>
+        </TopoCard>
 
         {isGuestSession ? (
-          <View style={styles.infoCard}>
+          <TopoCard surface="cream" style={styles.infoCard}>
             <Text style={styles.infoTitle}>{t.auth.guestModeTitle}</Text>
             <Text style={styles.infoBody}>{t.auth.guestLoginHint}</Text>
-          </View>
+          </TopoCard>
         ) : null}
 
-        <TextInput
+        <Field
           accessibilityLabel={t.auth.emailPlaceholder}
           testID="auth-login-email"
-          style={styles.input}
+          containerStyle={styles.field}
           placeholder={t.auth.emailPlaceholder}
-          placeholderTextColor={Colors.textMuted}
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
@@ -162,12 +165,11 @@ export default function LoginScreen() {
           textContentType="emailAddress"
         />
 
-        <TextInput
+        <Field
           accessibilityLabel={t.auth.passwordPlaceholder}
           testID="auth-login-password"
-          style={styles.input}
+          containerStyle={styles.field}
           placeholder={t.auth.passwordPlaceholder}
-          placeholderTextColor={Colors.textMuted}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -176,15 +178,16 @@ export default function LoginScreen() {
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <TouchableOpacity
-          accessibilityRole="button"
+        <ActionButton
+          fullWidth
+          isLoading={loading}
+          size="lg"
           testID="auth-login-submit"
-          style={[styles.button, loading && styles.buttonDisabled]}
           onPress={handleLogin}
           disabled={loading}
         >
-          <Text style={styles.buttonText}>{loading ? t.auth.loggingIn : t.auth.loginCta}</Text>
-        </TouchableOpacity>
+          {t.auth.loginCta}
+        </ActionButton>
 
         {hasSocialAuth ? (
           <>
@@ -224,13 +227,14 @@ export default function LoginScreen() {
                   />
                 </View>
               ) : (
-                <TouchableOpacity
-                  style={[styles.googleButton, loading && styles.buttonDisabled]}
+                <ActionButton
+                  fullWidth
+                  variant="secondary"
                   onPress={handleGoogleLogin}
                   disabled={loading}
                 >
-                  <Text style={styles.googleButtonText}>{t.auth.googleCta}</Text>
-                </TouchableOpacity>
+                  {t.auth.googleCta}
+                </ActionButton>
               )
             ) : null}
           </>
@@ -256,30 +260,27 @@ const styles = StyleSheet.create({
   },
   inner: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 96,
+    paddingHorizontal: 16,
+    paddingTop: 72,
     paddingBottom: 32,
+  },
+  hero: {
+    marginBottom: 20,
+    paddingVertical: 22,
   },
   title: {
     fontSize: 32,
     fontWeight: '800',
     color: Colors.brandPrimary,
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   subtitle: {
     fontSize: 16,
     color: Colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 20,
   },
   infoCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
     marginBottom: 16,
   },
   infoTitle: {
@@ -293,15 +294,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-  input: {
-    backgroundColor: Colors.surface,
-    color: Colors.textPrimary,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
+  field: {
     marginBottom: 12,
   },
   error: {
@@ -310,20 +303,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     textAlign: 'center',
   },
-  button: {
-    backgroundColor: Colors.brandPrimary,
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 8,
-  },
   buttonDisabled: {
     opacity: 0.6,
-  },
-  buttonText: {
-    color: Colors.textOnBrand,
-    fontSize: 16,
-    fontWeight: '700',
   },
   dividerRow: {
     flexDirection: 'row',
@@ -349,19 +330,6 @@ const styles = StyleSheet.create({
   },
   altSpacing: {
     height: 8,
-  },
-  googleButton: {
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-  },
-  googleButtonText: {
-    color: Colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '600',
   },
   googleNativeButtonWrap: {
     alignSelf: 'stretch',

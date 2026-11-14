@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react';
-import { Animated, Pressable, StyleSheet, View } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { Animated, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ErrorState } from '../../components/themed/ErrorState';
+import { IconAction } from '../../components/themed/IconAction';
 import { LoadingState } from '../../components/themed/LoadingState';
 import { NutritionContent } from '../../components/nutrition/NutritionContent';
 import { RootScreenActionMenu } from '../../components/navigation/RootScreenActionMenu';
@@ -96,16 +96,14 @@ export default function NutritionScreen() {
       topInset={insets.top}
     />
   ) : (
-    <Pressable
+    <IconAction
       accessibilityLabel={t.common.back}
-      accessibilityRole="button"
-      hitSlop={6}
       onPress={() => (router.canGoBack() ? router.back() : router.replace('/(app)/profile'))}
-      style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
+      style={styles.backButton}
       testID="nutrition-back"
-    >
-      <Ionicons color={Colors.textOnBrand} name="chevron-back" size={24} />
-    </Pressable>
+      tone="onBrand"
+      variant="back"
+    />
   );
 
   async function continuePlanOnboarding() {
@@ -255,6 +253,7 @@ export default function NutritionScreen() {
           title={t.onboarding.tours.productsTitle}
           body={t.onboarding.tours.productsBody}
           actionLabel={t.onboarding.tours.continueToPlan}
+          actionKind="navigate"
           onAction={() => void continuePlanOnboarding()}
           skipLabel={t.onboarding.tours.skip}
           onSkip={() => void skipPlanOnboarding()}
@@ -266,17 +265,8 @@ export default function NutritionScreen() {
 }
 
 const styles = StyleSheet.create({
-  backButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.34)',
-    backgroundColor: 'rgba(0,0,0,0.16)',
-  },
-  backButtonPressed: { opacity: 0.68 },
+  // The blade tip reaches into the header gutter so its body lines up with the title.
+  backButton: { marginLeft: -6, marginTop: 1 },
   screen: {
     flex: 1,
     backgroundColor: Colors.background,

@@ -7,14 +7,16 @@ import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
 import type { Locale, MobileTranslations } from '../../locales/types';
 import { Colors } from '../../constants/colors';
 import { RaceEventSummaryCard } from '../race/RaceEventSummaryCard';
+import { ActionButton } from '../themed/ActionButton';
+import { Field } from '../themed/Field';
+import { SheetHeader } from '../themed/SheetHeader';
+import { StatusPill } from '../themed/StatusPill';
 import { Text } from '../themed/Text';
 import { OnboardingShell } from './OnboardingIntroSteps';
 
@@ -178,13 +180,14 @@ export function OnboardingRaceSelectionStep({
             </View>
           ) : null}
 
-          <TextInput
-            style={styles.textInput}
-            value={raceSearch}
+          <Field
+            accessibilityLabel={copy.onboarding.raceSearchPlaceholder}
+            autoCapitalize="none"
+            containerStyle={styles.searchField}
             onChangeText={onChangeRaceSearch}
             placeholder={copy.onboarding.raceSearchPlaceholder}
-            placeholderTextColor={Colors.textMuted}
-            autoCapitalize="none"
+            value={raceSearch}
+            variant="search"
           />
 
           {loadingRaces ? (
@@ -195,9 +198,9 @@ export function OnboardingRaceSelectionStep({
           ) : raceLoadError ? (
             <View style={styles.raceCenteredState}>
               <Text style={styles.errorText}>{raceLoadError}</Text>
-              <TouchableOpacity style={styles.retryButtonInline} onPress={onRetryRaces}>
-                <Text style={styles.retryButtonInlineText}>{copy.common.retry}</Text>
-              </TouchableOpacity>
+              <ActionButton onPress={onRetryRaces} size="sm" variant="secondary">
+                {copy.common.retry}
+              </ActionButton>
             </View>
           ) : filteredRaceEventGroups.length === 0 ? (
             <View style={styles.raceCenteredState}>
@@ -233,21 +236,12 @@ export function OnboardingRaceSelectionStep({
         <View style={styles.modalBackdrop}>
           <Pressable style={styles.sheetOverlay} onPress={onCloseRaceEvent} />
           <SafeAreaView accessibilityViewIsModal style={styles.sheetCard}>
-            <View style={styles.sheetHandle} />
-            <View style={styles.sheetHeader}>
-              <View style={styles.sheetHeaderText}>
-                <Text style={styles.sheetTitle}>{selectedRaceEvent?.name}</Text>
-                {selectedRaceEventMeta ? <Text style={styles.sheetSubtitle}>{selectedRaceEventMeta}</Text> : null}
-              </View>
-              <TouchableOpacity
-                accessibilityLabel={copy.common.close}
-                accessibilityRole="button"
-                style={styles.sheetCloseButton}
-                onPress={onCloseRaceEvent}
-              >
-                <Ionicons name="close" size={20} color={Colors.textPrimary} />
-              </TouchableOpacity>
-            </View>
+            <SheetHeader
+              closeLabel={copy.common.close}
+              onClose={onCloseRaceEvent}
+              subtitle={selectedRaceEventMeta}
+              title={selectedRaceEvent?.name ?? ''}
+            />
 
             {selectedRaceEventImage ? (
               <Image source={{ uri: selectedRaceEventImage }} style={styles.sheetImage} resizeMode="cover" />
@@ -255,14 +249,10 @@ export function OnboardingRaceSelectionStep({
 
             <View style={styles.eventSummaryRow}>
               {selectedRaceEventFormatsLabel ? (
-                <View style={styles.summaryPill}>
-                  <Text style={styles.summaryPillText}>{selectedRaceEventFormatsLabel}</Text>
-                </View>
+                <StatusPill label={selectedRaceEventFormatsLabel} />
               ) : null}
               {selectedRaceEventDistanceRange ? (
-                <View style={styles.summaryPill}>
-                  <Text style={styles.summaryPillText}>{selectedRaceEventDistanceRange}</Text>
-                </View>
+                <StatusPill label={selectedRaceEventDistanceRange} />
               ) : null}
             </View>
 
@@ -293,11 +283,7 @@ export function OnboardingRaceSelectionStep({
                     </View>
 
                     {selected ? (
-                      <View style={styles.raceSelectedBadge}>
-                        <Text style={styles.raceSelectedBadgeText}>
-                          {copy.onboarding.raceSelectedBadge}
-                        </Text>
-                      </View>
+                      <StatusPill label={copy.onboarding.raceSelectedBadge} tone="brand" />
                     ) : (
                       <View style={styles.formatActionButton}>
                         <Text style={styles.formatActionButtonText}>{copy.catalog.selectRace}</Text>
@@ -319,32 +305,20 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 15, color: Colors.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
   predictionHint: { color: Colors.brandPrimary, fontSize: 13, lineHeight: 18, textAlign: 'center', marginTop: -8, marginBottom: 20, fontWeight: '600' },
   racePickerPanel: { gap: 14, marginBottom: 16 },
-  textInput: { backgroundColor: Colors.surfaceSecondary, color: Colors.textPrimary, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, marginBottom: 8 },
+  searchField: { marginBottom: 8 },
   errorText: { color: Colors.danger, fontSize: 13, textAlign: 'center', marginTop: 4, marginBottom: 16 },
   raceCenteredState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 28, gap: 10 },
   raceStateText: { color: Colors.textSecondary, fontSize: 14, textAlign: 'center' },
-  retryButtonInline: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: Colors.brandBorder, backgroundColor: Colors.brandSurface },
-  retryButtonInlineText: { color: Colors.brandPrimary, fontSize: 13, fontWeight: '700' },
   emptyTitle: { color: Colors.textPrimary, fontSize: 16, fontWeight: '700', textAlign: 'center' },
   emptySubtitle: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20, textAlign: 'center' },
   inlineInfoRow: { flexDirection: 'row', justifyContent: 'flex-start', marginBottom: 12 },
   raceEventList: { gap: 16 },
   eventSummaryRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  summaryPill: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 999, backgroundColor: Colors.surfaceSecondary, borderWidth: 1, borderColor: Colors.border },
-  summaryPillText: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700' },
   selectionCountPill: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: Colors.brandSurface, borderWidth: 1, borderColor: Colors.brandBorder },
   selectionCountText: { color: Colors.brandPrimary, fontSize: 12, fontWeight: '700' },
-  raceSelectedBadge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: Colors.brandPrimary },
-  raceSelectedBadgeText: { color: Colors.textOnBrand, fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
   modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(18, 24, 16, 0.24)' },
   sheetOverlay: { ...StyleSheet.absoluteFillObject },
   sheetCard: { maxHeight: '82%', backgroundColor: Colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 20, paddingTop: 10, paddingBottom: 24, gap: 14 },
-  sheetHandle: { width: 42, height: 4, borderRadius: 999, backgroundColor: Colors.border, alignSelf: 'center' },
-  sheetHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  sheetHeaderText: { flex: 1, gap: 4 },
-  sheetTitle: { color: Colors.textPrimary, fontSize: 20, fontWeight: '800' },
-  sheetSubtitle: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
-  sheetCloseButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
   sheetImage: { width: '100%', height: 132, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surfaceSecondary },
   sheetHint: { color: Colors.textSecondary, fontSize: 14, lineHeight: 19 },
   sheetContent: { gap: 10, paddingBottom: 12 },

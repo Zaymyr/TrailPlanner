@@ -1,6 +1,8 @@
 import { memo } from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { Card } from '../themed/Card';
 import { Text } from '../themed/Text';
+import { TrailTabs } from '../themed/TrailTabs';
 import { Colors } from '../../constants/colors';
 import type { Locale } from '../../locales/types';
 
@@ -20,29 +22,19 @@ function ProfileLanguageSectionComponent({
   title,
 }: ProfileLanguageSectionProps) {
   return (
-    <View style={styles.card}>
+    <Card style={styles.card} variationKey="profile-language">
       <Text style={styles.title}>{title}</Text>
 
-      <View style={styles.row}>
-        <TouchableOpacity
-          style={[styles.languageButton, selectedLocale === 'fr' && styles.languageButtonActive]}
-          onPress={() => onSelectLocale('fr')}
-        >
-          <Text style={[styles.languageButtonText, selectedLocale === 'fr' && styles.languageButtonTextActive]}>
-            FR {languageFrLabel}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.languageButton, selectedLocale === 'en' && styles.languageButtonActive]}
-          onPress={() => onSelectLocale('en')}
-        >
-          <Text style={[styles.languageButtonText, selectedLocale === 'en' && styles.languageButtonTextActive]}>
-            EN {languageEnLabel}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+      <TrailTabs<Locale>
+        activeKey={selectedLocale}
+        onChange={onSelectLocale}
+        stretch
+        tabs={[
+          { key: 'fr', label: `FR ${languageFrLabel}` },
+          { key: 'en', label: `EN ${languageEnLabel}` },
+        ]}
+      />
+    </Card>
   );
 }
 
@@ -51,42 +43,10 @@ export const ProfileLanguageSection = memo(ProfileLanguageSectionComponent);
 const styles = StyleSheet.create({
   card: {
     gap: 14,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
-    padding: 16,
   },
   title: {
     color: Colors.textPrimary,
     fontSize: 16,
     fontWeight: '800',
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  languageButton: {
-    flex: 1,
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceSecondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
-  languageButtonActive: {
-    borderColor: Colors.brandBorder,
-    backgroundColor: Colors.brandSurface,
-  },
-  languageButtonText: {
-    color: Colors.textSecondary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  languageButtonTextActive: {
-    color: Colors.brandPrimary,
   },
 });

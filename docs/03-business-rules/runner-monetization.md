@@ -1,7 +1,7 @@
 ---
 title: Runner Monetization
 scope: business-rule
-last_verified: 2026-11-09
+last_verified: 2026-11-11
 ai_priority: high
 related_files:
   - apps/mobile/components/plan-workspace/LockedPlanContent.tsx
@@ -132,6 +132,19 @@ On 2026-10-30 the owner explicitly authorized applying the three runner migratio
 - Exercise sandbox annual purchase, two different course purchases using the same consumable SKU, cancellation, restart recovery, restore, refunds and event reordering on both stores and Stripe.
 - Local TypeScript/unit tests do not establish store acceptance or database policy execution. Run the SQL checks in a migrated disposable database before enabling the flag; no local Docker/Postgres runtime was available during initial implementation.
 - Required repository checks are `npm run verify` and the documentation protocol. Do not claim deployment or real-store purchase success from source tests alone.
+
+Trail signature iteration (2026-11-11): runner presentation only. In-page RaceBook Course, Profile and plan view selectors become trail tabs, map/transport links and the catalog format RaceBook action become signpost buttons, catalog format distance/D+ read as cotes, tab-bar blazes move to the left of the selected icon, the hero contours are lightened and the elevation profile gains a decorative summit flag and iso-line echo. No query, row, payload, navigation target or analytics event changes. The Livret/plan switch keeps the same disabled states, routes and purchase gates; only a decorative blaze is added to its active segment.
+
+Trail signature iteration 3 (2026-11-11): presentation only. The active-state accent becomes a tri-color line (light green, amber, dark green in fixed 2:1:4 proportions) under the selected tab-bar label, the active in-page tab and the active Livret/plan segment, and RaceBook map/transport links plus catalog RaceBook actions are drawn as textured direction signs. No query, row, route, purchase gate or analytics event changes.
+
+Trail signature iteration 4 (2026-11-11): presentation only. The Livret/plan switch underlines the whole active label, and the plan action next to the RaceBook action in catalog formats becomes a soft trail sign. Disabled states, routes and purchase gates are unchanged.
+
+
+## Mobile presentation
+
+The Livret / plan switch (`RaceWorkspaceSwitch`) is now drawn as a pinned bib (active view) over a flipped bib (other view), 70 points high (`RACE_WORKSPACE_SWITCH_HEIGHT`); which view is available or locked is unchanged.
+
+The RaceBook Course tab (Tracé, Ravitos, Où encourager) uses `TrailTabs` with `stretch` + `scrollable`: tabs share the full width, the active one on a raised painted wooden plank and the others on flat bare-wood planks. The Livret / plan bib switch is 56 points high (`RACE_WORKSPACE_SWITCH_HEIGHT`).
 
 ## Related Docs
 

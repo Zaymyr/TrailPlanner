@@ -1,5 +1,7 @@
-import { StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../constants/colors';
+import { ActionButton } from '../themed/ActionButton';
+import { Field } from '../themed/Field';
 import { Text } from '../themed/Text';
 import { OnboardingShell } from './OnboardingIntroSteps';
 
@@ -75,15 +77,14 @@ export function OnboardingPersonalStep({
       <View style={styles.sectionCard}>
         <Text style={styles.sectionTitle}>{sectionTitle}</Text>
         <Text style={styles.sectionSubtitle}>{sectionSubtitle}</Text>
-        <Text style={styles.label}>{firstNameLabel}</Text>
-        <TextInput
-          style={styles.textInput}
-          value={fullName}
+        <Field
+          autoCapitalize="words"
+          containerStyle={styles.fieldSpacing}
+          label={firstNameLabel}
           onChangeText={onChangeFullName}
           placeholder={firstNamePlaceholder}
-          placeholderTextColor={Colors.textMuted}
-          autoCapitalize="words"
           textContentType="givenName"
+          value={fullName}
         />
         <View style={styles.bodyMetricsRow}>
           <MetricInput
@@ -121,22 +122,17 @@ function MetricInput({
   value: string;
 }) {
   return (
-    <View style={styles.bodyMetricField}>
-      <Text style={styles.label}>{label}</Text>
-      <View style={styles.metricInputShell}>
-        <TextInput
-          style={styles.metricInput}
-          value={value}
-          onChangeText={onChange}
-          placeholder={placeholder}
-          placeholderTextColor={Colors.textMuted}
-          keyboardType="number-pad"
-          inputAccessoryViewID="pace-yourself-numeric-keyboard"
-          maxLength={3}
-        />
-        <Text style={styles.metricInputUnit}>{unit}</Text>
-      </View>
-    </View>
+    <Field
+      containerStyle={[styles.bodyMetricField, styles.fieldSpacing]}
+      inputAccessoryViewID="pace-yourself-numeric-keyboard"
+      keyboardType="number-pad"
+      label={label}
+      maxLength={3}
+      onChangeText={onChange}
+      placeholder={placeholder}
+      unit={unit}
+      value={value}
+    />
   );
 }
 
@@ -227,16 +223,15 @@ export function OnboardingPerformanceStep({
             onChange={onChangeComfortableFlatPaceSeconds}
           />
         </View>
-        <Text style={styles.label}>{utmbIndexLabel}</Text>
-        <TextInput
-          style={styles.textInput}
-          value={utmbIndex}
+        <Field
+          containerStyle={styles.fieldSpacing}
+          inputAccessoryViewID="pace-yourself-numeric-keyboard"
+          keyboardType="number-pad"
+          label={utmbIndexLabel}
+          maxLength={4}
           onChangeText={onChangeUtmbIndex}
           placeholder={utmbIndexPlaceholder}
-          placeholderTextColor={Colors.textMuted}
-          keyboardType="number-pad"
-          inputAccessoryViewID="pace-yourself-numeric-keyboard"
-          maxLength={4}
+          value={utmbIndex}
         />
       </View>
       <StepFooter error={error} continueLabel={continueLabel} onContinue={onContinue} />
@@ -256,19 +251,16 @@ function PaceInput({
   value: string;
 }) {
   return (
-    <View style={styles.paceInputGroup}>
-      <Text style={styles.paceInputLabel}>{label}</Text>
-      <TextInput
-        style={styles.textInput}
-        value={value}
-        onChangeText={onChange}
-        placeholder={placeholder}
-        placeholderTextColor={Colors.textMuted}
-        keyboardType="number-pad"
-        inputAccessoryViewID="pace-yourself-numeric-keyboard"
-        maxLength={2}
-      />
-    </View>
+    <Field
+      containerStyle={styles.paceInputGroup}
+      inputAccessoryViewID="pace-yourself-numeric-keyboard"
+      keyboardType="number-pad"
+      label={label}
+      maxLength={2}
+      onChangeText={onChange}
+      placeholder={placeholder}
+      value={value}
+    />
   );
 }
 
@@ -352,22 +344,17 @@ function TargetInput({
   value: string;
 }) {
   return (
-    <View style={[styles.targetRow, !last && styles.targetRowBordered]}>
-      <Text style={styles.targetLabel}>{label}</Text>
-      <View style={styles.targetInputShell}>
-        <TextInput
-          style={styles.targetInput}
-          value={value}
-          onChangeText={onChange}
-          placeholder={maxLength === 3 ? '70' : unit === 'ml' ? '500' : '600'}
-          placeholderTextColor={Colors.textMuted}
-          keyboardType="number-pad"
-          inputAccessoryViewID="pace-yourself-numeric-keyboard"
-          maxLength={maxLength}
-        />
-        <Text style={styles.targetUnit}>{unit}</Text>
-      </View>
-    </View>
+    <Field
+      containerStyle={!last ? styles.fieldSpacing : undefined}
+      inputAccessoryViewID="pace-yourself-numeric-keyboard"
+      keyboardType="number-pad"
+      label={label}
+      maxLength={maxLength}
+      onChangeText={onChange}
+      placeholder={maxLength === 3 ? '70' : unit === 'ml' ? '500' : '600'}
+      unit={unit}
+      value={value}
+    />
   );
 }
 
@@ -383,9 +370,9 @@ function StepFooter({
   return (
     <>
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
-      <TouchableOpacity style={styles.primaryButton} onPress={onContinue}>
-        <Text style={styles.primaryButtonText}>{continueLabel}</Text>
-      </TouchableOpacity>
+      <ActionButton fullWidth onPress={onContinue} size="lg">
+        {continueLabel}
+      </ActionButton>
     </>
   );
 }
@@ -397,30 +384,18 @@ const styles = StyleSheet.create({
   sectionTitle: { color: Colors.textPrimary, fontSize: 16, fontWeight: '800', marginBottom: 4 },
   sectionSubtitle: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18, marginBottom: 12 },
   label: { fontSize: 13, color: Colors.textSecondary, marginBottom: 6, marginTop: 8 },
-  textInput: { backgroundColor: Colors.surfaceSecondary, color: Colors.textPrimary, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, marginBottom: 8 },
   bodyMetricsRow: { flexDirection: 'row', gap: 12, marginTop: 4 },
   bodyMetricField: { flex: 1 },
-  metricInputShell: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 3, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
-  metricInput: { flex: 1, minWidth: 0, backgroundColor: 'transparent', color: Colors.textPrimary, paddingHorizontal: 0, paddingVertical: 8, fontSize: 15, fontWeight: '700' },
-  metricInputUnit: { color: Colors.textSecondary, fontSize: 13, fontWeight: '700' },
   waterBagRow: { flexDirection: 'row', gap: 10, marginBottom: 8, flexWrap: 'wrap' },
   waterBtn: { backgroundColor: Colors.surfaceSecondary, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, minWidth: 72, alignItems: 'center' },
   waterBtnActive: { backgroundColor: Colors.brandSurface, borderColor: Colors.brandBorder },
   waterBtnText: { color: Colors.textSecondary, fontSize: 15, fontWeight: '700' },
   waterBtnTextActive: { color: Colors.brandPrimary },
   paceInputRow: { flexDirection: 'row', gap: 12, marginBottom: 8 },
-  paceInputGroup: { flex: 1, gap: 6 },
-  paceInputLabel: { color: Colors.textSecondary, fontSize: 12, fontWeight: '600' },
+  paceInputGroup: { flex: 1 },
+  fieldSpacing: { marginTop: 8, marginBottom: 8 },
   estimateButton: { alignSelf: 'flex-start', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: Colors.brandBorder, backgroundColor: Colors.brandSurface, marginTop: 4, marginBottom: 14 },
   estimateButtonText: { color: Colors.brandPrimary, fontSize: 13, fontWeight: '700' },
-  targetsStack: { borderRadius: 16, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface, overflow: 'hidden' },
-  targetRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingHorizontal: 14, paddingVertical: 12 },
-  targetRowBordered: { borderBottomWidth: 1, borderBottomColor: Colors.border },
-  targetLabel: { flex: 1, color: Colors.textPrimary, fontSize: 14, fontWeight: '600' },
-  targetInputShell: { flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 116, paddingHorizontal: 12, paddingVertical: 2, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surfaceSecondary },
-  targetInput: { flex: 1, minWidth: 0, backgroundColor: 'transparent', color: Colors.textPrimary, paddingHorizontal: 0, paddingVertical: 8, fontSize: 15, fontWeight: '700', textAlign: 'right' },
-  targetUnit: { color: Colors.textSecondary, fontSize: 13, fontWeight: '700' },
+  targetsStack: { gap: 4 },
   errorText: { color: Colors.danger, fontSize: 13, textAlign: 'center', marginTop: 4, marginBottom: 16 },
-  primaryButton: { backgroundColor: Colors.brandPrimary, borderRadius: 16, paddingVertical: 18, alignItems: 'center' },
-  primaryButtonText: { color: Colors.textOnBrand, fontSize: 16, fontWeight: '700' },
 });

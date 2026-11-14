@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,6 +7,8 @@ import { AppHeaderTitle } from '../../components/navigation/AppHeaderTitle';
 import { NumericKeyboardAccessory } from '../../components/inputs/NumericKeyboardAccessory';
 import { FeedbackHeaderButton } from '../../components/feedback/FeedbackHeaderButton';
 import { NativeBuildUpdatePrompt } from '../../components/updates/NativeBuildUpdatePrompt';
+import { IconAction } from '../../components/themed/IconAction';
+import { BlazeLine } from '../../components/themed/TrailBlaze';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
 import { getActivePlanEditHref } from '../../lib/planEditSession';
@@ -35,14 +37,21 @@ export default function AppLayout() {
   const catalogLabel = locale === 'fr' ? 'Courses' : 'Races';
   const plansTabLabel = t.plans.title;
   const nutritionLabel = 'Nutrition';
-  const renderTabLabel = (label: string, color: string) => (
-    <Text
-      maxFontSizeMultiplier={1.3}
-      numberOfLines={1}
-      style={[styles.tabBarLabel, { color }]}
-    >
-      {label}
-    </Text>
+  const renderTabLabel = (label: string, color: string, focused: boolean) => (
+    <View style={styles.tabLabelWrap}>
+      {/* Shrink-wrapped to the text so the line underlines the whole label. */}
+      <View style={styles.tabLabelInner}>
+        <Text
+          maxFontSizeMultiplier={1.3}
+          numberOfLines={1}
+          style={[styles.tabBarLabel, { color }]}
+        >
+          {label}
+        </Text>
+        {/* Always laid out so the label never shifts; visible on the active tab. */}
+        <BlazeLine style={!focused && styles.tabLineHidden} />
+      </View>
+    </View>
   );
   const [showProfileOnboardingDot, setShowProfileOnboardingDot] = useState(false);
   const unreadNotifications = useUnreadNotificationCount();
@@ -175,7 +184,7 @@ export default function AppLayout() {
         name="catalog"
         options={{
           title: catalogLabel,
-          tabBarLabel: ({ color }) => renderTabLabel(catalogLabel, color),
+          tabBarLabel: ({ color, focused }) => renderTabLabel(catalogLabel, color, focused),
           tabBarButtonTestID: 'nav-tab-catalog',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="trail-sign" size={size} color={color} />
@@ -197,7 +206,7 @@ export default function AppLayout() {
         })}
         options={{
           title: t.plans.title,
-          tabBarLabel: ({ color }) => renderTabLabel(plansTabLabel, color),
+          tabBarLabel: ({ color, focused }) => renderTabLabel(plansTabLabel, color, focused),
           tabBarButtonTestID: 'nav-tab-plans',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="flag" size={size} color={color} />
@@ -210,7 +219,7 @@ export default function AppLayout() {
         name="profile"
         options={{
           title: t.profile.title,
-          tabBarLabel: ({ color }) => renderTabLabel(t.profile.title, color),
+          tabBarLabel: ({ color, focused }) => renderTabLabel(t.profile.title, color, focused),
           tabBarButtonTestID: 'nav-tab-profile',
           tabBarIcon: ({ color, size }) => (
             <View style={styles.profileIconWrap}>
@@ -242,16 +251,13 @@ export default function AppLayout() {
         options={{
           href: null,
           headerLeft: () => (
-            <TouchableOpacity
+            <IconAction
               accessibilityLabel={t.common.back}
-              accessibilityRole="button"
-              hitSlop={8}
               onPress={() => router.replace('/(app)/catalog')}
               style={styles.headerBackButton}
               testID="racebook-back-to-catalog"
-            >
-              <Ionicons name="chevron-back" size={28} color={Colors.textPrimary} />
-            </TouchableOpacity>
+              variant="back"
+            />
           ),
         }}
       />
@@ -294,8 +300,10 @@ export default function AppLayout() {
 }
 
 const styles = StyleSheet.create({
+  tabLabelWrap: { width: '100%', alignItems: 'center' },
+  tabLabelInner: { maxWidth: '100%', alignItems: 'stretch', gap: 2 },
+  tabLineHidden: { opacity: 0 },
   tabBarLabel: {
-    width: '100%',
     fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',
@@ -312,11 +320,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.background,
     backgroundColor: Colors.danger,
   },
-  headerBackButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  headerBackButton: { marginLeft: 4 },
 });
 

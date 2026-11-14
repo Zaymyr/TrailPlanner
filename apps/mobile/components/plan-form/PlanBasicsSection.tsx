@@ -18,8 +18,13 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { ActionButton } from '../themed/ActionButton';
 import { DataText } from '../themed/DataText';
+import { Field } from '../themed/Field';
+import { AccordionHeader, AccordionTrail } from '../themed/AccordionHeader';
+import { SheetHeader } from '../themed/SheetHeader';
 import { Text } from '../themed/Text';
+import { TrailTabs, type TrailTab } from '../themed/TrailTabs';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
 import type { AccordionSection, PlanFormValues } from './contracts';
@@ -116,12 +121,13 @@ function WaterBagCapacitySelector({ value, options, onChange, onCustomValueFocus
         ))}
       </View>
       <View style={styles.waterBagCustomField}>
-        <Text style={styles.label}>Valeur personnalisée (L)</Text>
-        <TextInput
+        <Field
           ref={customValueInputRef}
           accessibilityLabel="Volume personnalisé de la poche à eau en litres"
+          containerStyle={styles.formField}
           inputAccessoryViewID="pace-yourself-numeric-keyboard"
           keyboardType="decimal-pad"
+          label="Valeur personnalisée"
           onBlur={handleCustomValueBlur}
           onChangeText={handleCustomValueChange}
           onFocus={() => {
@@ -129,8 +135,7 @@ function WaterBagCapacitySelector({ value, options, onChange, onCustomValueFocus
             onCustomValueFocus?.(customValueInputRef.current);
           }}
           placeholder="Ex : 1,75"
-          placeholderTextColor={Colors.textMuted}
-          style={styles.textInput}
+          unit="L"
           value={customValueDraft}
         />
       </View>
@@ -156,6 +161,10 @@ export function PlanBasicsSection({
 }: Props) {
   const { locale, t } = useI18n();
   const [fatigueTrackWidth, setFatigueTrackWidth] = useState(0);
+  const paceTypeTabs: TrailTab<PlanFormValues['paceType']>[] = [
+    { key: 'pace', label: 'Allure (min/km)' },
+    { key: 'speed', label: 'Vitesse (km/h)' },
+  ];
   const paceSummary =
     values.paceType === 'pace'
       ? `${String(values.paceMinutes).padStart(2, '0')}:${String(values.paceSeconds).padStart(2, '0')} min/km`
@@ -278,35 +287,20 @@ export function PlanBasicsSection({
       </View>
     </View>
   ) : (
-    <TouchableOpacity
-      style={[
-        styles.sectionAccordionHeader,
-        spaced && styles.sectionAccordionHeaderSpaced,
-        !expandedSections[section] && styles.sectionAccordionHeaderCollapsed,
-      ]}
-      onPress={() => toggleSection(section)}
-      activeOpacity={0.8}
-    >
-      <View style={styles.sectionAccordionHeaderContent}>
-        <View style={styles.sectionAccordionTitleRow}>
-          <Text style={[styles.sectionTitle, styles.sectionAccordionTitle]}>{title}</Text>
-          {!expandedSections[section] && (
-            <View style={styles.sectionSummaryRowInline}>
-              {summaryChips.map((chip) => (
-                <Text key={`${section}-${chip}`} style={styles.sectionSummaryChipInline}>
-                  {chip}
-                </Text>
-              ))}
-            </View>
-          )}
-        </View>
-      </View>
-      <Ionicons
-        name={expandedSections[section] ? 'chevron-up' : 'chevron-down'}
-        size={18}
-        color={Colors.textSecondary}
-      />
-    </TouchableOpacity>
+    <AccordionHeader
+      expanded={expandedSections[section]}
+      icon={
+        <Ionicons
+          name={section === 'course' ? 'flag-outline' : section === 'pace' ? 'speedometer-outline' : 'nutrition-outline'}
+          size={18}
+          color={Colors.brandPrimary}
+        />
+      }
+      onToggle={() => toggleSection(section)}
+      style={spaced ? styles.sectionAccordionHeaderSpaced : undefined}
+      subtitle={expandedSections[section] ? null : summaryChips.join(' · ')}
+      title={title}
+    />
   );
 
   if (inline) {
@@ -319,13 +313,12 @@ export function PlanBasicsSection({
           `D+ ${values.elevationGain || 0} m`,
         ])}
           <>
-            <Text style={styles.label}>Nom du plan</Text>
-            <TextInput
-              style={styles.textInput}
-              value={values.name}
+            <Field
+              containerStyle={styles.formField}
+              label="Nom du plan"
               onChangeText={(text) => update('name', text)}
               placeholder="Ex : UTMB 2025"
-              placeholderTextColor={Colors.textMuted}
+              value={values.name}
             />
             {isLinkedRace ? (
               <View style={styles.row}>
@@ -340,12 +333,10 @@ export function PlanBasicsSection({
               </View>
             ) : <View style={styles.row}>
               <View style={styles.rowItem}>
-                <Text style={styles.label}>Distance (km)</Text>
-                <NumberInput value={values.raceDistanceKm} onChange={(value) => update('raceDistanceKm', value)} placeholder="50" />
+                <NumberInput label="Distance" unit="km" value={values.raceDistanceKm} onChange={(value) => update('raceDistanceKm', value)} placeholder="50" />
               </View>
               <View style={[styles.rowItem, { marginLeft: 12 }]}>
-                <Text style={styles.label}>D+ (m)</Text>
-                <NumberInput value={values.elevationGain} onChange={(value) => update('elevationGain', value)} placeholder="3000" />
+                <NumberInput label="D+" unit="m" value={values.elevationGain} onChange={(value) => update('elevationGain', value)} placeholder="3000" />
               </View>
             </View>}
           </>
@@ -355,29 +346,24 @@ export function PlanBasicsSection({
         {renderAccordionHeader('pace', 'Allure de base sur le plat', [paceSummary, fatigueDescriptor], true)}
           <>
             <Text style={styles.waterBagHint}>L'allure moyenne de course tient compte du dénivelé et de la fatigue.</Text>
-            <View style={styles.toggleRow}>
-              <TouchableOpacity style={[styles.toggleBtn, values.paceType === 'pace' && styles.toggleBtnActive]} onPress={() => update('paceType', 'pace')}>
-                <Text style={[styles.toggleBtnText, values.paceType === 'pace' && styles.toggleBtnTextActive]}>Allure (min/km)</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.toggleBtn, values.paceType === 'speed' && styles.toggleBtnActive]} onPress={() => update('paceType', 'speed')}>
-                <Text style={[styles.toggleBtnText, values.paceType === 'speed' && styles.toggleBtnTextActive]}>Vitesse (km/h)</Text>
-              </TouchableOpacity>
-            </View>
+            <TrailTabs
+              activeKey={values.paceType}
+              onChange={(key) => update('paceType', key)}
+              stretch
+              tabs={paceTypeTabs}
+            />
             {values.paceType === 'pace' ? (
               <View style={styles.row}>
                 <View style={styles.rowItem}>
-                  <Text style={styles.label}>Minutes</Text>
-                  <NumberInput value={values.paceMinutes} onChange={(value) => update('paceMinutes', Math.floor(value))} placeholder="6" />
+                  <NumberInput label="Minutes" unit="min" value={values.paceMinutes} onChange={(value) => update('paceMinutes', Math.floor(value))} placeholder="6" />
                 </View>
                 <View style={[styles.rowItem, { marginLeft: 12 }]}>
-                  <Text style={styles.label}>Secondes</Text>
-                  <NumberInput value={values.paceSeconds} onChange={(value) => update('paceSeconds', Math.min(59, Math.floor(value)))} placeholder="30" />
+                  <NumberInput label="Secondes" unit="s" value={values.paceSeconds} onChange={(value) => update('paceSeconds', Math.min(59, Math.floor(value)))} placeholder="30" />
                 </View>
               </View>
             ) : (
               <>
-                <Text style={styles.label}>Vitesse (km/h)</Text>
-                <NumberInput value={values.speedKph} onChange={(value) => update('speedKph', value)} placeholder="10" />
+                <NumberInput label="Vitesse" unit="km/h" value={values.speedKph} onChange={(value) => update('speedKph', value)} placeholder="10" />
               </>
             )}
             <Text style={styles.label}>{t.plans.fatigueLabel}</Text>
@@ -407,9 +393,9 @@ export function PlanBasicsSection({
             {hasSectionTimingOverrides ? (
               <View style={styles.sectionTimingResetBox}>
                 <Text style={styles.sectionTimingResetHint}>{t.plans.sectionTimingLockedHint}</Text>
-                <TouchableOpacity style={styles.sectionTimingResetButton} onPress={onResetSectionTimingOverrides}>
-                  <Text style={styles.sectionTimingResetButtonText}>{t.plans.sectionTimingReset}</Text>
-                </TouchableOpacity>
+                <ActionButton onPress={onResetSectionTimingOverrides} size="sm" variant="ghost">
+                  {t.plans.sectionTimingReset}
+                </ActionButton>
               </View>
             ) : null}
           </>
@@ -425,18 +411,15 @@ export function PlanBasicsSection({
           <>
             <View style={styles.row}>
               <View style={styles.rowItem}>
-                <Text style={styles.label}>Glucides (g/h)</Text>
-                <NumberInput value={values.targetIntakePerHour} onChange={(value) => update('targetIntakePerHour', value)} placeholder="70" />
+                <NumberInput label="Glucides" unit="g/h" value={values.targetIntakePerHour} onChange={(value) => update('targetIntakePerHour', value)} placeholder="70" />
               </View>
               <View style={[styles.rowItem, { marginLeft: 12 }]}>
-                <Text style={styles.label}>Eau (ml/h)</Text>
-                <NumberInput value={values.waterIntakePerHour} onChange={(value) => update('waterIntakePerHour', value)} placeholder="500" />
+                <NumberInput label="Eau" unit="ml/h" value={values.waterIntakePerHour} onChange={(value) => update('waterIntakePerHour', value)} placeholder="500" />
               </View>
             </View>
             <View style={styles.row}>
               <View style={styles.rowItem}>
-                <Text style={styles.label}>Sodium (mg/h)</Text>
-                <NumberInput value={values.sodiumIntakePerHour} onChange={(value) => update('sodiumIntakePerHour', value)} placeholder="600" />
+                <NumberInput label="Sodium" unit="mg/h" value={values.sodiumIntakePerHour} onChange={(value) => update('sodiumIntakePerHour', value)} placeholder="600" />
               </View>
               <View style={[styles.rowItem, { marginLeft: 12 }]} />
             </View>
@@ -479,22 +462,13 @@ export function PlanBasicsSection({
         <KeyboardAvoidingView style={styles.modalWrapper} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <Pressable accessible={false} style={styles.modalOverlay} onPress={onCloseSettings} />
           <View accessibilityViewIsModal style={styles.settingsSheet}>
-            <View style={styles.settingsSheetHandle} />
-            <View style={styles.settingsSheetHeader}>
-              <View style={styles.settingsSheetHeaderCopy}>
-                <Text accessibilityRole="header" style={styles.settingsSheetTitle}>Paramètres du plan</Text>
-                <Text style={styles.settingsSheetSubtitle}>Course, allure et cibles nutritionnelles</Text>
-              </View>
-              <TouchableOpacity
-                accessibilityLabel="Fermer les paramètres du plan"
-                accessibilityRole="button"
-                hitSlop={6}
-                onPress={onCloseSettings}
-                style={styles.pickerCloseBtn}
-              >
-                <Ionicons name="close" size={18} color={Colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
+            <SheetHeader
+              closeLabel="Fermer les paramètres du plan"
+              onClose={onCloseSettings}
+              style={styles.settingsSheetHeader}
+              subtitle="Course, allure et cibles nutritionnelles"
+              title="Paramètres du plan"
+            />
 
             <ScrollView
               contentContainerStyle={styles.settingsSheetContent}
@@ -507,14 +481,13 @@ export function PlanBasicsSection({
                 `D+ ${values.elevationGain || 0} m`,
               ])}
               {expandedSections.course && (
-                <>
-                  <Text style={styles.label}>Nom du plan</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={values.name}
+                <AccordionTrail contentStyle={styles.sectionAccordionBody}>
+                  <Field
+                    containerStyle={styles.formField}
+                    label="Nom du plan"
                     onChangeText={(text) => update('name', text)}
                     placeholder="Ex : UTMB 2025"
-                    placeholderTextColor={Colors.textMuted}
+                    value={values.name}
                   />
 
                   {isLinkedRace ? (
@@ -530,19 +503,17 @@ export function PlanBasicsSection({
                     </View>
                   ) : <View style={styles.row}>
                     <View style={styles.rowItem}>
-                      <Text style={styles.label}>Distance (km)</Text>
-                      <NumberInput
+                      <NumberInput label="Distance" unit="km"
                         value={values.raceDistanceKm}
                         onChange={(v) => update('raceDistanceKm', v)}
                         placeholder="50"
                       />
                     </View>
                     <View style={[styles.rowItem, { marginLeft: 12 }]}>
-                      <Text style={styles.label}>D+ (m)</Text>
-                      <NumberInput value={values.elevationGain} onChange={(v) => update('elevationGain', v)} placeholder="3000" />
+                      <NumberInput label="D+" unit="m" value={values.elevationGain} onChange={(v) => update('elevationGain', v)} placeholder="3000" />
                     </View>
                   </View>}
-                </>
+                </AccordionTrail>
               )}
 
               {renderAccordionHeader(
@@ -552,35 +523,21 @@ export function PlanBasicsSection({
                 true,
               )}
               {expandedSections.pace && (
-                <>
+                <AccordionTrail contentStyle={styles.sectionAccordionBody}>
                   <Text style={styles.waterBagHint}>L'allure moyenne de course tient compte du dénivelé et de la fatigue.</Text>
-                  <View style={styles.toggleRow}>
-                    <TouchableOpacity
-                      style={[styles.toggleBtn, values.paceType === 'pace' && styles.toggleBtnActive]}
-                      onPress={() => update('paceType', 'pace')}
-                    >
-                      <Text style={[styles.toggleBtnText, values.paceType === 'pace' && styles.toggleBtnTextActive]}>
-                        Allure (min/km)
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.toggleBtn, values.paceType === 'speed' && styles.toggleBtnActive]}
-                      onPress={() => update('paceType', 'speed')}
-                    >
-                      <Text style={[styles.toggleBtnText, values.paceType === 'speed' && styles.toggleBtnTextActive]}>
-                        Vitesse (km/h)
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+                  <TrailTabs
+                    activeKey={values.paceType}
+                    onChange={(key) => update('paceType', key)}
+                    stretch
+                    tabs={paceTypeTabs}
+                  />
                   {values.paceType === 'pace' ? (
                     <View style={styles.row}>
                       <View style={styles.rowItem}>
-                        <Text style={styles.label}>Minutes</Text>
-                        <NumberInput value={values.paceMinutes} onChange={(v) => update('paceMinutes', Math.floor(v))} placeholder="6" />
+                        <NumberInput label="Minutes" unit="min" value={values.paceMinutes} onChange={(v) => update('paceMinutes', Math.floor(v))} placeholder="6" />
                       </View>
                       <View style={[styles.rowItem, { marginLeft: 12 }]}>
-                        <Text style={styles.label}>Secondes</Text>
-                        <NumberInput
+                        <NumberInput label="Secondes" unit="s"
                           value={values.paceSeconds}
                           onChange={(v) => update('paceSeconds', Math.min(59, Math.floor(v)))}
                           placeholder="30"
@@ -589,8 +546,7 @@ export function PlanBasicsSection({
                     </View>
                   ) : (
                     <>
-                      <Text style={styles.label}>Vitesse (km/h)</Text>
-                      <NumberInput value={values.speedKph} onChange={(v) => update('speedKph', v)} placeholder="10" />
+                      <NumberInput label="Vitesse" unit="km/h" value={values.speedKph} onChange={(v) => update('speedKph', v)} placeholder="10" />
                     </>
                   )}
 
@@ -626,12 +582,12 @@ export function PlanBasicsSection({
                   {hasSectionTimingOverrides ? (
                     <View style={styles.sectionTimingResetBox}>
                       <Text style={styles.sectionTimingResetHint}>{t.plans.sectionTimingLockedHint}</Text>
-                      <TouchableOpacity style={styles.sectionTimingResetButton} onPress={onResetSectionTimingOverrides}>
-                        <Text style={styles.sectionTimingResetButtonText}>{t.plans.sectionTimingReset}</Text>
-                      </TouchableOpacity>
+                      <ActionButton onPress={onResetSectionTimingOverrides} size="sm" variant="ghost">
+                        {t.plans.sectionTimingReset}
+                      </ActionButton>
                     </View>
                   ) : null}
-                </>
+                </AccordionTrail>
               )}
 
               {renderAccordionHeader(
@@ -646,19 +602,17 @@ export function PlanBasicsSection({
                 true,
               )}
               {expandedSections.nutrition && (
-                <>
+                <AccordionTrail contentStyle={styles.sectionAccordionBody}>
                   <View style={styles.row}>
                     <View style={styles.rowItem}>
-                      <Text style={styles.label}>Glucides (g/h)</Text>
-                      <NumberInput
+                      <NumberInput label="Glucides" unit="g/h"
                         value={values.targetIntakePerHour}
                         onChange={(v) => update('targetIntakePerHour', v)}
                         placeholder="70"
                       />
                     </View>
                     <View style={[styles.rowItem, { marginLeft: 12 }]}>
-                      <Text style={styles.label}>Eau (ml/h)</Text>
-                      <NumberInput
+                      <NumberInput label="Eau" unit="ml/h"
                         value={values.waterIntakePerHour}
                         onChange={(v) => update('waterIntakePerHour', v)}
                         placeholder="500"
@@ -667,8 +621,7 @@ export function PlanBasicsSection({
                   </View>
                   <View style={styles.row}>
                     <View style={styles.rowItem}>
-                      <Text style={styles.label}>Sodium (mg/h)</Text>
-                      <NumberInput
+                      <NumberInput label="Sodium" unit="mg/h"
                         value={values.sodiumIntakePerHour}
                         onChange={(v) => update('sodiumIntakePerHour', v)}
                         placeholder="600"
@@ -685,12 +638,12 @@ export function PlanBasicsSection({
                     onChange={(value) => update('waterBagLiters', value)}
                     onCustomValueFocus={onCustomWaterBagFocus}
                   />
-                </>
+                </AccordionTrail>
               )}
 
-              <TouchableOpacity activeOpacity={0.86} onPress={onCloseSettings} style={styles.settingsSheetDoneButton}>
-                <Text style={styles.settingsSheetDoneButtonText}>Terminé</Text>
-              </TouchableOpacity>
+              <ActionButton fullWidth onPress={onCloseSettings} style={{ marginTop: 18 }}>
+                Terminé
+              </ActionButton>
             </ScrollView>
           </View>
         </KeyboardAvoidingView>

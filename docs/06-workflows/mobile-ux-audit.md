@@ -1,7 +1,7 @@
 ---
 title: Mobile UX Audit
 scope: workflow
-last_verified: 2026-11-09
+last_verified: 2026-11-11
 ai_priority: high
 related_files:
   - .agents/skills/mobile-ux-ui-auditor/SKILL.md
@@ -70,7 +70,35 @@ The repository skill `$mobile-ux-ui-auditor` turns this workflow into a dedicate
 15. Return from a plan detail to Mes courses/My races and confirm the visual header state matches the real list offset. In the plan editor, confirm matching back/help controls and visible first content on a 6.1-inch viewport.
 16. Compare first-level content edges across Courses, Mes courses/My races, Profile and the pushed Nutrition screen; cards, section titles and selectors must use the same 16-point gutter. Confirm sticky Courses search is fully opaque.
 17. Compare filter chips, segmented selectors, profile inputs, modal closes and primary/secondary buttons across the same journey. Verify event locations truncate before the protected date and sans/mono typography follows the documented value rule.
-18. In Profile, inspect the four-sub-tab segmented scroller at normal and enlarged text sizes. Create both pending-onboarding and unread-notification conditions and confirm that the bottom Profile icon shows one red dot whose screen-reader label announces both. Open Notifications, verify its own unread dot, loading/error/empty/list states, pagination and retry, then confirm a card becomes read only after opening it and the bulk action clears remaining unread dots. Open a push href targeting `/(app)/profile?tab=notifications&notificationId=<uuid>` and confirm the owner-visible card expands and becomes read even when it was outside the first page.
+    For the trail signature, verify auth screens and root headers keep their
+    faint contour pattern with symmetric lower corners; legacy shared cards
+    carry the two-band trail blaze on their leading edge; loading states and
+    the launch splash draw the ridge loader (static under reduced motion);
+    error states show a danger blaze and icon-less empty states the brand
+    ridge; buttons, fields, icon actions and metric blocks use symmetric radii
+    without becoming pills; measurements read as cotes (mono figure, unit in
+    spaced capitals); Courses format actions use sentence-case shared
+    buttons/fields; Profile tabs are visibly selected beyond color; and the
+    Profile save dock matches the same action geometry. Check the global tab
+    bar and the Livret/plan contextual bars underline the selected label with
+    the tri-color line (light green shorter than dark green, short amber) in
+    addition to the icon surface and color; that
+    RaceBook Course, Profile and plan view selectors read as trail tabs (dotted
+    track, tri-color active leg, bold label on a plank, centered) without
+    labels shifting; that the tab-bar line underlines the whole label; that
+    Maps/transport links and both catalog format actions read as textured
+    direction signs (shadow, plank depth, lit face, routed border, bolts,
+    pointed end) whose slight lean never hinders reading or the 44-point tap; and that the RaceBook hero contours do not reduce metric
+    legibility. In the elevation profile, the summit flag and cote must stay
+    inside the chart and never cover the inspection cursor readout. Plans cards with a stored
+    profile show the course skyline; RaceBook ravito/supporter timelines use the
+    dotted trail rail; the RaceBook hero shows course contours only when the
+    organizer publishes the elevation profile. Create a new plan from a catalog
+    course and confirm the summit celebration plays once, dismisses on tap and
+    does not replay when returning to the editor. At 130% text, labels must wrap
+    or shrink without obscuring actions; pills remain limited to statuses and
+    selections.
+18. In Profile, inspect the four-sub-tab trail-tab scroller at normal and enlarged text sizes. Create both pending-onboarding and unread-notification conditions and confirm that the bottom Profile icon shows one red dot whose screen-reader label announces both. Open Notifications, verify its own unread dot, loading/error/empty/list states, pagination and retry, then confirm a card becomes read only after opening it and the bulk action clears remaining unread dots. Open a push href targeting `/(app)/profile?tab=notifications&notificationId=<uuid>` and confirm the owner-visible card expands and becomes read even when it was outside the first page.
 
 ## Visual Review Rubric
 
@@ -153,6 +181,19 @@ Android production candidates additionally require an internal-track smoke test 
 ## Lot 8 verification scope
 
 The launch-polish audit covers personal-versus-official departure copy, wave selection, compact nutrition chronology, format-sheet action parity, catalog grouping, delayed skeletons, shared toasts, reduced-motion-aware haptics, and root navigation elevation. Native haptics require a runtime `1.1.2` build before device feedback can be validated.
+
+
+## Mobile presentation
+
+The Google fallback `ActionButton` on login and signup no longer adds its own reduced opacity while loading: the shared disabled (closed-trail) look already signals it. Auth logic is unchanged.
+
+Mobile controls follow the trail-object grammar (`docs/07-design-system/components.md`): one enamel plate (primary action) per screen, closed-trail look for disabled actions, and profile contact buttons now keep a 44-point minimum height.
+
+Forms and headers use the themed trail components: inputs are road-notebook `Field`s (units shown as cotes, searches with `variant="search"`), header and modal icon buttons are `IconAction` watch buttons (`tone="onBrand"` on forest headers) and back buttons are `IconAction variant="back"` sign blades. Parsing, validation and the data written are unchanged.
+
+Plan cards in Mes courses lead with two `TrailSignButton` signs (Livret coureur, plan action) keyed by plan id; recap, share and delete are watch `IconAction`s, and deleting from the manage sheet uses `ActionButton variant="destructive-outline"`.
+
+Profile sections are `Card` posters; language and admin access simulation use `TrailTabs`; account deletion is a `destructive` `ActionButton`; the tutorial hides « Précédent » on its first step instead of showing a disabled button.
 
 ## Related Docs
 

@@ -1,9 +1,11 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { ACCORDION_CONTENT_INSET, AccordionHeader, AccordionTrail } from '../themed/AccordionHeader';
 import { Card } from '../themed/Card';
 import { Text } from '../themed/Text';
+import { TrailSignButton } from '../themed/TrailSignButton';
 import { Colors } from '../../constants/colors';
 import { extractTextLinks } from '../../lib/racebookTextLinks';
 
@@ -111,44 +113,35 @@ function LocationsCard({
               <Text style={styles.locationLabel}>{location.label}</Text>
               <Text style={styles.locationValue}>{location.value}</Text>
               {location.actionUrl ? (
-                <Pressable
+                <TrailSignButton
                   accessibilityRole="link"
                   accessibilityLabel={`${openMapsLabel} - ${location.label}`}
+                  icon={<Ionicons name="navigate-outline" size={15} color={Colors.brandPrimary} />}
+                  label={openMapsLabel}
                   onPress={() => {
                     onOpenMap(location.key);
                     onOpenUrl(location.actionUrl!);
                   }}
-                  style={({ pressed }) => [
-                    styles.mapAction,
-                    { backgroundColor: Colors.brandSurface },
-                    pressed ? styles.actionPressed : null,
-                  ]}
-                >
-                  <Ionicons name="navigate-outline" size={15} color={Colors.brandPrimary} />
-                  <Text style={[styles.mapActionText, { color: Colors.brandPrimary }]}>{openMapsLabel}</Text>
-                </Pressable>
+                  style={styles.signAction}
+                />
               ) : null}
             </View>
           </View>
         ))}
       </View>
       {generalMapUrl ? (
-        <Pressable
+        <TrailSignButton
           accessibilityRole="link"
           accessibilityLabel={openGeneralMapLabel}
+          fullWidth
+          icon={<Ionicons name="map-outline" size={17} color={Colors.textOnBrand} />}
+          label={openGeneralMapLabel}
           onPress={() => {
             onOpenMap('general');
             onOpenUrl(generalMapUrl);
           }}
-          style={({ pressed }) => [
-            styles.generalMapAction,
-            { backgroundColor: Colors.brandSurface, borderColor: Colors.brandBorder },
-            pressed ? styles.actionPressed : null,
-          ]}
-        >
-          <Ionicons name="map-outline" size={17} color={Colors.brandPrimary} />
-          <Text style={[styles.generalMapActionText, { color: Colors.brandPrimary }]}>{openGeneralMapLabel}</Text>
-        </Pressable>
+          variant="solid"
+        />
       ) : null}
     </SectionCard>
   );
@@ -184,41 +177,19 @@ function TransportCard({
           const isExpanded = expanded[item.key];
           const note = extractTextLinks(item.description);
           const linkLabel = item.key === 'shuttles' ? bookShuttleLabel : openLinkLabel;
-          return (
-            <Pressable
-              key={item.key}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: isExpanded }}
-              accessibilityLabel={`${item.title} - ${isExpanded ? hideDetailsLabel : showDetailsLabel}`}
-              onPress={() => onToggle(item.key)}
-              style={({ pressed }) => [
-                styles.transportItem,
-                index > 0 ? styles.transportItemBorder : null,
-                pressed ? styles.actionPressed : null,
-              ]}
-            >
-              <View style={styles.transportHeader}>
-                <View style={[styles.transportIcon, { backgroundColor: Colors.brandSurface }]}>
-                  <Ionicons name={item.icon} size={18} color={Colors.brandPrimary} />
-                </View>
-                <View style={styles.transportHeading}>
-                  <Text style={styles.transportTitle}>{item.title}</Text>
-                  <Text style={styles.transportHint}>{isExpanded ? hideDetailsLabel : showDetailsLabel}</Text>
-                </View>
-                <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={Colors.textSecondary} />
-              </View>
+          const body = (
+            <>
               <Text numberOfLines={isExpanded ? undefined : 2} style={styles.transportText}>{note.text}</Text>
               {note.links.map((link) => (
-                <Pressable
+                <TrailSignButton
                   key={link.url}
                   accessibilityRole="link"
                   accessibilityLabel={`${linkLabel} - ${link.host}`}
+                  icon={<Ionicons name="open-outline" size={16} color={Colors.brandPrimary} />}
+                  label={linkLabel}
                   onPress={() => onOpenUrl(link.url)}
-                  style={({ pressed }) => [styles.mapAction, pressed ? styles.actionPressed : null]}
-                >
-                  <Ionicons name="open-outline" size={16} color={Colors.brandPrimary} />
-                  <Text style={[styles.mapActionText, { color: Colors.brandPrimary }]}>{linkLabel}</Text>
-                </Pressable>
+                  style={styles.signAction}
+                />
               ))}
               {isExpanded && item.schedule ? (
                 <View style={[styles.scheduleRow, { backgroundColor: Colors.brandSurface, borderColor: Colors.brandBorder }]}>
@@ -229,7 +200,24 @@ function TransportCard({
                   </View>
                 </View>
               ) : null}
-            </Pressable>
+            </>
+          );
+          return (
+            <View key={item.key} style={[styles.transportItem, index > 0 ? styles.transportItemBorder : null]}>
+              <AccordionHeader
+                accessibilityLabel={`${item.title} - ${isExpanded ? hideDetailsLabel : showDetailsLabel}`}
+                expanded={isExpanded}
+                icon={<Ionicons name={item.icon} size={18} color={Colors.brandPrimary} />}
+                onToggle={() => onToggle(item.key)}
+                subtitle={isExpanded ? hideDetailsLabel : showDetailsLabel}
+                title={item.title}
+              />
+              {isExpanded ? (
+                <AccordionTrail contentStyle={styles.transportBody}>{body}</AccordionTrail>
+              ) : (
+                <View style={[styles.transportBody, styles.transportPreview]}>{body}</View>
+              )}
+            </View>
           );
         })}
       </View>
@@ -307,19 +295,12 @@ const styles = StyleSheet.create({
   locationContent: { flex: 1, gap: 4 },
   locationLabel: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700' },
   locationValue: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600', lineHeight: 21 },
-  mapAction: { minHeight: 44, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3, paddingHorizontal: 12, borderRadius: 22, backgroundColor: Colors.brandSurface },
-  mapActionText: { color: Colors.brandPrimary, fontSize: 12, fontWeight: '800' },
-  generalMapAction: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12, borderWidth: 1, backgroundColor: Colors.brandSurface },
-  generalMapActionText: { color: Colors.textOnBrand, fontSize: 14, fontWeight: '800' },
-  actionPressed: { opacity: 0.72 },
+  signAction: { marginTop: 3 },
   transportList: { gap: 0 },
-  transportItem: { gap: 10, paddingVertical: 4 },
-  transportItemBorder: { marginTop: 12, paddingTop: 16, borderTopWidth: 1, borderTopColor: Colors.border },
-  transportHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  transportIcon: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: 17, backgroundColor: Colors.brandSurface },
-  transportHeading: { flex: 1, gap: 1 },
-  transportTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '800' },
-  transportHint: { color: Colors.textSecondary, fontSize: 11 },
+  transportItem: { paddingVertical: 4 },
+  transportItemBorder: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors.border },
+  transportBody: { gap: 10, paddingTop: 4, paddingBottom: 4 },
+  transportPreview: { marginLeft: ACCORDION_CONTENT_INSET },
   transportText: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20 },
   scheduleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 10, borderRadius: 12, borderWidth: 1, backgroundColor: Colors.brandSurface },
   scheduleContent: { flex: 1, gap: 2 },

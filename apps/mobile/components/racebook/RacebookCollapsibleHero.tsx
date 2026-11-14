@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type Ref } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ResolvedRacebookTheme } from '@pace-yourself/design-system';
 import { StatusBar } from 'expo-status-bar';
 import { Animated, Modal, Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 
 import { DataText } from '../themed/DataText';
-import { Heading } from '../themed/Heading';
+import { IconAction } from '../themed/IconAction';
+import { SheetHeader } from '../themed/SheetHeader';
 import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import { RacebookBrandLogo } from './RacebookSponsorExperience';
@@ -75,6 +76,10 @@ type Props = {
   onExpandedBodyHeightChange?: (height: number) => void;
   /** A workspace switch is attached below: it carries the rounded edge and shadow. */
   attachedBelow?: boolean;
+  /** Measurable wrapper of the expanded emergency call action (guided tour highlight). */
+  emergencyTargetRef?: Ref<View>;
+  /** Measurable wrapper of the organizer links action (guided tour highlight). */
+  linksTargetRef?: Ref<View>;
 };
 
 export function RacebookCollapsibleHero({
@@ -115,6 +120,8 @@ export function RacebookCollapsibleHero({
   onOpenSocial,
   onExpandedBodyHeightChange,
   attachedBelow = false,
+  emergencyTargetRef,
+  linksTargetRef,
 }: Props) {
   const [isCompact, setIsCompact] = useState(false);
   const [linksVisible, setLinksVisible] = useState(false);
@@ -145,6 +152,8 @@ export function RacebookCollapsibleHero({
     outputRange: [0, -collapseDistance],
     extrapolate: 'clamp',
   });
+  // White watch dome: organizer primary when it is dark enough for white text, else ink.
+  const watchIconColor = theme.onPrimaryColor === '#FFFFFF' ? theme.primaryColor : Colors.textPrimary;
   const compactActionCount = (socialLinks.length > 0 ? 1 : 0) + (isCompact && emergency && onCallEmergency ? 1 : 0);
 
   useEffect(() => {
@@ -179,16 +188,15 @@ export function RacebookCollapsibleHero({
       ) : null}
       {imageUrl ? <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.primaryColor, opacity: HERO_PHOTO_VEIL_OPACITY }]} /> : null}
 
-      <Pressable
+      {/* Blade in the on-primary color: same contrast pair as the header text. */}
+      <IconAction
         accessibilityLabel={backLabel}
-        accessibilityRole="button"
-        hitSlop={8}
+        bladeColor={theme.onPrimaryColor}
         onPress={onBack}
-        style={({ pressed }) => [styles.backButton, { top: topInset + RACE_WORKSPACE_ACTION_TOP_OFFSET }, pressed && styles.pressed]}
+        style={[styles.backButton, { top: topInset + RACE_WORKSPACE_ACTION_TOP_OFFSET - 1 }]}
         testID="racebook-back-to-catalog"
-      >
-        <Ionicons name="chevron-back" size={25} color={theme.onPrimaryColor} />
-      </Pressable>
+        variant="back"
+      />
 
       <Animated.View
         pointerEvents="none"
@@ -196,7 +204,7 @@ export function RacebookCollapsibleHero({
           styles.compactContent,
           {
             top: topInset,
-            right: 14 + compactActionCount * 48,
+            right: 16 + compactActionCount * 52,
             height: RACEBOOK_HERO_COMPACT_BODY_HEIGHT,
             opacity: compactOpacity,
           },
@@ -208,34 +216,29 @@ export function RacebookCollapsibleHero({
       {socialLinks.length > 0 ? (
         <View style={[styles.persistentSocialActions, { top: topInset + RACE_WORKSPACE_ACTION_TOP_OFFSET }]}>
           {isCompact && emergency && onCallEmergency ? (
-            <Pressable
-              accessibilityRole="button"
+            <IconAction
               accessibilityLabel={emergency.accessibilityLabel}
+              icon={<Ionicons name="call" size={17} color={Colors.textOnBrand} />}
               onPress={onCallEmergency}
-              style={({ pressed }) => [styles.socialAction, styles.compactEmergencyAction, pressed && styles.pressed]}
-            >
-              <Ionicons name="call" size={17} color={theme.onPrimaryColor} />
-            </Pressable>
+              tone="danger"
+            />
           ) : null}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={linksLabel}
-            onPress={() => setLinksVisible(true)}
-            style={({ pressed }) => [styles.socialAction, pressed && styles.pressed]}
-          >
-            <Ionicons name="link-outline" size={18} color={theme.onPrimaryColor} />
-          </Pressable>
+          <View collapsable={false} ref={linksTargetRef}>
+            <IconAction
+              accessibilityLabel={linksLabel}
+              icon={<Ionicons name="link-outline" size={18} color={watchIconColor} />}
+              onPress={() => setLinksVisible(true)}
+            />
+          </View>
         </View>
       ) : isCompact && emergency && onCallEmergency ? (
         <View style={[styles.persistentSocialActions, { top: topInset + RACE_WORKSPACE_ACTION_TOP_OFFSET }]}>
-          <Pressable
-            accessibilityRole="button"
+          <IconAction
             accessibilityLabel={emergency.accessibilityLabel}
+            icon={<Ionicons name="call" size={17} color={Colors.textOnBrand} />}
             onPress={onCallEmergency}
-            style={({ pressed }) => [styles.socialAction, styles.compactEmergencyAction, pressed && styles.pressed]}
-          >
-            <Ionicons name="call" size={17} color={theme.onPrimaryColor} />
-          </Pressable>
+            tone="danger"
+          />
         </View>
       ) : null}
 
@@ -290,15 +293,17 @@ export function RacebookCollapsibleHero({
                 ) : null}
               </View>
               {emergency && onCallEmergency ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={emergency.accessibilityLabel}
-                  onPress={onCallEmergency}
-                  style={({ pressed }) => [styles.emergencyCallButton, pressed && styles.pressed]}
-                >
-                  <Ionicons name="call" size={16} color={theme.onPrimaryColor} />
-                  <Text style={[styles.emergencyCallLabel, { color: theme.onPrimaryColor }]}>{emergency.callLabel}</Text>
-                </Pressable>
+                <View collapsable={false} ref={emergencyTargetRef}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={emergency.accessibilityLabel}
+                    onPress={onCallEmergency}
+                    style={({ pressed }) => [styles.emergencyCallButton, pressed && styles.pressed]}
+                  >
+                    <Ionicons name="call" size={16} color={theme.onPrimaryColor} />
+                    <Text style={[styles.emergencyCallLabel, { color: theme.onPrimaryColor }]}>{emergency.callLabel}</Text>
+                  </Pressable>
+                </View>
               ) : null}
             </View>
           ) : null}
@@ -313,17 +318,12 @@ export function RacebookCollapsibleHero({
       >
         <Pressable accessibilityRole="button" onPress={() => setLinksVisible(false)} style={styles.linksBackdrop}>
           <Pressable accessibilityRole="none" onPress={(event) => event.stopPropagation()} style={styles.linksSheet}>
-            <View style={styles.linksHeader}>
-              <Heading variant="h3" style={styles.linksTitle}>{linksLabel}</Heading>
-              <Pressable
-                accessibilityLabel={closeLabel}
-                accessibilityRole="button"
-                onPress={() => setLinksVisible(false)}
-                style={({ pressed }) => [styles.linksClose, pressed && styles.pressed]}
-              >
-                <Ionicons name="close" size={22} color={Colors.textPrimary} />
-              </Pressable>
-            </View>
+            <SheetHeader
+              closeLabel={closeLabel}
+              onClose={() => setLinksVisible(false)}
+              showHandle={false}
+              title={linksLabel}
+            />
             {socialLinks.map((link) => (
               <Pressable
                 key={link.action}
@@ -352,9 +352,9 @@ const styles = StyleSheet.create({
   heroImage: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   hero: { position: 'absolute', zIndex: 20, top: 0, left: 0, right: 0, overflow: 'hidden', borderBottomLeftRadius: 24, borderBottomRightRadius: 24, shadowColor: '#1A1A1A', shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 7 }, elevation: 8 },
   heroAttached: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, shadowOpacity: 0, elevation: 0 },
-  backButton: { position: 'absolute', zIndex: 4, left: 16, width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.34)', backgroundColor: 'rgba(0,0,0,0.22)' },
+  backButton: { position: 'absolute', zIndex: 4, left: 10 },
   pressed: { opacity: 0.64 },
-  compactContent: { position: 'absolute', left: 72, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  compactContent: { position: 'absolute', left: 80, flexDirection: 'row', alignItems: 'center', gap: 10 },
   expandedClip: { position: 'absolute', left: 0, right: 0, bottom: 0, overflow: 'hidden' },
   expandedContent: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 16, paddingBottom: 16 },
   logoSurface: { width: 44, height: 36, flexShrink: 0, padding: 4, borderRadius: 10, backgroundColor: Colors.surface },
@@ -364,16 +364,11 @@ const styles = StyleSheet.create({
   footerEmergencyLabel: { flexShrink: 1, minWidth: 0, opacity: 0.86 },
   logo: { width: '100%', height: '100%' },
   persistentSocialActions: { position: 'absolute', zIndex: 5, right: 16, flexDirection: 'row', gap: 4 },
-  socialAction: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.36)', backgroundColor: 'rgba(0,0,0,0.18)' },
-  compactEmergencyAction: { backgroundColor: 'rgba(176,28,28,0.44)' },
   emergencyPhone: { flexShrink: 0, fontSize: 13, lineHeight: 17, fontWeight: '800' },
   emergencyCallButton: { flexShrink: 0, minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.38)', backgroundColor: 'rgba(255,255,255,0.1)' },
   emergencyCallLabel: { fontSize: 11, lineHeight: 14, fontWeight: '800' },
   linksBackdrop: { flex: 1, justifyContent: 'flex-end', padding: 16, backgroundColor: 'rgba(26,26,26,0.42)' },
   linksSheet: { gap: 8, padding: 16, borderRadius: 20, backgroundColor: Colors.surface },
-  linksHeader: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  linksTitle: { flex: 1, color: Colors.textPrimary },
-  linksClose: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, backgroundColor: Colors.surfaceSecondary },
   linkRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: 12, backgroundColor: Colors.surfaceSecondary },
   linkLabel: { flex: 1, color: Colors.textPrimary, fontSize: 14, lineHeight: 19, fontWeight: '700' },
 });

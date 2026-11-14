@@ -8,6 +8,9 @@ import type { ElevationPoint } from '../plan-form/profile-utils';
 import type { RacebookAidStation } from '../../lib/racebook';
 import { getCourseProgressAtDistance, getElevationBounds, interpolateElevationAtDistance } from '../../lib/racebookCourseVisuals';
 import { useI18n } from '../../lib/i18n';
+import { colors } from '@pace-yourself/design-system';
+
+import { Cote } from '../themed/Cote';
 import { DataText } from '../themed/DataText';
 import { Text } from '../themed/Text';
 import { formatDistance, formatDistanceValue } from '../../lib/displayFormat';
@@ -29,6 +32,11 @@ const LABEL_HEIGHT = 15;
 const TOP_PADDING = 18;
 const BOTTOM_PADDING = 28;
 const STATION_SNAP_DISTANCE_KM = 0.2;
+/** Map-style figures inside the SVG (graduations, summit cote). */
+const MONO_FONT = 'JetBrainsMono_600SemiBold';
+/** Offset of the faint iso-line echoing the course below its own curve. */
+const CONTOUR_ECHO_OFFSET = 7;
+const SUMMIT_FLAG_HEIGHT = 16;
 
 function formatNumber(value: number, locale: 'fr' | 'en') {
   return new Intl.NumberFormat(locale === 'fr' ? 'fr-FR' : 'en-US', { maximumFractionDigits: 0 }).format(value);
@@ -85,6 +93,7 @@ export function RacebookElevationProfile({
     const baseline = TOP_PADDING + innerHeight;
     const ticks = [bounds.maxElevationM, (bounds.maxElevationM + bounds.minElevationM) / 2, bounds.minElevationM];
     const distanceTicks = [minDistance, minDistance + distanceSpan / 2, maxDistance];
+    const summitPoint = sampled.reduce((highest, point) => (point.elevationM > highest.elevationM ? point : highest), sampled[0]);
     const stationPoints = aidStations.flatMap((station) => {
       const elevationM = interpolateElevationAtDistance(points, station.km);
       if (elevationM === null || station.km < minDistance || station.km > maxDistance) return [];
@@ -102,6 +111,7 @@ export function RacebookElevationProfile({
       minDistance,
       path,
       stationPoints,
+      summit: { x: xFor(summitPoint.distanceKm), y: yFor(summitPoint.elevationM), elevationM: summitPoint.elevationM },
       ticks,
       xFor,
       yFor,
@@ -201,14 +211,47 @@ export function RacebookElevationProfile({
                 return <Line key={tick} x1={SIDE_PADDING} x2={width - SIDE_PADDING} y1={y} y2={y} stroke={Colors.border} strokeDasharray="4 5" />;
               })}
               <Path d={chart.areaPath} fill="url(#racebook-profile-area)" />
+              {/* Decorative iso-line echo: the trail signature, not data. */}
+              <Path
+                d={chart.path}
+                fill="none"
+                stroke={accentColor}
+                strokeLinejoin="round"
+                strokeOpacity={0.22}
+                strokeWidth={1.25}
+                transform={`translate(0 ${CONTOUR_ECHO_OFFSET})`}
+              />
               <Path d={chart.path} fill="none" stroke={accentColor} strokeWidth={expanded ? 4 : 3.5} strokeLinejoin="round" strokeLinecap="round" />
-              {chart.ticks.map((tick) => {
-                const label = `${formatNumber(tick, locale)} m`;
+              {(() => {
+                const { x, y, elevationM } = chart.summit;
+                const flagTop = y - SUMMIT_FLAG_HEIGHT - 3;
+                const label = `${formatNumber(elevationM, locale)} M`;
+                const labelWidth = label.length * 6.4 + 10;
+                // Keep the summit cote inside the chart and clear of the flag.
+                const flagOnRight = x + 4 + 10 + labelWidth < width - SIDE_PADDING;
+                const labelX = flagOnRight ? x + 16 : x - 6 - labelWidth;
+                return (
+                  <G>
+                    <Line x1={x} x2={x} y1={flagTop} y2={y - 3} stroke={Colors.textPrimary} strokeWidth={1.5} strokeLinecap="round" />
+                    {/* Blaze bands in the shared 2:1:4 proportions. */}
+                    <Rect x={x + 0.75} y={flagTop} width={10} height={2.5} rx={1} fill={colors.accent.olive} />
+                    <Rect x={x + 0.75} y={flagTop + 4} width={10} height={1.25} rx={0.6} fill={colors.accent.amber} />
+                    <Rect x={x + 0.75} y={flagTop + 6.75} width={10} height={5} rx={1} fill={colors.brand.forest} />
+                    <Rect x={labelX} y={flagTop - 1} width={labelWidth} height={LABEL_HEIGHT} rx={4} fill="#FFFFFF" fillOpacity={0.9} />
+                    <SvgText x={labelX + 5} y={flagTop + 10} fill={Colors.textPrimary} fontFamily={MONO_FONT} fontSize="10" letterSpacing={0.4}>
+                      {label}
+                    </SvgText>
+                  </G>
+                );
+              })()}
+              {/* The highest graduation is carried by the summit cote instead. */}
+              {chart.ticks.slice(1).map((tick) => {
+                const label = `${formatNumber(tick, locale)} M`;
                 const top = Math.max(0, chart.yFor(tick) - LABEL_HEIGHT - 2);
                 return (
                   <G key={`label-${tick}`}>
                     <Rect x={SIDE_PADDING - 4} y={top} width={label.length * 6 + 8} height={LABEL_HEIGHT} rx={4} fill="#FFFFFF" fillOpacity={0.82} />
-                    <SvgText x={SIDE_PADDING} y={top + 11} fill={Colors.textSecondary} fontSize="10" fontWeight="600" textAnchor="start">
+                    <SvgText x={SIDE_PADDING} y={top + 11} fill={Colors.textSecondary} fontFamily={MONO_FONT} fontSize="10" letterSpacing={0.4} textAnchor="start">
                       {label}
                     </SvgText>
                   </G>
@@ -240,10 +283,12 @@ export function RacebookElevationProfile({
                   x={chart.xFor(tick)}
                   y={chartHeight - 7}
                   fill={Colors.textMuted}
+                  fontFamily={MONO_FONT}
                   fontSize="10"
+                  letterSpacing={0.4}
                   textAnchor={index === 0 ? 'start' : index === chart.distanceTicks.length - 1 ? 'end' : 'middle'}
                 >
-                  {formatDistance(tick, locale)}
+                  {formatDistance(tick, locale).replace(/km$/, 'KM')}
                 </SvgText>
               ))}
             </Svg>
@@ -387,16 +432,13 @@ export function RacebookElevationProfile({
       ) : inspection ? (
         <View style={styles.metricsRow} accessibilityLiveRegion="polite">
           <View style={styles.metric}>
-            <Text style={styles.metricLabel}>{t.catalog.racebookCumulativeDistance}</Text>
-            <DataText style={styles.metricValue}>{hasInspected ? formatDistance(inspection.distanceKm, locale) : '—'}</DataText>
+            <Cote label={t.catalog.racebookCumulativeDistance} size="sm" value={hasInspected ? formatDistance(inspection.distanceKm, locale) : '—'} />
           </View>
           <View style={styles.metric}>
-            <Text style={styles.metricLabel}>{t.catalog.racebookCumulativeGain}</Text>
-            <DataText style={styles.metricValue}>{hasInspected ? `${formatNumber(inspection.elevationGainM, locale)} m` : '—'}</DataText>
+            <Cote label={t.catalog.racebookCumulativeGain} size="sm" value={hasInspected ? `${formatNumber(inspection.elevationGainM, locale)} m` : '—'} />
           </View>
           <View style={styles.metric}>
-            <Text style={styles.metricLabel}>{t.catalog.racebookCumulativeLoss}</Text>
-            <DataText style={styles.metricValue}>{hasInspected ? `${formatNumber(inspection.elevationLossM, locale)} m` : '—'}</DataText>
+            <Cote label={t.catalog.racebookCumulativeLoss} size="sm" value={hasInspected ? `${formatNumber(inspection.elevationLossM, locale)} m` : '—'} />
           </View>
         </View>
       ) : null}
@@ -426,8 +468,6 @@ const styles = StyleSheet.create({
   stationMarkerCore: { width: 3, height: 3, borderRadius: 2, backgroundColor: '#FFFFFF' },
   metricsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   metric: { flexGrow: 1, minWidth: 68, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
-  metricLabel: { color: Colors.textMuted, fontSize: 10, lineHeight: 13, fontWeight: '700', textTransform: 'uppercase' },
-  metricValue: { marginTop: 2, color: Colors.textPrimary, fontSize: 13, lineHeight: 17, fontWeight: '800' },
   coverageNotice: { flexDirection: 'row', alignItems: 'flex-start', gap: 7, paddingHorizontal: 10, paddingVertical: 9, borderRadius: 12, backgroundColor: Colors.warningSurface },
   coverageNoticeText: { flex: 1, color: Colors.textSecondary, fontSize: 11, lineHeight: 16 },
   stationDetail: { padding: 12, borderRadius: 14, borderWidth: 1, backgroundColor: Colors.surface, gap: 5 },

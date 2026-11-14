@@ -171,11 +171,15 @@ export type MobileTranslations = {
     shareFailed: string;
   };
   planWorkspace: {
+    summitTitle: string;
+    summitSubtitle: string;
+    summitDismiss: string;
     myPlan: string;
     officialRacebook: string;
     racebookUnavailable: string;
     recap: string;
     settings: string;
+    nutrition: string;
     plans: string;
     backToPlans: string;
     saveAndBackToPlans: string;
@@ -687,13 +691,39 @@ export type MobileTranslations = {
     skipOnboardingConfirmTitle: string;
     skipOnboardingConfirmBody: string;
     skipOnboardingError: string;
+    racebookIntro: {
+      pagerLabel: string; goToPageLabel: string; kicker: string; officialBadge: string;
+      title: string; subtitle: string;
+      promiseOfficialTitle: string; promiseOfficialText: string;
+      promiseUpdatedTitle: string; promiseUpdatedText: string;
+      promiseLastMinuteTitle: string; promiseLastMinuteText: string;
+      nextCta: string; tabsTitle: string; tabsSubtitle: string;
+      tabGearText: string; tabBibText: string; tabCourseText: string;
+      tabAccessText: string; tabServicesText: string;
+      chooseRaceCta: string; chooseRaceHint: string; planCta: string;
+    };
+    racebookTour: {
+      skip: string;
+      lastMinuteTitle: string; lastMinuteBody: string;
+      tabBarTitle: string; tabBarBody: string;
+      gearTitle: string; gearBody: string;
+      bibTitle: string; bibBody: string;
+      courseTitle: string; courseBody: string;
+      courseTabsTitle: string; courseTabsBody: string;
+      accessTitle: string; accessBody: string;
+      servicesTitle: string; servicesBody: string;
+      emergencyTitle: string; emergencyBody: string;
+      linksTitle: string; linksBody: string;
+      wrapUpTitle: string; wrapUpBody: string;
+    };
     tours: {
-      choiceTitle: string; choiceSubtitle: string; planChoiceTitle: string; planChoiceBody: string; planOptionalLabel: string;
-      racebookChoiceTitle: string; racebookChoiceBody: string; discoverLater: string;
+      planChoiceTitle: string; planChoiceBody: string; planOptionalLabel: string;
+      discoverLater: string;
       chooseRaceTitle: string; chooseRaceBody: string; openRacebookTitle: string;
       openRacebookBody: string; searchRacebookTitle: string; searchRacebookBody: string;
       searchRacebookEmptyTitle: string; searchRacebookEmptyBody: string;
-      noRacebookBody: string; productsTitle: string;
+      noRacebookBody: string; pickRaceTitle: string; pickRaceBody: string;
+      demoRaceBody: string; demoRaceCta: string; productsTitle: string;
       productsBody: string; continueToPlan: string; exploreRacebookTitle: string;
       exploreRacebookBody: string; unavailableTitle: string; unavailableBody: string;
       understood: string; skip: string;

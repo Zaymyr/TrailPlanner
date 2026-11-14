@@ -1,10 +1,8 @@
 import { memo } from 'react';
-import {
-  ActivityIndicator,
-  StyleSheet,
-  TouchableOpacity,
-  View
-} from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { ActionButton } from '../themed/ActionButton';
+import { Card } from '../themed/Card';
+import { StatusPill } from '../themed/StatusPill';
 import { Text } from '../themed/Text';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Colors } from '../../constants/colors';
@@ -48,7 +46,18 @@ type ProfilePremiumSectionProps = {
   subscriptionLabel: string;
   termsOfUseLabel?: string;
   upgradeLabel: string;
+  /**
+   * The upgrade action is the screen's enamel plate unless another action
+   * (e.g. guest account creation) already holds it.
+   */
+  upgradeVariant?: 'primary' | 'secondary';
 };
+
+const BADGE_TONES = {
+  premium: 'brand',
+  trial: 'warning',
+  free: 'neutral',
+} as const;
 
 function ProfilePremiumSectionComponent({
   badges,
@@ -77,41 +86,19 @@ function ProfilePremiumSectionComponent({
   subscriptionLabel,
   termsOfUseLabel,
   upgradeLabel,
+  upgradeVariant = 'primary',
 }: ProfilePremiumSectionProps) {
   const showOfferDetails = showUpgradeAction && Boolean(offerTitle || offerDuration || offerPrice);
   const showLegalButtons =
     Boolean(privacyPolicyLabel && onOpenPrivacyPolicy) || Boolean(termsOfUseLabel && onOpenTermsOfUse);
 
   return (
-    <View style={styles.card}>
+    <Card style={styles.card} variationKey="profile-premium">
       <View style={styles.headerRow}>
         <Text style={styles.headerLabel}>{subscriptionLabel}</Text>
         <View style={styles.badgesRow}>
           {badges.map((badge) => (
-            <View
-              key={`${badge.tone}-${badge.label}`}
-              style={[
-                styles.badge,
-                badge.tone === 'premium'
-                  ? styles.badgePremium
-                  : badge.tone === 'trial'
-                    ? styles.badgeTrial
-                    : styles.badgeFree,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.badgeText,
-                  badge.tone === 'premium'
-                    ? styles.badgeTextPremium
-                    : badge.tone === 'trial'
-                      ? styles.badgeTextTrial
-                      : styles.badgeTextFree,
-                ]}
-              >
-                {badge.label}
-              </Text>
-            </View>
+            <StatusPill key={`${badge.tone}-${badge.label}`} label={badge.label} tone={BADGE_TONES[badge.tone]} />
           ))}
         </View>
       </View>
@@ -145,39 +132,29 @@ function ProfilePremiumSectionComponent({
       ) : null}
 
       {showUpgradeAction ? (
-        <TouchableOpacity
-          style={[styles.upgradeButton, billingActionBusy && styles.actionDisabled]}
-          onPress={onUpgrade}
+        <ActionButton
           disabled={billingActionBusy}
+          fullWidth
+          isLoading={isPurchasing}
+          onPress={onUpgrade}
+          variant={upgradeVariant}
         >
-          {isPurchasing ? (
-            <ActivityIndicator color={Colors.brandPrimary} />
-          ) : (
-            <Text style={styles.upgradeButtonText}>{upgradeLabel}</Text>
-          )}
-        </TouchableOpacity>
+          {upgradeLabel}
+        </ActionButton>
       ) : null}
 
       {showLegalButtons ? (
         <View style={styles.legalButtonsRow}>
           {privacyPolicyLabel && onOpenPrivacyPolicy ? (
-            <TouchableOpacity
-              style={[styles.legalButton, billingActionBusy && styles.actionDisabled]}
-              onPress={onOpenPrivacyPolicy}
-              disabled={billingActionBusy}
-            >
-              <Text style={styles.legalButtonText}>{privacyPolicyLabel}</Text>
-            </TouchableOpacity>
+            <ActionButton disabled={billingActionBusy} onPress={onOpenPrivacyPolicy} size="sm" variant="ghost">
+              {privacyPolicyLabel}
+            </ActionButton>
           ) : null}
 
           {termsOfUseLabel && onOpenTermsOfUse ? (
-            <TouchableOpacity
-              style={[styles.legalButton, billingActionBusy && styles.actionDisabled]}
-              onPress={onOpenTermsOfUse}
-              disabled={billingActionBusy}
-            >
-              <Text style={styles.legalButtonText}>{termsOfUseLabel}</Text>
-            </TouchableOpacity>
+            <ActionButton disabled={billingActionBusy} onPress={onOpenTermsOfUse} size="sm" variant="ghost">
+              {termsOfUseLabel}
+            </ActionButton>
           ) : null}
         </View>
       ) : null}
@@ -185,29 +162,23 @@ function ProfilePremiumSectionComponent({
       {subscriptionHint ? <Text style={styles.subscriptionHint}>{subscriptionHint}</Text> : null}
 
       {canManageSubscription ? (
-        <TouchableOpacity
-          style={[styles.secondaryButton, billingActionBusy && styles.actionDisabled]}
-          onPress={onManageSubscription}
-          disabled={billingActionBusy}
-        >
-          <Text style={styles.secondaryButtonText}>{manageSubscriptionLabel}</Text>
-        </TouchableOpacity>
+        <ActionButton disabled={billingActionBusy} fullWidth onPress={onManageSubscription} variant="secondary">
+          {manageSubscriptionLabel}
+        </ActionButton>
       ) : null}
 
       {showRestorePurchases ? (
-        <TouchableOpacity
-          style={[styles.tertiaryButton, billingActionBusy && styles.actionDisabled]}
-          onPress={onRestorePurchases}
+        <ActionButton
           disabled={billingActionBusy}
+          isLoading={isRestoring}
+          onPress={onRestorePurchases}
+          style={styles.restoreButton}
+          variant="ghost"
         >
-          {isRestoring ? (
-            <ActivityIndicator color={Colors.textSecondary} />
-          ) : (
-            <Text style={styles.tertiaryButtonText}>{restorePurchasesLabel}</Text>
-          )}
-        </TouchableOpacity>
+          {restorePurchasesLabel}
+        </ActionButton>
       ) : null}
-    </View>
+    </Card>
   );
 }
 
@@ -216,16 +187,6 @@ export const ProfilePremiumSection = memo(ProfilePremiumSectionComponent);
 const styles = StyleSheet.create({
   card: {
     gap: 12,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
-    elevation: 3,
   },
   headerRow: {
     flexDirection: 'row',
@@ -244,37 +205,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'flex-end',
     gap: 8,
-  },
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  badgePremium: {
-    backgroundColor: Colors.brandSurface,
-    borderColor: Colors.brandBorder,
-  },
-  badgeTrial: {
-    backgroundColor: '#FFF7D6',
-    borderColor: '#F3D47A',
-  },
-  badgeFree: {
-    backgroundColor: Colors.surfaceSecondary,
-    borderColor: Colors.border,
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  badgeTextPremium: {
-    color: Colors.brandPrimary,
-  },
-  badgeTextTrial: {
-    color: '#A05A00',
-  },
-  badgeTextFree: {
-    color: Colors.textSecondary,
   },
   infoCard: {
     gap: 4,
@@ -341,21 +271,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
-  upgradeButton: {
-    minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: Colors.brandPrimary,
-    backgroundColor: Colors.brandSurface,
-    paddingHorizontal: 16,
-  },
-  upgradeButtonText: {
-    color: Colors.brandPrimary,
-    fontSize: 15,
-    fontWeight: '800',
-  },
   subscriptionHint: {
     color: Colors.textSecondary,
     fontSize: 12,
@@ -363,53 +278,11 @@ const styles = StyleSheet.create({
   },
   legalButtonsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
     gap: 10,
   },
-  legalButton: {
-    flex: 1,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceSecondary,
-    paddingHorizontal: 12,
-  },
-  legalButtonText: {
-    color: Colors.textPrimary,
-    fontSize: 13,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  secondaryButton: {
-    minHeight: 46,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceSecondary,
-    paddingHorizontal: 16,
-  },
-  secondaryButtonText: {
-    color: Colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  tertiaryButton: {
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 14,
-    paddingHorizontal: 16,
-  },
-  tertiaryButtonText: {
-    color: Colors.textSecondary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  actionDisabled: {
-    opacity: 0.7,
+  restoreButton: {
+    alignSelf: 'center',
   },
 });

@@ -1,9 +1,13 @@
 import { useMemo } from 'react';
-import { ActivityIndicator, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { Locale, MobileTranslations } from '../../locales/types';
 import { Colors } from '../../constants/colors';
 import type { FuelType, Product } from '../nutrition/types';
+import { AccordionSection } from '../themed/AccordionHeader';
+import { ActionButton } from '../themed/ActionButton';
+import { Field } from '../themed/Field';
+import { StatusPill } from '../themed/StatusPill';
 import { Text } from '../themed/Text';
 import { OnboardingShell } from './OnboardingIntroSteps';
 import { OnboardingProductChoice } from './OnboardingProductChoice';
@@ -184,9 +188,9 @@ export function OnboardingNutritionProductsStep({
             <View style={styles.selectionCountPill}>
               <Text style={styles.selectionCountText}>{selectedRaceSummary}</Text>
             </View>
-            <TouchableOpacity style={styles.retryButtonInline} onPress={onChangeRace}>
-              <Text style={styles.retryButtonInlineText}>{copy.onboarding.changeRaceCta}</Text>
-            </TouchableOpacity>
+            <ActionButton onPress={onChangeRace} size="sm" variant="secondary">
+              {copy.onboarding.changeRaceCta}
+            </ActionButton>
           </View>
         ) : null}
 
@@ -200,13 +204,14 @@ export function OnboardingNutritionProductsStep({
           </Text>
         </View>
 
-        <TextInput
-          style={styles.textInput}
-          value={search}
+        <Field
+          accessibilityLabel={copy.onboarding.nutritionSearchPlaceholder}
+          autoCapitalize="none"
+          containerStyle={styles.searchField}
           onChangeText={onChangeSearch}
           placeholder={copy.onboarding.nutritionSearchPlaceholder}
-          placeholderTextColor={Colors.textMuted}
-          autoCapitalize="none"
+          value={search}
+          variant="search"
         />
 
         {loading ? (
@@ -217,9 +222,9 @@ export function OnboardingNutritionProductsStep({
         ) : loadError ? (
           <View style={styles.centeredState}>
             <Text style={styles.errorText}>{loadError}</Text>
-            <TouchableOpacity style={styles.retryButtonInline} onPress={onRetry}>
-              <Text style={styles.retryButtonInlineText}>{copy.common.retry}</Text>
-            </TouchableOpacity>
+            <ActionButton onPress={onRetry} size="sm" variant="secondary">
+              {copy.common.retry}
+            </ActionButton>
           </View>
         ) : groupedProducts.length === 0 ? (
           <View style={styles.centeredState}>
@@ -236,41 +241,23 @@ export function OnboardingNutritionProductsStep({
               const hasVerifiedProduct = group.products.some(isVerifiedProduct);
 
               return (
-                <View key={group.brandLabel} style={styles.productBrandGroup}>
-                  <TouchableOpacity
-                    style={[styles.productBrandHeader, brandExpanded && styles.productBrandHeaderExpanded]}
-                    onPress={() => onToggleBrand(group.brandLabel)}
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.productBrandTitleRow}>
-                      <Text
-                        numberOfLines={1}
-                        style={[styles.productBrandTitle, hasVerifiedProduct && styles.productBrandTitleOfficial]}
-                      >
-                        {group.brandLabel}
-                      </Text>
-                    </View>
-
-                    <View style={styles.productBrandHeaderActions}>
-                      {selectedProductsInBrand > 0 ? (
-                        <View style={styles.productBrandSelectedPill}>
-                          <Ionicons name="checkmark" size={12} color={Colors.textOnBrand} />
-                          <Text style={styles.productBrandSelectedText}>{selectedProductsInBrand}</Text>
-                        </View>
-                      ) : null}
-                      <View style={styles.productBrandCountPill}>
-                        <Text style={styles.productBrandCountText}>{group.products.length}</Text>
-                      </View>
-                      <Ionicons
-                        name={brandExpanded ? 'chevron-up' : 'chevron-down'}
-                        size={18}
-                        color={Colors.brandPrimary}
+                <AccordionSection
+                  key={group.brandLabel}
+                  count={group.products.length}
+                  expanded={brandExpanded}
+                  onToggle={() => onToggleBrand(group.brandLabel)}
+                  title={group.brandLabel}
+                  titleColor={hasVerifiedProduct ? Colors.brandLight : undefined}
+                  trailing={
+                    selectedProductsInBrand > 0 ? (
+                      <StatusPill
+                        icon={<Ionicons name="checkmark" size={12} color={Colors.textOnBrand} />}
+                        label={String(selectedProductsInBrand)}
+                        tone="brand"
                       />
-                    </View>
-                  </TouchableOpacity>
-
-                  {brandExpanded ? (
-                    <View style={styles.productBrandItems}>
+                    ) : null
+                  }
+                >
                       {group.products.map((product) => (
                         <OnboardingProductChoice
                           key={product.id}
@@ -282,30 +269,24 @@ export function OnboardingNutritionProductsStep({
                           onPress={() => onToggleProduct(product.id)}
                         />
                       ))}
-                    </View>
-                  ) : null}
-                </View>
+                </AccordionSection>
               );
             })}
           </View>
         )}
       </View>
 
-      <TouchableOpacity
-        style={[styles.primaryButton, (selectedProductIds.length === 0 || saving) && styles.buttonDisabled]}
-        onPress={onContinue}
+      <ActionButton
         disabled={selectedProductIds.length === 0 || saving}
+        fullWidth
+        isLoading={saving}
+        onPress={onContinue}
+        size="lg"
       >
-        {saving ? (
-          <ActivityIndicator color={Colors.textOnBrand} />
-        ) : (
-          <Text style={styles.primaryButtonText}>
-            {selectedProductIds.length > 0
-              ? copy.onboarding.nutritionContinueCta
-              : copy.onboarding.continueCta}
-          </Text>
-        )}
-      </TouchableOpacity>
+        {selectedProductIds.length > 0
+          ? copy.onboarding.nutritionContinueCta
+          : copy.onboarding.continueCta}
+      </ActionButton>
     </OnboardingShell>
   );
 }
@@ -317,33 +298,16 @@ const styles = StyleSheet.create({
   selectionActionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12, flexWrap: 'wrap' },
   selectionCountPill: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: Colors.brandSurface, borderWidth: 1, borderColor: Colors.brandBorder },
   selectionCountText: { color: Colors.brandPrimary, fontSize: 12, fontWeight: '700' },
-  retryButtonInline: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: Colors.brandBorder, backgroundColor: Colors.brandSurface },
-  retryButtonInlineText: { color: Colors.brandPrimary, fontSize: 13, fontWeight: '700' },
   noticeBox: { backgroundColor: Colors.surfaceSecondary, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, padding: 16, gap: 8, marginBottom: 24 },
   nutritionNoticeBox: { marginBottom: 14 },
   noticeTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700', marginBottom: 2 },
   noticeText: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20 },
   nutritionSelectionStatus: { color: Colors.brandPrimary, fontSize: 13, fontWeight: '700', marginTop: 2 },
-  textInput: { backgroundColor: Colors.surfaceSecondary, color: Colors.textPrimary, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, marginBottom: 8 },
+  searchField: { marginBottom: 8 },
   centeredState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 28, gap: 10 },
   stateText: { color: Colors.textSecondary, fontSize: 14, textAlign: 'center' },
   errorText: { color: Colors.danger, fontSize: 13, textAlign: 'center', marginTop: 4, marginBottom: 16 },
   emptyTitle: { color: Colors.textPrimary, fontSize: 16, fontWeight: '700', textAlign: 'center' },
   emptySubtitle: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20, textAlign: 'center' },
   productList: { gap: 8 },
-  productBrandGroup: { gap: 0 },
-  productBrandHeader: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, backgroundColor: Colors.surface, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8 },
-  productBrandHeaderExpanded: { backgroundColor: Colors.brandSurface, borderColor: Colors.brandBorder },
-  productBrandHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  productBrandTitleRow: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  productBrandTitle: { flex: 1, color: Colors.textPrimary, fontSize: 15, fontWeight: '800' },
-  productBrandTitleOfficial: { color: Colors.brandLight },
-  productBrandSelectedPill: { minWidth: 30, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999, backgroundColor: Colors.brandPrimary },
-  productBrandSelectedText: { color: Colors.textOnBrand, fontSize: 12, fontWeight: '800' },
-  productBrandCountPill: { minWidth: 30, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, backgroundColor: Colors.surfaceSecondary, borderWidth: 1, borderColor: Colors.border, alignItems: 'center' },
-  productBrandCountText: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700' },
-  productBrandItems: { gap: 0 },
-  primaryButton: { backgroundColor: Colors.brandPrimary, borderRadius: 16, paddingVertical: 18, alignItems: 'center' },
-  primaryButtonText: { color: Colors.textOnBrand, fontSize: 16, fontWeight: '700' },
-  buttonDisabled: { opacity: 0.6 },
 });

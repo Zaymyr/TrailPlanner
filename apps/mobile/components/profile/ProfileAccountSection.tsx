@@ -1,10 +1,7 @@
 import { memo } from 'react';
-import {
-  ActivityIndicator,
-  StyleSheet,
-  TouchableOpacity,
-  View
-} from 'react-native';
+import { StyleSheet } from 'react-native';
+import { ActionButton } from '../themed/ActionButton';
+import { Card } from '../themed/Card';
 import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 
@@ -34,47 +31,30 @@ function ProfileAccountSectionComponent({
   title,
 }: ProfileAccountSectionProps) {
   return (
-    <View style={styles.card}>
+    <Card style={styles.card} variationKey="profile-account">
       <Text style={styles.title}>{title}</Text>
       {body ? <Text style={styles.body}>{body}</Text> : null}
 
-      <TouchableOpacity
-        style={[
-          styles.primaryButton,
-          primaryTone === 'brand' ? styles.primaryButtonBrand : styles.primaryButtonNeutral,
-        ]}
+      <ActionButton
+        fullWidth
         onPress={onPrimaryPress}
+        variant={primaryTone === 'brand' ? 'primary' : 'secondary'}
       >
-        <Text
-          style={[
-            styles.primaryButtonText,
-            primaryTone === 'brand' ? styles.primaryButtonTextBrand : styles.primaryButtonTextNeutral,
-          ]}
-        >
-          {primaryLabel}
-        </Text>
-      </TouchableOpacity>
+        {primaryLabel}
+      </ActionButton>
 
       {secondaryLabel && onSecondaryPress ? (
-        <TouchableOpacity style={styles.secondaryButton} onPress={onSecondaryPress}>
-          <Text style={styles.secondaryButtonText}>{secondaryLabel}</Text>
-        </TouchableOpacity>
+        <ActionButton fullWidth onPress={onSecondaryPress} variant="secondary">
+          {secondaryLabel}
+        </ActionButton>
       ) : null}
 
       {dangerLabel && onDangerPress ? (
-        <TouchableOpacity
-          style={[styles.deleteButton, dangerLoading && styles.actionDisabled]}
-          onPress={onDangerPress}
-          disabled={dangerLoading}
-        >
-          {dangerLoading ? (
-            <ActivityIndicator color={Colors.danger} />
-          ) : (
-            <Text style={styles.deleteButtonText}>{dangerLabel}</Text>
-          )}
-        </TouchableOpacity>
+        <ActionButton fullWidth isLoading={dangerLoading} onPress={onDangerPress} variant="destructive">
+          {dangerLabel}
+        </ActionButton>
       ) : null}
-    </View>
+    </Card>
   );
 }
 
@@ -83,11 +63,6 @@ export const ProfileAccountSection = memo(ProfileAccountSectionComponent);
 const styles = StyleSheet.create({
   card: {
     gap: 12,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
-    padding: 16,
   },
   title: {
     color: Colors.textPrimary,
@@ -98,63 +73,5 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 14,
     lineHeight: 20,
-  },
-  primaryButton: {
-    minHeight: 44,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-  },
-  primaryButtonBrand: {
-    backgroundColor: Colors.brandPrimary,
-  },
-  primaryButtonNeutral: {
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceSecondary,
-  },
-  primaryButtonText: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  primaryButtonTextBrand: {
-    color: Colors.textOnBrand,
-  },
-  primaryButtonTextNeutral: {
-    color: Colors.textPrimary,
-  },
-  secondaryButton: {
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceSecondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-  },
-  secondaryButtonText: {
-    color: Colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  deleteButton: {
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#F2C5C5',
-    backgroundColor: '#FFF2F2',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-  },
-  deleteButtonText: {
-    color: Colors.danger,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  actionDisabled: {
-    opacity: 0.7,
   },
 });

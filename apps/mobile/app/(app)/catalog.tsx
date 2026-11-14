@@ -1,3 +1,4 @@
+import { HeartMark } from '../../components/themed/trail/HeartMark';
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
 import {
   Alert,
@@ -10,7 +11,6 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
@@ -36,6 +36,13 @@ import {
 import { EmptyState } from '../../components/themed/EmptyState';
 import { ErrorState } from '../../components/themed/ErrorState';
 import { BriefToast } from '../../components/themed/BriefToast';
+import { ChoiceChip } from '../../components/themed/ChoiceChip';
+import { Cote } from '../../components/themed/Cote';
+import { Field } from '../../components/themed/Field';
+import { IconAction } from '../../components/themed/IconAction';
+import { SheetHeader } from '../../components/themed/SheetHeader';
+import { StatusPill } from '../../components/themed/StatusPill';
+import { MilestoneCompassButton } from '../../components/themed/trail/MilestoneGlyphs';
 import { Colors } from '../../constants/colors';
 import { isAnonymousSession } from '../../lib/appSession';
 import {
@@ -56,6 +63,7 @@ import {
   normalizeRacebookOnboardingSearch,
 } from '../../lib/racebookOnboarding';
 import { prefetchRacebookSponsors } from '../../lib/racebookSponsors';
+import { resolveOnboardingDemoRace } from '../../lib/onboardingDemoRace';
 import { supabase } from '../../lib/supabase';
 import { saveOnboardingProgress, skipOnboardingKind } from '../../lib/onboardingStatus';
 import { WEB_API_BASE_URL } from '../../lib/webApi';
@@ -178,6 +186,12 @@ function getEventDistanceRange(races: Race[], locale: 'fr' | 'en') {
   }
 
   return `${formatDistance(minDistance, locale)}–${formatDistance(maxDistance, locale)} km`;
+}
+
+/** "5 distances" -> cote 5 + DISTANCES, as on the race card; other labels stay whole. */
+function splitCountLabel(label: string): { value: string; unit: string | null } {
+  const match = /^(\d+)\s+(.+)$/u.exec(label.trim());
+  return match ? { value: match[1], unit: match[2] } : { value: label, unit: null };
 }
 
 function isRacePast(race: Race, eventDate: string | null) {
@@ -604,6 +618,49 @@ export default function CatalogScreen() {
     [eventGroups],
   );
 
+  // Runners without a race explore the guided tour on the Trail TST demo. It is
+  // resolved from the unfiltered catalog so search, filters and its past date
+  // never hide it.
+  const onboardingDemoRace = useMemo(
+    () => onboardingMode === 'racebook'
+      ? resolveOnboardingDemoRace<EventGroup>(eventGroups, (race, event) => canShowRacebook({
+        raceIsLive: race.is_live,
+        racebookIsLive: race.racebook_is_live,
+        racebookPreviewIsVisible: race.racebook_preview_is_visible,
+        hasOrganizerAccess: false,
+        hasAidStations: race.has_aid_stations,
+        hasRelayCourse: race.participation_mode === 'relay' || race.participation_mode === 'solo_and_relay',
+        eventOrganizerDetails: event.organizer_details,
+        raceOrganizerDetails: race.organizer_details,
+      }))
+      : null,
+    [eventGroups, onboardingMode],
+  );
+
+  /** Guided RaceBook onboarding: remembers the race, then opens its tour. */
+  function openOnboardingRacebook(event: EventGroup, race: Race, selectionMethod: string) {
+    captureAnalyticsEvent('racebook onboarding racebook selected', {
+      onboarding_kind: 'racebook',
+      event_id: event.id,
+      event_name: event.name,
+      race_id: race.id,
+      race_name: race.name,
+      query_length: normalizeRacebookOnboardingSearch(nameFilter).length,
+      selection_method: selectionMethod,
+    });
+    setSelectedEvent(null);
+    void saveOnboardingProgress({
+      kind: 'racebook',
+      stage: 'racebook',
+      selectedRaceId: race.id,
+    }).then(() => {
+      router.push({
+        pathname: '/(app)/race/[id]/racebook',
+        params: { id: race.id, onboarding: 'racebook' },
+      });
+    });
+  }
+
   async function handleSkipGuidedCatalog() {
     if (!onboardingMode) return;
     await skipOnboardingKind(onboardingMode, 'catalog');
@@ -873,6 +930,7 @@ export default function CatalogScreen() {
       ? t.catalog.singleFormatLabel
       : t.catalog.multipleFormatsLabel.replace('{count}', String(selectedEvent.races.length))
     : null;
+  const selectedFormatsCote = selectedFormatsLabel ? splitCountLabel(selectedFormatsLabel) : null;
 
   function resetFilters() {
     setDistanceMinFilter('');
@@ -1146,21 +1204,18 @@ export default function CatalogScreen() {
             ]}
           >
             <View style={styles.filtersCard}>
-              <View style={styles.searchRow}>
-                <TextInput
-                  value={nameFilter}
-                  onChangeText={(value) => {
-                    setNameFilter(value);
-                    lastTrackedRacebookSearchRef.current = null;
-                  }}
-                  onSubmitEditing={captureRacebookOnboardingSearch}
-                  placeholder={t.catalog.searchPlaceholder}
-                  placeholderTextColor={Colors.textMuted}
-                  autoFocus={onboardingMode === 'racebook'}
-                  returnKeyType="search"
-                  style={styles.filterInput}
-                />
-                {nameFilter ? (
+              <Field
+                variant="search"
+                accessibilityLabel={t.catalog.searchPlaceholder}
+                value={nameFilter}
+                onChangeText={(value) => {
+                  setNameFilter(value);
+                  lastTrackedRacebookSearchRef.current = null;
+                }}
+                onSubmitEditing={captureRacebookOnboardingSearch}
+                placeholder={t.catalog.searchPlaceholder}
+                returnKeyType="search"
+                trailing={nameFilter ? (
                   <TouchableOpacity
                     accessibilityLabel={locale === 'fr' ? 'Effacer la recherche' : 'Clear search'}
                     accessibilityRole="button"
@@ -1171,16 +1226,15 @@ export default function CatalogScreen() {
                     <Ionicons name="close-circle" size={22} color={Colors.textMuted} />
                   </TouchableOpacity>
                 ) : null}
-              </View>
+              />
               {onboardingMode !== 'racebook' ? <View style={styles.filterActionsRow}>
-                <TouchableOpacity style={styles.filterButton} onPress={() => setFiltersOpen(true)}>
-                  <Ionicons name="options-outline" size={16} color={Colors.brandPrimary} />
-                  <Text style={styles.filterButtonText}>
-                    {activeFiltersCount > 0
-                      ? `${t.catalog.filters} (${activeFiltersCount})`
-                      : t.catalog.filters}
-                  </Text>
-                </TouchableOpacity>
+                <MilestoneCompassButton
+                  accessibilityLabel={activeFiltersCount > 0
+                    ? `${t.catalog.filters} (${activeFiltersCount})`
+                    : t.catalog.filters}
+                  activeCount={activeFiltersCount}
+                  onPress={() => setFiltersOpen(true)}
+                />
                 <ScrollView
                   horizontal
                   contentContainerStyle={styles.quickFiltersContent}
@@ -1190,18 +1244,13 @@ export default function CatalogScreen() {
                   {QUICK_CATALOG_FILTERS.map((filter) => {
                     const active = quickFilter === filter.key;
                     return (
-                      <TouchableOpacity
-                        accessibilityRole="button"
-                        accessibilityState={{ selected: active }}
+                      <ChoiceChip
                         key={filter.key}
-                        activeOpacity={0.78}
+                        kind={filter.key === 'favorites' ? 'favorite' : 'value'}
+                        label={locale === 'fr' ? filter.fr : filter.en}
                         onPress={() => setQuickFilter(active ? 'all' : filter.key)}
-                        style={[styles.quickFilterChip, active && styles.quickFilterChipActive]}
-                      >
-                        <Text style={[styles.quickFilterText, active && styles.quickFilterTextActive]}>
-                          {locale === 'fr' ? filter.fr : filter.en}
-                        </Text>
-                      </TouchableOpacity>
+                        selected={active}
+                      />
                     );
                   })}
                 </ScrollView>
@@ -1274,20 +1323,31 @@ export default function CatalogScreen() {
         topInset={insets.top}
       />
 
-      {onboardingMode ? (
+      {onboardingMode === 'plan' ? (
         <OnboardingGuideCard
-          title={
-            onboardingMode === 'plan'
-              ? t.onboarding.tours.chooseRaceTitle
-              : t.onboarding.tours.searchRacebookTitle
-          }
+          title={t.onboarding.tours.chooseRaceTitle}
+          body={t.onboarding.tours.chooseRaceBody}
+          skipLabel={t.onboarding.tours.skip}
+          onSkip={() => void handleSkipGuidedCatalog()}
+        />
+      ) : null}
+      {onboardingMode === 'racebook' && !selectedEvent ? (
+        // The race choice is required: pick a race, or use the Trail TST demo
+        // when the runner has none yet. Skipping stays a soft secondary exit.
+        <OnboardingGuideCard
+          title={t.onboarding.tours.pickRaceTitle}
           body={
-            onboardingMode === 'plan'
-              ? t.onboarding.tours.chooseRaceBody
-              : publishedRacebookCount > 0
-                ? t.onboarding.tours.searchRacebookBody
-                : t.onboarding.tours.noRacebookBody
+            publishedRacebookCount === 0
+              ? t.onboarding.tours.noRacebookBody
+              : onboardingDemoRace
+                ? `${t.onboarding.tours.pickRaceBody} ${t.onboarding.tours.demoRaceBody}`
+                : t.onboarding.tours.pickRaceBody
           }
+          actionLabel={onboardingDemoRace ? t.onboarding.tours.demoRaceCta : undefined}
+          actionKind="navigate"
+          onAction={onboardingDemoRace
+            ? () => openOnboardingRacebook(onboardingDemoRace.event, onboardingDemoRace.race, 'demo_race')
+            : undefined}
           skipLabel={t.onboarding.tours.skip}
           onSkip={() => void handleSkipGuidedCatalog()}
         />
@@ -1319,43 +1379,25 @@ export default function CatalogScreen() {
         <View style={styles.modalBackdrop}>
           <Pressable style={styles.sheetOverlay} onPress={() => setSelectedEvent(null)} />
           <SafeAreaView accessibilityViewIsModal style={styles.sheetCard}>
-            <View style={styles.sheetHandle} />
-            <View style={styles.sheetHeader}>
-              <View style={styles.sheetHeaderText}>
-                <Text style={styles.sheetTitle}>{selectedEvent?.name}</Text>
-                {selectedEventMeta ? <Text style={styles.sheetSubtitle}>{selectedEventMeta}</Text> : null}
-              </View>
-              {selectedEvent ? (
-                <TouchableOpacity
+            <SheetHeader
+              closeLabel={t.common.close}
+              onClose={() => setSelectedEvent(null)}
+              subtitle={selectedEventMeta}
+              title={selectedEvent?.name ?? ''}
+              trailing={selectedEvent ? (
+                <IconAction
                   accessibilityLabel={favoriteEventIds.includes(selectedEvent.id)
                     ? (locale === 'fr' ? 'Retirer cette course des favoris' : 'Remove this race from favorites')
                     : (locale === 'fr' ? 'Ajouter cette course aux favoris' : 'Add this race to favorites')}
-                  accessibilityRole="button"
                   accessibilityState={{ selected: favoriteEventIds.includes(selectedEvent.id) }}
-                  style={[
-                    styles.sheetFavoriteButton,
-                    favoriteEventIds.includes(selectedEvent.id) && styles.sheetFavoriteButtonActive,
-                  ]}
+                  icon={<HeartMark filled={favoriteEventIds.includes(selectedEvent.id)} size={22} />}
                   onPress={() => {
                     void handleToggleFavorite(selectedEvent.id);
                   }}
-                >
-                  <Ionicons
-                    name={favoriteEventIds.includes(selectedEvent.id) ? 'heart' : 'heart-outline'}
-                    size={18}
-                    color={favoriteEventIds.includes(selectedEvent.id) ? Colors.textOnBrand : Colors.brandPrimary}
-                  />
-                </TouchableOpacity>
+                  tone="brand"
+                />
               ) : null}
-              <TouchableOpacity
-                accessibilityLabel={t.common.close}
-                accessibilityRole="button"
-                style={styles.sheetCloseButton}
-                onPress={() => setSelectedEvent(null)}
-              >
-                <Ionicons name="close" size={20} color={Colors.textPrimary} />
-              </TouchableOpacity>
-            </View>
+            />
 
             {selectedEventImage ? (
               // Organizer images are often small logos: show them whole over a
@@ -1367,16 +1409,16 @@ export default function CatalogScreen() {
             ) : null}
 
             <View style={styles.eventSummaryRow}>
-              {selectedFormatsLabel ? (
-                <View style={styles.summaryPill}>
-                  <Text style={styles.summaryPillText}>{selectedFormatsLabel}</Text>
-                </View>
+              {selectedFormatsCote ? (
+                <Cote
+                  accessibilityLabel={selectedFormatsLabel ?? undefined}
+                  size="sm"
+                  tone="primary"
+                  unit={selectedFormatsCote.unit}
+                  value={selectedFormatsCote.value}
+                />
               ) : null}
-              {selectedEventDistanceRange ? (
-                <View style={styles.summaryPill}>
-                  <Text style={styles.summaryPillText}>{selectedEventDistanceRange}</Text>
-                </View>
-              ) : null}
+              {selectedEventDistanceRange ? <Cote size="sm" tone="primary" value={selectedEventDistanceRange} /> : null}
             </View>
 
             <Text style={styles.sheetHint}>{locale === 'fr' ? 'Choisis ta distance, puis ouvre son Livret coureur.' : 'Choose your distance, then open its Race Book.'}</Text>
@@ -1420,26 +1462,7 @@ export default function CatalogScreen() {
                     void prefetchRacebookSponsors(race.id);
                     if (onboardingMode === 'racebook') {
                       captureRacebookOnboardingSearch();
-                      captureAnalyticsEvent('racebook onboarding racebook selected', {
-                        onboarding_kind: 'racebook',
-                        event_id: selectedEvent.id,
-                        event_name: selectedEvent.name,
-                        race_id: race.id,
-                        race_name: race.name,
-                        query_length: normalizeRacebookOnboardingSearch(nameFilter).length,
-                        selection_method: racebookOnboardingSelectionMethod,
-                      });
-                      setSelectedEvent(null);
-                      void saveOnboardingProgress({
-                        kind: 'racebook',
-                        stage: 'racebook',
-                        selectedRaceId: race.id,
-                      }).then(() => {
-                        router.push({
-                          pathname: '/(app)/race/[id]/racebook',
-                          params: { id: race.id, onboarding: 'racebook' },
-                        });
-                      });
+                      openOnboardingRacebook(selectedEvent, race, racebookOnboardingSelectionMethod);
                       return;
                     }
                     setSelectedEvent(null);
@@ -1449,6 +1472,17 @@ export default function CatalogScreen() {
                     });
                   }}
                   subtitle={`${formatDistance(race.distance_km, locale)} km · ${formatElevation(race.elevation_gain_m, locale)}${startTime ? ` · ${locale === 'fr' ? 'Départ' : 'Start'} ${startTime}` : ''}${race.id === selectedRaceIdParam ? (locale === 'fr' ? ' · Distance concernée' : ' · This distance') : ''}`}
+                  cotes={[
+                    { value: formatDistance(race.distance_km, locale), unit: 'km' },
+                    race.elevation_gain_m === null
+                      ? null
+                      : { prefix: 'D+', value: String(Math.round(race.elevation_gain_m)), unit: 'm' },
+                  ]}
+                  detail={[
+                    race.elevation_gain_m === null ? formatElevation(null, locale) : null,
+                    startTime ? `${locale === 'fr' ? 'Départ' : 'Start'} ${startTime}` : null,
+                    race.id === selectedRaceIdParam ? (locale === 'fr' ? 'Distance concernée' : 'This distance') : null,
+                  ].filter(Boolean).join(' · ') || undefined}
                   planActionLabel={!showPlanAction
                     ? undefined
                     : ownedPlanId
@@ -1496,9 +1530,7 @@ export default function CatalogScreen() {
                           <View style={styles.eventUpdateMetaRow}>
                             {raceName ? <Text style={styles.eventUpdateScope}>{raceName}</Text> : null}
                             {isNew ? (
-                              <View style={styles.newBadge}>
-                                <Text style={styles.newBadgeText}>NEW</Text>
-                              </View>
+                              <StatusPill label="NEW" tone="brand" style={styles.newBadge} />
                             ) : null}
                           </View>
                         ) : null}
@@ -1577,26 +1609,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
     gap: 10,
   },
-  filterInput: {
-    flex: 1,
-    minHeight: mobileComponents.input.minHeight,
-    backgroundColor: Colors.surface,
-    borderRadius: mobileComponents.input.borderRadius,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: mobileComponents.input.paddingHorizontal,
-    paddingVertical: 11,
-    color: Colors.textPrimary,
-    fontSize: 15,
-  },
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
   clearSearchButton: {
     width: 44,
     height: 44,
+    marginRight: -10,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1622,50 +1638,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  filterButton: {
-    minHeight: mobileComponents.filterChip.minHeight,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: Colors.brandSurface,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-    borderRadius: mobileComponents.filterChip.borderRadius,
-    paddingHorizontal: mobileComponents.filterChip.paddingHorizontal,
-    paddingVertical: 10,
-  },
-  filterButtonText: {
-    color: Colors.brandPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
   quickFilters: {
     flex: 1,
   },
   quickFiltersContent: {
-    gap: 7,
+    alignItems: 'flex-end',
+    gap: 8,
     paddingRight: 4,
-  },
-  quickFilterChip: {
-    minHeight: mobileComponents.filterChip.minHeight,
-    justifyContent: 'center',
-    paddingHorizontal: mobileComponents.filterChip.paddingHorizontal,
-    borderRadius: mobileComponents.filterChip.borderRadius,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceSecondary,
-  },
-  quickFilterChipActive: {
-    borderColor: Colors.brandPrimary,
-    backgroundColor: Colors.brandPrimary,
-  },
-  quickFilterText: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  quickFilterTextActive: {
-    color: Colors.textOnBrand,
   },
   listEmpty: {
     flex: 1,
@@ -1677,21 +1656,10 @@ const styles = StyleSheet.create({
   },
   eventSummaryRow: {
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'center',
+    columnGap: 14,
+    rowGap: 4,
     flexWrap: 'wrap',
-  },
-  summaryPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 999,
-    backgroundColor: Colors.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  summaryPillText: {
-    color: Colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '700',
   },
   modalBackdrop: {
     flex: 1,
@@ -1712,54 +1680,6 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 24,
     gap: 14,
-  },
-  sheetHandle: {
-    width: 42,
-    height: 4,
-    borderRadius: 999,
-    backgroundColor: Colors.border,
-    alignSelf: 'center',
-  },
-  sheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  sheetHeaderText: {
-    flex: 1,
-    gap: 4,
-  },
-  sheetFavoriteButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.brandSurface,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-  },
-  sheetFavoriteButtonActive: {
-    backgroundColor: Colors.brandPrimary,
-    borderColor: Colors.brandPrimary,
-  },
-  sheetTitle: {
-    color: Colors.textPrimary,
-    fontSize: 20,
-    fontWeight: '800',
-  },
-  sheetSubtitle: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  sheetCloseButton: {
-    width: mobileComponents.closeButtonSize,
-    height: mobileComponents.closeButtonSize,
-    borderRadius: mobileComponents.closeButtonSize / 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.surfaceSecondary,
   },
   sheetImage: {
     width: '100%',
@@ -1845,16 +1765,7 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
   },
   newBadge: {
-    backgroundColor: Colors.brandPrimary,
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  newBadgeText: {
-    color: Colors.textOnBrand,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+    alignSelf: 'center',
   },
   eventUpdateMessage: {
     color: Colors.textPrimary,

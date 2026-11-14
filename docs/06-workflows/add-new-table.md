@@ -1,7 +1,7 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-11-09
+last_verified: 2026-11-11
 ai_priority: high
 related_files:
   - supabase/migrations/20261109140000_add_racebook_edition_partner_slots.sql
@@ -145,6 +145,23 @@ For visibility-gated aggregate RPCs such as sponsor impressions, select an exist
 The catalog format sheet, favorite toast, recap hierarchy, and product-label safeguards are consumer presentation changes and do not use this new-table workflow.
 
 The separate Decathlon alias migration is likewise not a new-table task: it replaces an existing normalization function and updates only curated rows while preserving current grants and RLS.
+
+Trail signature iteration (2026-11-11): `schema-overview.md` only received a presentation-only note for the mobile catalog; no table, column, policy or migration workflow changed.
+
+
+## Mobile presentation
+
+When a new table feeds a mobile list or card, the screen renders it with the trail objects (see `docs/07-design-system/components.md`) and passes the row id as `variationKey`, so decorative variation stays stable per item for the session. Presentation-only fields are never added to the schema for decoration.
+
+Catalog race cards no longer draw format profiles; if a profile preview comes back, store a small downsampled series (about 48 points) per format rather than parsing GPX per row.
+
+Status flags read from a new table (for example an unread marker) are shown with `StatusPill` wristbands on mobile, never with ad-hoc badges.
+
+Lists grouped by a new table's parent rows are rendered as `AccordionSection`s whose borne shows the child count.
+
+Decorative previews derived from a new table (such as profile strips) are normalised client-side for presentation; do not store presentation-only shapes in the schema.
+
+Screens listing a new table's rows in a guided onboarding must not auto-focus inputs that hide the list.
 
 ## Related Docs
 

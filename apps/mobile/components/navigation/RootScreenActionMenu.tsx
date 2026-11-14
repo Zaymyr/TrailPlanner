@@ -17,6 +17,7 @@ import {
 import { useI18n } from '../../lib/i18n';
 import { FeedbackHeaderButton } from '../feedback/FeedbackHeaderButton';
 import { RaceRequestHeaderButton } from '../race/RaceRequestHeaderButton';
+import { IconAction } from '../themed/IconAction';
 import { Text } from '../themed/Text';
 
 type RootScreenHelp =
@@ -66,17 +67,14 @@ function MenuContent({
 
   return (
     <>
-      <Pressable
+      <IconAction
         accessibilityLabel={t.rootActionMenu.triggerLabel}
-        accessibilityRole="button"
         accessibilityState={{ expanded: open }}
-        hitSlop={6}
+        icon={<Ionicons color={Colors.textOnBrand} name="help" size={22} />}
         onPress={() => setOpen(true)}
-        style={({ pressed }) => [styles.trigger, pressed && styles.pressed]}
         testID="root-help-menu"
-      >
-        <Ionicons color={Colors.textOnBrand} name="help" size={22} />
-      </Pressable>
+        tone="onBrand"
+      />
 
       <Modal
         animationType="fade"
@@ -155,17 +153,6 @@ export function RootScreenActionMenu(props: RootScreenActionMenuProps) {
 }
 
 const styles = StyleSheet.create({
-  trigger: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.34)',
-    backgroundColor: 'rgba(0,0,0,0.16)',
-  },
-  pressed: { opacity: 0.68 },
   modal: { flex: 1 },
   backdrop: {
     ...StyleSheet.absoluteFillObject,

@@ -3,7 +3,6 @@ import {
   Animated,
   Keyboard,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   View
@@ -13,6 +12,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Text } from '../../components/themed/Text';
 import { Button } from '../../components/themed/Button';
+import { StatusPill } from '../../components/themed/StatusPill';
+import { TrailTabs, type TrailTab } from '../../components/themed/TrailTabs';
 import { RunnerLaunchAnnouncement } from '../../components/announcements/RunnerLaunchAnnouncement';
 import { ErrorState } from '../../components/themed/ErrorState';
 import { LoadingState } from '../../components/themed/LoadingState';
@@ -55,6 +56,12 @@ import {
   type OnboardingKind,
   type OnboardingStatuses,
 } from '../../lib/onboardingStatus';
+
+const ADMIN_ACCESS_MODE_TABS: TrailTab<'real' | 'free' | 'premium'>[] = [
+  { key: 'real', label: 'Real' },
+  { key: 'free', label: 'Free' },
+  { key: 'premium', label: 'Premium' },
+];
 
 export default function ProfileScreen() {
   const [showLaunchPreview, setShowLaunchPreview] = useState(false);
@@ -399,23 +406,24 @@ export default function ProfileScreen() {
           onChange={handleProfileTabChange}
         />
         {launchInfo.earlySupporter ? (
-          <View style={styles.earlySupporterBadge}>
-            <Text tone="brand" size="sm" weight="semibold">
-              {locale === 'fr' ? '💚 Soutien de la première heure' : '💚 Early supporter'}
-            </Text>
-          </View>
+          <StatusPill
+            label={locale === 'fr' ? '💚 Soutien de la première heure' : '💚 Early supporter'}
+            style={styles.earlySupporterBadge}
+            tone="brand"
+          />
         ) : null}
         {isAdminFromAuth ? (
           <View style={styles.adminModeCard}>
             <Text style={styles.adminModeTitle}>Mode de test des droits</Text>
             <Text style={styles.adminModeBadge}>Simulation : {runnerAccessMode}</Text>
-            <View style={styles.adminModeRow}>
-              {(['real', 'free', 'premium'] as const).map((mode) => (
-                <Pressable key={mode} disabled={runnerAccessModeSaving} onPress={() => void updateRunnerAccessMode(mode)} style={[styles.adminModeButton, runnerAccessMode === mode && styles.adminModeButtonActive]}>
-                  <Text style={runnerAccessMode === mode ? styles.adminModeButtonTextActive : styles.adminModeButtonText}>{mode}</Text>
-                </Pressable>
-              ))}
-            </View>
+            <TrailTabs
+              activeKey={runnerAccessMode}
+              onChange={(mode) => {
+                if (!runnerAccessModeSaving) void updateRunnerAccessMode(mode);
+              }}
+              stretch
+              tabs={ADMIN_ACCESS_MODE_TABS}
+            />
             <Button variant="secondary" onPress={() => setShowLaunchPreview(true)}>
               {locale === 'fr' ? 'Prévisualiser l’annonce 1.0' : 'Preview the 1.0 announcement'}
             </Button>
@@ -572,6 +580,7 @@ export default function ProfileScreen() {
                 showPremiumBenefits={showUpgradeAction}
                 showUpgradeAction={showUpgradeAction}
                 upgradeLabel={upgradeLabel}
+                upgradeVariant={isAnonymousAccount ? 'secondary' : 'primary'}
                 offerTitle={subscriptionOfferTitle}
                 offerDuration={subscriptionOfferDuration}
                 offerPrice={subscriptionOfferPrice}
@@ -807,13 +816,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  earlySupporterBadge: { alignSelf: 'flex-start', borderRadius: 999, backgroundColor: Colors.brandSurface, paddingHorizontal: 12, paddingVertical: 8, marginVertical: 10 },
+  earlySupporterBadge: { marginVertical: 10 },
   adminModeCard: { borderWidth: 1, borderColor: Colors.warning, borderRadius: 14, padding: 14, gap: 8, backgroundColor: Colors.warningSurface },
   adminModeTitle: { color: Colors.textPrimary, fontWeight: '800' },
   adminModeBadge: { color: Colors.warning, fontSize: 13 },
-  adminModeRow: { flexDirection: 'row', gap: 8 },
-  adminModeButton: { flex: 1, borderWidth: 1, borderColor: Colors.border, borderRadius: 10, paddingVertical: 9, alignItems: 'center', backgroundColor: Colors.surface },
-  adminModeButtonActive: { backgroundColor: Colors.brandPrimary, borderColor: Colors.brandPrimary },
-  adminModeButtonText: { color: Colors.textPrimary, fontWeight: '700', textTransform: 'capitalize' },
-  adminModeButtonTextActive: { color: Colors.textOnBrand, fontWeight: '700', textTransform: 'capitalize' },
 });

@@ -7,12 +7,14 @@ import {
   Platform,
   Pressable,
   SectionList,
-  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { Field } from '../themed/Field';
+import { SheetHeader } from '../themed/SheetHeader';
 import { Text } from '../themed/Text';
+import { TrailTabs, type TrailTab } from '../themed/TrailTabs';
 import { Colors } from '../../constants/colors';
 import type { PlanProduct } from './contracts';
 import { styles } from './styles';
@@ -89,7 +91,7 @@ export const ProductPickerModal = React.memo(function ProductPickerModal({
   onClose,
   onAddProduct,
 }: Props) {
-  const sortOptions: Array<{ key: 'name' | 'carbs' | 'sodium'; label: string }> = [
+  const sortOptions: TrailTab<Props['pickerSort']>[] = [
     { key: 'name', label: 'Nom' },
     { key: 'carbs', label: 'Glucides' },
     { key: 'sodium', label: 'Sodium' },
@@ -158,35 +160,25 @@ export const ProductPickerModal = React.memo(function ProductPickerModal({
       <KeyboardAvoidingView style={styles.modalWrapper} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <Pressable style={styles.modalOverlay} onPress={onClose} />
         <View accessibilityViewIsModal style={styles.pickerSheet}>
-          <View style={styles.pickerHeader}>
-            <Text accessibilityRole="header" style={styles.pickerTitle}>Choisir un produit</Text>
-            <TouchableOpacity accessibilityLabel="Fermer" accessibilityRole="button" hitSlop={6} onPress={onClose} style={styles.pickerCloseBtn}>
-              <Text style={styles.pickerCloseText}>✕</Text>
-            </TouchableOpacity>
-          </View>
+          <SheetHeader closeLabel="Fermer" onClose={onClose} style={styles.pickerHeader} title="Choisir un produit" />
 
-          <TextInput
-            style={styles.pickerSearchInput}
-            value={pickerSearch}
+          <Field
+            accessibilityLabel="Rechercher un produit ou une marque"
+            autoCorrect={false}
+            containerStyle={styles.pickerSearchField}
             onChangeText={setPickerSearch}
             placeholder="Rechercher un produit ou une marque..."
-            placeholderTextColor={Colors.textMuted}
-            autoCorrect={false}
+            value={pickerSearch}
+            variant="search"
           />
 
-          <View style={styles.pickerSortRow}>
-            {sortOptions.map((option) => (
-              <TouchableOpacity
-                key={option.key}
-                style={[styles.pickerSortBtn, pickerSort === option.key && styles.pickerSortBtnActive]}
-                onPress={() => setPickerSort(option.key)}
-              >
-                <Text style={[styles.pickerSortBtnText, pickerSort === option.key && styles.pickerSortBtnTextActive]}>
-                  {option.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <TrailTabs
+            activeKey={pickerSort}
+            onChange={setPickerSort}
+            stretch
+            style={{ marginBottom: 8 }}
+            tabs={sortOptions}
+          />
 
           {productsLoading ? (
             <ActivityIndicator color={Colors.brandPrimary} style={{ marginTop: 24 }} />
