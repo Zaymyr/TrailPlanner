@@ -165,3 +165,5 @@ Changing an existing client-writable table follows the same discipline: `2026110
 `race_event_edition_partner_slots` (2026-11-09) follows this workflow: service-only RLS table, composite same-edition FK, reuse of an existing draft-revision trigger function, transactional SQL checks, and a dedicated table doc.
 
 Note (2026-11-09): `schema-overview.md` received a presentation-only note about the mobile catalog scroll performance; no table, column or workflow step changed.
+
+Catalog end date (2026-11-14): no table added; the schema overview only records that mobile catalog visibility uses the latest format `race_date` of an event.
