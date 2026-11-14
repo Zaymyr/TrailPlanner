@@ -6,7 +6,7 @@ import { ChevronDownIcon, ChevronUpIcon } from "../../../../components/race-plan
 import { Button } from "../../../../components/ui/button";
 import { cn } from "../../../../components/utils";
 import type { FuelProduct } from "../../../../lib/product-types";
-import { ContextualHelp, NumberField, TextAreaField, TextField } from "./controls";
+import { ContextualHelp, NumberField, SegmentedChoice, TextAreaField, TextField } from "./controls";
 import { ConfirmDialog, SelectField, SwitchRow } from "./form-kit";
 import { formatKm, getGpxCoordinateAtDistance, normalizeClockInputValue } from "./helpers";
 import { StationProductsBlock } from "./products-editor";
@@ -226,7 +226,7 @@ export function AidStationsEditor({
                   setMobileStationOpen(true);
                 }
               }
-            }}><span className={cn("absolute -left-[1.72rem] top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full border-2 border-card", point.kind === "start" || point.kind === "finish" ? "bg-brand" : "bg-brand/50")} aria-hidden="true" /><span className="w-10 shrink-0 font-mono text-xs font-semibold tabular-nums text-muted-foreground">{point.distanceKm.toFixed(1)}</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-foreground" title={point.name}>{point.name}</span>{station || point.time ? <span className="mt-0.5 flex flex-wrap items-center gap-1.5">{point.time ? <span className="font-mono text-xs tabular-nums text-muted-foreground">{normalizeClockInputValue(point.time)}</span> : null}{station ? <span className="flex gap-1 text-[11px] font-semibold leading-5" aria-label={`Services : ${[station.waterRefill && "eau", station.solidRefill && "solide", station.assistanceAllowed && "assistance"].filter(Boolean).join(", ") || "aucun"}`}>{station.waterRefill ? <span className="rounded bg-brand-surface px-1.5 text-brand" title="Eau">E<span className="sr-only"> eau</span></span> : null}{station.solidRefill ? <span className="rounded bg-brand-surface px-1.5 text-brand" title="Solide">S<span className="sr-only"> solide</span></span> : null}{station.assistanceAllowed ? <span className="rounded bg-brand-surface px-1.5 text-brand" title="Assistance">A<span className="sr-only"> assistance</span></span> : null}</span> : null}</span> : null}</span></button>;
+            }}><span className={cn("absolute -left-[1.72rem] top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full border-2 border-card", point.kind === "start" || point.kind === "finish" ? "bg-brand" : "bg-brand/50")} aria-hidden="true" /><span className="w-10 shrink-0 font-mono text-xs font-semibold tabular-nums text-muted-foreground">{point.distanceKm.toFixed(1)}</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-foreground" title={point.name}>{point.name}</span>{station || point.time ? <span className="mt-0.5 flex flex-wrap items-center gap-1.5">{station?.organizerDetails.stationType === "life_base" ? <span className="rounded bg-brand px-1.5 text-[11px] font-semibold leading-5 text-brand-foreground">Base de vie</span> : null}{point.time ? <span className="font-mono text-xs tabular-nums text-muted-foreground">{normalizeClockInputValue(point.time)}</span> : null}{station ? <span className="flex gap-1 text-[11px] font-semibold leading-5" aria-label={`Services : ${[station.waterRefill && "eau", station.solidRefill && "solide", station.assistanceAllowed && "assistance"].filter(Boolean).join(", ") || "aucun"}`}>{station.waterRefill ? <span className="rounded bg-brand-surface px-1.5 text-brand" title="Eau">E<span className="sr-only"> eau</span></span> : null}{station.solidRefill ? <span className="rounded bg-brand-surface px-1.5 text-brand" title="Solide">S<span className="sr-only"> solide</span></span> : null}{station.assistanceAllowed ? <span className="rounded bg-brand-surface px-1.5 text-brand" title="Assistance">A<span className="sr-only"> assistance</span></span> : null}</span> : null}</span> : null}</span></button>;
           })}
         </div>
         <p className="mt-2 px-2 text-xs text-muted-foreground">E eau · S solide · A assistance</p>
@@ -617,8 +617,19 @@ function StationDetailsPanel({ station, onChange, onRemove, productsSlot, servic
         <NumberField label="D+ cumulé" hint="Calculé automatiquement à partir du tracé GPX de ce format." value={details.cumulativeElevationGainM ?? 0} step="1" readOnly onChange={() => undefined} />
         <NumberField label="D- cumulé" hint="Calculé automatiquement à partir du tracé GPX de ce format." value={details.cumulativeElevationLossM ?? 0} step="1" readOnly onChange={() => undefined} />
         <div className="space-y-1">
-          <label className="text-sm font-medium" htmlFor={`station-type-${station.id ?? station.name}`}>Type de ravito</label>
-          <SelectField id={`station-type-${station.id ?? station.name}`} className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm" value={details.stationType} onValueChange={(value) => onChange({ ...station, organizerDetails: { ...details, stationType: value as typeof details.stationType } })} options={[{ value: "water", label: "Eau" }, { value: "solid", label: "Solide" }, { value: "assistance", label: "Assistance" }, { value: "life_base", label: "Base de vie" }, { value: "other", label: "Autre" }]} />
+          <p className="text-sm font-medium">Type</p>
+          <SegmentedChoice
+            label="Type de point"
+            value={details.stationType === "life_base" ? "life_base" : "aid"}
+            options={[{ value: "aid", label: "Ravito" }, { value: "life_base", label: "Base de vie" }] as const}
+            onChange={(value) => onChange({
+              ...station,
+              organizerDetails: {
+                ...details,
+                stationType: value === "life_base" ? "life_base" : details.stationType !== "life_base" ? details.stationType : station.solidRefill ? "solid" : "water",
+              },
+            })}
+          />
         </div>
         <NumberField label="Altitude (m)" value={details.altitudeM ?? 0} step="1" onChange={(altitudeM) => onChange({ ...station, organizerDetails: { ...details, altitudeM } })} />
         <div>

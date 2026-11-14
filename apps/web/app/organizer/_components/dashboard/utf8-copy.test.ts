@@ -391,7 +391,8 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(detailSource).toContain("Recommandé");
     expect(detailSource).toContain("Conditions du retrait par un tiers");
     expect(detailSource).toContain("font-mono text-sm tabular-nums");
-    expect(detailSource).toContain("→ Recommandé");
+    expect(detailSource).toContain("function RequiredToggle");
+    expect(detailSource).toContain('aria-label="Nouvel item de matériel"');
     expect(detailSource).toContain("text-red-700");
   });
 

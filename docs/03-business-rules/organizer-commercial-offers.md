@@ -1,7 +1,7 @@
 ---
 title: Organizer Commercial Offers
 scope: business-rule
-last_verified: 2026-11-13
+last_verified: 2026-11-14
 ai_priority: high
 # Organizer UI note (2026-11-13): completion yields the contextual rail to media-heavy editors; offer and completion rules are unchanged.
 # Form note (2026-11-13): required badges are presentation of existing completion prerequisites and do not add offer gates.
@@ -10,6 +10,7 @@ ai_priority: high
 # Mobile gutter note (2026-11-13): compact editor padding does not alter offers.
 # Layout polish note (2026-11-13): organizer presentation changes (aid-station detail, format metrics row, media rail visibility, equipment status action) do not alter stored data or contracts.
 # Fill-flow pass (2026-11-13): Sponsors/partner-slot ordering and the Services status label changed in the UI only; offer gating unchanged.
+# Organizer UX pass (2026-11-14): format sections nest under the selected format in the left nav, ravito type is Ravito / Base de vie, and equipment uses a top quick-add with per-row Obligatoire switch; no stored data or contract changes.
 related_files:
   - apps/web/lib/organizer-entitlements.ts
   - apps/web/lib/organizer-modules.ts

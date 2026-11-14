@@ -1,7 +1,7 @@
 ---
 title: Geocoding
 scope: integration
-last_verified: 2026-11-13
+last_verified: 2026-11-14
 ai_priority: medium
 # Organizer UI note (2026-11-13): wider address fields do not change autocomplete, inherited-location behavior, or stored coordinates.
 # Information grid note (2026-11-13): location alignment remains independent from the responsive social-link grid.
@@ -10,6 +10,7 @@ ai_priority: medium
 # Mobile finish note (2026-11-13): inherited location text wraps instead of truncating; stored location data is unchanged.
 # Layout polish note (2026-11-13): organizer presentation changes (aid-station detail, format metrics row, media rail visibility, equipment status action) do not alter stored data or contracts.
 # Fill-flow note (2026-11-13): organizer form ergonomics (ravito services, Enter-to-add, slot undo, sponsor ordering) do not alter stored data or contracts.
+# Organizer UX pass (2026-11-14): format sections nest under the selected format in the left nav, ravito type is Ravito / Base de vie, and equipment uses a top quick-add with per-row Obligatoire switch; no stored data or contract changes.
 related_files:
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
   - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql

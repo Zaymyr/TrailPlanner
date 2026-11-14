@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-11-13
+last_verified: 2026-11-14
 ai_priority: high
 # Organizer shell (2026-11-13): the 1440px workspace switches at 1320px to a 240px / flexible / 300px grid; media-heavy editors span the two content columns.
 # Aid-station editor (2026-11-13): the course timeline is the selection list, with one adjacent detail panel on desktop and a full-screen detail surface after selection on mobile; arrow keys move between aid stations.
@@ -12,6 +12,7 @@ ai_priority: high
 # Organizer regression guard (2026-11-13): UTF-8/source checks assert the 240/flexible/300 grid and the social auto-fit layout without a nested “Réseaux sociaux” title.
 # Organizer polish (2026-11-13): the Course media rail no longer relies on a closed <details> (its content was hidden on desktop) and collapses behind “Tracé et médias” only below 900px; format metrics sit on one row with grouped warnings and readable inherited date/location; aid stations use a single timeline plus a two-column detail panel with start/cutoff fields in “Horaires et consignes”; section headers use per-module SVG icons with the format ⋯ menu inline; equipment rows move status with a compact “→ Recommandé/Obligatoire” action instead of a segmented control.
 # Organizer fill-flow pass (2026-11-13): ravito detail restores Eau/Solide/Assistance/Sac de délestage/Point de relais toggles (lost with the card list), the new-ravito form replaces the detail panel, submits on Enter and selects the added station, and the mobile sheet stays under confirm dialogs; equipment drafts add on Enter and chain; new bib slots inherit the previous date, focus the start time and removals can be undone; Sponsors puts the add form first (open when empty) and partner slots last; the Services status reads “Texte à convertir”.
+# Organizer UX pass (2026-11-14): the left nav expands a format's sections directly under that format (chevron, aria-expanded) instead of below “Ajouter un format”; ravito detail offers a two-option Ravito / Base de vie type (life_base vs existing non-life-base value) and the timeline badges bases de vie; Matériel is a flat compact list with a quick-add bar at the top (Enter, suggestions, required switch, new items prepended) and an Obligatoire/Recommandé switch per row that no longer moves rows between groups.
 related_files:
   - apps/web/app/admin/video-generator/export-frame.test.ts
   - apps/web/app/admin/video-generator/export-frame.ts
@@ -369,7 +370,7 @@ The admin area exposes a top-level `Demandes de course` queue backed by a protec
 
 Organizer course-point autosave now waits for the active race sidecars to finish loading, and a same-race server refresh no longer clears those loaded collections. This prevents transient empty ravito/supporter payloads and removes the editor jump caused by resetting the workspace after each format save.
 
-Organizer Matériel and Dossard authoring is glanceable rather than accordion-driven: saved equipment, pickup locations, and dated slots remain inline and editable, with fixed-column controls on desktop and wrapped controls on narrow screens. Equipment rows are already grouped by status, so each row exposes a compact “→ Recommandé / → Obligatoire” move action instead of a per-row segmented control, while read-first inputs retain normal focus and autocomplete behavior. Third-party pickup conditions are stored additively in organizer JSON and appear on the public course detail only when pickup by another person is allowed and the bib module is public.
+Organizer Matériel and Dossard authoring is glanceable rather than accordion-driven: saved equipment, pickup locations, and dated slots remain inline and editable, with fixed-column controls on desktop and wrapped controls on narrow screens. Equipment is a flat compact list: a quick-add bar sits at the top (Enter to add, suggestions, Obligatoire switch, new items prepended) and each row carries its own Obligatoire/Recommandé switch, optional weather select and remove action, while read-first inputs retain normal focus and autocomplete behavior. Third-party pickup conditions are stored additively in organizer JSON and appear on the public course detail only when pickup by another person is allowed and the bib module is public.
 
 The organizer editor autosaves the active event or format scope after an 800 ms debounce, exposes a persistent save state with explicit retry, and preserves revision-aware background queues during navigation. New formats inherit only event-level date, location, and optional official website defaults; they never clone the active format. A format website is optional for completion, import, and publication readiness.
 

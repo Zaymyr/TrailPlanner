@@ -1,7 +1,7 @@
 ---
 title: race_event_publication_requests Table
 scope: database
-last_verified: 2026-11-13
+last_verified: 2026-11-14
 ai_priority: high
 # Organizer UI note (2026-11-13): publication controls keep their behavior in the wider shell; the contextual rail is presentation-only.
 # Validation UI note (2026-11-13): Requis badges expose existing prerequisites and do not change publication request rules.
@@ -10,6 +10,7 @@ ai_priority: high
 # Mobile finish note (2026-11-13): collapsed media does not alter publication requests.
 # Layout polish note (2026-11-13): organizer presentation changes (aid-station detail, format metrics row, media rail visibility, equipment status action) do not alter stored data or contracts.
 # Fill-flow note (2026-11-13): organizer form ergonomics (ravito services, Enter-to-add, slot undo, sponsor ordering) do not alter stored data or contracts.
+# Organizer UX pass (2026-11-14): format sections nest under the selected format in the left nav, ravito type is Ravito / Base de vie, and equipment uses a top quick-add with per-row Obligatoire switch; no stored data or contract changes.
 related_files:
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql

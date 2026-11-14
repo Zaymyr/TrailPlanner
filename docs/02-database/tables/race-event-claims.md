@@ -1,7 +1,7 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-11-13
+last_verified: 2026-11-14
 ai_priority: high
 # Organizer UI note (2026-11-13): workspace sizing is presentation-only; claim and membership authorization remain unchanged.
 # Aid-station UI note (2026-11-13): timeline/detail presentation does not alter organizer membership authorization.
@@ -12,6 +12,7 @@ ai_priority: high
 # Regression-test note (2026-11-13): organizer source guards follow the new layout without changing claim authorization.
 # Layout polish note (2026-11-13): organizer presentation changes (aid-station detail, format metrics row, media rail visibility, equipment status action) do not alter stored data or contracts.
 # Fill-flow note (2026-11-13): organizer form ergonomics (ravito services, Enter-to-add, slot undo, sponsor ordering) do not alter stored data or contracts.
+# Organizer UX pass (2026-11-14): format sections nest under the selected format in the left nav, ravito type is Ravito / Base de vie, and equipment uses a top quick-add with per-row Obligatoire switch; no stored data or contract changes.
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
   - apps/web/app/api/organizer/claims/route.ts

@@ -952,10 +952,11 @@ export function CompletionTabsPanel({
           <p className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Formats de course</p>
           <div className="space-y-1">
             {formatTabs.map((tab) => (
+              <div key={tab.id}>
               <button
-                key={tab.id}
                 type="button"
                 aria-current={activeTab === tab.id ? "page" : undefined}
+                aria-expanded={activeTab === tab.id}
                 onClick={() => onTabChange(tab.id)}
                 className={cn(
                   "flex min-h-10 w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
@@ -979,7 +980,10 @@ export function CompletionTabsPanel({
                     </span>
                   ) : null}
                 </span>
+                <span aria-hidden="true" className={cn("shrink-0 text-muted-foreground transition", activeTab === tab.id && "rotate-90")}>›</span>
               </button>
+              {activeTab === tab.id && !isEventTab && !isAddTab ? <div className="mb-1 ml-3 mt-1 border-l border-border pl-2">{renderModules(modules)}</div> : null}
+              </div>
             ))}
             {addFormatTab ? (
               <button
@@ -998,7 +1002,6 @@ export function CompletionTabsPanel({
               </button>
             ) : null}
           </div>
-          {!isEventTab && !isAddTab ? <div className="ml-3 mt-1 border-l border-border pl-2">{renderModules(modules)}</div> : null}
         </div>
       </div>
     </nav>

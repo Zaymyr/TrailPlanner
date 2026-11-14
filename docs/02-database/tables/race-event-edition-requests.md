@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_requests Table
 scope: database
-last_verified: 2026-11-13
+last_verified: 2026-11-14
 ai_priority: medium
 # Organizer UI note (2026-11-13): responsive shell changes do not alter edition request creation, selection, or status handling.
 # Form UI note (2026-11-13): responsive social fields and loading skeletons do not alter edition requests.
@@ -10,6 +10,7 @@ ai_priority: medium
 # Mobile finish note (2026-11-13): wrapping inherited labels does not alter edition requests.
 # Layout polish note (2026-11-13): organizer presentation changes (aid-station detail, format metrics row, media rail visibility, equipment status action) do not alter stored data or contracts.
 # Fill-flow note (2026-11-13): organizer form ergonomics (ravito services, Enter-to-add, slot undo, sponsor ordering) do not alter stored data or contracts.
+# Organizer UX pass (2026-11-14): format sections nest under the selected format in the left nav, ravito type is Ravito / Base de vie, and equipment uses a top quick-add with per-row Obligatoire switch; no stored data or contract changes.
 related_files:
   - supabase/migrations/20260721110000_add_race_event_edition_requests.sql
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql

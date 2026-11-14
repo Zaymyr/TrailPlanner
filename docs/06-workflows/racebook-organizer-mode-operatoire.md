@@ -1,7 +1,7 @@
 ---
 title: Mode opératoire Livret coureur organisateur
 scope: workflow
-last_verified: 2026-11-13
+last_verified: 2026-11-14
 ai_priority: medium
 # UI organisateur (2026-11-13) : les médias et aperçus des sections Informations, Course et Identité visuelle occupent le rail contextuel à droite sur grand écran, puis passent sous le formulaire.
 # Ravitos (2026-11-13) : sélectionner un point dans la timeline ouvre son unique panneau de détail ; sur mobile ce panneau est plein écran et le bouton Retour ramène à la liste.
@@ -11,6 +11,7 @@ ai_priority: medium
 # Mobile (2026-11-13) : Course affiche d’abord le formulaire ; « Médias et aperçu » déplie ensuite le GPX, le profil et l’image.
 # Organizer polish (2026-11-13): GPX/image upload is in the Course right rail (desktop) or “Tracé et médias” (mobile); ravito start/cutoff times are under “Horaires et consignes”.
 # Fill-flow note (2026-11-13): organizer form ergonomics (ravito services, Enter-to-add, slot undo, sponsor ordering) do not alter stored data or contracts.
+# UX pass (2026-11-14): pick a format in the left column and its sections open right below it; Matériel adds items from the bar at the top of the list.
 related_files:
   - scripts/generate-racebook-organizer-manual.mjs
   - apps/web/app/organizers/page.tsx

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import { Button } from "../../../../components/ui/button";
 import { Input } from "../../../../components/ui/input";
@@ -20,7 +20,6 @@ import { ContextualHelp, InlineEditableRow, OptionalModule, TextAreaField, TextF
 import { isOutsideDateRange, SelectField, SwitchRow } from "./form-kit";
 import type { RaceFormat } from "./types";
 
-type EquipmentItem = OrganizerEventDetails["mandatoryEquipment"]["items"][number];
 
 export function EquipmentEditor({
   scope,
@@ -94,6 +93,24 @@ export function EquipmentEditor({
     </div>
   );
 }
+function RequiredToggle({ checked, onChange, label }: { checked: boolean; onChange: (checked: boolean) => void; label: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => onChange(!checked)}
+      className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-1 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+    >
+      <span className={cn("relative h-5 w-9 shrink-0 rounded-full transition", checked ? "bg-brand" : "bg-muted")} aria-hidden="true">
+        <span className={cn("absolute top-0.5 h-4 w-4 rounded-full bg-card shadow-sm transition", checked ? "left-[1.125rem]" : "left-0.5")} />
+      </span>
+      <span className={cn("w-[4.75rem] text-left", checked ? "text-foreground" : "text-muted-foreground")}>{checked ? "Obligatoire" : "Recommandé"}</span>
+    </button>
+  );
+}
+
 function EquipmentFields({
   title,
   description,
@@ -125,17 +142,15 @@ function EquipmentFields({
   const [weatherVariantsOpen, setWeatherVariantsOpen] = useState(
     equipment.weatherPlan !== "normal" || equipment.items.some((item) => item.cold || item.heat)
   );
-  const [draftItem, setDraftItem] = useState<EquipmentItem | null>(null);
-  const [draftItemTouched, setDraftItemTouched] = useState(false);
-  const draftItemInputRef = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (draftItem) draftItemInputRef.current?.focus();
-  }, [draftItem]);
-  const indexedItems = equipment.items.map((item, index) => ({ item, index }));
-  const groups = [
-    { required: true, label: "Obligatoire", rows: indexedItems.filter(({ item }) => item.required) },
-    { required: false, label: "Recommandé", rows: indexedItems.filter(({ item }) => !item.required) },
-  ];
+  const [newItemLabel, setNewItemLabel] = useState("");
+  const [newItemRequired, setNewItemRequired] = useState(true);
+  const addItem = (label: string, required: boolean) => {
+    const trimmed = label.trim();
+    if (!trimmed) return;
+    updateItems([{ id: `item-${Date.now()}`, label: trimmed, required, cold: false, heat: false, note: null }, ...equipment.items]);
+  };
+  const requiredCount = equipment.items.filter((item) => item.required).length;
+  const recommendedCount = equipment.items.length - requiredCount;
   const removedSharedItems = sharedItems?.filter((sharedItem) => !equipment.items.some((item) => isSameItem(item, sharedItem))) ?? [];
   const updateItem = (index: number, next: Partial<OrganizerEventDetails["mandatoryEquipment"]["items"][number]>) =>
     updateItems(equipment.items.map((item, itemIndex) => itemIndex === index ? { ...item, ...next } : item));
@@ -154,143 +169,113 @@ function EquipmentFields({
           <ContextualHelp text={description} />
         </div>
       ) : null}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-foreground">Variantes météo</span>
+      <form
+        className="space-y-2 rounded-lg border border-brand-border/70 bg-brand-surface/40 p-3"
+        aria-label="Ajouter un item de matériel"
+        onSubmit={(event) => { event.preventDefault(); addItem(newItemLabel, newItemRequired); setNewItemLabel(""); }}
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            aria-label="Nouvel item de matériel"
+            value={newItemLabel}
+            onChange={(event) => setNewItemLabel(event.target.value)}
+            placeholder="Ajouter un item, puis Entrée"
+            className="h-9 min-w-0 flex-1 basis-56 bg-card"
+          />
+          <RequiredToggle checked={newItemRequired} onChange={setNewItemRequired} label="Nouvel item obligatoire" />
+          <Button type="submit" className="h-9" disabled={!newItemLabel.trim()}>Ajouter</Button>
+        </div>
+        {availableSuggestions.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">Suggestions :</span>
+            {availableSuggestions.map((suggestion) => (
+              <button key={suggestion} type="button" className="rounded-full border border-border bg-card px-2.5 py-0.5 text-xs font-medium text-brand hover:border-brand-border" onClick={() => addItem(suggestion, newItemRequired)}>+ {suggestion}</button>
+            ))}
+          </div>
+        ) : null}
+      </form>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+        <span>{requiredCount} obligatoire{requiredCount > 1 ? "s" : ""} · {recommendedCount} recommandé{recommendedCount > 1 ? "s" : ""}</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-medium text-foreground">Variantes météo</span>
           <ContextualHelp text="Affiche une condition par ligne lorsque certains équipements ne concernent que le froid ou la chaleur." />
           <button
             type="button"
             role="switch"
             aria-checked={weatherVariantsOpen}
+            aria-label="Variantes météo"
             onClick={() => setWeatherVariantsOpen((current) => !current)}
-            className={cn("relative h-6 w-11 rounded-full transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", weatherVariantsOpen ? "bg-brand" : "bg-muted")}
+            className={cn("relative h-5 w-9 rounded-full transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", weatherVariantsOpen ? "bg-brand" : "bg-muted")}
           >
-            <span className={cn("absolute top-1 h-4 w-4 rounded-full bg-card shadow-sm transition", weatherVariantsOpen ? "left-6" : "left-1")} />
+            <span className={cn("absolute top-0.5 h-4 w-4 rounded-full bg-card shadow-sm transition", weatherVariantsOpen ? "left-[1.125rem]" : "left-0.5")} />
           </button>
-        </div>
-        {weatherVariantsOpen ? (
-          weatherPlanEditable ? (
-            <label className="flex items-center gap-2 text-xs text-muted-foreground">
-              Conditions appliquées
+          {weatherVariantsOpen ? (
+            weatherPlanEditable ? (
+              <div className="w-44">
               <SelectField
+                aria-label="Conditions appliquées"
                 value={equipment.weatherPlan}
                 onValueChange={(value) => updateWeatherPlan(value as OrganizerEventDetails["mandatoryEquipment"]["weatherPlan"])}
-                className="h-8 rounded-md border border-border bg-card px-2 text-xs font-medium text-foreground"
-                options={[{ value: "normal", label: "Normales" }, { value: "cold", label: "Grand froid" }, { value: "heat", label: "Grosse chaleur" }]}
+                className="h-8 w-auto rounded-md border border-border bg-card px-2 text-xs font-medium text-foreground"
+                options={[{ value: "normal", label: "Conditions normales" }, { value: "cold", label: "Grand froid" }, { value: "heat", label: "Grosse chaleur" }]}
               />
-            </label>
-          ) : (
-            <span className="text-xs text-muted-foreground">Conditions appliquées : {effectiveWeatherPlan === "cold" ? "grand froid" : effectiveWeatherPlan === "heat" ? "grosse chaleur" : "normales"}</span>
-          )
-        ) : null}
-      </div>
-      <div className={cn("hidden px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground sm:grid sm:items-center sm:gap-3", weatherVariantsOpen ? "sm:grid-cols-[minmax(0,1fr)_auto_9rem_2rem]" : "sm:grid-cols-[minmax(0,1fr)_auto_2rem]")}>
-        <span>Item</span><span>Déplacer</span>{weatherVariantsOpen ? <span>Météo</span> : null}<span className="sr-only">Action</span>
-      </div>
-      <div className="space-y-6">
-        {groups.map((group) => {
-          const removedRows = removedSharedItems.filter((item) => item.required === group.required);
-          if (group.rows.length === 0 && removedRows.length === 0) return null;
-          return (
-            <section key={group.label} className="space-y-1">
-              <div className="flex items-center gap-2 pb-1">
-                <span className={cn("rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide", group.required ? "border-brand-border bg-brand-surface text-brand" : "border-border bg-surface-muted text-muted-foreground")}>{group.label}</span>
-                <span className="text-xs font-semibold text-muted-foreground">({group.rows.length})</span>
               </div>
-              {group.rows.map(({ item, index }) => {
-                return (
-                  <InlineEditableRow key={item.id ?? index} className={cn("grid grid-cols-[minmax(0,1fr)_2rem] gap-2 sm:items-center sm:gap-3", weatherVariantsOpen ? "sm:grid-cols-[minmax(0,1fr)_auto_9rem_2rem]" : "sm:grid-cols-[minmax(0,1fr)_auto_2rem]")}>
-                    <div className="col-span-2 flex min-w-0 items-center gap-2 sm:col-span-1">
-                      <Input
-                        title={item.label}
-                        aria-label={`Item de matériel n°${index + 1}`}
-                        value={item.label}
-                        onChange={(event) => updateItem(index, { label: event.target.value })}
-                        className="h-9 min-w-0 border-transparent bg-transparent px-2 shadow-none hover:border-border focus-visible:border-brand-border"
-                      />
-                    </div>
-                    <div className="flex min-w-0 flex-wrap items-center gap-2 sm:contents">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="h-8 whitespace-nowrap px-2 text-xs font-medium text-muted-foreground hover:text-foreground"
-                        onClick={() => updateItem(index, { required: !item.required })}
-                        aria-label={`${item.label || `Item ${index + 1}`} : passer en ${item.required ? "recommandé" : "obligatoire"}`}
-                      >{item.required ? "→ Recommandé" : "→ Obligatoire"}</Button>
-                      {weatherVariantsOpen ? (
-                        <SelectField
-                          aria-label={`Météo de ${item.label || `l’item ${index + 1}`}`}
-                          value={weatherValue(item)}
-                          onValueChange={(value) => updateWeather(index, value)}
-                          className="h-8 min-w-32 flex-1 rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-full sm:flex-none"
-                          options={[
-                            { value: "always", label: "Toujours" },
-                            { value: "cold", label: "Grand froid" },
-                            { value: "heat", label: "Grosse chaleur" },
-                            ...(item.cold && item.heat ? [{ value: "cold_heat", label: "Froid + chaleur" }] : []),
-                          ]}
-                        />
-                      ) : null}
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="col-start-2 row-start-2 h-8 w-8 justify-self-end px-0 text-muted-foreground hover:bg-red-50 hover:text-red-700 focus-visible:text-red-700 sm:col-start-auto sm:row-start-auto"
-                      onClick={() => updateItems(equipment.items.filter((_, itemIndex) => itemIndex !== index))}
-                      aria-label={`Retirer ${item.label || "cet item"}`}
-                      title="Retirer"
-                    >×</Button>
-                  </InlineEditableRow>
-                );
-              })}
-              {removedRows.map((item, index) => (
-                <InlineEditableRow key={`removed-${item.id ?? item.label}-${index}`} className={cn("grid gap-2 opacity-70 sm:items-center sm:gap-3", weatherVariantsOpen ? "sm:grid-cols-[minmax(0,1fr)_auto_9rem_2rem]" : "sm:grid-cols-[minmax(0,1fr)_auto_2rem]")}>
-                  <div className="flex min-w-0 items-center gap-2 px-2 text-sm text-foreground line-through"><span className="truncate">{item.label}</span><span className="shrink-0 rounded-full border border-border bg-surface-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground no-underline">Retiré</span></div>
-                  <span className="text-xs text-muted-foreground">{item.required ? "Obligatoire" : "Recommandé"}</span>
-                  {weatherVariantsOpen ? <span className="text-xs text-muted-foreground">{item.cold ? "Grand froid" : item.heat ? "Grosse chaleur" : "Toujours"}</span> : null}
-                  <Button type="button" variant="ghost" className="h-8 px-2 text-xs text-brand" onClick={() => updateItems([...equipment.items, { ...item }])} aria-label={`Restaurer ${item.label}`}>↺</Button>
-                </InlineEditableRow>
-              ))}
-            </section>
-          );
-        })}
+            ) : (
+              <span>Conditions : {effectiveWeatherPlan === "cold" ? "grand froid" : effectiveWeatherPlan === "heat" ? "grosse chaleur" : "normales"}</span>
+            )
+          ) : null}
+        </div>
       </div>
-      <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-        <Button type="button" variant="ghost" className="h-8 px-2 text-xs font-semibold text-brand" onClick={() => { setDraftItemTouched(false); setDraftItem({ id: `item-${Date.now()}`, label: "", required: true, cold: false, heat: false, note: null }); }}>+ Ajouter un item</Button>
-        {availableSuggestions.length > 0 ? <span className="text-xs text-muted-foreground">Suggestions :</span> : null}
-        {availableSuggestions.map((suggestion) => (
-          <Button key={suggestion} type="button" variant="ghost" className="h-8 px-2 text-xs text-brand" onClick={() => updateItems([...equipment.items, { id: `item-${Date.now()}`, label: suggestion, required: true, cold: false, heat: false, note: null }])}>+ {suggestion}</Button>
+
+      <ul className="divide-y divide-border/70 rounded-lg border border-border bg-card" aria-label="Liste du matériel">
+        {equipment.items.length === 0 ? <li className="px-3 py-3 text-sm text-muted-foreground">Aucun item pour l’instant.</li> : null}
+        {equipment.items.map((item, index) => (
+          <li key={item.id ?? index} className="flex flex-wrap items-center gap-x-2 gap-y-1 px-2 py-1">
+            <Input
+              title={item.label}
+              aria-label={`Item de matériel n°${index + 1}`}
+              value={item.label}
+              onChange={(event) => updateItem(index, { label: event.target.value })}
+              className="order-1 h-8 min-w-0 flex-1 basis-[calc(100%-2.75rem)] border-transparent sm:basis-0 sm:min-w-[12rem] bg-transparent px-2 text-sm shadow-none hover:border-border focus-visible:border-brand-border"
+            />
+            <div className="order-3 sm:order-2"><RequiredToggle checked={item.required} onChange={(required) => updateItem(index, { required })} label={`${item.label || `Item ${index + 1}`} obligatoire`} /></div>
+            {weatherVariantsOpen ? (
+              <div className="order-3 w-[6.75rem] shrink-0 sm:w-32">
+              <SelectField
+                aria-label={`Météo de ${item.label || `l’item ${index + 1}`}`}
+                value={weatherValue(item)}
+                onValueChange={(value) => updateWeather(index, value)}
+                className="h-8 rounded-md border border-border bg-card px-2 text-xs text-foreground"
+                options={[
+                  { value: "always", label: "Toujours" },
+                  { value: "cold", label: "Grand froid" },
+                  { value: "heat", label: "Grosse chaleur" },
+                  ...(item.cold && item.heat ? [{ value: "cold_heat", label: "Froid + chaleur" }] : []),
+                ]}
+              />
+              </div>
+            ) : null}
+            <Button
+              type="button"
+              variant="ghost"
+              className="order-2 h-8 w-8 shrink-0 px-0 sm:order-4 text-muted-foreground hover:bg-red-50 hover:text-red-700 focus-visible:text-red-700"
+              onClick={() => updateItems(equipment.items.filter((_, itemIndex) => itemIndex !== index))}
+              aria-label={`Retirer ${item.label || "cet item"}`}
+              title="Retirer"
+            >×</Button>
+          </li>
         ))}
-      </div>
-      {draftItem ? (
-        <div className="space-y-3 rounded-md border border-dashed border-brand-border bg-brand-surface p-3">
-          <p className="text-sm font-medium text-foreground">Nouvel item</p>
-          <Input
-            ref={draftItemInputRef}
-            aria-label="Nom du nouvel item de matériel"
-            value={draftItem.label}
-            onChange={(event) => setDraftItem({ ...draftItem, label: event.target.value })}
-            onBlur={() => { if (draftItem.label.trim()) setDraftItemTouched(true); }}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") { event.preventDefault(); setDraftItem(null); setDraftItemTouched(false); return; }
-              if (event.key !== "Enter") return;
-              event.preventDefault();
-              setDraftItemTouched(true);
-              if (!draftItem.label.trim()) return;
-              updateItems([...equipment.items, { ...draftItem, label: draftItem.label.trim() }]);
-              setDraftItemTouched(false);
-              setDraftItem({ ...draftItem, id: `item-${Date.now()}`, label: "" });
-            }}
-            placeholder="Ex. couverture de survie — Entrée pour ajouter et enchaîner"
-            aria-invalid={draftItemTouched && !draftItem.label.trim() || undefined}
-            aria-describedby={draftItemTouched && !draftItem.label.trim() ? "equipment-draft-error" : undefined}
-            className={cn("h-11", draftItemTouched && !draftItem.label.trim() && "border-red-500")}
-          />
-          {draftItemTouched && !draftItem.label.trim() ? <p id="equipment-draft-error" className="text-xs font-medium text-red-700">Saisis le nom de l’item avant de l’enregistrer.</p> : null}
-          <div className="flex gap-2">
-            <Button type="button" onClick={() => { setDraftItemTouched(true); if (!draftItem.label.trim()) return; updateItems([...equipment.items, { ...draftItem, label: draftItem.label.trim() }]); setDraftItem(null); }}>Enregistrer</Button>
-            <Button type="button" variant="ghost" onClick={() => setDraftItem(null)}>Annuler</Button>
-          </div>
+      </ul>
+      {removedSharedItems.length > 0 ? (
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground">Retirés pour ce format</p>
+          {removedSharedItems.map((item, index) => (
+            <div key={`removed-${item.id ?? item.label}-${index}`} className="flex items-center justify-between gap-2 rounded-md bg-muted/40 px-3 py-1 text-sm">
+              <span className="truncate text-muted-foreground line-through">{item.label}</span>
+              <Button type="button" variant="ghost" className="h-7 px-2 text-xs text-brand" onClick={() => updateItems([...equipment.items, { ...item }])} aria-label={`Restaurer ${item.label}`}>Restaurer</Button>
+            </div>
+          ))}
         </div>
       ) : null}
       <TextAreaField
