@@ -40,6 +40,7 @@ import { Colors } from '../../constants/colors';
 import { isAnonymousSession } from '../../lib/appSession';
 import {
   filterCatalogRacesByEditionRetention,
+  getCatalogEventEndDate,
   isCatalogEventVisible,
   sortCatalogEvents,
 } from '../../lib/catalogVisibility';
@@ -752,7 +753,7 @@ export default function CatalogScreen() {
       eventGroups
         .filter(
         (event) =>
-          isCatalogEventVisible(event.race_date, favoriteEventIds.includes(event.id)) &&
+          isCatalogEventVisible(getCatalogEventEndDate(event), favoriteEventIds.includes(event.id)) &&
           matchesDateRange(event.race_date, dateMinFilter, dateMaxFilter) &&
           (quickFilter !== 'favorites' || favoriteEventIds.includes(event.id)),
         )

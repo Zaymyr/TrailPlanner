@@ -104,7 +104,33 @@ export function isCatalogEventPast(isoDate: string | null | undefined, now = new
   return raceDate < startOfLocalDay(now);
 }
 
-type SortableCatalogEvent = { id: string; name: string; race_date: string | null };
+type CatalogEventDates = {
+  race_date: string | null;
+  races?: { race_date?: string | null }[] | null;
+};
+
+/**
+ * Last calendar day of a multi-day event: the latest date among the event start
+ * date and its formats. An event stays "ongoing" (not past) until that day ends.
+ */
+export function getCatalogEventEndDate(event: CatalogEventDates): string | null {
+  let endDate: Date | null = null;
+  let endIso: string | null = null;
+
+  for (const value of [event.race_date, ...(event.races ?? []).map((race) => race.race_date)]) {
+    if (!value) continue;
+    const parsed = parseCatalogDate(value);
+    if (!parsed) continue;
+    if (!endDate || parsed > endDate) {
+      endDate = parsed;
+      endIso = value;
+    }
+  }
+
+  return endIso ?? event.race_date;
+}
+
+type SortableCatalogEvent = { id: string; name: string } & CatalogEventDates;
 
 /**
  * Upcoming events always come before past ones; favorites are pinned first only
@@ -123,8 +149,8 @@ export function sortCatalogEvents<TEvent extends SortableCatalogEvent>(
   const favoriteIds = new Set(favoriteEventIds);
 
   return [...events].sort((left, right) => {
-    const leftPast = isCatalogEventPast(left.race_date, now);
-    const rightPast = isCatalogEventPast(right.race_date, now);
+    const leftPast = isCatalogEventPast(getCatalogEventEndDate(left), now);
+    const rightPast = isCatalogEventPast(getCatalogEventEndDate(right), now);
     if (leftPast !== rightPast) return leftPast ? 1 : -1;
 
     const leftFavorite = favoriteIds.has(left.id);

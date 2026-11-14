@@ -284,3 +284,5 @@ Livret-first navigation (2026-11-09): when a screen leaves the tab bar, keep its
 When a RaceBook card can be replaced by an organizer partner slot, keep the affiliate card component and override its copy/logo from `sponsorPresentation.partnerSlots`; organizer partner presses use the counted redirect and stay out of identified analytics.
 
 Catalog scroll performance (2026-11-09): the Courses list renders memoized `CatalogEventRow` rows (stable callbacks through a handler ref) over a memoized `RaceEventSummaryCard`, tunes FlatList virtualization (`initialNumToRender` 6, `maxToRenderPerBatch` 4, `windowSize` 9, `removeClippedSubviews` on Android), downsamples rail images (`resizeMethod="resize"`) and reads reduce-motion on favorite press instead of subscribing one accessibility listener per card. Presentation only: no query, payload, analytics event or favorite/update-read behavior changes.
+
+- Catalog past/upcoming decisions must use `getCatalogEventEndDate` (latest of event and format `race_date`), never `race_events.race_date` alone, so multi-day events are not hidden while ongoing.
