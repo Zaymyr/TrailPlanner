@@ -20,6 +20,8 @@ related_tables: []
 
 # Design Tokens
 
+`colors.formats` (2026-11-15) is a 6-colour categorical palette identifying the formats of one event in the Supporter Guide (#2B6CB0, #C05621, #6B46C1, #0F766E, #B83280, #8C6A1A). Assigned by increasing distance; white icons stay readable on each (contrast ≥ 4.5:1); distinct from the brand forest, the semantic statuses and the live amber. Never use it for status or organizer branding.
+
 ## Purpose
 
 This document records the shared design tokens exported by `@pace-yourself/design-system` and how the web app consumes them.

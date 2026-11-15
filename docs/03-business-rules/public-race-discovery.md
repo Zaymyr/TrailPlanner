@@ -71,6 +71,8 @@ related_tables:
 
 # Public Race Discovery
 
+Supporter Guide format identification (2026-11-15): each format gets a colour from the `colors.formats` token, assigned by increasing distance (same rule on app and web). Programme rows show a round badge in the format colour with a type icon (start ▶, expected arrival / last runner clock, podium trophy, animation by type), the moment label in that colour and a coloured dot before the race name; past rows turn grey with a check. The « Je suis » checkboxes and the Suivre / Pratique race tabs carry the same colour, acting as the legend. Animations keep the brand colour.
+
 Supporter Guide course line endpoints (2026-11-15): `addCourseEndpoints` opens every `formats[].stops` line with a start stop (`endpoint: "start"`, km 0, `startTimes` — wave names only when there are several SAS — and start-area directions) and closes it with the finish (`endpoint: "finish"`: the organizer « Arrivée » checkpoint is enriched, otherwise a finish stop is added) carrying `expectedArrivals`, the resolved finish cutoff and finish directions. A single wave is never labelled (no « Départ commun ») in the programme either.
 
 On the public Supporter Guide page the « Je suis » checkboxes filter the programme only; fully past days are dimmed and collapsed (expandable) by default.

@@ -7,6 +7,7 @@ import {
   formatCountdown,
   isStopClosed,
   resolveDayLiveState,
+  resolveFormatColors,
   resolveGuideStops,
   countGuideDays,
   formatGuideClock,
@@ -118,5 +119,16 @@ describe('Supporter Guide live programme', () => {
     });
     expect(stops.map((stop) => [stop.id, stop.aidStation])).toEqual([['s:s', true], ['p:p', false]]);
     expect(stops[0]?.cutoff).toEqual({ date: null, time: '11:00', dayOffset: 0 });
+  });
+});
+
+describe('Supporter Guide format colours', () => {
+  it('assigns one stable design-system colour per format by increasing distance', () => {
+    const colours = resolveFormatColors([
+      { raceId: 'ultra', distanceKm: 82, name: 'Ultra' },
+      { raceId: 'court', distanceKm: 18, name: 'Court' },
+      { raceId: 'moyen', distanceKm: 42, name: 'Moyen' },
+    ]);
+    expect(colours).toEqual({ court: '#2B6CB0', moyen: '#C05621', ultra: '#6B46C1' });
   });
 });
