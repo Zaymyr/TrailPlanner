@@ -136,6 +136,10 @@ type OrganizerAidStationDetails = {
   cutoffTime: string | null;
   cutoffDayOffset: number | null;
   dropBagAvailable: boolean;
+  amenities: { toilets: boolean; shelter: boolean; medical: boolean; hotDrinks: boolean; hotFood: boolean };
+  maxStopMinutes: number | null;
+  supportersAccess: 'allowed' | 'restricted' | 'forbidden' | null;
+  note: string | null;
   organizerNote: string | null;
 };
 
@@ -366,6 +370,10 @@ const DEFAULT_AID_STATION_DETAILS: OrganizerAidStationDetails = {
   cutoffTime: null,
   cutoffDayOffset: null,
   dropBagAvailable: false,
+  amenities: { toilets: false, shelter: false, medical: false, hotDrinks: false, hotFood: false },
+  maxStopMinutes: null,
+  supportersAccess: null,
+  note: null,
   organizerNote: null,
 };
 
@@ -618,6 +626,7 @@ export function resolveRacebookGpxDisplay(value: unknown): OrganizerRaceDetails[
 
 function parseAidStationDetails(value: unknown): OrganizerAidStationDetails {
   const record = readRecord(value);
+  const amenities = readRecord(record.amenities);
 
   return {
     cumulativeElevationGainM: readNumber(record.cumulativeElevationGainM),
@@ -625,6 +634,16 @@ function parseAidStationDetails(value: unknown): OrganizerAidStationDetails {
     cutoffTime: readText(record.cutoffTime),
     cutoffDayOffset: readNumber(record.cutoffDayOffset),
     dropBagAvailable: readBoolean(record.dropBagAvailable, false),
+    amenities: {
+      toilets: readBoolean(amenities.toilets, false),
+      shelter: readBoolean(amenities.shelter, false),
+      medical: readBoolean(amenities.medical, false),
+      hotDrinks: readBoolean(amenities.hotDrinks, false),
+      hotFood: readBoolean(amenities.hotFood, false),
+    },
+    maxStopMinutes: readNumber(record.maxStopMinutes),
+    supportersAccess: record.supportersAccess === 'allowed' || record.supportersAccess === 'restricted' || record.supportersAccess === 'forbidden' ? record.supportersAccess : null,
+    note: readText(record.note),
     organizerNote: readText(record.organizerNote),
   };
 }

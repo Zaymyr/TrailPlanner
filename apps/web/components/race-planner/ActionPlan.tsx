@@ -1218,6 +1218,7 @@ export function ActionPlan({
         name: string;
         distance: string;
         pauseMinutes: string;
+        maxStopMinutes?: number;
         waterRefill: boolean;
         solidRefill: boolean;
         assistanceAllowed: boolean;
@@ -1227,6 +1228,7 @@ export function ActionPlan({
         name: string;
         distance: string;
         pauseMinutes: string;
+        maxStopMinutes?: number;
         waterRefill: boolean;
         solidRefill: boolean;
         assistanceAllowed: boolean;
@@ -2958,6 +2960,7 @@ export function ActionPlan({
                                       typeof item.checkpointSegment?.pauseMinutes === "number"
                                         ? String(item.checkpointSegment.pauseMinutes)
                                         : "",
+                                    maxStopMinutes: item.checkpointSegment?.maxStopMinutes,
                                     waterRefill: item.checkpointSegment?.waterRefill !== false,
                                     solidRefill: item.checkpointSegment?.solidRefill !== false,
                                     assistanceAllowed: item.checkpointSegment?.assistanceAllowed !== false,
@@ -3052,6 +3055,7 @@ export function ActionPlan({
                     min="0"
                     className="border-border bg-background text-sm font-semibold text-foreground placeholder:text-muted-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
                   />
+                  {editorState.maxStopMinutes && Number(editorState.pauseMinutes || 0) > editorState.maxStopMinutes ? <p className="text-xs font-medium text-amber-700">La pause dépasse la limite organisateur de {editorState.maxStopMinutes} min.</p> : null}
                 </div>
               ) : null}
               <div className="grid gap-2 sm:grid-cols-3">

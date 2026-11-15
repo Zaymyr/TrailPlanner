@@ -41,6 +41,22 @@ describe("parseOrganizerAidStationDetails", () => {
     expect(parseOrganizerAidStationDetails({ cutoffTime: "dimanche vers 9h" }).cutoffTime).toBe("dimanche vers 9h");
     expect(parseOrganizerAidStationDetails({ cutoffTime: "03:00", cutoffDayOffset: 1 })).toMatchObject({ cutoffTime: "03:00", cutoffDayOffset: 1 });
   });
+
+  it("defaults structured station rules for historical JSON and accepts complete data", () => {
+    expect(parseOrganizerAidStationDetails({ organizerNote: "Ancien texte" })).toMatchObject({
+      amenities: { toilets: false, shelter: false, medical: false, hotDrinks: false, hotFood: false },
+      maxStopMinutes: null,
+      supportersAccess: null,
+      note: null,
+      organizerNote: "Ancien texte",
+    });
+    expect(parseOrganizerAidStationDetails({ amenities: { toilets: true, shelter: true }, maxStopMinutes: 20, supportersAccess: "restricted", note: "Entrée côté nord" })).toMatchObject({
+      amenities: { toilets: true, shelter: true, medical: false, hotDrinks: false, hotFood: false },
+      maxStopMinutes: 20,
+      supportersAccess: "restricted",
+      note: "Entrée côté nord",
+    });
+  });
 });
 
 describe("parseOrganizerEventDetails", () => {

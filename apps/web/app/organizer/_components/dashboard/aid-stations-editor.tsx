@@ -353,6 +353,9 @@ export function AidStationsEditor({
                     <StationServiceChip checked={selectedAidStation.solidRefill} label="Solide" disabled={status === "saving"} onChange={(checked) => onUpdateStation(selectedAidStationIndex, { ...selectedAidStation, solidRefill: checked })} />
                     <StationServiceChip checked={selectedAidStation.assistanceAllowed} label="Assistance autorisée" disabled={status === "saving"} onChange={(checked) => onUpdateStation(selectedAidStationIndex, { ...selectedAidStation, assistanceAllowed: checked })} />
                     <StationServiceChip checked={selectedAidStation.organizerDetails.dropBagAvailable} label="Sac de délestage" disabled={status === "saving"} onChange={(checked) => onUpdateStation(selectedAidStationIndex, { ...selectedAidStation, organizerDetails: { ...selectedAidStation.organizerDetails, dropBagAvailable: checked } })} />
+                    {([['toilets', 'Toilettes'], ['shelter', 'Abri'], ['medical', 'Soins'], ['hotDrinks', 'Boisson chaude'], ['hotFood', 'Repas chaud']] as const).map(([key, label]) => (
+                      <StationServiceChip key={key} checked={selectedAidStation.organizerDetails.amenities[key]} label={label} disabled={status === "saving"} onChange={(checked) => onUpdateStation(selectedAidStationIndex, { ...selectedAidStation, organizerDetails: { ...selectedAidStation.organizerDetails, amenities: { ...selectedAidStation.organizerDetails.amenities, [key]: checked } } })} />
+                    ))}
                     {relayEnabled ? (
                       <StationServiceChip
                         checked={Boolean(selectedAidStation.id && relayPoints.some((point) => point.raceAidStationId === selectedAidStation.id))}
@@ -719,8 +722,14 @@ function StationDetailsPanel({ station, startTime, onChange, onRemove, productsS
         </div>
       </div>
 
-      <div>
-        <TextAreaField label="Note organisateur" value={details.organizerNote ?? station.notes ?? ""} onChange={(value) => onChange({ ...station, notes: value, organizerDetails: { ...details, organizerNote: value || null } })} />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <NumberField label="Temps d’arrêt max (min)" value={details.maxStopMinutes ?? 0} emptyWhenZero step="1" onChange={(value) => onChange({ ...station, organizerDetails: { ...details, maxStopMinutes: value > 0 ? Math.round(value) : null } })} />
+        <SegmentedChoice label="Accès des accompagnants" value={details.supportersAccess ?? "none"} options={[{ value: "none", label: "Non précisé" }, { value: "allowed", label: "Autorisés" }, { value: "restricted", label: "Zone dédiée" }, { value: "forbidden", label: "Interdits" }] as const} onChange={(supportersAccess) => onChange({ ...station, organizerDetails: { ...details, supportersAccess: supportersAccess === "none" ? null : supportersAccess } })} />
+        <p className="text-xs text-muted-foreground sm:col-span-2">L’assistance désigne l’aide matérielle apportée au coureur. L’accès des accompagnants indique si le public peut être présent sur place.</p>
+        <div className="sm:col-span-2">
+          <TextAreaField label="Note courte" hint={`${(details.note ?? "").length}/200 caractères`} value={details.note ?? ""} onChange={(value) => onChange({ ...station, organizerDetails: { ...details, note: value.slice(0, 200) || null } })} />
+        </div>
+        {details.organizerNote || station.notes ? <details className="sm:col-span-2 rounded-lg border border-border bg-muted/20 p-3"><summary className="cursor-pointer text-sm font-semibold">Texte à convertir</summary><p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{details.organizerNote ?? station.notes}</p></details> : null}
       </div>
 
       <div className="border-t border-border pt-4">{productsSlot}</div>
@@ -818,6 +827,11 @@ function ServiceLetters({ station }: { station: AidStationDraft }) {
       {station.waterRefill ? <span className="rounded bg-brand-surface px-1.5 text-brand" title="Eau">E</span> : null}
       {station.solidRefill ? <span className="rounded bg-brand-surface px-1.5 text-brand" title="Solide">S</span> : null}
       {station.assistanceAllowed ? <span className="rounded bg-brand-surface px-1.5 text-brand" title="Assistance">A</span> : null}
+      {station.organizerDetails.dropBagAvailable ? <span className="inline-flex items-center px-1 text-brand" aria-label="Sac de délestage disponible" title="Sac de délestage"><DropBagGlyph /></span> : null}
     </span>
   );
+}
+
+function DropBagGlyph() {
+  return <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M5.5 4V2.8c0-.7.6-1.3 1.3-1.3h2.4c.7 0 1.3.6 1.3 1.3V4M3.5 5.2h9v8.6h-9z" /><path d="M6.2 8h3.6" strokeLinecap="round" /></svg>;
 }

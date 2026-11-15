@@ -185,6 +185,7 @@ export function buildSegments(
       solidRefill: station.solidRefill !== false,
       assistanceAllowed: station.kind === "start" ? true : station.assistanceAllowed !== false,
       ...(station.sourceAidStationId ? { sourceAidStationId: station.sourceAidStationId } : {}),
+      ...(station.maxStopMinutes ? { maxStopMinutes: station.maxStopMinutes } : {}),
       aidStationIndex: station.kind === "aid" ? station.originalIndex : undefined,
       isFinish: station.kind === "finish",
       waterCapacityMl: waterCapacityMl ?? undefined,

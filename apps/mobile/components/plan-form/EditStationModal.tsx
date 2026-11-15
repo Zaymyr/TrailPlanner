@@ -12,6 +12,7 @@ import {
 
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
+import { isPauseOverOrganizerLimit } from '../../lib/planStopLimit';
 import { Text } from '../themed/Text';
 import { styles } from './styles';
 
@@ -21,6 +22,7 @@ export type EditingStation = {
   name: string;
   km: string;
   pauseMinutes: string;
+  maxStopMinutes?: number;
   waterRefill: boolean;
   solidRefill: boolean;
   assistanceAllowed: boolean;
@@ -116,6 +118,7 @@ export function EditStationModal({ editingStation, setEditingStation, onSave, of
 
             <Text style={styles.label}>{t.planForm.pauseLabel}</Text>
             <TextInput accessibilityLabel={t.planForm.pauseLabel} inputAccessoryViewID="pace-yourself-numeric-keyboard" keyboardType="numeric" onChangeText={(value) => setEditingStation((prev) => (prev ? { ...prev, pauseMinutes: value } : prev))} placeholder="0" placeholderTextColor={Colors.textMuted} style={[styles.textInput, { marginBottom: 20 }]} value={editingStation?.pauseMinutes ?? ''} />
+            {editingStation?.maxStopMinutes && isPauseOverOrganizerLimit(Number(editingStation.pauseMinutes || 0), editingStation.maxStopMinutes) ? <Text accessibilityLiveRegion="polite" style={{ color: Colors.danger, marginBottom: 16 }}>{`La pause dépasse la limite organisateur de ${editingStation.maxStopMinutes} min.`}</Text> : null}
 
             <Text style={styles.label}>{t.planForm.servicesLabel}</Text>
             <View pointerEvents={readOnlyOfficialFields ? 'none' : 'auto'} style={styles.stationServiceOptions}>

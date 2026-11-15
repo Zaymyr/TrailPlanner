@@ -2,6 +2,7 @@
 title: race_event_claims Table
 scope: database
 last_verified: 2026-11-15
+# Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
 # Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: high
 # Organizer UI note (2026-11-13): workspace sizing is presentation-only; claim and membership authorization remain unchanged.

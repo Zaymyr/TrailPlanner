@@ -314,6 +314,16 @@ export const organizerAidStationDetailsSchema = z.object({
   cutoffTime: nullableClockText,
   cutoffDayOffset: z.number().int().nonnegative().nullable().default(null),
   dropBagAvailable: z.boolean().default(false),
+  amenities: z.object({
+    toilets: z.boolean().default(false),
+    shelter: z.boolean().default(false),
+    medical: z.boolean().default(false),
+    hotDrinks: z.boolean().default(false),
+    hotFood: z.boolean().default(false),
+  }).default({ toilets: false, shelter: false, medical: false, hotDrinks: false, hotFood: false }),
+  maxStopMinutes: z.number().int().positive().nullable().default(null),
+  supportersAccess: z.enum(["allowed", "restricted", "forbidden"]).nullable().default(null),
+  note: nullableText,
   organizerNote: nullableText,
 });
 

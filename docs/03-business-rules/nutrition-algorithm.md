@@ -1,7 +1,8 @@
 ---
 title: Nutrition Algorithm
 scope: business-rule
-last_verified: 2026-11-13
+last_verified: 2026-11-15
+# Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
 ai_priority: high
 related_files:
   - apps/web/lib/nutrition-planner.ts
