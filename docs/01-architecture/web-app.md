@@ -356,6 +356,8 @@ related_tables:
 
 # Web App Architecture
 
+The Supporter Guide payload now carries resolved cutoffs and a sorted `timeline`; `SupporterGuideView` groups the programme by day and formats dates, distances and cross-day cutoffs per locale. Cutoff resolution uses `@trailplanner/shared` `racebook-cutoffs`, a server-side copy of the runner RaceBook rules.
+
 The public Supporter Guide lives at `/courses/supporter-guide/[raceId]` and consumes `/api/supporter-guide`, which aggregates only immutable format publications and reuses RaceBook cache tags. The client route is mobile-first and `noindex`; `/api/supporter-guide/qr` generates a downloadable SVG QR for the organizer workspace.
 
 Shared-plan follow APIs are authenticated Next.js route handlers using service role only after bearer validation and per-user rate limiting. The public token route remains anonymous and token-based; its crew-state mutation and the authenticated follow-id mutation share one validation/update service. The public page only adds a native-app CTA and preserves its snapshot contract.

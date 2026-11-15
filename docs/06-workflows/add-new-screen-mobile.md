@@ -83,6 +83,8 @@ related_tables:
 
 # Add New Mobile Screen
 
+Example of a full-screen secondary route: `app/(app)/courses/supporter-guide/[raceId].tsx` lives in the `(app)` group (public URL unchanged), is registered in `app/(app)/_layout.tsx` with `headerShown: false` and a hidden tab bar, and composes existing RaceBook primitives (`RacebookCollapsibleHero`, `RacebookTabBar`, `TrailTabs`, themed states) instead of a native stack header.
+
 The Supporter Guide is a universal-linkable Expo screen at `/courses/supporter-guide/[raceId]`. It accepts anonymous sessions, fetches the public web payload, hides empty sections, and is released together with removal of the current RaceBook supporter subtab so the content remains reachable in-app.
 
 The followed-plan lot adds a universal-link preview and a hidden native detail route under `plan/followed/[id]`. Both use themed loading/error/card/button primitives, safe-area spacing, localized FR/EN copy, focus refresh and accessible controls; the Plans root adds an accessible two-state selector without changing the tab route.

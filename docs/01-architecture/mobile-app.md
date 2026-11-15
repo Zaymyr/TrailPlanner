@@ -4,7 +4,10 @@ scope: architecture
 last_verified: 2026-11-15
 ai_priority: high
 related_files:
-  - apps/mobile/app/courses/supporter-guide/[raceId].tsx
+  - apps/mobile/app/(app)/courses/supporter-guide/[raceId].tsx
+  - apps/mobile/lib/supporterGuide.test.ts
+  - apps/mobile/lib/racebookCourseTabs.ts
+  - apps/mobile/lib/racebookCourseTabs.test.ts
   - apps/mobile/lib/supporterGuide.ts
   - apps/mobile/lib/followedPlanTimeline.ts
   - apps/mobile/lib/followedPlanTimeline.test.ts
@@ -238,6 +241,8 @@ related_tables:
 ---
 
 # Mobile App Architecture
+
+The Livret accompagnateur screen lives at `app/(app)/courses/supporter-guide/[raceId].tsx` (same public URL), registered in the `(app)` tab layout without a native header or tab bar. It is built only from existing RaceBook and themed primitives: `RacebookCollapsibleHero` (edition name, date range, first start, races / distances / days metrics, emergency and organizer links), `RacebookTabBar` (Programme, Suivre, Sur place, Séjour, Pratique), `TrailTabs` race selectors, `SectionHeading` + `TopoCard` day timelines, `RacebookSupporterPointsSection` (supporter points and aid stations merged by kilometre), `RacebookAccessSection`, `RacebookServicesSection` and the shared loading / error / empty states. Suivre and Pratique show one race at a time, defaulting to the race the guide was opened from; copy lives in the `supporterGuide` locale namespace. Cutoffs arrive resolved from the server and are labelled with their weekday when they fall after the race day.
 
 The app route `/courses/supporter-guide/[raceId]` consumes the same public payload as the web Supporter Guide and is reachable from catalog event details, the runner RaceBook share entry, and followed plans. It reuses `RacebookSupporterPointsSection`; the former RaceBook “Où encourager” subtab is removed only from current UI, while publication data remains backward-compatible. The mobile bundle deliberately keeps its API payload type and followed-plan timeline helpers in `apps/mobile/lib`: CI forbids runtime or type imports from `@trailplanner/shared`, so these narrow client adapters mirror the versioned server contract without crossing that bundling boundary.
 

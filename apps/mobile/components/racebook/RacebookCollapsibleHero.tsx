@@ -80,6 +80,11 @@ type Props = {
   emergencyTargetRef?: Ref<View>;
   /** Measurable wrapper of the organizer links action (guided tour highlight). */
   linksTargetRef?: Ref<View>;
+  /**
+   * Replaces the course metrics (distance, D+, D−, plan) with event-level
+   * figures, e.g. the Supporter Guide's races / distances / days.
+   */
+  metricsOverride?: { label: string; value: string }[];
 };
 
 export function RacebookCollapsibleHero({
@@ -122,6 +127,7 @@ export function RacebookCollapsibleHero({
   attachedBelow = false,
   emergencyTargetRef,
   linksTargetRef,
+  metricsOverride,
 }: Props) {
   const [isCompact, setIsCompact] = useState(false);
   const [linksVisible, setLinksVisible] = useState(false);
@@ -258,7 +264,7 @@ export function RacebookCollapsibleHero({
           maxTimeLabel={maxTimeLabel}
           maxTime={maxTimeValue}
           color={theme.onPrimaryColor}
-          metrics={[
+          metrics={metricsOverride ?? [
             { label: distanceCaption, value: distanceLabel },
             { label: elevationCaption, value: elevationGainLabel },
             { label: descentCaption, value: elevationLossLabel ?? '—' },

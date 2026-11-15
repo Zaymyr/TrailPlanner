@@ -1,4 +1,14 @@
-import type { SupporterGuideLocation, SupporterGuidePayload, SupporterGuideService } from "@trailplanner/shared";
+import {
+  isExplicitFinishName,
+  normalizeSimpleClock,
+  resolveOfficialCutoffSchedule,
+  toRaceDayClock,
+  type SupporterGuideFormat,
+  type SupporterGuideLocation,
+  type SupporterGuidePayload,
+  type SupporterGuideService,
+  type SupporterGuideTimelineEntry,
+} from "@trailplanner/shared";
 import { z } from "zod";
 
 import { serviceHeaders } from "./organizer";
@@ -31,7 +41,74 @@ const firstRecord = (value: unknown) => record(Array.isArray(value) ? value[0] :
 const text = (value: unknown) => typeof value === "string" && value.trim() ? value.trim() : null;
 const number = (value: unknown) => typeof value === "number" && Number.isFinite(value) ? value : typeof value === "string" && value.trim() && Number.isFinite(Number(value)) ? Number(value) : null;
 const bool = (value: unknown) => typeof value === "boolean" ? value : null;
-const clock = (value: unknown) => text(value)?.slice(0, 5) ?? null;
+// Standalone clocks only ("07:00:00" → "07:00"). Rich organizer wording such as
+// "sam. 15h" is never truncated: cutoffs go through the official resolver.
+const clock = (value: unknown) => normalizeSimpleClock(text(value));
+const FINISH_CUTOFF_ID = "__finish__";
+
+type GuideStation = SupporterGuideFormat["aidStations"][number];
+
+/**
+ * Resolves station and finish cutoffs exactly like the runner RaceBook: from
+ * the official departure (common start, else first SAS), in course order, so
+ * multi-day clocks land on the right day.
+ */
+function resolveFormatCutoffs(input: {
+  startTime: string | null;
+  raceDate: string | null;
+  distanceKm: number;
+  finishCutoffText: string | null;
+  stations: Array<{ id: string; name: string; km: number; cutoffText: string | null }>;
+}) {
+  const finishStation = input.stations.at(-1) && isExplicitFinishName(input.stations.at(-1)!.name) ? input.stations.at(-1)! : null;
+  const finishText = input.finishCutoffText ?? finishStation?.cutoffText ?? null;
+  const schedule = resolveOfficialCutoffSchedule(input.startTime, input.raceDate, [
+    ...input.stations
+      .filter((station) => station.id !== finishStation?.id)
+      .map((station) => ({
+        id: station.id,
+        km: station.km,
+        cutoff: Math.abs(station.km - input.distanceKm) <= 0.2 ? finishText ?? station.cutoffText : station.cutoffText,
+      })),
+    { id: FINISH_CUTOFF_ID, km: Math.max(input.distanceKm, finishStation?.km ?? 0), cutoff: finishText },
+  ]);
+  const toClock = (minute: number | undefined) => minute === undefined ? null : toRaceDayClock(input.startTime, input.raceDate, minute);
+  const finish = toClock(schedule[FINISH_CUTOFF_ID]);
+  return {
+    finish,
+    finishStationId: finishStation?.id ?? null,
+    byStationId: Object.fromEntries(input.stations.map((station) => [
+      station.id,
+      station.id === finishStation?.id ? finish : toClock(schedule[station.id]),
+    ])) as Record<string, GuideStation["cutoff"]>,
+  };
+}
+
+function buildTimeline(formats: SupporterGuideFormat[]): SupporterGuideTimelineEntry[] {
+  const entries: SupporterGuideTimelineEntry[] = [];
+  for (const format of formats) {
+    if (format.startWaves.length > 0) {
+      for (const wave of format.startWaves) {
+        entries.push({ id: `start-${wave.id}`, raceId: format.raceId, raceName: format.name, kind: "start", date: format.date, time: wave.time, label: wave.name, location: null });
+      }
+    } else if (format.startTime) {
+      entries.push({ id: `start-${format.raceId}`, raceId: format.raceId, raceName: format.name, kind: "start", date: format.date, time: format.startTime, label: null, location: null });
+    }
+    if (format.finishCutoff) {
+      entries.push({ id: `finish-${format.raceId}`, raceId: format.raceId, raceName: format.name, kind: "finish_cutoff", date: format.finishCutoff.date ?? format.date, time: format.finishCutoff.time, label: null, location: null });
+    }
+    for (const award of format.awards) {
+      entries.push({ id: `awards-${award.id}`, raceId: format.raceId, raceName: format.name, kind: "awards", date: format.date, time: award.time, label: award.label, location: award.location });
+    }
+  }
+  return entries.sort((left, right) =>
+    (left.date ?? "9999").localeCompare(right.date ?? "9999") || left.time.localeCompare(right.time) || left.raceName.localeCompare(right.raceName, "fr"),
+  );
+}
+
+function firstStartTime(format: Pick<SupporterGuideFormat, "startTime" | "startWaves">) {
+  return format.startTime ?? format.startWaves[0]?.time ?? "99:99";
+}
 const stringArray = (value: unknown) => Array.isArray(value) ? value.flatMap((item) => text(item) ? [text(item)!] : []) : [];
 
 function location(value: unknown, fallbackAddress: unknown = null): SupporterGuideLocation {
@@ -87,21 +164,39 @@ export async function loadSupporterGuide(
     );
   if (loaded.length === 0) return null;
 
-  const formats = loaded.map(({ race, snapshot }) => {
+  const formats: SupporterGuideFormat[] = loaded.map(({ race, snapshot }) => {
     const raceRow = record(snapshot.raceRow);
     const raceDetails = record(raceRow.organizer_details);
     const schedule = record(raceDetails.schedule);
+    const raceDate = text(raceRow.race_date);
+    const distanceKm = number(raceRow.distance_km) ?? 0;
+    const startWaves = snapshot.startWaveRows.flatMap((value) => {
+      const row = record(value); const name = text(row.name); const time = clock(row.start_time);
+      return name && time ? [{ id: String(row.id), name, time, orderIndex: number(row.order_index) ?? 0 }] : [];
+    }).sort((left, right) => left.orderIndex - right.orderIndex || left.time.localeCompare(right.time))
+      .map(({ orderIndex: _orderIndex, ...wave }) => wave);
+    const startTime = clock(schedule.startTime) ?? startWaves[0]?.time ?? null;
+    const stationRows = snapshot.stationRows.flatMap((value) => {
+      const row = record(value); const name = text(row.name); const km = number(row.km);
+      return name && km !== null ? [{ row, name, km, orderIndex: number(row.order_index) ?? 0 }] : [];
+    }).sort((left, right) => left.orderIndex - right.orderIndex || left.km - right.km);
+    const cutoffs = resolveFormatCutoffs({
+      startTime,
+      raceDate,
+      distanceKm,
+      finishCutoffText: text(schedule.finishCutoffTime),
+      stations: stationRows.map(({ row, name, km }) => ({ id: String(row.id), name, km, cutoffText: text(record(row.organizer_details).cutoffTime) })),
+    });
     return {
       raceId: race.id,
       name: text(raceRow.name) ?? race.name,
-      date: text(raceRow.race_date),
-      distanceKm: number(raceRow.distance_km) ?? 0,
-      startTime: clock(schedule.startTime),
-      finishCutoffTime: clock(schedule.finishCutoffTime),
-      startWaves: snapshot.startWaveRows.flatMap((value) => {
-        const row = record(value); const name = text(row.name); const time = clock(row.start_time);
-        return name && time ? [{ id: String(row.id), name, time }] : [];
-      }),
+      date: raceDate,
+      distanceKm,
+      elevationGainM: number(raceRow.elevation_gain_m),
+      startTime,
+      finishCutoffTime: cutoffs.finish?.time ?? clock(schedule.finishCutoffTime),
+      finishCutoff: cutoffs.finish,
+      startWaves,
       awards: snapshot.awardRows.flatMap((value) => {
         const row = record(value); const label = text(row.category_label); const time = clock(row.podium_time);
         return label && time ? [{ id: String(row.id), label, time, location: text(row.podium_location) }] : [];
@@ -113,21 +208,28 @@ export async function loadSupporterGuide(
           accessLabel: text(row.access_label), accessNote: text(row.access_note), latitude: number(row.latitude), longitude: number(row.longitude), mapsUrl: text(row.google_maps_url), planUrl: text(row.plan_url),
         }] : [];
       }),
-      aidStations: snapshot.stationRows.flatMap((value) => {
-        const row = record(value); const details = record(row.organizer_details); const name = text(row.name); const km = number(row.km);
+      aidStations: stationRows.map(({ row, name, km }) => {
+        const details = record(row.organizer_details);
+        const id = String(row.id);
         const supportersAccessValue = text(details.supportersAccess);
         const supportersAccess: "allowed" | "restricted" | "forbidden" | null =
           supportersAccessValue === "allowed" || supportersAccessValue === "restricted" || supportersAccessValue === "forbidden"
             ? supportersAccessValue
             : null;
-        return name && km !== null ? [{
-          id: String(row.id), name, km, assistanceAllowed: row.assistance_allowed !== false,
+        const cutoff = cutoffs.byStationId[id] ?? null;
+        return {
+          id, name, km, assistanceAllowed: row.assistance_allowed !== false,
           supportersAccess,
-          maxStopMinutes: number(details.maxStopMinutes), amenities: stringArray(details.amenities), cutoffTime: clock(details.cutoffTime),
-        }] : [];
+          maxStopMinutes: number(details.maxStopMinutes), amenities: stringArray(details.amenities),
+          cutoffTime: cutoff?.time ?? clock(details.cutoffTime),
+          cutoff,
+          waterAvailable: row.water_available !== false,
+          solidAvailable: row.solid_available !== false,
+          isFinish: id === cutoffs.finishStationId,
+        };
       }),
     };
-  });
+  }).sort((left, right) => (left.date ?? "9999").localeCompare(right.date ?? "9999") || firstStartTime(left).localeCompare(firstStartTime(right)));
 
   const representative = loaded[0]!.snapshot;
   const eventRow = firstRecord(record(representative.raceRow).race_events);
@@ -149,7 +251,7 @@ export async function loadSupporterGuide(
       raceId: race.id, raceName: race.name,
       start: location(source.startLocation, source.startAddress), finish: location(source.finishLocation, source.finishAddress),
       parking: text(source.officialParkings), shuttles: text(source.shuttles), shuttleSchedule: text(source.shuttleSchedule),
-      roadRestrictions: text(source.roadRestrictions), mapUrl: text(source.mapUrl),
+      roadRestrictions: text(source.roadRestrictions), mapUrl: text(source.mapUrl), note: text(source.note),
     }];
   });
   const thirdPartyBibPickup = loaded.flatMap(({ race, snapshot }) => {
@@ -188,6 +290,7 @@ export async function loadSupporterGuide(
     schemaVersion: 1,
     edition: { id: edition.id, eventId: edition.event_id, name: event.name, location: event.location, startDate: edition.start_date, endDate: edition.end_date, imageUrl: event.thumbnail_url },
     formats,
+    timeline: buildTimeline(formats),
     onSiteServices: services.filter((service) => service.type === "recovery" || service.type === "other"),
     stayServices: services.filter((service) => service.type === "restaurant" || service.type === "accommodation"),
     lodgingPartner,

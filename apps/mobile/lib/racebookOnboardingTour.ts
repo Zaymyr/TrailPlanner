@@ -1,7 +1,7 @@
 import type { SpotlightRect } from './helpTutorial';
 
 export type RacebookTourTabKey = 'gear' | 'bib' | 'course' | 'access' | 'services';
-export type RacebookTourCourseTabKey = 'route' | 'start-waves' | 'aid-stations' | 'supporters' | 'relay' | 'awards';
+export type RacebookTourCourseTabKey = 'route' | 'start-waves' | 'aid-stations' | 'relay' | 'awards';
 
 /** Measured zones of the RaceBook screen the tour can highlight. */
 export type RacebookTourTargetKey =

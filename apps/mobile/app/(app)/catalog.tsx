@@ -37,6 +37,7 @@ import { EmptyState } from '../../components/themed/EmptyState';
 import { ErrorState } from '../../components/themed/ErrorState';
 import { BriefToast } from '../../components/themed/BriefToast';
 import { ChoiceChip } from '../../components/themed/ChoiceChip';
+import { TopoCard } from '../../components/themed/TopoCard';
 import { Cote } from '../../components/themed/Cote';
 import { Field } from '../../components/themed/Field';
 import { IconAction } from '../../components/themed/IconAction';
@@ -411,7 +412,9 @@ export default function CatalogScreen() {
     raceId: selectedRaceIdParam,
     updateId: selectedUpdateIdParam,
     onboarding: onboardingMode,
+    sheet: sheetNonceParam,
   } = useLocalSearchParams<{
+    sheet?: string;
     eventId?: string;
     raceId?: string;
     updateId?: string;
@@ -1034,7 +1037,8 @@ export default function CatalogScreen() {
   }, [selectedEvent]);
 
   useEffect(() => {
-    if (!selectedEventIdParam || openingEventFromParamRef.current === selectedEventIdParam) {
+    const openingKey = selectedEventIdParam ? `${selectedEventIdParam}|${sheetNonceParam ?? ''}` : null;
+    if (!selectedEventIdParam || openingEventFromParamRef.current === openingKey) {
       return;
     }
 
@@ -1043,9 +1047,9 @@ export default function CatalogScreen() {
       return;
     }
 
-    openingEventFromParamRef.current = selectedEventIdParam;
+    openingEventFromParamRef.current = openingKey;
     setSelectedEvent(matchingEvent);
-  }, [organizerDemoEventGroups, selectedEventIdParam]);
+  }, [organizerDemoEventGroups, selectedEventIdParam, sheetNonceParam]);
 
   useEffect(() => {
     if (!selectedEvent || !selectedUpdateIdParam) return;
@@ -1421,20 +1425,36 @@ export default function CatalogScreen() {
               {selectedEventDistanceRange ? <Cote size="sm" tone="primary" value={selectedEventDistanceRange} /> : null}
             </View>
 
-            <Text style={styles.sheetHint}>{locale === 'fr' ? 'Choisis ta distance, puis ouvre son Livret coureur.' : 'Choose your distance, then open its Race Book.'}</Text>
-
             {selectedEvent ? (() => {
               const guideRace = selectedEvent.races.find((race) => isRaceRacebookAvailable(selectedEvent, race));
-              return guideRace ? <TouchableOpacity
-                accessibilityRole="button"
-                style={styles.supporterGuideButton}
-                onPress={() => { setSelectedEvent(null); router.push(`/courses/supporter-guide/${guideRace.id}` as any); }}
-              >
-                <Ionicons name="people-outline" size={19} color={Colors.brandPrimary} />
-                <Text style={styles.supporterGuideButtonText}>{locale === 'fr' ? 'Livret accompagnateur' : 'Supporter Guide'}</Text>
-                <Ionicons name="chevron-forward" size={18} color={Colors.brandPrimary} />
-              </TouchableOpacity> : null;
+              return guideRace ? (
+                <TopoCard
+                  accessibilityLabel={`${t.supporterGuide.shareTitle}. ${t.supporterGuide.shareSubtitle}`}
+                  accessibilityRole="button"
+                  onPress={() => {
+                    const eventId = selectedEvent.id;
+                    setSelectedEvent(null);
+                    router.push({
+                      pathname: '/(app)/courses/supporter-guide/[raceId]',
+                      params: { raceId: guideRace.id, returnTo: 'catalog', eventId },
+                    } as any);
+                  }}
+                  style={styles.supporterGuideButton}
+                  variant="interactive"
+                >
+                  <View style={styles.supporterGuideRow}>
+                    <Ionicons name="people-outline" size={20} color={Colors.brandPrimary} />
+                    <View style={styles.supporterGuideCopy}>
+                      <Text style={styles.supporterGuideButtonText}>{t.supporterGuide.shareTitle}</Text>
+                      <Text style={styles.supporterGuideButtonHint}>{t.supporterGuide.shareSubtitle}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={Colors.brandPrimary} />
+                  </View>
+                </TopoCard>
+              ) : null;
             })() : null}
+
+            <Text style={styles.sheetHint}>{locale === 'fr' ? 'Choisis ta distance, puis ouvre son Livret coureur.' : 'Choose your distance, then open its Race Book.'}</Text>
 
             <ScrollView contentContainerStyle={styles.sheetContent}>
               {selectedEvent?.races.map((race) => {
@@ -1712,20 +1732,11 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingBottom: 12,
   },
-  supporterGuideButton: {
-    minHeight: 52,
-    marginHorizontal: 20,
-    marginBottom: 8,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-    borderRadius: 16,
-    backgroundColor: Colors.brandSurface,
-  },
-  supporterGuideButtonText: { flex: 1, color: Colors.brandPrimary, fontWeight: '800' },
+  supporterGuideButton: { marginHorizontal: 20, marginBottom: 12 },
+  supporterGuideRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  supporterGuideCopy: { flex: 1, gap: 2 },
+  supporterGuideButtonText: { color: Colors.textPrimary, fontSize: 15, lineHeight: 20, fontWeight: '800' },
+  supporterGuideButtonHint: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
   eventUpdatesSection: {
     gap: 10,
     marginTop: 8,
