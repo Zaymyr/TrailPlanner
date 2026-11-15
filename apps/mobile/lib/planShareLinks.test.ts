@@ -1,13 +1,19 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { PlanSummary } from './planSummary';
 import type { CreatePlanShareLinkArgs } from './planShareLinks';
-import { createPlanShareLinkSynchronizer } from './planShareLinks';
+import { createPlanShareLinkSynchronizer, synchronizePlanShareIfFollowed } from './planShareLinks';
+import { supabase } from './supabase';
 
 vi.mock('./supabase', () => ({
   supabase: { auth: { getSession: vi.fn() } },
 }));
 vi.mock('./webApi', () => ({ WEB_API_BASE_URL: 'https://example.test' }));
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.clearAllMocks();
+});
 
 function buildArgs(totalDurationMin = 120): CreatePlanShareLinkArgs {
   return {
@@ -93,5 +99,31 @@ describe('createPlanShareLinkSynchronizer', () => {
     await expect(synchronize(args)).rejects.toThrow('network');
     await expect(synchronize(args)).resolves.toContain('/share/plan/stable');
     expect(createLink).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('synchronizePlanShareIfFollowed', () => {
+  it('does not write a snapshot when the active link has no followers', async () => {
+    vi.mocked(supabase.auth.getSession).mockResolvedValue({ data: { session: { access_token: 'token' } } } as any);
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      share: { id: 'share', revoked: false, activeFollowerCount: 0 },
+    }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(synchronizePlanShareIfFollowed(buildArgs(201))).resolves.toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[1]).not.toMatchObject({ method: 'POST' });
+  });
+
+  it('uses the deduplicated share writer when at least one follower is active', async () => {
+    vi.mocked(supabase.auth.getSession).mockResolvedValue({ data: { session: { access_token: 'token' } } } as any);
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ share: { id: 'share', revoked: false, activeFollowerCount: 1 } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ shareUrl: 'https://pace-yourself.com/share/plan/stable' }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(synchronizePlanShareIfFollowed(buildArgs(202))).resolves.toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ method: 'POST' });
   });
 });

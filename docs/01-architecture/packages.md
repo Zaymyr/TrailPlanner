@@ -1,7 +1,7 @@
 ---
 title: Packages Architecture
 scope: architecture
-last_verified: 2026-11-09
+last_verified: 2026-11-15
 ai_priority: medium
 related_files:
   - package.json
@@ -20,6 +20,10 @@ related_tables: []
 ---
 
 # Packages Architecture
+
+## Shared followed-plan helpers
+
+`@trailplanner/shared` exports followed-plan kilometer interpolation, confirmed-passage recalibration, preparation aggregation and multi-day completion calculation. Web lifecycle logic/tests and the Expo assistant view use this pure module; it has no storage, analytics or network side effects.
 
 `@trailplanner/shared` now owns the pure shared-plan tracking calculations used by the public web timeline and native crew screen: clock parsing, midnight resolution, trackable-point selection, passage normalization and downstream ETA recalculation. UI, persistence and locale formatting remain app-specific.
 

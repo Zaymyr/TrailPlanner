@@ -1,7 +1,7 @@
 ---
 title: RLS Checklist
 scope: auth
-last_verified: 2026-11-09
+last_verified: 2026-11-15
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -90,6 +90,13 @@ related_tables:
 ---
 
 # RLS Checklist
+
+## Plan-follow context checklist
+
+- Replace untrusted client `snapshot.raceId` from the authenticated owner's `race_plans` row.
+- Require an identified follower, non-removed membership and active link before returning snapshot or race context.
+- Resolve public race/event visibility and the current immutable publication; never query organizer drafts as fallback.
+- Keep owner follower-count responses aggregate-only and lifecycle writes service-route-only.
 
 `plan_share_follows` is the authenticated-read/service-write pattern: no `anon` privileges, SELECT-only for `authenticated`, follower and link-owner policies, and service-mediated mutations. Active snapshot/crew-state access is rechecked in the API against removal, revocation and expiry because service role bypasses RLS.
 

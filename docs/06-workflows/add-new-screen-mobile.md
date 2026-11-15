@@ -1,7 +1,7 @@
 ---
 title: Add New Mobile Screen
 scope: workflow
-last_verified: 2026-11-09
+last_verified: 2026-11-15
 ai_priority: medium
 related_files:
   - apps/mobile/app
@@ -288,3 +288,7 @@ When a RaceBook card can be replaced by an organizer partner slot, keep the affi
 Catalog scroll performance (2026-11-09): the Courses list renders memoized `CatalogEventRow` rows (stable callbacks through a handler ref) over a memoized `RaceEventSummaryCard`, tunes FlatList virtualization (`initialNumToRender` 6, `maxToRenderPerBatch` 4, `windowSize` 9, `removeClippedSubviews` on Android), downsamples rail images (`resizeMethod="resize"`) and reads reduce-motion on favorite press instead of subscribing one accessibility listener per card. Presentation only: no query, payload, analytics event or favorite/update-read behavior changes.
 
 - Catalog past/upcoming decisions must use `getCatalogEventEndDate` (latest of event and format `race_date`), never `race_events.race_date` alone, so multi-day events are not hidden while ongoing.
+
+## Followed-plan field assistance
+
+The authenticated followed-plan detail consumes only the narrow server `raceContext`: published supporter points, unambiguous ravito matches, access, bib-pickup permission and emergency contact. Keep directions and preparation analytics bounded, persist preparation checks under a follow-specific device key, and show freshness only when server `plan_updated_at` is newer than the stored last view. Completed follows are grouped separately and remain restorable; no push notification or shared checklist belongs to this flow.

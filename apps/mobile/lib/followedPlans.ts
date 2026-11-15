@@ -15,7 +15,29 @@ export type FollowedPlan = {
   crewState?: { passages: Array<{ checkpointIndex: number; actualMinute: number; confirmedAt: string }> };
   departureTime?: string | null;
   locale?: 'fr' | 'en';
+  planUpdatedAt?: string | null;
+  autoArchived?: boolean;
+  autoArchiveDismissedAt?: string | null;
+  raceContext?: FollowedPlanRaceContext;
 };
+
+export type FollowedPlanRaceContext = {
+  raceId: string;
+  raceName: string;
+  raceDate: string | null;
+  officialStartTime: string | null;
+  finishCutoffTime: string | null;
+  finishCutoffDayOffset: number;
+  supporterPoints: Array<{ id: string; name: string; km: number; encouragementAllowed: boolean; assistanceAllowed: boolean; accessLabel: string | null; latitude: number; longitude: number; googleMapsUrl: string | null; accessNote: string | null; planUrl: string | null }>;
+  checkpointContexts: Array<{ checkpointIndex: number; id: string; name: string; km: number; supportersAccess: 'allowed' | 'restricted' | 'forbidden' | null; maxStopMinutes: number | null; amenities: string[]; cutoffTime: string | null; cutoffDayOffset: number; assistanceAllowed: boolean; accessLabel: string | null; accessNote: string | null; googleMapsUrl: string | null; latitude: number | null; longitude: number | null }>;
+  access: { startAddress: string | null; startLocation: FollowedLocation; finishAddress: string | null; finishLocation: FollowedLocation; officialParkings: string | null; shuttles: string | null; shuttleSchedule: string | null; mapUrl: string | null; note: string | null } | null;
+  bibPickup: { thirdPartyPickupAllowed: boolean | null; thirdPartyPickupConditions: string | null } | null;
+  emergencyContact: { name: string | null; phone: string } | null;
+  publishedAt: string;
+  completionAt: string | null;
+};
+
+type FollowedLocation = { label: string | null; latitude: number | null; longitude: number | null; googleMapsUrl: string | null };
 
 async function authenticatedFetch(path: string, init?: RequestInit) {
   const { data } = await supabase.auth.getSession();
@@ -89,7 +111,7 @@ export async function getPlanShareFollowers(shareId: string) {
 
 export async function getOwnedPlanShare(planId: string) {
   const body = await authenticatedFetch(`/api/plan-shares?planId=${encodeURIComponent(planId)}`) as {
-    share: { id: string; revoked: boolean; createdAt: string } | null;
+    share: { id: string; revoked: boolean; createdAt: string; activeFollowerCount: number } | null;
   };
   return body.share;
 }

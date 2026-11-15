@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-11-09
+last_verified: 2026-11-15
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-organizer-analytics.ts
@@ -83,6 +83,8 @@ related_tables:
 # Analytics
 
 Authenticated shared-plan actions emit consent-gated mobile events through the existing PostHog wrapper: `plan crew followed`, `plan crew unfollowed`, `plan crew passage confirmed in app`, and `plan crew follower removed`. Payloads contain only a bounded source value; they never contain a raw share token, plan/follower name, snapshot, or passage details.
+
+Field-assistance enrichment adds consent-gated `followed plan directions opened`, `followed plan preparation opened`, and `followed plan updated seen`. Their only property is the bounded `source = followed_plan`; never attach the token, plan/race name, coordinates, access text, checklist contents, products, or passage detail.
 
 Organizer analytics access is checked against the active plan plus the exact `capability.racebook_analytics` feature grant. A different Signature feature gift must not authorize analytics, and manual invoice creation or settlement has no analytics effect.
 

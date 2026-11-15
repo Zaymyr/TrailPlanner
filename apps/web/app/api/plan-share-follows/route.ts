@@ -9,6 +9,7 @@ import {
   toFollowedPlanDto,
 } from '../../../lib/plan-share-follow-service';
 import { hashPlanShareToken, isValidPlanShareToken } from '../../../lib/plan-share';
+import { loadPlanShareRaceContext } from '../../../lib/plan-share-race-context';
 
 export const runtime = 'nodejs';
 
@@ -32,7 +33,19 @@ export async function GET(request: Request) {
   });
   if (!response.ok) return planShareJson({ message: 'Unable to load followed plans.' }, 502);
   const follows = (await response.json().catch(() => [])) as unknown[];
-  return planShareJson({ follows: follows.map(toFollowedPlanDto) });
+  const enriched = await Promise.all(follows.map(async (row) => {
+    const follow = toFollowedPlanDto(row);
+    if (follow.status !== 'active') return follow;
+    const raceContext = await loadPlanShareRaceContext(serviceConfig, follow.snapshot).catch(() => null);
+    const autoArchived = Boolean(!follow.autoArchiveDismissedAt && raceContext?.completionAt && Date.parse(raceContext.completionAt) <= Date.now());
+    return {
+      ...follow,
+      ...(raceContext ? { raceContext } : {}),
+      autoArchived,
+      archivedAt: follow.archivedAt ?? (autoArchived ? raceContext?.completionAt ?? null : null),
+    };
+  }));
+  return planShareJson({ follows: enriched });
 }
 
 export async function POST(request: Request) {

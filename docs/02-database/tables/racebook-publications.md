@@ -1,7 +1,7 @@
 ---
 title: racebook_publications
 scope: database
-last_verified: 2026-11-09
+last_verified: 2026-11-15
 ai_priority: high
 related_files:
   - apps/web/lib/racebook-publication-checks.ts
@@ -11,6 +11,8 @@ related_files:
   - supabase/tests/racebook_versioned_publications_checks.sql
   - apps/web/lib/racebook-publications.ts
   - apps/web/app/api/racebook-data/route.ts
+  - apps/web/lib/racebook-public-data.ts
+  - apps/web/lib/plan-share-race-context.ts
 related_tables:
   - racebook_publications
   - racebook_publication_states
@@ -64,6 +66,7 @@ RLS is enabled with no client policies. `service_role` can select, insert and de
 - Bulk publication preflights and locks every expected revision before inserting any snapshot.
 - Restore copies an old payload into a new version and never overwrites draft source tables.
 - Only the ten newest versions per race are retained.
+- `loadPublishedRacebookData` is the shared effective-module normalizer for the public RaceBook endpoint and authenticated followed-plan context. The latter first requires current public race/event visibility and never falls back to source tables when no publication exists.
 
 ## Common Queries
 

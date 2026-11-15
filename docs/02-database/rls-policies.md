@@ -1,7 +1,7 @@
 ---
 title: RLS Policies
 scope: database
-last_verified: 2026-11-09
+last_verified: 2026-11-15
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -501,3 +501,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - [Organizer Race Management](../03-business-rules/organizer-race-management.md)
 
 `race_event_edition_partner_slots`: RLS enabled, no client policy or privilege; `service_role` only. `increment_racebook_partner_slot_metric` is invoker-security, empty search path, service-role execute only. See [race_event_edition_partner_slots](tables/race-event-edition-partner-slots.md).
+
+## Followed plan publication context
+
+`plan_share_follows` keeps authenticated SELECT-only grants and service-route writes. The auto-archive dismissal timestamp does not widen either policy. Follow detail/list routes recheck identified membership and active link state before a service-role RaceBook read; they require current public visibility and an immutable publication. Owner share status returns only an aggregate non-removed follower count. Client-supplied `snapshot.raceId` is overwritten from the owned plan row.

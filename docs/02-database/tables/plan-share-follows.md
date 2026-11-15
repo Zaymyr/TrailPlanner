@@ -5,6 +5,7 @@ last_verified: 2026-11-15
 ai_priority: high
 related_files:
   - supabase/migrations/20261115122801_add_plan_share_follows.sql
+  - supabase/migrations/20261115150000_add_follow_auto_archive_dismissal.sql
   - supabase/tests/plan_share_follows_checks.sql
   - apps/web/app/api/plan-share-follows/route.ts
   - apps/web/app/api/plan-share-follows/route.test.ts
@@ -15,6 +16,8 @@ related_files:
   - apps/web/app/api/plan-shares/[id]/followers/[followId]/route.ts
   - apps/web/app/api/plan-shares/[id]/revoke/route.ts
   - apps/web/lib/plan-share-follow-service.ts
+  - apps/web/lib/plan-share-race-context.ts
+  - packages/shared/src/followed-plan.ts
   - apps/mobile/lib/followedPlans.ts
   - apps/mobile/hooks/useFollowedPlans.ts
   - apps/mobile/components/plans/FollowedPlansList.tsx
@@ -42,6 +45,7 @@ related_tables:
 | `created_at` / `updated_at` | `timestamptz` | UTC timestamps; updates are trigger-maintained. |
 | `removed_at` | `timestamptz` | Owner removal marker; immediately cuts follower access. |
 | `archived_at` | `timestamptz` | Follower-controlled presentation marker. |
+| `auto_archive_dismissed_at` | `timestamptz` | Records an explicit restore so calculated post-race archival is not immediately reapplied. |
 
 The `(share_link_id, follower_user_id)` pair is unique. A database trigger rejects following one's own link.
 
@@ -53,6 +57,9 @@ The `(share_link_id, follower_user_id)` pair is unique. A database trigger rejec
 - The follow table never exposes `snapshot` or `crew_state`; API DTOs join those fields only after validating active membership.
 - Link revocation, expiry or owner removal cuts API detail reads and crew-state updates. Reusing the same active secret link can reactivate a previously removed follow row.
 - Owner-facing names come from `user_profiles.full_name`; email is never returned.
+- Active detail reads may add a narrow `raceContext` built only from the current immutable, publicly visible RaceBook publication. Disabled modules contribute no section and there is no draft fallback.
+- List reads calculate completion from the published race date, the longest published cutoff/day offset or plan duration, then add a six-hour margin. Completed follows appear archived without deletion; an explicit restore sets `auto_archive_dismissed_at`.
+- Supporter-point passage estimates interpolate the plan by kilometer and apply the last confirmed-passage delta. Preparation checkboxes remain device-local and keyed by follow id; cross-assistant checklist sharing is deferred.
 
 ## Related docs
 

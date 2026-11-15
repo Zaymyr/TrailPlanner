@@ -1,5 +1,5 @@
 -- Schema, privilege and RLS checks for authenticated plan-share followers.
--- Run after 20261115122801_add_plan_share_follows.sql.
+-- Run after 20261115150000_add_follow_auto_archive_dismissal.sql.
 
 begin;
 
@@ -29,6 +29,14 @@ begin
 
   if (select count(*) from pg_policies where schemaname = 'public' and tablename = 'plan_share_follows') <> 2 then
     raise exception 'Expected follower and share-owner select policies.';
+  end if;
+
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'plan_share_follows'
+      and column_name = 'auto_archive_dismissed_at' and data_type = 'timestamp with time zone'
+  ) then
+    raise exception 'Explicit auto-archive dismissal timestamp is missing.';
   end if;
 
   if not exists (

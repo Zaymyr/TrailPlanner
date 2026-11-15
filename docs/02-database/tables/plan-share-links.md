@@ -1,7 +1,7 @@
 ---
 title: plan_share_links Table
 scope: database
-last_verified: 2026-09-29
+last_verified: 2026-11-15
 ai_priority: high
 related_files:
   - supabase/migrations/20260609091933_add_plan_share_links.sql
@@ -17,6 +17,8 @@ related_files:
   - apps/mobile/components/plan-workspace/PlanRecapContent.tsx
   - apps/web/lib/plan-share-crew-state-service.ts
   - packages/shared/src/plan-share-tracking.ts
+  - packages/shared/src/followed-plan.ts
+  - apps/web/lib/plan-share-race-context.ts
 related_tables:
   - plan_share_links
   - race_plans
@@ -33,7 +35,7 @@ related_tables:
 
 - Public token: the URL token sent to the crew. Legacy links used random tokens; reusable links use a stable server-derived token. Raw tokens are never stored in the database.
 - `token_hash`: SHA-256 hex hash of the public token, used for lookup by the server page.
-- Snapshot: JSONB recap payload generated from the latest mobile plan summary when the recap opens or is shared, including each checkpoint's assistance availability.
+- Snapshot: JSONB recap payload generated from the latest mobile plan summary, including each checkpoint's assistance availability and a server-owned nullable `raceId` copied from `race_plans.race_id`.
 - Crew state: bounded JSONB state entered from the public link, currently start/passages confirmation data that should survive page reloads.
 - Owner access: authenticated users can manage only links tied to their own plan.
 - Public access: anonymous viewers resolve a link through the Next.js server page, which uses service role after hashing the token.
@@ -95,7 +97,8 @@ Summary:
 - The Plans-card Share shortcut remains an explicit native-share action: it opens the recap with a one-shot share intent only after recap data and the device-local departure time are ready. The recap's background refresh and the share action use one deduplicated link synchronizer, so they cannot create parallel persistence paths for the same snapshot.
 - Checkpoint snapshots expose `assistanceState` so crew viewers can distinguish points where they can hand over products from points where the runner must carry inventory from the previous crew point.
 - Public recap rendering uses `assistanceState` as a visual hierarchy: crew-access checkpoints are highlighted, no-crew checkpoints are muted, and no-crew checkpoints omit the product handoff block.
-- Opening a plan recap recalculates it and updates the stable link snapshot. If no reusable link exists yet, the API creates one; otherwise it retains the same URL and replaces the stored snapshot. Later plan edits remain private until the recap is opened or the runner shares again.
+- Opening a plan recap recalculates it and updates the stable link snapshot. If no reusable link exists yet, the API creates one; otherwise it retains the same URL and replaces the stored snapshot. A successful mobile editor save also runs the same deduplicated synchronizer when the owner status endpoint reports at least one active follower; saves with no followers perform no snapshot write.
+- The server ignores any client-provided `raceId` and binds the owned plan's current `race_id` without bumping snapshot schema version 1. The public web share page does not consume this additive field.
 - Crew-confirmed passages are stored separately in `crew_state`; no-assistance checkpoints are treated by the public page as planned-time passages and do not need stored confirmations.
 - Resetting public tracking clears `crew_state.passages` through the same secret-link route so the page returns to planned snapshot timing without mutating `snapshot`.
 - `snapshot_schema_version` must be bumped before storing a breaking public snapshot shape.

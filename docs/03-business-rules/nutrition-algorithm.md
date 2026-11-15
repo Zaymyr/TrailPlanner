@@ -1,7 +1,7 @@
 ---
 title: Nutrition Algorithm
 scope: business-rule
-last_verified: 2026-11-02
+last_verified: 2026-11-15
 ai_priority: high
 related_files:
   - apps/web/lib/nutrition-planner.ts
@@ -395,3 +395,7 @@ The recap shows combined carbohydrate/sodium totals and a rounded ten-minute dri
 ## Plan editor presentation
 
 Official aid-station distance, name, type, and services remain read-only in the mobile editor and are now visibly marked as such with an accessibility explanation. Localized decimal parsing and shared one-decimal distance display affect input/presentation only; they do not change pacing, carbohydrate, sodium, or hydration calculations.
+
+## Followed-plan preparation projection
+
+The authenticated assistant view groups already-calculated checkpoint supplies by assistance point and product, sums quantities and refill water for a device-local checklist, and never writes checklist state back into `planner_values`, the share snapshot, or organizer product data. Automatic snapshot refresh after a mobile save uses the same summary builder and deduplicated share writer, only when the owner endpoint reports an active follower.

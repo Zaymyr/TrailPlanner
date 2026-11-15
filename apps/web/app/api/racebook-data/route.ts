@@ -2,11 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { withSecurityHeaders } from "../../../lib/http";
-import { loadOrganizerEditionCapabilityGrants, loadOrganizerEditionEntitlement } from "../../../lib/organizer-entitlements";
-import { isOrganizerModuleAvailable, ORGANIZER_MODULES } from "../../../lib/organizer-modules";
 import { isOrganizerForEvent, serviceHeaders } from "../../../lib/organizer";
 import { setPrivateRacebookCacheHeaders, setPublicRacebookCacheHeaders } from "../../../lib/racebook-cache";
-import { loadCurrentRacebookPublication, moduleMask, publicSnapshot } from "../../../lib/racebook-publications";
+import { loadPublishedRacebookData } from "../../../lib/racebook-public-data";
 import { extractBearerToken, fetchSupabaseUser, getSupabaseAnonConfig, getSupabaseServiceConfig } from "../../../lib/supabase";
 
 const raceAccessSchema = z.object({
@@ -44,28 +42,10 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const [{ publication }, entitlement, grantMap] = await Promise.all([
-      loadCurrentRacebookPublication(config, race.id),
-      loadOrganizerEditionEntitlement(config, race.edition_id),
-      loadOrganizerEditionCapabilityGrants(config, [race.edition_id]),
-    ]);
-    if (!publication) return jsonError("Race Book not available. Publish it from the organizer area.", 404);
-    const tier = entitlement?.status === "active" ? entitlement.tier : "visibility";
-    const grantedFeatures = (grantMap[race.edition_id] ?? []).filter((grant) => grant.status === "active").map((grant) => grant.capabilityKey);
-    const allowed = Object.fromEntries(ORGANIZER_MODULES.map((module) => [module.key, isOrganizerModuleAvailable(tier, module.key, grantedFeatures)])) as Record<(typeof ORGANIZER_MODULES)[number]["key"], boolean>;
-    const modules = moduleMask(publication.content.modules, allowed);
-    const snapshot = publicSnapshot(publication);
+    const snapshot = await loadPublishedRacebookData(config, race);
+    if (!snapshot) return jsonError("Race Book not available. Publish it from the organizer area.", 404);
     const response = withSecurityHeaders(NextResponse.json({
       ...snapshot,
-      stationRows: modules.aid_stations ? snapshot.stationRows : [],
-      supporterPointRows: modules.supporter_points ? snapshot.supporterPointRows : [],
-      relayPointRows: modules.relay ? snapshot.relayPointRows : [],
-      startWaveRows: modules.start_waves ? snapshot.startWaveRows : [],
-      awardRows: modules.awards ? snapshot.awardRows : [],
-      editionServiceRows: modules.services ? snapshot.editionServiceRows : [],
-      sponsors: modules.sponsors ? snapshot.sponsors : [],
-      branding: modules.branding ? snapshot.branding : { logoUrl: null, primaryColor: "#2D5016", accentColor: "#3F6F8F" },
-      modules,
       organizerPreview: !isPublic,
     }));
     return isPublic

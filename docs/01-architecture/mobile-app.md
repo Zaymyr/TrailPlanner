@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-11-09
+last_verified: 2026-11-15
 ai_priority: high
 related_files:
   - apps/mobile/components/plan-workspace/LockedPlanContent.tsx
@@ -207,7 +207,7 @@ related_tables:
 
 # Mobile App Architecture
 
-Shared plan links are universal links for `/share/plan/*`. The native preview requires an identified account, preserves the pending deep-link destination through the existing authentication screen, and creates a `plan_share_follows` membership through the web API. **Mes plans** exposes an owned/followed selector; the followed detail screen refreshes on focus and pull, uses the shared tracking calculations, and offers nickname, archive and unsubscribe actions. Link revocation, expiry or runner removal renders the followed plan unavailable. The Apple Team ID and Android signing fingerprint in the association files remain explicit maintainer TODOs until verified.
+Shared plan links are universal links for `/share/plan/*`. The native preview requires an identified account, preserves the pending deep-link destination through the existing authentication screen, and creates a `plan_share_follows` membership through the web API. **Mes plans** exposes an owned/followed selector. Its detail screen refreshes on focus and pull, shows publication-only supporter directions, checkpoint rules/cutoffs, practical access, third-party bib pickup, emergency calling, recalibrated supporter ETAs and a device-local per-follow preparation checklist. The last viewed `plan_updated_at` is local and drives the bounded “Plan mis à jour” indicator. Completed dated races move under **Terminés** after the longest cutoff/duration plus six hours; explicit restore is durable. Link revocation, expiry or runner removal renders the followed plan unavailable. The Apple Team ID and Android signing fingerprint in the association files remain explicit maintainer TODOs until verified.
 
 ## Published RaceBook boundary
 

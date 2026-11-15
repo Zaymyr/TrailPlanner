@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-11-12
+last_verified: 2026-11-15
 ai_priority: high
 related_files:
   - apps/web/app/admin/video-generator/export-frame.test.ts
@@ -782,3 +782,7 @@ Reels light the told climb or descent in the profile slope colours on the map an
 ## RaceBook publication checks and partner slots (2026-11-09)
 
 The organizer publish dialog renders `PublicationReview` (blocking checks, warnings, affiliate slots). The Sponsors editor embeds `PartnerSlotsEditor`. New routes: `/api/organizer/editions/:id/partner-slots`, `/api/racebook-partner-slots/:slot/click`, `/api/racebook-partner-slots/impression`.
+
+## Authenticated followed-plan context
+
+The share write binds additive `snapshot.raceId` from the owned `race_plans.race_id` and ignores the client value. Active followers receive a server-derived `raceContext`: current public race/event visibility plus the immutable RaceBook publication resolved through the same effective-module normalizer as `/api/racebook-data`. Missing publications and inactive modules never fall back to draft tables. The public `/share/plan/[token]` rendering remains unchanged.

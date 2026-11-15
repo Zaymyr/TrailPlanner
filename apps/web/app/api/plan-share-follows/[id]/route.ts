@@ -8,6 +8,7 @@ import {
   planShareServiceHeaders,
   toFollowedPlanDto,
 } from '../../../../lib/plan-share-follow-service';
+import { loadPlanShareRaceContext } from '../../../../lib/plan-share-race-context';
 
 const idSchema = z.string().uuid();
 const updateSchema = z.object({
@@ -39,7 +40,8 @@ export async function GET(request: Request, { params: { id } }: Context) {
   if (!rows[0]) return planShareJson({ message: 'Followed plan not found.' }, 404);
   const follow = toFollowedPlanDto(rows[0]);
   if (follow.status !== 'active') return planShareJson({ message: 'This plan is no longer shared.', follow }, 410);
-  return planShareJson({ follow });
+  const raceContext = await loadPlanShareRaceContext(serviceConfig, follow.snapshot).catch(() => null);
+  return planShareJson({ follow: { ...follow, ...(raceContext ? { raceContext } : {}) } });
 }
 
 export async function PATCH(request: Request, { params: { id } }: Context) {
@@ -49,9 +51,12 @@ export async function PATCH(request: Request, { params: { id } }: Context) {
   if (!body.success) return planShareJson({ message: 'Invalid follow update.' }, 400);
   const payload: Record<string, unknown> = {};
   if (body.data.nickname !== undefined) payload.nickname = body.data.nickname;
-  if (body.data.archived !== undefined) payload.archived_at = body.data.archived ? new Date().toISOString() : null;
+  if (body.data.archived !== undefined) {
+    payload.archived_at = body.data.archived ? new Date().toISOString() : null;
+    payload.auto_archive_dismissed_at = body.data.archived ? null : new Date().toISOString();
+  }
   const { userId, serviceConfig } = result.auth;
-  const query = new URLSearchParams({ id: `eq.${id}`, follower_user_id: `eq.${userId}`, removed_at: 'is.null', select: 'id,nickname,archived_at' });
+  const query = new URLSearchParams({ id: `eq.${id}`, follower_user_id: `eq.${userId}`, removed_at: 'is.null', select: 'id,nickname,archived_at,auto_archive_dismissed_at' });
   const response = await fetch(`${serviceConfig.supabaseUrl}/rest/v1/plan_share_follows?${query}`, {
     method: 'PATCH',
     headers: { ...planShareServiceHeaders(serviceConfig, true), Prefer: 'return=representation' },

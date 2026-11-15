@@ -1,7 +1,7 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-11-09
+last_verified: 2026-11-15
 ai_priority: high
 related_files:
   - supabase/migrations/20261109140000_add_racebook_edition_partner_slots.sql
@@ -50,6 +50,8 @@ related_tables:
 ---
 
 # Add New Table
+
+The followed-plan completion change is a column-only migration on existing `plan_share_follows`: `auto_archive_dismissed_at` preserves an explicit user restore while leaving the table's SELECT-only authenticated grants, service-role writes and two RLS policies unchanged. Its table doc, schema/RLS docs and focused SQL check are updated together; no new table protocol applies.
 
 `plan_share_follows` follows the owner/follower read and service-write variant: explicit SELECT-only authenticated grant, no anonymous access, two narrow RLS policies, database-level self-follow rejection, cascade foreign keys and focused SQL privilege checks.
 

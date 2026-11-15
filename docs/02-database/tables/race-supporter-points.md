@@ -1,9 +1,11 @@
 ---
 title: race_supporter_points
 scope: database
-last_verified: 2026-11-09
+last_verified: 2026-11-15
 ai_priority: high
 related_files:
+  - apps/web/lib/plan-share-race-context.ts
+  - apps/mobile/app/(app)/plan/followed/[id].tsx
   - supabase/migrations/20261029091807_add_race_supporter_points.sql
   - supabase/migrations/20261029155052_fix_supporter_point_replacement_ordinality.sql
   - supabase/tests/race_supporter_points_checks.sql
@@ -52,6 +54,8 @@ Stores organizer-authored locations where supporters may encourage a runner, pro
 Draft rows may be incomplete and remain visible through the authenticated organizer route. Direct client reads are restricted by RLS to complete points whose `supporter_points` module is effective. Completeness requires a non-empty name, an in-range kilometer, valid paired coordinates, and at least one permission flag.
 
 Mobile presents permission chips inside the title/distance header, hides `access_label` only when its normalized value repeats `name`, and keeps directions plus the optional external plan as right-aligned icon actions. A distinct access label and access note remain visible beneath the header.
+
+Authenticated followed-plan detail is a second read-only consumer of the published snapshot. It inserts visible supporter points into the assistance timeline, interpolates a plan ETA by kilometer, reapplies the latest confirmed-passage delay, distinguishes encouragement from assistance, and builds directions from the published Maps URL or coordinates. Draft rows and disabled modules are never consulted.
 
 Organizer GET responses normalize nullable editable text and URL fields to empty strings. PUT accepts both those strings and legacy `null` values, so re-saving an existing point cannot fail before the atomic RPC. Mobile keeps directions and an optional external plan as right-aligned, icon-only 44-point actions with explicit accessibility labels.
 

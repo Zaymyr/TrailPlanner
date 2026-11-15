@@ -56,6 +56,7 @@ export function toFollowedPlanDto(follow: any) {
     nickname: follow.nickname,
     createdAt: follow.created_at,
     archivedAt: follow.archived_at,
+    autoArchiveDismissedAt: follow.auto_archive_dismissed_at ?? null,
     status: active ? 'active' : 'unavailable',
     shareLinkId: link?.id ?? follow.share_link_id,
     planName: active ? snapshot?.name ?? '' : '',
@@ -63,6 +64,7 @@ export function toFollowedPlanDto(follow: any) {
     elevationGainM: active ? snapshot?.elevationGainM ?? 0 : 0,
     ...(active ? {
       snapshot,
+      planUpdatedAt: link.plan_updated_at ?? null,
       crewState: link.crew_state ?? { passages: [] },
       departureTime: link.departure_time ?? null,
       locale: link.locale ?? 'fr',
@@ -76,6 +78,7 @@ export const FOLLOW_SELECT = [
   'nickname',
   'created_at',
   'archived_at',
+  'auto_archive_dismissed_at',
   'removed_at',
-  'plan_share_links!inner(id,user_id,snapshot,crew_state,departure_time,locale,expires_at,revoked_at)',
+  'plan_share_links!inner(id,user_id,snapshot,crew_state,departure_time,locale,plan_updated_at,expires_at,revoked_at)',
 ].join(',');

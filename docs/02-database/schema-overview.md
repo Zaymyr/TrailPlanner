@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-11-09
+last_verified: 2026-11-15
 ai_priority: high
 related_files:
   - supabase/migrations/20261106142000_add_lut_by_night_2026_gpx.sql
@@ -133,6 +133,10 @@ related_tables:
 ---
 
 # Schema Overview
+
+## Followed plan lifecycle
+
+`plan_share_links.snapshot` keeps schema version 1 and may contain additive, server-owned `raceId`. `plan_share_follows.auto_archive_dismissed_at` records an explicit restore of a calculated completed-race follow; it is presentation lifecycle state, not deletion or RaceBook publication authority. Race details shown to a follower remain derived from immutable `racebook_publications`.
 
 The 2026 Radiance Mutuelle LUT By Night data-only enrichment attaches the three official downloadable GPX objects to the 10 km, 20 km and 30 km catalog formats, preserving their official distance/D+ labels and adding hashes plus parsed route metadata. The 10 km Rando remains without a GPX because its official page has no downloadable trace URL. No schema, grant, policy, visibility, or publication-state contract changes.
 

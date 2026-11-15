@@ -5,6 +5,7 @@ import { checkRateLimitAsync, withSecurityHeaders } from "../../../lib/http";
 import { getRunnerPlanAccess, getRunnerAdminMode } from "../../../lib/runner-access";
 import {
   buildPlanShareUrl,
+  bindPlanShareSnapshotToRace,
   departureTimeSchema,
   generatePlanShareId,
   generateStablePlanShareToken,
@@ -38,6 +39,7 @@ const serviceHeaders = (serviceConfig: SupabaseServiceConfig, contentType = "app
 
 type RacePlanLookupRow = {
   id: string;
+  race_id: string | null;
   updated_at: string;
 };
 
@@ -88,14 +90,39 @@ export async function GET(request: Request) {
   });
   const rows = (await response.json().catch(() => [])) as Array<{ id: string; revoked_at: string | null; created_at: string }>;
   if (!response.ok) return withSecurityHeaders(NextResponse.json({ message: "Unable to load share status." }, { status: 502 }));
-  return withSecurityHeaders(NextResponse.json({ share: rows[0] ? { id: rows[0].id, revoked: Boolean(rows[0].revoked_at), createdAt: rows[0].created_at } : null }));
+  const share = rows[0] ?? null;
+  let activeFollowerCount = 0;
+  if (share && !share.revoked_at) {
+    const countQuery = new URLSearchParams({
+      share_link_id: `eq.${share.id}`,
+      removed_at: 'is.null',
+      select: 'id',
+      limit: '1',
+    });
+    const countResponse = await fetch(`${supabaseService.supabaseUrl}/rest/v1/plan_share_follows?${countQuery}`, {
+      headers: { ...serviceHeaders(supabaseService, ''), Prefer: 'count=exact', Range: '0-0' },
+      cache: 'no-store',
+    });
+    if (countResponse.ok) {
+      const match = /\/(\d+)$/.exec(countResponse.headers.get('content-range') ?? '');
+      activeFollowerCount = match ? Number(match[1]) : 0;
+    }
+  }
+  return withSecurityHeaders(NextResponse.json({
+    share: share ? {
+      id: share.id,
+      revoked: Boolean(share.revoked_at),
+      createdAt: share.created_at,
+      activeFollowerCount,
+    } : null,
+  }));
 }
 
 async function loadOwnedPlan(serviceConfig: SupabaseServiceConfig, planId: string, userId: string) {
   const response = await fetch(
     `${serviceConfig.supabaseUrl}/rest/v1/race_plans?id=eq.${encodeURIComponent(
       planId
-    )}&user_id=eq.${encodeURIComponent(userId)}&select=id,updated_at&limit=1`,
+    )}&user_id=eq.${encodeURIComponent(userId)}&select=id,race_id,updated_at&limit=1`,
     {
       headers: serviceHeaders(serviceConfig, ""),
       cache: "no-store",
@@ -294,6 +321,11 @@ export async function POST(request: Request) {
     return withSecurityHeaders(NextResponse.json({ message: "Plan not found." }, { status: 404 }));
   }
 
+  const serverData = {
+    ...parsedBody.data,
+    snapshot: bindPlanShareSnapshotToRace(parsedBody.data.snapshot, ownedPlan.plan.race_id),
+  };
+
   const access = await getRunnerPlanAccess(supabaseUser.id, parsedBody.data.planId, { adminMode: await getRunnerAdminMode(supabaseUser, token) });
   if (!access.canViewDetails) return withSecurityHeaders(NextResponse.json({ message: "Unlock this course to share the detailed plan." }, { status: 402 }));
   const reusableShare = await loadReusableShareLink(supabaseService, parsedBody.data.planId, supabaseUser.id);
@@ -302,7 +334,7 @@ export async function POST(request: Request) {
       supabaseService,
       reusableShare.row.id,
       supabaseUser.id,
-      parsedBody.data,
+      serverData,
       ownedPlan.plan.updated_at
     );
 
@@ -321,7 +353,7 @@ export async function POST(request: Request) {
   const createdShare = await createShareLink(
     supabaseService,
     supabaseUser.id,
-    parsedBody.data,
+    serverData,
     ownedPlan.plan.updated_at
   );
 

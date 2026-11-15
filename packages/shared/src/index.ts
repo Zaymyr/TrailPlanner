@@ -197,3 +197,4 @@ export function getAlertsToFire(
   });
 }
 export * from './plan-share-tracking';
+export * from './followed-plan';

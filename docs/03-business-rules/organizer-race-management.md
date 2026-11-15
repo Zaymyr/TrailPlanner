@@ -2,7 +2,7 @@
 title: Organizer Race Management
 scope: business-rule
 
-last_verified: 2026-11-09
+last_verified: 2026-11-15
 
 ai_priority: high
 related_files:
@@ -250,6 +250,10 @@ related_tables:
 ---
 
 # Organizer Race Management
+
+## Published data reused by plan followers
+
+The authenticated assistance view consumes only the immutable current RaceBook publication. `/api/racebook-data` and follow enrichment share `loadPublishedRacebookData`, including entitlement/module masking. A checkpoint uses its stable source ravito id first; legacy fallback accepts exactly one published station within 0.15 km, the existing RaceBook plan-reflection tolerance. Ambiguous matches receive no access rule. This creates no organizer field and never falls back to drafts.
 
 Organizer administration separates billing from effective access. A manual invoice can be emitted, corrected and settled without changing the edition tier or any feature grant; conversely an admin can grant a tier or one of the 14 higher-plan features without an invoice. Gifted features have no standalone price and appear on manual invoices only as `OFFERT`. Every protected module, advanced format field and operation resolves its own feature key, so one gift never unlocks sibling capabilities. Stripe-confirmed purchases keep their existing automatic entitlement activation.
 
