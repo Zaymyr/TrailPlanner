@@ -501,7 +501,10 @@ export default function SupporterGuideScreen() {
                   stops={resolveGuideStops(currentFormat).map((stop): RacebookSupporterStop => ({
                     ...stop,
                     cutoffLabel: formatGuideClock(stop.cutoff, currentFormat.date, locale),
-                    closed: isStopClosed(stop, currentFormat.date, now),
+                    closed: stop.endpoint === 'start' ? false : isStopClosed(stop, currentFormat.date, now),
+                    startTimesLabel: stop.startTimes?.map((item) => (item.label ? `${item.label} ${item.time}` : item.time)).join(' · ') || null,
+                    expectedMenLabel: formatGuideClock(stop.expectedArrivals?.men, currentFormat.date, locale),
+                    expectedWomenLabel: formatGuideClock(stop.expectedArrivals?.women, currentFormat.date, locale),
                   }))}
                   onOpenUrl={(url) => openUrl(url)}
                 />
