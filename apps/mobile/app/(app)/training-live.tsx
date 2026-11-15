@@ -5,7 +5,6 @@ import {
   Linking,
   ScrollView,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -22,8 +21,11 @@ import {
 } from '../../components/plan-form/contracts';
 import { loadPlanProductsBootstrap } from '../../components/plan-form/usePlanProducts';
 import { TrainingLiveSession } from '../../components/race/TrainingLiveSession';
+import { AccordionSection } from '../../components/themed/AccordionHeader';
 import { Button } from '../../components/themed/Button';
 import { DataText } from '../../components/themed/DataText';
+import { Field } from '../../components/themed/Field';
+import { IconAction } from '../../components/themed/IconAction';
 import { Text } from '../../components/themed/Text';
 import { Colors } from '../../constants/colors';
 import {
@@ -427,30 +429,14 @@ export default function TrainingLiveScreen() {
         <BackButton label={locale === 'fr' ? 'Retour' : 'Back'} onPress={() => router.back()} />
 
         <View style={styles.card}>
-          <TouchableOpacity
-            activeOpacity={0.82}
-            onPress={() => setSettingsCollapsed((current) => !current)}
-            style={styles.settingsHeader}
+          <AccordionSection
+            contentStyle={styles.settingsBody}
+            expanded={!settingsCollapsed}
+            icon={<Ionicons color={Colors.brandPrimary} name="options-outline" size={18} />}
+            onToggle={() => setSettingsCollapsed((current) => !current)}
+            subtitle={`${parsedTargets.carbsPerHour} g/h · ${parsedTargets.waterMlPerHour} ml/h · ${parsedTargets.sodiumMgPerHour} mg/h · ${waterCapacityLiters} L`}
+            title={`${copy.targetsTitle} / ${copy.waterCapacityLabel}`}
           >
-            <View style={styles.settingsHeaderCopy}>
-              <Text style={styles.sectionHeading}>{copy.targetsTitle} / {copy.waterCapacityLabel}</Text>
-              <View style={styles.settingsSummaryRow}>
-                <DataText style={styles.settingsSummaryPill}>{parsedTargets.carbsPerHour} g/h</DataText>
-                <DataText style={styles.settingsSummaryPill}>{parsedTargets.waterMlPerHour} ml/h</DataText>
-                <DataText style={styles.settingsSummaryPill}>{parsedTargets.sodiumMgPerHour} mg/h</DataText>
-                <DataText style={styles.settingsSummaryPill}>{waterCapacityLiters}L</DataText>
-              </View>
-            </View>
-            <Ionicons
-              color={Colors.brandPrimary}
-              name={settingsCollapsed ? 'chevron-down' : 'chevron-up'}
-              size={20}
-            />
-          </TouchableOpacity>
-
-          {settingsCollapsed ? null : (
-            <>
-              <View style={styles.settingsDivider} />
               <View style={styles.targetGrid}>
                 <TargetInput label="Glucides" unit="g/h" value={targets.carbs} onChangeText={(value) => setTargets((current) => ({ ...current, carbs: sanitizeDigits(value, 3) }))} />
                 <TargetInput label="Eau" unit="ml/h" value={targets.water} onChangeText={(value) => setTargets((current) => ({ ...current, water: sanitizeDigits(value, 4) }))} />
@@ -472,8 +458,7 @@ export default function TrainingLiveScreen() {
                 ))}
               </View>
               <Text style={styles.hintText}>{copy.waterCapacityHint}</Text>
-            </>
-          )}
+          </AccordionSection>
 
           {summary.fluidOverCapacityMl > 0 ? (
             <Text style={styles.warningText}>{copy.overCapacity.replace('{ml}', String(summary.fluidOverCapacityMl))}</Text>
@@ -600,31 +585,23 @@ function TargetInput({
   onChangeText: (value: string) => void;
 }) {
   return (
-    <View style={styles.targetInputBlock}>
-      <Text style={styles.label}>{label}</Text>
-      <View style={styles.inputShell}>
-        <TextInput
-          keyboardType="number-pad"
-          inputAccessoryViewID="pace-yourself-numeric-keyboard"
-          maxLength={4}
-          onChangeText={onChangeText}
-          placeholder="0"
-          placeholderTextColor={Colors.textMuted}
-          style={styles.input}
-          value={value}
-        />
-        <Text style={styles.inputUnit}>{unit}</Text>
-      </View>
-    </View>
+    <Field
+      containerStyle={styles.targetInputBlock}
+      inputAccessoryViewID="pace-yourself-numeric-keyboard"
+      keyboardType="number-pad"
+      label={label}
+      maxLength={4}
+      onChangeText={onChangeText}
+      placeholder="0"
+      unit={unit}
+      value={value}
+    />
   );
 }
 
 function BackButton({ label, onPress }: { label: string; onPress: () => void }) {
   return (
-    <TouchableOpacity activeOpacity={0.82} onPress={onPress} style={styles.backButton}>
-      <Ionicons color={Colors.brandPrimary} name="chevron-back" size={18} />
-      <Text style={styles.backButtonText}>{label}</Text>
-    </TouchableOpacity>
+    <IconAction accessibilityLabel={label} onPress={onPress} style={styles.backButton} variant="back" />
   );
 }
 
@@ -721,21 +698,6 @@ const styles = StyleSheet.create({
   },
   backButton: {
     alignSelf: 'flex-start',
-    minHeight: 34,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
-    paddingLeft: 8,
-    paddingRight: 12,
-  },
-  backButtonText: {
-    color: Colors.brandPrimary,
-    fontSize: 13,
-    fontWeight: '800',
   },
   heroCard: {
     backgroundColor: Colors.surface,
@@ -769,28 +731,10 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '800',
   },
-  settingsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  settingsBody: {
     gap: 12,
-  },
-  settingsHeaderCopy: {
-    flex: 1,
-    gap: 8,
-  },
-  settingsSummaryRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  settingsSummaryPill: {
-    color: Colors.brandPrimary,
-    fontSize: 12,
-    fontWeight: '800',
-    backgroundColor: Colors.brandSurface,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingTop: 4,
+    paddingBottom: 4,
   },
   settingsDivider: {
     height: 1,
@@ -804,35 +748,11 @@ const styles = StyleSheet.create({
   targetInputBlock: {
     flexGrow: 1,
     minWidth: 120,
-    gap: 8,
   },
   label: {
     color: Colors.textSecondary,
     fontSize: 12,
     fontWeight: '700',
-  },
-  inputShell: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceSecondary,
-    paddingHorizontal: 12,
-  },
-  input: {
-    flex: 1,
-    color: Colors.textPrimary,
-    fontSize: 17,
-    fontWeight: '800',
-    paddingVertical: 12,
-    minWidth: 0,
-  },
-  inputUnit: {
-    color: Colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '800',
   },
   capacityRow: {
     flexDirection: 'row',

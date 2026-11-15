@@ -10,6 +10,7 @@ import { resolveRacebookFinishStation } from '../../lib/racebookAidStationPresen
 import { estimatePersonalSegmentDuration, normalizeSimpleClock } from '../../lib/racebookPlanReflection';
 import { DataText } from '../themed/DataText';
 import { Text } from '../themed/Text';
+import { TrailRail } from '../themed/TrailRail';
 import { formatDistance } from '../../lib/displayFormat';
 
 export type RacebookAidStationCopy = {
@@ -369,13 +370,7 @@ function SegmentConnector({
       style={styles.segmentRow}
     >
       <View style={styles.segmentRail}>
-        <View
-          style={[
-            styles.timelineLine,
-            styles.timelineLineFull,
-            { backgroundColor: theme.accentBorderColor },
-          ]}
-        />
+        <TrailRail color={theme.accentGraphicColor} style={styles.timelineRail} />
         <View
           style={[
             styles.directionMarker,
@@ -498,13 +493,7 @@ export function RacebookAidStationsSection({
             />
             <View style={styles.timelineStationRow}>
               <View style={styles.stationRail}>
-                <View
-                  style={[
-                    styles.timelineLine,
-                    styles.timelineLineFull,
-                    { backgroundColor: theme.accentBorderColor },
-                  ]}
-                />
+                <TrailRail color={theme.accentGraphicColor} style={styles.timelineRail} />
                 <View
                   style={[
                     styles.stationIndex,
@@ -618,8 +607,7 @@ const styles = StyleSheet.create({
   },
   segmentRow: { flexDirection: 'row', alignItems: 'stretch', minHeight: 62 },
   segmentRail: { width: 42, alignItems: 'center', justifyContent: 'center' },
-  timelineLine: { position: 'absolute', left: 20, width: 2 },
-  timelineLineFull: { top: 0, bottom: 0 },
+  timelineRail: { position: 'absolute', left: 20, top: 0, bottom: 0, opacity: 0.7 },
   directionMarker: {
     width: 24,
     height: 24,

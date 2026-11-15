@@ -1,7 +1,5 @@
 import { memo } from 'react';
-import { ActivityIndicator, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text } from '../themed/Text';
-import { Colors } from '../../constants/colors';
+import { ActionButton } from '../themed/ActionButton';
 
 type ProfileSaveButtonProps = {
   disabled?: boolean;
@@ -17,50 +15,16 @@ function ProfileSaveButtonComponent({
   onPress,
 }: ProfileSaveButtonProps) {
   return (
-    <TouchableOpacity
-      accessibilityRole="button"
-      accessibilityState={{ disabled: disabled || loading }}
-      style={[styles.button, (disabled || loading) && styles.buttonDisabled]}
+    <ActionButton
+      fullWidth
+      isLoading={loading}
+      size="lg"
       onPress={onPress}
       disabled={disabled || loading}
     >
-      {loading ? (
-        <ActivityIndicator color={Colors.textOnBrand} />
-      ) : (
-        <Text style={[styles.buttonText, disabled && styles.buttonTextDisabled]}>{label}</Text>
-      )}
-    </TouchableOpacity>
+      {label}
+    </ActionButton>
   );
 }
 
 export const ProfileSaveButton = memo(ProfileSaveButtonComponent);
-
-const styles = StyleSheet.create({
-  button: {
-    minHeight: 54,
-    borderRadius: 16,
-    backgroundColor: Colors.brandPrimary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  buttonDisabled: {
-    backgroundColor: Colors.surfaceSecondary,
-    elevation: 0,
-    shadowOpacity: 0,
-  },
-  buttonText: {
-    color: Colors.textOnBrand,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  buttonTextDisabled: {
-    color: Colors.textMuted,
-  },
-});

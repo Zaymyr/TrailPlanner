@@ -40,6 +40,7 @@ import { createPlanShareLinkSynchronizer } from '../../lib/planShareLinks';
 import { captureAnalyticsEvent } from '../../lib/posthog';
 import { supabase } from '../../lib/supabase';
 import { DataText } from '../themed/DataText';
+import { MetricTile } from '../themed/MetricTile';
 import { Text } from '../themed/Text';
 import { PlanWorkspaceStickyBar } from './PlanWorkspaceStickyBar';
 
@@ -276,7 +277,10 @@ export function PlanRecapContent({ id, summary, contentTopInset, stickyTopInset,
         </TouchableOpacity>
         <View style={styles.section}>
           <Text weight="bold" style={styles.sectionTitle}>{t.planSummary.packList}</Text>
-          <DataText tone="brand" weight="bold">{Math.round(summary.totalCarbsG)} g {t.planSummary.carbs} · {Math.round(summary.totalSodiumMg)} mg {t.planSummary.sodium}</DataText>
+          <View style={styles.packTotals}>
+            <MetricTile label={t.planSummary.carbs} style={styles.packTotal} tone="brand" unit="g" value={Math.round(summary.totalCarbsG)} />
+            <MetricTile label={t.planSummary.sodium} style={styles.packTotal} tone="brand" unit="mg" value={Math.round(summary.totalSodiumMg)} />
+          </View>
           {summary.productTotals.length ? <View style={styles.listCard}>{summary.productTotals.map((product) => <ProductLine key={product.productId} product={product} />)}</View> : <View style={styles.emptyCard}><Text tone="secondary">{t.planSummary.noProducts}</Text></View>}
         </View>
         <View style={styles.section}>
@@ -333,6 +337,8 @@ const styles = StyleSheet.create({
   departureCard: { minHeight: 88, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface, padding: 16 },
   departureCopy: { flex: 1, minWidth: 0, gap: 3 },
   section: { gap: 10 },
+  packTotals: { flexDirection: 'row', gap: 10 },
+  packTotal: { flex: 1 },
   sectionTitle: { fontSize: 20, lineHeight: 25 },
   listCard: { overflow: 'hidden', borderRadius: 16, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
   emptyCard: { borderRadius: 14, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface, padding: 14 },

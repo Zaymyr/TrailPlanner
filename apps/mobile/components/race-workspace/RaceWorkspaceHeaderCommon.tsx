@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { DataText } from '../themed/DataText';
 import { Text } from '../themed/Text';
+import { formatCoteUnit, splitCoteLabel } from '../../lib/trailSignature';
 
 export type RaceWorkspaceMetric = { label: string; value: string };
 
@@ -100,12 +101,23 @@ export function RaceWorkspaceCommonBlock({
         key={metric.label}
         style={[styles.metric, index > 0 && styles.metricDivider]}
       >
-        <DataText adjustsFontSizeToFit minimumFontScale={0.65} numberOfLines={1} style={[styles.metricValue, { color }]}>{metric.value}</DataText>
+        <MetricCote color={color} value={metric.value} />
         <Text adjustsFontSizeToFit minimumFontScale={0.75} numberOfLines={1} style={[styles.metricLabel, { color }]}>{metric.label}</Text>
       </View>)}
     </View>
     {footer ?? null}
   </View>;
+}
+
+/** Map-style cote: bold figure with its unit in compact spaced capitals. */
+function MetricCote({ value, color }: { value: string; color: string }) {
+  const parts = splitCoteLabel(value);
+  return (
+    <DataText adjustsFontSizeToFit minimumFontScale={0.65} numberOfLines={1} style={[styles.metricValue, { color }]}>
+      {parts.value}
+      {parts.unit ? <DataText style={[styles.metricUnit, { color }]}>{` ${formatCoteUnit(parts.unit)}`}</DataText> : null}
+    </DataText>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -124,5 +136,6 @@ const styles = StyleSheet.create({
   metric: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center', gap: 1, paddingHorizontal: 4, paddingVertical: 8 },
   metricDivider: { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: 'rgba(255,255,255,0.3)' },
   metricValue: { fontSize: 15, lineHeight: 19, fontWeight: '800', textAlign: 'center' },
+  metricUnit: { fontSize: 10, fontWeight: '600', letterSpacing: 0.9, opacity: 0.86 },
   metricLabel: { fontSize: 11, lineHeight: 14, fontWeight: '700', textAlign: 'center', opacity: 0.78 },
 });

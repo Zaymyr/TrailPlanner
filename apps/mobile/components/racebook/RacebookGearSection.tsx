@@ -1,10 +1,13 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
+import Svg, { Line } from 'react-native-svg';
 
 import { Colors } from '../../constants/colors';
 import { getRacebookGearItemKey, type RacebookGearGroupKey } from '../../lib/racebookGearChecklist';
 import { Card } from '../themed/Card';
+import { DataText } from '../themed/DataText';
 import { Text } from '../themed/Text';
+import { StampMark } from '../themed/trail/StampMark';
 
 export type RacebookGearItem = {
   id: string | null;
@@ -47,6 +50,48 @@ export type RacebookGearSectionProps = {
 
 const EMPTY_ITEM_KEYS = new Set<string>();
 const NOOP_TOGGLE = () => undefined;
+/** Above this many items the trail keeps only its start dot and finish marker. */
+const MAX_PROGRESS_DOTS = 12;
+
+/**
+ * Static progress drawn as a trail: dashed path, one dot per item (or just
+ * start and finish when the list is long), solid leg up to the last checked
+ * item, square finish marker. No animation.
+ */
+function GearProgressTrail({ checked, total }: { checked: number; total: number }) {
+  const compact = total > MAX_PROGRESS_DOTS;
+  const markerCount = compact ? 2 : total;
+  const complete = total > 0 && checked >= total;
+  const fraction = compact
+    ? checked / total
+    : total <= 1 ? (checked > 0 ? 1 : 0) : Math.max(0, checked - 1) / (total - 1);
+
+  return (
+    <View accessible={false} importantForAccessibility="no-hide-descendants" pointerEvents="none" style={styles.trail}>
+      <View style={styles.trailTrack}>
+        <Svg accessible={false} height={2} pointerEvents="none" width="100%">
+          <Line stroke={Colors.borderStrong} strokeDasharray={[4, 3]} strokeWidth={2} x1="0" x2="100%" y1="1" y2="1" />
+        </Svg>
+        {fraction > 0 ? <View style={[styles.trailLeg, { width: `${Math.min(1, fraction) * 100}%` }]} /> : null}
+      </View>
+      {Array.from({ length: markerCount }, (_, index) => {
+        const isFinish = index === markerCount - 1;
+        const filled = compact
+          ? (isFinish ? complete : checked > 0)
+          : index < checked;
+        return (
+          <View
+            key={index}
+            style={[
+              isFinish ? styles.trailFinish : styles.trailDot,
+              filled ? styles.trailMarkerFilled : null,
+            ]}
+          />
+        );
+      })}
+    </View>
+  );
+}
 
 function WeatherIcons({ item, copy }: { item: RacebookGearItem; copy: RacebookGearSectionCopy }) {
   if (!item.cold && !item.heat) return null;
@@ -91,15 +136,18 @@ function GearRow({
         .join(', ')}
       disabled={pending}
       onPress={() => onToggle(itemKey, !checked)}
-      style={({ pressed }) => [styles.gearRow, checked ? styles.gearRowChecked : null, pressed ? styles.gearRowPressed : null]}
+      style={({ pressed }) => [styles.gearRow, pending ? styles.gearRowPending : null, pressed ? styles.gearRowPressed : null]}
     >
-      <View style={[styles.checkBox, { borderColor: checked ? Colors.brandPrimary : Colors.border }, checked ? styles.checkBoxChecked : null]}>
-        {checked ? <Ionicons color={Colors.surface} name="checkmark" size={15} /> : null}
-      </View>
+      <StampMark checked={checked} variationKey={itemKey} />
       <Text numberOfLines={2} style={[styles.gearLabel, checked ? styles.gearLabelChecked : null]}>
         {item.label}
       </Text>
       <WeatherIcons copy={copy} item={item} />
+      {checked ? (
+        <DataText accessible={false} size="xs" weight="semibold" style={styles.stampedLabel}>
+          {copy.checkedLabel.toLocaleUpperCase()}
+        </DataText>
+      ) : null}
     </Pressable>
   );
 }
@@ -168,6 +216,9 @@ export function RacebookGearSection({
   ];
   const checkedCount = allItemKeys.filter((itemKey) => checkedItemKeys.has(itemKey)).length;
   const checklistComplete = totalItems > 0 && checkedCount === totalItems;
+  const progressText = copy.progressLabel.replace('{checked}', String(checkedCount)).replace('{total}', String(totalItems));
+  // "{checked}/{total} prêts" -> big mono count, then the rest as a spaced caption.
+  const [progressBefore, progressAfter = ''] = copy.progressLabel.split('{checked}');
 
   if (!hasItems && notes.length === 0 && !decathlonLink) {
     return (
@@ -180,13 +231,23 @@ export function RacebookGearSection({
   return (
     <Card style={styles.card}>
       {totalItems > 0 ? (
-        <View style={[styles.progress, checklistComplete ? styles.progressComplete : null]}>
-          <View style={[styles.progressIcon, checklistComplete ? styles.progressIconComplete : null]}>
-            <Ionicons color={checklistComplete ? Colors.surface : Colors.textMuted} name={checklistComplete ? 'checkmark-done' : 'ellipse-outline'} size={17} />
+        <View
+          accessible
+          accessibilityLabel={progressText}
+          style={[styles.progress, checklistComplete ? styles.progressComplete : null]}
+        >
+          <View style={styles.progressCount}>
+            {progressBefore ? (
+              <DataText size="xs" weight="semibold" style={styles.progressCaption}>
+                {progressBefore.replace('{total}', String(totalItems)).toLocaleUpperCase()}
+              </DataText>
+            ) : null}
+            <DataText size="xl" weight="bold" style={styles.progressNumber}>{checkedCount}</DataText>
+            <DataText size="xs" weight="semibold" style={styles.progressCaption}>
+              {progressAfter.replace('{total}', String(totalItems)).replace('/', '/ ').toLocaleUpperCase()}
+            </DataText>
           </View>
-          <Text style={[styles.progressText, checklistComplete ? styles.progressTextComplete : null]}>
-            {copy.progressLabel.replace('{checked}', String(checkedCount)).replace('{total}', String(totalItems))}
-          </Text>
+          <GearProgressTrail checked={checkedCount} total={totalItems} />
         </View>
       ) : null}
       <GearGroup checkedItemKeys={checkedItemKeys} copy={copy} groupKey="required" items={requiredItems} onToggleItem={onToggleItem} pendingItemKeys={pendingItemKeys} title={copy.requiredTitle} />
@@ -239,12 +300,18 @@ export function RacebookGearSection({
 
 const styles = StyleSheet.create({
   card: { gap: 18 },
-  progress: { minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surfaceSecondary },
+  progress: { gap: 8, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surfaceSecondary },
   progressComplete: { borderColor: Colors.brandBorder, backgroundColor: Colors.brandSurface },
-  progressIcon: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 14, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
-  progressIconComplete: { borderColor: Colors.brandPrimary, backgroundColor: Colors.brandPrimary },
-  progressText: { flex: 1, color: Colors.textSecondary, fontSize: 14, lineHeight: 18, fontWeight: '800' },
-  progressTextComplete: { color: Colors.brandPrimary },
+  progressCount: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
+  progressNumber: { color: Colors.textPrimary },
+  progressCaption: { color: Colors.textSecondary, letterSpacing: 1.6 },
+  trail: { minHeight: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  // Dot centres sit 6pt from each end (12pt dots), so the path spans between them.
+  trailTrack: { position: 'absolute', left: 6, right: 6, top: 7, height: 2 },
+  trailLeg: { position: 'absolute', left: 0, top: 0, height: 2, backgroundColor: Colors.brandPrimary },
+  trailDot: { width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: Colors.borderStrong, backgroundColor: Colors.surface },
+  trailFinish: { width: 16, height: 16, borderRadius: 3, borderWidth: 2, borderColor: Colors.brandPrimary, backgroundColor: Colors.surface },
+  trailMarkerFilled: { borderColor: Colors.brandPrimary, backgroundColor: Colors.brandPrimary },
   decathlonLink: { minHeight: 84, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: Colors.brandBorder, backgroundColor: Colors.brandSurface },
   partnerLogoFrame: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 12, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface, padding: 4 },
   partnerLogo: { width: '100%', height: '100%' },
@@ -257,25 +324,23 @@ const styles = StyleSheet.create({
   emptyCard: { padding: 16 },
   emptyText: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20 },
   group: { gap: 8 },
-  groupTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.4 },
-  groupList: { borderTopWidth: 1, borderTopColor: Colors.border },
+  groupTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
+  groupList: {},
   gearRow: {
     minHeight: 44,
-    paddingVertical: 9,
+    paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    borderRadius: 10,
-    paddingHorizontal: 8,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    paddingHorizontal: 4,
   },
   gearRowPressed: { opacity: 0.72 },
-  gearRowChecked: { backgroundColor: Colors.brandSurface },
-  checkBox: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center', borderRadius: 7, borderWidth: 2 },
-  checkBoxChecked: { backgroundColor: Colors.brandPrimary },
-  gearLabel: { flex: 1, color: Colors.textPrimary, fontSize: 14, fontWeight: '600', lineHeight: 19 },
-  gearLabelChecked: { color: Colors.textPrimary },
+  gearRowPending: { opacity: 0.6 },
+  gearLabel: { flex: 1, color: Colors.textPrimary, fontSize: 16, fontWeight: '600', lineHeight: 21 },
+  gearLabelChecked: { color: Colors.textSecondary },
+  stampedLabel: { color: Colors.brandPrimary, fontSize: 10, letterSpacing: 1.4 },
   weatherIcons: { flexDirection: 'row', gap: 4 },
   weatherIcon: { width: 26, height: 26, alignItems: 'center', justifyContent: 'center', borderRadius: 13 },
   coldIcon: { backgroundColor: '#E7F3FA' },

@@ -10,6 +10,8 @@ import {
   View,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { ActionButton } from '../themed/ActionButton';
+import { SheetHeader } from '../themed/SheetHeader';
 import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import type { PlanProduct } from './contracts';
@@ -130,18 +132,13 @@ export const AutoFillLimitsModal = React.memo(function AutoFillLimitsModal({
       <KeyboardAvoidingView style={styles.modalWrapper} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <Pressable style={styles.modalOverlay} onPress={onClose} />
         <View accessibilityViewIsModal style={styles.autoFillLimitsSheet}>
-          <View style={styles.settingsSheetHandle} />
-          <View style={styles.autoFillLimitsHeader}>
-            <View style={styles.autoFillLimitsHeaderCopy}>
-              <Text accessibilityRole="header" style={styles.autoFillLimitsTitle}>
-                {preview ? t.autoFillLimits.preview : t.autoFillLimits.title}
-              </Text>
-              {!preview ? <Text style={styles.autoFillLimitsSubtitle}>{t.autoFillLimits.help}</Text> : null}
-            </View>
-            <TouchableOpacity accessibilityLabel={t.autoFillLimits.close} accessibilityRole="button" hitSlop={6} onPress={onClose} style={styles.pickerCloseBtn}>
-              <Ionicons color={Colors.textSecondary} name="close" size={18} />
-            </TouchableOpacity>
-          </View>
+          <SheetHeader
+            closeLabel={t.autoFillLimits.close}
+            onClose={onClose}
+            style={styles.settingsSheetHeader}
+            subtitle={preview ? null : t.autoFillLimits.help}
+            title={preview ? t.autoFillLimits.preview : t.autoFillLimits.title}
+          />
 
           {previewLoading || productsLoading ? (
             <ActivityIndicator color={Colors.brandPrimary} style={styles.autoFillLimitsLoading} />
@@ -241,16 +238,17 @@ export const AutoFillLimitsModal = React.memo(function AutoFillLimitsModal({
           )}
 
           <View style={styles.autoFillLimitsActions}>
-            <TouchableOpacity onPress={preview ? onBack : onClose} style={styles.autoFillLimitsSecondaryButton}>
-              <Text style={styles.autoFillLimitsSecondaryText}>{preview ? t.autoFillLimits.back : t.autoFillLimits.cancel}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              disabled={previewLoading || productsLoading || (!preview && !hasSelectedProduct)}
+            <ActionButton onPress={preview ? onBack : onClose} style={{ flex: 1 }} variant="secondary">
+              {preview ? t.autoFillLimits.back : t.autoFillLimits.cancel}
+            </ActionButton>
+            <ActionButton
+              disabled={productsLoading || (!preview && !hasSelectedProduct)}
+              isLoading={previewLoading}
               onPress={preview ? onConfirm : applyLimits}
-              style={[styles.autoFillLimitsPrimaryButton, (previewLoading || productsLoading || (!preview && !hasSelectedProduct)) && styles.autoFillLimitsPrimaryButtonDisabled]}
+              style={{ flex: 1.35 }}
             >
-              <Text style={styles.autoFillLimitsPrimaryText}>{preview ? t.autoFillLimits.apply : t.autoFillLimits.preview}</Text>
-            </TouchableOpacity>
+              {preview ? t.autoFillLimits.apply : t.autoFillLimits.preview}
+            </ActionButton>
           </View>
         </View>
       </KeyboardAvoidingView>

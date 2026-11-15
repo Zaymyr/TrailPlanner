@@ -1,7 +1,7 @@
 ---
 title: Design Tokens
 scope: design-system
-last_verified: 2026-11-01
+last_verified: 2026-11-11
 ai_priority: medium
 related_files:
   - packages/design-system/src/tokens/colors.ts
@@ -54,7 +54,9 @@ Token groups:
 - `text`: primary, secondary, tertiary, inverse.
 - `accent`: terracotta, amber, olive.
 - `border`: subtle, strong, brand.
-- `semantic`: success, danger, dangerSurface, warning, warningSurface.
+- `semantic`: success, danger, warning, and information roles with their soft
+  surfaces/borders. The information role aliases the alpine blue; terracotta
+  remains an attention/danger accent rather than a general action color.
 
 The web app also defines HSL CSS variables in `apps/web/app/globals.css` for light/dark runtime themes.
 
@@ -92,11 +94,50 @@ Shared typography includes:
 
 Spacing uses numeric pixel tokens plus `section` and `gutter`.
 
-Radius tokens include `none`, `sm`, `md`, `lg`, `xl`, `2xl`, `3xl`, `full`, and `card`.
+Radius tokens include `none`, `sm`, `md`, `data`, `lg`, `xl`, `2xl`, `3xl`,
+`full`, and `card`. Mobile product UI uses four semantic families: 10-point
+data blocks, 12-point controls/actions, 18-point cards, and full-radius pills.
 
 Shadows include `sm`, `md`, and `lg` with brand-tinted rgba values.
 
-`mobileComponents` composes those base tokens into shared React Native control geometry: a 16-point screen gutter, 12-point action/button/input radii, full-radius filter chips, 44-point segmented controls and modal close targets. It contains dimensions only; mobile callers continue to apply the semantic palette from `Colors`/`colors`.
+`mobileComponents` composes those base tokens into shared React Native control
+geometry: a 16-point screen gutter, 10-point data blocks, 12-point
+action/button/input radii, 18-point cards, full-radius filter chips, and
+44-point minimum selection/close targets. All of these use symmetric radii; the
+former 4-point lower-right signature corner was removed. It also owns the
+small/medium/large action heights and the restrained 0.98 press feedback plus
+140/180 ms motion durations.
+
+The trail signature tokens live in the same object:
+
+- `topoCard.blazeTop`: where the leading-edge blaze sits on signature cards. `topoCard.edgeBlaze` is the slender 5-point leading-edge blaze (9 / 4.5 / 18 bands, 2-point gaps) of interactive, signature and featured cards.
+- `blaze.ratio`: the 2:1:4 light green / amber / dark green proportions shared
+  by the stacked blaze (band thickness) and the `BlazeLine` (segment length);
+  `blaze.sm|md|lg`: band width, thickness unit and gap; `blaze.radius`;
+  `blaze.line`: the 3-point signature line thickness and segment gap (its
+  width follows the label it underlines).
+- `ridge`: stroke width, divider/loader/silhouette heights, the resampling
+  count for course profiles, and the loader (1.6 s) and celebration (1.1 s)
+  durations.
+- `timeline`: the dotted trail rail width, dash and gap (also used by the
+  `TrailTabs` track).
+- `trailSign`: the 44-point sign plate, its 16-point pointed end, 2-point plank
+  depth, 6-point post-side radius, 4-point routed-border inset, 3-point cast
+  shadow.
+- `trailVariation`: the bounded ranges of the session-random decoration
+  (sign lean 0.4°–2.9°, dy ±1.5, tip ±3, tone ±5 %; tab plank 0.5°–1°; ticket
+  ±0.9°; bracelet ±0.75°; bib −1°…−0.25° pinned and 0.5°…1.5° flipped; stamp −10°…−4°) and the global `amount` multiplier.
+- `trailTabs`: the 44-point tab height, 3-point trail track and tab padding.
+
+In the 2:1:4 ratio the amber is the shortest share, so the orange stays a light
+accent rather than a third primary color.
+
+Mobile callers continue to apply semantic colors from `Colors`/`colors`; the
+blaze bands reuse existing tokens (olive, amber and forest by default) and add
+no new palette value. The trail objects (enamel plate, aid-station ticket,
+closed-trail tape, wristband, pins, ticket ink, milestone climb cap,
+info wristband, bib back, banner tape, sign post and the neutral `stone` used
+for watch bezels, compass rings, pin clasps and cairns) use `colors.trail`.
 
 ## Web Tailwind Bridge
 
@@ -118,6 +159,8 @@ It also exposes CSS-variable theme colors such as `background`, `foreground`, `b
 - Mobile `Colors` is an alias layer, not a second source of palette values; add
   a shared token before a mobile screen needs a new color.
 - Equivalent mobile filters, segmented selectors, fields, modal closes and buttons must reuse `mobileComponents`; do not copy their dimensions into route-local styles.
+- Full-radius geometry is reserved for status pills and selectable chips.
+  Numeric race information belongs in the 10-point data geometry instead.
 - Use `semantic` tokens for application status UI and `brand.surface` /
   `brand.border` for selected controls; neither is organizer-controlled.
 - Do not hardcode actual PostHog/Supabase/Stripe colors or secrets in design docs.

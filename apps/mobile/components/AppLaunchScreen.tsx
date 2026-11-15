@@ -7,6 +7,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import { RidgeLoader } from './themed/Ridge';
 import { Text } from './themed/Text';
 import { Colors } from '../constants/colors';
 
@@ -171,6 +172,9 @@ export function AppLaunchScreen({
           <Animated.Image source={APP_MARK} resizeMode="contain" style={styles.mark} />
         </View>
         <Text style={styles.wordmark}>Pace Yourself</Text>
+        {showRecovery || isCompleting || isFinishing ? null : (
+          <RidgeLoader color={Colors.brandPrimary} height={34} style={styles.launchRidge} width={168} />
+        )}
       </Animated.View>
 
       {showRecovery ? (
@@ -234,6 +238,10 @@ const styles = StyleSheet.create({
   mark: {
     width: 210,
     height: 210,
+  },
+  launchRidge: {
+    alignSelf: 'center',
+    marginTop: 18,
   },
   wordmark: {
     color: Colors.brandPrimary,

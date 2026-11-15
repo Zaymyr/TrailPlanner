@@ -1,17 +1,18 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
   StyleSheet,
-  TextInput,
-  TouchableOpacity,
   View
 } from 'react-native';
+import { ActionButton } from '../themed/ActionButton';
+import { Field } from '../themed/Field';
+import { IconAction } from '../themed/IconAction';
 import { Text } from '../themed/Text';
+import { TrailTabs, type TrailTab } from '../themed/TrailTabs';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Constants from 'expo-constants';
 import { Colors } from '../../constants/colors';
@@ -36,6 +37,10 @@ export function FeedbackHeaderButton({ children, contextLabel, initialKind = 'bu
   const [detail, setDetail] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const kindTabs: TrailTab<FeedbackKind>[] = [
+    { key: 'bug', label: t.feedback.bugOption },
+    { key: 'feedback', label: t.feedback.feedbackOption },
+  ];
   const submitLabel = kind === 'bug' ? t.feedback.sendBug : t.feedback.sendFeedback;
   const appVersion = Constants.expoConfig?.version?.trim() || null;
   const metadata = useMemo(() => {
@@ -114,14 +119,11 @@ export function FeedbackHeaderButton({ children, contextLabel, initialKind = 'bu
       ) : (
         <View style={styles.headerActions}>
           {leading}
-          <TouchableOpacity
+          <IconAction
             accessibilityLabel={t.feedback.triggerLabel}
-            accessibilityRole="button"
+            icon={<Ionicons name="bug-outline" size={20} color={Colors.textPrimary} />}
             onPress={handleOpen}
-            style={styles.iconButton}
-          >
-            <Ionicons name="bug-outline" size={20} color={Colors.textPrimary} />
-          </TouchableOpacity>
+          />
         </View>
       )}
 
@@ -140,63 +142,43 @@ export function FeedbackHeaderButton({ children, contextLabel, initialKind = 'bu
             <Text style={styles.title}>{t.feedback.modalTitle}</Text>
             <Text style={styles.subtitle}>{t.feedback.modalSubtitle}</Text>
 
-            <View style={styles.switchRow}>
-              <TouchableOpacity
-                onPress={() => setKind('bug')}
-                style={[styles.switchChip, kind === 'bug' && styles.switchChipActive]}
-              >
-                <Text style={[styles.switchChipText, kind === 'bug' && styles.switchChipTextActive]}>
-                  {t.feedback.bugOption}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setKind('feedback')}
-                style={[styles.switchChip, kind === 'feedback' && styles.switchChipActive]}
-              >
-                <Text style={[styles.switchChipText, kind === 'feedback' && styles.switchChipTextActive]}>
-                  {t.feedback.feedbackOption}
-                </Text>
-              </TouchableOpacity>
-            </View>
+            <TrailTabs
+              activeKey={kind}
+              onChange={setKind}
+              stretch
+              style={styles.switchRow}
+              tabs={kindTabs}
+            />
 
-            <Text style={styles.label}>{t.feedback.subjectLabel}</Text>
-            <TextInput
+            <Field
+              containerStyle={styles.field}
               editable={!submitting}
+              label={t.feedback.subjectLabel}
               onChangeText={setSubject}
               placeholder={t.feedback.subjectPlaceholder}
-              placeholderTextColor={Colors.textMuted}
-              style={styles.input}
               value={subject}
             />
 
-            <Text style={styles.label}>{t.feedback.detailLabel}</Text>
-            <TextInput
+            <Field
+              containerStyle={styles.field}
               editable={!submitting}
+              label={t.feedback.detailLabel}
               multiline
               numberOfLines={6}
               onChangeText={setDetail}
               placeholder={t.feedback.detailPlaceholder}
-              placeholderTextColor={Colors.textMuted}
-              style={[styles.input, styles.textarea]}
+              style={styles.textarea}
               textAlignVertical="top"
               value={detail}
             />
 
-            <TouchableOpacity
-              disabled={submitting}
-              onPress={handleSubmit}
-              style={[styles.primaryButton, submitting && styles.primaryButtonDisabled]}
-            >
-              {submitting ? (
-                <ActivityIndicator color={Colors.textOnBrand} />
-              ) : (
-                <Text style={styles.primaryButtonText}>{submitLabel}</Text>
-              )}
-            </TouchableOpacity>
+            <ActionButton fullWidth isLoading={submitting} onPress={handleSubmit} style={styles.primaryButton}>
+              {submitLabel}
+            </ActionButton>
 
-            <TouchableOpacity disabled={submitting} onPress={handleClose} style={styles.secondaryButton}>
-              <Text style={styles.secondaryButtonText}>{t.common.cancel}</Text>
-            </TouchableOpacity>
+            <ActionButton disabled={submitting} onPress={handleClose} style={styles.secondaryButton} variant="ghost">
+              {t.common.cancel}
+            </ActionButton>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -209,13 +191,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-  },
-  iconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   modalWrapper: {
     flex: 1,
@@ -246,76 +221,20 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   switchRow: {
-    flexDirection: 'row',
-    gap: 10,
     marginBottom: 18,
   },
-  switchChip: {
-    flex: 1,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceSecondary,
-    paddingVertical: 11,
-    alignItems: 'center',
-  },
-  switchChipActive: {
-    backgroundColor: Colors.brandSurface,
-    borderColor: Colors.brandBorder,
-  },
-  switchChipText: {
-    color: Colors.textSecondary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  switchChipTextActive: {
-    color: Colors.brandPrimary,
-  },
-  label: {
-    color: Colors.textPrimary,
-    fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 6,
-  },
-  input: {
-    backgroundColor: Colors.surfaceSecondary,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    color: Colors.textPrimary,
-    fontSize: 15,
+  field: {
     marginBottom: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
   },
   textarea: {
     minHeight: 132,
+    paddingTop: 12,
   },
   primaryButton: {
-    backgroundColor: Colors.brandPrimary,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 50,
     marginTop: 4,
   },
-  primaryButtonDisabled: {
-    opacity: 0.72,
-  },
-  primaryButtonText: {
-    color: Colors.textOnBrand,
-    fontSize: 15,
-    fontWeight: '800',
-  },
   secondaryButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 14,
-    paddingBottom: 2,
-  },
-  secondaryButtonText: {
-    color: Colors.textSecondary,
-    fontSize: 14,
-    fontWeight: '700',
+    alignSelf: 'center',
+    marginTop: 10,
   },
 });

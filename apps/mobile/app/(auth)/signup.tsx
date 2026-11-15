@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
   View,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   KeyboardAvoidingView,
@@ -9,7 +8,10 @@ import {
   ScrollView
 } from 'react-native';
 import { Text } from '../../components/themed/Text';
-import { Link } from 'expo-router';
+import { ActionButton } from '../../components/themed/ActionButton';
+import { Field } from '../../components/themed/Field';
+import { TopoCard } from '../../components/themed/TopoCard';
+import { Link, useRouter } from 'expo-router';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { beginAnonymousEmailUpgrade } from '../../lib/accountConversion';
 import { isAnonymousSession } from '../../lib/appSession';
@@ -25,6 +27,7 @@ const passwordHasRequiredShape = (value: string) =>
 
 export default function SignupScreen() {
   const { t } = useI18n();
+  const router = useRouter();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -160,19 +163,18 @@ export default function SignupScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.inner}>
-          <Text style={styles.title}>Pace Yourself</Text>
-          <Text style={styles.successIcon}>OK</Text>
-          <Text style={styles.successTitle}>
-            {isGuestSession ? t.auth.guestAccountCreated : t.auth.accountCreated}
-          </Text>
-          <Text style={styles.successText}>
-            {isGuestSession ? t.auth.guestVerifyEmail : t.auth.verifyEmail}
-          </Text>
-          <Link href="/(auth)/login" asChild>
-            <TouchableOpacity style={styles.button}>
-              <Text style={styles.buttonText}>{t.auth.loginLink}</Text>
-            </TouchableOpacity>
-          </Link>
+          <TopoCard surface="brand" variant="featured" style={styles.successCard}>
+            <Text style={styles.successIcon}>OK</Text>
+            <Text style={styles.successTitle}>
+              {isGuestSession ? t.auth.guestAccountCreated : t.auth.accountCreated}
+            </Text>
+            <Text style={styles.successText}>
+              {isGuestSession ? t.auth.guestVerifyEmail : t.auth.verifyEmail}
+            </Text>
+            <ActionButton fullWidth size="lg" onPress={() => router.replace('/(auth)/login')}>
+              {t.auth.loginLink}
+            </ActionButton>
+          </TopoCard>
         </View>
       </View>
     );
@@ -184,32 +186,34 @@ export default function SignupScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
-        <Text style={styles.title}>Pace Yourself</Text>
-        <Text style={styles.subtitle}>
-          {isGuestSession ? t.auth.guestSignUpSubtitle : t.auth.signUpSubtitle}
-        </Text>
+        <TopoCard surface="brand" variant="featured" style={styles.hero}>
+          <Text style={styles.title}>Pace Yourself</Text>
+          <Text style={styles.subtitle}>
+            {isGuestSession ? t.auth.guestSignUpSubtitle : t.auth.signUpSubtitle}
+          </Text>
+        </TopoCard>
 
         {isGuestSession ? (
-          <View style={styles.infoCard}>
+          <TopoCard surface="cream" style={styles.infoCard}>
             <Text style={styles.infoTitle}>{t.auth.guestModeTitle}</Text>
             <Text style={styles.infoBody}>{t.auth.guestSignUpHint}</Text>
-          </View>
+          </TopoCard>
         ) : null}
 
-        <TextInput
-          style={styles.input}
+        <Field
+          accessibilityLabel={t.auth.firstNamePlaceholder}
+          containerStyle={styles.field}
           placeholder={t.auth.firstNamePlaceholder}
-          placeholderTextColor={Colors.textMuted}
           value={fullName}
           onChangeText={setFullName}
           textContentType="givenName"
           autoCapitalize="words"
         />
 
-        <TextInput
-          style={styles.input}
+        <Field
+          accessibilityLabel={t.auth.emailPlaceholder}
+          containerStyle={styles.field}
           placeholder={t.auth.emailPlaceholder}
-          placeholderTextColor={Colors.textMuted}
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
@@ -217,10 +221,10 @@ export default function SignupScreen() {
           textContentType="emailAddress"
         />
 
-        <TextInput
-          style={styles.input}
+        <Field
+          accessibilityLabel={t.auth.passwordMin}
+          containerStyle={styles.field}
           placeholder={t.auth.passwordMin}
-          placeholderTextColor={Colors.textMuted}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -229,19 +233,21 @@ export default function SignupScreen() {
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
+        <ActionButton
+          fullWidth
+          isLoading={loading}
+          size="lg"
           onPress={handleSignup}
           disabled={loading}
         >
-          <Text style={styles.buttonText}>{loading ? t.auth.signingUp : t.auth.signUpCta}</Text>
-        </TouchableOpacity>
+          {t.auth.signUpCta}
+        </ActionButton>
 
         {hasSocialAuth ? (
           <>
             <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
+              <Text style={styles.dividerText}>{t.auth.alternativeDivider}</Text>
               <View style={styles.dividerLine} />
             </View>
 
@@ -275,13 +281,14 @@ export default function SignupScreen() {
                   />
                 </View>
               ) : (
-                <TouchableOpacity
-                  style={[styles.googleButton, loading && styles.buttonDisabled]}
+                <ActionButton
+                  fullWidth
+                  variant="secondary"
                   onPress={handleGoogleSignup}
                   disabled={loading}
                 >
-                  <Text style={styles.googleButtonText}>{t.auth.googleSignUpCta}</Text>
-                </TouchableOpacity>
+                  {t.auth.googleSignUpCta}
+                </ActionButton>
               )
             ) : null}
           </>
@@ -307,32 +314,28 @@ const styles = StyleSheet.create({
   },
   inner: {
     flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 48,
+    paddingHorizontal: 16,
+    paddingTop: 72,
+    paddingBottom: 32,
+  },
+  hero: {
+    marginBottom: 20,
+    paddingVertical: 22,
   },
   title: {
     fontSize: 32,
     fontWeight: '800',
     color: Colors.brandPrimary,
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   subtitle: {
     fontSize: 16,
     color: Colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 32,
   },
   infoCard: {
-    backgroundColor: Colors.surface,
-    color: Colors.textPrimary,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   infoTitle: {
     color: Colors.textPrimary,
@@ -345,15 +348,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-  input: {
-    backgroundColor: Colors.surface,
-    color: Colors.textPrimary,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
+  field: {
     marginBottom: 12,
   },
   error: {
@@ -362,20 +357,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     textAlign: 'center',
   },
-  button: {
-    backgroundColor: Colors.brandPrimary,
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 8,
-  },
   buttonDisabled: {
     opacity: 0.6,
-  },
-  buttonText: {
-    color: Colors.textOnBrand,
-    fontSize: 16,
-    fontWeight: '700',
   },
   dividerRow: {
     flexDirection: 'row',
@@ -402,19 +385,6 @@ const styles = StyleSheet.create({
   altSpacing: {
     height: 8,
   },
-  googleButton: {
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-  },
-  googleButtonText: {
-    color: Colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '600',
-  },
   googleNativeButtonWrap: {
     alignSelf: 'stretch',
     alignItems: 'center',
@@ -440,7 +410,7 @@ const styles = StyleSheet.create({
   successIcon: {
     fontSize: 42,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
     color: Colors.brandPrimary,
     fontWeight: '800',
   },
@@ -455,7 +425,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: Colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: 24,
     lineHeight: 22,
+  },
+  successCard: {
+    marginTop: 48,
+    paddingVertical: 24,
   },
 });

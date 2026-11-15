@@ -1,16 +1,17 @@
 import { useState, type ReactNode } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
+import { ActionButton } from '../themed/ActionButton';
+import { Field } from '../themed/Field';
+import { IconAction } from '../themed/IconAction';
 import { Text } from '../themed/Text';
 import { DatePickerField } from '../inputs/DatePickerField';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -97,14 +98,11 @@ export function RaceRequestHeaderButton({ children }: RaceRequestHeaderButtonPro
       {children ? (
         children(() => setVisible(true))
       ) : (
-        <TouchableOpacity
+        <IconAction
           accessibilityLabel={t.raceRequests.triggerLabel}
-          accessibilityRole="button"
+          icon={<Ionicons name="paper-plane-outline" size={18} color={Colors.textPrimary} />}
           onPress={() => setVisible(true)}
-          style={styles.iconButton}
-        >
-          <Ionicons name="paper-plane-outline" size={18} color={Colors.textPrimary} />
-        </TouchableOpacity>
+        />
       )}
 
       <Modal
@@ -122,23 +120,21 @@ export function RaceRequestHeaderButton({ children }: RaceRequestHeaderButtonPro
             <Text style={styles.title}>{t.raceRequests.modalTitle}</Text>
             <Text style={styles.subtitle}>{t.raceRequests.modalSubtitle}</Text>
 
-            <Text style={styles.label}>{t.raceRequests.raceNameLabel}</Text>
-            <TextInput
+            <Field
+              containerStyle={styles.field}
               editable={!submitting}
+              label={t.raceRequests.raceNameLabel}
               onChangeText={setRaceName}
               placeholder={t.raceRequests.raceNamePlaceholder}
-              placeholderTextColor={Colors.textMuted}
-              style={styles.input}
               value={raceName}
             />
 
-            <Text style={styles.label}>{t.raceRequests.locationLabel}</Text>
-            <TextInput
+            <Field
+              containerStyle={styles.field}
               editable={!submitting}
+              label={t.raceRequests.locationLabel}
               onChangeText={setLocation}
               placeholder={t.raceRequests.locationPlaceholder}
-              placeholderTextColor={Colors.textMuted}
-              style={styles.input}
               value={location}
             />
 
@@ -162,21 +158,13 @@ export function RaceRequestHeaderButton({ children }: RaceRequestHeaderButtonPro
               </TouchableOpacity>
             ) : null}
 
-            <TouchableOpacity
-              disabled={submitting}
-              onPress={handleSubmit}
-              style={[styles.primaryButton, submitting && styles.primaryButtonDisabled]}
-            >
-              {submitting ? (
-                <ActivityIndicator color={Colors.textOnBrand} />
-              ) : (
-                <Text style={styles.primaryButtonText}>{t.raceRequests.submit}</Text>
-              )}
-            </TouchableOpacity>
+            <ActionButton fullWidth isLoading={submitting} onPress={handleSubmit} style={styles.primaryButton}>
+              {t.raceRequests.submit}
+            </ActionButton>
 
-            <TouchableOpacity disabled={submitting} onPress={handleClose} style={styles.secondaryButton}>
-              <Text style={styles.secondaryButtonText}>{t.common.cancel}</Text>
-            </TouchableOpacity>
+            <ActionButton disabled={submitting} onPress={handleClose} style={styles.secondaryButton} variant="ghost">
+              {t.common.cancel}
+            </ActionButton>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -199,13 +187,6 @@ function formatIsoDate(date: Date): string {
 }
 
 const styles = StyleSheet.create({
-  iconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   modalWrapper: {
     flex: 1,
     justifyContent: 'center',
@@ -240,44 +221,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 6,
   },
-  input: {
-    backgroundColor: Colors.surfaceSecondary,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    color: Colors.textPrimary,
-    fontSize: 15,
+  field: {
     marginBottom: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
   },
   clearDateButton: { alignSelf: 'flex-start', marginBottom: 14, marginTop: 6 },
   clearDateText: { color: Colors.brandPrimary, fontSize: 13, fontWeight: '700' },
   primaryButton: {
-    backgroundColor: Colors.brandPrimary,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 50,
     marginTop: 4,
   },
-  primaryButtonDisabled: {
-    opacity: 0.72,
-  },
-  primaryButtonText: {
-    color: Colors.textOnBrand,
-    fontSize: 15,
-    fontWeight: '800',
-  },
   secondaryButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 14,
-    paddingBottom: 2,
-  },
-  secondaryButtonText: {
-    color: Colors.textSecondary,
-    fontSize: 14,
-    fontWeight: '700',
+    alignSelf: 'center',
+    marginTop: 10,
   },
 });

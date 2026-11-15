@@ -1,7 +1,7 @@
 ---
 title: Add New Mobile Screen
 scope: workflow
-last_verified: 2026-11-09
+last_verified: 2026-11-11
 ai_priority: medium
 related_files:
   - apps/mobile/app
@@ -119,9 +119,9 @@ RaceBook screens must treat the effective module map as additive server data: hi
 - App-wide session side effect: behavior coordinated by `_layout.tsx` or its `useSessionSideEffects` helper, such as push registration or Resend contact sync, not inside an individual screen.
 - Store review: the root shell owns the returning-plan check after launch/onboarding overlays, while `appReviewPolicy.ts` owns eligibility, cooldown, and attempt limits. Screens may record successful plan milestones but must not launch their own native review dialog.
 - Mobile typography: user-facing copy should render through `components/themed/Text` or `Heading`; comparable numeric metrics, timings, distances, and nutrition values should use `components/themed/DataText`. A value containing words, such as a departure status or product count, stays in the normal sans `Text`. The root layout loads exact font-weight subpaths so unused package weights are not bundled.
-- Root tabs: primary tab screens hide the native header and use `RootCollapsibleHeader` for a consistent section identity that contracts from 76 to 60 points on scroll; their established order is Courses, Mes courses/My races, Profile (Nutrition is a hidden, pushed route with a back action). The Mes courses tab label and root title must share the localized `plans.title` value while the route remains `plans`. Keep help and optional trailing actions at the 16-point gutter, keep the title's horizontal position stable, and let only its size change. Pushed or hidden detail screens should keep a clear native or route-specific header title; centered titles are reserved for detail contexts.
-- Root-tab content uses a 16-point horizontal gutter and the themed `LoadingState`, `ErrorState`, and `EmptyState` primitives. A recoverable initial fetch must expose localized retry copy. Add pull-to-refresh to read-oriented lists when it cannot discard in-progress edits; form roots such as Profile intentionally omit gesture refresh. Keep an empty result separate from a failed request, and add an empty-state CTA only when one clear next action exists.
-- A read-oriented Profile sub-tab may refresh on focus instead of adding form-wide pull-to-refresh. The Notifications sub-tab keeps its four labels usable in a horizontal segmented scroller, fetches the owner-scoped safe projection in pages, and marks a row read only when its card opens. Keep unread-count refresh in one shared hook so the sub-tab dot and root Profile dot remain consistent across auth changes, app resume, push receipt, Profile focus, and local reads. The root dot is a single logical union with the onboarding dot, not a second overlapping badge. Notification push hrefs use the existing root response listener and the explicit `tab=notifications&notificationId=<uuid>` query contract.
+- Root tabs: primary tab screens hide the native header and use `RootCollapsibleHeader` for a consistent warm-Topo identity that contracts from 76 to 60 points on scroll; its contour pattern is decorative, its lower corners are symmetric and its 44-point icon actions use the shared 12-point control radius. Their established order is Courses, Mes courses/My races, Profile (Nutrition is a hidden, pushed route with a back action). The Mes courses tab label and root title must share the localized `plans.title` value while the route remains `plans`. Keep help and optional trailing actions at the 16-point gutter, keep the title's horizontal position stable, and let only its size change. Pushed or hidden detail screens should keep a clear native or route-specific header title; centered titles are reserved for detail contexts.
+- Root-tab content uses a 16-point horizontal gutter and the themed `LoadingState`, `ErrorState`, and `EmptyState` primitives. These states already carry the trail signature (ridge loader, danger blaze, brand ridge), so callers must not wrap them in another decorative card. A recoverable initial fetch must expose localized retry copy. Add pull-to-refresh to read-oriented lists when it cannot discard in-progress edits; form roots such as Profile intentionally omit gesture refresh. Keep an empty result separate from a failed request, and add an empty-state CTA only when one clear next action exists.
+- A read-oriented Profile sub-tab may refresh on focus instead of adding form-wide pull-to-refresh. Profile's four labels use the shared horizontally scrollable `TrailTabs` (centered, dotted trail, tri-color `BlazeLine` active leg, bold label on a wooden plank); the unread dot is additional semantic state, not the only selected-state cue. The Notifications sub-tab fetches the owner-scoped safe projection in pages and marks a row read only when its card opens. Keep unread-count refresh in one shared hook so the sub-tab dot and root Profile dot remain consistent across auth changes, app resume, push receipt, Profile focus, and local reads. The root dot is a single logical union with the onboarding dot, not a second overlapping badge. Notification push hrefs use the existing root response listener and the explicit `tab=notifications&notificationId=<uuid>` query contract.
 - Bottom tab safe area: keep the visible tab bar's height and bottom padding derived from `useSafeAreaInsets()` so Android three-button navigation cannot cover its actions.
 - A modal sheet must set `accessibilityViewIsModal`, expose its title as an accessibility header, distinguish a failed load from an empty result with a localized retry when it fetches data, and give each icon-only dismissal control a localized label plus a 44-point target or equivalent hit slop. Keep the backdrop out of the VoiceOver focus order.
 - Hidden detail headers with custom left/right actions should reserve title space through `headerTitleContainerStyle` in the parent layout or screen options. On narrow iPhones, prefer shared one-line truncation in `AppHeaderTitle` over wrapped titles that can collide with header icons.
@@ -133,6 +133,7 @@ RaceBook screens must treat the effective module map as additive server data: hi
 
 - Compact detail routes such as `race/[id]/racebook` can keep a route-local state machine and replace the global bottom bar while focused. The RaceBook bar always exposes exactly Matériel, Dossard, Course, Accès and Services with filled icons, visible labels, app-owned selected colors, safe-area spacing and no exit item. Header back and native system back provide the single exit path and return to the known Courses or Plans origin. Preserve the expanded image-backed identity hero under a strong primary veil, then remove the image for its solid-primary compact state. One 44-point Links action opens the available official website and social destinations. Metrics must remain readable at 100% and 130% text scaling. Course opens on Tracé for every race without persisting a sub-tab across races. Round personal passage and cutoff minutes before formatting, rollover and comparison. Keep ravitos chronological, service icons visibly labeled, numeric formatting localized and the elevation profile margins wide enough for the final tick and cursor label. The last-minute message stays one-line until expanded. Decathlon follows the checklist with generic copy. Keep runner information in its neutral card only when present and retain the normalized emergency number for `tel:` URLs.
 
+- The shared RaceBook/plan contextual bar places the selected icon on the 10-point data surface and underlines its label with the tri-color `BlazeLine`, like the global tab bar. Keep that shape, blaze, icon and text treatment together so selection is not communicated by color alone.
 - A supporter-only format is also meaningful RaceBook content. Parse the collection defensively from the immutable publication and use it as the mobile sub-tab authority; never query the source table as a fallback. Keep its chronological S-number presentation separate from ravito timing. Align permission chips with the title/distance header, hide an access label that duplicates the point name, and keep the route/external-plan controls icon-only. Directions prefer the organizer Maps URL and fall back to coordinates. Do not attach organizer-authored location or instruction data to analytics.
 - A RaceBook may add owner-only plan reflection without personalizing its public snapshot/cache. Once the owner plan is loaded, put its expected duration, duration-based average pace, and resolved departure in the identity hero instead of retaining a second summary card; keep the creation card only while no linked plan exists. The compact passage clock opens the targeted edit without a redundant CTA, segment connectors show plan-derived moving duration, and a late-cutoff warning is disclosure-only. Match personal ravitos by durable `sourceAidStationId` before the strictly legacy normalized name/kilometer fallback. A targeted edit must restore the Livret's current Course sub-tab, and acknowledgement of a newer official revision must save the draft before changing the review timestamp.
 - Keep native back labels minimal on dynamic routes so route templates never appear in the header. A RaceBook routes its hero return action and Android hardware back through the same deterministic replacement: Courses after a direct/catalog opening, Plans when the plan workspace supplied that explicit origin.
@@ -254,11 +255,42 @@ For App Store subscription work, verify on iPhone and iPad layouts that the purc
 - Do not use the legacy runner race new/edit routes as authoring examples; they are redirect-only compatibility routes and plan creation starts from Courses.
 
 Shared plan/catalog UX must preserve the existing routes and `testID` values. Current plan-flow expectations include a 44-point minimum for audited steppers/icon actions, hidden accessibility-only skeleton decoration, a clear-search action, compact no-image race cards, and a contextual plan header that may show the parent event below the format name.
-Equivalent mobile controls must reuse `mobileComponents`: 16-point first-level gutters, full-radius filter chips, common segmented selectors, one bordered input shell with inline units/clear actions, 44-point modal closes, and a shared button radius.
+Equivalent mobile controls must reuse `mobileComponents`: 16-point first-level gutters, full-radius filter chips, `TrailTabs` for in-page tab selection, `TrailSignButton` for navigation-to-a-place actions, common segmented selectors for header switches, one bordered input shell with inline units/clear actions, 44-point modal closes, and a shared button radius.
 
 ## Shared launch-polish primitives
 
 Prefer the shared brief toast for non-destructive feedback, the existing empty state for no-content screens, and the delayed skeleton pattern for short initial reads. Root headers receive shadow only after scroll; tab bars retain their subtle top divider. Decorative haptics must no-op on web and with reduced motion.
+
+
+## Mobile presentation
+
+New mobile screens use the trail objects: `TrailSignButton` to go elsewhere, at most one primary `ActionButton` (enamel plate) per screen, `StatusPill` wristbands for states, `TopoCard` posters for blocks. Components in lists pass a stable `variationKey` (id) so their decorative variation differs per item while staying stable for the session.
+
+The Livret / plan switch (`RaceWorkspaceSwitch`) is now drawn as a pinned bib (active view) over a flipped bib (other view), 70 points high (`RACE_WORKSPACE_SWITCH_HEIGHT`); which view is available or locked is unchanged.
+
+New screens use `Field` (never a raw `TextInput`) and `IconAction` (never a raw pressable icon), with `tone="onBrand"` on forest headers and `variant="back"` for back buttons.
+
+The RaceBook Course tab (Tracé, Ravitos, Où encourager) uses `TrailTabs` with `stretch` + `scrollable`: tabs share the full width, the active one on a raised painted wooden plank and the others on flat bare-wood planks. The Livret / plan bib switch is 56 points high (`RACE_WORKSPACE_SWITCH_HEIGHT`).
+
+The RaceBook Course map and profile cards open fullscreen through watch `IconAction`s (labels `racebookMapExpand` / `racebookProfileExpand`) instead of ad-hoc square buttons; behaviour unchanged.
+
+Section cards are `Card`s with a stable `variationKey`; status badges and counters are `StatusPill`s; segmented choices are `TrailTabs` (`stretch`); modal actions are one primary `ActionButton` plus ghost or secondary ones.
+
+New screens use `SheetHeader` for every sheet or modal header and `AccordionSection` for collapsible groups, never hand-rolled handle / title / chevron rows.
+
+In Mes courses, event groups show only the borne header (no trail line), plan cards use the full width, and each card has a right-hand column of watch buttons (delete, a 16-point gap, then recap/edit and share) beside the title, status and insights, with the two full-label signs below.
+
+The RaceBook Course map and profile cards are drawn without the contour corner (`contours={false}`), keeping the course visuals uncluttered.
+
+The RaceBook hero no longer draws the course contour lines behind its header (the published elevation profile is still shown in the Course tab).
+
+List cards should not fetch per-row detail (such as GPX-derived profiles) just for decoration; the catalog race card dropped its profile strip for that reason.
+
+The plan workspace bottom bar has a fourth « Nutrition » tab next to Mon plan, Récap and Paramètres. It is a shortcut, not a workspace view: it saves the current draft and pushes the existing Nutrition screen (product favourites), whose back action returns to the plan.
+
+Root headers show round watch `IconAction`s (`tone="onBrand"`); when no help action is shown, the screen icon is a bare decorative glyph in the same 48-point slot, never a framed button-like square. Floating guide cards must sit above any bottom navigation.
+
+Guided screens never auto-open the keyboard; a guide card's acknowledgement is a secondary ticket when a ground-arrow skip sits beside it, and onboarding copy must match the real layout (RaceBook tabs are at the bottom).
 
 ## Related Docs
 

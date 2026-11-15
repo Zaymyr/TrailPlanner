@@ -7,6 +7,7 @@ import { buildSupporterDirectionsUrl } from '../../lib/racebookSupporterPoints';
 import { useI18n } from '../../lib/i18n';
 import { DataText } from '../themed/DataText';
 import { Text } from '../themed/Text';
+import { TrailRail } from '../themed/TrailRail';
 import { formatDistance } from '../../lib/displayFormat';
 
 export function RacebookSupporterPointsSection({
@@ -32,7 +33,7 @@ export function RacebookSupporterPointsSection({
           <View key={point.id} style={styles.row}>
             <View style={styles.rail}>
               <View style={styles.badge}><Text style={styles.badgeText}>S{index + 1}</Text></View>
-              {index < points.length - 1 ? <View style={styles.line} /> : null}
+              {index < points.length - 1 ? <TrailRail color={Colors.brandPrimary} style={styles.line} /> : null}
             </View>
             <View style={styles.card}>
               <View style={styles.titleRow}>
@@ -81,7 +82,7 @@ const styles = StyleSheet.create({
   rail: { width: 42, alignItems: 'center' },
   badge: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.brandPrimary },
   badgeText: { color: Colors.textOnBrand, fontSize: 12, lineHeight: 16, fontWeight: '800' },
-  line: { flex: 1, width: 2, minHeight: 18, backgroundColor: Colors.brandBorder },
+  line: { flex: 1, minHeight: 18, opacity: 0.5 },
   card: { flex: 1, minHeight: 88, marginLeft: 8, marginBottom: 12, justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: Colors.border, borderRadius: 18, padding: 12, backgroundColor: Colors.surface },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   titleContent: { flex: 1, minWidth: 0, alignItems: 'flex-start', gap: 6 },

@@ -397,6 +397,6 @@ const styles = StyleSheet.create({
   cardFooter: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   contactCard: { gap: spacing[2] },
   contactButtons: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginTop: spacing[1] },
-  contactButton: { flexGrow: 1, minHeight: 40, paddingHorizontal: spacing[3], paddingVertical: spacing[2] },
+  contactButton: { flexGrow: 1, minHeight: 44 },
   footerActions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3], justifyContent: 'center' },
 });

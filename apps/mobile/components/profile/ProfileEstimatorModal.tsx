@@ -6,11 +6,13 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActionButton } from '../themed/ActionButton';
+import { Field } from '../themed/Field';
+import { SheetHeader } from '../themed/SheetHeader';
 import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import type {
@@ -141,20 +143,13 @@ function ProfileEstimatorModalComponent({
           accessibilityViewIsModal
           style={[styles.modalSheet, { paddingBottom: Math.max(20, insets.bottom) }]}
         >
-          <View style={styles.modalHeader}>
-            <View style={styles.modalHeaderContent}>
-              <Text accessibilityRole="header" style={styles.modalTitle}>{title}</Text>
-              <Text style={styles.modalSubtitle}>{subtitle}</Text>
-            </View>
-            <TouchableOpacity
-              accessibilityLabel={closeLabel}
-              accessibilityRole="button"
-              style={styles.modalCloseButton}
-              onPress={onClose}
-            >
-              <Text style={styles.modalCloseButtonText}>{closeLabel}</Text>
-            </TouchableOpacity>
-          </View>
+          <SheetHeader
+            closeLabel={closeLabel}
+            onClose={onClose}
+            style={styles.modalHeader}
+            subtitle={subtitle}
+            title={title}
+          />
 
           <ScrollView
             contentContainerStyle={styles.estimatorContent}
@@ -165,41 +160,29 @@ function ProfileEstimatorModalComponent({
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>{bodyMetricsTitle}</Text>
               <View style={styles.bodyMetricsRow}>
-                <View style={styles.bodyMetricField}>
-                  <Text style={styles.label}>{weightLabel}</Text>
-                  <View style={styles.metricInputShell}>
-                    <TextInput
-                      accessibilityLabel={weightLabel}
-                      style={styles.metricInput}
-                      value={estimatorWeightKg}
-                      onChangeText={onChangeEstimatorWeightKg}
-                      placeholder={weightPlaceholder}
-                      placeholderTextColor={Colors.textMuted}
-                      keyboardType="number-pad"
-                      inputAccessoryViewID="pace-yourself-numeric-keyboard"
-                      maxLength={3}
-                    />
-                    <Text style={styles.metricInputUnit}>kg</Text>
-                  </View>
-                </View>
+                <Field
+                  containerStyle={styles.bodyMetricField}
+                  inputAccessoryViewID="pace-yourself-numeric-keyboard"
+                  keyboardType="number-pad"
+                  label={weightLabel}
+                  maxLength={3}
+                  onChangeText={onChangeEstimatorWeightKg}
+                  placeholder={weightPlaceholder}
+                  unit="kg"
+                  value={estimatorWeightKg}
+                />
 
-                <View style={styles.bodyMetricField}>
-                  <Text style={styles.label}>{heightLabel}</Text>
-                  <View style={styles.metricInputShell}>
-                    <TextInput
-                      accessibilityLabel={heightLabel}
-                      style={styles.metricInput}
-                      value={estimatorHeightCm}
-                      onChangeText={onChangeEstimatorHeightCm}
-                      placeholder={heightPlaceholder}
-                      placeholderTextColor={Colors.textMuted}
-                      keyboardType="number-pad"
-                      inputAccessoryViewID="pace-yourself-numeric-keyboard"
-                      maxLength={3}
-                    />
-                    <Text style={styles.metricInputUnit}>cm</Text>
-                  </View>
-                </View>
+                <Field
+                  containerStyle={styles.bodyMetricField}
+                  inputAccessoryViewID="pace-yourself-numeric-keyboard"
+                  keyboardType="number-pad"
+                  label={heightLabel}
+                  maxLength={3}
+                  onChangeText={onChangeEstimatorHeightCm}
+                  placeholder={heightPlaceholder}
+                  unit="cm"
+                  value={estimatorHeightCm}
+                />
               </View>
             </View>
 
@@ -257,13 +240,9 @@ function ProfileEstimatorModalComponent({
             </View>
           </ScrollView>
 
-          <TouchableOpacity
-            style={[styles.applyButton, !estimatedTargets && styles.applyButtonDisabled]}
-            onPress={onApply}
-            disabled={!estimatedTargets}
-          >
-            <Text style={styles.applyButtonText}>{applyLabel}</Text>
-          </TouchableOpacity>
+          <ActionButton disabled={!estimatedTargets} fullWidth onPress={onApply} size="lg">
+            {applyLabel}
+          </ActionButton>
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -286,7 +265,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 10,
     maxHeight: '90%',
     borderTopWidth: 1,
     borderLeftWidth: 1,
@@ -294,40 +273,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 12,
     marginBottom: 16,
-  },
-  modalHeaderContent: {
-    flex: 1,
-  },
-  modalTitle: {
-    color: Colors.textPrimary,
-    fontSize: 20,
-    fontWeight: '800',
-  },
-  modalSubtitle: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
-    marginTop: 6,
-  },
-  modalCloseButton: {
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-    backgroundColor: Colors.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  modalCloseButtonText: {
-    color: Colors.textPrimary,
-    fontSize: 12,
-    fontWeight: '700',
   },
   estimatorContent: {
     gap: 16,
@@ -357,32 +303,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 8,
     marginTop: 0,
-  },
-  metricInputShell: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 3,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceSecondary,
-  },
-  metricInput: {
-    flex: 1,
-    minWidth: 0,
-    backgroundColor: 'transparent',
-    color: Colors.textPrimary,
-    paddingHorizontal: 0,
-    paddingVertical: 8,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  metricInputUnit: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '700',
   },
   optionsList: {
     gap: 8,
@@ -474,19 +394,5 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 12,
     lineHeight: 18,
-  },
-  applyButton: {
-    backgroundColor: Colors.brandPrimary,
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  applyButtonDisabled: {
-    opacity: 0.6,
-  },
-  applyButtonText: {
-    color: Colors.textOnBrand,
-    fontSize: 16,
-    fontWeight: '600',
   },
 });

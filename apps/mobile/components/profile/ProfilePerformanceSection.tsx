@@ -2,11 +2,13 @@ import { memo } from 'react';
 import { mobileComponents } from '@pace-yourself/design-system';
 import {
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
+import { Card } from '../themed/Card';
+import { Field } from '../themed/Field';
 import { Text } from '../themed/Text';
+import { RidgeDivider } from '../themed/Ridge';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Colors } from '../../constants/colors';
 
@@ -80,7 +82,7 @@ function ProfilePerformanceSectionComponent({
   onOpenEstimator,
 }: ProfilePerformanceSectionProps) {
   return (
-    <View style={styles.card}>
+    <Card variationKey="profile-performance">
       <View style={styles.header}>
         <View style={styles.iconBadge}>
           <Ionicons name="speedometer-outline" size={20} color={Colors.brandLight} />
@@ -108,68 +110,57 @@ function ProfilePerformanceSectionComponent({
         </View>
       </View>
 
-      <View style={styles.divider} />
+      <RidgeDivider style={styles.divider} />
 
       <View style={styles.group}>
         <Text style={styles.groupTitle}>{effortTitle}</Text>
         <Text style={styles.groupHint}>{effortHint}</Text>
 
         <View style={styles.metricsRow}>
-          <View style={styles.metricBlock}>
-            <Text style={styles.label}>{utmbIndexLabel}</Text>
-            <TextInput
-              style={[styles.textInput, styles.metricTextInput]}
-              value={utmbIndex}
-              onChangeText={onChangeUtmbIndex}
-              placeholder="600"
-              placeholderTextColor={Colors.textMuted}
-              keyboardType="number-pad"
-              inputAccessoryViewID="pace-yourself-numeric-keyboard"
-              maxLength={4}
-            />
-          </View>
+          <Field
+            containerStyle={styles.metricBlock}
+            inputAccessoryViewID="pace-yourself-numeric-keyboard"
+            keyboardType="number-pad"
+            label={utmbIndexLabel}
+            maxLength={4}
+            onChangeText={onChangeUtmbIndex}
+            placeholder="600"
+            value={utmbIndex}
+          />
 
           <View style={[styles.metricBlock, styles.paceMetricBlock]}>
             <Text style={styles.label}>{comfortableFlatPaceLabel}</Text>
             <View style={styles.paceCard}>
-              <View style={styles.paceInputGroup}>
-                <Text maxFontSizeMultiplier={1.3} numberOfLines={1} style={styles.paceLabel}>
-                  {paceMinutesLabel}
-                </Text>
-                <TextInput
-                  style={styles.paceInput}
-                  value={paceMinutes}
-                  onChangeText={onChangePaceMinutes}
-                  placeholder="6"
-                  placeholderTextColor={Colors.textMuted}
-                  keyboardType="number-pad"
-                  inputAccessoryViewID="pace-yourself-numeric-keyboard"
-                  maxLength={2}
-                />
-              </View>
+              <Field
+                accessibilityLabel={`${comfortableFlatPaceLabel}, ${paceMinutesLabel}`}
+                containerStyle={styles.paceInputGroup}
+                inputAccessoryViewID="pace-yourself-numeric-keyboard"
+                keyboardType="number-pad"
+                label={paceMinutesLabel}
+                maxLength={2}
+                onChangeText={onChangePaceMinutes}
+                placeholder="6"
+                value={paceMinutes}
+              />
               <Text style={styles.paceSeparator}>:</Text>
-              <View style={styles.paceInputGroup}>
-                <Text maxFontSizeMultiplier={1.3} numberOfLines={1} style={styles.paceLabel}>
-                  {paceSecondsLabel}
-                </Text>
-                <TextInput
-                  style={styles.paceInput}
-                  value={paceSeconds}
-                  onChangeText={onChangePaceSeconds}
-                  placeholder="00"
-                  placeholderTextColor={Colors.textMuted}
-                  keyboardType="number-pad"
-                  inputAccessoryViewID="pace-yourself-numeric-keyboard"
-                  maxLength={2}
-                />
-              </View>
-              <Text style={styles.paceInlineUnit}>min/km</Text>
+              <Field
+                accessibilityLabel={`${comfortableFlatPaceLabel}, ${paceSecondsLabel}`}
+                containerStyle={styles.paceInputGroup}
+                inputAccessoryViewID="pace-yourself-numeric-keyboard"
+                keyboardType="number-pad"
+                label={paceSecondsLabel}
+                maxLength={2}
+                onChangeText={onChangePaceSeconds}
+                placeholder="00"
+                unit="/km"
+                value={paceSeconds}
+              />
             </View>
           </View>
         </View>
       </View>
 
-      <View style={styles.divider} />
+      <RidgeDivider style={styles.divider} />
 
       <View style={styles.group}>
         <Text style={styles.inlineSectionTitle}>{planDefaultsTitle}</Text>
@@ -182,77 +173,45 @@ function ProfilePerformanceSectionComponent({
         </TouchableOpacity>
 
         <View style={styles.targetsStack}>
-          <View style={[styles.targetRow, styles.targetRowBordered]}>
-            <Text style={styles.targetLabel}>{defaultCarbsLabel}</Text>
-            <View style={styles.targetInputShell}>
-              <TextInput
-                style={styles.targetInput}
-                value={defaultCarbsPerHour}
-                onChangeText={onChangeDefaultCarbs}
-                placeholder="70"
-                placeholderTextColor={Colors.textMuted}
-                keyboardType="number-pad"
-                inputAccessoryViewID="pace-yourself-numeric-keyboard"
-                maxLength={3}
-              />
-              <Text style={styles.targetUnit}>g</Text>
-            </View>
-          </View>
-
-          <View style={[styles.targetRow, styles.targetRowBordered]}>
-            <Text style={styles.targetLabel}>{defaultWaterLabel}</Text>
-            <View style={styles.targetInputShell}>
-              <TextInput
-                style={styles.targetInput}
-                value={defaultWaterPerHour}
-                onChangeText={onChangeDefaultWater}
-                placeholder="500"
-                placeholderTextColor={Colors.textMuted}
-                keyboardType="number-pad"
-                inputAccessoryViewID="pace-yourself-numeric-keyboard"
-                maxLength={4}
-              />
-              <Text style={styles.targetUnit}>ml</Text>
-            </View>
-          </View>
-
-          <View style={styles.targetRow}>
-            <Text style={styles.targetLabel}>{defaultSodiumLabel}</Text>
-            <View style={styles.targetInputShell}>
-              <TextInput
-                style={styles.targetInput}
-                value={defaultSodiumPerHour}
-                onChangeText={onChangeDefaultSodium}
-                placeholder="600"
-                placeholderTextColor={Colors.textMuted}
-                keyboardType="number-pad"
-                inputAccessoryViewID="pace-yourself-numeric-keyboard"
-                maxLength={4}
-              />
-              <Text style={styles.targetUnit}>mg</Text>
-            </View>
-          </View>
+          <Field
+            inputAccessoryViewID="pace-yourself-numeric-keyboard"
+            keyboardType="number-pad"
+            label={defaultCarbsLabel}
+            maxLength={3}
+            onChangeText={onChangeDefaultCarbs}
+            placeholder="70"
+            unit="g"
+            value={defaultCarbsPerHour}
+          />
+          <Field
+            inputAccessoryViewID="pace-yourself-numeric-keyboard"
+            keyboardType="number-pad"
+            label={defaultWaterLabel}
+            maxLength={4}
+            onChangeText={onChangeDefaultWater}
+            placeholder="500"
+            unit="ml"
+            value={defaultWaterPerHour}
+          />
+          <Field
+            inputAccessoryViewID="pace-yourself-numeric-keyboard"
+            keyboardType="number-pad"
+            label={defaultSodiumLabel}
+            maxLength={4}
+            onChangeText={onChangeDefaultSodium}
+            placeholder="600"
+            unit="mg"
+            value={defaultSodiumPerHour}
+          />
         </View>
       </View>
-    </View>
+    </Card>
   );
 }
 
 export const ProfilePerformanceSection = memo(ProfilePerformanceSectionComponent);
 
 const styles = StyleSheet.create({
-  card: {
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
-    elevation: 3,
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -299,9 +258,7 @@ const styles = StyleSheet.create({
     marginTop: -2,
   },
   divider: {
-    height: 1,
-    backgroundColor: Colors.border,
-    marginVertical: 14,
+    marginVertical: 8,
   },
   waterBagRow: {
     flexDirection: 'row',
@@ -350,51 +307,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     marginTop: 0,
   },
-  textInput: {
-    minHeight: mobileComponents.input.minHeight,
-    backgroundColor: Colors.surface,
-    color: Colors.textPrimary,
-    borderRadius: mobileComponents.input.borderRadius,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: mobileComponents.input.paddingHorizontal,
-    paddingVertical: 12,
-    fontSize: 16,
-  },
-  metricTextInput: {
-    paddingVertical: 10,
-    fontSize: 15,
-    fontWeight: '600',
-  },
   paceCard: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 6,
   },
   paceInputGroup: {
-    width: 64,
-    gap: 4,
-  },
-  paceLabel: {
-    color: Colors.textSecondary,
-    fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-    flexShrink: 0,
-  },
-  paceInput: {
-    minHeight: mobileComponents.input.minHeight,
-    backgroundColor: Colors.surface,
-    color: Colors.textPrimary,
-    borderRadius: mobileComponents.input.borderRadius,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    fontSize: 15,
-    fontWeight: '700',
-    textAlign: 'center',
+    flex: 1,
+    minWidth: 0,
   },
   paceSeparator: {
     color: Colors.textPrimary,
@@ -402,17 +322,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     lineHeight: 24,
     paddingBottom: 8,
-  },
-  paceInlineUnit: {
-    marginLeft: 'auto',
-    color: Colors.brandPrimary,
-    fontSize: 12,
-    fontWeight: '700',
-    paddingHorizontal: 8,
-    paddingVertical: 7,
-    borderRadius: 999,
-    backgroundColor: Colors.brandSurface,
-    overflow: 'hidden',
   },
   inlineSectionTitle: {
     color: Colors.textPrimary,
@@ -438,57 +347,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   targetsStack: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceSecondary,
-    overflow: 'hidden',
-  },
-  targetRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     gap: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-  },
-  targetRowBordered: {
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  targetLabel: {
-    flex: 1,
-    color: Colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  targetInputShell: {
-    minHeight: mobileComponents.input.minHeight,
-    width: 116,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 3,
-    borderRadius: mobileComponents.input.borderRadius,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
-  },
-  targetInput: {
-    flex: 1,
-    backgroundColor: 'transparent',
-    color: Colors.textPrimary,
-    paddingHorizontal: 0,
-    paddingVertical: 8,
-    fontSize: 15,
-    fontWeight: '700',
-    minWidth: 0,
-  },
-  targetUnit: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '700',
-    minWidth: 24,
   },
 });

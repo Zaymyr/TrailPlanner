@@ -1,7 +1,7 @@
 ---
 title: Plan Storage
 scope: business-rule
-last_verified: 2026-11-09
+last_verified: 2026-11-11
 ai_priority: high
 related_files:
   - apps/web/app/onboarding/account/page.tsx
@@ -228,6 +228,23 @@ It:
 ## Lot 8 recap presentation
 
 The recap keeps the local runner departure authoritative, displays its official delta, and can replace it from an ordered SAS or reset it to the organizer clock. Checkpoint passage labels display clock time before elapsed time. These actions update only the existing local departure key and never alter `planner_values` or `race_start_waves`.
+
+Trail signature (2026-11-09): a standard plan creation opens the editor with a one-use `created=1` route parameter that shows the summit celebration once and is then cleared; the onboarding handoff (`showHelp=1`) never sets it. The recap pack list shows its existing carbohydrate and sodium totals as metric tiles. Neither adds a write, a column or a change to the persisted plan snapshot.
+
+
+## Mobile presentation
+
+The RaceBook plan invitation card shows the race start time on its dashed aid-station trail. Plan status in Mes courses (`apps/mobile/lib/planReadiness.ts`, presentation only, nothing stored):
+
+- **Brouillon**: no planned time (race distance plus a stored pace or speed) or no intermediate aid station.
+- **En cours**: planned time and aid stations exist, but at least one section of the plan has a carbohydrate, sodium or water gauge in red (below 88 % of the tolerated minimum) or empty while it has a target.
+- **Prêt**: planned time, aid stations, and every carbohydrate, sodium and water gauge of every section at least orange.
+
+Thresholds and section combination are those of the editor gauges (`components/plan-form/metrics.ts`, `PlanForm`); a gauge whose target is 0 is not applicable. The list loads the nutrition of the products its plans use in one `products` query; until it answers a complete plan shows « En cours ».
+
+Plan cards in Mes courses lead with two `TrailSignButton` signs (Livret coureur, plan action) keyed by plan id; recap, share and delete are watch `IconAction`s, and deleting from the manage sheet uses `ActionButton variant="destructive-outline"`.
+
+The plan workspace bottom bar has a fourth « Nutrition » tab next to Mon plan, Récap and Paramètres. It is a shortcut, not a workspace view: it saves the current draft and pushes the existing Nutrition screen (product favourites), whose back action returns to the plan.
 
 ## Related Docs
 

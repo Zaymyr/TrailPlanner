@@ -1,4 +1,4 @@
-import { memo, useEffect, useState, type ReactNode } from 'react';
+import { memo, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -7,7 +7,6 @@ import {
   RefreshControl,
   SectionList,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   View,
   type NativeScrollEvent,
@@ -16,20 +15,34 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { getIntermediateAidStationCount } from '../../lib/planPersistence';
 import {
-  EmptyPlanIcon,
   SummitIcon,
-  TrailIcon,
   colors,
   radius,
   spacing
 } from '@pace-yourself/design-system';
+import { AccordionHeader } from '../themed/AccordionHeader';
+import { ActionButton } from '../themed/ActionButton';
 import { Button } from '../themed/Button';
 import { Card } from '../themed/Card';
-import { DataText } from '../themed/DataText';
+import { Cote } from '../themed/Cote';
 import { EmptyState } from '../themed/EmptyState';
+import { Field } from '../themed/Field';
 import { Heading } from '../themed/Heading';
+import { IconAction } from '../themed/IconAction';
+import { StatusPill } from '../themed/StatusPill';
+import { SheetHeader } from '../themed/SheetHeader';
 import { Text } from '../themed/Text';
-import { formatDistance } from '../../lib/displayFormat';
+import { TrailSignButton } from '../themed/TrailSignButton';
+import { CardMiniProfile } from '../themed/trail/CardProfile';
+import { formatDistance, formatElevation } from '../../lib/displayFormat';
+import { asTrailProfile } from '../../lib/trailSignature';
+import {
+  collectStoredPlanProductIds,
+  computePlanReadiness,
+  type PlanReadiness,
+  type ReadinessProduct,
+} from '../../lib/planReadiness';
+import { supabase } from '../../lib/supabase';
 import { estimateDuration, getPlanCardTitle } from './plansHelpers';
 import { formatDepartureCountdown, resolvePlanPrimaryAction, type DepartureCountdownCopy, type PlanPrimaryAction } from '../../lib/plansListPresentation';
 import type { PlanRow, RaceSection } from './types';
@@ -75,7 +88,66 @@ type PlansListProps = {
   /** Opens the format's RaceBook; plans of catalog formats lead with it. */
   onOpenRacebook?: (raceId: string) => void;
   racebookButtonLabel?: string;
+  /** Status wristband labels; default to built-in FR/EN copy. */
+  readyLabel?: string;
+  draftLabel?: string;
+  /** "Plan en cours" wristband (not the live race one). */
+  inProgressStatusLabel?: string;
 };
+
+/** Product nutrition shared by every list mount: products rarely change. */
+const productNutritionCache = new Map<string, ReadinessProduct | null>();
+
+/**
+ * Loads carbs / sodium / fuel type of the products the listed plans use, so
+ * the wristband applies the editor's gauge rule. `null` until loaded.
+ */
+function usePlanListProductMap(sections: RaceSection[]): Record<string, ReadinessProduct> | null {
+  const idsKey = useMemo(() => {
+    const ids = new Set<string>();
+    sections.forEach((section) => section.data.forEach((plan) =>
+      collectStoredPlanProductIds(plan.planner_values).forEach((id) => ids.add(id)),
+    ));
+    return [...ids].sort().join(',');
+  }, [sections]);
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const missing = idsKey ? idsKey.split(',').filter((id) => !productNutritionCache.has(id)) : [];
+    if (missing.length === 0) {
+      setLoadedKey(idsKey);
+      return undefined;
+    }
+    void (async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select('id, name, fuel_type, carbs_g, sodium_mg')
+        .in('id', missing);
+      if (cancelled || error) return;
+      ((data ?? []) as ReadinessProduct[]).forEach((product) => productNutritionCache.set(product.id, product));
+      // Unknown ids (deleted products) count as zero, like in the editor.
+      missing.forEach((id) => {
+        if (!productNutritionCache.has(id)) productNutritionCache.set(id, null);
+      });
+      setLoadedKey(idsKey);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [idsKey]);
+
+  return useMemo(() => {
+    if (loadedKey !== idsKey) return null;
+    const map: Record<string, ReadinessProduct> = {};
+    productNutritionCache.forEach((product, id) => {
+      if (product) map[id] = product;
+    });
+    return map;
+  }, [idsKey, loadedKey]);
+}
+
+const READINESS_TONE = { draft: 'neutral', inProgress: 'info', ready: 'success' } as const;
 
 export const PlansList = memo(function PlansList({
   contentTopInset = 0,
@@ -117,7 +189,16 @@ export const PlansList = memo(function PlansList({
   onBrowseRaces,
   onOpenRacebook,
   racebookButtonLabel,
+  readyLabel,
+  draftLabel,
+  inProgressStatusLabel,
 }: PlansListProps) {
+  const readinessLabels: Record<PlanReadiness, string> = {
+    draft: draftLabel ?? (locale === 'fr' ? 'Brouillon' : 'Draft'),
+    inProgress: inProgressStatusLabel ?? (locale === 'fr' ? 'En cours' : 'In progress'),
+    ready: readyLabel ?? (locale === 'fr' ? 'Prêt' : 'Ready'),
+  };
+  const productMap = usePlanListProductMap(sections);
   const [managedPlan, setManagedPlan] = useState<PlanRow | null>(null);
   const [managedPlanName, setManagedPlanName] = useState('');
   const [renamingPlan, setRenamingPlan] = useState(false);
@@ -177,6 +258,7 @@ export const PlansList = memo(function PlansList({
           const planEventName = section.pastEventNames?.[item.id] ?? section.eventName;
           const startsPastEvent = section.pastEventStartIds?.includes(item.id) === true;
 
+          // Only the borne header marks the event: cards keep the full width (no trail line).
           return (
             <View>
               {startsPastEvent ? (
@@ -215,6 +297,8 @@ export const PlansList = memo(function PlansList({
                 }
                 racebookButtonLabel={racebookButtonLabel}
                 primaryAction={resolvePlanPrimaryAction(item, nowMs, activePlanId)}
+                productMap={productMap}
+                readinessLabels={readinessLabels}
                 recapButtonLabel={recapButtonLabel}
                 shareButtonLabel={shareButtonLabel}
                 startButtonLabel={startButtonLabel}
@@ -227,32 +311,14 @@ export const PlansList = memo(function PlansList({
           const isCollapsed = collapsedSections.has(key);
 
           return (
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityState={{ expanded: !isCollapsed }}
-              activeOpacity={0.72}
-              onPress={() => onToggleSection(key)}
+            <AccordionHeader
+              count={section.data.length}
+              expanded={!isCollapsed}
+              onToggle={() => onToggleSection(key)}
               style={styles.sectionHeader}
-            >
-              <View style={styles.sectionTitleWrap}>
-                <View style={styles.sectionTitleRow}>
-                  <TrailIcon color={colors.brand.forest} size={20} strokeWidth={2.2} />
-                  <Heading numberOfLines={1} variant="h3" style={styles.sectionTitle}>
-                    {section.eventName}
-                  </Heading>
-                  <Ionicons
-                    color={colors.brand.forest}
-                    name={isCollapsed ? 'chevron-forward' : 'chevron-down'}
-                    size={18}
-                  />
-                </View>
-                {section.sectionKey === '__orphan__' ? (
-                  <Text tone="secondary" size="xs" style={styles.orphanWarning}>
-                    {noRaceWarningLabel}
-                  </Text>
-                ) : null}
-              </View>
-            </TouchableOpacity>
+              subtitle={section.sectionKey === '__orphan__' ? noRaceWarningLabel : null}
+              title={section.eventName}
+            />
           );
         }}
         sections={sections.map((section) => ({ ...section, key: section.sectionKey }))}
@@ -262,8 +328,8 @@ export const PlansList = memo(function PlansList({
           <EmptyState
             actionLabel={browseRacesLabel}
             description={emptySubtitle}
-            icon={<EmptyPlanIcon color={colors.brand.forest} size={72} strokeWidth={1.8} />}
             onActionPress={onBrowseRaces}
+            signLabel={departureLabel}
             style={styles.emptyState}
             title={emptyTitle}
           />
@@ -282,38 +348,24 @@ export const PlansList = memo(function PlansList({
         >
           <Pressable accessible={false} onPress={closeManagePlan} style={styles.modalOverlay} />
           <View accessibilityViewIsModal style={styles.manageSheet}>
-            <View style={styles.sheetHandle} />
-            <View style={styles.manageHeader}>
-              <Heading accessibilityRole="header" variant="h2">
-                {locale === 'fr' ? 'G\u00e9rer le plan' : 'Manage plan'}
-              </Heading>
-              <TouchableOpacity
-                accessibilityLabel={locale === 'fr' ? 'Fermer' : 'Close'}
-                accessibilityRole="button"
-                disabled={renamingPlan}
-                hitSlop={8}
-                onPress={closeManagePlan}
-                style={styles.closeButton}
-              >
-                <Ionicons color={colors.text.secondary} name="close" size={20} />
-              </TouchableOpacity>
-            </View>
-            <Text tone="secondary" size="sm" style={styles.inputLabel}>
-              {locale === 'fr' ? 'Nom du plan' : 'Plan name'}
-            </Text>
-            <TextInput
-              accessibilityLabel={locale === 'fr' ? 'Nom du plan' : 'Plan name'}
+            <SheetHeader
+              closeDisabled={renamingPlan}
+              closeLabel={locale === 'fr' ? 'Fermer' : 'Close'}
+              onClose={closeManagePlan}
+              title={locale === 'fr' ? 'G\u00e9rer le plan' : 'Manage plan'}
+            />
+            <Field
               autoCapitalize="sentences"
               autoFocus
+              containerStyle={styles.nameField}
               editable={!renamingPlan}
+              label={locale === 'fr' ? 'Nom du plan' : 'Plan name'}
               maxLength={120}
               onChangeText={setManagedPlanName}
               onSubmitEditing={() => void submitPlanName()}
               placeholder={locale === 'fr' ? 'Nom du plan' : 'Plan name'}
-              placeholderTextColor={colors.text.tertiary}
               returnKeyType="done"
               selectTextOnFocus
-              style={styles.nameInput}
               value={managedPlanName}
             />
             <Button
@@ -324,21 +376,19 @@ export const PlansList = memo(function PlansList({
             >
               {renamingPlan ? savingLabel : saveButtonLabel}
             </Button>
-            <TouchableOpacity
-              accessibilityRole="button"
+            <ActionButton
               disabled={renamingPlan}
+              fullWidth
               onPress={() => {
                 const planId = managedPlan?.id;
                 setManagedPlan(null);
                 if (planId) onDeletePlan(planId);
               }}
               style={styles.deleteButton}
+              variant="destructive-outline"
             >
-              <Ionicons color={colors.accent.terracotta} name="trash-outline" size={18} />
-              <Text size="sm" weight="bold" style={styles.deleteButtonText}>
-                {deleteButtonLabel}
-              </Text>
-            </TouchableOpacity>
+              {deleteButtonLabel}
+            </ActionButton>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -373,6 +423,8 @@ type PlanCardProps = {
   onLockedPress: () => void;
   onOpenRacebook?: () => void;
   racebookButtonLabel?: string;
+  productMap: Record<string, ReadinessProduct> | null;
+  readinessLabels: Record<PlanReadiness, string>;
 };
 
 function PlanCard({
@@ -402,21 +454,27 @@ function PlanCard({
   onLockedPress,
   onOpenRacebook,
   racebookButtonLabel,
+  productMap,
+  readinessLabels,
 }: PlanCardProps) {
   // Catalog formats lead with their RaceBook; the plan action becomes secondary.
   const leadsWithRacebook = Boolean(onOpenRacebook && racebookButtonLabel);
   const aidStationCount = getIntermediateAidStationCount(item.planner_values?.aidStations);
   const countdown = formatDepartureCountdown(item.departureAt, nowMs, departureCountdownCopy);
+  // Only a real stored profile draws the skyline; never a placeholder ridge.
+  const courseProfile = useMemo(() => asTrailProfile(item.elevation_profile), [item.elevation_profile]);
+  const readiness = useMemo(
+    () => computePlanReadiness(item.planner_values, item.elevation_profile, productMap),
+    [item.planner_values, item.elevation_profile, productMap],
+  );
+  const ready = readiness === 'ready';
+  const statusLabel = isActivePlan ? liveLabel : readinessLabels[readiness];
+  const planKey = String(item.id);
   const primaryLabel = primaryAction === 'start'
     ? isActivePlan ? inProgressLabel : startButtonLabel
     : primaryAction === 'edit'
       ? editButtonLabel
       : recapButtonLabel;
-  const primaryIcon = primaryAction === 'start'
-    ? isActivePlan ? 'radio-button-on' : 'play'
-    : primaryAction === 'edit'
-      ? 'create-outline'
-      : 'document-text-outline';
   const handlePrimaryPress = primaryAction === 'start'
     ? onStart
     : primaryAction === 'edit'
@@ -424,7 +482,7 @@ function PlanCard({
       : onOpenSummary;
 
   return (
-    <Card padded={false} surface="white" style={[styles.card, isActivePlan && styles.cardActive]}>
+    <Card padded={false} surface="white" style={[styles.card, isActivePlan && styles.cardActive]} variationKey={String(item.id)}>
       <View style={styles.cardMainArea}>
         <TouchableOpacity
           accessibilityActions={[
@@ -439,7 +497,7 @@ function PlanCard({
               ? 'Touchez deux fois pour ouvrir. Maintenez pour modifier le nom ou supprimer.'
               : 'Double tap to open. Long press to edit the name or delete.'
           }
-          accessibilityLabel={item.name}
+          accessibilityLabel={`${item.name}, ${statusLabel}`}
           accessibilityRole="button"
           activeOpacity={0.8}
           delayLongPress={550}
@@ -463,27 +521,27 @@ function PlanCard({
               <Heading variant="h2" numberOfLines={2} style={styles.planName}>
                 {displayName}
               </Heading>
-              {isActivePlan ? (
-                <View style={styles.liveBadge}>
-                  <Text tone="brand" size="xs" weight="bold" style={styles.liveBadgeText}>
-                    {liveLabel}
-                  </Text>
-                </View>
-              ) : null}
+              {isActivePlan
+                ? <StatusPill label={liveLabel} tone="warning" />
+                : <StatusPill label={statusLabel} tone={READINESS_TONE[readiness]} />}
             </View>
             <View style={styles.meta}>
               {item.planner_values?.raceDistanceKm != null ? (
-                <DataText tone="secondary" size="xs" weight="medium">
-                  {formatDistance(item.planner_values.raceDistanceKm, locale)}
-                </DataText>
+                <Cote size="sm" tone="secondary" value={formatDistance(item.planner_values.raceDistanceKm, locale)} />
               ) : null}
               {item.planner_values?.elevationGain != null ? (
                 <View style={styles.metaInline}>
                   <SummitIcon color={colors.brand.forest} size={14} strokeWidth={2.1} />
-                  <DataText tone="secondary" size="xs" weight="medium">
-                    D+ {item.planner_values.elevationGain}m
-                  </DataText>
+                  <Cote
+                    prefix="D+"
+                    size="sm"
+                    tone="secondary"
+                    value={formatElevation(item.planner_values.elevationGain, locale)}
+                  />
                 </View>
+              ) : null}
+              {courseProfile ? (
+                <CardMiniProfile profile={courseProfile} style={styles.miniProfile} variant={ready ? 'ready' : 'draft'} />
               ) : null}
             </View>
             <View style={styles.planInsights}>
@@ -491,17 +549,13 @@ function PlanCard({
                 <Text tone="secondary" size="xs" weight="semibold">
                   {locale === 'fr' ? 'Temps total' : 'Total time'}
                 </Text>
-                <DataText tone="brand" size="sm" weight="bold">
-                  {duration ?? '—'}
-                </DataText>
+                <Cote size="sm" tone="brand" value={duration ?? '—'} />
               </View>
               <View style={[styles.planInsight, styles.planInsightRavitos, styles.planInsightDivider]}>
                 <Text tone="secondary" size="xs" weight="semibold">
                   {locale === 'fr' ? 'Ravitos' : 'Aid stops'}
                 </Text>
-                <DataText tone="brand" size="sm" weight="bold">
-                  {aidStationCount}
-                </DataText>
+                <Cote size="sm" tone="brand" value={aidStationCount} />
               </View>
               <View style={[styles.planInsight, styles.planInsightDivider]}>
                 <Text tone="secondary" size="xs" weight="semibold">
@@ -514,88 +568,85 @@ function PlanCard({
             </View>
           </View>
         </TouchableOpacity>
-        <TouchableOpacity
-          accessibilityLabel={`${locale === 'fr' ? 'Supprimer le plan' : 'Delete plan'} — ${item.name}`}
-          accessibilityRole="button"
-          activeOpacity={0.75}
-          hitSlop={6}
-          onPress={onDelete}
-          style={styles.cardDeleteButton}
-        >
-          <Ionicons color={colors.accent.terracotta} name="trash-outline" size={18} />
-        </TouchableOpacity>
+        {/*
+          Watch-button column right of the content: delete on top, a 16pt gap
+          against mis-taps, then recap (or edit) and share 8pt apart. Two
+          full-label signs plus two 48pt buttons do not fit one row on a
+          360pt phone, so the signs keep the full width below.
+        */}
+        <View style={styles.cardActionColumn}>
+          <IconAction
+            accessibilityLabel={`${locale === 'fr' ? 'Supprimer le plan' : 'Delete plan'} — ${item.name}`}
+            icon={<Ionicons color={colors.semantic.danger} name="trash-outline" size={18} />}
+            onPress={onDelete}
+          />
+          <View style={styles.cardActionGroup}>
+            {primaryAction !== 'recap' ? (
+              <IconAction
+                accessibilityLabel={`${recapButtonLabel} — ${item.name}`}
+                icon={
+                  <Ionicons
+                    color={isAccessible ? colors.brand.forest : colors.accent.amber}
+                    name={isAccessible ? 'document-text-outline' : 'lock-closed'}
+                    size={18}
+                  />
+                }
+                onPress={isAccessible ? onOpenSummary : onLockedPress}
+              />
+            ) : (
+              <IconAction
+                accessibilityLabel={`${editButtonLabel} — ${item.name}`}
+                icon={
+                  <Ionicons
+                    color={isAccessible ? colors.brand.forest : colors.accent.amber}
+                    name={isAccessible ? 'create-outline' : 'lock-closed'}
+                    size={18}
+                  />
+                }
+                onPress={isAccessible ? onOpenMain : onLockedPress}
+              />
+            )}
+            <IconAction
+              accessibilityLabel={`${shareButtonLabel} — ${item.name}`}
+              accessibilityState={{ busy: isSharing }}
+              disabled={isSharing}
+              icon={
+                <Ionicons
+                  color={colors.brand.forest}
+                  name={isSharing ? 'hourglass-outline' : 'share-social-outline'}
+                  size={18}
+                />
+              }
+              onPress={isAccessible ? onShare : onLockedPress}
+            />
+          </View>
+        </View>
       </View>
 
-      <View style={styles.cardActions}>
-          {leadsWithRacebook ? (
-            <TouchableOpacity
-              accessibilityLabel={`${racebookButtonLabel} — ${item.name}`}
-              accessibilityRole="button"
-              activeOpacity={0.85}
-              onPress={onOpenRacebook}
-              style={styles.primaryCardAction}
-              testID="plan-card-racebook"
-            >
-              <Ionicons color={colors.text.inverse} name="book-outline" size={18} />
-              <Text tone="inverse" size="xs" weight="bold">
-                {racebookButtonLabel}
-              </Text>
-            </TouchableOpacity>
-          ) : null}
-          <TouchableOpacity
-            accessibilityLabel={`${primaryLabel} — ${item.name}`}
-            accessibilityRole="button"
-            activeOpacity={0.85}
-            onPress={isAccessible ? handlePrimaryPress : onLockedPress}
-            style={[
-              leadsWithRacebook ? styles.secondaryCardAction : styles.primaryCardAction,
-              !isAccessible && styles.iconBtnLocked,
-            ]}
-          >
-            <Ionicons
-              color={!isAccessible ? colors.accent.amber : leadsWithRacebook ? colors.brand.forest : colors.text.inverse}
-              name={!isAccessible ? 'lock-closed' : primaryIcon}
-              size={18}
-            />
-            <Text tone={isAccessible && !leadsWithRacebook ? 'inverse' : 'brand'} size="xs" weight="bold">
-              {primaryLabel}
-            </Text>
-          </TouchableOpacity>
-          {primaryAction !== 'recap' ? (
-          <TouchableOpacity
-            accessibilityLabel={`${recapButtonLabel} — ${item.name}`}
-            accessibilityRole="button"
-            activeOpacity={0.8}
-            onPress={isAccessible ? onOpenSummary : onLockedPress}
-            style={styles.iconBtn}
-          >
-            <Ionicons color={colors.brand.forest} name="document-text-outline" size={18} />
-          </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              accessibilityLabel={`${editButtonLabel} — ${item.name}`}
-              accessibilityRole="button"
-              activeOpacity={0.8}
-              onPress={isAccessible ? onOpenMain : onLockedPress}
-              style={[styles.iconBtn, !isAccessible && styles.iconBtnLocked]}
-            >
-              <Ionicons color={isAccessible ? colors.brand.forest : colors.accent.amber} name={!isAccessible ? 'lock-closed' : 'create-outline'} size={18} />
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            accessibilityLabel={`${shareButtonLabel} — ${item.name}`}
-            accessibilityRole="button"
-            activeOpacity={0.8}
-            disabled={isSharing}
-            onPress={isAccessible ? onShare : onLockedPress}
-            style={styles.iconBtn}
-          >
-            <Ionicons
-              color={colors.brand.forest}
-              name={isSharing ? 'hourglass-outline' : 'share-social-outline'}
-              size={18}
-            />
-          </TouchableOpacity>
+      {/* Signs lead elsewhere (RaceBook, plan) and share the full card width. */}
+      <View style={styles.cardSigns}>
+        {leadsWithRacebook ? (
+          <TrailSignButton
+            accessibilityLabel={`${racebookButtonLabel} — ${item.name}`}
+            fullWidth
+            label={racebookButtonLabel ?? ''}
+            onPress={onOpenRacebook}
+            style={styles.cardSign}
+            testID="plan-card-racebook"
+            variant="solid"
+            variationKey={`${planKey}|racebook`}
+          />
+        ) : null}
+        <TrailSignButton
+          accessibilityLabel={`${primaryLabel} — ${item.name}`}
+          fullWidth
+          icon={isAccessible ? undefined : <Ionicons color={colors.accent.amber} name="lock-closed" size={15} />}
+          label={primaryLabel}
+          onPress={isAccessible ? handlePrimaryPress : onLockedPress}
+          style={styles.cardSign}
+          variant={leadsWithRacebook ? 'soft' : 'solid'}
+          variationKey={`${planKey}|plan`}
+        />
       </View>
     </Card>
   );
@@ -622,27 +673,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[2],
-    paddingHorizontal: 0,
-    paddingVertical: spacing[3],
     marginTop: spacing[2],
     backgroundColor: colors.surface.sand,
-  },
-  sectionTitleWrap: {
-    flex: 1,
-  },
-  sectionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[2],
-  },
-  sectionTitle: {
-    flex: 1,
-    color: colors.brand.forest,
-    fontSize: 21,
-    lineHeight: 25,
   },
   pastEventTitle: {
     color: colors.text.secondary,
@@ -651,15 +683,10 @@ const styles = StyleSheet.create({
     marginLeft: 0,
     marginTop: 8,
   },
-  orphanWarning: {
-    marginTop: spacing[1],
-    paddingLeft: 28,
-  },
   card: {
     flexDirection: 'column',
     marginBottom: spacing[2],
     marginLeft: 0,
-    overflow: 'hidden',
   },
   cardActive: {
     borderColor: colors.border.brand,
@@ -668,26 +695,25 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardMainArea: {
-    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  /** 48pt delete / recap / share watch buttons stacked on the right edge. */
+  cardActionColumn: {
+    alignItems: 'center',
+    paddingRight: spacing[1],
+    paddingTop: spacing[1],
+  },
+  cardActionGroup: {
+    marginTop: spacing[4],
+    gap: spacing[2],
   },
   cardContent: {
     flex: 1,
     justifyContent: 'center',
     paddingLeft: spacing[4],
-    paddingRight: 52,
+    paddingRight: spacing[2],
     paddingVertical: spacing[3],
-  },
-  cardDeleteButton: {
-    position: 'absolute',
-    right: spacing[2],
-    top: spacing[2],
-    width: 36,
-    height: 36,
-    borderRadius: radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surface.cream,
-    zIndex: 2,
   },
   planTitleRow: {
     flexDirection: 'row',
@@ -700,18 +726,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     lineHeight: 21,
   },
-  liveBadge: {
-    borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: colors.accent.amber,
-    backgroundColor: colors.surface.sandLight,
-    paddingHorizontal: spacing[2],
-    paddingVertical: spacing[1],
-  },
-  liveBadgeText: {
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
   meta: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -722,6 +736,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[0.5],
+  },
+  miniProfile: {
+    marginLeft: 'auto',
   },
   planInsights: {
     flexDirection: 'row',
@@ -748,50 +765,18 @@ const styles = StyleSheet.create({
     borderLeftWidth: 1,
     borderLeftColor: colors.border.subtle,
   },
-  iconBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surface.white,
-    borderWidth: 1,
-    borderColor: colors.border.subtle,
-  },
-  iconBtnLocked: {
-    backgroundColor: colors.surface.cream,
-    borderColor: colors.accent.amber,
-  },
-  cardActions: {
+  cardSigns: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
     gap: spacing[2],
     paddingHorizontal: spacing[3],
+    paddingTop: spacing[1],
     paddingBottom: spacing[3],
   },
-  secondaryCardAction: {
-    minHeight: 44,
+  /** Two full-label signs share the row (~163pt each on a 390pt phone). */
+  cardSign: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing[2],
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border.brand,
-    backgroundColor: colors.surface.white,
-  },
-  primaryCardAction: {
-    minHeight: 44,
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing[2],
-    borderRadius: radius.lg,
-    backgroundColor: colors.brand.forest,
-    borderColor: colors.brand.forest,
+    minWidth: 0,
   },
   modalWrapper: {
     flex: 1,
@@ -809,56 +794,14 @@ const styles = StyleSheet.create({
     paddingTop: spacing[2],
     paddingBottom: spacing[8],
   },
-  sheetHandle: {
-    alignSelf: 'center',
-    width: 44,
-    height: 5,
-    borderRadius: radius.full,
-    backgroundColor: colors.border.subtle,
-    marginBottom: spacing[4],
-  },
-  manageHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing[3],
-  },
-  closeButton: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surface.cream,
-  },
-  inputLabel: {
+  nameField: {
     marginTop: spacing[5],
-    marginBottom: spacing[2],
-  },
-  nameInput: {
-    minHeight: 52,
-    borderWidth: 1,
-    borderColor: colors.border.subtle,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface.cream,
-    color: colors.text.primary,
-    fontSize: 17,
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
   },
   saveButton: {
     marginTop: spacing[4],
   },
   deleteButton: {
-    minHeight: 48,
-    marginTop: spacing[2],
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing[2],
-  },
-  deleteButtonText: {
-    color: colors.accent.terracotta,
+    marginTop: spacing[3],
   },
   emptyState: {
     flex: 1,
