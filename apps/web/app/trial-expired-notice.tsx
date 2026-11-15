@@ -28,7 +28,23 @@ const GUEST_COPY = {
   cta: "Créer un compte",
 };
 
-const SESSION_DISMISS_KEY = "trial-expired-notice-dismissed";
+const DISMISS_KEY = "trial-expired-notice-dismissed";
+
+const readDismissed = () => {
+  try {
+    return window.localStorage.getItem(DISMISS_KEY) === "true" || window.sessionStorage.getItem(DISMISS_KEY) === "true";
+  } catch {
+    return false;
+  }
+};
+
+const rememberDismissed = () => {
+  try {
+    window.localStorage.setItem(DISMISS_KEY, "true");
+  } catch {
+    // Storage can be unavailable (private mode): the in-memory state still hides the banner.
+  }
+};
 
 export const TrialExpiredNotice = () => {
   const router = useRouter();
@@ -43,7 +59,7 @@ export const TrialExpiredNotice = () => {
   const noticeCopy = isGuestSession ? { ...COPY, ...GUEST_COPY } : COPY;
 
   useEffect(() => {
-    setDismissed(window.sessionStorage.getItem(SESSION_DISMISS_KEY) === "true");
+    setDismissed(readDismissed());
   }, []);
 
   const isTrialExpired = useMemo(() => {
@@ -54,6 +70,9 @@ export const TrialExpiredNotice = () => {
 
   const shouldShowBanner = Boolean(session?.accessToken) && !entitlements.isPremium && isTrialExpired;
   const shouldShowModal = shouldShowBanner && !entitlements.trialExpiredSeenAt;
+  // The notice is shown until the runner closes it once (banner cross, modal "Plus tard" or close):
+  // the choice is kept in this browser and, through trialExpiredSeenAt, on every device.
+  const bannerHidden = dismissed || Boolean(entitlements.trialExpiredSeenAt);
 
   useEffect(() => {
     if (dismissed) {
@@ -85,7 +104,7 @@ export const TrialExpiredNotice = () => {
   const handleDismiss = useCallback(async () => {
     setUpgradeError(null);
     setIsMarkingSeen(true);
-    window.sessionStorage.setItem(SESSION_DISMISS_KEY, "true");
+    rememberDismissed();
     setDismissed(true);
     setIsModalOpen(false);
 
@@ -144,7 +163,7 @@ export const TrialExpiredNotice = () => {
     }
   }, [handleMarkSeen, isGuestSession, router, session?.accessToken]);
 
-  if (pathname.startsWith("/organizer") || !shouldShowBanner) {
+  if (pathname.startsWith("/organizer") || !shouldShowBanner || (bannerHidden && !isModalOpen)) {
     return null;
   }
 
@@ -173,7 +192,7 @@ export const TrialExpiredNotice = () => {
       {/* Manual test steps:
           1) User in trial: no banner or modal.
           2) Trial expired + not premium: banner shows, modal opens once.
-          3) Dismiss modal: banner stays, modal never reopens across devices.
+          3) Dismiss (banner cross or modal): banner and modal disappear and never reopen across devices.
           4) Subscribe: banner and modal disappear. */}
     </>
   );

@@ -76,11 +76,11 @@ function getEventDistanceRange(races: RaceEventSummaryRace[], locale: 'fr' | 'en
   const minDistance = Math.min(...distances);
   const maxDistance = Math.max(...distances);
 
-  if (Math.abs(maxDistance - minDistance) < 0.05) {
-    return formatDistance(maxDistance, locale);
-  }
-
-  return formatDistanceRange(minDistance, maxDistance, locale);
+  // Whole kilometres in the list (13–185 km): the exact distances live in the format sheet.
+  const min = Math.round(minDistance);
+  const max = Math.round(maxDistance);
+  if (min === max) return formatDistance(max, locale);
+  return formatDistanceRange(min, max, locale);
 }
 
 
@@ -215,9 +215,12 @@ function RaceEventSummaryCardBase<T extends RaceEventSummaryRace>({
         </View>
 
       <View>
+        {/* Count and range stacked on the left so the sign always fits on the right. */}
         <View style={styles.summaryRow}>
-          <Cote accessibilityLabel={formatsLabel} size="sm" tone="primary" unit={formatsCote.unit} value={formatsCote.value} />
-          {distanceRange ? <Cote size="sm" tone="primary" value={distanceRange} /> : null}
+          <View style={styles.summaryFigures}>
+            <Cote accessibilityLabel={formatsLabel} size="xs" tone="primary" unit={formatsCote.unit} value={formatsCote.value} />
+            {distanceRange ? <Cote size="xs" tone="secondary" value={distanceRange} /> : null}
+          </View>
           {/* Opening the formats goes elsewhere: a direction sign, not a text link. */}
           <TrailSignButton
             label={viewFormatsLabel}
@@ -340,9 +343,13 @@ const styles = StyleSheet.create({
   summaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    columnGap: 14,
-    rowGap: 4,
-    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    columnGap: 10,
+  },
+  summaryFigures: {
+    flexShrink: 1,
+    minWidth: 0,
+    gap: 2,
   },
   supportText: {
     color: Colors.textSecondary,
@@ -350,8 +357,10 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginTop: 8,
   },
+  // Fixed-size sign: same footprint on every card whatever the figures beside it.
   primaryAction: {
-    marginLeft: 'auto',
+    width: 172,
+    flexShrink: 0,
   },
 });
 

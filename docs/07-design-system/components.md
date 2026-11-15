@@ -65,6 +65,8 @@ related_tables: []
 
 # Design Components
 
+`Cote` gains an `xs` size (mono `xs` figure and unit) for dense rows such as catalog cards. Readiness wristbands: draft neutral, « En construction » warning (amber), ready success.
+
 ## Purpose
 
 This document records the current web component primitives and styling conventions visible in the repo. The shared design-system package exports tokens/icons; web primitives live under `apps/web/components/ui` and mobile primitives live under `apps/mobile/components/themed`.
