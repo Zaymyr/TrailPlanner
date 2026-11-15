@@ -88,6 +88,8 @@ related_tables:
 
 # Add New Mobile Screen
 
+Catalog query fix (2026-11-15): the mobile `EVENT_CATALOG_SELECT` requests `slug` on the embedded `races` rows (used to open `/courses/<slug>` deep links), not on `race_event_updates`, which has no such column. The misplaced column made PostgREST reject the whole catalog request (42703), so the development build showed no races.
+
 Mes courses (2026-11-15) uses `TrailTabs` (stretch) for « Mes plans / Je suis assistant » instead of a custom segmented control; the list inset follows the measured tab height, removing the extra gap above the first plan. The plan readiness wristband `inProgress` now reads « En construction » / « Under construction » with the `warning` (amber) tone. Catalog event cards (`RaceEventSummaryCard`, 2026-11-15) stack the format count and the distance range on the left in `Cote` size `xs`, rounded to whole kilometres (13–185 km; exact distances stay in the format sheet), so the fixed-width (172 pt) « Voir les distances » sign always fits on the right.
 
 Example of a full-screen secondary route: `app/(app)/courses/supporter-guide/[raceId].tsx` lives in the `(app)` group (public URL unchanged), is registered in `app/(app)/_layout.tsx` with `headerShown: false` and a hidden tab bar, and composes existing RaceBook primitives (`RacebookCollapsibleHero`, `RacebookTabBar`, `TrailTabs`, themed states) instead of a native stack header.
