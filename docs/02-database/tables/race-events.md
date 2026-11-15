@@ -97,6 +97,8 @@ related_tables:
 
 # `race_events`
 
+The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret accompagnateur, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret accompagnateur · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. The catalog event sheet opens the Livret accompagnateur from an interactive `TopoCard` placed before the distance list, and the guide's back action reopens that sheet through the existing `eventId` parameter plus a `sheet` nonce. No `race_events` read changes.
+
 The edition Supporter Guide reuses the published event identity, emergency contact and official/social links already frozen inside format publications. It does not broaden direct `race_events` reads or add event columns.
 
 Admin organizer responses may aggregate independent invoice summaries and exact feature grants through an event's editions. Those projections do not alter event publication, membership, dates or catalog visibility.

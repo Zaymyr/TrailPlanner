@@ -53,6 +53,8 @@ related_tables:
 
 # Public Race Discovery
 
+The web Supporter Guide programme is grouped by calendar day from the server `timeline`, with localized dates/distances and cutoffs labelled with their weekday when they fall after the race day.
+
 `/courses/supporter-guide/[raceId]` is the public, mobile-first Livret accompagnateur route. It is intentionally `noindex`, uses the same publication cache tags as RaceBook output, and returns unavailable when no visible format has a current immutable publication. Its UUID selects the edition; the payload may include every public, preview-visible published format in that edition.
 
 The public course practical section may show `thirdPartyPickupConditions` only when the bib-pickup module is public and third-party pickup is allowed. This additive copy does not participate in catalog eligibility, search, canonical identity, slug resolution, ISR visibility, or structured-data selection.

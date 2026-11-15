@@ -35,6 +35,7 @@ import { DataText } from '../../../../components/themed/DataText';
 import { Heading } from '../../../../components/themed/Heading';
 import { Text } from '../../../../components/themed/Text';
 import { RidgeDivider } from '../../../../components/themed/Ridge';
+import { TopoCard } from '../../../../components/themed/TopoCard';
 import { TrailTabs } from '../../../../components/themed/TrailTabs';
 import { OnboardingGuideCard } from '../../../../components/onboarding/OnboardingGuideCard';
 import { SpotlightTutorial } from '../../../../components/help/SpotlightTutorial';
@@ -73,7 +74,6 @@ import {
 } from '../../../../components/racebook/RacebookBibSection';
 import { RacebookGearSection } from '../../../../components/racebook/RacebookGearSection';
 import { RacebookServicesSection } from '../../../../components/racebook/RacebookServicesSection';
-import { RacebookSupporterPointsSection } from '../../../../components/racebook/RacebookSupporterPointsSection';
 import { RacebookPersonalPlanCard, RacebookPlanInviteCard } from '../../../../components/racebook/RacebookPersonalPlanCard';
 import { TapeAlertBanner } from '../../../../components/racebook/TapeAlertBanner';
 import { buildMapsSearchUrl } from '../../../../lib/racebookTextLinks';
@@ -129,7 +129,7 @@ import {
   resolveOfficialCutoffSchedule,
 } from '../../../../lib/racebookPlanReflection';
 import { resolveRacebookFinishStation } from '../../../../lib/racebookAidStationPresentation';
-import { hasVisibleRacebookSupporterPoints } from '../../../../lib/racebookSupporterPoints';
+import { resolveRacebookCourseTabKeys, type RacebookCourseTabKey } from '../../../../lib/racebookCourseTabs';
 import { WEB_API_BASE_URL } from '../../../../lib/webApi';
 import { isPlanSourceRevisionPending } from '../../../../lib/planSourceRevision';
 import { normalizeStoredPlanValues } from '../../../../lib/raceLivePlan';
@@ -143,7 +143,7 @@ import {
 } from '../../../../lib/racebookScreenMemory';
 
 type RacebookTabKey = 'gear' | 'bib' | 'course' | 'access' | 'services';
-type CourseTabKey = 'route' | 'start-waves' | 'aid-stations' | 'supporters' | 'relay' | 'awards';
+type CourseTabKey = RacebookCourseTabKey;
 
 const OFFICIAL_FINISH_CUTOFF_ID = '__official-finish__';
 
@@ -160,7 +160,7 @@ function normalizeRacebookTab(value: string | undefined): RacebookTabKey {
 }
 
 function normalizeCourseTab(value: string | undefined): CourseTabKey {
-  return value === 'route' || value === 'start-waves' || value === 'aid-stations' || value === 'supporters' || value === 'relay' || value === 'awards'
+  return value === 'route' || value === 'start-waves' || value === 'aid-stations' || value === 'relay' || value === 'awards'
     ? value
     : 'route';
 }
@@ -1331,31 +1331,28 @@ export default function RaceRacebookScreen() {
       : t.catalog.racebookCountdownDays.replace('{days}', String(raceCountdownDays));
 
   const courseTabs = useMemo(() => {
-    const availableTabs: { key: CourseTabKey; label: string }[] = [
-      { key: 'route', label: t.catalog.racebookCourseTabRoute },
-    ];
-    if (sponsorPresentation.modules.aid_stations) availableTabs.push({ key: 'aid-stations', label: t.catalog.racebookCourseTabAidStations });
-    if (hasVisibleRacebookSupporterPoints(data?.supporterPoints ?? [])) {
-      availableTabs.push({ key: 'supporters', label: t.catalog.racebookCourseTabSupporters });
-    }
-    if (sponsorPresentation.modules.relay && relaySegments.length > 0) {
-      availableTabs.push({ key: 'relay', label: t.catalog.racebookSectionRelay });
-    }
-    if (sponsorPresentation.modules.start_waves && (data?.startWaves.length ?? 0) > 0) availableTabs.splice(1, 0, { key: 'start-waves', label: t.catalog.racebookCourseTabStartWaves });
-    if (sponsorPresentation.modules.awards && (data?.awards.length ?? 0) > 0) availableTabs.push({ key: 'awards', label: t.catalog.racebookCourseTabAwards });
-
-    return availableTabs;
+    const labels: Record<CourseTabKey, string> = {
+      route: t.catalog.racebookCourseTabRoute,
+      'start-waves': t.catalog.racebookCourseTabStartWaves,
+      'aid-stations': t.catalog.racebookCourseTabAidStations,
+      relay: t.catalog.racebookSectionRelay,
+      awards: t.catalog.racebookCourseTabAwards,
+    };
+    return resolveRacebookCourseTabKeys({
+      aidStations: Boolean(sponsorPresentation.modules.aid_stations),
+      relay: Boolean(sponsorPresentation.modules.relay) && relaySegments.length > 0,
+      startWaves: Boolean(sponsorPresentation.modules.start_waves) && (data?.startWaves.length ?? 0) > 0,
+      awards: Boolean(sponsorPresentation.modules.awards) && (data?.awards.length ?? 0) > 0,
+    }).map((key) => ({ key, label: labels[key] }));
   }, [
     relaySegments.length,
     data?.startWaves.length,
     data?.awards.length,
-    data?.supporterPoints,
     sponsorPresentation.modules,
     t.catalog.racebookCourseTabAidStations,
     t.catalog.racebookCourseTabAwards,
     t.catalog.racebookCourseTabRoute,
     t.catalog.racebookCourseTabStartWaves,
-    t.catalog.racebookCourseTabSupporters,
     t.catalog.racebookSectionRelay,
   ]);
 
@@ -1825,11 +1822,11 @@ export default function RaceRacebookScreen() {
     const url = `${WEB_API_BASE_URL}/courses/supporter-guide/${encodeURIComponent(id)}`;
     captureRacebookInteraction('racebook action clicked', { action: 'supporter_guide_shared' });
     void Share.share({
-      title: locale === 'fr' ? 'Livret accompagnateur' : 'Supporter Guide',
-      message: locale === 'fr' ? `Livret accompagnateur de l’événement : ${url}` : `Supporter Guide for this event: ${url}`,
+      title: t.supporterGuide.shareTitle,
+      message: t.supporterGuide.shareMessage.replace('{url}', url),
       url,
-    }).catch(() => Alert.alert(t.common.error, locale === 'fr' ? 'Le partage a échoué.' : 'Sharing failed.'));
-  }, [captureRacebookInteraction, id, locale, t.common.error]);
+    }).catch(() => Alert.alert(t.common.error, t.supporterGuide.shareFailed));
+  }, [captureRacebookInteraction, id, t.common.error, t.supporterGuide]);
 
   const exitRacebookToCatalog = useCallback(() => {
     if (exitingToCatalogRef.current) return;
@@ -2338,18 +2335,24 @@ export default function RaceRacebookScreen() {
                   />
                 </View>
 
-                {data.supporterGuideAvailable ? <Pressable
-                  accessibilityRole="button"
-                  onPress={shareSupporterGuide}
-                  style={({ pressed }) => [styles.supporterGuideShare, pressed && styles.supporterGuideSharePressed]}
-                >
-                  <Ionicons name="people-outline" size={19} color={Colors.brandPrimary} />
-                  <View style={styles.supporterGuideShareCopy}>
-                    <Text style={styles.supporterGuideShareTitle}>{locale === 'fr' ? 'Livret accompagnateur' : 'Supporter Guide'}</Text>
-                    <Text style={styles.supporterGuideShareBody}>{locale === 'fr' ? 'Partager à mes proches' : 'Share with my supporters'}</Text>
-                  </View>
-                  <Ionicons name="share-social-outline" size={18} color={Colors.brandPrimary} />
-                </Pressable> : null}
+                {data.supporterGuideAvailable ? (
+                  <TopoCard
+                    accessibilityLabel={`${t.supporterGuide.shareTitle}, ${t.supporterGuide.shareAction}`}
+                    accessibilityRole="button"
+                    onPress={shareSupporterGuide}
+                    style={styles.supporterGuideShare}
+                    variant="interactive"
+                  >
+                    <View style={styles.supporterGuideShareRow}>
+                      <Ionicons name="people-outline" size={20} color={Colors.brandPrimary} />
+                      <View style={styles.supporterGuideShareCopy}>
+                        <Text style={styles.supporterGuideShareTitle}>{t.supporterGuide.shareTitle}</Text>
+                        <Text style={styles.supporterGuideShareBody}>{t.supporterGuide.shareAction}</Text>
+                      </View>
+                      <Ionicons name="share-social-outline" size={18} color={Colors.brandPrimary} />
+                    </View>
+                  </TopoCard>
+                ) : null}
 
                 <RacebookPersonalPlanCard
                   hasPlan={Boolean(linkedPlanId)}
@@ -2537,17 +2540,7 @@ export default function RaceRacebookScreen() {
                   />
                   </>
                 ) : null}
-                {activeCourseTab === 'supporters' ? (
-                  <RacebookSupporterPointsSection
-                    locale={locale}
-                    points={data.supporterPoints}
-                    onOpenUrl={(url, action) => openTrackedUrl(
-                      url,
-                      action === 'directions' ? 'supporter_directions_opened' : 'supporter_plan_opened',
-                    )}
-                  />
-                ) : null}
-                {showPlanInvite && activeCourseTab !== 'supporters' ? (
+                {showPlanInvite ? (
                   <RacebookPlanInviteCard
                     accentColor={brandTheme.primaryForegroundColor}
                     disabled={planCtaBusy}
@@ -3283,20 +3276,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textDecorationLine: 'underline',
   },
-  supporterGuideShare: {
-    minHeight: 64,
-    marginHorizontal: 16,
-    marginBottom: 12,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-    borderRadius: 16,
-    backgroundColor: Colors.brandSurface,
-  },
-  supporterGuideSharePressed: { opacity: 0.68 },
+  supporterGuideShare: { marginBottom: 4 },
+  supporterGuideShareRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   supporterGuideShareCopy: { flex: 1 },
   supporterGuideShareTitle: { color: Colors.textPrimary, fontSize: 15, lineHeight: 20, fontWeight: '800' },
   supporterGuideShareBody: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },

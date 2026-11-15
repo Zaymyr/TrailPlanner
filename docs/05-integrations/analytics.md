@@ -79,6 +79,8 @@ related_tables:
 
 # Analytics
 
+The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret accompagnateur, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret accompagnateur · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. With the sub-tab gone the runner RaceBook no longer emits `supporter_directions_opened` / `supporter_plan_opened`; Supporter Guide interactions are not tracked yet. The catalog event sheet opens the Livret accompagnateur from an interactive `TopoCard` placed before the distance list, and the guide's back action reopens that sheet through the existing `eventId` parameter plus a `sheet` nonce.
+
 Organizer analytics access is checked against the active plan plus the exact `capability.racebook_analytics` feature grant. A different Signature feature gift must not authorize analytics, and manual invoice creation or settlement has no analytics effect.
 
 Organizer course-point autosave now waits for the active-format sidecars and no longer resets them after a same-format response. Successful save analytics retain their existing event names and fields; blocked pre-load saves emit no false successful-update event.

@@ -39,6 +39,8 @@ related_tables:
 
 # race_event_edition_sponsors
 
+The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret accompagnateur, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret accompagnateur · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. Sponsor rows, placements and counters are unchanged.
+
 Supporter Guide v1 does not add a sponsor placement. It reuses only the already-published lodging partner slot, preserving the effective `sponsors` gate and counted-redirect privacy boundary.
 
 Sponsor authoring and public sponsor endpoints accept the exact `module.sponsors` gift when Signature is not active. Other feature gifts and all invoice states remain insufficient; sponsor storage, counters and RLS are unchanged.

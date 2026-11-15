@@ -24,6 +24,8 @@ related_tables:
 
 # `racebook_gear_checks`
 
+The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret accompagnateur, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret accompagnateur · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. Gear-check rows and their RLS are unchanged.
+
 Removing the supporter subtab and adding the Supporter Guide share entry do not change runner gear-check storage, ownership or synchronization.
 
 The shared RaceBook screen now also renders additive bib-pickup conditions. Material checklist keys, optimistic persistence, account/race ownership, and organizer-equipment immutability remain unchanged.

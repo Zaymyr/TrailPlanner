@@ -19,6 +19,8 @@ related_tables:
 
 # Pacing Algorithm
 
+`packages/shared/src/index.ts` also re-exports `racebook-cutoffs` (official cutoff resolution for the Supporter Guide); pacing exports are unchanged.
+
 The additional `@trailplanner/shared` Supporter Guide export is a transport DTO only. It does not calculate, persist or modify pacing, ETA interpolation or nutrition inputs.
 
 ## Assistant timeline interpolation

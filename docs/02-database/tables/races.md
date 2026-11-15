@@ -71,6 +71,8 @@ related_tables:
 
 # `races`
 
+The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret accompagnateur, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret accompagnateur · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. No `races` column or read changes.
+
 `/courses/supporter-guide/[raceId]` uses one public format UUID only to resolve its edition, then includes qualifying preview-visible published formats. It does not add race columns and excludes masked formats.
 
 Format `organizer_details.bibPickup` may now include nullable `thirdPartyPickupConditions` as part of a complete format override. Event inheritance and the existing `overrideEnabled` boundary remain authoritative; no relational race column, publication flag, or catalog rule changes.

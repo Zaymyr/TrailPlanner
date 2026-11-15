@@ -24,6 +24,8 @@ related_tables:
 
 # `race_start_waves`
 
+The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret accompagnateur, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret accompagnateur · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. SAS rows and time authority are unchanged; the Supporter Guide programme lists each published wave as a dated start.
+
 Published waves feed each format’s start entries in the Supporter Guide Programme timeline. Missing waves fall back to the published common start time; the `start_waves` module gate remains authoritative.
 
 The shared mobile RaceBook screen now also reads additive bib-pickup conditions. SAS ordering, time precedence, structured replacement, module visibility, and RLS remain unchanged.

@@ -14,7 +14,7 @@ describe('buildRacebookTourSteps', () => {
       hasLastMinuteMessage: true,
       headerTarget: 'emergency',
       tabs: [...ALL_TABS],
-      courseTabs: ['route', 'aid-stations', 'supporters'],
+      courseTabs: ['route', 'aid-stations', 'relay'],
     });
 
     expect(steps.map((step) => step.key)).toEqual([
@@ -52,10 +52,10 @@ describe('buildRacebookTourSteps', () => {
       hasLastMinuteMessage: false,
       headerTarget: null,
       tabs: ['course'],
-      courseTabs: ['route', 'supporters'],
+      courseTabs: ['route', 'awards'],
     });
 
-    expect(steps.find((step) => step.key === 'courseTabs')?.courseTab).toBe('supporters');
+    expect(steps.find((step) => step.key === 'courseTabs')?.courseTab).toBe('awards');
   });
 });
 

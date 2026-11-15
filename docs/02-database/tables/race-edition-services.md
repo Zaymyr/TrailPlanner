@@ -23,6 +23,8 @@ related_tables:
 
 # `race_edition_services`
 
+The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret accompagnateur, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret accompagnateur · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. Edition-service reads and visibility are unchanged; the guide's Sur place and Séjour sections render the same rows through `RacebookServicesSection`.
+
 The Supporter Guide groups published `recovery`/`other` rows under On site and `restaurant`/`accommodation` rows under Stay. Empty groups are hidden and the whole source remains subject to the effective `services` module.
 
 The shared mobile RaceBook screen now also renders additive third-party bib-pickup conditions from organizer JSON. Service categories, edition ownership, structured precedence, publication gates, and RLS remain unchanged.

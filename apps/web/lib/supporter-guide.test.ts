@@ -41,6 +41,54 @@ describe("Supporter Guide aggregator", () => {
     expect(guide?.lodgingPartner).toMatchObject({ mode: "affiliate", clickUrl: "https://affiliate.example.com" });
   });
 
+  it("resolves organizer cutoff wording over several days and sorts the programme", async () => {
+    const secondRaceId = "55555555-5555-4555-8555-555555555555";
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      if (url.includes("race_event_editions")) return Response.json([{ id: editionId, event_id: eventId, start_date: "2026-11-13", end_date: "2026-11-15", race_events: { name: "Bibracte", location: "Glux", thumbnail_url: null } }]);
+      if (url.includes("partner_link_settings")) return Response.json([]);
+      return Response.json([
+        { id: raceId, event_id: eventId, edition_id: editionId, name: "Ultra", is_live: true, racebook_is_live: true, racebook_preview_is_visible: true },
+        { id: secondRaceId, event_id: eventId, edition_id: editionId, name: "Court", is_live: true, racebook_is_live: true, racebook_preview_is_visible: true },
+      ]);
+    }));
+    const base = { awardRows: [], supporterPointRows: [], editionServiceRows: [], partnerSlots: [], publishedAt: "2026-11-01T10:00:00Z", modules: { supporter_guide: true } };
+    mocks.loadPublished.mockImplementation(async (_config: unknown, race: { id: string }) => race.id === raceId ? {
+      ...base,
+      publicationId: "66666666-6666-4666-8666-666666666666",
+      raceRow: { id: raceId, name: "Ultra", distance_km: 184.7, race_date: "2026-11-13", organizer_details: { schedule: { startTime: "14:00", finishCutoffTime: "dim. 15/11 à 14h" } } },
+      startWaveRows: [],
+      stationRows: [
+        { id: "r1", name: "Roussillon", km: 27, order_index: 1, organizer_details: { cutoffTime: "sam. 01h00" } },
+        { id: "r2", name: "Saint-Prix", km: 120, order_index: 2, organizer_details: { cutoffTime: "samedi 21h" } },
+        { id: "f", name: "Arrivée", km: 184.7, order_index: 3, organizer_details: {} },
+      ],
+    } : {
+      ...base,
+      publicationId: "77777777-7777-4777-8777-777777777777",
+      raceRow: { id: secondRaceId, name: "Court", distance_km: 13.1, race_date: "2026-11-13", organizer_details: { schedule: { startTime: "10:00" } } },
+      startWaveRows: [{ id: "w2", name: "SAS 2", start_time: "09:30:00", order_index: 2 }, { id: "w1", name: "SAS 1", start_time: "09:00:00", order_index: 1 }],
+      stationRows: [],
+    });
+
+    const guide = await loadSupporterGuide(config, editionId, false);
+    expect(guide?.formats.map((format) => format.name)).toEqual(["Court", "Ultra"]);
+    const ultra = guide!.formats[1]!;
+    expect(ultra.aidStations.map((station) => station.cutoff)).toEqual([
+      { date: "2026-11-14", time: "01:00", dayOffset: 1 },
+      { date: "2026-11-14", time: "21:00", dayOffset: 1 },
+      { date: "2026-11-15", time: "14:00", dayOffset: 2 },
+    ]);
+    expect(ultra.aidStations[0]?.cutoffTime).toBe("01:00");
+    expect(ultra.aidStations[2]?.isFinish).toBe(true);
+    expect(ultra.finishCutoff).toEqual({ date: "2026-11-15", time: "14:00", dayOffset: 2 });
+    expect(guide?.timeline?.map((entry) => `${entry.date} ${entry.time} ${entry.kind} ${entry.label ?? entry.raceName}`)).toEqual([
+      "2026-11-13 09:00 start SAS 1",
+      "2026-11-13 09:30 start SAS 2",
+      "2026-11-13 14:00 start Ultra",
+      "2026-11-15 14:00 finish_cutoff Ultra",
+    ]);
+  });
+
   it("is unavailable without an enabled published guide", async () => {
     mocks.loadPublished.mockResolvedValue(null);
     await expect(loadSupporterGuide(config, editionId, false)).resolves.toBeNull();
