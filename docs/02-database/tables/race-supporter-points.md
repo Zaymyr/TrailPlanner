@@ -1,7 +1,8 @@
 ---
 title: race_supporter_points
 scope: database
-last_verified: 2026-11-09
+last_verified: 2026-11-15
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: high
 related_files:
   - supabase/migrations/20261029091807_add_race_supporter_points.sql

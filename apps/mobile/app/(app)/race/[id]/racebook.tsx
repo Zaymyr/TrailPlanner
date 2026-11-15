@@ -1481,8 +1481,11 @@ export default function RaceRacebookScreen() {
           cutoff: Math.abs(station.km - data.race.distanceKm) <= 0.2
             ? finishCutoffText ?? station.organizerDetails.cutoffTime
             : station.organizerDetails.cutoffTime,
+          dayOffset: Math.abs(station.km - data.race.distanceKm) <= 0.2
+            ? data.runnerDetails.schedule.finishCutoffDayOffset ?? station.organizerDetails.cutoffDayOffset
+            : station.organizerDetails.cutoffDayOffset,
         })),
-      { id: OFFICIAL_FINISH_CUTOFF_ID, km: Math.max(data.race.distanceKm, finishStation?.km ?? 0), cutoff: finishCutoffText },
+      { id: OFFICIAL_FINISH_CUTOFF_ID, km: Math.max(data.race.distanceKm, finishStation?.km ?? 0), cutoff: finishCutoffText, dayOffset: data.runnerDetails.schedule.finishCutoffDayOffset ?? finishStation?.organizerDetails.cutoffDayOffset },
     ]);
     const { [OFFICIAL_FINISH_CUTOFF_ID]: finishMinute = null, ...byStationId } = schedule;
     if (finishStation && finishMinute !== null) byStationId[finishStation.id] = finishMinute;

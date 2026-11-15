@@ -1,7 +1,8 @@
 ---
 title: Geocoding
 scope: integration
-last_verified: 2026-11-14
+last_verified: 2026-11-15
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: medium
 # Organizer UI note (2026-11-13): wider address fields do not change autocomplete, inherited-location behavior, or stored coordinates.
 # Information grid note (2026-11-13): location alignment remains independent from the responsive social-link grid.

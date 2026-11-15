@@ -37,6 +37,7 @@ export function AidStationsEditor({
   startTime,
   startWaveCount,
   finishCutoffTime,
+  finishCutoffDayOffset,
   cutoffNote,
   scheduleNote,
   startWavesSlot,
@@ -47,6 +48,7 @@ export function AidStationsEditor({
   onAddSupporterPoint,
   onStartTimeChange,
   onFinishCutoffTimeChange,
+  onFinishCutoffDayOffsetChange,
   onCutoffNoteChange,
   onScheduleNoteChange,
   onUpdateStation,
@@ -77,6 +79,7 @@ export function AidStationsEditor({
   startTime: string;
   startWaveCount: number;
   finishCutoffTime: string;
+  finishCutoffDayOffset: number | null;
   cutoffNote: string;
   scheduleNote: string;
   startWavesSlot: ReactNode;
@@ -87,6 +90,7 @@ export function AidStationsEditor({
   onAddSupporterPoint: () => void;
   onStartTimeChange: (value: string) => void;
   onFinishCutoffTimeChange: (value: string) => void;
+  onFinishCutoffDayOffsetChange: (value: number) => void;
   onCutoffNoteChange: (value: string) => void;
   onScheduleNoteChange: (value: string) => void;
   onUpdateStation: (index: number, station: AidStationDraft) => void;
@@ -153,13 +157,13 @@ export function AidStationsEditor({
     ...sortedRelayPoints,
     { name: "Arrivée", distanceKm: activeRace.distance_km },
   ];
-  const courseTimelinePoints: Array<{ key: string; kind: TimelineKind; name: string; distanceKm: number; time: string; index: number }> = [
-    { key: "start", kind: "start" as const, name: "Départ", distanceKm: 0, time: startTime, index: -1 },
-    { key: "sas", kind: "sas" as const, name: startWaveCount > 0 ? `${startWaveCount} SAS de départ` : "Aucun SAS", distanceKm: 0, time: "", index: -1 },
-    ...aidStations.map((station, index) => ({ key: station.id ?? `new-${index}`, kind: "aid" as const, name: station.name || `Ravito ${index + 1}`, distanceKm: station.distanceKm, time: station.organizerDetails.cutoffTime ?? "", index })),
-    ...supporterPoints.map((point, index) => ({ key: point.id ?? `supporter-${index}`, kind: "supporter" as const, name: point.name || `Suivi ${index + 1}`, distanceKm: point.distanceKm ?? 0, time: "", index })),
-    ...relayPoints.filter((point) => !point.raceAidStationId).map((point, index) => ({ key: point.id ?? `relay-${index}`, kind: "relay" as const, name: point.name || `Relais ${index + 1}`, distanceKm: point.distanceKm, time: point.cutoffTime, index })),
-    { key: "finish", kind: "finish" as const, name: "Arrivée", distanceKm: activeRace.distance_km, time: finishCutoffTime, index: -1 },
+  const courseTimelinePoints: Array<{ key: string; kind: TimelineKind; name: string; distanceKm: number; time: string; dayOffset: number | null; index: number }> = [
+    { key: "start", kind: "start" as const, name: "Départ", distanceKm: 0, time: startTime, dayOffset: 0, index: -1 },
+    { key: "sas", kind: "sas" as const, name: startWaveCount > 0 ? `${startWaveCount} SAS de départ` : "Aucun SAS", distanceKm: 0, time: "", dayOffset: null, index: -1 },
+    ...aidStations.map((station, index) => ({ key: station.id ?? `new-${index}`, kind: "aid" as const, name: station.name || `Ravito ${index + 1}`, distanceKm: station.distanceKm, time: station.organizerDetails.cutoffTime ?? "", dayOffset: station.organizerDetails.cutoffDayOffset, index })),
+    ...supporterPoints.map((point, index) => ({ key: point.id ?? `supporter-${index}`, kind: "supporter" as const, name: point.name || `Suivi ${index + 1}`, distanceKm: point.distanceKm ?? 0, time: "", dayOffset: null, index })),
+    ...relayPoints.filter((point) => !point.raceAidStationId).map((point, index) => ({ key: point.id ?? `relay-${index}`, kind: "relay" as const, name: point.name || `Relais ${index + 1}`, distanceKm: point.distanceKm, time: point.cutoffTime, dayOffset: null, index })),
+    { key: "finish", kind: "finish" as const, name: "Arrivée", distanceKm: activeRace.distance_km, time: finishCutoffTime, dayOffset: finishCutoffDayOffset, index: -1 },
   ].sort((left, right) => left.distanceKm - right.distanceKm || TIMELINE_KIND_ORDER[left.kind] - TIMELINE_KIND_ORDER[right.kind]);
   const linkedRelayStationIds = new Set(relayPoints.map((point) => point.raceAidStationId).filter(Boolean));
   const visibleTimelinePoints = courseTimelinePoints.filter((point) => {
@@ -280,7 +284,7 @@ export function AidStationsEditor({
                     <span className="mt-0.5 flex flex-wrap items-center gap-1">
                       {isLifeBase ? <span className="rounded bg-brand px-1.5 text-[11px] font-semibold leading-5 text-brand-foreground">Base de vie</span> : null}
                       {point.kind === "start" && point.time ? <span className="font-mono text-xs tabular-nums text-muted-foreground">{normalizeClockInputValue(point.time)}</span> : null}
-                      {showsCutoff ? <CutoffChip time={normalizeClockInputValue(point.time) ?? ""} /> : null}
+                      {showsCutoff ? <CutoffChip time={normalizeClockInputValue(point.time) ?? ""} dayOffset={point.dayOffset} /> : null}
                       {station ? <ServiceLetters station={station} /> : null}
                       {supporter ? (
                         <span className="text-[11px] text-sky-800 dark:text-sky-200">{[supporter.encouragementAllowed && "Encouragements", supporter.assistanceAllowed && "Assistance"].filter(Boolean).join(" · ") || "À configurer"}</span>
@@ -341,7 +345,7 @@ export function AidStationsEditor({
                   <div><p className="font-semibold text-foreground">{selectedAidStation.name || `Ravito ${selectedAidStationIndex + 1}`}</p><p className="text-xs text-muted-foreground">{formatKm(selectedAidStation.distanceKm)}</p></div>
                 </div>
               </header>
-              <StationDetailsPanel station={selectedAidStation} onChange={(next) => onUpdateStation(selectedAidStationIndex, next)} onRemove={() => setPendingStationRemoval({ index: selectedAidStationIndex, name: selectedAidStation.name || `Ravito ${selectedAidStationIndex + 1}` })} productsSlot={selectedProductsSlot} servicesSlot={(
+              <StationDetailsPanel station={selectedAidStation} startTime={startTime} onChange={(next) => onUpdateStation(selectedAidStationIndex, next)} onRemove={() => setPendingStationRemoval({ index: selectedAidStationIndex, name: selectedAidStation.name || `Ravito ${selectedAidStationIndex + 1}` })} productsSlot={selectedProductsSlot} servicesSlot={(
                 <fieldset className="space-y-2">
                   <legend className="text-sm font-medium text-foreground">Sur place</legend>
                   <div className="flex flex-wrap gap-2">
@@ -401,8 +405,8 @@ export function AidStationsEditor({
                       <div className="grid items-end gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(8rem,1fr)_minmax(10rem,1fr)_minmax(10rem,1fr)_2.5rem]">
                         <TextField label="Nom du point" value={point.name} onChange={(value) => onUpdateRelayPoint(index, { ...point, name: value })} disabled={Boolean(linkedStation)} />
                         <NumberField label="Distance km" value={point.distanceKm} onChange={(value) => onUpdateRelayPoint(index, { ...point, distanceKm: value })} disabled={Boolean(linkedStation)} />
-                        <TextField label="Barrière horaire" value={point.cutoffTime} onChange={(value) => onUpdateRelayPoint(index, { ...point, cutoffTime: value })} />
-                        <TextField label="Heure de transmission" type="time" value={point.handoverTime} onChange={(value) => onUpdateRelayPoint(index, { ...point, handoverTime: value })} />
+                        <TextField label="Barrière horaire" type="time" value={normalizeClockInputValue(point.cutoffTime) ?? ""} onChange={(value) => onUpdateRelayPoint(index, { ...point, cutoffTime: normalizeClockInputValue(value) ?? value })} />
+                        <TextField label="Heure de transmission" type="time" value={normalizeClockInputValue(point.handoverTime) ?? ""} onChange={(value) => onUpdateRelayPoint(index, { ...point, handoverTime: normalizeClockInputValue(value) ?? value })} />
                         <Button
                           type="button"
                           variant="ghost"
@@ -435,7 +439,13 @@ export function AidStationsEditor({
       <section className="grid gap-4 rounded-xl border border-border bg-background p-4 md:grid-cols-2" aria-label="Horaires et consignes de course">
         <p className="font-semibold text-foreground md:col-span-2">Horaires et consignes</p>
         <TextField label={startWaveCount > 0 ? "Premier départ" : "Heure de départ"} hint={startWaveCount > 0 ? "Piloté par les SAS : modifie l’heure dans l’onglet SAS." : undefined} type="time" value={normalizeClockInputValue(startTime) ?? ""} onChange={onStartTimeChange} disabled={startWaveCount > 0} />
-        <TextField id="course-finish-cutoff" label="Barrière finale" type="time" value={normalizeClockInputValue(finishCutoffTime) ?? ""} onChange={onFinishCutoffTimeChange} />
+        <div className="space-y-2">
+          <TextField id="course-finish-cutoff" label="Barrière finale" type="time" value={normalizeClockInputValue(finishCutoffTime) ?? ""} onChange={(value) => {
+            onFinishCutoffTimeChange(value);
+            if (finishCutoffDayOffset === null) onFinishCutoffDayOffsetChange(suggestCutoffDayOffset(startTime, value));
+          }} />
+          <CutoffDayChoice value={finishCutoffDayOffset ?? suggestCutoffDayOffset(startTime, finishCutoffTime)} onChange={onFinishCutoffDayOffsetChange} />
+        </div>
         <TextAreaField label="Consignes de barrières horaires" value={cutoffNote} onChange={onCutoffNoteChange} />
         <TextAreaField label="Contraintes et consignes de course" value={scheduleNote} onChange={onScheduleNoteChange} />
       </section>
@@ -674,7 +684,7 @@ function FixedCourseCard({
   );
 }
 
-function StationDetailsPanel({ station, onChange, onRemove, productsSlot, servicesSlot }: { station: AidStationDraft; onChange: (station: AidStationDraft) => void; onRemove: () => void; productsSlot: ReactNode; servicesSlot: ReactNode }) {
+function StationDetailsPanel({ station, startTime, onChange, onRemove, productsSlot, servicesSlot }: { station: AidStationDraft; startTime: string; onChange: (station: AidStationDraft) => void; onRemove: () => void; productsSlot: ReactNode; servicesSlot: ReactNode }) {
   const details = station.organizerDetails;
   return (
     <div className="space-y-5 p-4">
@@ -702,8 +712,10 @@ function StationDetailsPanel({ station, onChange, onRemove, productsSlot, servic
           />
         </div>
         <NumberField label="Altitude (m)" value={details.altitudeM ?? 0} step="1" onChange={(altitudeM) => onChange({ ...station, organizerDetails: { ...details, altitudeM } })} />
-        <div>
-          <TextField label="Barrière horaire" value={details.cutoffTime ?? ""} onChange={(value) => onChange({ ...station, organizerDetails: { ...details, cutoffTime: value || null } })} />
+        <div className="space-y-2">
+          <TextField label="Barrière horaire" type="time" value={normalizeClockInputValue(details.cutoffTime) ?? ""} onChange={(value) => onChange({ ...station, organizerDetails: { ...details, cutoffTime: value || null, cutoffDayOffset: details.cutoffDayOffset ?? suggestCutoffDayOffset(startTime, value) } })} />
+          <CutoffDayChoice value={details.cutoffDayOffset ?? suggestCutoffDayOffset(startTime, details.cutoffTime ?? "")} onChange={(cutoffDayOffset) => onChange({ ...station, organizerDetails: { ...details, cutoffDayOffset } })} />
+          {details.cutoffTime && normalizeClockInputValue(details.cutoffTime) === null ? <p className="text-xs font-medium text-amber-700">Barrière à vérifier : {details.cutoffTime}</p> : null}
         </div>
       </div>
 
@@ -780,14 +792,24 @@ function ClockGlyph() {
   );
 }
 
-function CutoffChip({ time }: { time: string }) {
+function CutoffChip({ time, dayOffset }: { time: string; dayOffset?: number | null }) {
   if (!time) return <span className="rounded border border-dashed border-border px-1.5 text-[11px] leading-5 text-muted-foreground" title="Aucune barrière horaire">Sans barrière</span>;
   return (
     <span className="inline-flex items-center gap-1 rounded border border-border bg-background px-1.5 font-mono text-[11px] leading-5 tabular-nums text-foreground" title="Barrière horaire">
       <ClockGlyph />
-      {time}
+      {dayOffset && dayOffset > 0 ? `J+${dayOffset} · ${time}` : time}
     </span>
   );
+}
+
+function suggestCutoffDayOffset(startTime: string, cutoffTime: string) {
+  const start = normalizeClockInputValue(startTime);
+  const cutoff = normalizeClockInputValue(cutoffTime);
+  return start && cutoff && cutoff < start ? 1 : 0;
+}
+
+function CutoffDayChoice({ value, onChange }: { value: number; onChange: (value: number) => void }) {
+  return <SegmentedChoice label="Jour de la barrière" value={String(Math.min(value, 2))} options={[{ value: "0", label: "J" }, { value: "1", label: "J+1" }, { value: "2", label: "J+2" }] as const} onChange={(next) => onChange(Number(next))} />;
 }
 
 function ServiceLetters({ station }: { station: AidStationDraft }) {

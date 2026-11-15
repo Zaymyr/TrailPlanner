@@ -2,7 +2,8 @@
 title: Affiliate Partner Links
 scope: integration
 
-last_verified: 2026-11-13
+last_verified: 2026-11-15
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 
 ai_priority: medium
 related_files:

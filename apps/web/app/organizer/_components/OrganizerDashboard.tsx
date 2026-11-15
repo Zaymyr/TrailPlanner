@@ -3947,6 +3947,7 @@ export function OrganizerDashboard({
               startTime={currentStartTime}
               startWaveCount={currentStartWaveCount}
               finishCutoffTime={raceForm.organizerDetails.schedule.finishCutoffTime ?? ""}
+              finishCutoffDayOffset={raceForm.organizerDetails.schedule.finishCutoffDayOffset}
               cutoffNote={raceForm.organizerDetails.schedule.cutoffNote ?? ""}
               scheduleNote={raceForm.organizerDetails.schedule.note ?? ""}
               startWavesSlot={(
@@ -4080,6 +4081,12 @@ export function OrganizerDashboard({
                       schedule: { ...raceForm.organizerDetails.schedule, finishCutoffTime: value || null },
                     },
                   },
+                  "aidStations"
+                )
+              }
+              onFinishCutoffDayOffsetChange={(finishCutoffDayOffset) =>
+                updateRaceForm(
+                  { organizerDetails: { ...raceForm.organizerDetails, schedule: { ...raceForm.organizerDetails.schedule, finishCutoffDayOffset } } },
                   "aidStations"
                 )
               }

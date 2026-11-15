@@ -1,7 +1,8 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-11-14
+last_verified: 2026-11-15
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: high
 # Organizer shell (2026-11-13): the 1440px workspace switches at 1320px to a 240px / flexible / 300px grid; media-heavy editors span the two content columns.
 # Aid-station editor (2026-11-13): the course timeline is the selection list, with one adjacent detail panel on desktop and a full-screen detail surface after selection on mobile; arrow keys move between aid stations.

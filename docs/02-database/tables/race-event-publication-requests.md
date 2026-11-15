@@ -1,7 +1,8 @@
 ---
 title: race_event_publication_requests Table
 scope: database
-last_verified: 2026-11-14
+last_verified: 2026-11-15
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: high
 # Organizer UI note (2026-11-13): publication controls keep their behavior in the wider shell; the contextual rail is presentation-only.
 # Validation UI note (2026-11-13): Requis badges expose existing prerequisites and do not change publication request rules.

@@ -50,8 +50,8 @@ describe("/api/organizer/races/[id]/relay-points", () => {
         {
           name: "Village",
           distanceKm: 45,
-          handoverTime: "13:00",
-          cutoffTime: "13:30",
+          handoverTime: "13h",
+          cutoffTime: "13h30",
           notes: "Navette disponible",
         },
         {
@@ -85,6 +85,8 @@ describe("/api/organizer/races/[id]/relay-points", () => {
           race_aid_station_id: null,
           name: "Village",
           km: 45,
+          handover_time: "13:00",
+          cutoff_time: "13:30",
           order_index: 1,
         },
       ],

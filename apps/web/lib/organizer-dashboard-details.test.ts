@@ -7,6 +7,7 @@ import {
   defaultOrganizerRaceDetails,
   hasOrganizerEquipmentLabelPrefix,
   parseOrganizerEventDetails,
+  parseOrganizerAidStationDetails,
   parseOrganizerRaceDetails,
 } from "./organizer-dashboard-details";
 
@@ -20,6 +21,25 @@ describe("parseOrganizerRaceDetails", () => {
       showRoute: false,
       showElevationProfile: true,
     });
+  });
+
+  it("keeps legacy schedules compatible and normalizes structured finish cutoffs", () => {
+    expect(parseOrganizerRaceDetails({ schedule: { finishCutoffTime: "9h" } }).schedule).toMatchObject({
+      finishCutoffTime: "09:00",
+      finishCutoffDayOffset: null,
+    });
+    expect(parseOrganizerRaceDetails({ schedule: { finishCutoffTime: "03:00", finishCutoffDayOffset: 2 } }).schedule).toMatchObject({
+      finishCutoffTime: "03:00",
+      finishCutoffDayOffset: 2,
+    });
+  });
+});
+
+describe("parseOrganizerAidStationDetails", () => {
+  it("normalizes standalone legacy clocks without discarding rich text", () => {
+    expect(parseOrganizerAidStationDetails({ cutoffTime: "9h" })).toMatchObject({ cutoffTime: "09:00", cutoffDayOffset: null });
+    expect(parseOrganizerAidStationDetails({ cutoffTime: "dimanche vers 9h" }).cutoffTime).toBe("dimanche vers 9h");
+    expect(parseOrganizerAidStationDetails({ cutoffTime: "03:00", cutoffDayOffset: 1 })).toMatchObject({ cutoffTime: "03:00", cutoffDayOffset: 1 });
   });
 });
 

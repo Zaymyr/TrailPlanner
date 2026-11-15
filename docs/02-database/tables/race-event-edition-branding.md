@@ -1,7 +1,8 @@
 ---
 title: race_event_edition_branding
 scope: database
-last_verified: 2026-11-13
+last_verified: 2026-11-15
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: high
 # Organizer UI note (2026-11-13): branding preview uses the contextual rail on wide screens; logo and color draft/publish contracts are unchanged.
 related_files:

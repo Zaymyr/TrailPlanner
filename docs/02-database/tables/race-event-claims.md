@@ -1,7 +1,8 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-11-14
+last_verified: 2026-11-15
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: high
 # Organizer UI note (2026-11-13): workspace sizing is presentation-only; claim and membership authorization remain unchanged.
 # Aid-station UI note (2026-11-13): timeline/detail presentation does not alter organizer membership authorization.

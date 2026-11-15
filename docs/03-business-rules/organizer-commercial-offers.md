@@ -1,7 +1,8 @@
 ---
 title: Organizer Commercial Offers
 scope: business-rule
-last_verified: 2026-11-14
+last_verified: 2026-11-15
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: high
 # Organizer UI note (2026-11-13): completion yields the contextual rail to media-heavy editors; offer and completion rules are unchanged.
 # Form note (2026-11-13): required badges are presentation of existing completion prerequisites and do not add offer gates.

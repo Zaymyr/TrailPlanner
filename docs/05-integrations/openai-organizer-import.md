@@ -1,7 +1,8 @@
 ---
 title: OpenAI Organizer Import Reconciliation
 scope: integration
-last_verified: 2026-11-13
+last_verified: 2026-11-15
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: high
 # Organizer UI note (2026-11-13): imported fields keep the same reconciliation contract while media controls may render in the contextual rail.
 # Form UI note (2026-11-13): imported social fields share the responsive information grid; reconciliation remains unchanged.

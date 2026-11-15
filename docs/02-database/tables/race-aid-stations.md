@@ -1,7 +1,8 @@
 ---
 title: race_aid_stations Table
 scope: database
-last_verified: 2026-11-05
+last_verified: 2026-11-15
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: high
 related_files:
   - supabase/migrations/20261105082511_enrich_saintelyon_2026_formats.sql

@@ -1,7 +1,8 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-11-13
+last_verified: 2026-11-15
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: medium
 # Organizer UI note (2026-11-13): the completion rail no longer duplicates an analytics button; analytics tracking and aggregation contracts are unchanged.
 # Loading UI note (2026-11-13): neutral organizer skeletons emit no additional analytics events.

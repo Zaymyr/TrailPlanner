@@ -119,6 +119,7 @@ type OrganizerRaceDetails = {
   schedule: {
     startTime: string | null;
     finishCutoffTime: string | null;
+    finishCutoffDayOffset: number | null;
     shuttleSchedule: string | null;
     cutoffNote: string | null;
     note: string | null;
@@ -133,6 +134,7 @@ type OrganizerAidStationDetails = {
   cumulativeElevationGainM: number | null;
   cumulativeElevationLossM: number | null;
   cutoffTime: string | null;
+  cutoffDayOffset: number | null;
   dropBagAvailable: boolean;
   organizerNote: string | null;
 };
@@ -347,6 +349,7 @@ const DEFAULT_RACE_DETAILS: OrganizerRaceDetails = {
   schedule: {
     startTime: null,
     finishCutoffTime: null,
+    finishCutoffDayOffset: null,
     shuttleSchedule: null,
     cutoffNote: null,
     note: null,
@@ -361,6 +364,7 @@ const DEFAULT_AID_STATION_DETAILS: OrganizerAidStationDetails = {
   cumulativeElevationGainM: null,
   cumulativeElevationLossM: null,
   cutoffTime: null,
+  cutoffDayOffset: null,
   dropBagAvailable: false,
   organizerNote: null,
 };
@@ -589,6 +593,7 @@ function parseRaceDetails(value: unknown): OrganizerRaceDetails {
     schedule: {
       startTime: readText(schedule.startTime),
       finishCutoffTime: readText(schedule.finishCutoffTime),
+      finishCutoffDayOffset: readNumber(schedule.finishCutoffDayOffset),
       shuttleSchedule,
       cutoffNote: readText(schedule.cutoffNote),
       note: readText(schedule.note),
@@ -618,6 +623,7 @@ function parseAidStationDetails(value: unknown): OrganizerAidStationDetails {
     cumulativeElevationGainM: readNumber(record.cumulativeElevationGainM),
     cumulativeElevationLossM: readNumber(record.cumulativeElevationLossM),
     cutoffTime: readText(record.cutoffTime),
+    cutoffDayOffset: readNumber(record.cutoffDayOffset),
     dropBagAvailable: readBoolean(record.dropBagAvailable, false),
     organizerNote: readText(record.organizerNote),
   };

@@ -8,6 +8,19 @@ const nullableText = z
     return trimmed.length > 0 ? trimmed : null;
   });
 
+export const normalizeOrganizerClockValue = (value: string | null | undefined) => {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return null;
+  const match = /^(\d{1,2})(?:(?::|h)(\d{0,2}))?(?::\d{2})?$/i.exec(trimmed);
+  if (!match) return trimmed;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2] || 0);
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes) || hours > 23 || minutes > 59) return trimmed;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+};
+
+const nullableClockText = nullableText.transform(normalizeOrganizerClockValue);
+
 const URL_WITHOUT_PROTOCOL_PATTERN = /^(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:[/?#].*)?$/i;
 
 const nullableUrl = nullableText
@@ -271,7 +284,8 @@ export const organizerRaceDetailsSchema = z.object({
   schedule: z
     .object({
       startTime: nullableText,
-      finishCutoffTime: nullableText,
+      finishCutoffTime: nullableClockText,
+      finishCutoffDayOffset: z.number().int().nonnegative().nullable().default(null),
       shuttleSchedule: nullableText,
       cutoffNote: nullableText,
       note: nullableText,
@@ -279,6 +293,7 @@ export const organizerRaceDetailsSchema = z.object({
     .default({
       startTime: null,
       finishCutoffTime: null,
+      finishCutoffDayOffset: null,
       shuttleSchedule: null,
       cutoffNote: null,
       note: null,
@@ -296,7 +311,8 @@ export const organizerAidStationDetailsSchema = z.object({
   cumulativeElevationGainM: nullableNumber,
   cumulativeElevationLossM: nullableNumber,
   altitudeM: nullableNumber,
-  cutoffTime: nullableText,
+  cutoffTime: nullableClockText,
+  cutoffDayOffset: z.number().int().nonnegative().nullable().default(null),
   dropBagAvailable: z.boolean().default(false),
   organizerNote: nullableText,
 });
