@@ -1,4 +1,3 @@
-import type { SupporterGuidePayload } from '@trailplanner/shared';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -9,6 +8,7 @@ import { Text, Text as Heading } from '../../../components/themed/Text';
 import { Colors } from '../../../constants/colors';
 import { fetchWithTimeout } from '../../../lib/fetchWithTimeout';
 import { useI18n } from '../../../lib/i18n';
+import type { SupporterGuidePayload } from '../../../lib/supporterGuide';
 import { WEB_API_BASE_URL } from '../../../lib/webApi';
 
 type Section = 'programme' | 'follow' | 'onsite' | 'stay' | 'practical';

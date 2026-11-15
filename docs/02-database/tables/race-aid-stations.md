@@ -38,6 +38,8 @@ related_tables:
 
 Supporter Guide Follow cards reuse published station rows and additive `organizer_details.supportersAccess`, `maxStopMinutes`, `amenities` and cutoff values when present. The guide never reads draft rows and does not add or reinterpret station storage.
 
+The followed-plan mobile screen evaluates these published checkpoint values through its client-local timeline adapter; no direct station query or storage rule is introduced.
+
 The shared organizer-details schema adds nullable third-party bib-pickup conditions and accent-insensitive equipment-label matching. Aid-station rows, GPX-derived cumulative metrics, service flags, products, replacement ordering, and RLS remain unchanged; ravito cards continue to keep their key metrics visible while the long edit form may remain collapsible.
 
 ## Purpose

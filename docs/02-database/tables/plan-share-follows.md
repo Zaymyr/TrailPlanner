@@ -32,6 +32,8 @@ related_tables:
 
 An active followed-plan detail now links to the event Supporter Guide using the published `raceContext.raceId`. This adds no follow field, token exposure or public-cache personalization.
 
+The mobile detail keeps its tracking calculations in a client-local pure adapter because the native dependency pre-check forbids imports from `@trailplanner/shared`. This changes no follow row, route contract or persisted crew state.
+
 ## Purpose
 
 `plan_share_follows` records that an authenticated crew member follows a runner's secret plan-share link. The row stores membership and personal presentation only; the snapshot and mutable race tracking state remain on `plan_share_links`.

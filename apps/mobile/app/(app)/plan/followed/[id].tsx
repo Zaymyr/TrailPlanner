@@ -12,7 +12,7 @@ import {
   normalizePlanSharePassages,
   parsePlanShareClock,
   resolvePlanShareClockNearPlanned,
-} from '@trailplanner/shared';
+} from '../../../../lib/followedPlanTimeline';
 
 import { Colors } from '../../../../constants/colors';
 import { Button } from '../../../../components/themed/Button';

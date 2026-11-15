@@ -59,6 +59,8 @@ Mobile presents permission chips inside the title/distance header, hides `access
 
 Authenticated followed-plan detail is a second read-only consumer of the published snapshot. It inserts visible supporter points into the assistance timeline, interpolates a plan ETA by kilometer, reapplies the latest confirmed-passage delay, distinguishes encouragement from assistance, and builds directions from the published Maps URL or coordinates. Draft rows and disabled modules are never consulted.
 
+Mobile performs that interpolation with a client-local pure helper to respect its package boundary; the input remains the same immutable server projection.
+
 Organizer GET responses normalize nullable editable text and URL fields to empty strings. PUT accepts both those strings and legacy `null` values, so re-saving an existing point cannot fail before the atomic RPC. Mobile keeps directions and an optional external plan as right-aligned, icon-only 44-point actions with explicit accessibility labels.
 
 ## Writes and ordering

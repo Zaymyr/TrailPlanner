@@ -88,6 +88,8 @@ Authenticated shared-plan actions emit consent-gated mobile events through the e
 
 Field-assistance enrichment adds consent-gated `followed plan directions opened`, `followed plan preparation opened`, and `followed plan updated seen`. Their only property is the bounded `source = followed_plan`; never attach the token, plan/race name, coordinates, access text, checklist contents, products, or passage detail.
 
+Moving the mobile timeline calculations behind a client-local package boundary does not add or rename any analytics event or property.
+
 Organizer analytics access is checked against the active plan plus the exact `capability.racebook_analytics` feature grant. A different Signature feature gift must not authorize analytics, and manual invoice creation or settlement has no analytics effect.
 
 Organizer course-point autosave now waits for the active-format sidecars and no longer resets them after a same-format response. Successful save analytics retain their existing event names and fields; blocked pre-load saves emit no false successful-update event.
