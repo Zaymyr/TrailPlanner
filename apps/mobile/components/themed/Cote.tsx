@@ -5,7 +5,7 @@ import { formatCoteUnit, splitCoteLabel } from '../../lib/trailSignature';
 import { DataText } from './DataText';
 import { Text } from './Text';
 
-export type CoteSize = 'sm' | 'md' | 'lg' | 'xl';
+export type CoteSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 export type CoteTone = 'primary' | 'secondary' | 'brand' | 'danger' | 'warning';
 
 type Props = {
@@ -26,8 +26,8 @@ type Props = {
   accessibilityLabel?: string;
 };
 
-const valueSizeByCote = { sm: 'sm', md: 'base', lg: 'xl', xl: '3xl' } as const;
-const unitSizeByCote = { sm: 'xs', md: 'xs', lg: 'xs', xl: 'sm' } as const;
+const valueSizeByCote = { xs: 'xs', sm: 'sm', md: 'base', lg: 'xl', xl: '3xl' } as const;
+const unitSizeByCote = { xs: 'xs', sm: 'xs', md: 'xs', lg: 'xs', xl: 'sm' } as const;
 
 const colorByTone: Record<CoteTone, string> = {
   primary: colors.text.primary,

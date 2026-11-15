@@ -144,7 +144,7 @@ function usePlanListProductMap(sections: RaceSection[]): Record<string, Readines
   }, [idsKey, loadedKey]);
 }
 
-const READINESS_TONE = { draft: 'neutral', inProgress: 'info', ready: 'success' } as const;
+const READINESS_TONE = { draft: 'neutral', inProgress: 'warning', ready: 'success' } as const;
 
 export const PlansList = memo(function PlansList({
   contentTopInset = 0,
@@ -189,7 +189,7 @@ export const PlansList = memo(function PlansList({
 }: PlansListProps) {
   const readinessLabels: Record<PlanReadiness, string> = {
     draft: draftLabel ?? (locale === 'fr' ? 'Brouillon' : 'Draft'),
-    inProgress: inProgressStatusLabel ?? (locale === 'fr' ? 'En cours' : 'In progress'),
+    inProgress: inProgressStatusLabel ?? (locale === 'fr' ? 'En construction' : 'Under construction'),
     ready: readyLabel ?? (locale === 'fr' ? 'Prêt' : 'Ready'),
   };
   const productMap = usePlanListProductMap(sections);
