@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  availableGuideKinds,
   buildGuideAccessPresentation,
+  filterGuideTimeline,
+  formatCountdown,
+  isStopClosed,
+  resolveDayLiveState,
+  resolveGuideStops,
   countGuideDays,
   formatGuideClock,
   formatGuideDateRange,
@@ -61,5 +67,45 @@ describe('Supporter Guide presentation', () => {
     expect(presentation?.locations).toHaveLength(1);
     expect(presentation?.locations[0]?.actionUrl).toContain('google.com/maps/search');
     expect(presentation?.transportItems[0]).toMatchObject({ key: 'shuttles', schedule: '6h' });
+  });
+});
+
+describe('Supporter Guide live programme', () => {
+  const at = (id: string, date: string, time: string, kind: SupporterGuideTimelineEntry['kind'] = 'start', raceId = 'ultra'): SupporterGuideTimelineEntry => ({
+    id, raceId, raceName: raceId, kind, date, time, label: null, location: null,
+  });
+
+  it('filters by type tab and by followed races', () => {
+    const entries = [at('a', '2026-11-14', '09:00'), at('b', '2026-11-14', '17:00', 'awards'), at('c', '2026-11-15', '00:00', 'finish_cutoff', 'court')];
+    expect(filterGuideTimeline(entries, 'awards', null).map((entry) => entry.id)).toEqual(['b']);
+    expect(filterGuideTimeline(entries, 'arrival', null).map((entry) => entry.id)).toEqual(['c']);
+    expect(filterGuideTimeline(entries, 'all', new Set(['court'])).map((entry) => entry.id)).toEqual(['c']);
+    expect(availableGuideKinds(entries)).toEqual(['start', 'arrival', 'awards']);
+  });
+
+  it('marks past entries, the next one and the now line only on the current day', () => {
+    const day = [at('a', '2026-11-14', '09:00'), at('b', '2026-11-14', '12:00'), at('c', '2026-11-14', '17:00')];
+    const now = new Date(2026, 10, 14, 13, 4);
+    expect(resolveDayLiveState(day, '2026-11-14', now)).toEqual({ statusById: { a: 'past', b: 'past', c: 'next' }, nowIndex: 2 });
+    expect(resolveDayLiveState(day, '2026-11-15', now)).toBeNull();
+    expect(formatCountdown(new Date(2026, 10, 14, 15, 45), now, 'fr')).toBe('dans 2 h 41');
+    expect(formatCountdown(new Date(2026, 10, 14, 13, 30), now, 'fr')).toBe('dans 26 min');
+  });
+
+  it('closes a place once its last-runner cutoff has passed', () => {
+    const now = new Date(2026, 10, 14, 21, 30);
+    expect(isStopClosed({ cutoff: { date: '2026-11-14', time: '21:00', dayOffset: 0 } }, '2026-11-14', now)).toBe(true);
+    expect(isStopClosed({ cutoff: { date: '2026-11-15', time: '00:00', dayOffset: 1 } }, '2026-11-14', now)).toBe(false);
+    expect(isStopClosed({ cutoff: null }, '2026-11-14', now)).toBe(false);
+  });
+
+  it('falls back to one stop per row for an older API response', () => {
+    const stops = resolveGuideStops({
+      raceId: 'r', name: 'R', date: '2026-11-14', distanceKm: 20, startTime: '09:00', finishCutoffTime: null, startWaves: [], awards: [],
+      supporterPoints: [{ id: 'p', name: 'Col', km: 5, encouragementAllowed: true, assistanceAllowed: false, accessLabel: null, accessNote: null, latitude: 1, longitude: 2, mapsUrl: null, planUrl: null }],
+      aidStations: [{ id: 's', name: 'Ravito', km: 3, assistanceAllowed: true, supportersAccess: 'allowed', maxStopMinutes: null, amenities: [], cutoffTime: '11:00' }],
+    });
+    expect(stops.map((stop) => [stop.id, stop.aidStation])).toEqual([['s:s', true], ['p:p', false]]);
+    expect(stops[0]?.cutoff).toEqual({ date: null, time: '11:00', dayOffset: 0 });
   });
 });

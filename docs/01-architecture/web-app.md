@@ -390,6 +390,8 @@ related_tables:
 
 # Web App Architecture
 
+Supporter Guide places (2026-11-15): the payload adds `formats[].stops`, built server-side by `buildSupporterStops` — an aid station and supporter points sharing the same normalized place name (accents, case, punctuation ignored, « St »/« Ste » = Saint/Sainte) within 2 km become one stop carrying every role (ravito, encouragement, assistance), the supporter access rule, services, cutoff and directions. Start timeline entries carry `mapsUrl` (start area directions). Both fields are additive on `schemaVersion: 1`. Livret accompagnateur programme (2026-11-15): type tabs (Tout, Départs, Arrivées, Podiums) instead of race tabs; a « Je suis » race selection (remembered per edition) filters Programme, Suivre and Pratique; on the event day the current day is live — past entries dimmed and checked, a « maintenant » line, the next entry with a countdown, and Suivre marks a place « Fermé » once its last-runner cutoff has passed. Times are compared with the device clock, assuming the supporter is on the event timezone. The web page has no reminders (unreliable on mobile browsers).
+
 The Supporter Guide payload now carries resolved cutoffs and a sorted `timeline`; `SupporterGuideView` groups the programme by day and formats dates, distances and cross-day cutoffs per locale. Cutoff resolution uses `@trailplanner/shared` `racebook-cutoffs`, a server-side copy of the runner RaceBook rules.
 
 The public Supporter Guide lives at `/courses/supporter-guide/[raceId]` and consumes `/api/supporter-guide`, which aggregates only immutable format publications and reuses RaceBook cache tags. The client route is mobile-first and `noindex`; `/api/supporter-guide/qr` generates a downloadable SVG QR for the organizer workspace.

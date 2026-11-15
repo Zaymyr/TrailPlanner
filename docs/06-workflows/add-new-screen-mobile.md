@@ -88,6 +88,8 @@ related_tables:
 
 # Add New Mobile Screen
 
+Livret accompagnateur programme (2026-11-15): type tabs (Tout, Départs, Arrivées, Podiums) instead of race tabs; a « Je suis » race selection (remembered per edition) filters Programme, Suivre and Pratique; on the event day the current day is live — past entries dimmed and checked, a « maintenant » line, the next entry with a countdown, auto-scroll to now — and Suivre marks a place « Fermé » once its last-runner cutoff has passed. Times are compared with the device clock, assuming the supporter is on the event timezone.
+
 Catalog query fix (2026-11-15): the mobile `EVENT_CATALOG_SELECT` requests `slug` on the embedded `races` rows (used to open `/courses/<slug>` deep links), not on `race_event_updates`, which has no such column. The misplaced column made PostgREST reject the whole catalog request (42703), so the development build showed no races.
 
 Mes courses (2026-11-15) uses `TrailTabs` (stretch) for « Mes plans / Je suis assistant » instead of a custom segmented control; the list inset follows the measured tab height, removing the extra gap above the first plan. The plan readiness wristband `inProgress` now reads « En construction » / « Under construction » with the `warning` (amber) tone. Catalog event cards (`RaceEventSummaryCard`, 2026-11-15) stack the format count and the distance range on the left in `Cote` size `xs`, rounded to whole kilometres (13–185 km; exact distances stay in the format sheet), so the fixed-width (172 pt) « Voir les distances » sign always fits on the right.
