@@ -167,6 +167,7 @@ export const en: MobileTranslations = {
     revokeBody: 'Every crew member will immediately lose access to the plan.',
   },
   supporterGuide: {
+    dayDone: 'Done',
     typeAnimations: 'Activities',
     kindArrivalEstimate: 'Expected finish',
     kindAnimation: 'Activity',

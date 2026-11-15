@@ -166,6 +166,7 @@ export type MobileTranslations = {
     revokeBody: string;
   };
   supporterGuide: {
+    dayDone: string;
     typeAnimations: string;
     kindArrivalEstimate: string;
     kindAnimation: string;

@@ -167,6 +167,7 @@ export const fr: MobileTranslations = {
     revokeBody: "Tous les assistants perdront immédiatement l'accès au plan.",
   },
   supporterGuide: {
+    dayDone: 'Terminé',
     typeAnimations: 'Animations',
     kindArrivalEstimate: 'Arrivée estimée',
     kindAnimation: 'Animation',
