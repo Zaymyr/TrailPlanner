@@ -1,5 +1,6 @@
 "use client";
 
+import { colors as designColors } from "@pace-yourself/design-system";
 import type { SupporterGuidePayload, SupporterGuideStop, SupporterGuideTimelineEntry } from "@trailplanner/shared";
 import { useEffect, useMemo, useState } from "react";
 
@@ -42,6 +43,7 @@ export function SupporterGuideView({ raceId }: { raceId: string }) {
   const [kind, setKind] = useState<Kind>("all");
   const [followed, setFollowed] = useState<Set<string> | null>(null);
   const [now, setNow] = useState(() => new Date());
+  const formatColors = useMemo(() => resolveFormatColors(guide?.formats ?? []), [guide]);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 60_000);
     return () => window.clearInterval(timer);
@@ -100,9 +102,9 @@ export function SupporterGuideView({ raceId }: { raceId: string }) {
       {SECTIONS.filter((section) => visible[section]).map((section) => <button key={section} type="button" onClick={() => setActive(section)} aria-current={active === section ? "page" : undefined} className={`min-h-11 shrink-0 rounded-full px-4 text-sm font-semibold ${active === section ? "bg-brand text-brand-foreground" : "text-muted-foreground"}`}>{labels[section]}</button>)}
     </nav>
     <div className="space-y-5 px-5 py-6">
-      {guide.formats.length > 1 && active === "programme" ? <div className="space-y-2"><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{locale === "fr" ? "Je suis" : "I follow"}</p><div className="flex flex-wrap gap-x-4 gap-y-1">{guide.formats.map((format) => { const on = followed?.has(format.raceId) ?? true; return <label key={format.raceId} title={format.name} className={`inline-flex min-h-9 cursor-pointer items-center gap-2 font-mono text-sm font-semibold ${on ? "text-foreground" : "text-muted-foreground"}`}><input type="checkbox" className="h-4 w-4 accent-[hsl(var(--brand))]" checked={on} onChange={() => toggleFollowed(format.raceId)} />{Math.round(format.distanceKm)} km</label>; })}</div></div> : null}
-      {active === "programme" ? <Programme timeline={guide.timeline ?? []} kind={kind} onKind={setKind} followed={followed} now={now} locale={locale} /> : null}
-      {active === "follow" ? guide.formats.filter((format) => (format.stops?.length ?? 0) > 0 || format.supporterPoints.length || format.aidStations.length).map((format) => <section key={format.raceId} className="space-y-3"><h2 className="text-xl font-semibold">{format.name}</h2>{(format.stops ?? []).map((stop) => <StopCard key={stop.id} stop={stop} raceDate={format.date} now={now} locale={locale} />)}</section>) : null}
+      {guide.formats.length > 1 && active === "programme" ? <div className="space-y-2"><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{locale === "fr" ? "Je suis" : "I follow"}</p><div className="flex flex-wrap gap-x-4 gap-y-1">{guide.formats.map((format) => { const on = followed?.has(format.raceId) ?? true; return <label key={format.raceId} title={format.name} className={`inline-flex min-h-9 cursor-pointer items-center gap-2 font-mono text-sm font-semibold ${on ? "text-foreground" : "text-muted-foreground"}`}><input type="checkbox" className="h-4 w-4" style={{ accentColor: formatColors[format.raceId] }} checked={on} onChange={() => toggleFollowed(format.raceId)} />{Math.round(format.distanceKm)} km</label>; })}</div></div> : null}
+      {active === "programme" ? <Programme timeline={guide.timeline ?? []} kind={kind} onKind={setKind} followed={followed} now={now} locale={locale} formatColors={formatColors} /> : null}
+      {active === "follow" ? guide.formats.filter((format) => (format.stops?.length ?? 0) > 0 || format.supporterPoints.length || format.aidStations.length).map((format) => <section key={format.raceId} className="space-y-3"><h2 className="flex items-center gap-2 text-xl font-semibold"><span aria-hidden className="h-3 w-3 rounded-full" style={{ backgroundColor: formatColors[format.raceId] }} />{format.name}</h2>{(format.stops ?? []).map((stop) => <StopCard key={stop.id} stop={stop} raceDate={format.date} now={now} locale={locale} />)}</section>) : null}
       {active === "onsite" ? guide.onSiteServices.map((service) => <ServiceCard key={service.id} locale={locale} service={service} />) : null}
       {active === "stay" ? <>{guide.stayServices.map((service) => <ServiceCard key={service.id} locale={locale} service={service} />)}{guide.lodgingPartner ? <article className="rounded-xl border border-border p-4"><h2 className="font-semibold">{locale === "fr" ? "Hébergement partenaire" : "Accommodation partner"} · {guide.lodgingPartner.name}</h2>{guide.lodgingPartner.headline ? <p>{guide.lodgingPartner.headline}</p> : null}{guide.lodgingPartner.clickUrl ? <a className="mt-3 inline-flex min-h-11 items-center font-semibold text-brand underline" href={guide.lodgingPartner.clickUrl} rel="noreferrer" target="_blank">{locale === "fr" ? "Découvrir" : "Discover"}</a> : null}</article> : null}</> : null}
       {active === "practical" ? <>{guide.practical.access.map((item) => <article key={item.raceId} className="rounded-xl border border-border p-4"><h2 className="font-semibold">{item.raceName}</h2>{item.start.address ? <p><strong>{locale === "fr" ? "Départ" : "Start"} :</strong> {item.start.address}</p> : null}{item.finish.address ? <p><strong>{locale === "fr" ? "Arrivée" : "Finish"} :</strong> {item.finish.address}</p> : null}{item.parking ? <p><strong>Parking :</strong> {item.parking}</p> : null}{item.shuttles ? <p><strong>{locale === "fr" ? "Navettes" : "Shuttles"} :</strong> {item.shuttles} {item.shuttleSchedule}</p> : null}{item.roadRestrictions ? <p><strong>{locale === "fr" ? "Circulation" : "Road access"} :</strong> {item.roadRestrictions}</p> : null}</article>)}{guide.practical.thirdPartyBibPickup.map((item) => <article key={item.raceId} className="rounded-xl border border-border p-4"><h2 className="font-semibold">{locale === "fr" ? "Retrait par un tiers" : "Third-party bib pickup"} · {item.raceName}</h2>{item.conditions ? <p>{item.conditions}</p> : <p>{locale === "fr" ? "Autorisé par l’organisation." : "Allowed by the organizer."}</p>}</article>)}{guide.practical.emergencyPhone ? <a className="block rounded-xl border border-border p-4 font-semibold text-brand" href={`tel:${guide.practical.emergencyPhone}`}>{locale === "fr" ? "Urgence" : "Emergency"} · {guide.practical.emergencyPhone}</a> : null}{guide.practical.links.map((link) => <a key={link.url} className="block rounded-xl border border-border p-4 font-semibold text-brand" href={link.url} rel="noreferrer" target="_blank">{link.kind === "official" ? (locale === "fr" ? "Site officiel" : "Official website") : link.kind === "instagram" ? "Instagram" : "Facebook"}</a>)}</> : null}
@@ -126,7 +128,23 @@ const countdown = (target: Date, now: Date, locale: "fr" | "en") => {
   return locale === "fr" ? `dans ${duration}` : `in ${duration}`;
 };
 
-function Programme({ timeline, kind, onKind, followed, now, locale }: { timeline: SupporterGuideTimelineEntry[]; kind: Kind; onKind: (kind: Kind) => void; followed: Set<string> | null; now: Date; locale: "fr" | "en" }) {
+/** One colour per format, by increasing distance (same rule as the app). */
+function resolveFormatColors(formats: Array<{ raceId: string; distanceKm: number; name: string }>): Record<string, string> {
+  return Object.fromEntries([...formats]
+    .sort((left, right) => left.distanceKm - right.distanceKm || left.name.localeCompare(right.name))
+    .map((format, index) => [format.raceId, designColors.formats[index % designColors.formats.length]!]));
+}
+
+const ICON_PATHS: Record<string, string> = {
+  start: "M8 5v14l11-7z",
+  clock: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm1 4h-2v6l5 3 1-1.7-4-2.3z",
+  awards: "M7 3h10v4a5 5 0 0 1-4 4.9V15h3v2H8v-2h3v-3.1A5 5 0 0 1 7 7zM5 4h2v3H5a2 2 0 0 1 0-3zm12 0h2a2 2 0 0 1 0 3h-2z",
+  animation: "M9 17.5a2.5 2.5 0 1 1-2.5-2.5H9V5l10-2v12.5a2.5 2.5 0 1 1-2.5-2.5H19V6.4l-8 1.6v9.5z",
+  done: "M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z",
+};
+const iconOf = (entry: SupporterGuideTimelineEntry) => entry.kind === "start" ? "start" : entry.kind === "awards" ? "awards" : entry.kind === "animation" ? "animation" : "clock";
+
+function Programme({ timeline, kind, onKind, followed, now, locale, formatColors }: { timeline: SupporterGuideTimelineEntry[]; kind: Kind; onKind: (kind: Kind) => void; followed: Set<string> | null; now: Date; locale: "fr" | "en"; formatColors: Record<string, string> }) {
   const fr = locale === "fr";
   const mine = timeline.filter((entry) => entry.eventWide || !followed || followed.has(entry.raceId));
   const kinds = (["start", "arrival", "awards", "animations"] as const).filter((value) => mine.some((entry) => KIND_OF[entry.kind] === value));
@@ -151,11 +169,14 @@ function Programme({ timeline, kind, onKind, followed, now, locale }: { timeline
             const past = dayPast || (live && at !== null && at.getTime() < now.getTime());
             return <li key={entry.id}>
               {live && index === nextIndex ? <div className="flex items-center gap-2 px-4 py-1 text-xs font-semibold text-amber-700"><span className="h-0.5 flex-1 bg-amber-500" />{clockOf(now)} · {fr ? "maintenant" : "now"}<span className="h-0.5 flex-1 bg-amber-500" /></div> : null}
-              <div className={`flex items-start gap-4 px-4 py-3 ${past ? "opacity-45" : ""}`}>
+              <div className={`flex items-start gap-3 px-4 py-3 ${past ? "opacity-45" : ""}`}>
                 <span className="w-14 shrink-0 font-mono text-lg font-semibold tabular-nums">{entry.time}</span>
+                <span aria-hidden className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: past ? "#9CA3AF" : entry.eventWide ? designColors.brand.forest : formatColors[entry.raceId] ?? designColors.brand.forest }}>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="#fff"><path d={ICON_PATHS[past ? "done" : iconOf(entry)]} /></svg>
+                </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold text-brand">{past ? "✓ " : ""}{kindText[entry.kind]}{entry.kind === "arrival_estimate" ? ` · ${audienceText(entry.audience)}` : entry.label && !entry.eventWide ? ` · ${entry.label}` : ""}{entry.endTime ? ` → ${entry.endTime}` : ""}</span>
-                  <span className="block font-semibold">{entry.eventWide ? entry.label : entry.raceName}</span>
+                  <span className="block text-sm font-semibold" style={{ color: entry.eventWide ? designColors.brand.forest : formatColors[entry.raceId] ?? designColors.brand.forest }}>{past ? "✓ " : ""}{kindText[entry.kind]}{entry.kind === "arrival_estimate" ? ` · ${audienceText(entry.audience)}` : entry.label && !entry.eventWide ? ` · ${entry.label}` : ""}{entry.endTime ? ` → ${entry.endTime}` : ""}</span>
+                  <span className="flex items-center gap-2 font-semibold">{entry.eventWide ? null : <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: formatColors[entry.raceId] }} />}{entry.eventWide ? entry.label : entry.raceName}</span>
                   {entry.location ? <span className="block text-sm text-muted-foreground">{entry.location}</span> : null}
                   {live && index === nextIndex && at ? <span className="mt-1 inline-block rounded-full bg-brand-surface px-2 py-0.5 text-xs font-semibold text-brand">{countdown(at, now, locale)}</span> : null}
                 </span>

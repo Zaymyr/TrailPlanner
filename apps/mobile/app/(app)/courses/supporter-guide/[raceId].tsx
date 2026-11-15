@@ -47,6 +47,7 @@ import {
   localIsoDay,
   resolveDayLiveState,
   resolveGuideStops,
+  resolveFormatColors,
   resolveGuideTimeline,
   resolveVisibleGuideSections,
   toLocalDate,
@@ -238,6 +239,7 @@ export default function SupporterGuideScreen() {
   }, [exit, navigation]));
 
   const timeline = useMemo(() => (guide ? resolveGuideTimeline(guide) : []), [guide]);
+  const formatColors = useMemo(() => (guide ? resolveFormatColors(guide.formats) : {}), [guide]);
   const sections = useMemo(() => (guide ? resolveVisibleGuideSections(guide) : []), [guide]);
   const followFormats = useMemo(() => guide?.formats.filter(hasFollowContent) ?? [], [guide]);
   const practicalRaceIds = useMemo(() => new Set([
@@ -337,7 +339,11 @@ export default function SupporterGuideScreen() {
         scrollable
         stretch
         style={styles.tabsScroller}
-        tabs={raceChoices.map((format) => ({ key: format.raceId, label: format.name }))}
+        tabs={raceChoices.map((format) => ({
+          key: format.raceId,
+          label: format.name,
+          trailing: <View style={[styles.formatDot, { backgroundColor: formatColors[format.raceId] ?? Colors.brandPrimary }]} />,
+        }))}
       />
     </View>
   );
@@ -451,7 +457,7 @@ export default function SupporterGuideScreen() {
                     onPress={() => toggleFollowedRace(format.raceId)}
                     style={({ pressed }) => [styles.followedCheck, pressed && styles.roundActionPressed]}
                   >
-                    <Ionicons name={checked ? 'checkbox' : 'square-outline'} size={20} color={checked ? Colors.brandPrimary : Colors.textMuted} />
+                    <Ionicons name={checked ? 'checkbox' : 'square-outline'} size={20} color={checked ? formatColors[format.raceId] ?? Colors.brandPrimary : Colors.textMuted} />
                     <DataText style={[styles.followedCheckText, !checked && styles.followedCheckTextOff]}>{`${Math.round(format.distanceKm)} km`}</DataText>
                   </Pressable>
                 );
@@ -471,6 +477,7 @@ export default function SupporterGuideScreen() {
             onToggleReminder={(entry) => { void toggleReminder(entry); }}
             onRemindMyRunners={(entries) => { void remindMyRunners(entries); }}
             onOpenUrl={openUrl}
+            formatColors={formatColors}
             onNowMarkerLayout={(day, windowY) => {
               if (autoScrolledDayRef.current === day) return;
               autoScrolledDayRef.current = day;
@@ -616,6 +623,7 @@ function ProgrammeSection({
   onRemindMyRunners,
   onOpenUrl,
   onNowMarkerLayout,
+  formatColors,
   locale,
   copy,
 }: {
@@ -629,6 +637,7 @@ function ProgrammeSection({
   onRemindMyRunners: (entries: SupporterGuideTimelineEntry[]) => void;
   onOpenUrl: (url: string) => void;
   onNowMarkerLayout: (day: string, windowY: number) => void;
+  formatColors: Record<string, string>;
   locale: 'fr' | 'en';
   copy: ReturnType<typeof useI18n>['t']['supporterGuide'];
 }) {
@@ -636,7 +645,11 @@ function ProgrammeSection({
   const kinds = availableGuideKinds(followedTimeline);
   const days = groupGuideTimelineByDay(filterGuideTimeline(followedTimeline, kind, null));
   const kindLabel = { start: copy.kindStart, finish_cutoff: copy.kindFinishCutoff, awards: copy.kindAwards, arrival_estimate: copy.kindArrivalEstimate, animation: copy.kindAnimation } as const;
-  const kindIcon = { start: 'flag-outline', finish_cutoff: 'time-outline', awards: 'trophy-outline', arrival_estimate: 'stopwatch-outline', animation: 'musical-notes-outline' } as const;
+  // One icon per moment type, drawn on the format colour (animations use the brand colour).
+  const kindIcon = { start: 'play', finish_cutoff: 'time', awards: 'trophy', arrival_estimate: 'stopwatch', animation: 'musical-notes' } as const;
+  const animationIcon = { animation: 'musical-notes', concert: 'musical-notes', kids_race: 'happy', briefing: 'megaphone', village: 'storefront', other: 'sparkles' } as const;
+  const entryColor = (entry: SupporterGuideTimelineEntry) => (entry.eventWide ? Colors.brandPrimary : formatColors[entry.raceId] ?? Colors.brandPrimary);
+  const entryIcon = (entry: SupporterGuideTimelineEntry) => (entry.kind === 'animation' ? animationIcon[entry.animationType ?? 'animation'] : kindIcon[entry.kind]);
   const entryDetail = (entry: SupporterGuideTimelineEntry) => {
     if (entry.kind === 'arrival_estimate') return entry.audience === 'women' ? copy.firstWoman : copy.firstMan;
     if (entry.eventWide) return null;
@@ -743,12 +756,17 @@ function ProgrammeSection({
                     ) : null}
                     <View style={[styles.timelineRow, index > 0 ? styles.timelineRowBorder : null, status === 'past' && styles.pastRow]}>
                       <DataText style={styles.timelineTime}>{entry.time}</DataText>
+                      <View style={[styles.kindBadge, { backgroundColor: status === 'past' ? Colors.textMuted : entryColor(entry) }]}>
+                        <Ionicons name={status === 'past' ? 'checkmark' : entryIcon(entry)} size={16} color={Colors.textOnBrand} />
+                      </View>
                       <View style={styles.timelineCopy}>
-                        <View style={styles.timelineKind}>
-                          <Ionicons name={status === 'past' ? 'checkmark-circle' : kindIcon[entry.kind]} size={15} color={Colors.brandPrimary} />
-                          <Text style={styles.timelineKindText}>{kindLabel[entry.kind]}{entryDetail(entry) ? ` · ${entryDetail(entry)}` : ''}{entry.endTime ? ` → ${entry.endTime}` : ''}</Text>
-                        </View>
-                        {entry.eventWide ? <Text style={styles.timelineRace}>{entry.label}</Text> : showRaceName ? <Text style={styles.timelineRace}>{entry.raceName}</Text> : null}
+                        <Text style={[styles.timelineKindText, { color: entryColor(entry) }]}>{kindLabel[entry.kind]}{entryDetail(entry) ? ` · ${entryDetail(entry)}` : ''}{entry.endTime ? ` → ${entry.endTime}` : ''}</Text>
+                        {entry.eventWide ? <Text style={styles.timelineRace}>{entry.label}</Text> : showRaceName ? (
+                          <View style={styles.raceTag}>
+                            <View style={[styles.formatDot, { backgroundColor: entryColor(entry) }]} />
+                            <Text style={styles.timelineRace}>{entry.raceName}</Text>
+                          </View>
+                        ) : null}
                         {entry.location ? <Text style={styles.timelineMeta}>{entry.location}</Text> : null}
                         {status === 'next' && at ? <StatusPill label={formatCountdown(at, now, locale)} tone="brand" style={styles.countdown} /> : null}
                       </View>
@@ -803,6 +821,9 @@ const styles = StyleSheet.create({
   liveRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   liveClock: { color: Colors.textPrimary, fontSize: 15, lineHeight: 20, fontWeight: '800' },
   pastRow: { opacity: 0.45 },
+  kindBadge: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', marginTop: -3 },
+  formatDot: { width: 10, height: 10, borderRadius: 5 },
+  raceTag: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   pastDay: { opacity: 0.6 },
   countdown: { alignSelf: 'flex-start', marginTop: 4 },
   rowActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -815,9 +836,9 @@ const styles = StyleSheet.create({
   previewText: { color: Colors.textPrimary, fontSize: 13, lineHeight: 18, fontWeight: '700' },
   sectionLead: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18, marginTop: -6 },
   day: { gap: 10 },
-  timelineRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, paddingVertical: 10 },
+  timelineRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 10 },
   timelineRowBorder: { borderTopWidth: 1, borderTopColor: Colors.border },
-  timelineTime: { width: 56, color: Colors.textPrimary, fontSize: 17, lineHeight: 22, fontWeight: '800' },
+  timelineTime: { width: 52, color: Colors.textPrimary, fontSize: 17, lineHeight: 22, fontWeight: '800' },
   timelineCopy: { flex: 1, minWidth: 0, gap: 2 },
   timelineKind: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   timelineKindText: { flexShrink: 1, color: Colors.brandPrimary, fontSize: 13, lineHeight: 18, fontWeight: '800' },

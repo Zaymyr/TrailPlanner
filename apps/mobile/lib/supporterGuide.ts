@@ -1,3 +1,5 @@
+import { colors } from '@pace-yourself/design-system';
+
 import type { RacebookAccessLocation, RacebookAccessPresentation, RacebookAccessTransport } from '../components/racebook/RacebookAccessSection';
 import type { RacebookServiceItem } from '../components/racebook/RacebookServicesSection';
 import type { RacebookSupporterPoint } from './racebook';
@@ -438,4 +440,15 @@ export function isStopClosed(stop: Pick<SupporterGuideStop, 'cutoff'>, raceDate:
   if (!stop.cutoff) return false;
   const at = toLocalDate(stop.cutoff.date ?? raceDate, stop.cutoff.time);
   return Boolean(at && at.getTime() < now.getTime());
+}
+
+
+/** One colour per format, by increasing distance (same rule as the web page). */
+export function resolveFormatColors(formats: readonly Pick<SupporterGuideFormat, 'raceId' | 'distanceKm' | 'name'>[]): Record<string, string> {
+  const palette = colors.formats;
+  return Object.fromEntries(
+    [...formats]
+      .sort((left, right) => left.distanceKm - right.distanceKm || left.name.localeCompare(right.name))
+      .map((format, index) => [format.raceId, palette[index % palette.length]!]),
+  );
 }

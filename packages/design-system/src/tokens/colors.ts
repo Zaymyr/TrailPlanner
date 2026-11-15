@@ -41,6 +41,13 @@ export const colors = {
     warningSurface: "#FEF3C7",
   },
   /**
+   * Categorical colours identifying the formats (distances) of one event in
+   * the Supporter Guide programme. Assigned by increasing distance; each one
+   * keeps white icons readable (contrast >= 4.5:1) and stays distinct from the
+   * brand forest, the semantic statuses and the live « maintenant » amber.
+   */
+  formats: ["#2B6CB0", "#C05621", "#6B46C1", "#0F766E", "#B83280", "#8C6A1A"],
+  /**
    * Trail-object palette for the mobile signature controls (enamel plate,
    * aid-station ticket, closed-trail tape, wristband, pins). Never the red and
    * white GR waymark: the closed-trail tape is a diagonal striped ribbon.
