@@ -278,12 +278,9 @@ function EquipmentFields({
           ))}
         </div>
       ) : null}
-      <TextAreaField
-        label="Note matériel"
-        value={equipment.note ?? ""}
-        onChange={(value) => onEquipmentChange({ ...equipment, note: value || null })}
-        invalid={missingEquipment}
-      />
+      <DocumentKindChips title="Contrôlé" values={equipment.checkpoints} options={[['bib_pickup', 'Au retrait'], ['start', 'Au départ'], ['course', 'Sur le parcours']]} onChange={(checkpoints) => onEquipmentChange({ ...equipment, checkpoints })} />
+      <TextAreaField label="Note courte" hint={`${(equipment.shortNote ?? '').length}/200 caractères`} value={equipment.shortNote ?? ''} onChange={(shortNote) => onEquipmentChange({ ...equipment, shortNote: shortNote.slice(0, 200) || null })} invalid={missingEquipment} />
+      {equipment.note ? <LegacyText text={equipment.note} /> : null}
     </section>
   );
 }
@@ -633,7 +630,7 @@ export function AccessEditor({
         editionEndDate={eventDetails.dateRange.endDate}
       />
       {raceDetails.access.enabledSections.runnerInfo ? (
-        <RunnerInfoFields runnerInfo={raceDetails.runnerInfo} onRunnerInfoChange={(runnerInfo) => onRaceChange({ ...raceDetails, runnerInfo })} />
+        <RunnerInfoFields runnerInfo={raceDetails.runnerInfo} equipmentItems={(raceDetails.mandatoryEquipment.overrideEnabled ? raceDetails.mandatoryEquipment : eventDetails.mandatoryEquipment).items} onRunnerInfoChange={(runnerInfo) => onRaceChange({ ...raceDetails, runnerInfo })} />
       ) : null}
     </div>
   );
@@ -801,22 +798,28 @@ function ShuttleCards({ lines, editionDays: days, biasLocation, onChange }: { li
 
 function RunnerInfoFields({
   runnerInfo,
+  equipmentItems,
   onRunnerInfoChange,
 }: {
   runnerInfo: OrganizerRaceDetails["runnerInfo"];
+  equipmentItems: OrganizerRaceDetails["mandatoryEquipment"]["items"];
   onRunnerInfoChange: (runnerInfo: OrganizerRaceDetails["runnerInfo"]) => void;
 }) {
   const update = (next: Partial<OrganizerRaceDetails["runnerInfo"]>) => onRunnerInfoChange({ ...runnerInfo, ...next });
+  const startArea = runnerInfo.startAreaDetails;
+  const briefing = runnerInfo.briefingDetails;
+  const rules = runnerInfo.rulesDetails;
   return (
     <div className="space-y-3 border-t border-border pt-4">
       <div className="flex items-center gap-2">
         <p className="font-semibold text-foreground">Informations coureur spécifiques</p>
         <ContextualHelp text="Briefing, zone de départ ou consigne propre au format actif." />
       </div>
-      <TextField label="Zone de départ" value={runnerInfo.startArea ?? ""} onChange={(value) => update({ startArea: value || null })} />
-      <TextAreaField label="Briefing" value={runnerInfo.briefing ?? ""} onChange={(value) => update({ briefing: value || null })} />
-      <TextAreaField label="Règles spécifiques" value={runnerInfo.rules ?? ""} onChange={(value) => update({ rules: value || null })} />
-      <TextAreaField label="Note format" value={runnerInfo.note ?? ""} onChange={(value) => update({ note: value || null })} />
+      <section className="space-y-3 rounded-xl border border-border p-3"><p className="font-semibold">Zone de départ</p><AddressAutocompleteField label="Adresse" value={startArea.location.label ?? ''} location={startArea.location} onChange={(label) => update({ startAreaDetails: { ...startArea, location: { ...startArea.location, label: label || null } } })} onLocationChange={(location) => update({ startAreaDetails: { ...startArea, location } })} /><TextField label="Ouverture" type="time" value={startArea.opensAt ?? ''} onChange={(opensAt) => update({ startAreaDetails: { ...startArea, opensAt: opensAt || null } })} /><TextAreaField label="Note courte" hint={`${(startArea.note ?? '').length}/200 caractères`} value={startArea.note ?? ''} onChange={(note) => update({ startAreaDetails: { ...startArea, note: note.slice(0, 200) || null } })} /></section>
+      <section className="space-y-3 rounded-xl border border-border p-3"><p className="font-semibold">Briefing</p><div className="grid gap-3 sm:grid-cols-2"><TextField label="Date" type="date" value={briefing.date ?? ''} onChange={(date) => update({ briefingDetails: { ...briefing, date: date || null } })} /><TextField label="Heure" type="time" value={briefing.time ?? ''} onChange={(time) => update({ briefingDetails: { ...briefing, time: time || null } })} /></div><AddressAutocompleteField label="Lieu" value={briefing.location.label ?? ''} location={briefing.location} onChange={(label) => update({ briefingDetails: { ...briefing, location: { ...briefing.location, label: label || null } } })} onLocationChange={(location) => update({ briefingDetails: { ...briefing, location } })} /><TextField label="Vidéo" type="url" value={briefing.videoUrl ?? ''} onChange={(videoUrl) => update({ briefingDetails: { ...briefing, videoUrl: videoUrl || null } })} /><SwitchRow label="Briefing obligatoire" checked={briefing.mandatory} onCheckedChange={(mandatory) => update({ briefingDetails: { ...briefing, mandatory } })} /><TextAreaField label="Note courte" hint={`${(briefing.note ?? '').length}/200 caractères`} value={briefing.note ?? ''} onChange={(note) => update({ briefingDetails: { ...briefing, note: note.slice(0, 200) || null } })} /></section>
+      <section className="space-y-3 rounded-xl border border-border p-3"><p className="font-semibold">Règles clés</p><TextField label="Règlement" type="url" value={rules.regulationUrl ?? ''} onChange={(regulationUrl) => update({ rulesDetails: { ...rules, regulationUrl: regulationUrl || null } })} /><SegmentedChoice label="Bâtons" value={rules.keyRules.polesAllowed ?? 'unknown'} options={[{ value: 'unknown', label: 'Non précisé' }, { value: 'allowed', label: 'Autorisés' }, { value: 'partial', label: 'Partiels' }, { value: 'forbidden', label: 'Interdits' }] as const} onChange={(polesAllowed) => update({ rulesDetails: { ...rules, keyRules: { ...rules.keyRules, polesAllowed: polesAllowed === 'unknown' ? null : polesAllowed } } })} /><SwitchRow label="Gobelet obligatoire" checked={rules.keyRules.cupRequired === true} onCheckedChange={(cupRequired) => update({ rulesDetails: { ...rules, keyRules: { ...rules.keyRules, cupRequired } } })} /><SwitchRow label="Musique autorisée" checked={rules.keyRules.musicAllowed === true} onCheckedChange={(musicAllowed) => update({ rulesDetails: { ...rules, keyRules: { ...rules.keyRules, musicAllowed } } })} /><SwitchRow label="Assistance extérieure interdite" checked={rules.keyRules.outsideAssistanceForbidden === true} onCheckedChange={(outsideAssistanceForbidden) => update({ rulesDetails: { ...rules, keyRules: { ...rules.keyRules, outsideAssistanceForbidden } } })} />{rules.keyRules.cupRequired && !hasOrganizerEquipmentLabelPrefix(equipmentItems, 'gobelet') ? <p className="text-sm text-amber-700">Pense à ajouter un gobelet au matériel obligatoire.</p> : null}<TextAreaField label="Note courte" hint={`${(rules.note ?? '').length}/200 caractères`} value={rules.note ?? ''} onChange={(note) => update({ rulesDetails: { ...rules, note: note.slice(0, 200) || null } })} /></section>
+      {runnerInfo.startArea || runnerInfo.briefing || runnerInfo.rules ? <LegacyText text={[runnerInfo.startArea, runnerInfo.briefing, runnerInfo.rules].filter(Boolean).join('\n\n')} /> : null}
+      <TextAreaField label="Note format" value={runnerInfo.note ?? ""} onChange={(value) => update({ note: value.slice(0, 200) || null })} />
     </div>
   );
 }

@@ -15,6 +15,8 @@ type OrganizerEquipmentDetails = {
   weatherPlan: 'normal' | 'cold' | 'heat';
   items: OrganizerEquipmentItem[];
   note: string | null;
+  shortNote: string | null;
+  checkpoints: ('bib_pickup' | 'start' | 'course')[];
 };
 
 type RunnerEquipmentItem = OrganizerEquipmentItem & {
@@ -95,6 +97,9 @@ type OrganizerRunnerInfoDetails = {
   startArea: string | null;
   briefing: string | null;
   rules: string | null;
+  startAreaDetails: { location: OrganizerLocationDetails; opensAt: string | null; note: string | null };
+  briefingDetails: { date: string | null; time: string | null; location: OrganizerLocationDetails; videoUrl: string | null; mandatory: boolean; note: string | null };
+  rulesDetails: { regulationUrl: string | null; keyRules: { polesAllowed: 'allowed' | 'partial' | 'forbidden' | null; cupRequired: boolean | null; musicAllowed: boolean | null; outsideAssistanceForbidden: boolean | null }; note: string | null };
   note: string | null;
 };
 
@@ -271,6 +276,8 @@ const DEFAULT_EQUIPMENT: OrganizerEquipmentDetails = {
   weatherPlan: 'normal',
   items: [],
   note: null,
+  shortNote: null,
+  checkpoints: [],
 };
 
 const DEFAULT_LOCATION_DETAILS: OrganizerLocationDetails = {
@@ -335,6 +342,9 @@ const DEFAULT_RUNNER_INFO: OrganizerRunnerInfoDetails = {
   startArea: null,
   briefing: null,
   rules: null,
+  startAreaDetails: { location: DEFAULT_LOCATION_DETAILS, opensAt: null, note: null },
+  briefingDetails: { date: null, time: null, location: DEFAULT_LOCATION_DETAILS, videoUrl: null, mandatory: false, note: null },
+  rulesDetails: { regulationUrl: null, keyRules: { polesAllowed: null, cupRequired: null, musicAllowed: null, outsideAssistanceForbidden: null }, note: null },
   note: null,
 };
 
@@ -480,6 +490,8 @@ function parseEquipmentDetails(value: unknown): OrganizerEquipmentDetails {
     weatherPlan: record.weatherPlan === 'cold' || record.weatherPlan === 'heat' ? record.weatherPlan : 'normal',
     items,
     note: readText(record.note),
+    shortNote: readText(record.shortNote),
+    checkpoints: Array.isArray(record.checkpoints) ? record.checkpoints.filter((value): value is OrganizerEquipmentDetails['checkpoints'][number] => value === 'bib_pickup' || value === 'start' || value === 'course') : [],
   };
 }
 
@@ -573,11 +585,18 @@ function parseServicesDetails(value: unknown): OrganizerServicesDetails {
 
 function parseRunnerInfoDetails(value: unknown): OrganizerRunnerInfoDetails {
   const record = readRecord(value);
+  const startArea = readRecord(record.startAreaDetails);
+  const briefing = readRecord(record.briefingDetails);
+  const rules = readRecord(record.rulesDetails);
+  const keyRules = readRecord(rules.keyRules);
 
   return {
     startArea: readText(record.startArea),
     briefing: readText(record.briefing),
     rules: readText(record.rules),
+    startAreaDetails: { location: parseLocationDetails(startArea.location), opensAt: readText(startArea.opensAt), note: readText(startArea.note) },
+    briefingDetails: { date: readText(briefing.date), time: readText(briefing.time), location: parseLocationDetails(briefing.location), videoUrl: readText(briefing.videoUrl), mandatory: readBoolean(briefing.mandatory, false), note: readText(briefing.note) },
+    rulesDetails: { regulationUrl: readText(rules.regulationUrl), keyRules: { polesAllowed: keyRules.polesAllowed === 'allowed' || keyRules.polesAllowed === 'partial' || keyRules.polesAllowed === 'forbidden' ? keyRules.polesAllowed : null, cupRequired: readNullableBoolean(keyRules.cupRequired), musicAllowed: readNullableBoolean(keyRules.musicAllowed), outsideAssistanceForbidden: readNullableBoolean(keyRules.outsideAssistanceForbidden) }, note: readText(rules.note) },
     note: readText(record.note),
   };
 }
@@ -675,7 +694,7 @@ function hasLocationContent(location: OrganizerLocationDetails): boolean {
 }
 
 function hasEquipmentContent(details: OrganizerEquipmentDetails): boolean {
-  return details.items.length > 0 || hasAnyText([details.note]);
+  return details.items.length > 0 || details.checkpoints.length > 0 || hasAnyText([details.shortNote, details.note]);
 }
 
 function hasBibContent(details: OrganizerBibPickupDetails): boolean {
@@ -721,7 +740,8 @@ function hasServicesContent(details: OrganizerServicesDetails): boolean {
 }
 
 function hasRunnerInfoContent(details: OrganizerRunnerInfoDetails): boolean {
-  return hasAnyText([details.startArea, details.briefing, details.rules, details.note]);
+  return hasAnyText([details.startArea, details.briefing, details.rules, details.note, details.startAreaDetails.location.label, details.briefingDetails.date, details.briefingDetails.time, details.briefingDetails.location.label, details.rulesDetails.regulationUrl, details.startAreaDetails.note, details.briefingDetails.note, details.rulesDetails.note])
+    || Object.values(details.rulesDetails.keyRules).some((value) => value !== null);
 }
 
 function hasScheduleContent(details: OrganizerRaceDetails['schedule']): boolean {
@@ -810,6 +830,8 @@ function buildRunnerDetails(eventDetails: OrganizerEventDetails, raceDetails: Or
       weatherPlan,
       items: mergedEquipmentItems,
       note: [commonEquipment.note, raceDetails.mandatoryEquipment.note].filter(Boolean).join('\n') || null,
+      shortNote: mergePreferredText(commonEquipment.shortNote, raceDetails.mandatoryEquipment.shortNote),
+      checkpoints: Array.from(new Set([...commonEquipment.checkpoints, ...raceDetails.mandatoryEquipment.checkpoints])),
     },
     equipmentStatus: {
       weatherPlan,

@@ -1164,7 +1164,15 @@ export default function RaceRacebookScreen() {
   const runnerInfoLines = useMemo(() => {
     if (!data || data.runnerDetails.access.enabledSections.runnerInfo === false) return [];
 
+    const structured = data.runnerDetails.runnerInfo;
+    const rules = structured.rulesDetails.keyRules;
     return [
+      structured.startAreaDetails.location.label ? `Zone de départ : ${structured.startAreaDetails.location.label}${structured.startAreaDetails.opensAt ? ` · ouverture ${structured.startAreaDetails.opensAt}` : ''}` : null,
+      structured.briefingDetails.date || structured.briefingDetails.time || structured.briefingDetails.location.label ? `Briefing${structured.briefingDetails.mandatory ? ' obligatoire' : ''} : ${[structured.briefingDetails.date, structured.briefingDetails.time, structured.briefingDetails.location.label].filter(Boolean).join(' · ')}` : null,
+      rules.polesAllowed ? `Bâtons : ${{ allowed: 'autorisés', partial: 'partiellement autorisés', forbidden: 'interdits' }[rules.polesAllowed]}` : null,
+      rules.cupRequired === true ? 'Gobelet obligatoire' : null,
+      rules.musicAllowed !== null ? `Musique : ${rules.musicAllowed ? 'autorisée' : 'interdite'}` : null,
+      rules.outsideAssistanceForbidden === true ? 'Assistance extérieure interdite' : null,
       data.runnerDetails.runnerInfo.startArea,
       data.runnerDetails.runnerInfo.briefing,
       data.runnerDetails.runnerInfo.rules,

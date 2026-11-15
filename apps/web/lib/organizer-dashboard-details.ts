@@ -85,8 +85,10 @@ export const organizerEquipmentDetailsSchema = z
     weatherPlan: organizerWeatherPlanSchema.default("normal"),
     items: z.array(equipmentItemSchema).default([]),
     note: nullableText,
+    shortNote: nullableText,
+    checkpoints: z.array(z.enum(["bib_pickup", "start", "course"])).default([]),
   })
-  .default({ overrideEnabled: false, weatherPlan: "normal", items: [], note: null });
+  .default({ overrideEnabled: false, weatherPlan: "normal", items: [], note: null, shortNote: null, checkpoints: [] });
 
 export const organizerBibPickupSlotSchema = z.object({
   date: nullableText,
@@ -231,12 +233,18 @@ export const organizerRunnerInfoDetailsSchema = z
     startArea: nullableText,
     briefing: nullableText,
     rules: nullableText,
+    startAreaDetails: z.object({ location: organizerLocationSchema, opensAt: nullableClockText, note: nullableText }).default({ location: organizerLocationSchema.parse({}), opensAt: null, note: null }),
+    briefingDetails: z.object({ date: nullableText, time: nullableClockText, location: organizerLocationSchema, videoUrl: nullableUrl, mandatory: z.boolean().default(false), note: nullableText }).default({ date: null, time: null, location: organizerLocationSchema.parse({}), videoUrl: null, mandatory: false, note: null }),
+    rulesDetails: z.object({ regulationUrl: nullableUrl, keyRules: z.object({ polesAllowed: z.enum(["allowed", "partial", "forbidden"]).nullable().default(null), cupRequired: nullableBoolean, musicAllowed: nullableBoolean, outsideAssistanceForbidden: nullableBoolean }).default({ polesAllowed: null, cupRequired: null, musicAllowed: null, outsideAssistanceForbidden: null }), note: nullableText }).default({ regulationUrl: null, keyRules: { polesAllowed: null, cupRequired: null, musicAllowed: null, outsideAssistanceForbidden: null }, note: null }),
     note: nullableText,
   })
   .default({
     startArea: null,
     briefing: null,
     rules: null,
+    startAreaDetails: { location: organizerLocationSchema.parse({}), opensAt: null, note: null },
+    briefingDetails: { date: null, time: null, location: organizerLocationSchema.parse({}), videoUrl: null, mandatory: false, note: null },
+    rulesDetails: { regulationUrl: null, keyRules: { polesAllowed: null, cupRequired: null, musicAllowed: null, outsideAssistanceForbidden: null }, note: null },
     note: null,
   });
 

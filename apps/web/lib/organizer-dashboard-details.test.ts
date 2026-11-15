@@ -33,6 +33,19 @@ describe("parseOrganizerRaceDetails", () => {
       finishCutoffDayOffset: 2,
     });
   });
+
+  it("parses structured runner information alongside historical text", () => {
+    const details = parseOrganizerRaceDetails({ runnerInfo: {
+      startArea: "Ancienne zone",
+      startAreaDetails: { location: { label: "Place du village" }, opensAt: "6h", note: "Entrée nord" },
+      briefingDetails: { date: "2026-11-15", time: "06:30", mandatory: true },
+      rulesDetails: { regulationUrl: "race.example/rules", keyRules: { polesAllowed: "partial", cupRequired: true } },
+    }, mandatoryEquipment: { checkpoints: ["start", "course"], shortNote: "Contrôle aléatoire" } });
+    expect(details.runnerInfo.startArea).toBe("Ancienne zone");
+    expect(details.runnerInfo.startAreaDetails).toMatchObject({ opensAt: "06:00", location: { label: "Place du village" } });
+    expect(details.runnerInfo.rulesDetails.keyRules).toMatchObject({ polesAllowed: "partial", cupRequired: true });
+    expect(details.mandatoryEquipment.checkpoints).toEqual(["start", "course"]);
+  });
 });
 
 describe("parseOrganizerAidStationDetails", () => {
