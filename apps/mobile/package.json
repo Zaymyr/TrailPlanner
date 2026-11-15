@@ -32,6 +32,7 @@
     "@react-native-community/datetimepicker": "8.4.4",
     "@react-native-google-signin/google-signin": "^16.1.2",
     "@supabase/supabase-js": "^2.45.4",
+    "@trailplanner/shared": "file:../../packages/shared",
     "expo": "~54.0.37",
     "expo-apple-authentication": "~8.0.8",
     "expo-application": "~7.0.8",

@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_partner_slots Table
 scope: database
-last_verified: 2026-11-09
+last_verified: 2026-11-11
 ai_priority: high
 related_files:
   - supabase/migrations/20261109140000_add_racebook_edition_partner_slots.sql
@@ -27,6 +27,8 @@ related_tables:
 ---
 
 # race_event_edition_partner_slots
+
+The published `lodging` slot is reused in the Supporter Guide Stay section with the same affiliate/partner/hidden semantics and effective `sponsors` gate. The guide never reads draft slot rows or exposes partner destination URLs directly.
 
 Partner-slot public output follows the exact effective sponsor/module access resolved by the RaceBook routes. Independent invoice rows do not change slot visibility or table access.
 
@@ -85,6 +87,11 @@ RLS is enabled with no client policy; `PUBLIC`, `anon` and `authenticated` have 
 - A slot pointing to a deleted sponsor disappears (cascade) and the slot returns to its affiliate card at the next publication.
 - Snapshots published before this table have no `partnerSlots`; schema parsing defaults it to `[]`, and the route code also tolerates its absence.
 - The snapshot builder treats a missing table (HTTP 404) as `[]` so publication keeps working during a staggered deployment; apply the migration before relying on the option.
+
+
+## Mobile presentation
+
+`RacebookGearSection` presents mandatory gear as a stamped checklist (session-stable stamp rotation, static dotted progress trail, 44-point rows); gear-check storage and partner slots are unchanged.
 
 ## Related Docs
 

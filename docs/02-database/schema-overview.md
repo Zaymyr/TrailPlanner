@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-11-09
+last_verified: 2026-11-11
 ai_priority: high
 related_files:
   - supabase/migrations/20261106142000_add_lut_by_night_2026_gpx.sql
@@ -133,6 +133,8 @@ related_tables:
 
 # Schema Overview
 
+The catalog event sheet opens the Livret accompagnateur from an interactive `TopoCard` placed before the distance list, and the guide's back action reopens that sheet through the existing `eventId` parameter plus a `sheet` nonce. No schema change.
+
 The 2026 Radiance Mutuelle LUT By Night data-only enrichment attaches the three official downloadable GPX objects to the 10 km, 20 km and 30 km catalog formats, preserving their official distance/D+ labels and adding hashes plus parsed route metadata. The 10 km Rando remains without a GPX because its official page has no downloadable trace URL. No schema, grant, policy, visibility, or publication-state contract changes.
 
 Bugs and feedback (`app_feedback`) now share the race-request review lifecycle; an admin reply is a `user_notifications` row linked by `feedback_id`, created atomically with the status by a service-role RPC. Runners hide a message with `deleted_at` instead of deleting it, so the admin keeps the reply and its read and deletion state.
@@ -212,6 +214,7 @@ The November 2026 mobile plan-flow polish changes catalog search controls, image
 | `nutrition_plans` | User-owned nutrition planning snapshots. |
 | `plan_aid_stations` | Aid station rows attached to a saved race plan. |
 | `plan_share_links` | Public crew recap snapshots and limited crew tracking state for saved plans, looked up by hashed share token. |
+| `plan_share_follows` | Authenticated memberships in a shared-plan link, including local availability/archive state without granting plan ownership. |
 | `premium_grants` | Manual premium overrides with optional end dates. |
 | `products` | Fuel product catalog and user-created products, with explicit `is_official` metadata for curated/shared catalog rows. |
 | `push_devices` | Expo push tokens and device metadata per user. |
@@ -312,6 +315,7 @@ erDiagram
 - [race_plans](tables/race-plans.md)
 - [plan_aid_stations](tables/plan-aid-stations.md)
 - [plan_share_links](tables/plan-share-links.md)
+- [plan_share_follows](tables/plan-share-follows.md)
 - [race_aid_stations](tables/race-aid-stations.md)
 - [race_supporter_points](tables/race-supporter-points.md)
 - [race_relay_points](tables/race-relay-points.md)
@@ -413,6 +417,21 @@ erDiagram
 The format-sheet, favorite-feedback, recap, and product-label changes are consumer presentation only. They do not add columns, tables, policies, grants, or a new persistence path.
 
 The separate `20261101120000_normalize_decathlon_product_brand_aliases.sql` correction changes no schema shape or access boundary. It extends the existing immutable brand normalizer and limits its backfill to curated catalog rows.
+
+Trail signature iteration (2026-11-11): runner presentation only. In-page RaceBook Course, Profile and plan view selectors become trail tabs, map/transport links and the catalog format RaceBook action become signpost buttons, catalog format distance/D+ read as cotes, tab-bar blazes move to the left of the selected icon, the hero contours are lightened and the elevation profile gains a decorative summit flag and iso-line echo. No query, row, payload, navigation target or analytics event changes.
+
+
+## Mobile presentation
+
+The mobile catalog (`apps/mobile/app/(app)/catalog.tsx`) now shows its quick filters as kilometre-milestone `ChoiceChip`s behind a compass filter button (Favoris first, heart variant) and the race sheet favourite as a forest `HeartMark`; this is presentation only — queries, favourite writes and analytics events are unchanged.
+
+`RaceEventSummaryCard` (catalog race card) shows the RaceBook availability as a `StatusPill` wristband, counts and distances as `Cote`s, the favourite heart on the title line and a « Voir les distances » sign. It draws no course profile (removed on 2026-11-11) and the catalog no longer fetches format profiles. No data contract changes.
+
+The unread organizer-update marker (« NEW ») is a brand `StatusPill` wristband on event cards and in the update list; reads and writes are unchanged.
+
+Sheets and modals use the shared `SheetHeader` (dotted trail handle, slender blaze, title, watch close button) and collapsible groups use `AccordionSection` (km borne with a count or icon, forest trail along the open content); UI only, data and queries unchanged.
+
+Guided screens never auto-open the keyboard; a guide card's acknowledgement is a secondary ticket when a ground-arrow skip sits beside it, and onboarding copy must match the real layout (RaceBook tabs are at the bottom).
 
 ## Related Docs
 

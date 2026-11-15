@@ -87,6 +87,7 @@ const COPY = {
     water: "Eau",
     pause: "Pause",
     sharedAt: "Lien généré",
+    followInApp: "Suivre dans l'app",
     waterFull: "poche pleine {liters} L",
     waterRefill: "remplir la poche",
     waterUnavailable: "pas de recharge eau",
@@ -114,6 +115,7 @@ const COPY = {
     water: "Water",
     pause: "Pause",
     sharedAt: "Generated",
+    followInApp: "Follow in the app",
     waterFull: "full bladder {liters} L",
     waterRefill: "refill the bladder",
     waterUnavailable: "no water refill",
@@ -325,6 +327,15 @@ export default async function SharedPlanPage({ params }: PageProps) {
         crewState={share.crew_state}
         locale={locale}
       />
+
+      <div className="flex justify-center">
+        <a
+          href={`paceyourself://share/plan/${encodeURIComponent(params.token)}`}
+          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-brand-border bg-card px-4 text-sm font-bold text-brand"
+        >
+          {copy.followInApp}
+        </a>
+      </div>
 
       <p className="text-center text-xs text-muted-foreground">
         {copy.sharedAt} : {formatDate(share.created_at, locale)}

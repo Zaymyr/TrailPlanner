@@ -3,8 +3,7 @@ name: EAS Update Development
 on:
   push:
     branches:
-      - main
-      - 'dev/**'
+      - 'preview/web'
     paths:
       - 'apps/mobile/**'
       - 'packages/**'
@@ -14,7 +13,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: eas-update-development-${{ github.ref }}
+  group: eas-update-development
   cancel-in-progress: true
 
 permissions:
@@ -39,6 +38,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Verify consolidated integration ref
+        shell: bash
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/preview/web" ]; then
+            echo "Development OTA updates must be published from preview/web."
+            exit 1
+          fi
 
       - name: Setup Node
         uses: actions/setup-node@v7

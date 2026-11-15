@@ -1,9 +1,14 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-11-12
+last_verified: 2026-11-15
 ai_priority: high
 related_files:
+  - apps/web/app/api/supporter-guide/route.ts
+  - apps/web/app/api/supporter-guide/qr/route.ts
+  - apps/web/app/courses/supporter-guide/[raceId]/page.tsx
+  - apps/web/app/courses/supporter-guide/[raceId]/SupporterGuideView.tsx
+  - apps/web/lib/supporter-guide.ts
   - apps/web/app/admin/video-generator/export-frame.test.ts
   - apps/web/app/admin/video-generator/export-frame.ts
   - apps/web/app/admin/_components/AdminMessagingTab.tsx
@@ -350,6 +355,12 @@ related_tables:
 ---
 
 # Web App Architecture
+
+The Supporter Guide payload now carries resolved cutoffs and a sorted `timeline`; `SupporterGuideView` groups the programme by day and formats dates, distances and cross-day cutoffs per locale. Cutoff resolution uses `@trailplanner/shared` `racebook-cutoffs`, a server-side copy of the runner RaceBook rules.
+
+The public Supporter Guide lives at `/courses/supporter-guide/[raceId]` and consumes `/api/supporter-guide`, which aggregates only immutable format publications and reuses RaceBook cache tags. The client route is mobile-first and `noindex`; `/api/supporter-guide/qr` generates a downloadable SVG QR for the organizer workspace.
+
+Shared-plan follow APIs are authenticated Next.js route handlers using service role only after bearer validation and per-user rate limiting. The public token route remains anonymous and token-based; its crew-state mutation and the authenticated follow-id mutation share one validation/update service. The public page only adds a native-app CTA and preserves its snapshot contract.
 
 Manual organizer billing now has dedicated admin preview, issue, corrective-invoice, settlement, PDF-repair and catalog endpoints. These service-role routes write `organizer_invoices` independently from access rights; organizer invoice list/download endpoints merge those rows with the legacy payment-backed history and lazily repair a missing PDF after authorization. The admin screen presents billing and rights as separate actions. Exact feature grants have availability but no standalone price, and flow through organizer and public RaceBook reads without granting the rest of a higher plan.
 
@@ -780,3 +791,7 @@ Reels light the told climb or descent in the profile slope colours on the map an
 ## RaceBook publication checks and partner slots (2026-11-09)
 
 The organizer publish dialog renders `PublicationReview` (blocking checks, warnings, affiliate slots). The Sponsors editor embeds `PartnerSlotsEditor`. New routes: `/api/organizer/editions/:id/partner-slots`, `/api/racebook-partner-slots/:slot/click`, `/api/racebook-partner-slots/impression`.
+
+## Authenticated followed-plan context
+
+The share write binds additive `snapshot.raceId` from the owned `race_plans.race_id` and ignores the client value. Active followers receive a server-derived `raceContext`: current public race/event visibility plus the immutable RaceBook publication resolved through the same effective-module normalizer as `/api/racebook-data`. Missing publications and inactive modules never fall back to draft tables. The public `/share/plan/[token]` rendering remains unchanged.

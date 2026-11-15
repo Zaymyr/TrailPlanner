@@ -31,6 +31,8 @@ related_tables:
 
 # `race_event_publication_requests`
 
+Supporter Guide output follows immutable RaceBook publication and adds no separate publication request. Organizer preview and QR controls do not approve or publish a format.
+
 Publication approval remains independent from manual invoicing. The admin publication route now returns exact active feature grants and independent invoice summaries for the same edition, but neither dataset changes a request status or implicitly publishes a format.
 
 The Organizer dashboard now preserves loaded course-point sidecars across same-format refreshes and gates their autosave until loading completes. This prevents transient empty ravito/supporter replacements without changing publication readiness, entitlement checks, or legacy request history.

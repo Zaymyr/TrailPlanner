@@ -1,9 +1,12 @@
 ---
 title: racebook_publications
 scope: database
-last_verified: 2026-11-09
+last_verified: 2026-11-15
 ai_priority: high
 related_files:
+  - apps/web/lib/supporter-guide.ts
+  - apps/web/lib/supporter-guide.test.ts
+  - apps/web/app/api/supporter-guide/route.ts
   - apps/web/lib/racebook-publication-checks.ts
   - apps/web/lib/racebook-partner-slots.ts
   - supabase/migrations/20261103123918_racebook_versioned_publications.sql
@@ -11,6 +14,8 @@ related_files:
   - supabase/tests/racebook_versioned_publications_checks.sql
   - apps/web/lib/racebook-publications.ts
   - apps/web/app/api/racebook-data/route.ts
+  - apps/web/lib/racebook-public-data.ts
+  - apps/web/lib/plan-share-race-context.ts
 related_tables:
   - racebook_publications
   - racebook_publication_states
@@ -18,6 +23,10 @@ related_tables:
 ---
 
 # `racebook_publications`
+
+The Supporter Guide payload (`apps/web/lib/supporter-guide.ts`) stays additive on `schemaVersion: 1`: formats are sorted by date then first start; station and finish cutoffs are resolved from the official departure with the shared `racebook-cutoffs` resolver (organizer wording such as « sam. 15h » or « dim. 15/11 à 14h » becomes `{ date, time, dayOffset }` instead of being truncated); it also adds `timeline` (dated starts, finish cutoffs, podiums), `elevationGainM`, station `waterAvailable` / `solidAvailable` / `isFinish` and access `note`. Reads still come only from immutable publications.
+
+The Supporter Guide aggregator reads only current immutable publications for preview-visible formats in one edition. It applies the same effective-module masking as `/api/racebook-data`; an event with no qualifying publication is unavailable and never falls back to drafts. The additive `supporter_guide` module key defaults to enabled only for legacy snapshots that predate the key.
 
 Published RaceBook payloads resolve exact module gifts alongside the edition plan. Manual invoice status, due dates and settlement are not publication authority and are never used to unlock a RaceBook.
 
@@ -64,6 +73,7 @@ RLS is enabled with no client policies. `service_role` can select, insert and de
 - Bulk publication preflights and locks every expected revision before inserting any snapshot.
 - Restore copies an old payload into a new version and never overwrites draft source tables.
 - Only the ten newest versions per race are retained.
+- `loadPublishedRacebookData` is the shared effective-module normalizer for the public RaceBook endpoint and authenticated followed-plan context. The latter first requires current public race/event visibility and never falls back to source tables when no publication exists.
 
 ## Common Queries
 

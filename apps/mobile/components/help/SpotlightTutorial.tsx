@@ -15,6 +15,7 @@ import {
   type NativeMethods,
   type ViewStyle
 } from 'react-native';
+import { ActionButton } from '../themed/ActionButton';
 import { Text } from '../themed/Text';
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
 import { Colors } from '../../constants/colors';
@@ -34,6 +35,11 @@ export type TutorialMeasurableTarget = {
 type SpotlightTutorialProps<TTargetKey extends string = string> = {
   activeStepIndex: number;
   closeLabel: string;
+  /**
+   * When false, touching the dimmed backdrop does nothing instead of closing
+   * the tutorial (guided onboarding tours that must not end by accident).
+   */
+  dismissOnBackdropPress?: boolean;
   doneLabel: string;
   loadingLabel: string;
   nextLabel: string;
@@ -97,6 +103,7 @@ export function TutorialTarget<TTargetKey extends string>({
 export function SpotlightTutorial<TTargetKey extends string = string>({
   activeStepIndex,
   closeLabel,
+  dismissOnBackdropPress = true,
   doneLabel,
   loadingLabel,
   nextLabel,
@@ -114,6 +121,7 @@ export function SpotlightTutorial<TTargetKey extends string = string>({
   const step = steps[activeStepIndex] ?? null;
   const isLastStep = activeStepIndex >= steps.length - 1;
   const hasPrevious = activeStepIndex > 0;
+  const centered = step?.centered === true;
   const holeX = useRef(new Animated.Value(0)).current;
   const holeY = useRef(new Animated.Value(0)).current;
   const holeWidth = useRef(new Animated.Value(0)).current;
@@ -146,8 +154,14 @@ export function SpotlightTutorial<TTargetKey extends string = string>({
   const highlightPadding = step?.highlightPadding ?? DEFAULT_HIGHLIGHT_PADDING;
   const highlightRadiusValue = step?.highlightRadius ?? DEFAULT_HIGHLIGHT_RADIUS;
 
+  // Screen readers hear each step as soon as it is shown.
+  const announcement = visible && step ? `${step.title}. ${step.body}` : null;
+  useEffect(() => {
+    if (announcement) AccessibilityInfo.announceForAccessibility(announcement);
+  }, [activeStepIndex, announcement]);
+
   const highlightRect = useMemo(() => {
-    if (!targetRect || viewportWidth <= 0 || viewportHeight <= 0) {
+    if (centered || !targetRect || viewportWidth <= 0 || viewportHeight <= 0) {
       return null;
     }
 
@@ -157,7 +171,7 @@ export function SpotlightTutorial<TTargetKey extends string = string>({
       width: Math.min(targetRect.width + highlightPadding * 2, viewportWidth - 16),
       height: targetRect.height + highlightPadding * 2,
     };
-  }, [highlightPadding, targetRect, viewportHeight, viewportWidth]);
+  }, [centered, highlightPadding, targetRect, viewportHeight, viewportWidth]);
 
   useEffect(() => {
     if (!visible || !highlightRect) return;
@@ -358,14 +372,25 @@ export function SpotlightTutorial<TTargetKey extends string = string>({
         ) : null}
       </Svg>
 
-      <Pressable onPress={onClose} style={styles.dismissLayer} />
+      <Pressable
+        accessible={false}
+        importantForAccessibility="no"
+        onPress={dismissOnBackdropPress ? onClose : undefined}
+        style={styles.dismissLayer}
+      />
 
-      <View style={cardStyle}>
+      <View accessibilityViewIsModal style={cardStyle}>
         <View style={styles.cardHeader}>
           <Text style={styles.progressText}>
             {activeStepIndex + 1} / {steps.length}
           </Text>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+          <TouchableOpacity
+            accessibilityLabel={closeLabel}
+            accessibilityRole="button"
+            hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+            onPress={onClose}
+            style={styles.closeButton}
+          >
             <Text style={styles.closeButtonText}>{closeLabel}</Text>
           </TouchableOpacity>
         </View>
@@ -376,10 +401,10 @@ export function SpotlightTutorial<TTargetKey extends string = string>({
           showsVerticalScrollIndicator={false}
           style={styles.cardScroll}
         >
-          <Text style={styles.title}>{step.title}</Text>
+          <Text accessibilityRole="header" style={styles.title}>{step.title}</Text>
           <Text style={styles.body}>{step.body}</Text>
 
-          {!highlightRect ? (
+          {!highlightRect && !centered ? (
             <View style={styles.loadingRow}>
               <ActivityIndicator color={Colors.brandPrimary} />
               <Text style={styles.loadingText}>{loadingLabel}</Text>
@@ -388,19 +413,18 @@ export function SpotlightTutorial<TTargetKey extends string = string>({
         </ScrollView>
 
         <View style={styles.actionsRow}>
-          <TouchableOpacity
-            disabled={!hasPrevious}
-            onPress={onPrevious}
-            style={[styles.secondaryButton, !hasPrevious && styles.secondaryButtonDisabled]}
-          >
-            <Text style={[styles.secondaryButtonText, !hasPrevious && styles.secondaryButtonTextDisabled]}>
+          {/* No closed-trail "Précédent" on the first step: the slot stays empty. */}
+          {hasPrevious ? (
+            <ActionButton arrowDirection="back" onPress={onPrevious} size="sm" style={styles.actionButton} variant="ghost">
               {previousLabel}
-            </Text>
-          </TouchableOpacity>
+            </ActionButton>
+          ) : (
+            <View style={styles.actionButton} />
+          )}
 
-          <TouchableOpacity onPress={onNext} style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>{isLastStep ? doneLabel : nextLabel}</Text>
-          </TouchableOpacity>
+          <ActionButton onPress={onNext} size="sm" style={styles.actionButton}>
+            {isLastStep ? doneLabel : nextLabel}
+          </ActionButton>
         </View>
       </View>
     </View>
@@ -427,6 +451,9 @@ const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 50,
+    // Android draws elevated siblings (e.g. a shadowed header) above higher
+    // zIndex views without elevation: keep the scrim on top of them.
+    elevation: 24,
   },
   svgOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -510,40 +537,7 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 18,
   },
-  secondaryButton: {
+  actionButton: {
     flex: 1,
-    minHeight: 46,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceSecondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-  },
-  secondaryButtonDisabled: {
-    opacity: 0.45,
-  },
-  secondaryButtonText: {
-    color: Colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  secondaryButtonTextDisabled: {
-    color: Colors.textMuted,
-  },
-  primaryButton: {
-    flex: 1,
-    minHeight: 46,
-    borderRadius: 14,
-    backgroundColor: Colors.brandPrimary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-  },
-  primaryButtonText: {
-    color: Colors.textOnBrand,
-    fontSize: 14,
-    fontWeight: '800',
   },
 });

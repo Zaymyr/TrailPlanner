@@ -1,7 +1,7 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-11-09
+last_verified: 2026-11-11
 ai_priority: high
 related_files:
   - supabase/migrations/20261109140000_add_racebook_edition_partner_slots.sql
@@ -57,7 +57,7 @@ For immutable service-only financial records, follow the `organizer_invoices` pa
 
 The versioned RaceBook publication cluster is the current multi-table service-only example. `racebook_publication_states`, immutable `racebook_publications`, retained asset references and the cleanup queue all enable RLS without client policies, revoke client privileges, and expose only narrowly granted `SECURITY INVOKER` RPCs. When rollout requires existing public rows, build and validate the initial snapshot in the same migration before enabling snapshot-only reads; a state-only backfill is insufficient.
 
-Presentation-only mobile changes that touch files referenced by `schema-overview.md` (such as the Courses card image placeholder, or the 2026-11-09 livret-first catalog ordering and `Livret disponible` badge) still update that overview's note, but add no table and need no migration.
+Presentation-only mobile changes that touch files referenced by `schema-overview.md` (such as the Courses card image placeholder, or the 2026-11-09 livret-first catalog ordering and `Livret disponible` badge) still update that overview's note, but add no table and need no migration. The 2026-11-15 Livret accompagnateur entry and sheet-reopen change in `catalog.tsx` is another such case.
 
 ## Purpose
 
@@ -146,9 +146,28 @@ The catalog format sheet, favorite toast, recap hierarchy, and product-label saf
 
 The separate Decathlon alias migration is likewise not a new-table task: it replaces an existing normalization function and updates only curated rows while preserving current grants and RLS.
 
+Trail signature iteration (2026-11-11): `schema-overview.md` only received a presentation-only note for the mobile catalog; no table, column, policy or migration workflow changed.
+
+
+## Mobile presentation
+
+When a new table feeds a mobile list or card, the screen renders it with the trail objects (see `docs/07-design-system/components.md`) and passes the row id as `variationKey`, so decorative variation stays stable per item for the session. Presentation-only fields are never added to the schema for decoration.
+
+Catalog race cards no longer draw format profiles; if a profile preview comes back, store a small downsampled series (about 48 points) per format rather than parsing GPX per row.
+
+Status flags read from a new table (for example an unread marker) are shown with `StatusPill` wristbands on mobile, never with ad-hoc badges.
+
+Lists grouped by a new table's parent rows are rendered as `AccordionSection`s whose borne shows the child count.
+
+Decorative previews derived from a new table (such as profile strips) are normalised client-side for presentation; do not store presentation-only shapes in the schema.
+
+Screens listing a new table's rows in a guided onboarding must not auto-focus inputs that hide the list.
+
 ## Related Docs
 
 The `race_supporter_points` addition follows this workflow: cascade ownership by `races`, explicit client/service grants, a completeness-filtered SELECT policy, a service-only atomic collection RPC, static SQL checks, and a dedicated table reference document.
+
+`plan_share_follows` follows the same workflow as a user-scoped membership table: RLS must limit reads and mutations to the authenticated follower or trusted server path, membership must never imply owner access to `race_plans`, lifecycle fields must be explicitly documented, and static SQL checks plus `tables/plan-share-follows.md` must ship with the migration.
 
 - [Migrations](../02-database/migrations.md)
 - [RLS Checklist](../04-auth-and-security/rls-checklist.md)

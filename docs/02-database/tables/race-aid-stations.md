@@ -1,7 +1,7 @@
 ---
 title: race_aid_stations Table
 scope: database
-last_verified: 2026-11-05
+last_verified: 2026-11-15
 ai_priority: high
 related_files:
   - supabase/migrations/20261105082511_enrich_saintelyon_2026_formats.sql
@@ -23,6 +23,8 @@ related_files:
   - supabase/tests/organizer_atomic_course_collections_checks.sql
   - apps/web/app/api/organizer/races/[id]/aid-station-products/route.ts
   - apps/web/lib/organizer-dashboard-details.ts
+  - apps/web/lib/plan-share-race-context.ts
+  - apps/mobile/app/(app)/plan/followed/[id].tsx
   - apps/web/components/GpxAidStationImporter.tsx
 related_tables:
   - race_aid_stations
@@ -33,6 +35,10 @@ related_tables:
 ---
 
 # `race_aid_stations`
+
+Supporter Guide Follow cards reuse published station rows and additive `organizer_details.supportersAccess`, `maxStopMinutes`, `amenities` and cutoff values when present. The guide never reads draft rows and does not add or reinterpret station storage.
+
+The followed-plan mobile screen evaluates these published checkpoint values through its client-local timeline adapter; no direct station query or storage rule is introduced.
 
 The shared organizer-details schema adds nullable third-party bib-pickup conditions and accent-insensitive equipment-label matching. Aid-station rows, GPX-derived cumulative metrics, service flags, products, replacement ordering, and RLS remain unchanged; ravito cards continue to keep their key metrics visible while the long edit form may remain collapsible.
 
@@ -143,6 +149,7 @@ values ('<race-id>', 'Aid station 1', 12.5, true, true, true, '{"stationType":"w
 
 - Public reads require the effective `aid_stations` module; organizer writes are refused while the module is inactive or locked.
 - Published mobile reads receive ravitos and nested products through the immutable RaceBook API snapshot. Ravito, product, or GPX mutations only increment the parent draft revision; explicit publication invalidates the parent race tag.
+- Followed-plan enrichment also reads only that immutable snapshot. It matches `sourceAidStationId` first and otherwise accepts one unambiguous station within 0.15 km; it never attaches supporter access, maximum stop, amenities or cutoff data to an uncertain checkpoint.
 
 - Base ravito editing remains available without Pro. Relay linkage and official station products are separate Pro capabilities and must not block ordinary station saves.
 

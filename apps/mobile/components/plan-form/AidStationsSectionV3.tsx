@@ -10,7 +10,6 @@ import {
   type ReactElement
 } from 'react';
 import {
-  ActivityIndicator,
   LayoutChangeEvent,
   type LayoutRectangle,
   Platform,
@@ -23,15 +22,16 @@ import {
 import {
   AidStationIcon,
   colors,
-  mobileComponents,
   radius,
   shadows,
   spacing
 } from '@pace-yourself/design-system';
 import { TutorialTarget, type TutorialMeasurableTarget } from '../help/SpotlightTutorial';
+import { ActionButton } from '../themed/ActionButton';
 import { DataText } from '../themed/DataText';
 import { Heading } from '../themed/Heading';
 import { Text, Text as ThemedText } from '../themed/Text';
+import { TrailTabs } from '../themed/TrailTabs';
 import type { GaugeMetric } from './GaugeArc';
 import { GaugesRow } from './GaugesRow';
 import { AidStationCoveragePanel } from './AidStationCoveragePanel';
@@ -169,11 +169,10 @@ export function PreviewUnlockCta({
           </ThemedText>
         </>
       ) : null}
-      <TouchableOpacity accessibilityRole="button" onPress={onPress} style={planDetailStyles.previewBoundaryButton}>
-        <ThemedText weight="bold" style={planDetailStyles.previewBoundaryButtonText}>
-          {locale === 'fr' ? 'Débloquer mon plan' : 'Unlock my plan'}
-        </ThemedText>
-      </TouchableOpacity>
+      {/* Preview mode's main action: the screen's enamel plate. */}
+      <ActionButton onPress={onPress}>
+        {locale === 'fr' ? 'Débloquer mon plan' : 'Unlock my plan'}
+      </ActionButton>
     </View>
   );
 }
@@ -205,32 +204,16 @@ export function AidStationsToolbar({
         style={compact ? planDetailStyles.toolbarTabsTargetCompact : undefined}
         targetKey="views"
       >
-        <View accessibilityRole="tablist" style={[styles.toggleRow, planDetailStyles.toolbarTabs, compact && planDetailStyles.toolbarTabsCompact]}>
-          {([
-            ['stations', 'Ravitos'],
-            ['profile', 'Allures'],
-            ['sections', 'Chronologie'],
-          ] as const).map(([key, label]) => (
-            <TouchableOpacity
-              accessibilityLabel={label}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: mode === key }}
-              key={key}
-              style={[styles.toggleBtn, compact && planDetailStyles.toolbarTabCompact, mode === key && styles.toggleBtnActive]}
-              onPress={() => onSelectMode(key)}
-              activeOpacity={0.8}
-            >
-              <Text
-                adjustsFontSizeToFit={compact}
-                minimumFontScale={0.82}
-                numberOfLines={1}
-                style={[styles.toggleBtnText, compact && planDetailStyles.toolbarTabTextCompact, mode === key && styles.toggleBtnTextActive]}
-              >
-                {label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <TrailTabs
+          activeKey={mode}
+          onChange={onSelectMode}
+          stretch
+          tabs={[
+            { key: 'stations', label: 'Ravitos' },
+            { key: 'profile', label: 'Allures' },
+            { key: 'sections', label: 'Chronologie' },
+          ]}
+        />
       </TutorialTarget>
     </View>
   );
@@ -616,6 +599,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
   }
 
   function renderStationsView() {
+    const autoFillLabel = locale === 'fr' ? 'Répartir mes produits automatiquement' : 'Distribute my products automatically';
     const clearElements: ReactElement[] = [
       <View key="nutrition-preparation" style={planDetailStyles.nutritionPreparation}>
         <Heading variant="h3" style={planDetailStyles.nutritionPreparationTitle}>
@@ -639,31 +623,40 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
           onRegisterRef={tutorial?.onTargetRegisterRef}
           targetKey="autoFill"
         >
-          <TouchableOpacity
-            accessibilityLabel={locale === 'fr' ? 'Répartir mes produits automatiquement' : 'Distribute my products automatically'}
-            accessibilityRole="button"
-            disabled={isAutoFilling}
+          {/*
+            Main action of the Ravitos view: the screen's one enamel plate.
+            In preview mode "Débloquer mon plan" holds the plate, so the
+            premium-gated variant is a ticket with the lock in its stub.
+          */}
+          <ActionButton
+            accessibilityLabel={autoFillLabel}
+            fullWidth
+            isLoading={isAutoFilling}
+            leading={(
+              <Ionicons
+                color={previewMode ? colors.trail.ticketInk : colors.text.inverse}
+                name={previewMode ? 'lock-closed' : 'sparkles'}
+                size={16}
+              />
+            )}
             onPress={fillSuppliesAuto}
-            style={[styles.fillBtn, planDetailStyles.nutritionPreparationButton, isAutoFilling && styles.fillBtnLoading]}
+            textStyle={planDetailStyles.nutritionPreparationButtonText}
+            variant={previewMode ? 'secondary' : 'primary'}
           >
-            <View style={styles.fillBtnContent}>
-              {isAutoFilling ? (
-                <>
-                  <ActivityIndicator size="small" color={colors.text.inverse} />
-                  <Text style={[styles.fillBtnText, styles.fillBtnTextLoading]}>{autoFillLoadingMessage}</Text>
-                </>
-              ) : (
-                <>
-                  <Ionicons name={previewMode ? 'lock-closed' : 'sparkles'} size={18} color={colors.text.inverse} />
-                  <Text style={[styles.fillBtnText, planDetailStyles.nutritionPreparationButtonText]}>
-                    {previewMode
-                      ? (locale === 'fr' ? 'Premium · Répartir mes produits automatiquement' : 'Premium · Distribute my products automatically')
-                      : (locale === 'fr' ? 'Répartir mes produits automatiquement' : 'Distribute my products automatically')}
-                  </Text>
-                </>
-              )}
-            </View>
-          </TouchableOpacity>
+            {previewMode
+              ? (locale === 'fr' ? 'Premium · Répartir mes produits automatiquement' : 'Premium · Distribute my products automatically')
+              : autoFillLabel}
+          </ActionButton>
+          {isAutoFilling ? (
+            <ThemedText
+              accessibilityLiveRegion="polite"
+              size="sm"
+              style={planDetailStyles.nutritionPreparationLoading}
+              tone="secondary"
+            >
+              {autoFillLoadingMessage}
+            </ThemedText>
+          ) : null}
         </TutorialTarget>
       </View>,
     ];
@@ -1376,27 +1369,9 @@ const planDetailStyles = StyleSheet.create({
   hiddenToolbar: {
     opacity: 0,
   },
-  toolbarTabs: {
-    marginBottom: 0,
-  },
   toolbarTabsTargetCompact: {
     flex: 1,
     minWidth: 0,
-  },
-  toolbarTabsCompact: {
-    flex: 1,
-    minWidth: 0,
-    padding: 3,
-  },
-  toolbarTabCompact: {
-    minHeight: mobileComponents.segment.minHeight,
-    justifyContent: 'center',
-    paddingHorizontal: 3,
-    paddingVertical: 7,
-  },
-  toolbarTabTextCompact: {
-    fontSize: 11,
-    lineHeight: 14,
   },
   nutritionPreparation: {
     gap: spacing[2],
@@ -1411,11 +1386,7 @@ const planDetailStyles = StyleSheet.create({
     color: colors.text.primary,
   },
   nutritionPreparationButtonText: { flexShrink: 1, textAlign: 'center' },
-  nutritionPreparationButton: {
-    width: '100%',
-    minHeight: 48,
-    justifyContent: 'center',
-  },
+  nutritionPreparationLoading: { textAlign: 'center' },
   activeView: {
     paddingBottom: spacing[6],
   },
@@ -1437,15 +1408,6 @@ const planDetailStyles = StyleSheet.create({
     borderWidth: 0,
   },
   previewBoundaryBody: { textAlign: 'center' },
-  previewBoundaryButton: {
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing[4],
-    borderRadius: 12,
-    backgroundColor: colors.brand.forest,
-  },
-  previewBoundaryButtonText: { color: colors.text.inverse },
   previewGhost: {
     position: 'relative',
     overflow: 'hidden',

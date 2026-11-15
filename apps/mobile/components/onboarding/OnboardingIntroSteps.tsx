@@ -1,24 +1,26 @@
 import type { ReactNode } from 'react';
 import {
-  ActivityIndicator,
   SafeAreaView,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
   View,
 } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { StatusBar } from 'expo-status-bar';
 import { Colors } from '../../constants/colors';
+import { ActionButton } from '../themed/ActionButton';
 import { Text } from '../themed/Text';
+import { TrailRail } from '../themed/TrailRail';
 
 type OnboardingShellProps = {
   children: ReactNode;
   onSkip?: () => void;
   skipDisabled?: boolean;
   skipLabel?: string;
-  step: number;
-  totalSteps: number;
-  stepLabel: string;
+  /** Hide the step counter and bar when the count would not be meaningful. */
+  showProgress?: boolean;
+  step?: number;
+  totalSteps?: number;
+  stepLabel?: string;
 };
 
 export function OnboardingShell({
@@ -26,12 +28,17 @@ export function OnboardingShell({
   onSkip,
   skipDisabled = false,
   skipLabel,
-  step,
-  totalSteps,
+  showProgress = true,
+  step = 1,
+  totalSteps = 1,
   stepLabel,
 }: OnboardingShellProps) {
+  const progressVisible = showProgress && Boolean(stepLabel) && totalSteps > 1;
+
   return (
     <SafeAreaView style={styles.container}>
+      {/* Light sand/brand-surface background: keep status bar glyphs dark. */}
+      <StatusBar style="dark" />
       <View style={styles.topGlow} />
       <ScrollView
         contentContainerStyle={styles.shellScrollContent}
@@ -43,133 +50,41 @@ export function OnboardingShell({
             <View style={styles.heroTitleRow}>
               <Text style={styles.logo}>Pace Yourself</Text>
               {onSkip && skipLabel ? (
-                <TouchableOpacity
-                  accessibilityRole="button"
+                <ActionButton
                   accessibilityLabel={skipLabel}
-                  activeOpacity={0.7}
-                  disabled={skipDisabled}
                   hitSlop={8}
+                  isLoading={skipDisabled}
                   onPress={onSkip}
-                  style={[styles.skipOnboardingButton, skipDisabled && styles.buttonDisabled]}
+                  size="sm"
+                  variant="ghost"
                 >
-                  {skipDisabled ? (
-                    <ActivityIndicator color={Colors.textSecondary} size="small" />
-                  ) : (
-                    <Text style={styles.skipOnboardingButtonText}>{skipLabel}</Text>
-                  )}
-                </TouchableOpacity>
+                  {skipLabel}
+                </ActionButton>
               ) : null}
             </View>
-            <Text style={styles.stepIndicator}>
-              {stepLabel.replace('{step}', String(step)).replace('{total}', String(totalSteps))}
-            </Text>
-            <View style={styles.progressRow}>
-              {Array.from({ length: totalSteps }).map((_, index) => (
-                <View
-                  key={`progress-${index + 1}`}
-                  style={[
-                    styles.progressSegment,
-                    index < step ? styles.progressSegmentActive : styles.progressSegmentInactive,
-                  ]}
-                />
-              ))}
-            </View>
+            {progressVisible && stepLabel ? (
+              <>
+                <Text style={styles.stepIndicator}>
+                  {stepLabel.replace('{step}', String(step)).replace('{total}', String(totalSteps))}
+                </Text>
+                <View style={styles.progressRow}>
+                  {Array.from({ length: totalSteps }).map((_, index) => (
+                    <View
+                      key={`progress-${index + 1}`}
+                      style={[
+                        styles.progressSegment,
+                        index < step ? styles.progressSegmentActive : styles.progressSegmentInactive,
+                      ]}
+                    />
+                  ))}
+                </View>
+              </>
+            ) : null}
           </View>
           <View style={styles.card}>{children}</View>
         </View>
       </ScrollView>
     </SafeAreaView>
-  );
-}
-
-type OnboardingTourChoiceProps = {
-  busy: boolean;
-  discoverLaterLabel: string;
-  onChoosePlan: () => void;
-  onChooseRacebook: () => void;
-  onDiscoverLater: () => void;
-  planBody: string;
-  /** Introduces the optional plan path below the default RaceBook path. */
-  planOptionalLabel: string;
-  planTitle: string;
-  racebookBody: string;
-  racebookTitle: string;
-  stepLabel: string;
-  subtitle: string;
-  title: string;
-};
-
-export function OnboardingTourChoice({
-  busy,
-  discoverLaterLabel,
-  onChoosePlan,
-  onChooseRacebook,
-  onDiscoverLater,
-  planBody,
-  planOptionalLabel,
-  planTitle,
-  racebookBody,
-  racebookTitle,
-  stepLabel,
-  subtitle,
-  title,
-}: OnboardingTourChoiceProps) {
-  // The RaceBook tour is the default path; the plan tour is offered after it as optional.
-  return (
-    <OnboardingShell step={1} totalSteps={1} stepLabel={stepLabel}>
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.subtitle}>{subtitle}</Text>
-      <TourChoiceCard
-        icon="book-outline"
-        title={racebookTitle}
-        body={racebookBody}
-        disabled={busy}
-        highlighted
-        onPress={onChooseRacebook}
-      />
-      <Text style={styles.optionalLabel}>{planOptionalLabel}</Text>
-      <TourChoiceCard icon="map-outline" title={planTitle} body={planBody} disabled={busy} onPress={onChoosePlan} />
-      <TouchableOpacity disabled={busy} onPress={onDiscoverLater} style={styles.secondaryButton}>
-        {busy ? (
-          <ActivityIndicator color={Colors.brandPrimary} />
-        ) : (
-          <Text style={styles.secondaryButtonText}>{discoverLaterLabel}</Text>
-        )}
-      </TouchableOpacity>
-    </OnboardingShell>
-  );
-}
-
-function TourChoiceCard({
-  body,
-  disabled,
-  highlighted = false,
-  icon,
-  onPress,
-  title,
-}: {
-  body: string;
-  disabled: boolean;
-  highlighted?: boolean;
-  icon: 'book-outline' | 'map-outline';
-  onPress: () => void;
-  title: string;
-}) {
-  return (
-    <TouchableOpacity
-      accessibilityRole="button"
-      disabled={disabled}
-      onPress={onPress}
-      style={[styles.phaseCard, highlighted && styles.phaseCardHighlighted]}
-    >
-      <View style={styles.phaseBadge}>
-        <Ionicons name={icon} size={20} color={Colors.brandPrimary} />
-      </View>
-      <View style={styles.phaseBody}>
-        <Text style={styles.phaseTitle}>{title}</Text>
-        <Text style={styles.phaseText}>{body}</Text>
-      </View>
-    </TouchableOpacity>
   );
 }
 
@@ -234,9 +149,9 @@ export function OnboardingOverviewStep({
         ))}
       </View>
       {accountContent ?? (
-        <TouchableOpacity style={styles.primaryButton} onPress={onStart}>
-          <Text style={styles.primaryButtonText}>{startLabel}</Text>
-        </TouchableOpacity>
+        <ActionButton fullWidth onPress={onStart} size="lg">
+          {startLabel}
+        </ActionButton>
       )}
     </OnboardingShell>
   );
@@ -303,7 +218,7 @@ export function OnboardingWorkflowStep({
                       <View style={styles.timelineBadge}>
                         <Text style={styles.timelineBadgeText}>{globalIndex + 1}</Text>
                       </View>
-                      {!isLast ? <View style={styles.timelineLine} /> : null}
+                      {!isLast ? <TrailRail color={Colors.brandPrimary} style={styles.timelineLine} /> : null}
                     </View>
                     <View style={styles.timelineCard}>
                       <Text style={styles.timelineTitle}>{item.title}</Text>
@@ -316,9 +231,9 @@ export function OnboardingWorkflowStep({
           </View>
         ))}
       </View>
-      <TouchableOpacity style={styles.primaryButton} onPress={onStart}>
-        <Text style={styles.primaryButtonText}>{startLabel}</Text>
-      </TouchableOpacity>
+      <ActionButton fullWidth onPress={onStart} size="lg">
+        {startLabel}
+      </ActionButton>
     </OnboardingShell>
   );
 }
@@ -361,12 +276,12 @@ export function OnboardingCompletionStep({
           <Text key={`${index}-${line}`} style={styles.noticeText}>{line}</Text>
         ))}
       </View>
-      <TouchableOpacity style={styles.primaryButton} onPress={onContinue}>
-        <Text style={styles.primaryButtonText}>{primaryLabel}</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.secondaryButton} onPress={onNewPlan}>
-        <Text style={styles.secondaryButtonText}>{newPlanLabel}</Text>
-      </TouchableOpacity>
+      <ActionButton fullWidth onPress={onContinue} size="lg">
+        {primaryLabel}
+      </ActionButton>
+      <ActionButton fullWidth onPress={onNewPlan} style={styles.secondaryButton} variant="secondary">
+        {newPlanLabel}
+      </ActionButton>
     </OnboardingShell>
   );
 }
@@ -395,18 +310,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     textAlign: 'center',
   },
-  skipOnboardingButton: {
-    width: 64,
-    minHeight: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
-    paddingHorizontal: 8,
-  },
-  skipOnboardingButtonText: { color: Colors.textSecondary, fontSize: 13, fontWeight: '600' },
   stepIndicator: {
     marginTop: 8,
     color: Colors.textSecondary,
@@ -470,26 +373,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  phaseCardHighlighted: {
-    borderWidth: 2,
-    borderColor: Colors.brandPrimary,
-    backgroundColor: Colors.surface,
-  },
-  optionalLabel: {
-    marginTop: 8,
-    color: Colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  phaseBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.brandPrimary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
-  },
   phaseBadgeFilled: {
     width: 32,
     height: 32,
@@ -525,11 +408,10 @@ const styles = StyleSheet.create({
   },
   timelineBadgeText: { color: Colors.textOnBrand, fontSize: 13, fontWeight: '700' },
   timelineLine: {
-    width: 2,
     flex: 1,
-    backgroundColor: Colors.brandBorder,
     marginTop: 6,
     marginBottom: -6,
+    opacity: 0.5,
   },
   timelineCard: {
     flex: 1,
@@ -541,24 +423,7 @@ const styles = StyleSheet.create({
   },
   timelineTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700', marginBottom: 4 },
   timelineText: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20 },
-  primaryButton: {
-    backgroundColor: Colors.brandPrimary,
-    borderRadius: 16,
-    paddingVertical: 18,
-    alignItems: 'center',
-  },
-  primaryButtonText: { color: Colors.textOnBrand, fontSize: 16, fontWeight: '700' },
-  secondaryButton: {
-    marginTop: 10,
-    paddingVertical: 14,
-    borderRadius: 14,
-    alignItems: 'center',
-    backgroundColor: Colors.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  secondaryButtonText: { color: Colors.textSecondary, fontSize: 15, fontWeight: '600' },
-  buttonDisabled: { opacity: 0.6 },
+  secondaryButton: { marginTop: 10 },
   notificationIconWrap: {
     width: 72,
     height: 72,

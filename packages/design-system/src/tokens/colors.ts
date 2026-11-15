@@ -32,10 +32,48 @@ export const colors = {
   },
   semantic: {
     success: "#2D5016",
+    info: "#3F6F8F",
+    infoSurface: "#EAF1F5",
+    infoBorder: "#B9CFDC",
     danger: "#C0392B",
     dangerSurface: "#FDECEA",
     warning: "#D97706",
     warningSurface: "#FEF3C7",
+  },
+  /**
+   * Trail-object palette for the mobile signature controls (enamel plate,
+   * aid-station ticket, closed-trail tape, wristband, pins). Never the red and
+   * white GR waymark: the closed-trail tape is a diagonal striped ribbon.
+   */
+  trail: {
+    enamelTop: "#3A6420",
+    enamelLiner: "#FAF8F2",
+    rivet: "#C9C5B8",
+    ticket: "#F6EBD0",
+    ticketBorder: "#D9C9A3",
+    ticketPerforation: "#C2AE80",
+    dangerEdge: "#8E2A20",
+    closedTrail: "#EAE8E1",
+    closedTrailInk: "#2F3524",
+    tapeRed: "#C0392B",
+    tapeOrange: "#F0873A",
+    tapeWhite: "#FFFFFF",
+    braceletMuted: "#D6D2C6",
+    pinRed: "#C0392B",
+    pinAmber: "#F0873A",
+    pinGreen: "#2D5016",
+    stone: "#A9A595",
+    amberInk: "#B45309",
+    ticketInk: "#7A5A22",
+    signPost: "#6E5A3C",
+    watchBezelBrand: "#8FB06E",
+    climbBorder: "#E8A36A",
+    climbPlinth: "#F6D3B5",
+    braceletInfo: "#DCE8F0",
+    braceletInfoInk: "#2F5875",
+    bibBack: "#F1EFE8",
+    tapeBannerBorder: "#F0C36A",
+    tapeBannerIconSurface: "#FDE7B0",
   },
 } as const;
 

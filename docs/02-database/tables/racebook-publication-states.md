@@ -17,6 +17,8 @@ related_tables:
 
 # `racebook_publication_states`
 
+The Supporter Guide resolves each format through `current_publication_id`. Draft changes do not affect the guide until explicit publication, and an edition with no current publication has no guide.
+
 ## Purpose
 
 Stores the mutable draft/publication cursor for each edition-backed RaceBook format. Draft source tables remain editable; runner reads use `current_publication_id` only.

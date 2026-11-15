@@ -1,17 +1,34 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Colors } from '../../constants/colors';
+import { ActionButton } from '../themed/ActionButton';
 import { Text } from '../themed/Text';
+import { TrailSignButton } from '../themed/TrailSignButton';
+
+/** Gap kept between the card and whatever sits below it (screen edge or tab bar). */
+const CARD_GAP = 14;
 
 type Props = {
   title: string;
   body: string;
   actionLabel?: string;
   onAction?: () => void;
-  skipLabel: string;
-  onSkip: () => void;
+  /**
+   * - `acknowledge` (default): the action stays on this screen ("J'ai compris"):
+   *   a ground arrow next to the skip action, an enamel plate when alone.
+   * - `navigate`: the action opens another screen ("Créer mon plan"): a trail sign.
+   */
+  actionKind?: 'acknowledge' | 'navigate';
+  skipLabel?: string;
+  onSkip?: () => void;
   busy?: boolean;
+  /**
+   * Height of the navigation drawn at the bottom of the screen (e.g. the
+   * RaceBook tab bar, safe-area inset included). The card floats above it so
+   * it never covers the navigation it talks about.
+   */
+  bottomOffset?: number;
 };
 
 export function OnboardingGuideCard({
@@ -19,12 +36,17 @@ export function OnboardingGuideCard({
   body,
   actionLabel,
   onAction,
+  actionKind = 'acknowledge',
   skipLabel,
   onSkip,
   busy = false,
+  bottomOffset = 0,
 }: Props) {
+  const hasSkip = Boolean(skipLabel && onSkip);
+  const hasAction = Boolean(actionLabel && onAction);
+
   return (
-    <View accessibilityRole="summary" style={styles.card}>
+    <View accessibilityRole="summary" style={[styles.card, { bottom: bottomOffset + CARD_GAP }]}>
       <View style={styles.headingRow}>
         <View style={styles.iconWrap}>
           <Ionicons name="sparkles" color={Colors.brandPrimary} size={18} />
@@ -35,17 +57,29 @@ export function OnboardingGuideCard({
         </View>
       </View>
       <View style={styles.actions}>
-        <TouchableOpacity disabled={busy} onPress={onSkip} style={styles.skipButton}>
-          <Text style={styles.skipText}>{skipLabel}</Text>
-        </TouchableOpacity>
-        {actionLabel && onAction ? (
-          <TouchableOpacity disabled={busy} onPress={onAction} style={styles.actionButton}>
-            {busy ? (
-              <ActivityIndicator color={Colors.textOnBrand} size="small" />
-            ) : (
-              <Text style={styles.actionText}>{actionLabel}</Text>
-            )}
-          </TouchableOpacity>
+        {hasSkip ? (
+          <ActionButton disabled={busy} onPress={onSkip} size="sm" variant="ghost">
+            {skipLabel as string}
+          </ActionButton>
+        ) : null}
+        {hasAction && actionKind === 'navigate' ? (
+          <TrailSignButton
+            disabled={busy}
+            icon={<Ionicons color={Colors.brandPrimary} name="flag-outline" size={16} />}
+            label={actionLabel as string}
+            onPress={onAction}
+            variant="soft"
+          />
+        ) : null}
+        {hasAction && actionKind === 'acknowledge' ? (
+          <ActionButton
+            isLoading={busy}
+            onPress={onAction}
+            size="sm"
+            variant={hasSkip ? 'secondary' : 'primary'}
+          >
+            {actionLabel as string}
+          </ActionButton>
         ) : null}
       </View>
     </View>
@@ -57,7 +91,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 14,
     right: 14,
-    bottom: 14,
     zIndex: 100,
     borderRadius: 18,
     borderWidth: 1,
@@ -82,16 +115,12 @@ const styles = StyleSheet.create({
   copy: { flex: 1, gap: 3 },
   title: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800' },
   body: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
-  actions: { marginTop: 12, flexDirection: 'row', justifyContent: 'flex-end', gap: 10 },
-  skipButton: { paddingHorizontal: 12, paddingVertical: 10 },
-  skipText: { color: Colors.textSecondary, fontSize: 13, fontWeight: '700' },
-  actionButton: {
-    minWidth: 120,
+  actions: {
+    marginTop: 12,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
-    borderRadius: 12,
-    backgroundColor: Colors.brandPrimary,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    justifyContent: 'flex-end',
+    gap: 10,
   },
-  actionText: { color: Colors.textOnBrand, fontSize: 13, fontWeight: '800' },
 });

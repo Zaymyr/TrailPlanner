@@ -16,6 +16,8 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
+import { SummitCelebration } from '../../../../components/themed/SummitCelebration';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Text } from '../../../../components/themed/Text';
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -77,7 +79,10 @@ import {
   buildProductMap as buildSummaryProductMap,
   buildStoredRacePlanFromValues,
   formatDuration,
+  getPlanSummaryDepartureTimeStorageKey,
+  applyStoredDepartureTime,
 } from '../../../../lib/planSummary';
+import { synchronizePlanShareIfFollowed } from '../../../../lib/planShareLinks';
 import { formatAveragePace, normalizePlanWorkspaceTab, resolvePlanElevationLoss, type PlanWorkspaceTab } from '../../../../lib/planWorkspace';
 import { formatDistance, formatElevation } from '../../../../lib/displayFormat';
 import { fetchWithTimeout } from '../../../../lib/fetchWithTimeout';
@@ -177,9 +182,10 @@ const PLAN_LOAD_TIMEOUT_MS = 20_000;
 const PLAN_ACCESS_TIMEOUT_MS = 6_000;
 
 export default function EditPlanScreen() {
-  const { id, showHelp, tab, share, racebookTab, racebookCourseTab, targetAidStationId, planWarmStartToken } = useLocalSearchParams<{
+  const { id, showHelp, created, tab, share, racebookTab, racebookCourseTab, targetAidStationId, planWarmStartToken } = useLocalSearchParams<{
     id: string;
     showHelp?: string;
+    created?: string;
     tab?: string;
     share?: string;
     racebookTab?: string;
@@ -320,6 +326,11 @@ export default function EditPlanScreen() {
   const activeRouteIdRef = useRef<string | null>(id ?? null);
   const loadRequestIdRef = useRef(0);
   const router = useRouter();
+  const [summitCelebrationVisible, setSummitCelebrationVisible] = useState(() => created === '1' && showHelp !== '1');
+  const handleSummitCelebrationDone = useCallback(() => {
+    setSummitCelebrationVisible(false);
+    router.setParams({ created: undefined });
+  }, [router]);
   const {
     currentTutorialTargetKey,
     handleTutorialClose,
@@ -791,6 +802,20 @@ export default function EditPlanScreen() {
             // The durable plan save succeeded; reminder scheduling is best effort.
           }
 
+          try {
+            const storedDeparture = await AsyncStorage.getItem(getPlanSummaryDepartureTimeStorageKey(id));
+            const shareDeparture = applyStoredDepartureTime(storedDeparture);
+            if (shareDeparture && planProductData) {
+              const summary = buildPlanSummary(
+                buildStoredRacePlanFromValues({ id, values: normalizedValues, elevationProfile: elevationProfileRef.current }),
+                buildSummaryProductMap(planProductData.allProducts),
+              );
+              await synchronizePlanShareIfFollowed({ summary, departureTime: shareDeparture, locale });
+            }
+          } catch {
+            // The durable plan save succeeded; follower synchronization is best effort.
+          }
+
           const currentSnapshot = latestDraftRef.current
             ? serializePlanValues(latestDraftRef.current, elevationProfileRef.current)
             : savedSnapshot;
@@ -812,7 +837,7 @@ export default function EditPlanScreen() {
       activeSavePromiseRef.current = savePromise;
       return savePromise;
     },
-    [id, t.reminders.unfinishedPlanBody, t.reminders.unfinishedPlanTitle],
+    [id, locale, planProductData, t.reminders.unfinishedPlanBody, t.reminders.unfinishedPlanTitle],
   );
 
   const saveLatestDraft = useCallback(
@@ -1085,6 +1110,13 @@ export default function EditPlanScreen() {
     scrollY.setValue(event.nativeEvent.contentOffset.y);
   }, [scrollY]);
 
+  // Nutrition is a pushed screen with its own back action; save the draft first
+  // so favourites added there can be used by the plan on return.
+  const handleOpenNutrition = useCallback(async () => {
+    await saveLatestDraft(true);
+    router.push('/(app)/nutrition');
+  }, [router, saveLatestDraft]);
+
   const handleTabSelect = useCallback(async (nextTab: PlanWorkspaceTab) => {
     if (nextTab === activeTab) return;
     if (nextTab === 'recap') {
@@ -1312,6 +1344,7 @@ export default function EditPlanScreen() {
       <PlanWorkspaceTabBar
         activeTab={activeTab}
         onSelectTab={(nextTab) => { void handleTabSelect(nextTab); }}
+        onOpenNutrition={handleOpenNutrition}
       />
       <PremiumUpsellModal
         visible={previewPaywallVisible}
@@ -1336,6 +1369,14 @@ export default function EditPlanScreen() {
         viewportHeight={tutorialViewport.height}
         viewportWidth={tutorialViewport.width}
         visible={tutorialVisible && planCanEdit}
+      />
+      <SummitCelebration
+        dismissLabel={t.planWorkspace.summitDismiss}
+        onDone={handleSummitCelebrationDone}
+        profile={elevationProfile}
+        subtitle={t.planWorkspace.summitSubtitle}
+        title={t.planWorkspace.summitTitle}
+        visible={summitCelebrationVisible}
       />
     </View>
   );

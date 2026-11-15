@@ -74,10 +74,13 @@ end $$;
 
 delete from public.organizer_racebook_module_settings
 where edition_id = (select edition_id from _module_fixture)
-  and module_key in ('services', 'supporter_points');
+  and module_key in ('services', 'supporter_points', 'supporter_guide');
 
 insert into public.organizer_racebook_module_settings (edition_id, module_key, is_enabled)
 select edition_id, 'services', true from _module_fixture;
+
+insert into public.organizer_racebook_module_settings (edition_id, module_key, is_enabled)
+select edition_id, 'supporter_guide', true from _module_fixture;
 
 insert into public.organizer_racebook_module_settings (edition_id, race_id, module_key, is_enabled)
 select edition_id, race_id, 'supporter_points', true from _module_fixture;
@@ -113,6 +116,15 @@ begin
       and is_enabled
   ) then
     raise exception 'Supporter points must be accepted as an enabled race-scoped module.';
+  end if;
+  if not exists (
+    select 1 from public.organizer_racebook_module_settings
+    where edition_id = (select edition_id from _module_fixture)
+      and race_id is null
+      and module_key = 'supporter_guide'
+      and is_enabled
+  ) then
+    raise exception 'Supporter Guide must be accepted as an enabled edition-scoped module.';
   end if;
 end $$;
 

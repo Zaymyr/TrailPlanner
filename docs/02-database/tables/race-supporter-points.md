@@ -1,9 +1,11 @@
 ---
 title: race_supporter_points
 scope: database
-last_verified: 2026-11-09
+last_verified: 2026-11-15
 ai_priority: high
 related_files:
+  - apps/web/lib/plan-share-race-context.ts
+  - apps/mobile/app/(app)/plan/followed/[id].tsx
   - supabase/migrations/20261029091807_add_race_supporter_points.sql
   - supabase/migrations/20261029155052_fix_supporter_point_replacement_ordinality.sql
   - supabase/tests/race_supporter_points_checks.sql
@@ -18,6 +20,10 @@ related_tables:
 ---
 
 # race_supporter_points
+
+`RacebookSupporterPointsSection` now serves only the Livret accompagnateur. It accepts optional aid stations merged into the same kilometre-ordered line (supporter-access `StatusPill`, services, resolved last-runner cutoff, maximum stop) and hides the directions action when a point has neither a Maps URL nor finite coordinates, instead of routing to 0,0.
+
+Current mobile UI moves the published supporter-point presentation from the runner RaceBook “Où encourager” subtab into the edition Supporter Guide. The snapshot field, API serialization and legacy-app behavior are retained; organizer microcopy now names the Livret accompagnateur as the destination.
 
 Public supporter-point serialization continues to depend on the exact effective module state. Independent organizer invoices do not expose supporter points and do not change their existing client grants or RLS.
 
@@ -53,6 +59,10 @@ Draft rows may be incomplete and remain visible through the authenticated organi
 
 Mobile presents permission chips inside the title/distance header, hides `access_label` only when its normalized value repeats `name`, and keeps directions plus the optional external plan as right-aligned icon actions. A distinct access label and access note remain visible beneath the header.
 
+Authenticated followed-plan detail is a second read-only consumer of the published snapshot. It inserts visible supporter points into the assistance timeline, interpolates a plan ETA by kilometer, reapplies the latest confirmed-passage delay, distinguishes encouragement from assistance, and builds directions from the published Maps URL or coordinates. Draft rows and disabled modules are never consulted.
+
+Mobile performs that interpolation with a client-local pure helper to respect its package boundary; the input remains the same immutable server projection.
+
 Organizer GET responses normalize nullable editable text and URL fields to empty strings. PUT accepts both those strings and legacy `null` values, so re-saving an existing point cannot fail before the atomic RPC. Mobile keeps directions and an optional external plan as right-aligned, icon-only 44-point actions with explicit accessibility labels.
 
 ## Writes and ordering
@@ -66,6 +76,8 @@ Clients cannot insert, update, or delete rows directly. `PUT /api/organizer/race
 - `service_role` owns all mutations and is the only role allowed to execute the replacement function.
 - Organizer ownership is checked by the API before the service mutation.
 - Analytics must never include addresses, coordinates, access notes, Maps URLs, or external plan URLs.
+
+Trail signature (2026-11-09): the runner supporter-point timeline links its points with a dotted trail rail instead of a solid line. Presentation only: no query, field or directions-link change.
 
 ## Related Docs
 

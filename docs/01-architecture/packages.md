@@ -1,12 +1,17 @@
 ---
 title: Packages Architecture
 scope: architecture
-last_verified: 2026-11-09
+last_verified: 2026-11-15
 ai_priority: medium
 related_files:
+  - packages/shared/src/supporter-guide.ts
+  - packages/shared/src/racebook-cutoffs.ts
   - package.json
   - apps/web/next.config.mjs
   - packages/shared/src/index.ts
+  - packages/shared/src/plan-share-tracking.ts
+  - apps/web/package.json
+  - apps/mobile/package.json
   - packages/design-system/package.json
   - packages/design-system/src/index.ts
   - packages/design-system/src/index.d.ts
@@ -17,6 +22,16 @@ related_tables: []
 ---
 
 # Packages Architecture
+
+`@trailplanner/shared` exports `racebook-cutoffs`: organizer cutoff parsing, the official in-order multi-day resolution and race-day clock conversion. It mirrors `apps/mobile/lib/racebookPlanReflection.ts`; mobile keeps its local copy and receives already-resolved cutoffs in the Supporter Guide payload.
+
+`@trailplanner/shared` exports the transport-only `SupporterGuidePayload` contract consumed by web and mobile. The web-only `qrcode` dependency renders organizer download SVGs and is not shipped to the mobile bundle.
+
+## Shared followed-plan helpers
+
+`@trailplanner/shared` exports followed-plan kilometer interpolation, confirmed-passage recalibration, preparation aggregation and multi-day completion calculation. Web lifecycle logic/tests and the Expo assistant view use this pure module; it has no storage, analytics or network side effects.
+
+`@trailplanner/shared` now owns the pure shared-plan tracking calculations used by the public web timeline and native crew screen: clock parsing, midnight resolution, trackable-point selection, passage normalization and downstream ETA recalculation. UI, persistence and locale formatting remain app-specific.
 
 ## Purpose
 

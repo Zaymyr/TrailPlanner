@@ -15,6 +15,8 @@ related_tables:
 
 # Duplicate Events Pattern
 
+The pending shared-plan deep link is consumed exactly once after authentication. Follow creation is idempotent through the unique `(share_link_id, follower_user_id)` key and service upsert, so repeated link opens reactivate rather than duplicate membership.
+
 ## Onboarding plan save
 
 The runner launch announcement is not an Auth-event side effect. Its presentation writes one idempotent campaign/user/device `seen` marker; route changes, foreground refreshes and repeated bootstrap/Auth events must not clear it or present the campaign again. It neither invokes onboarding plan save nor creates another business persistence path.

@@ -1,10 +1,11 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Colors } from '../../constants/colors';
 import { Card } from '../themed/Card';
 import { DataText } from '../themed/DataText';
 import { Text } from '../themed/Text';
+import { TrailSignButton } from '../themed/TrailSignButton';
 
 export type RacebookBibPickupDayGroup = {
   key: string;
@@ -61,23 +62,16 @@ function LocationPickup({
           {group.locationDetails ? <Text style={styles.locationDetails}>{group.locationDetails}</Text> : null}
         </View>
         {group.actionUrl ? (
-          <Pressable
+          <TrailSignButton
             accessibilityRole="link"
             accessibilityLabel={`${openMapsLabel} - ${group.location}`}
-            hitSlop={4}
+            icon={<Ionicons name="navigate-outline" size={16} color={Colors.brandPrimary} />}
+            label={openMapsLabel}
             onPress={() => {
               onOpenMap(group.key);
               onOpenUrl(group.actionUrl!);
             }}
-            style={({ pressed }) => [
-              styles.mapsAction,
-              { borderColor: Colors.brandBorder, backgroundColor: Colors.brandSurface },
-              pressed ? styles.pressed : null,
-            ]}
-          >
-            <Ionicons name="navigate-outline" size={18} color={Colors.brandPrimary} />
-            <Text style={styles.mapsActionText}>{openMapsLabel}</Text>
-          </Pressable>
+          />
         ) : null}
       </View>
 
@@ -198,9 +192,6 @@ const styles = StyleSheet.create({
   locationContent: { flex: 1, minWidth: 0, gap: 2, paddingTop: 2 },
   locationName: { color: Colors.textPrimary, fontSize: 15, lineHeight: 21, fontWeight: '700' },
   locationDetails: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
-  mapsAction: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 12, borderRadius: 22, borderWidth: 1 },
-  mapsActionText: { color: Colors.brandPrimary, fontSize: 12, fontWeight: '800' },
-  pressed: { opacity: 0.7 },
   dayList: { marginLeft: 46, gap: 9 },
   dayRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingTop: 9, borderTopWidth: 1, borderTopColor: Colors.border },
   dayLabel: { flex: 1, minWidth: 0, color: Colors.textPrimary, fontSize: 13, lineHeight: 19, fontWeight: '700' },

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { describeRacebookSnapshotChanges, hashRacebookSnapshot, racebookPublishedSnapshotV1Schema, toRacebookPublicationAssets } from "./racebook-publications";
+import { describeRacebookSnapshotChanges, hashRacebookSnapshot, moduleMask, racebookPublishedSnapshotV1Schema, toRacebookPublicationAssets } from "./racebook-publications";
 
 const base = {
   schemaVersion: 1 as const,
@@ -19,6 +19,12 @@ const base = {
 };
 
 describe("RaceBook publication snapshots", () => {
+  it("keeps legacy publications eligible for the default Supporter Guide only", () => {
+    expect(moduleMask({}, { supporter_guide: true }).supporter_guide).toBe(true);
+    expect(moduleMask({ supporter_guide: false }, { supporter_guide: true }).supporter_guide).toBe(false);
+    expect(moduleMask({}, { supporter_guide: false }).supporter_guide).toBe(false);
+  });
+
   it("validates V1 and hashes objects canonically", () => {
     const first = racebookPublishedSnapshotV1Schema.parse(base);
     const reordered = racebookPublishedSnapshotV1Schema.parse({ ...base, raceRow: {

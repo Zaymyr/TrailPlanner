@@ -24,6 +24,8 @@ related_tables:
 
 # Geocoding
 
+Supporter Guide parsing reuses already-published location labels, coordinates and Maps URLs; it performs no new geocoding request and does not alter provider fallback or attribution.
+
 Bib-pickup locations now use a read-first bold inline address field while remaining fully backed by the same autocomplete, manual fallback, structured coordinates, and Google Maps URL. Keeping every location visible does not change provider calls or stored location objects. Third-party pickup conditions are unrelated text and never enter geocoding.
 
 New organizer formats receive the event's effective location as an inherited default. Choosing a different location remains explicit and continues through the same geocoding contract.

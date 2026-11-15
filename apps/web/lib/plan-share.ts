@@ -20,6 +20,7 @@ const shareProductSchema = z
 const shareCheckpointSchema = z
   .object({
     index: z.number().int().nonnegative().max(1000),
+    sourceAidStationId: z.string().uuid().nullable().optional(),
     name: z.string().trim().min(1).max(180),
     distanceKm: z.number().finite().nonnegative().max(1000),
     isStart: z.boolean(),
@@ -36,6 +37,7 @@ const shareCheckpointSchema = z
 export const planShareSnapshotSchema = z
   .object({
     id: z.string().uuid(),
+    raceId: z.string().uuid().nullable().optional(),
     name: z.string().trim().min(1).max(180),
     distanceKm: z.number().finite().nonnegative().max(1000),
     elevationGainM: z.number().finite().nonnegative().max(100000),
@@ -53,6 +55,10 @@ export const planShareSnapshotSchema = z
   .passthrough();
 
 export type PlanShareSnapshot = z.infer<typeof planShareSnapshotSchema>;
+
+export function bindPlanShareSnapshotToRace(snapshot: PlanShareSnapshot, raceId: string | null): PlanShareSnapshot {
+  return { ...snapshot, raceId };
+}
 
 export const planShareCrewPassageSchema = z
   .object({
