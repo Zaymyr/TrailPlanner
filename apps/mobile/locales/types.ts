@@ -166,6 +166,11 @@ export type MobileTranslations = {
     revokeBody: string;
   };
   supporterGuide: {
+    typeAnimations: string;
+    kindArrivalEstimate: string;
+    kindAnimation: string;
+    firstMan: string;
+    firstWoman: string;
     closed: string;
     typeAll: string;
     typeStarts: string;

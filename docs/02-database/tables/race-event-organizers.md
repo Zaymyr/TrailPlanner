@@ -60,6 +60,8 @@ related_tables:
 
 # `race_event_organizers`
 
+Supporter Guide programme data (2026-11-15): race `organizer_details.schedule` accepts optional `estimatedWinnerMen` / `estimatedWinnerWomen` durations (`H:MM`, hours may exceed 23); event `organizer_details.programme` holds up to 60 programme items (`id`, `type` animation/concert/kids_race/briefing/village/other, `title`, `date`, `startTime`, `endTime`, `location`, `description`). Both are additive JSON validated by `apps/web/lib/organizer-dashboard-details.ts`, so organizer saves preserve them; no column or migration. No organizer form edits them yet (TODO: organizer schedule card and programme editor). Membership rules are unchanged.
+
 Active organizer membership authorizes the unified invoice list/download routes for the edition's parent event. Membership does not grant access to the service-only invoice/catalog tables and is not created, revoked or otherwise changed by invoice issuance or settlement.
 
 The organizer-details schema now preserves additive third-party bib-pickup conditions and supports glanceable equipment/bib editors. Membership authorization, onboarding state, role semantics, admin trust, and organizer preview access remain unchanged.

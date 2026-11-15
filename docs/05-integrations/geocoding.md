@@ -39,6 +39,8 @@ related_tables:
 
 # Geocoding
 
+Programme items carry a free-text `location` only (no geocoding) in this first version.
+
 Supporter Guide parsing reuses already-published location labels, coordinates and Maps URLs; it performs no new geocoding request and does not alter provider fallback or attribution.
 
 Bib-pickup locations now use a read-first bold inline address field while remaining fully backed by the same autocomplete, manual fallback, structured coordinates, and Google Maps URL. Keeping every location visible does not change provider calls or stored location objects. Third-party pickup conditions are unrelated text and never enter geocoding.

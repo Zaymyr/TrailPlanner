@@ -89,6 +89,24 @@ describe("Supporter Guide aggregator", () => {
     ]);
   });
 
+  it("adds expected first arrivals and event-wide animations to the programme", async () => {
+    mocks.loadPublished.mockResolvedValue({
+      raceRow: { id: raceId, name: "Ultra", distance_km: 82, race_date: "2026-11-15", organizer_details: { schedule: { startTime: "06:00", finishCutoffTime: "23:30", estimatedWinnerMen: "9:20", estimatedWinnerWomen: "19:05" } }, race_events: { organizer_details: { programme: [
+        { id: "a1", type: "concert", title: "Concert au village", date: "2026-11-15", startTime: "20:00", endTime: "22:00", location: "Place du village" },
+        { id: "a2", title: "Sans horaire" },
+      ] } } },
+      stationRows: [], supporterPointRows: [], startWaveRows: [], awardRows: [], editionServiceRows: [], partnerSlots: [],
+      publicationId: "44444444-4444-4444-8444-444444444444", publishedAt: "2026-11-01T10:00:00Z", modules: { supporter_guide: true },
+    });
+    const guide = await loadSupporterGuide(config, editionId, false);
+    expect(guide?.formats[0]?.estimatedWinners).toEqual({ men: { date: "2026-11-15", time: "15:20", dayOffset: 0 }, women: { date: "2026-11-16", time: "01:05", dayOffset: 1 } });
+    const arrivals = guide?.timeline?.filter((entry) => entry.kind === "arrival_estimate").map((entry) => [entry.audience, entry.date, entry.time]);
+    expect(arrivals).toEqual([["men", "2026-11-15", "15:20"], ["women", "2026-11-16", "01:05"]]);
+    const animations = guide?.timeline?.filter((entry) => entry.kind === "animation");
+    expect(animations).toHaveLength(1);
+    expect(animations?.[0]).toMatchObject({ eventWide: true, label: "Concert au village", time: "20:00", endTime: "22:00", animationType: "concert", location: "Place du village" });
+  });
+
   it("is unavailable without an enabled published guide", async () => {
     mocks.loadPublished.mockResolvedValue(null);
     await expect(loadSupporterGuide(config, editionId, false)).resolves.toBeNull();

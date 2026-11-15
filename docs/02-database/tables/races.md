@@ -85,6 +85,8 @@ related_tables:
 
 # `races`
 
+Supporter Guide programme data (2026-11-15): race `organizer_details.schedule` accepts optional `estimatedWinnerMen` / `estimatedWinnerWomen` durations (`H:MM`, hours may exceed 23); event `organizer_details.programme` holds up to 60 programme items (`id`, `type` animation/concert/kids_race/briefing/village/other, `title`, `date`, `startTime`, `endTime`, `location`, `description`). Both are additive JSON validated by `apps/web/lib/organizer-dashboard-details.ts`, so organizer saves preserve them; no column or migration. No organizer form edits them yet (TODO: organizer schedule card and programme editor).
+
 The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret accompagnateur, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret accompagnateur · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. No `races` column or read changes.
 
 `/courses/supporter-guide/[raceId]` uses one public format UUID only to resolve its edition, then includes qualifying preview-visible published formats. It does not add race columns and excludes masked formats.

@@ -100,7 +100,7 @@ export function SupporterGuideView({ raceId }: { raceId: string }) {
       {SECTIONS.filter((section) => visible[section]).map((section) => <button key={section} type="button" onClick={() => setActive(section)} aria-current={active === section ? "page" : undefined} className={`min-h-11 shrink-0 rounded-full px-4 text-sm font-semibold ${active === section ? "bg-brand text-brand-foreground" : "text-muted-foreground"}`}>{labels[section]}</button>)}
     </nav>
     <div className="space-y-5 px-5 py-6">
-      {guide.formats.length > 1 && (active === "programme" || active === "follow") ? <div className="space-y-2"><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{locale === "fr" ? "Je suis" : "I follow"}</p><div className="flex flex-wrap gap-2">{guide.formats.map((format) => { const on = followed?.has(format.raceId) ?? true; return <button key={format.raceId} type="button" aria-pressed={on} title={format.name} onClick={() => toggleFollowed(format.raceId)} className={`min-h-11 rounded-full border px-4 font-mono text-sm font-semibold ${on ? "border-brand bg-brand text-brand-foreground" : "border-border text-muted-foreground"}`}>{Math.round(format.distanceKm)} km</button>; })}</div></div> : null}
+      {guide.formats.length > 1 && (active === "programme" || active === "follow") ? <div className="space-y-2"><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{locale === "fr" ? "Je suis" : "I follow"}</p><div className="flex flex-wrap gap-x-4 gap-y-1">{guide.formats.map((format) => { const on = followed?.has(format.raceId) ?? true; return <label key={format.raceId} title={format.name} className={`inline-flex min-h-9 cursor-pointer items-center gap-2 font-mono text-sm font-semibold ${on ? "text-foreground" : "text-muted-foreground"}`}><input type="checkbox" className="h-4 w-4 accent-[hsl(var(--brand))]" checked={on} onChange={() => toggleFollowed(format.raceId)} />{Math.round(format.distanceKm)} km</label>; })}</div></div> : null}
       {active === "programme" ? <Programme timeline={guide.timeline ?? []} kind={kind} onKind={setKind} followed={followed} now={now} locale={locale} /> : null}
       {active === "follow" ? guide.formats.filter((format) => (!followed || followed.has(format.raceId)) && (format.supporterPoints.length || format.aidStations.length)).map((format) => <section key={format.raceId} className="space-y-3"><h2 className="text-xl font-semibold">{format.name}</h2>{(format.stops ?? []).map((stop) => <StopCard key={stop.id} stop={stop} raceDate={format.date} now={now} locale={locale} />)}</section>) : null}
       {active === "onsite" ? guide.onSiteServices.map((service) => <ServiceCard key={service.id} locale={locale} service={service} />) : null}
@@ -110,8 +110,8 @@ export function SupporterGuideView({ raceId }: { raceId: string }) {
   </main>;
 }
 
-type Kind = "all" | "start" | "arrival" | "awards";
-const KIND_OF: Record<SupporterGuideTimelineEntry["kind"], Exclude<Kind, "all">> = { start: "start", finish_cutoff: "arrival", awards: "awards" };
+type Kind = "all" | "start" | "arrival" | "awards" | "animations";
+const KIND_OF: Record<SupporterGuideTimelineEntry["kind"], Exclude<Kind, "all">> = { start: "start", finish_cutoff: "arrival", arrival_estimate: "arrival", awards: "awards", animation: "animations" };
 const localDate = (date: string | null | undefined, time: string | null | undefined) => {
   const day = /^(\d{4})-(\d{2})-(\d{2})/.exec(date ?? "");
   const clock = /^(\d{1,2}):(\d{2})/.exec(time ?? "");
@@ -128,12 +128,13 @@ const countdown = (target: Date, now: Date, locale: "fr" | "en") => {
 
 function Programme({ timeline, kind, onKind, followed, now, locale }: { timeline: SupporterGuideTimelineEntry[]; kind: Kind; onKind: (kind: Kind) => void; followed: Set<string> | null; now: Date; locale: "fr" | "en" }) {
   const fr = locale === "fr";
-  const mine = timeline.filter((entry) => !followed || followed.has(entry.raceId));
-  const kinds = (["start", "arrival", "awards"] as const).filter((value) => mine.some((entry) => KIND_OF[entry.kind] === value));
+  const mine = timeline.filter((entry) => entry.eventWide || !followed || followed.has(entry.raceId));
+  const kinds = (["start", "arrival", "awards", "animations"] as const).filter((value) => mine.some((entry) => KIND_OF[entry.kind] === value));
   const shown = mine.filter((entry) => kind === "all" || KIND_OF[entry.kind] === kind);
   const today = localIsoDay(now);
-  const label = { all: fr ? "Tout" : "All", start: fr ? "Départs" : "Starts", arrival: fr ? "Arrivées" : "Finishes", awards: fr ? "Podiums" : "Awards" };
-  const kindText = { start: fr ? "Départ" : "Start", finish_cutoff: fr ? "Barrière d’arrivée" : "Finish cutoff", awards: fr ? "Podium" : "Awards" };
+  const label = { all: fr ? "Tout" : "All", start: fr ? "Départs" : "Starts", arrival: fr ? "Arrivées" : "Finishes", awards: fr ? "Podiums" : "Awards", animations: fr ? "Animations" : "Activities" };
+  const kindText = { start: fr ? "Départ" : "Start", finish_cutoff: fr ? "Dernier coureur (arrivée)" : "Finish cutoff", arrival_estimate: fr ? "Arrivée estimée" : "Expected finish", awards: fr ? "Podium" : "Awards", animation: fr ? "Animation" : "Activity" };
+  const audienceText = (audience: SupporterGuideTimelineEntry["audience"]) => audience === "women" ? (fr ? "1re femme" : "first woman") : (fr ? "1er homme" : "first man");
   return <>
     {kinds.length > 1 ? <div className="flex gap-2 overflow-x-auto">{(["all", ...kinds] as Kind[]).map((value) => <button key={value} type="button" aria-pressed={kind === value} onClick={() => onKind(value)} className={`min-h-11 shrink-0 rounded-md border px-4 text-sm font-semibold ${kind === value ? "border-brand bg-brand text-brand-foreground" : "border-border text-muted-foreground"}`}>{label[value]}</button>)}</div> : null}
     {shown.length === 0 ? <p className="text-muted-foreground">{fr ? "Rien pour ce filtre." : "Nothing for this filter."}</p> : null}
@@ -151,8 +152,8 @@ function Programme({ timeline, kind, onKind, followed, now, locale }: { timeline
               <div className={`flex items-start gap-4 px-4 py-3 ${past ? "opacity-45" : ""}`}>
                 <span className="w-14 shrink-0 font-mono text-lg font-semibold tabular-nums">{entry.time}</span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold text-brand">{past ? "✓ " : ""}{kindText[entry.kind]}{entry.label ? ` · ${entry.label}` : ""}</span>
-                  <span className="block font-semibold">{entry.raceName}</span>
+                  <span className="block text-sm font-semibold text-brand">{past ? "✓ " : ""}{kindText[entry.kind]}{entry.kind === "arrival_estimate" ? ` · ${audienceText(entry.audience)}` : entry.label && !entry.eventWide ? ` · ${entry.label}` : ""}{entry.endTime ? ` → ${entry.endTime}` : ""}</span>
+                  <span className="block font-semibold">{entry.eventWide ? entry.label : entry.raceName}</span>
                   {entry.location ? <span className="block text-sm text-muted-foreground">{entry.location}</span> : null}
                   {live && index === nextIndex && at ? <span className="mt-1 inline-block rounded-full bg-brand-surface px-2 py-0.5 text-xs font-semibold text-brand">{countdown(at, now, locale)}</span> : null}
                 </span>

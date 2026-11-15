@@ -17,6 +17,8 @@ export type SupporterGuideFormat = {
   finishCutoffTime: string | null;
   /** Finish cutoff resolved from the official departure (multi-day aware). */
   finishCutoff?: RaceDayClock | null;
+  /** Expected first arrivals (start + organizer's estimated winning time). */
+  estimatedWinners?: { men: RaceDayClock | null; women: RaceDayClock | null };
   elevationGainM?: number | null;
   startWaves: Array<{ id: string; name: string; time: string }>;
   awards: Array<{ id: string; label: string; time: string; location: string | null }>;
@@ -58,7 +60,7 @@ export type SupporterGuideTimelineEntry = {
   id: string;
   raceId: string;
   raceName: string;
-  kind: "start" | "finish_cutoff" | "awards";
+  kind: "start" | "finish_cutoff" | "awards" | "arrival_estimate" | "animation";
   date: string | null;
   time: string;
   /** Start wave name or award category; null for a single common start. */
@@ -66,6 +68,13 @@ export type SupporterGuideTimelineEntry = {
   location: string | null;
   /** Directions to the start area (start entries only). */
   mapsUrl?: string | null;
+  /** arrival_estimate: first man or first woman. */
+  audience?: "men" | "women" | null;
+  /** animation: event-wide entry (raceId and raceName are empty), shown whatever races are followed. */
+  eventWide?: boolean;
+  /** animation: optional end time and type. */
+  endTime?: string | null;
+  animationType?: "animation" | "concert" | "kids_race" | "briefing" | "village" | "other";
 };
 
 export type SupporterGuideService = {

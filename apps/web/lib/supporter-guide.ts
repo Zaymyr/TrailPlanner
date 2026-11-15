@@ -158,9 +158,50 @@ export function buildSupporterStops(format: Pick<SupporterGuideFormat, "aidStati
   });
 }
 
+type ProgrammeItem = {
+  id: string;
+  type: NonNullable<SupporterGuideTimelineEntry["animationType"]>;
+  title: string;
+  date: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  location: string | null;
+};
+
+const PROGRAMME_TYPES = new Set(["animation", "concert", "kids_race", "briefing", "village", "other"]);
+
+/** Edition programme items (animations...) from event organizer details; invalid rows are skipped. */
+function parseProgramme(value: unknown): ProgrammeItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((raw, index) => {
+    const row = record(raw);
+    const title = text(row.title);
+    const startTime = clock(row.startTime);
+    if (!title || !startTime) return [];
+    const type = text(row.type);
+    return [{
+      id: text(row.id) ?? `programme-${index}`,
+      type: (type && PROGRAMME_TYPES.has(type) ? type : "animation") as ProgrammeItem["type"],
+      title,
+      date: text(row.date),
+      startTime,
+      endTime: clock(row.endTime),
+      location: text(row.location),
+    }];
+  });
+}
+
+/** "7:45" / "26:30" → minutes. */
+function durationMinutes(value: unknown): number | null {
+  const match = /^(\d{1,3}):(\d{2})$/.exec(text(value) ?? "");
+  return match ? Number(match[1]) * 60 + Number(match[2]) : null;
+}
+
 function buildTimeline(
   formats: SupporterGuideFormat[],
   startMapsUrlByRaceId: Map<string, string | null> = new Map(),
+  programme: ProgrammeItem[] = [],
+  defaultDate: string | null = null,
 ): SupporterGuideTimelineEntry[] {
   const entries: SupporterGuideTimelineEntry[] = [];
   for (const format of formats) {
@@ -174,9 +215,21 @@ function buildTimeline(
     if (format.finishCutoff) {
       entries.push({ id: `finish-${format.raceId}`, raceId: format.raceId, raceName: format.name, kind: "finish_cutoff", date: format.finishCutoff.date ?? format.date, time: format.finishCutoff.time, label: null, location: null });
     }
+    for (const audience of ["men", "women"] as const) {
+      const estimate = format.estimatedWinners?.[audience];
+      if (estimate) {
+        entries.push({ id: `arrival-${audience}-${format.raceId}`, raceId: format.raceId, raceName: format.name, kind: "arrival_estimate", date: estimate.date ?? format.date, time: estimate.time, label: null, location: null, audience });
+      }
+    }
     for (const award of format.awards) {
       entries.push({ id: `awards-${award.id}`, raceId: format.raceId, raceName: format.name, kind: "awards", date: format.date, time: award.time, label: award.label, location: award.location });
     }
+  }
+  for (const item of programme) {
+    entries.push({
+      id: `animation-${item.id}`, raceId: "", raceName: "", kind: "animation", date: item.date ?? defaultDate, time: item.startTime!,
+      label: item.title, location: item.location, eventWide: true, endTime: item.endTime, animationType: item.type,
+    });
   }
   return entries.sort((left, right) =>
     (left.date ?? "9999").localeCompare(right.date ?? "9999") || left.time.localeCompare(right.time) || left.raceName.localeCompare(right.raceName, "fr"),
@@ -281,6 +334,10 @@ export async function loadSupporterGuide(
       startTime,
       finishCutoffTime: cutoffs.finish?.time ?? clock(schedule.finishCutoffTime),
       finishCutoff: cutoffs.finish,
+      estimatedWinners: {
+        men: durationMinutes(schedule.estimatedWinnerMen) !== null ? toRaceDayClock(startTime, raceDate, durationMinutes(schedule.estimatedWinnerMen)!) : null,
+        women: durationMinutes(schedule.estimatedWinnerWomen) !== null ? toRaceDayClock(startTime, raceDate, durationMinutes(schedule.estimatedWinnerWomen)!) : null,
+      },
       startWaves,
       awards: snapshot.awardRows.flatMap((value) => {
         const row = record(value); const label = text(row.category_label); const time = clock(row.podium_time);
@@ -376,7 +433,12 @@ export async function loadSupporterGuide(
     schemaVersion: 1,
     edition: { id: edition.id, eventId: edition.event_id, name: event.name, location: event.location, startDate: edition.start_date, endDate: edition.end_date, imageUrl: event.thumbnail_url },
     formats,
-    timeline: buildTimeline(formats, new Map(access.map((item) => [item.raceId, startDirectionsUrl(item.start)]))),
+    timeline: buildTimeline(
+      formats,
+      new Map(access.map((item) => [item.raceId, startDirectionsUrl(item.start)])),
+      parseProgramme(eventDetails.programme),
+      edition.start_date,
+    ),
     onSiteServices: services.filter((service) => service.type === "recovery" || service.type === "other"),
     stayServices: services.filter((service) => service.type === "restaurant" || service.type === "accommodation"),
     lodgingPartner,
