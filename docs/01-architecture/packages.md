@@ -4,6 +4,7 @@ scope: architecture
 last_verified: 2026-11-15
 ai_priority: medium
 related_files:
+  - packages/shared/src/supporter-guide.ts
   - package.json
   - apps/web/next.config.mjs
   - packages/shared/src/index.ts
@@ -20,6 +21,8 @@ related_tables: []
 ---
 
 # Packages Architecture
+
+`@trailplanner/shared` exports the transport-only `SupporterGuidePayload` contract consumed by web and mobile. The web-only `qrcode` dependency renders organizer download SVGs and is not shipped to the mobile bundle.
 
 ## Shared followed-plan helpers
 

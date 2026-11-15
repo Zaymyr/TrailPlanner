@@ -24,6 +24,8 @@ related_tables:
 
 # `racebook_gear_checks`
 
+Removing the supporter subtab and adding the Supporter Guide share entry do not change runner gear-check storage, ownership or synchronization.
+
 The shared RaceBook screen now also renders additive bib-pickup conditions. Material checklist keys, optimistic persistence, account/race ownership, and organizer-equipment immutability remain unchanged.
 
 The header-attached workspace switch does not read or mutate checklist rows.

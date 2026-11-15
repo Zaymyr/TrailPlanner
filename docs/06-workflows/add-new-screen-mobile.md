@@ -83,6 +83,8 @@ related_tables:
 
 # Add New Mobile Screen
 
+The Supporter Guide is a universal-linkable Expo screen at `/courses/supporter-guide/[raceId]`. It accepts anonymous sessions, fetches the public web payload, hides empty sections, and is released together with removal of the current RaceBook supporter subtab so the content remains reachable in-app.
+
 The followed-plan lot adds a universal-link preview and a hidden native detail route under `plan/followed/[id]`. Both use themed loading/error/card/button primitives, safe-area spacing, localized FR/EN copy, focus refresh and accessible controls; the Plans root adds an accessible two-state selector without changing the tab route.
 
 The RaceBook Dossard rules accept optional third-party pickup conditions. Show them only when pickup by another person is allowed, preserve the organizer's text verbatim, and keep the mobile surface read-only; missing fields from older payloads must continue to normalize to `null`.

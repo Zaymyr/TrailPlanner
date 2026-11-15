@@ -36,6 +36,7 @@ describe('published RaceBook loading', () => {
       startWaveRows: [],
       awardRows: [],
       editionServiceRows: [],
+      modules: { supporter_guide: true },
     }), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
 
@@ -45,6 +46,7 @@ describe('published RaceBook loading', () => {
       race: { id: 'race-1', name: 'Format privé' },
       canOpen: true,
       aidStations: [],
+      supporterGuideAvailable: true,
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain('/api/racebook-data?raceId=race-1');

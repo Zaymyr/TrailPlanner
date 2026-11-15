@@ -4,6 +4,11 @@ scope: architecture
 last_verified: 2026-11-15
 ai_priority: high
 related_files:
+  - apps/web/app/api/supporter-guide/route.ts
+  - apps/web/app/api/supporter-guide/qr/route.ts
+  - apps/web/app/courses/supporter-guide/[raceId]/page.tsx
+  - apps/web/app/courses/supporter-guide/[raceId]/SupporterGuideView.tsx
+  - apps/web/lib/supporter-guide.ts
   - apps/web/app/admin/video-generator/export-frame.test.ts
   - apps/web/app/admin/video-generator/export-frame.ts
   - apps/web/app/admin/_components/AdminMessagingTab.tsx
@@ -350,6 +355,8 @@ related_tables:
 ---
 
 # Web App Architecture
+
+The public Supporter Guide lives at `/courses/supporter-guide/[raceId]` and consumes `/api/supporter-guide`, which aggregates only immutable format publications and reuses RaceBook cache tags. The client route is mobile-first and `noindex`; `/api/supporter-guide/qr` generates a downloadable SVG QR for the organizer workspace.
 
 Shared-plan follow APIs are authenticated Next.js route handlers using service role only after bearer validation and per-user rate limiting. The public token route remains anonymous and token-based; its crew-state mutation and the authenticated follow-id mutation share one validation/update service. The public page only adds a native-app CTA and preserves its snapshot contract.
 

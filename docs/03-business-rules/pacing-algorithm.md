@@ -19,6 +19,8 @@ related_tables:
 
 # Pacing Algorithm
 
+The additional `@trailplanner/shared` Supporter Guide export is a transport DTO only. It does not calculate, persist or modify pacing, ETA interpolation or nutrition inputs.
+
 ## Assistant timeline interpolation
 
 Supporter points between saved checkpoints use linear kilometer interpolation over plan arrival minutes. After a confirmed passage, points at or beyond the latest preceding confirmation receive that checkpoint's signed actual-versus-planned delta. This presentation calculation does not rewrite pacing sections or the snapshot. Completion uses the greatest plan duration or published cutoff/day offset, followed by a six-hour margin.

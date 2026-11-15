@@ -39,6 +39,8 @@ related_tables:
 
 # race_event_edition_sponsors
 
+Supporter Guide v1 does not add a sponsor placement. It reuses only the already-published lodging partner slot, preserving the effective `sponsors` gate and counted-redirect privacy boundary.
+
 Sponsor authoring and public sponsor endpoints accept the exact `module.sponsors` gift when Signature is not active. Other feature gifts and all invoice states remain insufficient; sponsor storage, counters and RLS are unchanged.
 
 The shared RaceBook screen accepts additive bib-pickup conditions. Sponsor eligibility, placement, stable presentation, click tracking, and protected draft reads are unchanged.

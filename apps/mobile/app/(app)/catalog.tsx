@@ -1381,6 +1381,19 @@ export default function CatalogScreen() {
 
             <Text style={styles.sheetHint}>{locale === 'fr' ? 'Choisis ta distance, puis ouvre son Livret coureur.' : 'Choose your distance, then open its Race Book.'}</Text>
 
+            {selectedEvent ? (() => {
+              const guideRace = selectedEvent.races.find((race) => isRaceRacebookAvailable(selectedEvent, race));
+              return guideRace ? <TouchableOpacity
+                accessibilityRole="button"
+                style={styles.supporterGuideButton}
+                onPress={() => { setSelectedEvent(null); router.push(`/courses/supporter-guide/${guideRace.id}` as any); }}
+              >
+                <Ionicons name="people-outline" size={19} color={Colors.brandPrimary} />
+                <Text style={styles.supporterGuideButtonText}>{locale === 'fr' ? 'Livret accompagnateur' : 'Supporter Guide'}</Text>
+                <Ionicons name="chevron-forward" size={18} color={Colors.brandPrimary} />
+              </TouchableOpacity> : null;
+            })() : null}
+
             <ScrollView contentContainerStyle={styles.sheetContent}>
               {selectedEvent?.races.map((race) => {
                 const racebookAvailable = canShowRacebook({
@@ -1779,6 +1792,20 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingBottom: 12,
   },
+  supporterGuideButton: {
+    minHeight: 52,
+    marginHorizontal: 20,
+    marginBottom: 8,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+    borderRadius: 16,
+    backgroundColor: Colors.brandSurface,
+  },
+  supporterGuideButtonText: { flex: 1, color: Colors.brandPrimary, fontWeight: '800' },
   eventUpdatesSection: {
     gap: 10,
     marginTop: 8,

@@ -17,6 +17,8 @@ related_tables: []
 
 # Architecture Overview
 
+Supporter Guide v1 adds one shared typed payload in `packages/shared`, a publication-only web aggregator/API, a `noindex` mobile-first web route, and a matching Expo route. The web workspace adds `qrcode` solely for on-demand organizer QR SVG generation; this does not change the platform or runtime architecture.
+
 The shared-plan follow flow spans the existing boundaries: Next.js authenticates and service-mediates follow membership, Supabase stores `plan_share_follows`, Expo handles universal links and native crew UI, and `@trailplanner/shared` contains only pure tracking calculations. No app imports implementation code from another app.
 
 ## Purpose

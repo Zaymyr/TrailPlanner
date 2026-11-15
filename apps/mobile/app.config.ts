@@ -73,6 +73,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           data: [
             { scheme: 'https', host: 'pace-yourself.com', pathPrefix: '/share/plan/' },
             { scheme: 'https', host: 'www.pace-yourself.com', pathPrefix: '/share/plan/' },
+            { scheme: 'https', host: 'pace-yourself.com', pathPrefix: '/courses/supporter-guide/' },
+            { scheme: 'https', host: 'www.pace-yourself.com', pathPrefix: '/courses/supporter-guide/' },
           ],
           category: ['BROWSABLE', 'DEFAULT'],
         },

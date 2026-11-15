@@ -91,6 +91,8 @@ related_tables:
 
 # RLS Checklist
 
+The Supporter Guide module migration changes only the allowlisted edition key and default rows on the existing service-only module-settings table. The focused SQL check proves the new key is edition-scoped; no client privilege, policy or RPC execution grant is added.
+
 ## Plan-follow context checklist
 
 - Replace untrusted client `snapshot.raceId` from the authenticated owner's `race_plans` row.

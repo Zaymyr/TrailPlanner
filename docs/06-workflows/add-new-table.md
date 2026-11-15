@@ -51,6 +51,8 @@ related_tables:
 
 # Add New Table
 
+Supporter Guide v1 adds no table. Its migration only extends the checked key set and initializer for the existing service-only `organizer_racebook_module_settings` table; the existing grants, RLS posture and duplication path remain unchanged.
+
 The followed-plan completion change is a column-only migration on existing `plan_share_follows`: `auto_archive_dismissed_at` preserves an explicit user restore while leaving the table's SELECT-only authenticated grants, service-role writes and two RLS policies unchanged. Its table doc, schema/RLS docs and focused SQL check are updated together; no new table protocol applies.
 
 `plan_share_follows` follows the owner/follower read and service-write variant: explicit SELECT-only authenticated grant, no anonymous access, two narrow RLS policies, database-level self-follow rejection, cascade foreign keys and focused SQL privilege checks.

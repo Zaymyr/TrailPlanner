@@ -310,6 +310,7 @@ export default function FollowedPlanScreen() {
 
         {follow.raceContext ? <Card style={styles.section}>
           <Text size="lg" weight="bold">{locale === 'fr' ? 'Pratique' : 'Practical'}</Text>
+          <Button variant="secondary" onPress={() => router.push(`/courses/supporter-guide/${follow.raceContext!.raceId}` as any)}>{locale === 'fr' ? 'Livret accompagnateur de l’événement' : 'Event Supporter Guide'}</Button>
           {follow.raceContext.access?.officialParkings ? <Text><Text weight="bold">Parking · </Text>{follow.raceContext.access.officialParkings}</Text> : null}
           {follow.raceContext.access?.shuttles ? <Text><Text weight="bold">{locale === 'fr' ? 'Navettes' : 'Shuttles'} · </Text>{follow.raceContext.access.shuttles}{follow.raceContext.access.shuttleSchedule ? ` · ${follow.raceContext.access.shuttleSchedule}` : ''}</Text> : null}
           {follow.raceContext.bibPickup ? <Text><Text weight="bold">{locale === 'fr' ? 'Retrait par un tiers' : 'Third-party bib pickup'} · </Text>{follow.raceContext.bibPickup.thirdPartyPickupAllowed ? (follow.raceContext.bibPickup.thirdPartyPickupConditions || (locale === 'fr' ? 'Autorisé' : 'Allowed')) : (locale === 'fr' ? 'Non autorisé' : 'Not allowed')}</Text> : null}

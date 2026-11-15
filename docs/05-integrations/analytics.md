@@ -82,6 +82,8 @@ related_tables:
 
 # Analytics
 
+The RaceBook share entry records only the action name `supporter_guide_shared` under the existing consent-aware mobile analytics path. No guide address, coordinate, phone, URL, publication id or share token is sent.
+
 Authenticated shared-plan actions emit consent-gated mobile events through the existing PostHog wrapper: `plan crew followed`, `plan crew unfollowed`, `plan crew passage confirmed in app`, and `plan crew follower removed`. Payloads contain only a bounded source value; they never contain a raw share token, plan/follower name, snapshot, or passage details.
 
 Field-assistance enrichment adds consent-gated `followed plan directions opened`, `followed plan preparation opened`, and `followed plan updated seen`. Their only property is the bounded `source = followed_plan`; never attach the token, plan/race name, coordinates, access text, checklist contents, products, or passage detail.

@@ -21,6 +21,8 @@ related_tables:
 
 # race_supporter_points
 
+Current mobile UI moves the published supporter-point presentation from the runner RaceBook “Où encourager” subtab into the edition Supporter Guide. The snapshot field, API serialization and legacy-app behavior are retained; organizer microcopy now names the Livret accompagnateur as the destination.
+
 Public supporter-point serialization continues to depend on the exact effective module state. Independent organizer invoices do not expose supporter points and do not change their existing client grants or RLS.
 
 The shared RaceBook payload parser now accepts additive bib-pickup conditions. Supporter-point validation, GPX/address coordinate rules, ordering, publication filtering, and RLS remain unchanged.

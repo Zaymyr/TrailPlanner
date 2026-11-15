@@ -16,6 +16,8 @@ related_tables:
 
 # `race_event_update_reads`
 
+The catalog Supporter Guide entry is independent from event-update read tracking and does not mark announcements read.
+
 ## Purpose
 
 `race_event_update_reads` records when an identified runner has seen an organizer announcement in the mobile app. The Courses tab uses it to keep a `NEW` badge on an event and its unread messages until the event sheet displays them.

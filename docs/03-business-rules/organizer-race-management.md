@@ -251,6 +251,8 @@ related_tables:
 
 # Organizer Race Management
 
+The Livret accompagnateur is an edition-level published view assembled from the current immutable publication of every preview-visible format. It adds no organizer form: the section chooser controls only the guide surface, existing source modules remain authoritative, and the header offers a guide preview plus a downloadable QR. Suivi coureur copy now states that its points appear in this guide.
+
 ## Published data reused by plan followers
 
 The authenticated assistance view consumes only the immutable current RaceBook publication. `/api/racebook-data` and follow enrichment share `loadPublishedRacebookData`, including entitlement/module masking. A checkpoint uses its stable source ravito id first; legacy fallback accepts exactly one published station within 0.15 km, the existing RaceBook plan-reflection tolerance. Ambiguous matches receive no access rule. This creates no organizer field and never falls back to drafts.

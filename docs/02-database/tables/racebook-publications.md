@@ -4,6 +4,9 @@ scope: database
 last_verified: 2026-11-15
 ai_priority: high
 related_files:
+  - apps/web/lib/supporter-guide.ts
+  - apps/web/lib/supporter-guide.test.ts
+  - apps/web/app/api/supporter-guide/route.ts
   - apps/web/lib/racebook-publication-checks.ts
   - apps/web/lib/racebook-partner-slots.ts
   - supabase/migrations/20261103123918_racebook_versioned_publications.sql
@@ -20,6 +23,8 @@ related_tables:
 ---
 
 # `racebook_publications`
+
+The Supporter Guide aggregator reads only current immutable publications for preview-visible formats in one edition. It applies the same effective-module masking as `/api/racebook-data`; an event with no qualifying publication is unavailable and never falls back to drafts. The additive `supporter_guide` module key defaults to enabled only for legacy snapshots that predate the key.
 
 Published RaceBook payloads resolve exact module gifts alongside the edition plan. Manual invoice status, due dates and settlement are not publication authority and are never used to unlock a RaceBook.
 

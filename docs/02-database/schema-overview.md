@@ -134,6 +134,8 @@ related_tables:
 
 # Schema Overview
 
+Supporter Guide v1 adds no content table. Migration `20261115131556_add_supporter_guide_module.sql` extends the existing module-setting key constraint and initializes the edition-scoped `supporter_guide` switch; all displayed content remains frozen in `racebook_publications`.
+
 ## Followed plan lifecycle
 
 `plan_share_links.snapshot` keeps schema version 1 and may contain additive, server-owned `raceId`. `plan_share_follows.auto_archive_dismissed_at` records an explicit restore of a calculated completed-race follow; it is presentation lifecycle state, not deletion or RaceBook publication authority. Race details shown to a follower remain derived from immutable `racebook_publications`.

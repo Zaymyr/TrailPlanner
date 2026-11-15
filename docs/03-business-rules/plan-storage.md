@@ -67,6 +67,8 @@ related_tables:
 
 # Plan Storage
 
+The followed-plan Supporter Guide link reuses the server-derived published race context. It does not change plan snapshots, runner ownership, follow synchronization or passage state.
+
 The plan unlock badge is derived from the access response at runtime; nothing is added to `planner_values` or the saved plan row.
 
 The plan workspace header now reports its measured expanded height (lot 10); offsets are local UI state and nothing is added to `planner_values` or the saved row.

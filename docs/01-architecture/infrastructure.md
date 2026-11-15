@@ -38,6 +38,8 @@ related_tables:
 
 # Infrastructure
 
+Universal links now include `/courses/supporter-guide/*` in iOS AASA and Android intent filters. The existing Apple Team ID and Android signing fingerprint placeholders remain explicit TODOs. Supporter Guide QR SVGs are generated on demand by the web function and are not persisted.
+
 The production app claims HTTPS universal/app links for both `pace-yourself.com` and `www.pace-yourself.com` under `/share/plan/*`. Expo config carries the iOS associated domains and Android verified intent filters; the web app serves AASA and Digital Asset Links files. The Apple Team ID and Android release SHA-256 fingerprint are intentionally left as maintainer-verification TODOs and must be replaced with verified signing identities before native-link validation.
 
 Independent organizer invoices use the existing private invoice Storage boundary. Only server-side service-role routes may read invoice rows or catalog prices, render PDFs, or produce short-lived downloads; PostHog remains unrelated to settlement, while its organizer analytics route recognizes only the exact analytics feature grant.

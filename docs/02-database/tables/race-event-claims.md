@@ -29,6 +29,8 @@ related_tables:
 
 # `race_event_claims`
 
+The organizer header’s Supporter Guide preview and QR actions are presentation-only and do not alter claim review, membership grants or ownership transfer.
+
 Claim review remains separate from organizer billing and edition rights. The shared admin surface may expose all three workflows, but invoice issuance/settlement does not approve a claim or create an organizer membership.
 
 The Organizer dashboard now preserves loaded course-point sidecars across same-format refreshes and gates their autosave until loading completes. This client integrity guard does not create, review, approve, or otherwise mutate organizer claims.
