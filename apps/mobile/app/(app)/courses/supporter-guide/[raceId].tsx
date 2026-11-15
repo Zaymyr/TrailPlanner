@@ -15,6 +15,7 @@ import {
 import { RacebookServicesSection, type RacebookServicesCopy } from '../../../../components/racebook/RacebookServicesSection';
 import { RacebookSupporterPointsSection, type RacebookSupporterStop } from '../../../../components/racebook/RacebookSupporterPointsSection';
 import { RacebookTabBar } from '../../../../components/racebook/RacebookTabBar';
+import { AccordionHeader } from '../../../../components/themed/AccordionHeader';
 import { ActionButton } from '../../../../components/themed/ActionButton';
 import { DataText } from '../../../../components/themed/DataText';
 import { EmptyState } from '../../../../components/themed/EmptyState';
@@ -250,8 +251,7 @@ export default function SupporterGuideScreen() {
   }, [activeSection, sections]);
 
   // One race at a time on Suivre / Pratique: the race the guide was opened from, else the first one.
-  const raceChoices = (activeSection === 'practical' ? practicalFormats : followFormats)
-    .filter((format) => !followedRaceIds || followedRaceIds.has(format.raceId));
+  const raceChoices = activeSection === 'practical' ? practicalFormats : followFormats;
   const currentRaceId = raceChoices.some((format) => format.raceId === selectedRaceId)
     ? selectedRaceId
     : raceChoices[0]?.raceId ?? null;
@@ -435,7 +435,7 @@ export default function SupporterGuideScreen() {
           </TopoCard>
         ) : null}
 
-        {guide.formats.length > 1 && (activeSection === 'programme' || activeSection === 'follow' || activeSection === 'practical') ? (
+        {guide.formats.length > 1 && activeSection === 'programme' ? (
           <View style={styles.followedRow}>
             <Text style={styles.followedLabel}>{copy.iAmFollowing}</Text>
             <View style={styles.followedChecks}>
@@ -641,10 +641,18 @@ function ProgrammeSection({
   };
   const showRaceName = !followedRaceIds || followedRaceIds.size > 1;
   const isLive = days.some((day) => day.date === localIsoDay(now));
+
   // "Me prévenir pour toutes les courses": every upcoming moment, whatever the « Je suis » selection.
   const remindable = timeline.filter((entry) => {
     const at = toLocalDate(entry.date, entry.time);
     return Boolean(at && at.getTime() - 30 * 60_000 > now.getTime());
+  });
+  const today = localIsoDay(now);
+  const [openPastDays, setOpenPastDays] = useState<Set<string>>(new Set());
+  const togglePastDay = (date: string) => setOpenPastDays((current) => {
+    const next = new Set(current);
+    if (next.has(date)) next.delete(date); else next.add(date);
+    return next;
   });
   const kindTabs: { key: GuideTimelineKind; label: string }[] = [
     { key: 'all', label: copy.typeAll },
@@ -680,12 +688,37 @@ function ProgrammeSection({
       {days.length === 0 ? <EmptyState title={timeline.length === 0 ? copy.emptyProgramme : copy.emptyFiltered} /> : null}
       {days.map((day) => {
         const live = resolveDayLiveState(day.entries, day.date, now);
+        const dayPast = Boolean(day.date && day.date < today);
+        const dayLabel = formatGuideDay(day.date, locale) ?? copy.sectionProgramme;
+        if (dayPast && !openPastDays.has(day.date!)) {
+          return (
+            <View key={day.date ?? 'undated'} style={[styles.day, styles.pastDay]}>
+              <AccordionHeader
+                count={day.entries.length}
+                expanded={false}
+                onToggle={() => togglePastDay(day.date!)}
+                subtitle={copy.dayDone}
+                title={dayLabel}
+              />
+            </View>
+          );
+        }
         return (
           <View key={day.date ?? 'undated'} style={styles.day}>
-            <SectionHeading title={formatGuideDay(day.date, locale) ?? copy.sectionProgramme} />
-            <TopoCard>
+            {dayPast ? (
+              <AccordionHeader
+                count={day.entries.length}
+                expanded
+                onToggle={() => togglePastDay(day.date!)}
+                subtitle={copy.dayDone}
+                title={dayLabel}
+              />
+            ) : (
+              <SectionHeading title={dayLabel} />
+            )}
+            <TopoCard style={dayPast ? styles.pastDay : undefined}>
               {day.entries.map((entry, index) => {
-                const status = live?.statusById[entry.id] ?? null;
+                const status = dayPast ? 'past' : live?.statusById[entry.id] ?? null;
                 const at = toLocalDate(entry.date, entry.time);
                 const reminderOn = reminderIds.has(entry.id);
                 const canRemind = Boolean(at && at.getTime() - 30 * 60_000 > now.getTime());
@@ -767,6 +800,7 @@ const styles = StyleSheet.create({
   liveRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   liveClock: { color: Colors.textPrimary, fontSize: 15, lineHeight: 20, fontWeight: '800' },
   pastRow: { opacity: 0.45 },
+  pastDay: { opacity: 0.6 },
   countdown: { alignSelf: 'flex-start', marginTop: 4 },
   rowActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   roundAction: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 20, borderWidth: 1, borderColor: Colors.brandBorder, backgroundColor: Colors.surface },
