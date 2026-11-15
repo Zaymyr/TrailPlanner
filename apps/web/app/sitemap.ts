@@ -47,6 +47,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     url: toAbsoluteUrl(`/courses/${race.slug}`),
     lastModified: race.updatedAt ?? undefined,
   }));
+  const eventEditionEntries: MetadataRoute.Sitemap = Array.from(
+    new Map(
+      races
+        .filter((race) => Boolean(race.eventEditionSlug))
+        .map((race) => [race.eventEditionSlug as string, race]),
+    ).values(),
+  ).map((race) => ({
+    url: toAbsoluteUrl(`/courses/evenements/${race.eventEditionSlug}`),
+    lastModified: race.updatedAt ?? undefined,
+  }));
   const distanceEntries: MetadataRoute.Sitemap = getIndexableDistancePages(races).map(({ page, races: matchingRaces }) => {
     const lastModified = matchingRaces
       .map((race) => race.updatedAt)
@@ -60,7 +70,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     };
   });
 
-  return [...staticEntries, ...blogEntries, ...raceEntries, ...distanceEntries];
+  return [...staticEntries, ...blogEntries, ...eventEditionEntries, ...raceEntries, ...distanceEntries];
 }
 
 /**

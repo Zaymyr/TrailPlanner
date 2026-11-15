@@ -356,6 +356,8 @@ erDiagram
 
 ## Gotchas
 
+- Admin catalog writes continue to use the existing race/event/station relationships. Their new post-write public-cache invalidation changes freshness only; it adds no table, foreign key, RLS policy, or API payload field.
+
 - The November mobile visual-alignment pass changes sticky catalog chrome, event metadata truncation, card actions and shared control geometry only. It adds no table, column, persisted filter, query scope or RLS path.
 
 - The pinned Courses search/filter controls, native date inputs, and revised format action layout are presentation-only over the existing catalog snapshot. They add no table, column, RLS policy, or persisted filter value.

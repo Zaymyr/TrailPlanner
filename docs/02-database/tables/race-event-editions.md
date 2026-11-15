@@ -41,6 +41,10 @@ related_files:
   - apps/web/app/api/organizer/editions/[id]/module-settings/route.ts
   - apps/web/lib/public-races.ts
   - apps/web/lib/public-races.test.ts
+  - apps/web/lib/public-race-events.ts
+  - apps/web/lib/public-race-events.test.ts
+  - supabase/migrations/20261113200326_add_race_event_edition_slugs.sql
+  - supabase/tests/race_event_edition_slug_redirects_checks.sql
   - supabase/migrations/20260930115641_add_organizer_social_proofs.sql
   - supabase/tests/organizer_social_proofs_checks.sql
 related_tables:
@@ -94,6 +98,7 @@ Organizer editor changes are autosaved with a debounced, revision-aware client q
 | `edition_year` | `smallint` | unique per event, 2000–2100 | Year of `start_date`. |
 | `start_date` | `date` | non-null | Canonical first day of the edition. |
 | `end_date` | `date` | non-null, not before start | Canonical last day of the edition. |
+| `slug` | `text` | non-null, unique, lowercase ASCII slug | Durable canonical identifier for `/courses/evenements/[slug]`. |
 | `is_current` | `boolean` | one true row per event at most | Edition mirrored to legacy event date fields and used by event-wide admin publication controls. |
 | `is_visible` | `boolean` | non-null, default `true` | Whether attached formats may remain visible in mobile course/RaceBook discovery. |
 | `module_setup_completed_at` | `timestamptz` | nullable | Completion or skip time for the module setup assistant. |
@@ -127,6 +132,7 @@ RLS is enabled and direct `anon` / `authenticated` privileges are revoked. Only 
 
 - `edition_year` equals the year of `start_date`.
 - `end_date >= start_date`.
+- The initial edition slug is derived deterministically from the event name and edition year. A rename stores the old value in `race_event_edition_slug_redirects`; canonical and historical slugs cannot be reused.
 - A format date edited through organizer routes must lie inside its edition range.
 - Database triggers also reject edition range updates that exclude an attached format, event/edition mismatches, and out-of-range format writes from any service path.
 - A dated event format inserted without `edition_id` is assigned before validation to an atomically upserted `(event_id, edition_year)` row. A transaction advisory lock serializes first-edition creation per event, and the migration backfills existing orphaned formats.
@@ -172,6 +178,7 @@ where ree.event_id = :event_id
 
 - Do not use `race_events.race_date` as the canonical organizer edition date; it is a compatibility mirror.
 - Edition visibility, deletion, publication, restoration, and effective entitlement changes invalidate edition/event RaceBook tags after their durable operation succeeds. Module, sponsor, branding, and services autosaves only increment draft revisions.
+- Those public-facing operations also invalidate the shared public catalog tag and stable edition/event tags so event-edition pages and the sitemap do not wait for the 15-minute TTL.
 - Application writes should persist `races.edition_id`. The database uses the format year only as a service-side compatibility repair when a dated event format arrives without one.
 - Do not replace `races.edition_group_id` with `edition_id`: one groups a format series across years, the other groups all formats in one event year.
 - A multi-day edition may end in the following calendar year; only its start year defines `edition_year`.

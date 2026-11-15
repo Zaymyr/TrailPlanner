@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { withSecurityHeaders } from "../../../../../../lib/http";
+import { invalidatePublicRaceCache } from "../../../../../../lib/public-race-cache";
 import {
   jsonError,
   loadRaceForOrganizer,
@@ -105,5 +106,6 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
   }
 
   const updatedRace = z.array(raceImageRowSchema).parse(await updateResponse.json())[0] ?? null;
+  invalidatePublicRaceCache({ raceId: parsedParams.data.id, editionId: race.edition_id, eventId: race.event_id });
   return withSecurityHeaders(NextResponse.json({ thumbnailUrl: publicUrl, race: updatedRace }));
 }

@@ -97,6 +97,7 @@ describe("public race detail", () => {
           status: "active",
         }]);
       }
+      if (url.includes("/rest/v1/organizer_edition_capability_grants?")) return jsonResponse([]);
       if (url.includes("/rest/v1/race_aid_stations?")) {
         return jsonResponse([{
           id: "44444444-4444-4444-8444-444444444444",
@@ -125,19 +126,26 @@ describe("public race detail", () => {
       racebookAvailableInApp: true,
       routePreview: expect.objectContaining({ points: expect.any(Array) }),
     }));
-    expect(detail?.aidStations[0]).toEqual(expect.objectContaining({ name: "Refuge", altitudeM: 1200, dropBagAvailable: true }));
+    expect(detail?.aidStations[0]).toEqual({
+      id: "44444444-4444-4444-8444-444444444444",
+      name: "Refuge",
+      distanceKm: 20,
+      waterAvailable: true,
+      solidAvailable: true,
+    });
+    expect(detail?.aidStationDetails?.[0]).toEqual(expect.objectContaining({ name: "Refuge", altitudeM: 1200, dropBagAvailable: true }));
     expect(detail?.practical.services.supporters).toBe("Zone supporters");
     expect(JSON.stringify(detail)).not.toContain("0612345678");
     expect(JSON.stringify(detail)).not.toContain("message privé");
     expect(fetchMock.mock.calls[0]?.[0]).toContain("web_catalog_is_live=eq.true&is_public=eq.true");
     expect(fetchMock.mock.calls.find(([url]) => String(url).includes("race_event_editions?"))?.[0]).not.toContain("is_visible=eq.true");
     expect(fetchMock.mock.calls[0]?.[1]).toEqual(expect.objectContaining({
-      next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS },
+      next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS, tags: ["public-races"] },
     }));
     for (const endpoint of ["organizer_racebook_module_settings?", "organizer_edition_entitlements?"]) {
       const publicModuleCall = fetchMock.mock.calls.find(([url]) => String(url).includes(endpoint));
       expect(publicModuleCall?.[1]).toEqual(expect.objectContaining({
-        next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS },
+        next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS, tags: ["public-races"] },
       }));
       expect(publicModuleCall?.[1]).not.toEqual(expect.objectContaining({ cache: "no-store" }));
     }
@@ -193,6 +201,7 @@ describe("public race detail", () => {
         source: "stripe",
         status: "active",
       }]);
+      if (url.includes("/rest/v1/organizer_edition_capability_grants?")) return jsonResponse([]);
       if (url.includes("/rest/v1/race_aid_stations?")) return jsonResponse([]);
       return jsonResponse([], 404);
     });
@@ -202,6 +211,89 @@ describe("public race detail", () => {
 
     expect(detail?.practical.services.supporters).toBeNull();
     expect(JSON.stringify(detail)).not.toContain("Contenu Complet privé");
+  });
+
+  it("returns only the public aid-station summary when no organizer offer is active", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/rest/v1/races?")) return jsonResponse([{
+        id: baseRace.id,
+        event_id: baseRace.eventId,
+        edition_id: baseRace.editionId,
+        racebook_is_live: false,
+        organizer_details: {},
+      }]);
+      if (url.includes("/rest/v1/race_events?")) return jsonResponse([{ id: baseRace.eventId, is_live: true, organizer_details: {} }]);
+      if (url.includes("/rest/v1/race_event_editions?")) return jsonResponse([{ id: baseRace.editionId, event_id: baseRace.eventId, end_date: "2026-09-13" }]);
+      if (url.includes("/rest/v1/organizer_racebook_module_settings?")) return jsonResponse([]);
+      if (url.includes("/rest/v1/organizer_edition_entitlements?")) return jsonResponse([]);
+      if (url.includes("/rest/v1/organizer_edition_capability_grants?")) return jsonResponse([]);
+      if (url.includes("/rest/v1/race_aid_stations?")) return jsonResponse([{
+        id: "44444444-4444-4444-8444-444444444444",
+        name: "Refuge",
+        km: 20,
+        water_available: true,
+        solid_available: false,
+        assistance_allowed: true,
+        notes: "note privée",
+        organizer_details: { cutoffTime: "12:30", dropBagAvailable: true },
+      }]);
+      return jsonResponse([], 404);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const detail = await getPublicRaceDetail(baseRace);
+
+    expect(detail?.aidStations).toEqual([expect.objectContaining({ name: "Refuge", distanceKm: 20, waterAvailable: true, solidAvailable: false })]);
+    expect(detail?.aidStationDetails).toBeNull();
+    expect(JSON.stringify(detail)).not.toMatch(/12:30|note privée|dropBagAvailable|assistanceAllowed/);
+    const stationUrl = String(fetchMock.mock.calls.find(([url]) => String(url).includes("race_aid_stations?"))?.[0]);
+    expect(stationUrl).not.toMatch(/assistance_allowed|notes|organizer_details/);
+  });
+
+  it("hides every aid-station projection after an explicit module opt-out", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/rest/v1/races?")) return jsonResponse([{ id: baseRace.id, event_id: baseRace.eventId, edition_id: baseRace.editionId, racebook_is_live: true, organizer_details: {} }]);
+      if (url.includes("/rest/v1/race_events?")) return jsonResponse([{ id: baseRace.eventId, is_live: true, organizer_details: {} }]);
+      if (url.includes("/rest/v1/race_event_editions?")) return jsonResponse([{ id: baseRace.editionId, event_id: baseRace.eventId, end_date: "2026-09-13" }]);
+      if (url.includes("/rest/v1/organizer_racebook_module_settings?")) return jsonResponse([{ race_id: baseRace.id, module_key: "aid_stations", is_enabled: false }]);
+      if (url.includes("/rest/v1/organizer_edition_entitlements?")) return jsonResponse([{ tier: "essential", status: "active" }]);
+      if (url.includes("/rest/v1/organizer_edition_capability_grants?")) return jsonResponse([]);
+      return jsonResponse([], 404);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const detail = await getPublicRaceDetail(baseRace);
+
+    expect(detail?.aidStations).toEqual([]);
+    expect(detail?.aidStationDetails).toBeNull();
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("race_aid_stations?"))).toBe(false);
+  });
+
+  it("applies active complimentary feature grants to public modules", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/rest/v1/races?")) return jsonResponse([{ id: baseRace.id, event_id: baseRace.eventId, edition_id: baseRace.editionId, racebook_is_live: true, organizer_details: {} }]);
+      if (url.includes("/rest/v1/race_events?")) return jsonResponse([{ id: baseRace.eventId, is_live: true, organizer_details: { services: { supporters: "Zone publique offerte" } } }]);
+      if (url.includes("/rest/v1/race_event_editions?")) return jsonResponse([{ id: baseRace.editionId, event_id: baseRace.eventId, end_date: "2026-09-13" }]);
+      if (url.includes("/rest/v1/organizer_racebook_module_settings?")) return jsonResponse([{ race_id: null, module_key: "services", is_enabled: true }]);
+      if (url.includes("/rest/v1/organizer_edition_entitlements?")) return jsonResponse([]);
+      if (url.includes("/rest/v1/organizer_edition_capability_grants?")) return jsonResponse([{
+        id: "66666666-6666-4666-8666-666666666666",
+        edition_id: baseRace.editionId,
+        capability_key: "module.services",
+        status: "active",
+        granted_by: null,
+        granted_at: "2026-09-01T00:00:00Z",
+        revoked_by: null,
+        revoked_at: null,
+      }]);
+      if (url.includes("/rest/v1/race_aid_stations?")) return jsonResponse([]);
+      return jsonResponse([], 404);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const detail = await getPublicRaceDetail(baseRace);
+
+    expect(detail?.practical.services.supporters).toBe("Zone publique offerte");
   });
 
   it("downsamples long GPX files while preserving the first and last points", () => {

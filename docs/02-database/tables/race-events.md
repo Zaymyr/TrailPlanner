@@ -66,6 +66,7 @@ related_files:
   - apps/web/lib/organizer-import-proposals.ts
   - apps/web/lib/push.ts
   - apps/web/lib/public-races.ts
+  - apps/web/lib/public-race-events.ts
   - apps/web/lib/public-race-detail.ts
   - apps/web/lib/public-race-detail.test.ts
   - apps/web/app/courses/page.tsx
@@ -74,6 +75,8 @@ related_files:
   - apps/web/app/courses/[slug]/page.tsx
   - apps/web/app/courses/[slug]/race-metadata.ts
   - apps/web/app/courses/_components/RaceCatalogFilter.tsx
+  - apps/web/app/courses/_components/RaceCatalogFilter.test.ts
+  - apps/web/app/courses/_components/catalog-display.ts
   - apps/web/app/courses/_components/PublicRaceLinks.tsx
   - apps/web/app/courses/distances/[category]/page.tsx
   - apps/web/app/courses/race-discovery.test.ts
@@ -149,6 +152,7 @@ The mobile Livret may separately load an owner's linked plan for personal reflec
 - Mobile Racebook contract: the mobile Courses tab reads `organizer_details`, `races.racebook_preview_is_visible`, and `races.racebook_is_live`. Ordinary runners require a live format plus RaceBook publication. Active `race_event_organizers` membership keeps managed private formats in Courses, grants an unpublished preview only when preview selection is true, and dims that private RaceBook action. Masked formats are removed from the mobile catalog for every role.
 - Public web catalog contract: `/courses` uses a server-only service read with explicit safe columns from `web_catalog_is_live` public race formats and their live parent events. Mobile edition visibility does not remove already published web formats, and the service boundary avoids exposing masked rows through direct client RLS. Its server search projection includes public format/event locations plus normalized city, department, region, and country names, but excludes codes, coordinates, organizer JSON, and operational fields; each response serializes at most 12 grouped event editions plus any formats inside those groups. The richer server-only detail read repeats the web race/event gates before loading organizer JSON, canonical edition dates, or private GPX, then returns only allowlisted runner-facing values. Its metadata helper limits titles to 60 characters and descriptions to 160, reserves a distance/year suffix, preserves the distinguishing end of long format names, and uses the shared social image only when neither format nor event supplies one.
 - Public web grouping: `/courses` groups current formats by stable `races.event_id + races.edition_id`, with an `event_id` fallback only for historical rows without an edition; event names are presentation labels and never grouping keys.
+- Group headers derive compact date ranges from child format dates. When format location labels differ, the header may display the same non-null normalized `location_city` shared by every child; otherwise it counts distinct known format location labels. This presentation never parses `race_events.location` or writes inferred geography.
 - Curated SEO seeds create or refresh a canonical visible edition per verified upcoming event, publish only source-backed formats, and may enrich existing event rows without duplicating their formats.
 - The second curated batch adds four verified event identities, refreshes the existing Foulée des Ducs edition, and enriches Nice UTMB and Terres de Saône event provenance while preserving existing format metrics.
 - The official UTMB World Series import creates or refreshes 55 event identities from their tenant-specific official domains. It stores the UTMB tenant in `organizer_details.catalogSource`, rejects ambiguous legacy matches, and keeps each event linked to one canonical upcoming edition.
@@ -214,6 +218,8 @@ Organizer portal writes also go through web service routes after checking `race_
 - Changing `race_events.location` without updating the normalized geography in the same statement clears all normalized fields through `clear_stale_race_event_geography()`, preventing stale regional filters.
 - Public web pages must require `races.web_catalog_is_live = true` and `races.is_public = true`; related event enrichment must also require `race_events.is_live = true`. `races.is_live` remains the mobile course-publication flag.
 - Public web details deliberately exclude `organizer_details.emergencyContact`, `services.lastMinuteMessage`, and both raw organizer JSON objects even though the mobile Racebook contract may expose emergency calling. Their effective entitlement and module-setting lookups share the public 15-minute ISR cache boundary rather than the private Organizer `no-store` policy.
+- A public event-edition page exists only when the parent event is live and the edition has at least one web-public format. It exposes the event identity and only explicitly sanitized common practical fields; format-specific overrides remain on format pages.
+- Public web aid-station summaries come from child `race_aid_stations`, not event JSON. They may expose only name, kilometer, water, and solid-food availability without an Organizer offer; exact capability grants still participate in effective public modules, and an explicit format-level aid-station opt-out suppresses the summary.
 - Former course slugs use the same rule: `race_slug_redirects` is readable and the canonical race is returned only while the optional parent event remains live.
 - Event rows can also be created by `POST /api/organizer/events`; those rows are inserted with `is_live = true`, then linked to their creator through an active owner membership. Their Racebooks stay separately hidden.
 - Admin catalog/event creation flows should also default new event rows to `is_live = false` unless the operator explicitly publishes them.
@@ -335,6 +341,7 @@ where is_live = true
 - Organizer bootstrap and event-detail reads must also include the same edition-level effective Analytics decision. An event reload replaces the prior snapshot and must not reduce a complimentary grant to a tier-only fallback.
 - Organizer payment invalidation must hide attached RaceBooks through edition rights without setting `race_events.is_live = false`; the event remains in free catalog discovery.
 - Public RaceBook snapshots are tagged by event as well as race and edition. Event metadata/image edits mark every format draft dirty without invalidating the published version; effective visibility and publication changes invalidate the event tag. Private organizer publication reads remain uncached.
+- The server-rendered public catalog uses a separate `public-races` tag. Successful organizer/admin event metadata, date, image, publication, visibility, and deletion writes invalidate it after persistence; the 15-minute TTL covers invalidation failures.
 
 - Keep event bib pickup as the default source. A format-level pickup is active only when `overrideEnabled` is explicitly true; absent/false values preserve the event fallback, and the format variant does not require geocoded metadata.
 

@@ -272,6 +272,8 @@ Organizer access should be checked through an active `race_event_organizers` row
 
 ## Gotchas
 
+- Public cache tags mirror race, edition, and event ownership scopes for invalidation, but are not relational constraints or authorization primitives. The database foreign keys and route membership checks remain authoritative.
+
 - Do not restore `race_catalog` names from archived docs. Current code uses `races`.
 - Deleting a race should preserve saved plans. Use `race_id = null`, not cascade deletion.
 - Deleting an edition intentionally cascades through its `races` rows; the subsequent race deletion still preserves saved plans by nulling their source link. Do not change the edition FK back to `set null`.

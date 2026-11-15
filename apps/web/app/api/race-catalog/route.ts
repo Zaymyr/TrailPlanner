@@ -5,6 +5,7 @@ import { z } from "zod";
 import { parseGpx } from "../../../lib/gpx/parseGpx";
 import { normalizeImportedWaypoints } from "../../../lib/gpx/normalizeImportedWaypoints";
 import { checkRateLimit, withSecurityHeaders } from "../../../lib/http";
+import { invalidatePublicRaceCache } from "../../../lib/public-race-cache";
 import {
   IMAGE_UPLOAD_CACHE_CONTROL,
   OPTIMIZED_IMAGE_CONTENT_TYPE,
@@ -537,5 +538,6 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  invalidatePublicRaceCache({ raceId, eventId });
   return withSecurityHeaders(NextResponse.json({ race: inserted }));
 }
