@@ -49,6 +49,8 @@ related_tables:
 
 # Auth Flows
 
+When an anonymous session opens `/share/plan/<token>`, following still requires an identified account. The app keeps only the pending route in memory, sends the user through the existing login flow, and consumes that route after `SIGNED_IN`; it does not persist or send the raw token to analytics.
+
 ## Runner plan creation and billing access
 
 The runner launch announcement uses cached `getSession()` identity and a user-scoped launch-information fetch from the root layout, but installs no new Auth listener. Its local once-per-campaign `seen` preference is presentation state, not an access decision. Existing trials and grants retain their recorded dates; the announcement makes no profile or Auth write.

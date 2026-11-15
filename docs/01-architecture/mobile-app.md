@@ -45,6 +45,13 @@ related_files:
   - apps/mobile/.maestro/flows/authenticated-shell.yaml
   - apps/mobile/scripts/run-mobile-ux-audit.mjs
   - apps/mobile/app/_layout.tsx
+  - apps/mobile/app/(app)/plans.tsx
+  - apps/mobile/app/share/plan/[token].tsx
+  - apps/mobile/app/(app)/plan/followed/[id].tsx
+  - apps/mobile/components/plans/FollowedPlansList.tsx
+  - apps/mobile/hooks/useFollowedPlans.ts
+  - apps/mobile/lib/followedPlans.ts
+  - apps/mobile/lib/pendingDeepLink.ts
   - apps/mobile/lib/appReview.ts
   - apps/mobile/lib/appReviewPolicy.ts
   - apps/mobile/lib/appReviewPolicy.test.ts
@@ -185,6 +192,7 @@ related_tables:
   - races
   - race_events
   - plan_share_links
+  - plan_share_follows
   - subscriptions
   - user_profiles
   - push_devices
@@ -198,6 +206,8 @@ related_tables:
 ---
 
 # Mobile App Architecture
+
+Shared plan links are universal links for `/share/plan/*`. The native preview requires an identified account, preserves the pending deep-link destination through the existing authentication screen, and creates a `plan_share_follows` membership through the web API. **Mes plans** exposes an owned/followed selector; the followed detail screen refreshes on focus and pull, uses the shared tracking calculations, and offers nickname, archive and unsubscribe actions. Link revocation, expiry or runner removal renders the followed plan unavailable. The Apple Team ID and Android signing fingerprint in the association files remain explicit maintainer TODOs until verified.
 
 ## Published RaceBook boundary
 

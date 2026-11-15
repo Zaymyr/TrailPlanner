@@ -32,6 +32,8 @@ related_tables:
 
 # Resend Integration
 
+The shared-plan follow flow adds no email, broadcast, Resend template or delivery event. Its mobile layout and workspace dependency changes are navigation/package wiring only.
+
 ## Purpose
 
 This document records the current Resend integration in the repo. Resend is used to sync Supabase Auth users into Resend Contacts through an admin bulk route and a per-user authenticated route, and to send transactional notifications for organizer assignment and optional admin-to-user messages. A static production-launch Broadcast template also lives in the repo.

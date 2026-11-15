@@ -15,6 +15,8 @@ related_files:
   - .github/workflows/db-migrate.yml
   - apps/mobile/react-native.config.js
   - apps/mobile/app.config.ts
+  - apps/web/public/.well-known/apple-app-site-association
+  - apps/web/public/.well-known/assetlinks.json
   - supabase/migrations/20260504133000_schedule_push_reminders_with_supabase_cron.sql
   - supabase/migrations/20260504094253_fix_push_reminders_cron_auth.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
@@ -35,6 +37,8 @@ related_tables:
 ---
 
 # Infrastructure
+
+The production app claims HTTPS universal/app links for both `pace-yourself.com` and `www.pace-yourself.com` under `/share/plan/*`. Expo config carries the iOS associated domains and Android verified intent filters; the web app serves AASA and Digital Asset Links files. The Apple Team ID and Android release SHA-256 fingerprint are intentionally left as maintainer-verification TODOs and must be replaced with verified signing identities before native-link validation.
 
 Independent organizer invoices use the existing private invoice Storage boundary. Only server-side service-role routes may read invoice rows or catalog prices, render PDFs, or produce short-lived downloads; PostHog remains unrelated to settlement, while its organizer analytics route recognizes only the exact analytics feature grant.
 

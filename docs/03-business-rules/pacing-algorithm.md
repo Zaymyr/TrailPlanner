@@ -19,6 +19,8 @@ related_tables:
 
 # Pacing Algorithm
 
+The new `@trailplanner/shared` export does not change pace calculation. It only recalculates crew-facing absolute ETAs from immutable checkpoint `arrivalMinute` values after a confirmed passage; it never rewrites section pace or the stored plan.
+
 ## Purpose
 
 This document records how Pace Yourself estimates segment timing and converts pacing into nutrition planning inputs. The main implementation is in the race-planner utilities under `apps/web/app/(planner)/race-planner/utils`.

@@ -60,6 +60,8 @@ related_tables:
 
 # Mapbox 3D Admin Course Viewer
 
+The workspace dependency update for shared plan-tracking code does not change Mapbox packages, tokens, styles, attribution or 3D map behavior.
+
 The admin page now also has a messaging inbox (bugs, feedback, race requests). That tab and its user-notification delivery are independent from the lazy 3D video-generator route and do not load Mapbox, GPX, narration, or rendering dependencies.
 
 ## Purpose

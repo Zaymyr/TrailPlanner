@@ -83,6 +83,8 @@ related_tables:
 
 # Add New Mobile Screen
 
+The followed-plan lot adds a universal-link preview and a hidden native detail route under `plan/followed/[id]`. Both use themed loading/error/card/button primitives, safe-area spacing, localized FR/EN copy, focus refresh and accessible controls; the Plans root adds an accessible two-state selector without changing the tab route.
+
 The RaceBook Dossard rules accept optional third-party pickup conditions. Show them only when pickup by another person is allowed, preserve the organizer's text verbatim, and keep the mobile surface read-only; missing fields from older payloads must continue to normalize to `null`.
 
 When a workspace switch is attached under a collapsible header, pass the header colors to `RaceWorkspaceSwitch` and render the header with `attachedBelow` so only the switch carries the rounded edge and shadow. When the switch is conditional (the RaceBook shows it only for an owned plan), gate `attachedBelow` and the scroll top inset on the same condition.

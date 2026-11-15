@@ -45,10 +45,20 @@ related_files:
   - apps/mobile/lib/planPersistence.ts
   - apps/mobile/lib/planPersistence.test.ts
   - apps/mobile/lib/webApi.ts
+  - apps/web/app/api/plan-share-follows/route.ts
+  - apps/web/app/api/plan-share-follows/preview/route.ts
+  - apps/web/app/api/plan-share-follows/[id]/route.ts
+  - apps/web/app/api/plan-share-follows/[id]/crew-state/route.ts
+  - apps/web/lib/plan-share-crew-state-service.ts
+  - packages/shared/src/plan-share-tracking.ts
+  - apps/mobile/lib/followedPlans.ts
+  - apps/mobile/app/share/plan/[token].tsx
+  - apps/mobile/app/(app)/plan/followed/[id].tsx
   - apps/mobile/lib/onboardingDemoPlan.ts
 related_tables:
   - race_plans
   - plan_share_links
+  - plan_share_follows
   - plan_aid_stations
   - race_aid_station_products
 ---
@@ -151,6 +161,8 @@ When a guest reaches the one-plan limit, mobile opens the shared account prompt 
 When the in-app recap opens, mobile sends the regenerated recap snapshot to `apps/web/app/api/plan-shares/route.ts`; an explicit share reuses the same synchronization result. The web API verifies the Supabase bearer token, checks ownership of the parent `race_plans` row, stores the snapshot in `plan_share_links`, and returns a public `/share/plan/[token]` URL for the crew. New shares use a stable server-derived token. Later recap refreshes update the existing snapshot and return the same URL, so previously distributed links immediately resolve to the latest regenerated values instead of becoming stale or requiring redirects. The mobile synchronizer deduplicates an in-flight or already completed request for an unchanged recap and retries after failure. The public snapshot includes each checkpoint's assistance state so the crew can see where it may be present. Recap UIs should emphasize assistance checkpoints and visually mute no-assistance checkpoints; no-assistance checkpoints should not render a "to give" product block. This public snapshot remains separate from editable plan state and changes only when the authenticated recap is opened/refreshed or deliberately shared.
 
 The public shared page can persist limited crew-side tracking data through `apps/web/app/api/plan-shares/crew-state/route.ts`. That route validates the secret URL token, hashes it server-side, and updates only `plan_share_links.departure_time` plus `plan_share_links.crew_state`. The crew marks assistance points as done; the page records the current clock time, recalculates the next crew point from that confirmed passage, and treats no-assistance checkpoints as planned-time passages by default. If the crew validates too early, the tracking card can clear confirmed passages and return calculations to the planned snapshot values while keeping the entered departure time.
+
+An authenticated crew member can additionally follow the same secret link in mobile. `plan_share_follows` records membership, nickname, archive and removal state without duplicating the snapshot. The app lists followed plans under **Je suis assistant**, reloads the current shared snapshot/crew state on focus and pull-to-refresh, and updates the same `plan_share_links.crew_state` through a follow-id route. Public web and mobile use the shared pure tracking module so passage recalculation and no-assistance handling remain identical. Revocation, expiry, unsubscribe or owner removal cuts mobile access immediately; the public anonymous contract remains token-based and unchanged.
 
 Linked plan creation first resolves the existing `(user_id, race_id)` row before applying the free-plan limit. This applies to identified and anonymous Supabase sessions. A concurrent uniqueness conflict reloads that row instead of surfacing a creation failure. The mobile Livret and linked-plan editor share a persistent `Livret officiel | Mon plan` switch below their collapsing headers; in the Livret it is rendered only once the owner row exists. Both directions use route replacement; entering the plan preserves the Livret tab/course-tab context, leaving the plan flushes the current draft first, and native back/exit still targets Courses or Plans rather than the opposite workspace. The editor may include its plan id as a return-route hint so the Livret can open that row immediately, but the Livret still reloads the `(user_id, race_id)` owner row on every focus and clears an invalid hint instead of entering the creation route.
 

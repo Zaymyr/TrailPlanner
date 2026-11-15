@@ -7,6 +7,9 @@ related_files:
   - package.json
   - apps/web/next.config.mjs
   - packages/shared/src/index.ts
+  - packages/shared/src/plan-share-tracking.ts
+  - apps/web/package.json
+  - apps/mobile/package.json
   - packages/design-system/package.json
   - packages/design-system/src/index.ts
   - packages/design-system/src/index.d.ts
@@ -17,6 +20,8 @@ related_tables: []
 ---
 
 # Packages Architecture
+
+`@trailplanner/shared` now owns the pure shared-plan tracking calculations used by the public web timeline and native crew screen: clock parsing, midnight resolution, trackable-point selection, passage normalization and downstream ETA recalculation. UI, persistence and locale formatting remain app-specific.
 
 ## Purpose
 

@@ -91,6 +91,8 @@ related_tables:
 
 # RLS Checklist
 
+`plan_share_follows` is the authenticated-read/service-write pattern: no `anon` privileges, SELECT-only for `authenticated`, follower and link-owner policies, and service-mediated mutations. Active snapshot/crew-state access is rechecked in the API against removal, revocation and expiry because service role bypasses RLS.
+
 Independent organizer invoices and feature availability are service-only despite organizer-facing projections. Validate no `anon`/`authenticated` table privileges or RPC execution, verify all foreign-key indexes, and prove issuance/settlement cannot mutate entitlements. Exact feature grants must remain allowlisted, non-monetized and audited as active/revoked rows.
 
 ## Runner monetisation additions

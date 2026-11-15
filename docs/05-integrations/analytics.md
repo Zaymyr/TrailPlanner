@@ -44,6 +44,9 @@ related_files:
   - apps/web/lib/product-analytics.test.ts
   - apps/mobile/lib/posthog.ts
   - apps/mobile/app/_layout.tsx
+  - apps/mobile/app/share/plan/[token].tsx
+  - apps/mobile/app/(app)/plan/followed/[id].tsx
+  - apps/mobile/components/plan-workspace/PlanRecapContent.tsx
   - apps/mobile/hooks/useSessionSideEffects.ts
   - apps/mobile/hooks/useProfileScreen.ts
   - apps/mobile/hooks/profileScreenHelpers.ts
@@ -78,6 +81,8 @@ related_tables:
 ---
 
 # Analytics
+
+Authenticated shared-plan actions emit consent-gated mobile events through the existing PostHog wrapper: `plan crew followed`, `plan crew unfollowed`, `plan crew passage confirmed in app`, and `plan crew follower removed`. Payloads contain only a bounded source value; they never contain a raw share token, plan/follower name, snapshot, or passage details.
 
 Organizer analytics access is checked against the active plan plus the exact `capability.racebook_analytics` feature grant. A different Signature feature gift must not authorize analytics, and manual invoice creation or settlement has no analytics effect.
 

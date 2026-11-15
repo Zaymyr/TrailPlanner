@@ -62,11 +62,14 @@ related_files:
   - apps/web/lib/http.ts
   - apps/web/app/api/plan-shares/route.ts
   - apps/web/app/api/plan-shares/crew-state/route.ts
+  - supabase/migrations/20261115122801_add_plan_share_follows.sql
+  - supabase/tests/plan_share_follows_checks.sql
 related_tables:
   - race_event_edition_partner_slots
   - race_plans
   - organizer_import_sessions
   - plan_share_links
+  - plan_share_follows
   - plan_aid_stations
   - races
   - race_slug_redirects
@@ -182,6 +185,16 @@ Declared in `20260609091933_add_plan_share_links.sql`.
 - Crew-side public updates also avoid direct `anon` table access. `apps/web/app/api/plan-shares/crew-state/route.ts` validates the raw secret token, hashes it, rate-limits by token hash, and patches only `departure_time` plus `crew_state` with service role.
 
 Re-sharing uses the same owner policy shape: the route verifies bearer-token identity and parent-plan ownership before updating an existing stable snapshot.
+
+### `plan_share_follows`
+
+Declared in `20261115122801_add_plan_share_follows.sql`.
+
+- `anon` has no privileges; `authenticated` has SELECT only.
+- Followers can select their own non-removed membership rows; those rows contain no snapshot or crew state. The authenticated API separately requires an active, unexpired parent link before returning details.
+- Link owners can select follower rows attached to links they own.
+- All insert/update/delete operations are service-role API writes after bearer-token authorization. Detailed snapshot and crew-state reads are served by the same authenticated API and are not exposed by this table.
+- A trigger rejects self-following even if a service path is misused. Owner removal and link revocation/expiry immediately cut the follower's detailed access.
 
 ### `races`
 

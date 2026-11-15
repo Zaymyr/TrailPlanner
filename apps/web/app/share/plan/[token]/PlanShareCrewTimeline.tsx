@@ -1,6 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  buildPlanShareTimeline,
+  isPlanShareCrewCheckpoint as isCrewCheckpoint,
+  isPlanShareTrackableCheckpoint as isTrackableCheckpoint,
+  normalizePlanSharePassages as normalizePassages,
+  parsePlanShareClock as parseClock,
+  resolvePlanShareClockNearPlanned as resolveClockNearPlanned,
+} from "@trailplanner/shared";
 
 import type { PlanShareCrewState, PlanShareSnapshot } from "../../../../lib/plan-share";
 import { trackCrewLinkOpened, trackCrewStateUpdated } from "../../../../lib/product-analytics";
@@ -89,19 +97,6 @@ const COPY = {
   },
 } as const;
 
-function parseClock(value: string) {
-  if (!/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(value)) return null;
-  const [hours, minutes] = value.split(":").map(Number);
-  return hours * 60 + minutes;
-}
-
-function resolveClockNearPlanned(clockMinutes: number, plannedAbsoluteMinutes: number) {
-  let resolved = clockMinutes;
-  while (resolved - plannedAbsoluteMinutes > 720) resolved -= 1440;
-  while (plannedAbsoluteMinutes - resolved > 720) resolved += 1440;
-  return resolved;
-}
-
 function formatDuration(totalMinutes: number) {
   const safeMinutes = Math.max(0, Math.round(totalMinutes));
   const hours = Math.floor(safeMinutes / 60);
@@ -150,38 +145,12 @@ function getWaterInstruction(checkpoint: PlanShareCheckpoint, summary: PlanShare
   return copy.waterUnavailable;
 }
 
-function isCrewCheckpoint(checkpoint: PlanShareCheckpoint) {
-  return checkpoint.assistanceState === "available" && !checkpoint.isStart && !checkpoint.isFinish;
-}
-
-function isTrackableCheckpoint(checkpoint: PlanShareCheckpoint) {
-  return isCrewCheckpoint(checkpoint) || checkpoint.isFinish;
-}
-
 function getCurrentClockMinutes() {
   const now = new Date();
   return {
     clockMinutes: now.getHours() * 60 + now.getMinutes(),
     iso: now.toISOString(),
   };
-}
-
-function normalizePassages(passages: PlanSharePassage[], checkpoints: PlanShareCheckpoint[]) {
-  const checkpointOrder = new Map(checkpoints.map((checkpoint, order) => [checkpoint.index, order]));
-  const byCheckpoint = new Map<number, PlanSharePassage>();
-
-  for (const passage of passages) {
-    if (!checkpointOrder.has(passage.checkpointIndex)) continue;
-    byCheckpoint.set(passage.checkpointIndex, {
-      checkpointIndex: passage.checkpointIndex,
-      actualMinute: Math.max(0, Math.round(passage.actualMinute)),
-      confirmedAt: passage.confirmedAt,
-    });
-  }
-
-  return Array.from(byCheckpoint.values()).sort(
-    (a, b) => (checkpointOrder.get(a.checkpointIndex) ?? 0) - (checkpointOrder.get(b.checkpointIndex) ?? 0)
-  );
 }
 
 export function PlanShareCrewTimeline({
@@ -215,51 +184,11 @@ export function PlanShareCrewTimeline({
     });
   }, [departureTime, initialPassages.length, summary.checkpoints]);
 
-  const passagesByIndex = useMemo(() => {
-    return new Map(passages.map((passage) => [passage.checkpointIndex, passage]));
-  }, [passages]);
-
   const timeline = useMemo(() => {
-    const startMinutes = parseClock(startTime);
-    const startCheckpoint = summary.checkpoints.find((checkpoint) => checkpoint.isStart) ?? summary.checkpoints[0];
-    const trackableCheckpoints = summary.checkpoints.filter(isTrackableCheckpoint);
-    const confirmedTrackable = trackableCheckpoints.filter((checkpoint) => passagesByIndex.has(checkpoint.index));
-    const anchorCheckpoint = confirmedTrackable[confirmedTrackable.length - 1] ?? startCheckpoint;
-    const anchorPassage = passagesByIndex.get(anchorCheckpoint.index) ?? null;
-    const anchorActualMinute = anchorPassage?.actualMinute ?? 0;
-    const anchorAbsolute = startMinutes !== null ? startMinutes + anchorActualMinute : null;
-    const nextCheckpoint =
-      trackableCheckpoints.find(
-        (checkpoint) => checkpoint.index > anchorCheckpoint.index && !passagesByIndex.has(checkpoint.index)
-      ) ?? null;
+    return buildPlanShareTimeline(summary.checkpoints, passages, startTime);
+  }, [passages, startTime, summary.checkpoints]);
 
-    const getCheckpointAbsolute = (checkpoint: PlanShareCheckpoint) => {
-      const confirmed = passagesByIndex.get(checkpoint.index);
-      if (startMinutes === null) return null;
-      if (confirmed) return startMinutes + confirmed.actualMinute;
-      if (checkpoint.index >= anchorCheckpoint.index) {
-        return startMinutes + anchorActualMinute + checkpoint.arrivalMinute - anchorCheckpoint.arrivalMinute;
-      }
-      return startMinutes + checkpoint.arrivalMinute;
-    };
-
-    const nextAbsolute = nextCheckpoint ? getCheckpointAbsolute(nextCheckpoint) : null;
-    const delta =
-      anchorPassage && startMinutes !== null
-        ? anchorPassage.actualMinute - anchorCheckpoint.arrivalMinute
-        : null;
-
-    return {
-      startMinutes,
-      anchorCheckpoint,
-      anchorPassage,
-      anchorAbsolute,
-      nextCheckpoint,
-      nextAbsolute,
-      delta,
-      getCheckpointAbsolute,
-    };
-  }, [passagesByIndex, startTime, summary.checkpoints]);
+  const passagesByIndex = timeline.passagesByIndex;
 
   async function persistCrewState(nextPassages: PlanSharePassage[], nextStartTime: string, key: string) {
     setSavingKey(key);

@@ -51,6 +51,8 @@ related_tables:
 
 # Add New Table
 
+`plan_share_follows` follows the owner/follower read and service-write variant: explicit SELECT-only authenticated grant, no anonymous access, two narrow RLS policies, database-level self-follow rejection, cascade foreign keys and focused SQL privilege checks.
+
 For immutable service-only financial records, follow the `organizer_invoices` pattern: revoke client privileges, keep RLS enabled without client policies, index every foreign key, serialize legal numbering transactionally, reject deletion, and allow only narrowly defined settlement/replacement transitions. Giftable organizer features are availability metadata rather than products: keep them non-monetized, reject monetary gift lines on insert, and calculate invoice totals from the pack only.
 
 `user_notifications` is the owner-readable, server-authored example: clients receive explicit safe-column reads and `read_at`-only updates under owner RLS, while message creation and external delivery metadata stay service-only. Its race-request review RPC is invoker-security, service-role-only and commits the status plus inbox row atomically.

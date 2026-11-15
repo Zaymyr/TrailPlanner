@@ -44,6 +44,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ios: {
       supportsTablet: false,
       bundleIdentifier: applicationId,
+      associatedDomains: [
+        'applinks:pace-yourself.com',
+        'applinks:www.pace-yourself.com',
+      ],
       ...(iosGoogleServicesFile ? { googleServicesFile: iosGoogleServicesFile } : {}),
       usesAppleSignIn: true,
       infoPlist: {
@@ -62,6 +66,17 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       },
       ...(androidGoogleServicesFile ? { googleServicesFile: androidGoogleServicesFile } : {}),
       package: applicationId,
+      intentFilters: [
+        {
+          action: 'VIEW',
+          autoVerify: true,
+          data: [
+            { scheme: 'https', host: 'pace-yourself.com', pathPrefix: '/share/plan/' },
+            { scheme: 'https', host: 'www.pace-yourself.com', pathPrefix: '/share/plan/' },
+          ],
+          category: ['BROWSABLE', 'DEFAULT'],
+        },
+      ],
       blockedPermissions: [
         'android.permission.ACCESS_COARSE_LOCATION',
         'android.permission.ACCESS_FINE_LOCATION',

@@ -1,0 +1,15 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["TODO_APPLE_TEAM_ID.com.paceyourself.app"],
+        "components": [
+          {
+            "/": "/share/plan/*",
+            "comment": "TODO: verify Apple Team ID with maintainer"
+          }
+        ]
+      }
+    ]
+  }
+}

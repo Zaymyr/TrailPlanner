@@ -15,9 +15,12 @@ related_files:
   - apps/mobile/lib/planShareLinks.test.ts
   - apps/mobile/app/(app)/plan/[id]/summary.tsx
   - apps/mobile/components/plan-workspace/PlanRecapContent.tsx
+  - apps/web/lib/plan-share-crew-state-service.ts
+  - packages/shared/src/plan-share-tracking.ts
 related_tables:
   - plan_share_links
   - race_plans
+  - plan_share_follows
 ---
 
 # `plan_share_links`
@@ -78,6 +81,7 @@ Summary:
 - Authenticated users can delete their own share links.
 - The table is not granted to `anon`; public link reads go through the server-rendered web page with service role.
 - Public crew-state updates go through `apps/web/app/api/plan-shares/crew-state/route.ts`, which hashes the raw URL token and writes only `departure_time` and `crew_state` with service role.
+- Authenticated crew members may follow a link through the service-role API. `plan_share_follows` stores membership only; active membership is rechecked before snapshot reads or crew-state writes.
 - The public client may emit consent-gated `plan crew link opened` and `plan crew state updated` events with aggregate checkpoint counts. The token, snapshot, plan name, and passage details are excluded.
 
 ## Business Invariants
@@ -96,6 +100,7 @@ Summary:
 - Resetting public tracking clears `crew_state.passages` through the same secret-link route so the page returns to planned snapshot timing without mutating `snapshot`.
 - `snapshot_schema_version` must be bumped before storing a breaking public snapshot shape.
 - `expires_at` and `revoked_at` are optional controls; the public page must ignore revoked or expired links.
+- Revoking or expiring a link also immediately invalidates every authenticated follow. Owners can list/remove followers and revoke the link from the mobile recap.
 
 ## Gotchas
 

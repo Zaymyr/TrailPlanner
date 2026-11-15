@@ -61,6 +61,36 @@ type PlanShareMutationRow = {
   expires_at: string | null;
 };
 
+export async function GET(request: Request) {
+  const supabaseAnon = getSupabaseAnonConfig();
+  const supabaseService = getSupabaseServiceConfig();
+  if (!supabaseAnon || !supabaseService) {
+    return withSecurityHeaders(NextResponse.json({ message: "Supabase configuration is missing." }, { status: 500 }));
+  }
+  const token = extractBearerToken(request.headers.get("authorization"));
+  const user = token ? await fetchSupabaseUser(token, supabaseAnon) : null;
+  if (!user) return withSecurityHeaders(NextResponse.json({ message: "Invalid session." }, { status: 401 }));
+  const planId = new URL(request.url).searchParams.get("planId");
+  if (!planId || !z.string().uuid().safeParse(planId).success) {
+    return withSecurityHeaders(NextResponse.json({ message: "Invalid plan id." }, { status: 400 }));
+  }
+  const rateLimit = await checkRateLimitAsync(`plan-share-status:${user.id}`, 60, 60_000);
+  if (!rateLimit.allowed) return withSecurityHeaders(NextResponse.json({ message: "Too many requests." }, { status: 429 }));
+  const query = new URLSearchParams({
+    plan_id: `eq.${planId}`,
+    user_id: `eq.${user.id}`,
+    select: "id,revoked_at,created_at",
+    order: "updated_at.desc",
+    limit: "1",
+  });
+  const response = await fetch(`${supabaseService.supabaseUrl}/rest/v1/plan_share_links?${query}`, {
+    headers: serviceHeaders(supabaseService, ""), cache: "no-store",
+  });
+  const rows = (await response.json().catch(() => [])) as Array<{ id: string; revoked_at: string | null; created_at: string }>;
+  if (!response.ok) return withSecurityHeaders(NextResponse.json({ message: "Unable to load share status." }, { status: 502 }));
+  return withSecurityHeaders(NextResponse.json({ share: rows[0] ? { id: rows[0].id, revoked: Boolean(rows[0].revoked_at), createdAt: rows[0].created_at } : null }));
+}
+
 async function loadOwnedPlan(serviceConfig: SupabaseServiceConfig, planId: string, userId: string) {
   const response = await fetch(
     `${serviceConfig.supabaseUrl}/rest/v1/race_plans?id=eq.${encodeURIComponent(

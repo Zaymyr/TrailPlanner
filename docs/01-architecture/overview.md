@@ -17,6 +17,8 @@ related_tables: []
 
 # Architecture Overview
 
+The shared-plan follow flow spans the existing boundaries: Next.js authenticates and service-mediates follow membership, Supabase stores `plan_share_follows`, Expo handles universal links and native crew UI, and `@trailplanner/shared` contains only pure tracking calculations. No app imports implementation code from another app.
+
 ## Purpose
 
 This document gives the high-level map of the Pace Yourself monorepo. Use it to understand the app boundaries before changing code, migrations, or shared packages.

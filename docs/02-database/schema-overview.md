@@ -88,6 +88,7 @@ related_files:
 related_tables:
   - race_plans
   - plan_share_links
+  - plan_share_follows
   - plan_aid_stations
   - races
   - race_slug_redirects
@@ -212,6 +213,7 @@ The November 2026 mobile plan-flow polish changes catalog search controls, image
 | `nutrition_plans` | User-owned nutrition planning snapshots. |
 | `plan_aid_stations` | Aid station rows attached to a saved race plan. |
 | `plan_share_links` | Public crew recap snapshots and limited crew tracking state for saved plans, looked up by hashed share token. |
+| `plan_share_follows` | Authenticated crew membership for a shared plan link, including nickname, removal and archive state. |
 | `premium_grants` | Manual premium overrides with optional end dates. |
 | `products` | Fuel product catalog and user-created products, with explicit `is_official` metadata for curated/shared catalog rows. |
 | `push_devices` | Expo push tokens and device metadata per user. |
@@ -312,6 +314,7 @@ erDiagram
 - [race_plans](tables/race-plans.md)
 - [plan_aid_stations](tables/plan-aid-stations.md)
 - [plan_share_links](tables/plan-share-links.md)
+- [plan_share_follows](tables/plan-share-follows.md)
 - [race_aid_stations](tables/race-aid-stations.md)
 - [race_supporter_points](tables/race-supporter-points.md)
 - [race_relay_points](tables/race-relay-points.md)
@@ -404,6 +407,7 @@ erDiagram
 - Shared catalog product image backfills should update `products.image_url` only for curated catalog rows and keep ownership/visibility fields unchanged.
 - Admin catalog image writes normalize race/event thumbnails to bounded, versioned WebP objects before storing the public URL. Reference-based image maintenance updates only `thumbnail_url`; it does not change ownership, visibility, or relationships and keeps prior objects for rollback.
 - Public plan recap links store a bounded JSON snapshot plus limited `crew_state` in `plan_share_links`; raw URL tokens are not stored, only SHA-256 hashes.
+- Authenticated crew follows are unique per user and share link. They carry no snapshot copy; active access is cut by link revocation/expiry or `removed_at`.
 - Former course slugs are reserved database-wide while their race exists. Resolve them through `race_slug_redirects.race_id`, then reapply the current public race/event visibility gates before redirecting.
 - The legacy coach/coachee feature is retired. Do not reintroduce `coach_*` tables, coach RLS, or coach entitlement columns without a new product decision and migration plan.
 - `user_profiles.onboarding_completed_at` remains nullable legacy Plan state. New mobile gating and the Profile dot use the two checked per-tour status columns; skipped is deliberately distinct from completed.
