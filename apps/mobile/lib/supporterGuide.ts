@@ -62,6 +62,10 @@ export type SupporterGuideSupporterPoint = {
 
 export type SupporterGuideStop = {
   id: string;
+  endpoint?: 'start' | 'finish' | null;
+  startTimes?: { label: string | null; time: string }[];
+  expectedArrivals?: { men: SupporterGuideRaceDayClock | null; women: SupporterGuideRaceDayClock | null };
+  address?: string | null;
   name: string;
   km: number;
   kmMax: number | null;
@@ -204,7 +208,7 @@ export function resolveGuideTimeline(guide: Pick<SupporterGuidePayload, 'formats
   const entries: SupporterGuideTimelineEntry[] = [];
   for (const format of guide.formats) {
     const starts = format.startWaves.length > 0
-      ? format.startWaves.map((wave) => ({ id: `start-${wave.id}`, time: wave.time, label: wave.name as string | null }))
+      ? format.startWaves.map((wave) => ({ id: `start-${wave.id}`, time: wave.time, label: format.startWaves.length > 1 ? wave.name as string | null : null }))
       : format.startTime ? [{ id: `start-${format.raceId}`, time: format.startTime, label: null }] : [];
     for (const start of starts) entries.push({ ...start, raceId: format.raceId, raceName: format.name, kind: 'start', date: format.date, location: null });
     for (const award of format.awards) {
@@ -246,8 +250,8 @@ export function toRacebookSupporterPoints(points: readonly SupporterGuideSupport
   }));
 }
 
-export function hasFollowContent(format: Pick<SupporterGuideFormat, 'supporterPoints' | 'aidStations'>) {
-  return format.supporterPoints.length > 0 || format.aidStations.length > 0;
+export function hasFollowContent(format: Pick<SupporterGuideFormat, 'supporterPoints' | 'aidStations' | 'stops'>) {
+  return (format.stops?.length ?? 0) > 0 || format.supporterPoints.length > 0 || format.aidStations.length > 0;
 }
 
 export function buildDirectionsUrl(location: Pick<SupporterGuideLocation, 'mapsUrl' | 'latitude' | 'longitude' | 'address'>): string | null {

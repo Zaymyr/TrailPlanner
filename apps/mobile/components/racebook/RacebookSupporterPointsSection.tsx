@@ -16,6 +16,11 @@ export type RacebookSupporterStop = SupporterGuideStop & {
   cutoffLabel: string | null;
   /** The last-runner cutoff has passed (race day). */
   closed: boolean;
+  /** Start: "06:00" or "SAS 1 14:00 · SAS 2 14:05". */
+  startTimesLabel?: string | null;
+  /** Finish: formatted expected first arrivals. */
+  expectedMenLabel?: string | null;
+  expectedWomenLabel?: string | null;
 };
 
 const ACCESS_TONE = { allowed: 'success', restricted: 'warning', forbidden: 'danger' } as const;
@@ -54,7 +59,8 @@ export function RacebookSupporterPointsSection({
     <View style={styles.list}>
       {stops.map((stop, index) => {
         const isLast = index === stops.length - 1;
-        const isSupporterPlace = stop.encouragementAllowed || stop.assistanceAllowed;
+        const isEndpoint = stop.endpoint === 'start' || stop.endpoint === 'finish';
+        const isSupporterPlace = !isEndpoint && (stop.encouragementAllowed || stop.assistanceAllowed);
         if (isSupporterPlace) supporterIndex += 1;
         const url = directionsUrl(stop);
         const roles = [
@@ -74,8 +80,12 @@ export function RacebookSupporterPointsSection({
         return (
           <View key={stop.id} style={[styles.row, stop.closed && styles.closedRow]}>
             <View style={styles.rail}>
-              {stop.isFinish ? (
-                <View style={[styles.badge, styles.outlineBadge]}><Ionicons name="flag-outline" size={16} color={Colors.brandPrimary} /></View>
+              {stop.endpoint === 'start' ? (
+                <View style={styles.badge}><Ionicons name="play" size={15} color={Colors.textOnBrand} /></View>
+              ) : stop.isFinish ? (
+                <View style={[styles.badge, stop.endpoint === 'finish' ? null : styles.outlineBadge]}>
+                  <Ionicons name={stop.endpoint === 'finish' ? 'flag' : 'flag-outline'} size={16} color={stop.endpoint === 'finish' ? Colors.textOnBrand : Colors.brandPrimary} />
+                </View>
               ) : isSupporterPlace ? (
                 <View style={styles.badge}><Text style={styles.badgeText}>S{supporterIndex}</Text></View>
               ) : (
@@ -86,8 +96,9 @@ export function RacebookSupporterPointsSection({
             <View style={styles.card}>
               <View style={styles.titleRow}>
                 <View style={styles.titleContent}>
+                  {stop.endpoint === 'start' ? <Text style={styles.kicker}>{t.supporterGuide.kindStart}</Text> : null}
                   {stop.isFinish ? <Text style={styles.kicker}>{t.supporterGuide.finish}</Text> : null}
-                  <Text numberOfLines={2} style={styles.title}>{stop.name}</Text>
+                  {stop.name ? <Text numberOfLines={2} style={styles.title}>{stop.name}</Text> : null}
                 </View>
                 <View style={styles.titleActions}>
                   <DataText style={styles.km}>
@@ -128,6 +139,31 @@ export function RacebookSupporterPointsSection({
                 <StatusPill label={accessLabel[stop.supportersAccess]} tone={ACCESS_TONE[stop.supportersAccess]} />
               ) : null}
               {services.length > 0 ? <Text style={styles.services}>{services.join(' · ')}</Text> : null}
+              {stop.startTimesLabel || stop.expectedMenLabel || stop.expectedWomenLabel ? (
+                <View style={styles.facts}>
+                  {stop.startTimesLabel ? (
+                    <View style={styles.fact}>
+                      <Ionicons name="flag-outline" size={15} color={Colors.textSecondary} />
+                      <Text style={styles.factText}>{t.supporterGuide.kindStart}</Text>
+                      <DataText style={styles.factValue}>{stop.startTimesLabel}</DataText>
+                    </View>
+                  ) : null}
+                  {stop.expectedMenLabel ? (
+                    <View style={styles.fact}>
+                      <Ionicons name="stopwatch-outline" size={15} color={Colors.textSecondary} />
+                      <Text style={styles.factText}>{`${t.supporterGuide.kindArrivalEstimate} · ${t.supporterGuide.firstMan}`}</Text>
+                      <DataText style={styles.factValue}>{stop.expectedMenLabel}</DataText>
+                    </View>
+                  ) : null}
+                  {stop.expectedWomenLabel ? (
+                    <View style={styles.fact}>
+                      <Ionicons name="stopwatch-outline" size={15} color={Colors.textSecondary} />
+                      <Text style={styles.factText}>{`${t.supporterGuide.kindArrivalEstimate} · ${t.supporterGuide.firstWoman}`}</Text>
+                      <DataText style={styles.factValue}>{stop.expectedWomenLabel}</DataText>
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
               {stop.cutoffLabel || stop.maxStopMinutes ? (
                 <View style={styles.facts}>
                   {stop.cutoffLabel ? (

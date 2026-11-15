@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ loadPublished: vi.fn() }));
 vi.mock("./racebook-public-data", () => ({ loadPublishedRacebookData: mocks.loadPublished }));
 
-import { buildSupporterStops, loadSupporterGuide, normalizePlaceName } from "./supporter-guide";
+import { addCourseEndpoints, buildSupporterStops, loadSupporterGuide, normalizePlaceName } from "./supporter-guide";
 
 const editionId = "11111111-1111-4111-8111-111111111111";
 const eventId = "22222222-2222-4222-8222-222222222222";
@@ -144,5 +144,33 @@ describe("Supporter Guide stops", () => {
   it("keeps same-named places apart when they are more than 2 km away", () => {
     const stops = buildSupporterStops({ aidStations: [station("r1", "Col", 10)], supporterPoints: [point("p1", "Col", 13)] });
     expect(stops).toHaveLength(2);
+  });
+});
+
+describe("Supporter Guide course endpoints", () => {
+  const format = {
+    raceId: "r", name: "Ultra", date: "2026-11-15", distanceKm: 82, startTime: "06:00", finishCutoffTime: "23:30",
+    finishCutoff: { date: "2026-11-15", time: "23:30", dayOffset: 0 },
+    estimatedWinners: { men: { date: "2026-11-15", time: "19:45", dayOffset: 0 }, women: null },
+    startWaves: [{ id: "w", name: "Départ commun", time: "06:00" }], awards: [], supporterPoints: [], aidStations: [],
+  };
+  const access = {
+    start: { label: null, address: "Place du village", latitude: 46, longitude: 6, mapsUrl: null },
+    finish: { label: "Arche d’arrivée", address: "Parc", latitude: null, longitude: null, mapsUrl: "https://maps.example/finish" },
+  };
+
+  it("starts with the departure (no wave name for a single wave) and ends with the finish", () => {
+    const stops = addCourseEndpoints(format, [], access);
+    expect(stops[0]).toMatchObject({ endpoint: "start", km: 0, name: "Place du village", startTimes: [{ label: null, time: "06:00" }] });
+    expect(stops[0]?.mapsUrl).toContain("destination=46,6");
+    expect(stops.at(-1)).toMatchObject({ endpoint: "finish", km: 82, name: "Arche d’arrivée", mapsUrl: "https://maps.example/finish", cutoff: { time: "23:30" }, expectedArrivals: { men: { time: "19:45" }, women: null } });
+  });
+
+  it("enriches an organizer finish checkpoint instead of adding a second finish", () => {
+    const finishStop = { ...buildSupporterStops({ aidStations: [{ id: "f", name: "Arrivée", km: 82, assistanceAllowed: true, supportersAccess: null, maxStopMinutes: null, amenities: [], cutoffTime: null, cutoff: null, isFinish: true }], supporterPoints: [] })[0]! };
+    const stops = addCourseEndpoints({ ...format, startWaves: [{ id: "a", name: "SAS 1", time: "06:00" }, { id: "b", name: "SAS 2", time: "06:10" }] }, [finishStop], access);
+    expect(stops).toHaveLength(2);
+    expect(stops[0]?.startTimes).toEqual([{ label: "SAS 1", time: "06:00" }, { label: "SAS 2", time: "06:10" }]);
+    expect(stops[1]).toMatchObject({ endpoint: "finish", name: "Arrivée", aidStation: true });
   });
 });

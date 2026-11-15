@@ -35,6 +35,13 @@ export type SupporterGuideFormat = {
  */
 export type SupporterGuideStop = {
   id: string;
+  /** Start and finish of the course line (with times and directions); absent for ordinary places. */
+  endpoint?: "start" | "finish" | null;
+  /** Start: one time per wave; label only when there are several waves (SAS). */
+  startTimes?: Array<{ label: string | null; time: string }>;
+  /** Finish: expected first arrivals. */
+  expectedArrivals?: { men: RaceDayClock | null; women: RaceDayClock | null };
+  address?: string | null;
   name: string;
   km: number;
   /** Set when merged rows sit at different kilometres (e.g. ravito km 43, cheering km 45). */

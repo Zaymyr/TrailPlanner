@@ -207,7 +207,7 @@ function buildTimeline(
   for (const format of formats) {
     if (format.startWaves.length > 0) {
       for (const wave of format.startWaves) {
-        entries.push({ id: `start-${wave.id}`, raceId: format.raceId, raceName: format.name, kind: "start", date: format.date, time: wave.time, label: wave.name, location: null, mapsUrl: startMapsUrlByRaceId.get(format.raceId) ?? null });
+        entries.push({ id: `start-${wave.id}`, raceId: format.raceId, raceName: format.name, kind: "start", date: format.date, time: wave.time, label: format.startWaves.length > 1 ? wave.name : null, location: null, mapsUrl: startMapsUrlByRaceId.get(format.raceId) ?? null });
       }
     } else if (format.startTime) {
       entries.push({ id: `start-${format.raceId}`, raceId: format.raceId, raceName: format.name, kind: "start", date: format.date, time: format.startTime, label: null, location: null, mapsUrl: startMapsUrlByRaceId.get(format.raceId) ?? null });
@@ -234,6 +234,63 @@ function buildTimeline(
   return entries.sort((left, right) =>
     (left.date ?? "9999").localeCompare(right.date ?? "9999") || left.time.localeCompare(right.time) || left.raceName.localeCompare(right.raceName, "fr"),
   );
+}
+
+const emptyStop = (id: string, km: number): SupporterGuideStop => ({
+  id, name: "", km, kmMax: null, aidStation: false, isFinish: false, encouragementAllowed: false, assistanceAllowed: false,
+  supportersAccess: null, maxStopMinutes: null, services: { water: false, food: false, runnerAssistance: false, amenities: [] },
+  cutoff: null, accessLabel: null, accessNote: null, latitude: null, longitude: null, mapsUrl: null, planUrl: null,
+});
+
+/** Adds the start (times + directions) and the finish (expected arrivals, last runner, directions) to a course line. */
+export function addCourseEndpoints(
+  format: SupporterGuideFormat,
+  stops: SupporterGuideStop[],
+  access: { start: SupporterGuideLocation; finish: SupporterGuideLocation } | null,
+): SupporterGuideStop[] {
+  const result = [...stops];
+  const startTimes = format.startWaves.length > 1
+    ? format.startWaves.map((wave) => ({ label: wave.name, time: wave.time }))
+    : format.startTime ? [{ label: null, time: format.startTime }] : [];
+  if (startTimes.length > 0 || access) {
+    result.unshift({
+      ...emptyStop(`start:${format.raceId}`, 0),
+      endpoint: "start",
+      name: access?.start.label ?? access?.start.address ?? "",
+      address: access?.start.address ?? null,
+      startTimes,
+      latitude: access?.start.latitude ?? null,
+      longitude: access?.start.longitude ?? null,
+      mapsUrl: access ? startDirectionsUrl(access.start) : null,
+    });
+  }
+  const finishDirections = access ? startDirectionsUrl(access.finish) : null;
+  const expectedArrivals = format.estimatedWinners ?? { men: null, women: null };
+  const last = result.at(-1);
+  if (last && last.isFinish) {
+    result[result.length - 1] = {
+      ...last,
+      endpoint: "finish",
+      address: access?.finish.address ?? null,
+      expectedArrivals,
+      cutoff: format.finishCutoff ?? last.cutoff,
+      mapsUrl: last.mapsUrl ?? finishDirections,
+    };
+  } else {
+    result.push({
+      ...emptyStop(`finish:${format.raceId}`, format.distanceKm),
+      endpoint: "finish",
+      isFinish: true,
+      name: access?.finish.label ?? access?.finish.address ?? "",
+      address: access?.finish.address ?? null,
+      expectedArrivals,
+      cutoff: format.finishCutoff ?? null,
+      latitude: access?.finish.latitude ?? null,
+      longitude: access?.finish.longitude ?? null,
+      mapsUrl: finishDirections,
+    });
+  }
+  return result;
 }
 
 function startDirectionsUrl(location: SupporterGuideLocation): string | null {
@@ -397,6 +454,10 @@ export async function loadSupporterGuide(
       roadRestrictions: text(source.roadRestrictions), mapUrl: text(source.mapUrl), note: text(source.note),
     }];
   });
+  const accessByRace = new Map(access.map((item) => [item.raceId, item]));
+  for (const format of formats) {
+    format.stops = addCourseEndpoints(format, format.stops ?? [], accessByRace.get(format.raceId) ?? null);
+  }
   const thirdPartyBibPickup = loaded.flatMap(({ race, snapshot }) => {
     if (!snapshot.modules.bib_pickup) return [];
     const raceBib = record(record(record(snapshot.raceRow).organizer_details).bibPickup);

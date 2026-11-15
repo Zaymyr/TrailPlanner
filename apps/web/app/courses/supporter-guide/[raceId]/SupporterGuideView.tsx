@@ -79,7 +79,7 @@ export function SupporterGuideView({ raceId }: { raceId: string }) {
   }, [raceId]);
   const visible = useMemo(() => guide ? {
     programme: guide.formats.length > 0,
-    follow: guide.formats.some((format) => format.supporterPoints.length || format.aidStations.length),
+    follow: guide.formats.some((format) => (format.stops?.length ?? 0) > 0 || format.supporterPoints.length || format.aidStations.length),
     onsite: guide.onSiteServices.length > 0,
     stay: guide.stayServices.length > 0 || Boolean(guide.lodgingPartner),
     practical: guide.practical.access.length > 0 || guide.practical.thirdPartyBibPickup.length > 0 || Boolean(guide.practical.emergencyPhone) || guide.practical.links.length > 0,
@@ -102,7 +102,7 @@ export function SupporterGuideView({ raceId }: { raceId: string }) {
     <div className="space-y-5 px-5 py-6">
       {guide.formats.length > 1 && active === "programme" ? <div className="space-y-2"><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{locale === "fr" ? "Je suis" : "I follow"}</p><div className="flex flex-wrap gap-x-4 gap-y-1">{guide.formats.map((format) => { const on = followed?.has(format.raceId) ?? true; return <label key={format.raceId} title={format.name} className={`inline-flex min-h-9 cursor-pointer items-center gap-2 font-mono text-sm font-semibold ${on ? "text-foreground" : "text-muted-foreground"}`}><input type="checkbox" className="h-4 w-4 accent-[hsl(var(--brand))]" checked={on} onChange={() => toggleFollowed(format.raceId)} />{Math.round(format.distanceKm)} km</label>; })}</div></div> : null}
       {active === "programme" ? <Programme timeline={guide.timeline ?? []} kind={kind} onKind={setKind} followed={followed} now={now} locale={locale} /> : null}
-      {active === "follow" ? guide.formats.filter((format) => format.supporterPoints.length || format.aidStations.length).map((format) => <section key={format.raceId} className="space-y-3"><h2 className="text-xl font-semibold">{format.name}</h2>{(format.stops ?? []).map((stop) => <StopCard key={stop.id} stop={stop} raceDate={format.date} now={now} locale={locale} />)}</section>) : null}
+      {active === "follow" ? guide.formats.filter((format) => (format.stops?.length ?? 0) > 0 || format.supporterPoints.length || format.aidStations.length).map((format) => <section key={format.raceId} className="space-y-3"><h2 className="text-xl font-semibold">{format.name}</h2>{(format.stops ?? []).map((stop) => <StopCard key={stop.id} stop={stop} raceDate={format.date} now={now} locale={locale} />)}</section>) : null}
       {active === "onsite" ? guide.onSiteServices.map((service) => <ServiceCard key={service.id} locale={locale} service={service} />) : null}
       {active === "stay" ? <>{guide.stayServices.map((service) => <ServiceCard key={service.id} locale={locale} service={service} />)}{guide.lodgingPartner ? <article className="rounded-xl border border-border p-4"><h2 className="font-semibold">{locale === "fr" ? "Hébergement partenaire" : "Accommodation partner"} · {guide.lodgingPartner.name}</h2>{guide.lodgingPartner.headline ? <p>{guide.lodgingPartner.headline}</p> : null}{guide.lodgingPartner.clickUrl ? <a className="mt-3 inline-flex min-h-11 items-center font-semibold text-brand underline" href={guide.lodgingPartner.clickUrl} rel="noreferrer" target="_blank">{locale === "fr" ? "Découvrir" : "Discover"}</a> : null}</article> : null}</> : null}
       {active === "practical" ? <>{guide.practical.access.map((item) => <article key={item.raceId} className="rounded-xl border border-border p-4"><h2 className="font-semibold">{item.raceName}</h2>{item.start.address ? <p><strong>{locale === "fr" ? "Départ" : "Start"} :</strong> {item.start.address}</p> : null}{item.finish.address ? <p><strong>{locale === "fr" ? "Arrivée" : "Finish"} :</strong> {item.finish.address}</p> : null}{item.parking ? <p><strong>Parking :</strong> {item.parking}</p> : null}{item.shuttles ? <p><strong>{locale === "fr" ? "Navettes" : "Shuttles"} :</strong> {item.shuttles} {item.shuttleSchedule}</p> : null}{item.roadRestrictions ? <p><strong>{locale === "fr" ? "Circulation" : "Road access"} :</strong> {item.roadRestrictions}</p> : null}</article>)}{guide.practical.thirdPartyBibPickup.map((item) => <article key={item.raceId} className="rounded-xl border border-border p-4"><h2 className="font-semibold">{locale === "fr" ? "Retrait par un tiers" : "Third-party bib pickup"} · {item.raceName}</h2>{item.conditions ? <p>{item.conditions}</p> : <p>{locale === "fr" ? "Autorisé par l’organisation." : "Allowed by the organizer."}</p>}</article>)}{guide.practical.emergencyPhone ? <a className="block rounded-xl border border-border p-4 font-semibold text-brand" href={`tel:${guide.practical.emergencyPhone}`}>{locale === "fr" ? "Urgence" : "Emergency"} · {guide.practical.emergencyPhone}</a> : null}{guide.practical.links.map((link) => <a key={link.url} className="block rounded-xl border border-border p-4 font-semibold text-brand" href={link.url} rel="noreferrer" target="_blank">{link.kind === "official" ? (locale === "fr" ? "Site officiel" : "Official website") : link.kind === "instagram" ? "Instagram" : "Facebook"}</a>)}</> : null}
@@ -172,20 +172,28 @@ function Programme({ timeline, kind, onKind, followed, now, locale }: { timeline
 function StopCard({ stop, raceDate, now, locale }: { stop: SupporterGuideStop; raceDate: string | null; now: Date; locale: "fr" | "en" }) {
   const fr = locale === "fr";
   const cutoffAt = stop.cutoff ? localDate(stop.cutoff.date ?? raceDate, stop.cutoff.time) : null;
-  const closed = Boolean(cutoffAt && cutoffAt.getTime() < now.getTime());
+  const closed = stop.endpoint !== "start" && Boolean(cutoffAt && cutoffAt.getTime() < now.getTime());
+  const kicker = stop.endpoint === "start" ? (fr ? "Départ" : "Start") : stop.isFinish ? (fr ? "Arrivée" : "Finish") : null;
+  const startTimes = stop.startTimes?.map((item) => (item.label ? `${item.label} ${item.time}` : item.time)).join(" · ");
+  const expected = (["men", "women"] as const).flatMap((audience) => {
+    const clock = stop.expectedArrivals?.[audience];
+    return clock ? [`${fr ? "Arrivée estimée" : "Expected finish"} · ${audience === "men" ? (fr ? "1er homme" : "first man") : (fr ? "1re femme" : "first woman")} : ${formatCutoff(clock, null, raceDate, locale)}`] : [];
+  });
   const roles = [stop.aidStation && !stop.isFinish ? (fr ? "Ravito" : "Aid station") : null, stop.encouragementAllowed ? (fr ? "Encouragement" : "Cheering") : null, stop.assistanceAllowed || stop.services.runnerAssistance ? "Assistance" : null].filter(Boolean);
   const access = stop.supportersAccess === "forbidden" ? (fr ? "Accompagnateurs interdits" : "No supporters") : stop.supportersAccess === "restricted" ? (fr ? "Accès accompagnateurs limité" : "Restricted supporter access") : stop.supportersAccess === "allowed" ? (fr ? "Accompagnateurs autorisés" : "Supporters allowed") : null;
   const services = [stop.services.water ? (fr ? "Eau" : "Water") : null, stop.services.food ? (fr ? "Nourriture" : "Food") : null, ...stop.services.amenities].filter(Boolean);
   const url = stop.mapsUrl ?? (stop.latitude !== null && stop.longitude !== null ? `https://www.google.com/maps/dir/?api=1&destination=${stop.latitude},${stop.longitude}` : null);
   return <article className={`rounded-xl border border-border p-4 ${closed ? "opacity-55" : ""}`}>
-    <h3 className="font-semibold">{stop.isFinish ? (fr ? "Arrivée · " : "Finish · ") : ""}{stop.name} · {stop.kmMax !== null ? `${formatKm(stop.km, locale).replace(" km", "")}–${formatKm(stop.kmMax, locale)}` : formatKm(stop.km, locale)}</h3>
+    <h3 className="font-semibold">{kicker ? `${kicker}${stop.name ? " · " : ""}` : ""}{stop.name} · {stop.kmMax !== null ? `${formatKm(stop.km, locale).replace(" km", "")}–${formatKm(stop.kmMax, locale)}` : formatKm(stop.km, locale)}</h3>
+    {startTimes ? <p className="mt-1 font-semibold">{fr ? "Départ" : "Start"} : {startTimes}</p> : null}
+    {expected.map((line) => <p key={line}>{line}</p>)}
     <p className="mt-1 text-sm text-muted-foreground">{[closed ? (fr ? "Fermé" : "Closed") : null, ...roles, access].filter(Boolean).join(" · ")}</p>
     {services.length ? <p className="text-sm text-muted-foreground">{services.join(" · ")}</p> : null}
     {stop.cutoff ? <p className="mt-2">{fr ? "Dernier coureur" : "Last runner"} : {formatCutoff(stop.cutoff, null, raceDate, locale)}</p> : null}
     {stop.maxStopMinutes ? <p>{fr ? "Arrêt max." : "Maximum stop"} : {stop.maxStopMinutes} min</p> : null}
     {stop.accessLabel ? <p className="mt-2">{stop.accessLabel}</p> : null}
     {stop.accessNote ? <p className="text-sm text-muted-foreground">{stop.accessNote}</p> : null}
-    <div className="mt-3 flex gap-3">{url ? <a className="font-semibold text-brand underline" href={url} rel="noreferrer" target="_blank">{fr ? "Itinéraire" : "Directions"}</a> : null}{stop.planUrl ? <a className="font-semibold text-brand underline" href={stop.planUrl} rel="noreferrer" target="_blank">{fr ? "Plan" : "Map"}</a> : null}</div>
+    <div className="mt-3 flex gap-3">{url ? <a className="font-semibold text-brand underline" href={url} rel="noreferrer" target="_blank">{stop.endpoint ? (fr ? "Y aller" : "Directions") : (fr ? "Itinéraire" : "Directions")}</a> : null}{stop.planUrl ? <a className="font-semibold text-brand underline" href={stop.planUrl} rel="noreferrer" target="_blank">{fr ? "Plan" : "Map"}</a> : null}</div>
   </article>;
 }
 
