@@ -1,4 +1,5 @@
 import type { Session } from '@supabase/supabase-js';
+import { isRunnerProfileReady, type RunnerProfileValues } from '@trailplanner/shared';
 
 import { supabase } from './supabase';
 import { loadOnboardingProgress, parseOnboardingStatuses } from './onboardingStatus';
@@ -26,18 +27,7 @@ function hasSavedOnboardingProfileData(profile: OnboardingGateProfileRow | null)
     return false;
   }
 
-  return (
-    profile.onboarding_completed_at != null ||
-    (profile.full_name?.trim().length ?? 0) > 0 ||
-    profile.water_bag_liters != null ||
-    profile.utmb_index != null ||
-    profile.comfortable_flat_pace_min_per_km != null ||
-    profile.weight_kg != null ||
-    profile.height_cm != null ||
-    profile.default_carbs_g_per_hour != null ||
-    profile.default_water_ml_per_hour != null ||
-    profile.default_sodium_mg_per_hour != null
-  );
+  return profile.onboarding_completed_at != null || isRunnerProfileReady(profile as RunnerProfileValues);
 }
 
 export function markOnboardingJustCompleted(userId: string, ttlMs = 60_000) {

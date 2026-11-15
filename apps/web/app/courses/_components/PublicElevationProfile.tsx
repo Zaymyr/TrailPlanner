@@ -77,9 +77,14 @@ export function PublicElevationProfile({
                 strokeDasharray="3 3"
               />
               <circle cx={x(station.distanceKm)} cy={y(nearest.elevationM)} r="4" fill="#d97706" />
-              <circle cx={x(station.distanceKm)} cy={y(nearest.elevationM)} r="10" fill="transparent">
-                <title>{station.name} · {station.distanceKm.toFixed(1)} km</title>
-              </circle>
+              <circle
+                cx={x(station.distanceKm)}
+                cy={y(nearest.elevationM)}
+                r="10"
+                fill="transparent"
+                role="img"
+                aria-label={`${station.name} · ${station.distanceKm.toFixed(1)} km`}
+              />
             </g>
           );
         })}

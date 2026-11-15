@@ -80,6 +80,7 @@ describe("public race detail", () => {
           id: baseRace.editionId,
           event_id: baseRace.eventId,
           end_date: "2026-09-13",
+          is_visible: true,
         }]);
       }
       if (url.includes("/rest/v1/organizer_racebook_module_settings?")) {
@@ -121,6 +122,7 @@ describe("public race detail", () => {
       eventEndDate: "2026-09-13",
       elevationLossM: 1800,
       participationMode: "solo",
+      racebookAvailableInApp: true,
       routePreview: expect.objectContaining({ points: expect.any(Array) }),
     }));
     expect(detail?.aidStations[0]).toEqual(expect.objectContaining({ name: "Refuge", altitudeM: 1200, dropBagAvailable: true }));

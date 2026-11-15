@@ -180,6 +180,17 @@ const scoreModules = (modules: OrganizerModuleSummary[]) => {
 const compactMissingLabels = (entries: Array<[label: string, isFilled: boolean]>) =>
   entries.filter(([, isFilled]) => !isFilled).map(([label]) => label);
 
+const hasLegacyServices = (services: OrganizerEventDetails["services"]) =>
+  filledCount([
+    services.supporters,
+    services.accommodations,
+    services.restaurants,
+    services.recovery,
+    services.partners,
+    services.lastMinuteMessage,
+    services.note,
+  ]) > 0;
+
 const buildFormatProgressModules = (
   eventDetails: OrganizerEventDetails,
   race: CompletionRace,
@@ -341,6 +352,7 @@ export function buildOrganizerCompletion(
   const equipmentItems = runnerDetails.equipment.items;
   const access = runnerDetails.access;
   const services = runnerDetails.services;
+  const hasLegacyServiceContent = hasLegacyServices(services);
   const commonEquipment = eventDetails.mandatoryEquipment;
   const commonBibPickup = eventDetails.bibPickup;
   const commonAccess = eventDetails.access;
@@ -525,20 +537,8 @@ export function buildOrganizerCompletion(
       title: "Services & alentours",
       description: "Accompagnants, hébergement, restauration, récup, partenaires.",
       level: "optional",
-      status: structuredServiceCount > 0 ? "complete" : statusFrom(
-        filledCount([
-          services?.supporters,
-          services?.accommodations,
-          services?.restaurants,
-          services?.recovery,
-          services?.partners,
-          services?.lastMinuteMessage,
-          services?.note,
-        ]),
-        7,
-        1
-      ),
-      countLabel: structuredServiceCount > 0 ? `${structuredServiceCount} fiche${structuredServiceCount > 1 ? "s" : ""}` : hasText(services?.partners) ? "Partenaires renseignés" : "Optionnel",
+      status: structuredServiceCount > 0 ? "complete" : hasLegacyServiceContent ? "incomplete" : "empty",
+      countLabel: structuredServiceCount > 0 ? `${structuredServiceCount} fiche${structuredServiceCount > 1 ? "s" : ""}` : hasLegacyServiceContent ? "Texte à convertir" : "Optionnel",
     },
     {
       id: "branding",
@@ -546,7 +546,7 @@ export function buildOrganizerCompletion(
       description: "Logo et couleurs du Livret coureur pour cette édition.",
       level: "optional",
       status: brandingUnpublished ? "incomplete" : brandingConfigured ? "complete" : "empty",
-      countLabel: brandingUnpublished ? "Brouillon non publié" : brandingConfigured ? "DA publiée" : "Optionnel",
+      countLabel: brandingUnpublished ? "Brouillon non publié" : brandingConfigured ? "DA publiée" : "Thème par défaut",
     },
     {
       id: "sponsors",
@@ -554,7 +554,7 @@ export function buildOrganizerCompletion(
       description: "Logos mis en avant dans le Livret coureur de cette édition.",
       level: "optional",
       status: sponsorCount > 0 ? "complete" : "empty",
-      countLabel: sponsorCount > 0 ? `${sponsorCount} sponsor${sponsorCount > 1 ? "s" : ""} · ${sponsorClicks} clic${sponsorClicks > 1 ? "s" : ""}` : "Optionnel",
+      countLabel: sponsorCount > 0 ? `${sponsorCount} sponsor${sponsorCount > 1 ? "s" : ""} · ${sponsorClicks} clic${sponsorClicks > 1 ? "s" : ""}` : "Aucun sponsor",
     },
   ];
 
@@ -604,23 +604,11 @@ export function buildOrganizerCompletion(
       title: "Services",
       description: "Accompagnants, hébergement, restauration, partenaires.",
       level: "optional",
-      status: structuredServiceCount > 0 ? "complete" : statusFrom(
-        filledCount([
-          services.supporters,
-          services.accommodations,
-          services.restaurants,
-          services.recovery,
-          services.partners,
-          services.lastMinuteMessage,
-          services.note,
-        ]),
-        7,
-        1
-      ),
+      status: structuredServiceCount > 0 ? "complete" : hasLegacyServiceContent ? "incomplete" : "empty",
       countLabel: structuredServiceCount > 0
         ? `${structuredServiceCount} fiche${structuredServiceCount > 1 ? "s" : ""}`
-        : hasText(services.partners)
-          ? "Partenaires renseignés"
+        : hasLegacyServiceContent
+          ? "Texte à convertir"
           : "Optionnel",
     },
     {
@@ -629,7 +617,7 @@ export function buildOrganizerCompletion(
       description: "Logo et couleurs du Livret coureur pour cette édition.",
       level: "optional",
       status: brandingUnpublished ? "incomplete" : brandingConfigured ? "complete" : "empty",
-      countLabel: brandingUnpublished ? "Brouillon non publié" : brandingConfigured ? "DA publiée" : "Optionnel",
+      countLabel: brandingUnpublished ? "Brouillon non publié" : brandingConfigured ? "DA publiée" : "Thème par défaut",
     },
     {
       id: "sponsors",
@@ -637,7 +625,7 @@ export function buildOrganizerCompletion(
       description: "Chargement et bandeau du Livret coureur pour l'édition.",
       level: "optional",
       status: sponsorCount > 0 ? "complete" : "empty",
-      countLabel: sponsorCount > 0 ? `${sponsorCount} sponsor${sponsorCount > 1 ? "s" : ""} · ${sponsorClicks} clic${sponsorClicks > 1 ? "s" : ""}` : "Optionnel",
+      countLabel: sponsorCount > 0 ? `${sponsorCount} sponsor${sponsorCount > 1 ? "s" : ""} · ${sponsorClicks} clic${sponsorClicks > 1 ? "s" : ""}` : "Aucun sponsor",
     },
   ];
 

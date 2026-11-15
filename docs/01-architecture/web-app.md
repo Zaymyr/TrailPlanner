@@ -2,13 +2,33 @@
 title: Web App Architecture
 scope: architecture
 last_verified: 2026-11-15
+# Assisted legacy conversion (2026-11-15): historical organizer text can request a schema-specific OpenAI proposal; every proposed field requires explicit Apply/Ignore review and the conversion endpoint never persists.
+# Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
+# Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
+# Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
+# Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: high
+# Organizer shell (2026-11-13): the 1440px workspace switches at 1320px to a 240px / flexible / 300px grid; media-heavy editors span the two content columns.
+# Aid-station editor (2026-11-13): the course timeline is the selection list, with one adjacent detail panel on desktop and a full-screen detail surface after selection on mobile; arrow keys move between aid stations.
+# Organizer loading/forms (2026-11-13): lazy editors and sidecars use neutral skeletons; required inputs derive their Requis badge from the existing `required` contract.
+# Organizer hierarchy (2026-11-13): section labels wrap to two lines, the active subsection owns the strong state, headers use section-specific glyphs plus an 8%-opacity contour watermark, and destructive format actions live in the overflow menu.
+# Dense organizer modules (2026-11-13): course dates are localized, same-place access hides the duplicate finish field, equipment rows omit redundant Added badges, and sponsors expose a logo-first navigation grid.
+# Organizer mobile finish (2026-11-13): editor content uses compact phone gutters, inherited location wraps, and Course media is collapsed behind “Tracé et médias” below 900px.
+# Organizer regression guard (2026-11-13): UTF-8/source checks assert the 240/flexible/300 grid and the social auto-fit layout without a nested “Réseaux sociaux” title.
+# Organizer polish (2026-11-13): the Course media rail no longer relies on a closed <details> (its content was hidden on desktop) and collapses behind “Tracé et médias” only below 900px; format metrics sit on one row with grouped warnings and readable inherited date/location; aid stations use a single timeline plus a two-column detail panel with start/cutoff fields in “Horaires et consignes”; section headers use per-module SVG icons with the format ⋯ menu inline; equipment rows move status with a compact “→ Recommandé/Obligatoire” action instead of a segmented control.
+# Organizer fill-flow pass (2026-11-13): ravito detail restores Eau/Solide/Assistance/Sac de délestage/Point de relais toggles (lost with the card list), the new-ravito form replaces the detail panel, submits on Enter and selects the added station, and the mobile sheet stays under confirm dialogs; equipment drafts add on Enter and chain; new bib slots inherit the previous date, focus the start time and removals can be undone; Sponsors puts the add form first (open when empty) and partner slots last; the Services status reads “Texte à convertir”.
+# Organizer UX pass (2026-11-14): the left nav expands a format's sections directly under that format (chevron, aria-expanded) instead of below “Ajouter un format”; ravito detail offers a two-option Ravito / Base de vie type (life_base vs existing non-life-base value) and the timeline badges bases de vie; Matériel is a flat compact list with a quick-add bar at the top (Enter, suggestions, required switch, new items prepended) and an Obligatoire/Recommandé switch per row that no longer moves rows between groups.
+# Course timeline pass (2026-11-14): the Départ/ravitos editor shows one timeline filtered by Tout / Ravitos / Suivi / SAS / Relais; SAS sit right after Départ, each point kind has its own marker (ravito green dot, base de vie larger dot + badge, suivi blue ring + “Suivi” tag, relais violet diamond), aid/relay/finish rows show a clock cutoff chip or “Sans barrière”, the right panel follows the clicked point, the timeline is height-capped with its own scroll, and “Horaires et consignes” sits below the grid so the sticky timeline no longer overlaps it.
 related_files:
   - apps/web/app/api/supporter-guide/route.ts
   - apps/web/app/api/supporter-guide/qr/route.ts
   - apps/web/app/courses/supporter-guide/[raceId]/page.tsx
   - apps/web/app/courses/supporter-guide/[raceId]/SupporterGuideView.tsx
   - apps/web/lib/supporter-guide.ts
+  - apps/web/lib/organizer-legacy-conversion.ts
+  - apps/web/lib/organizer-legacy-conversion.test.ts
+  - apps/web/app/organizer/_components/dashboard/legacy-conversion-panel.tsx
   - apps/web/app/admin/video-generator/export-frame.test.ts
   - apps/web/app/admin/video-generator/export-frame.ts
   - apps/web/app/admin/_components/AdminMessagingTab.tsx
@@ -21,6 +41,7 @@ related_files:
   - apps/web/app/api/admin/inbox-counts/route.ts
   - apps/web/lib/organizer-structured-content.ts
   - apps/web/app/organizer/_components/dashboard/structured-content-editors.tsx
+  - apps/web/app/organizer/_components/dashboard/form-kit/index.tsx
   - apps/web/app/organizer/_components/dashboard/structured-content-editors.test.ts
   - apps/web/app/organizer/_components/dashboard/organizer-import-documents.ts
   - apps/web/app/organizer/_components/dashboard/organizer-import-documents.test.ts
@@ -361,6 +382,7 @@ The Supporter Guide payload now carries resolved cutoffs and a sorted `timeline`
 The public Supporter Guide lives at `/courses/supporter-guide/[raceId]` and consumes `/api/supporter-guide`, which aggregates only immutable format publications and reuses RaceBook cache tags. The client route is mobile-first and `noindex`; `/api/supporter-guide/qr` generates a downloadable SVG QR for the organizer workspace.
 
 Shared-plan follow APIs are authenticated Next.js route handlers using service role only after bearer validation and per-user rate limiting. The public token route remains anonymous and token-based; its crew-state mutation and the authenticated follow-id mutation share one validation/update service. The public page only adds a native-app CTA and preserves its snapshot contract.
+Runner course pages expose one free-estimate CTA and an app bridge whose Livret wording is gated by public mobile visibility. The planner preserves validated course context through authentication, uses a narrow public race-summary endpoint for anonymous presentation, and publishes association files under `public/.well-known/`. The global trial-expired overlay and blocking planner tutorial are retired.
 
 Manual organizer billing now has dedicated admin preview, issue, corrective-invoice, settlement, PDF-repair and catalog endpoints. These service-role routes write `organizer_invoices` independently from access rights; organizer invoice list/download endpoints merge those rows with the legacy payment-backed history and lazily repair a missing PDF after authorization. The admin screen presents billing and rights as separate actions. Exact feature grants have availability but no standalone price, and flow through organizer and public RaceBook reads without granting the rest of a higher plan.
 
@@ -368,7 +390,7 @@ The admin area exposes a top-level `Demandes de course` queue backed by a protec
 
 Organizer course-point autosave now waits for the active race sidecars to finish loading, and a same-race server refresh no longer clears those loaded collections. This prevents transient empty ravito/supporter payloads and removes the editor jump caused by resetting the workspace after each format save.
 
-Organizer Matériel and Dossard authoring is glanceable rather than accordion-driven: saved equipment, pickup locations, and dated slots remain inline and editable, with fixed-column controls on desktop and wrapped controls on narrow screens. The shared `SegmentedChoice` makes binary/status choices explicit, while read-first inputs retain normal focus and autocomplete behavior. Third-party pickup conditions are stored additively in organizer JSON and appear on the public course detail only when pickup by another person is allowed and the bib module is public.
+Organizer Matériel and Dossard authoring is glanceable rather than accordion-driven: saved equipment, pickup locations, and dated slots remain inline and editable, with fixed-column controls on desktop and wrapped controls on narrow screens. Equipment is a flat compact list: a quick-add bar sits at the top (Enter to add, suggestions, Obligatoire switch, new items prepended) and each row carries its own Obligatoire/Recommandé switch, optional weather select and remove action, while read-first inputs retain normal focus and autocomplete behavior. Third-party pickup conditions are stored additively in organizer JSON and appear on the public course detail only when pickup by another person is allowed and the bib module is public.
 
 The organizer editor autosaves the active event or format scope after an 800 ms debounce, exposes a persistent save state with explicit retry, and preserves revision-aware background queues during navigation. New formats inherit only event-level date, location, and optional official website defaults; they never clone the active format. A format website is optional for completion, import, and publication readiness.
 
@@ -652,7 +674,19 @@ Server routes generally use:
 
 See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-checklist.md) before changing a route that bypasses client RLS.
 
+## Organizer form shell
+
+Organizer navigation uses one desktop section level and a matching mobile selector. Section tiles distinguish `À compléter`, `Optionnel`, and `Complet`, while the active tile keeps a visible brand treatment. The route-local form kit owns shared select, file, switch, draft, field-error and sticky polite save-status presentation; it does not change existing autosave, API, entitlement, or publication contracts.
+
+Legacy `TextField`, `NumberField`, and `TextAreaField` remain compatibility wrappers during migration; they now defer red accessible errors until blur or an explicit validation attempt.
+
+Organizer material, bib, access, services, sponsors, partner slots, products, analytics, and import-review editors consume the shared controls. Repeatable additions stay local until valid, and eligible removals expose a six-second undo window.
+
 ## Gotchas
+
+- `utf8-copy.test.ts` also locks corrected Organizer accents, plain-language analytics help, current section-status copy, and the sticky save-status location.
+
+- The Organizer editor owns the sticky `SaveStatus`; the summary header no longer duplicates autosave state, and its compact navigation remains responsive.
 
 - `RootChrome` owns the single public `<main>` landmark and its `#main-content` skip target. Route pages rendered inside it must not add a second `<main>`. Desktop navigation keeps account-only destinations, locale, theme and sign-out inside the account menu; unauthenticated organizer links target `/organisateurs`.
 - Browser-wide security headers are emitted from `next.config.mjs`. The CSP starts as `Content-Security-Policy-Report-Only` so Stripe, Supabase, PostHog, Google Analytics and Cloudinary violations can be observed before enforcement.
@@ -795,3 +829,20 @@ The organizer publish dialog renders `PublicationReview` (blocking checks, warni
 ## Authenticated followed-plan context
 
 The share write binds additive `snapshot.raceId` from the owned `race_plans.race_id` and ignores the client value. Active followers receive a server-derived `raceContext`: current public race/event visibility plus the immutable RaceBook publication resolved through the same effective-module normalizer as `/api/racebook-data`. Missing publications and inactive modules never fall back to draft tables. The public `/share/plan/[token]` rendering remains unchanged.
+Organizer follow-up UX keeps autosave validation local, uses the shared file-field kit for organizer uploads, and renders the save status beside the active section title. Runner saved-plan loading restores `planId` in the URL with `router.replace`; no route or persistence contract changed.
+
+The Organizer content workspace now uses a responsive three-column shell: semantic section navigation, a bounded central editor, and a completion rail. Event/edition/visibility controls stay in the compact top banner, statistics remain reachable from the rail, and mobile collapses to a native workspace selector before the editor.
+
+The route-local Organizer kit now supplies responsive field groups and section headers so editors share one visual hierarchy without changing their state ownership or API payloads.
+
+Course/GPX composes existing map/profile and file primitives into a bounded visual rail; it introduces no data or route dependency.
+
+Organizer editors consume one route-local `SwitchRow` primitive for boolean settings; state ownership remains in each existing editor.
+
+The aid-station editor derives a presentation-only course timeline from already loaded sidecars. It does not add a read, cache, or persistence contract.
+
+Organizer finishing layouts reuse existing editor state and endpoints; section headers, Access summaries, sponsor disclosure, service conversion, and branding surfaces add no new route or dependency.
+
+The semantic section tree retains the existing Organizer onboarding/capture anchor and explicit accessible module labels for automation compatibility.
+
+On narrow screens, separate native selectors choose the event/format scope and the active section, preserving the complete desktop navigation hierarchy.

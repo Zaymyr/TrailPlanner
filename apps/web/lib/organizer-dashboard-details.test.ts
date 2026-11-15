@@ -7,6 +7,7 @@ import {
   defaultOrganizerRaceDetails,
   hasOrganizerEquipmentLabelPrefix,
   parseOrganizerEventDetails,
+  parseOrganizerAidStationDetails,
   parseOrganizerRaceDetails,
 } from "./organizer-dashboard-details";
 
@@ -21,9 +22,70 @@ describe("parseOrganizerRaceDetails", () => {
       showElevationProfile: true,
     });
   });
+
+  it("keeps legacy schedules compatible and normalizes structured finish cutoffs", () => {
+    expect(parseOrganizerRaceDetails({ schedule: { finishCutoffTime: "9h" } }).schedule).toMatchObject({
+      finishCutoffTime: "09:00",
+      finishCutoffDayOffset: null,
+    });
+    expect(parseOrganizerRaceDetails({ schedule: { finishCutoffTime: "03:00", finishCutoffDayOffset: 2 } }).schedule).toMatchObject({
+      finishCutoffTime: "03:00",
+      finishCutoffDayOffset: 2,
+    });
+  });
+
+  it("parses structured runner information alongside historical text", () => {
+    const details = parseOrganizerRaceDetails({ runnerInfo: {
+      startArea: "Ancienne zone",
+      startAreaDetails: { location: { label: "Place du village" }, opensAt: "6h", note: "Entrée nord" },
+      briefingDetails: { date: "2026-11-15", time: "06:30", mandatory: true },
+      rulesDetails: { regulationUrl: "race.example/rules", keyRules: { polesAllowed: "partial", cupRequired: true } },
+    }, mandatoryEquipment: { checkpoints: ["start", "course"], shortNote: "Contrôle aléatoire" } });
+    expect(details.runnerInfo.startArea).toBe("Ancienne zone");
+    expect(details.runnerInfo.startAreaDetails).toMatchObject({ opensAt: "06:00", location: { label: "Place du village" } });
+    expect(details.runnerInfo.rulesDetails.keyRules).toMatchObject({ polesAllowed: "partial", cupRequired: true });
+    expect(details.mandatoryEquipment.checkpoints).toEqual(["start", "course"]);
+  });
+});
+
+describe("parseOrganizerAidStationDetails", () => {
+  it("normalizes standalone legacy clocks without discarding rich text", () => {
+    expect(parseOrganizerAidStationDetails({ cutoffTime: "9h" })).toMatchObject({ cutoffTime: "09:00", cutoffDayOffset: null });
+    expect(parseOrganizerAidStationDetails({ cutoffTime: "dimanche vers 9h" }).cutoffTime).toBe("dimanche vers 9h");
+    expect(parseOrganizerAidStationDetails({ cutoffTime: "03:00", cutoffDayOffset: 1 })).toMatchObject({ cutoffTime: "03:00", cutoffDayOffset: 1 });
+  });
+
+  it("defaults structured station rules for historical JSON and accepts complete data", () => {
+    expect(parseOrganizerAidStationDetails({ organizerNote: "Ancien texte" })).toMatchObject({
+      amenities: { toilets: false, shelter: false, medical: false, hotDrinks: false, hotFood: false },
+      maxStopMinutes: null,
+      supportersAccess: null,
+      note: null,
+      organizerNote: "Ancien texte",
+    });
+    expect(parseOrganizerAidStationDetails({ amenities: { toilets: true, shelter: true }, maxStopMinutes: 20, supportersAccess: "restricted", note: "Entrée côté nord" })).toMatchObject({
+      amenities: { toilets: true, shelter: true, medical: false, hotDrinks: false, hotFood: false },
+      maxStopMinutes: 20,
+      supportersAccess: "restricted",
+      note: "Entrée côté nord",
+    });
+  });
 });
 
 describe("parseOrganizerEventDetails", () => {
+  it("keeps legacy access text and parses structured parking and shuttle lines", () => {
+    const details = parseOrganizerEventDetails({ access: {
+      officialParkings: "Ancien parking mairie",
+      shuttles: "Ancienne navette",
+      parkings: [{ id: "p1", name: "Parking Nord", location: { label: "1 rue du Col" }, capacity: 120, paid: false, note: "Ouverture 5h" }],
+      shuttleLines: [{ id: "s1", from: { label: "Gare" }, to: { label: "Départ" }, days: ["2026-11-15"], startTime: "6h", endTime: "09:30", frequencyMinutes: 15, bookingUrl: "booking.example/shuttle", free: true, note: null }],
+    } });
+
+    expect(details.access.officialParkings).toBe("Ancien parking mairie");
+    expect(details.access.parkings[0]).toMatchObject({ name: "Parking Nord", capacity: 120, paid: false });
+    expect(details.access.shuttleLines[0]).toMatchObject({ startTime: "06:00", frequencyMinutes: 15, free: true, bookingUrl: "https://booking.example/shuttle" });
+  });
+
   it("normalizes the event links and emergency contact", () => {
     const details = parseOrganizerEventDetails({
       officialWebsiteUrl: "https://grand-trail.example",
@@ -71,6 +133,19 @@ describe("parseOrganizerEventDetails", () => {
     });
 
     expect(details.bibPickup.thirdPartyPickupConditions).toBe("Présenter la pièce d’identité du coureur.");
+  });
+
+  it("parses structured bib documents while preserving historical text", () => {
+    const details = parseOrganizerEventDetails({ bibPickup: {
+      requiredDocuments: "Ancienne liste",
+      requiredDocumentKinds: ["id_card", "registration_qr"],
+      thirdPartyPickupAllowed: true,
+      thirdPartyPickupConditions: "Anciennes conditions",
+      thirdPartyDocumentKinds: ["id_copy", "proxy_letter"],
+    } });
+    expect(details.bibPickup.requiredDocumentKinds).toEqual(["id_card", "registration_qr"]);
+    expect(details.bibPickup.thirdPartyDocumentKinds).toEqual(["id_copy", "proxy_letter"]);
+    expect(details.bibPickup.requiredDocuments).toBe("Ancienne liste");
   });
 
   it("matches equipment suggestions against accent-insensitive label prefixes", () => {

@@ -7,18 +7,11 @@ import { useI18n } from "../app/i18n-provider";
 import { COOKIE_CONSENT_EVENT, getCookieConsent } from "../lib/cookies/consent";
 import { trackGoogleAnalyticsEvent } from "../lib/google-analytics";
 import { isSpotlightOverlayOpen, SPOTLIGHT_OVERLAY_EVENT } from "../lib/spotlight-overlay";
+import { resolveAppStoreTarget, type AppStoreTarget } from "../lib/app-store";
 
-const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.paceyourself.app";
-const IOS_APP_STORE_URL = process.env.NEXT_PUBLIC_IOS_APP_STORE_URL?.trim() ?? "";
-const INSTALL_HELP_URL = "/onboarding/install";
 const DISMISS_KEY = "trailplanner.mobileAppPrompt.dismissedUntil";
 const DISMISS_DURATION_MS = 14 * 24 * 60 * 60 * 1000;
-const HIDDEN_PATH_PREFIXES = ["/admin", "/onboarding", "/links", "/en/links"];
-
-type StoreTarget = {
-  url: string;
-  platform: "android" | "ios" | "fallback";
-};
+const HIDDEN_PATH_PREFIXES = ["/admin", "/onboarding", "/links", "/en/links", "/courses", "/race-planner"];
 
 const getDismissedUntil = () => {
   try {
@@ -51,25 +44,11 @@ const isStandaloneApp = () => {
   return window.matchMedia("(display-mode: standalone)").matches || navigatorWithStandalone.standalone === true;
 };
 
-const resolveStoreTarget = (): StoreTarget => {
-  const userAgent = window.navigator.userAgent;
-
-  if (/Android/i.test(userAgent)) {
-    return { url: PLAY_STORE_URL, platform: "android" };
-  }
-
-  if (/iPhone|iPad|iPod/i.test(userAgent) && IOS_APP_STORE_URL) {
-    return { url: IOS_APP_STORE_URL, platform: "ios" };
-  }
-
-  return { url: INSTALL_HELP_URL, platform: "fallback" };
-};
-
 export function MobileAppPrompt() {
   const pathname = usePathname();
   const { t } = useI18n();
   const [isVisible, setIsVisible] = useState(false);
-  const [storeTarget, setStoreTarget] = useState<StoreTarget | null>(null);
+  const [storeTarget, setStoreTarget] = useState<AppStoreTarget | null>(null);
   const hasTrackedViewRef = useRef(false);
 
   const shouldHideForPath = useMemo(
@@ -97,7 +76,7 @@ export function MobileAppPrompt() {
         return;
       }
 
-      const target = resolveStoreTarget();
+      const target = resolveAppStoreTarget(window.navigator.userAgent);
       setStoreTarget(target);
       setIsVisible(true);
       if (!hasTrackedViewRef.current) {

@@ -23,43 +23,9 @@ import { isTrialActive } from "../../lib/trial";
 import { useProductSelection } from "../hooks/useProductSelection";
 import { useVerifiedSession } from "../hooks/useVerifiedSession";
 import { useI18n } from "../i18n-provider";
-import type { Locale } from "../../locales/types";
+import { RUNNER_PROFILE_FIELDS } from "@trailplanner/shared";
+import { useRunnerPrice } from "../hooks/useRunnerPrice";
 
-type StripeInterval = "day" | "week" | "month" | "year";
-
-const stripePriceResponseSchema = z.object({
-  price: z.object({
-    currency: z.string().min(1),
-    unitAmount: z.number().nonnegative(),
-    interval: z.enum(["day", "week", "month", "year"]).nullable(),
-    intervalCount: z.number().int().positive().nullable().optional().default(null),
-  }),
-});
-
-const intervalLabels: Record<Locale, Record<StripeInterval, { singular: string; plural: string }>> = {
-  en: {
-    day: { singular: "day", plural: "days" },
-    week: { singular: "week", plural: "weeks" },
-    month: { singular: "month", plural: "months" },
-    year: { singular: "year", plural: "years" },
-  },
-  fr: {
-    day: { singular: "jour", plural: "jours" },
-    week: { singular: "semaine", plural: "semaines" },
-    month: { singular: "mois", plural: "mois" },
-    year: { singular: "an", plural: "ans" },
-  },
-};
-
-const formatIntervalLabel = (interval: StripeInterval | null, count: number | null, locale: Locale) => {
-  if (!interval) return "";
-
-  const label = intervalLabels[locale]?.[interval];
-  if (!label) return "";
-
-  if (!count || count === 1) return label.singular;
-  return label.plural;
-};
 
 const splitPaceMinutesPerKm = (value: number | null | undefined) => {
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
@@ -94,9 +60,9 @@ const profileFormSchema = z.object({
     .max(150)
     .optional()
     .transform((value) => (value && value.length > 0 ? value : undefined)),
-  age: z
-    .union([z.coerce.number().int().min(0).max(120), z.literal("").transform(() => undefined)])
-    .optional(),
+  birthDate: z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/), z.literal("").transform(() => undefined)]).optional(),
+  heightCm: z.union([z.coerce.number().int().min(100).max(250), z.literal("").transform(() => undefined)]).optional(),
+  weightKg: z.union([z.coerce.number().min(20).max(250), z.literal("").transform(() => undefined)]).optional(),
   waterBagLiters: z
     .union([z.coerce.number().min(0).max(20), z.literal("").transform(() => undefined)])
     .optional(),
@@ -109,6 +75,9 @@ const profileFormSchema = z.object({
   comfortableFlatPaceSeconds: z
     .union([z.coerce.number().int().min(0).max(999), z.literal("").transform(() => undefined)])
     .optional(),
+  defaultCarbsGPerHour: z
+    .union([z.coerce.number().min(0).max(200), z.literal("").transform(() => undefined)])
+    .optional(),
 });
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
@@ -117,6 +86,10 @@ const productListSchema = z.object({ products: z.array(fuelProductSchema) });
 
 export default function ProfilePage() {
   const { t, locale } = useI18n();
+  const runnerProfileLabels = useMemo(
+    () => Object.fromEntries(RUNNER_PROFILE_FIELDS.map((field) => [field.key, field.labels[locale]])),
+    [locale],
+  ) as Record<(typeof RUNNER_PROFILE_FIELDS)[number]["key"], string>;
   const queryClient = useQueryClient();
   const { session, isLoading, entitlements, isEntitlementsLoading, refreshEntitlements } = useVerifiedSession();
   const { replaceSelection } = useProductSelection();
@@ -129,20 +102,39 @@ export default function ProfilePage() {
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const [upgradeStatus, setUpgradeStatus] = useState<"idle" | "opening">("idle");
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
-  const [stripePrice, setStripePrice] = useState<z.infer<typeof stripePriceResponseSchema>["price"] | null>(null);
+  const annualPrice = useRunnerPrice("annual", locale);
   const [unsubscribeDialogOpen, setUnsubscribeDialogOpen] = useState(false);
   const [unsubscribeStatus, setUnsubscribeStatus] = useState<"idle" | "opening">("idle");
   const [unsubscribeError, setUnsubscribeError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isDialogOpen && !upgradeDialogOpen && !unsubscribeDialogOpen) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setIsDialogOpen(false);
+      setUpgradeDialogOpen(false);
+      setUnsubscribeDialogOpen(false);
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      previousFocus?.focus();
+    };
+  }, [isDialogOpen, unsubscribeDialogOpen, upgradeDialogOpen]);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
       fullName: "",
-      age: undefined,
+      birthDate: undefined,
+      heightCm: undefined,
+      weightKg: undefined,
       waterBagLiters: undefined,
       utmbIndex: undefined,
       comfortableFlatPaceMinutes: undefined,
       comfortableFlatPaceSeconds: undefined,
+      defaultCarbsGPerHour: undefined,
     },
   });
 
@@ -170,11 +162,14 @@ export default function ProfilePage() {
       const comfortableFlatPace = splitPaceMinutesPerKm(profile.comfortableFlatPaceMinPerKm);
       form.reset({
         fullName: profile.fullName ?? "",
-        age: profile.age ?? undefined,
+        birthDate: profile.birthDate ?? undefined,
+        heightCm: profile.heightCm ?? undefined,
+        weightKg: profile.weightKg ?? undefined,
         waterBagLiters: profile.waterBagLiters ?? undefined,
         utmbIndex: profile.utmbIndex ?? undefined,
         comfortableFlatPaceMinutes: comfortableFlatPace.minutes,
         comfortableFlatPaceSeconds: comfortableFlatPace.seconds,
+        defaultCarbsGPerHour: profile.defaultCarbsGPerHour ?? undefined,
       });
       setFavoriteProducts(profile.favoriteProducts);
       replaceSelection(profile.favoriteProducts.map((product) => mapProductToSelection(product)));
@@ -231,13 +226,16 @@ export default function ProfilePage() {
 
       return updateUserProfile(session.accessToken, {
         fullName: values.fullName ?? null,
-        age: typeof values.age === "number" ? values.age : null,
+        birthDate: values.birthDate ?? null,
+        heightCm: typeof values.heightCm === "number" ? values.heightCm : null,
+        weightKg: typeof values.weightKg === "number" ? values.weightKg : null,
         waterBagLiters: typeof values.waterBagLiters === "number" ? values.waterBagLiters : null,
         utmbIndex: typeof values.utmbIndex === "number" ? values.utmbIndex : null,
         comfortableFlatPaceMinPerKm: buildComfortableFlatPaceMinPerKm(
           values.comfortableFlatPaceMinutes,
           values.comfortableFlatPaceSeconds
         ),
+        defaultCarbsGPerHour: typeof values.defaultCarbsGPerHour === "number" ? values.defaultCarbsGPerHour : null,
         favoriteProductIds: favoriteProducts.map((product) => product.id),
       });
     },
@@ -249,11 +247,14 @@ export default function ProfilePage() {
       replaceSelection(profile.favoriteProducts.map((product) => mapProductToSelection(product)));
       form.reset({
         fullName: profile.fullName ?? "",
-        age: profile.age ?? undefined,
+        birthDate: profile.birthDate ?? undefined,
+        heightCm: profile.heightCm ?? undefined,
+        weightKg: profile.weightKg ?? undefined,
         waterBagLiters: profile.waterBagLiters ?? undefined,
         utmbIndex: profile.utmbIndex ?? undefined,
         comfortableFlatPaceMinutes: comfortableFlatPace.minutes,
         comfortableFlatPaceSeconds: comfortableFlatPace.seconds,
+        defaultCarbsGPerHour: profile.defaultCarbsGPerHour ?? undefined,
       });
       queryClient.setQueryData(["profile", session?.accessToken], profile);
     },
@@ -273,70 +274,9 @@ export default function ProfilePage() {
     return products.filter((product) => product.name.toLowerCase().includes(query));
   }, [productsQuery.data, searchQuery]);
 
-  useEffect(() => {
-    const abortController = new AbortController();
-
-    const loadStripePrice = async () => {
-      try {
-        const response = await fetch("/api/stripe/price", {
-          cache: "no-store",
-          signal: abortController.signal,
-        });
-
-        const data = (await response.json().catch(() => null)) as unknown;
-
-        if (!response.ok) {
-          const message = (data as { message?: string } | null)?.message ?? t.profile.subscription.checkoutError;
-          throw new Error(message);
-        }
-
-        const parsed = stripePriceResponseSchema.safeParse(data);
-
-        if (!parsed.success) {
-          throw new Error("Invalid Stripe price response.");
-        }
-
-        if (!abortController.signal.aborted) {
-          setStripePrice({
-            ...parsed.data.price,
-            intervalCount: parsed.data.price.intervalCount ?? null,
-          });
-        }
-      } catch (error) {
-        if (abortController.signal.aborted) return;
-        console.error("Unable to load subscription price", error);
-        setStripePrice(null);
-      }
-    };
-
-    void loadStripePrice();
-
-    return () => abortController.abort();
-  }, [t.profile.subscription.checkoutError]);
-
-  const formattedPremiumPrice = useMemo(() => {
-    if (!stripePrice) return null;
-
-    try {
-      const formatter = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "en-US", {
-        style: "currency",
-        currency: stripePrice.currency,
-      });
-
-      const intervalLabel = formatIntervalLabel(stripePrice.interval, stripePrice.intervalCount, locale);
-      const amount = formatter.format(stripePrice.unitAmount / 100);
-
-      return intervalLabel ? `${amount}/${intervalLabel}` : amount;
-    } catch (error) {
-      console.error("Unable to format premium price", error);
-      return null;
-    }
-  }, [locale, stripePrice]);
-
-  const premiumPriceDisplay = useMemo(
-    () => formattedPremiumPrice ?? t.profile.premiumModal.priceValue,
-    [formattedPremiumPrice, t.profile.premiumModal.priceValue]
-  );
+  const premiumPriceDisplay = annualPrice.status === "available"
+    ? annualPrice.formatted
+    : locale === "fr" ? "Prix indisponible" : "Price unavailable";
 
   const trialEndsAt = trialStatusQuery.data?.trialEndsAt ?? null;
   const trialActive = useMemo(() => isTrialActive(trialEndsAt), [trialEndsAt]);
@@ -733,7 +673,7 @@ export default function ProfilePage() {
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="fullName">{t.profile.basics.nameLabel}</Label>
+              <Label htmlFor="fullName">{runnerProfileLabels.full_name}</Label>
               <Input
                 id="fullName"
                 placeholder={t.profile.basics.namePlaceholder}
@@ -742,21 +682,25 @@ export default function ProfilePage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="age">{t.profile.basics.ageLabel}</Label>
+              <Label htmlFor="birthDate">{runnerProfileLabels.birth_date}</Label>
               <Input
-                id="age"
-                type="number"
-                min="0"
-                max="120"
-                placeholder={t.profile.basics.agePlaceholder}
+                id="birthDate"
+                type="date"
+                max={new Date().toISOString().slice(0, 10)}
                 disabled={authMissing}
-                {...form.register("age", {
-                  setValueAs: (value) => (value === "" || value === null ? undefined : Number(value)),
-                })}
+                {...form.register("birthDate")}
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="heightCm">{runnerProfileLabels.height_cm} (cm)</Label>
+              <Input id="heightCm" type="number" min="100" max="250" step="1" placeholder="175" disabled={authMissing} {...form.register("heightCm", { setValueAs: (value) => value === "" ? undefined : Number(value) })} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="weightKg">{runnerProfileLabels.weight_kg} (kg)</Label>
+              <Input id="weightKg" type="number" min="20" max="250" step="0.1" placeholder="70" disabled={authMissing} {...form.register("weightKg", { setValueAs: (value) => value === "" ? undefined : Number(value) })} />
+            </div>
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="waterBagLiters">{t.profile.basics.waterBagLabel}</Label>
+              <Label htmlFor="waterBagLiters">{runnerProfileLabels.water_bag_liters} (L)</Label>
               <Input
                 id="waterBagLiters"
                 type="number"
@@ -771,7 +715,7 @@ export default function ProfilePage() {
               <p className="text-xs text-muted-foreground">{t.profile.basics.waterBagHelper}</p>
             </div>
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="utmbIndex">{t.profile.basics.utmbIndexLabel}</Label>
+              <Label htmlFor="utmbIndex">{runnerProfileLabels.utmb_index}</Label>
               <Input
                 id="utmbIndex"
                 type="number"
@@ -786,7 +730,7 @@ export default function ProfilePage() {
               <p className="text-xs text-muted-foreground">{t.profile.basics.utmbIndexHelper}</p>
             </div>
             <div className="space-y-2 md:col-span-2">
-              <Label>{t.profile.basics.comfortableFlatPaceLabel}</Label>
+              <Label>{runnerProfileLabels.comfortable_flat_pace_min_per_km}</Label>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="comfortableFlatPaceMinutes" className="text-xs text-muted-foreground">
@@ -823,6 +767,11 @@ export default function ProfilePage() {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">{t.profile.basics.comfortableFlatPaceHelper}</p>
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="defaultCarbsGPerHour">{runnerProfileLabels.default_carbs_g_per_hour} (g/h)</Label>
+              <Input id="defaultCarbsGPerHour" type="number" min="0" max="200" step="1" placeholder="60" disabled={authMissing} {...form.register("defaultCarbsGPerHour", { setValueAs: (value) => value === "" ? undefined : Number(value) })} />
+              <p className="text-xs text-muted-foreground">{t.profile.basics.carbsTargetHelper}</p>
             </div>
           </CardContent>
         </Card>
@@ -924,6 +873,11 @@ export default function ProfilePage() {
                 {t.profile.premiumModal.priceLabel}: {premiumPriceDisplay}
               </p>
             </div>
+            {annualPrice.status === "unavailable" ? (
+              <p className="text-sm text-muted-foreground" role="status">
+                {locale === "fr" ? "L’offre annuelle n’est pas configurée pour le moment." : "The annual offer is not configured yet."}
+              </p>
+            ) : null}
 
             <div>
               <p className="text-sm font-semibold text-foreground">{t.profile.premiumModal.featuresTitle}</p>
@@ -950,7 +904,7 @@ export default function ProfilePage() {
               >
                 {t.profile.premiumModal.cancel}
               </Button>
-              <Button type="button" onClick={handleUpgrade} disabled={upgradeStatus === "opening"}>
+              <Button type="button" onClick={handleUpgrade} disabled={upgradeStatus === "opening" || annualPrice.status !== "available"}>
                 {upgradeStatus === "opening" ? t.profile.subscription.loading : t.profile.premiumModal.subscribe}
               </Button>
             </div>

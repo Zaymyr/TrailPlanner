@@ -15,6 +15,7 @@ import type { ElevationPoint, FormValues, OrganizerAidStationProductSuggestion, 
 import { defaultFuelType } from "../../../lib/fuel-types";
 import type { FuelProduct } from "../../../lib/product-types";
 import { fetchUserProfile } from "../../../lib/profile-client";
+import { isUserProfileReady, type UserProfile } from "../../../lib/profile-types";
 import { mapProductToSelection } from "../../../lib/product-preferences";
 import { RacePlannerLayout } from "../../../components/race-planner/RacePlannerLayout";
 import { RaceCatalogModal } from "./components/RaceCatalogModal";
@@ -50,13 +51,23 @@ import { buildFuelProductEstimates, buildRaceTotals, type FuelProductEstimate } 
 import { CourseProfileSection } from "./components/CourseProfileSection";
 import { usePlannerState } from "./hooks/usePlannerState";
 import { useRacePlan } from "./hooks/useRacePlan";
-import { OnboardingOverlay } from "../../../components/race-planner/OnboardingOverlay";
 import { PrintablePlanV2 } from "./components/print/PrintablePlanV2";
 import { addSuppliesToInventory, consumeInventoryForTargets } from "../../../components/race-planner/carryoverNutrition";
 import { trackPlanExported } from "../../../lib/product-analytics";
 import type { RunnerPlanAccess } from "../../../lib/runner-access";
 import { RunnerProfileStep } from "./components/RunnerProfileStep";
 import { RunnerPlanPreview } from "./components/RunnerPlanPreview";
+import { rememberRunnerReturnPath } from "../../../lib/organizer-acquisition";
+import { RunnerAppBridge } from "../../courses/_components/RunnerAppBridge";
+
+type CatalogRaceSummary = {
+  id: string;
+  name: string;
+  slug: string;
+  distanceKm: number | null;
+  elevationGainM: number | null;
+  date: string | null;
+};
 
 const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -386,7 +397,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
   const { isLoading, entitlements } = useVerifiedSession();
-  const { selectedProducts, replaceSelection, toggleProduct } = useProductSelection(entitlements.favoriteLimit);
+  const { selectedProducts, replaceSelection, toggleProduct } = useProductSelection();
   const [profileError, setProfileError] = useState<string | null>(null);
   const [stripePrice, setStripePrice] = useState<z.infer<typeof stripePriceResponseSchema>["price"] | null>(null);
   const {
@@ -406,8 +417,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       upgradeError,
       upgradeDialogOpen,
       upgradeReason,
-      onboardingOpen,
-      onboardingStep,
     },
     actions: {
       setImportError,
@@ -425,11 +434,27 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       setUpgradeError,
       setUpgradeDialogOpen,
       setUpgradeReason,
-      setOnboardingOpen,
-      setOnboardingStep,
     },
   } = usePlannerState();
   const [openSetupStep, setOpenSetupStep] = useState<PlannerSetupStepId | null>("course");
+  const [pendingCatalogRaceId, setPendingCatalogRaceId] = useState<string | null>(null);
+  const [pendingCatalogRace, setPendingCatalogRace] = useState<CatalogRaceSummary | null>(null);
+  const [hasImportedCourse, setHasImportedCourse] = useState(false);
+
+  useEffect(() => {
+    if (!feedbackOpen && !upgradeDialogOpen) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setFeedbackOpen(false);
+      setUpgradeDialogOpen(false);
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      previousFocus?.focus();
+    };
+  }, [feedbackOpen, setFeedbackOpen, setUpgradeDialogOpen, upgradeDialogOpen]);
 
   useEffect(() => {
     if (initializedQueryRef.current) return;
@@ -443,11 +468,34 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
     if (catalogRaceIdParam) {
       queryCatalogRaceIdRef.current = catalogRaceIdParam;
+      setPendingCatalogRaceId(catalogRaceIdParam);
       window.sessionStorage.setItem("runner.pendingCatalogRaceId", catalogRaceIdParam);
+      rememberRunnerReturnPath(`/race-planner?catalogRaceId=${encodeURIComponent(catalogRaceIdParam)}`);
     }
 
     initializedQueryRef.current = true;
   }, [searchParams]);
+
+  useEffect(() => {
+    if (!pendingCatalogRaceId) {
+      setPendingCatalogRace(null);
+      return;
+    }
+    const controller = new AbortController();
+    fetch(`/api/race-catalog/${encodeURIComponent(pendingCatalogRaceId)}/summary`, {
+      signal: controller.signal,
+      cache: "no-store",
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Course unavailable");
+        return response.json() as Promise<{ race: CatalogRaceSummary }>;
+      })
+      .then(({ race }) => setPendingCatalogRace(race))
+      .catch(() => {
+        if (!controller.signal.aborted) setPendingCatalogRace(null);
+      });
+    return () => controller.abort();
+  }, [pendingCatalogRaceId]);
 
   useEffect(() => {
     const userAgent = typeof navigator !== "undefined" ? navigator.userAgent.toLowerCase() : "";
@@ -457,71 +505,11 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     setIsDesktopApp(isElectron || Boolean(isStandalone));
   }, [setIsDesktopApp]);
 
-  const ONBOARDING_KEY = "trailplanner.onboardingSeen";
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!localStorage.getItem(ONBOARDING_KEY)) {
-      setOnboardingOpen(true);
-    }
-  }, [setOnboardingOpen]);
-
   // Keep the plan tab active throughout the tutorial.
   // Step 5 targets the site header sign-in button which is always visible.
-  const applyOnboardingLayout = useCallback(
-    (step: number) => {
-      setMobileView("plan");
-      if (step === 1) {
-        setOpenSetupStep("course");
-      } else if (step === 2) {
-        setOpenSetupStep("pacing");
-      }
-    },
-    [setMobileView],
-  );
-
-  const handleOpenOnboarding = useCallback(() => {
-    applyOnboardingLayout(0);
-    setOnboardingStep(0);
-    setOnboardingOpen(true);
-  }, [applyOnboardingLayout, setOnboardingStep, setOnboardingOpen]);
-
-  const handleCloseOnboarding = useCallback(() => {
-    setOnboardingOpen(false);
-    localStorage.setItem(ONBOARDING_KEY, "1");
-  }, [setOnboardingOpen]);
-
-  const handleNextOnboarding = useCallback(() => {
-    const totalSteps = racePlannerCopy.onboarding.steps.length;
-    if (onboardingStep < totalSteps - 1) {
-      const nextStep = onboardingStep + 1;
-      applyOnboardingLayout(nextStep);
-      setOnboardingStep(nextStep);
-    } else {
-      handleCloseOnboarding();
-    }
-  }, [onboardingStep, racePlannerCopy.onboarding.steps.length, applyOnboardingLayout, setOnboardingStep, handleCloseOnboarding]);
-
-  const handlePreviousOnboarding = useCallback(() => {
-    if (onboardingStep > 0) {
-      const prevStep = onboardingStep - 1;
-      applyOnboardingLayout(prevStep);
-      setOnboardingStep(prevStep);
-    }
-  }, [onboardingStep, applyOnboardingLayout, setOnboardingStep]);
+  /* Tutorial removed: the runner now enters through the course context directly. */
 
   // Which element ID to spotlight per tutorial step (null = no specific target)
-  const onboardingTargetId: string | null = onboardingOpen
-    ? ([
-        null,                         // Step 0: Welcome
-        "onboarding-course-btns",     // Step 1: Import GPX + Browse race buttons
-        "pacing-nutrition-section",   // Step 2: Pacing + nutrition cards together
-        "onboarding-add-aid-btn",     // Step 3: Add aid station button
-        "onboarding-start-supply-zone", // Step 4: Supply drop zone in the start row
-        "onboarding-create-account-btn", // Step 5: "Créer un compte" in guest banner
-      ][onboardingStep] ?? null)
-    : null;
-
   const parsedValues = useMemo(() => formSchema.safeParse(watchedValues), [formSchema, watchedValues]);
 
   const {
@@ -545,6 +533,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     handleSavePlan,
     handleLoadPlan,
     handleDeletePlan,
+    handleRenamePlan,
     handleRefreshPlans,
     handleUseCatalogRace,
     handleCreateRace,
@@ -573,9 +562,18 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
   const isAuthed = Boolean(session?.accessToken);
   const [runnerEnabled, setRunnerEnabled] = useState<boolean | null>(null);
-  const [runnerProfileUser, setRunnerProfileUser] = useState<string | null>(null);
+  const [runnerProfileState, setRunnerProfileState] = useState<{
+    userId: string;
+    status: "loading" | "loaded" | "error";
+    profile: UserProfile | null;
+  } | null>(null);
   const [runnerAccess, setRunnerAccess] = useState<{ planId: string; userId: string; access: RunnerPlanAccess } | null>(null);
-  const runnerProfileReady = runnerProfileUser === session?.id;
+  const runnerProfileLoaded = Boolean(
+    runnerProfileState && runnerProfileState.userId === session?.id && runnerProfileState.status !== "loading",
+  );
+  const runnerProfileReady = Boolean(
+    runnerProfileState && runnerProfileState.userId === session?.id && isUserProfileReady(runnerProfileState.profile),
+  );
   useEffect(() => {
     const controller = new AbortController();
     fetch("/api/runner/config", { signal: controller.signal, cache: "no-store" })
@@ -611,6 +609,15 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       queryPlanIdRef.current = null;
     }
   }, [handleLoadPlan, savedPlans]);
+
+  useEffect(() => {
+    if (!activePlanId || !initializedQueryRef.current) return;
+    const params = new URLSearchParams(searchParams?.toString());
+    if (params.get("planId") === activePlanId && !params.has("catalogRaceId")) return;
+    params.set("planId", activePlanId);
+    params.delete("catalogRaceId");
+    router.replace(`/race-planner?${params.toString()}`, { scroll: false });
+  }, [activePlanId, router, searchParams]);
 
   useEffect(() => {
     if (!queryCatalogRaceIdRef.current) return;
@@ -835,16 +842,19 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   useEffect(() => {
     if (!session?.accessToken) {
       setProfileError(null);
+      setRunnerProfileState(null);
       return;
     }
 
     const abortController = new AbortController();
     setProfileError(null);
+    setRunnerProfileState({ userId: session.id ?? "", status: "loading", profile: null });
 
     const loadProfile = async () => {
       try {
         const data = await fetchUserProfile(session.accessToken, abortController.signal);
         if (abortController.signal.aborted) return;
+        setRunnerProfileState({ userId: session.id ?? "", status: "loaded", profile: data });
         if (!activePlanIdForProfileRef.current && typeof data.waterBagLiters === "number") {
           form.setValue("waterBagLiters", data.waterBagLiters);
         }
@@ -869,6 +879,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       } catch (error) {
         if (abortController.signal.aborted) return;
         console.error("Unable to load profile", error);
+        setRunnerProfileState({ userId: session.id ?? "", status: "error", profile: null });
         setProfileError(
           error instanceof Error ? error.message : racePlannerCopy.account.errors.fetchFailed
         );
@@ -885,6 +896,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     racePlannerCopy.account.errors.fetchFailed,
     replaceSelection,
     session?.accessToken,
+    session?.id,
   ]);
 
   useEffect(() => {
@@ -1263,6 +1275,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
       setElevationProfile(parsedGpx.elevationProfile);
       setImportError(null);
+      setHasImportedCourse(true);
     } catch (error) {
       setImportError(error instanceof Error ? error.message : racePlannerCopy.gpx.errors.unableToImport);
     } finally {
@@ -1372,8 +1385,8 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     setFeedbackStatus("idle");
   };
 
-  const pagePaddingClass = enableMobileNav ? "pb-28 xl:pb-6" : "pb-6 xl:pb-6";
-  const feedbackButtonOffsetClass = enableMobileNav ? "bottom-20" : "bottom-6";
+  const pagePaddingClass = enableMobileNav ? "pb-40 xl:pb-6" : "pb-6 xl:pb-6";
+  const feedbackButtonOffsetClass = enableMobileNav ? "bottom-32" : "bottom-6";
   const handleAddAidStation = useCallback(
     (station?: { name: string; distanceKm: number; waterRefill?: boolean; solidRefill?: boolean; assistanceAllowed?: boolean }) => {
       append({
@@ -1869,7 +1882,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       fuelProducts={fuelProductEstimates}
       favoriteProducts={selectedProducts}
       onFavoriteToggle={toggleProduct}
-      favoriteLimit={entitlements.favoriteLimit}
       localProductIds={localProductIds}
       organizerAidStationProducts={organizerAidStationProducts}
       startSupplies={startSupplies}
@@ -1890,7 +1902,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       <PlannerRightPanel
         planManagerProps={{
           copy: racePlannerCopy.account,
-          planName,
           planStatus,
           accountMessage,
           accountError,
@@ -1901,15 +1912,12 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           sessionEmail: session?.email,
           showPlanLimitUpsell: planLimitReached && !isPremium,
           premiumCopy,
-          onPlanNameChange: setPlanName,
           onRefreshPlans: handleRefreshPlans,
           onLoadPlan: (plan) => {
             handleLoadPlan(plan);
           },
+          onRenamePlan: handleRenamePlan,
           onDeletePlan: handleDeletePlanWithUndo,
-          onNewPlanForRace: (raceId) => {
-            void handleUseCatalogRace(raceId);
-          },
           onNewPlanGlobal: () => setIsRaceSelectorOpen(true),
           onDeleteRace: async (raceId) => {
             await handleDeleteRace(raceId);
@@ -1969,10 +1977,15 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     (activePlan?.catalogRaceId ? races.find((race) => race.id === activePlan.catalogRaceId)?.name : null) ??
     "Sans course";
   const planNameForSaveBar = planName.trim() || racePlannerCopy.account.plans.defaultName;
-  const pagePlanTitle = planName.trim() || activePlan?.name || racePlannerCopy.page.newPlanTitle;
+  const contextualRaceName = pendingCatalogRace?.name ?? activePlan?.raceName ?? null;
+  const pagePlanTitle = racePlannerCopy.page.newPlanTitle;
+  const raceReturnPath = pendingCatalogRaceId
+    ? `/race-planner?catalogRaceId=${encodeURIComponent(pendingCatalogRaceId)}`
+    : "/race-planner";
+  const appBridgeUrl = `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://pace-yourself.com"}/race-planner${activePlanId ? `?planId=${encodeURIComponent(activePlanId)}` : ""}`;
   const saveBarContextLabel = `${raceNameForSaveBar} — ${planNameForSaveBar}`;
   const hasBlockingOverlayOpen =
-    isRaceSelectorOpen || isRaceCatalogOpen || feedbackOpen || onboardingOpen || upgradeDialogOpen;
+    isRaceSelectorOpen || isRaceCatalogOpen || feedbackOpen || upgradeDialogOpen;
   const shouldShowSaveBar = hasUnsavedChanges && !hasBlockingOverlayOpen;
   const saveBarDisabled = authStatus === "checking" || !canSavePlan;
   const saveBarContent = (
@@ -2023,36 +2036,100 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                 </Link>
               </li>
               <li aria-hidden="true">/</li>
-              <li aria-current="page" className="font-medium text-foreground">
-                {pagePlanTitle}
-              </li>
+              {pendingCatalogRace?.slug ? (
+                <>
+                  <li>
+                    <Link href={`/courses/${pendingCatalogRace.slug}`} className="underline-offset-4 transition hover:text-foreground hover:underline">
+                      {pendingCatalogRace.name}
+                    </Link>
+                  </li>
+                  <li aria-hidden="true">/</li>
+                </>
+              ) : null}
+              <li aria-current="page" className="font-medium text-foreground">{pagePlanTitle}</li>
             </ol>
           </nav>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground dark:text-slate-50">
             {pagePlanTitle}
           </h1>
         </div>
-        <GuestSaveBanner isAuthed={isAuthed} forceShow={onboardingOpen && onboardingStep === 5} />
-        {runnerEnabled === null ? <p role="status">{locale === "fr" ? "Chargement des accès…" : "Loading access…"}</p> : runnerEnabled && (!session || session.isAnonymous) ? (
+        {runnerEnabled === false ? <GuestSaveBanner isAuthed={isAuthed} /> : null}
+        {runnerEnabled === null ? <p role="status">{locale === "fr" ? "Chargement des accès…" : "Loading access…"}</p> : runnerEnabled && (!session || session.isAnonymous) && Boolean(contextualRaceName || pendingCatalogRaceId || hasImportedCourse) ? (
           <section className="space-y-4 rounded-2xl border border-border bg-card p-6">
-            <h2 className="text-xl font-semibold">{locale === "fr" ? "Crée ton compte pour préparer ta course" : "Create an account to prepare your race"}</h2>
+            <h2 className="text-xl font-semibold">
+              {contextualRaceName
+                ? locale === "fr" ? `Estimer ${contextualRaceName}` : `Estimate ${contextualRaceName}`
+                : locale === "fr" ? "Crée ton compte pour préparer ta course" : "Create an account to prepare your race"}
+            </h2>
+            {pendingCatalogRace ? (
+              <dl className="grid gap-3 rounded-xl border border-border bg-muted/30 p-4 sm:grid-cols-3">
+                <div><dt className="text-xs text-muted-foreground">Distance</dt><dd className="font-semibold">{pendingCatalogRace.distanceKm != null ? `${pendingCatalogRace.distanceKm} km` : "—"}</dd></div>
+                <div><dt className="text-xs text-muted-foreground">D+</dt><dd className="font-semibold">{pendingCatalogRace.elevationGainM != null ? `${Math.round(pendingCatalogRace.elevationGainM)} m` : "—"}</dd></div>
+                <div><dt className="text-xs text-muted-foreground">Date</dt><dd className="font-semibold">{pendingCatalogRace.date ? new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-US", { dateStyle: "medium" }).format(new Date(pendingCatalogRace.date)) : "—"}</dd></div>
+              </dl>
+            ) : null}
             <p>{locale === "fr" ? "Ton estimation est gratuite et sera enregistrée dans ton compte." : "Your free estimate will be saved to your account."}</p>
-            <Link className="font-semibold text-brand underline" href="/sign-up">{locale === "fr" ? "Créer mon compte" : "Create account"}</Link>{" · "}
-            <Link className="font-semibold text-brand underline" href="/sign-in">{locale === "fr" ? "Me connecter" : "Sign in"}</Link>
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href={{ pathname: "/sign-up", query: { returnPath: raceReturnPath } }}
+                className="inline-flex min-h-10 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+              >
+                {locale === "fr" ? "Créer mon compte" : "Create account"}
+              </Link>
+              <Link
+                href={{ pathname: "/sign-in", query: { returnPath: raceReturnPath } }}
+                className="inline-flex min-h-10 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-semibold hover:bg-accent"
+              >
+                {locale === "fr" ? "Me connecter" : "Sign in"}
+              </Link>
+            </div>
           </section>
-        ) : runnerEnabled && !runnerProfileReady && !activePlanId ? (
+        ) : runnerEnabled && session && !session.isAnonymous && !runnerProfileLoaded && !activePlanId ? (
+          <PageLoadingSkeleton />
+        ) : runnerEnabled && session && !session.isAnonymous && !runnerProfileReady && !activePlanId ? (
           <RunnerProfileStep token={session!.accessToken} locale={locale} onComplete={(profile) => {
-            setRunnerProfileUser(session!.id!);
+            setRunnerProfileState({ userId: session!.id!, status: "loaded", profile });
             form.setValue("waterBagLiters", profile.waterBagLiters ?? 1.5);
             form.setValue("targetIntakePerHour", profile.defaultCarbsGPerHour ?? 60);
             const pacing = buildPacingDefaultsFromFlatPace(profile.comfortableFlatPaceMinPerKm ?? 7.5);
             form.setValue("paceType", pacing.paceType); form.setValue("paceMinutes", pacing.paceMinutes);
             form.setValue("paceSeconds", pacing.paceSeconds); form.setValue("speedKph", pacing.speedKph);
           }} />
+        ) : runnerEnabled && !activePlanId && !hasImportedCourse ? (
+          <section className="rounded-2xl border border-border bg-card p-6 sm:p-8">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".gpx,application/gpx+xml"
+              className="hidden"
+              onChange={handleImportGpx}
+            />
+            <div className="mx-auto max-w-2xl space-y-4 text-center">
+              <h2 className="text-2xl font-semibold">
+                {locale === "fr" ? "Choisis une course pour commencer" : "Choose a race to get started"}
+              </h2>
+              <p className="text-muted-foreground">
+                {locale === "fr"
+                  ? "Sélectionne une course du catalogue ou importe ton fichier GPX pour créer une estimation réelle."
+                  : "Select a race from the catalog or import your GPX file to create a real estimate."}
+              </p>
+              <div className="flex flex-col justify-center gap-3 sm:flex-row">
+                <Button type="button" onClick={() => setIsRaceCatalogOpen(true)}>{racePlannerCopy.buttons.chooseRace}</Button>
+                <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>{racePlannerCopy.buttons.importGpx}</Button>
+              </div>
+              {importError ? <p className="text-sm text-red-600" role="alert">{importError}</p> : null}
+            </div>
+          </section>
         ) : runnerEnabled && !runnerCanViewDetails ? (
           <div className="space-y-6">
-            <Button type="button" onClick={() => setIsRaceCatalogOpen(true)}>{locale === "fr" ? "Choisir une course" : "Choose a race"}</Button>
             <RunnerPlanPreview locale={locale} planId={activePlanId} duration={pacingOverviewDuration} distanceKm={distanceForDuration} segments={segments} onSave={() => { void handleSaveWithToast(); }} />
+            <RunnerAppBridge
+              context="estimate"
+              courseName={contextualRaceName ?? planNameForSaveBar}
+              universalUrl={appBridgeUrl}
+              racebookAvailable={false}
+            />
+            <Button type="button" variant="outline" onClick={() => setIsRaceCatalogOpen(true)}>{locale === "fr" ? "Choisir une autre course" : "Choose another race"}</Button>
             {settingsContent}
           </div>
         ) : <fieldset disabled={runnerEnabled && !runnerCanEdit} className="min-w-0">
@@ -2102,18 +2179,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           onClose={() => setIsRaceCatalogOpen(false)}
           onUseRace={handleUseCatalogRace}
         />
-
-        {!isDesktopApp && (
-          <Button
-            type="button"
-            variant="outline"
-            className={`fixed ${enableMobileNav ? "bottom-[136px]" : "bottom-20"} left-6 z-20 inline-flex h-12 w-12 rounded-full shadow-lg`}
-            aria-label={racePlannerCopy.onboarding.openLabel}
-            onClick={handleOpenOnboarding}
-          >
-            <span className="text-lg font-bold leading-none">?</span>
-          </Button>
-        )}
 
         {!isDesktopApp && (
           <Button
@@ -2185,16 +2250,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
             </div>
           </div>
         )}
-
-        <OnboardingOverlay
-          open={onboardingOpen}
-          step={onboardingStep}
-          copy={racePlannerCopy.onboarding}
-          targetId={onboardingTargetId}
-          onClose={handleCloseOnboarding}
-          onNext={handleNextOnboarding}
-          onPrevious={handlePreviousOnboarding}
-        />
 
         {upgradeDialogOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 py-8 backdrop-blur">

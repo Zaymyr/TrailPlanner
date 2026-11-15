@@ -1,7 +1,7 @@
 ---
 title: Runner Monetization
 scope: business-rule
-last_verified: 2026-11-11
+last_verified: 2026-11-13
 ai_priority: high
 related_files:
   - apps/mobile/components/plan-workspace/LockedPlanContent.tsx
@@ -19,11 +19,12 @@ related_files:
   - apps/web/app/api/runner/config/route.ts
   - apps/web/app/premium/page.tsx
   - apps/web/components/RunnerAdminAccessMode.tsx
-  - apps/web/app/onboarding/RunnerOnboardingGate.tsx
   - apps/web/app/onboarding/layout.tsx
   - apps/web/app/(planner)/race-planner/components/RunnerProfileStep.tsx
   - apps/web/app/(planner)/race-planner/components/RunnerPlanPreview.tsx
   - apps/web/lib/profile-types.ts
+  - packages/shared/src/runnerProfile.ts
+  - apps/web/app/hooks/useRunnerPrice.ts
   - apps/web/app/api/profile/route.ts
   - apps/mobile/lib/runnerPlanAccess.ts
   - apps/mobile/lib/runnerPlanAccess.test.ts
@@ -66,9 +67,13 @@ Deleting the current `race_plans` row never consumes or deletes an active course
 
 New plans require an identified account. Course selection survives authentication and the profile step. First name, comfortable flat pace, water capacity and carbohydrate target initialize the estimate; body metrics, birth date and UTMB index are optional. Profile information is prefilled and validated. Existing plans are not silently overwritten when a profile changes.
 
+Favorite nutrition products are unlimited for every runner. The backward-compatible `favoriteLimit` entitlement remains nullable/unbounded for older clients, but no client may enforce or advertise a favorite quota.
+
 The algorithm uses its actual pace/capacity/target inputs; it must not claim that optional identity/body fields change the chrono without an implemented algorithm. The free view renders genuine calculated total duration, average pace and section needs. Contextual CTAs lead to pace adjustment or station-by-station nutrition preparation. Editable controls must not be mounted in a free preview.
 
 The legacy web onboarding routes defer to the new planner while monetization is enabled. The authenticated profile API includes `birthDate`, `heightCm`, `weightKg` and `defaultCarbsGPerHour` alongside existing fields.
+
+The web course arrival keeps a validated `catalogRaceId` across sign-up, sign-in, OAuth and e-mail confirmation. Anonymous runners see one course-context screen before authentication; the blocking tutorial and guest-save warning are not part of this runner journey. Price presentation comes from the provider through the shared web price hook; an unconfigured offer is explicitly unavailable and never replaced by a legacy price.
 
 The mobile Livret coureur shows the shared `Livret officiel | Mon plan` switch below the collapsing heroes only when the runner owns a plan for the format. Without one, plan creation is offered only by the discreet `RacebookPlanInviteCard` at the end of the Course tab; it routes to the same creation flow and purchase gates. In a locked preview, the real departure and its first following section are clear; remaining real course cards/sections remain scrollable but non-interactive and accessibility-hidden behind the implemented light veil. There is no cutoff or automatic paywall. One full CTA card (title, description and button) remains vertically centered in the usable area below headers/tabs and above the scroll bottom while scrolling, then returns inline at the top; measured geometry is clamped on small screens. Exactly one CTA is visible and accessibility-active. Visible first-sample edit/add/split actions and auto-fill open that same central paywall without mutation. A plan-specific paywall leads with the EUR 9.99 course purchase (provider price is authoritative) and offers EUR 29.99 annual access second; without a plan, annual remains primary.
 

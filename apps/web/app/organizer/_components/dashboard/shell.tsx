@@ -12,6 +12,7 @@ import { buildEditionYearOptions, formatEventDateRange, getEventEdition, getRace
 import type { ClaimRow, EditionRequestRow, MembershipRow, OrganizerEventDetail, PublicationRequestRow, RacebookPublicationState, RaceFormat } from "./types";
 import { ContextualHelp, LiveToggle, RacebookVisibilityControl } from "./controls";
 import type { RacebookVisibilityState } from "./controls";
+import { SelectField } from "./form-kit";
 
 const FORMAT_VISIBILITY_LABEL: Record<RacebookVisibilityState, string> = {
   hidden: "Course masquée pour le public",
@@ -210,7 +211,9 @@ export function OrganizerSummaryHeader({
     if (!isVisibilityOnboardingActive) setIsSummaryExpanded(false);
   }, [isVisibilityOnboardingActive]);
   const isVisibilityExpanded = isSummaryExpanded || isVisibilityOnboardingActive;
-  const eventScore = completion?.raceProgressScore ?? 0;
+  const eventScore = completion?.informationComplete
+    ? 100
+    : Math.min(completion?.raceProgressScore ?? 0, 99);
   const completedSectionCount = completion?.modules.filter((module) => module.status === "complete").length ?? 0;
   const totalSectionCount = completion?.modules.length ?? 0;
   const raceProgress = completion?.raceProgress ?? [];
@@ -250,19 +253,27 @@ export function OrganizerSummaryHeader({
       ? `Offre ${ORGANIZER_TIER_LABEL[editionTier]} offerte — valeur : ${ORGANIZER_TIER_PRICE_EUR[editionTier]} € HT`
         : "Aucun paiement actif";
   return (
-    <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5">
-      <div id="organizer-onboarding-overview" className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+    <section className="rounded-xl border border-border bg-card px-3 py-2 shadow-sm sm:px-4">
+      <div id="organizer-onboarding-overview" className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-brand dark:text-emerald-300">Espace organisateur</p>
-          <h1 className="mt-1 truncate text-xl font-semibold text-foreground">
+          <p className="sr-only">Espace organisateur</p>
+          <h1 className="truncate text-base font-semibold text-foreground sm:text-lg">
             {selectedMembership?.race_events?.name ?? event?.name ?? "Événement"}
           </h1>
-          <span className={cn("mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold", publicFormatCount > 0 ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800")}>
+          <span className={cn("ml-2 inline-flex rounded-full px-2 py-0.5 text-xs font-semibold", publicFormatCount > 0 ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800")}>
             {publicFormatCount > 0 ? `En ligne · ${publicFormatCount} format${publicFormatCount > 1 ? "s" : ""} public${publicFormatCount > 1 ? "s" : ""}` : "Brouillon"}
           </span>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="text-xs text-muted-foreground sm:text-sm">
             {[event?.location, dateLabel].filter(Boolean).join(" · ") || "Lieu et dates à compléter"}
           </p>
+        </div>
+
+        <div id="organizer-onboarding-selectors" className="grid min-w-0 flex-1 gap-2 sm:grid-cols-[minmax(12rem,1fr)_8rem] lg:max-w-md">
+          <OrganizerEventCombobox memberships={memberships} selectedEventId={selectedEventId} onSelectedEventChange={onSelectedEventChange} />
+          <div>
+            <label htmlFor="organizer-event-edition-select" className="mb-1 block text-xs font-medium text-muted-foreground">Édition</label>
+            <SelectField id="organizer-event-edition-select" title="Changer l’année à modifier sans changer d’événement." value={selectedEditionYear} onValueChange={onSelectedEditionYearChange} options={editionYearOptions.map((option) => ({ value: option.value, label: option.label }))} />
+          </div>
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -371,28 +382,20 @@ export function OrganizerSummaryHeader({
         </div>
       </div>
 
-      <div id="organizer-onboarding-selectors" className="mt-5 grid max-w-2xl gap-3 border-t border-border pt-4 md:grid-cols-[minmax(16rem,28rem)_10rem]">
-        <OrganizerEventCombobox
-          memberships={memberships}
-          selectedEventId={selectedEventId}
-          onSelectedEventChange={onSelectedEventChange}
-        />
-        <div>
-          <label htmlFor="organizer-event-edition-select" className="mb-1 block text-xs font-medium text-muted-foreground">Édition</label>
-          <select id="organizer-event-edition-select" title="Changer l’année à modifier sans changer d’événement." className="h-11 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground" value={selectedEditionYear} onChange={(selectEvent) => onSelectedEditionYearChange(selectEvent.target.value)}>
-            {editionYearOptions.map((option) => <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>)}
-          </select>
-        </div>
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg bg-muted/30 px-3 py-2.5">
-        <span className="text-sm font-medium text-foreground">Préparation</span>
+      <details open={isVisibilityOnboardingActive || undefined} className="group mt-1 border-t border-border/70">
+        <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 rounded-md px-2 text-xs font-semibold text-muted-foreground hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring marker:content-none">
+          Visibilité et progression
+          <span className="ml-auto">Configurer</span>
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" className="h-4 w-4 transition-transform group-open:rotate-180"><path d="m5 7.5 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </summary>
+      <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg bg-muted/30 px-3 py-2">
+        <span className="text-sm font-medium text-foreground">Minimum requis</span>
         <InlineProgressBar score={eventScore} className="min-w-[12rem] flex-1" />
-        <span className="text-xs font-medium text-muted-foreground">{completedSectionCount} section{completedSectionCount > 1 ? "s" : ""} sur {totalSectionCount} renseignée{completedSectionCount > 1 ? "s" : ""}</span>
+        <span className="text-xs font-medium text-muted-foreground">Complétion globale : {completedSectionCount} section{completedSectionCount > 1 ? "s" : ""} sur {totalSectionCount} renseignée{completedSectionCount > 1 ? "s" : ""}</span>
         <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", completion?.informationComplete ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800")}>{completion?.informationComplete ? "Minimum requis atteint" : "Minimum requis à compléter"}</span>
       </div>
 
-      <details open={isVisibilityExpanded} onToggle={(toggleEvent) => setIsSummaryExpanded(toggleEvent.currentTarget.open)} className="group mt-2">
+      <details open={isVisibilityExpanded} onToggle={(toggleEvent) => setIsSummaryExpanded(toggleEvent.currentTarget.open)} className="group mt-1">
         <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 rounded-md px-2 py-2 text-sm font-semibold text-foreground transition hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring marker:content-none">
           Gérer la visibilité
           <span className="font-normal text-muted-foreground">{raceRows.length} format{raceRows.length > 1 ? "s" : ""}</span>
@@ -498,33 +501,7 @@ export function OrganizerSummaryHeader({
           </div>
         </div> : null}
       </details>
-
-      <div
-        id="organizer-autosave-status"
-        role="status"
-        aria-live="polite"
-        className={cn(
-          "mt-3 flex min-h-11 items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm",
-          autosaveState === "error" ? "border-red-300 bg-red-50 text-red-900" : "border-border bg-muted/30 text-muted-foreground"
-        )}
-      >
-        <span>
-          {autosaveState === "saving"
-            ? "Sauvegarde automatique en cours…"
-            : autosaveState === "idle"
-              ? "Modifications en attente de sauvegarde…"
-              : autosaveState === "error"
-                ? "Échec de la sauvegarde automatique. Tes modifications sont conservées dans ce formulaire."
-                : lastAutosavedAt
-                  ? `Sauvegardé automatiquement à ${lastAutosavedAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`
-                  : "Toutes les modifications sont sauvegardées automatiquement."}
-        </span>
-        {autosaveState === "error" ? (
-          <Button type="button" variant="outline" onClick={onRetryAutosave} className="!h-9 shrink-0">
-            Réessayer
-          </Button>
-        ) : null}
-      </div>
+      </details>
 
       <Dialog
         open={newEditionDialogOpen}
@@ -908,80 +885,95 @@ export function CompletionTabsPanel({
   const getFormatOptionLabel = (tab: { label: string; visibility?: RacebookVisibilityState }) =>
     `Format · ${tab.label}${tab.visibility ? ` — ${FORMAT_VISIBILITY_LABEL[tab.visibility]}` : ""}`;
 
+  const statusTone = (status: OrganizerCompletionSummary["modules"][number]["status"]) =>
+    status === "complete" ? "bg-emerald-500" : status === "incomplete" ? "bg-amber-500" : "bg-muted-foreground/35";
+  const renderModules = (items: OrganizerCompletionSummary["modules"]) => items.map((module) => (
+    <button
+      key={module.id}
+      type="button"
+      aria-label={`${module.title}. ${module.countLabel}`}
+      aria-current={activeModule === module.id ? "page" : undefined}
+      onClick={() => onSelectModule(module.id)}
+      className={cn(
+        "flex min-h-10 w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+        activeModule === module.id ? "bg-brand-surface font-semibold text-brand" : "text-foreground hover:bg-muted/50"
+      )}
+    >
+      <span className={cn("h-2 w-2 shrink-0 rounded-full", statusTone(module.status))} aria-hidden="true" />
+      <span className="min-w-0 flex-1">
+        <span className="line-clamp-2 block leading-snug">{module.title}</span>
+        {activeModule === module.id ? <span className="mt-0.5 block text-[11px] font-medium text-muted-foreground">{module.countLabel}</span> : null}
+      </span>
+      {dirtyModules.has(module.id) ? <span className="sr-only">Modifications à sauvegarder</span> : null}
+    </button>
+  ));
+
   return (
-    <section className="rounded-lg border border-border bg-card p-3 shadow-sm sm:p-4">
-      <div id="organizer-onboarding-scope-navigation" className="md:hidden">
+    <nav id="organizer-onboarding-module-tiles" aria-label="Sections" className="rounded-xl border border-border bg-card p-2 shadow-sm min-[1320px]:sticky min-[1320px]:top-3">
+      <div id="organizer-onboarding-scope-navigation" className="min-[1320px]:hidden">
         <label htmlFor="organizer-workspace-select" className="mb-1.5 block text-sm font-medium text-foreground">
           Informations à modifier
         </label>
-        <select
+        <SelectField
           id="organizer-workspace-select"
-          className="h-11 w-full min-w-0 rounded-md border border-input bg-card px-3 text-sm text-foreground"
+          className="min-w-0"
           value={activeTab}
-          onChange={(event) => onTabChange(event.target.value)}
-        >
-          {eventTab ? (
-            <optgroup label="Informations communes">
-              <option value={eventTab.id}>Commun à toutes les courses</option>
-            </optgroup>
-          ) : null}
-          <optgroup label="Formats de course">
-            {formatTabs.map((tab) => (
-              <option key={tab.id} value={tab.id} className={tab.visibility === "hidden" ? "text-muted-foreground" : undefined}>
-                {getFormatOptionLabel(tab)}
-              </option>
-            ))}
-            {addFormatTab ? <option value={addFormatTab.id}>+ Ajouter un format</option> : null}
-          </optgroup>
-        </select>
+          options={[
+            ...(eventTab ? [{ value: eventTab.id, label: "Commun à toutes les courses" }] : []),
+            ...formatTabs.map((tab) => ({ value: tab.id, label: getFormatOptionLabel(tab) })),
+            ...(addFormatTab ? [{ value: addFormatTab.id, label: "+ Ajouter un format" }] : []),
+          ]}
+          onValueChange={onTabChange}
+        />
+        {!isAddTab ? <div className="mt-2"><label htmlFor="organizer-section-select" className="mb-1.5 block text-sm font-medium text-foreground">Section</label><SelectField id="organizer-section-select" value={activeModule} options={modules.map((module) => ({ value: module.id, label: `${module.title} · ${module.countLabel}` }))} onValueChange={(value) => onSelectModule(value as OrganizerModuleId)} /></div> : null}
       </div>
 
-      <div id="organizer-onboarding-scope-navigation" className="hidden gap-4 border-b border-border pb-4 md:grid lg:grid-cols-[minmax(14rem,0.8fr)_minmax(0,3fr)]">
-        <div className="rounded-xl bg-muted/40 p-2">
-          <p className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Informations communes</p>
+      <div id="organizer-onboarding-scope-navigation" className="hidden min-[1320px]:block">
+        <div className="pb-2">
           {eventTab ? (
             <button
               type="button"
               aria-current={isEventTab ? "page" : undefined}
               onClick={() => onTabChange(eventTab.id)}
               className={cn(
-                "flex min-h-14 w-full items-center justify-between rounded-lg border px-3 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                "flex min-h-11 w-full items-center justify-between rounded-lg px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
                 isEventTab
-                  ? "border-brand bg-brand-surface text-brand shadow-sm ring-2 ring-brand/25"
-                  : "border-transparent bg-card text-foreground hover:border-brand-border"
+                  ? "bg-brand-surface text-brand"
+                  : "text-foreground hover:bg-muted/50"
               )}
             >
               <span>
                 <span className="block text-sm font-semibold">Commun à toutes les courses</span>
                 <span className="block text-xs font-normal text-muted-foreground">Événement</span>
               </span>
-              {isEventTab ? <span className="h-2.5 w-2.5 rounded-full bg-brand ring-4 ring-brand/15" aria-hidden="true" /> : null}
             </button>
           ) : null}
         </div>
+        {isEventTab ? <div className="border-t border-border py-2">{renderModules(completion.eventModules)}</div> : null}
 
-        <div className="min-w-0 rounded-xl bg-muted/20 p-2">
+        <div className="min-w-0 border-t border-border pt-2">
           <p className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Formats de course</p>
-          <div className="flex min-w-0 gap-2 overflow-x-auto pb-1">
+          <div className="space-y-1">
             {formatTabs.map((tab) => (
+              <div key={tab.id}>
               <button
-                key={tab.id}
                 type="button"
                 aria-current={activeTab === tab.id ? "page" : undefined}
+                aria-expanded={activeTab === tab.id}
                 onClick={() => onTabChange(tab.id)}
                 className={cn(
-                  "inline-flex min-h-14 shrink-0 items-center gap-2 rounded-lg border px-4 py-2 text-left text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                  "flex min-h-10 w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
                   tab.visibility === "hidden"
                     ? activeTab === tab.id
-                      ? "border-slate-400 bg-muted text-muted-foreground shadow-sm ring-2 ring-slate-300/40"
-                      : "border-border/60 bg-muted/60 text-muted-foreground hover:border-slate-400"
+                      ? "bg-muted text-muted-foreground"
+                      : "text-muted-foreground hover:bg-muted/50"
                     : activeTab === tab.id
-                      ? "border-brand bg-brand-surface text-brand shadow-sm ring-2 ring-brand/25"
-                      : "border-transparent bg-card text-foreground hover:border-brand-border"
+                      ? "bg-muted/60 text-foreground"
+                      : "text-foreground hover:bg-muted/50"
                 )}
               >
-                <span>
-                  <span className="block">{tab.label}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="line-clamp-2 block leading-snug">{tab.label}</span>
                   {tab.visibility ? (
                     <span className={cn(
                       "mt-0.5 block text-[11px] font-medium",
@@ -991,13 +983,10 @@ export function CompletionTabsPanel({
                     </span>
                   ) : null}
                 </span>
-                {activeTab === tab.id ? (
-                  <span className={cn(
-                    "h-2.5 w-2.5 rounded-full ring-4",
-                    tab.visibility === "hidden" ? "bg-slate-400 ring-slate-300/30" : "bg-brand ring-brand/15"
-                  )} aria-hidden="true" />
-                ) : null}
+                <span aria-hidden="true" className={cn("shrink-0 text-muted-foreground transition", activeTab === tab.id && "rotate-90")}>›</span>
               </button>
+              {activeTab === tab.id && !isEventTab && !isAddTab ? <div className="mb-1 ml-3 mt-1 border-l border-border pl-2">{renderModules(modules)}</div> : null}
+              </div>
             ))}
             {addFormatTab ? (
               <button
@@ -1006,7 +995,7 @@ export function CompletionTabsPanel({
                 aria-current={isAddTab ? "page" : undefined}
                 onClick={() => onTabChange(addFormatTab.id)}
                 className={cn(
-                  "min-h-14 shrink-0 rounded-lg border border-dashed px-4 py-2 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                    "min-h-10 w-full rounded-lg border border-dashed px-3 py-2 text-left text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
                   isAddTab
                     ? "border-brand bg-brand-surface text-brand shadow-sm ring-2 ring-brand/25"
                     : "border-border bg-card text-muted-foreground hover:border-brand-border hover:text-foreground"
@@ -1018,20 +1007,32 @@ export function CompletionTabsPanel({
           </div>
         </div>
       </div>
+    </nav>
+  );
+}
 
-      {!isAddTab ? (
-        <OrganizerModuleGrid
-          modules={modules}
-          activeModule={activeModule}
-          dirtyModules={dirtyModules}
-          onSelectModule={onSelectModule}
-        />
-      ) : (
-        <div className="mt-4 rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
-          Renseigne le nouveau format dans le formulaire ci-dessous. Ses tuiles apparaîtront après création.
+export function OrganizerProgressRail({ completion }: { completion: OrganizerCompletionSummary }) {
+  const completed = completion.modules.filter((module) => module.status === "complete").length;
+  const total = completion.modules.length;
+  const score = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const remaining = completion.modules.filter((module) => module.status !== "complete").slice(0, 5);
+
+  return (
+    <aside className="space-y-3 min-[1320px]:sticky min-[1320px]:top-3 min-[1320px]:self-start" aria-label="État du Livret coureur">
+      <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="grid h-16 w-16 shrink-0 place-items-center rounded-full" style={{ background: `conic-gradient(hsl(var(--brand)) ${score}%, hsl(var(--muted)) ${score}% 100%)` }} aria-label={`${completed} sections complètes sur ${total}`}>
+            <span className="grid h-12 w-12 place-items-center rounded-full bg-card text-sm font-bold text-foreground">{completed}/{total}</span>
+          </div>
+          <div><h2 className="font-semibold text-foreground">À faire</h2><p className="text-xs text-muted-foreground">{completion.informationComplete ? "Minimum requis atteint" : "Minimum requis à compléter"}</p></div>
         </div>
-      )}
-    </section>
+        <ul className="mt-4 space-y-2">
+          {remaining.length > 0 ? remaining.map((module) => (
+            <li key={module.id} className="flex items-start gap-2 text-sm text-foreground"><span className="mt-1 h-3.5 w-3.5 shrink-0 rounded border border-amber-500 bg-amber-50" aria-hidden="true" /><span>{module.title}<span className="ml-1 text-xs text-muted-foreground">{module.countLabel}</span></span></li>
+          )) : <li className="text-sm text-emerald-700">Toutes les sections sont renseignées.</li>}
+        </ul>
+      </section>
+    </aside>
   );
 }
 
@@ -1047,22 +1048,19 @@ export function OrganizerModuleGrid({
   onSelectModule: (moduleId: OrganizerModuleId) => void;
 }) {
   const isDirty = (moduleId: OrganizerModuleId) => dirtyModules.has(moduleId);
-  const statusLabels = {
-    empty: "Aucune information",
-    incomplete: "Partiel",
-    complete: "Complet",
-  } as const;
+  const getStatusLabel = (module: OrganizerCompletionSummary["modules"][number]) =>
+    module.status === "complete" ? "Complet" : module.level === "optional" && module.status === "empty" ? "Optionnel" : "À compléter";
 
   return (
-    <div id="organizer-onboarding-module-tiles" className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-7">
+    <div id="organizer-onboarding-module-tiles" className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-7">
       {modules.map((module) => (
         <button
           key={module.id}
           type="button"
-          aria-label={`${module.title}. ${statusLabels[module.status]}. ${module.countLabel}. ${module.description}`}
+          aria-label={`${module.title}. ${getStatusLabel(module)}. ${module.countLabel}. ${module.description}`}
           aria-current={activeModule === module.id ? "true" : undefined}
           className={cn(
-            "relative min-h-[82px] rounded-lg border-2 p-3 text-left transition hover:-translate-y-0.5 hover:shadow-md lg:min-w-0",
+            "relative min-h-[64px] rounded-lg border-2 px-3 py-2 text-left transition hover:-translate-y-0.5 hover:shadow-md lg:min-w-0",
             module.status === "empty" && "border-slate-200 bg-slate-50/70 dark:border-slate-700 dark:bg-slate-900/30",
             module.status === "incomplete" && "border-amber-300 bg-amber-50/60 dark:border-amber-700 dark:bg-amber-950/20",
             module.status === "complete" && "border-emerald-300 bg-emerald-50/50 dark:border-emerald-700 dark:bg-emerald-950/20",
@@ -1072,8 +1070,8 @@ export function OrganizerModuleGrid({
           onClick={() => onSelectModule(module.id)}
         >
           <h2 className="pr-5 text-sm font-bold leading-snug text-foreground">{module.title}</h2>
-          <p className="mt-1 text-[11px] font-semibold leading-snug text-foreground/80">{statusLabels[module.status]}</p>
-          <p className="mt-1.5 text-xs font-medium leading-snug text-muted-foreground">{module.countLabel}</p>
+          <p className="mt-1 text-[11px] font-semibold leading-snug text-foreground/80">{getStatusLabel(module)}</p>
+          <p className="mt-0.5 text-xs font-medium leading-snug text-muted-foreground">{module.countLabel}</p>
           {isDirty(module.id) ? <span className="sr-only">Modifications à sauvegarder</span> : null}
         </button>
       ))}

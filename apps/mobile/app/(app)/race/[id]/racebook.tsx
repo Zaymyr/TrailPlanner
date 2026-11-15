@@ -1148,7 +1148,15 @@ export default function RaceRacebookScreen() {
   const runnerInfoLines = useMemo(() => {
     if (!data || data.runnerDetails.access.enabledSections.runnerInfo === false) return [];
 
+    const structured = data.runnerDetails.runnerInfo;
+    const rules = structured.rulesDetails.keyRules;
     return [
+      structured.startAreaDetails.location.label ? `Zone de départ : ${structured.startAreaDetails.location.label}${structured.startAreaDetails.opensAt ? ` · ouverture ${structured.startAreaDetails.opensAt}` : ''}` : null,
+      structured.briefingDetails.date || structured.briefingDetails.time || structured.briefingDetails.location.label ? `Briefing${structured.briefingDetails.mandatory ? ' obligatoire' : ''} : ${[structured.briefingDetails.date, structured.briefingDetails.time, structured.briefingDetails.location.label].filter(Boolean).join(' · ')}` : null,
+      rules.polesAllowed ? `Bâtons : ${{ allowed: 'autorisés', partial: 'partiellement autorisés', forbidden: 'interdits' }[rules.polesAllowed]}` : null,
+      rules.cupRequired === true ? 'Gobelet obligatoire' : null,
+      rules.musicAllowed !== null ? `Musique : ${rules.musicAllowed ? 'autorisée' : 'interdite'}` : null,
+      rules.outsideAssistanceForbidden === true ? 'Assistance extérieure interdite' : null,
       data.runnerDetails.runnerInfo.startArea,
       data.runnerDetails.runnerInfo.briefing,
       data.runnerDetails.runnerInfo.rules,
@@ -1389,21 +1397,21 @@ export default function RaceRacebookScreen() {
         : null,
     ].filter((value): value is { label: string; value: string } => Boolean(value));
     const transportItems: RacebookAccessTransport[] = [];
-    if (access.enabledSections.officialParkings && access.officialParkings) {
+    if (access.enabledSections.officialParkings && (access.parkings.length > 0 || access.officialParkings)) {
       transportItems.push({
         key: 'parking',
         icon: 'car-outline',
         title: t.catalog.racebookAccessParking,
-        description: access.officialParkings,
+        description: access.parkings.length > 0 ? access.parkings.map((parking) => [parking.name, parking.location.label, parking.capacity ? `${parking.capacity} places` : null, parking.paid === false ? 'gratuit' : parking.paid === true ? 'payant' : null, parking.location.googleMapsUrl, parking.note].filter(Boolean).join(' · ')).join('\n') : access.officialParkings!,
       });
     }
-    if (access.enabledSections.shuttles && (access.shuttles || access.shuttleSchedule)) {
+    if (access.enabledSections.shuttles && (access.shuttleLines.length > 0 || access.shuttles || access.shuttleSchedule)) {
       transportItems.push({
         key: 'shuttles',
         icon: 'bus-outline',
         title: t.catalog.racebookAccessShuttles,
-        description: access.shuttles ?? access.shuttleSchedule!,
-        schedule: access.shuttles ? access.shuttleSchedule : null,
+        description: access.shuttleLines.length > 0 ? access.shuttleLines.map((line) => [`${line.from.label ?? 'Départ'} → ${line.to.label ?? 'Arrivée'}`, line.startTime && line.endTime ? `${line.startTime}–${line.endTime}` : null, line.frequencyMinutes ? `toutes les ${line.frequencyMinutes} min` : null, line.free === true ? 'gratuite' : null, line.bookingUrl, line.note].filter(Boolean).join(' · ')).join('\n') : access.shuttles ?? access.shuttleSchedule!,
+        schedule: access.shuttleLines.length > 0 ? null : access.shuttles ? access.shuttleSchedule : null,
       });
     }
 
@@ -1461,8 +1469,11 @@ export default function RaceRacebookScreen() {
           cutoff: Math.abs(station.km - data.race.distanceKm) <= 0.2
             ? finishCutoffText ?? station.organizerDetails.cutoffTime
             : station.organizerDetails.cutoffTime,
+          dayOffset: Math.abs(station.km - data.race.distanceKm) <= 0.2
+            ? data.runnerDetails.schedule.finishCutoffDayOffset ?? station.organizerDetails.cutoffDayOffset
+            : station.organizerDetails.cutoffDayOffset,
         })),
-      { id: OFFICIAL_FINISH_CUTOFF_ID, km: Math.max(data.race.distanceKm, finishStation?.km ?? 0), cutoff: finishCutoffText },
+      { id: OFFICIAL_FINISH_CUTOFF_ID, km: Math.max(data.race.distanceKm, finishStation?.km ?? 0), cutoff: finishCutoffText, dayOffset: data.runnerDetails.schedule.finishCutoffDayOffset ?? finishStation?.organizerDetails.cutoffDayOffset },
     ]);
     const { [OFFICIAL_FINISH_CUTOFF_ID]: finishMinute = null, ...byStationId } = schedule;
     if (finishStation && finishMinute !== null) byStationId[finishStation.id] = finishMinute;
@@ -2302,7 +2313,7 @@ export default function RaceRacebookScreen() {
               <RacebookBibSection
                 locationGroups={sponsorPresentation.modules.bib_pickup ? bibLocationGroups : []}
                 fallbackSchedule={sponsorPresentation.modules.bib_pickup ? data.runnerDetails.bibPickup.schedule : null}
-                requiredDocuments={sponsorPresentation.modules.bib_pickup ? data.runnerDetails.bibPickup.requiredDocuments : null}
+                requiredDocuments={sponsorPresentation.modules.bib_pickup ? (() => { const bib = data.runnerDetails.bibPickup; const labels = { id_card: 'Pièce d’identité', registration_qr: 'QR d’inscription', medical_certificate: 'Certificat médical', license_or_pps: 'Licence ou PPS', parental_authorization: 'Autorisation parentale', other: bib.requiredDocumentsOther ?? 'Autre document' }; return bib.requiredDocumentKinds.length > 0 ? bib.requiredDocumentKinds.map((kind) => labels[kind]) : bib.requiredDocuments ? [bib.requiredDocuments] : []; })() : []}
                 rules={sponsorPresentation.modules.bib_pickup ? bibLines : []}
                 onOpenUrl={openExternalUrl}
                 onOpenMap={(location) => {

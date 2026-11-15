@@ -1,7 +1,8 @@
 ---
 title: plan_aid_stations Table
 scope: database
-last_verified: 2026-10-29
+last_verified: 2026-11-15
+# Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql

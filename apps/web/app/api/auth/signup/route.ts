@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { getSupabaseAnonConfig } from "../../../../lib/supabase";
 import { ensureTrialStatus } from "../../../../lib/trial-server";
+import { buildAuthCallbackPath, normalizeInternalReturnPath } from "../../../../lib/organizer-acquisition";
 
 const passwordRequirement = "Password must be at least 8 characters and include a letter and a number";
 
@@ -10,6 +11,7 @@ const signUpSchema = z.object({
   email: z.string().trim().email(),
   password: z.string().min(8, passwordRequirement).regex(/[A-Za-zÀ-ÖØ-öø-ÿ]/, passwordRequirement).regex(/\d/, passwordRequirement),
   fullName: z.string().trim().min(2).max(120).optional(),
+  returnPath: z.string().max(500).optional(),
 });
 
 export async function POST(request: Request) {
@@ -28,8 +30,12 @@ export async function POST(request: Request) {
 
   try {
     const { email, password, fullName } = parsedBody.data;
+    const returnPath = normalizeInternalReturnPath(parsedBody.data.returnPath);
+    const emailRedirectTo = new URL(buildAuthCallbackPath(returnPath), new URL(request.url).origin).toString();
 
-    const response = await fetch(`${supabaseConfig.supabaseUrl}/auth/v1/signup`, {
+    const signUpUrl = new URL(`${supabaseConfig.supabaseUrl}/auth/v1/signup`);
+    signUpUrl.searchParams.set("redirect_to", emailRedirectTo);
+    const response = await fetch(signUpUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

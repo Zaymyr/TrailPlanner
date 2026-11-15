@@ -6,6 +6,7 @@ import { MetricCard } from "../../../../components/ui/MetricCard";
 import { TimeSeriesLineChart } from "../../../../components/ui/TimeSeriesLineChart";
 import { Button } from "../../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../../components/ui/card";
+import { SelectField } from "./form-kit";
 
 import type { RaceFormat } from "./types";
 
@@ -47,7 +48,7 @@ export function formatAnalyticsDuration(seconds: number | null) {
 export function OrganizerAnalyticsSummaryCards({ summary }: { summary: AnalyticsSummary }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-      <MetricCard label="Lecteurs uniques estimés" value={summary.uniqueReaders.toLocaleString("fr-FR")} helper="Identifiants PostHog distincts" />
+      <MetricCard label="Lecteurs uniques estimés" value={summary.uniqueReaders.toLocaleString("fr-FR")} helper="Nombre approximatif de personnes ayant consulté le Livret coureur" />
       <MetricCard label="Ouvertures totales" value={summary.totalOpens.toLocaleString("fr-FR")} />
       <MetricCard label="Durée active moyenne" value={formatAnalyticsDuration(summary.averageActiveSeconds)} helper="Sessions fermées correctement" />
       <MetricCard label="Taux d’engagement" value={summary.engagementRate === null ? "—" : `${Math.round(summary.engagementRate * 100)} %`} helper="Sessions avec interaction mesurable" />
@@ -122,18 +123,11 @@ export function OrganizerAnalyticsPanel({ editionId, accessToken, access, races,
         <div className="flex flex-wrap gap-2">
           <label className="space-y-1 text-xs font-medium text-muted-foreground">
             Format
-            <select aria-label="Filtrer les statistiques par format" className="block h-10 rounded-md border border-border bg-card px-3 text-sm text-foreground" value={raceId} onChange={(event) => setRaceId(event.target.value)}>
-              <option value="">Tous les formats</option>
-              {races.map((race) => <option key={race.id} value={race.id}>{race.name}</option>)}
-            </select>
+            <SelectField aria-label="Filtrer les statistiques par format" className="block" value={raceId} options={[{ value: "", label: "Tous les formats" }, ...races.map((race) => ({ value: race.id, label: race.name }))]} onValueChange={setRaceId} />
           </label>
           <label className="space-y-1 text-xs font-medium text-muted-foreground">
             Période
-            <select aria-label="Période des statistiques" className="block h-10 rounded-md border border-border bg-card px-3 text-sm text-foreground" value={range} onChange={(event) => setRange(event.target.value as AnalyticsRange)}>
-              <option value="7d">7 jours</option>
-              <option value="30d">30 jours</option>
-              <option value="90d">90 jours</option>
-            </select>
+            <SelectField aria-label="Période des statistiques" className="block" value={range} options={[{ value: "7d", label: "7 jours" }, { value: "30d", label: "30 jours" }, { value: "90d", label: "90 jours" }]} onValueChange={(value) => setRange(value as AnalyticsRange)} />
           </label>
         </div>
       </div>

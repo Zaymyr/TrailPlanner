@@ -806,6 +806,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
                     name: station.name,
                     km: formatDistanceValue(station.distanceKm, locale),
                     pauseMinutes: String(station.pauseMinutes ?? 0),
+                    maxStopMinutes: station.maxStopMinutes,
                     waterRefill: station.waterRefill !== false,
                     solidRefill: station.solidRefill !== false,
                     assistanceAllowed: station.assistanceAllowed !== false,

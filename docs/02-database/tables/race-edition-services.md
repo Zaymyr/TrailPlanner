@@ -2,7 +2,12 @@
 title: race_edition_services Table
 scope: database
 
-last_verified: 2026-11-11
+last_verified: 2026-11-15
+# Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
+# Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
+# Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
+# Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 
 ai_priority: high
 related_files:
@@ -26,6 +31,7 @@ related_tables:
 The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret accompagnateur, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret accompagnateur · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. Edition-service reads and visibility are unchanged; the guide's Sur place and Séjour sections render the same rows through `RacebookServicesSection`.
 
 The Supporter Guide groups published `recovery`/`other` rows under On site and `restaurant`/`accommodation` rows under Stay. Empty groups are hidden and the whole source remains subject to the effective `services` module.
+Service creation in the organizer now starts as a browser-local draft. Required-field errors appear only after interaction or save intent; no empty service row is sent to this table. Historical free-text service content remains legacy content: it is shown for migration but never counts as a structured service row.
 
 The shared mobile RaceBook screen now also renders additive third-party bib-pickup conditions from organizer JSON. Service categories, edition ownership, structured precedence, publication gates, and RLS remain unchanged.
 
@@ -138,3 +144,4 @@ The RaceBook hero no longer draws the course contour lines behind its header (th
 RaceBook onboarding guide cards now float above the RaceBook tab bar, and the post-tour « Envie d'aller plus loin ? » offer waits until the runner has opened two other tabs; « Créer mon plan » is a trail sign on the same creation path as the Course invite. Data and events are unchanged.
 
 The RaceBook onboarding tour only switches tabs, scrolls and highlights zones; it changes no data or visibility. Onboarding refers to the Trail TST seed ids, so they must stay stable.
+The Organizer shows the historical-content conversion banner only when legacy text exists and keeps structured services in category cards; rows, autosave, and non-destructive conversion remain unchanged.

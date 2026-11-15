@@ -5,6 +5,7 @@ export type EditableAidStationFields = {
   solidRefill: boolean;
   assistanceAllowed: boolean;
   pauseMinutes: number;
+  maxStopMinutes?: number;
 };
 
 export function resolveAidStationEdit(

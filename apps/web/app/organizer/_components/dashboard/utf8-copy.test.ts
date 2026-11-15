@@ -33,6 +33,15 @@ describe("organizer dashboard UTF-8 copy", () => {
     });
   });
 
+  it("keeps organizer microcopy accented and free from technical jargon", () => {
+    const source = organizerFiles.map((relativePath) => readFileSync(resolve(process.cwd(), relativePath), "utf8")).join("\n");
+    expect(source).not.toContain("apparaitra apres");
+    expect(source).not.toContain("Vert: depart");
+    expect(source).not.toContain("Rouge: arrivee");
+    expect(source).not.toContain("créneau(x)");
+    expect(source).not.toContain("Identifiants PostHog distincts");
+  });
+
   it("keeps the website import review copy free from mojibake sequences", () => {
     const absolutePath = resolve(process.cwd(), "app/organizer/_components/OrganizerDashboard.tsx");
     const source = readFileSync(absolutePath, "utf8").replace(/\r\n/g, "\n");
@@ -72,7 +81,8 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(source).not.toContain("Previsualiser ce format");
     expect(source).not.toContain("Masquer les details");
     expect(source).not.toContain("Dupliquer ce format");
-    expect(source).toContain("Lieu différent de l&apos;événement");
+    expect(source).toContain("Utiliser l’événement");
+    expect(source).toContain('{usesCustomLocation ? "Utiliser l’événement" : "Modifier"}');
   });
 
   it("keeps the organizer onboarding concise and replayable", () => {
@@ -187,11 +197,12 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(shellSource).toContain('href="/sign-in?next=%2Forganizer"');
     expect(shellSource).toContain("Rechercher ou choisir…");
     expect(shellSource).toContain("Aucun événement trouvé.");
-    expect(shellSource).toContain("md:grid-cols-[minmax(16rem,28rem)_10rem]");
+    expect(shellSource).toContain("sm:grid-cols-[minmax(12rem,1fr)_8rem]");
     expect(shellSource).toContain('htmlFor="organizer-workspace-select"');
-    expect(shellSource).toContain('<optgroup label="Informations communes">');
+    expect(shellSource).toContain('htmlFor="organizer-section-select"');
+    expect(shellSource).toContain('aria-label="Sections"');
+    expect(shellSource).toContain("SelectField");
     expect(shellSource).toContain("Commun à toutes les courses");
-    expect(shellSource).toContain('<optgroup label="Formats de course">');
     expect(shellSource).toContain("Course masquée pour le public");
     expect(shellSource).toContain("Livret coureur privé");
     expect(shellSource).toContain("Course et Livret coureur publics");
@@ -207,15 +218,11 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(shellSource).toContain("Notifier les coureurs");
     expect(shellSource).toContain("Actions");
     expect(shellSource).toContain("Factures");
-    expect(shellSource).toContain("Modifications en attente de sauvegarde…");
-    expect(shellSource).toContain("Sauvegardé automatiquement");
-    expect(shellSource).toContain("Échec de la sauvegarde automatique");
-    expect(shellSource).toContain("Réessayer");
+    expect(dashboardSource).toContain("<SaveStatus");
     expect(shellSource).toContain("Duplication de l’édition en cours…");
     expect(shellSource).toContain("Cette opération peut prendre quelques instants.");
     expect(shellSource).toContain('aria-busy={isEditionCreationPending}');
-    expect(shellSource).toContain('role="status"');
-    expect(shellSource).toContain('id="organizer-autosave-status"');
+    expect(dashboardSource).toContain('state={autosaveState}');
     expect(dashboardSource).toContain("autosaveState={autosaveState}");
     expect(shellSource).toContain("Supprimer l’édition");
     expect(shellSource).toContain("Supprimer l’événement");
@@ -226,10 +233,12 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(shellSource).toContain('module.status === "empty" && "border-slate-200');
     expect(shellSource).toContain('module.status === "incomplete" && "border-amber-300');
     expect(shellSource).toContain('module.status === "complete" && "border-emerald-300');
-    expect(shellSource).toContain('incomplete: "Partiel"');
-    expect(shellSource).toContain('{statusLabels[module.status]}</p>');
+    expect(shellSource).toContain('module.status === "complete" ? "Complet"');
+    expect(shellSource).toContain('{getStatusLabel(module)}</p>');
     expect(shellSource).toContain('activeModule === module.id && "border-brand shadow-lg ring-2 ring-brand');
-    expect(shellSource).toContain('min-h-[82px] rounded-lg');
+    expect(shellSource).toContain('min-h-[64px] rounded-lg');
+    expect(dashboardSource).toContain("min-[1320px]:grid-cols-[240px_minmax(0,1fr)_300px]");
+    expect(dashboardSource).toContain("<OrganizerProgressRail");
     expect(shellSource).not.toContain('Manque : {module.missingLabels');
     expect(dashboardSource).toContain("raceSeriesGroups.filter");
     expect(dashboardSource).not.toContain("race.racebook_preview_is_visible !== false");
@@ -281,15 +290,16 @@ describe("organizer dashboard UTF-8 copy", () => {
       "utf8"
     );
 
-    expect(source).toContain("Informations principales");
-    expect(source).toContain('title="les réseaux sociaux"');
-    expect(source).toContain("Dates de l’édition");
-    expect(source).toContain("Contact d’urgence");
-    expect(source).toContain('title="une image de couverture"');
+    expect(source).toContain('legend="L’événement"');
+    expect(source).toContain("[grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr))]");
+    expect(source).not.toContain('title="Réseaux sociaux"');
+    expect(source).toContain('legend="Dates"');
+    expect(source).toContain('legend="En cas d’urgence"');
+    expect(source).toContain('title="Image de couverture"');
     expect(source).toContain('label="Nom du contact"');
     expect(source).toContain('label="Téléphone"');
     expect(source).toContain('type="tel"');
-    expect(source).toContain("border-amber-200 bg-amber-50/50");
+    expect(source).not.toContain("border-amber-200 bg-amber-50/50");
   });
 
   it("separates aid stations and relay points into local views", () => {
@@ -298,18 +308,22 @@ describe("organizer dashboard UTF-8 copy", () => {
       "utf8"
     );
 
-    expect(source).toContain('{ id: "aidStations", label: "Ravitos" }');
-    expect(source).toContain('{ id: "supporters", label: "Suivi coureur" }');
-    expect(source).toContain('{ id: "relay", label: "Relais" }');
-    expect(source.match(/view: "aidStations"/g)).toHaveLength(2);
-    expect(source).toContain('viewState.view : "aidStations"');
+    expect(source).toContain('aria-label="Ligne de course"');
+    expect(source).toContain('aria-label="Filtrer la ligne de course"');
+    expect(source).toContain('`Ravitos ${aidStations.length}`');
+    expect(source).toContain('`Suivi ${supporterPoints.length}`');
+    expect(source).toContain('`Relais ${relayPoints.length}`');
+    expect(source).toContain('viewState.view : "all"');
+    expect(source).toContain('["all", "Tout"]');
     expect(source).toContain('activeView === "aidStations"');
-    expect(source.indexOf("<FixedCourseCard")).toBeLessThan(source.indexOf("<TabsList"));
+    expect(source).toContain('{ key: "sas", kind: "sas" as const');
+    expect(source).toContain("function CutoffChip");
+    expect(source).toContain("function TimelineMarker");
     expect(source).toContain("disabled={startWaveCount > 0}");
-    expect(source).toContain("Les autres SAS se règlent dans l’onglet SAS.");
-    expect(source).toContain('title="Départ"');
-    expect(source).toContain('title="Arrivée"');
-    expect(source).toContain('StationMetaChip>Barrière {details.cutoffTime?.trim() || "-"}');
+    expect(source).toContain('{ key: "start", kind: "start" as const, name: "Départ"');
+    expect(source).toContain('{ key: "finish", kind: "finish" as const, name: "Arrivée"');
+    expect(source).toContain("time: station.organizerDetails.cutoffTime");
+    expect(source).not.toContain("{false ? (");
     expect(source).toContain('aria-label="Tronçons du relais"');
     expect(source).not.toContain('label="Passage prévu"');
     expect(source).not.toContain('label="Note de passage"');
@@ -357,7 +371,8 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(detailSource).toContain("Retrait hérité de l’événement");
     expect(detailSource).toContain("Matériel hérité de l’événement");
     expect(detailSource).toContain("Accès hérité de l’événement");
-    expect(dashboardSource).toContain('activeModule === "formats" || activeModule === "equipment" || activeModule === "bibPickup" || activeModule === "access"');
+    expect(dashboardSource).toContain("<SectionHeader");
+    expect(dashboardSource).toContain("bg-[radial-gradient(circle_at_15%_120%");
     expect(detailSource).toContain("showHeader={false}");
     expect(detailSource).toContain("framed={false}");
     expect(detailSource).not.toContain("<p className=\"font-semibold text-foreground\">Retrait dossard - {activeRace.name}</p>");
@@ -377,10 +392,11 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(controlsSource).not.toContain("export function CollapsibleRow");
     expect(detailSource).toContain("Obligatoire");
     expect(detailSource).toContain("Recommandé");
-    expect(detailSource).toContain("Conditions du retrait par un tiers");
+    expect(detailSource).toContain("Documents pour le retrait par un tiers");
     expect(detailSource).toContain("font-mono text-sm tabular-nums");
-    expect(detailSource).toContain("SegmentedChoice");
-    expect(detailSource).not.toContain(" text-red-");
+    expect(detailSource).toContain("function RequiredToggle");
+    expect(detailSource).toContain('aria-label="Nouvel item de matériel"');
+    expect(detailSource).toContain("text-red-700");
   });
 
   it("keeps access fields aligned with the runner-facing information hierarchy", () => {
@@ -389,13 +405,14 @@ describe("organizer dashboard UTF-8 copy", () => {
       "utf8"
     );
 
-    expect(source).toContain('title="une carte générale"');
-    expect(source).toContain('title="les routes fermées"');
-    expect(source).toContain('title="les parkings"');
-    expect(source).toContain('title="les navettes"');
+    expect(source).toContain('title="Carte générale"');
+    expect(source).toContain('title="Routes fermées"');
+    expect(source).toContain('title="Parkings"');
+    expect(source).toContain('title="Navettes"');
     expect(source).toContain('label="Information prioritaire"');
-    expect(source).toContain('label="Fonctionnement des navettes"');
-    expect(source).toContain('label="Horaires des navettes"');
+    expect(source).toContain('label="Fréquence (min)"');
+    expect(source).toContain('label="Réservation"');
+    expect(source).toContain('block: "access"');
     expect(source).not.toContain('label="Note accès"');
   });
 
@@ -435,7 +452,7 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(editorSource).toContain("RACEBOOK_EDITION_LOGO_ENABLED ? (");
     expect(editorSource).toContain("theme.accentSurfaceColor");
     expect(dashboardSource).toContain("Cette section restera privée jusqu’au passage à");
-    expect(dashboardSource).toContain("Offre requise pour publier toutes les sections");
+    expect(dashboardSource).toContain("<OrganizerProgressRail");
   });
 
   it("keeps course-point autosave gated by the active race sidecar load", () => {

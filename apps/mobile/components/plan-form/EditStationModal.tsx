@@ -15,6 +15,7 @@ import { splitLabelUnit } from '../../lib/fieldLabel';
 import { ActionButton } from '../themed/ActionButton';
 import { Field } from '../themed/Field';
 import { SheetHeader } from '../themed/SheetHeader';
+import { isPauseOverOrganizerLimit } from '../../lib/planStopLimit';
 import { Text } from '../themed/Text';
 import { styles } from './styles';
 
@@ -24,6 +25,7 @@ export type EditingStation = {
   name: string;
   km: string;
   pauseMinutes: string;
+  maxStopMinutes?: number;
   waterRefill: boolean;
   solidRefill: boolean;
   assistanceAllowed: boolean;
@@ -143,6 +145,9 @@ export function EditStationModal({ editingStation, setEditingStation, onSave, of
               placeholder="0"
               unit={pauseField.unit}
               value={editingStation?.pauseMinutes ?? ''}
+              error={editingStation?.maxStopMinutes && isPauseOverOrganizerLimit(Number(editingStation.pauseMinutes || 0), editingStation.maxStopMinutes)
+                ? `La pause dépasse la limite organisateur de ${editingStation.maxStopMinutes} min.`
+                : undefined}
             />
 
             <Text style={styles.label}>{t.planForm.servicesLabel}</Text>

@@ -29,8 +29,6 @@ export type PremiumPaywallPlacement =
   | 'auto_fill'
   | 'pace'
   | 'nutrition'
-  | 'plan_limit'
-  | 'favorite_limit'
   | 'recap'
   | 'settings';
 
@@ -115,8 +113,6 @@ function PremiumUpsellModalContent({
     auto_fill: t.profile.premiumPaywallAutoFillMessage,
     pace: t.profile.premiumPaywallPaceMessage,
     nutrition: t.profile.premiumPaywallNutritionMessage,
-    plan_limit: t.profile.premiumPaywallPlanLimitMessage,
-    favorite_limit: t.profile.premiumPaywallFavoriteLimitMessage,
     recap: t.profile.premiumPaywallRecapMessage,
     settings: t.profile.premiumPaywallSettingsMessage,
   }[placement];
@@ -135,7 +131,7 @@ function PremiumUpsellModalContent({
 
   const defaultBenefits = isCourseOffer
     ? [t.profile.premiumBenefitPace, t.profile.premiumBenefitNutrition, t.profile.premiumBenefitCourseAccess]
-    : [t.profile.premiumBenefitPlans, t.profile.premiumBenefitFavorites, t.profile.premiumBenefitAutoFill];
+    : [t.profile.premiumBenefitPlans, t.profile.premiumBenefitAutoFill];
   const firstBenefit = placement === 'pace'
     ? t.profile.premiumBenefitPace
     : placement === 'nutrition' || placement === 'auto_fill'

@@ -60,4 +60,27 @@ describe("buildSegments", () => {
     expect(segments[0].estimatedSegmentMinutes).toBeCloseTo(10);
     expect(segments[0].segmentMinutes).toBeCloseTo(10);
   });
+
+  it("ignores duplicate and zero-length checkpoints from organizer data", () => {
+    const segments = buildSegments(
+      {
+        ...baseValues,
+        aidStations: [
+          { name: "Départ dupliqué", distanceKm: 0 },
+          { name: "Ravito", distanceKm: 5 },
+          { name: "Arrivée organisateur", distanceKm: 5 },
+          { name: "Arrivée source", distanceKm: 9.5 },
+        ],
+      },
+      "Départ",
+      "Arrivée",
+      [],
+    );
+
+    expect(segments.map((segment) => [segment.from, segment.checkpoint, segment.segmentKm])).toEqual([
+      ["Départ", "Ravito", 5],
+      ["Ravito", "Arrivée", 5],
+    ]);
+    expect(segments.every((segment) => segment.segmentKm > 0)).toBe(true);
+  });
 });

@@ -133,9 +133,14 @@ function AidStationCard({
     station.organizerDetails.dropBagAvailable
       ? { icon: 'briefcase-outline' as const, label: copy.aidDropBag }
       : null,
+    station.organizerDetails.amenities.toilets ? { icon: 'male-female-outline' as const, label: locale === 'fr' ? 'Toilettes' : 'Toilets' } : null,
+    station.organizerDetails.amenities.shelter ? { icon: 'home-outline' as const, label: locale === 'fr' ? 'Abri' : 'Shelter' } : null,
+    station.organizerDetails.amenities.medical ? { icon: 'medkit-outline' as const, label: locale === 'fr' ? 'Soins' : 'Medical' } : null,
+    station.organizerDetails.amenities.hotDrinks ? { icon: 'cafe-outline' as const, label: locale === 'fr' ? 'Boisson chaude' : 'Hot drinks' } : null,
+    station.organizerDetails.amenities.hotFood ? { icon: 'restaurant-outline' as const, label: locale === 'fr' ? 'Repas chaud' : 'Hot food' } : null,
   ].filter((value): value is NonNullable<typeof value> => Boolean(value));
 
-  const hasExpandedDetails = Boolean(station.organizerDetails.organizerNote || station.notes);
+  const hasExpandedDetails = Boolean(station.organizerDetails.note || station.organizerDetails.organizerNote || station.notes || station.organizerDetails.maxStopMinutes || station.organizerDetails.supportersAccess);
   const [showCutoffWarning, setShowCutoffWarning] = useState(false);
   const personalClock = personalPlan?.estimatedClock ?? null;
 
@@ -243,6 +248,9 @@ function AidStationCard({
 
       {expanded && hasExpandedDetails ? (
         <View style={styles.aidStationExpandedContent}>
+          {station.organizerDetails.maxStopMinutes ? <Text style={styles.noteText}>{locale === 'fr' ? `Temps d’arrêt maximum : ${station.organizerDetails.maxStopMinutes} min` : `Maximum stop: ${station.organizerDetails.maxStopMinutes} min`}</Text> : null}
+          {station.organizerDetails.supportersAccess ? <Text style={styles.noteText}>{locale === 'fr' ? `Accompagnants : ${{ allowed: 'autorisés', restricted: 'zone dédiée', forbidden: 'interdits' }[station.organizerDetails.supportersAccess]}` : `Supporters: ${{ allowed: 'allowed', restricted: 'dedicated area', forbidden: 'forbidden' }[station.organizerDetails.supportersAccess]}`}</Text> : null}
+          {station.organizerDetails.note ? <Text style={styles.noteText}>{station.organizerDetails.note}</Text> : null}
           {station.organizerDetails.organizerNote || station.notes ? (
             <View style={styles.noteRow}>
               <Ionicons

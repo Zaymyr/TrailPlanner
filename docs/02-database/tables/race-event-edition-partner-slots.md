@@ -1,8 +1,9 @@
 ---
 title: race_event_edition_partner_slots Table
 scope: database
-last_verified: 2026-11-11
+last_verified: 2026-11-13
 ai_priority: high
+# UI note (2026-11-13): partner slots now render after the sponsor form; slot storage is unchanged.
 related_files:
   - supabase/migrations/20261109140000_add_racebook_edition_partner_slots.sql
   - supabase/tests/racebook_partner_slots_checks.sql
@@ -29,6 +30,7 @@ related_tables:
 # race_event_edition_partner_slots
 
 The published `lodging` slot is reused in the Supporter Guide Stay section with the same affiliate/partner/hidden semantics and effective `sponsors` gate. The guide never reads draft slot rows or exposes partner destination URLs directly.
+The shared organizer form controls and sponsor/partner slot editor cleanup do not change this table's slot modes, effective-module gate, counters, or snapshot publication contract.
 
 Partner-slot public output follows the exact effective sponsor/module access resolved by the RaceBook routes. Independent invoice rows do not change slot visibility or table access.
 
@@ -81,6 +83,8 @@ RLS is enabled with no client policy; `PUBLIC`, `anon` and `authenticated` have 
 `/api/racebook-sponsors` adds `partnerSlots: { equipment, lodging }`, each `{ mode: "affiliate" }`, `{ mode: "hidden" }` or `{ mode: "partner", name, logoUrl, headline, clickUrl }`. The destination URL never leaves the server; `clickUrl` is the counted redirect. Older clients ignore the field; older payloads normalize to affiliate defaults on mobile.
 
 ## Gotchas
+
+- Organizer partner-slot selects use the shared route-local `SelectField`; this is presentation-only and does not change stored slot kinds or constraints.
 
 - Do not expose `website_url` / `destinationUrl` in runner payloads; `publicSnapshot` strips it from `partnerSlots` too.
 - Organizer partner presses on mobile bypass the identified `racebook action clicked` stream (like sponsor redirects); only the default affiliate presses keep `partner_decathlon` / `partner_booking` actions.

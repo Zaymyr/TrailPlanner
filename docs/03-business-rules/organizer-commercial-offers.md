@@ -1,8 +1,20 @@
 ---
 title: Organizer Commercial Offers
 scope: business-rule
-last_verified: 2026-11-09
+last_verified: 2026-11-15
+# Assisted legacy conversion (2026-11-15): conversion requires the effective assisted_import.request capability (Signature or its complimentary grant).
+# Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: high
+# Organizer UI note (2026-11-13): completion yields the contextual rail to media-heavy editors; offer and completion rules are unchanged.
+# Form note (2026-11-13): required badges are presentation of existing completion prerequisites and do not add offer gates.
+# Navigation note (2026-11-13): the single active subsection state does not alter offer availability.
+# Dense module note (2026-11-13): sponsor and course presentation changes do not alter offers.
+# Mobile gutter note (2026-11-13): compact editor padding does not alter offers.
+# Layout polish note (2026-11-13): organizer presentation changes (aid-station detail, format metrics row, media rail visibility, equipment status action) do not alter stored data or contracts.
+# Fill-flow pass (2026-11-13): Sponsors/partner-slot ordering and the Services status label changed in the UI only; offer gating unchanged.
+# Organizer UX pass (2026-11-14): format sections nest under the selected format in the left nav, ravito type is Ravito / Base de vie, and equipment uses a top quick-add with per-row Obligatoire switch; no stored data or contract changes.
+# Course timeline note (2026-11-14): timeline filters, point markers and cutoff chips in the aid-station editor are presentation-only; stored data and contracts are unchanged.
 related_files:
   - apps/web/lib/organizer-entitlements.ts
   - apps/web/lib/organizer-modules.ts
@@ -78,6 +90,8 @@ The `supporter_points` module remains an independent Essentiel module. Selecting
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
+Organizer form, completion, and navigation refinements are presentation-only: they do not grant a tier, modify effective modules, or bypass server-side publication readiness and entitlement checks.
+
 ## Purpose
 
 One offer is purchased per event edition, independently of participant and format counts. Event membership authorizes every draft editor; the offer authorizes public output and costly operations. Disabling or losing publication access masks content without deleting it.
@@ -135,6 +149,8 @@ Recalculation requires a valid paid path and assigns `stripe` or `manual_payment
 
 ## Gotchas
 
+- Compact Organizer header and section navigation changes do not alter offer tiers, checkout eligibility, or publication CTA authorization.
+
 Publication is a versioned snapshot operation per format. Tier checks are repeated before snapshot construction; bulk edition publication is all-or-none, a downgrade masks unavailable published modules immediately, and an upgrade requires explicit republication.
 
 - Runner annual and course offers are a distinct consumer billing model. Do not create `organizer_edition_payments` or organizer edition entitlements from their webhook events.
@@ -178,3 +194,9 @@ Publication is a versioned snapshot operation per format. Tier checks are repeat
 ## Partner slots option (2026-11-09)
 
 The base RaceBook (every paid tier) shows Pace Yourself affiliate cards in the Matériel (Decathlon) and Services hébergement (Booking.com) slots. Replacing them with the organizer's own partners, or hiding them, is part of the Signature `sponsors.manage` capability (same gate as sponsors); no new module key, price or capability was added. <!-- TODO: verify with maintainer: dedicated pricing for a standalone "Partenaires" option is a business decision. -->
+
+The compact organizer workspace and corrected completion indicator are presentation-only and do not change tiers, checkout gates or publication entitlements.
+
+The Organizer three-column shell repositions offer-aware section states and publication actions without changing module availability, pricing, entitlements, or checkout gates.
+
+Organizer section-header and module-card finishing does not change offer availability, sponsor access, pricing, or publication entitlements.

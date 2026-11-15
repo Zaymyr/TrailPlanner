@@ -40,6 +40,7 @@ Stores immutable, versioned RaceBook snapshots assembled and validated by the se
 - `schema_version` versions the JSON contract; `content_hash` is the canonical SHA-256 digest.
 - Publication and bulk publication compare an expected draft revision while holding the state row lock.
 - Before a single-format confirmation, the server builds the saved draft snapshot and compares its canonical sections with the current publication to return human-readable changed-field labels; this comparison does not insert a version.
+- The organizer state read uses the same canonical SHA-256 comparison whenever revisions differ. Thus, a draft that is changed and then restored to byte-equivalent canonical content is not reported as unpublished merely because source revisions are monotonic.
 
 ## Columns
 
@@ -90,6 +91,7 @@ limit 10;
 - Never serialize service-only asset paths in a public response.
 - A PostgreSQL `PT409` revision error is the concurrency signal; keep the previous pointer unchanged.
 - Publication content is immutable by grants, not by an update trigger, so privileged maintenance must preserve that contract.
+- `content_hash` is the authoritative content-equality signal for organizer dirty presentation when both a built draft snapshot and a current publication exist; revision values still protect publish-time concurrency.
 
 ## Related Docs
 

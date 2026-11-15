@@ -14,6 +14,12 @@ export function buildSegments(
   finishLabel: string,
   elevationProfile: ElevationPoint[]
 ): Segment[] {
+  const normalizeCheckpointName = (name: string) => name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+  const finishNames = new Set([normalizeCheckpointName(finishLabel), "arrivee", "finish"]);
   const gelCarbs = defaultFuelProducts[0]?.carbsGrams ?? 25;
   const minPerKm = minutesPerKm(values) ?? 0;
   const sortedElevationProfile = [...elevationProfile].sort((a, b) => a.distanceKm - b.distanceKm);
@@ -64,7 +70,7 @@ export function buildSegments(
     }))
     .sort((a, b) => a.distanceKm - b.distanceKm);
 
-  const checkpoints: (AidStation & {
+  const rawCheckpoints: (AidStation & {
     originalIndex?: number;
     kind: "start" | "aid" | "finish";
     waterRefill?: boolean;
@@ -72,7 +78,11 @@ export function buildSegments(
     assistanceAllowed?: boolean;
   })[] = [
     { name: startLabel, distanceKm: 0, kind: "start" as const, waterRefill: true, solidRefill: true, assistanceAllowed: true },
-    ...stationsWithIndex.filter((s) => s.distanceKm < values.raceDistanceKm),
+    ...stationsWithIndex.filter((station) => {
+      if (station.distanceKm >= values.raceDistanceKm) return false;
+      const normalizedName = normalizeCheckpointName(station.name);
+      return !Array.from(finishNames).some((finishName) => normalizedName === finishName || normalizedName.startsWith(`${finishName} `));
+    }),
     {
       name: finishLabel,
       distanceKm: values.raceDistanceKm,
@@ -84,6 +94,13 @@ export function buildSegments(
       ...(values.finishPlan ?? {}),
     },
   ];
+
+  const checkpoints = rawCheckpoints.reduce<typeof rawCheckpoints>((valid, checkpoint) => {
+    const previous = valid.at(-1);
+    if (previous && checkpoint.distanceKm <= previous.distanceKm) return valid;
+    valid.push(checkpoint);
+    return valid;
+  }, []);
 
   let elapsedMinutes = 0;
   const waterCapacityMl =
@@ -168,6 +185,7 @@ export function buildSegments(
       solidRefill: station.solidRefill !== false,
       assistanceAllowed: station.kind === "start" ? true : station.assistanceAllowed !== false,
       ...(station.sourceAidStationId ? { sourceAidStationId: station.sourceAidStationId } : {}),
+      ...(station.maxStopMinutes ? { maxStopMinutes: station.maxStopMinutes } : {}),
       aidStationIndex: station.kind === "aid" ? station.originalIndex : undefined,
       isFinish: station.kind === "finish",
       waterCapacityMl: waterCapacityMl ?? undefined,

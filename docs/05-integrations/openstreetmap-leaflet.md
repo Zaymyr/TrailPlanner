@@ -1,8 +1,15 @@
 ---
 title: OpenStreetMap and Leaflet
 scope: integration
-last_verified: 2026-11-09
+last_verified: 2026-11-13
 ai_priority: medium
+# Organizer UI note (2026-11-13): the GPX map uses the 300px contextual rail on wide screens and follows the form below the breakpoint; map loading is unchanged.
+# Loading note (2026-11-13): organizer sidecar skeletons avoid presenting an empty map state while data loads.
+# Header note (2026-11-13): section icons and contour watermark do not alter Leaflet rendering.
+# Mobile course note (2026-11-13): collapsing the media surface delays only its display, not Leaflet data loading.
+# Mobile finish note (2026-11-13): the collapsed media summary is the explicit entry point to the organizer map below 900px.
+# Layout polish note (2026-11-13): organizer presentation changes (aid-station detail, format metrics row, media rail visibility, equipment status action) do not alter stored data or contracts.
+# Fill-flow note (2026-11-13): organizer form ergonomics (ravito services, Enter-to-add, slot undo, sponsor ordering) do not alter stored data or contracts.
 related_files:
   - apps/web/package.json
   - apps/web/app/layout.tsx
@@ -20,12 +27,15 @@ related_tables: []
 The Supporter Guide v1 renders published directions links and does not add a Leaflet map or new geocoding provider. The web-only QR dependency does not change OpenStreetMap attribution or map behavior.
 
 The workspace dependency update for shared plan-tracking code does not change Leaflet, OpenStreetMap tiles, attribution, caching or map delivery.
+Removing the global historical-trial overlay does not change Leaflet loading, attribution, tile providers or map layout contracts.
 
 The add-format flow no longer carries over the active format's GPX or map state. Map rendering and Leaflet loading remain unchanged and begin only from an explicitly selected GPX.
 
 Moving the format editor to a single column and labelling the ravito `Détails` control changes authoring presentation only. Route/profile maps still mount from the same explicit GPX preview data.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
+
+The form-kit migration of ravito controls (shared selects, local draft/undo interactions, and compact mobile cards) changes neither GPX parsing nor the route-preview payload. Adding, cancelling, or undoing a ravito remains outside Leaflet until the existing organizer save path has persisted the station collection.
 
 ## Purpose
 
@@ -80,6 +90,7 @@ The per-format `gpxDisplay.showRoute` preference may omit this mobile map from t
 - Keep organizer-authored station names, services, cutoffs, and notes out of raw HTML interpolation; construct popup content with DOM text nodes and preserve accessible marker labels.
 - Do not interpret a hidden RaceBook route as permission to delete or stop validating the GPX geometry.
 - Keep upload transport dependencies out of the map chunk; Organizer module code-splitting should not make TUS part of a route-preview load.
+- Do not let a transient local ravito draft or a pending six-second deletion alter map markers, bounds, profile values, or the source GPX. The preview must continue to reflect the established station collection data flow.
 
 ## Related Docs
 
@@ -91,3 +102,15 @@ The per-format `gpxDisplay.showRoute` preference may omit this mobile map from t
 The web package now also depends on `@mediabunny/aac-encoder` for the admin reel export; this integration is unaffected.
 
 RaceBook polish (2026-11-09): the runner hero keeps the format/event thumbnail but renders it blurred (`blurRadius` 24) under a 90% organizer-primary veil, so no artwork text is readable behind the identity, omits the default `Solo` participation label, appends a `J-N`/`Aujourd'hui` countdown to the date line (hidden after race day), and moves its expanded block up with the collapse so titles never overlap and metrics are never clipped. Runner wording was simplified (`Où encourager`, `Barrière horaire`, `Sac d'allègement`, `Nourriture`, `Relais {n}`, weather-alert and partial-route sentences). Access transport notes turn pasted URLs into labelled buttons (`Réserver ma navette` / `Ouvrir le lien`) and bib pickup addresses without an organizer maps link fall back to a Google Maps search (`lib/racebookTextLinks.ts`). Profile cumulative tiles show `—` until the runner touches the curve. This is runner presentation only: no row, contract or tracking of this domain changes.
+
+Organizer form compaction and file-field harmonization do not change Leaflet rendering, GPX geometry or OpenStreetMap attribution.
+
+Organizer field-group presentation does not change Leaflet rendering, GPX geometry, or attribution.
+
+The route map is now a compact preview in the Trace rail; its Leaflet component, geometry, and attribution contract remain unchanged.
+
+Switch-row normalization around route visibility does not change Leaflet rendering or GPX geometry.
+
+The Organizer course timeline uses persisted kilometers and existing GPX-derived station values only; it does not alter Leaflet geometry or map attribution.
+
+Organizer finishing styles do not change Leaflet rendering or attribution.

@@ -1,8 +1,25 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-11-09
+last_verified: 2026-11-15
+# Assisted legacy conversion (2026-11-15): organizer membership is verified for the event before conversion; claim records and transitions are unchanged.
+# Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
+# Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
+# Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
+# Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: high
+# Organizer UI note (2026-11-13): workspace sizing is presentation-only; claim and membership authorization remain unchanged.
+# Aid-station UI note (2026-11-13): timeline/detail presentation does not alter organizer membership authorization.
+# Loading/form UI note (2026-11-13): skeletons and required badges do not change claim authorization.
+# Navigation note (2026-11-13): active-state and overflow-menu changes do not change claim authorization.
+# Dense module note (2026-11-13): access, equipment, course, and sponsor layout changes do not alter membership authorization.
+# Mobile finish note (2026-11-13): compact editor layout does not alter membership authorization.
+# Regression-test note (2026-11-13): organizer source guards follow the new layout without changing claim authorization.
+# Layout polish note (2026-11-13): organizer presentation changes (aid-station detail, format metrics row, media rail visibility, equipment status action) do not alter stored data or contracts.
+# Fill-flow note (2026-11-13): organizer form ergonomics (ravito services, Enter-to-add, slot undo, sponsor ordering) do not alter stored data or contracts.
+# Organizer UX pass (2026-11-14): format sections nest under the selected format in the left nav, ravito type is Ravito / Base de vie, and equipment uses a top quick-add with per-row Obligatoire switch; no stored data or contract changes.
+# Course timeline note (2026-11-14): timeline filters, point markers and cutoff chips in the aid-station editor are presentation-only; stored data and contracts are unchanged.
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
   - apps/web/app/api/organizer/claims/route.ts
@@ -30,6 +47,7 @@ related_tables:
 # `race_event_claims`
 
 The organizer header’s Supporter Guide preview and QR actions are presentation-only and do not alter claim review, membership grants or ownership transfer.
+The 2026-11-13 organizer form-kit, accessible confirmations, inline validation and compact section navigation are client presentation changes. They use the existing membership-checked routes and do not create, approve, reject or mutate a claim.
 
 Claim review remains separate from organizer billing and edition rights. The shared admin surface may expose all three workflows, but invoice issuance/settlement does not approve a claim or create an organizer membership.
 
@@ -163,6 +181,10 @@ order by created_at asc;
 
 ## Gotchas
 
+- Organizer copy/accessibility regression tests are presentation safeguards only and do not modify claim authorization or schema behavior.
+
+- Organizer navigation and form-control harmonization do not change claim membership checks or persisted claim state.
+
 - Changing an edition publication origin between Admin, Offert, Stripe, and virement does not create, approve, or modify a management claim. Paid origins still require matching payment history.
 
 - Dashboard code-splitting, accessible form controls and abortable event loads do not alter claim authorization or lifecycle; a late event response must never retarget the currently selected claim/event.
@@ -202,3 +224,17 @@ The per-format publication confirmation and version-history menu are presentatio
 The address autocomplete popup now credits OpenStreetMap and its suggestions merge two OpenStreetMap providers; claims, memberships and authorization are unaffected.
 
 Publication checks and partner slots (2026-11-09): pre-publication checks and the Matériel/hébergement partner slots read the built snapshot and their own table only. They do not read, write or change this domain's rows or contracts.
+
+The compact organizer header, file fields and local validation follow-up do not change claims, memberships or authorization.
+
+The Organizer three-column layout and compact selector banner do not change claim, membership, or authorization reads and writes.
+
+Shared Organizer field groups are presentation-only and do not change claim or membership authorization.
+
+Compact Course/GPX media and inheritance actions do not change claims or organizer authorization.
+
+Shared Organizer switches do not change claim or membership authorization.
+
+The course timeline is a client presentation of authorized sidecars and does not change claims or membership checks.
+
+Organizer finishing layouts do not change claims, memberships, or authorization.

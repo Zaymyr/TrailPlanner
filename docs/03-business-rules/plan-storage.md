@@ -1,7 +1,9 @@
 ---
 title: Plan Storage
 scope: business-rule
-last_verified: 2026-11-11
+last_verified: 2026-11-15
+# Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: high
 related_files:
   - apps/web/app/onboarding/account/page.tsx
@@ -54,6 +56,8 @@ related_tables:
 ---
 
 # Plan Storage
+
+Saved catalog plans are grouped by the top-level `race_id` returned by the plans API. The web mapper keeps a defensive legacy fallback to `planner_values.catalogRaceId`; it must not classify a valid catalog-linked plan as “Sans course”.
 
 The plan unlock badge is derived from the access response at runtime; nothing is added to `planner_values` or the saved plan row.
 
@@ -259,3 +263,5 @@ The plan workspace bottom bar has a fourth « Nutrition » tab next to Mon plan,
 - [Premium Entitlement](premium-entitlement.md)
 
 The RaceBook workspace switch is the only plan opening entry in the RaceBook header area and exists only for an owned plan; creation without a plan goes through the Course-tab invite card, which reuses the same existing-row check before routing to `/plan/new`. Removing the duplicate creation card, localizing its remaining revision warning, and sharing distance/clock presentation do not add writes or alter the persisted plan snapshot. Official station locks remain display-only constraints over organizer-owned fields.
+
+The web planner now restores `?planId=` on mount and updates it with `router.replace` when a saved plan is opened. Plans with no course identifier remain grouped under “Sans course”; no database repair is performed by the client.

@@ -2,9 +2,22 @@
 title: races Table
 scope: database
 
-last_verified: 2026-11-11
+last_verified: 2026-11-15
+# Assisted legacy conversion (2026-11-15): legacy format text can become a review-only proposal; normal organizer save remains the only persistence step.
+# Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
+# Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
+# Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
+# Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 
 ai_priority: high
+# Organizer UI note (2026-11-13): course metrics use the flexible editor while GPX and image controls use the contextual rail; persistence is unchanged.
+# Form UI note (2026-11-13): required badges and skeletons do not alter race fields or persistence.
+# Action-menu note (2026-11-13): moving format deletion under ⋯ keeps the existing confirmed deletion contract.
+# Course form note (2026-11-13): localized date labels and shorter headings do not alter stored race dates.
+# Mobile finish note (2026-11-13): compact padding and collapsed media do not alter race records.
+# Layout polish note (2026-11-13): organizer presentation changes (aid-station detail, format metrics row, media rail visibility, equipment status action) do not alter stored data or contracts.
+# Fill-flow note (2026-11-13): organizer form ergonomics (ravito services, Enter-to-add, slot undo, sponsor ordering) do not alter stored data or contracts.
 related_files:
   - supabase/migrations/20261106142000_add_lut_by_night_2026_gpx.sql
   - supabase/migrations/20261105082511_enrich_saintelyon_2026_formats.sql
@@ -74,6 +87,9 @@ related_tables:
 The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret accompagnateur, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret accompagnateur · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. No `races` column or read changes.
 
 `/courses/supporter-guide/[raceId]` uses one public format UUID only to resolve its edition, then includes qualifying preview-visible published formats. It does not add race columns and excludes masked formats.
+The public runner summary endpoint reads only published web-catalog race fields and optional live event context. The app bridge checks `racebook_is_live` plus edition visibility; it introduces no table or policy change.
+
+The organizer form-kit keeps new repeatable entries as browser-local drafts until their required values are valid. In particular, adding then abandoning a ravito or equipment item must not persist a placeholder row to `races` or its related collections.
 
 Format `organizer_details.bibPickup` may now include nullable `thirdPartyPickupConditions` as part of a complete format override. Event inheritance and the existing `overrideEnabled` boundary remain authoritative; no relational race column, publication flag, or catalog rule changes.
 
@@ -293,3 +309,11 @@ RaceBook course distances, ranges, and D+/D− labels now use a shared localized
 RaceBook polish (2026-11-09): the runner hero keeps the format/event thumbnail but renders it blurred (`blurRadius` 24) under a 90% organizer-primary veil, so no artwork text is readable behind the identity, omits the default `Solo` participation label, appends a `J-N`/`Aujourd'hui` countdown to the date line (hidden after race day), and moves its expanded block up with the collapse so titles never overlap and metrics are never clipped. Runner wording was simplified (`Où encourager`, `Barrière horaire`, `Sac d'allègement`, `Nourriture`, `Relais {n}`, weather-alert and partial-route sentences). Access transport notes turn pasted URLs into labelled buttons (`Réserver ma navette` / `Ouvrir le lien`) and bib pickup addresses without an organizer maps link fall back to a Google Maps search (`lib/racebookTextLinks.ts`). Profile cumulative tiles show `—` until the runner touches the curve. This is runner presentation only: no row, contract or tracking of this domain changes.
 
 Publication checks and partner slots (2026-11-09): pre-publication checks and the Matériel/hébergement partner slots read the built snapshot and their own table only. They do not read, write or change this domain's rows or contracts.
+
+The organizer format form now validates inline without native browser bubbles and uses shared cover, GPX and image file controls; race fields and storage paths are unchanged.
+
+Responsive label/control grouping changes only Organizer presentation; race fields, inheritance, and storage paths are unchanged.
+
+The compact Trace rail and explicit inheritance actions preserve race columns, organizer details, GPX paths, and effective date/location values.
+
+Switch-row presentation preserves the existing race and organizer-details boolean fields.

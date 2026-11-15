@@ -43,6 +43,7 @@ const canonicalRace = {
 
 const detailedRace = {
   ...canonicalRace,
+  racebookAvailableInApp: true,
   elevationLossM: 1800,
   minAltitudeM: 450,
   maxAltitudeM: 2350,

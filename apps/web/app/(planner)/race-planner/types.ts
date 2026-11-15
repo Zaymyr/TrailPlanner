@@ -32,6 +32,7 @@ export type AidStation = {
   name: string;
   distanceKm: number;
   sourceAidStationId?: string;
+  maxStopMinutes?: number;
   waterRefill?: boolean;
   solidRefill?: boolean;
   assistanceAllowed?: boolean;
@@ -102,6 +103,7 @@ export type Segment = {
   solidRefill?: boolean;
   assistanceAllowed?: boolean;
   sourceAidStationId?: string;
+  maxStopMinutes?: number;
   aidStationIndex?: number;
   isFinish?: boolean;
 };

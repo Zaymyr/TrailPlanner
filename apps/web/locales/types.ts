@@ -527,6 +527,19 @@ export type RacePlannerTranslations = {
       empty: string;
       updatedAt: string;
       unsavedChanges: string;
+      rename: string;
+      renamePlaceholder: string;
+      confirm: string;
+      cancel: string;
+      actions: string;
+      deleteConfirm: string;
+      freePreview: string;
+      noRace: string;
+      unknownRace: string;
+      orphanDescription: string;
+      editRace: string;
+      deleteRace: string;
+      newRace: string;
     };
     messages: {
       accountCreated: string;
@@ -1274,8 +1287,9 @@ export type ProfileTranslations = {
     subtitle: string;
     nameLabel: string;
     namePlaceholder: string;
-    ageLabel: string;
-    agePlaceholder: string;
+    birthDateLabel: string;
+    heightLabel: string;
+    weightLabel: string;
     waterBagLabel: string;
     waterBagHelper: string;
     utmbIndexLabel: string;
@@ -1285,6 +1299,8 @@ export type ProfileTranslations = {
     comfortableFlatPaceMinutesLabel: string;
     comfortableFlatPaceSecondsLabel: string;
     comfortableFlatPaceInvalid: string;
+    carbsTargetLabel: string;
+    carbsTargetHelper: string;
   };
   favorites: {
     title: string;

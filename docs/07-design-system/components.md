@@ -1,13 +1,15 @@
 ---
 title: Design Components
 scope: design-system
-last_verified: 2026-11-12
+last_verified: 2026-11-13
+# Organizer headers (2026-11-13): `SectionHeader` receives a section-specific icon, supports two-line titles, and no longer supplies a generic arrow fallback.
 ai_priority: medium
 related_files:
   - apps/web/components/ui/button.tsx
   - apps/web/components/ui/card.tsx
   - apps/web/components/ui/input.tsx
   - apps/web/components/ui/dialog.tsx
+  - apps/web/app/organizer/_components/dashboard/form-kit/index.tsx
   - apps/web/components/ui/tabs.tsx
   - apps/web/components/utils.ts
   - apps/mobile/components/themed/Button.tsx
@@ -73,6 +75,7 @@ This document records the current web component primitives and styling conventio
 - `cn`: class name join helper.
 - Variant: component prop that selects a style branch.
 - Theme variable: CSS HSL variable from `apps/web/app/globals.css`.
+- Full-width form controls keep `min-width: 0` so intrinsic input sizing cannot overflow narrow cards or grid columns.
 
 ## Web Primitives
 
@@ -135,6 +138,13 @@ Card subcomponents:
 - a viewport-scrollable portal shell with horizontally centered content;
 - backdrop blur;
 - close-on-overlay-click behavior.
+- Escape dismissal, initial focus, Tab/Shift+Tab focus trap, and focus restoration to the trigger on close.
+
+## Organizer form kit
+
+The route-local Organizer form kit standardizes labelled fields, select/file/switch controls, local repeatable drafts, validation messages and polite sticky save status. Drafts remain client-only until valid and saved; errors appear after interaction or an attempted save.
+
+`SelectField` is the only route-level wrapper allowed to render a native `<select>`; editors consume the wrapper rather than duplicating height, focus, and error classes.
 
 ## Input
 
@@ -380,6 +390,7 @@ Supporter Guide and followed-plan screens reuse the same `TopoCard`, `ActionButt
 - If moving primitives into the design-system package, update package exports, web transpilation, and docs.
 - Keep primitive variants small and consistent with existing Tailwind/CSS variable names.
 - Avoid duplicating primitives or route-local components without first checking whether an existing component can be reused or extended.
+- Use the Organizer form kit inside the Organizer route rather than adding a competing route-local form control pattern.
 - Do not introduce a new class merge library without a real collision problem; current `cn` only joins classes.
 - Since `cn` does not merge conflicting Tailwind utilities, route-specific dialogs that replace the primitive's default `grid` layout must use an explicit priority modifier such as `!flex`; otherwise constrained inner scroll regions can be clipped.
 - Do not create a local loading, error, or empty state when a themed state can
@@ -415,3 +426,15 @@ Supporter Guide and followed-plan screens reuse the same `TopoCard`, `ActionButt
 - [Icons](icons.md)
 - [Web App](../01-architecture/web-app.md)
 - [Add New Mobile Screen](../06-workflows/add-new-screen-mobile.md)
+
+Organizer uploads reuse `FileField` for a single file and `MultiFileField` for official import documents. Both expose a human-readable format/size hint, visible selected filenames, replacement or removal actions, and visually hidden native inputs.
+
+Organizer `FieldGroup` uses a responsive label/description column (up to 200 px) beside its controls and stacks on narrow screens. `Field` owns the explicit `Requis`, `Optionnel`, and inherited markers, while `SectionHeader` provides the shared icon/title/description/status composition.
+
+`FileField` renders an optional 80 px preview, filename, mono metadata, and replacement/removal actions while keeping the native input visually hidden. Empty file fields use the same compact drop target.
+
+`SwitchRow` is the single Organizer yes/no presentation: label and optional explanation on the left, accessible switch on the right, and a shared focus target. `BooleanField` remains an alias for compatible callers.
+
+Organizer editor cards now use `SectionHeader` with a brand-surface icon, visible description, save state, and a subtle token-based terrain wash. Dark mode relies only on theme variables.
+
+Compact `FileField` actions wrap beneath metadata so the control remains contained in the 250 px media rail and narrow mobile layouts.

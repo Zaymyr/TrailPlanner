@@ -15,6 +15,8 @@ type SearchParamInput = URLSearchParams | Record<string, SearchParamValue> | nul
 const DEFAULT_RETURN_PATH = "/race-planner";
 const ALLOWED_RETURN_PATHS = new Set(["/organizer", "/organizers"]);
 const ORGANIZER_EVENT_ID_PATTERN = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+const RUNNER_RETURN_STORAGE_KEY = "runner.pendingReturnPath";
+const RUNNER_RETURN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 const readSearchParam = (input: SearchParamInput, key: OrganizerUtmKey): string | null => {
   if (!input) return null;
@@ -54,9 +56,25 @@ export function normalizeInternalReturnPath(value: string | string[] | null | un
 
   try {
     const parsed = new URL(candidate, "https://pace-yourself.internal");
-    if (parsed.origin !== "https://pace-yourself.internal" || !ALLOWED_RETURN_PATHS.has(parsed.pathname)) {
+    if (parsed.origin !== "https://pace-yourself.internal") {
       return DEFAULT_RETURN_PATH;
     }
+
+    if (parsed.pathname === "/race-planner") {
+      const catalogRaceId = parsed.searchParams.get("catalogRaceId")?.trim();
+      return catalogRaceId && ORGANIZER_EVENT_ID_PATTERN.test(catalogRaceId)
+        ? `/race-planner?catalogRaceId=${encodeURIComponent(catalogRaceId)}`
+        : "/race-planner";
+    }
+
+    if (parsed.pathname === "/premium") {
+      const planId = parsed.searchParams.get("planId")?.trim();
+      return planId && ORGANIZER_EVENT_ID_PATTERN.test(planId)
+        ? `/premium?planId=${encodeURIComponent(planId)}`
+        : "/premium";
+    }
+
+    if (!ALLOWED_RETURN_PATHS.has(parsed.pathname)) return DEFAULT_RETURN_PATH;
 
     if (parsed.pathname === "/organizer") {
       const eventId = parsed.searchParams.get("eventId")?.trim();
@@ -69,6 +87,54 @@ export function normalizeInternalReturnPath(value: string | string[] | null | un
     return buildOrganizerCreationHref(attribution);
   } catch {
     return DEFAULT_RETURN_PATH;
+  }
+}
+
+const isRememberableRunnerPath = (path: string) =>
+  path.startsWith("/race-planner?catalogRaceId=") || path.startsWith("/premium?planId=");
+
+export function rememberRunnerReturnPath(returnPath: string): void {
+  if (typeof window === "undefined") return;
+  const normalized = normalizeInternalReturnPath(returnPath);
+  if (!isRememberableRunnerPath(normalized)) return;
+
+  try {
+    window.localStorage.setItem(
+      RUNNER_RETURN_STORAGE_KEY,
+      JSON.stringify({ path: normalized, expiresAt: Date.now() + RUNNER_RETURN_TTL_MS }),
+    );
+  } catch {
+    // The explicit `next` parameter remains authoritative when storage is unavailable.
+  }
+}
+
+export function readRememberedRunnerReturnPath(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(RUNNER_RETURN_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { path?: unknown; expiresAt?: unknown };
+    if (typeof parsed.path !== "string" || typeof parsed.expiresAt !== "number" || parsed.expiresAt <= Date.now()) {
+      window.localStorage.removeItem(RUNNER_RETURN_STORAGE_KEY);
+      return null;
+    }
+    const normalized = normalizeInternalReturnPath(parsed.path);
+    if (!isRememberableRunnerPath(normalized)) {
+      window.localStorage.removeItem(RUNNER_RETURN_STORAGE_KEY);
+      return null;
+    }
+    return normalized;
+  } catch {
+    return null;
+  }
+}
+
+export function clearRememberedRunnerReturnPath(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(RUNNER_RETURN_STORAGE_KEY);
+  } catch {
+    // Nothing else to clean up.
   }
 }
 
@@ -90,5 +156,11 @@ export function buildAuthCallbackPath(returnPath: string): string {
  */
 export function readCurrentReturnPath(): string {
   if (typeof window === "undefined") return DEFAULT_RETURN_PATH;
-  return normalizeInternalReturnPath(new URLSearchParams(window.location.search).get("next"));
+  const explicit = new URLSearchParams(window.location.search).get("next");
+  if (explicit) {
+    const normalized = normalizeInternalReturnPath(explicit);
+    rememberRunnerReturnPath(normalized);
+    return normalized;
+  }
+  return readRememberedRunnerReturnPath() ?? DEFAULT_RETURN_PATH;
 }

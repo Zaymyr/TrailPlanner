@@ -59,9 +59,16 @@ export async function GET(request: NextRequest, context: { params: { id?: string
     );
     if (!response.ok) return jsonError("Impossible de charger l’historique de publication.", 502);
     const publications = z.array(racebookPublicationRowSchema).parse(await response.json());
-    const draft = includeChanges.data === "true"
-      ? (await buildRacebookPublishedSnapshot(auth.serviceConfig, auth.race.id)).snapshot
+    const draftRevisionDiffers = current.state.published_source_revision === null
+      || current.state.draft_revision !== current.state.published_source_revision;
+    // A revision mismatch alone cannot distinguish an edit from an edit that
+    // was subsequently reverted. Build the canonical snapshot whenever that
+    // ambiguity exists, even for the lightweight state request used by the
+    // publication CTA.
+    const builtDraft = includeChanges.data === "true" || (current.publication !== null && draftRevisionDiffers)
+      ? await buildRacebookPublishedSnapshot(auth.serviceConfig, auth.race.id)
       : null;
+    const draft = builtDraft?.snapshot ?? null;
     const changedFields = draft ? describeRacebookSnapshotChanges(draft, current.publication?.content ?? null) : undefined;
     const checks = draft ? await loadRacebookPublicationChecks(auth.serviceConfig, draft) : undefined;
     const partnerSlots = draft
@@ -71,7 +78,7 @@ export async function GET(request: NextRequest, context: { params: { id?: string
       }))
       : undefined;
     return withSecurityHeaders(NextResponse.json({
-      state: serializePublicationState(current.state, current.publication),
+      state: serializePublicationState(current.state, current.publication, builtDraft?.hash),
       publications: publications.map(historyItem),
       ...(changedFields ? { changedFields } : {}),
       ...(checks ? { checks } : {}),

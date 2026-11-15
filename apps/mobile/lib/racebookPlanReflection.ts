@@ -95,10 +95,15 @@ export function resolveCutoffMinuteAfterDeparture(
   departureClock: string | null | undefined,
   cutoffClock: string | null | undefined,
   passageMinute?: number | null,
+  cutoffDayOffset?: number | null,
 ) {
   const departureClockMinute = clockToMinutes(departureClock);
   const cutoffClockMinute = clockToMinutes(cutoffClock);
   if (departureClockMinute === null || cutoffClockMinute === null) return null;
+
+  if (typeof cutoffDayOffset === 'number' && Number.isInteger(cutoffDayOffset) && cutoffDayOffset >= 0) {
+    return cutoffDayOffset * 24 * 60 + cutoffClockMinute - departureClockMinute;
+  }
 
   const dayMinutes = 24 * 60;
   const firstOccurrence = (cutoffClockMinute - departureClockMinute + dayMinutes) % dayMinutes;
@@ -171,6 +176,7 @@ export type OfficialCutoffInput = {
   id: string;
   km: number;
   cutoff: string | null | undefined;
+  dayOffset?: number | null;
 };
 
 /**
@@ -197,6 +203,14 @@ export function resolveOfficialCutoffSchedule(
     .forEach((entry) => {
       const parsed = parseOrganizerCutoff(entry.cutoff);
       if (!parsed) return;
+      if (typeof entry.dayOffset === 'number' && Number.isInteger(entry.dayOffset) && entry.dayOffset >= 0) {
+        const elapsed = entry.dayOffset * DAY_MINUTES + parsed.minuteOfDay - departureMinute;
+        if (elapsed >= 0) {
+          schedule[entry.id] = elapsed;
+          previous = elapsed;
+          return;
+        }
+      }
       const dayOffset = parsed.date ? daysBetweenRaceDateAnd(raceDate, parsed.date) : null;
       let elapsed: number | null = dayOffset === null
         ? null
@@ -236,11 +250,13 @@ export function isPersonalPassageAfterCutoff(
   departureClock: string | null | undefined,
   passageMinute: number,
   cutoffClock: string | null | undefined,
+  cutoffDayOffset?: number | null,
 ) {
   const cutoffMinuteAfterDeparture = resolveCutoffMinuteAfterDeparture(
     departureClock,
     cutoffClock,
     passageMinute,
+    cutoffDayOffset,
   );
   if (cutoffMinuteAfterDeparture === null || !Number.isFinite(passageMinute)) return false;
   return Math.round(passageMinute) > cutoffMinuteAfterDeparture;
