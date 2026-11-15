@@ -23,8 +23,6 @@ import { RaceStartSheet, type RaceStartConfig } from '../../../components/race/R
 import { FeedbackHeaderButton } from '../../../components/feedback/FeedbackHeaderButton';
 import { PlanLoadingScreen } from '../../../components/PlanLoadingScreen';
 import { Colors } from '../../../constants/colors';
-import { usePremium } from '../../../hooks/usePremium';
-import { FREE_PLAN_LIMIT, getCurrentUserPlanAccess } from '../../../lib/planAccess';
 import {
   checkAndFireAlerts,
   getNutritionStats,
@@ -126,7 +124,6 @@ function waitForNextPaint() {
 export default function RaceScreenV2() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { isPremium, isLoading: premiumLoading } = usePremium();
   const { t } = useI18n();
   const [plan, setPlan] = useState<StoredRacePlan | null>(null);
   const [productMap, setProductMap] = useState<Record<string, PlanProduct>>({});
@@ -150,8 +147,6 @@ export default function RaceScreenV2() {
     let cancelled = false;
 
     (async () => {
-      if (premiumLoading) return;
-
       setLoading(true);
       setLoadingPlanName(null);
       setLoadingProgress(0.12);
@@ -167,23 +162,6 @@ export default function RaceScreenV2() {
           return;
         }
       } catch { if (!cancelled) setLoading(false); return; }
-      const planAccess = await getCurrentUserPlanAccess(isPremium);
-      if (
-        !isPremium &&
-        planAccess.accessiblePlanIds !== null &&
-        !planAccess.accessiblePlanIds.has(id)
-      ) {
-        if (!cancelled) {
-          Alert.alert(
-            t.plans.freeAccessTitle,
-            t.plans.freeAccessMessage.replace('{count}', String(FREE_PLAN_LIMIT)),
-          );
-          setLoading(false);
-          router.replace('/(app)/plans');
-        }
-        return;
-      }
-
       if (!cancelled) {
         setLoadingProgress(0.28);
       }
@@ -251,7 +229,7 @@ export default function RaceScreenV2() {
     return () => {
       cancelled = true;
     };
-  }, [id, isPremium, premiumLoading, router, t.plans.freeAccessMessage, t.plans.freeAccessTitle]);
+  }, [id, router]);
 
   const refreshSession = useCallback(() => {
     const currentSession = getSession();

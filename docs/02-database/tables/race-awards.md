@@ -2,7 +2,12 @@
 title: race_awards Table
 scope: database
 
-last_verified: 2026-11-11
+last_verified: 2026-11-15
+# Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
+# Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
+# Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
+# Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 
 ai_priority: high
 related_files:
@@ -26,6 +31,7 @@ related_tables:
 The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret accompagnateur, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret accompagnateur · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. Award rows, ordering and visibility are unchanged; the Supporter Guide programme still reads published awards only.
 
 Published awards are also rendered in the Supporter Guide Programme timeline. They remain format-scoped, require the effective `awards` module, and are never read from draft rows by the public guide.
+The organizer form-kit and section-navigation changes do not alter award rows, their ordering, their module gate, or their snapshot publication behavior.
 
 The shared mobile RaceBook screen now also renders additive third-party bib-pickup conditions from organizer JSON. That presentation change does not alter award rows, replacement semantics, ordering, module gates, or RLS.
 
@@ -126,3 +132,4 @@ The RaceBook hero no longer draws the course contour lines behind its header (th
 RaceBook onboarding guide cards now float above the RaceBook tab bar, and the post-tour « Envie d'aller plus loin ? » offer waits until the runner has opened two other tabs; « Créer mon plan » is a trail sign on the same creation path as the Course invite. Data and events are unchanged.
 
 The RaceBook onboarding tour only switches tabs, scrolls and highlights zones; it changes no data or visibility. Onboarding refers to the Trail TST seed ids, so they must stay stable.
+The services-only conversion-banner presentation change shares the structured editor file but does not change award rows or autosave.

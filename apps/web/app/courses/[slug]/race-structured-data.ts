@@ -8,6 +8,10 @@ export const buildRaceStructuredData = (race: PublicRaceDetail, canonicalUrl: st
   if (!race.date || !formatPublicRaceDate(race.date)) return null;
 
   const heroImage = race.raceThumbnailUrl ?? race.eventThumbnailUrl;
+  const registrationUrl = [race.eventWebsiteUrl, race.externalSiteUrl]
+    .find((value): value is string => Boolean(value && /^https?:\/\//i.test(value)));
+  const organizerUrl = [race.officialWebsiteUrl, race.eventWebsiteUrl]
+    .find((value): value is string => Boolean(value && /^https?:\/\//i.test(value)));
   const sameAs = Array.from(
     new Set(
       [race.externalSiteUrl, race.officialWebsiteUrl, race.instagramUrl, race.facebookUrl]
@@ -16,14 +20,38 @@ export const buildRaceStructuredData = (race: PublicRaceDetail, canonicalUrl: st
   );
   const postalAddress = {
     "@type": "PostalAddress",
-    streetAddress: race.practical.access.startAddress ?? undefined,
-    addressLocality: race.locationCity ?? undefined,
-    addressRegion: race.locationRegion ?? race.locationDepartment ?? undefined,
-    addressCountry: race.locationCountry ?? undefined,
+    ...(race.practical.access.startAddress ? { streetAddress: race.practical.access.startAddress } : {}),
+    ...(race.locationCity ? { addressLocality: race.locationCity } : {}),
+    ...(race.locationRegion ?? race.locationDepartment ? { addressRegion: race.locationRegion ?? race.locationDepartment } : {}),
+    ...(race.locationCountry ? { addressCountry: race.locationCountry } : {}),
   };
-  const hasStructuredAddress = Object.values(postalAddress).some(
-    (value) => value !== "PostalAddress" && value !== undefined,
-  );
+  const hasStructuredAddress = Object.keys(postalAddress).length > 1;
+  const hasGeo = race.startLatitude !== null
+    && race.startLongitude !== null
+    && race.startLatitude >= -90
+    && race.startLatitude <= 90
+    && race.startLongitude >= -180
+    && race.startLongitude <= 180;
+  const placeName = race.practical.access.startLocation.label ?? race.location;
+  const hasLocation = Boolean(placeName || hasStructuredAddress || hasGeo);
+
+  const parseClockMinutes = (value: string | null) => {
+    if (!value) return null;
+    const match = value.trim().match(/^(?:([01]?\d|2[0-3])(?::([0-5]\d)(?::[0-5]\d)?|h([0-5]\d)?)?)$/i);
+    if (!match) return null;
+    return Number(match[1]) * 60 + Number(match[2] ?? match[3] ?? 0);
+  };
+  const startMinutes = parseClockMinutes(race.practical.schedule.startTime);
+  const finishMinutes = parseClockMinutes(race.practical.schedule.finishCutoffTime);
+  const validEventEndDate = race.eventEndDate && formatPublicRaceDate(race.eventEndDate)
+    ? race.eventEndDate
+    : null;
+  const endDate = validEventEndDate === race.date
+    ? validEventEndDate
+    : validEventEndDate && validEventEndDate > race.date
+      && startMinutes !== null && finishMinutes !== null && finishMinutes <= startMinutes
+      ? validEventEndDate
+      : null;
 
   return {
     "@context": "https://schema.org",
@@ -33,21 +61,46 @@ export const buildRaceStructuredData = (race: PublicRaceDetail, canonicalUrl: st
     url: canonicalUrl,
     mainEntityOfPage: canonicalUrl,
     startDate: race.date,
-    ...(race.eventEndDate === race.date ? { endDate: race.eventEndDate } : {}),
+    ...(endDate ? { endDate } : {}),
+    eventStatus: "https://schema.org/EventScheduled",
     eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
     sport: "Course à pied",
-    image: heroImage ? [heroImage] : undefined,
-    location: race.location
-      ? {
-          "@type": "Place",
-          name: race.location,
-          address: hasStructuredAddress
-            ? postalAddress
-            : { "@type": "PostalAddress", name: race.location },
-        }
-      : undefined,
+    ...(heroImage ? { image: [heroImage] } : {}),
+    ...(hasLocation ? {
+      location: {
+        "@type": "Place",
+        ...(placeName ? { name: placeName } : {}),
+        ...(hasStructuredAddress ? { address: postalAddress } : {}),
+        ...(hasGeo ? {
+          geo: {
+            "@type": "GeoCoordinates",
+            latitude: race.startLatitude,
+            longitude: race.startLongitude,
+          },
+        } : {}),
+      },
+    } : {}),
+    organizer: {
+      "@type": "Organization",
+      name: race.eventName ?? race.name,
+      ...(organizerUrl ? { url: organizerUrl } : {}),
+    },
+    ...(race.eventEditionSlug && race.eventName ? {
+      superEvent: {
+        "@type": "SportsEvent",
+        "@id": `${new URL(`/courses/evenements/${race.eventEditionSlug}`, canonicalUrl).toString()}#event`,
+        name: race.eventName,
+        url: new URL(`/courses/evenements/${race.eventEditionSlug}`, canonicalUrl).toString(),
+      },
+    } : {}),
+    ...(registrationUrl ? {
+      offers: {
+        "@type": "Offer",
+        url: registrationUrl,
+      },
+    } : {}),
     description: buildRaceMetadataDescription(race),
-    sameAs: sameAs.length ? sameAs : undefined,
+    ...(sameAs.length ? { sameAs } : {}),
   };
 };
 

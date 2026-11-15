@@ -303,15 +303,6 @@ export default function SettingsPage() {
     setSelectionError(null);
     const isSelected = selectedProducts.some((item) => item.id === product.id);
 
-    if (!isSelected && selectedProducts.length >= entitlements.favoriteLimit) {
-      setSelectionError(
-        Number.isFinite(entitlements.favoriteLimit)
-          ? `Limite de ${entitlements.favoriteLimit} favoris atteinte. Passez en Premium pour des favoris illimités.`
-          : "Limite atteinte."
-      );
-      return;
-    }
-
     const nextSelection = isSelected
       ? selectedProducts.filter((item) => item.id !== product.id)
       : [...selectedProducts, mapProductToSelection(product)];
@@ -459,9 +450,7 @@ export default function SettingsPage() {
                 </button>
               </div>
               <p className="text-xs text-muted-foreground">
-                {Number.isFinite(entitlements.favoriteLimit)
-                  ? `${selectedProducts.length}/${entitlements.favoriteLimit} favoris sélectionnés`
-                  : `${selectedProducts.length} favoris sélectionnés`}
+                {selectedProducts.length} favoris sélectionnés
               </p>
             </div>
           </CardHeader>

@@ -22,7 +22,6 @@ import { HeartMark } from '../themed/trail/HeartMark';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { mobileComponents } from '@pace-yourself/design-system';
 import { Colors } from '../../constants/colors';
-import { PremiumUpsellModal } from '../premium/PremiumUpsellModal';
 import { FUEL_FILTERS, FUEL_TYPE_LABELS } from './nutritionConstants';
 import { NutritionCreateProductModal } from './NutritionCreateProductModal';
 import { ProductDetailModal } from './ProductDetailModal';
@@ -240,7 +239,6 @@ function buildCatalogRows(
 type NutritionContentProps = {
   contentTopInset?: number;
   locale: 'fr' | 'en';
-  isPremium: boolean;
   isAdmin: boolean;
   favoritesExpanded: boolean;
   favorites: FavoriteRow[];
@@ -250,7 +248,6 @@ type NutritionContentProps = {
   fuelFilter: FuelType | 'all';
   catalogSearch: string;
   userId: string | null;
-  showFavoriteLimitModal: boolean;
   showCreateModal: boolean;
   creating: boolean;
   newName: string;
@@ -265,19 +262,15 @@ type NutritionContentProps = {
   selectedProductFavoriteUsage: ProductFavoriteUsage;
   savingProduct: boolean;
   deletingProduct: boolean;
-  favoriteLimitBannerLabel: string;
-  favoriteLimitMessage: string;
   emptyCatalogTitle: string;
   emptyCatalogDescription: string;
   refreshing: boolean;
-  freeAccessTitle: string;
   otherBrandsLabel: string;
   verifiedLabel: string;
   onToggleFavorites: () => void;
   onToggleFavorite: (productId: string, productOverride?: Product) => void;
   onChangeFuelFilter: (value: FuelType | 'all') => void;
   onChangeCatalogSearch: (value: string) => void;
-  onCloseFavoriteLimitModal: () => void;
   onChangeNewName: (value: string) => void;
   onChangeNewBrand: (value: string) => void;
   onChangeNewFuelType: (value: FuelType) => void;
@@ -298,7 +291,7 @@ type NutritionContentProps = {
 
 export const NutritionContent = memo(function NutritionContent({
   contentTopInset = 0,
-  isPremium,
+  locale,
   isAdmin,
   favoritesExpanded,
   favorites,
@@ -308,7 +301,6 @@ export const NutritionContent = memo(function NutritionContent({
   fuelFilter,
   catalogSearch,
   userId,
-  showFavoriteLimitModal,
   showCreateModal,
   creating,
   newName,
@@ -323,19 +315,15 @@ export const NutritionContent = memo(function NutritionContent({
   selectedProductFavoriteUsage,
   savingProduct,
   deletingProduct,
-  favoriteLimitBannerLabel,
-  favoriteLimitMessage,
   emptyCatalogTitle,
   emptyCatalogDescription,
   refreshing,
-  freeAccessTitle,
   otherBrandsLabel,
   verifiedLabel,
   onToggleFavorites,
   onToggleFavorite,
   onChangeFuelFilter,
   onChangeCatalogSearch,
-  onCloseFavoriteLimitModal,
   onChangeNewName,
   onChangeNewBrand,
   onChangeNewFuelType,
@@ -401,11 +389,6 @@ export const NutritionContent = memo(function NutritionContent({
           style={styles.favoritesSection}
           title="Mes favoris"
         >
-            {!isPremium ? (
-              <View style={styles.limitBanner}>
-                <Text style={styles.limitBannerText}>{favoriteLimitBannerLabel}</Text>
-              </View>
-            ) : null}
 
             {favorites.length === 0 ? (
               <View style={styles.emptyFavorites}>
@@ -486,11 +469,9 @@ export const NutritionContent = memo(function NutritionContent({
     [
       catalogSearch,
       favoriteGroups,
-      favoriteLimitBannerLabel,
       favorites.length,
       favoritesExpanded,
       fuelFilter,
-      isPremium,
       onChangeCatalogSearch,
       onChangeFuelFilter,
       onOpenProductDetail,
@@ -594,14 +575,6 @@ export const NutritionContent = memo(function NutritionContent({
         style={styles.list}
         updateCellsBatchingPeriod={32}
         windowSize={7}
-      />
-
-      <PremiumUpsellModal
-        message={favoriteLimitMessage}
-        onClose={onCloseFavoriteLimitModal}
-        placement="favorite_limit"
-        title={freeAccessTitle}
-        visible={showFavoriteLimitModal}
       />
 
       <NutritionCreateProductModal

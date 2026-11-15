@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
+import { cn } from "../../../components/utils";
 import {
   OnboardingOverlay,
   type OnboardingOverlayCopy,
@@ -63,6 +64,8 @@ import {
 } from "./dashboard/data-cache";
 import { AccessEditor, BibPickupEditor, EquipmentEditor, RaceBibPickupEditor } from "./dashboard/detail-editors";
 import { EventInfoEditor, FormatsEditor } from "./dashboard/event-format-editors";
+import { isValidInstagramUrl, normalizeInstagramUrl } from "./dashboard/form-kit/validation";
+import { ConfirmDialog, MultiFileField, SaveStatus, SectionHeader, SelectField } from "./dashboard/form-kit";
 import {
   aidStationRowsToDrafts,
   applyGpxStatsToRaceForm,
@@ -117,6 +120,7 @@ import {
 import {
   CompletionTabsPanel,
   OrganizerNoMembershipCard,
+  OrganizerProgressRail,
   OrganizerSignedOutCard,
   OrganizerSummaryHeader,
 } from "./dashboard/shell";
@@ -147,6 +151,27 @@ import type {
 const MAX_RACE_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const RACE_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/avif"] as const;
 const MAX_UPDATE_MESSAGE_LENGTH = 280;
+const ORGANIZER_MODULE_ICON_PATHS: Record<OrganizerModuleId, string> = {
+  event: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z M12 11v5 M12 7.5h.01",
+  formats: "m3 19 6-10 4 6 3-4 5 8Z",
+  aidStations: "M12 3.5s6 6.6 6 10.5a6 6 0 0 1-12 0c0-3.9 6-10.5 6-10.5Z",
+  equipment: "M6 8h12a1 1 0 0 1 1 1v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V9a1 1 0 0 1 1-1Z M9 8V6a3 3 0 0 1 6 0v2 M9 13h6",
+  bibPickup: "M5 5h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z M8 10h8 M8 14h5",
+  access: "M12 21s7-6 7-11a7 7 0 0 0-14 0c0 5 7 11 7 11Z M12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z",
+  products: "M12 5v14 M5 12h14",
+  services: "M3 11.5 12 4l9 7.5 M5.5 10v10h13V10 M10 20v-5h4v5",
+  awards: "M8 4h8v5a4 4 0 0 1-8 0V4Z M8 6H5a3 3 0 0 0 3 4 M16 6h3a3 3 0 0 1-3 4 M12 13v4 M8.5 20h7",
+  branding: "M12 21a9 9 0 1 1 0-18c4.97 0 9 3.6 9 8 0 2.2-1.8 3.5-4 3.5h-2a2 2 0 0 0-1.5 3.3c.6.7.2 3.2-1.5 3.2Z M7.5 11.5h.01 M10 7.5h.01 M14.5 7.5h.01",
+  sponsors: "M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z",
+};
+
+function OrganizerModuleIcon({ moduleId }: { moduleId: OrganizerModuleId }) {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={ORGANIZER_MODULE_ICON_PATHS[moduleId]} />
+    </svg>
+  );
+}
 
 const isValidHttpsUrl = (value?: string | null) => {
   if (!value?.trim()) return true;
@@ -158,6 +183,22 @@ const isValidHttpsUrl = (value?: string | null) => {
 };
 
 const isValidPhone = (value?: string | null) => !value?.trim() || /^\+?[0-9][0-9 .()/-]{2,}$/.test(value.trim());
+
+const getEventValidationMessage = (form: EventFormValues) => !form.name.trim()
+  ? "Indique le nom de l’événement."
+  : !form.location.trim()
+    ? "Indique le lieu de l’événement."
+    : !form.editionStartDate || !form.editionEndDate
+      ? "Indique les dates de début et de fin de l’édition."
+      : form.editionEndDate < form.editionStartDate
+        ? "La date de fin doit suivre la date de début."
+        : !isValidHttpsUrl(form.organizerDetails.officialWebsiteUrl)
+          ? "Le site officiel doit être une adresse complète commençant par https://."
+          : !isValidInstagramUrl(form.organizerDetails.instagramUrl ?? "") || !isValidHttpsUrl(form.organizerDetails.facebookUrl)
+            ? "Les liens sociaux doivent être des adresses complètes commençant par https://."
+            : !isValidPhone(form.organizerDetails.emergencyContact.phone)
+              ? "Le numéro du contact d’urgence est invalide."
+              : null;
 type OrganizerPricingIntent = "publication" | "notification" | "upgrade";
 const WEBSITE_IMPORT_REQUIRED_FIELD_LABELS: Record<string, string> = {
   race_date: "date",
@@ -207,7 +248,7 @@ const ORGANIZER_ONBOARDING_TARGETS = [
   "organizer-onboarding-visibility",
 ] as const;
 
-const editorLoading = () => <p className="text-sm text-muted-foreground">Chargement de l’éditeur…</p>;
+const editorLoading = () => <div className="space-y-3" role="status" aria-label="Chargement de l’éditeur"><div className="h-10 animate-pulse rounded-md bg-muted" /><div className="h-24 animate-pulse rounded-md bg-muted/70" /><span className="sr-only">Chargement de l’éditeur…</span></div>;
 const AidStationsEditor = dynamic(
   () => import("./dashboard/aid-stations-editor").then((module) => module.AidStationsEditor),
   { loading: editorLoading }
@@ -392,6 +433,8 @@ export function OrganizerDashboard({
   const [eventUpdateError, setEventUpdateError] = useState<string | null>(null);
   const [eventUpdateSending, setEventUpdateSending] = useState(false);
   const [eventUpdateDeletingId, setEventUpdateDeletingId] = useState<string | null>(null);
+  const [eventUpdateDeleteConfirmation, setEventUpdateDeleteConfirmation] = useState<OrganizerRaceEventUpdate | null>(null);
+  const [destructiveConfirmation, setDestructiveConfirmation] = useState<"gpx" | "race" | null>(null);
   const [eventFavoriteCount, setEventFavoriteCount] = useState<number | null>(null);
   const [eventUpdates, setEventUpdates] = useState<OrganizerRaceEventUpdate[]>([]);
   const [sponsorSummary, setSponsorSummary] = useState<{ editionId: string; sponsors: number; clicks: number } | null>(null);
@@ -956,7 +999,9 @@ export function OrganizerDashboard({
       showToast("error", "Ajoute d’abord un format.");
       return;
     }
-    if (!enabled && persistedEnabled && !window.confirm("Désactiver cette section ? Ses données seront conservées et pourront être restaurées.")) return;
+    if (!enabled && persistedEnabled) {
+      showToast("success", "La section sera masquée à l’enregistrement. Ses données resteront conservées.");
+    }
     setModuleSettingsDraft((current) => {
       const next = { ...current };
       if (enabled === persistedEnabled) delete next[moduleKey];
@@ -1031,7 +1076,7 @@ export function OrganizerDashboard({
       void completeModuleSetup();
       return;
     }
-    if (Object.keys(moduleSettingsDraft).length > 0 && !window.confirm("Abandonner les modifications de sections non enregistrées ?")) return;
+    if (Object.keys(moduleSettingsDraft).length > 0) showToast("success", "Modifications de sections annulées.");
     setModuleSettingsDraft({});
     setModuleSettingsOpen(false);
   };
@@ -1429,25 +1474,18 @@ export function OrganizerDashboard({
 
   const saveEvent = async (override?: Partial<EventFormValues>, options: OrganizerSaveOptions = {}) => {
     if (!accessToken || !selectedEventId) return false;
-    const nextForm = { ...eventForm, ...override };
-    const invalidEventMessage = !nextForm.name.trim()
-      ? "Indique le nom de l’événement."
-      : !nextForm.location.trim()
-        ? "Indique le lieu de l’événement."
-        : !nextForm.editionStartDate || !nextForm.editionEndDate
-          ? "Indique les dates de début et de fin de l’édition."
-          : nextForm.editionEndDate < nextForm.editionStartDate
-            ? "La date de fin doit suivre la date de début."
-            : !isValidHttpsUrl(nextForm.organizerDetails.officialWebsiteUrl)
-              ? "Le site officiel doit être une adresse complète commençant par https://."
-              : !isValidHttpsUrl(nextForm.organizerDetails.instagramUrl) || !isValidHttpsUrl(nextForm.organizerDetails.facebookUrl)
-                ? "Les liens sociaux doivent être des adresses complètes commençant par https://."
-                : !isValidPhone(nextForm.organizerDetails.emergencyContact.phone)
-                  ? "Le numéro du contact d’urgence est invalide."
-                  : null;
+    const candidateForm = { ...eventForm, ...override };
+    const nextForm = {
+      ...candidateForm,
+      organizerDetails: {
+        ...candidateForm.organizerDetails,
+        instagramUrl: normalizeInstagramUrl(candidateForm.organizerDetails.instagramUrl ?? "") || null,
+      },
+    };
+    const invalidEventMessage = getEventValidationMessage(nextForm);
     if (invalidEventMessage) {
       setError(invalidEventMessage);
-      showToast("error", invalidEventMessage);
+      if (!options.background) showToast("error", invalidEventMessage);
       return false;
     }
     const persistedForm = eventDetail
@@ -1855,7 +1893,6 @@ export function OrganizerDashboard({
 
   const deleteGpx = async () => {
     if (!activeRace || !selectedEventId || !accessToken) return;
-    if (!window.confirm("Supprimer ce GPX source ? Les ravitaillements et les métriques du format seront conservés.")) return;
 
     setStatus("saving");
     setError(null);
@@ -2041,8 +2078,6 @@ export function OrganizerDashboard({
 
   const deleteActiveRace = async () => {
     if (!accessToken || !activeRace || !selectedEventId) return;
-    const confirmed = window.confirm(`Supprimer la course "${activeRace.name}" ? Cette action est définitive.`);
-    if (!confirmed) return;
 
     setStatus("saving");
     setError(null);
@@ -2330,6 +2365,14 @@ export function OrganizerDashboard({
 
   const saveCurrentScopeInBackground = () => {
     if (!activeDirtyScopeKey || currentScopeDirtyModules.size === 0) return;
+    if (activeTab === EVENT_TAB_ID || !activeRace) {
+      const invalidEventMessage = getEventValidationMessage(eventForm);
+      if (invalidEventMessage) {
+        setError(invalidEventMessage);
+        return;
+      }
+      setError(null);
+    }
     const scopeKey = activeDirtyScopeKey;
     const scopeRevision = dirtyRevisionByScopeRef.current[scopeKey] ?? 0;
     const previousSave = backgroundSaveQueuesRef.current[scopeKey] ?? Promise.resolve(true);
@@ -2777,7 +2820,7 @@ export function OrganizerDashboard({
       }
 
       const sentCount = data?.delivery?.sentCount ?? 0;
-      showToast("success", sentCount > 0 ? `Notification envoyée à ${sentCount} coureur(s).` : "Mise à jour publiée.");
+      showToast("success", sentCount > 0 ? `Notification envoyée à ${sentCount} ${sentCount === 1 ? "coureur" : "coureurs"}.` : "Mise à jour publiée.");
       setEventUpdateMessage("");
       setEventUpdateRaceId(null);
       setEventUpdatesDialogOpen(false);
@@ -2792,7 +2835,6 @@ export function OrganizerDashboard({
 
   const deleteEventUpdate = async (update: OrganizerRaceEventUpdate) => {
     if (!selectedEventId || !accessToken || eventUpdateDeletingId) return;
-    if (!window.confirm("Supprimer ce message de l'historique visible par les coureurs ?")) return;
 
     setEventUpdateDeletingId(update.id);
     setEventUpdateError(null);
@@ -3425,7 +3467,7 @@ export function OrganizerDashboard({
   const modifiedFormatCount = websiteImportExistingRaces.filter((race) => publicationStatesByRace[race.id]?.hasUnpublishedChanges).length;
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-8 sm:px-6">
+    <div className="mx-auto flex max-w-[1440px] flex-col gap-5 px-4 py-8 sm:px-6">
       <OrganizerToast toast={toast} />
       <OrganizerInvoicesDialog
         open={invoicesDialogOpen}
@@ -3612,42 +3654,64 @@ export function OrganizerDashboard({
         </DialogContent>
       </Dialog>
 
-      {error ? <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+      <ConfirmDialog
+        open={destructiveConfirmation === "gpx"}
+        onOpenChange={(open) => { if (!open) setDestructiveConfirmation(null); }}
+        title="Supprimer ce GPX source ?"
+        description="Les ravitaillements et les métriques du format seront conservés."
+        confirmLabel="Supprimer le GPX"
+        onConfirm={() => void deleteGpx()}
+      />
+      <ConfirmDialog
+        open={destructiveConfirmation === "race"}
+        onOpenChange={(open) => { if (!open) setDestructiveConfirmation(null); }}
+        title={`Supprimer le format ${activeRace?.name ?? ""} ?`}
+        description="Cette action est définitive."
+        confirmLabel="Supprimer le format"
+        onConfirm={() => void deleteActiveRace()}
+      />
+      <Dialog
+        open={eventUpdateDeleteConfirmation !== null}
+        onOpenChange={(open) => {
+          if (!open && eventUpdateDeletingId === null) setEventUpdateDeleteConfirmation(null);
+        }}
+      >
+        <DialogContent role="alertdialog" aria-modal="true">
+          <DialogHeader>
+            <DialogTitle>Supprimer ce message ?</DialogTitle>
+            <DialogDescription>Il ne sera plus visible dans l’historique des coureurs.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setEventUpdateDeleteConfirmation(null)} disabled={eventUpdateDeletingId !== null}>Annuler</Button>
+            <Button
+              type="button"
+              className="bg-red-700 hover:bg-red-800"
+              disabled={eventUpdateDeletingId !== null}
+              onClick={() => {
+                const update = eventUpdateDeleteConfirmation;
+                setEventUpdateDeleteConfirmation(null);
+                if (update) void deleteEventUpdate(update);
+              }}
+            >
+              Supprimer le message
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      <nav className="flex gap-1 border-b border-border" aria-label="Espace Livret coureur">
-        {([
-          ["content", "Contenu"],
-          ["analytics", "Statistiques"],
-        ] as const).map(([view, label]) => (
-          <button
-            key={view}
-            type="button"
-            className={`border-b-2 px-4 py-2.5 text-sm font-semibold transition ${dashboardView === view ? "border-brand text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-            aria-current={dashboardView === view ? "page" : undefined}
-            onClick={() => {
-              if (view === dashboardView) return;
-              if (view === "analytics") saveCurrentScopeInBackground();
-              setDashboardView(view);
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </nav>
+      {error ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700" role="alert">
+          <span>{error}</span>
+          {error.includes("nom de l’événement") ? <a className="font-semibold underline" href="#organizer-event-name">Corriger le nom</a> : null}
+          {error.includes("date de fin") ? <a className="font-semibold underline" href="#organizer-edition-end-date">Corriger la date de fin</a> : null}
+          {error.includes("liens sociaux") ? <a className="font-semibold underline" href="#organizer-instagram-url">Corriger les liens sociaux</a> : null}
+        </div>
+      ) : null}
 
       {dashboardView === "content" ? <>
-
+      <div className="grid items-start gap-4 min-[1320px]:grid-cols-[240px_minmax(0,1fr)_300px]">
       {completion ? (
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-3 px-1">
-            <div className="flex items-center gap-2">
-              <p className="font-semibold text-foreground">Contenu du Livret coureur</p>
-              <ContextualHelp text={`Offre requise pour publier toutes les sections utilisées : ${ORGANIZER_TIER_LABEL[requiredPublicationTier]}.`} />
-            </div>
-            <Button type="button" variant="ghost" onClick={openModuleSettingsDialog} disabled={!moduleSettings} title="Choisir les sections affichées dans le Livret coureur sans supprimer leur contenu.">
-              Gérer les sections
-            </Button>
-          </div>
+        <div className="space-y-2 min-[1320px]:col-start-1 min-[1320px]:row-start-1">
           <CompletionTabsPanel
             tabs={tabs}
             activeTab={activeTab}
@@ -3668,6 +3732,9 @@ export function OrganizerDashboard({
             }}
             activeModule={activeModule}
           />
+          <Button type="button" variant="ghost" className="w-full" onClick={openModuleSettingsDialog} disabled={!moduleSettings} title="Choisir les sections affichées dans le Livret coureur sans supprimer leur contenu.">
+            Gérer les sections
+          </Button>
         </div>
       ) : null}
 
@@ -3776,56 +3843,51 @@ export function OrganizerDashboard({
         </DialogContent>
       </Dialog>
 
-      <Card className="rounded-lg">
+      <Card className={cn(
+        "min-w-0 rounded-lg min-[1320px]:col-start-2 min-[1320px]:row-start-1",
+        (activeModule === "formats" || activeModule === "event" || activeModule === "branding") && "min-[1320px]:col-span-2"
+      )}>
         <CardHeader
           id="organizer-onboarding-editor"
           tabIndex={-1}
-          className={
-            (activeModule === "formats" || activeModule === "equipment" || activeModule === "bibPickup" || activeModule === "access") && activeRace
-              ? "flex flex-row items-center justify-between gap-4 space-y-0"
-              : undefined
-          }
+          className="relative flex flex-row flex-wrap items-center justify-between gap-3 space-y-0 overflow-hidden bg-[radial-gradient(circle_at_15%_120%,hsl(var(--brand)/0.08),transparent_42%)]"
         >
-          <div>
-            <div className="flex items-center gap-2">
-              <CardTitle>
-              {activeRace && activeModule === "bibPickup"
+          <svg viewBox="0 0 320 96" aria-hidden="true" className="pointer-events-none absolute right-0 top-0 h-full w-80 text-brand opacity-[0.08]">
+            <path d="M8 75c35-50 67 18 105-24s74 19 112-14 61 5 87-27M28 91c28-38 61 5 91-19s62 18 94-10 64 9 94-20M76 8c19 20 34 21 52 4s39-8 55 8 41 18 60-2" fill="none" stroke="currentColor" strokeWidth="2" />
+          </svg>
+          <SectionHeader
+            title={activeRace && activeModule === "bibPickup"
                 ? `Retrait dossard - ${activeRace.name}`
                 : activeRace && activeModule === "equipment"
                   ? `Matériel - ${activeRace.name}`
                 : activeRace && activeModule === "access"
                   ? `Accès - ${activeRace.name}`
                   : getModuleTitle(activeModule)}
-              </CardTitle>
-              {activeModule !== "formats" ? (
-                <ContextualHelp text={activeRace && activeModule === "bibPickup"
+            description={activeModule !== "formats" ? (activeRace && activeModule === "bibPickup"
                   ? "Par défaut, ce format utilise le retrait commun de l'événement."
                   : activeRace && activeModule === "equipment"
                     ? "Par défaut, ce format utilise le matériel commun de l'événement."
                   : activeRace && activeModule === "access"
                     ? "Par défaut, ce format utilise les accès communs de l'événement."
-                    : getModuleDescription(activeModule)} />
-              ) : null}
-              {activeModuleChoice?.state === "draftOnly" ? (
+                    : getModuleDescription(activeModule)) : undefined}
+            icon={<OrganizerModuleIcon moduleId={activeModule} />}
+            status={<div className="flex flex-wrap items-center gap-2"><SaveStatus
+              state={autosaveState}
+              savedAt={lastAutosavedAt?.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+              onRetry={() => { setAutosaveState("idle"); saveCurrentScopeInBackground(); }}
+            />{activeModuleChoice?.state === "draftOnly" ? (
                 <span className="rounded-full bg-muted px-2 py-1 text-[11px] font-semibold text-muted-foreground" title={`Cette section restera privée jusqu’au passage à ${ORGANIZER_TIER_LABEL[activeModuleChoice.minimumTier]}.`}>
                   Privé · {ORGANIZER_TIER_LABEL[activeModuleChoice.minimumTier]}
                 </span>
-              ) : null}
-            </div>
-          </div>
-          {activeModule === "formats" && activeRace ? (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => void deleteActiveRace()}
-              disabled={status === "saving" || status === "uploading"}
-              className="shrink-0 border-red-300 text-red-700 hover:border-red-400 hover:bg-red-50 hover:text-red-800"
-            >
-              Supprimer ce format
-            </Button>
-          ) : null}
+              ) : null}{activeModule === "formats" && activeRace ? <details className="relative z-20">
+              <summary aria-label="Actions du format" className="grid h-9 w-9 cursor-pointer list-none place-items-center rounded-md border border-border bg-card text-lg font-bold marker:content-none">⋯</summary>
+              <div className="absolute right-0 top-11 z-20 w-56 rounded-lg border border-border bg-card p-2 shadow-xl">
+                <Button type="button" variant="ghost" onClick={() => setDestructiveConfirmation("race")} disabled={status === "saving" || status === "uploading"} className="w-full justify-start text-red-700 hover:bg-red-50 hover:text-red-800">Supprimer ce format</Button>
+              </div>
+            </details> : null}</div>}
+          />
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-3 pb-4 sm:px-6 sm:pb-6">
           {!eventDetail || !eventDraft ? (
             <p className="text-sm text-muted-foreground">Chargement de l&apos;événement...</p>
           ) : activeModule === "event" ? (
@@ -3861,7 +3923,7 @@ export function OrganizerDashboard({
                 onSelectNewRaceGpx={selectNewRaceGpx}
                 onUploadGpx={uploadGpx}
                 onDeleteGpx={() => {
-                  void deleteGpx();
+                  setDestructiveConfirmation("gpx");
                 }}
                 gpxPreview={gpxPreview}
                 status={status}
@@ -3872,9 +3934,7 @@ export function OrganizerDashboard({
             </div>
           ) : activeModule === "aidStations" ? (
             activeRace && !activeRaceSidecarsReady ? (
-              <div className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
-                Chargement des points de course…
-              </div>
+              <div className="space-y-3" role="status" aria-label="Chargement des points de course"><div className="h-12 animate-pulse rounded-md bg-muted" /><div className="h-32 animate-pulse rounded-md bg-muted/70" /><span className="sr-only">Chargement des points de course…</span></div>
             ) : (
               <AidStationsEditor
               activeRace={activeRace}
@@ -3887,6 +3947,7 @@ export function OrganizerDashboard({
               startTime={currentStartTime}
               startWaveCount={currentStartWaveCount}
               finishCutoffTime={raceForm.organizerDetails.schedule.finishCutoffTime ?? ""}
+              finishCutoffDayOffset={raceForm.organizerDetails.schedule.finishCutoffDayOffset}
               cutoffNote={raceForm.organizerDetails.schedule.cutoffNote ?? ""}
               scheduleNote={raceForm.organizerDetails.schedule.note ?? ""}
               startWavesSlot={(
@@ -3899,22 +3960,22 @@ export function OrganizerDashboard({
               )}
               expandedStationKey={expandedStationKey}
               onExpandedStationKeyChange={setExpandedStationKey}
-              onAddStation={() => {
+              onAddStation={(draft) => {
                 const nextKey = `new-${aidStations.length}`;
                 setAidStations((current) =>
                   sortAidStationsByDistance([
                     ...current,
                     {
-                      name: "Nouveau ravito",
-                      distanceKm: 0,
+                      name: draft.name,
+                      distanceKm: draft.distanceKm,
                       waterRefill: true,
                       solidRefill: true,
                       assistanceAllowed: true,
                       notes: "",
                       organizerDetails: syncAidStationWithGpxPreview(
                         {
-                          name: "Nouveau ravito",
-                          distanceKm: 0,
+                          name: draft.name,
+                          distanceKm: draft.distanceKm,
                           waterRefill: true,
                           solidRefill: true,
                           assistanceAllowed: true,
@@ -4023,6 +4084,12 @@ export function OrganizerDashboard({
                   "aidStations"
                 )
               }
+              onFinishCutoffDayOffsetChange={(finishCutoffDayOffset) =>
+                updateRaceForm(
+                  { organizerDetails: { ...raceForm.organizerDetails, schedule: { ...raceForm.organizerDetails.schedule, finishCutoffDayOffset } } },
+                  "aidStations"
+                )
+              }
               onCutoffNoteChange={(value) => updateRaceForm({ organizerDetails: { ...raceForm.organizerDetails, schedule: { ...raceForm.organizerDetails.schedule, cutoffNote: value || null } } }, "aidStations")}
               onScheduleNoteChange={(value) => updateRaceForm({ organizerDetails: { ...raceForm.organizerDetails, schedule: { ...raceForm.organizerDetails.schedule, note: value || null } } }, "aidStations")}
               onUpdateStation={updateAidStation}
@@ -4051,6 +4118,7 @@ export function OrganizerDashboard({
               }}
               onCreateProduct={createStationProduct}
                 status={status}
+              legacyConversionContext={selectedEventId && activeEdition?.id ? { eventId: selectedEventId, editionId: activeEdition.id, headers: authHeaders } : undefined}
               />
             )
           ) : activeModule === "equipment" ? (
@@ -4061,16 +4129,20 @@ export function OrganizerDashboard({
               raceDetails={raceForm.organizerDetails}
               onEventChange={(details) => updateEventDetails(details, "equipment")}
               onRaceChange={(details) => updateRaceForm({ organizerDetails: details }, "equipment")}
+              legacyConversionContext={selectedEventId && activeEdition?.id ? { eventId: selectedEventId, editionId: activeEdition.id, headers: authHeaders } : undefined}
             />
           ) : activeModule === "bibPickup" ? (
             isEventTab ? (
-              <BibPickupEditor eventDetails={eventForm.organizerDetails} onEventChange={(details) => updateEventDetails(details, "bibPickup")} />
+              <BibPickupEditor eventDetails={eventForm.organizerDetails} editionStartDate={eventForm.editionStartDate} editionEndDate={eventForm.editionEndDate} onEventChange={(details) => updateEventDetails(details, "bibPickup")} legacyConversionContext={selectedEventId && activeEdition?.id ? { eventId: selectedEventId, editionId: activeEdition.id, headers: authHeaders } : undefined} />
             ) : (
               <RaceBibPickupEditor
                 activeRace={activeRace}
                 eventDetails={eventForm.organizerDetails}
                 raceDetails={raceForm.organizerDetails}
+                editionStartDate={eventForm.editionStartDate}
+                editionEndDate={eventForm.editionEndDate}
                 onRaceChange={(details) => updateRaceForm({ organizerDetails: details }, "bibPickup")}
+                legacyConversionContext={selectedEventId && activeEdition?.id ? { eventId: selectedEventId, editionId: activeEdition.id, headers: authHeaders } : undefined}
               />
             )
           ) : activeModule === "access" ? (
@@ -4081,6 +4153,8 @@ export function OrganizerDashboard({
               raceDetails={raceForm.organizerDetails}
               onEventChange={(details) => updateEventDetails(details, "access")}
               onRaceChange={(details) => updateRaceForm({ organizerDetails: details }, "access")}
+              editionStartDate={eventForm.editionStartDate}
+              legacyConversionContext={selectedEventId && activeEdition?.id ? { eventId: selectedEventId, editionId: activeEdition.id, headers: authHeaders } : undefined}
             />
           ) : activeModule === "products" ? (
             <ProductsEditor
@@ -4128,6 +4202,11 @@ export function OrganizerDashboard({
         </CardContent>
       </Card>
 
+      {completion && activeModule !== "formats" && activeModule !== "event" && activeModule !== "branding"
+        ? <OrganizerProgressRail completion={completion} />
+        : null}
+      </div>
+
       <ProductPickerModal
         station={productPickerStation}
         products={catalogProducts}
@@ -4149,6 +4228,8 @@ export function OrganizerDashboard({
       />
 
       </> : activeEdition?.id && accessToken ? (
+        <div className="space-y-3">
+        <Button type="button" variant="ghost" onClick={() => setDashboardView("content")}>← Revenir au contenu</Button>
         <OrganizerAnalyticsPanel
           editionId={activeEdition.id}
           accessToken={accessToken}
@@ -4156,6 +4237,7 @@ export function OrganizerDashboard({
           races={websiteImportExistingRaces}
           onOpenPricing={() => openPricingDialog("upgrade")}
         />
+        </div>
       ) : (
         <p className="rounded-md border border-border bg-muted/30 p-4 text-sm text-muted-foreground">Sélectionnez une édition pour afficher ses statistiques.</p>
       )}
@@ -4327,7 +4409,7 @@ export function OrganizerDashboard({
             <DialogDescription>
               {eventFavoriteCount === null
                 ? "Charge le nombre de favoris et publie une mise à jour visible côté coureur."
-                : `${eventFavoriteCount} coureur(s) suivent cette course. Le message sera aussi ajouté à l'historique public de l'événement.`}
+                : `${eventFavoriteCount} ${eventFavoriteCount === 1 ? "coureur suit" : "coureurs suivent"} cette course. Le message sera aussi ajouté à l'historique public de l'événement.`}
             </DialogDescription>
           </DialogHeader>
 
@@ -4336,19 +4418,16 @@ export function OrganizerDashboard({
               <label htmlFor="organizer-update-audience" className="text-sm font-medium text-foreground">
                 Notification concernée
               </label>
-              <select
+              <SelectField
                 id="organizer-update-audience"
                 className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 value={eventUpdateRaceId ?? ""}
-                onChange={(event) => setEventUpdateRaceId(event.target.value || null)}
-              >
-                <option value="">Tout l’événement — {eventDetail?.name ?? "Événement"}</option>
-                {eventUpdateRaceOptions.map((race) => (
-                  <option key={race.id} value={race.id}>
-                    Format — {race.name}
-                  </option>
-                ))}
-              </select>
+                onValueChange={(value) => setEventUpdateRaceId(value || null)}
+                options={[
+                  { value: "", label: `Tout l’événement — ${eventDetail?.name ?? "Événement"}` },
+                  ...eventUpdateRaceOptions.map((race) => ({ value: race.id, label: `Format — ${race.name}` })),
+                ]}
+              />
               <p className="text-xs text-muted-foreground">
                 Le titre de la notification affichera le nom de l’événement ou celui du format choisi.
               </p>
@@ -4391,7 +4470,7 @@ export function OrganizerDashboard({
                         aria-label="Supprimer ce message"
                         title="Supprimer ce message"
                         disabled={eventUpdateDeletingId !== null}
-                        onClick={() => void deleteEventUpdate(update)}
+                        onClick={() => setEventUpdateDeleteConfirmation(update)}
                       >
                         {eventUpdateDeletingId === update.id ? "…" : "×"}
                       </button>
@@ -4527,14 +4606,12 @@ export function OrganizerDashboard({
                       <p className="text-sm font-medium text-foreground">Documents officiels</p>
                       <p className="text-xs text-muted-foreground">Règlement, roadbook, programme, PDF ou images · 25 Mo maximum par document.</p>
                     </div>
-                    <input
-                      id="organizer-website-import-documents"
-                      type="file"
+                    <MultiFileField
+                      label="Ajouter des documents officiels"
                       accept="application/pdf,image/jpeg,image/png,image/webp"
-                      multiple
-                      className="block w-full text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-brand file:px-3 file:py-2 file:text-sm file:font-medium file:text-white"
-                      onChange={(event) => {
-                        const files = Array.from(event.target.files ?? []);
+                      value={websiteImportDocuments}
+                      maxSizeLabel="PDF, JPEG, PNG ou WebP · 25 Mo maximum par document · 8 documents maximum"
+                      onChange={(files) => {
                         const unsupportedFile = files.find((file) => !isOrganizerImportDocumentMimeType(file.type));
                         if (unsupportedFile) {
                           setWebsiteImportError(`Le format du document ${unsupportedFile.name} n’est pas pris en charge.`);
@@ -4552,14 +4629,11 @@ export function OrganizerDashboard({
                         setWebsiteImportDocuments(files);
                         setWebsiteImportError(null);
                       }}
+                      onRemove={(file) => {
+                        setWebsiteImportDocuments((files) => files.filter((candidate) => candidate !== file));
+                        setWebsiteImportError(null);
+                      }}
                     />
-                    {websiteImportDocuments.length > 0 ? (
-                      <ul className="space-y-1 text-xs text-muted-foreground">
-                        {websiteImportDocuments.map((document) => (
-                          <li key={`${document.name}-${document.size}`}>{document.name}</li>
-                        ))}
-                      </ul>
-                    ) : null}
                     {websiteImportUploadProgress ? (
                       <div className="space-y-1" aria-live="polite">
                         <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">

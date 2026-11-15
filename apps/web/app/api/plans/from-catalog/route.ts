@@ -8,6 +8,7 @@ import { parseGpx } from "../../../../lib/gpx/parseGpx";
 import { normalizeImportedWaypoints } from "../../../../lib/gpx/normalizeImportedWaypoints";
 import { checkRateLimit, withSecurityHeaders } from "../../../../lib/http";
 import { loadOrganizerAidStationProductsForStations } from "../../../../lib/organizer-aid-station-products";
+import { parseOrganizerAidStationDetails } from "../../../../lib/organizer-dashboard-details";
 import {
   extractBearerToken,
   fetchSupabaseUser,
@@ -38,6 +39,7 @@ const catalogRaceSchema = z.object({
         water_available: z.boolean().nullable().optional(),
         solid_available: z.boolean().nullable().optional(),
         assistance_allowed: z.boolean().nullable().optional(),
+        organizer_details: z.unknown().nullable().optional(),
         order_index: z.number().nullable().optional(),
       })
     )
@@ -177,7 +179,7 @@ export async function POST(request: NextRequest) {
   }
 
   const catalogRaceResponse = await fetch(
-    `${supabaseAnon.supabaseUrl}/rest/v1/races?id=eq.${parsedBody.data.catalogRaceId}&is_live=eq.true&select=id,name,distance_km,elevation_gain_m,elevation_loss_m,gpx_storage_path,gpx_sha256,updated_at,race_aid_stations(id,name,km,water_available,solid_available,assistance_allowed,order_index)&limit=1`,
+    `${supabaseAnon.supabaseUrl}/rest/v1/races?id=eq.${parsedBody.data.catalogRaceId}&is_live=eq.true&select=id,name,distance_km,elevation_gain_m,elevation_loss_m,gpx_storage_path,gpx_sha256,updated_at,race_aid_stations(id,name,km,water_available,solid_available,assistance_allowed,organizer_details,order_index)&limit=1`,
     {
       headers: buildAuthHeaders(supabaseAnon.supabaseAnonKey, token, undefined),
       cache: "no-store",
@@ -283,6 +285,7 @@ export async function POST(request: NextRequest) {
             waterRefill: station.water_available !== false,
             solidRefill: station.solid_available !== false,
             assistanceAllowed: station.assistance_allowed !== false,
+            ...(parseOrganizerAidStationDetails(station.organizer_details).maxStopMinutes ? { maxStopMinutes: parseOrganizerAidStationDetails(station.organizer_details).maxStopMinutes ?? undefined } : {}),
           }))
       : parsedGpx.pointSource !== "waypoint"
         ? mapWaypointsToAidStations(parsedGpx.points, parsedGpx.waypoints)

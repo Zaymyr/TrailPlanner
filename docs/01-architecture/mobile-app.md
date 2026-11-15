@@ -2,6 +2,11 @@
 title: Mobile App Architecture
 scope: architecture
 last_verified: 2026-11-15
+# Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
+# Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
+# Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
+# Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: high
 related_files:
   - apps/mobile/app/(app)/courses/supporter-guide/[raceId].tsx
@@ -34,6 +39,8 @@ related_files:
   - apps/mobile/.eslintrc.js
   - apps/mobile/react-native.config.js
   - apps/mobile/app.config.ts
+  - apps/mobile/lib/runnerDeepLink.ts
+  - packages/shared/src/runnerProfile.ts
   - apps/mobile/lib/haptics.ts
   - apps/mobile/lib/hapticsPolicy.ts
   - apps/mobile/lib/planRecapDeparture.ts
@@ -247,6 +254,7 @@ The Livret accompagnateur screen lives at `app/(app)/courses/supporter-guide/[ra
 The app route `/courses/supporter-guide/[raceId]` consumes the same public payload as the web Supporter Guide and is reachable from catalog event details, the runner RaceBook share entry, and followed plans. It reuses `RacebookSupporterPointsSection`; the former RaceBook “Où encourager” subtab is removed only from current UI, while publication data remains backward-compatible. The mobile bundle deliberately keeps its API payload type and followed-plan timeline helpers in `apps/mobile/lib`: CI forbids runtime or type imports from `@trailplanner/shared`, so these narrow client adapters mirror the versioned server contract without crossing that bundling boundary.
 
 Shared plan links are universal links for `/share/plan/*`. The native preview requires an identified account, preserves the pending deep-link destination through the existing authentication screen, and creates a `plan_share_follows` membership through the web API. **Mes plans** exposes an owned/followed selector. Its detail screen refreshes on focus and pull, shows publication-only supporter directions, checkpoint rules/cutoffs, practical access, third-party bib pickup, emergency calling, recalibrated supporter ETAs and a device-local per-follow preparation checklist. The last viewed `plan_updated_at` is local and drives the bounded “Plan mis à jour” indicator. Completed dated races move under **Terminés** after the longest cutoff/duration plus six hours; explicit restore is durable. Link revocation, expiry or runner removal renders the followed plan unavailable. The Apple Team ID and Android signing fingerprint in the association files remain explicit maintainer TODOs until verified.
+The native app consumes the shared runner profile definition from `@trailplanner/shared`; favorite nutrition products have no quota. Universal links for `/courses/*` and `/race-planner*` are declared in Expo configuration and resolved at the root router. They require a new native binary plus verified Apple Team ID and Android signing SHA-256 values in the web association files before release.
 
 ## Published RaceBook boundary
 

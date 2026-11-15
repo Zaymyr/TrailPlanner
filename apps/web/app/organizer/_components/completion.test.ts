@@ -140,6 +140,30 @@ describe("organizer completion", () => {
     expect(completion.eventModules.find((module) => module.id === "branding")).toMatchObject({ status: "complete" });
   });
 
+  it("does not treat legacy service copy as structured service completion", () => {
+    const eventWithLegacyServices = {
+      ...baseEvent,
+      organizerDetails: {
+        ...baseEvent.organizerDetails!,
+        services: {
+          ...baseEvent.organizerDetails!.services,
+          partners: "Partenaire historique",
+        },
+      },
+    };
+
+    const completion = buildOrganizerCompletion(eventWithLegacyServices, eventWithLegacyServices.races[0]!, [], []);
+
+    expect(completion.eventModules.find((module) => module.id === "services")).toMatchObject({
+      status: "incomplete",
+      countLabel: "Texte à convertir",
+    });
+    expect(completion.modules.find((module) => module.id === "services")).toMatchObject({
+      status: "incomplete",
+      countLabel: "Texte à convertir",
+    });
+  });
+
   it("prioritizes an unpublished branding draft over the last published state", () => {
     const completion = buildOrganizerCompletion(baseEvent, baseEvent.races[0]!, [], [], {
       brandingConfigured: true,

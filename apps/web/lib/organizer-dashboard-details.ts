@@ -8,6 +8,19 @@ const nullableText = z
     return trimmed.length > 0 ? trimmed : null;
   });
 
+export const normalizeOrganizerClockValue = (value: string | null | undefined) => {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return null;
+  const match = /^(\d{1,2})(?:(?::|h)(\d{0,2}))?(?::\d{2})?$/i.exec(trimmed);
+  if (!match) return trimmed;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2] || 0);
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes) || hours > 23 || minutes > 59) return trimmed;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+};
+
+const nullableClockText = nullableText.transform(normalizeOrganizerClockValue);
+
 const URL_WITHOUT_PROTOCOL_PATTERN = /^(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:[/?#].*)?$/i;
 
 const nullableUrl = nullableText
@@ -72,8 +85,10 @@ export const organizerEquipmentDetailsSchema = z
     weatherPlan: organizerWeatherPlanSchema.default("normal"),
     items: z.array(equipmentItemSchema).default([]),
     note: nullableText,
+    shortNote: nullableText,
+    checkpoints: z.array(z.enum(["bib_pickup", "start", "course"])).default([]),
   })
-  .default({ overrideEnabled: false, weatherPlan: "normal", items: [], note: null });
+  .default({ overrideEnabled: false, weatherPlan: "normal", items: [], note: null, shortNote: null, checkpoints: [] });
 
 export const organizerBibPickupSlotSchema = z.object({
   date: nullableText,
@@ -95,8 +110,12 @@ export const organizerBibPickupDetailsSchema = z
     schedule: nullableText,
     locations: z.array(organizerBibPickupLocationSchema).default([]),
     requiredDocuments: nullableText,
+    requiredDocumentKinds: z.array(z.enum(["id_card", "registration_qr", "medical_certificate", "license_or_pps", "parental_authorization", "other"])).default([]),
+    requiredDocumentsOther: nullableText,
     thirdPartyPickupAllowed: nullableBoolean,
     thirdPartyPickupConditions: nullableText,
+    thirdPartyDocumentKinds: z.array(z.enum(["id_copy", "proxy_letter", "registration_qr", "other"])).default([]),
+    thirdPartyDocumentsOther: nullableText,
     equipmentCheck: nullableBoolean,
     note: nullableText,
   })
@@ -107,8 +126,12 @@ export const organizerBibPickupDetailsSchema = z
     schedule: null,
     locations: [],
     requiredDocuments: null,
+    requiredDocumentKinds: [],
+    requiredDocumentsOther: null,
     thirdPartyPickupAllowed: null,
     thirdPartyPickupConditions: null,
+    thirdPartyDocumentKinds: [],
+    thirdPartyDocumentsOther: null,
     equipmentCheck: null,
     note: null,
   });
@@ -123,6 +146,26 @@ export const organizerAccessDetailsSchema = z
     officialParkings: nullableText,
     shuttles: nullableText,
     shuttleSchedule: nullableText,
+    parkings: z.array(z.object({
+      id: z.string().min(1),
+      name: z.string().trim().min(1),
+      location: organizerLocationSchema,
+      capacity: z.number().int().nonnegative().nullable().default(null),
+      paid: nullableBoolean,
+      note: nullableText,
+    })).default([]),
+    shuttleLines: z.array(z.object({
+      id: z.string().min(1),
+      from: organizerLocationSchema,
+      to: organizerLocationSchema,
+      days: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).default([]),
+      startTime: nullableClockText,
+      endTime: nullableClockText,
+      frequencyMinutes: z.number().int().positive().nullable().default(null),
+      bookingUrl: nullableUrl,
+      free: nullableBoolean,
+      note: nullableText,
+    })).default([]),
     roadRestrictions: nullableText,
     mapUrl: nullableUrl,
     note: nullableText,
@@ -151,6 +194,8 @@ export const organizerAccessDetailsSchema = z
     officialParkings: null,
     shuttles: null,
     shuttleSchedule: null,
+    parkings: [],
+    shuttleLines: [],
     roadRestrictions: null,
     mapUrl: null,
     note: null,
@@ -188,12 +233,18 @@ export const organizerRunnerInfoDetailsSchema = z
     startArea: nullableText,
     briefing: nullableText,
     rules: nullableText,
+    startAreaDetails: z.object({ location: organizerLocationSchema, opensAt: nullableClockText, note: nullableText }).default({ location: organizerLocationSchema.parse({}), opensAt: null, note: null }),
+    briefingDetails: z.object({ date: nullableText, time: nullableClockText, location: organizerLocationSchema, videoUrl: nullableUrl, mandatory: z.boolean().default(false), note: nullableText }).default({ date: null, time: null, location: organizerLocationSchema.parse({}), videoUrl: null, mandatory: false, note: null }),
+    rulesDetails: z.object({ regulationUrl: nullableUrl, keyRules: z.object({ polesAllowed: z.enum(["allowed", "partial", "forbidden"]).nullable().default(null), cupRequired: nullableBoolean, musicAllowed: nullableBoolean, outsideAssistanceForbidden: nullableBoolean }).default({ polesAllowed: null, cupRequired: null, musicAllowed: null, outsideAssistanceForbidden: null }), note: nullableText }).default({ regulationUrl: null, keyRules: { polesAllowed: null, cupRequired: null, musicAllowed: null, outsideAssistanceForbidden: null }, note: null }),
     note: nullableText,
   })
   .default({
     startArea: null,
     briefing: null,
     rules: null,
+    startAreaDetails: { location: organizerLocationSchema.parse({}), opensAt: null, note: null },
+    briefingDetails: { date: null, time: null, location: organizerLocationSchema.parse({}), videoUrl: null, mandatory: false, note: null },
+    rulesDetails: { regulationUrl: null, keyRules: { polesAllowed: null, cupRequired: null, musicAllowed: null, outsideAssistanceForbidden: null }, note: null },
     note: null,
   });
 
@@ -271,7 +322,8 @@ export const organizerRaceDetailsSchema = z.object({
   schedule: z
     .object({
       startTime: nullableText,
-      finishCutoffTime: nullableText,
+      finishCutoffTime: nullableClockText,
+      finishCutoffDayOffset: z.number().int().nonnegative().nullable().default(null),
       shuttleSchedule: nullableText,
       cutoffNote: nullableText,
       note: nullableText,
@@ -279,6 +331,7 @@ export const organizerRaceDetailsSchema = z.object({
     .default({
       startTime: null,
       finishCutoffTime: null,
+      finishCutoffDayOffset: null,
       shuttleSchedule: null,
       cutoffNote: null,
       note: null,
@@ -296,8 +349,19 @@ export const organizerAidStationDetailsSchema = z.object({
   cumulativeElevationGainM: nullableNumber,
   cumulativeElevationLossM: nullableNumber,
   altitudeM: nullableNumber,
-  cutoffTime: nullableText,
+  cutoffTime: nullableClockText,
+  cutoffDayOffset: z.number().int().nonnegative().nullable().default(null),
   dropBagAvailable: z.boolean().default(false),
+  amenities: z.object({
+    toilets: z.boolean().default(false),
+    shelter: z.boolean().default(false),
+    medical: z.boolean().default(false),
+    hotDrinks: z.boolean().default(false),
+    hotFood: z.boolean().default(false),
+  }).default({ toilets: false, shelter: false, medical: false, hotDrinks: false, hotFood: false }),
+  maxStopMinutes: z.number().int().positive().nullable().default(null),
+  supportersAccess: z.enum(["allowed", "restricted", "forbidden"]).nullable().default(null),
+  note: nullableText,
   organizerNote: nullableText,
 });
 

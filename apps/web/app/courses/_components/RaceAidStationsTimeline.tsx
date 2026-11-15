@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
 
-import type { PublicRaceAidStation } from "../../../lib/public-race-detail";
+import type { PublicRaceAidStation, PublicRaceAidStationSummary } from "../../../lib/public-race-detail";
 
 type TimelineEntry =
   | { kind: "start" }
   | { kind: "finish"; distanceKm: number | null }
-  | { kind: "station"; station: PublicRaceAidStation };
+  | { kind: "station"; station: PublicRaceAidStationSummary };
 
 const dotColor: Record<TimelineEntry["kind"], string> = {
   start: "border-emerald-600 bg-emerald-600",
@@ -15,11 +15,14 @@ const dotColor: Record<TimelineEntry["kind"], string> = {
 
 export function RaceAidStationsTimeline({
   aidStations,
+  aidStationDetails,
   totalDistanceKm,
 }: {
-  aidStations: PublicRaceAidStation[];
+  aidStations: PublicRaceAidStationSummary[];
+  aidStationDetails: PublicRaceAidStation[] | null;
   totalDistanceKm: number | null;
 }) {
+  const detailsById = new Map((aidStationDetails ?? []).map((station) => [station.id, station]));
   const entries: TimelineEntry[] = [
     { kind: "start" },
     ...aidStations.map((station): TimelineEntry => ({ kind: "station", station })),
@@ -50,6 +53,7 @@ export function RaceAidStationsTimeline({
           );
         } else {
           const { station } = entry;
+          const stationDetails = detailsById.get(station.id);
           heading = (
             <>
               {station.name} <span className="font-normal text-muted-foreground">— {station.distanceKm.toLocaleString("fr-FR")} km</span>
@@ -60,11 +64,18 @@ export function RaceAidStationsTimeline({
               <div className="flex flex-wrap gap-2">
                 {station.waterAvailable ? <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-800">Eau</span> : null}
                 {station.solidAvailable ? <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">Solide</span> : null}
-                {station.assistanceAllowed ? <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800">Assistance</span> : null}
-                {station.dropBagAvailable ? <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-800">Sac d’allègement</span> : null}
-                {station.cutoffTime ? <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">Barrière {station.cutoffTime}</span> : null}
+                {stationDetails?.assistanceAllowed ? <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800">Assistance</span> : null}
+                {stationDetails?.dropBagAvailable ? <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-800">Sac d’allègement</span> : null}
+                {stationDetails?.cutoffTime ? <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">Barrière {stationDetails.cutoffTime}</span> : null}
               </div>
-              {station.note ? <p className="text-sm italic text-muted-foreground">{station.note}</p> : null}
+              {stationDetails ? (
+                <dl className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                  {stationDetails.altitudeM !== null ? <div><dt className="inline font-semibold">Altitude :</dt> <dd className="inline">{Math.round(stationDetails.altitudeM)} m</dd></div> : null}
+                  {stationDetails.cumulativeElevationGainM !== null ? <div><dt className="inline font-semibold">D+ cumulé :</dt> <dd className="inline">{Math.round(stationDetails.cumulativeElevationGainM)} m</dd></div> : null}
+                  {stationDetails.cumulativeElevationLossM !== null ? <div><dt className="inline font-semibold">D- cumulé :</dt> <dd className="inline">{Math.round(stationDetails.cumulativeElevationLossM)} m</dd></div> : null}
+                </dl>
+              ) : null}
+              {stationDetails?.note ? <p className="text-sm italic text-muted-foreground">{stationDetails.note}</p> : null}
             </div>
           );
         }

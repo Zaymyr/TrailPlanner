@@ -54,12 +54,18 @@ const mapSavedPlan = (row: Record<string, unknown>): SavedPlan | null => {
   );
 
   // race_id is the FK column (renamed from catalog_race_id)
+  const rawPlannerValues = row.planner_values ?? row.plannerValues;
+  const plannerValuesRecord = rawPlannerValues && typeof rawPlannerValues === "object" && !Array.isArray(rawPlannerValues)
+    ? rawPlannerValues as Record<string, unknown>
+    : null;
   const catalogRaceId =
     typeof row.race_id === "string"
       ? row.race_id
       : typeof row.catalog_race_id === "string"
         ? row.catalog_race_id
-        : null;
+        : typeof plannerValuesRecord?.catalogRaceId === "string"
+          ? plannerValuesRecord.catalogRaceId
+          : null;
 
   const racesJoin = row.races as { name?: string } | null | undefined;
   const raceName = racesJoin?.name ?? null;
@@ -549,6 +555,78 @@ export const useRacePlan = ({
     session?.accessToken,
   ]);
 
+  const handleRenamePlan = useCallback(async (plan: SavedPlan, nextName: string): Promise<boolean> => {
+    const trimmedName = nextName.trim();
+    setAccountError(null);
+    setAccountMessage(null);
+
+    if (!session?.accessToken) {
+      setAccountError(racePlannerCopy.account.errors.missingSession);
+      return false;
+    }
+
+    if (!trimmedName) return false;
+
+    const duplicate = savedPlans.some(
+      (savedPlan) => savedPlan.id !== plan.id && savedPlan.name.trim().toLowerCase() === trimmedName.toLowerCase()
+    );
+    if (duplicate) {
+      setAccountError(racePlannerCopy.account.errors.duplicateName);
+      return false;
+    }
+
+    setPlanStatus("saving");
+    try {
+      const response = await fetch("/api/plans", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.accessToken}`,
+        },
+        body: JSON.stringify({
+          id: plan.id,
+          name: trimmedName,
+          plannerValues: plan.plannerValues,
+          elevationProfile: plan.elevationProfile,
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as {
+        plan?: Record<string, unknown> | null;
+        message?: string;
+      } | null;
+
+      if (!response.ok || !data?.plan) {
+        setAccountError(data?.message ?? racePlannerCopy.account.errors.saveFailed);
+        return false;
+      }
+
+      const renamedPlan = mapSavedPlan(data.plan);
+      if (!renamedPlan) {
+        setAccountError(racePlannerCopy.account.errors.saveFailed);
+        return false;
+      }
+
+      setSavedPlans((previous) => previous.map((savedPlan) => (savedPlan.id === renamedPlan.id ? renamedPlan : savedPlan)));
+      if (activePlanId === renamedPlan.id) setPlanName(renamedPlan.name);
+      setAccountMessage(racePlannerCopy.account.messages.savedPlan);
+      return true;
+    } catch (error) {
+      console.error("Unable to rename plan", error);
+      setAccountError(racePlannerCopy.account.errors.saveFailed);
+      return false;
+    } finally {
+      setPlanStatus("idle");
+    }
+  }, [
+    activePlanId,
+    racePlannerCopy.account.errors.duplicateName,
+    racePlannerCopy.account.errors.missingSession,
+    racePlannerCopy.account.errors.saveFailed,
+    racePlannerCopy.account.messages.savedPlan,
+    savedPlans,
+    session?.accessToken,
+  ]);
+
   const handleRefreshPlans = useCallback(() => {
     if (session?.accessToken) {
       refreshSavedPlans(session.accessToken);
@@ -777,6 +855,7 @@ export const useRacePlan = ({
     handleSavePlan,
     handleLoadPlan,
     handleDeletePlan,
+    handleRenamePlan,
     handleRefreshPlans,
     handleUseCatalogRace,
     handleCreateRace,

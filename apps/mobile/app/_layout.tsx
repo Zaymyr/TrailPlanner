@@ -71,6 +71,7 @@ import {
 import { useSessionSideEffects } from '../hooks/useSessionSideEffects';
 import { isUnsupportedDevelopmentUpdateError, shouldSkipOtaUpdateCheck } from '../lib/otaUpdatePolicy';
 import { consumePendingDeepLink } from '../lib/pendingDeepLink';
+import { resolveRunnerDeepLinkRoute, type RunnerDeepLinkRoute } from '../lib/runnerDeepLink';
 
 const SNOOZE_OPTIONS_MINUTES = [5, 10, 15] as const;
 const appVariant = Constants.expoConfig?.android?.package === 'com.paceyourself.app.dev' ? 'development' : 'production';
@@ -168,6 +169,7 @@ function RootLayoutContent() {
   });
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
+  const [pendingDeepLinkRoute, setPendingDeepLinkRoute] = useState<RunnerDeepLinkRoute | null>(null);
   const [bootstrappingSession, setBootstrappingSession] = useState(false);
   const [mergingGuestData, setMergingGuestData] = useState(false);
   const [pendingOnboardingTransition, setPendingOnboardingTransitionState] = useState(
@@ -550,6 +552,7 @@ function RootLayoutContent() {
         ...buildMobileAcquisitionProperties(url),
         is_initial: isInitial,
       });
+      setPendingDeepLinkRoute(resolveRunnerDeepLinkRoute(url));
     };
 
     void Linking.getInitialURL().then((url) => {
@@ -562,6 +565,12 @@ function RootLayoutContent() {
       subscription.remove();
     };
   }, []);
+
+  useEffect(() => {
+    if (!pendingDeepLinkRoute || !ready || !session || segments[0] !== '(app)' || updateState.status !== 'done') return;
+    router.replace(pendingDeepLinkRoute);
+    setPendingDeepLinkRoute(null);
+  }, [pendingDeepLinkRoute, ready, router, segments, session, updateState.status]);
 
   useEffect(() => {
     if (!ready) {

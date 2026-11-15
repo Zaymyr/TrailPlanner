@@ -6,7 +6,12 @@ import type { Route } from "next";
 
 import { Button } from "../../../components/ui/button";
 import { persistSessionToStorage } from "../../../lib/auth-storage";
-import { normalizeInternalReturnPath } from "../../../lib/organizer-acquisition";
+import {
+  buildAuthHref,
+  clearRememberedRunnerReturnPath,
+  normalizeInternalReturnPath,
+  readRememberedRunnerReturnPath,
+} from "../../../lib/organizer-acquisition";
 
 type SessionResponse = {
   user?: {
@@ -27,7 +32,12 @@ type AuthCallbackPageProps = {
 
 export default function AuthCallbackPage({ searchParams: routeSearchParams }: AuthCallbackPageProps) {
   const router = useRouter();
-  const returnPath = normalizeInternalReturnPath(routeSearchParams?.next);
+  const returnPath = useMemo(
+    () => routeSearchParams?.next
+      ? normalizeInternalReturnPath(routeSearchParams.next)
+      : readRememberedRunnerReturnPath() ?? "/race-planner",
+    [routeSearchParams?.next],
+  );
   const [status, setStatus] = useState<Status>({
     message: "Signing you in...",
   });
@@ -93,6 +103,7 @@ export default function AuthCallbackPage({ searchParams: routeSearchParams }: Au
         console.error("Unable to fetch user session after OAuth", error);
       }
 
+      clearRememberedRunnerReturnPath();
       router.replace(returnPath as Route);
     };
 
@@ -100,7 +111,7 @@ export default function AuthCallbackPage({ searchParams: routeSearchParams }: Au
   }, [returnPath, router, searchParams]);
 
   const handleBackToSignIn = () => {
-    router.push("/sign-in");
+    router.push(buildAuthHref("/sign-in", returnPath) as Route);
   };
 
   return (

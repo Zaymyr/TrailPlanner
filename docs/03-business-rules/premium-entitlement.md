@@ -1,7 +1,7 @@
 ---
 title: Premium Entitlement
 scope: business-rule
-last_verified: 2026-11-09
+last_verified: 2026-11-13
 ai_priority: high
 related_files:
   - apps/web/lib/entitlements.ts
@@ -45,7 +45,7 @@ Legacy free defaults:
 
 - `isPremium: false`
 - `planLimit: 1`
-- `favoriteLimit: 3`
+- `favoriteLimit: Infinity` (serialized as `null` by the backward-compatible API contract; all clients interpret it as unlimited)
 - `customProductLimit: Infinity`
 - `allowExport: false`
 - `allowAutoFill: false`
@@ -53,7 +53,7 @@ Legacy free defaults:
 Premium defaults:
 
 - `isPremium: true`
-- unlimited plan/favorite/custom product limits;
+- unlimited plan/favorite/custom product limits; favorites are also unlimited on Free;
 - export enabled;
 - autofill enabled.
 

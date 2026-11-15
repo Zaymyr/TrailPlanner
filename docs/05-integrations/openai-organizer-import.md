@@ -1,9 +1,22 @@
 ---
 title: OpenAI Organizer Import Reconciliation
 scope: integration
-last_verified: 2026-11-09
+last_verified: 2026-11-15
+# Assisted legacy conversion (2026-11-15): bounded historical text uses strict block-specific JSON schemas and returns proposals only; full website import remains admin-only.
+# Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: high
+# Organizer UI note (2026-11-13): imported fields keep the same reconciliation contract while media controls may render in the contextual rail.
+# Form UI note (2026-11-13): imported social fields share the responsive information grid; reconciliation remains unchanged.
+# Navigation note (2026-11-13): organizer section hierarchy does not alter import reconciliation.
+# Dense module note (2026-11-13): localized dates and access presentation do not alter imported values.
+# Mobile finish note (2026-11-13): compact gutters do not alter imported drafts.
+# Layout polish note (2026-11-13): organizer presentation changes (aid-station detail, format metrics row, media rail visibility, equipment status action) do not alter stored data or contracts.
+# Fill-flow note (2026-11-13): organizer form ergonomics (ravito services, Enter-to-add, slot undo, sponsor ordering) do not alter stored data or contracts.
 related_files:
+  - apps/web/lib/organizer-legacy-conversion.ts
+  - apps/web/lib/organizer-legacy-conversion.test.ts
+  - apps/web/app/organizer/_components/dashboard/legacy-conversion-panel.tsx
   - apps/web/lib/organizer-source-intelligence.ts
   - apps/web/lib/organizer-source-intelligence.test.ts
   - apps/web/lib/organizer-import-reconciliation.ts
@@ -37,6 +50,8 @@ Imported legacy and structured content remains visible after the progressive for
 The manual `Suivi coureur` helpers do not change organizer import reconciliation. Imported ravitos may be selected as a source in the editor, but supporter permissions and access location still require organizer confirmation and are never inferred by the import pipeline.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
+
+The shared organizer form controls validate locally after interaction or an explicit save attempt. Their local repeatable drafts, undo window, focus management, and field-level errors do not create import claims or mutate an imported draft until the existing authorized autosave/apply path accepts a valid value.
 
 ## Purpose
 
@@ -84,11 +99,14 @@ Edition branding is also outside import reconciliation. The import model cannot 
 
 ## Gotchas
 
+- Organizer import-review selects now use the shared form control; claim reconciliation and apply semantics are unchanged.
+
 Applying imported claims only updates organizer draft sources and their draft revisions. The import workflow never creates or restores an immutable RaceBook publication; the organizer must use the normal explicit publication action afterward.
 
 - Keep resumable uploads on the direct Supabase Storage origin (`*.storage.supabase.co`) and retain completed-object cleanup on cancellation or failure; sending 25 MB files through the Next.js route reintroduces platform payload limits.
 
 - The Organizer section chooser's edition-common/per-format grouping, local draft, and batched save are independent from assisted-import sessions; opening, toggling, saving, or discarding module switches must not start or cancel an OpenAI reconciliation workflow.
+- Do not turn a field-normalization convenience (for example an Instagram handle expanded to its HTTPS URL) into import evidence. Import claims remain grounded only in their recorded source excerpt and signed review snapshot.
 - The default-enabled Essential `supporter_points` module is labelled **Suivi coureur**. Its compatibility sidecar load for a legacy settings payload without an explicit key is ordinary authorized organizer data loading, not an import source, claim, or model invocation.
 - Replaying or completing the Organizer dashboard guide does not start website discovery, upload documents, or invoke OpenAI reconciliation. Its temporary visibility-panel expansion and compact editor highlight are presentation-only; assisted import remains an explicit admin-only action.
 - Grey masked-format choices and the compact private/public labels in Organizer navigation reflect persisted visibility only. They neither invoke reconciliation nor alter imported claims, and a masked imported draft remains editable by an authorized organizer/admin.
@@ -119,3 +137,9 @@ After import, the visibility row may report unpublished changes and list the aff
 - [RLS Checklist](../04-auth-and-security/rls-checklist.md)
 
 Publication checks and partner slots (2026-11-09): pre-publication checks and the Matériel/hébergement partner slots read the built snapshot and their own table only. They do not read, write or change this domain's rows or contracts.
+
+The assisted-import dialog now uses a shared multi-file field while preserving the same PDF/image types, 25 Mo per-file limit, eight-document limit and upload pipeline.
+
+The compact Organizer banner keeps assisted import in its existing Actions menu; the import request, documents, limits, and reconciliation contract are unchanged.
+
+Organizer finishing styles do not change assisted-import requests, files, or reconciliation.

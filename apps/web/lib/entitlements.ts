@@ -84,7 +84,7 @@ const isSubscriptionActive = (subscription: SubscriptionRow | null): boolean => 
 const getDefaultEntitlements = (): UserEntitlements => ({
   isPremium: false,
   planLimit: Number.POSITIVE_INFINITY,
-  favoriteLimit: 3,
+  favoriteLimit: Number.POSITIVE_INFINITY,
   customProductLimit: Number.POSITIVE_INFINITY,
   allowExport: false,
   allowAutoFill: false,

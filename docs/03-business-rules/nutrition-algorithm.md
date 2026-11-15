@@ -1,7 +1,8 @@
 ---
 title: Nutrition Algorithm
 scope: business-rule
-last_verified: 2026-11-11
+last_verified: 2026-11-15
+# Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
 ai_priority: high
 related_files:
   - apps/web/lib/nutrition-planner.ts
@@ -82,6 +83,8 @@ related_tables:
 ---
 
 # Nutrition Algorithm
+
+Segment construction discards any checkpoint whose distance is not strictly greater than the previous retained checkpoint. Duplicate or backward organizer arrivals therefore cannot produce a zero-length `Arrivée → Arrivée` nutrition segment.
 
 The plan unlock badge and header-attached switch change no nutrition calculation or saved product.
 
@@ -414,3 +417,5 @@ In the plan Ravitos view, auto-fill is the primary `ActionButton` (a secondary t
 ## Plan editor presentation
 
 Official aid-station distance, name, type, and services remain read-only in the mobile editor and are now visibly marked as such with an accessibility explanation. Localized decimal parsing and shared one-decimal distance display affect input/presentation only; they do not change pacing, carbohydrate, sodium, or hydration calculations.
+
+The web runner now presents a true no-course empty state and restores selected saved plans through `planId`; these journey changes do not calculate a fictitious estimate and do not alter nutrition formulas.

@@ -60,6 +60,7 @@ Docs conventions are in [_conventions.md](_conventions.md).
 - [video_render_jobs](02-database/tables/video-render-jobs.md)
 - [race_events](02-database/tables/race-events.md)
 - [race_event_editions](02-database/tables/race-event-editions.md)
+- [race_event_edition_slug_redirects](02-database/tables/race-event-edition-slug-redirects.md)
 - [race_event_edition_sponsors](02-database/tables/race-event-edition-sponsors.md)
 - [race_event_edition_partner_slots](02-database/tables/race-event-edition-partner-slots.md)
 - [race_event_edition_branding](02-database/tables/race-event-edition-branding.md)

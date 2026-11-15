@@ -71,8 +71,8 @@ describe('sitemap', () => {
   it('includes accurate race and distance-page modification dates', async () => {
     getAllPostMetadata.mockResolvedValue([]);
     const races = [
-      { slug: 'trail-a', updatedAt: '2026-09-08T10:00:00.000Z' },
-      { slug: 'trail-b', updatedAt: '2026-09-09T12:00:00.000Z' },
+      { slug: 'trail-a', eventEditionSlug: 'festival-a-2026', updatedAt: '2026-09-08T10:00:00.000Z' },
+      { slug: 'trail-b', eventEditionSlug: 'festival-a-2026', updatedAt: '2026-09-09T12:00:00.000Z' },
     ];
     getPublicRaces.mockResolvedValue(races);
     getIndexableDistancePages.mockReturnValue([{ page: { slug: 'trail-court' }, races }]);
@@ -86,6 +86,10 @@ describe('sitemap', () => {
       },
       {
         url: 'https://pace-yourself.com/courses/distances/trail-court',
+        lastModified: '2026-09-09T12:00:00.000Z',
+      },
+      {
+        url: 'https://pace-yourself.com/courses/evenements/festival-a-2026',
         lastModified: '2026-09-09T12:00:00.000Z',
       },
     ]));

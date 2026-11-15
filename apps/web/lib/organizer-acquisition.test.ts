@@ -4,8 +4,12 @@ import {
   buildAuthCallbackPath,
   buildAuthHref,
   buildOrganizerCreationHref,
+  clearRememberedRunnerReturnPath,
   extractOrganizerAttribution,
   normalizeInternalReturnPath,
+  readCurrentReturnPath,
+  readRememberedRunnerReturnPath,
+  rememberRunnerReturnPath,
 } from "./organizer-acquisition";
 
 describe("organizer acquisition attribution", () => {
@@ -81,5 +85,49 @@ describe("organizer auth return path", () => {
     expect(buildAuthHref("/sign-in", "/organizer?eventId=4f4ab461-bbe0-4e03-851b-73a46751c16d")).toBe(
       "/sign-in?next=%2Forganizer%3FeventId%3D4f4ab461-bbe0-4e03-851b-73a46751c16d",
     );
+  });
+
+  it("retains only validated runner context", () => {
+    const raceId = "76b11657-f10a-49af-a728-18a58875ac4a";
+    const planId = "4f4ab461-bbe0-4e03-851b-73a46751c16d";
+    expect(normalizeInternalReturnPath(`/race-planner?catalogRaceId=${raceId}&discarded=yes`)).toBe(
+      `/race-planner?catalogRaceId=${raceId}`,
+    );
+    expect(normalizeInternalReturnPath(`/premium?planId=${planId}&discarded=yes`)).toBe(
+      `/premium?planId=${planId}`,
+    );
+    expect(normalizeInternalReturnPath("/race-planner?catalogRaceId=invalid")).toBe("/race-planner");
+    expect(normalizeInternalReturnPath("/premium?planId=invalid")).toBe("/premium");
+  });
+
+  it("remembers a validated runner return across a new tab and expires it", () => {
+    const racePath = "/race-planner?catalogRaceId=76b11657-f10a-49af-a728-18a58875ac4a";
+    const storage = new Map<string, string>();
+    const originalWindow = globalThis.window;
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {
+        location: { search: `?next=${encodeURIComponent(racePath)}` },
+        localStorage: {
+          getItem: (key: string) => storage.get(key) ?? null,
+          setItem: (key: string, value: string) => storage.set(key, value),
+          removeItem: (key: string) => storage.delete(key),
+        },
+      },
+    });
+
+    try {
+      expect(readCurrentReturnPath()).toBe(racePath);
+      expect(readRememberedRunnerReturnPath()).toBe(racePath);
+      clearRememberedRunnerReturnPath();
+      expect(readRememberedRunnerReturnPath()).toBeNull();
+
+      rememberRunnerReturnPath(racePath);
+      const [key, value] = [...storage.entries()][0];
+      storage.set(key, JSON.stringify({ ...JSON.parse(value), expiresAt: Date.now() - 1 }));
+      expect(readRememberedRunnerReturnPath()).toBeNull();
+    } finally {
+      Object.defineProperty(globalThis, "window", { configurable: true, value: originalWindow });
+    }
   });
 });

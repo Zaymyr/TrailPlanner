@@ -32,6 +32,7 @@ related_tables: []
 `@trailplanner/shared` exports followed-plan kilometer interpolation, confirmed-passage recalibration, preparation aggregation and multi-day completion calculation. Web lifecycle logic/tests and the Expo assistant view use this pure module; it has no storage, analytics or network side effects.
 
 `@trailplanner/shared` now owns the pure shared-plan tracking calculations used by the public web timeline and native crew screen: clock parsing, midnight resolution, trackable-point selection, passage normalization and downstream ETA recalculation. UI, persistence and locale formatting remain app-specific.
+`@trailplanner/shared` owns the canonical runner profile field order, localized labels, units, required flags and readiness predicate used by web and mobile. It contains no UI or provider-specific access logic.
 
 ## Purpose
 
@@ -141,3 +142,5 @@ Keep logic inside an app when:
 - [Pacing Algorithm](../03-business-rules/pacing-algorithm.md)
 
 `apps/video-render-worker` is a standalone Node package outside the npm workspaces (its own `package-lock.json`, Playwright only) built into the Cloud Run render image. The web CSP (`next.config.mjs`, report-only) allows `https://storage.googleapis.com` for signed render uploads and downloads.
+
+The runner follow-up keeps plan selection, renaming and URL restoration inside the existing web workspace; it adds no shared-package contract or dependency.

@@ -7,6 +7,7 @@ const eventId = "11111111-1111-1111-1111-111111111111";
 
 const organizerMocks = vi.hoisted(() => ({
   buildPreview: vi.fn(),
+  convertLegacy: vi.fn(),
   sourceDocuments: [] as Array<{ url: string; title: string | null; text: string; isPrimary: boolean; discovery: string }>,
 }));
 
@@ -73,6 +74,7 @@ describe("/api/organizer/events/[id]/website-import preview", () => {
           location: "Chamonix",
           race_date: "2026-08-20",
           organizer_details: { officialWebsiteUrl: null },
+          race_event_editions: [{ id: "44444444-4444-4444-8444-444444444444", edition_year: 2026, start_date: "2026-08-20", end_date: "2026-08-20", is_current: true }],
           races: [
             {
               id: "22222222-2222-2222-2222-222222222222",
@@ -109,6 +111,20 @@ describe("/api/organizer/events/[id]/website-import preview", () => {
     expect(payload.preview.source.provider).toBe("utmb");
     expect(payload.preview.races[0].suggestedTargetRaceId).toBe("22222222-2222-2222-2222-222222222222");
     expect(payload.preview.previewHash).toHaveLength(64);
+  });
+
+  it("returns a review-only legacy conversion proposal for an entitled event organizer", async () => {
+    organizerMocks.convertLegacy.mockResolvedValue({ parkings: [{ name: "Parking A", address: null, capacity: 250, paid: false, note: null }], shuttleLines: [] });
+    const response = await POST(importRequest({
+      action: "convert-legacy-block",
+      editionId: "44444444-4444-4444-8444-444444444444",
+      block: "access",
+      text: "Parking A, 250 places",
+    }), { params: { id: eventId } });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ proposal: { parkings: [{ capacity: 250 }] } });
+    expect(organizerMocks.convertLegacy).toHaveBeenCalledWith(expect.objectContaining({ block: "access" }));
   });
 
   it("analyzes and deletes temporary organizer documents", async () => {
@@ -756,6 +772,11 @@ vi.mock("../../../../../../lib/organizer", async () => {
     optionalTextOrNull: z.string().nullable().optional(),
     optionalUrlOrNull: z.string().nullable().optional(),
     requireEventOrganizer: () => Promise.resolve(true),
+    requireOrganizerAuth: () =>
+      Promise.resolve({
+        user: { id: "00000000-0000-0000-0000-000000000001" },
+        serviceConfig: { supabaseUrl: "https://supabase.example", supabaseServiceRoleKey: "service-key" },
+      }),
     requireAdminAuth: () =>
       Promise.resolve({
         user: { id: "00000000-0000-0000-0000-000000000001" },
@@ -774,4 +795,13 @@ vi.mock("../../../../../../lib/organizer", async () => {
         typeof params.id === "string" ? { success: true, data: { id: params.id } } : { success: false },
     },
   };
+});
+
+vi.mock("../../../../../../lib/organizer-entitlements", () => ({
+  requireOrganizerEditionCapability: () => Promise.resolve(true),
+}));
+
+vi.mock("../../../../../../lib/organizer-legacy-conversion", async () => {
+  const original = await vi.importActual<typeof import("../../../../../../lib/organizer-legacy-conversion")>("../../../../../../lib/organizer-legacy-conversion");
+  return { ...original, convertOrganizerLegacyBlock: organizerMocks.convertLegacy };
 });

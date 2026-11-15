@@ -2,7 +2,11 @@
 title: Affiliate Partner Links
 scope: integration
 
-last_verified: 2026-11-11
+last_verified: 2026-11-15
+# Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
+# Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
+# Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 
 ai_priority: medium
 related_files:
@@ -156,3 +160,5 @@ RaceBook polish (2026-11-09): the runner hero keeps the format/event thumbnail b
 ## Organizer partner slots (2026-11-09)
 
 The Decathlon (Matériel) and Booking (Services) cards are partner slots. The default remains the resolved affiliate link and its disclosure. When a published Signature RaceBook replaces a slot with an organizer partner, mobile renders the partner name, logo, headline and `Découvrir` action through the counted `/api/racebook-partner-slots/:slot/click` redirect, without the affiliate disclosure and without a `partner_*` RaceBook action; a hidden slot renders no card. The partner-links endpoint and affiliate destinations are unchanged.
+
+Runner copy and saved-plan layout changes do not modify affiliate labels, destinations or partner-slot behavior.

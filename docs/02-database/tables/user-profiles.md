@@ -1,7 +1,7 @@
 ---
 title: user_profiles Table
 scope: database
-last_verified: 2026-10-30
+last_verified: 2026-11-13
 ai_priority: high
 related_files:
   - supabase/migrations/20250624103000_add_user_profiles.sql
@@ -23,6 +23,8 @@ related_tables:
 ---
 
 # `user_profiles`
+
+Runner profile readiness is shared across clients and requires first name, comfortable flat pace, water capacity and carbohydrate target. Birth date, height, weight and UTMB index remain optional. Web UI uses birth date rather than a separately entered age; no schema migration is introduced by this alignment.
 
 ## Purpose
 

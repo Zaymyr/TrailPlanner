@@ -1,7 +1,7 @@
 ---
 title: Architecture Overview
 scope: architecture
-last_verified: 2026-11-12
+last_verified: 2026-11-13
 ai_priority: high
 related_files:
   - package.json
@@ -207,3 +207,5 @@ The mobile client now uses `expo-haptics` for optional reduced-motion-aware feed
 - [Supabase Edge Functions](../05-integrations/supabase-edge-functions.md)
 
 Background reel renders run outside Vercel, in a Google Cloud Run job (`apps/video-render-worker`, headless Chrome, deployed by GitHub Actions through Workload Identity Federation); see [Google Cloud Background Reel Render](../05-integrations/google-cloud-video-render.md). The web app adds `@mediabunny/aac-encoder` for AAC export where the browser lacks an encoder, and allows `https://storage.googleapis.com` in the report-only CSP.
+
+The web server now explicitly serves `/.well-known/apple-app-site-association` as `application/json`; the checked-in association placeholders still require production identifiers before universal links can be enabled.

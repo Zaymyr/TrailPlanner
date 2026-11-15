@@ -2,9 +2,22 @@
 title: races Table
 scope: database
 
-last_verified: 2026-11-11
+last_verified: 2026-11-15
+# Assisted legacy conversion (2026-11-15): legacy format text can become a review-only proposal; normal organizer save remains the only persistence step.
+# Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
+# Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
+# Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
+# Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 
 ai_priority: high
+# Organizer UI note (2026-11-13): course metrics use the flexible editor while GPX and image controls use the contextual rail; persistence is unchanged.
+# Form UI note (2026-11-13): required badges and skeletons do not alter race fields or persistence.
+# Action-menu note (2026-11-13): moving format deletion under ⋯ keeps the existing confirmed deletion contract.
+# Course form note (2026-11-13): localized date labels and shorter headings do not alter stored race dates.
+# Mobile finish note (2026-11-13): compact padding and collapsed media do not alter race records.
+# Layout polish note (2026-11-13): organizer presentation changes (aid-station detail, format metrics row, media rail visibility, equipment status action) do not alter stored data or contracts.
+# Fill-flow note (2026-11-13): organizer form ergonomics (ravito services, Enter-to-add, slot undo, sponsor ordering) do not alter stored data or contracts.
 related_files:
   - supabase/migrations/20261106142000_add_lut_by_night_2026_gpx.sql
   - supabase/migrations/20261105082511_enrich_saintelyon_2026_formats.sql
@@ -53,6 +66,7 @@ related_files:
   - apps/web/app/api/organizer/events/[id]/website-import/route.ts
   - apps/web/app/api/organizer/editions/[id]/route.ts
   - apps/web/lib/public-races.ts
+  - apps/web/lib/public-race-events.ts
   - apps/web/lib/public-race-detail.ts
   - apps/web/lib/public-race-detail.test.ts
   - scripts/audit-public-race-slugs.mjs
@@ -74,6 +88,9 @@ related_tables:
 The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret accompagnateur, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret accompagnateur · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. No `races` column or read changes.
 
 `/courses/supporter-guide/[raceId]` uses one public format UUID only to resolve its edition, then includes qualifying preview-visible published formats. It does not add race columns and excludes masked formats.
+The public runner summary endpoint reads only published web-catalog race fields and optional live event context. The app bridge checks `racebook_is_live` plus edition visibility; it introduces no table or policy change.
+
+The organizer form-kit keeps new repeatable entries as browser-local drafts until their required values are valid. In particular, adding then abandoning a ravito or equipment item must not persist a placeholder row to `races` or its related collections.
 
 Format `organizer_details.bibPickup` may now include nullable `thirdPartyPickupConditions` as part of a complete format override. Event inheritance and the existing `overrideEnabled` boundary remain authoritative; no relational race column, publication flag, or catalog rule changes.
 
@@ -190,7 +207,8 @@ Authenticated non-admin users can no longer insert races. Trusted `app_metadata`
 - The organizer-source March–May 2027 batch publishes 15 additional formats across Rouffach, Cahors, and Volvic. Exact dates, locations, distances, and source URLs come from organizer pages; D+ stays null for Volvic formats whose 2027 elevation is not yet published. The existing 2026 XGTV format retains its measured metrics and receives only its verified route label/source fallback.
 - The normalized-geography migration refreshes eleven Search Console-priority `location`/`location_text` labels with source-backed city, route endpoint and administrative-area wording. Exact region/department filters belong to the parent `race_events` normalized fields rather than parsed format text.
 - Every dated row with an `event_id` is attached to the matching canonical event/year edition. The assignment trigger atomically creates or expands that edition when legacy catalog/import code omits `edition_id`.
-- Web catalog, slug, and SEO detail reads are server-only service calls requiring `web_catalog_is_live = true`, `is_public = true`, and a live optional parent event. They select only explicit public columns for the lightweight catalog, do not consult the mobile edition-visibility flag, and do not grant masked rows to direct clients. Service reads enrich details from edition dates, sanitized `organizer_details`, ravitos, and private `gpx_storage_path`. Catalog, sitemap, detail visibility, entitlement/module settings, and route ISR share a 15-minute revalidation window; none of those public detail reads may use `no-store`. Raw GPX bytes use a one-year persistent cache because replacement uploads use immutable versioned paths. RaceBook practical fields additionally require `racebook_is_live` and an effective module under the active edition tier; uncovered draft subtrees are replaced by empty public values.
+- Web catalog, slug, event-edition, and SEO detail reads are server-only service calls requiring `web_catalog_is_live = true`, `is_public = true`, and a live optional parent event. They select only explicit public columns for the lightweight catalog, do not consult the mobile edition-visibility flag, and do not grant masked rows to direct clients. Formats expose their edition slug only for links to the canonical event-edition page. Service reads enrich details from edition dates, sanitized `organizer_details`, ravitos, and private `gpx_storage_path`. Catalog, sitemap, detail visibility, entitlement/module settings, and route ISR share a 15-minute revalidation window; none of those public detail reads may use `no-store`. Raw GPX bytes use a one-year persistent cache because replacement uploads use immutable versioned paths. RaceBook practical fields additionally require `racebook_is_live` and an effective module under the active edition tier; uncovered draft subtrees are replaced by empty public values.
+- Public web ravitos are the one narrower exception to the practical-module rule: station id, name, kilometer, water, and solid-food flags may be returned for every web-public format unless the race has an explicit `aid_stations = false` module setting. Cutoff, altitude, cumulative elevation, assistance, drop bag, notes, relay data, and products still require a published Livret and the effective aid-station module; the server must not select or serialize those columns for summary-only pages.
 - RaceBook runner content is read only from an immutable per-format publication. Source changes create unpublished draft work and cannot affect the runner payload; the publication also supplies bounded GPX visuals, while catalog and planning retain the source-course contract.
 - RaceBook branding is resolved from the format's `edition_id`, not stored on `races`; changing or publishing the edition identity never changes catalog or Racebook visibility columns.
 - Global Booking and Decathlon availability is resolved independently of `races`. Services remains a permanent tab for Booking, while Decathlon is placed in Matériel; neither partner can make a RaceBook accessible, publish a format, or alter any race visibility column.
@@ -233,6 +251,7 @@ where web_catalog_is_live = true
 - Do not replace an unknown D+ or absent GPX with a fabricated zero or placeholder.
 - New rows without a GPX keep `gpx_path`, `gpx_hash`, and `gpx_storage_path` null. Historical placeholders are cleared by the catalog-contract migration when no stored object exists.
 - Public RaceBook snapshots and published GPX responses are tagged by race, edition, and event. Race metadata, image, GPX, and structured-content autosaves increment the draft revision without invalidation; publication, restoration, and visibility changes invalidate the narrowest applicable tags.
+- Public web catalog/detail reads use the distinct `public-races` tag. Successful organizer/admin format metadata, image, publication/visibility, ravito, and deletion mutations invalidate it plus stable scope tags; failed mutations do not purge cache state.
 - A declarative complete-row check is intentionally deferred until legacy catalog rows have been backfilled. The column-scoped completeness trigger protects new and catalog-relevant writes without blocking unrelated updates to legacy rows.
 - Do not set a draft live. The database constraint rejects both course and Racebook visibility.
 - Do not broaden `races_insert` for convenience. It is restricted to trusted administrators; organizer writes must remain behind their authorized service routes.
@@ -293,3 +312,11 @@ RaceBook course distances, ranges, and D+/D− labels now use a shared localized
 RaceBook polish (2026-11-09): the runner hero keeps the format/event thumbnail but renders it blurred (`blurRadius` 24) under a 90% organizer-primary veil, so no artwork text is readable behind the identity, omits the default `Solo` participation label, appends a `J-N`/`Aujourd'hui` countdown to the date line (hidden after race day), and moves its expanded block up with the collapse so titles never overlap and metrics are never clipped. Runner wording was simplified (`Où encourager`, `Barrière horaire`, `Sac d'allègement`, `Nourriture`, `Relais {n}`, weather-alert and partial-route sentences). Access transport notes turn pasted URLs into labelled buttons (`Réserver ma navette` / `Ouvrir le lien`) and bib pickup addresses without an organizer maps link fall back to a Google Maps search (`lib/racebookTextLinks.ts`). Profile cumulative tiles show `—` until the runner touches the curve. This is runner presentation only: no row, contract or tracking of this domain changes.
 
 Publication checks and partner slots (2026-11-09): pre-publication checks and the Matériel/hébergement partner slots read the built snapshot and their own table only. They do not read, write or change this domain's rows or contracts.
+
+The organizer format form now validates inline without native browser bubbles and uses shared cover, GPX and image file controls; race fields and storage paths are unchanged.
+
+Responsive label/control grouping changes only Organizer presentation; race fields, inheritance, and storage paths are unchanged.
+
+The compact Trace rail and explicit inheritance actions preserve race columns, organizer details, GPX paths, and effective date/location values.
+
+Switch-row presentation preserves the existing race and organizer-details boolean fields.

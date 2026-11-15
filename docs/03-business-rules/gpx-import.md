@@ -1,8 +1,19 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-11-12
+last_verified: 2026-11-15
+# Assisted legacy conversion (2026-11-15): review controls do not alter GPX parsing, waypoint hydration or persistence.
+# Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
+# Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: high
+# Organizer UI note (2026-11-13): GPX preview, source file, display switches, and format image use the contextual media rail on wide screens; parsing and persistence are unchanged.
+# Loading note (2026-11-13): organizer GPX sidecar loading uses skeletons and does not imply an empty dataset.
+# Navigation note (2026-11-13): GPX behavior is unchanged by section-specific organizer icons and wrapped labels.
+# Course form note (2026-11-13): localized edition dates and the collapsible mobile media surface do not alter GPX import.
+# Mobile note (2026-11-13): opening “Tracé et médias” reveals the unchanged GPX controls.
+# Desktop fix (2026-11-13): GPX controls are visible again in the Course rail on desktop; below 900px they open from “Tracé et médias”. Import contract unchanged.
+# Fill-flow note (2026-11-13): organizer form ergonomics (ravito services, Enter-to-add, slot undo, sponsor ordering) do not alter stored data or contracts.
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
   - apps/mobile/lib/gpx.ts
@@ -56,6 +67,8 @@ related_tables:
 
 # GPX Import
 
+The runner page and public course bridge changes do not alter GPX parsing or storage. Segment derivation now ignores non-increasing checkpoint distances after import to avoid duplicate zero-length arrivals.
+
 Assisted organizer import is now an individually giftable Signature feature (`capability.assisted_import`). Its exact grant may authorize that operation without opening other Signature features; invoice lines and settlement alone do not authorize imports.
 
 The shared course-point editor now waits for active-race sidecars before enabling ravito/supporter edits or autosave, and same-race format refreshes preserve the loaded collections. This protection changes no GPX parsing, interpolation, or waypoint-import rule.
@@ -69,6 +82,8 @@ The format editor is presented as one linear column so the optional GPX, editabl
 The Organizer `Suivi coureur` editor may reuse the loaded GPX preview to interpolate an access coordinate at a supporter point's course kilometer. This is an authoring aid: it persists the resulting latitude/longitude and does not alter the source GPX. If the trace cannot cover the requested kilometer, the point stays an incomplete draft until a separate access address is selected or a usable GPX is provided.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
+
+The Organizer form kit may present GPX-related additions as local drafts and field warnings. This is authoring UI only: upload, replacement and deletion still use the existing membership-checked routes and parser contracts.
 
 ## Purpose
 
@@ -161,7 +176,13 @@ Catalog-derived plans remain reusable course facts, but, when runner monetisatio
 
 The public `/courses/[slug]` detail loader can read a private `race-gpx` object only from the server and only after independently confirming `races.web_catalog_is_live`, `races.is_public`, and optional parent-event liveness. Mobile format/edition visibility does not remove an already published web preview. It parses through the same `parseGpx` source of truth and sends the browser a bounded route/elevation DTO of about 600 points. The Storage path and GPX source content are never serialized, and the page exposes no GPX download button. Detail visibility, public entitlement/module settings, and route ISR use the shared 15-minute public-race window, while the raw multi-megabyte GPX fetch uses a one-year persistent data-cache entry because replacement uploads always use a new versioned path. Private Organizer loaders remain uncached and are not reused by this ISR path.
 
+The event-edition page reuses only the sanitized common practical projection. It neither reads nor serializes a format GPX; maps and elevation profiles remain scoped to `/courses/[slug]`.
+
+Admin catalog creation and metadata/image/ravito updates invalidate public catalog data after persistence. Raw GPX bytes keep their immutable-path one-year cache; a GPX replacement uses a new path rather than purging or overwriting the previous object cache entry.
+
 Route geometry remains usable when elevation tags are absent, but the elevation profile is omitted rather than inventing zero-altitude data. Missing objects and parse failures return no preview without blocking the remaining public course facts.
+
+Public station markers on the route and profile consume only the web summary projection (name and kilometer for positioning). Detailed station altitude and cumulative elevation stay behind the effective Livret module and are never replaced with a fabricated zero when the public summary is the only available level.
 
 ## Organizer GPX Replacement
 
@@ -228,6 +249,8 @@ Playback, progressive route reveal, and the 9:16/16:9 switch are presentation-on
 <!-- CONFLICT: this component references race_aid_stations.needs_review, race_aid_stations.last_gpx_import_at, and plan_aid_stations.race_aid_station_id, but visible migrations in this repo do not create those columns. -->
 
 ## Gotchas
+
+- Organizer GPX deletion now uses the shared accessible confirmation dialog; storage deletion and retained race metrics follow the existing API contract.
 
 - Admin catalog copy may use typographic French apostrophes to remain JSX-lint safe; this presentation detail must not alter GPX parsing, upload, or publication behavior.
 - Never overwrite or reuse a public race's existing `gpx_storage_path`: the public detail loader relies on versioned replacement paths to cache raw GPX bytes durably without serving an old trace.
@@ -310,3 +333,15 @@ The admin reel page also passes the shortened organizer start place (`startPlace
 The video generator format picker labels each format "GPX" or "sans GPX" from the catalog `gpx_storage_path`; it reads no GPX until the format is opened.
 
 Publication checks and partner slots (2026-11-09): pre-publication checks and the Matériel/hébergement partner slots read the built snapshot and their own table only. They do not read, write or change this domain's rows or contracts.
+
+The organizer GPX input now uses the shared file field with a visible filename, replacement and confirmed removal; parsing, metrics and snapshot behavior are unchanged.
+
+The three-column Organizer workspace moves Course/GPX navigation and completion guidance around the editor without changing GPX parsing, replacement, metrics, or publication snapshots.
+
+Responsive field grouping changes only the Course/GPX form hierarchy; validation and GPX behavior remain unchanged.
+
+Course/GPX now groups the compact route map, altitude profile, GPX file, display settings, and format image in one 250 px visual rail. Date/location inheritance uses explicit change/restore actions; parsing, upload, deletion confirmation, and metrics stay unchanged.
+
+GPX route/profile visibility now uses the shared Organizer switch row without changing the stored `gpxDisplay` flags.
+
+Terrain-style section headers do not change GPX import or publication behavior.

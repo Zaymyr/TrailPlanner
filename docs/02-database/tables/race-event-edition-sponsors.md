@@ -2,9 +2,15 @@
 title: race_event_edition_sponsors Table
 scope: database
 
-last_verified: 2026-11-11
+last_verified: 2026-11-15
+# Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
+# Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
+# Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
+# Organizer UI note (2026-11-13): sponsors are surfaced in a responsive logo grid whose tiles scroll to the existing direct editor; sponsor records and limits are unchanged.
 
 ai_priority: high
+# UI note (2026-11-13): the add-sponsor form is shown first (open when no sponsor exists); sponsor rows and API are unchanged.
 related_files:
   - apps/web/lib/racebook-partner-slots.ts
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
@@ -42,6 +48,7 @@ related_tables:
 The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret accompagnateur, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret accompagnateur · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. Sponsor rows, placements and counters are unchanged.
 
 Supporter Guide v1 does not add a sponsor placement. It reuses only the already-published lodging partner slot, preserving the effective `sponsors` gate and counted-redirect privacy boundary.
+Sponsor authoring now shares the organizer form-kit interaction rules (local validation and accessible destructive confirmation where applicable). This is UI-only: row validation, ordering, authorization and aggregate reporting remain server-authoritative.
 
 Sponsor authoring and public sponsor endpoints accept the exact `module.sponsors` gift when Signature is not active. Other feature gifts and all invoice states remain insufficient; sponsor storage, counters and RLS are unchanged.
 
@@ -208,3 +215,7 @@ RaceBook polish (2026-11-09): the runner hero keeps the format/event thumbnail b
 ## Partner slots (2026-11-09)
 
 [`race_event_edition_partner_slots`](race-event-edition-partner-slots.md) reuses sponsor rows as the organizer partner of the Matériel and hébergement slots. The new `unique (edition_id, id)` constraint backs its same-edition composite FK; deleting a sponsor cascades to its slot row. Slot views/clicks are counted on the slot row, not on the sponsor counters, so a sponsor also shown in the banner keeps separate reporting. A slot-only sponsor may stay inactive.
+
+Sponsor active/loading/banner settings now share the Organizer switch-row presentation; sponsor limits, rows, counters, and persistence are unchanged.
+
+Sponsor creation is now collapsed until requested and the edition count is visible; the ten-sponsor/loading limits, rows, ordering, counters, and API behavior are unchanged.

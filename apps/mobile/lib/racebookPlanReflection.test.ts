@@ -102,6 +102,12 @@ describe('multi-day RaceBook timing', () => {
     expect(resolveCutoffMinuteAfterDeparture('06:00', '12:00', 54 * 60)).toBe(54 * 60);
   });
 
+  it('uses an explicit organizer day for overnight and multi-day cutoffs', () => {
+    expect(resolveCutoffMinuteAfterDeparture('23:00', '03:00', 240, 1)).toBe(240);
+    expect(resolveCutoffMinuteAfterDeparture('06:00', '03:00', 45 * 60, 2)).toBe(45 * 60);
+    expect(isPersonalPassageAfterCutoff('23:00', 241, '03:00', 1)).toBe(true);
+  });
+
   it('keeps incomplete or rich organizer clocks out of timing calculations', () => {
     expect(normalizeSimpleClock('samedi à 09:00')).toBeNull();
     expect(formatPersonalPassageClock('matin', 90)).toBeNull();

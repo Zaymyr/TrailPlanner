@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-11-11
+last_verified: 2026-11-13
 ai_priority: high
 related_files:
   - supabase/migrations/20261106142000_add_lut_by_night_2026_gpx.sql
@@ -355,6 +355,8 @@ erDiagram
 <!-- CONFLICT: code references race_events, races.event_id, races.race_date, races.has_aid_stations, race_aid_stations.needs_review, race_aid_stations.last_gpx_import_at, and plan_aid_stations.race_aid_station_id, but the visible migrations in this repo do not create all of those tables/columns. Verify against the live Supabase schema before writing migrations that depend on them. -->
 
 ## Gotchas
+
+- Admin catalog writes continue to use the existing race/event/station relationships. Their new post-write public-cache invalidation changes freshness only; it adds no table, foreign key, RLS policy, or API payload field.
 
 - The November mobile visual-alignment pass changes sticky catalog chrome, event metadata truncation, card actions and shared control geometry only. It adds no table, column, persisted filter, query scope or RLS path.
 

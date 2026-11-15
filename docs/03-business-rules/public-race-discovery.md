@@ -1,7 +1,8 @@
 ---
 title: Public Race Discovery
 scope: business-rule
-last_verified: 2026-11-02
+last_verified: 2026-11-15
+# Structured access phase (2026-11-15): public race pages summarize parking and shuttle collections without exposing each logistics record; historical text remains the fallback.
 ai_priority: high
 related_files:
   - apps/web/app/courses/supporter-guide/[raceId]/page.tsx
@@ -16,7 +17,13 @@ related_files:
   - supabase/migrations/20260923064926_backfill_public_race_event_website_urls.sql
   - supabase/tests/race_slug_redirects_checks.sql
   - supabase/tests/web_race_visibility_checks.sql
+  - supabase/migrations/20261113200326_add_race_event_edition_slugs.sql
+  - supabase/tests/race_event_edition_slug_redirects_checks.sql
   - apps/web/lib/public-races.ts
+  - apps/web/lib/public-race-cache.ts
+  - apps/web/lib/public-race-cache.test.ts
+  - apps/web/lib/public-race-events.ts
+  - apps/web/lib/public-race-events.test.ts
   - apps/web/lib/public-race-detail.ts
   - apps/web/lib/public-race-detail.test.ts
   - apps/web/lib/race-discovery.ts
@@ -26,7 +33,14 @@ related_files:
   - apps/web/app/courses/[slug]/page.tsx
   - apps/web/app/courses/[slug]/race-structured-data.ts
   - apps/web/app/courses/[slug]/race-structured-data.test.ts
+  - apps/web/app/courses/evenements/[slug]/page.tsx
+  - apps/web/app/courses/evenements/[slug]/event-structured-data.ts
+  - apps/web/app/courses/evenements/[slug]/event-structured-data.test.ts
+  - apps/web/app/courses/evenements/[slug]/event-edition-status.ts
+  - apps/web/app/courses/evenements/[slug]/event-edition-status.test.ts
   - apps/web/app/courses/_components/RaceCatalogFilter.tsx
+  - apps/web/app/courses/_components/RaceCatalogFilter.test.ts
+  - apps/web/app/courses/_components/catalog-display.ts
   - apps/web/app/courses/_components/PublicRaceLinks.tsx
   - apps/web/app/courses/_components/PublicRaceShare.tsx
   - apps/web/app/courses/_components/PublicElevationProfile.tsx
@@ -34,6 +48,7 @@ related_files:
   - apps/web/app/courses/_components/RaceMetricsDetails.tsx
   - apps/web/app/courses/_components/RaceRouteExplorer.tsx
   - apps/web/app/courses/_components/RaceAidStationsTimeline.tsx
+  - apps/web/app/courses/_components/RunnerAppBridge.tsx
   - apps/web/app/courses/_components/RaceLinksCarousel.tsx
   - apps/web/components/ui/accordion.tsx
   - apps/web/app/courses/PublicRaceShare.test.ts
@@ -42,6 +57,7 @@ related_files:
   - apps/web/lib/public-races.test.ts
   - apps/web/app/courses/[slug]/page.test.ts
   - apps/web/app/courses/[slug]/race-metadata.ts
+  - apps/web/lib/app-store.ts
   - scripts/audit-public-race-slugs.mjs
   - scripts/audit-public-race-slugs.test.mjs
   - scripts/optimize-supabase-race-images.mjs
@@ -49,6 +65,8 @@ related_tables:
   - race_events
   - races
   - race_slug_redirects
+  - race_event_editions
+  - race_event_edition_slug_redirects
 ---
 
 # Public Race Discovery
@@ -72,8 +90,12 @@ This document defines which public race pages Pace Yourself may expose to search
 - Indexable selection: a deterministic landing page based only on structured fields and containing at least five public races.
 - Normalized geography: explicit country, region, department and city fields, not a region guessed from `location` or `location_text`.
 - Former slug: a durable `race_slug_redirects.old_slug` mapping to the stable race id.
+- App bridge: the public course page may promise the Livret coureur only when `racebook_is_live` is true and the attached edition is mobile-visible; otherwise it uses generic app preparation copy.
+- Former slug: a durable format or event-edition redirect mapping to a stable row id.
 
 ## Public Race Detail Pages
+
+Grouped event cards use the earliest and latest valid format dates for a compact French date range. A single shared valid date keeps the full date; a partially undated group stays explicit instead of implying that every format is dated. Different format locations collapse to the normalized common event city when one is available, otherwise to the number of distinct known departure labels. Each format row still prints its own date and location, including an explicit confirmation placeholder for missing facts.
 
 The lightweight catalog contract allowlists the parent event's canonical `race_events.website_url` alongside the format's `races.external_site_url`. The primary `S’inscrire` action uses the event website first, falls back to the format URL for a standalone or missing-event link, opens in a new tab, and is omitted unless the selected value is HTTP(S). The same rule applies to the course hero and the existing official-source list without exposing raw organizer JSON.
 
@@ -83,11 +105,17 @@ The dynamic route returns no build-time parameters. The first request for a curr
 
 The lightweight `PublicRace` catalog contract contains identity, `eventId`, `editionId`, format/event image URLs, date, display location, normalized city/department/region/country labels, an allowlisted array of searchable location labels, distance, D+, slug, the format official URL, and the parent event website used by the registration CTA. Searchable labels come only from the format's two public location strings and the parent event's public location, city, department, region, and country; codes, coordinates, organizer JSON and operational fields stay outside the client DTO. Its server-only, explicit-column service read requires `races.web_catalog_is_live`, `races.is_public`, and a live optional parent event; it deliberately does not consult mobile edition visibility or broaden direct client RLS. The separate server-only `PublicRaceDetail` repeats those web gates before reading organizer details, edition dates, ravitos, or the private GPX. It maps only the runner-facing fields required by the page and never serializes either raw organizer JSON object. In particular, the event emergency contact and `services.lastMinuteMessage` are excluded from the DTO even when present in the stored event data.
 
-The detail page applies the established event/format inheritance parser for schedule, equipment, bib pickup, access, runner information and services. Before serializing practical content, it also requires `racebook_is_live` and applies the effective edition/module entitlement. Those public entitlement and module-setting reads participate in the same 15-minute ISR data-cache window as the other detail reads; they must never reuse the private Organizer `no-store` loaders and turn an already static course route dynamic during revalidation. Higher-tier drafts and disabled modules therefore remain private even while the catalog identity page stays public. It exposes only available covered values, D+/D-, altitude bounds, participation mode, ravitos, format then event official websites, and event social profiles. It must not generate course difficulty, expected duration, weather, aid-station values, or other claims from absent source data.
+The detail page applies the established event/format inheritance parser for schedule, equipment, bib pickup, access, runner information and services. Before serializing practical content, it also requires `racebook_is_live` and applies the effective edition/module entitlement, including active edition capability grants. Those public entitlement, grant, and module-setting reads participate in the same 15-minute ISR data-cache window as the other detail reads; they must never reuse the private Organizer `no-store` loaders and turn an already static course route dynamic during revalidation. Higher-tier drafts and disabled modules therefore remain private even while the catalog identity page stays public.
+
+Aid stations have a narrower public summary contract. Every web-public format may expose only station id, name, kilometer, and the water/solid flags, even without an Organizer offer or a published Livret coureur. Detailed cutoff, altitude, cumulative elevation, assistance, drop-bag, note, relay, and product information remains absent from the server payload unless the Livret is published and the effective `aid_stations` module is active. An explicit race-level `aid_stations = false` setting removes both summary and details. When only the summary is available, the page keeps the route/profile markers and ordered timeline, then links to the app without promising unpublished detail.
+
+Outside that summary exception, the loader exposes only available covered values, D+/D-, altitude bounds, participation mode, format then event official websites, and event social profiles. It must not generate course difficulty, expected duration, weather, aid-station values, or other claims from absent source data.
 
 When a private GPX object exists, the server downloads and parses it only after every visibility gate succeeds. The browser receives a bounded route/elevation preview of about 600 points, never the GPX file or Storage path. Invalid or absent GPX degrades to a detail page without map/profile, and the public page offers no GPX download action.
 
-The page always exposes `BreadcrumbList` structured data and exposes `SportsEvent` only when the format has a valid calendar `startDate` in strict `YYYY-MM-DD` form. Its `PostalAddress` uses only verified start-address and normalized parent geography fields. It adds `endDate` only when the canonical edition is single-day and therefore proves the same calendar date for the format; multi-day edition ends are omitted. Offers, organizer, performer, status, and images are never fabricated to silence optional Search Console recommendations. Open Graph and Twitter use the format image first, the event image second, and the shared Pace Yourself social image last. SEO titles are capped at 60 characters, reserve a factual distance/year suffix, and truncate the middle of long names so both the event prefix and distinguishing format suffix survive; descriptions are capped at 160 characters. It links to:
+The page always exposes `BreadcrumbList` structured data and exposes `SportsEvent` only when the format has a valid calendar `startDate` in strict `YYYY-MM-DD` form. Its `Place` may use the verified start label, start coordinates, start-address string, and normalized parent city/region/country; unavailable postal components are omitted and a place name is never inserted into `PostalAddress`. `eventStatus` is `EventScheduled` because the current schema has no cancellation/postponement status. The organizer is the known event identity (falling back to the format identity) with its official HTTP(S) website when available. The registration action becomes an `Offer` containing only its URL; price, currency, and availability remain absent because the catalog does not store them.
+
+`endDate` remains the same date for a single-day edition. A later canonical edition end is emitted only when unambiguous stored start and finish-cutoff clocks prove an overnight format by wrapping past midnight; prose or incomplete clocks cannot establish that fact. Formats attached to a slugged edition emit a `superEvent` reference to its canonical event page. Open Graph and Twitter use the format image first, the event image second, and the shared Pace Yourself social image last. SEO titles are capped at 60 characters, reserve a factual distance/year suffix, and truncate the middle of long names so both the event prefix and distinguishing format suffix survive; descriptions are capped at 160 characters. It links to:
 
 - other published formats sharing the same event edition, with the legacy event-only fallback when `edition_id` is absent;
 - up to three published races from other events with the nearest distance, using elevation only as a tie-breaker;
@@ -97,6 +125,10 @@ The page always exposes `BreadcrumbList` structured data and exposes `SportsEven
 Sharing uses the native Web Share sheet when available, which lets installed mobile apps such as Instagram participate. Facebook remains a direct action, copy is always explicit, and the main action falls back to copy when Web Share is unavailable. Native cancellation does not trigger a surprise copy. Missing Clipboard support falls back to the browser copy command and reports success/failure through an accessible live status.
 
 ## Catalog Event Grouping
+
+Every public edition with at least one web-public format has one canonical `/courses/evenements/[slug]` page. It lists only that edition's public formats, their factual distance, D+, date, location and ravito count, and sanitized practical information inherited from the event. It emits one parent `SportsEvent` with format `subEvent` entries. Former edition slugs permanently redirect after the current event and format visibility gates are rechecked. The sitemap deduplicates event-edition URLs and uses the newest edition, event, or format timestamp available; station rows currently have no `updated_at`, so station-only changes cannot improve `<lastmod>` evidence.
+
+Historical edition pages remain indexable and canonical. After the inclusive `end_date` has passed in Europe/Paris, they show an “Édition terminée” banner; if the same event has a later edition with at least one web-public format, the banner links directly to it. An already-published later edition is also highlighted from a non-past page.
 
 Each event-edition header exposes one `S’inscrire` action sourced from the shared event website. Distance-selection cards use the same target, while standalone cards fall back to the format URL and retain a separate internal course-detail link.
 
@@ -134,6 +166,8 @@ Country filters may include country-only rows. City, department, region and near
 
 Existing race slugs remain canonical until a rename is explicitly approved. The durable mapping and permanent redirect contract now exists: the database trigger records every former slug against the stable race id, and the web route resolves directly to the current canonical slug without redirect chains.
 
+Edition slugs follow the same no-chain rule through `race_event_edition_slug_redirects`, but remain a separate namespace and service-only table. `rename_race_event_edition_slug` is the trusted atomic rename boundary.
+
 `scripts/audit-public-race-slugs.mjs` is the review-only preparation step. It reads published catalog data with an anon/publishable key, refuses elevated keys, reports technical slugs and deterministic French-readable proposals, resolves candidate collisions with location then a stable id suffix, and performs zero writes. A proposal is not authorization to rename; approved changes must use the service-only atomic RPC after the migration is deployed.
 
 ## Gotchas
@@ -142,6 +176,7 @@ Existing race slugs remain canonical until a rename is explicitly approved. The 
 
 - Keep the registration target event-first and HTTP(S)-only. Do not expose raw organizer JSON or silently turn an unvalidated string into an outbound link.
 - Keep catalog/detail visibility on the 15-minute public window. The raw GPX object may remain in the persistent data cache for one year only because every replacement writes a new Storage path; never overwrite or reuse a published GPX path.
+- Public reads must retain the `public-races` cache tag. Successful organizer/admin writes that can change catalog identity, publication, event/edition content, images, or ravitos invalidate it together with the applicable `public-race:*`, `public-edition:*`, and `public-event:*` tags; failed writes invalidate nothing.
 - Web course discovery uses `races.web_catalog_is_live` / `races.is_public` and live parent events. Mobile discovery continues to use `is_live`, `racebook_preview_is_visible`, and edition visibility; `racebook_is_live` independently protects practical RaceBook modules.
 - First public/mobile publication promotes `web_catalog_is_live`. Later format-private, masked, or edition-hidden transitions may clear the mobile/RaceBook flags but preserve the factual web page and its slug redirects. Setting `is_public = false` clears web visibility, and deleting an edition still cascades its formats.
 - Keep catalog, slug resolution, sitemap, detail, and private-GPX preview on the shared 15-minute public-race revalidation window. A longer negative detail cache can otherwise outlive a catalog refresh and expose a temporary crawlable 404.

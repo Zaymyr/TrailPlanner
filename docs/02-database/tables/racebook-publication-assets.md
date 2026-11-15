@@ -1,7 +1,7 @@
 ---
 title: racebook_publication_assets
 scope: database
-last_verified: 2026-11-09
+last_verified: 2026-11-13
 ai_priority: high
 related_files:
   - supabase/migrations/20261103123918_racebook_versioned_publications.sql
@@ -53,6 +53,8 @@ Service-only RLS and revoked client grants match the publication tables.
 ## Business Invariants
 
 Storage cleanup is queued only when no retained publication references the same bucket/path pair.
+
+Dirty-state comparison uses the canonical snapshot hash, including asset identities, when a published snapshot exists. An edit later reverted to the same canonical snapshot is clean even though its mutable source revision remains newer; this comparison never creates or deletes an asset reference.
 
 ## Common Queries
 

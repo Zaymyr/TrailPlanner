@@ -30,7 +30,6 @@ export default function NutritionScreen() {
   const { locale } = useI18n();
   const {
     t,
-    isPremium,
     loading,
     refreshing,
     error,
@@ -55,11 +54,8 @@ export default function NutritionScreen() {
     newSodiumMg,
     newCaloriesKcal,
     newImageDraft,
-    showFavoriteLimitModal,
     filteredProducts,
     availableBrands,
-    favoriteLimitBannerLabel,
-    favoriteLimitMessage,
     handleRetry,
     handleRefresh,
     toggleFavorite,
@@ -73,7 +69,6 @@ export default function NutritionScreen() {
     setNewCarbsG,
     setNewSodiumMg,
     setNewCaloriesKcal,
-    setShowFavoriteLimitModal,
     pickNewImage,
     clearNewImage,
     handleCreateProduct,
@@ -185,16 +180,12 @@ export default function NutritionScreen() {
         emptyCatalogDescription={t.nutrition.emptyCatalogDescription}
         emptyCatalogTitle={t.nutrition.emptyCatalogTitle}
         favoriteIds={favoriteIds}
-        favoriteLimitBannerLabel={favoriteLimitBannerLabel}
-        favoriteLimitMessage={favoriteLimitMessage}
         refreshing={refreshing}
         favorites={favorites}
         favoritesExpanded={favoritesExpanded}
         filteredProducts={filteredProducts}
-        freeAccessTitle={t.plans.freeAccessTitle}
         fuelFilter={fuelFilter}
         isAdmin={isAdmin}
-        isPremium={isPremium}
         otherBrandsLabel={t.nutrition.otherBrandsLabel}
         verifiedLabel={t.nutrition.verifiedLabel}
         newCaloriesKcal={newCaloriesKcal}
@@ -218,7 +209,6 @@ export default function NutritionScreen() {
         onRemoveNewImage={clearNewImage}
         onRefresh={handleRefresh}
         onScroll={(event) => scrollY.setValue(event.nativeEvent.contentOffset.y)}
-        onCloseFavoriteLimitModal={() => setShowFavoriteLimitModal(false)}
         onCloseProductDetail={closeProductDetail}
         onDeleteSelectedProduct={handleDeleteSelectedProduct}
         onOpenProductDetail={openProductDetail}
@@ -231,7 +221,6 @@ export default function NutritionScreen() {
         selectedProduct={selectedProduct}
         selectedProductFavoriteUsage={selectedProductFavoriteUsage}
         showCreateModal={showCreateModal}
-        showFavoriteLimitModal={showFavoriteLimitModal}
         userId={userId}
       />
 

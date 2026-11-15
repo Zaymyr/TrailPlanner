@@ -717,6 +717,7 @@ export default function PlanForm({
         solidRefill: currentStation?.solidRefill !== false,
         assistanceAllowed: currentStation?.assistanceAllowed !== false,
         pauseMinutes: currentStation?.pauseMinutes ?? 0,
+        maxStopMinutes: currentStation?.maxStopMinutes,
       }, {
         name: nextName,
         distanceKm: nextDistanceKm,
@@ -724,6 +725,7 @@ export default function PlanForm({
         solidRefill: editingStation.solidRefill,
         assistanceAllowed: editingStation.assistanceAllowed,
         pauseMinutes: nextPauseMinutes,
+        maxStopMinutes: currentStation?.maxStopMinutes,
       }, isLinkedRace);
       updateAidStation(editingStation.index, {
         ...nextStation,

@@ -1,3 +1,5 @@
+export * from './runnerProfile';
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type SegmentPlanData = {

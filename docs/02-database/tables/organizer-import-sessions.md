@@ -2,6 +2,7 @@
 title: organizer_import_sessions Table
 scope: database
 last_verified: 2026-08-24
+# Assisted legacy conversion (2026-11-15): the review-only action shares the import route boundary but creates no import session and performs no database write.
 ai_priority: high
 related_files:
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql

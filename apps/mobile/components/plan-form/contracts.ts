@@ -18,6 +18,7 @@ export type AidStationFormItem = {
   solidRefill?: boolean;
   assistanceAllowed?: boolean;
   pauseMinutes?: number;
+  maxStopMinutes?: number;
   supplies?: Supply[];
 };
 

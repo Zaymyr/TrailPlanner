@@ -1,16 +1,15 @@
 "use client";
 
-import type { RacePlannerTranslations } from "../../locales/types";
 import { useMemo, useState } from "react";
+import type { RacePlannerTranslations } from "../../locales/types";
 import type { Race, SavedPlan } from "../../app/(planner)/race-planner/types";
+import { ChevronDownIcon, ChevronUpIcon } from "./TimelineIcons";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
 import { Input } from "../ui/input";
-import { Label } from "../ui/label";
 
 export type PlanManagerProps = {
   copy: RacePlannerTranslations["account"];
-  planName: string;
   planStatus: "idle" | "saving";
   accountMessage: string | null;
   accountError: string | null;
@@ -21,324 +20,128 @@ export type PlanManagerProps = {
   sessionEmail?: string;
   showPlanLimitUpsell: boolean;
   premiumCopy: RacePlannerTranslations["account"]["premium"];
-  onPlanNameChange: (name: string) => void;
   onRefreshPlans: () => void;
   onLoadPlan: (plan: SavedPlan) => void;
+  onRenamePlan: (plan: SavedPlan, name: string) => Promise<boolean>;
   onDeletePlan: (planId: string) => void;
-  onNewPlanForRace?: (raceId: string) => void;
   onNewPlanGlobal?: () => void;
   onEditRace?: (raceId: string) => void;
   onDeleteRace?: (raceId: string) => void;
 };
 
-type RaceGroup = {
-  raceId: string | null;
-  raceName: string;
-  isAdmin: boolean;
-  isOwned: boolean;
-  plans: SavedPlan[];
-};
+type RaceGroup = { raceId: string | null; raceName: string; isAdmin: boolean; isOwned: boolean; plans: SavedPlan[] };
 
-export function PlanManager({
-  copy,
-  planName,
-  planStatus,
-  accountMessage,
-  accountError,
-  savedPlans,
-  races,
-  userId,
-  deletingPlanId,
-  sessionEmail,
-  showPlanLimitUpsell,
-  premiumCopy,
-  onPlanNameChange,
-  onRefreshPlans,
-  onLoadPlan,
-  onDeletePlan,
-  onNewPlanForRace,
-  onNewPlanGlobal,
-  onEditRace,
-  onDeleteRace,
-}: PlanManagerProps) {
+const LockIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-3.5 w-3.5" aria-hidden="true">
+    <rect x="5" y="10" width="14" height="10" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" />
+  </svg>
+);
+const MoreIcon = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5" aria-hidden="true">
+    <circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" />
+  </svg>
+);
+
+export function PlanManager({ copy, planStatus, accountMessage, accountError, savedPlans, races, userId,
+  deletingPlanId, sessionEmail, showPlanLimitUpsell, premiumCopy, onRefreshPlans, onLoadPlan,
+  onRenamePlan, onDeletePlan, onNewPlanGlobal, onEditRace, onDeleteRace }: PlanManagerProps) {
   const isSaving = planStatus === "saving";
-  const successMessage =
-    accountMessage && accountMessage !== copy.messages.signedIn ? accountMessage : null;
+  const successMessage = accountMessage && accountMessage !== copy.messages.signedIn ? accountMessage : null;
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [openMenuPlanId, setOpenMenuPlanId] = useState<string | null>(null);
+  const [renamePlanId, setRenamePlanId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [confirmDeletePlanId, setConfirmDeletePlanId] = useState<string | null>(null);
   const [confirmDeleteRaceId, setConfirmDeleteRaceId] = useState<string | null>(null);
 
-  const toggleGroup = (key: string) => {
-    setCollapsedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
-
-  // Build race groups from savedPlans + races list
   const groups = useMemo<RaceGroup[]>(() => {
-    const raceMap = new Map<string, Race>(races.map((r) => [r.id, r]));
-
-    // Group plans by catalogRaceId
-    const plansByRace = savedPlans.reduce(
-      (acc, plan) => {
-        const key = plan.catalogRaceId ?? "__orphan__";
-        if (!acc[key]) acc[key] = [];
-        acc[key].push(plan);
-        return acc;
-      },
-      {} as Record<string, SavedPlan[]>
-    );
-
+    const plansByRace = savedPlans.reduce<Record<string, SavedPlan[]>>((acc, plan) => {
+      (acc[plan.catalogRaceId ?? "__orphan__"] ??= []).push(plan);
+      return acc;
+    }, {});
     const result: RaceGroup[] = [];
-
-    // Add groups only for races that have at least one plan
     for (const race of races) {
       const plans = plansByRace[race.id] ?? [];
-      if (plans.length > 0) {
-        result.push({
-          raceId: race.id,
-          raceName: race.name,
-          isAdmin: race.isPublic && race.createdBy == null,
-          isOwned: !race.isPublic && race.createdBy === userId,
-          plans,
-        });
-      }
+      if (plans.length) result.push({ raceId: race.id, raceName: race.name, isAdmin: race.isPublic && race.createdBy == null,
+        isOwned: !race.isPublic && race.createdBy === userId, plans });
       delete plansByRace[race.id];
     }
-
-    // Add plans that reference a race not in the races list (race deleted or not fetched)
     for (const [raceId, plans] of Object.entries(plansByRace)) {
-      if (raceId === "__orphan__") continue;
-      const raceName = plans[0]?.raceName ?? "Course inconnue";
-      result.push({
-        raceId,
-        raceName,
-        isAdmin: false,
-        isOwned: false,
-        plans,
-      });
+      if (raceId !== "__orphan__") result.push({ raceId, raceName: plans[0]?.raceName ?? copy.plans.unknownRace, isAdmin: false, isOwned: false, plans });
     }
-
-    // Sort: owned races first, then public
-    result.sort((a, b) => {
-      if (a.isOwned && !b.isOwned) return -1;
-      if (!a.isOwned && b.isOwned) return 1;
-      return a.raceName.localeCompare(b.raceName);
-    });
-
-    // Orphan plans group
-    const orphans = plansByRace["__orphan__"] ?? [];
-    if (orphans.length > 0) {
-      result.push({
-        raceId: null,
-        raceName: "Sans course",
-        isAdmin: false,
-        isOwned: false,
-        plans: orphans,
-      });
-    }
-
+    result.sort((a, b) => Number(b.isOwned) - Number(a.isOwned) || a.raceName.localeCompare(b.raceName));
+    const orphans = plansByRace.__orphan__ ?? [];
+    if (orphans.length) result.push({ raceId: null, raceName: copy.plans.noRace, isAdmin: false, isOwned: false, plans: orphans });
     return result;
-  }, [races, savedPlans, userId]);
+  }, [copy.plans.noRace, copy.plans.unknownRace, races, savedPlans, userId]);
+
+  const toggleGroup = (key: string) => setCollapsedGroups((previous) => {
+    const next = new Set(previous); next.has(key) ? next.delete(key) : next.add(key); return next;
+  });
+  if (!sessionEmail) return <p className="text-sm text-muted-foreground">{copy.auth.headerHint}</p>;
 
   return (
-    <Card className="border-border/50 bg-muted/30 shadow-sm dark:border-slate-800/50 dark:bg-slate-950/50 dark:shadow-none">
-      <CardContent className="space-y-4 pt-6">
-        {sessionEmail ? (
-          <div className="space-y-4">
-            {/* Save section */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <Label htmlFor="plan-name">{copy.plans.nameLabel}</Label>
-              </div>
-              <Input
-                id="plan-name"
-                value={planName}
-                placeholder={copy.plans.defaultName}
-                onChange={(event) => onPlanNameChange(event.target.value)}
-              />
-              {showPlanLimitUpsell ? (
-                <p className="text-xs text-amber-200" role="status">
-                  {premiumCopy.planLimitReached}
-                </p>
-              ) : null}
-              {successMessage ? (
-                <p className="text-xs text-emerald-300" role="status">
-                  {successMessage}
-                </p>
-              ) : null}
-            </div>
-
-            {/* Tree view */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-foreground dark:text-slate-100">{copy.plans.title}</p>
-                <Button variant="ghost" className="h-9 px-3 text-xs sm:text-sm" onClick={onRefreshPlans}>
-                  {copy.plans.refresh}
-                </Button>
-              </div>
-
-              {groups.length === 0 && savedPlans.length === 0 ? (
-                <p className="text-sm text-muted-foreground dark:text-slate-400">{copy.plans.empty}</p>
-              ) : (
-                <div className="max-h-96 space-y-2 overflow-y-auto pr-1">
-                  {groups.map((group) => {
-                    const key = group.raceId ?? "__orphan__";
-                    const isCollapsed = collapsedGroups.has(key);
-                    return (
-                      <div key={key} className="rounded-lg border border-border dark:border-slate-800">
-                        {/* Race header */}
-                        <button
-                          type="button"
-                          onClick={() => toggleGroup(key)}
-                          className="flex w-full items-center gap-2 px-3 py-2 text-left transition hover:bg-muted/40"
-                        >
-                          <span className="text-base leading-none text-muted-foreground">
-                            {isCollapsed ? "▶" : "▼"}
-                          </span>
-                          <span className="flex-1 truncate text-sm font-semibold text-foreground dark:text-slate-100">
-                            📍 {group.raceName}
-                          </span>
-                          {group.raceId === null && (
-                            <span className="text-xs text-amber-400">⚠️</span>
-                          )}
-                          {group.isAdmin && (
-                            <span className="text-xs text-muted-foreground dark:text-slate-500" title="Course admin — lecture seule">
-                              🔒
-                            </span>
-                          )}
-                        </button>
-
-                        {/* Expanded content */}
-                        {!isCollapsed && (
-                          <div className="border-t border-border px-3 py-2 dark:border-slate-800">
-                            {group.raceId === null && (
-                              <p className="mb-2 text-xs text-amber-400/80">
-                                Ce plan n’est pas associé à une course.
-                              </p>
-                            )}
-
-                            {/* Plans */}
-                            <div className="space-y-2">
-                              {group.plans.map((plan) => (
-                                <div
-                                  key={plan.id}
-                                  className="rounded-md bg-muted/30 px-2 py-1.5 dark:bg-slate-900/40"
-                                >
-                                  <p className="break-words text-xs font-medium text-foreground dark:text-slate-50">
-                                    🗓 {plan.name}
-                                  </p>
-                                  <p className="mb-1.5 text-[10px] text-muted-foreground dark:text-slate-500">
-                                    {new Date(plan.updatedAt).toLocaleDateString()}
-                                  </p>
-                                  <div className="flex gap-1.5">
-                                    <Button
-                                      variant="outline"
-                                      className="h-6 flex-1 px-2 text-[11px]"
-                                      onClick={() => onLoadPlan(plan)}
-                                      disabled={deletingPlanId === plan.id}
-                                    >
-                                      {copy.plans.load}
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      className="h-6 flex-1 px-2 text-[11px] text-red-300 hover:text-red-200"
-                                      onClick={() => onDeletePlan(plan.id)}
-                                      disabled={deletingPlanId === plan.id || isSaving}
-                                    >
-                                      {deletingPlanId === plan.id ? copy.plans.saving : copy.plans.delete}
-                                    </Button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-
-                            {/* + New plan for this race */}
-                            {group.raceId !== null && onNewPlanForRace && (
-                              <button
-                                type="button"
-                                onClick={() => onNewPlanForRace(group.raceId!)}
-                                className="mt-2 w-full rounded-md px-2 py-1.5 text-left text-xs text-muted-foreground transition hover:bg-muted/50 hover:text-foreground dark:text-slate-500 dark:hover:text-slate-300"
-                              >
-                                + Nouveau plan
-                              </button>
-                            )}
-
-                            {/* Edit / Delete race buttons (owned races only) */}
-                            {group.isOwned && group.raceId && (
-                              <div className="mt-2 flex gap-1.5 border-t border-border pt-2 dark:border-slate-800">
-                                {onEditRace && (
-                                  <button
-                                    type="button"
-                                    onClick={() => onEditRace(group.raceId!)}
-                                    className="flex-1 rounded-md px-2 py-1 text-center text-[11px] text-muted-foreground transition hover:bg-muted/50 hover:text-foreground"
-                                  >
-                                    ✏️ Modifier la course
-                                  </button>
-                                )}
-                                {onDeleteRace && (
-                                  <>
-                                    {confirmDeleteRaceId === group.raceId ? (
-                                      <div className="flex flex-1 gap-1">
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            onDeleteRace(group.raceId!);
-                                            setConfirmDeleteRaceId(null);
-                                          }}
-                                          className="flex-1 rounded-md bg-red-900/40 px-2 py-1 text-center text-[11px] text-red-300 hover:bg-red-900/60"
-                                        >
-                                          Confirmer
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => setConfirmDeleteRaceId(null)}
-                                          className="flex-1 rounded-md px-2 py-1 text-center text-[11px] text-muted-foreground hover:bg-muted/50"
-                                        >
-                                          Annuler
-                                        </button>
-                                      </div>
-                                    ) : (
-                                      <button
-                                        type="button"
-                                        onClick={() => setConfirmDeleteRaceId(group.raceId)}
-                                        className="rounded-md px-2 py-1 text-[11px] text-muted-foreground transition hover:bg-muted/50 hover:text-red-400"
-                                      >
-                                        🗑
-                                      </button>
-                                    )}
-                                  </>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
+    <Card className="border-0 bg-transparent shadow-none">
+      <CardContent className="space-y-4 p-0">
+        <div className="flex justify-end"><Button variant="ghost" className="h-9 px-3 text-xs" onClick={onRefreshPlans}>{copy.plans.refresh}</Button></div>
+        {groups.length === 0 ? <p className="text-sm text-muted-foreground">{copy.plans.empty}</p> : (
+          <div className="max-h-96 space-y-2 overflow-y-auto pr-1">
+            {groups.map((group) => {
+              const key = group.raceId ?? "__orphan__";
+              const collapsed = collapsedGroups.has(key);
+              return <div key={key} className="overflow-hidden rounded-lg border border-border">
+                <button type="button" onClick={() => toggleGroup(key)} className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left hover:bg-muted/40">
+                  {collapsed ? <ChevronDownIcon className="h-4 w-4" aria-hidden /> : <ChevronUpIcon className="h-4 w-4" aria-hidden />}
+                  <span className="min-w-0 flex-1 truncate text-sm font-semibold">{group.raceName}</span>
+                  {group.isAdmin ? <span className="inline-flex items-center gap-1 text-xs text-muted-foreground" aria-label={copy.plans.freePreview}><LockIcon />{copy.plans.freePreview}</span> : null}
+                </button>
+                {!collapsed ? <div className="space-y-2 border-t border-border p-2">
+                  {group.raceId === null ? <p className="px-1 text-xs text-amber-600">{copy.plans.orphanDescription}</p> : null}
+                  {group.plans.map((plan) => {
+                    const menuOpen = openMenuPlanId === plan.id;
+                    const renaming = renamePlanId === plan.id;
+                    return <div key={plan.id} className="relative rounded-md bg-muted/30">
+                      <button type="button" className="flex min-h-14 w-full items-center px-3 py-2 pr-12 text-left hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        onClick={() => onLoadPlan(plan)} disabled={deletingPlanId === plan.id}>
+                        <span className="min-w-0"><span className="block truncate text-sm font-medium">{plan.name}</span>
+                          <span className="block text-xs text-muted-foreground">{copy.plans.updatedAt.replace("{date}", new Date(plan.updatedAt).toLocaleDateString())}</span></span>
+                      </button>
+                      <button type="button" className="absolute right-1 top-1 inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                        aria-label={copy.plans.actions.replace("{name}", plan.name)} aria-expanded={menuOpen}
+                        onClick={() => { setOpenMenuPlanId(menuOpen ? null : plan.id); setConfirmDeletePlanId(null); }} disabled={deletingPlanId === plan.id || isSaving}><MoreIcon /></button>
+                      {menuOpen ? <div className="border-t border-border p-2">
+                        {renaming ? <form className="flex flex-wrap gap-2" onSubmit={async (event) => {
+                          event.preventDefault(); if (await onRenamePlan(plan, renameValue)) { setRenamePlanId(null); setOpenMenuPlanId(null); }
+                        }}>
+                          <Input autoFocus className="h-10 min-w-0 flex-1" value={renameValue} onChange={(event) => setRenameValue(event.target.value)} aria-label={copy.plans.renamePlaceholder} />
+                          <Button type="submit" className="h-10 px-3 text-xs" disabled={!renameValue.trim() || isSaving}>{copy.plans.confirm}</Button>
+                          <Button type="button" variant="ghost" className="h-10 px-3 text-xs" onClick={() => setRenamePlanId(null)}>{copy.plans.cancel}</Button>
+                        </form> : confirmDeletePlanId === plan.id ? <div className="flex gap-2" role="group" aria-label={copy.plans.deleteConfirm.replace("{name}", plan.name)}>
+                          <Button variant="ghost" className="h-10 text-xs text-red-600" onClick={() => { onDeletePlan(plan.id); setOpenMenuPlanId(null); }}>{copy.plans.confirm}</Button>
+                          <Button variant="ghost" className="h-10 text-xs" onClick={() => setConfirmDeletePlanId(null)}>{copy.plans.cancel}</Button>
+                        </div> : <div className="flex gap-2">
+                          <Button variant="ghost" className="h-10 text-xs" onClick={() => { setRenamePlanId(plan.id); setRenameValue(plan.name); }}>{copy.plans.rename}</Button>
+                          <Button variant="ghost" className="h-10 text-xs text-red-600" onClick={() => setConfirmDeletePlanId(plan.id)}>{copy.plans.delete}</Button>
+                        </div>}
+                      </div> : null}
+                    </div>;
                   })}
-                </div>
-              )}
-
-              {/* Global new plan button */}
-              {onNewPlanGlobal && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full text-xs"
-                  onClick={onNewPlanGlobal}
-                >
-                  + Nouveau plan pour une nouvelle course
-                </Button>
-              )}
-            </div>
+                  {group.isOwned && group.raceId && (onEditRace || onDeleteRace) ? <div className="flex gap-2 border-t border-border pt-2">
+                    {onEditRace ? <Button variant="ghost" className="h-10 flex-1 text-xs" onClick={() => onEditRace(group.raceId!)}>{copy.plans.editRace}</Button> : null}
+                    {onDeleteRace ? confirmDeleteRaceId === group.raceId ? <>
+                      <Button variant="ghost" className="h-10 text-xs text-red-600" onClick={() => { onDeleteRace(group.raceId!); setConfirmDeleteRaceId(null); }}>{copy.plans.confirm}</Button>
+                      <Button variant="ghost" className="h-10 text-xs" onClick={() => setConfirmDeleteRaceId(null)}>{copy.plans.cancel}</Button>
+                    </> : <Button variant="ghost" className="h-10 text-xs text-red-600" onClick={() => setConfirmDeleteRaceId(group.raceId)}>{copy.plans.deleteRace}</Button> : null}
+                  </div> : null}
+                </div> : null}
+              </div>;
+            })}
           </div>
-        ) : (
-          <p className="text-sm text-muted-foreground dark:text-slate-400">{copy.auth.headerHint}</p>
         )}
-
-        {accountError ? <p className="text-xs text-red-400">{accountError}</p> : null}
+        {onNewPlanGlobal ? <Button type="button" variant="outline" className="w-full text-xs" onClick={onNewPlanGlobal}>{copy.plans.newRace}</Button> : null}
+        {showPlanLimitUpsell ? <p className="text-xs text-amber-600" role="status">{premiumCopy.planLimitReached}</p> : null}
+        {successMessage ? <p className="text-xs text-emerald-600" role="status">{successMessage}</p> : null}
+        {accountError ? <p className="text-xs text-red-600">{accountError}</p> : null}
       </CardContent>
     </Card>
   );
