@@ -1409,21 +1409,21 @@ export default function RaceRacebookScreen() {
         : null,
     ].filter((value): value is { label: string; value: string } => Boolean(value));
     const transportItems: RacebookAccessTransport[] = [];
-    if (access.enabledSections.officialParkings && access.officialParkings) {
+    if (access.enabledSections.officialParkings && (access.parkings.length > 0 || access.officialParkings)) {
       transportItems.push({
         key: 'parking',
         icon: 'car-outline',
         title: t.catalog.racebookAccessParking,
-        description: access.officialParkings,
+        description: access.parkings.length > 0 ? access.parkings.map((parking) => [parking.name, parking.location.label, parking.capacity ? `${parking.capacity} places` : null, parking.paid === false ? 'gratuit' : parking.paid === true ? 'payant' : null, parking.location.googleMapsUrl, parking.note].filter(Boolean).join(' · ')).join('\n') : access.officialParkings!,
       });
     }
-    if (access.enabledSections.shuttles && (access.shuttles || access.shuttleSchedule)) {
+    if (access.enabledSections.shuttles && (access.shuttleLines.length > 0 || access.shuttles || access.shuttleSchedule)) {
       transportItems.push({
         key: 'shuttles',
         icon: 'bus-outline',
         title: t.catalog.racebookAccessShuttles,
-        description: access.shuttles ?? access.shuttleSchedule!,
-        schedule: access.shuttles ? access.shuttleSchedule : null,
+        description: access.shuttleLines.length > 0 ? access.shuttleLines.map((line) => [`${line.from.label ?? 'Départ'} → ${line.to.label ?? 'Arrivée'}`, line.startTime && line.endTime ? `${line.startTime}–${line.endTime}` : null, line.frequencyMinutes ? `toutes les ${line.frequencyMinutes} min` : null, line.free === true ? 'gratuite' : null, line.bookingUrl, line.note].filter(Boolean).join(' · ')).join('\n') : access.shuttles ?? access.shuttleSchedule!,
+        schedule: access.shuttleLines.length > 0 ? null : access.shuttles ? access.shuttleSchedule : null,
       });
     }
 

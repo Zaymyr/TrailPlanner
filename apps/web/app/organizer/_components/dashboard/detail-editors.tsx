@@ -16,7 +16,7 @@ import {
 } from "../../../../lib/organizer-dashboard-details";
 import { AddressAutocompleteField } from "./address-autocomplete-field";
 import { equipmentSuggestions } from "./constants";
-import { ContextualHelp, InlineEditableRow, OptionalModule, TextAreaField, TextField, ToggleChip } from "./controls";
+import { ContextualHelp, InlineEditableRow, NumberField, OptionalModule, SegmentedChoice, TextAreaField, TextField, ToggleChip } from "./controls";
 import { isOutsideDateRange, SelectField, SwitchRow } from "./form-kit";
 import type { RaceFormat } from "./types";
 
@@ -564,6 +564,7 @@ export function AccessEditor({
   raceDetails,
   onEventChange,
   onRaceChange,
+  editionStartDate,
 }: {
   scope: "event" | "format";
   activeRace: RaceFormat | null;
@@ -571,6 +572,7 @@ export function AccessEditor({
   raceDetails: OrganizerRaceDetails;
   onEventChange: (details: OrganizerEventDetails) => void;
   onRaceChange: (details: OrganizerRaceDetails) => void;
+  editionStartDate?: string | null;
 }) {
   if (scope === "event") {
     return (
@@ -583,6 +585,8 @@ export function AccessEditor({
         formatMode
         showRunnerInfoToggle={false}
         showHeader={false}
+        editionStartDate={editionStartDate}
+        editionEndDate={eventDetails.dateRange.endDate}
       />
     );
   }
@@ -619,6 +623,8 @@ export function AccessEditor({
         onAccessChange={(access) => onRaceChange({ ...raceDetails, access })}
         formatMode
         showHeader={false}
+        editionStartDate={editionStartDate}
+        editionEndDate={eventDetails.dateRange.endDate}
       />
       {raceDetails.access.enabledSections.runnerInfo ? (
         <RunnerInfoFields runnerInfo={raceDetails.runnerInfo} onRunnerInfoChange={(runnerInfo) => onRaceChange({ ...raceDetails, runnerInfo })} />
@@ -636,6 +642,8 @@ function AccessFields({
   formatMode = false,
   showRunnerInfoToggle = formatMode,
   showHeader = true,
+  editionStartDate,
+  editionEndDate,
 }: {
   title: string;
   description: string;
@@ -645,6 +653,8 @@ function AccessFields({
   formatMode?: boolean;
   showRunnerInfoToggle?: boolean;
   showHeader?: boolean;
+  editionStartDate?: string | null;
+  editionEndDate?: string | null;
 }) {
   const update = (next: Partial<OrganizerEventDetails["access"]>) => onAccessChange({ ...access, ...next });
   const updateSection = (key: keyof OrganizerEventDetails["access"]["enabledSections"], checked: boolean) =>
@@ -728,7 +738,8 @@ function AccessFields({
         onAdd={() => { setParkingsOpen(true); updateSection("officialParkings", true); }}
         onRemove={() => { setParkingsOpen(false); updateSection("officialParkings", false); }}
       >
-          <TextAreaField label="Parkings officiels" value={access.officialParkings ?? ""} onChange={(value) => update({ officialParkings: value || null })} invalid={missingParkingOrShuttle} />
+          <ParkingCards parkings={access.parkings} biasLocation={biasLocation} onChange={(parkings) => update({ parkings })} />
+          {access.officialParkings ? <LegacyText text={access.officialParkings} /> : null}
       </OptionalModule>
 
       <div className="sm:col-span-2">
@@ -739,10 +750,8 @@ function AccessFields({
         onAdd={() => { setShuttlesOpen(true); updateSection("shuttles", true); }}
         onRemove={() => { setShuttlesOpen(false); updateSection("shuttles", false); }}
       >
-          <div className="grid gap-3 md:grid-cols-2">
-            <TextAreaField label="Fonctionnement des navettes" value={access.shuttles ?? ""} onChange={(value) => update({ shuttles: value || null })} invalid={missingParkingOrShuttle} />
-            <TextAreaField label="Horaires des navettes" value={access.shuttleSchedule ?? ""} onChange={(value) => update({ shuttleSchedule: value || null })} />
-          </div>
+          <ShuttleCards lines={access.shuttleLines} editionDays={editionDays(editionStartDate, editionEndDate)} biasLocation={biasLocation} onChange={(shuttleLines) => update({ shuttleLines })} />
+          {access.shuttles || access.shuttleSchedule ? <LegacyText text={[access.shuttles, access.shuttleSchedule].filter(Boolean).join("\n\n")} /> : null}
       </OptionalModule>
       </div>
       </div>
@@ -758,6 +767,30 @@ function AccessFields({
       ) : null}
     </section>
   );
+}
+
+function LegacyText({ text }: { text: string }) {
+  return <details className="rounded-lg border border-border bg-muted/20 p-3"><summary className="cursor-pointer text-sm font-semibold">Texte à convertir</summary><p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{text}</p></details>;
+}
+
+function editionDays(start?: string | null, end?: string | null) {
+  if (!start) return [];
+  const first = new Date(`${start}T12:00:00Z`);
+  const last = end ? new Date(`${end}T12:00:00Z`) : first;
+  if (!Number.isFinite(first.getTime()) || !Number.isFinite(last.getTime()) || last < first) return [];
+  const days: string[] = [];
+  for (let cursor = first; cursor <= last && days.length < 14; cursor = new Date(cursor.getTime() + 86_400_000)) days.push(cursor.toISOString().slice(0, 10));
+  return days;
+}
+
+function ParkingCards({ parkings, biasLocation, onChange }: { parkings: OrganizerEventDetails['access']['parkings']; biasLocation?: OrganizerEventDetails['eventLocation']; onChange: (value: OrganizerEventDetails['access']['parkings']) => void }) {
+  const patch = (index: number, next: Partial<(typeof parkings)[number]>) => onChange(parkings.map((item, itemIndex) => itemIndex === index ? { ...item, ...next } : item));
+  return <div className="space-y-3">{parkings.map((parking, index) => <article key={parking.id} className="space-y-3 rounded-xl border border-border bg-background p-3"><div className="flex gap-2"><div className="min-w-0 flex-1"><TextField label={`Parking ${index + 1}`} value={parking.name} onChange={(name) => patch(index, { name })} /></div><Button type="button" variant="ghost" onClick={() => onChange(parkings.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Supprimer ${parking.name}`}>×</Button></div><AddressAutocompleteField label="Adresse" value={parking.location.label ?? ''} location={parking.location} biasLocation={biasLocation} onChange={(label) => patch(index, { location: { ...parking.location, label: label || null } })} onLocationChange={(location) => patch(index, { location })} /><div className="grid gap-3 sm:grid-cols-2"><NumberField label="Capacité" value={parking.capacity ?? 0} emptyWhenZero step="1" onChange={(capacity) => patch(index, { capacity: capacity > 0 ? Math.round(capacity) : null })} /><SegmentedChoice label="Tarif" value={parking.paid === null ? 'unknown' : parking.paid ? 'paid' : 'free'} options={[{ value: 'unknown', label: 'Non précisé' }, { value: 'free', label: 'Gratuit' }, { value: 'paid', label: 'Payant' }] as const} onChange={(value) => patch(index, { paid: value === 'unknown' ? null : value === 'paid' })} /></div><TextAreaField label="Note courte" hint={`${(parking.note ?? '').length}/200 caractères`} value={parking.note ?? ''} onChange={(note) => patch(index, { note: note.slice(0, 200) || null })} /></article>)}<Button type="button" variant="ghost" onClick={() => onChange([...parkings, { id: crypto.randomUUID(), name: `Parking ${parkings.length + 1}`, location: { label: null, lat: null, lng: null, googleMapsUrl: null, source: null }, capacity: null, paid: null, note: null }])}>+ Parking</Button></div>;
+}
+
+function ShuttleCards({ lines, editionDays: days, biasLocation, onChange }: { lines: OrganizerEventDetails['access']['shuttleLines']; editionDays: string[]; biasLocation?: OrganizerEventDetails['eventLocation']; onChange: (value: OrganizerEventDetails['access']['shuttleLines']) => void }) {
+  const patch = (index: number, next: Partial<(typeof lines)[number]>) => onChange(lines.map((item, itemIndex) => itemIndex === index ? { ...item, ...next } : item));
+  return <div className="space-y-3">{lines.map((line, index) => <article key={line.id} className="space-y-3 rounded-xl border border-border bg-background p-3"><div className="flex justify-between"><p className="font-semibold">Ligne {index + 1}</p><Button type="button" variant="ghost" onClick={() => onChange(lines.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Supprimer la ligne ${index + 1}`}>×</Button></div><div className="grid gap-3 sm:grid-cols-2"><AddressAutocompleteField label="De" value={line.from.label ?? ''} location={line.from} biasLocation={biasLocation} onChange={(label) => patch(index, { from: { ...line.from, label: label || null } })} onLocationChange={(from) => patch(index, { from })} /><AddressAutocompleteField label="À" value={line.to.label ?? ''} location={line.to} biasLocation={biasLocation} onChange={(label) => patch(index, { to: { ...line.to, label: label || null } })} onLocationChange={(to) => patch(index, { to })} /></div><div className="flex flex-wrap gap-2">{days.map((day) => <button type="button" key={day} className={cn('rounded-full border px-3 py-1 text-xs', line.days.includes(day) && 'border-brand bg-brand-surface text-brand')} onClick={() => patch(index, { days: line.days.includes(day) ? line.days.filter((item) => item !== day) : [...line.days, day] })}>{day.split('-').reverse().join('/')}</button>)}</div><div className="grid gap-3 sm:grid-cols-3"><TextField label="Début" type="time" value={line.startTime ?? ''} onChange={(startTime) => patch(index, { startTime: startTime || null })} /><TextField label="Fin" type="time" value={line.endTime ?? ''} onChange={(endTime) => patch(index, { endTime: endTime || null })} /><NumberField label="Fréquence (min)" value={line.frequencyMinutes ?? 0} emptyWhenZero step="1" onChange={(frequencyMinutes) => patch(index, { frequencyMinutes: frequencyMinutes > 0 ? Math.round(frequencyMinutes) : null })} /></div><div className="grid gap-3 sm:grid-cols-2"><TextField label="Réservation" type="url" value={line.bookingUrl ?? ''} onChange={(bookingUrl) => patch(index, { bookingUrl: bookingUrl || null })} /><SegmentedChoice label="Tarif" value={line.free === null ? 'unknown' : line.free ? 'free' : 'paid'} options={[{ value: 'unknown', label: 'Non précisé' }, { value: 'free', label: 'Gratuite' }, { value: 'paid', label: 'Payante' }] as const} onChange={(value) => patch(index, { free: value === 'unknown' ? null : value === 'free' })} /></div><TextAreaField label="Note courte" hint={`${(line.note ?? '').length}/200 caractères`} value={line.note ?? ''} onChange={(note) => patch(index, { note: note.slice(0, 200) || null })} /></article>)}<Button type="button" variant="ghost" onClick={() => onChange([...lines, { id: crypto.randomUUID(), from: { label: null, lat: null, lng: null, googleMapsUrl: null, source: null }, to: { label: null, lat: null, lng: null, googleMapsUrl: null, source: null }, days: [], startTime: null, endTime: null, frequencyMinutes: null, bookingUrl: null, free: null, note: null }])}>+ Ligne de navette</Button></div>;
 }
 
 function RunnerInfoFields({

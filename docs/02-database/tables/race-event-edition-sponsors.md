@@ -3,6 +3,7 @@ title: race_event_edition_sponsors Table
 scope: database
 
 last_verified: 2026-11-15
+# Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
 # Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 # Organizer UI note (2026-11-13): sponsors are surfaced in a responsive logo grid whose tiles scroll to the existing direct editor; sponsor records and limits are unchanged.
 

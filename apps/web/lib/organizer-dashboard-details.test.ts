@@ -60,6 +60,19 @@ describe("parseOrganizerAidStationDetails", () => {
 });
 
 describe("parseOrganizerEventDetails", () => {
+  it("keeps legacy access text and parses structured parking and shuttle lines", () => {
+    const details = parseOrganizerEventDetails({ access: {
+      officialParkings: "Ancien parking mairie",
+      shuttles: "Ancienne navette",
+      parkings: [{ id: "p1", name: "Parking Nord", location: { label: "1 rue du Col" }, capacity: 120, paid: false, note: "Ouverture 5h" }],
+      shuttleLines: [{ id: "s1", from: { label: "Gare" }, to: { label: "Départ" }, days: ["2026-11-15"], startTime: "6h", endTime: "09:30", frequencyMinutes: 15, bookingUrl: "booking.example/shuttle", free: true, note: null }],
+    } });
+
+    expect(details.access.officialParkings).toBe("Ancien parking mairie");
+    expect(details.access.parkings[0]).toMatchObject({ name: "Parking Nord", capacity: 120, paid: false });
+    expect(details.access.shuttleLines[0]).toMatchObject({ startTime: "06:00", frequencyMinutes: 15, free: true, bookingUrl: "https://booking.example/shuttle" });
+  });
+
   it("normalizes the event links and emergency contact", () => {
     const details = parseOrganizerEventDetails({
       officialWebsiteUrl: "https://grand-trail.example",

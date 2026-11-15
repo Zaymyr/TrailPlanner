@@ -63,6 +63,8 @@ type OrganizerAccessDetails = {
   officialParkings: string | null;
   shuttles: string | null;
   shuttleSchedule: string | null;
+  parkings: { id: string; name: string; location: OrganizerLocationDetails; capacity: number | null; paid: boolean | null; note: string | null }[];
+  shuttleLines: { id: string; from: OrganizerLocationDetails; to: OrganizerLocationDetails; days: string[]; startTime: string | null; endTime: string | null; frequencyMinutes: number | null; bookingUrl: string | null; free: boolean | null; note: string | null }[];
   roadRestrictions: string | null;
   mapUrl: string | null;
   note: string | null;
@@ -297,6 +299,8 @@ const DEFAULT_ACCESS: OrganizerAccessDetails = {
   officialParkings: null,
   shuttles: null,
   shuttleSchedule: null,
+  parkings: [],
+  shuttleLines: [],
   roadRestrictions: null,
   mapUrl: null,
   note: null,
@@ -522,6 +526,8 @@ function parseAccessDetails(value: unknown): OrganizerAccessDetails {
     officialParkings: readText(record.officialParkings),
     shuttles: readText(record.shuttles),
     shuttleSchedule: readText(record.shuttleSchedule),
+    parkings: Array.isArray(record.parkings) ? record.parkings.map((value) => { const item = readRecord(value); return { id: readText(item.id) ?? '', name: readText(item.name) ?? '', location: parseLocationDetails(item.location), capacity: readNumber(item.capacity), paid: readNullableBoolean(item.paid), note: readText(item.note) }; }).filter((item) => item.id && item.name) : [],
+    shuttleLines: Array.isArray(record.shuttleLines) ? record.shuttleLines.map((value) => { const item = readRecord(value); return { id: readText(item.id) ?? '', from: parseLocationDetails(item.from), to: parseLocationDetails(item.to), days: Array.isArray(item.days) ? item.days.map(readText).filter((day): day is string => Boolean(day)) : [], startTime: readText(item.startTime), endTime: readText(item.endTime), frequencyMinutes: readNumber(item.frequencyMinutes), bookingUrl: readText(item.bookingUrl), free: readNullableBoolean(item.free), note: readText(item.note) }; }).filter((item) => item.id) : [],
     roadRestrictions: readText(record.roadRestrictions),
     mapUrl: readText(record.mapUrl),
     note: readText(record.note),
@@ -677,7 +683,7 @@ function hasBibContent(details: OrganizerBibPickupDetails): boolean {
 }
 
 function hasAccessContent(details: OrganizerAccessDetails): boolean {
-  return hasAnyText([
+  return details.parkings.length > 0 || details.shuttleLines.length > 0 || hasAnyText([
     details.startAddress,
     details.finishAddress,
     details.enabledSections.officialParkings ? details.officialParkings : null,
@@ -818,6 +824,12 @@ function buildRunnerDetails(eventDetails: OrganizerEventDetails, raceDetails: Or
       shuttleSchedule: raceDetails.access.enabledSections.shuttles
         ? mergePreferredText(eventDetails.access.shuttleSchedule, raceDetails.access.shuttleSchedule)
         : null,
+      parkings: raceDetails.access.enabledSections.officialParkings
+        ? (raceDetails.access.parkings.length > 0 ? raceDetails.access.parkings : eventDetails.access.parkings)
+        : [],
+      shuttleLines: raceDetails.access.enabledSections.shuttles
+        ? (raceDetails.access.shuttleLines.length > 0 ? raceDetails.access.shuttleLines : eventDetails.access.shuttleLines)
+        : [],
       roadRestrictions: raceDetails.access.enabledSections.roadRestrictions
         ? mergePreferredText(eventDetails.access.roadRestrictions, raceDetails.access.roadRestrictions)
         : null,

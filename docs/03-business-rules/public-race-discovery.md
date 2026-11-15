@@ -1,7 +1,8 @@
 ---
 title: Public Race Discovery
 scope: business-rule
-last_verified: 2026-11-13
+last_verified: 2026-11-15
+# Structured access phase (2026-11-15): public race pages summarize parking and shuttle collections without exposing each logistics record; historical text remains the fallback.
 ai_priority: high
 related_files:
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql

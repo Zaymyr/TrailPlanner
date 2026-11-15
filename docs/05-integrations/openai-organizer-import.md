@@ -2,6 +2,7 @@
 title: OpenAI Organizer Import Reconciliation
 scope: integration
 last_verified: 2026-11-15
+# Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
 # Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: high
 # Organizer UI note (2026-11-13): imported fields keep the same reconciliation contract while media controls may render in the contextual rail.

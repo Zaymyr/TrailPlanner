@@ -427,8 +427,12 @@ export async function getPublicRaceDetail(race: PublicRace): Promise<PublicRaceD
           startLocation: publicModules.access ? toPublicLocation(runner.access.startLocation) : { label: null, googleMapsUrl: null },
           finishAddress: publicModules.access ? runner.access.finishAddress : null,
           finishLocation: publicModules.access ? toPublicLocation(runner.access.finishLocation) : { label: null, googleMapsUrl: null },
-          officialParkings: publicModules.access && enabled.officialParkings ? runner.access.officialParkings : null,
-          shuttles: publicModules.access && enabled.shuttles ? runner.access.shuttles : null,
+          officialParkings: publicModules.access && enabled.officialParkings
+            ? runner.access.parkings.length > 0 ? `${runner.access.parkings.length} parking${runner.access.parkings.length > 1 ? "s" : ""} officiel${runner.access.parkings.length > 1 ? "s" : ""}` : runner.access.officialParkings
+            : null,
+          shuttles: publicModules.access && enabled.shuttles
+            ? runner.access.shuttleLines.length > 0 ? `${runner.access.shuttleLines.length} ligne${runner.access.shuttleLines.length > 1 ? "s" : ""} de navette${runner.access.shuttleLines.some((line) => line.free === true) ? " · navettes gratuites" : ""}` : runner.access.shuttles
+            : null,
           shuttleSchedule: publicModules.access && enabled.shuttles ? runner.access.shuttleSchedule : null,
           roadRestrictions: publicModules.access && enabled.roadRestrictions ? runner.access.roadRestrictions : null,
           mapUrl: publicModules.access && enabled.mapUrl ? runner.access.mapUrl : null,

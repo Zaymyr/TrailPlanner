@@ -4150,6 +4150,7 @@ export function OrganizerDashboard({
               raceDetails={raceForm.organizerDetails}
               onEventChange={(details) => updateEventDetails(details, "access")}
               onRaceChange={(details) => updateRaceForm({ organizerDetails: details }, "access")}
+              editionStartDate={eventForm.editionStartDate}
             />
           ) : activeModule === "products" ? (
             <ProductsEditor
