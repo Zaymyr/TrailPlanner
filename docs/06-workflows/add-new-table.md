@@ -57,7 +57,7 @@ For immutable service-only financial records, follow the `organizer_invoices` pa
 
 The versioned RaceBook publication cluster is the current multi-table service-only example. `racebook_publication_states`, immutable `racebook_publications`, retained asset references and the cleanup queue all enable RLS without client policies, revoke client privileges, and expose only narrowly granted `SECURITY INVOKER` RPCs. When rollout requires existing public rows, build and validate the initial snapshot in the same migration before enabling snapshot-only reads; a state-only backfill is insufficient.
 
-Presentation-only mobile changes that touch files referenced by `schema-overview.md` (such as the Courses card image placeholder, or the 2026-11-09 livret-first catalog ordering and `Livret disponible` badge) still update that overview's note, but add no table and need no migration. The 2026-11-15 Livret accompagnateur entry and sheet-reopen change in `catalog.tsx` is another such case.
+Presentation-only mobile changes that touch files referenced by `schema-overview.md` (such as the Courses card image placeholder, or the 2026-11-09 livret-first catalog ordering and `Livret disponible` badge) still update that overview's note, but add no table and need no migration. The 2026-11-15 Livret accompagnateur entry and sheet-reopen change in `catalog.tsx` is another such case. So is the 2026-11-15 catalog card layout (rounded distance range, fixed-width sign).
 
 ## Purpose
 

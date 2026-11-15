@@ -269,6 +269,8 @@ related_tables:
 
 # Organizer Race Management
 
+Catalog event cards (`RaceEventSummaryCard`, 2026-11-15) stack the format count and the distance range on the left in `Cote` size `xs`, rounded to whole kilometres (13–185 km; exact distances stay in the format sheet), so the fixed-width (172 pt) « Voir les distances » sign always fits on the right. Organizer authoring is unchanged.
+
 The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret accompagnateur, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret accompagnateur · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. The catalog event sheet opens the Livret accompagnateur from an interactive `TopoCard` placed before the distance list, and the guide's back action reopens that sheet through the existing `eventId` parameter plus a `sheet` nonce. Organizer authoring is unchanged.
 Public course-to-runner navigation now uses one free-estimate CTA and preserves the selected catalog race through authentication. This presentation change does not alter organizer ownership, publication or edit permissions.
 

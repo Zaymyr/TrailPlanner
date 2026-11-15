@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Animated, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FollowedRacesSection } from '../../components/plans/FollowedRacesSection';
@@ -18,6 +18,7 @@ import { ErrorState } from '../../components/themed/ErrorState';
 import { LoadingState } from '../../components/themed/LoadingState';
 import { Screen } from '../../components/themed/Screen';
 import { Text } from '../../components/themed/Text';
+import { TrailTabs } from '../../components/themed/TrailTabs';
 import { useFollowedRaces } from '../../hooks/useFollowedRaces';
 import { usePlansScreen } from '../../hooks/usePlansScreen';
 
@@ -31,6 +32,7 @@ export default function PlansScreen() {
   const followedEvents = useFollowedRaces();
   const scrollY = useRef(new Animated.Value(0)).current;
   const [activeList, setActiveList] = useState<'owned' | 'following'>('owned');
+  const [selectorHeight, setSelectorHeight] = useState(60);
   useFocusEffect(useCallback(() => {
     scrollY.stopAnimation();
     scrollY.setValue(0);
@@ -86,24 +88,27 @@ export default function PlansScreen() {
       topInset={insets.top}
     />
   );
+  // Same in-page tabs as RaceBook › Course (TrailTabs planks); the list starts right below them.
   const listSelector = (
-    <View style={[styles.selector, { top: insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT - 2 }]}>
-      {([
-        ['owned', t.planFollow.myPlansTab],
-        ['following', t.planFollow.assistantTab],
-      ] as const).map(([value, label]) => (
-        <Pressable
-          accessibilityRole="tab"
-          accessibilityState={{ selected: activeList === value }}
-          key={value}
-          onPress={() => { setActiveList(value); scrollY.setValue(0); }}
-          style={[styles.selectorButton, activeList === value && styles.selectorButtonActive]}
-        >
-          <Text tone={activeList === value ? 'inverse' : 'brand'} weight="bold" size="sm">{label}</Text>
-        </Pressable>
-      ))}
+    <View
+      onLayout={(event) => {
+        const height = Math.round(event.nativeEvent.layout.height);
+        setSelectorHeight((current) => (current === height ? current : height));
+      }}
+      style={[styles.selector, { top: insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT }]}
+    >
+      <TrailTabs
+        activeKey={activeList}
+        onChange={(value) => { setActiveList(value); scrollY.setValue(0); }}
+        stretch
+        tabs={[
+          { key: 'owned' as const, label: t.planFollow.myPlansTab },
+          { key: 'following' as const, label: t.planFollow.assistantTab },
+        ]}
+      />
     </View>
   );
+  const listTopInset = insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT + selectorHeight;
   if (loading) {
     return (
       <Screen style={styles.screen}>
@@ -146,12 +151,12 @@ export default function PlansScreen() {
     <Screen style={styles.screen}>
       {activeList === 'following' ? (
         <FollowedPlansList
-          contentTopInset={insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT + 66}
+          contentTopInset={listTopInset}
           onScroll={(event) => scrollY.setValue(event.nativeEvent.contentOffset.y)}
           t={t}
         />
       ) : <PlansList
-        contentTopInset={insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT + 66}
+        contentTopInset={listTopInset}
         activePlanId={activePlanId}
         collapsedSections={collapsedSections}
         browseRacesLabel={t.plans.browseRaces}
@@ -268,22 +273,8 @@ const styles = StyleSheet.create({
     left: 16,
     right: 16,
     zIndex: 12,
-    flexDirection: 'row',
-    gap: 6,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
-    padding: 4,
-  },
-  selectorButton: {
-    flex: 1,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 10,
-  },
-  selectorButtonActive: {
-    backgroundColor: Colors.brandPrimary,
+    paddingTop: 8,
+    paddingBottom: 4,
+    backgroundColor: Colors.background,
   },
 });
