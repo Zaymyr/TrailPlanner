@@ -1,5 +1,5 @@
 // Mobile-local mirror of packages/shared/src/runnerProfile.ts.
-// The Expo app must not import @trailplanner/shared at runtime (CI "Check for @trailplanner/shared imports"); keep both copies in sync.
+// The Expo app must not import the shared workspace package at runtime (mobile dependency CI check); keep both copies in sync.
 
 export type RunnerProfileFieldKey =
   | 'full_name'
