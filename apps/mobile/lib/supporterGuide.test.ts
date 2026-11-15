@@ -83,6 +83,17 @@ describe('Supporter Guide live programme', () => {
     expect(availableGuideKinds(entries)).toEqual(['start', 'arrival', 'awards']);
   });
 
+  it('keeps event-wide animations whatever races are followed and groups estimated arrivals under Arrivées', () => {
+    const entries = [
+      { ...at('anim', '2026-11-15', '20:00', 'animation', ''), eventWide: true, label: 'Concert' },
+      { ...at('est', '2026-11-15', '15:20', 'arrival_estimate', 'ultra'), audience: 'men' as const },
+      at('cut', '2026-11-15', '23:30', 'finish_cutoff', 'ultra'),
+    ];
+    expect(filterGuideTimeline(entries, 'all', new Set(['court'])).map((entry) => entry.id)).toEqual(['anim']);
+    expect(filterGuideTimeline(entries, 'arrival', null).map((entry) => entry.id)).toEqual(['est', 'cut']);
+    expect(availableGuideKinds(entries)).toEqual(['arrival', 'animations']);
+  });
+
   it('marks past entries, the next one and the now line only on the current day', () => {
     const day = [at('a', '2026-11-14', '09:00'), at('b', '2026-11-14', '12:00'), at('c', '2026-11-14', '17:00')];
     const now = new Date(2026, 10, 14, 13, 4);

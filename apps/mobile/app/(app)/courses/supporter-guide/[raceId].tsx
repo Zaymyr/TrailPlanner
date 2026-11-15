@@ -16,7 +16,6 @@ import { RacebookServicesSection, type RacebookServicesCopy } from '../../../../
 import { RacebookSupporterPointsSection, type RacebookSupporterStop } from '../../../../components/racebook/RacebookSupporterPointsSection';
 import { RacebookTabBar } from '../../../../components/racebook/RacebookTabBar';
 import { ActionButton } from '../../../../components/themed/ActionButton';
-import { ChoiceChip } from '../../../../components/themed/ChoiceChip';
 import { DataText } from '../../../../components/themed/DataText';
 import { EmptyState } from '../../../../components/themed/EmptyState';
 import { ErrorState } from '../../../../components/themed/ErrorState';
@@ -172,9 +171,9 @@ export default function SupporterGuideScreen() {
   }, [editionId]);
 
   const reminderCopy = useMemo<ReminderCopy>(() => {
-    const kindText = { start: copy.kindStart, finish_cutoff: copy.kindFinishCutoff, awards: copy.kindAwards } as const;
+    const kindText = { start: copy.kindStart, finish_cutoff: copy.kindFinishCutoff, awards: copy.kindAwards, arrival_estimate: copy.kindArrivalEstimate, animation: copy.kindAnimation } as const;
     return {
-      title: (entry) => copy.reminderTitle.replace('{kind}', kindText[entry.kind]).replace('{race}', entry.raceName),
+      title: (entry) => copy.reminderTitle.replace('{kind}', kindText[entry.kind]).replace('{race}', entry.eventWide ? entry.label ?? '' : entry.raceName),
       body: (entry) => copy.reminderBody.replace('{time}', entry.time),
     };
   }, [copy]);
@@ -439,18 +438,25 @@ export default function SupporterGuideScreen() {
         {guide.formats.length > 1 && (activeSection === 'programme' || activeSection === 'follow' || activeSection === 'practical') ? (
           <View style={styles.followedRow}>
             <Text style={styles.followedLabel}>{copy.iAmFollowing}</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroller} contentContainerStyle={styles.followedChips}>
-              {guide.formats.map((format) => (
-                <ChoiceChip
-                  key={format.raceId}
-                  accessibilityLabel={format.name}
-                  label={String(Math.round(format.distanceKm))}
-                  unit="km"
-                  selected={followedRaceIds?.has(format.raceId) ?? true}
-                  onPress={() => toggleFollowedRace(format.raceId)}
-                />
-              ))}
-            </ScrollView>
+            <View style={styles.followedChecks}>
+              {guide.formats.map((format) => {
+                const checked = followedRaceIds?.has(format.raceId) ?? true;
+                return (
+                  <Pressable
+                    key={format.raceId}
+                    accessibilityLabel={format.name}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked }}
+                    hitSlop={6}
+                    onPress={() => toggleFollowedRace(format.raceId)}
+                    style={({ pressed }) => [styles.followedCheck, pressed && styles.roundActionPressed]}
+                  >
+                    <Ionicons name={checked ? 'checkbox' : 'square-outline'} size={20} color={checked ? Colors.brandPrimary : Colors.textMuted} />
+                    <DataText style={[styles.followedCheckText, !checked && styles.followedCheckTextOff]}>{`${Math.round(format.distanceKm)} km`}</DataText>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
         ) : null}
 
@@ -626,11 +632,17 @@ function ProgrammeSection({
   const followedTimeline = filterGuideTimeline(timeline, 'all', followedRaceIds);
   const kinds = availableGuideKinds(followedTimeline);
   const days = groupGuideTimelineByDay(filterGuideTimeline(followedTimeline, kind, null));
-  const kindLabel = { start: copy.kindStart, finish_cutoff: copy.kindFinishCutoff, awards: copy.kindAwards } as const;
-  const kindIcon = { start: 'flag-outline', finish_cutoff: 'time-outline', awards: 'trophy-outline' } as const;
+  const kindLabel = { start: copy.kindStart, finish_cutoff: copy.kindFinishCutoff, awards: copy.kindAwards, arrival_estimate: copy.kindArrivalEstimate, animation: copy.kindAnimation } as const;
+  const kindIcon = { start: 'flag-outline', finish_cutoff: 'time-outline', awards: 'trophy-outline', arrival_estimate: 'stopwatch-outline', animation: 'musical-notes-outline' } as const;
+  const entryDetail = (entry: SupporterGuideTimelineEntry) => {
+    if (entry.kind === 'arrival_estimate') return entry.audience === 'women' ? copy.firstWoman : copy.firstMan;
+    if (entry.eventWide) return null;
+    return entry.label;
+  };
   const showRaceName = !followedRaceIds || followedRaceIds.size > 1;
   const isLive = days.some((day) => day.date === localIsoDay(now));
-  const remindable = followedTimeline.filter((entry) => {
+  // "Me prévenir pour toutes les courses": every upcoming moment, whatever the « Je suis » selection.
+  const remindable = timeline.filter((entry) => {
     const at = toLocalDate(entry.date, entry.time);
     return Boolean(at && at.getTime() - 30 * 60_000 > now.getTime());
   });
@@ -638,7 +650,7 @@ function ProgrammeSection({
     { key: 'all', label: copy.typeAll },
     ...kinds.map((value) => ({
       key: value as GuideTimelineKind,
-      label: value === 'start' ? copy.typeStarts : value === 'arrival' ? copy.typeArrivals : copy.typeAwards,
+      label: value === 'start' ? copy.typeStarts : value === 'arrival' ? copy.typeArrivals : value === 'awards' ? copy.typeAwards : copy.typeAnimations,
     })),
   ];
 
@@ -698,9 +710,9 @@ function ProgrammeSection({
                       <View style={styles.timelineCopy}>
                         <View style={styles.timelineKind}>
                           <Ionicons name={status === 'past' ? 'checkmark-circle' : kindIcon[entry.kind]} size={15} color={Colors.brandPrimary} />
-                          <Text style={styles.timelineKindText}>{kindLabel[entry.kind]}{entry.label ? ` · ${entry.label}` : ''}</Text>
+                          <Text style={styles.timelineKindText}>{kindLabel[entry.kind]}{entryDetail(entry) ? ` · ${entryDetail(entry)}` : ''}{entry.endTime ? ` → ${entry.endTime}` : ''}</Text>
                         </View>
-                        {showRaceName ? <Text style={styles.timelineRace}>{entry.raceName}</Text> : null}
+                        {entry.eventWide ? <Text style={styles.timelineRace}>{entry.label}</Text> : showRaceName ? <Text style={styles.timelineRace}>{entry.raceName}</Text> : null}
                         {entry.location ? <Text style={styles.timelineMeta}>{entry.location}</Text> : null}
                         {status === 'next' && at ? <StatusPill label={formatCountdown(at, now, locale)} tone="brand" style={styles.countdown} /> : null}
                       </View>
@@ -748,7 +760,10 @@ const styles = StyleSheet.create({
   tabsScroller: { flexGrow: 0 },
   followedRow: { gap: 6 },
   followedLabel: { color: Colors.textSecondary, fontSize: 12, lineHeight: 16, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.4 },
-  followedChips: { gap: 8, paddingRight: 8 },
+  followedChecks: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 14, rowGap: 6 },
+  followedCheck: { minHeight: 36, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  followedCheckText: { color: Colors.textPrimary, fontSize: 14, lineHeight: 18, fontWeight: '700' },
+  followedCheckTextOff: { color: Colors.textMuted },
   liveRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   liveClock: { color: Colors.textPrimary, fontSize: 15, lineHeight: 20, fontWeight: '800' },
   pastRow: { opacity: 0.45 },

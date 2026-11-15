@@ -21,6 +21,25 @@ export const normalizeOrganizerClockValue = (value: string | null | undefined) =
 
 const nullableClockText = nullableText.transform(normalizeOrganizerClockValue);
 
+/** Race duration such as "7:45" or "26:30" (hours may exceed 23). */
+const nullableDurationText = nullableText.transform((value) => {
+  if (!value) return null;
+  const match = /^(\d{1,3})[:h](\d{2})$/i.exec(value);
+  return match && Number(match[2]) < 60 ? `${Number(match[1])}:${match[2]}` : null;
+});
+
+/** Edition programme item shown in the Livret accompagnateur (animations, village, briefing...). */
+export const organizerProgrammeItemSchema = z.object({
+  id: z.string().trim().min(1),
+  type: z.enum(["animation", "concert", "kids_race", "briefing", "village", "other"]).default("animation"),
+  title: z.string().trim().min(1).max(120),
+  date: nullableText,
+  startTime: nullableClockText,
+  endTime: nullableClockText,
+  location: nullableText,
+  description: nullableText,
+});
+
 const URL_WITHOUT_PROTOCOL_PATTERN = /^(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:[/?#].*)?$/i;
 
 const nullableUrl = nullableText
@@ -306,6 +325,7 @@ export const organizerEventDetailsSchema = z.object({
   bibPickup: organizerBibPickupDetailsSchema,
   access: organizerAccessDetailsSchema,
   services: organizerServicesDetailsSchema,
+  programme: z.array(organizerProgrammeItemSchema).max(60).default([]),
 });
 
 export const organizerRaceDetailsSchema = z.object({
@@ -327,6 +347,9 @@ export const organizerRaceDetailsSchema = z.object({
       shuttleSchedule: nullableText,
       cutoffNote: nullableText,
       note: nullableText,
+      /** Estimated winning times (durations), shown as expected first arrivals to supporters. */
+      estimatedWinnerMen: nullableDurationText,
+      estimatedWinnerWomen: nullableDurationText,
     })
     .default({
       startTime: null,
@@ -335,6 +358,8 @@ export const organizerRaceDetailsSchema = z.object({
       shuttleSchedule: null,
       cutoffNote: null,
       note: null,
+      estimatedWinnerMen: null,
+      estimatedWinnerWomen: null,
     }),
   mandatoryEquipment: organizerEquipmentDetailsSchema,
   bibPickup: organizerBibPickupDetailsSchema,

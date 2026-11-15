@@ -71,6 +71,8 @@ related_tables:
 
 # Public Race Discovery
 
+The Supporter Guide timeline adds `arrival_estimate` entries (official start + estimated winning time, `audience` men/women, multi-day aware) and event-wide `animation` entries (`eventWide`, `endTime`, `animationType`) shown whatever races are followed; Programme gains an Animations tab and the Arrivées tab groups expected first arrivals with the last-runner finish cutoff.
+
 The public Supporter Guide page offers type tabs, a « Je suis » race filter, the live race-day markers and one card per place (ravito + cheering points merged).
 
 The web Supporter Guide programme is grouped by calendar day from the server `timeline`, with localized dates/distances and cutoffs labelled with their weekday when they fall after the race day.

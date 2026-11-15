@@ -101,12 +101,17 @@ export type SupporterGuideTimelineEntry = {
   id: string;
   raceId: string;
   raceName: string;
-  kind: 'start' | 'finish_cutoff' | 'awards';
+  kind: 'start' | 'finish_cutoff' | 'awards' | 'arrival_estimate' | 'animation';
   date: string | null;
   time: string;
   label: string | null;
   location: string | null;
   mapsUrl?: string | null;
+  audience?: 'men' | 'women' | null;
+  /** Animations: event-wide (raceId and raceName empty), shown whatever races are followed. */
+  eventWide?: boolean;
+  endTime?: string | null;
+  animationType?: 'animation' | 'concert' | 'kids_race' | 'briefing' | 'village' | 'other';
 };
 
 export type SupporterGuideAccess = {
@@ -345,12 +350,14 @@ export function resolveGuideStops(format: SupporterGuideFormat): SupporterGuideS
   ].sort((left, right) => left.km - right.km);
 }
 
-export type GuideTimelineKind = 'all' | 'start' | 'arrival' | 'awards';
+export type GuideTimelineKind = 'all' | 'start' | 'arrival' | 'awards' | 'animations';
 
 const KIND_BY_ENTRY: Record<SupporterGuideTimelineEntry['kind'], Exclude<GuideTimelineKind, 'all'>> = {
   start: 'start',
   finish_cutoff: 'arrival',
+  arrival_estimate: 'arrival',
   awards: 'awards',
+  animation: 'animations',
 };
 
 /** Programme filtered by type (tab) and by the races the supporter follows. */
@@ -360,13 +367,13 @@ export function filterGuideTimeline(
   raceIds: ReadonlySet<string> | null,
 ): SupporterGuideTimelineEntry[] {
   return entries.filter((entry) =>
-    (kind === 'all' || KIND_BY_ENTRY[entry.kind] === kind) && (!raceIds || raceIds.has(entry.raceId)),
+    (kind === 'all' || KIND_BY_ENTRY[entry.kind] === kind) && (entry.eventWide || !raceIds || raceIds.has(entry.raceId)),
   );
 }
 
 export function availableGuideKinds(entries: readonly SupporterGuideTimelineEntry[]): Exclude<GuideTimelineKind, 'all'>[] {
   const present = new Set(entries.map((entry) => KIND_BY_ENTRY[entry.kind]));
-  return (['start', 'arrival', 'awards'] as const).filter((kind) => present.has(kind));
+  return (['start', 'arrival', 'awards', 'animations'] as const).filter((kind) => present.has(kind));
 }
 
 /** Local race-day time (the supporter is assumed to be on the event's timezone). */

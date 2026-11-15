@@ -24,6 +24,8 @@ related_tables:
 
 # `racebook_publications`
 
+The Supporter Guide timeline adds `arrival_estimate` entries (official start + estimated winning time, `audience` men/women, multi-day aware) and event-wide `animation` entries (`eventWide`, `endTime`, `animationType`) shown whatever races are followed; Programme gains an Animations tab and the Arrivées tab groups expected first arrivals with the last-runner finish cutoff. Values come from the published snapshot's race and event organizer JSON.
+
 Supporter Guide places (2026-11-15): the payload adds `formats[].stops`, built server-side by `buildSupporterStops` — an aid station and supporter points sharing the same normalized place name (accents, case, punctuation ignored, « St »/« Ste » = Saint/Sainte) within 2 km become one stop carrying every role (ravito, encouragement, assistance), the supporter access rule, services, cutoff and directions. Start timeline entries carry `mapsUrl` (start area directions). Both fields are additive on `schemaVersion: 1`. Reads still come only from immutable publications.
 
 The Supporter Guide payload (`apps/web/lib/supporter-guide.ts`) stays additive on `schemaVersion: 1`: formats are sorted by date then first start; station and finish cutoffs are resolved from the official departure with the shared `racebook-cutoffs` resolver (organizer wording such as « sam. 15h » or « dim. 15/11 à 14h » becomes `{ date, time, dayOffset }` instead of being truncated); it also adds `timeline` (dated starts, finish cutoffs, podiums), `elevationGainM`, station `waterAvailable` / `solidAvailable` / `isFinish` and access `note`. Reads still come only from immutable publications.

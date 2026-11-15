@@ -23,6 +23,8 @@ related_tables: []
 
 # Packages Architecture
 
+`SupporterGuideTimelineEntry` gains `arrival_estimate` / `animation` kinds with `audience`, `eventWide`, `endTime`, `animationType`; formats gain `estimatedWinners`.
+
 `@trailplanner/shared` `SupporterGuideStop` types the server-grouped Supporter Guide places; timeline entries gain an optional `mapsUrl`.
 
 `@trailplanner/shared` exports `racebook-cutoffs`: organizer cutoff parsing, the official in-order multi-day resolution and race-day clock conversion. It mirrors `apps/mobile/lib/racebookPlanReflection.ts`; mobile keeps its local copy and receives already-resolved cutoffs in the Supporter Guide payload.
