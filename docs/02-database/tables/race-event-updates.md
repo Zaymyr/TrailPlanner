@@ -24,6 +24,8 @@ related_tables:
 
 # `race_event_updates`
 
+The catalog Supporter Guide entry does not load, create or send event updates. Manual organizer notifications remain a separate flow.
+
 ## Purpose
 
 `race_event_updates` stores manual organizer announcements for one event. Each row is runner-facing history and can also trigger a push notification to users who follow that event.

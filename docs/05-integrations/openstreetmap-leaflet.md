@@ -17,6 +17,10 @@ related_tables: []
 
 # OpenStreetMap and Leaflet
 
+The Supporter Guide v1 renders published directions links and does not add a Leaflet map or new geocoding provider. The web-only QR dependency does not change OpenStreetMap attribution or map behavior.
+
+The workspace dependency update for shared plan-tracking code does not change Leaflet, OpenStreetMap tiles, attribution, caching or map delivery.
+
 The add-format flow no longer carries over the active format's GPX or map state. Map rendering and Leaflet loading remain unchanged and begin only from an explicitly selected GPX.
 
 Moving the format editor to a single column and labelling the ravito `Détails` control changes authoring presentation only. Route/profile maps still mount from the same explicit GPX preview data.

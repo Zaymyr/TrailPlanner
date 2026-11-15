@@ -17,6 +17,7 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native';
 import { SummitCelebration } from '../../../../components/themed/SummitCelebration';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Text } from '../../../../components/themed/Text';
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -78,7 +79,10 @@ import {
   buildProductMap as buildSummaryProductMap,
   buildStoredRacePlanFromValues,
   formatDuration,
+  getPlanSummaryDepartureTimeStorageKey,
+  applyStoredDepartureTime,
 } from '../../../../lib/planSummary';
+import { synchronizePlanShareIfFollowed } from '../../../../lib/planShareLinks';
 import { formatAveragePace, normalizePlanWorkspaceTab, resolvePlanElevationLoss, type PlanWorkspaceTab } from '../../../../lib/planWorkspace';
 import { formatDistance, formatElevation } from '../../../../lib/displayFormat';
 import { fetchWithTimeout } from '../../../../lib/fetchWithTimeout';
@@ -798,6 +802,20 @@ export default function EditPlanScreen() {
             // The durable plan save succeeded; reminder scheduling is best effort.
           }
 
+          try {
+            const storedDeparture = await AsyncStorage.getItem(getPlanSummaryDepartureTimeStorageKey(id));
+            const shareDeparture = applyStoredDepartureTime(storedDeparture);
+            if (shareDeparture && planProductData) {
+              const summary = buildPlanSummary(
+                buildStoredRacePlanFromValues({ id, values: normalizedValues, elevationProfile: elevationProfileRef.current }),
+                buildSummaryProductMap(planProductData.allProducts),
+              );
+              await synchronizePlanShareIfFollowed({ summary, departureTime: shareDeparture, locale });
+            }
+          } catch {
+            // The durable plan save succeeded; follower synchronization is best effort.
+          }
+
           const currentSnapshot = latestDraftRef.current
             ? serializePlanValues(latestDraftRef.current, elevationProfileRef.current)
             : savedSnapshot;
@@ -819,7 +837,7 @@ export default function EditPlanScreen() {
       activeSavePromiseRef.current = savePromise;
       return savePromise;
     },
-    [id, t.reminders.unfinishedPlanBody, t.reminders.unfinishedPlanTitle],
+    [id, locale, planProductData, t.reminders.unfinishedPlanBody, t.reminders.unfinishedPlanTitle],
   );
 
   const saveLatestDraft = useCallback(

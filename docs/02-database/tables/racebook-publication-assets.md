@@ -15,6 +15,8 @@ related_tables:
 
 # `racebook_publication_assets`
 
+The Supporter Guide consumes publication JSON only and introduces no new publication asset ownership. Its downloadable organizer QR is generated on demand and is not stored as a publication asset.
+
 ## Purpose
 
 Pins every GPX, image or logo used by a retained RaceBook publication so draft replacements cannot remove files still required by history or the current snapshot.

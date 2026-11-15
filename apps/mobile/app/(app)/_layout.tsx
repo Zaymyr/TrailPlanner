@@ -93,6 +93,8 @@ export default function AppLayout() {
         return locale === 'fr' ? 'Modifier le plan' : 'Edit plan';
       case 'plan/[id]/summary':
         return t.planSummary.title;
+      case 'plan/followed/[id]':
+        return t.planFollow.assistantTab;
       case 'training-live':
         return t.trainingLive.title;
       case 'race/[id]/racebook':
@@ -118,6 +120,8 @@ export default function AppLayout() {
         return locale === 'fr' ? 'Edition du plan' : 'Edit plan';
       case 'plan/[id]/summary':
         return t.planSummary.title;
+      case 'plan/followed/[id]':
+        return t.planFollow.assistantTab;
       case 'training-live':
         return t.trainingLive.title;
       default:

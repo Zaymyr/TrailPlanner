@@ -193,6 +193,7 @@ export type RacebookScreenData = {
   publicationId?: string;
   publicationRevision?: number;
   publishedAt?: string;
+  supporterGuideAvailable: boolean;
   race: {
     id: string;
     name: string;
@@ -869,6 +870,7 @@ type RacebookApiPayload = {
   publicationId?: string;
   publicationRevision?: number;
   publishedAt?: string;
+  modules?: Record<string, boolean>;
 };
 
 async function fetchRacebookApiPayload(raceId: string): Promise<RacebookApiPayload | null> {
@@ -904,6 +906,7 @@ async function fetchRacebookApiPayload(raceId: string): Promise<RacebookApiPaylo
       publicationId: typeof payload.publicationId === 'string' ? payload.publicationId : undefined,
       publicationRevision: typeof payload.publicationRevision === 'number' ? payload.publicationRevision : undefined,
       publishedAt: typeof payload.publishedAt === 'string' ? payload.publishedAt : undefined,
+      modules: payload.modules && typeof payload.modules === 'object' ? payload.modules : undefined,
     };
   } catch {
     return null;
@@ -1010,6 +1013,7 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
     publicationId: apiPayload.publicationId,
     publicationRevision: apiPayload.publicationRevision,
     publishedAt: apiPayload.publishedAt,
+    supporterGuideAvailable: apiPayload.modules?.supporter_guide !== false,
     race: {
       id: String(raceRow.id),
       name: readText(raceRow.name) ?? '',

@@ -231,6 +231,10 @@ The recap keeps the local runner departure authoritative, displays its official 
 
 Trail signature (2026-11-09): a standard plan creation opens the editor with a one-use `created=1` route parameter that shows the summit celebration once and is then cleared; the onboarding handoff (`showHelp=1`) never sets it. The recap pack list shows its existing carbohydrate and sodium totals as metric tiles. Neither adds a write, a column or a change to the persisted plan snapshot.
 
+## Followed shared plans
+
+An authenticated follower never receives the editable `race_plans` row: it reads the server-projected shared snapshot and the narrow published race context through the share API. `plan_share_follows` records membership and archive/restore state only; the device-local preparation checklist and last-viewed revision are not shared-plan persistence. Revocation, expiry, or follower removal must make the native detail unavailable rather than falling back to owner data.
+
 
 ## Mobile presentation
 

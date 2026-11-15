@@ -11,6 +11,7 @@ import {
   type NativeSyntheticEvent,
   Pressable,
   RefreshControl,
+  Share,
   ScrollView,
   StyleSheet,
   useWindowDimensions,
@@ -129,6 +130,7 @@ import {
 } from '../../../../lib/racebookPlanReflection';
 import { resolveRacebookFinishStation } from '../../../../lib/racebookAidStationPresentation';
 import { hasVisibleRacebookSupporterPoints } from '../../../../lib/racebookSupporterPoints';
+import { WEB_API_BASE_URL } from '../../../../lib/webApi';
 import { isPlanSourceRevisionPending } from '../../../../lib/planSourceRevision';
 import { normalizeStoredPlanValues } from '../../../../lib/raceLivePlan';
 import { formatAveragePace } from '../../../../lib/planWorkspace';
@@ -1336,7 +1338,6 @@ export default function RaceRacebookScreen() {
     if (hasVisibleRacebookSupporterPoints(data?.supporterPoints ?? [])) {
       availableTabs.push({ key: 'supporters', label: t.catalog.racebookCourseTabSupporters });
     }
-
     if (sponsorPresentation.modules.relay && relaySegments.length > 0) {
       availableTabs.push({ key: 'relay', label: t.catalog.racebookSectionRelay });
     }
@@ -1818,6 +1819,17 @@ export default function RaceRacebookScreen() {
     });
     openExternalUrl(url);
   }, [captureRacebookInteraction, openExternalUrl]);
+
+  const shareSupporterGuide = useCallback(() => {
+    if (!id) return;
+    const url = `${WEB_API_BASE_URL}/courses/supporter-guide/${encodeURIComponent(id)}`;
+    captureRacebookInteraction('racebook action clicked', { action: 'supporter_guide_shared' });
+    void Share.share({
+      title: locale === 'fr' ? 'Livret accompagnateur' : 'Supporter Guide',
+      message: locale === 'fr' ? `Livret accompagnateur de l’événement : ${url}` : `Supporter Guide for this event: ${url}`,
+      url,
+    }).catch(() => Alert.alert(t.common.error, locale === 'fr' ? 'Le partage a échoué.' : 'Sharing failed.'));
+  }, [captureRacebookInteraction, id, locale, t.common.error]);
 
   const exitRacebookToCatalog = useCallback(() => {
     if (exitingToCatalogRef.current) return;
@@ -2326,6 +2338,19 @@ export default function RaceRacebookScreen() {
                   />
                 </View>
 
+                {data.supporterGuideAvailable ? <Pressable
+                  accessibilityRole="button"
+                  onPress={shareSupporterGuide}
+                  style={({ pressed }) => [styles.supporterGuideShare, pressed && styles.supporterGuideSharePressed]}
+                >
+                  <Ionicons name="people-outline" size={19} color={Colors.brandPrimary} />
+                  <View style={styles.supporterGuideShareCopy}>
+                    <Text style={styles.supporterGuideShareTitle}>{locale === 'fr' ? 'Livret accompagnateur' : 'Supporter Guide'}</Text>
+                    <Text style={styles.supporterGuideShareBody}>{locale === 'fr' ? 'Partager à mes proches' : 'Share with my supporters'}</Text>
+                  </View>
+                  <Ionicons name="share-social-outline" size={18} color={Colors.brandPrimary} />
+                </Pressable> : null}
+
                 <RacebookPersonalPlanCard
                   hasPlan={Boolean(linkedPlanId)}
                   revisionPending={officialRevisionPending}
@@ -2516,7 +2541,10 @@ export default function RaceRacebookScreen() {
                   <RacebookSupporterPointsSection
                     locale={locale}
                     points={data.supporterPoints}
-                    onOpenUrl={(url, action) => openTrackedUrl(url, action === 'directions' ? 'supporter_directions_opened' : 'supporter_plan_opened')}
+                    onOpenUrl={(url, action) => openTrackedUrl(
+                      url,
+                      action === 'directions' ? 'supporter_directions_opened' : 'supporter_plan_opened',
+                    )}
                   />
                 ) : null}
                 {showPlanInvite && activeCourseTab !== 'supporters' ? (
@@ -3255,4 +3283,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textDecorationLine: 'underline',
   },
+  supporterGuideShare: {
+    minHeight: 64,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+    borderRadius: 16,
+    backgroundColor: Colors.brandSurface,
+  },
+  supporterGuideSharePressed: { opacity: 0.68 },
+  supporterGuideShareCopy: { flex: 1 },
+  supporterGuideShareTitle: { color: Colors.textPrimary, fontSize: 15, lineHeight: 20, fontWeight: '800' },
+  supporterGuideShareBody: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
 });

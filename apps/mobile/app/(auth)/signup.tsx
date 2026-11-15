@@ -284,6 +284,7 @@ export default function SignupScreen() {
                 <ActionButton
                   fullWidth
                   variant="secondary"
+                  style={loading && styles.buttonDisabled}
                   onPress={handleGoogleSignup}
                   disabled={loading}
                 >

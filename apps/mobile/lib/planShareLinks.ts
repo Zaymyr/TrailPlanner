@@ -104,3 +104,18 @@ export function createPlanShareLinkSynchronizer(
 
   return synchronize;
 }
+
+const backgroundSynchronizer = createPlanShareLinkSynchronizer();
+
+export async function synchronizePlanShareIfFollowed(args: CreatePlanShareLinkArgs) {
+  const { data } = await supabase.auth.getSession();
+  const accessToken = data.session?.access_token;
+  if (!accessToken) return false;
+  const response = await fetch(`${WEB_API_BASE_URL}/api/plan-shares?planId=${encodeURIComponent(args.summary.id)}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const body = await response.json().catch(() => null) as { share?: { revoked?: boolean; activeFollowerCount?: number } | null } | null;
+  if (!response.ok || !body?.share || body.share.revoked || (body.share.activeFollowerCount ?? 0) < 1) return false;
+  await backgroundSynchronizer(args);
+  return true;
+}

@@ -23,6 +23,8 @@ related_tables:
 
 # `race_awards`
 
+Published awards are also rendered in the Supporter Guide Programme timeline. They remain format-scoped, require the effective `awards` module, and are never read from draft rows by the public guide.
+
 The shared mobile RaceBook screen now also renders additive third-party bib-pickup conditions from organizer JSON. That presentation change does not alter award rows, replacement semantics, ordering, module gates, or RLS.
 
 The shared structured-editor status now uses the compact `À jour` label because autosave is explained globally. Award persistence, validation, ordering, and schema are unchanged.

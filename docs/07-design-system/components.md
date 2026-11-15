@@ -370,6 +370,8 @@ components own copy, state, color roles and behavior.
 
 `BriefToast` provides short success or network-error feedback above the mobile tab bar, with an optional action. It leads with a small inverse trail blaze and uses symmetric corners. Its default duration remains 2.6 seconds for success and 5 seconds for errors; callers may supply a longer duration for an actionable informational notice or `null` for an explicitly persistent notice. It is reserved for informational outcomes; destructive confirmation remains modal. Root tab headers add elevation only after collapsing, while the bottom tab bar keeps a subtle top divider and shadow.
 
+Supporter Guide and followed-plan screens reuse the same `TopoCard`, `ActionButton`, `Field`, `SectionHeading`, loading, error and empty-state primitives as the runner app. Their public or follower-specific data must never be represented by a decorative variant that hides availability, emergency, or access state.
+
 ## Gotchas
 
 - The shared web `Button` primitive enforces a 44 px minimum height. Compact visual variants may reduce padding or font size, but must not override the minimum interactive target.

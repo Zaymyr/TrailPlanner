@@ -10,6 +10,7 @@ export const organizerEditionModuleKeySchema = z.enum([
   "services",
   "branding",
   "sponsors",
+  "supporter_guide",
 ]);
 export const organizerRaceModuleKeySchema = z.enum([
   "aid_stations",
@@ -64,8 +65,9 @@ export const ORGANIZER_MODULES: readonly OrganizerModuleDefinition[] = [
   { key: "services", label: "Services & alentours", description: "Hébergement, restauration et récupération.", scope: "edition", minimumTier: "complete", capability: "racebook_content.advanced.manage", defaultEnabled: false },
   { key: "branding", label: "Identité visuelle", description: "Logo et couleurs du Livret coureur.", scope: "edition", minimumTier: "signature", capability: "branding.manage", defaultEnabled: false },
   { key: "sponsors", label: "Sponsors", description: "Placements partenaires et clics agrégés.", scope: "edition", minimumTier: "signature", capability: "sponsors.manage", defaultEnabled: false },
+  { key: "supporter_guide", label: "Livret accompagnateur", description: "Guide public à partager aux proches, construit à partir des sections publiées.", scope: "edition", minimumTier: "essential", capability: "racebook_content.basic.manage", defaultEnabled: true },
   { key: "aid_stations", label: "Ravitos", description: "Ravitaillements et services disponibles.", scope: "race", minimumTier: "essential", capability: "racebook_content.basic.manage", defaultEnabled: true },
-  { key: "supporter_points", label: "Suivi coureur", description: "Points autorisés pour suivre, encourager ou ravitailler les coureurs.", scope: "race", minimumTier: "essential", capability: "racebook_content.basic.manage", defaultEnabled: true },
+  { key: "supporter_points", label: "Suivi coureur", description: "Points pour suivre, encourager ou assister les coureurs, publiés dans le Livret accompagnateur.", scope: "race", minimumTier: "essential", capability: "racebook_content.basic.manage", defaultEnabled: true },
   { key: "start_waves", label: "SAS", description: "Vagues, horaires et critères de départ.", scope: "race", minimumTier: "complete", capability: "racebook_content.advanced.manage", defaultEnabled: false },
   { key: "awards", label: "Podiums & récompenses", description: "Catégories, horaires et récompenses.", scope: "race", minimumTier: "complete", capability: "racebook_content.advanced.manage", defaultEnabled: false },
   { key: "relay", label: "Relais", description: "Passages de témoin et segments relais.", scope: "race", minimumTier: "signature", capability: "relay.manage", defaultEnabled: false },

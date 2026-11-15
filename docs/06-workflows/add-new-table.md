@@ -167,6 +167,8 @@ Screens listing a new table's rows in a guided onboarding must not auto-focus in
 
 The `race_supporter_points` addition follows this workflow: cascade ownership by `races`, explicit client/service grants, a completeness-filtered SELECT policy, a service-only atomic collection RPC, static SQL checks, and a dedicated table reference document.
 
+`plan_share_follows` follows the same workflow as a user-scoped membership table: RLS must limit reads and mutations to the authenticated follower or trusted server path, membership must never imply owner access to `race_plans`, lifecycle fields must be explicitly documented, and static SQL checks plus `tables/plan-share-follows.md` must ship with the migration.
+
 - [Migrations](../02-database/migrations.md)
 - [RLS Checklist](../04-auth-and-security/rls-checklist.md)
 - [Add RLS Policy](add-rls-policy.md)

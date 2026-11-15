@@ -166,6 +166,7 @@ It also exposes CSS-variable theme colors such as `background`, `foreground`, `b
 - Do not hardcode actual PostHog/Supabase/Stripe colors or secrets in design docs.
 - If tokens change, update Tailwind mapping and design docs together.
 - Existing web body background uses a brand-surface radial gradient in light mode and flat dark background in dark mode.
+- The mobile trail signature is presentation-only: its ridge, blaze, contour, cote and sign tokens must not encode publication, entitlement, follow membership, or nutrition-calculation state.
 
 ## Related Docs
 

@@ -212,6 +212,7 @@ The November 2026 mobile plan-flow polish changes catalog search controls, image
 | `nutrition_plans` | User-owned nutrition planning snapshots. |
 | `plan_aid_stations` | Aid station rows attached to a saved race plan. |
 | `plan_share_links` | Public crew recap snapshots and limited crew tracking state for saved plans, looked up by hashed share token. |
+| `plan_share_follows` | Authenticated memberships in a shared-plan link, including local availability/archive state without granting plan ownership. |
 | `premium_grants` | Manual premium overrides with optional end dates. |
 | `products` | Fuel product catalog and user-created products, with explicit `is_official` metadata for curated/shared catalog rows. |
 | `push_devices` | Expo push tokens and device metadata per user. |
@@ -312,6 +313,7 @@ erDiagram
 - [race_plans](tables/race-plans.md)
 - [plan_aid_stations](tables/plan-aid-stations.md)
 - [plan_share_links](tables/plan-share-links.md)
+- [plan_share_follows](tables/plan-share-follows.md)
 - [race_aid_stations](tables/race-aid-stations.md)
 - [race_supporter_points](tables/race-supporter-points.md)
 - [race_relay_points](tables/race-relay-points.md)

@@ -71,6 +71,8 @@ related_tables:
 
 # `races`
 
+`/courses/supporter-guide/[raceId]` uses one public format UUID only to resolve its edition, then includes qualifying preview-visible published formats. It does not add race columns and excludes masked formats.
+
 Format `organizer_details.bibPickup` may now include nullable `thirdPartyPickupConditions` as part of a complete format override. Event inheritance and the existing `overrideEnabled` boundary remain authoritative; no relational race column, publication flag, or catalog rule changes.
 
 `external_site_url` and its historical source projection are optional for organizer-created formats and publication readiness. Name, date, effective location, and positive distance remain the required format identity; new formats persist inherited event date/location without cloning another format.

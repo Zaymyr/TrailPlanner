@@ -477,3 +477,5 @@ Organizer partner slots report only aggregate counters: `POST /api/racebook-part
 Catalog scroll performance (2026-11-09): the Courses list renders memoized `CatalogEventRow` rows (stable callbacks through a handler ref) over a memoized `RaceEventSummaryCard`, tunes FlatList virtualization (`initialNumToRender` 6, `maxToRenderPerBatch` 4, `windowSize` 9, `removeClippedSubviews` on Android), downsamples rail images (`resizeMethod="resize"`) and reads reduce-motion on favorite press instead of subscribing one accessibility listener per card. Presentation only: no query, payload, analytics event or favorite/update-read behavior changes.
 
 Catalog end date (2026-11-14): `catalog.tsx` visibility/sorting now uses the event's last format day; no analytics event or property changed.
+
+Shared-plan follow and Supporter Guide surfaces keep analytics bounded to aggregate navigation or preparation actions. They must not send a share token, plan snapshot, follower identity, supporter name, precise location, access instruction, emergency contact, or private checklist value to PostHog.

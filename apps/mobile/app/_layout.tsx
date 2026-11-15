@@ -70,6 +70,7 @@ import {
 } from '../lib/posthog';
 import { useSessionSideEffects } from '../hooks/useSessionSideEffects';
 import { isUnsupportedDevelopmentUpdateError, shouldSkipOtaUpdateCheck } from '../lib/otaUpdatePolicy';
+import { consumePendingDeepLink } from '../lib/pendingDeepLink';
 
 const SNOOZE_OPTIONS_MINUTES = [5, 10, 15] as const;
 const appVariant = Constants.expoConfig?.android?.package === 'com.paceyourself.app.dev' ? 'development' : 'production';
@@ -711,6 +712,11 @@ function RootLayoutContent() {
 
     if (session && inAuthGroup && !isAnonymousSession(session)) {
       (async () => {
+        const pendingDeepLink = consumePendingDeepLink();
+        if (pendingDeepLink) {
+          router.replace(pendingDeepLink as any);
+          return;
+        }
         const nextRoute = await getPostAuthRoute(session);
         router.replace(nextRoute);
       })();

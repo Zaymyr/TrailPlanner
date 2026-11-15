@@ -37,11 +37,18 @@ import {
 import { formatDepartureDelta, normalizePlanStartWaves, type PlanStartWave } from '../../lib/planRecapDeparture';
 import { formatProductDisplayName } from '../../lib/productDisplayName';
 import { createPlanShareLinkSynchronizer } from '../../lib/planShareLinks';
+import {
+  getOwnedPlanShare,
+  getPlanShareFollowers,
+  removePlanShareFollower,
+  revokePlanShare,
+} from '../../lib/followedPlans';
 import { captureAnalyticsEvent } from '../../lib/posthog';
 import { supabase } from '../../lib/supabase';
 import { DataText } from '../themed/DataText';
 import { MetricTile } from '../themed/MetricTile';
 import { Text } from '../themed/Text';
+import { Button } from '../themed/Button';
 import { PlanWorkspaceStickyBar } from './PlanWorkspaceStickyBar';
 
 type Props = {
@@ -124,6 +131,9 @@ export function PlanRecapContent({ id, summary, contentTopInset, stickyTopInset,
   const [pickerMinute, setPickerMinute] = useState('00');
   const [sharing, setSharing] = useState(false);
   const [stickyVisible, setStickyVisible] = useState(false);
+  const [shareFollowers, setShareFollowers] = useState<{ id: string; displayName: string | null; nickname: string | null }[]>([]);
+  const [ownedShareId, setOwnedShareId] = useState<string | null>(null);
+  const [shareRevoked, setShareRevoked] = useState(false);
   const automaticShareRef = useRef(false);
   const synchronizerRef = useRef(createPlanShareLinkSynchronizer());
   const targetSummary = useMemo(() => `${Math.round(summary.targetCarbsPerHour)} g/h · ${Math.round(summary.targetWaterPerHour)} ml/h · ${Math.round(summary.targetSodiumPerHour)} mg/h`, [summary]);
@@ -163,9 +173,45 @@ export function PlanRecapContent({ id, summary, contentTopInset, stickyTopInset,
     return synchronizerRef.current({ summary, departureTime, locale });
   }, [departureReady, departureTime, locale, summary]);
 
+  const refreshShareFollowers = useCallback(async () => {
+    try {
+      const share = await getOwnedPlanShare(id);
+      setOwnedShareId(share?.id ?? null);
+      setShareRevoked(Boolean(share?.revoked));
+      if (!share || share.revoked) {
+        setShareFollowers([]);
+        return;
+      }
+      const result = await getPlanShareFollowers(share.id);
+      setShareFollowers(result.followers);
+      setShareRevoked(result.revoked);
+    } catch {
+      setShareFollowers([]);
+    }
+  }, [id]);
+
   useEffect(() => {
-    if (departureReady) void synchronize().catch(() => undefined);
-  }, [departureReady, synchronize]);
+    if (departureReady) void synchronize().then(() => refreshShareFollowers()).catch(() => undefined);
+  }, [departureReady, refreshShareFollowers, synchronize]);
+
+  const handleRemoveFollower = useCallback(async (followId: string) => {
+    if (!ownedShareId) return;
+    await removePlanShareFollower(ownedShareId, followId);
+    setShareFollowers((current) => current.filter((follower) => follower.id !== followId));
+    captureAnalyticsEvent('plan crew follower removed', { source: 'plan_recap' });
+  }, [ownedShareId]);
+
+  const handleRevokeShare = useCallback(() => {
+    if (!ownedShareId) return;
+    Alert.alert(t.planFollow.revokeTitle, t.planFollow.revokeBody, [
+      { text: t.common.cancel, style: 'cancel' },
+      { text: t.planFollow.revokeLink, style: 'destructive', onPress: () => void (async () => {
+        await revokePlanShare(ownedShareId);
+        setShareRevoked(true);
+        setShareFollowers([]);
+      })() },
+    ]);
+  }, [ownedShareId, t.common.cancel, t.planFollow.revokeBody, t.planFollow.revokeLink, t.planFollow.revokeTitle]);
 
   const handleShare = useCallback(async () => {
     if (sharing || !departureReady) return;
@@ -287,6 +333,24 @@ export function PlanRecapContent({ id, summary, contentTopInset, stickyTopInset,
           <Text weight="bold" style={styles.sectionTitle}>{t.planSummary.crewPlan}</Text>
           <View style={styles.checkpoints}>{summary.checkpoints.map((checkpoint) => <CheckpointCard checkpoint={checkpoint} departureTime={departureTime} key={`${checkpoint.index}-${checkpoint.name}`} summary={summary} />)}</View>
         </View>
+        {ownedShareId ? (
+          <View style={styles.section}>
+            <Text weight="bold" style={styles.sectionTitle}>
+              {t.planFollow.followedBy.replace('{count}', String(shareFollowers.length))}
+            </Text>
+            {shareFollowers.map((follower) => (
+              <View key={follower.id} style={styles.followerRow}>
+                <View style={styles.productMain}>
+                  <Text weight="semibold">
+                    {follower.displayName || follower.nickname || t.planFollow.anonymousFollower}
+                  </Text>
+                </View>
+                <Button variant="ghost" onPress={() => void handleRemoveFollower(follower.id)}>{t.planFollow.removeFollower}</Button>
+              </View>
+            ))}
+            <Button disabled={shareRevoked} variant="ghost" onPress={handleRevokeShare}>{t.planFollow.revokeLink}</Button>
+          </View>
+        ) : null}
         <View style={styles.bottomSpacer} />
       </ScrollView>
       <PlanWorkspaceStickyBar top={stickyTopInset} visible={stickyVisible} testID="plan-recap-sticky-actions">
@@ -354,6 +418,7 @@ const styles = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { borderRadius: 999, backgroundColor: Colors.surfaceSecondary, paddingHorizontal: 9, paddingVertical: 5, fontSize: 11 },
   compactProducts: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  followerRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface, padding: 10 },
   productPill: { maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, backgroundColor: Colors.surfaceSecondary, paddingHorizontal: 10, paddingVertical: 6 },
   productPillText: { flexShrink: 1 },
   bottomSpacer: { height: 24 },

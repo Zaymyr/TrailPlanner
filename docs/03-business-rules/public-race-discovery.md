@@ -4,6 +4,8 @@ scope: business-rule
 last_verified: 2026-11-02
 ai_priority: high
 related_files:
+  - apps/web/app/courses/supporter-guide/[raceId]/page.tsx
+  - apps/web/app/courses/supporter-guide/[raceId]/SupporterGuideView.tsx
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
@@ -50,6 +52,8 @@ related_tables:
 ---
 
 # Public Race Discovery
+
+`/courses/supporter-guide/[raceId]` is the public, mobile-first Livret accompagnateur route. It is intentionally `noindex`, uses the same publication cache tags as RaceBook output, and returns unavailable when no visible format has a current immutable publication. Its UUID selects the edition; the payload may include every public, preview-visible published format in that edition.
 
 The public course practical section may show `thirdPartyPickupConditions` only when the bib-pickup module is public and third-party pickup is allowed. This additive copy does not participate in catalog eligibility, search, canonical identity, slug resolution, ISR visibility, or structured-data selection.
 

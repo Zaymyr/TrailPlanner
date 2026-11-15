@@ -21,6 +21,8 @@ related_tables:
 
 # Debug Supabase Auth
 
+For shared-plan deep-link debugging, distinguish anonymous Supabase sessions from identified sessions: preview/follow APIs intentionally reject anonymous users, and the app resumes the pending `/share/plan/<token>` route only after identified sign-in.
+
 ## Runner access diagnostics
 
 The launch announcement does not diagnose or repair Auth/trial state. If it is unexpectedly absent, inspect the cached-session user, authenticated launch-endpoint cohort/window projection, and local campaign/user/device `seen` preference (including migrated legacy preferences) before changing a session, trial, grant, or subscription. It must not add an Auth listener.

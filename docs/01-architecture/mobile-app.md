@@ -1,9 +1,13 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-11-12
+last_verified: 2026-11-15
 ai_priority: high
 related_files:
+  - apps/mobile/app/courses/supporter-guide/[raceId].tsx
+  - apps/mobile/lib/supporterGuide.ts
+  - apps/mobile/lib/followedPlanTimeline.ts
+  - apps/mobile/lib/followedPlanTimeline.test.ts
   - apps/mobile/components/plan-workspace/LockedPlanContent.tsx
   - apps/mobile/components/race-workspace/RaceWorkspaceSwitch.tsx
   - apps/mobile/components/race-workspace/RaceWorkspaceHeaderCommon.tsx
@@ -45,6 +49,13 @@ related_files:
   - apps/mobile/.maestro/flows/authenticated-shell.yaml
   - apps/mobile/scripts/run-mobile-ux-audit.mjs
   - apps/mobile/app/_layout.tsx
+  - apps/mobile/app/(app)/plans.tsx
+  - apps/mobile/app/share/plan/[token].tsx
+  - apps/mobile/app/(app)/plan/followed/[id].tsx
+  - apps/mobile/components/plans/FollowedPlansList.tsx
+  - apps/mobile/hooks/useFollowedPlans.ts
+  - apps/mobile/lib/followedPlans.ts
+  - apps/mobile/lib/pendingDeepLink.ts
   - apps/mobile/lib/appReview.ts
   - apps/mobile/lib/appReviewPolicy.ts
   - apps/mobile/lib/appReviewPolicy.test.ts
@@ -213,6 +224,7 @@ related_tables:
   - races
   - race_events
   - plan_share_links
+  - plan_share_follows
   - subscriptions
   - user_profiles
   - push_devices
@@ -226,6 +238,10 @@ related_tables:
 ---
 
 # Mobile App Architecture
+
+The app route `/courses/supporter-guide/[raceId]` consumes the same public payload as the web Supporter Guide and is reachable from catalog event details, the runner RaceBook share entry, and followed plans. It reuses `RacebookSupporterPointsSection`; the former RaceBook “Où encourager” subtab is removed only from current UI, while publication data remains backward-compatible. The mobile bundle deliberately keeps its API payload type and followed-plan timeline helpers in `apps/mobile/lib`: CI forbids runtime or type imports from `@trailplanner/shared`, so these narrow client adapters mirror the versioned server contract without crossing that bundling boundary.
+
+Shared plan links are universal links for `/share/plan/*`. The native preview requires an identified account, preserves the pending deep-link destination through the existing authentication screen, and creates a `plan_share_follows` membership through the web API. **Mes plans** exposes an owned/followed selector. Its detail screen refreshes on focus and pull, shows publication-only supporter directions, checkpoint rules/cutoffs, practical access, third-party bib pickup, emergency calling, recalibrated supporter ETAs and a device-local per-follow preparation checklist. The last viewed `plan_updated_at` is local and drives the bounded “Plan mis à jour” indicator. Completed dated races move under **Terminés** after the longest cutoff/duration plus six hours; explicit restore is durable. Link revocation, expiry or runner removal renders the followed plan unavailable. The Apple Team ID and Android signing fingerprint in the association files remain explicit maintainer TODOs until verified.
 
 ## Published RaceBook boundary
 

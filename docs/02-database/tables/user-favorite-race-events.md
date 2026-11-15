@@ -23,6 +23,8 @@ related_tables:
 
 # `user_favorite_race_events`
 
+Opening the Supporter Guide from an event sheet does not add or remove a favorite and keeps the existing unlimited favorite contract.
+
 Organizer RaceBook analytics can be opened by the Signature tier or the exact `capability.racebook_analytics` gift. This changes only server authorization for aggregate favorite metrics; favorite ownership, client RLS and stored rows remain unchanged.
 
 Organizer analytics copy now consistently uses tutoiement. The favorite KPI remains the exact event-wide aggregate and this copy-only adjustment does not change favorite ownership or queries.

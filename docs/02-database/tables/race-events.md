@@ -97,6 +97,8 @@ related_tables:
 
 # `race_events`
 
+The edition Supporter Guide reuses the published event identity, emergency contact and official/social links already frozen inside format publications. It does not broaden direct `race_events` reads or add event columns.
+
 Admin organizer responses may aggregate independent invoice summaries and exact feature grants through an event's editions. Those projections do not alter event publication, membership, dates or catalog visibility.
 
 Event-level `organizer_details.bibPickup` may now include nullable `thirdPartyPickupConditions`. It is preserved when the organizer selects Non, rendered only when third-party pickup is allowed, and inherited by formats unless their complete bib-pickup override is enabled. No relational column or event visibility rule changes.

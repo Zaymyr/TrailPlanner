@@ -24,6 +24,8 @@ related_tables:
 
 # `race_start_waves`
 
+Published waves feed each format’s start entries in the Supporter Guide Programme timeline. Missing waves fall back to the published common start time; the `start_waves` module gate remains authoritative.
+
 The shared mobile RaceBook screen now also reads additive bib-pickup conditions. SAS ordering, time precedence, structured replacement, module visibility, and RLS remain unchanged.
 
 Organizer departure microcopy now identifies the earliest wave as `Heure du premier départ (SAS 1)` and directs users to the SAS tab for the remaining waves. Wave timing and persistence rules are unchanged.

@@ -25,6 +25,8 @@ related_tables:
 
 # `race_relay_points`
 
+Supporter Guide v1 does not render relay handover data. Removing the runner RaceBook supporter subtab leaves relay publication, gating and presentation unchanged.
+
 The shared mobile RaceBook screen now also reads additive bib-pickup conditions. Relay ownership, ordering, course-kilometer derivation, completeness, module visibility, and RLS remain unchanged.
 
 The full-width Livret profile chart keeps aid-station markers only; relay rows are unchanged.
