@@ -133,6 +133,8 @@ related_tables:
 
 # Schema Overview
 
+Catalog query fix (2026-11-15): the mobile `EVENT_CATALOG_SELECT` requests `slug` on the embedded `races` rows (used to open `/courses/<slug>` deep links), not on `race_event_updates`, which has no such column. The misplaced column made PostgREST reject the whole catalog request (42703), so the development build showed no races.
+
 Catalog event cards (`RaceEventSummaryCard`, 2026-11-15) stack the format count and the distance range on the left in `Cote` size `xs`, rounded to whole kilometres (13–185 km; exact distances stay in the format sheet), so the fixed-width (172 pt) « Voir les distances » sign always fits on the right. No schema change.
 
 The catalog event sheet opens the Livret accompagnateur from an interactive `TopoCard` placed before the distance list, and the guide's back action reopens that sheet through the existing `eventId` parameter plus a `sheet` nonce. No schema change.
