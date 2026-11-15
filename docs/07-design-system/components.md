@@ -198,7 +198,7 @@ color, so it survives organizer RaceBook colors:
   visible thickness, a face lit from above (gradient from a lighter tone to the
   plate color), a routed border parallel to its edge, two fixing bolts on the
   post side, faint grain and a pointed 16-point end towards the destination.
-  Each sign leans 0.4° to 2.9° either way (capped by its measured width with
+  Each sign leans 0.2° to 1.45° either way (halved on 2026-11-15 so signs never look crooked) (capped by its measured width with
   `capLeanForWidth` so the tip drifts at most 4.5 points) and sits up to 1.5 points higher or
   lower, drawn from the session seed and its label (plus an optional
   `variationKey`, e.g. the race id); a disabled sign stays upright. Pressing
@@ -302,8 +302,8 @@ Rule of use: a sign (`TrailSignButton`) means "I go elsewhere", a plate (primary
   diagonal red/white striped tape under a light label plate, never the GR
   waymark. Destructive and disabled never vary. Callers must not add their own
   disabled opacity or shadows.
-- `IconAction` is a 48-point round watch button: a case with a solid ring and
-  twelve hour ticks around a concentric push button (lip drawn as a ring, soft
+- `IconAction` is a 48-point round watch button: a plain case with a thin ring
+  (the former twelve hour ticks were removed on 2026-11-15 as visually too heavy) around a concentric push button (lip drawn as a ring, soft
   top highlight, sinks 4 % when pressed). Face and icon live in a fixed
   48-point box so the icon stays centred even when a caller stretches or pads
   the button in neutral, brand or danger tones, always with an

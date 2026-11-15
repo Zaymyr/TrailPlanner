@@ -19,7 +19,7 @@ type BaseProps = Omit<PressableProps, 'children' | 'style'> & {
 };
 
 type Props = BaseProps & (
-  /** Round watch button: case ring with hour ticks around a centred push button. */
+  /** Round watch button: thin case ring around a centred push button. */
   | { variant?: 'watch'; icon: ReactNode }
   /**
    * "Back": small wooden sign blade pointing left, without a glyph (the

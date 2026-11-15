@@ -80,7 +80,8 @@ export const mobileComponents = {
   trailVariation: {
     /** Global multiplier (0 = every element upright and identical, 1 = full). */
     amount: 1,
-    sign: { tilt: [0.4, 2.9], dy: 1.5, tip: 3, tone: 0.05 },
+    // Halved on 2026-11-15: signs stay hand-set without looking crooked.
+    sign: { tilt: [0.2, 1.45], dy: 1.5, tip: 3, tone: 0.05 },
     tabPlank: { tilt: [0.5, 1] },
     ticket: { tilt: 0.9 },
     bracelet: { tilt: 0.75 },
