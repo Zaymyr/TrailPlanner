@@ -15,9 +15,11 @@ import { Colors } from '../../constants/colors';
 import { DatePickerField } from '../inputs/DatePickerField';
 import { ActionButton } from '../themed/ActionButton';
 import { Field } from '../themed/Field';
-import { IconAction } from '../themed/IconAction';
 import { SectionHeading } from '../themed/SectionHeading';
+import { SheetHeader } from '../themed/SheetHeader';
 import { TopoCard } from '../themed/TopoCard';
+import { TrailSignButton } from '../themed/TrailSignButton';
+import { Cote } from '../themed/Cote';
 
 export function CatalogLoadingCard() {
   return (
@@ -43,9 +45,13 @@ export function CatalogLoadingCard() {
  * One format of an event. The RaceBook is the primary (filled) action; the
  * optional personal plan is a secondary (outlined) action.
  */
+type RaceRowCote = { value: string; unit?: string; prefix?: string };
+
 export function CatalogRaceRow({
   title,
   subtitle,
+  cotes,
+  detail,
   isDimmed = false,
   racebookActionLabel,
   racebookActionDimmed = false,
@@ -56,7 +62,12 @@ export function CatalogRaceRow({
   onPlanPress,
 }: {
   title: string;
+  /** Full plain-language summary; also the accessible description. */
   subtitle: string;
+  /** Measurements typeset as map cotes; when given they replace the subtitle line. */
+  cotes?: (RaceRowCote | null)[];
+  /** Remaining non-measurement details shown after the cotes. */
+  detail?: string;
   isDimmed?: boolean;
   racebookActionLabel?: string;
   racebookActionDimmed?: boolean;
@@ -67,31 +78,44 @@ export function CatalogRaceRow({
   onPlanPress?: () => void;
 }) {
   const racebookMuted = racebookActionDimmed || racebookActionDisabled;
+  const visibleCotes = (cotes ?? []).filter((cote): cote is RaceRowCote => cote !== null);
   return (
-    <TopoCard style={[styles.formatRow, isDimmed && styles.formatRowDimmed]}>
-      <View style={styles.formatRowContent}>
+    <TopoCard style={[styles.formatRow, isDimmed && styles.formatRowDimmed]} variationKey={title}>
+      <View accessible accessibilityLabel={`${title}. ${subtitle}`} style={styles.formatRowContent}>
         <Text style={styles.formatTitle}>{title}</Text>
-        <Text style={styles.formatSubtitle}>{subtitle}</Text>
+        {visibleCotes.length > 0 ? (
+          <View style={styles.formatCotes}>
+            {visibleCotes.map((cote) => (
+              <Cote key={`${cote.prefix ?? ''}${cote.value}${cote.unit ?? ''}`} prefix={cote.prefix} size="sm" tone="secondary" unit={cote.unit} value={cote.value} />
+            ))}
+            {detail ? <Text style={styles.formatSubtitle}>{detail}</Text> : null}
+          </View>
+        ) : (
+          <Text style={styles.formatSubtitle}>{subtitle}</Text>
+        )}
       </View>
       <View style={styles.formatActions}>
         {racebookActionLabel && onRacebookPress ? (
-          <ActionButton
-            accessibilityState={{ disabled: racebookActionDisabled }}
+          <TrailSignButton
             disabled={racebookActionDisabled}
-            size="sm"
-            style={[styles.formatRacebookButton, racebookMuted && styles.formatRacebookButtonDimmed]}
+            icon={<Ionicons color={racebookMuted ? Colors.textMuted : Colors.textOnBrand} name="book-outline" size={16} />}
+            label={racebookActionLabel}
+            style={styles.formatRacebookButton}
+            variationKey={title}
             onPressIn={onRacebookPressIn}
             onPress={onRacebookPress}
-            textStyle={racebookMuted ? styles.formatRacebookButtonTextDimmed : undefined}
-            variant={racebookMuted ? 'secondary' : 'primary'}
-          >
-            {racebookActionLabel}
-          </ActionButton>
+            variant={racebookMuted ? 'muted' : 'solid'}
+          />
         ) : null}
         {planActionLabel && onPlanPress ? (
-          <ActionButton size="sm" variant="secondary" style={styles.formatPlanButton} onPress={onPlanPress}>
-            {planActionLabel}
-          </ActionButton>
+          <TrailSignButton
+            icon={<Ionicons color={Colors.brandPrimary} name="flag-outline" size={16} />}
+            label={planActionLabel}
+            style={styles.formatPlanButton}
+            variationKey={title}
+            onPress={onPlanPress}
+            variant="soft"
+          />
         ) : null}
       </View>
     </TopoCard>
@@ -153,15 +177,12 @@ export function CatalogFiltersModal({
       >
         <Pressable accessible={false} onPress={onClose} style={styles.modalDismissArea} />
         <SafeAreaView accessibilityViewIsModal edges={['bottom']} style={styles.modalSheet}>
-          <View style={styles.modalHeader}>
-            <Text accessibilityRole="header" style={styles.modalTitle}>{text.modalTitle}</Text>
-            <IconAction
-              accessibilityLabel="Fermer"
-              icon={<Ionicons name="close" size={22} color={Colors.textPrimary} />}
-              onPress={onClose}
-              style={styles.modalCloseButton}
-            />
-          </View>
+          <SheetHeader
+            closeLabel="Fermer"
+            onClose={onClose}
+            style={styles.modalHeader}
+            title={text.modalTitle}
+          />
           <ScrollView
             contentContainerStyle={styles.modalContent}
             keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
@@ -242,11 +263,11 @@ const styles = StyleSheet.create({
   formatRowContent: { flex: 1, gap: 4 },
   formatTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700' },
   formatSubtitle: { color: Colors.textSecondary, fontSize: 13 },
-  formatActions: { flexDirection: 'row', alignItems: 'center', gap: 8, width: '100%' },
-  formatRacebookButton: { flex: 3 },
-  formatRacebookButtonDimmed: { borderColor: Colors.border },
-  formatRacebookButtonTextDimmed: { color: Colors.textMuted },
-  formatPlanButton: { flex: 2 },
+  formatCotes: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 12, rowGap: 4 },
+  // Signs keep their natural width (full labels); they wrap only if a phone is too narrow.
+  formatActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 8, rowGap: 10, width: '100%' },
+  formatRacebookButton: { flexGrow: 1, flexShrink: 0 },
+  formatPlanButton: { flexGrow: 1, flexShrink: 0 },
   skeletonHeaderRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   skeletonBadge: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.surfaceSecondary },
   skeletonHeaderText: { flex: 1, gap: 8 },
@@ -259,9 +280,7 @@ const styles = StyleSheet.create({
   modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(18, 24, 16, 0.24)' },
   modalDismissArea: { ...StyleSheet.absoluteFillObject },
   modalSheet: { maxHeight: '90%', backgroundColor: Colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: Colors.border, backgroundColor: Colors.surface },
-  modalCloseButton: { marginVertical: -10, marginRight: -10 },
-  modalTitle: { color: Colors.textPrimary, fontSize: 18, fontWeight: '700' },
+  modalHeader: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: Colors.border, backgroundColor: Colors.surface },
   modalScroll: { flexShrink: 1 },
   modalContent: { padding: 20, gap: 14 },
   rangeRow: { flexDirection: 'row', gap: 10 },

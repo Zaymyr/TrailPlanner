@@ -1,9 +1,10 @@
-import { colors, mobileComponents, spacing } from '@pace-yourself/design-system';
+import { spacing } from '@pace-yourself/design-system';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { Heading } from './Heading';
 import { Text } from './Text';
+import { TrailBlaze, type TrailBlazeTone } from './TrailBlaze';
 
 type Props = {
   title: string;
@@ -12,6 +13,7 @@ type Props = {
   icon?: ReactNode;
   actionLabel?: string;
   onActionPress?: () => void;
+  blazeTone?: TrailBlazeTone;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -22,11 +24,12 @@ export function SectionHeading({
   icon,
   actionLabel,
   onActionPress,
+  blazeTone = 'brand',
   style,
 }: Props) {
   return (
     <View style={[styles.container, style]}>
-      <View accessible={false} style={styles.trailMarker} />
+      <TrailBlaze size="md" style={styles.blaze} tone={blazeTone} />
       <View style={styles.copy}>
         {eyebrow ? <Text tone="brand" size="xs" weight="bold" letterSpacing="caps">{eyebrow.toUpperCase()}</Text> : null}
         <View style={styles.titleRow}>
@@ -51,12 +54,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing[3],
   },
-  trailMarker: {
-    width: 4,
-    height: 28,
-    borderRadius: mobileComponents.signature.markerRadius,
-    backgroundColor: colors.brand.forest,
-  },
+  blaze: { alignSelf: 'center' },
   copy: { flex: 1, gap: spacing[1] },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   action: { minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing[1] },

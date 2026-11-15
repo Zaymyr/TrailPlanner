@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-11-15
+last_verified: 2026-11-11
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-organizer-analytics.ts
@@ -44,9 +44,6 @@ related_files:
   - apps/web/lib/product-analytics.test.ts
   - apps/mobile/lib/posthog.ts
   - apps/mobile/app/_layout.tsx
-  - apps/mobile/app/share/plan/[token].tsx
-  - apps/mobile/app/(app)/plan/followed/[id].tsx
-  - apps/mobile/components/plan-workspace/PlanRecapContent.tsx
   - apps/mobile/hooks/useSessionSideEffects.ts
   - apps/mobile/hooks/useProfileScreen.ts
   - apps/mobile/hooks/profileScreenHelpers.ts
@@ -81,14 +78,6 @@ related_tables:
 ---
 
 # Analytics
-
-The RaceBook share entry records only the action name `supporter_guide_shared` under the existing consent-aware mobile analytics path. No guide address, coordinate, phone, URL, publication id or share token is sent.
-
-Authenticated shared-plan actions emit consent-gated mobile events through the existing PostHog wrapper: `plan crew followed`, `plan crew unfollowed`, `plan crew passage confirmed in app`, and `plan crew follower removed`. Payloads contain only a bounded source value; they never contain a raw share token, plan/follower name, snapshot, or passage details.
-
-Field-assistance enrichment adds consent-gated `followed plan directions opened`, `followed plan preparation opened`, and `followed plan updated seen`. Their only property is the bounded `source = followed_plan`; never attach the token, plan/race name, coordinates, access text, checklist contents, products, or passage detail.
-
-Moving the mobile timeline calculations behind a client-local package boundary does not add or rename any analytics event or property.
 
 Organizer analytics access is checked against the active plan plus the exact `capability.racebook_analytics` feature grant. A different Signature feature gift must not authorize analytics, and manual invoice creation or settlement has no analytics effect.
 
@@ -419,6 +408,43 @@ Clearing the Courses search and omitting an empty card image rail emit no event.
 
 Favorite toasts and decorative haptics remain presentation-only. Existing successful favorite and gear interaction events retain their names and payloads; failed retries do not emit a false success event.
 
+Trail signature (2026-11-09): the visual signature (trail blazes, cotes, ridge loader/divider, course skyline, dotted ravito rail, RaceBook hero contours) and the one-off summit celebration shown when a new plan opens emit no analytics event and change no existing event payload; the celebration's route parameter is not tracked.
+
+Trail signature iteration (2026-11-11): runner presentation only. In-page RaceBook Course, Profile and plan view selectors become trail tabs, map/transport links and the catalog format RaceBook action become signpost buttons, catalog format distance/D+ read as cotes, tab-bar blazes move to the left of the selected icon, the hero contours are lightened and the elevation profile gains a decorative summit flag and iso-line echo. No query, row, payload, navigation target or analytics event changes. Map opens still emit the existing map-open tracking through the same handlers.
+
+Trail signature iteration 3 (2026-11-11): presentation only. The active-state accent becomes a tri-color line (light green, amber, dark green in fixed 2:1:4 proportions) under the selected tab-bar label, the active in-page tab and the active Livret/plan segment, and RaceBook map/transport links plus catalog RaceBook actions are drawn as textured direction signs. No query, row, route, purchase gate or analytics event changes.
+
+
+## Mobile presentation
+
+The mobile catalog (`apps/mobile/app/(app)/catalog.tsx`) now shows its quick filters as kilometre-milestone `ChoiceChip`s behind a compass filter button (Favoris first, heart variant) and the race sheet favourite as a forest `HeartMark`; this is presentation only — queries, favourite writes and analytics events are unchanged.
+
+The RaceBook screen (`apps/mobile/app/(app)/race/[id]/racebook.tsx`) renders its last-minute update through `components/racebook/TapeAlertBanner` (orange/white tape strip, 44-point expand toggle) and passes the resolved start time to the plan invitation card; data loading and writes are unchanged.
+
+Catalog search, sheet header and header buttons were restyled (`Field`, `IconAction`); analytics events and their properties are unchanged.
+
+The RaceBook Course map and profile cards open fullscreen through watch `IconAction`s (labels `racebookMapExpand` / `racebookProfileExpand`) instead of ad-hoc square buttons; behaviour unchanged.
+
+Weather alert, NEW markers, profile, nutrition and onboarding controls were restyled with themed components; analytics events and properties are unchanged.
+
+Sheets and modals use the shared `SheetHeader` (dotted trail handle, slender blaze, title, watch close button) and collapsible groups use `AccordionSection` (km borne with a count or icon, forest trail along the open content); UI only, data and queries unchanged.
+
+RaceBook access transport rows are accordions with an expandable trail; the `racebook access detail opened` event is unchanged.
+
+The RaceBook Course map and profile cards are drawn without the contour corner (`contours={false}`), keeping the course visuals uncluttered.
+
+The RaceBook hero no longer draws the course contour lines behind its header (the published elevation profile is still shown in the Course tab).
+
+Catalog race cards no longer draw or fetch format elevation profiles; no analytics event changes.
+
+The plan workspace bottom bar has a fourth « Nutrition » tab next to Mon plan, Récap and Paramètres. It is a shortcut, not a workspace view: it saves the current draft and pushes the existing Nutrition screen (product favourites), whose back action returns to the plan.
+
+RaceBook onboarding guide cards now float above the RaceBook tab bar, and the post-tour « Envie d'aller plus loin ? » offer waits until the runner has opened two other tabs; « Créer mon plan » is a trail sign on the same creation path as the Course invite. Data and events are unchanged.
+
+Guided screens never auto-open the keyboard; a guide card's acknowledgement is a secondary ticket when a ground-arrow skip sits beside it, and onboarding copy must match the real layout (RaceBook tabs are at the bottom).
+
+The guided catalog's Trail TST shortcut reuses `racebook onboarding racebook selected` with `selection_method: 'demo_race'` (alongside `browse` and `search`) and skips `racebook onboarding race selected`, since no event sheet is opened; tabs switched by the onboarding tour do not fire `racebook tab viewed`. <!-- TODO: verify with maintainer -->
+
 ## Related Docs
 
 Selecting or masking a private-demo format is configuration, not a runner RaceBook open or publication analytics event.
@@ -451,3 +477,5 @@ Organizer partner slots report only aggregate counters: `POST /api/racebook-part
 Catalog scroll performance (2026-11-09): the Courses list renders memoized `CatalogEventRow` rows (stable callbacks through a handler ref) over a memoized `RaceEventSummaryCard`, tunes FlatList virtualization (`initialNumToRender` 6, `maxToRenderPerBatch` 4, `windowSize` 9, `removeClippedSubviews` on Android), downsamples rail images (`resizeMethod="resize"`) and reads reduce-motion on favorite press instead of subscribing one accessibility listener per card. Presentation only: no query, payload, analytics event or favorite/update-read behavior changes.
 
 Catalog end date (2026-11-14): `catalog.tsx` visibility/sorting now uses the event's last format day; no analytics event or property changed.
+
+Shared-plan follow and Supporter Guide surfaces keep analytics bounded to aggregate navigation or preparation actions. They must not send a share token, plan snapshot, follower identity, supporter name, precise location, access instruction, emergency contact, or private checklist value to PostHog.

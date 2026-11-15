@@ -1,4 +1,4 @@
-export type HelpTutorialScreenKey = 'profile' | 'planEdit';
+export type HelpTutorialScreenKey = 'profile' | 'planEdit' | 'racebook';
 
 export type SpotlightPlacement = 'auto' | 'top' | 'bottom';
 
@@ -10,6 +10,11 @@ export type TutorialStep<TTargetKey extends string = string> = {
   highlightPadding?: number;
   highlightRadius?: number;
   placement?: SpotlightPlacement;
+  /**
+   * Step without a highlighted zone (intro or wrap-up): the card is centered
+   * and no "preparing the step" loader is shown.
+   */
+  centered?: boolean;
 };
 
 export type SpotlightRect = {

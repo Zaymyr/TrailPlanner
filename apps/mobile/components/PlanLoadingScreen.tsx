@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
-  ActivityIndicator,
   Animated,
   Easing,
   Pressable,
@@ -12,6 +11,7 @@ import { TrailIcon } from '@pace-yourself/design-system';
 
 import { Colors } from '../constants/colors';
 import { useI18n } from '../lib/i18n';
+import { RidgeLoader } from './themed/Ridge';
 import { Text } from './themed/Text';
 
 export type PlanLoadingVariant = 'list' | 'create' | 'edit' | 'summary' | 'live';
@@ -189,7 +189,7 @@ export function PlanLoadingScreen({
         {planName ? <Text numberOfLines={2} style={styles.planName}>{planName}</Text> : null}
 
         <View style={styles.statusCard}>
-          <ActivityIndicator color={Colors.brandPrimary} size="small" />
+          <RidgeLoader color={Colors.brandPrimary} height={32} style={styles.stageRidge} width={160} />
           <Text style={styles.stage}>{stage}</Text>
         </View>
         {showSlowHint ? <Text style={styles.slowHint}>{t.planLoading.slowHint}</Text> : null}
@@ -268,14 +268,16 @@ const styles = StyleSheet.create({
     marginTop: 28,
     paddingHorizontal: 18,
     paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'stretch',
     justifyContent: 'center',
-    gap: 12,
+    gap: 8,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: Colors.border,
     backgroundColor: Colors.surface,
+  },
+  stageRidge: {
+    alignSelf: 'center',
   },
   stage: {
     flexShrink: 1,

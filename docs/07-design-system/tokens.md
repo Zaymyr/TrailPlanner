@@ -1,7 +1,7 @@
 ---
 title: Design Tokens
 scope: design-system
-last_verified: 2026-11-09
+last_verified: 2026-11-11
 ai_priority: medium
 related_files:
   - packages/design-system/src/tokens/colors.ts
@@ -103,14 +103,41 @@ Shadows include `sm`, `md`, and `lg` with brand-tinted rgba values.
 `mobileComponents` composes those base tokens into shared React Native control
 geometry: a 16-point screen gutter, 10-point data blocks, 12-point
 action/button/input radii, 18-point cards, full-radius filter chips, and
-44-point minimum selection/close targets. The signature geometry keeps the
-ordinary family radius on three corners and uses a 4-point lower-right corner
-for Topo cards, actions, fields, icon actions, and data blocks. The Topo-card
-tokens also own the 4 by 32-point leading trail marker; callers may color it
-with brand, information, or semantic danger roles. It also owns the
+44-point minimum selection/close targets. All of these use symmetric radii; the
+former 4-point lower-right signature corner was removed. It also owns the
 small/medium/large action heights and the restrained 0.98 press feedback plus
-140/180 ms motion durations. Mobile callers continue to apply semantic colors
-from `Colors`/`colors`.
+140/180 ms motion durations.
+
+The trail signature tokens live in the same object:
+
+- `topoCard.blazeTop`: where the leading-edge blaze sits on signature cards. `topoCard.edgeBlaze` is the slender 5-point leading-edge blaze (9 / 4.5 / 18 bands, 2-point gaps) of interactive, signature and featured cards.
+- `blaze.ratio`: the 2:1:4 light green / amber / dark green proportions shared
+  by the stacked blaze (band thickness) and the `BlazeLine` (segment length);
+  `blaze.sm|md|lg`: band width, thickness unit and gap; `blaze.radius`;
+  `blaze.line`: the 3-point signature line thickness and segment gap (its
+  width follows the label it underlines).
+- `ridge`: stroke width, divider/loader/silhouette heights, the resampling
+  count for course profiles, and the loader (1.6 s) and celebration (1.1 s)
+  durations.
+- `timeline`: the dotted trail rail width, dash and gap (also used by the
+  `TrailTabs` track).
+- `trailSign`: the 44-point sign plate, its 16-point pointed end, 2-point plank
+  depth, 6-point post-side radius, 4-point routed-border inset, 3-point cast
+  shadow.
+- `trailVariation`: the bounded ranges of the session-random decoration
+  (sign lean 0.4°–2.9°, dy ±1.5, tip ±3, tone ±5 %; tab plank 0.5°–1°; ticket
+  ±0.9°; bracelet ±0.75°; bib −1°…−0.25° pinned and 0.5°…1.5° flipped; stamp −10°…−4°) and the global `amount` multiplier.
+- `trailTabs`: the 44-point tab height, 3-point trail track and tab padding.
+
+In the 2:1:4 ratio the amber is the shortest share, so the orange stays a light
+accent rather than a third primary color.
+
+Mobile callers continue to apply semantic colors from `Colors`/`colors`; the
+blaze bands reuse existing tokens (olive, amber and forest by default) and add
+no new palette value. The trail objects (enamel plate, aid-station ticket,
+closed-trail tape, wristband, pins, ticket ink, milestone climb cap,
+info wristband, bib back, banner tape, sign post and the neutral `stone` used
+for watch bezels, compass rings, pin clasps and cairns) use `colors.trail`.
 
 ## Web Tailwind Bridge
 
@@ -139,6 +166,7 @@ It also exposes CSS-variable theme colors such as `background`, `foreground`, `b
 - Do not hardcode actual PostHog/Supabase/Stripe colors or secrets in design docs.
 - If tokens change, update Tailwind mapping and design docs together.
 - Existing web body background uses a brand-surface radial gradient in light mode and flat dark background in dark mode.
+- The mobile trail signature is presentation-only: its ridge, blaze, contour, cote and sign tokens must not encode publication, entitlement, follow membership, or nutrition-calculation state.
 
 ## Related Docs
 

@@ -1,7 +1,7 @@
 ---
 title: Nutrition Algorithm
 scope: business-rule
-last_verified: 2026-11-15
+last_verified: 2026-11-11
 ai_priority: high
 related_files:
   - apps/web/lib/nutrition-planner.ts
@@ -384,6 +384,25 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 
 The recap shows combined carbohydrate/sodium totals and a rounded ten-minute drinking rhythm. The editor chronology keeps product intakes and emits a plain-water row only when the rounded 10 ml quantity changes. This compaction is presentation-only and does not alter allocation totals, reminders, or saved plan values. All-uppercase product labels receive display-only normal casing with known acronym preservation.
 
+Trail signature (2026-11-09): after a standard plan creation, `plan/new` opens the editor with a one-use `created=1` route parameter that only triggers the summit celebration overlay. It does not change seeding, allocation, persistence or any nutrition calculation.
+
+Trail signature iteration (2026-11-11): runner presentation only. In-page RaceBook Course, Profile and plan view selectors become trail tabs, map/transport links and the catalog format RaceBook action become signpost buttons, catalog format distance/D+ read as cotes, tab-bar blazes move to the left of the selected icon, the hero contours are lightened and the elevation profile gains a decorative summit flag and iso-line echo. No query, row, payload, navigation target or analytics event changes. The plan Ravitos/Allures/Chronologie selector keeps the same view modes; no nutrition calculation changes.
+
+The consolidated development OTA may deliver these themed nutrition controls together with followed-plan and Supporter Guide work, but neither surface may change allocation inputs, reminder timing, product selection, or persisted planner values.
+
+
+## Mobile presentation
+
+Plan and product numeric inputs (`NumberInput`, plan basics, aid-station editor, product creation and detail, live-training targets, plan creation profile) are themed `Field`s with their unit shown as a cote (g/h, ml/h, mg/h, km, min, kg); parsing, validation and the nutrition computations are unchanged.
+
+Plan-form pace-type (Allure / Vitesse) and product-sort selectors use `TrailTabs`; save, preview and apply actions use `ActionButton`. The nutrition product favourite is a forest `HeartMark` watch button (no star), product deletion is `destructive-outline`, and the verified brand badge is a success `StatusPill`. Computations are unchanged.
+
+Nutrition screens changed visually only: shared sheet headers, accordion bornes with product counts, and the live-training settings accordion. Nutrition logic is unchanged.
+
+The plan workspace bottom bar has a fourth « Nutrition » tab next to Mon plan, Récap and Paramètres. It is a shortcut, not a workspace view: it saves the current draft and pushes the existing Nutrition screen (product favourites), whose back action returns to the plan.
+
+In the plan Ravitos view, auto-fill is the primary `ActionButton` (a secondary ticket with a lock in preview mode, where « Débloquer mon plan » holds the plate), and coverage states (À préparer / OK / À ajuster / Insuffisant) use `StatusPill` (info / success / warning / danger); computations are unchanged.
+
 ## Related Docs
 
 - [Products Table](../02-database/tables/products.md)
@@ -395,7 +414,3 @@ The recap shows combined carbohydrate/sodium totals and a rounded ten-minute dri
 ## Plan editor presentation
 
 Official aid-station distance, name, type, and services remain read-only in the mobile editor and are now visibly marked as such with an accessibility explanation. Localized decimal parsing and shared one-decimal distance display affect input/presentation only; they do not change pacing, carbohydrate, sodium, or hydration calculations.
-
-## Followed-plan preparation projection
-
-The authenticated assistant view groups already-calculated checkpoint supplies by assistance point and product, sums quantities and refill water for a device-local checklist, and never writes checklist state back into `planner_values`, the share snapshot, or organizer product data. Automatic snapshot refresh after a mobile save uses the same summary builder and deduplicated share writer, only when the owner endpoint reports an active follower.

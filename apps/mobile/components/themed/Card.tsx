@@ -8,6 +8,10 @@ type Props = ViewProps & {
   surface?: CardSurface;
   padded?: boolean;
   variant?: TopoCardVariant;
+  /** Stable id so each card in a list gets its own decorative variation. */
+  variationKey?: string;
+  /** Draw the faint contour corner (default true). */
+  contours?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 

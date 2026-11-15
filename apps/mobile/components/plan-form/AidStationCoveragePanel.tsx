@@ -1,4 +1,5 @@
 import { View } from 'react-native';
+import { StatusPill } from '../themed/StatusPill';
 import { Text } from '../themed/Text';
 import type { GaugeMetric } from './GaugeArc';
 import type { PlanTarget, SectionSummary, SectionTarget } from './contracts';
@@ -57,7 +58,7 @@ function summarizeCoverage(metrics: GaugeMetric[]) {
       : severity === 'warning'
         ? 'Un peu juste pour tenir la suite'
         : 'Risque de manque avant recharge';
-  const shortLabel = severity === 'ok' ? 'OK' : severity === 'warning' ? 'A ajuster' : 'Insuffisant';
+  const shortLabel = severity === 'ok' ? 'OK' : severity === 'warning' ? 'À ajuster' : 'Insuffisant';
 
   if (deficits.length === 0) {
     return {
@@ -107,13 +108,13 @@ export function AidStationCoveragePanel({ target, summary, compact = false, getG
   if (!prepared) {
     if (compact) {
       return <View style={styles.coverageCompactRow}>
-        <View style={styles.coveragePill}><Text style={styles.coveragePillText}>À préparer</Text></View>
+        <StatusPill label="À préparer" tone="info" />
         <Text style={styles.coverageCompactTitle}>Répartis tes produits automatiquement</Text>
       </View>;
     }
     return <View style={styles.coveragePanel}>
       <View style={styles.coveragePanelHeader}>
-        <View style={styles.coveragePill}><Text style={styles.coveragePillText}>À préparer</Text></View>
+        <StatusPill label="À préparer" tone="info" />
         <Text style={styles.coveragePanelTitle}>Prépare ta nutrition de course</Text>
       </View>
       <Text style={styles.coveragePanelDetail}>Répartis tes produits automatiquement pour vérifier tes besoins en glucides, eau et sodium.</Text>
@@ -126,25 +127,13 @@ export function AidStationCoveragePanel({ target, summary, compact = false, getG
       : coverage.severity === 'warning'
         ? styles.coveragePanelWarning
         : styles.coveragePanelDanger;
-  const pillStyle =
-    coverage.severity === 'ok'
-      ? styles.coveragePillOk
-      : coverage.severity === 'warning'
-        ? styles.coveragePillWarning
-        : styles.coveragePillDanger;
-  const pillTextStyle =
-    coverage.severity === 'ok'
-      ? styles.coveragePillTextOk
-      : coverage.severity === 'warning'
-        ? styles.coveragePillTextWarning
-        : styles.coveragePillTextDanger;
+  // Coverage state worn as a race-control wristband (OK / À ajuster / Insuffisant).
+  const pillTone = coverage.severity === 'ok' ? 'success' : coverage.severity === 'warning' ? 'warning' : 'danger';
 
   if (compact) {
     return (
       <View style={[styles.coverageCompactRow, toneStyle]}>
-        <View style={[styles.coveragePill, pillStyle]}>
-          <Text style={[styles.coveragePillText, pillTextStyle]}>{coverage.shortLabel}</Text>
-        </View>
+        <StatusPill label={coverage.shortLabel} tone={pillTone} />
         <Text style={styles.coverageCompactTitle} numberOfLines={1}>
           {coverage.title}
         </Text>
@@ -155,9 +144,7 @@ export function AidStationCoveragePanel({ target, summary, compact = false, getG
   return (
     <View style={[styles.coveragePanel, toneStyle]}>
       <View style={styles.coveragePanelHeader}>
-        <View style={[styles.coveragePill, pillStyle]}>
-          <Text style={[styles.coveragePillText, pillTextStyle]}>{coverage.shortLabel}</Text>
-        </View>
+        <StatusPill label={coverage.shortLabel} tone={pillTone} />
         <Text style={styles.coveragePanelTitle}>{coverage.title}</Text>
       </View>
       <Text style={styles.coveragePanelDetail}>{coverage.detail}</Text>

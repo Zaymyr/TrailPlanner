@@ -1,11 +1,11 @@
-import { colors, spacing } from '@pace-yourself/design-system';
+import { spacing } from '@pace-yourself/design-system';
 import {
-  ActivityIndicator,
   StyleSheet,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
 
+import { RidgeLoader } from './Ridge';
 import { Text } from './Text';
 import { TopoCard } from './TopoCard';
 
@@ -35,7 +35,7 @@ export function LoadingState({
       style={[styles.container, style]}
       testID={testID}
     >
-      <ActivityIndicator color={colors.brand.forest} size={size} />
+      <RidgeLoader height={size === 'small' ? 28 : 40} width={size === 'small' ? 84 : 120} />
       {label ? <Text size="sm" tone="secondary" style={styles.label}>{label}</Text> : null}
     </TopoCard>
   );

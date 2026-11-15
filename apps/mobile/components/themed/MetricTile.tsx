@@ -1,7 +1,7 @@
 import { colors, mobileComponents, spacing } from '@pace-yourself/design-system';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { DataText } from './DataText';
+import { Cote } from './Cote';
 import { Text } from './Text';
 
 type Props = {
@@ -14,7 +14,7 @@ type Props = {
 };
 
 export function MetricTile({ label, value, unit, trend, tone = 'neutral', style }: Props) {
-  const dataTone = tone === 'brand' ? 'brand' : tone === 'info' ? 'secondary' : 'primary';
+  const coteTone = tone === 'brand' ? 'brand' : 'primary';
 
   return (
     <View style={[styles.base, toneStyles[tone], style]}>
@@ -22,12 +22,7 @@ export function MetricTile({ label, value, unit, trend, tone = 'neutral', style 
       <Text tone="secondary" size="xs" weight="semibold" numberOfLines={1} style={styles.label}>
         {label}
       </Text>
-      <View style={styles.valueRow}>
-        <DataText tone={dataTone} size="lg" weight="bold">
-          {value}
-        </DataText>
-        {unit ? <DataText tone="secondary" size="xs" weight="semibold">{unit}</DataText> : null}
-      </View>
+      <Cote accessibilityLabel={`${label} ${value}${unit ? ` ${unit}` : ''}`} size="lg" tone={coteTone} unit={unit} value={value} />
       {trend ? <Text tone="secondary" size="xs">{trend}</Text> : null}
     </View>
   );
@@ -37,7 +32,6 @@ const styles = StyleSheet.create({
   base: {
     minWidth: 88,
     borderRadius: mobileComponents.dataRadius,
-    borderBottomRightRadius: mobileComponents.signature.dataBottomRightRadius,
     borderWidth: 1,
     paddingHorizontal: spacing[3],
     paddingVertical: spacing[2],
@@ -54,11 +48,6 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   label: { paddingRight: spacing[3] },
-  valueRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: spacing[1],
-  },
 });
 
 const waypointToneStyles = StyleSheet.create({

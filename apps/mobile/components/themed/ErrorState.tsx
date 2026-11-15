@@ -1,7 +1,6 @@
-import { colors, spacing } from '@pace-yourself/design-system';
+import { spacing } from '@pace-yourself/design-system';
 import {
   StyleSheet,
-  View,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -10,6 +9,7 @@ import { Button } from './Button';
 import { Heading } from './Heading';
 import { Text } from './Text';
 import { TopoCard } from './TopoCard';
+import { TrailBlaze } from './TrailBlaze';
 
 type Props = {
   title: string;
@@ -33,13 +33,12 @@ export function ErrorState({
   return (
     <TopoCard
       accessibilityRole="alert"
-      accentColor={colors.accent.terracotta}
       surface="danger"
       variant="signature"
       style={[styles.container, style]}
       testID={testID}
     >
-      <View style={styles.icon} />
+      <TrailBlaze size="lg" style={styles.icon} tone="danger" />
       <Heading style={styles.centered} variant="h3">{title}</Heading>
       {description ? <Text tone="secondary" style={styles.description}>{description}</Text> : null}
       {onRetry && retryLabel ? (
@@ -59,11 +58,7 @@ const styles = StyleSheet.create({
     padding: spacing[5],
   },
   icon: {
-    backgroundColor: colors.accent.terracotta,
-    borderRadius: 4,
-    height: 8,
     marginBottom: spacing[3],
-    width: 8,
   },
   centered: {
     textAlign: 'center',

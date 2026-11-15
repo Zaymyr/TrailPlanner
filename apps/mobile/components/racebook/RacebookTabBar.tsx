@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '../themed/Text';
+import { BlazeLine } from '../themed/TrailBlaze';
 import { Colors } from '../../constants/colors';
 
 type Props<T extends string> = {
@@ -36,12 +37,16 @@ export function RacebookTabBar<T extends string>({ tabs, activeTab, onPress }: P
                   color={active ? Colors.brandPrimary : Colors.textMuted}
                 />
               </View>
-              <Text
-                numberOfLines={1}
-                style={[styles.text, active && styles.textActive]}
-              >
-                {tab.label}
-              </Text>
+              {/* Shrink-wrapped to the text so the line underlines the whole label. */}
+              <View style={styles.labelInner}>
+                <Text
+                  numberOfLines={1}
+                  style={[styles.text, active && styles.textActive]}
+                >
+                  {tab.label}
+                </Text>
+                <BlazeLine style={[styles.line, !active && styles.lineHidden]} />
+              </View>
             </Pressable>
           );
         })}
@@ -82,8 +87,10 @@ const styles = StyleSheet.create({
   },
   iconSurfaceActive: {
     backgroundColor: Colors.brandSurface,
-    borderBottomRightRadius: 4,
   },
+  labelInner: { maxWidth: '100%', alignItems: 'stretch' },
+  line: { marginTop: 2 },
+  lineHidden: { opacity: 0 },
   text: { color: Colors.textMuted, fontSize: 10, lineHeight: 13, fontWeight: '700' },
   textActive: { color: Colors.brandPrimary },
 });
