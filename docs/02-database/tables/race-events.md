@@ -97,6 +97,8 @@ related_tables:
 
 # `race_events`
 
+The edition Supporter Guide reuses the published event identity, emergency contact and official/social links already frozen inside format publications. It does not broaden direct `race_events` reads or add event columns.
+
 Admin organizer responses may aggregate independent invoice summaries and exact feature grants through an event's editions. Those projections do not alter event publication, membership, dates or catalog visibility.
 
 Event-level `organizer_details.bibPickup` may now include nullable `thirdPartyPickupConditions`. It is preserved when the organizer selects Non, rendered only when third-party pickup is allowed, and inherited by formats unless their complete bib-pickup override is enabled. No relational column or event visibility rule changes.
@@ -402,3 +404,5 @@ Livret-first navigation (2026-11-09): catalog cards add a `Livret disponible` ba
 Publication checks and partner slots (2026-11-09): pre-publication checks and the Matériel/hébergement partner slots read the built snapshot and their own table only. They do not read, write or change this domain's rows or contracts.
 
 Catalog scroll performance (2026-11-09): the Courses list renders memoized `CatalogEventRow` rows (stable callbacks through a handler ref) over a memoized `RaceEventSummaryCard`, tunes FlatList virtualization (`initialNumToRender` 6, `maxToRenderPerBatch` 4, `windowSize` 9, `removeClippedSubviews` on Android), downsamples rail images (`resizeMethod="resize"`) and reads reduce-motion on favorite press instead of subscribing one accessibility listener per card. Presentation only: no query, payload, analytics event or favorite/update-read behavior changes.
+
+Catalog end date (2026-11-14): `race_events.race_date` is the event start date. Mobile catalog visibility/sorting and `Mes courses` use the latest of this date and the formats' `races.race_date` (`getCatalogEventEndDate`), so a multi-day event stays visible and ongoing until its last format day ends.

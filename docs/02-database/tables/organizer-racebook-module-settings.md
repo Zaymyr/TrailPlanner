@@ -4,6 +4,7 @@ scope: database
 last_verified: 2026-11-03
 ai_priority: high
 related_files:
+  - supabase/migrations/20261115131556_add_supporter_guide_module.sql
   - supabase/migrations/20260908093008_add_organizer_offer_modules_v2.sql
   - supabase/tests/organizer_racebook_module_settings_checks.sql
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
@@ -18,6 +19,8 @@ related_tables:
 ---
 
 # `organizer_racebook_module_settings`
+
+`supporter_guide` is an edition-scoped Essential module, enabled for existing and new editions and copied by the existing edition-duplication flow. It controls the Livret accompagnateur surface only: every section still requires the effective module of its published source. Older immutable publications without this additive key are treated as enabled for compatibility; a later explicit disable is frozen on republication.
 
 Effective module state now combines the selected plan with exact active feature grants. Services, start waves, awards, branding, sponsors, relay and official products each map to their own gift key; enabling or gifting one module never widens another module or the entire higher plan.
 

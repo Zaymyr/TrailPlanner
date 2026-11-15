@@ -1,7 +1,7 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-11-09
+last_verified: 2026-11-15
 ai_priority: high
 related_files:
   - supabase/migrations/20261109140000_add_racebook_edition_partner_slots.sql
@@ -50,6 +50,12 @@ related_tables:
 ---
 
 # Add New Table
+
+Supporter Guide v1 adds no table. Its migration only extends the checked key set and initializer for the existing service-only `organizer_racebook_module_settings` table; the existing grants, RLS posture and duplication path remain unchanged.
+
+The followed-plan completion change is a column-only migration on existing `plan_share_follows`: `auto_archive_dismissed_at` preserves an explicit user restore while leaving the table's SELECT-only authenticated grants, service-role writes and two RLS policies unchanged. Its table doc, schema/RLS docs and focused SQL check are updated together; no new table protocol applies.
+
+`plan_share_follows` follows the owner/follower read and service-write variant: explicit SELECT-only authenticated grant, no anonymous access, two narrow RLS policies, database-level self-follow rejection, cascade foreign keys and focused SQL privilege checks.
 
 For immutable service-only financial records, follow the `organizer_invoices` pattern: revoke client privileges, keep RLS enabled without client policies, index every foreign key, serialize legal numbering transactionally, reject deletion, and allow only narrowly defined settlement/replacement transitions. Giftable organizer features are availability metadata rather than products: keep them non-monetized, reject monetary gift lines on insert, and calculate invoice totals from the pack only.
 
@@ -165,3 +171,5 @@ Changing an existing client-writable table follows the same discipline: `2026110
 `race_event_edition_partner_slots` (2026-11-09) follows this workflow: service-only RLS table, composite same-edition FK, reuse of an existing draft-revision trigger function, transactional SQL checks, and a dedicated table doc.
 
 Note (2026-11-09): `schema-overview.md` received a presentation-only note about the mobile catalog scroll performance; no table, column or workflow step changed.
+
+Catalog end date (2026-11-14): no table added; the schema overview only records that mobile catalog visibility uses the latest format `race_date` of an event.

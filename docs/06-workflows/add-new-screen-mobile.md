@@ -1,7 +1,7 @@
 ---
 title: Add New Mobile Screen
 scope: workflow
-last_verified: 2026-11-09
+last_verified: 2026-11-15
 ai_priority: medium
 related_files:
   - apps/mobile/app
@@ -82,6 +82,10 @@ related_tables:
 ---
 
 # Add New Mobile Screen
+
+The Supporter Guide is a universal-linkable Expo screen at `/courses/supporter-guide/[raceId]`. It accepts anonymous sessions, fetches the public web payload, hides empty sections, and is released together with removal of the current RaceBook supporter subtab so the content remains reachable in-app.
+
+The followed-plan lot adds a universal-link preview and a hidden native detail route under `plan/followed/[id]`. Both use themed loading/error/card/button primitives, safe-area spacing, localized FR/EN copy, focus refresh and accessible controls; the Plans root adds an accessible two-state selector without changing the tab route.
 
 The RaceBook Dossard rules accept optional third-party pickup conditions. Show them only when pickup by another person is allowed, preserve the organizer's text verbatim, and keep the mobile surface read-only; missing fields from older payloads must continue to normalize to `null`.
 
@@ -285,3 +289,9 @@ Livret-first navigation (2026-11-09): when a screen leaves the tab bar, keep its
 When a RaceBook card can be replaced by an organizer partner slot, keep the affiliate card component and override its copy/logo from `sponsorPresentation.partnerSlots`; organizer partner presses use the counted redirect and stay out of identified analytics.
 
 Catalog scroll performance (2026-11-09): the Courses list renders memoized `CatalogEventRow` rows (stable callbacks through a handler ref) over a memoized `RaceEventSummaryCard`, tunes FlatList virtualization (`initialNumToRender` 6, `maxToRenderPerBatch` 4, `windowSize` 9, `removeClippedSubviews` on Android), downsamples rail images (`resizeMethod="resize"`) and reads reduce-motion on favorite press instead of subscribing one accessibility listener per card. Presentation only: no query, payload, analytics event or favorite/update-read behavior changes.
+
+- Catalog past/upcoming decisions must use `getCatalogEventEndDate` (latest of event and format `race_date`), never `race_events.race_date` alone, so multi-day events are not hidden while ongoing.
+
+## Followed-plan field assistance
+
+The authenticated followed-plan detail consumes only the narrow server `raceContext`: published supporter points, unambiguous ravito matches, access, bib-pickup permission and emergency contact. Keep directions and preparation analytics bounded, persist preparation checks under a follow-specific device key, and show freshness only when server `plan_updated_at` is newer than the stored last view. Completed follows are grouped separately and remain restorable; no push notification or shared checklist belongs to this flow.

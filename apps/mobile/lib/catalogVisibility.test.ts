@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   filterCatalogRacesByEditionRetention,
+  getCatalogEventEndDate,
   isCatalogEventPast,
   isCatalogEventVisible,
   sortCatalogEvents,
@@ -27,6 +28,19 @@ describe('sortCatalogEvents', () => {
       now,
     );
     expect(sorted.map((item) => item.id)).toEqual(['fav', 'soon', 'recent', 'old']);
+  });
+
+  it('keeps a multi-day event that started yesterday at the top while its formats are ongoing', () => {
+    const ongoing = {
+      id: 'ongoing',
+      name: 'ongoing',
+      race_date: '2026-09-27',
+      races: [{ race_date: '2026-09-27' }, { race_date: '2026-09-29' }],
+    };
+    const sorted = sortCatalogEvents([event('later', '2026-10-10'), ongoing], [], now);
+    expect(sorted.map((item) => item.id)).toEqual(['ongoing', 'later']);
+    expect(getCatalogEventEndDate(ongoing)).toBe('2026-09-29');
+    expect(isCatalogEventVisible(getCatalogEventEndDate(ongoing), false, now)).toBe(true);
   });
 
   it('flags only strictly past dates as past', () => {

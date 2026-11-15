@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-11-09
+last_verified: 2026-11-15
 ai_priority: high
 related_files:
   - supabase/migrations/20261106142000_add_lut_by_night_2026_gpx.sql
@@ -88,6 +88,7 @@ related_files:
 related_tables:
   - race_plans
   - plan_share_links
+  - plan_share_follows
   - plan_aid_stations
   - races
   - race_slug_redirects
@@ -132,6 +133,12 @@ related_tables:
 ---
 
 # Schema Overview
+
+Supporter Guide v1 adds no content table. Migration `20261115131556_add_supporter_guide_module.sql` extends the existing module-setting key constraint and initializes the edition-scoped `supporter_guide` switch; all displayed content remains frozen in `racebook_publications`.
+
+## Followed plan lifecycle
+
+`plan_share_links.snapshot` keeps schema version 1 and may contain additive, server-owned `raceId`. `plan_share_follows.auto_archive_dismissed_at` records an explicit restore of a calculated completed-race follow; it is presentation lifecycle state, not deletion or RaceBook publication authority. Race details shown to a follower remain derived from immutable `racebook_publications`.
 
 The 2026 Radiance Mutuelle LUT By Night data-only enrichment attaches the three official downloadable GPX objects to the 10 km, 20 km and 30 km catalog formats, preserving their official distance/D+ labels and adding hashes plus parsed route metadata. The 10 km Rando remains without a GPX because its official page has no downloadable trace URL. No schema, grant, policy, visibility, or publication-state contract changes.
 
@@ -212,6 +219,7 @@ The November 2026 mobile plan-flow polish changes catalog search controls, image
 | `nutrition_plans` | User-owned nutrition planning snapshots. |
 | `plan_aid_stations` | Aid station rows attached to a saved race plan. |
 | `plan_share_links` | Public crew recap snapshots and limited crew tracking state for saved plans, looked up by hashed share token. |
+| `plan_share_follows` | Authenticated crew membership for a shared plan link, including nickname, removal and archive state. |
 | `premium_grants` | Manual premium overrides with optional end dates. |
 | `products` | Fuel product catalog and user-created products, with explicit `is_official` metadata for curated/shared catalog rows. |
 | `push_devices` | Expo push tokens and device metadata per user. |
@@ -312,6 +320,7 @@ erDiagram
 - [race_plans](tables/race-plans.md)
 - [plan_aid_stations](tables/plan-aid-stations.md)
 - [plan_share_links](tables/plan-share-links.md)
+- [plan_share_follows](tables/plan-share-follows.md)
 - [race_aid_stations](tables/race-aid-stations.md)
 - [race_supporter_points](tables/race-supporter-points.md)
 - [race_relay_points](tables/race-relay-points.md)
@@ -404,6 +413,7 @@ erDiagram
 - Shared catalog product image backfills should update `products.image_url` only for curated catalog rows and keep ownership/visibility fields unchanged.
 - Admin catalog image writes normalize race/event thumbnails to bounded, versioned WebP objects before storing the public URL. Reference-based image maintenance updates only `thumbnail_url`; it does not change ownership, visibility, or relationships and keeps prior objects for rollback.
 - Public plan recap links store a bounded JSON snapshot plus limited `crew_state` in `plan_share_links`; raw URL tokens are not stored, only SHA-256 hashes.
+- Authenticated crew follows are unique per user and share link. They carry no snapshot copy; active access is cut by link revocation/expiry or `removed_at`.
 - Former course slugs are reserved database-wide while their race exists. Resolve them through `race_slug_redirects.race_id`, then reapply the current public race/event visibility gates before redirecting.
 - The legacy coach/coachee feature is retired. Do not reintroduce `coach_*` tables, coach RLS, or coach entitlement columns without a new product decision and migration plan.
 - `user_profiles.onboarding_completed_at` remains nullable legacy Plan state. New mobile gating and the Profile dot use the two checked per-tour status columns; skipped is deliberately distinct from completed.
@@ -427,3 +437,5 @@ Mobile lot 6 is presentation-only: shared distance/clock formatting, failed-imag
 Livret-first navigation (2026-11-09): the catalog ordering (upcoming before past, favorites pinned inside each group), the `Livret disponible` card badge and the RaceBook-first event-sheet actions are mobile presentation only. They read no new field and add no table, column, RLS policy or write path; organizer-update previews, deep links and read receipts are unchanged.
 
 Catalog scroll performance (2026-11-09): the Courses list renders memoized `CatalogEventRow` rows (stable callbacks through a handler ref) over a memoized `RaceEventSummaryCard`, tunes FlatList virtualization (`initialNumToRender` 6, `maxToRenderPerBatch` 4, `windowSize` 9, `removeClippedSubviews` on Android), downsamples rail images (`resizeMethod="resize"`) and reads reduce-motion on favorite press instead of subscribing one accessibility listener per card. Presentation only: no query, payload, analytics event or favorite/update-read behavior changes.
+
+Catalog end date (2026-11-14): mobile Courses and `Mes courses` treat an event as past only after its last format day — the latest of `race_events.race_date` and its `races.race_date` (`getCatalogEventEndDate`). No schema change.

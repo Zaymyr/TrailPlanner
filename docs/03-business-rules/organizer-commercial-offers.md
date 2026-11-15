@@ -66,6 +66,8 @@ related_tables:
 
 # Organizer Commercial Offers
 
+The edition-level **Livret accompagnateur** (`supporter_guide`, English: **Supporter Guide**) is included from Essential through Signature and defaults to enabled. It aggregates immutable format publications without widening source rights: services, waves, awards, sponsors and every other section remain masked unless their own module is effective. The organizer header exposes its published preview and a downloadable QR link.
+
 Course-point autosave now waits for the active format's ravito/supporter sidecars and preserves them across same-format refreshes. The guard prevents transient empty replacements and changes no module selection, effective capability, tier, or publication right.
 
 The publication prerequisite is now name, date, effective location, and positive distance for at least one format; an official format website is optional. Autosave completes before offer/publication navigation through the existing foreground flush.

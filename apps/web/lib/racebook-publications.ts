@@ -459,7 +459,11 @@ export const publicSnapshot = (publication: RacebookPublicationRow) => {
 };
 
 export const moduleMask = (modules: Partial<Record<OrganizerModuleKey, boolean>>, allowed: Partial<Record<OrganizerModuleKey, boolean>>) =>
-  Object.fromEntries(ORGANIZER_MODULES.map((module) => [module.key, modules[module.key] === true && allowed[module.key] === true])) as Record<OrganizerModuleKey, boolean>;
+  Object.fromEntries(ORGANIZER_MODULES.map((module) => [
+    module.key,
+    (modules[module.key] === true || (module.key === "supporter_guide" && modules[module.key] === undefined))
+      && allowed[module.key] === true,
+  ])) as Record<OrganizerModuleKey, boolean>;
 
 export async function publishRacebookSnapshot(
   config: SupabaseServiceConfig,

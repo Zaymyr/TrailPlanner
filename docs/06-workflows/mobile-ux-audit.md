@@ -29,6 +29,8 @@ related_tables: []
 
 # Mobile UX Audit
 
+The shared-plan journey adds audit targets for universal-link preview, auth return, the owned/followed selector, followed-plan empty/list states, pull-to-refresh, passage confirmation, unavailable state and follower management. No new native dependency was added.
+
 Plan-flow loading audits should flag determinate percentages unless the underlying operation reports real byte/task completion. The shared plan loader intentionally treats its internal progress values only as copy milestones, keeps the indicator indeterminate, and adds a neutral delayed reassurance for slow requests. Verify creation, editor, recap, onboarding handoff, and live preparation in both normal and reduced-motion modes.
 
 ## Purpose

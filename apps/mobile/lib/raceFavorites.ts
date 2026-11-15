@@ -1,5 +1,5 @@
 import { isAnonymousSession } from './appSession';
-import { isCatalogEventPast } from './catalogVisibility';
+import { getCatalogEventEndDate, isCatalogEventPast } from './catalogVisibility';
 import { supabase } from './supabase';
 import { WEB_API_BASE_URL } from './webApi';
 
@@ -43,6 +43,7 @@ type FollowedRaceEventRow = {
   race_date: string | null;
   thumbnail_url: string | null;
   races: {
+    race_date?: string | null;
     is_live: boolean | null;
     racebook_is_live: boolean | null;
     racebook_preview_is_visible: boolean | null;
@@ -59,11 +60,13 @@ function eventTime(event: FollowedRaceEvent) {
  */
 export function selectFollowedEvents(rows: FollowedRaceEventRow[], now = new Date()) {
   const events = rows.map((row) => toFollowedEvent(row));
+  const endDates = new Map(rows.map((row) => [row.id, getCatalogEventEndDate(row)]));
+  const isPast = (event: FollowedRaceEvent) => isCatalogEventPast(endDates.get(event.id) ?? event.race_date, now);
   const upcoming = events
-    .filter((event) => !isCatalogEventPast(event.race_date, now))
+    .filter((event) => !isPast(event))
     .sort((left, right) => eventTime(left) - eventTime(right) || left.name.localeCompare(right.name));
   const past = events
-    .filter((event) => isCatalogEventPast(event.race_date, now))
+    .filter((event) => isPast(event))
     .sort((left, right) => eventTime(right) - eventTime(left) || left.name.localeCompare(right.name));
   return { upcoming, past };
 }
@@ -96,7 +99,7 @@ export async function fetchFollowedEvents(): Promise<FollowedEvents> {
 
   const { data, error } = await supabase
     .from('race_events')
-    .select('id,name,location,race_date,thumbnail_url,races(is_live,racebook_is_live,racebook_preview_is_visible)')
+    .select('id,name,location,race_date,thumbnail_url,races(race_date,is_live,racebook_is_live,racebook_preview_is_visible)')
     .in('id', eventIds)
     .eq('is_live', true);
 

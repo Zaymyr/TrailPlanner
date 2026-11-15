@@ -23,6 +23,8 @@ related_tables:
 
 # `race_edition_services`
 
+The Supporter Guide groups published `recovery`/`other` rows under On site and `restaurant`/`accommodation` rows under Stay. Empty groups are hidden and the whole source remains subject to the effective `services` module.
+
 The shared mobile RaceBook screen now also renders additive third-party bib-pickup conditions from organizer JSON. Service categories, edition ownership, structured precedence, publication gates, and RLS remain unchanged.
 
 The organizer service editor removes its redundant section title and uses the global autosave indicator; its local status is simply `À jour`. Adding service cards progressively and preserving historical text do not change this table contract.

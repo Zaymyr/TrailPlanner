@@ -23,6 +23,10 @@ related_tables: []
 
 # Ship a Feature
 
+Supporter Guide v1 follows the existing web-preview gate and adds no release exception. The `qrcode` package is scoped to the web QR endpoint; universal-link config changes still require the normal native binary validation path.
+
+The shared-plan follow lot uses the normal cross-surface gate: focused SQL and unit checks, web/mobile type checks, then `npm run verify`. Its association files still require verified signing identifiers and the web-affecting change still requires `preview/web` validation before production merge.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose

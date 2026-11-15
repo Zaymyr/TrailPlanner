@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-11-09
+last_verified: 2026-11-15
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-organizer-analytics.ts
@@ -44,6 +44,9 @@ related_files:
   - apps/web/lib/product-analytics.test.ts
   - apps/mobile/lib/posthog.ts
   - apps/mobile/app/_layout.tsx
+  - apps/mobile/app/share/plan/[token].tsx
+  - apps/mobile/app/(app)/plan/followed/[id].tsx
+  - apps/mobile/components/plan-workspace/PlanRecapContent.tsx
   - apps/mobile/hooks/useSessionSideEffects.ts
   - apps/mobile/hooks/useProfileScreen.ts
   - apps/mobile/hooks/profileScreenHelpers.ts
@@ -78,6 +81,14 @@ related_tables:
 ---
 
 # Analytics
+
+The RaceBook share entry records only the action name `supporter_guide_shared` under the existing consent-aware mobile analytics path. No guide address, coordinate, phone, URL, publication id or share token is sent.
+
+Authenticated shared-plan actions emit consent-gated mobile events through the existing PostHog wrapper: `plan crew followed`, `plan crew unfollowed`, `plan crew passage confirmed in app`, and `plan crew follower removed`. Payloads contain only a bounded source value; they never contain a raw share token, plan/follower name, snapshot, or passage details.
+
+Field-assistance enrichment adds consent-gated `followed plan directions opened`, `followed plan preparation opened`, and `followed plan updated seen`. Their only property is the bounded `source = followed_plan`; never attach the token, plan/race name, coordinates, access text, checklist contents, products, or passage detail.
+
+Moving the mobile timeline calculations behind a client-local package boundary does not add or rename any analytics event or property.
 
 Organizer analytics access is checked against the active plan plus the exact `capability.racebook_analytics` feature grant. A different Signature feature gift must not authorize analytics, and manual invoice creation or settlement has no analytics effect.
 
@@ -438,3 +449,5 @@ Livret-first navigation (2026-11-09): the new `Mes courses` followed-race cards,
 Organizer partner slots report only aggregate counters: `POST /api/racebook-partner-slots/impression` (one per reader session and slot once its tab is shown) and the counted click redirect. Presses on an organizer partner card do not emit `racebook action clicked`; default affiliate presses keep `partner_decathlon` / `partner_booking`. The publish dialog checks add no analytics event.
 
 Catalog scroll performance (2026-11-09): the Courses list renders memoized `CatalogEventRow` rows (stable callbacks through a handler ref) over a memoized `RaceEventSummaryCard`, tunes FlatList virtualization (`initialNumToRender` 6, `maxToRenderPerBatch` 4, `windowSize` 9, `removeClippedSubviews` on Android), downsamples rail images (`resizeMethod="resize"`) and reads reduce-motion on favorite press instead of subscribing one accessibility listener per card. Presentation only: no query, payload, analytics event or favorite/update-read behavior changes.
+
+Catalog end date (2026-11-14): `catalog.tsx` visibility/sorting now uses the event's last format day; no analytics event or property changed.

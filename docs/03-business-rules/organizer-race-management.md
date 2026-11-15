@@ -2,7 +2,7 @@
 title: Organizer Race Management
 scope: business-rule
 
-last_verified: 2026-11-09
+last_verified: 2026-11-15
 
 ai_priority: high
 related_files:
@@ -250,6 +250,12 @@ related_tables:
 ---
 
 # Organizer Race Management
+
+The Livret accompagnateur is an edition-level published view assembled from the current immutable publication of every preview-visible format. It adds no organizer form: the section chooser controls only the guide surface, existing source modules remain authoritative, and the header offers a guide preview plus a downloadable QR. Suivi coureur copy now states that its points appear in this guide.
+
+## Published data reused by plan followers
+
+The authenticated assistance view consumes only the immutable current RaceBook publication. `/api/racebook-data` and follow enrichment share `loadPublishedRacebookData`, including entitlement/module masking. A checkpoint uses its stable source ravito id first; legacy fallback accepts exactly one published station within 0.15 km, the existing RaceBook plan-reflection tolerance. Ambiguous matches receive no access rule. This creates no organizer field and never falls back to drafts.
 
 Organizer administration separates billing from effective access. A manual invoice can be emitted, corrected and settled without changing the edition tier or any feature grant; conversely an admin can grant a tier or one of the 14 higher-plan features without an invoice. Gifted features have no standalone price and appear on manual invoices only as `OFFERT`. Every protected module, advanced format field and operation resolves its own feature key, so one gift never unlocks sibling capabilities. Stripe-confirmed purchases keep their existing automatic entitlement activation.
 
@@ -707,3 +713,5 @@ Before a format or edition publication, the server builds the draft snapshot and
 The Matériel (Decathlon) and Services hébergement (Booking.com) cards are partner slots. They show the Pace Yourself affiliate link by default. With Signature and the selected `sponsors` module, the Sponsors section exposes `Emplacements partenaires`: per slot the organizer keeps the affiliate link, picks one of their edition sponsors (with an optional 120-character text) or hides the card, and sees per-slot views and clicks. Choices are draft content published with the RaceBook snapshot. See [race_event_edition_partner_slots](../02-database/tables/race-event-edition-partner-slots.md).
 
 Catalog scroll performance (2026-11-09): the Courses list renders memoized `CatalogEventRow` rows (stable callbacks through a handler ref) over a memoized `RaceEventSummaryCard`, tunes FlatList virtualization (`initialNumToRender` 6, `maxToRenderPerBatch` 4, `windowSize` 9, `removeClippedSubviews` on Android), downsamples rail images (`resizeMethod="resize"`) and reads reduce-motion on favorite press instead of subscribing one accessibility listener per card. Presentation only: no query, payload, analytics event or favorite/update-read behavior changes.
+
+Catalog end date (2026-11-14): a published multi-day event stays visible and ongoing in the mobile catalog until its last format's `race_date` (not the event start date) has passed.

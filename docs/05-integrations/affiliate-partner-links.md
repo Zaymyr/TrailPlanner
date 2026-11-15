@@ -32,6 +32,8 @@ related_tables:
 
 # Affiliate Partner Links
 
+The Supporter Guide Stay section reuses the published lodging slot semantics. V1 identifies the default Booking.com slot but does not expose a raw destination URL; partner destinations remain behind the existing counted redirect boundary.
+
 The shared mobile RaceBook screen now also renders additive third-party bib-pickup conditions. Booking/Decathlon destination resolution, affiliation disclosure, outbound analytics, and URL validation remain unchanged.
 
 The admin page's messaging inbox (bugs, feedback, race requests) and user-message actions are separate operational surfaces. They do not share partner-link configuration, destinations, caches, or the atomic partner settings upsert.

@@ -5,6 +5,7 @@ import { checkRateLimitAsync, withSecurityHeaders } from "../../../lib/http";
 import { getRunnerPlanAccess, getRunnerAdminMode } from "../../../lib/runner-access";
 import {
   buildPlanShareUrl,
+  bindPlanShareSnapshotToRace,
   departureTimeSchema,
   generatePlanShareId,
   generateStablePlanShareToken,
@@ -38,6 +39,7 @@ const serviceHeaders = (serviceConfig: SupabaseServiceConfig, contentType = "app
 
 type RacePlanLookupRow = {
   id: string;
+  race_id: string | null;
   updated_at: string;
 };
 
@@ -61,11 +63,66 @@ type PlanShareMutationRow = {
   expires_at: string | null;
 };
 
+export async function GET(request: Request) {
+  const supabaseAnon = getSupabaseAnonConfig();
+  const supabaseService = getSupabaseServiceConfig();
+  if (!supabaseAnon || !supabaseService) {
+    return withSecurityHeaders(NextResponse.json({ message: "Supabase configuration is missing." }, { status: 500 }));
+  }
+  const token = extractBearerToken(request.headers.get("authorization"));
+  const user = token ? await fetchSupabaseUser(token, supabaseAnon) : null;
+  if (!user) return withSecurityHeaders(NextResponse.json({ message: "Invalid session." }, { status: 401 }));
+  const planId = new URL(request.url).searchParams.get("planId");
+  if (!planId || !z.string().uuid().safeParse(planId).success) {
+    return withSecurityHeaders(NextResponse.json({ message: "Invalid plan id." }, { status: 400 }));
+  }
+  const rateLimit = await checkRateLimitAsync(`plan-share-status:${user.id}`, 60, 60_000);
+  if (!rateLimit.allowed) return withSecurityHeaders(NextResponse.json({ message: "Too many requests." }, { status: 429 }));
+  const query = new URLSearchParams({
+    plan_id: `eq.${planId}`,
+    user_id: `eq.${user.id}`,
+    select: "id,revoked_at,created_at",
+    order: "updated_at.desc",
+    limit: "1",
+  });
+  const response = await fetch(`${supabaseService.supabaseUrl}/rest/v1/plan_share_links?${query}`, {
+    headers: serviceHeaders(supabaseService, ""), cache: "no-store",
+  });
+  const rows = (await response.json().catch(() => [])) as Array<{ id: string; revoked_at: string | null; created_at: string }>;
+  if (!response.ok) return withSecurityHeaders(NextResponse.json({ message: "Unable to load share status." }, { status: 502 }));
+  const share = rows[0] ?? null;
+  let activeFollowerCount = 0;
+  if (share && !share.revoked_at) {
+    const countQuery = new URLSearchParams({
+      share_link_id: `eq.${share.id}`,
+      removed_at: 'is.null',
+      select: 'id',
+      limit: '1',
+    });
+    const countResponse = await fetch(`${supabaseService.supabaseUrl}/rest/v1/plan_share_follows?${countQuery}`, {
+      headers: { ...serviceHeaders(supabaseService, ''), Prefer: 'count=exact', Range: '0-0' },
+      cache: 'no-store',
+    });
+    if (countResponse.ok) {
+      const match = /\/(\d+)$/.exec(countResponse.headers.get('content-range') ?? '');
+      activeFollowerCount = match ? Number(match[1]) : 0;
+    }
+  }
+  return withSecurityHeaders(NextResponse.json({
+    share: share ? {
+      id: share.id,
+      revoked: Boolean(share.revoked_at),
+      createdAt: share.created_at,
+      activeFollowerCount,
+    } : null,
+  }));
+}
+
 async function loadOwnedPlan(serviceConfig: SupabaseServiceConfig, planId: string, userId: string) {
   const response = await fetch(
     `${serviceConfig.supabaseUrl}/rest/v1/race_plans?id=eq.${encodeURIComponent(
       planId
-    )}&user_id=eq.${encodeURIComponent(userId)}&select=id,updated_at&limit=1`,
+    )}&user_id=eq.${encodeURIComponent(userId)}&select=id,race_id,updated_at&limit=1`,
     {
       headers: serviceHeaders(serviceConfig, ""),
       cache: "no-store",
@@ -264,6 +321,11 @@ export async function POST(request: Request) {
     return withSecurityHeaders(NextResponse.json({ message: "Plan not found." }, { status: 404 }));
   }
 
+  const serverData = {
+    ...parsedBody.data,
+    snapshot: bindPlanShareSnapshotToRace(parsedBody.data.snapshot, ownedPlan.plan.race_id),
+  };
+
   const access = await getRunnerPlanAccess(supabaseUser.id, parsedBody.data.planId, { adminMode: await getRunnerAdminMode(supabaseUser, token) });
   if (!access.canViewDetails) return withSecurityHeaders(NextResponse.json({ message: "Unlock this course to share the detailed plan." }, { status: 402 }));
   const reusableShare = await loadReusableShareLink(supabaseService, parsedBody.data.planId, supabaseUser.id);
@@ -272,7 +334,7 @@ export async function POST(request: Request) {
       supabaseService,
       reusableShare.row.id,
       supabaseUser.id,
-      parsedBody.data,
+      serverData,
       ownedPlan.plan.updated_at
     );
 
@@ -291,7 +353,7 @@ export async function POST(request: Request) {
   const createdShare = await createShareLink(
     supabaseService,
     supabaseUser.id,
-    parsedBody.data,
+    serverData,
     ownedPlan.plan.updated_at
   );
 

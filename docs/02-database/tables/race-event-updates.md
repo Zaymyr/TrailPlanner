@@ -24,6 +24,8 @@ related_tables:
 
 # `race_event_updates`
 
+The catalog Supporter Guide entry does not load, create or send event updates. Manual organizer notifications remain a separate flow.
+
 ## Purpose
 
 `race_event_updates` stores manual organizer announcements for one event. Each row is runner-facing history and can also trigger a push notification to users who follow that event.
@@ -156,3 +158,5 @@ Catalog image-error fallback and the edge-to-edge sticky search surface are clie
 Livret-first navigation (2026-11-09): the catalog ordering (upcoming before past, favorites pinned inside each group), the `Livret disponible` card badge and the RaceBook-first event-sheet actions are mobile presentation only. They read no new field and add no table, column, RLS policy or write path; organizer-update previews, deep links and read receipts are unchanged.
 
 Catalog scroll performance (2026-11-09): the Courses list renders memoized `CatalogEventRow` rows (stable callbacks through a handler ref) over a memoized `RaceEventSummaryCard`, tunes FlatList virtualization (`initialNumToRender` 6, `maxToRenderPerBatch` 4, `windowSize` 9, `removeClippedSubviews` on Android), downsamples rail images (`resizeMethod="resize"`) and reads reduce-motion on favorite press instead of subscribing one accessibility listener per card. Presentation only: no query, payload, analytics event or favorite/update-read behavior changes.
+
+Catalog end date (2026-11-14): `catalog.tsx` now hides/sorts events by their last format day (`getCatalogEventEndDate`) instead of `race_events.race_date`, so updates of an ongoing multi-day event stay reachable; update queries are unchanged.

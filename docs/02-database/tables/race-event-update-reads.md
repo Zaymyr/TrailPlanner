@@ -16,6 +16,8 @@ related_tables:
 
 # `race_event_update_reads`
 
+The catalog Supporter Guide entry is independent from event-update read tracking and does not mark announcements read.
+
 ## Purpose
 
 `race_event_update_reads` records when an identified runner has seen an organizer announcement in the mobile app. The Courses tab uses it to keep a `NEW` badge on an event and its unread messages until the event sheet displays them.
@@ -93,3 +95,5 @@ Collapsing a failed catalog image rail or changing sticky search presentation do
 Livret-first navigation (2026-11-09): the catalog ordering (upcoming before past, favorites pinned inside each group), the `Livret disponible` card badge and the RaceBook-first event-sheet actions are mobile presentation only. They read no new field and add no table, column, RLS policy or write path; organizer-update previews, deep links and read receipts are unchanged.
 
 Catalog scroll performance (2026-11-09): the Courses list renders memoized `CatalogEventRow` rows (stable callbacks through a handler ref) over a memoized `RaceEventSummaryCard`, tunes FlatList virtualization (`initialNumToRender` 6, `maxToRenderPerBatch` 4, `windowSize` 9, `removeClippedSubviews` on Android), downsamples rail images (`resizeMethod="resize"`) and reads reduce-motion on favorite press instead of subscribing one accessibility listener per card. Presentation only: no query, payload, analytics event or favorite/update-read behavior changes.
+
+Catalog end date (2026-11-14): `catalog.tsx` now hides/sorts events by their last format day (`getCatalogEventEndDate`) instead of `race_events.race_date`; read tracking is unchanged.
