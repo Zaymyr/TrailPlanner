@@ -392,7 +392,7 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(controlsSource).not.toContain("export function CollapsibleRow");
     expect(detailSource).toContain("Obligatoire");
     expect(detailSource).toContain("Recommandé");
-    expect(detailSource).toContain("Conditions du retrait par un tiers");
+    expect(detailSource).toContain("Documents pour le retrait par un tiers");
     expect(detailSource).toContain("font-mono text-sm tabular-nums");
     expect(detailSource).toContain("function RequiredToggle");
     expect(detailSource).toContain('aria-label="Nouvel item de matériel"');
@@ -410,8 +410,9 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(source).toContain('title="Parkings"');
     expect(source).toContain('title="Navettes"');
     expect(source).toContain('label="Information prioritaire"');
-    expect(source).toContain('label="Fonctionnement des navettes"');
-    expect(source).toContain('label="Horaires des navettes"');
+    expect(source).toContain('label="Fréquence (min)"');
+    expect(source).toContain('label="Réservation"');
+    expect(source).toContain('block: "access"');
     expect(source).not.toContain('label="Note accès"');
   });
 

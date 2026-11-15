@@ -10,10 +10,18 @@ import {
   optionalTextOrNull,
   optionalUrlOrNull,
   requireAdminAuth,
+  requireEventOrganizer,
+  requireOrganizerAuth,
   serviceHeaders,
   type OrganizerAuth,
   uuidParamSchema,
 } from "../../../../../../lib/organizer";
+import { requireOrganizerEditionCapability } from "../../../../../../lib/organizer-entitlements";
+import {
+  convertOrganizerLegacyBlock,
+  OrganizerLegacyConversionError,
+  organizerLegacyBlockSchema,
+} from "../../../../../../lib/organizer-legacy-conversion";
 import {
   buildOrganizerWebsiteImportAnalysis,
   buildOrganizerWebsiteImportPreview,
@@ -143,6 +151,13 @@ const workflowRequestSchema = z.discriminatedUnion("action", [
   }),
   z.object({ action: z.literal("cancel"), sessionId: z.string().uuid() }),
 ]);
+
+const legacyConversionRequestSchema = z.object({
+  action: z.literal("convert-legacy-block"),
+  editionId: z.string().uuid(),
+  block: organizerLegacyBlockSchema,
+  text: z.string().trim().min(1).max(12_000),
+});
 
 type WorkflowRequest = z.infer<typeof workflowRequestSchema>;
 
@@ -2563,25 +2578,28 @@ const handleOrganizerImportWorkflow = async (
 };
 
 export async function POST(request: NextRequest, context: { params: { id?: string } }) {
-  const auth = await requireAdminAuth(request);
-  if ("error" in auth) return auth.error;
-
   const parsedParams = uuidParamSchema.safeParse(context.params);
   if (!parsedParams.success) return jsonError("Invalid event id.", 400);
 
   const isMultipart = request.headers.get("content-type")?.includes("multipart/form-data") ?? false;
   const rawBody = isMultipart ? null : await request.json().catch(() => null);
+  const isLegacyConversion = rawBody?.action === "convert-legacy-block";
+  const auth = isLegacyConversion ? await requireOrganizerAuth(request) : await requireAdminAuth(request);
+  if ("error" in auth) return auth.error;
+
+  const parsedLegacyConversion = isLegacyConversion ? legacyConversionRequestSchema.safeParse(rawBody) : null;
+  if (parsedLegacyConversion && !parsedLegacyConversion.success) return jsonError("Invalid legacy conversion request.", 400);
   const parsedWorkflow = !isMultipart && isWorkflowAction(rawBody?.action)
     ? workflowRequestSchema.safeParse(rawBody)
     : null;
   if (parsedWorkflow && !parsedWorkflow.success) return jsonError("Invalid import workflow request.", 400);
   const isApply = rawBody?.action === "apply";
   const previewRequest = isMultipart ? await parsePreviewRequest(request) : { parsed: previewRequestSchema.safeParse(rawBody), documents: [] as File[] };
-  const parsedBody = parsedWorkflow
+  const parsedBody = parsedWorkflow || parsedLegacyConversion
     ? null
     : isApply ? applyRequestSchema.safeParse(rawBody) : previewRequest.parsed;
   if (parsedBody && !parsedBody.success) return jsonError("Invalid import request.", 400);
-  if (!parsedWorkflow && !parsedBody) return jsonError("Invalid import request.", 400);
+  if (!parsedWorkflow && !parsedLegacyConversion && !parsedBody) return jsonError("Invalid import request.", 400);
   const temporaryDocumentReferences = parsedBody?.success && parsedBody.data.action === "preview" ? parsedBody.data.documents : [];
 
   const rateLimit = await checkRateLimitAsync(`organizer-website-import:${auth.user.id}:${parsedParams.data.id}`, 6, 60_000);
@@ -2596,6 +2614,37 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
 
   const event = await loadEventContext(auth.serviceConfig, parsedParams.data.id);
   if (!event) return jsonError("Unable to load event.", 502);
+
+  if (parsedLegacyConversion?.success) {
+    const membership = await requireEventOrganizer(auth.serviceConfig, auth.user, event.id);
+    if (membership !== true) return membership.error;
+    const editionBelongsToEvent = (event.race_event_editions ?? []).some((edition) => edition.id === parsedLegacyConversion.data.editionId);
+    if (!editionBelongsToEvent) return jsonError("Cette édition n'appartient pas à l'événement.", 403);
+    if (!(await requireOrganizerEditionCapability(auth.serviceConfig, parsedLegacyConversion.data.editionId, "assisted_import.request"))) {
+      return jsonError("La conversion assistée n'est pas incluse dans cette offre.", 403);
+    }
+    try {
+      const proposal = await convertOrganizerLegacyBlock(parsedLegacyConversion.data);
+      console.info("Organizer legacy block conversion proposed", {
+        eventId: event.id,
+        editionId: parsedLegacyConversion.data.editionId,
+        userId: auth.user.id,
+        block: parsedLegacyConversion.data.block,
+      });
+      return withSecurityHeaders(NextResponse.json({ proposal }));
+    } catch (error) {
+      console.error("Organizer legacy block conversion failed", {
+        eventId: event.id,
+        userId: auth.user.id,
+        block: parsedLegacyConversion.data.block,
+        error,
+      });
+      return jsonError(
+        error instanceof OrganizerLegacyConversionError ? error.message : "La conversion assistée a échoué.",
+        422
+      );
+    }
+  }
 
   if (parsedWorkflow?.success) {
     return handleOrganizerImportWorkflow(auth, event, parsedWorkflow.data);

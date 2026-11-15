@@ -2,6 +2,7 @@
 title: OpenAI Organizer Import Reconciliation
 scope: integration
 last_verified: 2026-11-15
+# Assisted legacy conversion (2026-11-15): bounded historical text uses strict block-specific JSON schemas and returns proposals only; full website import remains admin-only.
 # Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
 # Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: high
@@ -13,6 +14,9 @@ ai_priority: high
 # Layout polish note (2026-11-13): organizer presentation changes (aid-station detail, format metrics row, media rail visibility, equipment status action) do not alter stored data or contracts.
 # Fill-flow note (2026-11-13): organizer form ergonomics (ravito services, Enter-to-add, slot undo, sponsor ordering) do not alter stored data or contracts.
 related_files:
+  - apps/web/lib/organizer-legacy-conversion.ts
+  - apps/web/lib/organizer-legacy-conversion.test.ts
+  - apps/web/app/organizer/_components/dashboard/legacy-conversion-panel.tsx
   - apps/web/lib/organizer-source-intelligence.ts
   - apps/web/lib/organizer-source-intelligence.test.ts
   - apps/web/lib/organizer-import-reconciliation.ts

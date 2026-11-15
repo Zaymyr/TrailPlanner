@@ -2,6 +2,7 @@
 title: Web App Architecture
 scope: architecture
 last_verified: 2026-11-15
+# Assisted legacy conversion (2026-11-15): historical organizer text can request a schema-specific OpenAI proposal; every proposed field requires explicit Apply/Ignore review and the conversion endpoint never persists.
 # Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
 # Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
 # Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
@@ -20,6 +21,9 @@ ai_priority: high
 # Organizer UX pass (2026-11-14): the left nav expands a format's sections directly under that format (chevron, aria-expanded) instead of below “Ajouter un format”; ravito detail offers a two-option Ravito / Base de vie type (life_base vs existing non-life-base value) and the timeline badges bases de vie; Matériel is a flat compact list with a quick-add bar at the top (Enter, suggestions, required switch, new items prepended) and an Obligatoire/Recommandé switch per row that no longer moves rows between groups.
 # Course timeline pass (2026-11-14): the Départ/ravitos editor shows one timeline filtered by Tout / Ravitos / Suivi / SAS / Relais; SAS sit right after Départ, each point kind has its own marker (ravito green dot, base de vie larger dot + badge, suivi blue ring + “Suivi” tag, relais violet diamond), aid/relay/finish rows show a clock cutoff chip or “Sans barrière”, the right panel follows the clicked point, the timeline is height-capped with its own scroll, and “Horaires et consignes” sits below the grid so the sticky timeline no longer overlaps it.
 related_files:
+  - apps/web/lib/organizer-legacy-conversion.ts
+  - apps/web/lib/organizer-legacy-conversion.test.ts
+  - apps/web/app/organizer/_components/dashboard/legacy-conversion-panel.tsx
   - apps/web/app/admin/video-generator/export-frame.test.ts
   - apps/web/app/admin/video-generator/export-frame.ts
   - apps/web/app/admin/_components/AdminMessagingTab.tsx

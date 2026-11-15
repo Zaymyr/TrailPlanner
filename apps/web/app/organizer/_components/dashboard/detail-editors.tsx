@@ -18,8 +18,11 @@ import { AddressAutocompleteField } from "./address-autocomplete-field";
 import { equipmentSuggestions } from "./constants";
 import { ContextualHelp, InlineEditableRow, NumberField, OptionalModule, SegmentedChoice, TextAreaField, TextField, ToggleChip } from "./controls";
 import { isOutsideDateRange, SelectField, SwitchRow } from "./form-kit";
+import { LegacyConversionPanel } from "./legacy-conversion-panel";
 import type { RaceFormat } from "./types";
+import type { OrganizerLegacyBlock } from "../../../../lib/organizer-legacy-conversion";
 
+type LegacyConversionContext = { eventId: string; editionId: string; headers: HeadersInit };
 
 export function EquipmentEditor({
   scope,
@@ -28,6 +31,7 @@ export function EquipmentEditor({
   raceDetails,
   onEventChange,
   onRaceChange,
+  legacyConversionContext,
 }: {
   scope: "event" | "format";
   activeRace: RaceFormat | null;
@@ -35,6 +39,7 @@ export function EquipmentEditor({
   raceDetails: OrganizerRaceDetails;
   onEventChange: (details: OrganizerEventDetails) => void;
   onRaceChange: (details: OrganizerRaceDetails) => void;
+  legacyConversionContext?: LegacyConversionContext;
 }) {
   if (scope === "event") {
     return (
@@ -45,6 +50,7 @@ export function EquipmentEditor({
         weatherPlanEditable
         showHeader={false}
         onEquipmentChange={(mandatoryEquipment) => onEventChange({ ...eventDetails, mandatoryEquipment })}
+        legacyConversionContext={legacyConversionContext}
       />
     );
   }
@@ -88,6 +94,7 @@ export function EquipmentEditor({
           sharedItems={eventDetails.mandatoryEquipment.items}
           showHeader={false}
           onEquipmentChange={(mandatoryEquipment) => onRaceChange({ ...raceDetails, mandatoryEquipment: { ...mandatoryEquipment, overrideEnabled: true } })}
+          legacyConversionContext={legacyConversionContext}
         />
       ) : null}
     </div>
@@ -120,6 +127,7 @@ function EquipmentFields({
   showHeader = true,
   sharedItems,
   onEquipmentChange,
+  legacyConversionContext,
 }: {
   title: string;
   description: string;
@@ -129,6 +137,7 @@ function EquipmentFields({
   showHeader?: boolean;
   sharedItems?: OrganizerEventDetails["mandatoryEquipment"]["items"];
   onEquipmentChange: (equipment: OrganizerEventDetails["mandatoryEquipment"]) => void;
+  legacyConversionContext?: LegacyConversionContext;
 }) {
   const updateItems = (items: OrganizerEventDetails["mandatoryEquipment"]["items"]) => onEquipmentChange({ ...equipment, items });
   const updateWeatherPlan = (weatherPlan: OrganizerEventDetails["mandatoryEquipment"]["weatherPlan"]) => onEquipmentChange({ ...equipment, weatherPlan });
@@ -280,7 +289,7 @@ function EquipmentFields({
       ) : null}
       <DocumentKindChips title="Contrôlé" values={equipment.checkpoints} options={[['bib_pickup', 'Au retrait'], ['start', 'Au départ'], ['course', 'Sur le parcours']]} onChange={(checkpoints) => onEquipmentChange({ ...equipment, checkpoints })} />
       <TextAreaField label="Note courte" hint={`${(equipment.shortNote ?? '').length}/200 caractères`} value={equipment.shortNote ?? ''} onChange={(shortNote) => onEquipmentChange({ ...equipment, shortNote: shortNote.slice(0, 200) || null })} invalid={missingEquipment} />
-      {equipment.note ? <LegacyText text={equipment.note} /> : null}
+      {equipment.note ? <LegacyText text={equipment.note} conversion={legacyConversionContext ? { ...legacyConversionContext, block: "equipment", onApply: (proposal: { checkpoints: OrganizerEventDetails["mandatoryEquipment"]["checkpoints"]; shortNote: string | null }) => onEquipmentChange({ ...equipment, checkpoints: proposal.checkpoints, shortNote: proposal.shortNote }) } : undefined} /> : null}
     </section>
   );
 }
@@ -290,11 +299,13 @@ export function BibPickupEditor({
   editionStartDate,
   editionEndDate,
   onEventChange,
+  legacyConversionContext,
 }: {
   eventDetails: OrganizerEventDetails;
   editionStartDate: string;
   editionEndDate: string;
   onEventChange: (details: OrganizerEventDetails) => void;
+  legacyConversionContext?: LegacyConversionContext;
 }) {
   return (
     <BibPickupFields
@@ -305,6 +316,7 @@ export function BibPickupEditor({
       editionEndDate={editionEndDate}
       showHeader={false}
       onBibChange={(bibPickup) => onEventChange({ ...eventDetails, bibPickup })}
+      legacyConversionContext={legacyConversionContext}
     />
   );
 }
@@ -316,6 +328,7 @@ export function RaceBibPickupEditor({
   editionStartDate,
   editionEndDate,
   onRaceChange,
+  legacyConversionContext,
 }: {
   activeRace: RaceFormat | null;
   eventDetails: OrganizerEventDetails;
@@ -323,6 +336,7 @@ export function RaceBibPickupEditor({
   editionStartDate: string;
   editionEndDate: string;
   onRaceChange: (details: OrganizerRaceDetails) => void;
+  legacyConversionContext?: LegacyConversionContext;
 }) {
   if (!activeRace) {
     return <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">Sélectionne un format pour ajouter un retrait spécifique.</p>;
@@ -363,6 +377,7 @@ export function RaceBibPickupEditor({
       showHeader={false}
       framed={false}
       onBibChange={(bibPickup) => onRaceChange({ ...raceDetails, bibPickup: { ...bibPickup, overrideEnabled: true } })}
+      legacyConversionContext={legacyConversionContext}
     />
   );
 }
@@ -377,6 +392,7 @@ function BibPickupFields({
   framed = false,
   editionStartDate,
   editionEndDate,
+  legacyConversionContext,
 }: {
   title: string;
   description: string;
@@ -387,8 +403,16 @@ function BibPickupFields({
   framed?: boolean;
   editionStartDate: string;
   editionEndDate: string;
+  legacyConversionContext?: LegacyConversionContext;
 }) {
   const update = (next: Partial<OrganizerEventDetails["bibPickup"]>) => onBibChange({ ...bib, ...next });
+  const applyDocumentProposal = (proposal: {
+    requiredDocumentKinds: OrganizerEventDetails["bibPickup"]["requiredDocumentKinds"];
+    requiredDocumentsOther: string | null;
+    thirdPartyPickupAllowed: boolean | null;
+    thirdPartyDocumentKinds: OrganizerEventDetails["bibPickup"]["thirdPartyDocumentKinds"];
+    thirdPartyDocumentsOther: string | null;
+  }) => update({ ...proposal, thirdPartyPickupAllowed: proposal.thirdPartyPickupAllowed ?? bib.thirdPartyPickupAllowed });
   const locations = getOrganizerBibPickupLocations(bib);
   const emptyLocationDetails = defaultOrganizerEventDetails.bibPickup.locationDetails;
   const updateLocations = (nextLocations: OrganizerBibPickupLocation[]) => {
@@ -545,10 +569,10 @@ function BibPickupFields({
       ) : null}
       <DocumentKindChips title="À apporter au retrait" values={bib.requiredDocumentKinds} options={[['id_card', 'Pièce d’identité'], ['registration_qr', 'QR d’inscription'], ['medical_certificate', 'Certificat médical'], ['license_or_pps', 'Licence ou PPS'], ['parental_authorization', 'Autorisation parentale'], ['other', 'Autre']]} onChange={(requiredDocumentKinds) => update({ requiredDocumentKinds })} />
       {bib.requiredDocumentKinds.includes('other') ? <TextAreaField label="Autre document" hint={`${(bib.requiredDocumentsOther ?? '').length}/200 caractères`} value={bib.requiredDocumentsOther ?? ''} onChange={(requiredDocumentsOther) => update({ requiredDocumentsOther: requiredDocumentsOther.slice(0, 200) || null })} /> : null}
-      {bib.requiredDocuments ? <LegacyText text={bib.requiredDocuments} /> : null}
+      {bib.requiredDocuments ? <LegacyText text={bib.requiredDocuments} conversion={legacyConversionContext ? { ...legacyConversionContext, block: "bib_pickup", onApply: applyDocumentProposal } : undefined} /> : null}
       <div className="space-y-3 border-t border-border pt-4">
         <SwitchRow label="Retrait par un tiers" description="Une autre personne peut récupérer le dossard." checked={bib.thirdPartyPickupAllowed === true} onCheckedChange={(thirdPartyPickupAllowed) => update({ thirdPartyPickupAllowed })} />
-        {bib.thirdPartyPickupAllowed === true ? <div className="ml-0 space-y-3 border-l-2 border-brand-border pl-4 sm:ml-4"><DocumentKindChips title="Documents pour le retrait par un tiers" values={bib.thirdPartyDocumentKinds} options={[['id_copy', 'Copie de la pièce d’identité'], ['proxy_letter', 'Procuration'], ['registration_qr', 'QR d’inscription'], ['other', 'Autre']]} onChange={(thirdPartyDocumentKinds) => update({ thirdPartyDocumentKinds })} />{bib.thirdPartyDocumentKinds.includes('other') ? <TextAreaField label="Autre document tiers" hint={`${(bib.thirdPartyDocumentsOther ?? '').length}/200 caractères`} value={bib.thirdPartyDocumentsOther ?? ''} onChange={(thirdPartyDocumentsOther) => update({ thirdPartyDocumentsOther: thirdPartyDocumentsOther.slice(0, 200) || null })} /> : null}{bib.thirdPartyPickupConditions ? <LegacyText text={bib.thirdPartyPickupConditions} /> : null}</div> : null}
+        {bib.thirdPartyPickupAllowed === true ? <div className="ml-0 space-y-3 border-l-2 border-brand-border pl-4 sm:ml-4"><DocumentKindChips title="Documents pour le retrait par un tiers" values={bib.thirdPartyDocumentKinds} options={[['id_copy', 'Copie de la pièce d’identité'], ['proxy_letter', 'Procuration'], ['registration_qr', 'QR d’inscription'], ['other', 'Autre']]} onChange={(thirdPartyDocumentKinds) => update({ thirdPartyDocumentKinds })} />{bib.thirdPartyDocumentKinds.includes('other') ? <TextAreaField label="Autre document tiers" hint={`${(bib.thirdPartyDocumentsOther ?? '').length}/200 caractères`} value={bib.thirdPartyDocumentsOther ?? ''} onChange={(thirdPartyDocumentsOther) => update({ thirdPartyDocumentsOther: thirdPartyDocumentsOther.slice(0, 200) || null })} /> : null}{bib.thirdPartyPickupConditions ? <LegacyText text={bib.thirdPartyPickupConditions} conversion={legacyConversionContext ? { ...legacyConversionContext, block: "bib_pickup", onApply: applyDocumentProposal } : undefined} /> : null}</div> : null}
         <SwitchRow label="Contrôle du matériel au retrait" checked={bib.equipmentCheck === true} onCheckedChange={(equipmentCheck) => update({ equipmentCheck })} />
       </div>
       <TextAreaField label="Note dossard" value={bib.note ?? ""} onChange={(value) => update({ note: value || null })} />
@@ -568,6 +592,7 @@ export function AccessEditor({
   onEventChange,
   onRaceChange,
   editionStartDate,
+  legacyConversionContext,
 }: {
   scope: "event" | "format";
   activeRace: RaceFormat | null;
@@ -576,6 +601,7 @@ export function AccessEditor({
   onEventChange: (details: OrganizerEventDetails) => void;
   onRaceChange: (details: OrganizerRaceDetails) => void;
   editionStartDate?: string | null;
+  legacyConversionContext?: LegacyConversionContext;
 }) {
   if (scope === "event") {
     return (
@@ -590,6 +616,7 @@ export function AccessEditor({
         showHeader={false}
         editionStartDate={editionStartDate}
         editionEndDate={eventDetails.dateRange.endDate}
+        legacyConversionContext={legacyConversionContext}
       />
     );
   }
@@ -628,9 +655,10 @@ export function AccessEditor({
         showHeader={false}
         editionStartDate={editionStartDate}
         editionEndDate={eventDetails.dateRange.endDate}
+        legacyConversionContext={legacyConversionContext}
       />
       {raceDetails.access.enabledSections.runnerInfo ? (
-        <RunnerInfoFields runnerInfo={raceDetails.runnerInfo} equipmentItems={(raceDetails.mandatoryEquipment.overrideEnabled ? raceDetails.mandatoryEquipment : eventDetails.mandatoryEquipment).items} onRunnerInfoChange={(runnerInfo) => onRaceChange({ ...raceDetails, runnerInfo })} />
+        <RunnerInfoFields runnerInfo={raceDetails.runnerInfo} equipmentItems={(raceDetails.mandatoryEquipment.overrideEnabled ? raceDetails.mandatoryEquipment : eventDetails.mandatoryEquipment).items} onRunnerInfoChange={(runnerInfo) => onRaceChange({ ...raceDetails, runnerInfo })} legacyConversionContext={legacyConversionContext} />
       ) : null}
     </div>
   );
@@ -647,6 +675,7 @@ function AccessFields({
   showHeader = true,
   editionStartDate,
   editionEndDate,
+  legacyConversionContext,
 }: {
   title: string;
   description: string;
@@ -658,6 +687,7 @@ function AccessFields({
   showHeader?: boolean;
   editionStartDate?: string | null;
   editionEndDate?: string | null;
+  legacyConversionContext?: LegacyConversionContext;
 }) {
   const update = (next: Partial<OrganizerEventDetails["access"]>) => onAccessChange({ ...access, ...next });
   const updateSection = (key: keyof OrganizerEventDetails["access"]["enabledSections"], checked: boolean) =>
@@ -674,6 +704,13 @@ function AccessFields({
   const [restrictionsOpen, setRestrictionsOpen] = useState(access.enabledSections.roadRestrictions || Boolean(access.roadRestrictions?.trim()));
   const [parkingsOpen, setParkingsOpen] = useState(access.enabledSections.officialParkings || Boolean(access.officialParkings?.trim()));
   const [shuttlesOpen, setShuttlesOpen] = useState(access.enabledSections.shuttles || Boolean(access.shuttles?.trim() || access.shuttleSchedule?.trim()));
+  const applyAccessProposal = (proposal: {
+    parkings: Array<{ name: string; address: string | null; capacity: number | null; paid: boolean | null; note: string | null }>;
+    shuttleLines: Array<{ from: string; to: string; startTime: string | null; endTime: string | null; frequencyMinutes: number | null; bookingUrl: string | null; free: boolean | null; note: string | null }>;
+  }) => update({
+    parkings: proposal.parkings.map((parking) => ({ id: crypto.randomUUID(), name: parking.name, location: { label: parking.address, lat: null, lng: null, googleMapsUrl: null, source: "manual" }, capacity: parking.capacity, paid: parking.paid, note: parking.note })),
+    shuttleLines: proposal.shuttleLines.map((line) => ({ id: crypto.randomUUID(), from: { label: line.from, lat: null, lng: null, googleMapsUrl: null, source: "manual" }, to: { label: line.to, lat: null, lng: null, googleMapsUrl: null, source: "manual" }, days: [], startTime: line.startTime, endTime: line.endTime, frequencyMinutes: line.frequencyMinutes, bookingUrl: line.bookingUrl, free: line.free, note: line.note })),
+  });
 
   return (
     <section className="space-y-4">
@@ -742,7 +779,7 @@ function AccessFields({
         onRemove={() => { setParkingsOpen(false); updateSection("officialParkings", false); }}
       >
           <ParkingCards parkings={access.parkings} biasLocation={biasLocation} onChange={(parkings) => update({ parkings })} />
-          {access.officialParkings ? <LegacyText text={access.officialParkings} /> : null}
+          {access.officialParkings ? <LegacyText text={access.officialParkings} conversion={legacyConversionContext ? { ...legacyConversionContext, block: "access", onApply: applyAccessProposal } : undefined} /> : null}
       </OptionalModule>
 
       <div className="sm:col-span-2">
@@ -754,7 +791,7 @@ function AccessFields({
         onRemove={() => { setShuttlesOpen(false); updateSection("shuttles", false); }}
       >
           <ShuttleCards lines={access.shuttleLines} editionDays={editionDays(editionStartDate, editionEndDate)} biasLocation={biasLocation} onChange={(shuttleLines) => update({ shuttleLines })} />
-          {access.shuttles || access.shuttleSchedule ? <LegacyText text={[access.shuttles, access.shuttleSchedule].filter(Boolean).join("\n\n")} /> : null}
+          {access.shuttles || access.shuttleSchedule ? <LegacyText text={[access.shuttles, access.shuttleSchedule].filter(Boolean).join("\n\n")} conversion={legacyConversionContext ? { ...legacyConversionContext, block: "access", onApply: applyAccessProposal } : undefined} /> : null}
       </OptionalModule>
       </div>
       </div>
@@ -772,8 +809,8 @@ function AccessFields({
   );
 }
 
-function LegacyText({ text }: { text: string }) {
-  return <details className="rounded-lg border border-border bg-muted/20 p-3"><summary className="cursor-pointer text-sm font-semibold">Texte à convertir</summary><p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{text}</p></details>;
+function LegacyText<T>({ text, conversion }: { text: string; conversion?: LegacyConversionContext & { block: OrganizerLegacyBlock; onApply: (proposal: T) => void } }) {
+  return <details className="rounded-lg border border-border bg-muted/20 p-3"><summary className="cursor-pointer text-sm font-semibold">Texte à convertir</summary><p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{text}</p>{conversion ? <LegacyConversionPanel<T> {...conversion} text={text} /> : null}</details>;
 }
 
 function editionDays(start?: string | null, end?: string | null) {
@@ -800,15 +837,26 @@ function RunnerInfoFields({
   runnerInfo,
   equipmentItems,
   onRunnerInfoChange,
+  legacyConversionContext,
 }: {
   runnerInfo: OrganizerRaceDetails["runnerInfo"];
   equipmentItems: OrganizerRaceDetails["mandatoryEquipment"]["items"];
   onRunnerInfoChange: (runnerInfo: OrganizerRaceDetails["runnerInfo"]) => void;
+  legacyConversionContext?: LegacyConversionContext;
 }) {
   const update = (next: Partial<OrganizerRaceDetails["runnerInfo"]>) => onRunnerInfoChange({ ...runnerInfo, ...next });
   const startArea = runnerInfo.startAreaDetails;
   const briefing = runnerInfo.briefingDetails;
   const rules = runnerInfo.rulesDetails;
+  const applyRunnerInfoProposal = (proposal: {
+    startArea: { address: string | null; opensAt: string | null; note: string | null };
+    briefing: { date: string | null; time: string | null; location: string | null; videoUrl: string | null; mandatory: boolean; note: string | null };
+    rules: { regulationUrl: string | null; polesAllowed: "allowed" | "partial" | "forbidden" | null; cupRequired: boolean | null; musicAllowed: boolean | null; outsideAssistanceForbidden: boolean | null; note: string | null };
+  }) => update({
+    startAreaDetails: { location: { ...startArea.location, label: proposal.startArea.address, source: "manual" }, opensAt: proposal.startArea.opensAt, note: proposal.startArea.note },
+    briefingDetails: { location: { ...briefing.location, label: proposal.briefing.location, source: "manual" }, date: proposal.briefing.date, time: proposal.briefing.time, videoUrl: proposal.briefing.videoUrl, mandatory: proposal.briefing.mandatory, note: proposal.briefing.note },
+    rulesDetails: { regulationUrl: proposal.rules.regulationUrl, keyRules: { polesAllowed: proposal.rules.polesAllowed, cupRequired: proposal.rules.cupRequired, musicAllowed: proposal.rules.musicAllowed, outsideAssistanceForbidden: proposal.rules.outsideAssistanceForbidden }, note: proposal.rules.note },
+  });
   return (
     <div className="space-y-3 border-t border-border pt-4">
       <div className="flex items-center gap-2">
@@ -818,7 +866,7 @@ function RunnerInfoFields({
       <section className="space-y-3 rounded-xl border border-border p-3"><p className="font-semibold">Zone de départ</p><AddressAutocompleteField label="Adresse" value={startArea.location.label ?? ''} location={startArea.location} onChange={(label) => update({ startAreaDetails: { ...startArea, location: { ...startArea.location, label: label || null } } })} onLocationChange={(location) => update({ startAreaDetails: { ...startArea, location } })} /><TextField label="Ouverture" type="time" value={startArea.opensAt ?? ''} onChange={(opensAt) => update({ startAreaDetails: { ...startArea, opensAt: opensAt || null } })} /><TextAreaField label="Note courte" hint={`${(startArea.note ?? '').length}/200 caractères`} value={startArea.note ?? ''} onChange={(note) => update({ startAreaDetails: { ...startArea, note: note.slice(0, 200) || null } })} /></section>
       <section className="space-y-3 rounded-xl border border-border p-3"><p className="font-semibold">Briefing</p><div className="grid gap-3 sm:grid-cols-2"><TextField label="Date" type="date" value={briefing.date ?? ''} onChange={(date) => update({ briefingDetails: { ...briefing, date: date || null } })} /><TextField label="Heure" type="time" value={briefing.time ?? ''} onChange={(time) => update({ briefingDetails: { ...briefing, time: time || null } })} /></div><AddressAutocompleteField label="Lieu" value={briefing.location.label ?? ''} location={briefing.location} onChange={(label) => update({ briefingDetails: { ...briefing, location: { ...briefing.location, label: label || null } } })} onLocationChange={(location) => update({ briefingDetails: { ...briefing, location } })} /><TextField label="Vidéo" type="url" value={briefing.videoUrl ?? ''} onChange={(videoUrl) => update({ briefingDetails: { ...briefing, videoUrl: videoUrl || null } })} /><SwitchRow label="Briefing obligatoire" checked={briefing.mandatory} onCheckedChange={(mandatory) => update({ briefingDetails: { ...briefing, mandatory } })} /><TextAreaField label="Note courte" hint={`${(briefing.note ?? '').length}/200 caractères`} value={briefing.note ?? ''} onChange={(note) => update({ briefingDetails: { ...briefing, note: note.slice(0, 200) || null } })} /></section>
       <section className="space-y-3 rounded-xl border border-border p-3"><p className="font-semibold">Règles clés</p><TextField label="Règlement" type="url" value={rules.regulationUrl ?? ''} onChange={(regulationUrl) => update({ rulesDetails: { ...rules, regulationUrl: regulationUrl || null } })} /><SegmentedChoice label="Bâtons" value={rules.keyRules.polesAllowed ?? 'unknown'} options={[{ value: 'unknown', label: 'Non précisé' }, { value: 'allowed', label: 'Autorisés' }, { value: 'partial', label: 'Partiels' }, { value: 'forbidden', label: 'Interdits' }] as const} onChange={(polesAllowed) => update({ rulesDetails: { ...rules, keyRules: { ...rules.keyRules, polesAllowed: polesAllowed === 'unknown' ? null : polesAllowed } } })} /><SwitchRow label="Gobelet obligatoire" checked={rules.keyRules.cupRequired === true} onCheckedChange={(cupRequired) => update({ rulesDetails: { ...rules, keyRules: { ...rules.keyRules, cupRequired } } })} /><SwitchRow label="Musique autorisée" checked={rules.keyRules.musicAllowed === true} onCheckedChange={(musicAllowed) => update({ rulesDetails: { ...rules, keyRules: { ...rules.keyRules, musicAllowed } } })} /><SwitchRow label="Assistance extérieure interdite" checked={rules.keyRules.outsideAssistanceForbidden === true} onCheckedChange={(outsideAssistanceForbidden) => update({ rulesDetails: { ...rules, keyRules: { ...rules.keyRules, outsideAssistanceForbidden } } })} />{rules.keyRules.cupRequired && !hasOrganizerEquipmentLabelPrefix(equipmentItems, 'gobelet') ? <p className="text-sm text-amber-700">Pense à ajouter un gobelet au matériel obligatoire.</p> : null}<TextAreaField label="Note courte" hint={`${(rules.note ?? '').length}/200 caractères`} value={rules.note ?? ''} onChange={(note) => update({ rulesDetails: { ...rules, note: note.slice(0, 200) || null } })} /></section>
-      {runnerInfo.startArea || runnerInfo.briefing || runnerInfo.rules ? <LegacyText text={[runnerInfo.startArea, runnerInfo.briefing, runnerInfo.rules].filter(Boolean).join('\n\n')} /> : null}
+      {runnerInfo.startArea || runnerInfo.briefing || runnerInfo.rules ? <LegacyText text={[runnerInfo.startArea, runnerInfo.briefing, runnerInfo.rules].filter(Boolean).join('\n\n')} conversion={legacyConversionContext ? { ...legacyConversionContext, block: "runner_info", onApply: applyRunnerInfoProposal } : undefined} /> : null}
       <TextAreaField label="Note format" value={runnerInfo.note ?? ""} onChange={(value) => update({ note: value.slice(0, 200) || null })} />
     </div>
   );

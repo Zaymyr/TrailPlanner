@@ -4118,6 +4118,7 @@ export function OrganizerDashboard({
               }}
               onCreateProduct={createStationProduct}
                 status={status}
+              legacyConversionContext={selectedEventId && activeEdition?.id ? { eventId: selectedEventId, editionId: activeEdition.id, headers: authHeaders } : undefined}
               />
             )
           ) : activeModule === "equipment" ? (
@@ -4128,10 +4129,11 @@ export function OrganizerDashboard({
               raceDetails={raceForm.organizerDetails}
               onEventChange={(details) => updateEventDetails(details, "equipment")}
               onRaceChange={(details) => updateRaceForm({ organizerDetails: details }, "equipment")}
+              legacyConversionContext={selectedEventId && activeEdition?.id ? { eventId: selectedEventId, editionId: activeEdition.id, headers: authHeaders } : undefined}
             />
           ) : activeModule === "bibPickup" ? (
             isEventTab ? (
-              <BibPickupEditor eventDetails={eventForm.organizerDetails} editionStartDate={eventForm.editionStartDate} editionEndDate={eventForm.editionEndDate} onEventChange={(details) => updateEventDetails(details, "bibPickup")} />
+              <BibPickupEditor eventDetails={eventForm.organizerDetails} editionStartDate={eventForm.editionStartDate} editionEndDate={eventForm.editionEndDate} onEventChange={(details) => updateEventDetails(details, "bibPickup")} legacyConversionContext={selectedEventId && activeEdition?.id ? { eventId: selectedEventId, editionId: activeEdition.id, headers: authHeaders } : undefined} />
             ) : (
               <RaceBibPickupEditor
                 activeRace={activeRace}
@@ -4140,6 +4142,7 @@ export function OrganizerDashboard({
                 editionStartDate={eventForm.editionStartDate}
                 editionEndDate={eventForm.editionEndDate}
                 onRaceChange={(details) => updateRaceForm({ organizerDetails: details }, "bibPickup")}
+                legacyConversionContext={selectedEventId && activeEdition?.id ? { eventId: selectedEventId, editionId: activeEdition.id, headers: authHeaders } : undefined}
               />
             )
           ) : activeModule === "access" ? (
@@ -4151,6 +4154,7 @@ export function OrganizerDashboard({
               onEventChange={(details) => updateEventDetails(details, "access")}
               onRaceChange={(details) => updateRaceForm({ organizerDetails: details }, "access")}
               editionStartDate={eventForm.editionStartDate}
+              legacyConversionContext={selectedEventId && activeEdition?.id ? { eventId: selectedEventId, editionId: activeEdition.id, headers: authHeaders } : undefined}
             />
           ) : activeModule === "products" ? (
             <ProductsEditor

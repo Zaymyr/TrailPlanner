@@ -2,6 +2,7 @@
 title: race_event_publication_requests Table
 scope: database
 last_verified: 2026-11-15
+# Assisted legacy conversion (2026-11-15): Apply updates only the local organizer form; publication rules evaluate the subsequently saved draft.
 # Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
 # Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: high

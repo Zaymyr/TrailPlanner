@@ -11,6 +11,7 @@ import { ConfirmDialog, SelectField, SwitchRow } from "./form-kit";
 import { formatKm, getGpxCoordinateAtDistance, normalizeClockInputValue } from "./helpers";
 import { StationProductsBlock } from "./products-editor";
 import { AddressAutocompleteField } from "./address-autocomplete-field";
+import { LegacyConversionPanel } from "./legacy-conversion-panel";
 import type {
   AidStationDraft,
   ProductFormValues,
@@ -68,6 +69,7 @@ export function AidStationsEditor({
   onProductFormChange,
   onCreateProduct,
   status,
+  legacyConversionContext,
 }: {
   activeRace: RaceFormat | null;
   aidStations: AidStationDraft[];
@@ -110,6 +112,7 @@ export function AidStationsEditor({
   onProductFormChange: (values: ProductFormValues) => void;
   onCreateProduct: (event: FormEvent<HTMLFormElement>) => void;
   status: "idle" | "loading" | "saving" | "uploading";
+  legacyConversionContext?: { eventId: string; editionId: string; headers: HeadersInit };
 }) {
   const [viewState, setViewState] = useState<{ scopeKey: string; view: EditorView }>({
     scopeKey: "",
@@ -345,7 +348,7 @@ export function AidStationsEditor({
                   <div><p className="font-semibold text-foreground">{selectedAidStation.name || `Ravito ${selectedAidStationIndex + 1}`}</p><p className="text-xs text-muted-foreground">{formatKm(selectedAidStation.distanceKm)}</p></div>
                 </div>
               </header>
-              <StationDetailsPanel station={selectedAidStation} startTime={startTime} onChange={(next) => onUpdateStation(selectedAidStationIndex, next)} onRemove={() => setPendingStationRemoval({ index: selectedAidStationIndex, name: selectedAidStation.name || `Ravito ${selectedAidStationIndex + 1}` })} productsSlot={selectedProductsSlot} servicesSlot={(
+              <StationDetailsPanel station={selectedAidStation} startTime={startTime} onChange={(next) => onUpdateStation(selectedAidStationIndex, next)} onRemove={() => setPendingStationRemoval({ index: selectedAidStationIndex, name: selectedAidStation.name || `Ravito ${selectedAidStationIndex + 1}` })} productsSlot={selectedProductsSlot} legacyConversionContext={legacyConversionContext} servicesSlot={(
                 <fieldset className="space-y-2">
                   <legend className="text-sm font-medium text-foreground">Sur place</legend>
                   <div className="flex flex-wrap gap-2">
@@ -687,7 +690,7 @@ function FixedCourseCard({
   );
 }
 
-function StationDetailsPanel({ station, startTime, onChange, onRemove, productsSlot, servicesSlot }: { station: AidStationDraft; startTime: string; onChange: (station: AidStationDraft) => void; onRemove: () => void; productsSlot: ReactNode; servicesSlot: ReactNode }) {
+function StationDetailsPanel({ station, startTime, onChange, onRemove, productsSlot, servicesSlot, legacyConversionContext }: { station: AidStationDraft; startTime: string; onChange: (station: AidStationDraft) => void; onRemove: () => void; productsSlot: ReactNode; servicesSlot: ReactNode; legacyConversionContext?: { eventId: string; editionId: string; headers: HeadersInit } }) {
   const details = station.organizerDetails;
   return (
     <div className="space-y-5 p-4">
@@ -729,7 +732,7 @@ function StationDetailsPanel({ station, startTime, onChange, onRemove, productsS
         <div className="sm:col-span-2">
           <TextAreaField label="Note courte" hint={`${(details.note ?? "").length}/200 caractères`} value={details.note ?? ""} onChange={(value) => onChange({ ...station, organizerDetails: { ...details, note: value.slice(0, 200) || null } })} />
         </div>
-        {details.organizerNote || station.notes ? <details className="sm:col-span-2 rounded-lg border border-border bg-muted/20 p-3"><summary className="cursor-pointer text-sm font-semibold">Texte à convertir</summary><p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{details.organizerNote ?? station.notes}</p></details> : null}
+        {details.organizerNote || station.notes ? <details className="sm:col-span-2 rounded-lg border border-border bg-muted/20 p-3"><summary className="cursor-pointer text-sm font-semibold">Texte à convertir</summary><p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{details.organizerNote ?? station.notes}</p>{legacyConversionContext ? <LegacyConversionPanel<{ amenities: typeof details.amenities; dropBagAvailable: boolean; maxStopMinutes: number | null; supportersAccess: typeof details.supportersAccess; cutoffTime: string | null; cutoffDayOffset: number | null; note: string | null }> {...legacyConversionContext} block="aid_station" text={details.organizerNote ?? station.notes ?? ""} onApply={(proposal) => onChange({ ...station, organizerDetails: { ...details, ...proposal } })} /> : null}</details> : null}
       </div>
 
       <div className="border-t border-border pt-4">{productsSlot}</div>
