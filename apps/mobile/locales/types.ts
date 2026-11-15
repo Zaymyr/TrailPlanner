@@ -166,6 +166,24 @@ export type MobileTranslations = {
     revokeBody: string;
   };
   supporterGuide: {
+    closed: string;
+    typeAll: string;
+    typeStarts: string;
+    typeArrivals: string;
+    typeAwards: string;
+    iAmFollowing: string;
+    live: string;
+    nowLabel: string;
+    directions: string;
+    remindMe: string;
+    reminderOn: string;
+    remindMyRunners: string;
+    remindersAdded: string;
+    remindersAllSet: string;
+    reminderPermissionDenied: string;
+    reminderTitle: string;
+    reminderBody: string;
+    emptyFiltered: string;
     stayPartnerTitle: string;
     bookingDescription: string;
     shareAction: string;

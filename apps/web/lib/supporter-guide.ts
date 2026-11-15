@@ -7,6 +7,7 @@ import {
   type SupporterGuideLocation,
   type SupporterGuidePayload,
   type SupporterGuideService,
+  type SupporterGuideStop,
   type SupporterGuideTimelineEntry,
 } from "@trailplanner/shared";
 import { z } from "zod";
@@ -84,15 +85,91 @@ function resolveFormatCutoffs(input: {
   };
 }
 
-function buildTimeline(formats: SupporterGuideFormat[]): SupporterGuideTimelineEntry[] {
+const STOP_MERGE_KM = 2;
+
+/** Place-name key: accents, case and punctuation ignored, « St »/« Ste » read as Saint/Sainte. */
+export function normalizePlaceName(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("fr")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\bste\b/g, "sainte")
+    .replace(/\bst\b/g, "saint")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+/**
+ * Groups aid stations and supporter points of one format by place: rows with
+ * the same normalized name within 2 km become one stop carrying all roles.
+ */
+export function buildSupporterStops(format: Pick<SupporterGuideFormat, "aidStations" | "supporterPoints">): SupporterGuideStop[] {
+  type Item =
+    | { kind: "station"; km: number; key: string; station: SupporterGuideFormat["aidStations"][number] }
+    | { kind: "point"; km: number; key: string; point: SupporterGuideFormat["supporterPoints"][number] };
+  const items: Item[] = [
+    ...format.aidStations.map((station) => ({ kind: "station" as const, km: station.km, key: normalizePlaceName(station.name), station })),
+    ...format.supporterPoints.map((point) => ({ kind: "point" as const, km: point.km, key: normalizePlaceName(point.name), point })),
+  ].sort((left, right) => left.km - right.km);
+
+  const groups: Item[][] = [];
+  for (const item of items) {
+    const group = item.key
+      ? groups.find((candidate) => candidate.some((other) => other.key === item.key && Math.abs(other.km - item.km) <= STOP_MERGE_KM))
+      : undefined;
+    if (group) group.push(item);
+    else groups.push([item]);
+  }
+
+  return groups.map((group) => {
+    const stations = group.flatMap((item) => item.kind === "station" ? [item.station] : []);
+    const points = group.flatMap((item) => item.kind === "point" ? [item.point] : []);
+    const station = stations[0] ?? null;
+    const located = points.find((point) => point.mapsUrl || (point.latitude !== null && point.longitude !== null)) ?? null;
+    const kms = group.map((item) => item.km);
+    const km = Math.min(...kms);
+    const kmMax = Math.max(...kms);
+    return {
+      id: group.map((item) => item.kind === "station" ? `s:${item.station.id}` : `p:${item.point.id}`).join("+"),
+      name: station?.name ?? points[0]!.name,
+      km,
+      kmMax: kmMax - km > 0.05 ? kmMax : null,
+      aidStation: stations.length > 0,
+      isFinish: stations.some((candidate) => candidate.isFinish === true),
+      encouragementAllowed: points.some((point) => point.encouragementAllowed),
+      assistanceAllowed: points.some((point) => point.assistanceAllowed),
+      supportersAccess: station?.supportersAccess ?? null,
+      maxStopMinutes: station?.maxStopMinutes ?? null,
+      services: {
+        water: stations.some((candidate) => candidate.waterAvailable !== false),
+        food: stations.some((candidate) => candidate.solidAvailable !== false),
+        runnerAssistance: stations.some((candidate) => candidate.assistanceAllowed),
+        amenities: [...new Set(stations.flatMap((candidate) => candidate.amenities))],
+      },
+      cutoff: station?.cutoff ?? null,
+      accessLabel: points.map((point) => point.accessLabel).find(Boolean) ?? null,
+      accessNote: points.map((point) => point.accessNote).find(Boolean) ?? null,
+      latitude: located?.latitude ?? null,
+      longitude: located?.longitude ?? null,
+      mapsUrl: located?.mapsUrl ?? null,
+      planUrl: points.map((point) => point.planUrl).find(Boolean) ?? null,
+    };
+  });
+}
+
+function buildTimeline(
+  formats: SupporterGuideFormat[],
+  startMapsUrlByRaceId: Map<string, string | null> = new Map(),
+): SupporterGuideTimelineEntry[] {
   const entries: SupporterGuideTimelineEntry[] = [];
   for (const format of formats) {
     if (format.startWaves.length > 0) {
       for (const wave of format.startWaves) {
-        entries.push({ id: `start-${wave.id}`, raceId: format.raceId, raceName: format.name, kind: "start", date: format.date, time: wave.time, label: wave.name, location: null });
+        entries.push({ id: `start-${wave.id}`, raceId: format.raceId, raceName: format.name, kind: "start", date: format.date, time: wave.time, label: wave.name, location: null, mapsUrl: startMapsUrlByRaceId.get(format.raceId) ?? null });
       }
     } else if (format.startTime) {
-      entries.push({ id: `start-${format.raceId}`, raceId: format.raceId, raceName: format.name, kind: "start", date: format.date, time: format.startTime, label: null, location: null });
+      entries.push({ id: `start-${format.raceId}`, raceId: format.raceId, raceName: format.name, kind: "start", date: format.date, time: format.startTime, label: null, location: null, mapsUrl: startMapsUrlByRaceId.get(format.raceId) ?? null });
     }
     if (format.finishCutoff) {
       entries.push({ id: `finish-${format.raceId}`, raceId: format.raceId, raceName: format.name, kind: "finish_cutoff", date: format.finishCutoff.date ?? format.date, time: format.finishCutoff.time, label: null, location: null });
@@ -104,6 +181,14 @@ function buildTimeline(formats: SupporterGuideFormat[]): SupporterGuideTimelineE
   return entries.sort((left, right) =>
     (left.date ?? "9999").localeCompare(right.date ?? "9999") || left.time.localeCompare(right.time) || left.raceName.localeCompare(right.raceName, "fr"),
   );
+}
+
+function startDirectionsUrl(location: SupporterGuideLocation): string | null {
+  if (location.mapsUrl) return location.mapsUrl;
+  if (location.latitude !== null && location.longitude !== null) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${location.latitude},${location.longitude}`;
+  }
+  return location.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.address)}` : null;
 }
 
 function firstStartTime(format: Pick<SupporterGuideFormat, "startTime" | "startWaves">) {
@@ -229,7 +314,8 @@ export async function loadSupporterGuide(
         };
       }),
     };
-  }).sort((left, right) => (left.date ?? "9999").localeCompare(right.date ?? "9999") || firstStartTime(left).localeCompare(firstStartTime(right)));
+  }).sort((left, right) => (left.date ?? "9999").localeCompare(right.date ?? "9999") || firstStartTime(left).localeCompare(firstStartTime(right)))
+    .map((format) => ({ ...format, stops: buildSupporterStops(format) }));
 
   const representative = loaded[0]!.snapshot;
   const eventRow = firstRecord(record(representative.raceRow).race_events);
@@ -290,7 +376,7 @@ export async function loadSupporterGuide(
     schemaVersion: 1,
     edition: { id: edition.id, eventId: edition.event_id, name: event.name, location: event.location, startDate: edition.start_date, endDate: edition.end_date, imageUrl: event.thumbnail_url },
     formats,
-    timeline: buildTimeline(formats),
+    timeline: buildTimeline(formats, new Map(access.map((item) => [item.raceId, startDirectionsUrl(item.start)]))),
     onSiteServices: services.filter((service) => service.type === "recovery" || service.type === "other"),
     stayServices: services.filter((service) => service.type === "restaurant" || service.type === "accommodation"),
     lodgingPartner,

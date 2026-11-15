@@ -24,6 +24,8 @@ related_tables:
 
 # `racebook_publications`
 
+Supporter Guide places (2026-11-15): the payload adds `formats[].stops`, built server-side by `buildSupporterStops` — an aid station and supporter points sharing the same normalized place name (accents, case, punctuation ignored, « St »/« Ste » = Saint/Sainte) within 2 km become one stop carrying every role (ravito, encouragement, assistance), the supporter access rule, services, cutoff and directions. Start timeline entries carry `mapsUrl` (start area directions). Both fields are additive on `schemaVersion: 1`. Reads still come only from immutable publications.
+
 The Supporter Guide payload (`apps/web/lib/supporter-guide.ts`) stays additive on `schemaVersion: 1`: formats are sorted by date then first start; station and finish cutoffs are resolved from the official departure with the shared `racebook-cutoffs` resolver (organizer wording such as « sam. 15h » or « dim. 15/11 à 14h » becomes `{ date, time, dayOffset }` instead of being truncated); it also adds `timeline` (dated starts, finish cutoffs, podiums), `elevationGainM`, station `waterAvailable` / `solidAvailable` / `isFinish` and access `note`. Reads still come only from immutable publications.
 
 The Supporter Guide aggregator reads only current immutable publications for preview-visible formats in one edition. It applies the same effective-module masking as `/api/racebook-data`; an event with no qualifying publication is unavailable and never falls back to drafts. The additive `supporter_guide` module key defaults to enabled only for legacy snapshots that predate the key.

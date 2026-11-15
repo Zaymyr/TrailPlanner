@@ -1,6 +1,6 @@
 "use client";
 
-import type { SupporterGuidePayload } from "@trailplanner/shared";
+import type { SupporterGuidePayload, SupporterGuideStop, SupporterGuideTimelineEntry } from "@trailplanner/shared";
 import { useEffect, useMemo, useState } from "react";
 
 const SECTIONS = ["programme", "follow", "onsite", "stay", "practical"] as const;
@@ -39,6 +39,29 @@ export function SupporterGuideView({ raceId }: { raceId: string }) {
   const [failed, setFailed] = useState(false);
   const [active, setActive] = useState<Section>("programme");
   const [locale, setLocale] = useState<"fr" | "en">("fr");
+  const [kind, setKind] = useState<Kind>("all");
+  const [followed, setFollowed] = useState<Set<string> | null>(null);
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  useEffect(() => {
+    if (!guide) return;
+    const known = new Set(guide.formats.map((format) => format.raceId));
+    let stored: string[] = [];
+    try { stored = JSON.parse(window.localStorage.getItem(`supporter-guide-followed:${guide.edition.id}`) ?? "[]") as string[]; } catch { stored = []; }
+    const kept = stored.filter((id) => known.has(id));
+    setFollowed(new Set(kept.length > 0 ? kept : known));
+  }, [guide]);
+  const toggleFollowed = (raceIdToToggle: string) => {
+    setFollowed((current) => {
+      const next = new Set(current ?? []);
+      if (next.has(raceIdToToggle)) { if (next.size === 1) return current; next.delete(raceIdToToggle); } else next.add(raceIdToToggle);
+      try { if (guide) window.localStorage.setItem(`supporter-guide-followed:${guide.edition.id}`, JSON.stringify([...next])); } catch { /* storage unavailable */ }
+      return next;
+    });
+  };
   useEffect(() => { if (navigator.language.toLowerCase().startsWith("en")) setLocale("en"); }, []);
   const labels = locale === "fr" ? {
     title: "Livret accompagnateur", unavailable: "Livret accompagnateur indisponible", unavailableBody: "Aucun livret publié n’est disponible pour cette édition.", loading: "Chargement du Livret accompagnateur…",
@@ -71,19 +94,96 @@ export function SupporterGuideView({ raceId }: { raceId: string }) {
       <div className="flex items-center justify-between gap-3"><p className="text-sm font-semibold uppercase tracking-wide text-brand">{labels.title}</p><button type="button" className="min-h-11 rounded-full border border-border px-3 text-sm font-semibold" onClick={() => setLocale((value) => value === "fr" ? "en" : "fr")} aria-label={locale === "fr" ? "Display in English" : "Afficher en français"}>{locale === "fr" ? "EN" : "FR"}</button></div>
       <h1 className="text-3xl font-semibold text-foreground">{guide.edition.name}</h1>
       <p className="text-muted-foreground">{[guide.edition.location, formatRange(guide.edition.startDate, guide.edition.endDate, locale)].filter(Boolean).join(" · ")}</p>
-      {guide.organizerPreview ? <p className="rounded-md bg-warning/10 px-3 py-2 text-sm font-medium">{labels.preview}</p> : null}
+      {guide.organizerPreview ? <p className="rounded-md bg-amber-100 px-3 py-2 text-sm font-medium">{labels.preview}</p> : null}
     </header>
     <nav className="sticky top-0 z-10 flex gap-1 overflow-x-auto border-b border-border bg-background/95 px-3 py-2 backdrop-blur" aria-label="Sections du livret">
       {SECTIONS.filter((section) => visible[section]).map((section) => <button key={section} type="button" onClick={() => setActive(section)} aria-current={active === section ? "page" : undefined} className={`min-h-11 shrink-0 rounded-full px-4 text-sm font-semibold ${active === section ? "bg-brand text-brand-foreground" : "text-muted-foreground"}`}>{labels[section]}</button>)}
     </nav>
     <div className="space-y-5 px-5 py-6">
-      {active === "programme" ? groupByDay(guide.timeline ?? []).map((day) => <section key={day.date ?? "undated"} className="space-y-2"><h2 className="text-lg font-semibold">{formatDay(day.date, locale) ?? labels.programme}</h2><ol className="divide-y divide-border rounded-xl border border-border">{day.entries.map((entry) => <li key={entry.id} className="flex gap-4 px-4 py-3"><span className="w-14 shrink-0 font-mono text-lg font-semibold tabular-nums">{entry.time}</span><span><span className="block text-sm font-semibold text-brand">{entry.kind === "start" ? (locale === "fr" ? "Départ" : "Start") : entry.kind === "finish_cutoff" ? (locale === "fr" ? "Barrière d’arrivée" : "Finish cutoff") : (locale === "fr" ? "Podium" : "Awards")}{entry.label ? ` · ${entry.label}` : ""}</span><span className="block font-semibold">{entry.raceName}</span>{entry.location ? <span className="block text-sm text-muted-foreground">{entry.location}</span> : null}</span></li>)}</ol></section>) : null}
-      {active === "follow" ? guide.formats.filter((format) => format.supporterPoints.length || format.aidStations.length).map((format) => <section key={format.raceId} className="space-y-3"><h2 className="text-xl font-semibold">{format.name}</h2>{format.supporterPoints.map((point) => <article key={point.id} className="rounded-xl border border-border p-4"><h3 className="font-semibold">{point.name} · {formatKm(point.km, locale)}</h3><p className="mt-1 text-sm text-muted-foreground">{[point.encouragementAllowed ? (locale === "fr" ? "Encouragement" : "Cheering") : null, point.assistanceAllowed ? (locale === "fr" ? "Assistance" : "Assistance") : null].filter(Boolean).join(" · ")}</p>{point.accessLabel ? <p className="mt-2">{point.accessLabel}</p> : null}{point.accessNote ? <p className="text-sm text-muted-foreground">{point.accessNote}</p> : null}<div className="mt-3 flex gap-3">{point.mapsUrl ? <a className="font-semibold text-brand underline" href={point.mapsUrl} rel="noreferrer" target="_blank">{locale === "fr" ? "Itinéraire" : "Directions"}</a> : null}{point.planUrl ? <a className="font-semibold text-brand underline" href={point.planUrl} rel="noreferrer" target="_blank">{locale === "fr" ? "Plan" : "Map"}</a> : null}</div></article>)}{format.aidStations.map((station) => <article key={station.id} className="rounded-xl border border-border p-4"><h3 className="font-semibold">{station.name} · {formatKm(station.km, locale)}</h3><p className="mt-1 text-sm text-muted-foreground">{station.supportersAccess === "forbidden" ? (locale === "fr" ? "Accès accompagnateurs interdit" : "Supporter access prohibited") : station.supportersAccess === "restricted" ? (locale === "fr" ? "Accès accompagnateurs limité" : "Restricted supporter access") : station.assistanceAllowed ? (locale === "fr" ? "Assistance autorisée" : "Assistance allowed") : (locale === "fr" ? "Ravitaillement" : "Aid station")}</p>{station.cutoff || station.cutoffTime ? <p className="mt-2">{locale === "fr" ? "Dernier coureur" : "Last runner"} : {formatCutoff(station.cutoff, station.cutoffTime, format.date, locale)}</p> : null}{station.maxStopMinutes ? <p>{locale === "fr" ? "Arrêt max." : "Maximum stop"} : {station.maxStopMinutes} min</p> : null}{station.amenities.length ? <p>{station.amenities.join(" · ")}</p> : null}</article>)}</section>) : null}
+      {guide.formats.length > 1 && (active === "programme" || active === "follow") ? <div className="space-y-2"><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{locale === "fr" ? "Je suis" : "I follow"}</p><div className="flex flex-wrap gap-2">{guide.formats.map((format) => { const on = followed?.has(format.raceId) ?? true; return <button key={format.raceId} type="button" aria-pressed={on} title={format.name} onClick={() => toggleFollowed(format.raceId)} className={`min-h-11 rounded-full border px-4 font-mono text-sm font-semibold ${on ? "border-brand bg-brand text-brand-foreground" : "border-border text-muted-foreground"}`}>{Math.round(format.distanceKm)} km</button>; })}</div></div> : null}
+      {active === "programme" ? <Programme timeline={guide.timeline ?? []} kind={kind} onKind={setKind} followed={followed} now={now} locale={locale} /> : null}
+      {active === "follow" ? guide.formats.filter((format) => (!followed || followed.has(format.raceId)) && (format.supporterPoints.length || format.aidStations.length)).map((format) => <section key={format.raceId} className="space-y-3"><h2 className="text-xl font-semibold">{format.name}</h2>{(format.stops ?? []).map((stop) => <StopCard key={stop.id} stop={stop} raceDate={format.date} now={now} locale={locale} />)}</section>) : null}
       {active === "onsite" ? guide.onSiteServices.map((service) => <ServiceCard key={service.id} locale={locale} service={service} />) : null}
       {active === "stay" ? <>{guide.stayServices.map((service) => <ServiceCard key={service.id} locale={locale} service={service} />)}{guide.lodgingPartner ? <article className="rounded-xl border border-border p-4"><h2 className="font-semibold">{locale === "fr" ? "Hébergement partenaire" : "Accommodation partner"} · {guide.lodgingPartner.name}</h2>{guide.lodgingPartner.headline ? <p>{guide.lodgingPartner.headline}</p> : null}{guide.lodgingPartner.clickUrl ? <a className="mt-3 inline-flex min-h-11 items-center font-semibold text-brand underline" href={guide.lodgingPartner.clickUrl} rel="noreferrer" target="_blank">{locale === "fr" ? "Découvrir" : "Discover"}</a> : null}</article> : null}</> : null}
       {active === "practical" ? <>{guide.practical.access.map((item) => <article key={item.raceId} className="rounded-xl border border-border p-4"><h2 className="font-semibold">{item.raceName}</h2>{item.start.address ? <p><strong>{locale === "fr" ? "Départ" : "Start"} :</strong> {item.start.address}</p> : null}{item.finish.address ? <p><strong>{locale === "fr" ? "Arrivée" : "Finish"} :</strong> {item.finish.address}</p> : null}{item.parking ? <p><strong>Parking :</strong> {item.parking}</p> : null}{item.shuttles ? <p><strong>{locale === "fr" ? "Navettes" : "Shuttles"} :</strong> {item.shuttles} {item.shuttleSchedule}</p> : null}{item.roadRestrictions ? <p><strong>{locale === "fr" ? "Circulation" : "Road access"} :</strong> {item.roadRestrictions}</p> : null}</article>)}{guide.practical.thirdPartyBibPickup.map((item) => <article key={item.raceId} className="rounded-xl border border-border p-4"><h2 className="font-semibold">{locale === "fr" ? "Retrait par un tiers" : "Third-party bib pickup"} · {item.raceName}</h2>{item.conditions ? <p>{item.conditions}</p> : <p>{locale === "fr" ? "Autorisé par l’organisation." : "Allowed by the organizer."}</p>}</article>)}{guide.practical.emergencyPhone ? <a className="block rounded-xl border border-border p-4 font-semibold text-brand" href={`tel:${guide.practical.emergencyPhone}`}>{locale === "fr" ? "Urgence" : "Emergency"} · {guide.practical.emergencyPhone}</a> : null}{guide.practical.links.map((link) => <a key={link.url} className="block rounded-xl border border-border p-4 font-semibold text-brand" href={link.url} rel="noreferrer" target="_blank">{link.kind === "official" ? (locale === "fr" ? "Site officiel" : "Official website") : link.kind === "instagram" ? "Instagram" : "Facebook"}</a>)}</> : null}
     </div>
   </main>;
+}
+
+type Kind = "all" | "start" | "arrival" | "awards";
+const KIND_OF: Record<SupporterGuideTimelineEntry["kind"], Exclude<Kind, "all">> = { start: "start", finish_cutoff: "arrival", awards: "awards" };
+const localDate = (date: string | null | undefined, time: string | null | undefined) => {
+  const day = /^(\d{4})-(\d{2})-(\d{2})/.exec(date ?? "");
+  const clock = /^(\d{1,2}):(\d{2})/.exec(time ?? "");
+  return day && clock ? new Date(Number(day[1]), Number(day[2]) - 1, Number(day[3]), Number(clock[1]), Number(clock[2])) : null;
+};
+const localIsoDay = (now: Date) => `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+const clockOf = (now: Date) => `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+const countdown = (target: Date, now: Date, locale: "fr" | "en") => {
+  const minutes = Math.max(0, Math.round((target.getTime() - now.getTime()) / 60_000));
+  const hours = Math.floor(minutes / 60);
+  const duration = hours === 0 ? `${minutes} min` : `${hours} h ${String(minutes % 60).padStart(2, "0")}`;
+  return locale === "fr" ? `dans ${duration}` : `in ${duration}`;
+};
+
+function Programme({ timeline, kind, onKind, followed, now, locale }: { timeline: SupporterGuideTimelineEntry[]; kind: Kind; onKind: (kind: Kind) => void; followed: Set<string> | null; now: Date; locale: "fr" | "en" }) {
+  const fr = locale === "fr";
+  const mine = timeline.filter((entry) => !followed || followed.has(entry.raceId));
+  const kinds = (["start", "arrival", "awards"] as const).filter((value) => mine.some((entry) => KIND_OF[entry.kind] === value));
+  const shown = mine.filter((entry) => kind === "all" || KIND_OF[entry.kind] === kind);
+  const today = localIsoDay(now);
+  const label = { all: fr ? "Tout" : "All", start: fr ? "Départs" : "Starts", arrival: fr ? "Arrivées" : "Finishes", awards: fr ? "Podiums" : "Awards" };
+  const kindText = { start: fr ? "Départ" : "Start", finish_cutoff: fr ? "Barrière d’arrivée" : "Finish cutoff", awards: fr ? "Podium" : "Awards" };
+  return <>
+    {kinds.length > 1 ? <div className="flex gap-2 overflow-x-auto">{(["all", ...kinds] as Kind[]).map((value) => <button key={value} type="button" aria-pressed={kind === value} onClick={() => onKind(value)} className={`min-h-11 shrink-0 rounded-md border px-4 text-sm font-semibold ${kind === value ? "border-brand bg-brand text-brand-foreground" : "border-border text-muted-foreground"}`}>{label[value]}</button>)}</div> : null}
+    {shown.length === 0 ? <p className="text-muted-foreground">{fr ? "Rien pour ce filtre." : "Nothing for this filter."}</p> : null}
+    {groupByDay(shown).map((day) => {
+      const live = day.date === today;
+      const nextIndex = live ? day.entries.findIndex((entry) => (localDate(entry.date, entry.time)?.getTime() ?? 0) >= now.getTime()) : -1;
+      return <section key={day.date ?? "undated"} className="space-y-2">
+        <h2 className="flex items-center gap-3 text-lg font-semibold">{formatDay(day.date, locale) ?? (fr ? "Programme" : "Schedule")}{live ? <span className="rounded-full bg-success/15 px-2 py-0.5 text-xs font-semibold text-success">{fr ? "En direct" : "Live"} · {clockOf(now)}</span> : null}</h2>
+        <ol className="divide-y divide-border rounded-xl border border-border">
+          {day.entries.map((entry, index) => {
+            const at = localDate(entry.date, entry.time);
+            const past = live && at !== null && at.getTime() < now.getTime();
+            return <li key={entry.id}>
+              {live && index === nextIndex ? <div className="flex items-center gap-2 px-4 py-1 text-xs font-semibold text-amber-700"><span className="h-0.5 flex-1 bg-amber-500" />{clockOf(now)} · {fr ? "maintenant" : "now"}<span className="h-0.5 flex-1 bg-amber-500" /></div> : null}
+              <div className={`flex items-start gap-4 px-4 py-3 ${past ? "opacity-45" : ""}`}>
+                <span className="w-14 shrink-0 font-mono text-lg font-semibold tabular-nums">{entry.time}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-brand">{past ? "✓ " : ""}{kindText[entry.kind]}{entry.label ? ` · ${entry.label}` : ""}</span>
+                  <span className="block font-semibold">{entry.raceName}</span>
+                  {entry.location ? <span className="block text-sm text-muted-foreground">{entry.location}</span> : null}
+                  {live && index === nextIndex && at ? <span className="mt-1 inline-block rounded-full bg-brand-surface px-2 py-0.5 text-xs font-semibold text-brand">{countdown(at, now, locale)}</span> : null}
+                </span>
+                {entry.kind === "start" && entry.mapsUrl && !past ? <a className="inline-flex min-h-11 shrink-0 items-center rounded-md border border-brand px-3 text-sm font-semibold text-brand" href={entry.mapsUrl} rel="noreferrer" target="_blank">{fr ? "Y aller" : "Directions"}</a> : null}
+              </div>
+            </li>;
+          })}
+        </ol>
+      </section>;
+    })}
+  </>;
+}
+
+function StopCard({ stop, raceDate, now, locale }: { stop: SupporterGuideStop; raceDate: string | null; now: Date; locale: "fr" | "en" }) {
+  const fr = locale === "fr";
+  const cutoffAt = stop.cutoff ? localDate(stop.cutoff.date ?? raceDate, stop.cutoff.time) : null;
+  const closed = Boolean(cutoffAt && cutoffAt.getTime() < now.getTime());
+  const roles = [stop.aidStation && !stop.isFinish ? (fr ? "Ravito" : "Aid station") : null, stop.encouragementAllowed ? (fr ? "Encouragement" : "Cheering") : null, stop.assistanceAllowed || stop.services.runnerAssistance ? "Assistance" : null].filter(Boolean);
+  const access = stop.supportersAccess === "forbidden" ? (fr ? "Accompagnateurs interdits" : "No supporters") : stop.supportersAccess === "restricted" ? (fr ? "Accès accompagnateurs limité" : "Restricted supporter access") : stop.supportersAccess === "allowed" ? (fr ? "Accompagnateurs autorisés" : "Supporters allowed") : null;
+  const services = [stop.services.water ? (fr ? "Eau" : "Water") : null, stop.services.food ? (fr ? "Nourriture" : "Food") : null, ...stop.services.amenities].filter(Boolean);
+  const url = stop.mapsUrl ?? (stop.latitude !== null && stop.longitude !== null ? `https://www.google.com/maps/dir/?api=1&destination=${stop.latitude},${stop.longitude}` : null);
+  return <article className={`rounded-xl border border-border p-4 ${closed ? "opacity-55" : ""}`}>
+    <h3 className="font-semibold">{stop.isFinish ? (fr ? "Arrivée · " : "Finish · ") : ""}{stop.name} · {stop.kmMax !== null ? `${formatKm(stop.km, locale).replace(" km", "")}–${formatKm(stop.kmMax, locale)}` : formatKm(stop.km, locale)}</h3>
+    <p className="mt-1 text-sm text-muted-foreground">{[closed ? (fr ? "Fermé" : "Closed") : null, ...roles, access].filter(Boolean).join(" · ")}</p>
+    {services.length ? <p className="text-sm text-muted-foreground">{services.join(" · ")}</p> : null}
+    {stop.cutoff ? <p className="mt-2">{fr ? "Dernier coureur" : "Last runner"} : {formatCutoff(stop.cutoff, null, raceDate, locale)}</p> : null}
+    {stop.maxStopMinutes ? <p>{fr ? "Arrêt max." : "Maximum stop"} : {stop.maxStopMinutes} min</p> : null}
+    {stop.accessLabel ? <p className="mt-2">{stop.accessLabel}</p> : null}
+    {stop.accessNote ? <p className="text-sm text-muted-foreground">{stop.accessNote}</p> : null}
+    <div className="mt-3 flex gap-3">{url ? <a className="font-semibold text-brand underline" href={url} rel="noreferrer" target="_blank">{fr ? "Itinéraire" : "Directions"}</a> : null}{stop.planUrl ? <a className="font-semibold text-brand underline" href={stop.planUrl} rel="noreferrer" target="_blank">{fr ? "Plan" : "Map"}</a> : null}</div>
+  </article>;
 }
 
 function groupByDay(entries: NonNullable<SupporterGuidePayload["timeline"]>) {

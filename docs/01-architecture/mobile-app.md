@@ -11,6 +11,7 @@ ai_priority: high
 related_files:
   - apps/mobile/app/(app)/courses/supporter-guide/[raceId].tsx
   - apps/mobile/lib/supporterGuide.test.ts
+  - apps/mobile/lib/supporterGuideReminders.ts
   - apps/mobile/lib/racebookCourseTabs.ts
   - apps/mobile/lib/racebookCourseTabs.test.ts
   - apps/mobile/lib/supporterGuide.ts
@@ -248,6 +249,8 @@ related_tables:
 ---
 
 # Mobile App Architecture
+
+Livret accompagnateur programme (2026-11-15): type tabs (Tout, Départs, Arrivées, Podiums) instead of race tabs; a « Je suis » race selection (remembered per edition) filters Programme, Suivre and Pratique; on the event day the current day is live — past entries dimmed and checked, a « maintenant » line, the next entry with a countdown, auto-scroll to now — and Suivre marks a place « Fermé » once its last-runner cutoff has passed. Times are compared with the device clock, assuming the supporter is on the event timezone. Mobile reminders (`apps/mobile/lib/supporterGuideReminders.ts`): local `expo-notifications` DATE triggers 30 minutes before a programme entry, toggled per row (bell) or for every upcoming entry of the followed races; permission is requested on first tap only; reminders are stored per edition, re-timed after a republication and dropped when the entry disappears or is past; tapping one opens the guide through the existing `data.href` handler. No server or account involved. Suivre renders server-grouped places through `RacebookSupporterPointsSection` (`stops` prop), with a one-row-per-stop fallback for older payloads.
 
 Catalog query fix (2026-11-15): the mobile `EVENT_CATALOG_SELECT` requests `slug` on the embedded `races` rows (used to open `/courses/<slug>` deep links), not on `race_event_updates`, which has no such column. The misplaced column made PostgREST reject the whole catalog request (42703), so the development build showed no races.
 

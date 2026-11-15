@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ loadPublished: vi.fn() }));
 vi.mock("./racebook-public-data", () => ({ loadPublishedRacebookData: mocks.loadPublished }));
 
-import { loadSupporterGuide } from "./supporter-guide";
+import { buildSupporterStops, loadSupporterGuide, normalizePlaceName } from "./supporter-guide";
 
 const editionId = "11111111-1111-4111-8111-111111111111";
 const eventId = "22222222-2222-4222-8222-222222222222";
@@ -92,5 +92,39 @@ describe("Supporter Guide aggregator", () => {
   it("is unavailable without an enabled published guide", async () => {
     mocks.loadPublished.mockResolvedValue(null);
     await expect(loadSupporterGuide(config, editionId, false)).resolves.toBeNull();
+  });
+});
+
+describe("Supporter Guide stops", () => {
+  const station = (id: string, name: string, km: number, extra: Record<string, unknown> = {}) => ({
+    id, name, km, assistanceAllowed: true, supportersAccess: null, maxStopMinutes: null, amenities: [], cutoffTime: null,
+    cutoff: null, waterAvailable: true, solidAvailable: false, isFinish: false, ...extra,
+  });
+  const point = (id: string, name: string, km: number, extra: Record<string, unknown> = {}) => ({
+    id, name, km, encouragementAllowed: true, assistanceAllowed: false, accessLabel: null, accessNote: null,
+    latitude: 46.9, longitude: 4.0, mapsUrl: null, planUrl: null, ...extra,
+  });
+
+  it("normalizes place names (accents, St/Saint, punctuation)", () => {
+    expect(normalizePlaceName("St Prix")).toBe(normalizePlaceName("Saint-Prix"));
+    expect(normalizePlaceName("La Grande Verrière")).toBe("la grande verriere");
+  });
+
+  it("merges an aid station and supporter points of the same place within 2 km", () => {
+    const stops = buildSupporterStops({
+      aidStations: [station("r1", "La Grande Verriere", 43, { supportersAccess: "allowed", cutoff: { date: "2026-11-14", time: "21:00", dayOffset: 0 } }), station("r2", "Saint-Prix", 51)],
+      supporterPoints: [point("p1", "La Grande Verrière", 45, { assistanceAllowed: true }), point("p2", "St Prix", 51), point("p3", "Table orientation", 59)],
+    });
+    expect(stops.map((stop) => [stop.name, stop.km, stop.kmMax, stop.aidStation, stop.encouragementAllowed])).toEqual([
+      ["La Grande Verriere", 43, 45, true, true],
+      ["Saint-Prix", 51, null, true, true],
+      ["Table orientation", 59, null, false, true],
+    ]);
+    expect(stops[0]).toMatchObject({ assistanceAllowed: true, supportersAccess: "allowed", latitude: 46.9, cutoff: { time: "21:00" } });
+  });
+
+  it("keeps same-named places apart when they are more than 2 km away", () => {
+    const stops = buildSupporterStops({ aidStations: [station("r1", "Col", 10)], supporterPoints: [point("p1", "Col", 13)] });
+    expect(stops).toHaveLength(2);
   });
 });
