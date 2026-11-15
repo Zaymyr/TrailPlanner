@@ -1,7 +1,7 @@
 ---
 title: user_favorite_race_events Table
 scope: database
-last_verified: 2026-11-11
+last_verified: 2026-11-13
 ai_priority: high
 related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
@@ -26,6 +26,9 @@ related_tables:
 The catalog event sheet opens the Livret accompagnateur from an interactive `TopoCard` placed before the distance list, and the guide's back action reopens that sheet through the existing `eventId` parameter plus a `sheet` nonce. Favourite rows are unchanged.
 
 Opening the Supporter Guide from an event sheet does not add or remove a favorite and keeps the existing unlimited favorite contract.
+The runner-journey alignment does not add a quota to favorite races or nutrition products. Catalog navigation changes preserve this table's existing ownership and uniqueness rules.
+
+Organizer form validation, local repeatable-list drafts and announcement-delete confirmation do not alter favorite ownership, aggregate counts or notification audience selection.
 
 Organizer RaceBook analytics can be opened by the Signature tier or the exact `capability.racebook_analytics` gift. This changes only server authorization for aggregate favorite metrics; favorite ownership, client RLS and stored rows remain unchanged.
 

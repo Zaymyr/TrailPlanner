@@ -1,7 +1,8 @@
 ---
 title: race_aid_station_products Table
 scope: database
-last_verified: 2026-11-03
+last_verified: 2026-11-15
+# Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -127,3 +128,5 @@ order by order_index asc;
 - [products](products.md)
 - [Nutrition Algorithm](../../03-business-rules/nutrition-algorithm.md)
 - [Organizer Race Management](../../03-business-rules/organizer-race-management.md)
+
+Moving the ravito delete action into its expanded details panel is presentation-only; product links and station deletion semantics are unchanged.

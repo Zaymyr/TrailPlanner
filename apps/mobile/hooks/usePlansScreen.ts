@@ -5,10 +5,8 @@ import { useRouter } from 'expo-router';
 
 import type { PlanRow, RaceSection } from '../components/plans/types';
 import type { PlanProduct } from '../components/plan-form/contracts';
-import { usePremium } from '../hooks/usePremium';
 import { maybePromptForAppReview } from '../lib/appReview';
 import { useI18n } from '../lib/i18n';
-import { FREE_PLAN_LIMIT, getAccessiblePlanIds } from '../lib/planAccess';
 import { clearPlanEditDraft } from '../lib/planEditSession';
 import {
   buildPlanSummary,
@@ -29,7 +27,6 @@ import { supabase } from '../lib/supabase';
 export function usePlansScreen() {
   const { locale, t } = useI18n();
   const router = useRouter();
-  const { isPremium, isLoading: premiumLoading } = usePremium();
   const initialBootstrapRef = useRef(readPlansScreenBootstrap());
   const [plans, setPlans] = useState<PlanRow[]>(() => initialBootstrapRef.current?.plans ?? []);
   const [isAnonymous, setIsAnonymous] = useState(() => initialBootstrapRef.current?.isAnonymous ?? false);
@@ -39,10 +36,6 @@ export function usePlansScreen() {
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => new Set(['__past__']));
   const [activePlanId, setActivePlanId] = useState<string | null>(null);
   const [sharingPlanId, setSharingPlanId] = useState<string | null>(null);
-  const [premiumModalCopy, setPremiumModalCopy] = useState<{
-    title: string;
-    message: string;
-  } | null>(null);
   const pushRegistrationPromptedUserIdRef = useRef<string | null>(null);
 
   const fetchData = useCallback(async (options?: { showLoading?: boolean }) => {
@@ -116,14 +109,6 @@ export function usePlansScreen() {
       };
     }, [fetchData, locale, syncActivePlan]),
   );
-
-  const openPremiumModal = useCallback((title: string, message: string) => {
-    setPremiumModalCopy({ title, message });
-  }, []);
-
-  const closePremiumModal = useCallback(() => {
-    setPremiumModalCopy(null);
-  }, []);
 
   const handleDelete = useCallback(
     (planId: string) => {
@@ -225,10 +210,6 @@ export function usePlansScreen() {
     return sortPlanSections(result, Date.now(), t.plans.pastRaces);
   }, [plans, t.plans.noCatalogRace, t.plans.noRace, t.plans.pastRaces]);
 
-  const accessiblePlanIds = useMemo(
-    () => getAccessiblePlanIds(plans, isPremium, isAnonymous),
-    [isAnonymous, isPremium, plans],
-  );
 
   const handleRetry = useCallback(() => {
     setError(null);
@@ -389,19 +370,10 @@ export function usePlansScreen() {
     ],
   );
 
-  const handleOpenLockedPlan = useCallback(() => {
-    openPremiumModal(
-      t.plans.freeAccessTitle,
-      t.plans.freeAccessMessage.replace('{count}', String(FREE_PLAN_LIMIT)),
-    );
-  }, [openPremiumModal, t.plans.freeAccessMessage, t.plans.freeAccessTitle]);
-
   return {
     locale,
     t,
-    isPremium,
     loading,
-    premiumLoading,
     error,
     refreshing,
     sections,
@@ -409,8 +381,6 @@ export function usePlansScreen() {
     activePlanId,
     sharingPlanId,
     isAnonymous,
-    accessiblePlanIds,
-    premiumModalCopy,
     handleRetry,
     handleRefresh,
     handleDelete,
@@ -423,7 +393,5 @@ export function usePlansScreen() {
     handleOpenRacePlan,
     handleOpenPlanSummary,
     handleSharePlan,
-    handleOpenLockedPlan,
-    closePremiumModal,
   };
 }

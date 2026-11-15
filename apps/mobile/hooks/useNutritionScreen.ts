@@ -2,10 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 
-import {
-  FREE_FAVORITE_LIMIT,
-  parseNonNegativeDecimalInput,
-} from '../components/nutrition/nutritionConstants';
+import { parseNonNegativeDecimalInput } from '../components/nutrition/nutritionConstants';
 import type {
   CreateProductResponse,
   FavoriteRow,
@@ -16,7 +13,6 @@ import type {
   Product,
   UpdateProductResponse,
 } from '../components/nutrition/types';
-import { usePremium } from '../hooks/usePremium';
 import { useI18n } from '../lib/i18n';
 import { lightHaptic } from '../lib/haptics';
 import { supabase } from '../lib/supabase';
@@ -82,7 +78,6 @@ type ProductFavoriteUsageResponse = {
 
 export function useNutritionScreen() {
   const { t } = useI18n();
-  const { isPremium } = usePremium();
   const [userId, setUserId] = useState<string | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -104,7 +99,6 @@ export function useNutritionScreen() {
   const [newSodiumMg, setNewSodiumMg] = useState('');
   const [newCaloriesKcal, setNewCaloriesKcal] = useState('');
   const [newImageDraft, setNewImageDraft] = useState<ProductImageDraft | null>(null);
-  const [showFavoriteLimitModal, setShowFavoriteLimitModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedProductFavoriteUsage, setSelectedProductFavoriteUsage] =
     useState<ProductFavoriteUsage>(EMPTY_PRODUCT_FAVORITE_USAGE);
@@ -285,11 +279,6 @@ export function useNutritionScreen() {
         return;
       }
 
-      if (!isPremium && favoriteIds.size >= FREE_FAVORITE_LIMIT) {
-        setShowFavoriteLimitModal(true);
-        return;
-      }
-
       const { error: insertError } = await supabase
         .from('user_favorite_products')
         .insert({ user_id: userId, product_id: productId });
@@ -308,7 +297,7 @@ export function useNutritionScreen() {
         }
       }
     },
-    [favoriteIds, isPremium, products, userId],
+    [favoriteIds, products, userId],
   );
 
   const resetCreateForm = useCallback(() => {
@@ -752,18 +741,8 @@ export function useNutritionScreen() {
     );
   }, [deletingProduct, performDeleteProduct, selectedProduct]);
 
-  const favoriteLimitBannerLabel = t.nutrition.favoritesLimitBanner.replace(
-    '{count}',
-    String(FREE_FAVORITE_LIMIT),
-  );
-  const favoriteLimitMessage = t.nutrition.favoriteLimitMessage.replace(
-    '{count}',
-    String(FREE_FAVORITE_LIMIT),
-  );
-
   return {
     t,
-    isPremium,
     loading,
     refreshing,
     error,
@@ -784,15 +763,12 @@ export function useNutritionScreen() {
     newSodiumMg,
     newCaloriesKcal,
     newImageDraft,
-    showFavoriteLimitModal,
     selectedProduct,
     selectedProductFavoriteUsage,
     savingProduct,
     deletingProduct,
     filteredProducts,
     availableBrands,
-    favoriteLimitBannerLabel,
-    favoriteLimitMessage,
     handleRetry,
     handleRefresh,
     toggleFavorite,
@@ -806,7 +782,6 @@ export function useNutritionScreen() {
     setNewCarbsG,
     setNewSodiumMg,
     setNewCaloriesKcal,
-    setShowFavoriteLimitModal,
     pickNewImage,
     clearNewImage,
     handleCreateProduct,

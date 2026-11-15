@@ -14,7 +14,11 @@ import { Label } from "../../components/ui/label";
 import { persistSessionToStorage } from "../../lib/auth-storage";
 import { SIGN_IN_ERROR_CODES } from "../../lib/auth-errors";
 import { redirectToAppleOAuth, redirectToGoogleOAuth } from "../../lib/oauth";
-import { buildAuthCallbackPath, readCurrentReturnPath } from "../../lib/organizer-acquisition";
+import {
+  buildAuthCallbackPath,
+  clearRememberedRunnerReturnPath,
+  readCurrentReturnPath,
+} from "../../lib/organizer-acquisition";
 import { useI18n } from "../i18n-provider";
 import type { Translations } from "../../locales/types";
 
@@ -77,7 +81,9 @@ export default function SignInPage() {
       });
 
       setFormMessage(t.auth.signIn.success);
-      router.push(readCurrentReturnPath() as Route);
+      const returnPath = readCurrentReturnPath();
+      clearRememberedRunnerReturnPath();
+      router.push(returnPath as Route);
       router.refresh();
     } catch (error) {
       console.error("Unable to sign in", error);

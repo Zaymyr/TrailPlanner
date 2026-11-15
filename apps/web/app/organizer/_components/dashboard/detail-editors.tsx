@@ -16,8 +16,13 @@ import {
 } from "../../../../lib/organizer-dashboard-details";
 import { AddressAutocompleteField } from "./address-autocomplete-field";
 import { equipmentSuggestions } from "./constants";
-import { ContextualHelp, InlineEditableRow, OptionalModule, SegmentedChoice, TextAreaField, TextField, ToggleChip } from "./controls";
+import { ContextualHelp, InlineEditableRow, NumberField, OptionalModule, SegmentedChoice, TextAreaField, TextField, ToggleChip } from "./controls";
+import { isOutsideDateRange, SelectField, SwitchRow } from "./form-kit";
+import { LegacyConversionPanel } from "./legacy-conversion-panel";
 import type { RaceFormat } from "./types";
+import type { OrganizerLegacyBlock } from "../../../../lib/organizer-legacy-conversion";
+
+type LegacyConversionContext = { eventId: string; editionId: string; headers: HeadersInit };
 
 export function EquipmentEditor({
   scope,
@@ -26,6 +31,7 @@ export function EquipmentEditor({
   raceDetails,
   onEventChange,
   onRaceChange,
+  legacyConversionContext,
 }: {
   scope: "event" | "format";
   activeRace: RaceFormat | null;
@@ -33,6 +39,7 @@ export function EquipmentEditor({
   raceDetails: OrganizerRaceDetails;
   onEventChange: (details: OrganizerEventDetails) => void;
   onRaceChange: (details: OrganizerRaceDetails) => void;
+  legacyConversionContext?: LegacyConversionContext;
 }) {
   if (scope === "event") {
     return (
@@ -43,6 +50,7 @@ export function EquipmentEditor({
         weatherPlanEditable
         showHeader={false}
         onEquipmentChange={(mandatoryEquipment) => onEventChange({ ...eventDetails, mandatoryEquipment })}
+        legacyConversionContext={legacyConversionContext}
       />
     );
   }
@@ -86,11 +94,30 @@ export function EquipmentEditor({
           sharedItems={eventDetails.mandatoryEquipment.items}
           showHeader={false}
           onEquipmentChange={(mandatoryEquipment) => onRaceChange({ ...raceDetails, mandatoryEquipment: { ...mandatoryEquipment, overrideEnabled: true } })}
+          legacyConversionContext={legacyConversionContext}
         />
       ) : null}
     </div>
   );
 }
+function RequiredToggle({ checked, onChange, label }: { checked: boolean; onChange: (checked: boolean) => void; label: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => onChange(!checked)}
+      className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-1 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+    >
+      <span className={cn("relative h-5 w-9 shrink-0 rounded-full transition", checked ? "bg-brand" : "bg-muted")} aria-hidden="true">
+        <span className={cn("absolute top-0.5 h-4 w-4 rounded-full bg-card shadow-sm transition", checked ? "left-[1.125rem]" : "left-0.5")} />
+      </span>
+      <span className={cn("w-[4.75rem] text-left", checked ? "text-foreground" : "text-muted-foreground")}>{checked ? "Obligatoire" : "Recommandé"}</span>
+    </button>
+  );
+}
+
 function EquipmentFields({
   title,
   description,
@@ -100,6 +127,7 @@ function EquipmentFields({
   showHeader = true,
   sharedItems,
   onEquipmentChange,
+  legacyConversionContext,
 }: {
   title: string;
   description: string;
@@ -109,6 +137,7 @@ function EquipmentFields({
   showHeader?: boolean;
   sharedItems?: OrganizerEventDetails["mandatoryEquipment"]["items"];
   onEquipmentChange: (equipment: OrganizerEventDetails["mandatoryEquipment"]) => void;
+  legacyConversionContext?: LegacyConversionContext;
 }) {
   const updateItems = (items: OrganizerEventDetails["mandatoryEquipment"]["items"]) => onEquipmentChange({ ...equipment, items });
   const updateWeatherPlan = (weatherPlan: OrganizerEventDetails["mandatoryEquipment"]["weatherPlan"]) => onEquipmentChange({ ...equipment, weatherPlan });
@@ -122,11 +151,15 @@ function EquipmentFields({
   const [weatherVariantsOpen, setWeatherVariantsOpen] = useState(
     equipment.weatherPlan !== "normal" || equipment.items.some((item) => item.cold || item.heat)
   );
-  const indexedItems = equipment.items.map((item, index) => ({ item, index }));
-  const groups = [
-    { required: true, label: "Obligatoire", rows: indexedItems.filter(({ item }) => item.required) },
-    { required: false, label: "Recommandé", rows: indexedItems.filter(({ item }) => !item.required) },
-  ];
+  const [newItemLabel, setNewItemLabel] = useState("");
+  const [newItemRequired, setNewItemRequired] = useState(true);
+  const addItem = (label: string, required: boolean) => {
+    const trimmed = label.trim();
+    if (!trimmed) return;
+    updateItems([{ id: `item-${Date.now()}`, label: trimmed, required, cold: false, heat: false, note: null }, ...equipment.items]);
+  };
+  const requiredCount = equipment.items.filter((item) => item.required).length;
+  const recommendedCount = equipment.items.length - requiredCount;
   const removedSharedItems = sharedItems?.filter((sharedItem) => !equipment.items.some((item) => isSameItem(item, sharedItem))) ?? [];
   const updateItem = (index: number, next: Partial<OrganizerEventDetails["mandatoryEquipment"]["items"][number]>) =>
     updateItems(equipment.items.map((item, itemIndex) => itemIndex === index ? { ...item, ...next } : item));
@@ -145,140 +178,145 @@ function EquipmentFields({
           <ContextualHelp text={description} />
         </div>
       ) : null}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-foreground">Variantes météo</span>
+      <form
+        className="space-y-2 rounded-lg border border-brand-border/70 bg-brand-surface/40 p-3"
+        aria-label="Ajouter un item de matériel"
+        onSubmit={(event) => { event.preventDefault(); addItem(newItemLabel, newItemRequired); setNewItemLabel(""); }}
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            aria-label="Nouvel item de matériel"
+            value={newItemLabel}
+            onChange={(event) => setNewItemLabel(event.target.value)}
+            placeholder="Ajouter un item, puis Entrée"
+            className="h-9 min-w-0 flex-1 basis-56 bg-card"
+          />
+          <RequiredToggle checked={newItemRequired} onChange={setNewItemRequired} label="Nouvel item obligatoire" />
+          <Button type="submit" className="h-9" disabled={!newItemLabel.trim()}>Ajouter</Button>
+        </div>
+        {availableSuggestions.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">Suggestions :</span>
+            {availableSuggestions.map((suggestion) => (
+              <button key={suggestion} type="button" className="rounded-full border border-border bg-card px-2.5 py-0.5 text-xs font-medium text-brand hover:border-brand-border" onClick={() => addItem(suggestion, newItemRequired)}>+ {suggestion}</button>
+            ))}
+          </div>
+        ) : null}
+      </form>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+        <span>{requiredCount} obligatoire{requiredCount > 1 ? "s" : ""} · {recommendedCount} recommandé{recommendedCount > 1 ? "s" : ""}</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-medium text-foreground">Variantes météo</span>
           <ContextualHelp text="Affiche une condition par ligne lorsque certains équipements ne concernent que le froid ou la chaleur." />
           <button
             type="button"
             role="switch"
             aria-checked={weatherVariantsOpen}
+            aria-label="Variantes météo"
             onClick={() => setWeatherVariantsOpen((current) => !current)}
-            className={cn("relative h-6 w-11 rounded-full transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", weatherVariantsOpen ? "bg-brand" : "bg-muted")}
+            className={cn("relative h-5 w-9 rounded-full transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", weatherVariantsOpen ? "bg-brand" : "bg-muted")}
           >
-            <span className={cn("absolute top-1 h-4 w-4 rounded-full bg-card shadow-sm transition", weatherVariantsOpen ? "left-6" : "left-1")} />
+            <span className={cn("absolute top-0.5 h-4 w-4 rounded-full bg-card shadow-sm transition", weatherVariantsOpen ? "left-[1.125rem]" : "left-0.5")} />
           </button>
-        </div>
-        {weatherVariantsOpen ? (
-          weatherPlanEditable ? (
-            <label className="flex items-center gap-2 text-xs text-muted-foreground">
-              Conditions appliquées
-              <select
+          {weatherVariantsOpen ? (
+            weatherPlanEditable ? (
+              <div className="w-44">
+              <SelectField
+                aria-label="Conditions appliquées"
                 value={equipment.weatherPlan}
-                onChange={(event) => updateWeatherPlan(event.target.value as OrganizerEventDetails["mandatoryEquipment"]["weatherPlan"])}
-                className="h-8 rounded-md border border-border bg-card px-2 text-xs font-medium text-foreground"
-              >
-                <option value="normal">Normales</option>
-                <option value="cold">Grand froid</option>
-                <option value="heat">Grosse chaleur</option>
-              </select>
-            </label>
-          ) : (
-            <span className="text-xs text-muted-foreground">Conditions appliquées : {effectiveWeatherPlan === "cold" ? "grand froid" : effectiveWeatherPlan === "heat" ? "grosse chaleur" : "normales"}</span>
-          )
-        ) : null}
-      </div>
-      <div className={cn("hidden px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground sm:grid sm:items-center sm:gap-3", weatherVariantsOpen ? "sm:grid-cols-[minmax(0,1fr)_auto_9rem_2rem]" : "sm:grid-cols-[minmax(0,1fr)_auto_2rem]")}>
-        <span>Item</span><span>Statut</span>{weatherVariantsOpen ? <span>Météo</span> : null}<span className="sr-only">Action</span>
-      </div>
-      <div className="space-y-6">
-        {groups.map((group) => {
-          const removedRows = removedSharedItems.filter((item) => item.required === group.required);
-          if (group.rows.length === 0 && removedRows.length === 0) return null;
-          return (
-            <section key={group.label} className="space-y-1">
-              <div className="flex items-center gap-2 pb-1">
-                <span className={cn("rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide", group.required ? "border-brand-border bg-brand-surface text-brand" : "border-border bg-surface-muted text-muted-foreground")}>{group.label}</span>
-                <span className="text-xs font-semibold text-muted-foreground">({group.rows.length})</span>
+                onValueChange={(value) => updateWeatherPlan(value as OrganizerEventDetails["mandatoryEquipment"]["weatherPlan"])}
+                className="h-8 w-auto rounded-md border border-border bg-card px-2 text-xs font-medium text-foreground"
+                options={[{ value: "normal", label: "Conditions normales" }, { value: "cold", label: "Grand froid" }, { value: "heat", label: "Grosse chaleur" }]}
+              />
               </div>
-              {group.rows.map(({ item, index }) => {
-                const added = Boolean(sharedItems && !sharedItems.some((sharedItem) => isSameItem(item, sharedItem)));
-                return (
-                  <InlineEditableRow key={item.id ?? index} className={cn("grid grid-cols-[minmax(0,1fr)_2rem] gap-2 sm:items-center sm:gap-3", weatherVariantsOpen ? "sm:grid-cols-[minmax(0,1fr)_auto_9rem_2rem]" : "sm:grid-cols-[minmax(0,1fr)_auto_2rem]")}>
-                    <div className="col-span-2 flex min-w-0 items-center gap-2 sm:col-span-1">
-                      <Input
-                        aria-label={`Item de matériel n°${index + 1}`}
-                        value={item.label}
-                        onChange={(event) => updateItem(index, { label: event.target.value })}
-                        className="h-9 min-w-0 border-transparent bg-transparent px-2 shadow-none hover:border-border focus-visible:border-brand-border"
-                      />
-                      {added ? <span className="shrink-0 rounded-full border border-brand-border bg-brand-surface px-2 py-0.5 text-[10px] font-semibold text-brand">Ajouté</span> : null}
-                    </div>
-                    <div className="flex min-w-0 flex-wrap items-center gap-2 sm:contents">
-                      <SegmentedChoice
-                        label={`Statut de ${item.label || `l’item ${index + 1}`}`}
-                        value={item.required ? "required" : "recommended"}
-                        options={[{ value: "required", label: "Obligatoire" }, { value: "recommended", label: "Recommandé" }] as const}
-                        onChange={(value) => updateItem(index, { required: value === "required" })}
-                      />
-                      {weatherVariantsOpen ? (
-                        <select
-                          aria-label={`Météo de ${item.label || `l’item ${index + 1}`}`}
-                          value={weatherValue(item)}
-                          onChange={(event) => updateWeather(index, event.target.value)}
-                          className="h-8 min-w-32 flex-1 rounded-md border border-border bg-card px-2 text-xs text-foreground sm:w-full sm:flex-none"
-                        >
-                          <option value="always">Toujours</option>
-                          <option value="cold">Grand froid</option>
-                          <option value="heat">Grosse chaleur</option>
-                          {item.cold && item.heat ? <option value="cold_heat">Froid + chaleur</option> : null}
-                        </select>
-                      ) : null}
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="col-start-2 row-start-2 h-8 w-8 justify-self-end px-0 text-muted-foreground hover:bg-red-50 hover:text-red-700 focus-visible:text-red-700 sm:col-start-auto sm:row-start-auto"
-                      onClick={() => updateItems(equipment.items.filter((_, itemIndex) => itemIndex !== index))}
-                      aria-label={`Retirer ${item.label || "cet item"}`}
-                      title="Retirer"
-                    >×</Button>
-                  </InlineEditableRow>
-                );
-              })}
-              {removedRows.map((item, index) => (
-                <InlineEditableRow key={`removed-${item.id ?? item.label}-${index}`} className={cn("grid gap-2 opacity-70 sm:items-center sm:gap-3", weatherVariantsOpen ? "sm:grid-cols-[minmax(0,1fr)_auto_9rem_2rem]" : "sm:grid-cols-[minmax(0,1fr)_auto_2rem]")}>
-                  <div className="flex min-w-0 items-center gap-2 px-2 text-sm text-foreground line-through"><span className="truncate">{item.label}</span><span className="shrink-0 rounded-full border border-border bg-surface-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground no-underline">Retiré</span></div>
-                  <span className="text-xs text-muted-foreground">{item.required ? "Obligatoire" : "Recommandé"}</span>
-                  {weatherVariantsOpen ? <span className="text-xs text-muted-foreground">{item.cold ? "Grand froid" : item.heat ? "Grosse chaleur" : "Toujours"}</span> : null}
-                  <Button type="button" variant="ghost" className="h-8 px-2 text-xs text-brand" onClick={() => updateItems([...equipment.items, { ...item }])} aria-label={`Restaurer ${item.label}`}>↺</Button>
-                </InlineEditableRow>
-              ))}
-            </section>
-          );
-        })}
+            ) : (
+              <span>Conditions : {effectiveWeatherPlan === "cold" ? "grand froid" : effectiveWeatherPlan === "heat" ? "grosse chaleur" : "normales"}</span>
+            )
+          ) : null}
+        </div>
       </div>
-      <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-        <Button type="button" variant="ghost" className="h-8 px-2 text-xs font-semibold text-brand" onClick={() => updateItems([...equipment.items, { id: `item-${Date.now()}`, label: "Nouvel item", required: true, cold: false, heat: false, note: null }])}>+ Ajouter un item</Button>
-        {availableSuggestions.length > 0 ? <span className="text-xs text-muted-foreground">Suggestions :</span> : null}
-        {availableSuggestions.map((suggestion) => (
-          <Button key={suggestion} type="button" variant="ghost" className="h-8 px-2 text-xs text-brand" onClick={() => updateItems([...equipment.items, { id: `item-${Date.now()}`, label: suggestion, required: true, cold: false, heat: false, note: null }])}>+ {suggestion}</Button>
+
+      <ul className="divide-y divide-border/70 rounded-lg border border-border bg-card" aria-label="Liste du matériel">
+        {equipment.items.length === 0 ? <li className="px-3 py-3 text-sm text-muted-foreground">Aucun item pour l’instant.</li> : null}
+        {equipment.items.map((item, index) => (
+          <li key={item.id ?? index} className="flex flex-wrap items-center gap-x-2 gap-y-1 px-2 py-1">
+            <Input
+              title={item.label}
+              aria-label={`Item de matériel n°${index + 1}`}
+              value={item.label}
+              onChange={(event) => updateItem(index, { label: event.target.value })}
+              className="order-1 h-8 min-w-0 flex-1 basis-[calc(100%-2.75rem)] border-transparent sm:basis-0 sm:min-w-[12rem] bg-transparent px-2 text-sm shadow-none hover:border-border focus-visible:border-brand-border"
+            />
+            <div className="order-3 sm:order-2"><RequiredToggle checked={item.required} onChange={(required) => updateItem(index, { required })} label={`${item.label || `Item ${index + 1}`} obligatoire`} /></div>
+            {weatherVariantsOpen ? (
+              <div className="order-3 w-[6.75rem] shrink-0 sm:w-32">
+              <SelectField
+                aria-label={`Météo de ${item.label || `l’item ${index + 1}`}`}
+                value={weatherValue(item)}
+                onValueChange={(value) => updateWeather(index, value)}
+                className="h-8 rounded-md border border-border bg-card px-2 text-xs text-foreground"
+                options={[
+                  { value: "always", label: "Toujours" },
+                  { value: "cold", label: "Grand froid" },
+                  { value: "heat", label: "Grosse chaleur" },
+                  ...(item.cold && item.heat ? [{ value: "cold_heat", label: "Froid + chaleur" }] : []),
+                ]}
+              />
+              </div>
+            ) : null}
+            <Button
+              type="button"
+              variant="ghost"
+              className="order-2 h-8 w-8 shrink-0 px-0 sm:order-4 text-muted-foreground hover:bg-red-50 hover:text-red-700 focus-visible:text-red-700"
+              onClick={() => updateItems(equipment.items.filter((_, itemIndex) => itemIndex !== index))}
+              aria-label={`Retirer ${item.label || "cet item"}`}
+              title="Retirer"
+            >×</Button>
+          </li>
         ))}
-      </div>
-      <TextAreaField
-        label="Note matériel"
-        value={equipment.note ?? ""}
-        onChange={(value) => onEquipmentChange({ ...equipment, note: value || null })}
-        invalid={missingEquipment}
-      />
+      </ul>
+      {removedSharedItems.length > 0 ? (
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground">Retirés pour ce format</p>
+          {removedSharedItems.map((item, index) => (
+            <div key={`removed-${item.id ?? item.label}-${index}`} className="flex items-center justify-between gap-2 rounded-md bg-muted/40 px-3 py-1 text-sm">
+              <span className="truncate text-muted-foreground line-through">{item.label}</span>
+              <Button type="button" variant="ghost" className="h-7 px-2 text-xs text-brand" onClick={() => updateItems([...equipment.items, { ...item }])} aria-label={`Restaurer ${item.label}`}>Restaurer</Button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <DocumentKindChips title="Contrôlé" values={equipment.checkpoints} options={[['bib_pickup', 'Au retrait'], ['start', 'Au départ'], ['course', 'Sur le parcours']]} onChange={(checkpoints) => onEquipmentChange({ ...equipment, checkpoints })} />
+      <TextAreaField label="Note courte" hint={`${(equipment.shortNote ?? '').length}/200 caractères`} value={equipment.shortNote ?? ''} onChange={(shortNote) => onEquipmentChange({ ...equipment, shortNote: shortNote.slice(0, 200) || null })} invalid={missingEquipment} />
+      {equipment.note ? <LegacyText text={equipment.note} conversion={legacyConversionContext ? { ...legacyConversionContext, block: "equipment", onApply: (proposal: { checkpoints: OrganizerEventDetails["mandatoryEquipment"]["checkpoints"]; shortNote: string | null }) => onEquipmentChange({ ...equipment, checkpoints: proposal.checkpoints, shortNote: proposal.shortNote }) } : undefined} /> : null}
     </section>
   );
 }
 
 export function BibPickupEditor({
   eventDetails,
+  editionStartDate,
+  editionEndDate,
   onEventChange,
+  legacyConversionContext,
 }: {
   eventDetails: OrganizerEventDetails;
+  editionStartDate: string;
+  editionEndDate: string;
   onEventChange: (details: OrganizerEventDetails) => void;
+  legacyConversionContext?: LegacyConversionContext;
 }) {
   return (
     <BibPickupFields
       title="Retrait dossard commun"
       description="Renseigne les infos valables pour tous les formats."
       bib={eventDetails.bibPickup}
+      editionStartDate={editionStartDate}
+      editionEndDate={editionEndDate}
       showHeader={false}
       onBibChange={(bibPickup) => onEventChange({ ...eventDetails, bibPickup })}
+      legacyConversionContext={legacyConversionContext}
     />
   );
 }
@@ -287,12 +325,18 @@ export function RaceBibPickupEditor({
   activeRace,
   eventDetails,
   raceDetails,
+  editionStartDate,
+  editionEndDate,
   onRaceChange,
+  legacyConversionContext,
 }: {
   activeRace: RaceFormat | null;
   eventDetails: OrganizerEventDetails;
   raceDetails: OrganizerRaceDetails;
+  editionStartDate: string;
+  editionEndDate: string;
   onRaceChange: (details: OrganizerRaceDetails) => void;
+  legacyConversionContext?: LegacyConversionContext;
 }) {
   if (!activeRace) {
     return <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">Sélectionne un format pour ajouter un retrait spécifique.</p>;
@@ -301,11 +345,12 @@ export function RaceBibPickupEditor({
   const bib = raceDetails.bibPickup;
   if (!bib.overrideEnabled) {
     const inheritedLocations = getOrganizerBibPickupLocations(eventDetails.bibPickup);
+    const inheritedSlotCount = inheritedLocations.reduce((count, location) => count + location.slots.length, 0);
     return (
       <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-4">
         <p className="text-sm font-semibold text-foreground">Retrait hérité de l’événement</p>
         <p className="text-sm text-muted-foreground">
-          {inheritedLocations[0]?.location || "Lieu à compléter"} · {inheritedLocations.reduce((count, location) => count + location.slots.length, 0)} créneau(x){eventDetails.bibPickup.equipmentCheck ? " · contrôle matériel" : ""}
+          {inheritedLocations[0]?.location || "Lieu à compléter"} · {inheritedSlotCount} {inheritedSlotCount === 1 ? "créneau" : "créneaux"}{eventDetails.bibPickup.equipmentCheck ? " · contrôle matériel" : ""}
         </p>
         <Button type="button" variant="outline" onClick={() => onRaceChange({
           ...raceDetails,
@@ -326,10 +371,13 @@ export function RaceBibPickupEditor({
       title="Retrait spécifique au format"
       description="Renseigne uniquement les différences applicables à ce format."
       bib={bib}
+      editionStartDate={editionStartDate}
+      editionEndDate={editionEndDate}
       hideLocationDetails
       showHeader={false}
       framed={false}
       onBibChange={(bibPickup) => onRaceChange({ ...raceDetails, bibPickup: { ...bibPickup, overrideEnabled: true } })}
+      legacyConversionContext={legacyConversionContext}
     />
   );
 }
@@ -342,6 +390,9 @@ function BibPickupFields({
   hideLocationDetails,
   showHeader = true,
   framed = false,
+  editionStartDate,
+  editionEndDate,
+  legacyConversionContext,
 }: {
   title: string;
   description: string;
@@ -350,8 +401,18 @@ function BibPickupFields({
   hideLocationDetails?: boolean;
   showHeader?: boolean;
   framed?: boolean;
+  editionStartDate: string;
+  editionEndDate: string;
+  legacyConversionContext?: LegacyConversionContext;
 }) {
   const update = (next: Partial<OrganizerEventDetails["bibPickup"]>) => onBibChange({ ...bib, ...next });
+  const applyDocumentProposal = (proposal: {
+    requiredDocumentKinds: OrganizerEventDetails["bibPickup"]["requiredDocumentKinds"];
+    requiredDocumentsOther: string | null;
+    thirdPartyPickupAllowed: boolean | null;
+    thirdPartyDocumentKinds: OrganizerEventDetails["bibPickup"]["thirdPartyDocumentKinds"];
+    thirdPartyDocumentsOther: string | null;
+  }) => update({ ...proposal, thirdPartyPickupAllowed: proposal.thirdPartyPickupAllowed ?? bib.thirdPartyPickupAllowed });
   const locations = getOrganizerBibPickupLocations(bib);
   const emptyLocationDetails = defaultOrganizerEventDetails.bibPickup.locationDetails;
   const updateLocations = (nextLocations: OrganizerBibPickupLocation[]) => {
@@ -377,6 +438,30 @@ function BibPickupFields({
     updateLocations(locations.map((location, index) => (index === locationIndex ? { ...location, ...next } : location)));
   };
   const updateSlots = (locationIndex: number, slots: OrganizerBibPickupSlot[]) => updateLocation(locationIndex, { slots });
+  const [removedSlot, setRemovedSlot] = useState<{ locationIndex: number; slotIndex: number; slot: OrganizerBibPickupSlot } | null>(null);
+  const removeSlot = (locationIndex: number, slotIndex: number) => {
+    const slots = locations[locationIndex]?.slots ?? [];
+    const slot = slots[slotIndex];
+    if (!slot) return;
+    updateSlots(locationIndex, slots.filter((_, index) => index !== slotIndex));
+    setRemovedSlot({ locationIndex, slotIndex, slot });
+  };
+  const restoreRemovedSlot = () => {
+    if (!removedSlot) return;
+    const slots = [...(locations[removedSlot.locationIndex]?.slots ?? [])];
+    slots.splice(Math.min(removedSlot.slotIndex, slots.length), 0, removedSlot.slot);
+    updateSlots(removedSlot.locationIndex, slots);
+    setRemovedSlot(null);
+  };
+  const addSlot = (locationIndex: number) => {
+    const slots = locations[locationIndex]?.slots ?? [];
+    const defaultDate = slots[slots.length - 1]?.date ?? (editionStartDate || null);
+    updateSlots(locationIndex, [...slots, { date: defaultDate, startTime: null, endTime: null }]);
+    setRemovedSlot(null);
+    window.setTimeout(() => {
+      document.querySelector<HTMLInputElement>(`input[aria-label="Début du créneau ${slots.length + 1}, lieu ${locationIndex + 1}"]`)?.focus();
+    }, 50);
+  };
 
   return (
     <section className={cn("space-y-4", framed && "rounded-lg border border-border bg-background p-4")}>
@@ -437,6 +522,7 @@ function BibPickupFields({
                     </p>
                   ) : (
                     pickupLocation.slots.map((slot, slotIndex) => {
+                      const dateOutsideEdition = isOutsideDateRange(slot.date ?? "", editionStartDate, editionEndDate);
                       const updateSlot = (next: Partial<OrganizerBibPickupSlot>) =>
                         updateSlots(
                           locationIndex,
@@ -446,18 +532,27 @@ function BibPickupFields({
                         );
                       return (
                         <InlineEditableRow key={`bib-location-${locationIndex}-slot-${slotIndex}`} className="grid grid-cols-[minmax(0,1fr)_2rem] gap-2 sm:grid-cols-[10rem_6.25rem_1rem_6.25rem_2rem] sm:items-center">
-                          <Input aria-label={`Jour du créneau ${slotIndex + 1}, lieu ${locationIndex + 1}`} type="date" value={slot.date ?? ""} onChange={(event) => updateSlot({ date: event.target.value || null })} aria-invalid={!slot.date || undefined} className={cn("h-9 min-w-0 font-mono text-sm tabular-nums", !slot.date && "border-amber-400")} />
+                          <div>
+                            <Input aria-label={`Jour du créneau ${slotIndex + 1}, lieu ${locationIndex + 1}`} type="date" value={slot.date ?? ""} onChange={(event) => updateSlot({ date: event.target.value || null })} aria-invalid={!slot.date || undefined} className={cn("h-9 min-w-0 font-mono text-sm tabular-nums", !slot.date && "border-red-500")} />
+                            {dateOutsideEdition ? <p className="mt-1 text-xs font-medium text-amber-700">Cette date est hors de la période de l’édition.</p> : null}
+                          </div>
                           <div className="col-span-2 grid grid-cols-[minmax(0,1fr)_1rem_minmax(0,1fr)] items-center gap-2 sm:contents">
                             <Input aria-label={`Début du créneau ${slotIndex + 1}, lieu ${locationIndex + 1}`} type="time" value={slot.startTime ?? ""} onChange={(event) => updateSlot({ startTime: event.target.value || null })} aria-invalid={!slot.startTime || undefined} className={cn("h-9 min-w-0 font-mono text-sm tabular-nums", !slot.startTime && "border-amber-400")} />
                             <span className="text-center text-xs text-muted-foreground" aria-hidden>→</span>
                             <Input aria-label={`Fin du créneau ${slotIndex + 1}, lieu ${locationIndex + 1}`} type="time" value={slot.endTime ?? ""} onChange={(event) => updateSlot({ endTime: event.target.value || null })} aria-invalid={!slot.endTime || undefined} className={cn("h-9 min-w-0 font-mono text-sm tabular-nums", !slot.endTime && "border-amber-400")} />
                           </div>
-                          <Button type="button" variant="ghost" className="col-start-2 row-start-1 h-8 w-8 px-0 text-muted-foreground hover:bg-red-50 hover:text-red-700 focus-visible:text-red-700 sm:col-start-auto sm:row-start-auto" onClick={() => updateSlots(locationIndex, pickupLocation.slots.filter((_, index) => index !== slotIndex))} aria-label={`Supprimer le créneau ${slotIndex + 1}, lieu ${locationIndex + 1}`} title="Supprimer le créneau">×</Button>
+                          <Button type="button" variant="ghost" className="col-start-2 row-start-1 h-8 w-8 px-0 text-muted-foreground hover:bg-red-50 hover:text-red-700 focus-visible:text-red-700 sm:col-start-auto sm:row-start-auto" onClick={() => removeSlot(locationIndex, slotIndex)} aria-label={`Supprimer le créneau ${slotIndex + 1}, lieu ${locationIndex + 1}`} title="Supprimer le créneau">×</Button>
                         </InlineEditableRow>
                       );
                     })
                   )}
-                  <Button type="button" variant="ghost" className="h-8 px-2 text-xs font-semibold text-brand" onClick={() => updateSlots(locationIndex, [...pickupLocation.slots, { date: null, startTime: null, endTime: null }])}>+ Ajouter un créneau</Button>
+                  {removedSlot?.locationIndex === locationIndex ? (
+                    <p className="flex flex-wrap items-center gap-2 rounded-md bg-muted/60 px-3 py-2 text-xs text-muted-foreground" role="status">
+                      Créneau supprimé{removedSlot.slot.date ? ` (${removedSlot.slot.date.split("-").reverse().join("/")}${removedSlot.slot.startTime ? ` · ${removedSlot.slot.startTime}` : ""})` : ""}.
+                      <Button type="button" variant="ghost" className="h-7 px-2 text-xs font-semibold text-brand" onClick={restoreRemovedSlot}>Annuler</Button>
+                    </p>
+                  ) : null}
+                  <Button type="button" variant="ghost" className="h-8 px-2 text-xs font-semibold text-brand" onClick={() => addSlot(locationIndex)}>+ Ajouter un créneau</Button>
                 </div>
               </section>
             );
@@ -472,21 +567,21 @@ function BibPickupFields({
           onChange={(value) => update({ schedule: value || null })}
         />
       ) : null}
-      <TextAreaField label="Documents nécessaires" value={bib.requiredDocuments ?? ""} onChange={(value) => update({ requiredDocuments: value || null })} />
+      <DocumentKindChips title="À apporter au retrait" values={bib.requiredDocumentKinds} options={[['id_card', 'Pièce d’identité'], ['registration_qr', 'QR d’inscription'], ['medical_certificate', 'Certificat médical'], ['license_or_pps', 'Licence ou PPS'], ['parental_authorization', 'Autorisation parentale'], ['other', 'Autre']]} onChange={(requiredDocumentKinds) => update({ requiredDocumentKinds })} />
+      {bib.requiredDocumentKinds.includes('other') ? <TextAreaField label="Autre document" hint={`${(bib.requiredDocumentsOther ?? '').length}/200 caractères`} value={bib.requiredDocumentsOther ?? ''} onChange={(requiredDocumentsOther) => update({ requiredDocumentsOther: requiredDocumentsOther.slice(0, 200) || null })} /> : null}
+      {bib.requiredDocuments ? <LegacyText text={bib.requiredDocuments} conversion={legacyConversionContext ? { ...legacyConversionContext, block: "bib_pickup", onApply: applyDocumentProposal } : undefined} /> : null}
       <div className="space-y-3 border-t border-border pt-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm font-medium text-foreground">Une autre personne peut-elle retirer le dossard ?</p>
-          <SegmentedChoice label="Retrait par un tiers" value={bib.thirdPartyPickupAllowed === true ? "yes" : "no"} options={[{ value: "no", label: "Non" }, { value: "yes", label: "Oui" }] as const} onChange={(value) => update({ thirdPartyPickupAllowed: value === "yes" })} />
-        </div>
-        {bib.thirdPartyPickupAllowed === true ? <div className="ml-0 border-l-2 border-brand-border pl-4 sm:ml-4"><TextAreaField label="Conditions du retrait par un tiers" value={bib.thirdPartyPickupConditions ?? ""} onChange={(value) => update({ thirdPartyPickupConditions: value || null })} /></div> : null}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm font-medium text-foreground">Un contrôle du matériel est-il prévu au retrait ?</p>
-          <SegmentedChoice label="Contrôle du matériel au retrait" value={bib.equipmentCheck === true ? "yes" : "no"} options={[{ value: "no", label: "Non" }, { value: "yes", label: "Oui" }] as const} onChange={(value) => update({ equipmentCheck: value === "yes" })} />
-        </div>
+        <SwitchRow label="Retrait par un tiers" description="Une autre personne peut récupérer le dossard." checked={bib.thirdPartyPickupAllowed === true} onCheckedChange={(thirdPartyPickupAllowed) => update({ thirdPartyPickupAllowed })} />
+        {bib.thirdPartyPickupAllowed === true ? <div className="ml-0 space-y-3 border-l-2 border-brand-border pl-4 sm:ml-4"><DocumentKindChips title="Documents pour le retrait par un tiers" values={bib.thirdPartyDocumentKinds} options={[['id_copy', 'Copie de la pièce d’identité'], ['proxy_letter', 'Procuration'], ['registration_qr', 'QR d’inscription'], ['other', 'Autre']]} onChange={(thirdPartyDocumentKinds) => update({ thirdPartyDocumentKinds })} />{bib.thirdPartyDocumentKinds.includes('other') ? <TextAreaField label="Autre document tiers" hint={`${(bib.thirdPartyDocumentsOther ?? '').length}/200 caractères`} value={bib.thirdPartyDocumentsOther ?? ''} onChange={(thirdPartyDocumentsOther) => update({ thirdPartyDocumentsOther: thirdPartyDocumentsOther.slice(0, 200) || null })} /> : null}{bib.thirdPartyPickupConditions ? <LegacyText text={bib.thirdPartyPickupConditions} conversion={legacyConversionContext ? { ...legacyConversionContext, block: "bib_pickup", onApply: applyDocumentProposal } : undefined} /> : null}</div> : null}
+        <SwitchRow label="Contrôle du matériel au retrait" checked={bib.equipmentCheck === true} onCheckedChange={(equipmentCheck) => update({ equipmentCheck })} />
       </div>
       <TextAreaField label="Note dossard" value={bib.note ?? ""} onChange={(value) => update({ note: value || null })} />
     </section>
   );
+}
+
+function DocumentKindChips<T extends string>({ title, values, options, onChange }: { title: string; values: T[]; options: readonly (readonly [T, string])[]; onChange: (values: T[]) => void }) {
+  return <fieldset className="space-y-2"><legend className="text-sm font-semibold">{title}</legend><div className="flex flex-wrap gap-2">{options.map(([value, label]) => <ToggleChip key={value} checked={values.includes(value)} label={label} onChange={(checked) => onChange(checked ? [...values, value] : values.filter((item) => item !== value))} />)}</div></fieldset>;
 }
 
 export function AccessEditor({
@@ -496,6 +591,8 @@ export function AccessEditor({
   raceDetails,
   onEventChange,
   onRaceChange,
+  editionStartDate,
+  legacyConversionContext,
 }: {
   scope: "event" | "format";
   activeRace: RaceFormat | null;
@@ -503,6 +600,8 @@ export function AccessEditor({
   raceDetails: OrganizerRaceDetails;
   onEventChange: (details: OrganizerEventDetails) => void;
   onRaceChange: (details: OrganizerRaceDetails) => void;
+  editionStartDate?: string | null;
+  legacyConversionContext?: LegacyConversionContext;
 }) {
   if (scope === "event") {
     return (
@@ -514,6 +613,10 @@ export function AccessEditor({
         onAccessChange={(access) => onEventChange({ ...eventDetails, access })}
         formatMode
         showRunnerInfoToggle={false}
+        showHeader={false}
+        editionStartDate={editionStartDate}
+        editionEndDate={eventDetails.dateRange.endDate}
+        legacyConversionContext={legacyConversionContext}
       />
     );
   }
@@ -550,9 +653,12 @@ export function AccessEditor({
         onAccessChange={(access) => onRaceChange({ ...raceDetails, access })}
         formatMode
         showHeader={false}
+        editionStartDate={editionStartDate}
+        editionEndDate={eventDetails.dateRange.endDate}
+        legacyConversionContext={legacyConversionContext}
       />
       {raceDetails.access.enabledSections.runnerInfo ? (
-        <RunnerInfoFields runnerInfo={raceDetails.runnerInfo} onRunnerInfoChange={(runnerInfo) => onRaceChange({ ...raceDetails, runnerInfo })} />
+        <RunnerInfoFields runnerInfo={raceDetails.runnerInfo} equipmentItems={(raceDetails.mandatoryEquipment.overrideEnabled ? raceDetails.mandatoryEquipment : eventDetails.mandatoryEquipment).items} onRunnerInfoChange={(runnerInfo) => onRaceChange({ ...raceDetails, runnerInfo })} legacyConversionContext={legacyConversionContext} />
       ) : null}
     </div>
   );
@@ -567,6 +673,9 @@ function AccessFields({
   formatMode = false,
   showRunnerInfoToggle = formatMode,
   showHeader = true,
+  editionStartDate,
+  editionEndDate,
+  legacyConversionContext,
 }: {
   title: string;
   description: string;
@@ -576,11 +685,15 @@ function AccessFields({
   formatMode?: boolean;
   showRunnerInfoToggle?: boolean;
   showHeader?: boolean;
+  editionStartDate?: string | null;
+  editionEndDate?: string | null;
+  legacyConversionContext?: LegacyConversionContext;
 }) {
   const update = (next: Partial<OrganizerEventDetails["access"]>) => onAccessChange({ ...access, ...next });
   const updateSection = (key: keyof OrganizerEventDetails["access"]["enabledSections"], checked: boolean) =>
     update({ enabledSections: { ...access.enabledSections, [key]: checked } });
   const missingStartAddress = !access.startAddress?.trim();
+  const finishMatchesStart = Boolean(access.startAddress?.trim() && access.startAddress.trim() === access.finishAddress?.trim());
   const transportEnabled = !formatMode || access.enabledSections.officialParkings || access.enabledSections.shuttles;
   const missingParkingOrShuttle =
     transportEnabled &&
@@ -591,6 +704,13 @@ function AccessFields({
   const [restrictionsOpen, setRestrictionsOpen] = useState(access.enabledSections.roadRestrictions || Boolean(access.roadRestrictions?.trim()));
   const [parkingsOpen, setParkingsOpen] = useState(access.enabledSections.officialParkings || Boolean(access.officialParkings?.trim()));
   const [shuttlesOpen, setShuttlesOpen] = useState(access.enabledSections.shuttles || Boolean(access.shuttles?.trim() || access.shuttleSchedule?.trim()));
+  const applyAccessProposal = (proposal: {
+    parkings: Array<{ name: string; address: string | null; capacity: number | null; paid: boolean | null; note: string | null }>;
+    shuttleLines: Array<{ from: string; to: string; startTime: string | null; endTime: string | null; frequencyMinutes: number | null; bookingUrl: string | null; free: boolean | null; note: string | null }>;
+  }) => update({
+    parkings: proposal.parkings.map((parking) => ({ id: crypto.randomUUID(), name: parking.name, location: { label: parking.address, lat: null, lng: null, googleMapsUrl: null, source: "manual" }, capacity: parking.capacity, paid: parking.paid, note: parking.note })),
+    shuttleLines: proposal.shuttleLines.map((line) => ({ id: crypto.randomUUID(), from: { label: line.from, lat: null, lng: null, googleMapsUrl: null, source: "manual" }, to: { label: line.to, lat: null, lng: null, googleMapsUrl: null, source: "manual" }, days: [], startTime: line.startTime, endTime: line.endTime, frequencyMinutes: line.frequencyMinutes, bookingUrl: line.bookingUrl, free: line.free, note: line.note })),
+  });
 
   return (
     <section className="space-y-4">
@@ -611,18 +731,29 @@ function AccessFields({
             onLocationChange={(startLocation) => update({ startLocation })}
             invalid={missingStartAddress}
           />
-          <AddressAutocompleteField
+          {finishMatchesStart ? null : <AddressAutocompleteField
             label="Adresse arrivée"
             value={access.finishAddress ?? ""}
             location={access.finishLocation}
             biasLocation={biasLocation}
             onChange={(value) => update({ finishAddress: value || null })}
             onLocationChange={(finishLocation) => update({ finishLocation })}
-          />
+          />}
       </div>
+      <SwitchRow
+        label="Arrivée au même endroit que le départ"
+        checked={finishMatchesStart}
+        onCheckedChange={(checked) => update(checked
+          ? { finishAddress: access.startAddress, finishLocation: access.startLocation }
+          : { finishAddress: null, finishLocation: { label: null, lat: null, lng: null, googleMapsUrl: null, source: "manual" } })}
+      />
 
+      <TextAreaField label="Information prioritaire" hint="À réserver aux consignes critiques : dernière navette, accès fermé ou horaire important." value={access.note ?? ""} onChange={(value) => update({ note: value || null })} />
+
+      <div className="grid items-start gap-x-4 gap-y-3 sm:grid-cols-2">
       <OptionalModule
-        title="une carte générale"
+        title="Carte générale"
+        addLabel="+ Ajouter une carte générale"
         active={mapOpen}
         onAdd={() => { setMapOpen(true); updateSection("mapUrl", true); }}
         onRemove={() => { setMapOpen(false); updateSection("mapUrl", false); }}
@@ -630,13 +761,9 @@ function AccessFields({
           <TextField label="Lien vers une carte générale (optionnel)" value={access.mapUrl ?? ""} onChange={(value) => update({ mapUrl: value || null })} placeholder="https://..." />
       </OptionalModule>
 
-      <div className="space-y-3 border-t border-border pt-4">
-        <p className="text-sm font-semibold text-foreground">À retenir</p>
-        <TextAreaField label="Information prioritaire" hint="À réserver aux consignes critiques : dernière navette, accès fermé ou horaire important." value={access.note ?? ""} onChange={(value) => update({ note: value || null })} />
-      </div>
-
       <OptionalModule
-        title="les routes fermées"
+        title="Routes fermées"
+        addLabel="+ Ajouter les routes fermées"
         active={restrictionsOpen}
         onAdd={() => { setRestrictionsOpen(true); updateSection("roadRestrictions", true); }}
         onRemove={() => { setRestrictionsOpen(false); updateSection("roadRestrictions", false); }}
@@ -645,25 +772,29 @@ function AccessFields({
       </OptionalModule>
 
       <OptionalModule
-        title="les parkings"
+        title="Parkings"
+        addLabel="+ Ajouter les parkings"
         active={parkingsOpen}
         onAdd={() => { setParkingsOpen(true); updateSection("officialParkings", true); }}
         onRemove={() => { setParkingsOpen(false); updateSection("officialParkings", false); }}
       >
-          <TextAreaField label="Parkings officiels" value={access.officialParkings ?? ""} onChange={(value) => update({ officialParkings: value || null })} invalid={missingParkingOrShuttle} />
+          <ParkingCards parkings={access.parkings} biasLocation={biasLocation} onChange={(parkings) => update({ parkings })} />
+          {access.officialParkings ? <LegacyText text={access.officialParkings} conversion={legacyConversionContext ? { ...legacyConversionContext, block: "access", onApply: applyAccessProposal } : undefined} /> : null}
       </OptionalModule>
 
+      <div className="sm:col-span-2">
       <OptionalModule
-        title="les navettes"
+        title="Navettes"
+        addLabel="+ Ajouter les navettes"
         active={shuttlesOpen}
         onAdd={() => { setShuttlesOpen(true); updateSection("shuttles", true); }}
         onRemove={() => { setShuttlesOpen(false); updateSection("shuttles", false); }}
       >
-          <div className="grid gap-3 md:grid-cols-2">
-            <TextAreaField label="Fonctionnement des navettes" value={access.shuttles ?? ""} onChange={(value) => update({ shuttles: value || null })} invalid={missingParkingOrShuttle} />
-            <TextAreaField label="Horaires des navettes" value={access.shuttleSchedule ?? ""} onChange={(value) => update({ shuttleSchedule: value || null })} />
-          </div>
+          <ShuttleCards lines={access.shuttleLines} editionDays={editionDays(editionStartDate, editionEndDate)} biasLocation={biasLocation} onChange={(shuttleLines) => update({ shuttleLines })} />
+          {access.shuttles || access.shuttleSchedule ? <LegacyText text={[access.shuttles, access.shuttleSchedule].filter(Boolean).join("\n\n")} conversion={legacyConversionContext ? { ...legacyConversionContext, block: "access", onApply: applyAccessProposal } : undefined} /> : null}
       </OptionalModule>
+      </div>
+      </div>
 
       {formatMode && showRunnerInfoToggle ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-border bg-background p-4">
@@ -678,24 +809,65 @@ function AccessFields({
   );
 }
 
+function LegacyText<T>({ text, conversion }: { text: string; conversion?: LegacyConversionContext & { block: OrganizerLegacyBlock; onApply: (proposal: T) => void } }) {
+  return <details className="rounded-lg border border-border bg-muted/20 p-3"><summary className="cursor-pointer text-sm font-semibold">Texte à convertir</summary><p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{text}</p>{conversion ? <LegacyConversionPanel<T> {...conversion} text={text} /> : null}</details>;
+}
+
+function editionDays(start?: string | null, end?: string | null) {
+  if (!start) return [];
+  const first = new Date(`${start}T12:00:00Z`);
+  const last = end ? new Date(`${end}T12:00:00Z`) : first;
+  if (!Number.isFinite(first.getTime()) || !Number.isFinite(last.getTime()) || last < first) return [];
+  const days: string[] = [];
+  for (let cursor = first; cursor <= last && days.length < 14; cursor = new Date(cursor.getTime() + 86_400_000)) days.push(cursor.toISOString().slice(0, 10));
+  return days;
+}
+
+function ParkingCards({ parkings, biasLocation, onChange }: { parkings: OrganizerEventDetails['access']['parkings']; biasLocation?: OrganizerEventDetails['eventLocation']; onChange: (value: OrganizerEventDetails['access']['parkings']) => void }) {
+  const patch = (index: number, next: Partial<(typeof parkings)[number]>) => onChange(parkings.map((item, itemIndex) => itemIndex === index ? { ...item, ...next } : item));
+  return <div className="space-y-3">{parkings.map((parking, index) => <article key={parking.id} className="space-y-3 rounded-xl border border-border bg-background p-3"><div className="flex gap-2"><div className="min-w-0 flex-1"><TextField label={`Parking ${index + 1}`} value={parking.name} onChange={(name) => patch(index, { name })} /></div><Button type="button" variant="ghost" onClick={() => onChange(parkings.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Supprimer ${parking.name}`}>×</Button></div><AddressAutocompleteField label="Adresse" value={parking.location.label ?? ''} location={parking.location} biasLocation={biasLocation} onChange={(label) => patch(index, { location: { ...parking.location, label: label || null } })} onLocationChange={(location) => patch(index, { location })} /><div className="grid gap-3 sm:grid-cols-2"><NumberField label="Capacité" value={parking.capacity ?? 0} emptyWhenZero step="1" onChange={(capacity) => patch(index, { capacity: capacity > 0 ? Math.round(capacity) : null })} /><SegmentedChoice label="Tarif" value={parking.paid === null ? 'unknown' : parking.paid ? 'paid' : 'free'} options={[{ value: 'unknown', label: 'Non précisé' }, { value: 'free', label: 'Gratuit' }, { value: 'paid', label: 'Payant' }] as const} onChange={(value) => patch(index, { paid: value === 'unknown' ? null : value === 'paid' })} /></div><TextAreaField label="Note courte" hint={`${(parking.note ?? '').length}/200 caractères`} value={parking.note ?? ''} onChange={(note) => patch(index, { note: note.slice(0, 200) || null })} /></article>)}<Button type="button" variant="ghost" onClick={() => onChange([...parkings, { id: crypto.randomUUID(), name: `Parking ${parkings.length + 1}`, location: { label: null, lat: null, lng: null, googleMapsUrl: null, source: null }, capacity: null, paid: null, note: null }])}>+ Parking</Button></div>;
+}
+
+function ShuttleCards({ lines, editionDays: days, biasLocation, onChange }: { lines: OrganizerEventDetails['access']['shuttleLines']; editionDays: string[]; biasLocation?: OrganizerEventDetails['eventLocation']; onChange: (value: OrganizerEventDetails['access']['shuttleLines']) => void }) {
+  const patch = (index: number, next: Partial<(typeof lines)[number]>) => onChange(lines.map((item, itemIndex) => itemIndex === index ? { ...item, ...next } : item));
+  return <div className="space-y-3">{lines.map((line, index) => <article key={line.id} className="space-y-3 rounded-xl border border-border bg-background p-3"><div className="flex justify-between"><p className="font-semibold">Ligne {index + 1}</p><Button type="button" variant="ghost" onClick={() => onChange(lines.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Supprimer la ligne ${index + 1}`}>×</Button></div><div className="grid gap-3 sm:grid-cols-2"><AddressAutocompleteField label="De" value={line.from.label ?? ''} location={line.from} biasLocation={biasLocation} onChange={(label) => patch(index, { from: { ...line.from, label: label || null } })} onLocationChange={(from) => patch(index, { from })} /><AddressAutocompleteField label="À" value={line.to.label ?? ''} location={line.to} biasLocation={biasLocation} onChange={(label) => patch(index, { to: { ...line.to, label: label || null } })} onLocationChange={(to) => patch(index, { to })} /></div><div className="flex flex-wrap gap-2">{days.map((day) => <button type="button" key={day} className={cn('rounded-full border px-3 py-1 text-xs', line.days.includes(day) && 'border-brand bg-brand-surface text-brand')} onClick={() => patch(index, { days: line.days.includes(day) ? line.days.filter((item) => item !== day) : [...line.days, day] })}>{day.split('-').reverse().join('/')}</button>)}</div><div className="grid gap-3 sm:grid-cols-3"><TextField label="Début" type="time" value={line.startTime ?? ''} onChange={(startTime) => patch(index, { startTime: startTime || null })} /><TextField label="Fin" type="time" value={line.endTime ?? ''} onChange={(endTime) => patch(index, { endTime: endTime || null })} /><NumberField label="Fréquence (min)" value={line.frequencyMinutes ?? 0} emptyWhenZero step="1" onChange={(frequencyMinutes) => patch(index, { frequencyMinutes: frequencyMinutes > 0 ? Math.round(frequencyMinutes) : null })} /></div><div className="grid gap-3 sm:grid-cols-2"><TextField label="Réservation" type="url" value={line.bookingUrl ?? ''} onChange={(bookingUrl) => patch(index, { bookingUrl: bookingUrl || null })} /><SegmentedChoice label="Tarif" value={line.free === null ? 'unknown' : line.free ? 'free' : 'paid'} options={[{ value: 'unknown', label: 'Non précisé' }, { value: 'free', label: 'Gratuite' }, { value: 'paid', label: 'Payante' }] as const} onChange={(value) => patch(index, { free: value === 'unknown' ? null : value === 'free' })} /></div><TextAreaField label="Note courte" hint={`${(line.note ?? '').length}/200 caractères`} value={line.note ?? ''} onChange={(note) => patch(index, { note: note.slice(0, 200) || null })} /></article>)}<Button type="button" variant="ghost" onClick={() => onChange([...lines, { id: crypto.randomUUID(), from: { label: null, lat: null, lng: null, googleMapsUrl: null, source: null }, to: { label: null, lat: null, lng: null, googleMapsUrl: null, source: null }, days: [], startTime: null, endTime: null, frequencyMinutes: null, bookingUrl: null, free: null, note: null }])}>+ Ligne de navette</Button></div>;
+}
+
 function RunnerInfoFields({
   runnerInfo,
+  equipmentItems,
   onRunnerInfoChange,
+  legacyConversionContext,
 }: {
   runnerInfo: OrganizerRaceDetails["runnerInfo"];
+  equipmentItems: OrganizerRaceDetails["mandatoryEquipment"]["items"];
   onRunnerInfoChange: (runnerInfo: OrganizerRaceDetails["runnerInfo"]) => void;
+  legacyConversionContext?: LegacyConversionContext;
 }) {
   const update = (next: Partial<OrganizerRaceDetails["runnerInfo"]>) => onRunnerInfoChange({ ...runnerInfo, ...next });
+  const startArea = runnerInfo.startAreaDetails;
+  const briefing = runnerInfo.briefingDetails;
+  const rules = runnerInfo.rulesDetails;
+  const applyRunnerInfoProposal = (proposal: {
+    startArea: { address: string | null; opensAt: string | null; note: string | null };
+    briefing: { date: string | null; time: string | null; location: string | null; videoUrl: string | null; mandatory: boolean; note: string | null };
+    rules: { regulationUrl: string | null; polesAllowed: "allowed" | "partial" | "forbidden" | null; cupRequired: boolean | null; musicAllowed: boolean | null; outsideAssistanceForbidden: boolean | null; note: string | null };
+  }) => update({
+    startAreaDetails: { location: { ...startArea.location, label: proposal.startArea.address, source: "manual" }, opensAt: proposal.startArea.opensAt, note: proposal.startArea.note },
+    briefingDetails: { location: { ...briefing.location, label: proposal.briefing.location, source: "manual" }, date: proposal.briefing.date, time: proposal.briefing.time, videoUrl: proposal.briefing.videoUrl, mandatory: proposal.briefing.mandatory, note: proposal.briefing.note },
+    rulesDetails: { regulationUrl: proposal.rules.regulationUrl, keyRules: { polesAllowed: proposal.rules.polesAllowed, cupRequired: proposal.rules.cupRequired, musicAllowed: proposal.rules.musicAllowed, outsideAssistanceForbidden: proposal.rules.outsideAssistanceForbidden }, note: proposal.rules.note },
+  });
   return (
     <div className="space-y-3 border-t border-border pt-4">
       <div className="flex items-center gap-2">
         <p className="font-semibold text-foreground">Informations coureur spécifiques</p>
         <ContextualHelp text="Briefing, zone de départ ou consigne propre au format actif." />
       </div>
-      <TextField label="Zone de départ" value={runnerInfo.startArea ?? ""} onChange={(value) => update({ startArea: value || null })} />
-      <TextAreaField label="Briefing" value={runnerInfo.briefing ?? ""} onChange={(value) => update({ briefing: value || null })} />
-      <TextAreaField label="Règles spécifiques" value={runnerInfo.rules ?? ""} onChange={(value) => update({ rules: value || null })} />
-      <TextAreaField label="Note format" value={runnerInfo.note ?? ""} onChange={(value) => update({ note: value || null })} />
+      <section className="space-y-3 rounded-xl border border-border p-3"><p className="font-semibold">Zone de départ</p><AddressAutocompleteField label="Adresse" value={startArea.location.label ?? ''} location={startArea.location} onChange={(label) => update({ startAreaDetails: { ...startArea, location: { ...startArea.location, label: label || null } } })} onLocationChange={(location) => update({ startAreaDetails: { ...startArea, location } })} /><TextField label="Ouverture" type="time" value={startArea.opensAt ?? ''} onChange={(opensAt) => update({ startAreaDetails: { ...startArea, opensAt: opensAt || null } })} /><TextAreaField label="Note courte" hint={`${(startArea.note ?? '').length}/200 caractères`} value={startArea.note ?? ''} onChange={(note) => update({ startAreaDetails: { ...startArea, note: note.slice(0, 200) || null } })} /></section>
+      <section className="space-y-3 rounded-xl border border-border p-3"><p className="font-semibold">Briefing</p><div className="grid gap-3 sm:grid-cols-2"><TextField label="Date" type="date" value={briefing.date ?? ''} onChange={(date) => update({ briefingDetails: { ...briefing, date: date || null } })} /><TextField label="Heure" type="time" value={briefing.time ?? ''} onChange={(time) => update({ briefingDetails: { ...briefing, time: time || null } })} /></div><AddressAutocompleteField label="Lieu" value={briefing.location.label ?? ''} location={briefing.location} onChange={(label) => update({ briefingDetails: { ...briefing, location: { ...briefing.location, label: label || null } } })} onLocationChange={(location) => update({ briefingDetails: { ...briefing, location } })} /><TextField label="Vidéo" type="url" value={briefing.videoUrl ?? ''} onChange={(videoUrl) => update({ briefingDetails: { ...briefing, videoUrl: videoUrl || null } })} /><SwitchRow label="Briefing obligatoire" checked={briefing.mandatory} onCheckedChange={(mandatory) => update({ briefingDetails: { ...briefing, mandatory } })} /><TextAreaField label="Note courte" hint={`${(briefing.note ?? '').length}/200 caractères`} value={briefing.note ?? ''} onChange={(note) => update({ briefingDetails: { ...briefing, note: note.slice(0, 200) || null } })} /></section>
+      <section className="space-y-3 rounded-xl border border-border p-3"><p className="font-semibold">Règles clés</p><TextField label="Règlement" type="url" value={rules.regulationUrl ?? ''} onChange={(regulationUrl) => update({ rulesDetails: { ...rules, regulationUrl: regulationUrl || null } })} /><SegmentedChoice label="Bâtons" value={rules.keyRules.polesAllowed ?? 'unknown'} options={[{ value: 'unknown', label: 'Non précisé' }, { value: 'allowed', label: 'Autorisés' }, { value: 'partial', label: 'Partiels' }, { value: 'forbidden', label: 'Interdits' }] as const} onChange={(polesAllowed) => update({ rulesDetails: { ...rules, keyRules: { ...rules.keyRules, polesAllowed: polesAllowed === 'unknown' ? null : polesAllowed } } })} /><SwitchRow label="Gobelet obligatoire" checked={rules.keyRules.cupRequired === true} onCheckedChange={(cupRequired) => update({ rulesDetails: { ...rules, keyRules: { ...rules.keyRules, cupRequired } } })} /><SwitchRow label="Musique autorisée" checked={rules.keyRules.musicAllowed === true} onCheckedChange={(musicAllowed) => update({ rulesDetails: { ...rules, keyRules: { ...rules.keyRules, musicAllowed } } })} /><SwitchRow label="Assistance extérieure interdite" checked={rules.keyRules.outsideAssistanceForbidden === true} onCheckedChange={(outsideAssistanceForbidden) => update({ rulesDetails: { ...rules, keyRules: { ...rules.keyRules, outsideAssistanceForbidden } } })} />{rules.keyRules.cupRequired && !hasOrganizerEquipmentLabelPrefix(equipmentItems, 'gobelet') ? <p className="text-sm text-amber-700">Pense à ajouter un gobelet au matériel obligatoire.</p> : null}<TextAreaField label="Note courte" hint={`${(rules.note ?? '').length}/200 caractères`} value={rules.note ?? ''} onChange={(note) => update({ rulesDetails: { ...rules, note: note.slice(0, 200) || null } })} /></section>
+      {runnerInfo.startArea || runnerInfo.briefing || runnerInfo.rules ? <LegacyText text={[runnerInfo.startArea, runnerInfo.briefing, runnerInfo.rules].filter(Boolean).join('\n\n')} conversion={legacyConversionContext ? { ...legacyConversionContext, block: "runner_info", onApply: applyRunnerInfoProposal } : undefined} /> : null}
+      <TextAreaField label="Note format" value={runnerInfo.note ?? ""} onChange={(value) => update({ note: value.slice(0, 200) || null })} />
     </div>
   );
 }

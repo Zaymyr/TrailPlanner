@@ -6,12 +6,13 @@ import {
   resolveRacebookTheme,
 } from "@pace-yourself/design-system";
 import Image from "next/image";
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { Button } from "../../../../components/ui/button";
 import { Input } from "../../../../components/ui/input";
 import { Label } from "../../../../components/ui/label";
 import { ContextualHelp } from "./controls";
+import { FileField } from "./form-kit";
 import type { OrganizerBranding, OrganizerBrandingState } from "./types";
 
 const emptyState = (): OrganizerBrandingState => ({
@@ -118,10 +119,7 @@ export function BrandingEditor({
     return () => window.clearTimeout(timer);
   }, [busy, draft.accentColor, draft.primaryColor, localDirty]);
 
-  const uploadLogo = async (event: ChangeEvent<HTMLInputElement>) => {
-    const image = event.target.files?.[0];
-    event.target.value = "";
-    if (!image) return;
+  const uploadLogo = async (image: File) => {
     if (localDirty && !(await saveColors(true))) return;
     setBusy("logo");
     try {
@@ -178,7 +176,7 @@ export function BrandingEditor({
   if (loading) return <p className="text-sm text-muted-foreground">Chargement de l’identité visuelle...</p>;
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+    <div className="grid items-start gap-5 min-[900px]:grid-cols-[minmax(0,1fr)_300px]">
       <div className="space-y-5">
         <div className="flex flex-wrap items-center gap-2">
           <span className={`rounded-full px-3 py-1 text-xs font-semibold ${serverState.hasUnpublishedChanges || localDirty ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>
@@ -205,13 +203,19 @@ export function BrandingEditor({
         {RACEBOOK_EDITION_LOGO_ENABLED ? (
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Label htmlFor={`${formId}-logo`}>Logo officiel de l’édition</Label>
+              <p className="text-sm font-medium text-foreground">Logo officiel de l’édition</p>
               <ContextualHelp text="PNG, JPEG, WebP ou AVIF, 5 Mo maximum. Un fond transparent est recommandé." />
             </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <Input id={`${formId}-logo`} type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={(event) => void uploadLogo(event)} disabled={busy !== null} className="max-w-sm" />
-              {draft.logoUrl ? <Button type="button" variant="outline" onClick={() => void removeLogo()} disabled={busy !== null}>Retirer le logo</Button> : null}
-            </div>
+            <fieldset disabled={busy !== null}>
+              <FileField
+                label="Choisir un logo"
+                accept="image/png,image/jpeg,image/webp,image/avif"
+                value={draft.logoUrl ? { name: "Logo officiel de l'édition", previewUrl: draft.logoUrl } : null}
+                maxSizeLabel="PNG, JPEG, WebP ou AVIF · 5 Mo maximum"
+                onChange={(file) => void uploadLogo(file)}
+                onRemove={draft.logoUrl ? () => void removeLogo() : undefined}
+              />
+            </fieldset>
           </div>
         ) : null}
 
@@ -222,9 +226,9 @@ export function BrandingEditor({
         </div>
       </div>
 
-      <div className="rounded-[28px] border border-border bg-[#ECEAE3] p-4 shadow-sm">
+      <aside className="rounded-[28px] border border-border bg-muted p-4 shadow-sm min-[900px]:sticky min-[900px]:top-3" aria-label="Médias et aperçu">
         <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Aperçu mobile</p>
-        <div className="space-y-3 rounded-2xl bg-white p-4">
+        <div className="space-y-3 rounded-2xl bg-card p-4">
           <div className="flex items-start gap-3">
             {RACEBOOK_EDITION_LOGO_ENABLED && theme.logoUrl ? <Image src={theme.logoUrl} alt={`Logo ${eventName}`} width={56} height={56} sizes="56px" unoptimized className="h-14 w-14 rounded-xl border object-contain p-1" /> : null}
             <div className="min-w-0 flex-1"><p className="text-xs font-bold uppercase" style={{ color: theme.primaryColor }}>{eventName}</p><p className="truncate text-lg font-bold">Livret coureur</p><p className="text-xs text-muted-foreground">Édition sélectionnée</p></div>
@@ -234,7 +238,7 @@ export function BrandingEditor({
           <svg viewBox="0 0 240 56" role="img" aria-label="Aperçu du tracé" className="h-14 w-full"><polyline points="4,44 38,30 72,36 110,12 150,24 188,8 236,18" fill="none" stroke={theme.accentColor} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" /></svg>
           <button type="button" className="w-full rounded-xl px-3 py-2 text-sm font-bold" style={{ backgroundColor: theme.primaryColor, color: theme.onPrimaryColor }}>Action principale</button>
         </div>
-      </div>
+      </aside>
     </div>
   );
 }

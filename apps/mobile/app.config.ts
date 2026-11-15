@@ -44,10 +44,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ios: {
       supportsTablet: false,
       bundleIdentifier: applicationId,
-      associatedDomains: [
-        'applinks:pace-yourself.com',
-        'applinks:www.pace-yourself.com',
-      ],
+      // TODO(native-links): put the real Apple Team ID in the matching AASA file; never infer it here.
+      associatedDomains: ['applinks:pace-yourself.com', 'applinks:www.pace-yourself.com'],
       ...(iosGoogleServicesFile ? { googleServicesFile: iosGoogleServicesFile } : {}),
       usesAppleSignIn: true,
       infoPlist: {
@@ -66,17 +64,20 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       },
       ...(androidGoogleServicesFile ? { googleServicesFile: androidGoogleServicesFile } : {}),
       package: applicationId,
+      // TODO(native-links): put the real signing SHA-256 in assetlinks.json before release.
       intentFilters: [
         {
           action: 'VIEW',
           autoVerify: true,
-          data: [
-            { scheme: 'https', host: 'pace-yourself.com', pathPrefix: '/share/plan/' },
-            { scheme: 'https', host: 'www.pace-yourself.com', pathPrefix: '/share/plan/' },
-            { scheme: 'https', host: 'pace-yourself.com', pathPrefix: '/courses/supporter-guide/' },
-            { scheme: 'https', host: 'www.pace-yourself.com', pathPrefix: '/courses/supporter-guide/' },
-          ],
           category: ['BROWSABLE', 'DEFAULT'],
+          data: [
+            { scheme: 'https', host: 'pace-yourself.com', pathPrefix: '/courses' },
+            { scheme: 'https', host: 'pace-yourself.com', pathPrefix: '/race-planner' },
+            { scheme: 'https', host: 'pace-yourself.com', pathPrefix: '/share/plan/' },
+            { scheme: 'https', host: 'www.pace-yourself.com', pathPrefix: '/courses' },
+            { scheme: 'https', host: 'www.pace-yourself.com', pathPrefix: '/race-planner' },
+            { scheme: 'https', host: 'www.pace-yourself.com', pathPrefix: '/share/plan/' },
+          ],
         },
       ],
       blockedPermissions: [

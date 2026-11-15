@@ -1,8 +1,23 @@
 ---
 title: Geocoding
 scope: integration
-last_verified: 2026-11-04
+last_verified: 2026-11-15
+# Assisted legacy conversion (2026-11-15): proposed locations enter structured objects as manual labels and never invent coordinates.
+# Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
+# Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
+# Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
+# Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: medium
+# Organizer UI note (2026-11-13): wider address fields do not change autocomplete, inherited-location behavior, or stored coordinates.
+# Information grid note (2026-11-13): location alignment remains independent from the responsive social-link grid.
+# Navigation note (2026-11-13): section label wrapping does not alter geocoding.
+# Access editor note (2026-11-13): “same place as start” copies the existing structured start location and hides the duplicate finish control; turning it off clears the finish draft for explicit entry.
+# Mobile finish note (2026-11-13): inherited location text wraps instead of truncating; stored location data is unchanged.
+# Layout polish note (2026-11-13): organizer presentation changes (aid-station detail, format metrics row, media rail visibility, equipment status action) do not alter stored data or contracts.
+# Fill-flow note (2026-11-13): organizer form ergonomics (ravito services, Enter-to-add, slot undo, sponsor ordering) do not alter stored data or contracts.
+# Organizer UX pass (2026-11-14): format sections nest under the selected format in the left nav, ravito type is Ravito / Base de vie, and equipment uses a top quick-add with per-row Obligatoire switch; no stored data or contract changes.
+# Course timeline note (2026-11-14): timeline filters, point markers and cutoff chips in the aid-station editor are presentation-only; stored data and contracts are unchanged.
 related_files:
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
   - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql
@@ -35,6 +50,8 @@ Departure and arrival addresses are now the always-visible essential access fiel
 The mobile rolling-deployment fallback reads already geocoded supporter points through RLS and does not invoke geocoding from the runner client.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
+
+Organizer form-kit field wrappers keep a uniform control height and show red field errors only after interaction or an attempted save. They do not alter `AddressAutocompleteField`: its label/input association, combobox/listbox keyboard contract, free-text fallback, and structured location write path remain authoritative.
 
 ## Purpose
 
@@ -148,6 +165,7 @@ The public `/courses` search reads only the normalized locality names alongside 
 - Keep the provider call server-side so browser clients do not depend directly on third-party geocoding availability or headers.
 - Preserve the combobox roles, active-option relationship and keyboard behavior when changing suggestion rendering; mouse-only autocomplete is not an acceptable fallback.
 - Contextual help may replace surrounding explanatory paragraphs in Organizer, but address labels, validation errors, inherited-location values, and the combobox keyboard contract must remain visible and accessible.
+- A local draft entry or its cancellation must not create a manual location object, invoke `/api/location-search`, or overwrite a previously saved address. Only the established address field and autosave flow may update canonical text or structured coordinates.
 - Google Maps links are generated locally from the selected label/coordinates; the app does not currently call a Google geocoding API.
 - In the mobile Racebook access tab, generated start/finish links are exposed through explicit Maps buttons. Equal normalized start and finish address strings render as one location while retaining the first available generated link; the optional organizer-supplied general map remains a separate labeled action.
 - Keep the organizer address/editor copy UTF-8 safe. `event-format-editors.tsx` mixes geocoded address controls with accented French labels, so a bad save/import encoding can surface mojibake such as `Ã©` right next to location fields.
@@ -164,3 +182,13 @@ Published RaceBooks copy the already-normalized event, format, service, and supp
 - [Web App](../01-architecture/web-app.md)
 - [Organizer Race Management](../03-business-rules/organizer-race-management.md)
 - [race_events](../02-database/tables/race-events.md)
+
+Compact organizer layout and shared file fields leave address autocomplete, provider attribution and coordinate persistence unchanged.
+
+Placing address autocomplete inside a responsive Organizer field group does not change its combobox contract, provider attribution, bias, or structured coordinate persistence.
+
+Replacing the format-location inheritance checkbox with Modifier/Utiliser l’événement keeps the same address autocomplete and structured location writes.
+
+Shared yes/no presentation does not affect address autocomplete or coordinate persistence.
+
+Compact Access module cards keep the existing address autocomplete and location writes.

@@ -1,11 +1,11 @@
-import type { PublicRaceAidStation, PublicRaceRoutePoint } from "../../../lib/public-race-detail";
+import type { PublicRaceAidStationSummary, PublicRaceRoutePoint } from "../../../lib/public-race-detail";
 
 export function PublicElevationProfile({
   points,
   aidStations,
 }: {
   points: PublicRaceRoutePoint[];
-  aidStations: PublicRaceAidStation[];
+  aidStations: PublicRaceAidStationSummary[];
 }) {
   const elevationPoints = points.filter(
     (point): point is PublicRaceRoutePoint & { elevationM: number } => point.elevationM !== null,
@@ -77,9 +77,14 @@ export function PublicElevationProfile({
                 strokeDasharray="3 3"
               />
               <circle cx={x(station.distanceKm)} cy={y(nearest.elevationM)} r="4" fill="#d97706" />
-              <circle cx={x(station.distanceKm)} cy={y(nearest.elevationM)} r="10" fill="transparent">
-                <title>{station.name} · {station.distanceKm.toFixed(1)} km</title>
-              </circle>
+              <circle
+                cx={x(station.distanceKm)}
+                cy={y(nearest.elevationM)}
+                r="10"
+                fill="transparent"
+                role="img"
+                aria-label={`${station.name} · ${station.distanceKm.toFixed(1)} km`}
+              />
             </g>
           );
         })}
@@ -98,7 +103,7 @@ export function PublicElevationProfile({
       {aidStations.length ? (
         <ul className="sr-only">
           {aidStations.map((station) => (
-            <li key={station.id}>{station.name} — {station.distanceKm.toFixed(1)} km, {Math.round(station.altitudeM ?? 0)} m</li>
+            <li key={station.id}>{station.name} — {station.distanceKm.toFixed(1)} km</li>
           ))}
         </ul>
       ) : null}

@@ -1,4 +1,5 @@
 import { invalidateByTag } from "@vercel/functions";
+import { invalidatePublicRaceCache } from "./public-race-cache";
 
 const PREFIX = "racebook";
 
@@ -45,6 +46,7 @@ export function setPrivateRacebookCacheHeaders(response: Response) {
 export async function invalidateRacebookCache(
   scope: { raceId?: string | null; editionId?: string | null; eventId?: string | null },
 ) {
+  invalidatePublicRaceCache(scope);
   const tags = racebookCacheTags(scope);
   if (tags.length === 0 || process.env.VERCEL !== "1") return;
 

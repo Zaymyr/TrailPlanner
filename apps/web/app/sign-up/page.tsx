@@ -12,8 +12,11 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { persistSessionToStorage } from "../../lib/auth-storage";
 import { redirectToAppleOAuth, redirectToGoogleOAuth } from "../../lib/oauth";
-import { buildAuthCallbackPath, readCurrentReturnPath } from "../../lib/organizer-acquisition";
-import { clearOnboardingFromLocalStorage, loadOnboardingFromLocalStorage } from "../../lib/supabase-onboarding";
+import {
+  buildAuthCallbackPath,
+  clearRememberedRunnerReturnPath,
+  readCurrentReturnPath,
+} from "../../lib/organizer-acquisition";
 
 import { useI18n } from "../i18n-provider";
 import type { Translations } from "../../locales/types";
@@ -68,6 +71,7 @@ export default function SignUpPage() {
     setFormMessage(null);
 
     try {
+      const returnPath = readCurrentReturnPath();
       const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -75,6 +79,7 @@ export default function SignUpPage() {
           email: values.email,
           password: values.password,
           fullName: values.fullName,
+          returnPath,
         }),
       });
 
@@ -97,33 +102,9 @@ export default function SignUpPage() {
           email: values.email,
         });
 
-        // Try to save the onboarding plan — fire and forget, never block the redirect
-        try {
-          const onboardingPlan = loadOnboardingFromLocalStorage();
-
-          if (onboardingPlan && !localStorage.getItem('onboarding_plan_saved')) {
-            localStorage.setItem('onboarding_plan_saved', '1');
-            await fetch("/api/plans", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${data.access_token}`,
-              },
-              body: JSON.stringify({
-                name: "Mon plan de course",
-                plannerValues: onboardingPlan,
-                elevationProfile: [],
-              }),
-            });
-            clearOnboardingFromLocalStorage();
-          }
-        } catch {
-          localStorage.removeItem('onboarding_plan_saved');
-          // Silent fail — never block signup flow
-        }
-
         setFormMessage(t.auth.signUp.success);
-        router.push(readCurrentReturnPath() as Route);
+        clearRememberedRunnerReturnPath();
+        router.push(returnPath as Route);
         router.refresh();
         return;
       }

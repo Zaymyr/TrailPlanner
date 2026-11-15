@@ -15,6 +15,8 @@ type OrganizerEquipmentDetails = {
   weatherPlan: 'normal' | 'cold' | 'heat';
   items: OrganizerEquipmentItem[];
   note: string | null;
+  shortNote: string | null;
+  checkpoints: ('bib_pickup' | 'start' | 'course')[];
 };
 
 type RunnerEquipmentItem = OrganizerEquipmentItem & {
@@ -36,8 +38,12 @@ type OrganizerBibPickupDetails = {
   schedule: string | null;
   locations: OrganizerBibPickupLocation[];
   requiredDocuments: string | null;
+  requiredDocumentKinds: ('id_card' | 'registration_qr' | 'medical_certificate' | 'license_or_pps' | 'parental_authorization' | 'other')[];
+  requiredDocumentsOther: string | null;
   thirdPartyPickupAllowed: boolean | null;
   thirdPartyPickupConditions: string | null;
+  thirdPartyDocumentKinds: ('id_copy' | 'proxy_letter' | 'registration_qr' | 'other')[];
+  thirdPartyDocumentsOther: string | null;
   equipmentCheck: boolean | null;
   note: string | null;
 };
@@ -63,6 +69,8 @@ type OrganizerAccessDetails = {
   officialParkings: string | null;
   shuttles: string | null;
   shuttleSchedule: string | null;
+  parkings: { id: string; name: string; location: OrganizerLocationDetails; capacity: number | null; paid: boolean | null; note: string | null }[];
+  shuttleLines: { id: string; from: OrganizerLocationDetails; to: OrganizerLocationDetails; days: string[]; startTime: string | null; endTime: string | null; frequencyMinutes: number | null; bookingUrl: string | null; free: boolean | null; note: string | null }[];
   roadRestrictions: string | null;
   mapUrl: string | null;
   note: string | null;
@@ -89,6 +97,9 @@ type OrganizerRunnerInfoDetails = {
   startArea: string | null;
   briefing: string | null;
   rules: string | null;
+  startAreaDetails: { location: OrganizerLocationDetails; opensAt: string | null; note: string | null };
+  briefingDetails: { date: string | null; time: string | null; location: OrganizerLocationDetails; videoUrl: string | null; mandatory: boolean; note: string | null };
+  rulesDetails: { regulationUrl: string | null; keyRules: { polesAllowed: 'allowed' | 'partial' | 'forbidden' | null; cupRequired: boolean | null; musicAllowed: boolean | null; outsideAssistanceForbidden: boolean | null }; note: string | null };
   note: string | null;
 };
 
@@ -119,6 +130,7 @@ type OrganizerRaceDetails = {
   schedule: {
     startTime: string | null;
     finishCutoffTime: string | null;
+    finishCutoffDayOffset: number | null;
     shuttleSchedule: string | null;
     cutoffNote: string | null;
     note: string | null;
@@ -133,7 +145,12 @@ type OrganizerAidStationDetails = {
   cumulativeElevationGainM: number | null;
   cumulativeElevationLossM: number | null;
   cutoffTime: string | null;
+  cutoffDayOffset: number | null;
   dropBagAvailable: boolean;
+  amenities: { toilets: boolean; shelter: boolean; medical: boolean; hotDrinks: boolean; hotFood: boolean };
+  maxStopMinutes: number | null;
+  supportersAccess: 'allowed' | 'restricted' | 'forbidden' | null;
+  note: string | null;
   organizerNote: string | null;
 };
 
@@ -260,6 +277,8 @@ const DEFAULT_EQUIPMENT: OrganizerEquipmentDetails = {
   weatherPlan: 'normal',
   items: [],
   note: null,
+  shortNote: null,
+  checkpoints: [],
 };
 
 const DEFAULT_LOCATION_DETAILS: OrganizerLocationDetails = {
@@ -277,8 +296,12 @@ const DEFAULT_BIB_PICKUP: OrganizerBibPickupDetails = {
   schedule: null,
   locations: [],
   requiredDocuments: null,
+  requiredDocumentKinds: [],
+  requiredDocumentsOther: null,
   thirdPartyPickupAllowed: null,
   thirdPartyPickupConditions: null,
+  thirdPartyDocumentKinds: [],
+  thirdPartyDocumentsOther: null,
   equipmentCheck: null,
   note: null,
 };
@@ -292,6 +315,8 @@ const DEFAULT_ACCESS: OrganizerAccessDetails = {
   officialParkings: null,
   shuttles: null,
   shuttleSchedule: null,
+  parkings: [],
+  shuttleLines: [],
   roadRestrictions: null,
   mapUrl: null,
   note: null,
@@ -318,6 +343,9 @@ const DEFAULT_RUNNER_INFO: OrganizerRunnerInfoDetails = {
   startArea: null,
   briefing: null,
   rules: null,
+  startAreaDetails: { location: DEFAULT_LOCATION_DETAILS, opensAt: null, note: null },
+  briefingDetails: { date: null, time: null, location: DEFAULT_LOCATION_DETAILS, videoUrl: null, mandatory: false, note: null },
+  rulesDetails: { regulationUrl: null, keyRules: { polesAllowed: null, cupRequired: null, musicAllowed: null, outsideAssistanceForbidden: null }, note: null },
   note: null,
 };
 
@@ -348,6 +376,7 @@ const DEFAULT_RACE_DETAILS: OrganizerRaceDetails = {
   schedule: {
     startTime: null,
     finishCutoffTime: null,
+    finishCutoffDayOffset: null,
     shuttleSchedule: null,
     cutoffNote: null,
     note: null,
@@ -362,7 +391,12 @@ const DEFAULT_AID_STATION_DETAILS: OrganizerAidStationDetails = {
   cumulativeElevationGainM: null,
   cumulativeElevationLossM: null,
   cutoffTime: null,
+  cutoffDayOffset: null,
   dropBagAvailable: false,
+  amenities: { toilets: false, shelter: false, medical: false, hotDrinks: false, hotFood: false },
+  maxStopMinutes: null,
+  supportersAccess: null,
+  note: null,
   organizerNote: null,
 };
 
@@ -457,6 +491,8 @@ function parseEquipmentDetails(value: unknown): OrganizerEquipmentDetails {
     weatherPlan: record.weatherPlan === 'cold' || record.weatherPlan === 'heat' ? record.weatherPlan : 'normal',
     items,
     note: readText(record.note),
+    shortNote: readText(record.shortNote),
+    checkpoints: Array.isArray(record.checkpoints) ? record.checkpoints.filter((value): value is OrganizerEquipmentDetails['checkpoints'][number] => value === 'bib_pickup' || value === 'start' || value === 'course') : [],
   };
 }
 
@@ -491,8 +527,12 @@ function parseBibPickupDetails(value: unknown): OrganizerBibPickupDetails {
     schedule: readText(record.schedule),
     locations,
     requiredDocuments: readText(record.requiredDocuments),
+    requiredDocumentKinds: Array.isArray(record.requiredDocumentKinds) ? record.requiredDocumentKinds.filter((value): value is OrganizerBibPickupDetails['requiredDocumentKinds'][number] => value === 'id_card' || value === 'registration_qr' || value === 'medical_certificate' || value === 'license_or_pps' || value === 'parental_authorization' || value === 'other') : [],
+    requiredDocumentsOther: readText(record.requiredDocumentsOther),
     thirdPartyPickupAllowed: readNullableBoolean(record.thirdPartyPickupAllowed),
     thirdPartyPickupConditions: readText(record.thirdPartyPickupConditions),
+    thirdPartyDocumentKinds: Array.isArray(record.thirdPartyDocumentKinds) ? record.thirdPartyDocumentKinds.filter((value): value is OrganizerBibPickupDetails['thirdPartyDocumentKinds'][number] => value === 'id_copy' || value === 'proxy_letter' || value === 'registration_qr' || value === 'other') : [],
+    thirdPartyDocumentsOther: readText(record.thirdPartyDocumentsOther),
     equipmentCheck: readNullableBoolean(record.equipmentCheck),
     note: readText(record.note),
   };
@@ -511,6 +551,8 @@ function parseAccessDetails(value: unknown): OrganizerAccessDetails {
     officialParkings: readText(record.officialParkings),
     shuttles: readText(record.shuttles),
     shuttleSchedule: readText(record.shuttleSchedule),
+    parkings: Array.isArray(record.parkings) ? record.parkings.map((value) => { const item = readRecord(value); return { id: readText(item.id) ?? '', name: readText(item.name) ?? '', location: parseLocationDetails(item.location), capacity: readNumber(item.capacity), paid: readNullableBoolean(item.paid), note: readText(item.note) }; }).filter((item) => item.id && item.name) : [],
+    shuttleLines: Array.isArray(record.shuttleLines) ? record.shuttleLines.map((value) => { const item = readRecord(value); return { id: readText(item.id) ?? '', from: parseLocationDetails(item.from), to: parseLocationDetails(item.to), days: Array.isArray(item.days) ? item.days.map(readText).filter((day): day is string => Boolean(day)) : [], startTime: readText(item.startTime), endTime: readText(item.endTime), frequencyMinutes: readNumber(item.frequencyMinutes), bookingUrl: readText(item.bookingUrl), free: readNullableBoolean(item.free), note: readText(item.note) }; }).filter((item) => item.id) : [],
     roadRestrictions: readText(record.roadRestrictions),
     mapUrl: readText(record.mapUrl),
     note: readText(record.note),
@@ -544,11 +586,18 @@ function parseServicesDetails(value: unknown): OrganizerServicesDetails {
 
 function parseRunnerInfoDetails(value: unknown): OrganizerRunnerInfoDetails {
   const record = readRecord(value);
+  const startArea = readRecord(record.startAreaDetails);
+  const briefing = readRecord(record.briefingDetails);
+  const rules = readRecord(record.rulesDetails);
+  const keyRules = readRecord(rules.keyRules);
 
   return {
     startArea: readText(record.startArea),
     briefing: readText(record.briefing),
     rules: readText(record.rules),
+    startAreaDetails: { location: parseLocationDetails(startArea.location), opensAt: readText(startArea.opensAt), note: readText(startArea.note) },
+    briefingDetails: { date: readText(briefing.date), time: readText(briefing.time), location: parseLocationDetails(briefing.location), videoUrl: readText(briefing.videoUrl), mandatory: readBoolean(briefing.mandatory, false), note: readText(briefing.note) },
+    rulesDetails: { regulationUrl: readText(rules.regulationUrl), keyRules: { polesAllowed: keyRules.polesAllowed === 'allowed' || keyRules.polesAllowed === 'partial' || keyRules.polesAllowed === 'forbidden' ? keyRules.polesAllowed : null, cupRequired: readNullableBoolean(keyRules.cupRequired), musicAllowed: readNullableBoolean(keyRules.musicAllowed), outsideAssistanceForbidden: readNullableBoolean(keyRules.outsideAssistanceForbidden) }, note: readText(rules.note) },
     note: readText(record.note),
   };
 }
@@ -590,6 +639,7 @@ function parseRaceDetails(value: unknown): OrganizerRaceDetails {
     schedule: {
       startTime: readText(schedule.startTime),
       finishCutoffTime: readText(schedule.finishCutoffTime),
+      finishCutoffDayOffset: readNumber(schedule.finishCutoffDayOffset),
       shuttleSchedule,
       cutoffNote: readText(schedule.cutoffNote),
       note: readText(schedule.note),
@@ -614,12 +664,24 @@ export function resolveRacebookGpxDisplay(value: unknown): OrganizerRaceDetails[
 
 function parseAidStationDetails(value: unknown): OrganizerAidStationDetails {
   const record = readRecord(value);
+  const amenities = readRecord(record.amenities);
 
   return {
     cumulativeElevationGainM: readNumber(record.cumulativeElevationGainM),
     cumulativeElevationLossM: readNumber(record.cumulativeElevationLossM),
     cutoffTime: readText(record.cutoffTime),
+    cutoffDayOffset: readNumber(record.cutoffDayOffset),
     dropBagAvailable: readBoolean(record.dropBagAvailable, false),
+    amenities: {
+      toilets: readBoolean(amenities.toilets, false),
+      shelter: readBoolean(amenities.shelter, false),
+      medical: readBoolean(amenities.medical, false),
+      hotDrinks: readBoolean(amenities.hotDrinks, false),
+      hotFood: readBoolean(amenities.hotFood, false),
+    },
+    maxStopMinutes: readNumber(record.maxStopMinutes),
+    supportersAccess: record.supportersAccess === 'allowed' || record.supportersAccess === 'restricted' || record.supportersAccess === 'forbidden' ? record.supportersAccess : null,
+    note: readText(record.note),
     organizerNote: readText(record.organizerNote),
   };
 }
@@ -633,11 +695,12 @@ function hasLocationContent(location: OrganizerLocationDetails): boolean {
 }
 
 function hasEquipmentContent(details: OrganizerEquipmentDetails): boolean {
-  return details.items.length > 0 || hasAnyText([details.note]);
+  return details.items.length > 0 || details.checkpoints.length > 0 || hasAnyText([details.shortNote, details.note]);
 }
 
 function hasBibContent(details: OrganizerBibPickupDetails): boolean {
   return (
+    details.requiredDocumentKinds.length > 0 || details.thirdPartyDocumentKinds.length > 0 ||
     hasAnyText([details.location, details.schedule, details.requiredDocuments, details.note]) ||
     hasLocationContent(details.locationDetails) ||
     details.locations.some(
@@ -653,7 +716,7 @@ function hasBibContent(details: OrganizerBibPickupDetails): boolean {
 }
 
 function hasAccessContent(details: OrganizerAccessDetails): boolean {
-  return hasAnyText([
+  return details.parkings.length > 0 || details.shuttleLines.length > 0 || hasAnyText([
     details.startAddress,
     details.finishAddress,
     details.enabledSections.officialParkings ? details.officialParkings : null,
@@ -678,7 +741,8 @@ function hasServicesContent(details: OrganizerServicesDetails): boolean {
 }
 
 function hasRunnerInfoContent(details: OrganizerRunnerInfoDetails): boolean {
-  return hasAnyText([details.startArea, details.briefing, details.rules, details.note]);
+  return hasAnyText([details.startArea, details.briefing, details.rules, details.note, details.startAreaDetails.location.label, details.briefingDetails.date, details.briefingDetails.time, details.briefingDetails.location.label, details.rulesDetails.regulationUrl, details.startAreaDetails.note, details.briefingDetails.note, details.rulesDetails.note])
+    || Object.values(details.rulesDetails.keyRules).some((value) => value !== null);
 }
 
 function hasScheduleContent(details: OrganizerRaceDetails['schedule']): boolean {
@@ -767,6 +831,8 @@ function buildRunnerDetails(eventDetails: OrganizerEventDetails, raceDetails: Or
       weatherPlan,
       items: mergedEquipmentItems,
       note: [commonEquipment.note, raceDetails.mandatoryEquipment.note].filter(Boolean).join('\n') || null,
+      shortNote: mergePreferredText(commonEquipment.shortNote, raceDetails.mandatoryEquipment.shortNote),
+      checkpoints: Array.from(new Set([...commonEquipment.checkpoints, ...raceDetails.mandatoryEquipment.checkpoints])),
     },
     equipmentStatus: {
       weatherPlan,
@@ -794,6 +860,12 @@ function buildRunnerDetails(eventDetails: OrganizerEventDetails, raceDetails: Or
       shuttleSchedule: raceDetails.access.enabledSections.shuttles
         ? mergePreferredText(eventDetails.access.shuttleSchedule, raceDetails.access.shuttleSchedule)
         : null,
+      parkings: raceDetails.access.enabledSections.officialParkings
+        ? (raceDetails.access.parkings.length > 0 ? raceDetails.access.parkings : eventDetails.access.parkings)
+        : [],
+      shuttleLines: raceDetails.access.enabledSections.shuttles
+        ? (raceDetails.access.shuttleLines.length > 0 ? raceDetails.access.shuttleLines : eventDetails.access.shuttleLines)
+        : [],
       roadRestrictions: raceDetails.access.enabledSections.roadRestrictions
         ? mergePreferredText(eventDetails.access.roadRestrictions, raceDetails.access.roadRestrictions)
         : null,

@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
 
   const priceId = body.data.offer === "course"
     ? stripeConfig.coursePriceId
-    : stripeConfig.annualPriceId ?? stripeConfig.priceId;
+    : stripeConfig.annualPriceId;
 
   if (!priceId) {
     return withSecurityHeaders(NextResponse.json({ message: "Stripe price is not configured." }, { status: 500 }));

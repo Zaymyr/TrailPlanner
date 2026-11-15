@@ -10,6 +10,7 @@ import {
   uuidParamSchema,
 } from "../../../../../../lib/organizer";
 import { isOrganizerRaceModuleSelected } from "../../../../../../lib/organizer-module-settings";
+import { normalizeOrganizerClockValue } from "../../../../../../lib/organizer-dashboard-details";
 
 const relayPointRowSchema = z.object({
   id: z.string().uuid(),
@@ -28,8 +29,8 @@ const relayPointInputSchema = z.object({
   raceAidStationId: z.string().uuid().nullable().optional(),
   name: z.string().trim().min(1),
   distanceKm: z.coerce.number().positive(),
-  handoverTime: z.string().trim().optional().transform((value) => value || null),
-  cutoffTime: z.string().trim().optional().transform((value) => value || null),
+  handoverTime: z.string().trim().optional().transform(normalizeOrganizerClockValue),
+  cutoffTime: z.string().trim().optional().transform(normalizeOrganizerClockValue),
   notes: z.string().trim().optional().transform((value) => value || null),
 });
 

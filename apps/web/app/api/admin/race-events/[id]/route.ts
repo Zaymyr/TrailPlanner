@@ -9,6 +9,7 @@ import {
   getSupabaseServiceConfig,
   isAdminUser,
 } from "../../../../../lib/supabase";
+import { invalidatePublicRaceCache } from "../../../../../lib/public-race-cache";
 
 const paramsSchema = z.object({
   id: z.string().uuid(),
@@ -130,5 +131,6 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
     return withSecurityHeaders(NextResponse.json({ message: "Race event not found." }, { status: 404 }));
   }
 
+  invalidatePublicRaceCache({ eventId: updated.id });
   return withSecurityHeaders(NextResponse.json({ event: updated }));
 }

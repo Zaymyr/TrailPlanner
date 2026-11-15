@@ -1,9 +1,8 @@
 import Image from "next/image";
-import { useEffect, useId, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 
 import { GpxRouteMap } from "../../../../components/gpx/GpxRouteMap";
 import { Button } from "../../../../components/ui/button";
-import { Input } from "../../../../components/ui/input";
 import { Label } from "../../../../components/ui/label";
 import { defaultOrganizerRaceDetails } from "../../../../lib/organizer-dashboard-details";
 import type { OrganizerModuleId } from "../completion";
@@ -12,6 +11,7 @@ import { ADD_FORMAT_TAB_ID } from "./constants";
 import { formatKm } from "./helpers";
 import type { EventFormValues, GpxPreview, RaceFormat, RaceFormValues, RaceParticipationMode } from "./types";
 import { ContextualHelp, NumberField, OptionalModule, TextField } from "./controls";
+import { FieldGroup, FileField, hasSignificantDistanceMismatch, hasSuspiciousEqualElevation, isValidInstagramUrl, normalizeInstagramUrl, SelectField, SwitchRow } from "./form-kit";
 
 const isInvalidHttpsUrl = (value: string) => {
   if (!value.trim()) return false;
@@ -24,6 +24,23 @@ const isInvalidHttpsUrl = (value: string) => {
 
 const isInvalidPhone = (value: string) => Boolean(value.trim() && !/^\+?[0-9][0-9 .()/-]{2,}$/.test(value.trim()));
 
+const toFileInputChangeEvent = (file: File) => ({ target: { files: [file], value: "" } } as unknown as ChangeEvent<HTMLInputElement>);
+
+const fileNameFromUrl = (url: string, fallback: string) => {
+  try {
+    const fileName = new URL(url).pathname.split("/").pop();
+    return fileName ? decodeURIComponent(fileName) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const formatOrganizerDate = (value: string) => {
+  if (!value) return "";
+  const date = new Date(`${value}T12:00:00`);
+  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", year: "numeric" }).format(date);
+};
+
 export function EventInfoEditor({
   eventForm,
   onChange,
@@ -35,7 +52,6 @@ export function EventInfoEditor({
   onUploadImage: (event: ChangeEvent<HTMLInputElement>) => void;
   status: "idle" | "loading" | "saving" | "uploading";
 }) {
-  const imageInputId = useId();
   const missingName = !eventForm.name.trim();
   const missingLocation = !eventForm.location.trim();
   const missingStartDate = !eventForm.editionStartDate.trim();
@@ -46,18 +62,18 @@ export function EventInfoEditor({
   const facebookUrl = eventForm.organizerDetails.facebookUrl ?? "";
   const emergencyContact = eventForm.organizerDetails.emergencyContact;
   const invalidOfficialWebsiteUrl = isInvalidHttpsUrl(officialWebsiteUrl);
-  const invalidInstagramUrl = isInvalidHttpsUrl(instagramUrl);
+  const invalidInstagramUrl = !isValidInstagramUrl(instagramUrl);
   const invalidFacebookUrl = isInvalidHttpsUrl(facebookUrl);
   const invalidEmergencyPhone = isInvalidPhone(emergencyContact.phone ?? "");
   const [socialsOpen, setSocialsOpen] = useState(Boolean(officialWebsiteUrl || instagramUrl || facebookUrl));
   const [imageOpen, setImageOpen] = useState(Boolean(eventForm.thumbnailUrl));
 
   return (
-    <div className="flex flex-col divide-y divide-border">
-      <section className="order-1 pb-6">
-        <h3 className="mb-4 text-sm font-bold text-foreground">Informations principales</h3>
+    <div className="grid items-start gap-5 min-[900px]:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="min-w-0 space-y-0">
+      <FieldGroup legend="L’événement" description="Nom et lieu affichés en tête du Livret coureur.">
         <div className="grid gap-4 lg:grid-cols-2">
-          <TextField label="Nom" value={eventForm.name} onChange={(value) => onChange({ name: value })} required invalid={missingName} />
+          <TextField id="organizer-event-name" label="Nom" value={eventForm.name} onChange={(value) => onChange({ name: value })} required invalid={missingName} />
           <AddressAutocompleteField
             label="Lieu"
             value={eventForm.location}
@@ -78,11 +94,10 @@ export function EventInfoEditor({
             invalid={missingLocation}
           />
         </div>
-      </section>
+      </FieldGroup>
 
-      <section className="order-4 py-6">
-        <OptionalModule title="les réseaux sociaux" active={socialsOpen} onAdd={() => setSocialsOpen(true)} onRemove={() => setSocialsOpen(false)}>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(16rem,1.5fr)_minmax(12rem,1fr)_minmax(12rem,1fr)]">
+      <FieldGroup legend="Liens" description="Site officiel et réseaux utiles aux coureurs." optional>
+        {socialsOpen ? <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr))]">
           <TextField
             label="Site officiel"
             type="url"
@@ -102,11 +117,18 @@ export function EventInfoEditor({
             }
           />
           <TextField
+            id="organizer-instagram-url"
             label="Instagram"
             type="url"
             value={instagramUrl}
             invalid={invalidInstagramUrl}
-            errorMessage="Saisis une adresse Instagram complète commençant par https://."
+            errorMessage="Saisis un profil Instagram valide, par exemple @montrail ou instagram.com/montrail."
+            onBlur={() => {
+              const normalized = normalizeInstagramUrl(instagramUrl);
+              if (normalized !== instagramUrl) {
+                onChange({ organizerDetails: { ...eventForm.organizerDetails, instagramUrl: normalized || null } }, "event");
+              }
+            }}
             onChange={(value) =>
               onChange(
                 {
@@ -137,24 +159,17 @@ export function EventInfoEditor({
               )
             }
           />
-        </div>
-        </OptionalModule>
-      </section>
+        </div> : <Button type="button" variant="outline" onClick={() => setSocialsOpen(true)} className="justify-start">+ Ajouter les réseaux sociaux</Button>}
+      </FieldGroup>
 
-      <section className="order-2 py-6">
-        <div className="mb-4 flex items-center gap-2">
-          <h3 className="text-sm font-bold text-foreground">Dates de l’édition</h3>
-          <ContextualHelp text="Les formats utilisent ces dates par défaut, sauf lorsqu’une date spécifique est renseignée." />
-        </div>
+      <FieldGroup legend="Dates" description="Les formats reprennent ces dates par défaut.">
         <div className="grid max-w-2xl gap-4 sm:grid-cols-2">
-          <TextField label="Début" type="date" value={eventForm.editionStartDate} onChange={(value) => onChange({ editionStartDate: value })} invalid={missingStartDate || invalidDateRange} errorMessage={invalidDateRange ? "La date de début doit précéder la date de fin." : "Indique la date de début."} />
-          <TextField label="Fin" type="date" value={eventForm.editionEndDate} onChange={(value) => onChange({ editionEndDate: value })} invalid={missingEndDate || invalidDateRange} errorMessage={invalidDateRange ? "La date de fin doit suivre la date de début." : "Indique la date de fin."} />
+          <TextField id="organizer-edition-start-date" label="Début" type="date" value={eventForm.editionStartDate} onChange={(value) => onChange({ editionStartDate: value })} invalid={missingStartDate || invalidDateRange} errorMessage={invalidDateRange ? "La date de début doit précéder la date de fin." : "Indique la date de début."} />
+          <TextField id="organizer-edition-end-date" label="Fin" type="date" value={eventForm.editionEndDate} onChange={(value) => onChange({ editionEndDate: value })} invalid={missingEndDate || invalidDateRange} errorMessage={invalidDateRange ? "La date de fin doit suivre la date de début." : "Indique la date de fin."} />
         </div>
-      </section>
+      </FieldGroup>
 
-      <section className="order-3 py-6">
-        <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-800 dark:bg-amber-950/20">
-          <h3 className="mb-4 text-sm font-bold text-foreground">Contact d’urgence</h3>
+      <FieldGroup legend="En cas d’urgence" description="Contact visible depuis chaque page du Livret coureur.">
           <div className="grid max-w-2xl gap-4 sm:grid-cols-2">
             <TextField
               label="Nom du contact"
@@ -190,11 +205,12 @@ export function EventInfoEditor({
               }
             />
           </div>
-        </div>
-      </section>
+      </FieldGroup>
 
-      <section className="order-5 pt-6">
-        <OptionalModule title="une image de couverture" active={imageOpen} onAdd={() => setImageOpen(true)} onRemove={() => setImageOpen(false)}>
+      </div>
+      <aside className="min-w-0 rounded-lg border border-border bg-card p-3 shadow-sm min-[900px]:sticky min-[900px]:top-3" aria-label="Médias et aperçu">
+      <FieldGroup legend="Couverture" description="Illustration affichée dans le catalogue et le Livret." optional className="!block !border-t-0 !py-0">
+        <OptionalModule title="Image de couverture" addLabel="+ Ajouter une image de couverture" active={imageOpen} onAdd={() => setImageOpen(true)} onRemove={() => setImageOpen(false)}>
         <div className="mb-4 flex items-center gap-2"><p className="text-sm text-muted-foreground">Format PNG uniquement, 5 Mo maximum.</p></div>
         <div className="flex max-w-2xl flex-col gap-4 sm:flex-row sm:items-center">
           {eventForm.thumbnailUrl ? (
@@ -207,12 +223,20 @@ export function EventInfoEditor({
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <Label htmlFor={imageInputId} className="sr-only">Choisir l’image de couverture</Label>
-            <Input id={imageInputId} type="file" accept="image/png" onChange={onUploadImage} disabled={status === "uploading"} />
+            <fieldset disabled={status === "uploading"}>
+              <FileField
+                label="Choisir l'image de couverture"
+                accept="image/png"
+                value={eventForm.thumbnailUrl ? { name: fileNameFromUrl(eventForm.thumbnailUrl, "Image de couverture"), previewUrl: eventForm.thumbnailUrl } : null}
+                maxSizeLabel="PNG · 5 Mo maximum"
+                onChange={(file) => onUploadImage(toFileInputChangeEvent(file))}
+              />
+            </fieldset>
           </div>
         </div>
         </OptionalModule>
-      </section>
+      </FieldGroup>
+      </aside>
     </div>
   );
 }
@@ -287,7 +311,7 @@ export function FormatsEditor({
       ) : activeRace ? (
         <RaceForm
           key={activeRace.id}
-          title="Détails du format"
+          title="Format"
           values={raceForm}
           biasLocation={eventLocation}
           onChange={(values) => onRaceFormChange(values)}
@@ -365,7 +389,12 @@ function RaceForm({
   const missingElevationGain = !Number.isFinite(values.elevationGainM) || values.elevationGainM < 0;
   const missingRaceDate = requireRaceDate && !values.raceDate.trim();
   const invalidExternalSiteUrl = isInvalidHttpsUrl(values.externalSiteUrl ?? "");
+  const elevationLossM = Number(values.elevationLossM || 0);
+  const distanceMismatch = hasSignificantDistanceMismatch(values.distanceKm, gpxPreview?.stats?.distanceKm);
+  const suspiciousElevation = hasSuspiciousEqualElevation(values.elevationGainM, elevationLossM);
   const previewRace = buildPreviewRace(values, hasGpx);
+  const formRef = useRef<HTMLFormElement>(null);
+  const hasValidationError = missingName || missingDistance || missingElevationGain || missingRaceDate || invalidExternalSiteUrl;
   const [usesCustomRaceDate, setUsesCustomRaceDate] = useState(Boolean(values.raceDate && editionStartDate && values.raceDate !== editionStartDate));
   const [usesCustomLocation, setUsesCustomLocation] = useState(
     Boolean(values.locationText.trim() && values.locationText.trim() !== inheritedLocationText.trim())
@@ -382,76 +411,75 @@ function RaceForm({
 
   return (
     <form
-      className="space-y-4"
+      ref={formRef}
+      className="min-w-0 space-y-4"
+      noValidate
       onSubmit={(event) => {
         setValidationVisible(true);
+        if (hasValidationError) {
+          event.preventDefault();
+          window.requestAnimationFrame(() => formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus());
+          return;
+        }
         onSubmit(event);
       }}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <p className="font-semibold text-foreground">{title}</p>
-        <ContextualHelp text="Ajoutez d’abord les fichiers, renseignez les informations du format, puis vérifiez le parcours et le profil." />
+        <p className="text-xs text-muted-foreground">Informations principales, parcours et profil.</p>
       </div>
-      <div className="grid gap-4">
-        <div className="space-y-4">
-          <div className="space-y-4 rounded-lg border border-border/70 bg-background px-4 py-4">
+      <div className="grid min-w-0 items-start gap-5 min-[900px]:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="min-w-0 space-y-4">
+          <div className="min-w-0 space-y-4 rounded-lg border border-border/70 bg-background p-3 sm:p-4">
             <div className="flex items-center gap-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Informations du format</p>
               <ContextualHelp text="Nom, métriques, date et lieu propres à ce parcours." />
             </div>
-            <div className="grid gap-3 lg:grid-cols-12">
-              <div className="lg:col-span-6">
+            <div className="grid min-w-0 gap-3 [&>*]:min-w-0 lg:grid-cols-12">
+              <div className="lg:col-span-7">
                 <TextField
                   label="Nom du format"
                   value={values.name}
                   onChange={(value) => onChange({ ...values, name: value, seriesName: value })}
                   required
-                  invalid={validationVisible && missingName}
+                  invalid={missingName}
+                  validationVisible={validationVisible}
                   errorMessage="Indique le nom du format."
                   disabled={disabled}
                 />
               </div>
-              <div className="lg:col-span-2">
-                <NumberField label="Distance km" value={values.distanceKm} onChange={(value) => onChange({ ...values, distanceKm: value })} step="0.1" invalid={validationVisible && missingDistance} errorMessage="Indique une distance supérieure à 0 km." emptyWhenZero={emptyNumericFields} disabled={disabled} />
+              <div className="grid grid-cols-3 items-end gap-3 lg:col-span-12">
+                <NumberField label="Distance (km)" value={values.distanceKm} onChange={(value) => onChange({ ...values, distanceKm: value })} step="0.1" invalid={missingDistance} validationVisible={validationVisible} errorMessage="Indique une distance supérieure à 0 km." emptyWhenZero={emptyNumericFields} disabled={disabled} />
+                <NumberField label="D+ (m)" value={values.elevationGainM} onChange={(value) => onChange({ ...values, elevationGainM: value })} step="0.1" invalid={missingElevationGain} validationVisible={validationVisible} errorMessage="Indique un dénivelé positif valide." emptyWhenZero={emptyNumericFields} disabled={disabled} />
+                <TextField label="D- (m)" type="number" step="0.1" value={values.elevationLossM} onChange={(value) => onChange({ ...values, elevationLossM: value })} disabled={disabled} />
               </div>
-              <div className="lg:col-span-2">
-                <NumberField label="D+" value={values.elevationGainM} onChange={(value) => onChange({ ...values, elevationGainM: value })} step="0.1" invalid={validationVisible && missingElevationGain} errorMessage="Indique un dénivelé positif valide." emptyWhenZero={emptyNumericFields} disabled={disabled} />
-              </div>
-              <div className="lg:col-span-2">
-                <TextField label="D-" type="number" step="0.1" value={values.elevationLossM} onChange={(value) => onChange({ ...values, elevationLossM: value })} disabled={disabled} />
-              </div>
-              <div className="space-y-1 lg:col-span-6 lg:col-start-7 lg:row-start-1">
+              {distanceMismatch || suspiciousElevation ? (
+                <ul className="space-y-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 lg:col-span-12" role="status">
+                  {distanceMismatch ? <li>La distance saisie diffère nettement des {gpxPreview?.stats?.distanceKm.toFixed(1)} km mesurés sur le GPX.</li> : null}
+                  {suspiciousElevation ? <li>D+ et D- sont identiques : vérifie les dénivelés avant publication.</li> : null}
+                </ul>
+              ) : null}
+              <div className="space-y-1 lg:col-span-5 lg:col-start-8 lg:row-start-1">
                 <div className="flex items-center gap-2">
                   <Label htmlFor={participationModeId}>Type de participation</Label>
                   <ContextualHelp text="Pour un relais, les points de passage se configurent ensuite dans Ravitos et points de course." />
                 </div>
-                <select
+                <SelectField
                   id={participationModeId}
                   value={values.participationMode}
-                  onChange={(event) => onChange({ ...values, participationMode: event.target.value as RaceParticipationMode })}
+                  onValueChange={(value) => onChange({ ...values, participationMode: value as RaceParticipationMode })}
                   disabled={disabled}
-                  className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <option value="" disabled>À confirmer</option>
-                  <option value="solo">Solo</option>
-                  <option value="relay">Relais</option>
-                  <option value="solo_and_relay">Solo et relais</option>
-                </select>
+                  options={[
+                    { value: "", label: "À confirmer" },
+                    { value: "solo", label: "Solo" },
+                    { value: "relay", label: "Relais" },
+                    { value: "solo_and_relay", label: "Solo et relais" },
+                  ]}
+                />
               </div>
-              <div className="space-y-2 lg:col-span-4">
+              <div className="space-y-2 lg:col-span-5">
                 {editionStartDate ? (
-                  <label className="flex items-center gap-2 text-sm font-medium text-foreground">
-                    <input
-                      type="checkbox"
-                      checked={usesCustomRaceDate}
-                      onChange={(event) => {
-                        setUsesCustomRaceDate(event.target.checked);
-                        if (!event.target.checked) onChange({ ...values, raceDate: editionStartDate });
-                      }}
-                      disabled={disabled}
-                    />
-                    Date différente de l&apos;édition
-                  </label>
+                  <div className="flex min-h-9 flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium text-foreground">Date</span><Button type="button" variant="ghost" className="!min-h-9 !px-2" disabled={disabled} onClick={() => { const next = !usesCustomRaceDate; setUsesCustomRaceDate(next); if (!next) onChange({ ...values, raceDate: editionStartDate }); }}>{usesCustomRaceDate ? "Utiliser l’édition" : "Changer"}</Button></div>
                 ) : null}
                 {usesCustomRaceDate || !editionStartDate ? (
                   <TextField
@@ -465,18 +493,15 @@ function RaceForm({
                     disabled={disabled}
                   />
                 ) : (
-                  <p className="text-xs text-muted-foreground">Date héritée : {editionStartDate}</p>
+                  <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-foreground">{formatOrganizerDate(editionStartDate)} <span className="text-xs text-muted-foreground">· comme l’édition</span></p>
                 )}
               </div>
-              <div className="space-y-2 lg:col-span-8">
+              <div className="space-y-2 lg:col-span-7">
                 {inheritedLocationText ? (
-                  <label className="flex items-center gap-2 text-sm font-medium text-foreground">
-                    <input
-                      type="checkbox"
-                      checked={usesCustomLocation}
-                      onChange={(event) => {
-                        setUsesCustomLocation(event.target.checked);
-                        if (!event.target.checked) {
+                  <div className="flex min-h-9 flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium text-foreground">Lieu</span><Button type="button" variant="ghost" className="!min-h-9 !px-2" disabled={disabled} onClick={() => {
+                        const next = !usesCustomLocation;
+                        setUsesCustomLocation(next);
+                        if (!next) {
                           onChange({
                             ...values,
                             locationText: inheritedLocationText,
@@ -488,11 +513,7 @@ function RaceForm({
                             },
                           });
                         }
-                      }}
-                      disabled={disabled}
-                    />
-                    Lieu différent de l&apos;événement
-                  </label>
+                      }}>{usesCustomLocation ? "Utiliser l’événement" : "Modifier"}</Button></div>
                 ) : null}
                 {usesCustomLocation || !inheritedLocationText ? (
                   <AddressAutocompleteField
@@ -512,7 +533,7 @@ function RaceForm({
                     }
                   />
                 ) : (
-                  <p className="text-xs text-muted-foreground">Lieu hérité : {inheritedLocationText}</p>
+                  <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-foreground">{inheritedLocationText} <span className="text-xs text-muted-foreground">· comme l’événement</span></p>
                 )}
               </div>
               <div className="lg:col-span-12 lg:max-w-2xl">
@@ -530,7 +551,6 @@ function RaceForm({
               </div>
             </div>
           </div>
-          {onGpxChange ? <MiniElevationProfile preview={gpxPreview} activeRace={previewRace} hasGpx={hasGpx} /> : null}
           {!hideSubmit ? (
             <div className="flex items-end pt-1">
               <Button type="submit" disabled={disabled}>
@@ -544,6 +564,7 @@ function RaceForm({
             title={gpxTitle}
             statusText={gpxStatus}
             fileLabel={pendingGpxName ?? (hasGpx ? "Remplacer le GPX source" : "Ajouter un GPX")}
+            pendingGpxName={pendingGpxName}
             onGpxChange={onGpxChange}
             onDeleteGpx={onDeleteGpx}
             disabled={disabled}
@@ -576,17 +597,6 @@ function RaceForm({
           />
         ) : null}
       </div>
-      {onGpxChange ? (
-        <div className="space-y-3 rounded-lg border border-border/70 bg-muted/20 px-4 py-4">
-          <div className="flex flex-wrap items-end justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Parcours</p>
-              <ContextualHelp text="La carte utilise toute la largeur pour faciliter la vérification du tracé." />
-            </div>
-          </div>
-          <MiniGpxMap preview={gpxPreview} activeRace={previewRace} hasGpx={hasGpx} />
-        </div>
-      ) : null}
     </form>
   );
 }
@@ -609,6 +619,7 @@ function OrganizerGpxPanel({
   title,
   statusText,
   fileLabel,
+  pendingGpxName,
   onGpxChange,
   onDeleteGpx,
   disabled,
@@ -626,6 +637,7 @@ function OrganizerGpxPanel({
   title: string;
   statusText?: string;
   fileLabel: string;
+  pendingGpxName?: string | null;
   onGpxChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onDeleteGpx?: () => void;
   disabled?: boolean;
@@ -640,102 +652,71 @@ function OrganizerGpxPanel({
   onShowRouteInRacebookChange: (checked: boolean) => void;
   onShowElevationProfileInRacebookChange: (checked: boolean) => void;
 }) {
-  const gpxInputId = useId();
-  const imageInputId = useId();
+  const [mobileOpen, setMobileOpen] = useState(false);
   return (
-    <aside className="rounded-lg border border-border/70 bg-muted/30 px-4 py-4">
-      <div className="space-y-4">
+    <aside className="min-w-0 rounded-lg border border-border bg-card p-3 shadow-sm min-[900px]:sticky min-[900px]:top-3">
+        <button type="button" aria-expanded={mobileOpen} onClick={() => setMobileOpen((open) => !open)} className="flex min-h-11 w-full items-center justify-between font-semibold text-foreground min-[900px]:hidden">Tracé et médias <span aria-hidden="true" className={mobileOpen ? "rotate-180 text-muted-foreground transition" : "text-muted-foreground transition"}>⌄</span></button>
+      <div className={mobileOpen ? "space-y-3" : "hidden space-y-3 min-[900px]:block"}>
         <div className="space-y-1.5">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <p className="font-semibold text-foreground">{title}</p>
-              <ContextualHelp text="Ajoutez le GPX en premier, puis une image si nécessaire." />
+              <p className="font-semibold text-foreground">Tracé</p>
             </div>
             {statusText ? <span className="text-xs font-medium text-muted-foreground">{statusText}</span> : null}
           </div>
         </div>
-        <div className="space-y-2 rounded-md border border-border/70 bg-background px-3 py-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Etape 1</p>
-          <Label htmlFor={gpxInputId} className="text-sm font-medium text-foreground">{fileLabel}</Label>
-          <Input id={gpxInputId} type="file" accept=".gpx,application/gpx+xml" onChange={onGpxChange} disabled={disabled} />
-          {hasGpx && onDeleteGpx ? (
-            <Button type="button" variant="outline" onClick={onDeleteGpx} disabled={disabled} className="w-full text-destructive hover:text-destructive">
-              Supprimer le GPX
-            </Button>
-          ) : null}
+        <MiniGpxMap preview={preview} activeRace={activeRace} hasGpx={hasGpx} />
+        <MiniElevationProfile preview={preview} activeRace={activeRace} hasGpx={hasGpx} />
+        <div className="space-y-2 border-t border-border pt-3">
+          <fieldset disabled={disabled}>
+            <FileField
+              label={fileLabel}
+              accept=".gpx,application/gpx+xml"
+              value={hasGpx || pendingGpxName ? { name: pendingGpxName ?? "GPX source importé" } : null}
+              maxSizeLabel="Format GPX"
+              onChange={(file) => onGpxChange(toFileInputChangeEvent(file))}
+              onRemove={hasGpx && onDeleteGpx ? onDeleteGpx : undefined}
+            />
+          </fieldset>
         </div>
-        <div className="space-y-3 rounded-md border border-border/70 bg-background px-3 py-3">
+        <div className="space-y-3 border-t border-border pt-3">
           <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Etape 2</p>
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Affichage dans le Livret coureur</p>
-            <p className="text-xs text-muted-foreground">Choisissez les visuels GPX visibles par les coureurs.</p>
+            <p className="text-xs text-muted-foreground">Choisis les visuels GPX visibles par les coureurs.</p>
           </div>
-          <GpxDisplayToggle
+          <SwitchRow
             label="Afficher le parcours"
             checked={showRouteInRacebook}
             onCheckedChange={onShowRouteInRacebookChange}
             disabled={disabled || !hasGpx}
           />
-          <GpxDisplayToggle
+          <SwitchRow
             label="Afficher le profil altimétrique"
             checked={showElevationProfileInRacebook}
             onCheckedChange={onShowElevationProfileInRacebookChange}
             disabled={disabled || !hasGpx}
           />
         </div>
-        <div className="space-y-3 rounded-md border border-border/70 bg-background px-3 py-3">
+        <div className="space-y-3 border-t border-border pt-3">
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Etape 3</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Image du format</p>
               <span className="text-xs text-muted-foreground">Optionnel</span>
             </div>
-            <div className="flex items-center gap-2">
-              <Label htmlFor={imageInputId}>Image format</Label>
-              <ContextualHelp text={`JPEG, PNG, WebP ou AVIF, 5 Mo maximum.${pendingImageName && !thumbnailUrl ? " L’image sera envoyée après la création du format." : ""}`} />
-            </div>
-            {thumbnailUrl ? (
-              <div className="aspect-[4/3] w-full overflow-hidden rounded-md border border-border bg-muted">
-                <Image src={thumbnailUrl} alt="" width={320} height={240} sizes="(min-width: 1280px) 308px, 100vw" unoptimized className="h-full w-full object-cover" />
-              </div>
-            ) : (
-              <div className="flex aspect-[4/3] w-full items-center justify-center rounded-md border border-dashed border-border bg-muted/60 px-3 text-sm text-muted-foreground">
-                {pendingImageName ? pendingImageName : "Aucune image"}
-              </div>
-            )}
-            <Input id={imageInputId} type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={onImageChange} disabled={disabled} />
+            {pendingImageName && !thumbnailUrl ? <p className="text-xs text-muted-foreground">L’image sera envoyée après la création du format.</p> : null}
+            <fieldset disabled={disabled}>
+              <FileField
+                label="Image affichée sur la fiche du format"
+                accept="image/png,image/jpeg,image/webp,image/avif"
+                value={thumbnailUrl ? { name: fileNameFromUrl(thumbnailUrl, "Image du format"), previewUrl: thumbnailUrl } : pendingImageName ? { name: pendingImageName } : null}
+                maxSizeLabel="PNG, JPEG, WebP ou AVIF · 5 Mo maximum"
+                onChange={(file) => onImageChange(toFileInputChangeEvent(file))}
+              />
+            </fieldset>
           </div>
         </div>
       </div>
     </aside>
-  );
-}
-
-function GpxDisplayToggle({
-  label,
-  checked,
-  onCheckedChange,
-  disabled,
-}: {
-  label: string;
-  checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-sm font-medium text-foreground">{label}</span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        aria-label={label}
-        disabled={disabled}
-        onClick={() => onCheckedChange(!checked)}
-        className={`relative h-6 w-11 shrink-0 rounded-full transition ${checked ? "bg-brand" : "bg-muted"} disabled:cursor-not-allowed disabled:opacity-50`}
-      >
-        <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${checked ? "left-[22px]" : "left-0.5"}`} />
-      </button>
-    </div>
   );
 }
 
@@ -755,7 +736,7 @@ function MiniElevationProfile({
   const lossM = preview?.stats?.lossM ?? activeRace.elevation_loss_m ?? 0;
 
   if (!hasGpx) {
-    return <div className="rounded-md border border-dashed border-border bg-background px-3 py-4 text-sm text-muted-foreground">La courbe apparaitra apres l&apos;ajout d&apos;un GPX.</div>;
+    return <div className="rounded-md border border-dashed border-border bg-background px-3 py-4 text-sm text-muted-foreground">La courbe apparaîtra après l&apos;ajout d&apos;un GPX.</div>;
   }
 
   if (!hasProfile) {
@@ -783,39 +764,39 @@ function MiniElevationProfile({
   const areaPath = `${path} L${xScale(lastProfilePoint?.distanceKm ?? 0).toFixed(1)},${height - paddingBottom} L${xScale(firstProfilePoint?.distanceKm ?? 0).toFixed(1)},${height - paddingBottom} Z`;
 
   return (
-    <section className="rounded-md border border-border/70 bg-background px-3 py-3">
+    <section className="overflow-hidden rounded-md border border-border bg-background px-2 py-2">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm">
         <p className="font-semibold text-foreground">Profil altitude</p>
         <p className="text-xs font-medium text-muted-foreground">{formatKm(distanceKm)}</p>
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-48 w-full" role="img" aria-label="Courbe de niveau GPX">
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-20 w-full text-brand" role="img" aria-label="Mini profil altimétrique GPX">
         <defs>
           <linearGradient id="organizerElevationGradient" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="#2f5d1e" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="#2f5d1e" stopOpacity="0.04" />
+            <stop offset="0%" stopColor="currentColor" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="currentColor" stopOpacity="0.04" />
           </linearGradient>
         </defs>
-        <line x1={paddingX} x2={width - paddingX} y1={height - paddingBottom} y2={height - paddingBottom} stroke="#d6d3cc" />
+        <line x1={paddingX} x2={width - paddingX} y1={height - paddingBottom} y2={height - paddingBottom} stroke="hsl(var(--border))" />
         <path d={areaPath} fill="url(#organizerElevationGradient)" />
-        <path d={path} fill="none" stroke="#2f5d1e" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-        <text x={paddingX} y={height - 10} fontSize="11" fill="#6b655c">
+        <path d={path} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        <text x={paddingX} y={height - 10} fontSize="11" fill="hsl(var(--muted-foreground))">
           0 km
         </text>
-        <text x={width - paddingX} y={height - 10} fontSize="11" fill="#6b655c" textAnchor="end">
+        <text x={width - paddingX} y={height - 10} fontSize="11" fill="hsl(var(--muted-foreground))" textAnchor="end">
           {maxDistance.toFixed(1)} km
         </text>
-        <text x={paddingX} y={paddingTop + 4} fontSize="11" fill="#6b655c">
+        <text x={paddingX} y={paddingTop + 4} fontSize="11" fill="hsl(var(--muted-foreground))">
           {Math.round(maxElevation)} m
         </text>
-        <text x={paddingX} y={height - paddingBottom - 6} fontSize="11" fill="#6b655c">
+        <text x={paddingX} y={height - paddingBottom - 6} fontSize="11" fill="hsl(var(--muted-foreground))">
           {Math.round(minElevation)} m
         </text>
         {preview?.detectedAidStations.map((station) => {
           const x = xScale(station.distanceKm);
           return (
             <g key={`${station.name}-${station.distanceKm}`}>
-              <line x1={x} x2={x} y1={paddingTop} y2={height - paddingBottom} stroke="#d89b22" strokeDasharray="3 4" />
-              <circle cx={x} cy={height - paddingBottom} r="4" fill="#d89b22" />
+              <line x1={x} x2={x} y1={paddingTop} y2={height - paddingBottom} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 4" />
+              <circle cx={x} cy={height - paddingBottom} r="4" fill="hsl(var(--muted-foreground))" />
             </g>
           );
         })}
@@ -844,7 +825,7 @@ function MiniGpxMap({
   );
 
   if (!hasGpx) {
-    return <div className="rounded-md border border-dashed border-border bg-background px-3 py-4 text-sm text-muted-foreground">La carte apparaitra apres l&apos;ajout d&apos;un GPX.</div>;
+    return <div className="rounded-md border border-dashed border-border bg-background px-3 py-4 text-sm text-muted-foreground">La carte apparaîtra après l&apos;ajout d&apos;un GPX.</div>;
   }
 
   if (points.length < 2) {
@@ -852,15 +833,15 @@ function MiniGpxMap({
   }
 
   return (
-    <section className="rounded-md border border-border/70 bg-background px-3 py-3">
+    <section className="overflow-hidden rounded-md border border-border bg-background px-2 py-2">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm">
         <p className="font-semibold text-foreground">Carte du parcours</p>
         <p className="text-xs font-medium text-muted-foreground">{points.length} points</p>
       </div>
-      <GpxRouteMap points={points} aidStations={preview?.detectedAidStations ?? []} heightClassName="h-[34rem]" />
+      <GpxRouteMap points={points} aidStations={preview?.detectedAidStations ?? []} heightClassName="h-[7.5rem]" />
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-        <span>Vert: depart</span>
-        <span>Rouge: arrivee</span>
+        <span>Vert : départ</span>
+        <span>Rouge : arrivée</span>
         {preview?.detectedAidStations.length ? <span>Orange: ravitos detectes</span> : null}
       </div>
     </section>

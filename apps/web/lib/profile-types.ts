@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isRunnerProfileReady } from "@trailplanner/shared";
 
 import { fuelProductSchema } from "./product-types";
 
@@ -38,3 +39,19 @@ export const profileUpdateSchema = z.object({
 
 export type UserProfile = z.infer<typeof userProfileSchema>;
 export type ProfileUpdatePayload = z.infer<typeof profileUpdateSchema>;
+
+export const isUserProfileReady = (profile: UserProfile | null | undefined) =>
+  isRunnerProfileReady(
+    profile
+      ? {
+          full_name: profile.fullName,
+          comfortable_flat_pace_min_per_km: profile.comfortableFlatPaceMinPerKm,
+          water_bag_liters: profile.waterBagLiters,
+          default_carbs_g_per_hour: profile.defaultCarbsGPerHour,
+          birth_date: profile.birthDate,
+          height_cm: profile.heightCm,
+          weight_kg: profile.weightKg,
+          utmb_index: profile.utmbIndex,
+        }
+      : profile,
+  );

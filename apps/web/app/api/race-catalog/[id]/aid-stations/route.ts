@@ -9,6 +9,7 @@ import {
   getSupabaseServiceConfig,
   isAdminUser,
 } from "../../../../../lib/supabase";
+import { invalidatePublicRaceCache } from "../../../../../lib/public-race-cache";
 
 const paramsSchema = z.object({ id: z.string().uuid() });
 
@@ -157,6 +158,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 
   if (parsedBody.data.aidStations.length === 0) {
+    invalidatePublicRaceCache({ raceId: parsedParams.data.id });
     return withSecurityHeaders(NextResponse.json({ aidStations: [] }));
   }
 
@@ -188,5 +190,6 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
   const rows = z.array(aidStationRowSchema).parse(await insertResponse.json());
 
+  invalidatePublicRaceCache({ raceId: parsedParams.data.id });
   return withSecurityHeaders(NextResponse.json({ aidStations: rows }));
 }

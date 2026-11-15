@@ -1,8 +1,14 @@
 ---
 title: race_event_edition_branding
 scope: database
-last_verified: 2026-11-11
+last_verified: 2026-11-15
+# Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
+# Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
+# Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
+# Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: high
+# Organizer UI note (2026-11-13): branding preview uses the contextual rail on wide screens; logo and color draft/publish contracts are unchanged.
 related_files:
   - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
   - supabase/migrations/20260928192654_update_default_racebook_accent_color.sql
@@ -202,3 +208,7 @@ Progressive plan disclosure (2026-11-09): the plan is optional in the RaceBook. 
 RaceBook polish (2026-11-09): the runner hero keeps the format/event thumbnail but renders it blurred (`blurRadius` 24) under a 90% organizer-primary veil, so no artwork text is readable behind the identity, omits the default `Solo` participation label, appends a `J-N`/`Aujourd'hui` countdown to the date line (hidden after race day), and moves its expanded block up with the collapse so titles never overlap and metrics are never clipped. Runner wording was simplified (`Où encourager`, `Barrière horaire`, `Sac d'allègement`, `Nourriture`, `Relais {n}`, weather-alert and partial-route sentences). Access transport notes turn pasted URLs into labelled buttons (`Réserver ma navette` / `Ouvrir le lien`) and bib pickup addresses without an organizer maps link fall back to a Google Maps search (`lib/racebookTextLinks.ts`). Profile cumulative tiles show `—` until the runner touches the curve. Branding is now carried by the published primary color and logo only; no branding field changes.
 
 Publication checks and partner slots (2026-11-09): pre-publication checks and the Matériel/hébergement partner slots read the built snapshot and their own table only. They do not read, write or change this domain's rows or contracts.
+
+The branding logo control now uses the shared file field and exposes the existing preview, replace and remove actions; the branding row and publication lifecycle are unchanged.
+
+Branding preview surfaces now use theme tokens in light and dark mode; stored colors, logo, draft state, and publication lifecycle are unchanged.

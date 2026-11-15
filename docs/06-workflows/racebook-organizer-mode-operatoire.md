@@ -1,8 +1,22 @@
 ---
 title: Mode opératoire Livret coureur organisateur
 scope: workflow
-last_verified: 2026-11-09
+last_verified: 2026-11-15
+# Conversion assistée (2026-11-15) : « Appliquer » préremplit seulement le formulaire après une revue champ par champ ; « Ignorer » écarte la proposition.
+# Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
+# Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: medium
+# UI organisateur (2026-11-13) : les médias et aperçus des sections Informations, Course et Identité visuelle occupent le rail contextuel à droite sur grand écran, puis passent sous le formulaire.
+# Ravitos (2026-11-13) : sélectionner un point dans la timeline ouvre son unique panneau de détail ; sur mobile ce panneau est plein écran et le bouton Retour ramène à la liste.
+# Informations (2026-11-13) : les liens sociaux s’adaptent à la largeur disponible et les badges Requis reprennent les règles de validation existantes.
+# Navigation (2026-11-13) : la section active porte l’état principal, les libellés utilisent jusqu’à deux lignes et les actions destructives sont regroupées sous ⋯ avec confirmation.
+# Modules denses (2026-11-13) : l’arrivée peut reprendre le départ, les sponsors se sélectionnent par logo et la date de l’édition est affichée en français.
+# Mobile (2026-11-13) : Course affiche d’abord le formulaire ; « Médias et aperçu » déplie ensuite le GPX, le profil et l’image.
+# Organizer polish (2026-11-13): GPX/image upload is in the Course right rail (desktop) or “Tracé et médias” (mobile); ravito start/cutoff times are under “Horaires et consignes”.
+# Fill-flow note (2026-11-13): organizer form ergonomics (ravito services, Enter-to-add, slot undo, sponsor ordering) do not alter stored data or contracts.
+# UX pass (2026-11-14): pick a format in the left column and its sections open right below it; Matériel adds items from the bar at the top of the list.
+# Course timeline pass (2026-11-14): the Départ/ravitos editor shows one timeline filtered by Tout / Ravitos / Suivi / SAS / Relais; SAS sit right after Départ, each point kind has its own marker (ravito green dot, base de vie larger dot + badge, suivi blue ring + “Suivi” tag, relais violet diamond), aid/relay/finish rows show a clock cutoff chip or “Sans barrière”, the right panel follows the clicked point, the timeline is height-capped with its own scroll, and “Horaires et consignes” sits below the grid so the sticky timeline no longer overlaps it.
 related_files:
   - scripts/generate-racebook-organizer-manual.mjs
   - apps/web/app/organizers/page.tsx
@@ -32,6 +46,8 @@ Les formulaires affichent d'abord l'essentiel. Utilise les boutons **+ Ajouter�
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
+Repeatable additions begin as a local draft: complete the required field, then choose **Enregistrer**. **Annuler** does not modify the event. When an item is removed, **Supprimé — Annuler** remains available for about six seconds before normal persistence. Red field errors appear after interaction or an attempted save; they do not replace the global error summary.
+
 ## Purpose
 
 Ce document accompagne le PDF utilisateur [`docs/mode-operatoire-racebook-organisateur.pdf`](../mode-operatoire-racebook-organisateur.pdf). Il décrit sa portée et sa régénération lorsque l’interface organisateur évolue.
@@ -55,6 +71,8 @@ Ce document accompagne le PDF utilisateur [`docs/mode-operatoire-racebook-organi
 4. Pour une autre URL locale, définir `RACEBOOK_MANUAL_BASE_URL` avant l’exécution.
 
 ## Validation
+
+The active editor keeps save status visible while scrolling; destructive actions use accessible dialogs and repeatable content offers a short undo window.
 
 - Dans **Gérer la visibilité**, vérifier que chaque format affiche `Informations à jour` en vert ou `Publier les modifications` lorsqu'un brouillon diffère de la version en ligne.
 - Ouvrir `Publier les modifications` et contrôler que la confirmation liste les champs et sections modifiés avant de proposer `Annuler` ou `Publier`.
@@ -83,6 +101,8 @@ Ce document accompagne le PDF utilisateur [`docs/mode-operatoire-racebook-organi
 
 ## Do Not
 
+- Ne pas décrire un brouillon local, un message d’erreur ou une suppression annulable comme une donnée enregistrée ou publiée ; seule une sauvegarde automatique réussie modifie le Livret coureur.
+
 - Ne pas présenter les origines Admin et Offert comme équivalentes dans une future capture de l’administration ; Stripe et virement doivent rester adossés à un paiement réel.
 
 - Ne pas capturer un compte ou un événement réel.
@@ -100,3 +120,17 @@ Ce document accompagne le PDF utilisateur [`docs/mode-operatoire-racebook-organi
 ## Avant de publier (2026-11-09)
 
 La fenêtre de publication liste désormais les points bloquants (ravito encore nommé « Nouveau ravito », ravito à 0 km) à corriger avant de pouvoir publier, les points à vérifier (même lieu à deux kilomètres différents entre ravitos et suivi coureur, date du format hors de l’édition, noms commençant par une minuscule) et les emplacements partenaires qui afficheront encore les liens Decathlon / Booking proposés par Pace Yourself. Avec l’offre Signature, la section Sponsors permet de les remplacer par ses partenaires ou de les masquer.
+
+Les erreurs locales restent affichées sous les champs et le premier champ invalide reçoit le focus. Une saisie invalide ne déclenche plus de faux échec d’enregistrement automatique ; la suppression d’un ravito se trouve dans son panneau Détails et conserve sa confirmation.
+
+Sur grand écran, les sections du Livret coureur se choisissent désormais dans la navigation à gauche ; le formulaire reste au centre et la checklist « À faire » à droite. Sur mobile, le sélecteur « Informations à modifier » remplace cette navigation. Les réglages d’événement, d’édition et de visibilité restent repliés dans le bandeau supérieur.
+
+Dans Informations, les champs sont regroupés par événement, dates, urgence, liens et couverture. Les mentions « Requis » suivent les règles existantes et « Optionnel » distingue les modules secondaires.
+
+Dans Course & GPX, la carte, le mini profil, le fichier GPX, les réglages d’affichage et l’image sont réunis dans la colonne « Tracé ». Les actions « Changer », « Modifier » et « Utiliser… » pilotent les mêmes héritages de date et de lieu.
+
+Les choix oui/non utilisent désormais la même ligne d’interrupteur dans Course & GPX, Dossard, Sponsors et les points de course. Leur valeur et leur enregistrement automatique restent inchangés.
+
+Dans Départ, ravitos, suivi coureur & relais, la ligne de course affiche départ, points triés par kilomètre et arrivée. Les filtres Ravitos, SAS, Suivi et Relais ouvrent les éditeurs existants ; un clic sur un ravito ouvre ses détails.
+
+Accès regroupe ses modules en cartes compactes, l’ajout d’un sponsor reste replié jusqu’à l’action dédiée, et Services signale uniquement le texte historique réellement présent à convertir.

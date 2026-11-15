@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import { Children, isValidElement, type ReactNode } from "react";
 import { Button } from "../../../../components/ui/button";
 import type { OrganizerEventDetails, OrganizerLocation } from "../../../../lib/organizer-dashboard-details";
 import type { EditionService, RaceAward, StartWave } from "../../../../lib/organizer-structured-content";
 import { AddressAutocompleteField } from "./address-autocomplete-field";
 import { NumberField, TextAreaField, TextField } from "./controls";
+import { SelectField } from "./form-kit";
 
 type Headers = Record<string, string>;
 
@@ -167,17 +168,32 @@ function useRemoteList<T>(url: string | null, key: string, headers: Headers, ini
 }
 
 const Select = ({ value, onChange, children, label }: { value:string; onChange:(value:string)=>void; children:ReactNode; label:string }) => (
-  <select aria-label={label} className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm" value={value} onChange={(event)=>onChange(event.target.value)}>{children}</select>
+  <SelectField aria-label={label} value={value} onValueChange={onChange} options={Children.toArray(children).flatMap((child) => isValidElement<{ value: string; children: ReactNode }>(child) ? [{ value: String(child.props.value), label: String(child.props.children) }] : [])} />
 );
 const Status = ({ loaded, message }: { loaded:boolean; message:string|null }) => <p className="text-xs text-muted-foreground">{message ?? (loaded ? "À jour" : "Chargement…")}</p>;
 
 export function EditionServicesEditor({ editionId, headers, enabled, legacy, onLegacyChange }: { editionId:string|null; headers:Headers; enabled:boolean; legacy:OrganizerEventDetails["services"]; onLegacyChange:(details:OrganizerEventDetails["services"])=>void }) {
   const remote=useRemoteList<EditionService>(enabled&&editionId?`/api/organizer/editions/${editionId}/services`:null,"services",headers);
+  const [draft, setDraft] = useState<EditionService | null>(null);
+  const [draftValidationVisible, setDraftValidationVisible] = useState(false);
   if(!enabled)return <Locked label="Les services structurés sont inclus dans le Livret coureur."/>;
-  const add=(serviceType:EditionService["serviceType"],description:string|null=null)=>remote.update([...remote.items,{serviceType,name:"",description,address:null,latitude:null,longitude:null,googleMapsUrl:null,websiteUrl:null,phone:null}]);
+  const createDraft=(serviceType:EditionService["serviceType"],description:string|null=null)=>{
+    setDraft({serviceType,name:"",description,address:null,latitude:null,longitude:null,googleMapsUrl:null,websiteUrl:null,phone:null});
+    setDraftValidationVisible(false);
+  };
   const labels={restaurant:"Restaurant",accommodation:"Hébergement",recovery:"Récupération",other:"Autre service"};
+  const draftNeedsAddress = draft?.serviceType === "restaurant" || draft?.serviceType === "accommodation";
+  const draftAddressInvalid = Boolean(draftNeedsAddress && (!draft?.address?.trim() || draft.latitude == null || draft.longitude == null));
+  const legacyVisible = Boolean(legacy.accommodations || legacy.restaurants || legacy.recovery || legacy.supporters || legacy.note || legacy.partners || legacy.lastMinuteMessage);
   return <div className="space-y-5">
-    <div className="flex flex-wrap justify-between gap-2"><p className="text-sm text-muted-foreground">Une fiche par lieu, utilisable dans le Livret coureur et sur la carte.</p><div className="flex flex-wrap gap-2">{Object.entries(labels).map(([type,label])=><Button key={type} type="button" variant="outline" onClick={()=>add(type as EditionService["serviceType"])}>+ {label}</Button>)}</div></div>
+    <div className="flex flex-wrap justify-between gap-2"><p className="text-sm text-muted-foreground">Une fiche par lieu, utilisable dans le Livret coureur et sur la carte.</p><div className="flex flex-wrap gap-2">{Object.entries(labels).map(([type,label])=><Button key={type} type="button" variant="outline" onClick={()=>createDraft(type as EditionService["serviceType"])}>+ {label}</Button>)}</div></div>
+    {draft ? <article className="space-y-3 rounded-xl border border-dashed border-brand-border bg-brand-surface/30 p-4">
+      <p className="font-semibold">Nouvelle fiche service</p>
+      <Select label="Type de service" value={draft.serviceType} onChange={(serviceType)=>setDraft({...draft,serviceType:serviceType as EditionService["serviceType"]})}>{Object.entries(labels).map(([v,l])=><option key={v} value={v}>{l}</option>)}</Select>
+      <TextField label="Nom" value={draft.name} invalid={!draft.name.trim()} validationVisible={draftValidationVisible} autoFocus errorMessage="Indique le nom du service." onChange={(name)=>setDraft({...draft,name})}/>
+      <AddressAutocompleteField label="Adresse" value={draft.address??""} location={{label:draft.address??null,lat:draft.latitude??null,lng:draft.longitude??null,googleMapsUrl:draft.googleMapsUrl??null,source:draft.latitude!=null?"autocomplete":null}} onChange={(address)=>setDraft({...draft,address})} onLocationChange={(location:OrganizerLocation)=>setDraft({...draft,address:location.label,latitude:location.lat,longitude:location.lng,googleMapsUrl:location.googleMapsUrl})} invalid={draftValidationVisible&&draftAddressInvalid}/>
+      <div className="flex gap-2"><Button type="button" onClick={()=>{setDraftValidationVisible(true);if(!draft.name.trim()||draftAddressInvalid)return;remote.update([...remote.items,draft]);setDraft(null);}}>Enregistrer la fiche</Button><Button type="button" variant="ghost" onClick={()=>setDraft(null)}>Annuler</Button></div>
+    </article>:null}
     {remote.items.length===0?<Empty text="Aucun service structuré pour cette édition."/>:<div className="grid gap-4 xl:grid-cols-2">{remote.items.map((item,index)=><article key={item.id??index} className="space-y-3 rounded-xl border border-border bg-background p-4">
       <div className="flex gap-2"><Select label="Type de service" value={item.serviceType} onChange={(value)=>remote.update(remote.items.map((x,i)=>i===index?{...x,serviceType:value as EditionService["serviceType"]}:x))}>{Object.entries(labels).map(([v,l])=><option key={v} value={v}>{l}</option>)}</Select><Button type="button" variant="ghost" onClick={()=>remote.update(remote.items.filter((_,i)=>i!==index))}>Supprimer</Button></div>
       <TextField label="Nom" value={item.name} invalid={!item.name.trim()} onChange={(name)=>remote.update(remote.items.map((x,i)=>i===index?{...x,name}:x))}/>
@@ -185,7 +201,7 @@ export function EditionServicesEditor({ editionId, headers, enabled, legacy, onL
       <div className="grid gap-3 md:grid-cols-2"><TextField label="Site web" type="url" value={item.websiteUrl??""} onChange={(websiteUrl)=>remote.update(remote.items.map((x,i)=>i===index?{...x,websiteUrl:websiteUrl||null}:x))}/><TextField label="Téléphone" type="tel" value={item.phone??""} onChange={(phone)=>remote.update(remote.items.map((x,i)=>i===index?{...x,phone:phone||null}:x))}/></div>
       <TextAreaField label="Description" value={item.description??""} onChange={(description)=>remote.update(remote.items.map((x,i)=>i===index?{...x,description:description||null}:x))}/>
     </article>)}</div>}
-    <details className="rounded-xl border border-dashed border-border p-4"><summary className="cursor-pointer font-semibold">Contenu historique</summary><p className="my-3 text-sm text-muted-foreground">Le texte reste conservé. Une conversion crée un brouillon sans effacer la source.</p>{([['accommodations','Hébergements','accommodation'],['restaurants','Restaurants','restaurant'],['recovery','Récupération','recovery']] as const).map(([key,label,type])=><div key={key} className="mb-3"><TextAreaField label={label} value={legacy[key]??""} onChange={(value)=>onLegacyChange({...legacy,[key]:value||null})}/>{legacy[key]?<Button type="button" variant="outline" onClick={()=>add(type,legacy[key])}>Préremplir une fiche</Button>:null}</div>)}<TextAreaField label="Informations accompagnants" value={legacy.supporters??""} onChange={(value)=>onLegacyChange({...legacy,supporters:value||null})}/><TextAreaField label="Note générale" value={legacy.note??""} onChange={(value)=>onLegacyChange({...legacy,note:value||null})}/>{legacy.partners?<p className="text-xs text-muted-foreground">Partenaires historiques : {legacy.partners}</p>:null}{legacy.lastMinuteMessage?<p className="text-xs text-muted-foreground">Ancien message dernière minute : {legacy.lastMinuteMessage}</p>:null}</details>
+    {legacyVisible ? <details className="rounded-xl border border-amber-300 bg-amber-50/60 p-4 dark:border-amber-800 dark:bg-amber-950/20"><summary className="cursor-pointer font-semibold text-amber-900 dark:text-amber-200">Tu as du texte à convertir en fiches</summary><p className="my-3 text-sm text-muted-foreground">Le texte reste conservé. Une conversion crée un brouillon sans effacer la source.</p>{([['accommodations','Hébergements','accommodation'],['restaurants','Restaurants','restaurant'],['recovery','Récupération','recovery']] as const).map(([key,label,type])=><div key={key} className="mb-3"><TextAreaField label={label} value={legacy[key]??""} onChange={(value)=>onLegacyChange({...legacy,[key]:value||null})}/>{legacy[key]?<Button type="button" variant="outline" onClick={()=>createDraft(type,legacy[key])}>Préremplir une fiche</Button>:null}</div>)}<TextAreaField label="Informations accompagnants" value={legacy.supporters??""} onChange={(value)=>onLegacyChange({...legacy,supporters:value||null})}/><TextAreaField label="Note générale" value={legacy.note??""} onChange={(value)=>onLegacyChange({...legacy,note:value||null})}/>{legacy.partners?<p className="text-xs text-muted-foreground">Partenaires historiques : {legacy.partners}</p>:null}{legacy.lastMinuteMessage?<p className="text-xs text-muted-foreground">Ancien message dernière minute : {legacy.lastMinuteMessage}</p>:null}</details> : null}
     <Status loaded={remote.loaded} message={remote.message}/>
   </div>;
 }

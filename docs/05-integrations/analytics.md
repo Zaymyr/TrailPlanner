@@ -1,8 +1,21 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-11-11
+last_verified: 2026-11-15
+# Assisted legacy conversion (2026-11-15): server logs contain identifiers and block type, never source text; analytics contracts are unchanged.
+# Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
+# Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
+# Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
+# Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: medium
+# Organizer UI note (2026-11-13): the completion rail no longer duplicates an analytics button; analytics tracking and aggregation contracts are unchanged.
+# Loading UI note (2026-11-13): neutral organizer skeletons emit no additional analytics events.
+# Header/navigation note (2026-11-13): visual hierarchy changes emit no additional analytics events.
+# Dense module note (2026-11-13): logo-grid navigation and same-place access emit no new analytics events.
+# Mobile finish note (2026-11-13): collapsing Course media emits no new analytics events.
+# Layout polish note (2026-11-13): organizer presentation changes (aid-station detail, format metrics row, media rail visibility, equipment status action) do not alter stored data or contracts.
+# Fill-flow note (2026-11-13): organizer form ergonomics (ravito services, Enter-to-add, slot undo, sponsor ordering) do not alter stored data or contracts.
 related_files:
   - apps/web/lib/posthog-organizer-analytics.ts
   - apps/web/lib/posthog-organizer-analytics.test.ts
@@ -80,6 +93,7 @@ related_tables:
 # Analytics
 
 The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret accompagnateur, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret accompagnateur · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. With the sub-tab gone the runner RaceBook no longer emits `supporter_directions_opened` / `supporter_plan_opened`; Supporter Guide interactions are not tracked yet. The catalog event sheet opens the Livret accompagnateur from an interactive `TopoCard` placed before the distance list, and the guide's back action reopens that sheet through the existing `eventId` parameter plus a `sheet` nonce.
+The retired multi-screen web onboarding and its `onboarding-analytics-tracker` are no longer mounted. Runner acquisition now preserves the validated planner return path; no synthetic completion event is emitted for the permanent `/onboarding/*` redirects.
 
 Organizer analytics access is checked against the active plan plus the exact `capability.racebook_analytics` feature grant. A different Signature feature gift must not authorize analytics, and manual invoice creation or settlement has no analytics effect.
 
@@ -102,6 +116,8 @@ The shared workspace header, quantity stepper, cutoff placement, and tri-state a
 Le regroupement des liens organisateur, la suppression des sorties de barre basse et le retour contextuel vers Courses ou Plans ne créent aucun nouvel événement. Les ouvertures de liens conservent leurs actions bornées existantes et les clics Booking/Decathlon gardent leur contexte sans URL ni contenu libre. La présentation compacte des alertes, horaires, listes et couleurs n'ajoute aucune propriété analytics.
 
 The compact aligned passage/cutoff reflection, late-warning disclosure, plan-derived segment duration, hero departure clock, title-aligned supporter permissions, icon-only supporter map actions, and route-scoped plan warm starts contain no additional analytics payload or event.
+
+The organizer form kit (local repeatable-list drafts, field-level validation, inherited-state controls, file controls, and the sticky save state) is presentation and client-validation infrastructure. It does not add an event, change existing successful-update categories, or send field errors, draft text, file names, URLs, coordinates, or save timestamps to PostHog.
 
 ## Runner monetisation events
 
@@ -369,7 +385,10 @@ Selecting a source ravito, deriving a same-course GPX access coordinate, and hid
 
 ## Gotchas
 
+- Organizer analytics selectors and reader helper copy changed presentation only; event names and aggregation semantics are unchanged.
+
 - Header collapse, shared gutters/control geometry, plan-card action layout, protected event dates and modal close styling add no analytics event or property. Existing presses must continue through their established handlers and bounded event names.
+- A local draft, its validation error, a cancelled removal, or the six-second organizer undo notice is not a successful organizer mutation and must not emit `organizer event updated` or `organizer race updated`. Existing update telemetry remains limited to successful normal persistence.
 
 - Moving the existing Courses race-request trigger into the persistent action of the shared collapsible root header is presentation-only. Header expansion/collapse adds no PostHog event or scroll property; a submitted request keeps the existing Supabase mutation behavior.
 - Removing the runner-owned race section from Courses removes that source from catalog interactions; catalog plan analytics now describe event formats only.
@@ -481,3 +500,8 @@ Catalog scroll performance (2026-11-09): the Courses list renders memoized `Cata
 Catalog end date (2026-11-14): `catalog.tsx` visibility/sorting now uses the event's last format day; no analytics event or property changed.
 
 Shared-plan follow and Supporter Guide surfaces keep analytics bounded to aggregate navigation or preparation actions. They must not send a share token, plan snapshot, follower identity, supporter name, precise location, access instruction, emergency contact, or private checklist value to PostHog.
+The organizer and runner follow-up changes reuse existing actions and do not introduce, rename or remove analytics events.
+
+Moving Organizer statistics from a top-level tab to the completion rail changes navigation presentation only; the existing analytics panel, access gates, requests, and event names are unchanged.
+
+Organizer finishing layouts do not introduce or rename analytics events.

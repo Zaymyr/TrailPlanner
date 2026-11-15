@@ -50,7 +50,6 @@ type PlanPrimaryContentProps = {
   fuelProducts: FuelProduct[];
   favoriteProducts: StoredProductPreference[];
   onFavoriteToggle: (product: FuelProduct) => { updated: boolean; reason?: "limit" };
-  favoriteLimit: number;
   localProductIds?: string[];
   organizerAidStationProducts?: Record<string, OrganizerAidStationProductSuggestion[]>;
   startSupplies: StationSupply[];
@@ -96,7 +95,6 @@ export const PlanPrimaryContent = memo(function PlanPrimaryContent({
   fuelProducts,
   favoriteProducts,
   onFavoriteToggle,
-  favoriteLimit,
   localProductIds,
   organizerAidStationProducts,
   startSupplies,
@@ -138,7 +136,6 @@ export const PlanPrimaryContent = memo(function PlanPrimaryContent({
         fuelProducts={fuelProducts}
         favoriteProducts={favoriteProducts}
         onFavoriteToggle={onFavoriteToggle}
-        favoriteLimit={favoriteLimit}
         localProductIds={localProductIds}
         organizerAidStationProducts={organizerAidStationProducts}
         startSupplies={startSupplies}

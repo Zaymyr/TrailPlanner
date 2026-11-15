@@ -1,7 +1,8 @@
 ---
 title: race_plans Table
 scope: database
-last_verified: 2026-11-01
+last_verified: 2026-11-15
+# Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
 ai_priority: high
 related_files:
   - supabase/migrations/20241215010000_create_race_plans.sql

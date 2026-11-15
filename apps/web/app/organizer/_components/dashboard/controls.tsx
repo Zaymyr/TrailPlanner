@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 
 import { Input } from '../../../../components/ui/input';
 import { Button } from '../../../../components/ui/button';
@@ -8,6 +8,7 @@ import type { OrganizerModuleLevel, OrganizerModuleStatus } from '../completion'
 
 export function ContextualHelp({ text, label = "Plus d’informations" }: { text: string; label?: string }) {
   const tooltipId = useId();
+  const [open, setOpen] = useState(false);
 
   return (
     <span className="group/help relative inline-flex align-middle">
@@ -15,6 +16,9 @@ export function ContextualHelp({ text, label = "Plus d’informations" }: { text
         type="button"
         aria-label={label}
         aria-describedby={tooltipId}
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+        onBlur={() => setOpen(false)}
         className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-xs font-bold text-muted-foreground transition hover:border-brand-border hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
         ?
@@ -22,7 +26,10 @@ export function ContextualHelp({ text, label = "Plus d’informations" }: { text
       <span
         id={tooltipId}
         role="tooltip"
-        className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 hidden w-max max-w-64 -translate-x-1/2 rounded-md bg-slate-950 px-3 py-2 text-left text-xs font-normal leading-5 text-white shadow-xl group-hover/help:block group-focus-within/help:block"
+        className={cn(
+          "pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-max max-w-64 -translate-x-1/2 rounded-md bg-slate-950 px-3 py-2 text-left text-xs font-normal leading-5 text-white shadow-xl group-hover/help:block group-focus-within/help:block",
+          open ? "block" : "hidden"
+        )}
       >
         {text}
       </span>
@@ -32,12 +39,14 @@ export function ContextualHelp({ text, label = "Plus d’informations" }: { text
 
 export function OptionalModule({
   title,
+  addLabel,
   active,
   onAdd,
   onRemove,
   children,
 }: {
   title: string;
+  addLabel?: string;
   active: boolean;
   onAdd: () => void;
   onRemove: () => void;
@@ -46,7 +55,7 @@ export function OptionalModule({
   if (!active) {
     return (
       <Button type="button" variant="outline" onClick={onAdd} className="justify-start">
-        + Ajouter {title.toLocaleLowerCase("fr-FR")}
+        {addLabel ?? `+ Ajouter ${title}`}
       </Button>
     );
   }
@@ -299,6 +308,9 @@ export function TextField({
   id,
   hint,
   errorMessage,
+  onBlur,
+  autoFocus,
+  validationVisible = false,
 }: {
   label: string;
   value: string;
@@ -312,15 +324,21 @@ export function TextField({
   id?: string;
   hint?: string;
   errorMessage?: string;
+  onBlur?: () => void;
+  autoFocus?: boolean;
+  validationVisible?: boolean;
 }) {
   const generatedId = useId();
   const inputId = id ?? generatedId;
   const errorId = `${inputId}-error`;
+  const [touched, setTouched] = useState(false);
+  const showError = Boolean(invalid && (touched || validationVisible));
 
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-1.5">
         <Label htmlFor={inputId}>{label}</Label>
+        {required ? <span className="rounded-full bg-brand-surface px-2 py-0.5 text-[11px] font-semibold text-brand">Requis</span> : null}
         {hint ? <ContextualHelp text={hint} /> : null}
       </div>
       <Input
@@ -329,14 +347,19 @@ export function TextField({
         step={step}
         value={value}
         onChange={(event) => onChange(event.target.value)}
+        onBlur={() => {
+          setTouched(true);
+          onBlur?.();
+        }}
         required={required}
         placeholder={placeholder}
         disabled={disabled}
-        aria-invalid={invalid || undefined}
-        aria-describedby={invalid ? errorId : undefined}
-        className={invalid ? "border-amber-400 bg-amber-50/50 focus-visible:outline-amber-500" : undefined}
+        autoFocus={autoFocus}
+        aria-invalid={showError || undefined}
+        aria-describedby={showError ? errorId : undefined}
+        className={showError ? "border-red-500 bg-red-50/50 focus-visible:outline-red-500" : undefined}
       />
-      {invalid ? <p id={errorId} className="text-xs font-medium text-amber-700">{errorMessage ?? "Ce champ est requis."}</p> : null}
+      {showError ? <p id={errorId} className="text-xs font-medium text-red-700">{errorMessage ?? "Ce champ est requis."}</p> : null}
     </div>
   );
 }
@@ -353,6 +376,7 @@ export function NumberField({
   hint,
   errorMessage,
   emptyWhenZero,
+  validationVisible = false,
 }: {
   label: string;
   value: number;
@@ -365,10 +389,13 @@ export function NumberField({
   hint?: string;
   errorMessage?: string;
   emptyWhenZero?: boolean;
+  validationVisible?: boolean;
 }) {
   const generatedId = useId();
   const inputId = id ?? generatedId;
   const errorId = `${inputId}-error`;
+  const [touched, setTouched] = useState(false);
+  const showError = Boolean(invalid && (touched || validationVisible));
 
   return (
     <div className="space-y-1">
@@ -382,16 +409,17 @@ export function NumberField({
         step={step}
         value={emptyWhenZero && value === 0 ? "" : value}
         onChange={(event) => onChange(event.target.value === "" ? 0 : Number(event.target.value))}
+        onBlur={() => setTouched(true)}
         readOnly={readOnly}
         disabled={disabled}
-        aria-invalid={invalid || undefined}
-        aria-describedby={invalid ? errorId : undefined}
+        aria-invalid={showError || undefined}
+        aria-describedby={showError ? errorId : undefined}
         className={cn(
-          invalid && "border-amber-400 bg-amber-50/50 focus-visible:outline-amber-500",
+          showError && "border-red-500 bg-red-50/50 focus-visible:outline-red-500",
           readOnly && "bg-muted/40 text-muted-foreground"
         )}
       />
-      {invalid ? <p id={errorId} className="text-xs font-medium text-amber-700">{errorMessage ?? "Saisis une valeur valide."}</p> : null}
+      {showError ? <p id={errorId} className="text-xs font-medium text-red-700">{errorMessage ?? "Saisis une valeur valide."}</p> : null}
     </div>
   );
 }
@@ -418,6 +446,8 @@ export function TextAreaField({
   const generatedId = useId();
   const inputId = id ?? generatedId;
   const errorId = `${inputId}-error`;
+  const [touched, setTouched] = useState(false);
+  const showError = Boolean(invalid && touched);
 
   return (
     <div className="space-y-1">
@@ -429,15 +459,16 @@ export function TextAreaField({
         id={inputId}
         className={cn(
           "min-h-24 w-full rounded-md border bg-card px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          invalid ? "border-amber-400 bg-amber-50/50 focus-visible:ring-amber-500" : "border-border"
+          showError ? "border-red-500 bg-red-50/50 focus-visible:ring-red-500" : "border-border"
         )}
         value={value}
         onChange={(event) => onChange(event.target.value)}
+        onBlur={() => setTouched(true)}
         disabled={disabled}
-        aria-invalid={invalid || undefined}
-        aria-describedby={invalid ? errorId : undefined}
+        aria-invalid={showError || undefined}
+        aria-describedby={showError ? errorId : undefined}
       />
-      {invalid ? <p id={errorId} className="text-xs font-medium text-amber-700">{errorMessage ?? "Ce champ est requis."}</p> : null}
+      {showError ? <p id={errorId} className="text-xs font-medium text-red-700">{errorMessage ?? "Ce champ est requis."}</p> : null}
     </div>
   );
 }

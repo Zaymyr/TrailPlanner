@@ -1,6 +1,5 @@
 import type { FuelType } from './types';
 
-export const FREE_FAVORITE_LIMIT = 2;
 
 export const FUEL_TYPE_LABELS: Record<FuelType | 'all', string> = {
   all: 'Tous',

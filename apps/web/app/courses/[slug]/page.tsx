@@ -16,6 +16,7 @@ import { RaceAidStationsTimeline } from "../_components/RaceAidStationsTimeline"
 import { RaceHeroSummary } from "../_components/RaceHeroSummary";
 import { RaceMetricsDetails } from "../_components/RaceMetricsDetails";
 import { RaceRouteExplorer } from "../_components/RaceRouteExplorer";
+import { RunnerAppBridge } from "../_components/RunnerAppBridge";
 import { buildRaceMetadataDescription, buildRaceMetadataTitle, formatPublicRaceDate } from "./race-metadata";
 import { buildRaceOverview, buildRaceStructuredData } from "./race-structured-data";
 
@@ -178,13 +179,19 @@ export default async function RacePage({ params }: PageProps) {
     ),
   );
   const structuredData = buildRaceStructuredData(race, canonicalUrl);
+  const eventEditionUrl = race.eventEditionSlug
+    ? new URL(`/courses/evenements/${race.eventEditionSlug}`, SITE_URL).toString()
+    : null;
   const breadcrumbData = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
       { "@type": "ListItem", position: 1, name: "Accueil", item: SITE_URL },
       { "@type": "ListItem", position: 2, name: "Courses", item: new URL("/courses", SITE_URL).toString() },
-      { "@type": "ListItem", position: 3, name: race.name, item: canonicalUrl },
+      ...(eventEditionUrl && race.eventName
+        ? [{ "@type": "ListItem", position: 3, name: race.eventName, item: eventEditionUrl }]
+        : []),
+      { "@type": "ListItem", position: eventEditionUrl && race.eventName ? 4 : 3, name: race.name, item: canonicalUrl },
     ],
   };
 
@@ -233,10 +240,28 @@ export default async function RacePage({ params }: PageProps) {
         <span aria-hidden="true">/</span>
         <Link className="hover:text-brand hover:underline" href={"/courses" as Route}>Courses</Link>
         <span aria-hidden="true">/</span>
+        {race.eventEditionSlug && race.eventName ? (
+          <>
+            <Link className="hover:text-brand hover:underline" href={`/courses/evenements/${race.eventEditionSlug}` as Route}>{race.eventName}</Link>
+            <span aria-hidden="true">/</span>
+          </>
+        ) : null}
         <span aria-current="page" className="truncate text-foreground">{race.name}</span>
       </nav>
 
       <RaceHeroSummary race={race} formattedDate={formattedDate} formattedEndDate={formattedEndDate} canonicalUrl={canonicalUrl} otherFormats={otherFormats} />
+
+      {race.eventEditionSlug && race.eventName ? (
+        <Link href={`/courses/evenements/${race.eventEditionSlug}` as Route} className="inline-flex min-h-11 items-center font-semibold text-brand hover:underline">
+          Tous les formats de {race.eventName}
+        </Link>
+      ) : null}
+
+      <RunnerAppBridge
+        courseName={race.name}
+        universalUrl={canonicalUrl}
+        racebookAvailable={race.racebookAvailableInApp}
+      />
 
       <RaceMetricsDetails race={race} />
 
@@ -278,7 +303,7 @@ export default async function RacePage({ params }: PageProps) {
                 <h2 id="aid-stations-heading" className="text-2xl font-semibold text-foreground">Ravitaillements</h2>
                 <p className="mt-1 text-muted-foreground">{race.aidStations.length} point{race.aidStations.length > 1 ? "s" : ""} renseigné{race.aidStations.length > 1 ? "s" : ""}.</p>
               </div>
-              <RaceAidStationsTimeline aidStations={race.aidStations} totalDistanceKm={race.distanceKm} />
+              <RaceAidStationsTimeline aidStations={race.aidStations} aidStationDetails={race.aidStationDetails} totalDistanceKm={race.distanceKm} />
             </section>
           ) : null}
         </div>
@@ -299,7 +324,7 @@ export default async function RacePage({ params }: PageProps) {
                 href={`/race-planner?catalogRaceId=${race.id}` as Route}
                 className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-brand px-4 text-sm font-semibold text-brand-foreground transition hover:bg-brand-light"
               >
-                Planifier cette course
+                Estimer mon temps sur cette course — gratuit
               </Link>
             </CardContent>
           </Card>
@@ -405,14 +430,7 @@ export default async function RacePage({ params }: PageProps) {
         </section>
       ) : null}
 
-      <section className="grid gap-5 md:grid-cols-2">
-        <Card>
-          <CardContent className="space-y-4 py-7">
-            <h2 className="text-2xl font-semibold text-foreground">Préparer cette course</h2>
-            <p className="leading-7 text-muted-foreground">Construisez une stratégie d’allure, d’hydratation et de ravitaillement adaptée à ce parcours.</p>
-            <Link href={`/race-planner?catalogRaceId=${race.id}` as Route} className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand px-4 text-sm font-semibold text-brand-foreground transition hover:bg-brand-light">Planifier cette course</Link>
-          </CardContent>
-        </Card>
+      <section>
         <Card>
           <CardContent className="space-y-4 py-7">
             <h2 className="text-2xl font-semibold text-foreground">Estimer mes glucides</h2>

@@ -1,8 +1,20 @@
 ---
 title: race_event_publication_requests Table
 scope: database
-last_verified: 2026-11-09
+last_verified: 2026-11-15
+# Assisted legacy conversion (2026-11-15): Apply updates only the local organizer form; publication rules evaluate the subsequently saved draft.
+# Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: high
+# Organizer UI note (2026-11-13): publication controls keep their behavior in the wider shell; the contextual rail is presentation-only.
+# Validation UI note (2026-11-13): Requis badges expose existing prerequisites and do not change publication request rules.
+# Action-menu note (2026-11-13): moving destructive actions does not alter publication requests.
+# Dense module note (2026-11-13): access and sponsor presentation do not alter publication requests.
+# Mobile finish note (2026-11-13): collapsed media does not alter publication requests.
+# Layout polish note (2026-11-13): organizer presentation changes (aid-station detail, format metrics row, media rail visibility, equipment status action) do not alter stored data or contracts.
+# Fill-flow note (2026-11-13): organizer form ergonomics (ravito services, Enter-to-add, slot undo, sponsor ordering) do not alter stored data or contracts.
+# Organizer UX pass (2026-11-14): format sections nest under the selected format in the left nav, ravito type is Ravito / Base de vie, and equipment uses a top quick-add with per-row Obligatoire switch; no stored data or contract changes.
+# Course timeline note (2026-11-14): timeline filters, point markers and cutoff chips in the aid-station editor are presentation-only; stored data and contracts are unchanged.
 related_files:
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql
@@ -32,6 +44,7 @@ related_tables:
 # `race_event_publication_requests`
 
 Supporter Guide output follows immutable RaceBook publication and adds no separate publication request. Organizer preview and QR controls do not approve or publish a format.
+Current per-format publication dirty state is derived from versioned RaceBook snapshots, not from this legacy review table. Reverting a draft to the exact published content clears the organizer publication CTA without creating, approving or changing a request row.
 
 Publication approval remains independent from manual invoicing. The admin publication route now returns exact active feature grants and independent invoice summaries for the same edition, but neither dataset changes a request status or implicitly publishes a format.
 
@@ -105,6 +118,8 @@ This table is retained publication-review history. New organizer publication use
 
 ## Gotchas
 
+- The compact Organizer publication CTA still uses the existing request contract and authorization checks.
+
 - The shared admin organizer screen may configure non-monetized gifted features and manual invoices, but neither action approves or closes a publication request.
 
 - Current admin pack changes, Visibilité downgrades, and direct-virement recording do not create or reopen legacy publication-request rows.
@@ -142,3 +157,9 @@ This table is retained publication-review history. New organizer publication use
 - [RLS Policies](../rls-policies.md)
 
 Publication checks and partner slots (2026-11-09): pre-publication checks and the Matériel/hébergement partner slots read the built snapshot and their own table only. They do not read, write or change this domain's rows or contracts.
+
+Local organizer validation no longer surfaces a background autosave failure, and an incomplete required scope is capped below 100%; publication-request state remains server-owned.
+
+The compact Organizer banner and completion rail expose the same publication actions and readiness state; publication-request persistence and review remain server-owned.
+
+Organizer finishing layouts do not change publication-request persistence or review.

@@ -22,6 +22,7 @@ type StripePrice = z.infer<typeof stripePriceSchema>;
 type StripePriceWithAmount = StripePrice & { unit_amount: number };
 
 type PriceResponse = {
+  available: true;
   price: {
     currency: string;
     unitAmount: number;
@@ -34,7 +35,7 @@ const cachedPrices = new Map<string, { data: PriceResponse["price"]; expiresAt: 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
 const respondWithPrice = (price: PriceResponse["price"]) => {
-  const response = NextResponse.json<PriceResponse>({ price });
+  const response = NextResponse.json<PriceResponse>({ available: true, price });
   response.headers.set("Cache-Control", "public, max-age=300");
   return withSecurityHeaders(response);
 };
@@ -58,7 +59,7 @@ const parseStripePrice = (payload: unknown): StripePriceWithAmount => {
 export async function GET(request: NextRequest) {
   const stripeConfig = getStripeConfig();
   const offer = request.nextUrl.searchParams.get("offer") === "course" ? "course" : "annual";
-  const configuredPriceId = offer === "course" ? stripeConfig?.coursePriceId : stripeConfig?.annualPriceId ?? stripeConfig?.priceId;
+  const configuredPriceId = offer === "course" ? stripeConfig?.coursePriceId : stripeConfig?.annualPriceId;
 
   if (!stripeConfig || !configuredPriceId) {
     return withSecurityHeaders(

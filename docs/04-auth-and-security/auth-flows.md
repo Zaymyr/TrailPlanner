@@ -1,7 +1,7 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-11-11
+last_verified: 2026-11-13
 ai_priority: high
 related_files:
   - apps/web/app/sign-in/page.tsx
@@ -50,6 +50,7 @@ related_tables:
 # Auth Flows
 
 When an anonymous session opens `/share/plan/<token>`, following still requires an identified account. The app keeps only the pending route in memory, sends the user through the existing login flow, and consumes that route after `SIGNED_IN`; it does not persist or send the raw token to analytics.
+Runner return paths may target `/race-planner?catalogRaceId=<uuid>` or `/premium?planId=<uuid>` only after strict normalization. Sign-up, sign-in, OAuth and e-mail callback preserve that normalized path; a TTL-bound localStorage copy protects the course context when confirmation opens in another tab.
 
 ## Runner plan creation and billing access
 

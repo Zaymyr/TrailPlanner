@@ -16,6 +16,7 @@ import {
 import { isOrganizerEditionModuleSelected, isOrganizerRaceModuleSelected } from "../../../../../lib/organizer-module-settings";
 import { loadOrganizerPublicationRequirement } from "../../../../../lib/organizer-publication-tier";
 import { invalidateRacebookCache } from "../../../../../lib/racebook-cache";
+import { invalidatePublicRaceCache } from "../../../../../lib/public-race-cache";
 
 const optionalPatchTextOrNull = z
   .union([z.string().trim(), z.null()])
@@ -244,6 +245,7 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
 
   if (Object.keys(updatePayload).length === 0) {
     if (!visibilityUpdated) return jsonError("No fields to update.", 400);
+    invalidatePublicRaceCache({ raceId: race.id, editionId: race.edition_id, eventId: race.event_id });
     return withSecurityHeaders(
       NextResponse.json({
         race: { ...visibilityUpdated, organizerDetails: parseOrganizerRaceDetails(visibilityUpdated.organizer_details) },
@@ -282,6 +284,7 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   }
 
   const updated = z.array(raceRowSchema).parse(await response.json())[0] ?? null;
+  invalidatePublicRaceCache({ raceId: race.id, editionId: race.edition_id, eventId: race.event_id });
   return withSecurityHeaders(
     NextResponse.json({
       race: updated

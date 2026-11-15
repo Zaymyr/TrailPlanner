@@ -2,14 +2,32 @@
 title: Organizer Race Management
 scope: business-rule
 
-last_verified: 2026-11-11
+last_verified: 2026-11-15
+# Assisted legacy conversion (2026-11-15): historical blocks offer schema-specific, field-by-field proposals with explicit Apply/Ignore and no automatic write.
+# Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
+# Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
+# Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
+# Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 
 ai_priority: high
+# Organizer layout (2026-11-13): wide desktop uses 240px navigation, a flexible editor, and a 300px contextual rail; below 1320px the rail follows the editor.
+# Aid-station interaction (2026-11-13): timeline selection drives a single detail editor, active E/S/A badges only are shown, and deletion requires confirmation from the station action menu.
+# Information editor (2026-11-13): social fields wrap without a nested module header, and required badges reflect existing validation rules only.
+# Navigation/actions (2026-11-13): the selected subsection is the single strong state; deleting a format remains confirmed and is reached from its overflow menu.
+# Dense module forms (2026-11-13): access can explicitly reuse the start location, equipment status stays directly editable, and sponsor logos link to their existing editor without changing persistence.
+# Mobile finish (2026-11-13): compact gutters and collapsed Course media reduce initial height without changing form or completion rules.
+# Regression guard (2026-11-13): source tests assert the wide workspace grid and the social auto-fit layout without a redundant nested title.
+# Layout polish (2026-11-13): aid-station timeline/detail, format metrics row and equipment status action are presentation-only; save and publication rules are unchanged.
+# Fill-flow pass (2026-11-13): ravito service toggles are editable again in the detail panel; Sponsors shows the add form before partner slots; legacy services status label is “Texte à convertir”. Data contracts unchanged.
+# UX pass (2026-11-14): ravito type is exposed again as Ravito / Base de vie; equipment items added from the quick-add bar are prepended; status is a per-row switch. Persisted fields unchanged.
+# Course timeline pass (2026-11-14): the Départ/ravitos editor shows one timeline filtered by Tout / Ravitos / Suivi / SAS / Relais; SAS sit right after Départ, each point kind has its own marker (ravito green dot, base de vie larger dot + badge, suivi blue ring + “Suivi” tag, relais violet diamond), aid/relay/finish rows show a clock cutoff chip or “Sans barrière”, the right panel follows the clicked point, the timeline is height-capped with its own scroll, and “Horaires et consignes” sits below the grid so the sticky timeline no longer overlaps it.
 related_files:
   - apps/web/lib/racebook-publication-checks.ts
   - apps/web/lib/racebook-publication-checks.test.ts
   - apps/web/app/organizer/_components/dashboard/publication-review.tsx
   - apps/web/app/organizer/_components/dashboard/partner-slots-editor.tsx
+  - apps/web/app/organizer/_components/dashboard/form-kit/index.tsx
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
   - supabase/migrations/20260907170842_fix_structured_racebook_rls_dependencies.sql
   - supabase/migrations/20261029110000_add_plan_source_revisions.sql
@@ -252,6 +270,7 @@ related_tables:
 # Organizer Race Management
 
 The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret accompagnateur, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret accompagnateur · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. The catalog event sheet opens the Livret accompagnateur from an interactive `TopoCard` placed before the distance list, and the guide's back action reopens that sheet through the existing `eventId` parameter plus a `sheet` nonce. Organizer authoring is unchanged.
+Public course-to-runner navigation now uses one free-estimate CTA and preserves the selected catalog race through authentication. This presentation change does not alter organizer ownership, publication or edit permissions.
 
 Organizer administration separates billing from effective access. A manual invoice can be emitted, corrected and settled without changing the edition tier or any feature grant; conversely an admin can grant a tier or one of the 14 higher-plan features without an invoice. Gifted features have no standalone price and appear on manual invoices only as `OFFERT`. Every protected module, advanced format field and operation resolves its own feature key, so one gift never unlocks sibling capabilities. Stripe-confirmed purchases keep their existing automatic entitlement activation.
 
@@ -474,7 +493,7 @@ When GPX waypoints are present and the format has no aid stations, the organizer
 
 Organizer aid station edits preserve submitted station ids so `race_aid_station_products` links survive. Replacing ravitos, station-product links or relay points executes in one locked database transaction per race, so validation or insertion failure rolls the complete collection back. Creating an organizer product and attaching it to its station is also one transaction and cannot leave an orphan product. New or legacy stations default all service flags to enabled unless an organizer disables water, solid food, or assistance explicitly.
 
-Aid station `organizer_details` stores cumulative D+/D-, cutoff time, drop-bag availability, and organizer note on the station row; legacy `stationType` and `altitudeM` values may still exist in persisted JSONB, but the current organizer dashboard no longer exposes editors for them. These fields must still be saved through the organizer aid-station route so existing station ids are kept. In the current organizer UI, ravitos use the same expandable card pattern as the runner planner: the compact card keeps distance, cumulative D+/D-, cutoff, water/solid/assistance/drop-bag toggles, and product actions visible first, while the expanded panel goes directly from the main info grid to the organizer note block. When an active-format GPX preview is available, editing a ravito km now recomputes cumulative D+ / D- automatically from the GPX trace and the corresponding form fields remain read-only. The same ravito tile also owns the fixed `Départ` and `Arrivée` timing cards for the format. In the mobile read-only RaceBook, a ravito card keeps its cumulative kilometer at right and services/cutoff below its name; the separate connector shows the segment distance, D+ and D-. Those segment D+/D- values are computed from cumulative station values, falling back to the first station's cumulative values when there is no previous published ravito.
+Aid station `organizer_details` stores cumulative D+/D-, cutoff time, drop-bag availability, and organizer note on the station row; `stationType` is edited as a two-option Ravito / Base de vie choice (`life_base`, or the existing non-life-base value, defaulting to `solid`/`water` from the services), and `altitudeM` is editable in the ravito detail panel. These fields must still be saved through the organizer aid-station route so existing station ids are kept. In the current organizer UI, ravitos, supporter points, SAS and relay points share one vertical course timeline (filters Tout / Ravitos / Suivi / SAS / Relais, cutoff shown on each ravito, relay and finish row) plus one detail panel that follows the clicked point (full-screen sheet on mobile for ravitos); for a ravito the panel starts with water/solid/assistance/drop-bag/relay toggles, then name, distance, cumulative D+/D-, type, altitude, cutoff, organizer note and products; start time, final cutoff and course notes sit in a full-width “Horaires et consignes” block. When an active-format GPX preview is available, editing a ravito km now recomputes cumulative D+ / D- automatically from the GPX trace and the corresponding form fields remain read-only. The fixed `Départ` and `Arrivée` points appear at both ends of the timeline. In the mobile read-only RaceBook, a ravito card keeps its cumulative kilometer at right and services/cutoff below its name; the separate connector shows the segment distance, D+ and D-. Those segment D+/D- values are computed from cumulative station values, falling back to the first station's cumulative values when there is no previous published ravito.
 
 On mobile, the Racebook presents ravitos on a continuous vertical chronology. Each card keeps the cumulative kilometer, available-service icons, and optional cutoff; the connector before it always exposes distance, D+, D- and, when a plan exists, the pause-excluded expected segment duration. The resolved departure is shown only in the hero. A matched station aligns its compact green clock row with the red cutoff row; pressing the clock opens the targeted plan editor. When passage is late, a semantic warning icon toggles a short explanation. Products, pauses and organizer notes remain outside this timing summary. This is presentation state only and does not alter source station ordering or organizer data.
 
@@ -547,7 +566,20 @@ Manual empty edition creation remains free and unlimited. Only cloning the previ
 
 The pricing dialog snapshots and displays the selected event and canonical edition before checkout. A database backfill attaches legacy/imported dated formats that were created without `edition_id`, and an invoker trigger atomically creates or reuses the matching event/year edition for future service-side inserts.
 
+## Organizer form interaction
+
+The shared Organizer form kit changes authoring presentation only: field errors are connected to their fields and appear after blur or attempted save; additions are local drafts and do not create placeholder records. `SaveStatus` is a polite sticky status and does not replace autosave or server-side validation. Completion keeps the required minimum separate from completed-section counts; structured content is authoritative, while historical-only content is marked to migrate. Publication dirty state compares canonical content rather than modification timestamps.
+
+Compatibility wrappers preserve existing editor callbacks while fields migrate to the shared primitives; URL normalization and coherence warnings remain client-side guidance, never new publication blockers.
+
+Structured services, equipment items, aid stations, and sponsors use valid local drafts instead of persisting placeholder rows. Historical service copy remains visible and is explicitly marked for migration rather than counted as structured completion.
+
 ## Gotchas
+
+- Organizer-facing French consistently uses informal address, correct accents, and explicit singular/plural labels; technical analytics vocabulary stays out of helper copy.
+
+- Organizer deletion prompts use accessible dialogs for destructive GPX/format actions; ordinary repeatable-row removal uses undo instead of browser confirmation.
+- Successful public-facing organizer writes invalidate the shared public-race cache after the durable mutation: format/event metadata and images, edition visibility or dates, Livret publication/restoration, ravitos, and deletions. Cache invalidation remains best effort and never changes API inputs or outputs.
 
 - Shared web prompt dismiss controls use a 44 px target. Planner breadcrumb and landmark cleanup is presentation-only and does not change organizer membership, publication, acquisition routing or Mobile App Prompt coordination.
 
@@ -748,8 +780,21 @@ Before a format or edition publication, the server builds the draft snapshot and
 
 ## Partner slots (emplacements partenaires)
 
-The Matériel (Decathlon) and Services hébergement (Booking.com) cards are partner slots. They show the Pace Yourself affiliate link by default. With Signature and the selected `sponsors` module, the Sponsors section exposes `Emplacements partenaires`: per slot the organizer keeps the affiliate link, picks one of their edition sponsors (with an optional 120-character text) or hides the card, and sees per-slot views and clicks. Choices are draft content published with the RaceBook snapshot. See [race_event_edition_partner_slots](../02-database/tables/race-event-edition-partner-slots.md).
+The Matériel (Decathlon) and Services hébergement (Booking.com) cards are partner slots. They show the Pace Yourself affiliate link by default. With Signature and the selected `sponsors` module, the Sponsors section exposes `Emplacements partenaires` below the sponsor form: per slot the organizer keeps the affiliate link, picks one of their edition sponsors (with an optional 120-character text) or hides the card, and sees per-slot views and clicks. Choices are draft content published with the RaceBook snapshot. See [race_event_edition_partner_slots](../02-database/tables/race-event-edition-partner-slots.md).
 
 Catalog scroll performance (2026-11-09): the Courses list renders memoized `CatalogEventRow` rows (stable callbacks through a handler ref) over a memoized `RaceEventSummaryCard`, tunes FlatList virtualization (`initialNumToRender` 6, `maxToRenderPerBatch` 4, `windowSize` 9, `removeClippedSubviews` on Android), downsamples rail images (`resizeMethod="resize"`) and reads reduce-motion on favorite press instead of subscribing one accessibility listener per card. Presentation only: no query, payload, analytics event or favorite/update-read behavior changes.
 
 Catalog end date (2026-11-14): a published multi-day event stays visible and ongoing in the mobile catalog until its last format's `race_date` (not the event start date) has passed.
+Organizer follow-up validation blocks invalid local drafts inline without converting them into autosave failures, caps incomplete progress below 100%, focuses the first invalid add-format field, and normalizes only valid Instagram identifiers. Shared file controls preserve previews, filenames and removal flows; favorite limits remain absent.
+
+Organizer authoring now presents one compact banner, a semantic section tree, the active editor, and a read-only completion checklist in a responsive three-column workspace. This layout-only change preserves autosave scope, module settings, completion rules, visibility states, publication review, and every server payload.
+
+Organizer field groups now expose their explanation beside related controls and explicit required/optional markers derive from existing validation semantics; no required rule or completion calculation changes.
+
+The Course/GPX editor now keeps its identity and metrics in the main column and all visual verification in a compact trace rail. Inheritance actions replace presentation-only checkboxes without changing effective date/location values or save payloads.
+
+Organizer binary settings now share `SwitchRow` in Course/GPX, Dossard, Sponsors, and point editors. This visual normalization does not change boolean fields, defaults, validation, entitlements, or persistence.
+
+The combined course-points editor now exposes one distance-sorted vertical course line from departure to finish. Ravitos, SAS, supporter points, and relay points remain filtered editing modes; selecting a timeline node opens the existing editor and preserves all add, edit, delete, undo, product, service, and autosave behavior.
+
+Organizer finishing presentation adds compact Access module cards, collapsed sponsor creation, a legacy-service conversion banner, token-only branding preview surfaces, and terrain section headers. Stored content, limits, module gates, autosave, and publication behavior are unchanged.

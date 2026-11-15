@@ -1,7 +1,7 @@
 ---
 title: race_slug_redirects Table
 scope: database
-last_verified: 2026-09-28
+last_verified: 2026-11-13
 ai_priority: high
 related_files:
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
@@ -22,11 +22,15 @@ related_tables:
 
 # `race_slug_redirects`
 
+The public course page may add a summary-only ravito timeline and an app bridge after canonical slug resolution. Neither surface changes the redirect lookup, reserved-slug invariant, or current-race visibility recheck.
+
 Public course details can now show additive third-party bib-pickup conditions. Canonical slug resolution, former-slug redirects, visibility checks, and redirect integrity are unchanged.
 
 ## Purpose
 
 `race_slug_redirects` preserves every former public course slug so indexed URLs and inbound links can permanently redirect to the current `races.slug`.
+
+This table is format-scoped. Event-edition URLs use the separate service-only `race_event_edition_slug_redirects` table and never resolve through a format redirect.
 
 ## Key Concepts
 
@@ -70,6 +74,7 @@ Both mutation functions are `SECURITY INVOKER`, use an empty `search_path`, and 
 - No slug is pre-rendered during deployment. Current and former slugs resolve on first request through dynamic ISR, so preserving redirect checks does not require rebuilding every public detail page.
 - Canonical and redirected web reads share the same service-only durable web flag and explicit parent-event projection. Adding searchable city, department, region, and country labels does not change direct-client RLS or expose organizer JSON, codes, or coordinates.
 - The parent-event projection now also allowlists `website_url` for the registration CTA after canonical resolution. It remains presentation metadata and does not participate in redirect visibility or slug identity.
+- Canonical and former-slug reads carry the shared public catalog cache tag. Successful public-facing writes invalidate that tag after persistence, while redirect identity and visibility rechecks remain unchanged.
 
 ## Common Queries
 

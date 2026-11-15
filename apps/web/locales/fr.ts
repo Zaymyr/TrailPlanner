@@ -4,7 +4,7 @@ export const fr: Translations = {
   homeHero: {
     heading: "Bienvenue sur Pace Yourself",
     description:
-      "Rendez-vous dans le planificateur de course pour estimer vos passages aux ravitos, vos objectifs énergétiques et votre allure.",
+      "Rends-toi dans le planificateur de course pour estimer tes passages aux ravitos, tes objectifs énergétiques et ton allure.",
     cta: "Ouvrir le planificateur de course",
   },
   mobileAppPrompt: {
@@ -20,11 +20,12 @@ export const fr: Translations = {
       eyebrow: "Pace Yourself",
       heading: "Fini les coups de barre à cause d’un plan ravito bancal",
       subheading:
-        "Vos cibles exactes en glucides, eau et sodium pour chaque segment — selon votre parcours, votre allure et la chaleur.",
+        "Estime gratuitement ton temps et tes passages, puis prépare tes cibles en glucides, eau et sodium selon ton parcours.",
       bullets: [
         "Jauges claires pour carbs, eau et sodium pendant la course",
         "Ravitos auto-cartographiés avec volumes et nombre de gels",
-        "Plan imprimable qui s’adapte au dénivelé et à la chaleur",
+        "Plan détaillé et export imprimable disponibles après déblocage",
+        "Tes estimations et le Livret coureur à retrouver dans l’app",
       ],
       socialProof: "Créé par un traileur pour remplacer les tableurs dispersés.",
       primaryCta: "Créer mon plan",
@@ -36,28 +37,28 @@ export const fr: Translations = {
       title: "Comment ça marche",
       steps: [
         {
-          title: "Importez ou définissez votre parcours",
+          title: "Importe ou définis ton parcours",
           description:
-            "Ajoutez distance, D+, allure—or importez un GPX pour placer les ravitos automatiquement.",
+            "Ajoute la distance, le D+ et ton allure, ou importe un GPX pour placer les ravitos automatiquement.",
         },
         {
-          title: "Fixez vos cibles de ravito",
+          title: "Fixe tes cibles de ravito",
           description:
-            "Définissez glucides, eau et sodium par heure et visualisez les bouteilles, gels et pastilles par segment.",
+            "Définis tes glucides, ton eau et ton sodium par heure, puis visualise les besoins par segment.",
         },
         {
-          title: "Export prêt jour J",
+          title: "Débloque ton plan pour le jour J",
           description:
-            "Imprimez ou enregistrez le plan avec horaires, volumes à remplir et rappels pour chaque arrêt.",
+            "L’estimation reste gratuite. Le déblocage donne accès au plan complet et à son export imprimable.",
         },
       ],
     },
     demo: {
       title: "Démo : un plan 50K montagne",
-      subtitle: "Voyez comment les jauges, le profil et les cartes ravito fonctionnent ensemble.",
+      subtitle: "Vois comment les jauges, le profil et les cartes ravito fonctionnent ensemble.",
       cards: [
         {
-          title: "Restez dans vos cibles",
+          title: "Reste dans tes cibles",
           description:
             "Les jauges signalent quand carbs ou hydratation dérivent pour ajuster avant la prochaine montée.",
         },
@@ -80,7 +81,7 @@ export const fr: Translations = {
         {
           question: "Puis-je utiliser mes propres gels ou boisson énergétique ?",
           answer:
-            "Oui. Ajoutez vos produits dans Paramètres et le plan utilisera vos valeurs de glucides et sodium automatiquement.",
+            "Oui. Ajoute tes produits dans Paramètres et le plan utilisera tes valeurs de glucides et sodium automatiquement.",
         },
         {
           question: "Est-ce que ça marche sans fichier GPX ?",
@@ -88,17 +89,17 @@ export const fr: Translations = {
             "Bien sûr. Indiquez distance, D+ et allure pour obtenir immédiatement les cibles par ravito.",
         },
         {
-          question: "Comment gérez-vous la chaleur et l’altitude ?",
+          question: "Comment gères-tu la chaleur et l’altitude ?",
           answer:
             "Ajustez la température et les cibles d’hydratation évoluent. Les entrées d’allure permettent de modéliser les sections plus raides et lentes.",
         },
         {
           question: "Puis-je imprimer ou partager le plan ?",
-          answer: "Oui. Exporte un aperçu propre et imprimable pour le jour J et partageable avec votre assistance.",
+          answer: "Oui. Après déblocage, exporte un plan propre et imprimable pour le jour J et partage-le avec ton assistance.",
         },
         {
           question: "Est-ce payant ?",
-          answer: "Le cœur du planning est gratuit. Des fonctions avancées comme les modèles sauvegardés seront optionnelles.",
+          answer: "L’estimation est gratuite. Le plan complet et son export sont disponibles avec le déblocage de la course ou l’offre annuelle.",
         },
       ],
       cta: "Commencer mon plan",
@@ -114,7 +115,7 @@ export const fr: Translations = {
       {
         slug: "ultra-trail-fueling",
         title: "Nutrition ultra-trail",
-        description: "Préparez votre checklist ultra avec gels, vrais aliments et changements de flasques.",
+        description: "Prépare ta checklist ultra avec gels, vrais aliments et changements de flasques.",
       },
       {
         slug: "ravitaillement-trail",
@@ -269,7 +270,7 @@ export const fr: Translations = {
   notFound: {
     eyebrow: "Erreur 404",
     title: "Page introuvable",
-    description: "Cette page n’existe pas ou a été déplacée. Retrouvez votre chemin avec l’un des liens ci-dessous.",
+    description: "Cette page n’existe pas ou a été déplacée. Retrouve ton chemin avec l’un des liens ci-dessous.",
     home: "Retour à l’accueil",
     planner: "Ouvrir le planificateur",
     races: "Découvrir les courses",
@@ -346,7 +347,7 @@ export const fr: Translations = {
       breadcrumbLabel: "Fil d'Ariane",
       breadcrumbHome: "Accueil",
       breadcrumbPlanner: "Planificateur",
-      newPlanTitle: "Planificateur de nutrition trail",
+      newPlanTitle: "Planificateur de course",
       draftRestored: "Brouillon non sauvegardé restauré.",
       undo: "Annuler",
       savedAt: "Plan enregistré à {time}",
@@ -771,6 +772,19 @@ export const fr: Translations = {
         empty: "Aucun plan enregistré pour le moment.",
         updatedAt: "Mis à jour le {date}",
         unsavedChanges: "Modifications non sauvegardées",
+        rename: "Renommer",
+        renamePlaceholder: "Nouveau nom du plan",
+        confirm: "Confirmer",
+        cancel: "Annuler",
+        actions: "Actions pour {name}",
+        deleteConfirm: "Confirmer la suppression de {name}",
+        freePreview: "Aperçu gratuit",
+        noRace: "Sans course",
+        unknownRace: "Course inconnue",
+        orphanDescription: "Ce plan n’est pas associé à une course.",
+        editRace: "Modifier la course",
+        deleteRace: "Supprimer la course",
+        newRace: "Nouvelle course",
       },
       messages: {
         accountCreated: "Compte créé. Vous êtes connecté !",
@@ -1430,8 +1444,8 @@ export const fr: Translations = {
   },
   profile: {
     title: "Profil",
-    description: "Mettez à jour vos informations et vos favoris nutrition pour le planner.",
-    authRequired: "Connectez-vous pour modifier votre profil.",
+    description: "Mets à jour tes informations et tes favoris nutrition pour le planificateur.",
+    authRequired: "Connecte-toi pour modifier ton profil.",
     save: "Enregistrer le profil",
     saving: "Enregistrement...",
     success: "Profil mis à jour.",
@@ -1441,23 +1455,26 @@ export const fr: Translations = {
       subtitle: "Utilisées pour personnaliser le planner et les exports.",
       nameLabel: "Nom",
       namePlaceholder: "Nom ou pseudo",
-      ageLabel: "Âge",
-      agePlaceholder: "Âge",
-      waterBagLabel: "Volume de la poche à eau (L)",
+      birthDateLabel: "Date de naissance",
+      heightLabel: "Taille (cm)",
+      weightLabel: "Poids (kg)",
+      waterBagLabel: "Capacité en eau (L)",
       waterBagHelper: "Capacité de la poche à eau, pas le volume total du sac/gilet.",
-      utmbIndexLabel: "Cote UTMB",
-      utmbIndexHelper: "Optionnel. Renseignez votre côte UTMB si vous la connaissez.",
+      utmbIndexLabel: "Indice UTMB",
+      utmbIndexHelper: "Optionnel. Renseigne ton indice UTMB si tu le connais.",
       comfortableFlatPaceLabel: "Allure confortable sur plat",
       comfortableFlatPaceHelper: "Utilisée comme allure de base par défaut lors de la création d'un plan.",
       comfortableFlatPaceMinutesLabel: "Minutes",
       comfortableFlatPaceSecondsLabel: "Secondes",
       comfortableFlatPaceInvalid: "Entre une allure valide avec minutes et secondes.",
+      carbsTargetLabel: "Cible de glucides (g/h)",
+      carbsTargetHelper: "Ta cible moyenne de glucides pendant la course.",
     },
     favorites: {
     title: "Nutrition favorite",
-    subtitle: "Choisissez les produits que vous souhaitez voir en premier dans le planner.",
+    subtitle: "Choisis les produits que tu veux voir en premier dans le planificateur.",
     add: "Ajouter des favoris",
-    empty: "Aucun favori pour l'instant. Ajoutez vos produits habituels.",
+    empty: "Aucun favori pour l'instant. Ajoute tes produits habituels.",
     selectedLabel: "Favoris sélectionnés",
     remove: "Retirer",
       dialog: {

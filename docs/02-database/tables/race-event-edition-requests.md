@@ -1,8 +1,20 @@
 ---
 title: race_event_edition_requests Table
 scope: database
-last_verified: 2026-11-09
+last_verified: 2026-11-15
+# Assisted legacy conversion (2026-11-15): review targets an existing selected edition; edition-request behavior and persistence are unchanged.
+# Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
+# Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: medium
+# Organizer UI note (2026-11-13): responsive shell changes do not alter edition request creation, selection, or status handling.
+# Form UI note (2026-11-13): responsive social fields and loading skeletons do not alter edition requests.
+# Navigation note (2026-11-13): organizer hierarchy does not alter edition requests.
+# Course-date presentation note (2026-11-13): localized display does not alter edition request dates.
+# Mobile finish note (2026-11-13): wrapping inherited labels does not alter edition requests.
+# Layout polish note (2026-11-13): organizer presentation changes (aid-station detail, format metrics row, media rail visibility, equipment status action) do not alter stored data or contracts.
+# Fill-flow note (2026-11-13): organizer form ergonomics (ravito services, Enter-to-add, slot undo, sponsor ordering) do not alter stored data or contracts.
+# Organizer UX pass (2026-11-14): format sections nest under the selected format in the left nav, ravito type is Ravito / Base de vie, and equipment uses a top quick-add with per-row Obligatoire switch; no stored data or contract changes.
+# Course timeline note (2026-11-14): timeline filters, point markers and cutoff chips in the aid-station editor are presentation-only; stored data and contracts are unchanged.
 related_files:
   - supabase/migrations/20260721110000_add_race_event_edition_requests.sql
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
@@ -25,6 +37,7 @@ related_tables:
 # `race_event_edition_requests`
 
 Edition duplication continues to copy all edition module settings, including the new default-enabled `supporter_guide` key. Request authorization and cloning semantics otherwise remain unchanged.
+The organizer editor's unified controls, local list drafts and accessible confirmation dialogs are presentation-only. They do not create, advance, cancel or retarget an edition request.
 
 Edition creation requests remain operational workflow records. The admin organizer screen may display them beside the new billing and rights controls, but issuing, correcting or settling an invoice never approves a request or changes an edition entitlement.
 
@@ -76,6 +89,8 @@ The table retains `id`, timestamps, `user_id`, `event_id`, `source_year`, `reque
 
 ## Gotchas
 
+- The compact Organizer edition selector is presentation-only; edition-request creation and status values are unchanged.
+
 - The shared admin organizer screen may configure non-monetized gifted features and manual invoices, but neither action changes edition-request review state.
 
 - The current admin rights dialog may return the selected current edition to Visibilité, but this does not revive or mutate the retired edition-request workflow.
@@ -110,3 +125,9 @@ The table retains `id`, timestamps, `user_id`, `event_id`, `source_year`, `reque
 - [Organizer Race Management](../../03-business-rules/organizer-race-management.md)
 
 Publication checks and partner slots (2026-11-09): pre-publication checks and the Matériel/hébergement partner slots read the built snapshot and their own table only. They do not read, write or change this domain's rows or contracts.
+
+Compact edition selectors and corrected completion presentation do not change edition-request writes or approval state.
+
+Repositioning the edition selector inside the compact Organizer banner does not change edition-request creation, duplication, or approval state.
+
+Organizer section-header finishing does not change edition-request state.
