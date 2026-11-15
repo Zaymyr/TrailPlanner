@@ -36,8 +36,12 @@ type OrganizerBibPickupDetails = {
   schedule: string | null;
   locations: OrganizerBibPickupLocation[];
   requiredDocuments: string | null;
+  requiredDocumentKinds: ('id_card' | 'registration_qr' | 'medical_certificate' | 'license_or_pps' | 'parental_authorization' | 'other')[];
+  requiredDocumentsOther: string | null;
   thirdPartyPickupAllowed: boolean | null;
   thirdPartyPickupConditions: string | null;
+  thirdPartyDocumentKinds: ('id_copy' | 'proxy_letter' | 'registration_qr' | 'other')[];
+  thirdPartyDocumentsOther: string | null;
   equipmentCheck: boolean | null;
   note: string | null;
 };
@@ -284,8 +288,12 @@ const DEFAULT_BIB_PICKUP: OrganizerBibPickupDetails = {
   schedule: null,
   locations: [],
   requiredDocuments: null,
+  requiredDocumentKinds: [],
+  requiredDocumentsOther: null,
   thirdPartyPickupAllowed: null,
   thirdPartyPickupConditions: null,
+  thirdPartyDocumentKinds: [],
+  thirdPartyDocumentsOther: null,
   equipmentCheck: null,
   note: null,
 };
@@ -506,8 +514,12 @@ function parseBibPickupDetails(value: unknown): OrganizerBibPickupDetails {
     schedule: readText(record.schedule),
     locations,
     requiredDocuments: readText(record.requiredDocuments),
+    requiredDocumentKinds: Array.isArray(record.requiredDocumentKinds) ? record.requiredDocumentKinds.filter((value): value is OrganizerBibPickupDetails['requiredDocumentKinds'][number] => value === 'id_card' || value === 'registration_qr' || value === 'medical_certificate' || value === 'license_or_pps' || value === 'parental_authorization' || value === 'other') : [],
+    requiredDocumentsOther: readText(record.requiredDocumentsOther),
     thirdPartyPickupAllowed: readNullableBoolean(record.thirdPartyPickupAllowed),
     thirdPartyPickupConditions: readText(record.thirdPartyPickupConditions),
+    thirdPartyDocumentKinds: Array.isArray(record.thirdPartyDocumentKinds) ? record.thirdPartyDocumentKinds.filter((value): value is OrganizerBibPickupDetails['thirdPartyDocumentKinds'][number] => value === 'id_copy' || value === 'proxy_letter' || value === 'registration_qr' || value === 'other') : [],
+    thirdPartyDocumentsOther: readText(record.thirdPartyDocumentsOther),
     equipmentCheck: readNullableBoolean(record.equipmentCheck),
     note: readText(record.note),
   };
@@ -668,6 +680,7 @@ function hasEquipmentContent(details: OrganizerEquipmentDetails): boolean {
 
 function hasBibContent(details: OrganizerBibPickupDetails): boolean {
   return (
+    details.requiredDocumentKinds.length > 0 || details.thirdPartyDocumentKinds.length > 0 ||
     hasAnyText([details.location, details.schedule, details.requiredDocuments, details.note]) ||
     hasLocationContent(details.locationDetails) ||
     details.locations.some(

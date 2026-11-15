@@ -546,15 +546,21 @@ function BibPickupFields({
           onChange={(value) => update({ schedule: value || null })}
         />
       ) : null}
-      <TextAreaField label="Documents nécessaires" value={bib.requiredDocuments ?? ""} onChange={(value) => update({ requiredDocuments: value || null })} />
+      <DocumentKindChips title="À apporter au retrait" values={bib.requiredDocumentKinds} options={[['id_card', 'Pièce d’identité'], ['registration_qr', 'QR d’inscription'], ['medical_certificate', 'Certificat médical'], ['license_or_pps', 'Licence ou PPS'], ['parental_authorization', 'Autorisation parentale'], ['other', 'Autre']]} onChange={(requiredDocumentKinds) => update({ requiredDocumentKinds })} />
+      {bib.requiredDocumentKinds.includes('other') ? <TextAreaField label="Autre document" hint={`${(bib.requiredDocumentsOther ?? '').length}/200 caractères`} value={bib.requiredDocumentsOther ?? ''} onChange={(requiredDocumentsOther) => update({ requiredDocumentsOther: requiredDocumentsOther.slice(0, 200) || null })} /> : null}
+      {bib.requiredDocuments ? <LegacyText text={bib.requiredDocuments} /> : null}
       <div className="space-y-3 border-t border-border pt-4">
         <SwitchRow label="Retrait par un tiers" description="Une autre personne peut récupérer le dossard." checked={bib.thirdPartyPickupAllowed === true} onCheckedChange={(thirdPartyPickupAllowed) => update({ thirdPartyPickupAllowed })} />
-        {bib.thirdPartyPickupAllowed === true ? <div className="ml-0 border-l-2 border-brand-border pl-4 sm:ml-4"><TextAreaField label="Conditions du retrait par un tiers" value={bib.thirdPartyPickupConditions ?? ""} onChange={(value) => update({ thirdPartyPickupConditions: value || null })} /></div> : null}
+        {bib.thirdPartyPickupAllowed === true ? <div className="ml-0 space-y-3 border-l-2 border-brand-border pl-4 sm:ml-4"><DocumentKindChips title="Documents pour le retrait par un tiers" values={bib.thirdPartyDocumentKinds} options={[['id_copy', 'Copie de la pièce d’identité'], ['proxy_letter', 'Procuration'], ['registration_qr', 'QR d’inscription'], ['other', 'Autre']]} onChange={(thirdPartyDocumentKinds) => update({ thirdPartyDocumentKinds })} />{bib.thirdPartyDocumentKinds.includes('other') ? <TextAreaField label="Autre document tiers" hint={`${(bib.thirdPartyDocumentsOther ?? '').length}/200 caractères`} value={bib.thirdPartyDocumentsOther ?? ''} onChange={(thirdPartyDocumentsOther) => update({ thirdPartyDocumentsOther: thirdPartyDocumentsOther.slice(0, 200) || null })} /> : null}{bib.thirdPartyPickupConditions ? <LegacyText text={bib.thirdPartyPickupConditions} /> : null}</div> : null}
         <SwitchRow label="Contrôle du matériel au retrait" checked={bib.equipmentCheck === true} onCheckedChange={(equipmentCheck) => update({ equipmentCheck })} />
       </div>
       <TextAreaField label="Note dossard" value={bib.note ?? ""} onChange={(value) => update({ note: value || null })} />
     </section>
   );
+}
+
+function DocumentKindChips<T extends string>({ title, values, options, onChange }: { title: string; values: T[]; options: readonly (readonly [T, string])[]; onChange: (values: T[]) => void }) {
+  return <fieldset className="space-y-2"><legend className="text-sm font-semibold">{title}</legend><div className="flex flex-wrap gap-2">{options.map(([value, label]) => <ToggleChip key={value} checked={values.includes(value)} label={label} onChange={(checked) => onChange(checked ? [...values, value] : values.filter((item) => item !== value))} />)}</div></fieldset>;
 }
 
 export function AccessEditor({

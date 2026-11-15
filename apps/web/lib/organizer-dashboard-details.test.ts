@@ -122,6 +122,19 @@ describe("parseOrganizerEventDetails", () => {
     expect(details.bibPickup.thirdPartyPickupConditions).toBe("Présenter la pièce d’identité du coureur.");
   });
 
+  it("parses structured bib documents while preserving historical text", () => {
+    const details = parseOrganizerEventDetails({ bibPickup: {
+      requiredDocuments: "Ancienne liste",
+      requiredDocumentKinds: ["id_card", "registration_qr"],
+      thirdPartyPickupAllowed: true,
+      thirdPartyPickupConditions: "Anciennes conditions",
+      thirdPartyDocumentKinds: ["id_copy", "proxy_letter"],
+    } });
+    expect(details.bibPickup.requiredDocumentKinds).toEqual(["id_card", "registration_qr"]);
+    expect(details.bibPickup.thirdPartyDocumentKinds).toEqual(["id_copy", "proxy_letter"]);
+    expect(details.bibPickup.requiredDocuments).toBe("Ancienne liste");
+  });
+
   it("matches equipment suggestions against accent-insensitive label prefixes", () => {
     const items = [
       { label: "Téléphone chargé avec numéro du PC course" },

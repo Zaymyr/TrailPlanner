@@ -2164,7 +2164,7 @@ export default function RaceRacebookScreen() {
               <RacebookBibSection
                 locationGroups={sponsorPresentation.modules.bib_pickup ? bibLocationGroups : []}
                 fallbackSchedule={sponsorPresentation.modules.bib_pickup ? data.runnerDetails.bibPickup.schedule : null}
-                requiredDocuments={sponsorPresentation.modules.bib_pickup ? data.runnerDetails.bibPickup.requiredDocuments : null}
+                requiredDocuments={sponsorPresentation.modules.bib_pickup ? (() => { const bib = data.runnerDetails.bibPickup; const labels = { id_card: 'Pièce d’identité', registration_qr: 'QR d’inscription', medical_certificate: 'Certificat médical', license_or_pps: 'Licence ou PPS', parental_authorization: 'Autorisation parentale', other: bib.requiredDocumentsOther ?? 'Autre document' }; return bib.requiredDocumentKinds.length > 0 ? bib.requiredDocumentKinds.map((kind) => labels[kind]) : bib.requiredDocuments ? [bib.requiredDocuments] : []; })() : []}
                 rules={sponsorPresentation.modules.bib_pickup ? bibLines : []}
                 onOpenUrl={openExternalUrl}
                 onOpenMap={(location) => {

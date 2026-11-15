@@ -32,7 +32,7 @@ export type RacebookBibSectionCopy = {
 type RacebookBibSectionProps = {
   locationGroups: RacebookBibPickupLocationGroup[];
   fallbackSchedule: string | null;
-  requiredDocuments: string | null;
+  requiredDocuments: string[];
   rules: string[];
   copy: RacebookBibSectionCopy;
   onOpenMap: (location: string) => void;
@@ -160,7 +160,7 @@ export function RacebookBibSection({
             </View>
             <Text style={styles.sectionTitle}>{copy.documentsTitle}</Text>
           </View>
-          <Text style={styles.documentText}>{requiredDocuments}</Text>
+          <View style={styles.rulesList}>{requiredDocuments.map((document) => <View key={document} style={styles.ruleRow}><Ionicons name="checkmark-circle-outline" size={17} color={Colors.brandPrimary} /><Text style={styles.documentText}>{document}</Text></View>)}</View>
         </Card>
       ) : null}
 
