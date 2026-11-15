@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RUNNER_PROFILE_FIELDS, isRunnerProfileReady } from '@trailplanner/shared';
+import { RUNNER_PROFILE_FIELDS, isRunnerProfileReady } from './runnerProfileFields';
 import { parseRunnerProfile, type RunnerProfileDraft } from './runnerProfile';
 const valid: RunnerProfileDraft = { firstName: 'Alice', pace: '7:30', water: '1,5', carbs: '60', birthDate: '', height: '', weight: '', utmb: '' };
 describe('runner profile', () => {

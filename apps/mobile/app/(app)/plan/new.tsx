@@ -4,7 +4,7 @@ import { Field } from '../../../components/themed/Field';
 import { Text } from '../../../components/themed/Text';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
-import { isRunnerProfileReady, type RunnerProfileValues } from '@trailplanner/shared';
+import { isRunnerProfileReady, type RunnerProfileValues } from '../../../lib/runnerProfileFields';
 import { DEFAULT_PLAN_VALUES, type PlanFormValues, type ElevationPoint } from '../../../components/PlanForm';
 import { AppHeaderTitle } from '../../../components/navigation/AppHeaderTitle';
 import { PlanLoadingScreen } from '../../../components/PlanLoadingScreen';

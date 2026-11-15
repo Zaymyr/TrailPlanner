@@ -1,5 +1,5 @@
 import type { Session } from '@supabase/supabase-js';
-import { isRunnerProfileReady, type RunnerProfileValues } from '@trailplanner/shared';
+import { isRunnerProfileReady, type RunnerProfileValues } from './runnerProfileFields';
 
 import { supabase } from './supabase';
 import { loadOnboardingProgress, parseOnboardingStatuses } from './onboardingStatus';
