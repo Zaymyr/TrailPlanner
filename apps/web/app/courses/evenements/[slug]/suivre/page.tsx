@@ -25,7 +25,14 @@ const formatDay = (value: string | null) => {
   return label.charAt(0).toUpperCase() + label.slice(1);
 };
 
-const timelineKindLabel = { start: "Départ", finish_cutoff: "Barrière d’arrivée", awards: "Podium" } as const;
+// Keyed by string so newer programme kinds (estimated finishes, animations) still render.
+const timelineKindLabel: Record<string, string> = {
+  start: "Départ",
+  finish_cutoff: "Barrière d’arrivée",
+  awards: "Podium",
+  arrival_estimate: "Arrivée estimée",
+  animation: "Animation",
+};
 const stationAccessLabel = { allowed: "Accompagnateurs autorisés", restricted: "Accès accompagnateurs limité" } as const;
 
 export async function generateStaticParams() {
@@ -199,8 +206,8 @@ export default async function EventFollowPage({ params }: PageProps) {
                     <li key={entry.id} className="flex gap-3 px-4 py-2.5">
                       <span className="w-12 shrink-0 font-mono text-sm font-semibold tabular-nums text-foreground">{entry.time}</span>
                       <span className="min-w-0 text-sm">
-                        <span className="font-semibold text-brand">{timelineKindLabel[entry.kind]}{entry.label ? ` · ${entry.label}` : ""}</span>
-                        <span className="block text-foreground">{entry.raceName}</span>
+                        <span className="font-semibold text-brand">{timelineKindLabel[entry.kind] ?? "Programme"}{entry.label ? ` · ${entry.label}` : ""}</span>
+                        {entry.raceName ? <span className="block text-foreground">{entry.raceName}</span> : null}
                         {entry.location ? <span className="block text-xs text-muted-foreground">{entry.location}</span> : null}
                       </span>
                     </li>
