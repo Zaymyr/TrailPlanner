@@ -14,3 +14,6 @@ export function resolveAppStoreTarget(userAgent: string): AppStoreTarget {
   }
   return { url: APP_INSTALL_HELP_URL, platform: "fallback" };
 }
+
+/** Public App Store listing, also used by /links when the env override is unset. */
+export const PUBLIC_IOS_APP_STORE_URL = IOS_APP_STORE_URL || "https://apps.apple.com/app/id6772180071";

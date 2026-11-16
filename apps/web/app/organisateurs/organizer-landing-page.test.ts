@@ -23,6 +23,8 @@ describe("organizer landing TST discovery", () => {
     expect(source).toContain("Voir la démo du Livret");
     expect(source).toContain("Télécharger l’app et voir TST");
     expect(source).toContain("Une seule source d’information pour vos coureurs");
+    expect(source).toContain("Livret coureur + Livret supporter");
+    expect(source).toContain("Lien web et QR code, sans compte");
   });
 
   it("uses an optimized, controllable hero video with a static poster", () => {

@@ -4,7 +4,7 @@ import { getNotificationsModule } from './notifications';
 import { toLocalDate, type SupporterGuideTimelineEntry } from './supporterGuide';
 
 /**
- * Local reminders for the Livret accompagnateur: scheduled on the device only
+ * Local reminders for the Livret supporter: scheduled on the device only
  * (no server, no account), 30 minutes before a programme entry. Stored per
  * edition so they can be re-timed when the organizer republishes and cancelled
  * when an entry disappears.

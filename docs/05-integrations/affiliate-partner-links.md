@@ -36,7 +36,7 @@ related_tables:
 
 # Affiliate Partner Links
 
-The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret accompagnateur, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret accompagnateur · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. The Supporter Guide Séjour section renders the edition `lodging` slot through the same `RacebookServicesSection` partner card (Booking.com affiliate, organizer partner or hidden).
+The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret supporter, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret supporter · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. The Supporter Guide Séjour section renders the edition `lodging` slot through the same `RacebookServicesSection` partner card (Booking.com affiliate, organizer partner or hidden).
 
 The Supporter Guide Stay section reuses the published lodging slot semantics. V1 identifies the default Booking.com slot but does not expose a raw destination URL; partner destinations remain behind the existing counted redirect boundary.
 

@@ -17,13 +17,13 @@ export const en: Translations = {
   landing: {
     hero: {
       eyebrow: "Pace Yourself",
-      heading: "No more bonking from bad aid-station planning",
+      heading: "Your trail race, from preparation to the finish line",
       subheading:
-        "Exact carbs, water, and sodium targets for every segment — based on your course, pace, and heat.",
+        "Your race's official Race Book, a Supporter Guide for your family and friends, a free time estimate and your fueling plan.",
       bullets: [
-        "Clear carb, water, and sodium gauges you can act on mid-race",
-        "Auto-map aid stations with refill volumes and gel counts",
-        "Printable plan that adapts to elevation and heat",
+        "Race Book: course, schedule, aid stations, bib pickup and gear published by the organizer",
+        "Supporter Guide: schedule and cheering points for your supporters, no account needed",
+        "Fueling plan: carbs, water and sodium adapted to your course",
       ],
       socialProof: "Built by a trail runner to replace scattered spreadsheets.",
       primaryCta: "Create my plan",

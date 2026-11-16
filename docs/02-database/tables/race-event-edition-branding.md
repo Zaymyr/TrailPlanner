@@ -40,7 +40,7 @@ related_tables:
 
 # `race_event_edition_branding`
 
-The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret accompagnateur, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret accompagnateur · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. The Livret accompagnateur reuses `RacebookCollapsibleHero` (new optional `metricsOverride` for races / distances / days) with the default Pace Yourself theme, never organizer branding.
+The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret supporter, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret supporter · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. The Livret supporter reuses `RacebookCollapsibleHero` (new optional `metricsOverride` for races / distances / days) with the default Pace Yourself theme, never organizer branding.
 
 The initial Supporter Guide keeps Pace Yourself design tokens and does not expose draft edition branding. Existing RaceBook branding publication and module rules are unchanged.
 

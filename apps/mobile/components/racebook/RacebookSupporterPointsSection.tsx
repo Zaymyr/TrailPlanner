@@ -10,7 +10,7 @@ import { StatusPill } from '../themed/StatusPill';
 import { Text } from '../themed/Text';
 import { TrailRail } from '../themed/TrailRail';
 
-/** One place of the Livret accompagnateur course line (aid station and/or supporter points). */
+/** One place of the Livret supporter course line (aid station and/or supporter points). */
 export type RacebookSupporterStop = SupporterGuideStop & {
   /** Already formatted, e.g. "15:00" or "sam. 01:00". */
   cutoffLabel: string | null;

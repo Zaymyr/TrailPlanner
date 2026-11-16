@@ -6,6 +6,7 @@ import { getFormatLabelWithinEvent } from "../../_components/catalog-display";
 import { PublicHeroShell } from "../../_components/PublicHeroShell";
 import { RunnerAppBridge } from "../../_components/RunnerAppBridge";
 import { resolvePublicRaceEventEditionSlug } from "../../../../lib/public-race-events";
+import { getPublicSupporterGuide, supporterFollowPath } from "../../../../lib/public-supporter-guide";
 import { DEFAULT_SOCIAL_IMAGE, DEFAULT_SOCIAL_IMAGE_PATH, SITE_URL } from "../../../seo";
 import { buildEventEditionDescription, buildEventEditionStructuredData } from "./event-structured-data";
 import { isEventEditionPast } from "./event-edition-status";
@@ -132,6 +133,7 @@ export default async function PublicEventEditionPage({ params }: PageProps) {
     Number.isFinite(dayCount) && dayCount > 1 ? { label: "Jours", value: String(dayCount) } : null,
   ].filter((metric): metric is { label: string; value: string } => Boolean(metric));
   const registrationUrl = isHttpUrl(edition.websiteUrl) ? edition.websiteUrl : null;
+  const supporterGuide = editionIsPast ? null : await getPublicSupporterGuide(edition.id);
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-5 pb-10 sm:space-y-8 sm:px-0 lg:px-2">
@@ -188,6 +190,18 @@ export default async function PublicEventEditionPage({ params }: PageProps) {
           ) : null}
         </div>
       </PublicHeroShell>
+
+      {supporterGuide ? (
+        <aside className="flex flex-col gap-2 rounded-2xl border border-brand-border bg-brand-surface p-4 sm:flex-row sm:items-center sm:justify-between" aria-labelledby="supporter-guide-heading">
+          <div>
+            <h2 id="supporter-guide-heading" className="font-semibold text-foreground">Tu viens encourager un coureur ?</h2>
+            <p className="text-sm text-muted-foreground">Programme, points de suivi et accès dans le Livret supporter, sans compte.</p>
+          </div>
+          <Link href={supporterFollowPath(edition.slug) as Route} className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl bg-brand px-4 text-sm font-semibold text-brand-foreground transition hover:bg-brand-light">
+            Suivre la course
+          </Link>
+        </aside>
+      ) : null}
 
       {!editionIsPast && edition.nextEdition ? (
         <aside className="flex flex-col gap-2 rounded-2xl border border-brand-border bg-brand-surface p-4 sm:flex-row sm:items-center sm:justify-between" aria-labelledby="next-edition-heading">

@@ -28,7 +28,7 @@ const nullableDurationText = nullableText.transform((value) => {
   return match && Number(match[2]) < 60 ? `${Number(match[1])}:${match[2]}` : null;
 });
 
-/** Edition programme item shown in the Livret accompagnateur (animations, village, briefing...). */
+/** Edition programme item shown in the Livret supporter (animations, village, briefing...). */
 export const organizerProgrammeItemSchema = z.object({
   id: z.string().trim().min(1),
   type: z.enum(["animation", "concert", "kids_race", "briefing", "village", "other"]).default("animation"),

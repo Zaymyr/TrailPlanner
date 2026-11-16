@@ -21,6 +21,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: toAbsoluteUrl("/a-propos") },
     { url: toAbsoluteUrl("/methodologie") },
     { url: toAbsoluteUrl("/organisateurs") },
+    { url: toAbsoluteUrl("/livret-coureur") },
+    { url: toAbsoluteUrl("/livret-supporter") },
     { url: toAbsoluteUrl("/premium") },
     { url: toAbsoluteUrl("/partenaires") },
     { url: toAbsoluteUrl("/en/partners") },

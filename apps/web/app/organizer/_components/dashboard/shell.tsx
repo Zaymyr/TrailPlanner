@@ -289,7 +289,7 @@ export function OrganizerSummaryHeader({
             </Link>
           ) : null}
           {previewSlug ? <Link href={`/courses/${previewSlug}`} className="inline-flex min-h-11 items-center px-2 text-sm font-semibold text-brand underline-offset-4 hover:underline">Aperçu coureur</Link> : null}
-          {supporterGuideRaceId ? <Link href={`/courses/supporter-guide/${supporterGuideRaceId}`} className="inline-flex min-h-11 items-center px-2 text-sm font-semibold text-brand underline-offset-4 hover:underline">Aperçu accompagnateur</Link> : null}
+          {supporterGuideRaceId ? <Link href={`/courses/supporter-guide/${supporterGuideRaceId}`} className="inline-flex min-h-11 items-center px-2 text-sm font-semibold text-brand underline-offset-4 hover:underline">Aperçu supporter</Link> : null}
           {supporterGuideRaceId ? <a href={`/api/supporter-guide/qr?raceId=${supporterGuideRaceId}`} download className="inline-flex min-h-11 items-center px-2 text-sm font-semibold text-brand underline-offset-4 hover:underline">Télécharger le QR</a> : null}
           <details ref={actionsMenuRef} open={actionsMenuOpen} onToggle={(event) => setActionsMenuOpen(event.currentTarget.open)} className="group relative">
             <summary ref={actionsSummaryRef} aria-haspopup="menu" aria-expanded={actionsMenuOpen} title="Ouvrir les actions utilisées moins souvent." className="inline-flex h-11 cursor-pointer list-none items-center gap-2 rounded-md border border-border bg-card px-4 text-sm font-semibold text-foreground transition hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring marker:content-none">
