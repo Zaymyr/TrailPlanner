@@ -83,6 +83,8 @@ Docs conventions are in [_conventions.md](_conventions.md).
 - [app_feedback](02-database/tables/app-feedback.md)
 - [race_requests](02-database/tables/race-requests.md)
 - [user_notifications](02-database/tables/user-notifications.md)
+- [feedback_survey_campaigns](02-database/tables/feedback-survey-campaigns.md)
+- [feedback_survey_responses](02-database/tables/feedback-survey-responses.md)
 - [user_favorite_race_events](02-database/tables/user-favorite-race-events.md)
 - [subscriptions](02-database/tables/subscriptions.md)
 - [premium_grants](02-database/tables/premium-grants.md)

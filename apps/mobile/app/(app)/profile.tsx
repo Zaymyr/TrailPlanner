@@ -549,6 +549,7 @@ export default function ProfileScreen() {
               sendFeedback: t.profile.notificationsSendFeedback,
               requestRace: t.profile.notificationsRequestRace,
               feedbackReplyLabel: t.profile.notificationsFeedbackReplyLabel,
+              surveyLabel: t.profile.notificationsSurveyLabel,
               delete: t.profile.notificationsDelete,
               deleteTitle: t.profile.notificationsDeleteTitle,
               deleteBody: t.profile.notificationsDeleteBody,

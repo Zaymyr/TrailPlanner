@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 
 import {
   shouldRequestAppReview,
@@ -153,4 +153,30 @@ export async function maybePromptForAppReview(context: AppReviewEligibilityConte
   } finally {
     promptInFlight = null;
   }
+}
+
+const IOS_WRITE_REVIEW_URL = 'https://apps.apple.com/app/id6772180071?action=write-review';
+const ANDROID_REVIEW_URL = 'market://details?id=com.paceyourself.app';
+const ANDROID_REVIEW_WEB_URL = 'https://play.google.com/store/apps/details?id=com.paceyourself.app';
+
+/**
+ * Opens the store review page after the runner explicitly tapped "leave a review" (for example after
+ * saying the app was useful in a feedback survey). The native in-app prompt is throttled by the OS
+ * and may silently show nothing, so an explicit tap goes to the store page instead.
+ */
+export async function openStoreReviewPage() {
+  try {
+    if (Platform.OS === 'ios') {
+      await Linking.openURL(IOS_WRITE_REVIEW_URL);
+      return true;
+    }
+    if (Platform.OS === 'android') {
+      const canOpenMarket = await Linking.canOpenURL(ANDROID_REVIEW_URL).catch(() => false);
+      await Linking.openURL(canOpenMarket ? ANDROID_REVIEW_URL : ANDROID_REVIEW_WEB_URL);
+      return true;
+    }
+  } catch (error) {
+    console.warn('Unable to open the store review page:', error);
+  }
+  return false;
 }

@@ -5,7 +5,7 @@ import { sendAdminUserNotificationPush } from "./push";
 import { sendAdminUserNotificationEmail } from "./resend";
 import type { SupabaseServiceConfig } from "./supabase";
 
-export const adminNotificationKindSchema = z.enum(["admin_message", "race_request_status"]);
+export const adminNotificationKindSchema = z.enum(["admin_message", "race_request_status", "feedback_survey"]);
 export const adminNotificationDeliveryStatusSchema = z.enum([
   "not_requested",
   "pending",

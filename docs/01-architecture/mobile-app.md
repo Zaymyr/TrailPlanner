@@ -10,6 +10,8 @@ last_verified: 2026-11-16
 # Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: high
 related_files:
+  - apps/mobile/components/feedback/FeedbackSurveyForm.tsx
+  - apps/mobile/lib/feedbackSurvey.test.ts
   - apps/mobile/app/(app)/courses/supporter-guide/[raceId].tsx
   - apps/mobile/lib/supporterGuide.test.ts
   - apps/mobile/lib/supporterGuideReminders.ts
@@ -290,7 +292,7 @@ The mobile `Mes courses`/`My races` screen (formerly saved plans) uses that labe
 
 ## Store review prompt
 
-Production Android and iOS builds use the native store-review surface. An identified account with at least one saved plan becomes eligible on its first return after the initial session; the root shell performs a bounded owner-scoped existence read after launch and onboarding overlays have cleared, so returning users do not need to open the Plans tab first. The native request remains best effort because each store decides whether to display its dialog. Local state enforces a 60-day cooldown and three-attempt maximum. The older engagement path remains available after five sessions for a user who has just created and saved a plan. Development builds and unsupported platforms never request a review.
+Production Android and iOS builds use the native store-review surface. An identified account with at least one saved plan becomes eligible on its first return after the initial session; the root shell performs a bounded owner-scoped existence read after launch and onboarding overlays have cleared, so returning users do not need to open the Plans tab first. The native request remains best effort because each store decides whether to display its dialog. Local state enforces a 60-day cooldown and three-attempt maximum. The older engagement path remains available after five sessions for a user who has just created and saved a plan. Development builds and unsupported platforms never request a review. Separately, a runner who answers "yes, useful" to a feedback survey is offered an explicit "Laisser un avis" button (`openStoreReviewPage`): because the native prompt may silently show nothing, that tap opens the App Store write-review page or the Play Store listing. It is only offered, never automatic, and the copy never conditions the review on satisfaction.
 
 ## Plan loading experience
 
@@ -745,3 +747,7 @@ RaceBook hero device-test fixes (2026-11-09): the expanded identity block is cli
 Countdown fallback (2026-11-09): when a format has no own race date, the RaceBook `J-N` countdown (and the plan-invite past-race check) uses the first day of the event date range.
 
 Catalog scroll performance (2026-11-09): the Courses list renders memoized `CatalogEventRow` rows (stable callbacks through a handler ref) over a memoized `RaceEventSummaryCard`, tunes FlatList virtualization (`initialNumToRender` 6, `maxToRenderPerBatch` 4, `windowSize` 9, `removeClippedSubviews` on Android), downsamples rail images (`resizeMethod="resize"`) and reads reduce-motion on favorite press instead of subscribing one accessibility listener per card. Presentation only: no query, payload, analytics event or favorite/update-read behavior changes.
+
+## Notifications inbox: feedback surveys
+
+A `feedback_survey` message is labelled "Questionnaire". When its card is expanded, `FeedbackSurveyForm` renders under the body: a required yes/no "As-tu trouvé l'application utile ?" and two optional free-text fields ("Qu'est-ce qui t'a été utile ?", "Qu'est-ce qui t'a manqué ?", 2000 characters max). `submitFeedbackSurveyResponse` inserts into `feedback_survey_responses` with only the notification id and answers; the database checks ownership and attaches the campaign. A duplicate answer (`23505`) shows the thank-you state. `loadAnsweredSurveyIds` reads which loaded surveys are already answered, so the form is replaced by "Merci pour tes réponses !". After a "yes" answer the form shows an optional store-review step (`Laisser un avis` / `Plus tard`). Campaign pushes use the existing `tab=notifications&notificationId=<uuid>` href, so the push opens the survey expanded. Apply `20261116180000_add_feedback_surveys.sql` before shipping the mobile update. See [feedback_survey_responses](../02-database/tables/feedback-survey-responses.md).

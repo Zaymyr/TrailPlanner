@@ -42,6 +42,8 @@ related_files:
   - supabase/tests/partner_link_settings_checks.sql
   - supabase/migrations/20261105115106_admin_user_notifications.sql
   - supabase/tests/admin_user_notifications_checks.sql
+  - supabase/migrations/20261116180000_add_feedback_surveys.sql
+  - supabase/tests/feedback_survey_checks.sql
 related_tables:
   - race_slug_redirects
   - race_event_edition_branding
@@ -49,6 +51,8 @@ related_tables:
   - racebook_gear_checks
   - partner_link_settings
   - user_notifications
+  - feedback_survey_campaigns
+  - feedback_survey_responses
 ---
 
 # Add New Table
@@ -191,3 +195,5 @@ Note (2026-11-09): `schema-overview.md` received a presentation-only note about 
 Catalog end date (2026-11-14): no table added; the schema overview only records that mobile catalog visibility uses the latest format `race_date` of an event.
 
 `organizer_demo_requests` (2026-11-16) is the simplest service-only intake example for anonymous visitors: RLS enabled without client policies, all client privileges revoked, writes only through a rate-limited server route, and admin review through admin-authenticated routes.
+
+`feedback_survey_campaigns` and `feedback_survey_responses` (2026-11-16) follow this workflow as a service-only + insert-own pair: the campaign table keeps RLS on with every client privilege revoked; the response table grants `authenticated` a column-scoped INSERT and a narrow SELECT under `auth.uid()` policies, while a `SECURITY DEFINER` `BEFORE INSERT` trigger validates notification ownership and kind and fills the server-managed `campaign_id`. Service-role-only RPCs resolve recipients from `auth.users` (trusted `app_metadata` role) and count campaign stats; `supabase/tests/feedback_survey_checks.sql` asserts the grants and trigger outcomes.

@@ -17,6 +17,8 @@ ai_priority: medium
 # Layout polish note (2026-11-13): organizer presentation changes (aid-station detail, format metrics row, media rail visibility, equipment status action) do not alter stored data or contracts.
 # Fill-flow note (2026-11-13): organizer form ergonomics (ravito services, Enter-to-add, slot undo, sponsor ordering) do not alter stored data or contracts.
 related_files:
+  - apps/mobile/components/feedback/FeedbackSurveyForm.tsx
+  - apps/web/lib/feedback-surveys.ts
   - apps/web/lib/posthog-organizer-analytics.ts
   - apps/web/lib/posthog-organizer-analytics.test.ts
   - apps/web/app/api/organizer/editions/[id]/analytics/route.ts
@@ -509,3 +511,7 @@ Moving Organizer statistics from a top-level tab to the completion rail changes 
 Organizer finishing layouts do not introduce or rename analytics events.
 
 Organizer demo request (2026-11-16): a successful « Demander une démo » submission on `/organisateurs` emits `organizer_demo_requested` (category `organizer_acquisition`, `has_phone`, and the same validated UTM attribution) through the consent-gated bridge; no e-mail, phone or race link is sent to analytics. Organizer return paths (`/organizers`, `/organizer`) are now remembered like runner returns, so an OAuth or e-mail-confirmation round-trip that lands on the site root resumes event creation instead of the planner.
+
+## Feedback surveys
+
+The mobile survey form emits `feedback survey answered` (`notification_id`, `found_useful`, `has_useful_text`, `has_missing_text`; never the free text) after the answer is stored, and `feedback survey review clicked` (`notification_id`) when the runner taps "Laisser un avis". The answers themselves live in `feedback_survey_responses`. The admin audience reads PostHog `racebook opened` (`event_id`, `event_name`) through the HogQL query API, excluding `$internal_or_test_user` and `role = admin` persons, and keeps only distinct ids that are Supabase Auth UUID v4.

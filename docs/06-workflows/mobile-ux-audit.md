@@ -5,6 +5,7 @@ last_verified: 2026-11-16
 # Livret supporter note (2026-11-16): the public name of the supporter_guide surface is now "Livret supporter" (formerly "Livret accompagnateur"); aid-station access wording ("Accompagnateurs autorisés") is unchanged; no data, contract or offer change.
 ai_priority: high
 related_files:
+  - apps/mobile/components/feedback/FeedbackSurveyForm.tsx
   - .agents/skills/mobile-ux-ui-auditor/SKILL.md
   - .agents/skills/mobile-ux-ui-auditor/agents/openai.yaml
   - .agents/skills/mobile-ux-ui-auditor/references/device-workflow.md
@@ -209,3 +210,5 @@ Profile sections are `Card` posters; language and admin access simulation use `T
 - [Design Tokens](../07-design-system/tokens.md)
 
 Notifications contact and delete: check that the "Nous écrire" card shows in the empty, error and loaded states, that each button opens the right form (bug preselected, feedback preselected, race request), that deleting asks for confirmation, removes the card, and lowers the unread badge when the message was unread, at normal and enlarged text sizes in French and English.
+
+Feedback survey: open a `feedback_survey` message (from its push and from the inbox), check the "Questionnaire" label, that sending without the yes/no answer shows the inline error, that "Oui" leads to the optional review step (the button opens the store page, "Plus tard" closes it) and "Non" leads straight to the thank-you, that reopening the message shows the thank-you instead of the form, and that the text fields stay usable with the keyboard open, at normal and enlarged text sizes in French and English.
