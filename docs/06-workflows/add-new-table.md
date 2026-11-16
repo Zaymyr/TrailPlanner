@@ -40,6 +40,8 @@ related_files:
   - supabase/tests/partner_link_settings_checks.sql
   - supabase/migrations/20261105115106_admin_user_notifications.sql
   - supabase/tests/admin_user_notifications_checks.sql
+  - supabase/migrations/20261116180000_add_feedback_surveys.sql
+  - supabase/tests/feedback_survey_checks.sql
 related_tables:
   - race_slug_redirects
   - race_event_edition_branding
@@ -47,6 +49,8 @@ related_tables:
   - racebook_gear_checks
   - partner_link_settings
   - user_notifications
+  - feedback_survey_campaigns
+  - feedback_survey_responses
 ---
 
 # Add New Table
@@ -187,3 +191,5 @@ Changing an existing client-writable table follows the same discipline: `2026110
 Note (2026-11-09): `schema-overview.md` received a presentation-only note about the mobile catalog scroll performance; no table, column or workflow step changed.
 
 Catalog end date (2026-11-14): no table added; the schema overview only records that mobile catalog visibility uses the latest format `race_date` of an event.
+
+`feedback_survey_campaigns` and `feedback_survey_responses` (2026-11-16) follow this workflow as a service-only + insert-own pair: the campaign table keeps RLS on with every client privilege revoked; the response table grants `authenticated` a column-scoped INSERT and a narrow SELECT under `auth.uid()` policies, while a `SECURITY DEFINER` `BEFORE INSERT` trigger validates notification ownership and kind and fills the server-managed `campaign_id`. Service-role-only RPCs resolve recipients from `auth.users` (trusted `app_metadata` role) and count campaign stats; `supabase/tests/feedback_survey_checks.sql` asserts the grants and trigger outcomes.

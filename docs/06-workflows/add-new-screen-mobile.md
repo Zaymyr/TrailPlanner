@@ -9,6 +9,7 @@ last_verified: 2026-11-15
 # Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: medium
 related_files:
+  - apps/mobile/components/feedback/FeedbackSurveyForm.tsx
   - apps/mobile/app
   - apps/mobile/app/(app)/_layout.tsx
   - apps/mobile/components/navigation/AppHeaderTitle.tsx
@@ -321,6 +322,7 @@ RaceBook GPX cards must also honor normalized `gpxDisplay` route/profile choices
 For RaceBook or plan-workspace changes, verify two-line hero titles at 100% and 130% text scaling, 44-point increment/decrement targets, content clearance below sticky selectors, localized distance/range/clock output, and image-error fallback without an empty rail. Keep the Livret/Plan switch as the sole plan entry control on RaceBook; a saved plan may show a revision warning, but must not add a duplicate creation card.
 
 - Inbox actions: the Notifications sub-tab reuses `FeedbackHeaderButton` (`initialKind`) and `RaceRequestHeaderButton` through their render-prop `children` instead of new forms, and deletes a message by hiding it (`deleted_at`), never with a client DELETE.
+- Inbox survey: a `feedback_survey` message renders `FeedbackSurveyForm` inside its expanded card (themed `ActionButton` yes/no and `Field` text areas). Store review stays an explicit button there (`openStoreReviewPage`); screens still never launch the native review dialog themselves.
 
 RaceBook polish (2026-11-09): the runner hero keeps the format/event thumbnail but renders it blurred (`blurRadius` 24) under a 90% organizer-primary veil, so no artwork text is readable behind the identity, omits the default `Solo` participation label, appends a `J-N`/`Aujourd'hui` countdown to the date line (hidden after race day), and moves its expanded block up with the collapse so titles never overlap and metrics are never clipped. Runner wording was simplified (`Où encourager`, `Barrière horaire`, `Sac d'allègement`, `Nourriture`, `Relais {n}`, weather-alert and partial-route sentences). Access transport notes turn pasted URLs into labelled buttons (`Réserver ma navette` / `Ouvrir le lien`) and bib pickup addresses without an organizer maps link fall back to a Google Maps search (`lib/racebookTextLinks.ts`). Profile cumulative tiles show `—` until the runner touches the curve. This is runner presentation only: no row, contract or tracking of this domain changes.
 

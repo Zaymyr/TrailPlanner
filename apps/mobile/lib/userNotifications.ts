@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-export type UserNotificationKind = 'admin_message' | 'race_request_status';
+export type UserNotificationKind = 'admin_message' | 'race_request_status' | 'feedback_survey';
 
 export type UserNotification = {
   id: string;
@@ -204,4 +204,59 @@ export function shouldShowProfileAttentionDot(input: {
   hasUnreadNotifications: boolean;
 }) {
   return input.hasPendingOnboarding || input.hasUnreadNotifications;
+}
+
+export type FeedbackSurveyAnswer = {
+  foundUseful: boolean;
+  usefulText: string;
+  missingText: string;
+};
+
+export const FEEDBACK_SURVEY_TEXT_MAX_LENGTH = 2000;
+
+/** Survey notifications (among `notificationIds`) the runner already answered. */
+export async function loadAnsweredSurveyIds(notificationIds: string[]): Promise<Set<string>> {
+  if (notificationIds.length === 0) return new Set();
+  const { data, error } = await supabase
+    .from('feedback_survey_responses')
+    .select('notification_id')
+    .in('notification_id', notificationIds);
+
+  if (error) throw error;
+  return new Set(
+    ((data ?? []) as Array<{ notification_id: string | null }>)
+      .map((row) => row.notification_id)
+      .filter((id): id is string => Boolean(id)),
+  );
+}
+
+export function normalizeSurveyText(value: string) {
+  const trimmed = value.trim().slice(0, FEEDBACK_SURVEY_TEXT_MAX_LENGTH);
+  return trimmed || null;
+}
+
+/**
+ * Sends the runner's answer. The database resolves the campaign and checks that the survey is
+ * theirs; a second answer to the same survey is rejected by a unique index (reported as answered).
+ */
+export async function submitFeedbackSurveyResponse(input: {
+  userId: string;
+  notificationId: string;
+  answer: FeedbackSurveyAnswer;
+  appVersion: string | null;
+  platform: 'ios' | 'android' | 'web' | null;
+}): Promise<'sent' | 'already_answered'> {
+  const { error } = await supabase.from('feedback_survey_responses').insert({
+    notification_id: input.notificationId,
+    user_id: input.userId,
+    found_useful: input.answer.foundUseful,
+    useful_text: normalizeSurveyText(input.answer.usefulText),
+    missing_text: normalizeSurveyText(input.answer.missingText),
+    app_version: input.appVersion?.slice(0, 40) ?? null,
+    platform: input.platform,
+  });
+
+  if (error?.code === '23505') return 'already_answered';
+  if (error) throw error;
+  return 'sent';
 }

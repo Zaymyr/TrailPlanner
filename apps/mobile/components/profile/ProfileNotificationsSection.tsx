@@ -6,9 +6,11 @@ import { useFocusEffect } from '@react-navigation/native';
 
 import { Colors } from '../../constants/colors';
 import { FeedbackHeaderButton } from '../feedback/FeedbackHeaderButton';
+import { FeedbackSurveyForm } from '../feedback/FeedbackSurveyForm';
 import { RaceRequestHeaderButton } from '../race/RaceRequestHeaderButton';
 import {
   deleteUserNotification,
+  loadAnsweredSurveyIds,
   loadUserNotificationById,
   loadUserNotifications,
   markAllUserNotificationsRead,
@@ -47,6 +49,7 @@ type Copy = {
   sendFeedback: string;
   requestRace: string;
   feedbackReplyLabel: string;
+  surveyLabel: string;
   delete: string;
   deleteTitle: string;
   deleteBody: string;
@@ -105,6 +108,8 @@ export function ProfileNotificationsSection({
   const [markingAllRead, setMarkingAllRead] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [answeredSurveyIds, setAnsweredSurveyIds] = useState<Set<string>>(new Set());
+  const [openedSurveyIds, setOpenedSurveyIds] = useState<Set<string>>(new Set());
   const pageRef = useRef(0);
   const handledTargetRef = useRef<string | null>(null);
 
@@ -143,7 +148,33 @@ export function ProfileNotificationsSection({
     void loadFirstPage();
   }, [loadFirstPage]));
 
+  // Survey messages show the form until answered; a failed lookup only means the form shows again
+  // (a second answer is then refused by the database and reported as answered).
+  const surveyIdsKey = notifications
+    .filter((notification) => notification.kind === 'feedback_survey')
+    .map((notification) => notification.id)
+    .join(',');
+  useEffect(() => {
+    if (!surveyIdsKey) return;
+    let cancelled = false;
+    loadAnsweredSurveyIds(surveyIdsKey.split(','))
+      .then((ids) => {
+        if (!cancelled) setAnsweredSurveyIds((current) => new Set([...current, ...ids]));
+      })
+      .catch((caught) => console.warn('Unable to load answered surveys.', caught));
+    return () => {
+      cancelled = true;
+    };
+  }, [surveyIdsKey]);
+
+  const markSurveyAnswered = useCallback((notificationId: string) => {
+    setAnsweredSurveyIds((current) => new Set(current).add(notificationId));
+  }, []);
+
   const openNotification = useCallback(async (notification: UserNotification) => {
+    if (notification.kind === 'feedback_survey') {
+      setOpenedSurveyIds((current) => (current.has(notification.id) ? current : new Set(current).add(notification.id)));
+    }
     setExpandedIds((current) => {
       const next = new Set(current);
       if (next.has(notification.id)) next.delete(notification.id);
@@ -174,6 +205,9 @@ export function ProfileNotificationsSection({
     handledTargetRef.current = targetNotificationId;
     if (target.readAt) {
       setExpandedIds((current) => new Set(current).add(target.id));
+      if (target.kind === 'feedback_survey') {
+        setOpenedSurveyIds((current) => new Set(current).add(target.id));
+      }
     } else {
       void openNotification(target);
     }
@@ -294,58 +328,75 @@ export function ProfileNotificationsSection({
         {notifications.map((notification) => {
           const expanded = expandedIds.has(notification.id);
           const unread = !notification.readAt;
+          const isSurvey = notification.kind === 'feedback_survey';
           const kindLabel = notification.kind === 'race_request_status'
             ? copy.raceRequestLabel
-            : notification.feedbackId
+            : isSurvey
+              ? copy.surveyLabel
+              : notification.feedbackId
               ? copy.feedbackReplyLabel
               : copy.adminMessageLabel;
+          // The survey sits in its own card, outside the pressable message, so a tap on its fields
+          // never collapses the message; once opened it stays mounted to keep a draft answer.
+          const showSurvey = isSurvey && Boolean(userId) && openedSurveyIds.has(notification.id);
           return (
-            <Pressable
-              accessibilityHint={expanded ? copy.collapse : copy.expand}
-              accessibilityLabel={`${unread ? `${copy.unreadLabel}. ` : ''}${notification.title}`}
-              accessibilityRole="button"
-              accessibilityState={{ expanded }}
-              key={notification.id}
-              onPress={() => void openNotification(notification)}
-              testID={`profile-notification-${notification.id}`}
-            >
-              <Card style={[styles.card, unread && styles.unreadCard]}>
-                <View style={styles.metaRow}>
-                  <View style={styles.kindRow}>
-                    {unread ? <View style={styles.unreadDot} /> : null}
-                    <Text size="xs" tone={unread ? 'brand' : 'tertiary'} weight="semibold">
-                      {kindLabel}
+            <View key={notification.id} style={styles.item}>
+              <Pressable
+                accessibilityHint={expanded ? copy.collapse : copy.expand}
+                accessibilityLabel={`${unread ? `${copy.unreadLabel}. ` : ''}${notification.title}`}
+                accessibilityRole="button"
+                accessibilityState={{ expanded }}
+                onPress={() => void openNotification(notification)}
+                testID={`profile-notification-${notification.id}`}
+              >
+                <Card style={[styles.card, unread && styles.unreadCard]}>
+                  <View style={styles.metaRow}>
+                    <View style={styles.kindRow}>
+                      {unread ? <View style={styles.unreadDot} /> : null}
+                      <Text size="xs" tone={unread ? 'brand' : 'tertiary'} weight="semibold">
+                        {kindLabel}
+                      </Text>
+                    </View>
+                    <Text size="xs" tone="tertiary">
+                      {formatNotificationDate(notification.createdAt, locale)}
                     </Text>
                   </View>
-                  <Text size="xs" tone="tertiary">
-                    {formatNotificationDate(notification.createdAt, locale)}
-                  </Text>
-                </View>
-                <Text style={styles.notificationTitle} weight="bold">{notification.title}</Text>
-                <Text
-                  numberOfLines={expanded ? undefined : 2}
-                  size="sm"
-                  tone="secondary"
-                  style={styles.body}
-                >
-                  {notification.body}
-                </Text>
-                <View style={styles.cardFooter}>
-                  <Text size="xs" tone="brand" weight="semibold" style={styles.expandLabel}>
-                    {expanded ? copy.collapse : copy.expand}
-                  </Text>
-                  <Pressable
-                    accessibilityLabel={`${copy.delete} : ${notification.title}`}
-                    accessibilityRole="button"
-                    hitSlop={10}
-                    onPress={() => handleDelete(notification)}
-                    testID={`profile-notification-delete-${notification.id}`}
+                  <Text style={styles.notificationTitle} weight="bold">{notification.title}</Text>
+                  <Text
+                    numberOfLines={expanded ? undefined : 2}
+                    size="sm"
+                    tone="secondary"
+                    style={styles.body}
                   >
-                    <Ionicons color={Colors.textMuted} name="trash-outline" size={18} />
-                  </Pressable>
-                </View>
-              </Card>
-            </Pressable>
+                    {notification.body}
+                  </Text>
+                  <View style={styles.cardFooter}>
+                    <Text size="xs" tone="brand" weight="semibold" style={styles.expandLabel}>
+                      {expanded ? copy.collapse : copy.expand}
+                    </Text>
+                    <Pressable
+                      accessibilityLabel={`${copy.delete} : ${notification.title}`}
+                      accessibilityRole="button"
+                      hitSlop={10}
+                      onPress={() => handleDelete(notification)}
+                      testID={`profile-notification-delete-${notification.id}`}
+                    >
+                      <Ionicons color={Colors.textMuted} name="trash-outline" size={18} />
+                    </Pressable>
+                  </View>
+                </Card>
+              </Pressable>
+              {showSurvey && userId ? (
+                <Card style={[styles.surveyCard, !expanded && styles.hidden]}>
+                  <FeedbackSurveyForm
+                    answered={answeredSurveyIds.has(notification.id)}
+                    notificationId={notification.id}
+                    onAnswered={markSurveyAnswered}
+                    userId={userId}
+                  />
+                </Card>
+              ) : null}
+            </View>
           );
         })}
       </View>
@@ -386,7 +437,10 @@ const styles = StyleSheet.create({
   markAllButton: { minHeight: 40, paddingHorizontal: spacing[3], paddingVertical: spacing[2] },
   errorText: { color: Colors.danger },
   list: { gap: spacing[3] },
+  item: { gap: spacing[2] },
   card: { gap: spacing[2] },
+  surveyCard: { gap: spacing[2] },
+  hidden: { display: 'none' },
   unreadCard: { backgroundColor: Colors.brandSurface, borderColor: Colors.brandBorder },
   metaRow: { alignItems: 'center', flexDirection: 'row', gap: spacing[2], justifyContent: 'space-between' },
   kindRow: { alignItems: 'center', flexDirection: 'row', gap: spacing[2] },
