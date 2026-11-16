@@ -16,7 +16,7 @@ related_tables:
 
 # `race_event_update_reads`
 
-The catalog event sheet opens the Livret accompagnateur from an interactive `TopoCard` placed before the distance list, and the guide's back action reopens that sheet through the existing `eventId` parameter plus a `sheet` nonce. Update-read rows are unchanged.
+The catalog event sheet opens the Livret supporter from an interactive `TopoCard` placed before the distance list, and the guide's back action reopens that sheet through the existing `eventId` parameter plus a `sheet` nonce. Update-read rows are unchanged.
 
 The catalog Supporter Guide entry is independent from event-update read tracking and does not mark announcements read.
 

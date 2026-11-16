@@ -1,7 +1,8 @@
 ---
 title: race_event_edition_requests Table
 scope: database
-last_verified: 2026-11-15
+last_verified: 2026-11-16
+# Livret supporter note (2026-11-16): the public name of the supporter_guide surface is now "Livret supporter" (was "Livret accompagnateur"); aid-station access wording ("Accompagnateurs autorisés") is unchanged; no data, contract or offer change.
 # Assisted legacy conversion (2026-11-15): review targets an existing selected edition; edition-request behavior and persistence are unchanged.
 # Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
 # Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.

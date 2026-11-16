@@ -25,7 +25,7 @@ related_tables:
 
 Catalog event cards (`RaceEventSummaryCard`, 2026-11-15) stack the format count and the distance range on the left in `Cote` size `xs`, rounded to whole kilometres (13–185 km; exact distances stay in the format sheet), so the fixed-width (172 pt) « Voir les distances » sign always fits on the right. Favourite rows are unchanged.
 
-The catalog event sheet opens the Livret accompagnateur from an interactive `TopoCard` placed before the distance list, and the guide's back action reopens that sheet through the existing `eventId` parameter plus a `sheet` nonce. Favourite rows are unchanged.
+The catalog event sheet opens the Livret supporter from an interactive `TopoCard` placed before the distance list, and the guide's back action reopens that sheet through the existing `eventId` parameter plus a `sheet` nonce. Favourite rows are unchanged.
 
 Opening the Supporter Guide from an event sheet does not add or remove a favorite and keeps the existing unlimited favorite contract.
 The runner-journey alignment does not add a quota to favorite races or nutrition products. Catalog navigation changes preserve this table's existing ownership and uniqueness rules.

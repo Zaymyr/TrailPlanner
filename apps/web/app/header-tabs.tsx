@@ -25,7 +25,8 @@ export function HeaderTabs() {
   const { hasManagedRaces } = useOrganizerMembershipStatus(session?.accessToken);
 
   const coursesLabel = locale === "fr" ? "Courses" : "Races";
-  const organizerLabel = locale === "fr" ? "Espace organisateur" : "Organizer space";
+  // Visitors see the public offer name; signed-in users keep their workspace label.
+  const organizerLabel = session ? (locale === "fr" ? "Espace organisateur" : "Organizer space") : (locale === "fr" ? "Organisateurs" : "Organizers");
   const organizerHref: Route = session ? (hasManagedRaces ? "/organizer" : "/organizers") : "/organisateurs";
 
   const tabItems: TabItem[] = useMemo(

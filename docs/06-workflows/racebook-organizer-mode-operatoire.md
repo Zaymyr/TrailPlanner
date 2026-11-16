@@ -34,7 +34,7 @@ related_tables:
 
 # Mode opératoire Livret coureur organisateur
 
-L’en-tête organisateur propose désormais « Aperçu accompagnateur » et « Télécharger le QR ». Le Livret accompagnateur réutilise la dernière publication de chaque format visible : toute modification doit donc être publiée avant d’apparaître, et aucun nouveau formulaire n’est ajouté dans ce lot.
+L’en-tête organisateur propose désormais « Aperçu supporter » et « Télécharger le QR ». Le Livret supporter réutilise la dernière publication de chaque format visible : toute modification doit donc être publiée avant d’apparaître, et aucun nouveau formulaire n’est ajouté dans ce lot.
 
 Dans l’administration, la facturation et les droits sont désormais deux opérations distinctes. Une facture manuelle peut rester impayée, être rectifiée puis réglée sans ouvrir le pack ni les options ; l’ouverture du pack et des fonctionnalités offertes se fait séparément, fonctionnalité par fonctionnalité.
 

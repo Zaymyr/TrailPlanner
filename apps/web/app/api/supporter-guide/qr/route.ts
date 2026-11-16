@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   const svg = await QRCode.toString(publicUrl, { type: "svg", errorCorrectionLevel: "M", margin: 2, width: 1024, color: { dark: "#173B2C", light: "#FFFFFF" } });
   const response = new NextResponse(svg, { headers: {
     "Content-Type": "image/svg+xml; charset=utf-8",
-    "Content-Disposition": `attachment; filename="livret-accompagnateur-${raceId}.svg"`,
+    "Content-Disposition": `attachment; filename="livret-supporter-${raceId}.svg"`,
     "Cache-Control": "private, max-age=300",
   } });
   return withSecurityHeaders(response);

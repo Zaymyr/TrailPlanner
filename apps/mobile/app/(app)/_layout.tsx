@@ -265,7 +265,7 @@ export default function AppLayout() {
           ),
         }}
       />
-      {/* Livret accompagnateur: draws its own RaceBook hero and section bar. */}
+      {/* Livret supporter: draws its own RaceBook hero and section bar. */}
       <Tabs.Screen
         name="courses/supporter-guide/[raceId]"
         options={{ href: null, headerShown: false, tabBarStyle: { display: 'none' } }}

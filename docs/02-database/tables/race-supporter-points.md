@@ -26,9 +26,9 @@ related_tables:
 
 # race_supporter_points
 
-`RacebookSupporterPointsSection` now serves only the Livret accompagnateur. It accepts optional aid stations merged into the same kilometre-ordered line (supporter-access `StatusPill`, services, resolved last-runner cutoff, maximum stop) and hides the directions action when a point has neither a Maps URL nor finite coordinates, instead of routing to 0,0.
+`RacebookSupporterPointsSection` now serves only the Livret supporter. It accepts optional aid stations merged into the same kilometre-ordered line (supporter-access `StatusPill`, services, resolved last-runner cutoff, maximum stop) and hides the directions action when a point has neither a Maps URL nor finite coordinates, instead of routing to 0,0.
 
-Current mobile UI moves the published supporter-point presentation from the runner RaceBook “Où encourager” subtab into the edition Supporter Guide. The snapshot field, API serialization and legacy-app behavior are retained; organizer microcopy now names the Livret accompagnateur as the destination.
+Current mobile UI moves the published supporter-point presentation from the runner RaceBook “Où encourager” subtab into the edition Supporter Guide. The snapshot field, API serialization and legacy-app behavior are retained; organizer microcopy now names the Livret supporter as the destination.
 
 Public supporter-point serialization continues to depend on the exact effective module state. Independent organizer invoices do not expose supporter points and do not change their existing client grants or RLS.
 

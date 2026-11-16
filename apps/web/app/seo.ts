@@ -13,7 +13,7 @@ export const DEFAULT_SOCIAL_IMAGE = {
   url: DEFAULT_SOCIAL_IMAGE_PATH,
   width: 1200,
   height: 630,
-  alt: "Aperçu du planificateur de course Pace Yourself",
+  alt: "Pace Yourself : livret coureur, livret supporter et plan de course trail",
 };
 
 export const localeToOgLocale = (locale: Locale): string =>
@@ -25,15 +25,15 @@ export const localeToLanguageTag = (locale: Locale): string =>
 export const buildLocaleMetaCopy = (locale: Locale) => {
   if (locale === "fr") {
     return {
-      title: "Planificateur de nutrition trail et ultra | Pace Yourself",
+      title: "Pace Yourself : livret coureur, livret supporter et plan trail",
       description:
-        "Créez votre plan de nutrition trail : glucides, eau, sodium, allure et ravitaillements adaptés à votre parcours et à votre objectif.",
+        "Le Livret coureur officiel de ta course, le Livret supporter pour tes proches, ton temps estimé gratuit sur chaque trail du catalogue et ton plan ravito.",
     };
   }
 
   return {
-    title: "Trail and ultra nutrition planner | Pace Yourself",
+    title: "Pace Yourself: trail Race Book, Supporter Guide and race plan",
     description:
-      "Build a trail nutrition plan with carbohydrate, hydration, sodium, pacing, and aid-station targets adapted to your course.",
+      "Your race's official Race Book, a Supporter Guide for your family and friends, free finish-time estimates and a fueling plan for trail and ultra races.",
   };
 };

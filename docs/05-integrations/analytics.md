@@ -1,7 +1,8 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-11-15
+last_verified: 2026-11-16
+# Organizer hero note (2026-11-16): /organisateurs now presents the Livret coureur and the Livret supporter side by side (hero cards, illustrative supporter preview, metadata title); presentation only, no data, analytics event or offer change.
 # Assisted legacy conversion (2026-11-15): server logs contain identifiers and block type, never source text; analytics contracts are unchanged.
 # Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
 # Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
@@ -92,7 +93,7 @@ related_tables:
 
 # Analytics
 
-The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret accompagnateur, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret accompagnateur · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. With the sub-tab gone the runner RaceBook no longer emits `supporter_directions_opened` / `supporter_plan_opened`; Supporter Guide interactions are not tracked yet. The catalog event sheet opens the Livret accompagnateur from an interactive `TopoCard` placed before the distance list, and the guide's back action reopens that sheet through the existing `eventId` parameter plus a `sheet` nonce.
+The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret supporter, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret supporter · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. With the sub-tab gone the runner RaceBook no longer emits `supporter_directions_opened` / `supporter_plan_opened`; Supporter Guide interactions are not tracked yet. The catalog event sheet opens the Livret supporter from an interactive `TopoCard` placed before the distance list, and the guide's back action reopens that sheet through the existing `eventId` parameter plus a `sheet` nonce.
 The retired multi-screen web onboarding and its `onboarding-analytics-tracker` are no longer mounted. Runner acquisition now preserves the validated planner return path; no synthetic completion event is emitted for the permanent `/onboarding/*` redirects.
 
 Organizer analytics access is checked against the active plan plus the exact `capability.racebook_analytics` feature grant. A different Signature feature gift must not authorize analytics, and manual invoice creation or settlement has no analytics effect.

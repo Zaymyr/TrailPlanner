@@ -5,7 +5,7 @@ import { z } from "zod";
 import { SupporterGuideView } from "./SupporterGuideView";
 
 export const metadata: Metadata = {
-  title: "Livret accompagnateur | Pace Yourself",
+  title: "Livret supporter | Pace Yourself",
   description: "Programme, points de suivi et informations pratiques pour accompagner les coureurs.",
   robots: { index: false, follow: false },
 };

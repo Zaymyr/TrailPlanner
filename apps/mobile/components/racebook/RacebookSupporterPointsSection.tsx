@@ -10,7 +10,7 @@ import { Text } from '../themed/Text';
 import { TrailRail } from '../themed/TrailRail';
 import { formatDistance } from '../../lib/displayFormat';
 
-/** Aid station shown on the supporter course line (Livret accompagnateur). */
+/** Aid station shown on the supporter course line (Livret supporter). */
 export type RacebookSupporterStation = {
   id: string;
   name: string;

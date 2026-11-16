@@ -85,7 +85,7 @@ related_tables:
 
 # `races`
 
-The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret accompagnateur, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret accompagnateur · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. No `races` column or read changes.
+The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret supporter, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret supporter · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. No `races` column or read changes.
 
 `/courses/supporter-guide/[raceId]` uses one public format UUID only to resolve its edition, then includes qualifying preview-visible published formats. It does not add race columns and excludes masked formats.
 The public runner summary endpoint reads only published web-catalog race fields and optional live event context. The app bridge checks `racebook_is_live` plus edition visibility; it introduces no table or policy change.

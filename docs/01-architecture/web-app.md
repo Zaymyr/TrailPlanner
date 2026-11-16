@@ -2,6 +2,7 @@
 title: Web App Architecture
 scope: architecture
 last_verified: 2026-11-16
+# Organizer hero note (2026-11-16): /organisateurs now presents the Livret coureur and the Livret supporter side by side (hero cards, illustrative supporter preview, metadata title); presentation only, no data, analytics event or offer change.
 # Assisted legacy conversion (2026-11-15): historical organizer text can request a schema-specific OpenAI proposal; every proposed field requires explicit Apply/Ignore review and the conversion endpoint never persists.
 # Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
 # Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
@@ -21,6 +22,11 @@ ai_priority: high
 # Organizer UX pass (2026-11-14): the left nav expands a format's sections directly under that format (chevron, aria-expanded) instead of below “Ajouter un format”; ravito detail offers a two-option Ravito / Base de vie type (life_base vs existing non-life-base value) and the timeline badges bases de vie; Matériel is a flat compact list with a quick-add bar at the top (Enter, suggestions, required switch, new items prepended) and an Obligatoire/Recommandé switch per row that no longer moves rows between groups.
 # Course timeline pass (2026-11-14): the Départ/ravitos editor shows one timeline filtered by Tout / Ravitos / Suivi / SAS / Relais; SAS sit right after Départ, each point kind has its own marker (ravito green dot, base de vie larger dot + badge, suivi blue ring + “Suivi” tag, relais violet diamond), aid/relay/finish rows show a clock cutoff chip or “Sans barrière”, the right panel follows the clicked point, the timeline is height-capped with its own scroll, and “Horaires et consignes” sits below the grid so the sticky timeline no longer overlaps it.
 related_files:
+  - apps/web/app/livret-coureur/page.tsx
+  - apps/web/app/livret-supporter/page.tsx
+  - apps/web/components/landing/LivretProductPage.tsx
+  - apps/web/app/home-structured-data.ts
+  - apps/web/components/SiteFooter.tsx
   - apps/web/app/api/supporter-guide/route.ts
   - apps/web/app/api/supporter-guide/qr/route.ts
   - apps/web/app/courses/supporter-guide/[raceId]/page.tsx
@@ -862,3 +868,7 @@ Organizer finishing layouts reuse existing editor state and endpoints; section h
 The semantic section tree retains the existing Organizer onboarding/capture anchor and explicit accessible module labels for automation compatibility.
 
 On narrow screens, separate native selectors choose the event/format scope and the active section, preserving the complete desktop navigation hierarchy.
+
+## Brand positioning (2026-11-16)
+
+The default (home) metadata now leads with the Livret coureur and the Livret supporter instead of the nutrition planner, and the home hero copy presents the booklets, the free time estimate and the fueling plan (CTAs unchanged). Home JSON-LD adds a brand description, App/Play Store `sameAs` and a free `MobileApplication` node (`#app`). Signed-out visitors see « Organisateurs » in the header (signed-in users keep « Espace organisateur »); the footer links `/livret-coureur` and `/livret-supporter`.
