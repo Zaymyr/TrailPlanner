@@ -3,110 +3,111 @@ import Link from "next/link";
 
 import type { PublicRaceDetail } from "../../../lib/public-race-detail";
 import { getPublicRaceRegistrationUrl, type PublicRace } from "../../../lib/public-races";
-import { PublicRaceShare } from "./PublicRaceShare";
+import { PublicHeroShell } from "./PublicHeroShell";
 
+const formatMeters = (value: number | null) =>
+  value === null ? null : `${Math.round(value).toLocaleString("fr-FR")} m`;
+
+const StopwatchIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true" className="h-5 w-5 shrink-0">
+    <circle cx="12" cy="13.5" r="7.5" />
+    <path d="M12 9.5v4l2.5 1.5M9.5 2.5h5M12 2.5V6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+/**
+ * App-style course hero: veiled photo carrying the identity, a compact metric
+ * strip (same facts as the mobile RaceBook header) and the estimate CTA.
+ */
 export function RaceHeroSummary({
   race,
   formattedDate,
   formattedEndDate,
   canonicalUrl,
   otherFormats,
+  estimateHref,
 }: {
   race: PublicRaceDetail;
   formattedDate: string | null;
   formattedEndDate: string | null;
   canonicalUrl: string;
   otherFormats: PublicRace[];
+  estimateHref: string;
 }) {
   const heroImage = race.raceThumbnailUrl ?? race.eventThumbnailUrl;
   const registrationUrl = getPublicRaceRegistrationUrl(race);
-  const dateAndLocation =
-    [formattedDate && formattedEndDate ? `Du ${formattedDate} au ${formattedEndDate}` : formattedDate, race.location]
-      .filter(Boolean)
-      .join(" · ") || "Informations à confirmer";
+  const dateLabel = formattedDate && formattedEndDate ? `Du ${formattedDate} au ${formattedEndDate}` : formattedDate;
+  const participation = race.participationMode === "solo"
+    ? "Solo"
+    : race.participationMode === "relay"
+      ? "Relais"
+      : race.participationMode === "solo_and_relay"
+        ? "Solo et relais"
+        : null;
+  const metrics = [
+    { label: "Distance", value: race.distanceKm === null ? "À confirmer" : `${race.distanceKm.toLocaleString("fr-FR")} km` },
+    { label: "D+", value: formatMeters(race.elevationGainM) ?? "À confirmer" },
+    race.elevationLossM !== null ? { label: "D−", value: formatMeters(race.elevationLossM) as string } : null,
+    race.practical.schedule.startTime ? { label: "Départ", value: race.practical.schedule.startTime } : null,
+    race.practical.schedule.finishCutoffTime ? { label: "Barrière", value: race.practical.schedule.finishCutoffTime } : null,
+    race.aidStations.length ? { label: "Ravitos", value: String(race.aidStations.length) } : null,
+    race.maxAltitudeM !== null ? { label: "Alt. max", value: formatMeters(race.maxAltitudeM) as string } : null,
+  ].filter((metric): metric is { label: string; value: string } => Boolean(metric));
 
   return (
-    <header className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-      {heroImage && /^https?:\/\//i.test(heroImage) ? (
-        <img
-          src={heroImage}
-          alt={race.name}
-          width={1200}
-          height={512}
-          loading="eager"
-          fetchPriority="high"
-          className="h-40 w-full object-cover sm:h-56 lg:h-64"
-        />
-      ) : null}
-      <div className="space-y-5 p-5 sm:p-8">
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-3">
-            {race.eventName && race.eventName !== race.name ? (
-              <p className="text-sm font-semibold uppercase tracking-[0.16em] text-brand">{race.eventName}</p>
-            ) : null}
-            <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-5xl">{race.name}</h1>
-            <p className="text-base text-muted-foreground sm:text-lg">{dateAndLocation}</p>
-            {race.participationMode ? (
-              <p className="inline-flex rounded-full bg-brand-surface px-3 py-1 text-sm font-semibold text-brand">
-                {race.participationMode === "solo" ? "Solo" : race.participationMode === "relay" ? "Relais" : "Solo et relais"}
-              </p>
-            ) : null}
-          </div>
-          <PublicRaceShare title={race.name} url={canonicalUrl} variant="icon" />
-        </div>
-
-        <dl className="flex flex-wrap gap-6">
-          <div>
-            <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Distance</dt>
-            <dd className="mt-1 text-3xl font-bold text-foreground">
-              {race.distanceKm === null ? "À confirmer" : `${race.distanceKm} km`}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Dénivelé positif</dt>
-            <dd className="mt-1 text-3xl font-bold text-foreground">
-              {race.elevationGainM === null ? "À confirmer" : `${Math.round(race.elevationGainM).toLocaleString("fr-FR")} m D+`}
-            </dd>
-          </div>
-        </dl>
-
-        <div className="flex flex-wrap items-center gap-3">
+    <PublicHeroShell
+      imageUrl={heroImage}
+      eyebrow={race.eventName && race.eventName !== race.name ? race.eventName : null}
+      title={race.name}
+      share={{ title: race.name, url: canonicalUrl }}
+      metrics={metrics}
+      meta={(
+        <>
+          {dateLabel ? <span>{dateLabel}</span> : <span>Date à confirmer</span>}
+          {race.location ? <><span aria-hidden="true">·</span><span>{race.location}</span></> : null}
+          {participation ? (
+            <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold backdrop-blur">{participation}</span>
+          ) : null}
+        </>
+      )}
+    >
+        <div className="grid gap-2 sm:flex sm:flex-wrap">
+          <Link
+            href={estimateHref as Route}
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-brand px-5 text-base font-semibold text-brand-foreground shadow-sm transition hover:bg-brand-light"
+          >
+            <StopwatchIcon />
+            Estimer mon temps — gratuit
+          </Link>
           {registrationUrl ? (
             <a
               href={registrationUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-11 items-center justify-center rounded-md border border-border px-5 text-sm font-semibold text-foreground transition hover:border-brand-border hover:bg-brand-surface"
+              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border px-5 text-sm font-semibold text-foreground transition hover:border-brand-border hover:bg-brand-surface"
             >
-              S’inscrire
+              S’inscrire sur le site officiel
             </a>
           ) : null}
-          <Link
-            href={`/race-planner?catalogRaceId=${race.id}` as Route}
-            className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand px-5 text-sm font-semibold text-brand-foreground transition hover:bg-brand-light"
-          >
-            Estimer mon temps sur cette course — gratuit
-          </Link>
         </div>
 
         {otherFormats.length ? (
-          <div className="space-y-2">
-            <p className="text-sm font-semibold text-foreground">Autres formats</p>
-            <ul className="flex flex-wrap gap-2">
+          <div className="space-y-1.5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Autres formats</p>
+            <ul className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0">
               {otherFormats.map((format) => (
-                <li key={format.id}>
+                <li key={format.id} className="shrink-0">
                   <Link
                     href={`/courses/${format.slug}` as Route}
-                    className="inline-flex min-h-11 items-center rounded-full border border-border px-3 text-sm font-medium text-foreground transition hover:border-brand-border hover:bg-brand-surface"
+                    className="inline-flex min-h-10 items-center rounded-full border border-border px-3 text-sm font-medium text-foreground transition hover:border-brand-border hover:bg-brand-surface"
                   >
-                    {format.distanceKm !== null ? `${format.distanceKm} km` : format.name}
+                    {format.distanceKm !== null ? `${format.distanceKm.toLocaleString("fr-FR")} km` : format.name}
                   </Link>
                 </li>
               ))}
             </ul>
           </div>
         ) : null}
-      </div>
-    </header>
+    </PublicHeroShell>
   );
 }

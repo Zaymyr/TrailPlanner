@@ -43,15 +43,30 @@ const getEditionYear = (race: PublicRace) => {
   return match?.[1] ?? null;
 };
 
+const normalizeForMatch = (value: string) =>
+  value.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, "");
+
 export const buildRaceMetadataTitle = (race: PublicRace) => {
   const year = getEditionYear(race);
-  const distance = race.distanceKm !== null ? `${race.distanceKm.toLocaleString("fr-FR")} km` : null;
-  const facts = [distance, year].filter((value): value is string => Boolean(value));
-  const suffix = facts.length ? ` | ${facts.join(" · ")}` : " | infos course";
+  const distanceLabel = race.distanceKm !== null ? `${race.distanceKm.toLocaleString("fr-FR")} km` : null;
+  // Do not repeat a distance the race name already carries (« SaintéLyon — 80 km »)
+  // unless the name has to be truncated, where the suffix keeps formats distinct.
+  const nameCarriesDistance = distanceLabel !== null && normalizeForMatch(race.name).includes(normalizeForMatch(distanceLabel));
+  const buildSuffix = (includeDistance: boolean) => {
+    const facts = [includeDistance ? distanceLabel : null, year].filter((value): value is string => Boolean(value));
+    return facts.length ? ` | ${facts.join(" · ")}` : " | infos course";
+  };
+  const compactSuffix = buildSuffix(!nameCarriesDistance);
+  const compact = `${race.name}${compactSuffix}`;
+  if (compact.length <= MAX_TITLE_LENGTH) {
+    const hook = " · temps & ravitos";
+    return compact.length + hook.length <= MAX_TITLE_LENGTH ? `${compact}${hook}` : compact;
+  }
+  const suffix = buildSuffix(true);
   return `${truncateSeoIdentity(race.name, MAX_TITLE_LENGTH - suffix.length)}${suffix}`;
 };
 
-export const buildRaceMetadataDescription = (race: PublicRace | null) => {
+export const buildRaceMetadataDescription = (race: PublicRace | null, estimateRange: string | null = null) => {
   if (!race) return "Fiche d’une course de trail sur Pace Yourself.";
   const details = [
     race.distanceKm !== null ? `${race.distanceKm} km` : null,
@@ -60,8 +75,8 @@ export const buildRaceMetadataDescription = (race: PublicRace | null) => {
     formatPublicRaceDate(race.date),
   ].filter(Boolean);
   const intro = details.length ? `${race.name} : ${details.join(", ")}.` : `${race.name} sur Pace Yourself.`;
-  return truncateSeoText(
-    `${intro} Retrouvez les informations de course et la source officielle.`,
-    MAX_DESCRIPTION_LENGTH,
-  );
+  const hook = estimateRange
+    ? ` Temps estimé de ${estimateRange} selon ton niveau. Parcours, ravitos, infos pratiques.`
+    : " Parcours, ravitos, infos pratiques et ton temps estimé gratuitement.";
+  return truncateSeoText(`${intro}${hook}`, MAX_DESCRIPTION_LENGTH);
 };
