@@ -1,8 +1,9 @@
 import type { PublicRaceDetail } from "../../../lib/public-race-detail";
 
+import { DEFAULT_SOCIAL_IMAGE_PATH } from "../../seo";
 import { buildRaceMetadataDescription, formatPublicRaceDate } from "./race-metadata";
 
-export const buildRaceStructuredData = (race: PublicRaceDetail, canonicalUrl: string) => {
+export const buildRaceStructuredData = (race: PublicRaceDetail, canonicalUrl: string, estimateRange: string | null = null) => {
   // Google requires a valid startDate for Event rich results. Omitting the
   // complete SportsEvent is safer than publishing an ineligible partial item.
   if (!race.date || !formatPublicRaceDate(race.date)) return null;
@@ -65,7 +66,8 @@ export const buildRaceStructuredData = (race: PublicRaceDetail, canonicalUrl: st
     eventStatus: "https://schema.org/EventScheduled",
     eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
     sport: "Course à pied",
-    ...(heroImage ? { image: [heroImage] } : {}),
+    // Google recommends an image on every Event; fall back to the site preview.
+    image: [heroImage && /^https?:\/\//i.test(heroImage) ? heroImage : new URL(DEFAULT_SOCIAL_IMAGE_PATH, canonicalUrl).toString()],
     ...(hasLocation ? {
       location: {
         "@type": "Place",
@@ -86,11 +88,10 @@ export const buildRaceStructuredData = (race: PublicRaceDetail, canonicalUrl: st
       ...(organizerUrl ? { url: organizerUrl } : {}),
     },
     ...(race.eventEditionSlug && race.eventName ? {
+      // The edition page publishes the complete parent SportsEvent under this
+      // @id; a bare reference avoids Google validating a partial nested Event.
       superEvent: {
-        "@type": "SportsEvent",
         "@id": `${new URL(`/courses/evenements/${race.eventEditionSlug}`, canonicalUrl).toString()}#event`,
-        name: race.eventName,
-        url: new URL(`/courses/evenements/${race.eventEditionSlug}`, canonicalUrl).toString(),
       },
     } : {}),
     ...(registrationUrl ? {
@@ -99,7 +100,7 @@ export const buildRaceStructuredData = (race: PublicRaceDetail, canonicalUrl: st
         url: registrationUrl,
       },
     } : {}),
-    description: buildRaceMetadataDescription(race),
+    description: buildRaceMetadataDescription(race, estimateRange),
     ...(sameAs.length ? { sameAs } : {}),
   };
 };

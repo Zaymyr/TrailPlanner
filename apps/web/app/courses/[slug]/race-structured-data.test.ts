@@ -77,10 +77,7 @@ describe("race SEO content", () => {
     });
     expect(data?.offers).toEqual({ "@type": "Offer", url: race.eventWebsiteUrl });
     expect(data?.superEvent).toEqual({
-      "@type": "SportsEvent",
       "@id": "https://pace-yourself.com/courses/evenements/trail-glazig-2027#event",
-      name: race.eventName,
-      url: "https://pace-yourself.com/courses/evenements/trail-glazig-2027",
     });
     expect(data.sameAs).toEqual([race.externalSiteUrl, race.officialWebsiteUrl]);
   });

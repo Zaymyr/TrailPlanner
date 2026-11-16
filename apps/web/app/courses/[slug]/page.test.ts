@@ -211,6 +211,22 @@ describe("public race legacy slug page", () => {
     expect(ultraFormat).toContain("100 km · 2027");
   });
 
+  it("does not repeat a distance already in the name and adds the estimate hook when it fits", () => {
+    const title = buildRaceMetadataTitle({ ...canonicalRace, name: "SaintéLyon — 80 km", distanceKm: 80, date: "2026-11-28" });
+
+    expect(title).toBe("SaintéLyon — 80 km | 2026 · temps & ravitos");
+  });
+
+  it("puts the reference finishing-time range in the search snippet", async () => {
+    resolvePublicRaceSlug.mockResolvedValue({ race: canonicalRace, shouldRedirect: false });
+    getPublicRaceDetail.mockResolvedValue(detailedRace);
+
+    const metadata = await generateMetadata({ params: { slug: canonicalRace.slug } });
+
+    expect(metadata.description).toMatch(/Temps estimé de \d+ h \d{2} à \d+ h \d{2} selon ton niveau/);
+    expect((metadata.description as string).length).toBeLessThanOrEqual(160);
+  });
+
   it("keeps unknown slugs out of the index", async () => {
     resolvePublicRaceSlug.mockResolvedValue(null);
 

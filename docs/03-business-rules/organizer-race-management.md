@@ -2,7 +2,7 @@
 title: Organizer Race Management
 scope: business-rule
 
-last_verified: 2026-11-15
+last_verified: 2026-11-16
 # Assisted legacy conversion (2026-11-15): historical blocks offer schema-specific, field-by-field proposals with explicit Apply/Ignore and no automatic write.
 # Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
 # Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
@@ -272,6 +272,8 @@ related_tables:
 Supporter Guide programme data (2026-11-15): race `organizer_details.schedule` accepts optional `estimatedWinnerMen` / `estimatedWinnerWomen` durations (`H:MM`, hours may exceed 23); event `organizer_details.programme` holds up to 60 programme items (`id`, `type` animation/concert/kids_race/briefing/village/other, `title`, `date`, `startTime`, `endTime`, `location`, `description`). Both are additive JSON validated by `apps/web/lib/organizer-dashboard-details.ts`, so organizer saves preserve them; no column or migration. No organizer form edits them yet (TODO: organizer schedule card and programme editor).
 
 Catalog query fix (2026-11-15): the mobile `EVENT_CATALOG_SELECT` requests `slug` on the embedded `races` rows (used to open `/courses/<slug>` deep links), not on `race_event_updates`, which has no such column. The misplaced column made PostgREST reject the whole catalog request (42703), so the development build showed no races.
+
+Anonymous course entry (2026-11-16): in runner mode, `RacePlannerPageContent` renders the account-free `QuickRaceEstimate` for an anonymous visitor with a pending catalog race instead of the account screen. It creates no plan and reads no aid-station products, supplies or nutrition allocation; those flows start unchanged after authentication.
 
 Catalog event cards (`RaceEventSummaryCard`, 2026-11-15) stack the format count and the distance range on the left in `Cote` size `xs`, rounded to whole kilometres (13–185 km; exact distances stay in the format sheet), so the fixed-width (172 pt) « Voir les distances » sign always fits on the right. Organizer authoring is unchanged.
 

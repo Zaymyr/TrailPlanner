@@ -90,7 +90,7 @@ export function PublicRaceShare({
           onClick={handleShare}
           aria-label="Partager cette course"
           title="Partager cette course"
-          className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border text-foreground transition hover:border-brand-border hover:bg-brand-surface"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card/90 text-foreground shadow-sm backdrop-blur transition hover:border-brand-border hover:bg-brand-surface"
         >
           <ShareIcon className="h-5 w-5" />
         </button>
