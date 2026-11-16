@@ -286,6 +286,11 @@ export default function AppLayout() {
         name="plan/[id]/summary"
         options={{ href: null, headerRight: () => null, tabBarStyle: { display: 'none' } }}
       />
+      {/* Followed shared plan: reached from Mes courses, never a root tab. */}
+      <Tabs.Screen
+        name="plan/followed/[id]"
+        options={{ href: null }}
+      />
       {/* Product catalog: no longer a root tab, reached from Profil and the plan workspace. */}
       <Tabs.Screen
         name="nutrition"

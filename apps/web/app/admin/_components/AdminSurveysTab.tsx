@@ -34,9 +34,12 @@ const responseItemSchema = z.object({
   platform: z.string().nullable(),
   createdAt: z.string(),
 });
+const adminUserOptionSchema = z.object({ id: z.string(), email: z.string().optional().nullable() });
+type AdminUserOption = z.infer<typeof adminUserOptionSchema>;
 const campaignSchema = z.object({
   id: z.string(),
   title: z.string(),
+  audienceKind: z.string().optional(),
   audienceLabel: z.string().nullable(),
   pushRequested: z.boolean(),
   emailRequested: z.boolean(),
@@ -71,6 +74,22 @@ const formatDate = (value: string) => {
     : value;
 };
 
+/** The signed-in admin, read from the access token, so a survey can be test-sent to oneself. */
+export function accessTokenUser(accessToken: string | null): AdminUserOption | null {
+  const payload = accessToken?.split(".")[1];
+  if (!payload) return null;
+  try {
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const json = new TextDecoder().decode(
+      Uint8Array.from(atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=")), (char) => char.charCodeAt(0))
+    );
+    const claims = z.object({ sub: z.string().uuid(), email: z.string().optional() }).safeParse(JSON.parse(json));
+    return claims.success ? { id: claims.data.sub, email: claims.data.email ?? null } : null;
+  } catch {
+    return null;
+  }
+}
+
 const errorMessage = (error: unknown) => (error instanceof Error ? error.message : "La requête a échoué.");
 
 async function adminFetch<T>(accessToken: string | null, url: string, schema: z.ZodType<T>, init?: RequestInit) {
@@ -87,7 +106,96 @@ async function adminFetch<T>(accessToken: string | null, url: string, schema: z.
   return schema.parse(payload);
 }
 
+function SurveyUserPicker({
+  accessToken,
+  selectedUser,
+  onSelect,
+  disabled,
+}: {
+  accessToken: string | null;
+  selectedUser: AdminUserOption | null;
+  onSelect: (user: AdminUserOption | null) => void;
+  disabled: boolean;
+}) {
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const me = useMemo(() => accessTokenUser(accessToken), [accessToken]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => window.clearTimeout(timeout);
+  }, [search]);
+
+  const users = useQuery({
+    queryKey: ["admin", "feedback-surveys", "user-search", debouncedSearch, accessToken],
+    enabled: Boolean(accessToken && debouncedSearch.length >= 2 && !selectedUser),
+    queryFn: () =>
+      adminFetch(
+        accessToken,
+        `/api/admin/users?${new URLSearchParams({ search: debouncedSearch, sort: "email", order: "asc" }).toString()}`,
+        z.object({ users: z.array(adminUserOptionSchema) })
+      ),
+  });
+
+  if (selectedUser) {
+    return (
+      <div className="flex flex-wrap items-center gap-2 rounded-md border border-border px-3 py-2 text-sm">
+        <span className="font-medium">{selectedUser.email ?? selectedUser.id}</span>
+        {me?.id === selectedUser.id ? <span className="text-muted-foreground">(toi)</span> : null}
+        <Button type="button" variant="outline" className="ml-auto" onClick={() => onSelect(null)} disabled={disabled}>
+          Changer
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        <Input
+          id="survey-user"
+          className="min-w-0 flex-1"
+          placeholder="Rechercher par e-mail ou id…"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          disabled={disabled}
+        />
+        {me ? (
+          <Button type="button" variant="outline" onClick={() => onSelect(me)} disabled={disabled}>
+            M’envoyer à moi
+          </Button>
+        ) : null}
+      </div>
+      {users.isLoading ? <p className="text-sm text-muted-foreground">Recherche…</p> : null}
+      {users.error ? <p role="alert" className="text-sm text-red-600 dark:text-red-300">{errorMessage(users.error)}</p> : null}
+      {users.data && debouncedSearch.length >= 2 ? (
+        users.data.users.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Aucun utilisateur trouvé.</p>
+        ) : (
+          <ul className="max-h-56 divide-y divide-border overflow-y-auto rounded-md border border-border">
+            {users.data.users.slice(0, 10).map((user) => (
+              <li key={user.id}>
+                <button
+                  type="button"
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-muted"
+                  onClick={() => onSelect(user)}
+                  disabled={disabled}
+                >
+                  {user.email ?? user.id}
+                  <span className="block text-xs text-muted-foreground">{user.id}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )
+      ) : null}
+    </div>
+  );
+}
+
 function SurveySendForm({ accessToken, onSent }: { accessToken: string | null; onSent: () => void }) {
+  const [audienceMode, setAudienceMode] = useState<"racebook" | "user">("racebook");
+  const [selectedUser, setSelectedUser] = useState<AdminUserOption | null>(null);
   const [eventId, setEventId] = useState("");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -104,13 +212,17 @@ function SurveySendForm({ accessToken, onSent }: { accessToken: string | null; o
     queryFn: () =>
       adminFetch(accessToken, "/api/admin/feedback-surveys/audiences", z.object({ audiences: z.array(audienceSchema) })),
   });
+  const isUserMode = audienceMode === "user";
+  const previewParams = isUserMode
+    ? selectedUser ? `userId=${encodeURIComponent(selectedUser.id)}` : null
+    : eventId ? `eventId=${encodeURIComponent(eventId)}` : null;
   const preview = useQuery({
-    queryKey: ["admin", "feedback-surveys", "preview", eventId, accessToken],
-    enabled: Boolean(accessToken && eventId),
+    queryKey: ["admin", "feedback-surveys", "preview", previewParams, accessToken],
+    enabled: Boolean(accessToken && previewParams),
     queryFn: () =>
       adminFetch(
         accessToken,
-        `/api/admin/feedback-surveys/audiences?eventId=${encodeURIComponent(eventId)}`,
+        `/api/admin/feedback-surveys/audiences?${previewParams}`,
         z.object({ preview: previewSchema })
       ),
   });
@@ -130,11 +242,16 @@ function SurveySendForm({ accessToken, onSent }: { accessToken: string | null; o
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!selected || !title.trim() || !body.trim()) {
-      setError("Choisis un livret, un titre et un message.");
+    if (isUserMode ? !selectedUser : !selected) {
+      setError(isUserMode ? "Choisis un utilisateur." : "Choisis un livret.");
       return;
     }
-    if (!window.confirm(`Envoyer ce questionnaire à ${recipients} coureurs ?`)) return;
+    if (!title.trim() || !body.trim()) {
+      setError("Ajoute un titre et un message.");
+      return;
+    }
+    const target = isUserMode ? selectedUser?.email ?? selectedUser?.id : `${recipients} coureurs`;
+    if (!window.confirm(`Envoyer ce questionnaire à ${target} ?`)) return;
     setSubmitting(true);
     setError(null);
     setResult(null);
@@ -151,8 +268,10 @@ function SurveySendForm({ accessToken, onSent }: { accessToken: string | null; o
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             campaignId,
-            eventId: selected.eventId,
-            eventLabel: selected.eventName,
+            eventId: selected?.eventId ?? null,
+            eventLabel: selected?.eventName ?? null,
+            userId: isUserMode ? selectedUser?.id : null,
+            userLabel: isUserMode ? selectedUser?.email ?? null : null,
             title: title.trim(),
             body: body.trim(),
             sendPush,
@@ -161,12 +280,12 @@ function SurveySendForm({ accessToken, onSent }: { accessToken: string | null; o
         }
       );
       setResult(
-        `Envoyé à ${sent.audience.recipients} coureurs — push reçu par ${sent.delivery.pushSent}` +
+        `Envoyé à ${isUserMode ? target : `${sent.audience.recipients} coureurs`} — push reçu par ${sent.delivery.pushSent}` +
           (sent.delivery.failed ? `, ${sent.delivery.failed} échec(s)` : "") +
           "."
       );
       setCampaignId(crypto.randomUUID());
-      setEventId("");
+      if (!isUserMode) setEventId("");
       onSent();
     } catch (caught) {
       // The campaign id is kept: sending again resumes the same campaign without duplicates.
@@ -185,8 +304,57 @@ function SurveySendForm({ accessToken, onSent }: { accessToken: string | null; o
           trouvent l’app utile, elle leur propose ensuite de laisser un avis sur le Store.
         </p>
       </div>
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-semibold">Destinataires</legend>
+        <div className="flex flex-wrap gap-4 text-sm">
+          <label className="flex items-center gap-2">
+            <input
+              type="radio"
+              name="survey-audience-mode"
+              checked={!isUserMode}
+              onChange={() => setAudienceMode("racebook")}
+              disabled={submitting}
+            />
+            Lecteurs d’un livret coureur
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="radio"
+              name="survey-audience-mode"
+              checked={isUserMode}
+              onChange={() => setAudienceMode("user")}
+              disabled={submitting}
+            />
+            Un utilisateur précis (test)
+          </label>
+        </div>
+      </fieldset>
+      {isUserMode ? (
+        <div className="space-y-2">
+          <Label htmlFor="survey-user">Utilisateur</Label>
+          <SurveyUserPicker
+            accessToken={accessToken}
+            selectedUser={selectedUser}
+            onSelect={setSelectedUser}
+            disabled={submitting}
+          />
+          {selectedUser ? (
+            <p className="text-sm text-muted-foreground">
+              {preview.isLoading
+                ? "Vérification du compte…"
+                : preview.data
+                  ? preview.data.preview.recipients === 0
+                    ? "Ce compte ne peut pas recevoir de questionnaire."
+                    : `${preview.data.preview.withPush ? "Push activé" : "Pas d’appareil avec le push"} · ${preview.data.preview.withEmail ? "e-mail disponible" : "pas d’e-mail"}. Le message apparaîtra dans sa messagerie in-app.`
+                  : preview.error ? errorMessage(preview.error) : null}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       <div className="space-y-2">
-        <Label htmlFor="survey-audience">Coureurs ayant ouvert le livret de…</Label>
+        <Label htmlFor="survey-audience">
+          {isUserMode ? "Livret concerné (optionnel, pré-remplit le message)" : "Coureurs ayant ouvert le livret de…"}
+        </Label>
         <select
           id="survey-audience"
           className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
@@ -204,7 +372,7 @@ function SurveySendForm({ accessToken, onSent }: { accessToken: string | null; o
         {audiences.error ? (
           <p role="alert" className="text-sm text-red-600 dark:text-red-300">{errorMessage(audiences.error)}</p>
         ) : null}
-        {eventId ? (
+        {eventId && !isUserMode ? (
           <p className="text-sm text-muted-foreground">
             {preview.isLoading
               ? "Calcul de l’audience…"
@@ -246,8 +414,12 @@ function SurveySendForm({ accessToken, onSent }: { accessToken: string | null; o
       </fieldset>
       {error ? <p role="alert" className="text-sm text-red-600 dark:text-red-300">{error}</p> : null}
       {result ? <p className="text-sm text-emerald-700 dark:text-emerald-300">{result}</p> : null}
-      <Button type="submit" disabled={submitting || !selected || recipients === 0}>
-        {submitting ? "Envoi en cours…" : recipients ? `Envoyer à ${recipients} coureurs` : "Envoyer"}
+      <Button type="submit" disabled={submitting || (isUserMode ? !selectedUser : !selected) || recipients === 0}>
+        {submitting
+          ? "Envoi en cours…"
+          : isUserMode
+            ? "Envoyer le test"
+            : recipients ? `Envoyer à ${recipients} coureurs` : "Envoyer"}
       </Button>
     </form>
   );
@@ -318,7 +490,10 @@ function CampaignResults({ campaign }: { campaign: Campaign }) {
   );
 }
 
-/** Admin feedback surveys: send a 3-question survey to a livret coureur's readers, then read the answers. */
+/**
+ * Admin feedback surveys: send a 3-question survey to a livret coureur's readers (or to one chosen
+ * account, to test it first), then read the answers.
+ */
 export function AdminSurveysTab({ accessToken }: { accessToken: string | null }) {
   const campaigns = useQuery({
     queryKey: ["admin", "feedback-surveys", accessToken],

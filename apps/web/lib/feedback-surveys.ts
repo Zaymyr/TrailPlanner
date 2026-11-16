@@ -27,15 +27,23 @@ const DELIVERY_CONCURRENCY = 8;
 
 export const surveyEventIdSchema = z.string().trim().min(1).max(80);
 
-export const surveySendSchema = z.object({
-  campaignId: z.string().uuid(),
-  eventId: surveyEventIdSchema,
-  eventLabel: z.string().trim().max(200).optional().nullable(),
-  title: z.string().trim().min(1).max(160),
-  body: z.string().trim().min(1).max(4000),
-  sendEmail: z.boolean().optional().default(false),
-  sendPush: z.boolean().optional().default(true),
-});
+/**
+ * Without `userId`: every identified reader of `eventId`'s livret coureur. With `userId`: only that
+ * account (a test send, admins allowed); `eventId` is then optional and only labels the campaign.
+ */
+export const surveySendSchema = z
+  .object({
+    campaignId: z.string().uuid(),
+    eventId: surveyEventIdSchema.optional().nullable(),
+    eventLabel: z.string().trim().max(200).optional().nullable(),
+    userId: z.string().uuid().transform((value) => value.toLowerCase()).optional().nullable(),
+    userLabel: z.string().trim().max(200).optional().nullable(),
+    title: z.string().trim().min(1).max(160),
+    body: z.string().trim().min(1).max(4000),
+    sendEmail: z.boolean().optional().default(false),
+    sendPush: z.boolean().optional().default(true),
+  })
+  .refine((input) => Boolean(input.userId || input.eventId), { message: "An event or a user is required." });
 
 export type SurveySendInput = z.infer<typeof surveySendSchema>;
 
@@ -201,6 +209,25 @@ export function summarizeRecipients(candidateCount: number, recipients: SurveyRe
   };
 }
 
+export async function resolveSingleSurveyRecipient(
+  serviceConfig: SupabaseServiceConfig,
+  userId: string
+): Promise<SurveyRecipient[]> {
+  const response = await fetch(`${serviceConfig.supabaseUrl}/rest/v1/rpc/resolve_feedback_survey_single_recipient`, {
+    method: "POST",
+    headers: serviceHeaders(serviceConfig),
+    body: JSON.stringify({ p_user_id: userId }),
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error(`Unable to resolve survey recipient: ${await response.text()}`);
+  const rows = z.array(recipientRowSchema).parse(await response.json());
+  return rows.map((row) => ({ userId: row.user_id, hasEmail: row.has_email, hasPush: row.has_push }));
+}
+
+export async function previewSingleUserAudience(serviceConfig: SupabaseServiceConfig, userId: string) {
+  return summarizeRecipients(1, await resolveSingleSurveyRecipient(serviceConfig, userId));
+}
+
 export async function previewRacebookAudience(serviceConfig: SupabaseServiceConfig, eventId: string) {
   const candidates = await loadRacebookReaderUserIds(eventId);
   const recipients = await resolveSurveyRecipients(serviceConfig, candidates);
@@ -210,6 +237,13 @@ export async function previewRacebookAudience(serviceConfig: SupabaseServiceConf
 // ---------------------------------------------------------------------------------------------
 // Sending
 // ---------------------------------------------------------------------------------------------
+
+export function campaignAudienceLabel(input: Pick<SurveySendInput, "eventLabel" | "userId" | "userLabel">) {
+  const eventLabel = input.eventLabel?.trim() || null;
+  if (!input.userId) return eventLabel;
+  const target = input.userLabel?.trim() || input.userId;
+  return `Test · ${target}${eventLabel ? ` · ${eventLabel}` : ""}`.slice(0, 200);
+}
 
 async function upsertCampaign(
   serviceConfig: SupabaseServiceConfig,
@@ -223,9 +257,10 @@ async function upsertCampaign(
       created_by: input.adminId,
       title: input.title,
       body: input.body,
-      audience_kind: "racebook_readers",
-      audience_event_id: input.eventId,
-      audience_label: input.eventLabel?.trim() || null,
+      audience_kind: input.userId ? "single_user" : "racebook_readers",
+      audience_event_id: input.eventId ?? null,
+      audience_user_id: input.userId ?? null,
+      audience_label: campaignAudienceLabel(input),
       email_requested: input.sendEmail,
       push_requested: input.sendPush,
       recipient_count: input.recipientCount,
@@ -234,7 +269,7 @@ async function upsertCampaign(
   if (!response.ok) throw new Error(`Unable to create survey campaign: ${await response.text()}`);
 
   const existing = await fetch(
-    `${serviceConfig.supabaseUrl}/rest/v1/feedback_survey_campaigns?id=eq.${encodeURIComponent(input.campaignId)}&select=id,title,body,audience_event_id,email_requested,push_requested&limit=1`,
+    `${serviceConfig.supabaseUrl}/rest/v1/feedback_survey_campaigns?id=eq.${encodeURIComponent(input.campaignId)}&select=id,title,body,audience_event_id,audience_user_id,email_requested,push_requested&limit=1`,
     { headers: serviceHeaders(serviceConfig, ""), cache: "no-store" }
   );
   if (!existing.ok) throw new Error("Unable to load survey campaign.");
@@ -242,6 +277,7 @@ async function upsertCampaign(
     title: string;
     body: string;
     audience_event_id: string | null;
+    audience_user_id: string | null;
     email_requested: boolean;
     push_requested: boolean;
   }>;
@@ -249,7 +285,8 @@ async function upsertCampaign(
     !campaign
     || campaign.title !== input.title
     || campaign.body !== input.body
-    || campaign.audience_event_id !== input.eventId
+    || campaign.audience_event_id !== (input.eventId ?? null)
+    || campaign.audience_user_id !== (input.userId ?? null)
     || campaign.email_requested !== input.sendEmail
     || campaign.push_requested !== input.sendPush
   ) {
@@ -330,8 +367,13 @@ export async function sendRacebookSurvey(
   serviceConfig: SupabaseServiceConfig,
   input: SurveySendInput & { adminId: string }
 ) {
-  const candidates = await loadRacebookReaderUserIds(input.eventId);
-  const recipients = await resolveSurveyRecipients(serviceConfig, candidates);
+  const candidates = input.userId
+    ? [input.userId]
+    : await loadRacebookReaderUserIds(input.eventId ?? "");
+  const recipients = input.userId
+    ? await resolveSingleSurveyRecipient(serviceConfig, input.userId)
+    : await resolveSurveyRecipients(serviceConfig, candidates);
+  if (input.userId && recipients.length === 0) throw new Error("This user account cannot receive surveys.");
   await upsertCampaign(serviceConfig, { ...input, recipientCount: recipients.length });
   await insertSurveyNotifications(serviceConfig, input, recipients);
 
@@ -366,6 +408,7 @@ const campaignRowSchema = z.object({
   id: z.string().uuid(),
   title: z.string(),
   body: z.string(),
+  audience_kind: z.string(),
   audience_event_id: z.string().nullable(),
   audience_label: z.string().nullable(),
   email_requested: z.boolean(),
@@ -447,7 +490,7 @@ export async function loadSurveyCampaigns(serviceConfig: SupabaseServiceConfig) 
     serviceConfig,
     "feedback_survey_campaigns",
     new URLSearchParams({
-      select: "id,title,body,audience_event_id,audience_label,email_requested,push_requested,recipient_count,created_at",
+      select: "id,title,body,audience_kind,audience_event_id,audience_label,email_requested,push_requested,recipient_count,created_at",
       order: "created_at.desc",
       limit: "50",
     }),
@@ -474,6 +517,7 @@ export async function loadSurveyCampaigns(serviceConfig: SupabaseServiceConfig) 
     id: campaign.id,
     title: campaign.title,
     body: campaign.body,
+    audienceKind: campaign.audience_kind,
     audienceEventId: campaign.audience_event_id,
     audienceLabel: campaign.audience_label,
     emailRequested: campaign.email_requested,

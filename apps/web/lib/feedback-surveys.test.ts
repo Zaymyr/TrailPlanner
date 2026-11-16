@@ -14,6 +14,7 @@ import {
   parseRacebookAudiences,
   sendRacebookSurvey,
   surveyNotificationId,
+  surveySendSchema,
 } from "./feedback-surveys";
 
 const serviceConfig = { supabaseUrl: "https://example.supabase.co", supabaseServiceRoleKey: "service" };
@@ -117,6 +118,7 @@ describe("sendRacebookSurvey", () => {
           title: "Ton avis",
           body: "Message",
           audience_event_id: "evt-1",
+          audience_user_id: null,
           email_requested: false,
           push_requested: true,
         }]);
@@ -198,5 +200,96 @@ describe("sendRacebookSurvey", () => {
       })
     ).rejects.toThrow("Campaign id is already used by a different survey.");
     expect(mocks.deliver).not.toHaveBeenCalled();
+  });
+});
+
+describe("sendRacebookSurvey to a single user", () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = [];
+
+  beforeEach(() => {
+    calls.length = 0;
+    mocks.deliver.mockReset();
+    mocks.deliver.mockResolvedValue({ push_status: "sent" });
+    let pendingReads = 0;
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL, init?: RequestInit) => {
+      const url = String(input);
+      calls.push({ url, init });
+      const json = (payload: unknown, status = 200) => new Response(JSON.stringify(payload), { status });
+      if (url.endsWith("/rpc/resolve_feedback_survey_single_recipient")) {
+        return json([{ user_id: ADMIN_ID, has_email: true, has_push: true }]);
+      }
+      if (url.includes("/feedback_survey_campaigns?on_conflict=id")) return new Response(null, { status: 201 });
+      if (url.includes("/feedback_survey_campaigns?id=eq.")) {
+        return json([{
+          title: "Ton avis",
+          body: "Message",
+          audience_event_id: null,
+          audience_user_id: ADMIN_ID,
+          email_requested: false,
+          push_requested: true,
+        }]);
+      }
+      if (url.includes("/user_notifications?on_conflict=id")) return new Response(null, { status: 201 });
+      if (url.includes("/user_notifications?") && init?.method === undefined) {
+        pendingReads += 1;
+        if (pendingReads > 1) return json([]);
+        return json([{
+          id: surveyNotificationId(CAMPAIGN_ID, ADMIN_ID),
+          user_id: ADMIN_ID,
+          kind: "feedback_survey",
+          title: "Ton avis",
+          body: "Message",
+          email_requested: false,
+          email_status: "not_requested",
+          push_requested: true,
+          push_status: "pending",
+          push_sent_count: 0,
+          created_at: "2026-11-16T10:00:00Z",
+        }]);
+      }
+      return json({ message: `Unexpected ${url}` }, 500);
+    }));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("skips PostHog, accepts an admin account and records a single_user campaign", async () => {
+    const result = await sendRacebookSurvey(serviceConfig, {
+      campaignId: CAMPAIGN_ID,
+      userId: ADMIN_ID,
+      userLabel: "admin@example.com",
+      title: "Ton avis",
+      body: "Message",
+      sendEmail: false,
+      sendPush: true,
+      adminId: ADMIN_ID,
+    });
+
+    expect(calls.some((call) => call.url.includes("posthog"))).toBe(false);
+    expect(calls.some((call) => call.url.endsWith("/rpc/resolve_feedback_survey_recipients"))).toBe(false);
+    const campaignCall = calls.find((call) => call.url.includes("/feedback_survey_campaigns?on_conflict=id"));
+    expect(JSON.parse(String(campaignCall?.init?.body))).toMatchObject({
+      audience_kind: "single_user",
+      audience_user_id: ADMIN_ID,
+      audience_event_id: null,
+      audience_label: "Test · admin@example.com",
+      recipient_count: 1,
+    });
+    const insertCall = calls.find((call) => call.url.includes("/user_notifications?on_conflict=id"));
+    expect((JSON.parse(String(insertCall?.init?.body)) as Array<{ user_id: string }>).map((row) => row.user_id))
+      .toEqual([ADMIN_ID]);
+    expect(result.audience).toEqual({ identifiedReaders: 1, recipients: 1, withPush: 1, withEmail: 1 });
+    expect(mocks.deliver).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("surveySendSchema", () => {
+  it("requires an event or a user", () => {
+    const base = { campaignId: CAMPAIGN_ID, title: "Ton avis", body: "Message" };
+    expect(surveySendSchema.safeParse(base).success).toBe(false);
+    expect(surveySendSchema.safeParse({ ...base, eventId: "evt-1" }).success).toBe(true);
+    expect(surveySendSchema.safeParse({ ...base, userId: ADMIN_ID.toUpperCase() }).data?.userId).toBe(ADMIN_ID);
   });
 });
