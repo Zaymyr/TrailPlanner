@@ -1,7 +1,7 @@
 ---
 title: Pacing Algorithm
 scope: business-rule
-last_verified: 2026-11-15
+last_verified: 2026-11-16
 # Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
 ai_priority: high
 related_files:
@@ -9,6 +9,8 @@ related_files:
   - apps/web/app/(planner)/race-planner/utils/pacing.ts
   - apps/web/app/(planner)/race-planner/utils/section-recompute.ts
   - apps/web/app/(planner)/race-planner/utils/segmentation.ts
+  - apps/web/app/(planner)/race-planner/utils/quick-estimate.ts
+  - apps/web/app/(planner)/race-planner/utils/__tests__/quick-estimate.test.ts
   - apps/web/app/(planner)/race-planner/utils/__tests__/planner-utils.test.ts
   - apps/web/app/(planner)/race-planner/utils/__tests__/section-recompute.test.ts
   - packages/fuel-planner/computeFuelPlan.ts
@@ -29,6 +31,12 @@ The additional `@trailplanner/shared` Supporter Guide export is a transport DTO 
 Supporter points between saved checkpoints use linear kilometer interpolation over plan arrival minutes. After a confirmed passage, points at or beyond the latest preceding confirmation receive that checkpoint's signed actual-versus-planned delta. This presentation calculation does not rewrite pacing sections or the snapshot. Completion uses the greatest plan duration or published cutoff/day offset, followed by a six-hour margin.
 
 The new `@trailplanner/shared` export does not change pace calculation. It only recalculates crew-facing absolute ETAs from immutable checkpoint `arrivalMinute` values after a confirmed passage; it never rewrites section pace or the stored plan.
+
+## Quick estimate and UTMB Index (2026-11-16)
+
+`utils/quick-estimate.ts` computes an account-free finishing time with the same `estimateEffortDurationSeconds` model and default fatigue (0.5) as the planner, start → each public ravito → finish, without pauses or per-section adjustments. The downsampled public route preview supplies the D+/D− shape and is scaled to the official distance, D+ and D− totals; without a profile, elevation is spread linearly. Stations outside `(0, distance)` are ignored.
+
+The UTMB Index is converted to a comfortable flat pace as `3.2 × 1000 / index` min/km (index clamped to 150–1000, pace to 3–15 min/km): 800 → 4:00, 520 → 6:09, 400 → 8:00. The 3.2 reference is a calibration assumption (an index around 950 lands near elite times on long mountain ultras with this model), not a published UTMB formula. <!-- TODO: verify with maintainer — UTMB Index → flat pace calibration --> When both inputs are given, the flat pace drives the main estimate and the UTMB figure is shown as a comparison. Public course pages reuse the module for three reference levels (5:00, 6:30, 8:00 /km).
 
 ## Purpose
 

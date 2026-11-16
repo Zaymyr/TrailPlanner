@@ -56,6 +56,7 @@ import { addSuppliesToInventory, consumeInventoryForTargets } from "../../../com
 import { trackPlanExported } from "../../../lib/product-analytics";
 import type { RunnerPlanAccess } from "../../../lib/runner-access";
 import { RunnerProfileStep } from "./components/RunnerProfileStep";
+import { QuickRaceEstimate } from "./components/QuickRaceEstimate";
 import { RunnerPlanPreview } from "./components/RunnerPlanPreview";
 import { rememberRunnerReturnPath } from "../../../lib/organizer-acquisition";
 import { RunnerAppBridge } from "../../courses/_components/RunnerAppBridge";
@@ -1979,6 +1980,10 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const planNameForSaveBar = planName.trim() || racePlannerCopy.account.plans.defaultName;
   const contextualRaceName = pendingCatalogRace?.name ?? activePlan?.raceName ?? null;
   const pagePlanTitle = racePlannerCopy.page.newPlanTitle;
+  // In runner mode, a visitor arriving from a public course page gets the
+  // account-free estimate instead of an account wall. The legacy guest planner
+  // (runner mode off) keeps loading the course directly.
+  const isQuickEstimateEntry = Boolean(runnerEnabled === true && (!session || session.isAnonymous) && pendingCatalogRaceId && !hasImportedCourse);
   const raceReturnPath = pendingCatalogRaceId
     ? `/race-planner?catalogRaceId=${encodeURIComponent(pendingCatalogRaceId)}`
     : "/race-planner";
@@ -2049,12 +2054,14 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
               <li aria-current="page" className="font-medium text-foreground">{pagePlanTitle}</li>
             </ol>
           </nav>
-          <h1 className="text-3xl font-semibold tracking-tight text-foreground dark:text-slate-50">
+          <h1 className={isQuickEstimateEntry ? "sr-only" : "text-3xl font-semibold tracking-tight text-foreground dark:text-slate-50"}>
             {pagePlanTitle}
           </h1>
         </div>
         {runnerEnabled === false ? <GuestSaveBanner isAuthed={isAuthed} /> : null}
-        {runnerEnabled === null ? <p role="status">{locale === "fr" ? "Chargement des accès…" : "Loading access…"}</p> : runnerEnabled && (!session || session.isAnonymous) && Boolean(contextualRaceName || pendingCatalogRaceId || hasImportedCourse) ? (
+        {runnerEnabled === null ? <p role="status">{locale === "fr" ? "Chargement des accès…" : "Loading access…"}</p> : isQuickEstimateEntry ? (
+          <QuickRaceEstimate race={pendingCatalogRace} returnPath={raceReturnPath} />
+        ) : runnerEnabled && (!session || session.isAnonymous) && Boolean(contextualRaceName || pendingCatalogRaceId || hasImportedCourse) ? (
           <section className="space-y-4 rounded-2xl border border-border bg-card p-6">
             <h2 className="text-xl font-semibold">
               {contextualRaceName

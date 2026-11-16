@@ -25,12 +25,27 @@ describe("event edition structured data", () => {
       startDate: "2026-09-12",
       endDate: "2026-09-13",
       location: { "@type": "Place", name: "Annecy" },
+      image: ["https://pace-yourself.com/branding/social-preview-v2.png"],
     }));
+    // Bare references: Google must not validate formats as partial Events.
     expect(data.subEvent).toEqual([
-      expect.objectContaining({ url: "https://pace-yourself.com/courses/trail-20-km", startDate: "2026-09-12" }),
-      expect.objectContaining({ url: "https://pace-yourself.com/courses/trail-42-km", startDate: "2026-09-13" }),
+      { "@id": "https://pace-yourself.com/courses/trail-20-km#event" },
+      { "@id": "https://pace-yourself.com/courses/trail-42-km#event" },
     ]);
     expect(buildEventEditionDescription(edition)).toContain("2 formats de 20 à 42 km");
+  });
+
+  it("adds a structured address from normalized format locality", () => {
+    const data = buildEventEditionStructuredData({
+      ...edition,
+      formats: [{ ...(edition as { formats: object[] }).formats[0], locationCity: "Annecy", locationRegion: "Auvergne-Rhône-Alpes", locationCountry: "France" }],
+    } as never, "https://pace-yourself.com/courses/evenements/festival-des-cimes-2026");
+
+    expect(data.location).toEqual({
+      "@type": "Place",
+      name: "Annecy",
+      address: { "@type": "PostalAddress", addressLocality: "Annecy", addressRegion: "Auvergne-Rhône-Alpes", addressCountry: "France" },
+    });
   });
 
   it("omits unknown optional fields", () => {
@@ -40,6 +55,6 @@ describe("event edition structured data", () => {
     expect(data).not.toHaveProperty("location");
     expect(data).not.toHaveProperty("offers");
     expect(serialized).not.toMatch(/price|priceCurrency|availability|postalCode/);
-    expect(data.subEvent[0].url).toBe("https://localhost:3000/courses/trail-20-km");
+    expect(data.subEvent[0]["@id"]).toBe("https://localhost:3000/courses/trail-20-km#event");
   });
 });

@@ -6,6 +6,7 @@ import { Input } from "../../../../components/ui/input";
 import { Label } from "../../../../components/ui/label";
 import { fetchUserProfile, updateUserProfile } from "../../../../lib/profile-client";
 import type { UserProfile } from "../../../../lib/profile-types";
+import { readStoredQuickEstimateInputs, type StoredQuickEstimateInputs } from "./QuickRaceEstimate";
 
 export function RunnerProfileStep({ token, locale, onComplete }: {
   token: string; locale: string; onComplete: (profile: UserProfile) => void;
@@ -15,6 +16,8 @@ export function RunnerProfileStep({ token, locale, onComplete }: {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quickEstimate, setQuickEstimate] = useState<StoredQuickEstimateInputs | null>(null);
+  useEffect(() => setQuickEstimate(readStoredQuickEstimateInputs()), []);
   useEffect(() => {
     const controller = new AbortController();
     fetchUserProfile(token, controller.signal).then(setProfile).catch(() => {
@@ -44,14 +47,15 @@ export function RunnerProfileStep({ token, locale, onComplete }: {
   }
   if (loading) return <p role="status">{fr ? "Chargement de ton profil…" : "Loading your profile…"}</p>;
   if (!profile) return <p role="alert">{error}</p>;
-  const paceSeconds = Math.round((profile.comfortableFlatPaceMinPerKm ?? 7.5) * 60);
+  // Values typed in the account-free estimate prefill an empty profile.
+  const paceSeconds = Math.round((profile.comfortableFlatPaceMinPerKm ?? quickEstimate?.flatPaceMinPerKm ?? 7.5) * 60);
   const fields = [
     { name: "fullName", label: fr ? "Prénom" : "First name", type: "text", value: profile.fullName ?? "", required: true },
     { name: "birthDate", label: fr ? "Date de naissance (facultatif)" : "Birth date (optional)", type: "date", value: profile.birthDate ?? "" },
     { name: "heightCm", label: fr ? "Taille en cm (facultatif)" : "Height in cm (optional)", type: "number", value: profile.heightCm ?? "", min: 100, max: 250 },
     { name: "weightKg", label: fr ? "Poids en kg (facultatif)" : "Weight in kg (optional)", type: "number", value: profile.weightKg ?? "", min: 20, max: 250, step: "0.1" },
     { name: "waterBagLiters", label: fr ? "Capacité en eau (L)" : "Water capacity (L)", type: "number", value: profile.waterBagLiters ?? 1.5, min: 0, max: 20, step: "0.1", required: true },
-    { name: "utmbIndex", label: fr ? "Indice UTMB (facultatif)" : "UTMB index (optional)", type: "number", value: profile.utmbIndex ?? "", min: 0, max: 2000 },
+    { name: "utmbIndex", label: fr ? "Indice UTMB (facultatif)" : "UTMB index (optional)", type: "number", value: profile.utmbIndex ?? quickEstimate?.utmbIndex ?? "", min: 0, max: 2000 },
     { name: "paceMinutes", label: fr ? "Allure confortable sur plat : minutes/km" : "Comfortable flat pace: minutes/km", type: "number", value: Math.floor(paceSeconds / 60), min: 0, max: 59, required: true },
     { name: "paceSeconds", label: fr ? "Secondes" : "Seconds", type: "number", value: paceSeconds % 60, min: 0, max: 59, required: true },
     { name: "carbs", label: fr ? "Cible glucidique (g/h)" : "Carbohydrate target (g/h)", type: "number", value: profile.defaultCarbsGPerHour ?? 60, min: 0, max: 200, required: true },

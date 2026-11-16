@@ -82,61 +82,40 @@ export default async function CoursesPage({ searchParams }: { searchParams?: Cat
   };
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-10 px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-6xl space-y-5 pb-6 sm:space-y-8 sm:pt-4 lg:px-2">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListData).replace(/</g, "\\u003c") }}
       />
-      <header className="max-w-3xl space-y-4">
-        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand">Calendrier trail</p>
-        <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
-          Trouvez votre prochaine course de trail
+      <header className="max-w-3xl space-y-2 sm:space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand sm:text-sm">Calendrier trail</p>
+        <h1 className="text-[1.75rem] font-bold leading-tight tracking-tight text-foreground sm:text-5xl">
+          Trouve ta prochaine course de trail
         </h1>
-        <p className="text-lg leading-8 text-muted-foreground">
-          Explorez les courses publiées sur Pace Yourself, comparez les distances et le dénivelé, puis préparez
-          votre stratégie d’allure et de nutrition.
+        <p className="text-sm leading-6 text-muted-foreground sm:text-lg sm:leading-8">
+          Parcours, dénivelé, ravitos et ton temps estimé gratuitement sur chaque course.
         </p>
-        <div className="flex flex-wrap gap-3">
-          <Link
-            href="/race-planner"
-            className="inline-flex h-11 items-center justify-center rounded-md bg-brand px-4 text-sm font-semibold text-brand-foreground transition hover:bg-brand-light"
-          >
-            Créer mon plan de course
-          </Link>
-          <Link
-            href={"/calculateur-glucides-trail" as Route}
-            className="inline-flex h-11 items-center justify-center rounded-md border border-border px-4 text-sm font-semibold text-foreground transition hover:border-brand-border hover:bg-brand-surface"
-          >
-            Calculer mes glucides par heure
-          </Link>
-        </div>
       </header>
 
       {distancePages.length ? (
-        <section className="space-y-4" aria-labelledby="distance-selections-heading">
-          <div className="space-y-2">
-            <h2 id="distance-selections-heading" className="text-2xl font-semibold text-foreground">
-              Explorer les courses par distance
-            </h2>
-            <p className="text-muted-foreground">
-              Accédez aux sélections qui contiennent suffisamment de courses publiées pour être réellement utiles.
-            </p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <nav aria-labelledby="distance-selections-heading" className="space-y-2">
+          <h2 id="distance-selections-heading" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Explorer par distance
+          </h2>
+          <ul className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0">
             {distancePages.map(({ page, races: matchingRaces }) => (
-              <Link
-                key={page.slug}
-                href={`/courses/distances/${page.slug}` as Route}
-                className="rounded-xl border border-border bg-card p-5 transition hover:border-brand-border hover:bg-brand-surface"
-              >
-                <span className="font-semibold text-foreground">{page.label}</span>
-                <span className="mt-1 block text-sm text-muted-foreground">
-                  {matchingRaces.length} course{matchingRaces.length > 1 ? "s" : ""}
-                </span>
-              </Link>
+              <li key={page.slug} className="shrink-0">
+                <Link
+                  href={`/courses/distances/${page.slug}` as Route}
+                  className="inline-flex min-h-10 items-center gap-2 rounded-full border border-border bg-card px-4 text-sm font-semibold text-foreground transition hover:border-brand-border hover:bg-brand-surface"
+                >
+                  {page.label}
+                  <span className="rounded-full bg-brand-surface px-2 text-xs text-brand">{matchingRaces.length}</span>
+                </Link>
+              </li>
             ))}
-          </div>
-        </section>
+          </ul>
+        </nav>
       ) : null}
 
       <RaceCatalogFilter view={catalogView} />

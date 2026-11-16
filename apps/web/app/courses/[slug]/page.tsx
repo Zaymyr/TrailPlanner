@@ -14,11 +14,13 @@ import { PublicElevationProfile } from "../_components/PublicElevationProfile";
 import { RaceLinksCarousel } from "../_components/RaceLinksCarousel";
 import { RaceAidStationsTimeline } from "../_components/RaceAidStationsTimeline";
 import { RaceHeroSummary } from "../_components/RaceHeroSummary";
-import { RaceMetricsDetails } from "../_components/RaceMetricsDetails";
 import { RaceRouteExplorer } from "../_components/RaceRouteExplorer";
+import { RaceSectionTabs } from "../_components/RaceSectionTabs";
+import { RaceTimeEstimates } from "../_components/RaceTimeEstimates";
 import { RunnerAppBridge } from "../_components/RunnerAppBridge";
 import { buildRaceMetadataDescription, buildRaceMetadataTitle, formatPublicRaceDate } from "./race-metadata";
 import { buildRaceOverview, buildRaceStructuredData } from "./race-structured-data";
+import { buildReferenceEstimates, formatReferenceRange } from "./race-time-estimates";
 
 export const revalidate = 900;
 export const dynamicParams = true;
@@ -132,7 +134,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { race } = resolution;
   const canonicalPath = `/courses/${race.slug}`;
   const title = buildRaceMetadataTitle(race);
-  const description = buildDescription(race);
+  // Same cached read as the page body: the snippet shows the same reference times.
+  let estimateRange: string | null = null;
+  try {
+    const detail = await getPublicRaceDetail(race);
+    estimateRange = detail ? formatReferenceRange(buildReferenceEstimates(detail)) : null;
+  } catch {
+    estimateRange = null;
+  }
+  const description = buildDescription(race, estimateRange);
   const openGraphImages = race.thumbnailUrl
     ? [{ url: race.thumbnailUrl, alt: race.name }]
     : [DEFAULT_SOCIAL_IMAGE];
@@ -178,7 +188,9 @@ export default async function RacePage({ params }: PageProps) {
       ),
     ),
   );
-  const structuredData = buildRaceStructuredData(race, canonicalUrl);
+  const referenceEstimates = buildReferenceEstimates(race);
+  const structuredData = buildRaceStructuredData(race, canonicalUrl, formatReferenceRange(referenceEstimates));
+  const estimateHref = `/race-planner?catalogRaceId=${race.id}`;
   const eventEditionUrl = race.eventEditionSlug
     ? new URL(`/courses/evenements/${race.eventEditionSlug}`, SITE_URL).toString()
     : null;
@@ -228,67 +240,58 @@ export default async function RacePage({ params }: PageProps) {
   const accessSummary = access.startAddress ?? access.startLocation.label ?? null;
   const bibSummary = bib.locations.length ? `${bib.locations.length} point${bib.locations.length > 1 ? "s" : ""} de retrait` : null;
 
+  const sectionTabs = [
+    referenceEstimates.length ? { id: "temps", label: "Mon temps" } : null,
+    { id: "route", label: "Parcours" },
+    race.aidStations.length ? { id: "ravitos", label: "Ravitos" } : null,
+    hasPractical ? { id: "infos-pratiques", label: "Infos pratiques" } : null,
+    otherFormats.length || similarRaces.length ? { id: "a-decouvrir", label: "Autres courses" } : null,
+  ].filter((tab): tab is { id: string; label: string } => Boolean(tab));
+
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-9 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+    <div className="mx-auto w-full max-w-6xl space-y-5 pb-24 sm:space-y-8 sm:px-0 sm:pb-10 lg:px-2">
       {structuredData ? (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
       ) : null}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbData).replace(/</g, "\\u003c") }} />
 
-      <nav aria-label="Fil d’Ariane" className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-        <Link className="hover:text-brand hover:underline" href="/">Accueil</Link>
+      <nav aria-label="Fil d’Ariane" className="flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-xs text-muted-foreground sm:text-sm">
+        <Link className="shrink-0 hover:text-brand hover:underline" href="/">Accueil</Link>
         <span aria-hidden="true">/</span>
-        <Link className="hover:text-brand hover:underline" href={"/courses" as Route}>Courses</Link>
+        <Link className="shrink-0 hover:text-brand hover:underline" href={"/courses" as Route}>Courses</Link>
         <span aria-hidden="true">/</span>
         {race.eventEditionSlug && race.eventName ? (
           <>
-            <Link className="hover:text-brand hover:underline" href={`/courses/evenements/${race.eventEditionSlug}` as Route}>{race.eventName}</Link>
+            <Link className="truncate hover:text-brand hover:underline" href={`/courses/evenements/${race.eventEditionSlug}` as Route}>{race.eventName}</Link>
             <span aria-hidden="true">/</span>
           </>
         ) : null}
         <span aria-current="page" className="truncate text-foreground">{race.name}</span>
       </nav>
 
-      <RaceHeroSummary race={race} formattedDate={formattedDate} formattedEndDate={formattedEndDate} canonicalUrl={canonicalUrl} otherFormats={otherFormats} />
-
-      {race.eventEditionSlug && race.eventName ? (
-        <Link href={`/courses/evenements/${race.eventEditionSlug}` as Route} className="inline-flex min-h-11 items-center font-semibold text-brand hover:underline">
-          Tous les formats de {race.eventName}
-        </Link>
-      ) : null}
-
-      <RunnerAppBridge
-        courseName={race.name}
-        universalUrl={canonicalUrl}
-        racebookAvailable={race.racebookAvailableInApp}
+      <RaceHeroSummary
+        race={race}
+        formattedDate={formattedDate}
+        formattedEndDate={formattedEndDate}
+        canonicalUrl={canonicalUrl}
+        otherFormats={otherFormats}
+        estimateHref={estimateHref}
       />
 
-      <RaceMetricsDetails race={race} />
+      <RaceSectionTabs tabs={sectionTabs} />
 
-      <section className="space-y-2" aria-labelledby="race-overview-heading">
-        <h2 id="race-overview-heading" className="text-2xl font-semibold text-foreground">Présentation de la course</h2>
-        <p className="max-w-4xl leading-7 text-muted-foreground">{buildRaceOverview(race, formattedDate)}</p>
-      </section>
+      <RaceTimeEstimates raceName={race.name} estimates={referenceEstimates} estimateHref={estimateHref} />
 
-      <nav aria-label="Navigation rapide" className="flex flex-wrap gap-4 text-sm font-semibold text-brand lg:hidden">
-        <a className="scroll-mt-4 hover:underline" href="#route">Parcours</a>
-        {race.aidStations.length ? <a className="scroll-mt-4 hover:underline" href="#ravitos">Ravitos</a> : null}
-        {hasPractical ? <a className="scroll-mt-4 hover:underline" href="#infos-pratiques">Infos</a> : null}
-      </nav>
-
-      <div className="grid gap-8 lg:grid-cols-3">
-        <div className="space-y-9 lg:col-span-2">
-          <section id="route" className="scroll-mt-4 space-y-5" aria-labelledby="course-route-heading">
-            <div className="space-y-2">
-              <h2 id="course-route-heading" className="text-2xl font-semibold text-foreground">Parcours et profil altimétrique</h2>
-              <p className="text-muted-foreground">Visualisez le tracé disponible et les principaux repères d’altitude.</p>
-            </div>
+      <div className="grid gap-5 sm:gap-8 lg:grid-cols-3">
+        <div className="space-y-5 sm:space-y-8 lg:col-span-2">
+          <section id="route" className="scroll-mt-16 space-y-3" aria-labelledby="course-route-heading">
+            <h2 id="course-route-heading" className="text-xl font-bold text-foreground sm:text-2xl">Parcours et profil</h2>
             {race.routePreview?.points.length ? (
-              <div className="space-y-5">
+              <div className="space-y-3">
                 <RaceRouteExplorer
                   points={race.routePreview.points.map((point) => ({ ...point, elevationM: point.elevationM ?? 0 }))}
                   aidStations={race.aidStations.map((station) => ({ name: station.name, distanceKm: station.distanceKm }))}
-                  heightClassName="h-72 sm:h-96"
+                  heightClassName="h-56 sm:h-96"
                 />
                 <PublicElevationProfile points={race.routePreview.points} aidStations={race.aidStations} />
               </div>
@@ -298,17 +301,17 @@ export default async function RacePage({ params }: PageProps) {
           </section>
 
           {race.aidStations.length ? (
-            <section id="ravitos" className="scroll-mt-4 space-y-4" aria-labelledby="aid-stations-heading">
-              <div>
-                <h2 id="aid-stations-heading" className="text-2xl font-semibold text-foreground">Ravitaillements</h2>
-                <p className="mt-1 text-muted-foreground">{race.aidStations.length} point{race.aidStations.length > 1 ? "s" : ""} renseigné{race.aidStations.length > 1 ? "s" : ""}.</p>
-              </div>
+            <section id="ravitos" className="scroll-mt-16 space-y-3" aria-labelledby="aid-stations-heading">
+              <h2 id="aid-stations-heading" className="flex items-baseline gap-2 text-xl font-bold text-foreground sm:text-2xl">
+                Ravitaillements
+                <span className="text-sm font-medium text-muted-foreground">{race.aidStations.length} point{race.aidStations.length > 1 ? "s" : ""}</span>
+              </h2>
               <RaceAidStationsTimeline aidStations={race.aidStations} aidStationDetails={race.aidStationDetails} totalDistanceKm={race.distanceKm} />
             </section>
           ) : null}
         </div>
 
-        <aside className="space-y-4 lg:sticky lg:top-4 lg:col-span-1 lg:self-start">
+        <aside className="hidden space-y-4 lg:sticky lg:top-20 lg:col-span-1 lg:block lg:self-start">
           <Card>
             <CardContent className="space-y-3 py-6">
               <h2 className="text-lg font-semibold text-foreground">Informations clés</h2>
@@ -321,7 +324,7 @@ export default async function RacePage({ params }: PageProps) {
                 </a>
               ) : null}
               <Link
-                href={`/race-planner?catalogRaceId=${race.id}` as Route}
+                href={estimateHref as Route}
                 className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-brand px-4 text-sm font-semibold text-brand-foreground transition hover:bg-brand-light"
               >
                 Estimer mon temps sur cette course — gratuit
@@ -332,11 +335,11 @@ export default async function RacePage({ params }: PageProps) {
       </div>
 
       {hasPractical ? (
-        <section id="infos-pratiques" className="scroll-mt-4 space-y-4" aria-labelledby="practical-heading">
-          <h2 id="practical-heading" className="text-2xl font-semibold text-foreground">Informations pratiques</h2>
-          <div className="rounded-xl border border-border bg-card px-5">
+        <section id="infos-pratiques" className="scroll-mt-16 space-y-3" aria-labelledby="practical-heading">
+          <h2 id="practical-heading" className="text-xl font-bold text-foreground sm:text-2xl">Informations pratiques</h2>
+          <div className="rounded-2xl border border-border bg-card px-4 sm:px-5">
             {hasEssentialPractical ? (
-              <p className="pt-5 text-xs font-semibold uppercase tracking-wide text-brand">Essentiel pour courir</p>
+              <p className="pt-4 text-xs font-semibold uppercase tracking-wide text-brand">Essentiel pour courir</p>
             ) : null}
             {hasSchedule ? (
               <AccordionItem title="Horaires et barrières" icon={<ClockIcon />} summary={scheduleSummary} defaultOpen>
@@ -388,7 +391,7 @@ export default async function RacePage({ params }: PageProps) {
               </AccordionItem>
             ) : null}
             {hasComplementaryPractical ? (
-              <p className="pt-5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Informations complémentaires</p>
+              <p className="pt-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Informations complémentaires</p>
             ) : null}
             {hasEquipment ? (
               <AccordionItem title="Matériel" icon={<BackpackIcon />}>
@@ -430,31 +433,43 @@ export default async function RacePage({ params }: PageProps) {
         </section>
       ) : null}
 
-      <section>
-        <Card>
-          <CardContent className="space-y-4 py-7">
-            <h2 className="text-2xl font-semibold text-foreground">Estimer mes glucides</h2>
-            <p className="leading-7 text-muted-foreground">Obtenez un premier objectif de glucides par heure à tester pendant vos entraînements.</p>
-            <Link href={"/calculateur-glucides-trail" as Route} className="inline-flex min-h-11 items-center justify-center rounded-md border border-border px-4 text-sm font-semibold text-foreground transition hover:border-brand-border hover:bg-brand-surface">Ouvrir le calculateur</Link>
-          </CardContent>
-        </Card>
+      <RunnerAppBridge
+        courseName={race.name}
+        universalUrl={canonicalUrl}
+        racebookAvailable={race.racebookAvailableInApp}
+      />
+
+      <Link
+        href={"/calculateur-glucides-trail" as Route}
+        className="flex min-h-14 items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3 transition hover:border-brand-border hover:bg-brand-surface"
+      >
+        <span>
+          <span className="block font-semibold text-foreground">Combien de glucides par heure ?</span>
+          <span className="block text-sm text-muted-foreground">Obtiens un premier objectif à tester à l’entraînement.</span>
+        </span>
+        <span aria-hidden="true" className="text-xl text-brand">›</span>
+      </Link>
+
+      <section className="space-y-2" aria-labelledby="race-overview-heading">
+        <h2 id="race-overview-heading" className="text-xl font-bold text-foreground sm:text-2xl">À propos de {race.name}</h2>
+        <p className="max-w-4xl text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">{buildRaceOverview(race, formattedDate)}</p>
       </section>
 
       {otherFormats.length || similarRaces.length ? (
-        <section className="space-y-8 rounded-2xl bg-muted/60 p-6 sm:p-8" aria-labelledby="discover-more-heading">
-          <div className="space-y-2">
-            <h2 id="discover-more-heading" className="text-2xl font-semibold text-foreground">Autres courses à découvrir</h2>
-            <p className="text-muted-foreground">Ces suggestions ne font pas partie des informations de cette course : elles vous aident à comparer et explorer d’autres options.</p>
+        <section id="a-decouvrir" className="-mx-4 scroll-mt-16 space-y-5 bg-muted/60 px-4 py-5 sm:mx-0 sm:rounded-2xl sm:p-8" aria-labelledby="discover-more-heading">
+          <div className="space-y-1">
+            <h2 id="discover-more-heading" className="text-xl font-bold text-foreground sm:text-2xl">Autres courses à découvrir</h2>
+            <p className="text-sm text-muted-foreground">Suggestions pour comparer : elles ne font pas partie des informations de cette course.</p>
           </div>
           {otherFormats.length ? (
             <div className="space-y-3" aria-labelledby="other-formats-heading">
-              <h3 id="other-formats-heading" className="text-lg font-semibold text-foreground">Autres formats de cette édition</h3>
+              <h3 id="other-formats-heading" className="text-base font-semibold text-foreground">Autres formats de cette édition</h3>
               <RaceLinksCarousel races={otherFormats} />
             </div>
           ) : null}
           {similarRaces.length ? (
             <div className="space-y-3" aria-labelledby="similar-races-heading">
-              <h3 id="similar-races-heading" className="text-lg font-semibold text-foreground">Courses de distance similaire</h3>
+              <h3 id="similar-races-heading" className="text-base font-semibold text-foreground">Courses de distance similaire</h3>
               <RaceLinksCarousel races={similarRaces} />
             </div>
           ) : null}
@@ -462,8 +477,8 @@ export default async function RacePage({ params }: PageProps) {
       ) : null}
 
       {officialUrls.length || race.instagramUrl || race.facebookUrl ? (
-        <section className="space-y-4 rounded-xl border border-border bg-card p-6" aria-labelledby="official-links-heading">
-          <h2 id="official-links-heading" className="text-2xl font-semibold text-foreground">Liens officiels</h2>
+        <section className="space-y-3 rounded-2xl border border-border bg-card p-4 sm:p-6" aria-labelledby="official-links-heading">
+          <h2 id="official-links-heading" className="text-xl font-bold text-foreground sm:text-2xl">Liens officiels</h2>
           <p className="text-sm leading-6 text-muted-foreground">Vérifiez toujours les horaires, le parcours et le règlement définitifs auprès de l’organisation.</p>
           <div className="flex flex-wrap gap-2">
             {officialUrls.map((url, index) => <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center rounded-md border border-border px-4 text-sm font-semibold text-brand hover:bg-brand-surface">{index === 0 && race.externalSiteUrl ? "Site du format" : "Site de l’événement"}</a>)}
@@ -472,6 +487,15 @@ export default async function RacePage({ params }: PageProps) {
           </div>
         </section>
       ) : null}
+
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur lg:hidden">
+        <Link
+          href={estimateHref as Route}
+          className="flex min-h-12 w-full items-center justify-center rounded-xl bg-brand px-5 text-base font-semibold text-brand-foreground transition hover:bg-brand-light"
+        >
+          Estimer mon temps — gratuit
+        </Link>
+      </div>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 ---
 title: Nutrition Algorithm
 scope: business-rule
-last_verified: 2026-11-15
+last_verified: 2026-11-16
 # Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
 ai_priority: high
 related_files:
@@ -83,6 +83,8 @@ related_tables:
 ---
 
 # Nutrition Algorithm
+
+Anonymous course entry (2026-11-16): in runner mode, `RacePlannerPageContent` renders the account-free `QuickRaceEstimate` for an anonymous visitor with a pending catalog race instead of the account screen. It creates no plan and reads no aid-station products, supplies or nutrition allocation; those flows start unchanged after authentication.
 
 Segment construction discards any checkpoint whose distance is not strictly greater than the previous retained checkpoint. Duplicate or backward organizer arrivals therefore cannot produce a zero-length `Arrivée → Arrivée` nutrition segment.
 

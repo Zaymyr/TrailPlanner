@@ -30,7 +30,7 @@ export function RaceAidStationsTimeline({
   ];
 
   return (
-    <ol className="rounded-xl border border-border bg-card p-5">
+    <ol className="rounded-2xl border border-border bg-card p-4">
       {entries.map((entry, index) => {
         const isLast = index === entries.length - 1;
 
@@ -86,7 +86,7 @@ export function RaceAidStationsTimeline({
               <span className={`mt-1.5 h-3 w-3 shrink-0 rounded-full border-2 ${dotColor[entry.kind]}`} aria-hidden="true" />
               {!isLast ? <span className="w-0.5 flex-1 bg-border" aria-hidden="true" /> : null}
             </div>
-            <div className={isLast ? "pb-0" : "pb-6"}>
+            <div className={isLast ? "pb-0" : "pb-4"}>
               <p className="font-semibold text-foreground">{heading}</p>
               {details}
             </div>
