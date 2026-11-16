@@ -29,11 +29,11 @@ export function RunnerAppBridge({
       : "Prépare et suis ta course dans l’app";
 
   return (
-    <section className="rounded-2xl border border-brand-border bg-brand-surface p-6 sm:p-8" aria-labelledby="runner-app-heading">
+    <section className="rounded-2xl border border-brand-border bg-brand-surface p-4 sm:p-8" aria-labelledby="runner-app-heading">
       <div className="grid items-center gap-6 md:grid-cols-[1fr_auto]">
-        <div className="space-y-3">
-          <h2 id="runner-app-heading" className="text-2xl font-semibold text-foreground">{title}</h2>
-          <p className="max-w-2xl leading-7 text-muted-foreground">
+        <div className="space-y-2 sm:space-y-3">
+          <h2 id="runner-app-heading" className="text-lg font-bold text-foreground sm:text-2xl">{title}</h2>
+          <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
             {racebookAvailable
               ? "Retrouve les informations officielles publiées par l’organisation et garde-les à portée de main le jour J."
               : "Retrouve tes courses, tes estimations et les informations publiées par les organisateurs au même endroit."}

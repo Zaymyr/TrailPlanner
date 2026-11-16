@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_slug_redirects
 scope: database
-last_verified: 2026-11-13
+last_verified: 2026-11-16
 ai_priority: high
 related_files:
   - supabase/migrations/20261113200326_add_race_event_edition_slugs.sql
@@ -42,6 +42,7 @@ RLS is enabled with no `anon` or `authenticated` policy or table privilege. Only
 - Do not grant client reads merely because the route is public. The service resolver is the reviewed boundary.
 - Do not update an edition slug from a browser or bypass the atomic rename function.
 - Event-edition resolution participates in the shared tagged public cache. Successful source, publication, visibility, image, and ravito writes invalidate that cache; the redirect table contract itself is unchanged.
+- The 2026-11-16 event-page redesign (shared hero, distance-sorted format list, `@id`-only `subEvent` references) is presentation and JSON-LD only: slug resolution, redirect-before-render and visibility rechecks are unchanged.
 - Past canonical pages remain indexable and may link to the next public edition. This navigation uses the current canonical slug of each edition and never creates a redirect chain.
 
 ## Related Docs

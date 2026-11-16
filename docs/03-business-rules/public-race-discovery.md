@@ -1,7 +1,7 @@
 ---
 title: Public Race Discovery
 scope: business-rule
-last_verified: 2026-11-15
+last_verified: 2026-11-16
 # Structured access phase (2026-11-15): public race pages summarize parking and shuttle collections without exposing each logistics record; historical text remains the fallback.
 ai_priority: high
 related_files:
@@ -33,6 +33,12 @@ related_files:
   - apps/web/app/courses/[slug]/page.tsx
   - apps/web/app/courses/[slug]/race-structured-data.ts
   - apps/web/app/courses/[slug]/race-structured-data.test.ts
+  - apps/web/app/courses/[slug]/race-time-estimates.ts
+  - apps/web/app/courses/_components/RaceTimeEstimates.tsx
+  - apps/web/app/courses/_components/RaceSectionTabs.tsx
+  - apps/web/app/courses/_components/PublicHeroShell.tsx
+  - apps/web/app/api/race-estimate/route.ts
+  - apps/web/app/api/race-estimate/route.test.ts
   - apps/web/app/courses/evenements/[slug]/page.tsx
   - apps/web/app/courses/evenements/[slug]/event-structured-data.ts
   - apps/web/app/courses/evenements/[slug]/event-structured-data.test.ts
@@ -45,7 +51,6 @@ related_files:
   - apps/web/app/courses/_components/PublicRaceShare.tsx
   - apps/web/app/courses/_components/PublicElevationProfile.tsx
   - apps/web/app/courses/_components/RaceHeroSummary.tsx
-  - apps/web/app/courses/_components/RaceMetricsDetails.tsx
   - apps/web/app/courses/_components/RaceRouteExplorer.tsx
   - apps/web/app/courses/_components/RaceAidStationsTimeline.tsx
   - apps/web/app/courses/_components/RunnerAppBridge.tsx
@@ -70,6 +75,16 @@ related_tables:
 ---
 
 # Public Race Discovery
+
+Course page time estimates (2026-11-16): `/courses/[slug]` shows « Combien de temps pour finir … ? » with three reference levels (comfortable flat pace 5:00, 6:30 and 8:00 /km) computed by `buildReferenceEstimates` with the planner effort model (`quick-estimate.ts`, see Pacing Algorithm). They are published only when the format has a known distance **and** D+, are labelled as Pace Yourself estimates excluding pauses, and never replace official cutoffs. The fastest–slowest range is reused in the meta description and the `SportsEvent.description`, so the snippet and the page show the same figures. This is the only derived duration the page may show; difficulty, weather and other facts still must not be generated.
+
+Account-free estimate (2026-11-16): `POST /api/race-estimate` (`catalogRaceId` + comfortable flat pace and/or UTMB Index, IP rate-limited 20/min) re-resolves the race through `getPublicRaces` and `getPublicRaceDetail`, so the same web-public gates apply. It returns only aggregated times (total, average pace, per-ravito elapsed time) — never route points, coordinates or the GPX. The planner uses it for anonymous visitors arriving from a course page in runner mode.
+
+Event JSON-LD references (2026-11-16): Search Console reported nested Events missing `startDate`, `organizer`, `eventStatus`, `offers`, `endDate` and `image`. A format's `superEvent` and an edition's `subEvent` entries are now bare `{"@id": "<canonical url>#event"}` references to the complete `SportsEvent` each page publishes, so Google no longer validates partial nested Events. Every emitted `SportsEvent` has an `image` (format/event image, otherwise the absolute shared social image), and the edition `Place` adds a `PostalAddress` from the formats' normalized parent-event city/region/country when available. `performer` stays absent: no verified performer exists for a race.
+
+Catalog and event page layout (2026-11-16): `/courses` uses a compact header, horizontally scrolling distance-selection pills, a compact GET form (sticky only from `lg`) and a 1/2/3-column grid of event cards. Each card shows the veiled event image (or a brand header), edition year, format count, date and location, then up to three format rows (distance badge, label, D+, date when formats differ); further formats stay in the HTML behind a native `<details>`. Inside an event context the row label drops a leading copy of the event name (`getFormatLabelWithinEvent`, display only; the link `title` keeps the full name). `/courses/evenements/[slug]` reuses `PublicHeroShell` (formats, distance range, max D+, day count), lists formats sorted by distance with a stopwatch link to the account-free estimate for each, then common information, app bridge and the factual overview.
+
+Course page layout (2026-11-16): app-style hero (veiled photo carrying event/name/date/location, horizontally scrollable metric strip — distance, D+, D−, departure, cutoff, ravitos, max altitude — then the estimate CTA and the registration link), a sticky section tab bar (`RaceSectionTabs`), the reference times, route/profile, ravitos, practical information, app bridge, a compact carbohydrate-calculator link, « À propos » overview, discovery and official links. A fixed bottom estimate CTA is shown below `lg`. `RaceMetricsDetails` is removed: its D−/altitude values live in the hero strip. On mobile the page relies on the RootChrome horizontal padding only.
 
 The web Supporter Guide programme is grouped by calendar day from the server `timeline`, with localized dates/distances and cutoffs labelled with their weekday when they fall after the race day.
 
@@ -115,28 +130,28 @@ When a private GPX object exists, the server downloads and parses it only after 
 
 The page always exposes `BreadcrumbList` structured data and exposes `SportsEvent` only when the format has a valid calendar `startDate` in strict `YYYY-MM-DD` form. Its `Place` may use the verified start label, start coordinates, start-address string, and normalized parent city/region/country; unavailable postal components are omitted and a place name is never inserted into `PostalAddress`. `eventStatus` is `EventScheduled` because the current schema has no cancellation/postponement status. The organizer is the known event identity (falling back to the format identity) with its official HTTP(S) website when available. The registration action becomes an `Offer` containing only its URL; price, currency, and availability remain absent because the catalog does not store them.
 
-`endDate` remains the same date for a single-day edition. A later canonical edition end is emitted only when unambiguous stored start and finish-cutoff clocks prove an overnight format by wrapping past midnight; prose or incomplete clocks cannot establish that fact. Formats attached to a slugged edition emit a `superEvent` reference to its canonical event page. Open Graph and Twitter use the format image first, the event image second, and the shared Pace Yourself social image last. SEO titles are capped at 60 characters, reserve a factual distance/year suffix, and truncate the middle of long names so both the event prefix and distinguishing format suffix survive; descriptions are capped at 160 characters. It links to:
+`endDate` remains the same date for a single-day edition. A later canonical edition end is emitted only when unambiguous stored start and finish-cutoff clocks prove an overnight format by wrapping past midnight; prose or incomplete clocks cannot establish that fact. Formats attached to a slugged edition emit a `superEvent` reference to its canonical event page. Open Graph and Twitter use the format image first, the event image second, and the shared Pace Yourself social image last. SEO titles are capped at 60 characters, reserve a factual distance/year suffix, and truncate the middle of long names so both the event prefix and distinguishing format suffix survive; when the full name fits, a distance already present in the name is not repeated and a « · temps & ravitos » hook is appended if it still fits. Descriptions are capped at 160 characters and end with the reference time range (or a generic estimate invitation when no range can be computed). It links to:
 
 - other published formats sharing the same event edition, with the legacy event-only fallback when `edition_id` is absent;
 - up to three published races from other events with the nearest distance, using elevation only as a tie-breaker;
-- the planner at `/race-planner?catalogRaceId=<race-id>` and the carbohydrate calculator;
+- the planner at `/race-planner?catalogRaceId=<race-id>` (hero, reference-times block, desktop aside and mobile fixed bar) and the carbohydrate calculator;
 - distinct format/event official sources and available official event social profiles.
 
 Sharing uses the native Web Share sheet when available, which lets installed mobile apps such as Instagram participate. Facebook remains a direct action, copy is always explicit, and the main action falls back to copy when Web Share is unavailable. Native cancellation does not trigger a surprise copy. Missing Clipboard support falls back to the browser copy command and reports success/failure through an accessible live status.
 
 ## Catalog Event Grouping
 
-Every public edition with at least one web-public format has one canonical `/courses/evenements/[slug]` page. It lists only that edition's public formats, their factual distance, D+, date, location and ravito count, and sanitized practical information inherited from the event. It emits one parent `SportsEvent` with format `subEvent` entries. Former edition slugs permanently redirect after the current event and format visibility gates are rechecked. The sitemap deduplicates event-edition URLs and uses the newest edition, event, or format timestamp available; station rows currently have no `updated_at`, so station-only changes cannot improve `<lastmod>` evidence.
+Every public edition with at least one web-public format has one canonical `/courses/evenements/[slug]` page. It lists only that edition's public formats (sorted by distance), their factual distance, D+, date and ravito count, and sanitized practical information inherited from the event. It emits one parent `SportsEvent` whose `subEvent` entries are `@id` references to the format pages. Former edition slugs permanently redirect after the current event and format visibility gates are rechecked. The sitemap deduplicates event-edition URLs and uses the newest edition, event, or format timestamp available; station rows currently have no `updated_at`, so station-only changes cannot improve `<lastmod>` evidence.
 
 Historical edition pages remain indexable and canonical. After the inclusive `end_date` has passed in Europe/Paris, they show an “Édition terminée” banner; if the same event has a later edition with at least one web-public format, the banner links directly to it. An already-published later edition is also highlighted from a non-past page.
 
-Each event-edition header exposes one `S’inscrire` action sourced from the shared event website. Distance-selection cards use the same target, while standalone cards fall back to the format URL and retain a separate internal course-detail link.
+Each event-edition header exposes one registration action (« S’inscrire sur le site officiel ») sourced from the shared event website, after the primary « Estimer mon temps » jump to the format list. Distance-selection cards use the same target, while standalone cards fall back to the format URL and retain a separate internal course-detail link.
 
 The `/courses` catalog groups published formats by stable non-null `event_id + edition_id`. Historical rows with an event but no edition fall back to `event_id`; a display name is never an identity and two homonymous events remain separate. Each standalone race with no event id stays in its own card. Formats are ordered by numeric distance with unknown values last.
 
 The default temporal filter contains upcoming/current formats followed by undated formats. Past formats are available separately and sorted newest first; the `Toutes` view keeps upcoming, undated, then past. Search is accent- and punctuation-insensitive, matches every entered token regardless of order, and covers format/event names plus every allowlisted format and normalized parent-event locality. It combines with distance and temporal filters through a server GET form. Visible result counters and a reset action describe the active state.
 
-Filtering happens before grouping, so an event-edition card disappears when none of its formats matches. Every visible format remains a normal HTML link to `/courses/[slug]`. Event-edition cards use the shared event image and year/date where available; standalone formats use their own image. A format image remains the first detail-page image choice. Missing images reserve no empty visual area. The responsive card layout stacks at narrow widths, keeps controls at least 44 px high and avoids horizontal tables.
+Filtering happens before grouping, so an event-edition card disappears when none of its formats matches. Every visible format remains a normal HTML link to `/courses/[slug]`, including formats collapsed behind the card's « autres formats » disclosure. Event-edition cards use the shared event image and year/date where available; standalone formats use their own image. A format image remains the first detail-page image choice. Missing images reserve no empty visual area. The responsive card layout stacks at narrow widths, keeps controls at least 44 px high and avoids horizontal tables.
 
 The catalog paginates on the server at 12 event-edition groups per response and emits an `ItemList` only for the visible page, with positions continuing across pages. The full public race collection is never serialized into a client component. Unfiltered numbered pages have self-canonicals and crawlable previous/next links; out-of-range pages return not found. Search, distance, and period query combinations are `noindex,follow` and canonicalize to `/courses`, preventing a filter-index explosion while preserving discovery links.
 
@@ -171,6 +186,11 @@ Edition slugs follow the same no-chain rule through `race_event_edition_slug_red
 `scripts/audit-public-race-slugs.mjs` is the review-only preparation step. It reads published catalog data with an anon/publishable key, refuses elevated keys, reports technical slugs and deterministic French-readable proposals, resolves candidate collisions with location then a stable id suffix, and performs zero writes. A proposal is not authorization to rename; approved changes must use the service-only atomic RPC after the migration is deployed.
 
 ## Gotchas
+
+- Keep nested `subEvent`/`superEvent` as bare `@id` references. Adding `@type` or a name back turns them into partial Events that Search Console flags (missing `startDate`, `organizer`, …).
+
+- Reference times and the account-free estimate are derived from distance/D+/D− and the downsampled preview profile scaled to the official totals. Do not show them when distance or D+ is missing, and never return preview points from `/api/race-estimate`.
+- `generateMetadata` reads the same cached detail as the page to build the snippet range; a failed detail read falls back to the generic description, it must not 404 the metadata.
 
 - The `/courses` index renders inside the single `RootChrome` main landmark. Its route root is a `<div>`; this semantic cleanup does not change catalog visibility, grouping, query canonicalization or ISR.
 

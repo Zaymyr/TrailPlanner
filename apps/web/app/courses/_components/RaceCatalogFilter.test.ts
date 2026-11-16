@@ -62,3 +62,14 @@ describe("catalog event labels", () => {
     ])).toBe("2 lieux de départ");
   });
 });
+
+describe("format label within its event", () => {
+  it("drops a repeated event prefix for display only", async () => {
+    const { getFormatLabelWithinEvent } = await import("./catalog-display");
+    expect(getFormatLabelWithinEvent("SaintéLyon — SaintéTic", "SaintéLyon")).toBe("SaintéTic");
+    expect(getFormatLabelWithinEvent("Ultra-Trail Kosciuszko by UTMB - Kosci 50K", "Ultra-Trail Kosciuszko by UTMB")).toBe("Kosci 50K");
+    expect(getFormatLabelWithinEvent("Trail du Lac", "Festival des Cimes")).toBe("Trail du Lac");
+    expect(getFormatLabelWithinEvent("SaintéLyon", "SaintéLyon")).toBe("SaintéLyon");
+    expect(getFormatLabelWithinEvent("Course", null)).toBe("Course");
+  });
+});

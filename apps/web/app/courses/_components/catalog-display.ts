@@ -54,3 +54,20 @@ export const getEventLocationLabel = (races: PublicRace[]) => {
   if (!distinctLocations.size) return "Lieu à confirmer";
   return `${distinctLocations.size} lieu${distinctLocations.size > 1 ? "x" : ""} de départ`;
 };
+
+const normalizeLabel = (value: string) =>
+  value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+/**
+ * Display-only format label inside its event context: drops a leading copy of
+ * the event name (« SaintéLyon — SaintéTic » → « SaintéTic »). The full name is
+ * kept when nothing meaningful would remain.
+ */
+export const getFormatLabelWithinEvent = (name: string, eventName: string | null | undefined) => {
+  if (!eventName) return name;
+  const normalizedName = normalizeLabel(name);
+  const normalizedEvent = normalizeLabel(eventName.trim());
+  if (!normalizedEvent || !normalizedName.startsWith(normalizedEvent)) return name;
+  const remainder = name.slice(eventName.trim().length).replace(/^[\s\-–—:|·,]+/, "").trim();
+  return remainder.length >= 2 ? remainder : name;
+};
