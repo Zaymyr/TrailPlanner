@@ -1,7 +1,7 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-11-13
+last_verified: 2026-11-16
 ai_priority: high
 related_files:
   - apps/web/app/sign-in/page.tsx
@@ -211,3 +211,5 @@ The onboarding intro now tells the runner to pick a race or discover with Trail 
 The root layout skips unsupported Expo OTA checks only for the development Android package (and ordinary development runtimes). This runtime guard does not alter session bootstrap, authentication listeners, redirects, or production update checks.
 
 Livret-first navigation (2026-11-09): the onboarding tour choice now presents the RaceBook tour as the default and the plan tour as optional below it, and its copy/notification promises changed. Account choice, guest handling, session gates and redirects are unchanged; skipping the plan tour at the products step now returns to Mes courses because Nutrition is no longer a root tab.
+
+Return paths (2026-11-16): `/organizers` and `/organizer` (with a validated event UUID) are now remembered for seven days like the runner catalog and premium returns. `/organizers` remembers its creation path for signed-out visitors, and `AuthCallbackHandler` (tokens in the URL hash, typically when Supabase falls back to the site URL) resumes the remembered destination before defaulting to `/race-planner`. Normalization and the open-redirect allow-list are unchanged.

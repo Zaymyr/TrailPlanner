@@ -1,9 +1,11 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-11-13
+last_verified: 2026-11-16
 ai_priority: high
 related_files:
+  - supabase/migrations/20261116150000_add_organizer_demo_requests.sql
+  - supabase/tests/organizer_demo_requests_checks.sql
   - supabase/migrations/20261109140000_add_racebook_edition_partner_slots.sql
   - supabase/migrations/20261109192905_remove_organizer_gift_feature_prices.sql
   - supabase/tests/racebook_partner_slots_checks.sql
@@ -187,3 +189,5 @@ Changing an existing client-writable table follows the same discipline: `2026110
 Note (2026-11-09): `schema-overview.md` received a presentation-only note about the mobile catalog scroll performance; no table, column or workflow step changed.
 
 Catalog end date (2026-11-14): no table added; the schema overview only records that mobile catalog visibility uses the latest format `race_date` of an event.
+
+`organizer_demo_requests` (2026-11-16) is the simplest service-only intake example for anonymous visitors: RLS enabled without client policies, all client privileges revoked, writes only through a rate-limited server route, and admin review through admin-authenticated routes.

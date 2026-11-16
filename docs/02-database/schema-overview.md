@@ -1,9 +1,11 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-11-13
+last_verified: 2026-11-16
 ai_priority: high
 related_files:
+  - supabase/migrations/20261116150000_add_organizer_demo_requests.sql
+  - supabase/tests/organizer_demo_requests_checks.sql
   - supabase/migrations/20261106142000_add_lut_by_night_2026_gpx.sql
   - supabase/migrations/20261105180000_add_app_feedback_review.sql
   - supabase/tests/app_feedback_review_checks.sql
@@ -247,6 +249,7 @@ The November 2026 mobile plan-flow polish changes catalog search controls, image
 | `race_event_edition_branding` | Edition-scoped RaceBook identity with separate organizer draft and runner-visible published values. |
 | `race_plans` | Saved planner state and imported GPX plan metadata. |
 | `race_requests` | Authenticated user requests for races to add. |
+| `organizer_demo_requests` | Service-only demo requests from the public organizer page (e-mail, race link, optional phone), reviewed in the admin inbox. See [organizer_demo_requests](tables/organizer-demo-requests.md). |
 | `races` | Current race catalog/private race table, renamed from `race_catalog`, with yearly organizer edition grouping on `edition_group_id` / `series_name`. |
 | `race_slug_redirects` | Former course slugs mapped to stable race ids for visibility-gated permanent redirects. |
 | `rate_limit_entries` | DB-backed rate limit counters used by security-sensitive routes. |

@@ -164,3 +164,5 @@ Local organizer validation no longer surfaces a background autosave failure, and
 The compact Organizer banner and completion rail expose the same publication actions and readiness state; publication-request persistence and review remain server-owned.
 
 Organizer finishing layouts do not change publication-request persistence or review.
+
+Organizer header (2026-11-16): the dashboard header no longer shows the « Aperçu coureur » and « Aperçu accompagnateur » web preview links (« Voir le Livret coureur » and « Télécharger le QR » remain), and its row wraps instead of letting the actions block overlap the edition selector. Presentation only; no data, contract or offer change.

@@ -1,7 +1,7 @@
 ---
 title: Resend Integration
 scope: integration
-last_verified: 2026-11-13
+last_verified: 2026-11-16
 ai_priority: medium
 related_files:
   - package.json
@@ -177,3 +177,5 @@ The web package now also depends on `@mediabunny/aac-encoder` for the admin reel
 Replies to bugs and feedback (`PATCH /api/admin/feedback` with a notification) follow the same contract: the in-app row is created first by `review_app_feedback_with_notification`, then the optional e-mail and push are delivered by `deliverAdminUserNotification` with the notification UUID as idempotency key. A status change without a notification sends nothing.
 
 A one-click close ("Clôturer") of a bug, feedback or race request changes only the status: no in-app notification, e-mail or push is created.
+
+`sendTransactionalEmail` (2026-11-16) sends a prebuilt HTML/text e-mail with optional `reply_to` and idempotency key, returning `sent` / `skipped` (missing configuration) / `failed`. It is used by organizer demo requests: a team notification (`ORGANIZER_DEMO_NOTIFY_EMAIL`, default the support mailbox) and a receipt to the organizer; visitor input is HTML-escaped.

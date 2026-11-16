@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { Route } from "next";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
@@ -14,6 +14,7 @@ import {
   buildAuthHref,
   buildOrganizerCreationHref,
   extractOrganizerAttribution,
+  rememberRunnerReturnPath,
 } from "../../lib/organizer-acquisition";
 import { useVerifiedSession } from "../hooks/useVerifiedSession";
 
@@ -37,6 +38,12 @@ export default function OrganizersPage({ searchParams }: OrganizersPageProps) {
   const returnPath = useMemo(() => buildOrganizerCreationHref(attribution), [attribution]);
   const signInHref = useMemo(() => buildAuthHref("/sign-in", returnPath), [returnPath]);
   const signUpHref = useMemo(() => buildAuthHref("/sign-up", returnPath), [returnPath]);
+
+  // A visitor who signs in from the header (without `?next=`) or through an
+  // OAuth/email round-trip still comes back here to create the event.
+  useEffect(() => {
+    if (!isLoading && !session) rememberRunnerReturnPath(returnPath);
+  }, [isLoading, session, returnPath]);
 
   const submitEvent = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -100,6 +107,9 @@ export default function OrganizersPage({ searchParams }: OrganizersPageProps) {
             La fiche est créée immédiatement en brouillon et rattachée à ton compte. Aucun claim ni validation admin
             n&apos;est nécessaire pour commencer à la compléter.
           </p>
+          <Link href={"/organisateurs#demande-demo" as Route} className="inline-flex min-h-11 items-center text-sm font-semibold text-brand underline-offset-4 hover:underline dark:text-emerald-300">
+            Pas encore prêt ? Demander une démo
+          </Link>
           {session ? (
             <Link href="/organizer">
               <Button variant="outline">Ouvrir mon dashboard</Button>
