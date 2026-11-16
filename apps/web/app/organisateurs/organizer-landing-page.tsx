@@ -8,6 +8,7 @@ import type { Route } from "next";
 import { trackGoogleAnalyticsEvent } from "../../lib/google-analytics";
 import type { OrganizerAttribution } from "../../lib/organizer-acquisition";
 import type { OrganizerSocialProof } from "../../lib/organizer-social-proof";
+import { OrganizerDemoRequestForm } from "./organizer-demo-request-form";
 
 type OrganizerLandingPageProps = {
   attribution: OrganizerAttribution;
@@ -212,6 +213,9 @@ export function OrganizerLandingPage({ attribution, creationHref, socialProofs }
               {primaryCta("hero", "Créer mon Livret coureur")}
               {demoCta()}
             </div>
+            <a href="#demande-demo" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand underline-offset-4 hover:underline dark:text-emerald-200">
+              Besoin d’en parler ? Demander une démo
+            </a>
             <ul className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-foreground/80" aria-label="Avantages de l’offre">
               {["Présence au catalogue gratuite", "Tous vos formats inclus", "Dès 99 € HT par édition"].map((benefit) => (
                 <li key={benefit} className="flex items-center gap-2">
@@ -494,6 +498,15 @@ export function OrganizerLandingPage({ attribution, creationHref, socialProofs }
         </div>
       </section>
 
+      <section id="demande-demo" aria-labelledby="demo-request-title" className="scroll-mt-6 grid gap-6 rounded-3xl border border-brand-border bg-brand-surface p-5 sm:p-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center dark:border-emerald-400/30 dark:bg-emerald-400/10">
+        <div className="space-y-3">
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand dark:text-emerald-200">Démo personnalisée</p>
+          <h2 id="demo-request-title" className="text-3xl font-semibold tracking-tight text-foreground">Voyez le Livret appliqué à votre course</h2>
+          <p className="leading-7 text-muted-foreground">Laissez votre e-mail et le lien de votre course : nous vous montrons ce que vos coureurs verraient, avec vos informations, et répondons à vos questions.</p>
+        </div>
+        <OrganizerDemoRequestForm attribution={attribution} />
+      </section>
+
       <section className="rounded-3xl bg-foreground px-5 py-10 text-center text-background sm:px-10 sm:py-14 dark:bg-emerald-950 dark:text-emerald-50">
         <div className="mx-auto max-w-3xl space-y-5">
           <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Votre prochain Livret coureur peut être prêt en quelques minutes</h2>
@@ -502,6 +515,9 @@ export function OrganizerLandingPage({ attribution, creationHref, socialProofs }
             {primaryCta("final", "Créer le Livret coureur de mon événement")}
             {appCta("final")}
           </div>
+          <a href="#demande-demo" className="inline-flex min-h-11 items-center justify-center text-sm font-semibold text-background underline underline-offset-4 dark:text-emerald-50">
+            Ou demander une démo
+          </a>
         </div>
       </section>
     </div>

@@ -90,8 +90,16 @@ export function normalizeInternalReturnPath(value: string | string[] | null | un
   }
 }
 
+// Destinations worth restoring when an auth round-trip loses `?next=` (OAuth or
+// email-confirmation redirects that fall back to the site root): the runner
+// catalog/premium entries and the organizer event-creation path.
 const isRememberableRunnerPath = (path: string) =>
-  path.startsWith("/race-planner?catalogRaceId=") || path.startsWith("/premium?planId=");
+  path.startsWith("/race-planner?catalogRaceId=")
+  || path.startsWith("/premium?planId=")
+  || path === "/organizers"
+  || path.startsWith("/organizers?")
+  || path === "/organizer"
+  || path.startsWith("/organizer?");
 
 export function rememberRunnerReturnPath(returnPath: string): void {
   if (typeof window === "undefined") return;

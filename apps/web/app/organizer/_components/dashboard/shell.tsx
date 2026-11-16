@@ -254,7 +254,8 @@ export function OrganizerSummaryHeader({
         : "Aucun paiement actif";
   return (
     <section className="rounded-xl border border-border bg-card px-3 py-2 shadow-sm sm:px-4">
-      <div id="organizer-onboarding-overview" className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+      {/* Wraps instead of squeezing: the actions block keeps its width and moves to its own line when the selectors need room. */}
+      <div id="organizer-onboarding-overview" className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between lg:gap-x-4 lg:gap-y-3">
         <div className="min-w-0">
           <p className="sr-only">Espace organisateur</p>
           <h1 className="truncate text-base font-semibold text-foreground sm:text-lg">
@@ -268,7 +269,7 @@ export function OrganizerSummaryHeader({
           </p>
         </div>
 
-        <div id="organizer-onboarding-selectors" className="grid min-w-0 flex-1 gap-2 sm:grid-cols-[minmax(12rem,1fr)_8rem] lg:max-w-md">
+        <div id="organizer-onboarding-selectors" className="grid min-w-0 flex-1 gap-2 sm:grid-cols-[minmax(12rem,1fr)_8rem] lg:min-w-[22rem] lg:max-w-md">
           <OrganizerEventCombobox memberships={memberships} selectedEventId={selectedEventId} onSelectedEventChange={onSelectedEventChange} />
           <div>
             <label htmlFor="organizer-event-edition-select" className="mb-1 block text-xs font-medium text-muted-foreground">Édition</label>
@@ -276,7 +277,7 @@ export function OrganizerSummaryHeader({
           </div>
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 lg:ml-auto">
           {raceRows.length > 0 && (!canPublishRacebook || modifiedFormatCount > 0) ? (
             <Button type="button" onClick={onRequestPublication} disabled={!editionIsVisible || status !== "idle"} className="!h-11" title="Publier atomiquement tous les formats modifiés de cette édition.">
               {canPublishRacebook
@@ -288,8 +289,6 @@ export function OrganizerSummaryHeader({
               <Button type="button" className="!h-11">Voir le Livret coureur</Button>
             </Link>
           ) : null}
-          {previewSlug ? <Link href={`/courses/${previewSlug}`} className="inline-flex min-h-11 items-center px-2 text-sm font-semibold text-brand underline-offset-4 hover:underline">Aperçu coureur</Link> : null}
-          {supporterGuideRaceId ? <Link href={`/courses/supporter-guide/${supporterGuideRaceId}`} className="inline-flex min-h-11 items-center px-2 text-sm font-semibold text-brand underline-offset-4 hover:underline">Aperçu accompagnateur</Link> : null}
           {supporterGuideRaceId ? <a href={`/api/supporter-guide/qr?raceId=${supporterGuideRaceId}`} download className="inline-flex min-h-11 items-center px-2 text-sm font-semibold text-brand underline-offset-4 hover:underline">Télécharger le QR</a> : null}
           <details ref={actionsMenuRef} open={actionsMenuOpen} onToggle={(event) => setActionsMenuOpen(event.currentTarget.open)} className="group relative">
             <summary ref={actionsSummaryRef} aria-haspopup="menu" aria-expanded={actionsMenuOpen} title="Ouvrir les actions utilisées moins souvent." className="inline-flex h-11 cursor-pointer list-none items-center gap-2 rounded-md border border-border bg-card px-4 text-sm font-semibold text-foreground transition hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring marker:content-none">

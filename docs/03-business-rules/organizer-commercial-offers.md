@@ -1,7 +1,7 @@
 ---
 title: Organizer Commercial Offers
 scope: business-rule
-last_verified: 2026-11-15
+last_verified: 2026-11-16
 # Assisted legacy conversion (2026-11-15): conversion requires the effective assisted_import.request capability (Signature or its complimentary grant).
 # Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
 # Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
@@ -200,3 +200,5 @@ The compact organizer workspace and corrected completion indicator are presentat
 The Organizer three-column shell repositions offer-aware section states and publication actions without changing module availability, pricing, entitlements, or checkout gates.
 
 Organizer section-header and module-card finishing does not change offer availability, sponsor access, pricing, or publication entitlements.
+
+Organizer demo requests (2026-11-16): `/organisateurs` offers a « Demander une démo » form (e-mail and race link required, phone optional) stored in the service-only `organizer_demo_requests` table and listed in the admin inbox tab « Demandes de course »; it creates no account, membership, entitlement or payment. See [organizer_demo_requests](../02-database/tables/organizer-demo-requests.md).

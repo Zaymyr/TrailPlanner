@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_requests Table
 scope: database
-last_verified: 2026-11-15
+last_verified: 2026-11-16
 # Assisted legacy conversion (2026-11-15): review targets an existing selected edition; edition-request behavior and persistence are unchanged.
 # Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
 # Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
@@ -131,3 +131,5 @@ Compact edition selectors and corrected completion presentation do not change ed
 Repositioning the edition selector inside the compact Organizer banner does not change edition-request creation, duplication, or approval state.
 
 Organizer section-header finishing does not change edition-request state.
+
+Organizer header (2026-11-16): the dashboard header no longer shows the « Aperçu coureur » and « Aperçu accompagnateur » web preview links (« Voir le Livret coureur » and « Télécharger le QR » remain), and its row wraps instead of letting the actions block overlap the edition selector. Presentation only; no data, contract or offer change.
