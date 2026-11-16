@@ -42,7 +42,7 @@ export async function generateStaticParams() {
 async function loadFollowPage(slug: string) {
   const resolution = await resolvePublicRaceEventEditionSlug(slug);
   if (!resolution) return null;
-  const guide = await getPublicSupporterGuide(resolution.edition.id);
+  const guide = await getPublicSupporterGuide(resolution.edition);
   return guide ? { resolution, guide } : null;
 }
 

@@ -133,7 +133,7 @@ export default async function PublicEventEditionPage({ params }: PageProps) {
     Number.isFinite(dayCount) && dayCount > 1 ? { label: "Jours", value: String(dayCount) } : null,
   ].filter((metric): metric is { label: string; value: string } => Boolean(metric));
   const registrationUrl = isHttpUrl(edition.websiteUrl) ? edition.websiteUrl : null;
-  const supporterGuide = editionIsPast ? null : await getPublicSupporterGuide(edition.id);
+  const supporterGuide = editionIsPast ? null : await getPublicSupporterGuide(edition);
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-5 pb-10 sm:space-y-8 sm:px-0 lg:px-2">
