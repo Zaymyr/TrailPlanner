@@ -26,9 +26,13 @@ related_tables:
 
 # race_supporter_points
 
-`RacebookSupporterPointsSection` now serves only the Livret accompagnateur. It accepts optional aid stations merged into the same kilometre-ordered line (supporter-access `StatusPill`, services, resolved last-runner cutoff, maximum stop) and hides the directions action when a point has neither a Maps URL nor finite coordinates, instead of routing to 0,0.
+Supporter Guide course line endpoints (2026-11-15): `addCourseEndpoints` opens every `formats[].stops` line with a start stop (`endpoint: "start"`, km 0, `startTimes` — wave names only when there are several SAS — and start-area directions) and closes it with the finish (`endpoint: "finish"`: the organizer « Arrivée » checkpoint is enriched, otherwise a finish stop is added) carrying `expectedArrivals`, the resolved finish cutoff and finish directions. A single wave is never labelled (no « Départ commun ») in the programme either.
 
-Current mobile UI moves the published supporter-point presentation from the runner RaceBook “Où encourager” subtab into the edition Supporter Guide. The snapshot field, API serialization and legacy-app behavior are retained; organizer microcopy now names the Livret accompagnateur as the destination.
+Supporter Guide places (2026-11-15): the payload adds `formats[].stops`, built server-side by `buildSupporterStops` — an aid station and supporter points sharing the same normalized place name (accents, case, punctuation ignored, « St »/« Ste » = Saint/Sainte) within 2 km become one stop carrying every role (ravito, encouragement, assistance), the supporter access rule, services, cutoff and directions. Start timeline entries carry `mapsUrl` (start area directions). Both fields are additive on `schemaVersion: 1`. Supporter point rows, RLS and ordering are unchanged.
+
+`RacebookSupporterPointsSection` now serves only the Livret supporter. It accepts optional aid stations merged into the same kilometre-ordered line (supporter-access `StatusPill`, services, resolved last-runner cutoff, maximum stop) and hides the directions action when a point has neither a Maps URL nor finite coordinates, instead of routing to 0,0.
+
+Current mobile UI moves the published supporter-point presentation from the runner RaceBook “Où encourager” subtab into the edition Supporter Guide. The snapshot field, API serialization and legacy-app behavior are retained; organizer microcopy now names the Livret supporter as the destination.
 
 Public supporter-point serialization continues to depend on the exact effective module state. Independent organizer invoices do not expose supporter points and do not change their existing client grants or RLS.
 

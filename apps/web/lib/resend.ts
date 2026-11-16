@@ -534,3 +534,50 @@ export const syncIdentifiedUserToResendContact = async (
     options
   );
 };
+
+/**
+ * Generic transactional e-mail (already-built HTML and text). Returns the same
+ * result shape as the other senders; a missing configuration is reported as
+ * skipped so callers can keep their primary write.
+ */
+export const sendTransactionalEmail = async (input: {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  replyTo?: string;
+  idempotencyKey?: string;
+}): Promise<OrganizerAssignmentEmailResult> => {
+  const config = getResendConfig();
+  if (!config) return { status: "skipped", reason: "missing-config" };
+
+  const { response, payload } = await requestResend(
+    config,
+    "/emails",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        from: config.from,
+        to: [input.to.trim().toLowerCase()],
+        subject: input.subject,
+        html: input.html,
+        text: input.text,
+        ...(input.replyTo ? { reply_to: input.replyTo } : {}),
+      }),
+    },
+    { maxRetries: 2, idempotencyKey: input.idempotencyKey },
+  );
+
+  if (response.ok) {
+    const parsed = resendContactResponseSchema.safeParse(payload);
+    return { status: "sent", id: parsed.success ? parsed.data.id : undefined };
+  }
+
+  return {
+    status: "failed",
+    statusCode: response.status,
+    message: extractErrorMessage(payload, "Unable to send transactional email."),
+  };
+};
+
+export const escapeEmailHtml = (value: string): string => escapeHtml(value);

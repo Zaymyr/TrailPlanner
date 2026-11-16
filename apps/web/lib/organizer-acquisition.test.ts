@@ -126,6 +126,11 @@ describe("organizer auth return path", () => {
       const [key, value] = [...storage.entries()][0];
       storage.set(key, JSON.stringify({ ...JSON.parse(value), expiresAt: Date.now() - 1 }));
       expect(readRememberedRunnerReturnPath()).toBeNull();
+
+      rememberRunnerReturnPath("/organizers?utm_source=email");
+      expect(readRememberedRunnerReturnPath()).toBe("/organizers?utm_source=email");
+      rememberRunnerReturnPath("/sign-in");
+      expect(readRememberedRunnerReturnPath()).toBe("/organizers?utm_source=email");
     } finally {
       Object.defineProperty(globalThis, "window", { configurable: true, value: originalWindow });
     }

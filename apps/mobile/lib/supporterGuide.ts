@@ -1,3 +1,5 @@
+import { colors } from '@pace-yourself/design-system';
+
 import type { RacebookAccessLocation, RacebookAccessPresentation, RacebookAccessTransport } from '../components/racebook/RacebookAccessSection';
 import type { RacebookServiceItem } from '../components/racebook/RacebookServicesSection';
 import type { RacebookSupporterPoint } from './racebook';
@@ -60,6 +62,31 @@ export type SupporterGuideSupporterPoint = {
   planUrl: string | null;
 };
 
+export type SupporterGuideStop = {
+  id: string;
+  endpoint?: 'start' | 'finish' | null;
+  startTimes?: { label: string | null; time: string }[];
+  expectedArrivals?: { men: SupporterGuideRaceDayClock | null; women: SupporterGuideRaceDayClock | null };
+  address?: string | null;
+  name: string;
+  km: number;
+  kmMax: number | null;
+  aidStation: boolean;
+  isFinish: boolean;
+  encouragementAllowed: boolean;
+  assistanceAllowed: boolean;
+  supportersAccess: 'allowed' | 'restricted' | 'forbidden' | null;
+  maxStopMinutes: number | null;
+  services: { water: boolean; food: boolean; runnerAssistance: boolean; amenities: string[] };
+  cutoff: SupporterGuideRaceDayClock | null;
+  accessLabel: string | null;
+  accessNote: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  mapsUrl: string | null;
+  planUrl: string | null;
+};
+
 export type SupporterGuideFormat = {
   raceId: string;
   name: string;
@@ -73,17 +100,24 @@ export type SupporterGuideFormat = {
   awards: { id: string; label: string; time: string; location: string | null }[];
   supporterPoints: SupporterGuideSupporterPoint[];
   aidStations: SupporterGuideAidStation[];
+  stops?: SupporterGuideStop[];
 };
 
 export type SupporterGuideTimelineEntry = {
   id: string;
   raceId: string;
   raceName: string;
-  kind: 'start' | 'finish_cutoff' | 'awards';
+  kind: 'start' | 'finish_cutoff' | 'awards' | 'arrival_estimate' | 'animation';
   date: string | null;
   time: string;
   label: string | null;
   location: string | null;
+  mapsUrl?: string | null;
+  audience?: 'men' | 'women' | null;
+  /** Animations: event-wide (raceId and raceName empty), shown whatever races are followed. */
+  eventWide?: boolean;
+  endTime?: string | null;
+  animationType?: 'animation' | 'concert' | 'kids_race' | 'briefing' | 'village' | 'other';
 };
 
 export type SupporterGuideAccess = {
@@ -176,7 +210,7 @@ export function resolveGuideTimeline(guide: Pick<SupporterGuidePayload, 'formats
   const entries: SupporterGuideTimelineEntry[] = [];
   for (const format of guide.formats) {
     const starts = format.startWaves.length > 0
-      ? format.startWaves.map((wave) => ({ id: `start-${wave.id}`, time: wave.time, label: wave.name as string | null }))
+      ? format.startWaves.map((wave) => ({ id: `start-${wave.id}`, time: wave.time, label: format.startWaves.length > 1 ? wave.name as string | null : null }))
       : format.startTime ? [{ id: `start-${format.raceId}`, time: format.startTime, label: null }] : [];
     for (const start of starts) entries.push({ ...start, raceId: format.raceId, raceName: format.name, kind: 'start', date: format.date, location: null });
     for (const award of format.awards) {
@@ -218,8 +252,8 @@ export function toRacebookSupporterPoints(points: readonly SupporterGuideSupport
   }));
 }
 
-export function hasFollowContent(format: Pick<SupporterGuideFormat, 'supporterPoints' | 'aidStations'>) {
-  return format.supporterPoints.length > 0 || format.aidStations.length > 0;
+export function hasFollowContent(format: Pick<SupporterGuideFormat, 'supporterPoints' | 'aidStations' | 'stops'>) {
+  return (format.stops?.length ?? 0) > 0 || format.supporterPoints.length > 0 || format.aidStations.length > 0;
 }
 
 export function buildDirectionsUrl(location: Pick<SupporterGuideLocation, 'mapsUrl' | 'latitude' | 'longitude' | 'address'>): string | null {
@@ -299,4 +333,122 @@ export function resolveVisibleGuideSections(guide: SupporterGuidePayload): Suppo
     practical: guide.practical.access.length > 0 || guide.practical.thirdPartyBibPickup.length > 0,
   };
   return (['programme', 'follow', 'onsite', 'stay', 'practical'] as const).filter((section) => visible[section]);
+}
+
+
+/** Server-grouped stops, or one stop per row for an older API response. */
+export function resolveGuideStops(format: SupporterGuideFormat): SupporterGuideStop[] {
+  if (format.stops) return format.stops;
+  return [
+    ...format.aidStations.map((station): SupporterGuideStop => ({
+      id: `s:${station.id}`, name: station.name, km: station.km, kmMax: null, aidStation: true, isFinish: station.isFinish === true,
+      encouragementAllowed: false, assistanceAllowed: false, supportersAccess: station.supportersAccess, maxStopMinutes: station.maxStopMinutes,
+      services: { water: station.waterAvailable !== false, food: station.solidAvailable !== false, runnerAssistance: station.assistanceAllowed, amenities: station.amenities },
+      cutoff: station.cutoff ?? (station.cutoffTime ? { date: null, time: station.cutoffTime, dayOffset: 0 } : null),
+      accessLabel: null, accessNote: null, latitude: null, longitude: null, mapsUrl: null, planUrl: null,
+    })),
+    ...format.supporterPoints.map((point): SupporterGuideStop => ({
+      id: `p:${point.id}`, name: point.name, km: point.km, kmMax: null, aidStation: false, isFinish: false,
+      encouragementAllowed: point.encouragementAllowed, assistanceAllowed: point.assistanceAllowed, supportersAccess: null, maxStopMinutes: null,
+      services: { water: false, food: false, runnerAssistance: false, amenities: [] }, cutoff: null,
+      accessLabel: point.accessLabel, accessNote: point.accessNote, latitude: point.latitude, longitude: point.longitude, mapsUrl: point.mapsUrl, planUrl: point.planUrl,
+    })),
+  ].sort((left, right) => left.km - right.km);
+}
+
+export type GuideTimelineKind = 'all' | 'start' | 'arrival' | 'awards' | 'animations';
+
+const KIND_BY_ENTRY: Record<SupporterGuideTimelineEntry['kind'], Exclude<GuideTimelineKind, 'all'>> = {
+  start: 'start',
+  finish_cutoff: 'arrival',
+  arrival_estimate: 'arrival',
+  awards: 'awards',
+  animation: 'animations',
+};
+
+/** Programme filtered by type (tab) and by the races the supporter follows. */
+export function filterGuideTimeline(
+  entries: readonly SupporterGuideTimelineEntry[],
+  kind: GuideTimelineKind,
+  raceIds: ReadonlySet<string> | null,
+): SupporterGuideTimelineEntry[] {
+  return entries.filter((entry) =>
+    (kind === 'all' || KIND_BY_ENTRY[entry.kind] === kind) && (entry.eventWide || !raceIds || raceIds.has(entry.raceId)),
+  );
+}
+
+export function availableGuideKinds(entries: readonly SupporterGuideTimelineEntry[]): Exclude<GuideTimelineKind, 'all'>[] {
+  const present = new Set(entries.map((entry) => KIND_BY_ENTRY[entry.kind]));
+  return (['start', 'arrival', 'awards', 'animations'] as const).filter((kind) => present.has(kind));
+}
+
+/** Local race-day time (the supporter is assumed to be on the event's timezone). */
+export function toLocalDate(date: string | null | undefined, time: string | null | undefined): Date | null {
+  const day = /^(\d{4})-(\d{2})-(\d{2})/.exec(date ?? '');
+  const clock = /^(\d{1,2}):(\d{2})/.exec(time ?? '');
+  if (!day || !clock) return null;
+  return new Date(Number(day[1]), Number(day[2]) - 1, Number(day[3]), Number(clock[1]), Number(clock[2]));
+}
+
+export function localIsoDay(now: Date): string {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+export type GuideEntryLiveStatus = 'past' | 'next' | 'upcoming';
+
+/**
+ * Live state of one day: past entries, the next one (highlighted with a
+ * countdown) and where the « maintenant » line sits. Only today is live.
+ */
+export function resolveDayLiveState(entries: readonly SupporterGuideTimelineEntry[], dayDate: string | null, now: Date) {
+  if (!dayDate || dayDate !== localIsoDay(now)) return null;
+  const statusById: Record<string, GuideEntryLiveStatus> = {};
+  let nowIndex = entries.length;
+  let nextFound = false;
+  entries.forEach((entry, index) => {
+    const at = toLocalDate(entry.date ?? dayDate, entry.time);
+    if (at && at.getTime() < now.getTime()) {
+      statusById[entry.id] = 'past';
+      return;
+    }
+    if (!nextFound) {
+      nextFound = true;
+      nowIndex = index;
+      statusById[entry.id] = 'next';
+      return;
+    }
+    statusById[entry.id] = 'upcoming';
+  });
+  return { statusById, nowIndex };
+}
+
+/** « dans 25 min » / « dans 2 h 41 ». */
+export function formatCountdown(target: Date, now: Date, locale: Locale): string {
+  const minutes = Math.max(0, Math.round((target.getTime() - now.getTime()) / 60_000));
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  const duration = hours === 0 ? `${minutes} min` : `${hours} h ${String(rest).padStart(2, '0')}`;
+  return locale === 'fr' ? `dans ${duration}` : `in ${duration}`;
+}
+
+export function formatClockNow(now: Date): string {
+  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+}
+
+/** A place is closed once its last-runner cutoff has passed. */
+export function isStopClosed(stop: Pick<SupporterGuideStop, 'cutoff'>, raceDate: string | null, now: Date): boolean {
+  if (!stop.cutoff) return false;
+  const at = toLocalDate(stop.cutoff.date ?? raceDate, stop.cutoff.time);
+  return Boolean(at && at.getTime() < now.getTime());
+}
+
+
+/** One colour per format, by increasing distance (same rule as the web page). */
+export function resolveFormatColors(formats: readonly Pick<SupporterGuideFormat, 'raceId' | 'distanceKm' | 'name'>[]): Record<string, string> {
+  const palette = colors.formats;
+  return Object.fromEntries(
+    [...formats]
+      .sort((left, right) => left.distanceKm - right.distanceKm || left.name.localeCompare(right.name))
+      .map((format, index) => [format.raceId, palette[index % palette.length]!]),
+  );
 }

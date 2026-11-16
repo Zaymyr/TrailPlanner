@@ -2,6 +2,7 @@
 title: Web App Architecture
 scope: architecture
 last_verified: 2026-11-16
+# Organizer hero note (2026-11-16): /organisateurs now presents the Livret coureur and the Livret supporter side by side (hero cards, illustrative supporter preview, metadata title); presentation only, no data, analytics event or offer change.
 # Assisted legacy conversion (2026-11-15): historical organizer text can request a schema-specific OpenAI proposal; every proposed field requires explicit Apply/Ignore review and the conversion endpoint never persists.
 # Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
 # Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
@@ -21,6 +22,18 @@ ai_priority: high
 # Organizer UX pass (2026-11-14): the left nav expands a format's sections directly under that format (chevron, aria-expanded) instead of below “Ajouter un format”; ravito detail offers a two-option Ravito / Base de vie type (life_base vs existing non-life-base value) and the timeline badges bases de vie; Matériel is a flat compact list with a quick-add bar at the top (Enter, suggestions, required switch, new items prepended) and an Obligatoire/Recommandé switch per row that no longer moves rows between groups.
 # Course timeline pass (2026-11-14): the Départ/ravitos editor shows one timeline filtered by Tout / Ravitos / Suivi / SAS / Relais; SAS sit right after Départ, each point kind has its own marker (ravito green dot, base de vie larger dot + badge, suivi blue ring + “Suivi” tag, relais violet diamond), aid/relay/finish rows show a clock cutoff chip or “Sans barrière”, the right panel follows the clicked point, the timeline is height-capped with its own scroll, and “Horaires et consignes” sits below the grid so the sticky timeline no longer overlaps it.
 related_files:
+  - apps/web/app/livret-coureur/page.tsx
+  - apps/web/app/livret-supporter/page.tsx
+  - apps/web/components/landing/LivretProductPage.tsx
+  - apps/web/app/home-structured-data.ts
+  - apps/web/components/SiteFooter.tsx
+  - apps/web/app/admin/_components/AdminSurveysTab.tsx
+  - apps/web/app/admin/_components/AdminSurveysTab.test.ts
+  - apps/web/app/api/admin/feedback-surveys/route.ts
+  - apps/web/app/api/admin/feedback-surveys/route.test.ts
+  - apps/web/app/api/admin/feedback-surveys/audiences/route.ts
+  - apps/web/lib/feedback-surveys.ts
+  - apps/web/lib/feedback-surveys.test.ts
   - apps/web/app/api/supporter-guide/route.ts
   - apps/web/app/api/supporter-guide/qr/route.ts
   - apps/web/app/courses/supporter-guide/[raceId]/page.tsx
@@ -388,6 +401,14 @@ related_tables:
 ---
 
 # Web App Architecture
+
+Supporter Guide format identification (2026-11-15): each format gets a colour from the `colors.formats` token, assigned by increasing distance (same rule on app and web). Programme rows show a round badge in the format colour with a type icon (start ▶, expected arrival / last runner clock, podium trophy, animation by type), the moment label in that colour and a coloured dot before the race name; past rows turn grey with a check. The « Je suis » checkboxes and the Suivre / Pratique race tabs carry the same colour, acting as the legend. Animations keep the brand colour.
+
+Supporter Guide course line endpoints (2026-11-15): `addCourseEndpoints` opens every `formats[].stops` line with a start stop (`endpoint: "start"`, km 0, `startTimes` — wave names only when there are several SAS — and start-area directions) and closes it with the finish (`endpoint: "finish"`: the organizer « Arrivée » checkpoint is enriched, otherwise a finish stop is added) carrying `expectedArrivals`, the resolved finish cutoff and finish directions. A single wave is never labelled (no « Départ commun ») in the programme either.
+
+The Supporter Guide timeline adds `arrival_estimate` entries (official start + estimated winning time, `audience` men/women, multi-day aware) and event-wide `animation` entries (`eventWide`, `endTime`, `animationType`) shown whatever races are followed; Programme gains an Animations tab and the Arrivées tab groups expected first arrivals with the last-runner finish cutoff. Supporter Guide programme data (2026-11-15): race `organizer_details.schedule` accepts optional `estimatedWinnerMen` / `estimatedWinnerWomen` durations (`H:MM`, hours may exceed 23); event `organizer_details.programme` holds up to 60 programme items (`id`, `type` animation/concert/kids_race/briefing/village/other, `title`, `date`, `startTime`, `endTime`, `location`, `description`). Both are additive JSON validated by `apps/web/lib/organizer-dashboard-details.ts`, so organizer saves preserve them; no column or migration. No organizer form edits them yet (TODO: organizer schedule card and programme editor).
+
+Supporter Guide places (2026-11-15): the payload adds `formats[].stops`, built server-side by `buildSupporterStops` — an aid station and supporter points sharing the same normalized place name (accents, case, punctuation ignored, « St »/« Ste » = Saint/Sainte) within 2 km become one stop carrying every role (ravito, encouragement, assistance), the supporter access rule, services, cutoff and directions. Start timeline entries carry `mapsUrl` (start area directions). Both fields are additive on `schemaVersion: 1`. Livret supporter programme (2026-11-15): type tabs (Tout, Départs, Arrivées, Podiums) instead of race tabs; a « Je suis » race selection (small checkboxes, remembered per edition) filters the Programme only (Suivre and Pratique keep their own race tabs); fully past days are dimmed and collapsed by default; on the event day the current day is live — past entries dimmed and checked, a « maintenant » line, the next entry with a countdown, and Suivre marks a place « Fermé » once its last-runner cutoff has passed. Times are compared with the device clock, assuming the supporter is on the event timezone. The web page has no reminders (unreliable on mobile browsers).
 
 The Supporter Guide payload now carries resolved cutoffs and a sorted `timeline`; `SupporterGuideView` groups the programme by day and formats dates, distances and cross-day cutoffs per locale. Cutoff resolution uses `@trailplanner/shared` `racebook-cutoffs`, a server-side copy of the runner RaceBook rules.
 
@@ -826,9 +847,13 @@ The admin reel generator saves each race's narration in Supabase (`video_narrati
 
 ## Admin messaging inbox
 
-The admin "Messagerie" tab (`AdminMessagingTab`) replaced "Demandes de course". It has three sub-tabs with pending counts from `GET /api/admin/inbox-counts`: Bugs and Feedback (`AdminFeedbackTab`, `GET`/`PATCH /api/admin/feedback`) and Demandes de course (`AdminRaceRequestsTab`). Lists put pending items first (`is_pending`); handled ones sink below and their row is greyed (`handledRowClassName`). A status change on an item whose author has an account opens `AdminNotificationDialog`, and the reply and status commit together (`review_app_feedback_with_notification` / `review_race_request_with_notification`); "Répondre" sends a reply without changing the status; an author without an account gets a silent status change. Each row shows the last reply sent and its state (`AdminReplyStatus`: read, unread, deleted by the runner). Every prefilled message, including the free message of the Users tab, opens with "Bonjour," and ends with "Faustin de Pace Yourself" (`admin-message-template.ts`). `loadAdminUserIdentities` and `loadLatestReplies` in `lib/admin-user-notifications.ts` serve both list routes.
+The admin "Messagerie" tab (`AdminMessagingTab`) replaced "Demandes de course". It has three inbox sub-tabs with pending counts from `GET /api/admin/inbox-counts`: Bugs and Feedback (`AdminFeedbackTab`, `GET`/`PATCH /api/admin/feedback`) and Demandes de course (`AdminRaceRequestsTab`). Lists put pending items first (`is_pending`); handled ones sink below and their row is greyed (`handledRowClassName`). A status change on an item whose author has an account opens `AdminNotificationDialog`, and the reply and status commit together (`review_app_feedback_with_notification` / `review_race_request_with_notification`); "Répondre" sends a reply without changing the status; an author without an account gets a silent status change. Each row shows the last reply sent and its state (`AdminReplyStatus`: read, unread, deleted by the runner). Every prefilled message, including the free message of the Users tab, opens with "Bonjour," and ends with "Faustin de Pace Yourself" (`admin-message-template.ts`). `loadAdminUserIdentities` and `loadLatestReplies` in `lib/admin-user-notifications.ts` serve both list routes.
 
 Pending bugs, feedback and race requests also have a one-click "Clôturer" button: the item goes to completed with no dialog and no message to the runner (`PATCH /api/admin/feedback` without `notification`, `PATCH /api/admin/race-requests` with `silent: true`, a plain service-role update of `status`, `reviewed_at` and `reviewed_by`).
+
+### Feedback surveys (Questionnaires)
+
+"Messagerie" has a fourth sub-tab, "Questionnaires" (`AdminSurveysTab`). The admin picks an event from `GET /api/admin/feedback-surveys/audiences` (PostHog `racebook opened` readers per `event_id` over the last year), sees the reachable audience from `GET /api/admin/feedback-surveys/audiences?eventId=` (identified readers, accounts, push, e-mail), edits the prefilled message (`surveyDefaultCopy`: greeting and signature from `admin-message-template.ts`, plus a line asking older apps to update) and sends with `POST /api/admin/feedback-surveys`. The route resolves the audience server-side (`lib/feedback-surveys.ts`: PostHog HogQL query API with the organizer-analytics PostHog env, Supabase UUID v4 ids only, then `resolve_feedback_survey_recipients`), upserts the campaign, inserts one `feedback_survey` notification per runner with a derived id, then delivers pending rows with bounded concurrency. The form keeps its campaign id after a failure, so sending again resumes without duplicates. `GET /api/admin/feedback-surveys` returns the last 50 campaigns with counters from `feedback_survey_campaign_stats` (recipients, read, push sent, answers, useful rate) and up to 1000 answers with the runner's profile name, filterable by useful / not useful. See [feedback_survey_campaigns](../02-database/tables/feedback-survey-campaigns.md).
 
 Reel exports (in the browser and in the background render) keep the preview frame's CSS size and raise only the map's pixel density to the video resolution (`export-frame.ts`), so the framing, map detail and station bubbles match the preview.
 
@@ -862,3 +887,13 @@ Organizer finishing layouts reuse existing editor state and endpoints; section h
 The semantic section tree retains the existing Organizer onboarding/capture anchor and explicit accessible module labels for automation compatibility.
 
 On narrow screens, separate native selectors choose the event/format scope and the active section, preserving the complete desktop navigation hierarchy.
+
+## Brand positioning (2026-11-16)
+
+The default (home) metadata now leads with the Livret coureur and the Livret supporter instead of the nutrition planner, and the home hero copy presents the booklets, the free time estimate and the fueling plan (CTAs unchanged). Home JSON-LD adds a brand description, App/Play Store `sameAs` and a free `MobileApplication` node (`#app`). Signed-out visitors see « Organisateurs » in the header (signed-in users keep « Espace organisateur »); the footer links `/livret-coureur` and `/livret-supporter`.
+
+## Organizer demo requests and auth return (2026-11-16)
+
+`/organisateurs` offers a « Demander une démo » form (e-mail and race link required, phone optional) stored in the service-only `organizer_demo_requests` table and listed in the admin inbox tab « Demandes de course »; it creates no account, membership, entitlement or payment. See [organizer_demo_requests](../02-database/tables/organizer-demo-requests.md). Organizer return paths are remembered like runner returns, and the root hash-token handler resumes the remembered destination instead of always opening `/race-planner`.
+
+Organizer header (2026-11-16): the dashboard header no longer shows the « Aperçu coureur » and « Aperçu accompagnateur » web preview links (« Voir le Livret coureur » and « Télécharger le QR » remain), and its row wraps instead of letting the actions block overlap the edition selector. Presentation only; no data, contract or offer change.

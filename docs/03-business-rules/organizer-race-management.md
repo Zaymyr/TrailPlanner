@@ -3,6 +3,7 @@ title: Organizer Race Management
 scope: business-rule
 
 last_verified: 2026-11-16
+# Organizer hero note (2026-11-16): /organisateurs now presents the Livret coureur and the Livret supporter side by side (hero cards, illustrative supporter preview, metadata title); presentation only, no data, analytics event or offer change.
 # Assisted legacy conversion (2026-11-15): historical blocks offer schema-specific, field-by-field proposals with explicit Apply/Ignore and no automatic write.
 # Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
 # Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
@@ -269,11 +270,15 @@ related_tables:
 
 # Organizer Race Management
 
+Supporter Guide programme data (2026-11-15): race `organizer_details.schedule` accepts optional `estimatedWinnerMen` / `estimatedWinnerWomen` durations (`H:MM`, hours may exceed 23); event `organizer_details.programme` holds up to 60 programme items (`id`, `type` animation/concert/kids_race/briefing/village/other, `title`, `date`, `startTime`, `endTime`, `location`, `description`). Both are additive JSON validated by `apps/web/lib/organizer-dashboard-details.ts`, so organizer saves preserve them; no column or migration. No organizer form edits them yet (TODO: organizer schedule card and programme editor).
+
+Catalog query fix (2026-11-15): the mobile `EVENT_CATALOG_SELECT` requests `slug` on the embedded `races` rows (used to open `/courses/<slug>` deep links), not on `race_event_updates`, which has no such column. The misplaced column made PostgREST reject the whole catalog request (42703), so the development build showed no races.
+
 Anonymous course entry (2026-11-16): in runner mode, `RacePlannerPageContent` renders the account-free `QuickRaceEstimate` for an anonymous visitor with a pending catalog race instead of the account screen. It creates no plan and reads no aid-station products, supplies or nutrition allocation; those flows start unchanged after authentication.
 
 Catalog event cards (`RaceEventSummaryCard`, 2026-11-15) stack the format count and the distance range on the left in `Cote` size `xs`, rounded to whole kilometres (13–185 km; exact distances stay in the format sheet), so the fixed-width (172 pt) « Voir les distances » sign always fits on the right. Organizer authoring is unchanged.
 
-The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret accompagnateur, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret accompagnateur · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. The catalog event sheet opens the Livret accompagnateur from an interactive `TopoCard` placed before the distance list, and the guide's back action reopens that sheet through the existing `eventId` parameter plus a `sheet` nonce. Organizer authoring is unchanged.
+The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret supporter, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret supporter · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. The catalog event sheet opens the Livret supporter from an interactive `TopoCard` placed before the distance list, and the guide's back action reopens that sheet through the existing `eventId` parameter plus a `sheet` nonce. Organizer authoring is unchanged.
 Public course-to-runner navigation now uses one free-estimate CTA and preserves the selected catalog race through authentication. This presentation change does not alter organizer ownership, publication or edit permissions.
 
 Organizer administration separates billing from effective access. A manual invoice can be emitted, corrected and settled without changing the edition tier or any feature grant; conversely an admin can grant a tier or one of the 14 higher-plan features without an invoice. Gifted features have no standalone price and appear on manual invoices only as `OFFERT`. Every protected module, advanced format field and operation resolves its own feature key, so one gift never unlocks sibling capabilities. Stripe-confirmed purchases keep their existing automatic entitlement activation.
@@ -802,3 +807,5 @@ Organizer binary settings now share `SwitchRow` in Course/GPX, Dossard, Sponsors
 The combined course-points editor now exposes one distance-sorted vertical course line from departure to finish. Ravitos, SAS, supporter points, and relay points remain filtered editing modes; selecting a timeline node opens the existing editor and preserves all add, edit, delete, undo, product, service, and autosave behavior.
 
 Organizer finishing presentation adds compact Access module cards, collapsed sponsor creation, a legacy-service conversion banner, token-only branding preview surfaces, and terrain section headers. Stored content, limits, module gates, autosave, and publication behavior are unchanged.
+
+Organizer header (2026-11-16): the dashboard header no longer shows the « Aperçu coureur » and « Aperçu accompagnateur » web preview links (« Voir le Livret coureur » and « Télécharger le QR » remain), and its row wraps instead of letting the actions block overlap the edition selector. Presentation only; no data, contract or offer change.

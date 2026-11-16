@@ -5,6 +5,12 @@ last_verified: 2026-11-16
 # Structured access phase (2026-11-15): public race pages summarize parking and shuttle collections without exposing each logistics record; historical text remains the fallback.
 ai_priority: high
 related_files:
+  - apps/web/app/courses/evenements/[slug]/suivre/page.tsx
+  - apps/web/lib/public-supporter-guide.ts
+  - apps/web/lib/public-supporter-guide.test.ts
+  - apps/web/app/livret-coureur/page.tsx
+  - apps/web/app/livret-supporter/page.tsx
+  - apps/web/components/landing/LivretProductPage.tsx
   - apps/web/app/courses/supporter-guide/[raceId]/page.tsx
   - apps/web/app/courses/supporter-guide/[raceId]/SupporterGuideView.tsx
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
@@ -76,6 +82,16 @@ related_tables:
 
 # Public Race Discovery
 
+Supporter Guide format identification (2026-11-15): each format gets a colour from the `colors.formats` token, assigned by increasing distance (same rule on app and web). Programme rows show a round badge in the format colour with a type icon (start ▶, expected arrival / last runner clock, podium trophy, animation by type), the moment label in that colour and a coloured dot before the race name; past rows turn grey with a check. The « Je suis » checkboxes and the Suivre / Pratique race tabs carry the same colour, acting as the legend. Animations keep the brand colour.
+
+Supporter Guide course line endpoints (2026-11-15): `addCourseEndpoints` opens every `formats[].stops` line with a start stop (`endpoint: "start"`, km 0, `startTimes` — wave names only when there are several SAS — and start-area directions) and closes it with the finish (`endpoint: "finish"`: the organizer « Arrivée » checkpoint is enriched, otherwise a finish stop is added) carrying `expectedArrivals`, the resolved finish cutoff and finish directions. A single wave is never labelled (no « Départ commun ») in the programme either.
+
+On the public Supporter Guide page the « Je suis » checkboxes filter the programme only; fully past days are dimmed and collapsed (expandable) by default.
+
+The Supporter Guide timeline adds `arrival_estimate` entries (official start + estimated winning time, `audience` men/women, multi-day aware) and event-wide `animation` entries (`eventWide`, `endTime`, `animationType`) shown whatever races are followed; Programme gains an Animations tab and the Arrivées tab groups expected first arrivals with the last-runner finish cutoff.
+
+The public Supporter Guide page offers type tabs, a « Je suis » race filter, the live race-day markers and one card per place (ravito + cheering points merged).
+
 Course page time estimates (2026-11-16): `/courses/[slug]` shows « Combien de temps pour finir … ? » with three reference levels (comfortable flat pace 5:00, 6:30 and 8:00 /km) computed by `buildReferenceEstimates` with the planner effort model (`quick-estimate.ts`, see Pacing Algorithm). They are published only when the format has a known distance **and** D+, are labelled as Pace Yourself estimates excluding pauses, and never replace official cutoffs. The fastest–slowest range is reused in the meta description and the `SportsEvent.description`, so the snippet and the page show the same figures. This is the only derived duration the page may show; difficulty, weather and other facts still must not be generated.
 
 Account-free estimate (2026-11-16): `POST /api/race-estimate` (`catalogRaceId` + comfortable flat pace and/or UTMB Index, IP rate-limited 20/min) re-resolves the race through `getPublicRaces` and `getPublicRaceDetail`, so the same web-public gates apply. It returns only aggregated times (total, average pace, per-ravito elapsed time) — never route points, coordinates or the GPX. The planner uses it for anonymous visitors arriving from a course page in runner mode.
@@ -88,7 +104,7 @@ Course page layout (2026-11-16): app-style hero (veiled photo carrying event/nam
 
 The web Supporter Guide programme is grouped by calendar day from the server `timeline`, with localized dates/distances and cutoffs labelled with their weekday when they fall after the race day.
 
-`/courses/supporter-guide/[raceId]` is the public, mobile-first Livret accompagnateur route. It is intentionally `noindex`, uses the same publication cache tags as RaceBook output, and returns unavailable when no visible format has a current immutable publication. Its UUID selects the edition; the payload may include every public, preview-visible published format in that edition.
+`/courses/supporter-guide/[raceId]` is the public, mobile-first Livret supporter route. It is intentionally `noindex`, uses the same publication cache tags as RaceBook output, and returns unavailable when no visible format has a current immutable publication. Its UUID selects the edition; the payload may include every public, preview-visible published format in that edition.
 
 The public course practical section may show `thirdPartyPickupConditions` only when the bib-pickup module is public and third-party pickup is allowed. This additive copy does not participate in catalog eligibility, search, canonical identity, slug resolution, ISR visibility, or structured-data selection.
 
@@ -219,3 +235,9 @@ Edition slugs follow the same no-chain rule through `race_event_edition_slug_red
 - [race_events](../02-database/tables/race-events.md)
 - [race_slug_redirects](../02-database/tables/race-slug-redirects.md)
 - [Organizer Race Management](organizer-race-management.md)
+
+## Livret supporter follow pages (2026-11-16)
+
+`/courses/evenements/[slug]/suivre` is an indexable, server-rendered summary of the public Livret supporter of an edition: programme by day, supporter points and aid stations open to supporters (allowed or restricted) per format, deduplicated access, parking and shuttle rows, and links to the full client guide (`/courses/supporter-guide/[raceId]`, still `noindex`). It reuses `loadSupporterGuide` in public mode only (never organizer preview) through `getPublicSupporterGuide`, cached 15 minutes with the RaceBook edition cache tag; when no format is live with an effective `supporter_guide` module the route returns 404 and is never indexed. The event page shows a « Suivre la course » link only for upcoming editions with such a guide. Follow pages are not listed in the sitemap (discovery is through the event page link) to avoid loading every guide at sitemap build.
+
+`/livret-coureur` and `/livret-supporter` are static, indexable product pages for runners and for supporters (family, friends, public), listed in the sitemap and the footer; they describe only existing surfaces and route organizers to `/organisateurs`.

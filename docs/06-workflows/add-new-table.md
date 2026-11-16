@@ -1,9 +1,11 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-11-13
+last_verified: 2026-11-16
 ai_priority: high
 related_files:
+  - supabase/migrations/20261116150000_add_organizer_demo_requests.sql
+  - supabase/tests/organizer_demo_requests_checks.sql
   - supabase/migrations/20261109140000_add_racebook_edition_partner_slots.sql
   - supabase/migrations/20261109192905_remove_organizer_gift_feature_prices.sql
   - supabase/tests/racebook_partner_slots_checks.sql
@@ -40,6 +42,8 @@ related_files:
   - supabase/tests/partner_link_settings_checks.sql
   - supabase/migrations/20261105115106_admin_user_notifications.sql
   - supabase/tests/admin_user_notifications_checks.sql
+  - supabase/migrations/20261116180000_add_feedback_surveys.sql
+  - supabase/tests/feedback_survey_checks.sql
 related_tables:
   - race_slug_redirects
   - race_event_edition_branding
@@ -47,6 +51,8 @@ related_tables:
   - racebook_gear_checks
   - partner_link_settings
   - user_notifications
+  - feedback_survey_campaigns
+  - feedback_survey_responses
 ---
 
 # Add New Table
@@ -57,7 +63,7 @@ For immutable service-only financial records, follow the `organizer_invoices` pa
 
 The versioned RaceBook publication cluster is the current multi-table service-only example. `racebook_publication_states`, immutable `racebook_publications`, retained asset references and the cleanup queue all enable RLS without client policies, revoke client privileges, and expose only narrowly granted `SECURITY INVOKER` RPCs. When rollout requires existing public rows, build and validate the initial snapshot in the same migration before enabling snapshot-only reads; a state-only backfill is insufficient.
 
-Presentation-only mobile changes that touch files referenced by `schema-overview.md` (such as the Courses card image placeholder, or the 2026-11-09 livret-first catalog ordering and `Livret disponible` badge) still update that overview's note, but add no table and need no migration. The 2026-11-15 Livret accompagnateur entry and sheet-reopen change in `catalog.tsx` is another such case. So is the 2026-11-15 catalog card layout (rounded distance range, fixed-width sign).
+Presentation-only mobile changes that touch files referenced by `schema-overview.md` (such as the Courses card image placeholder, or the 2026-11-09 livret-first catalog ordering and `Livret disponible` badge) still update that overview's note, but add no table and need no migration. The 2026-11-15 Livret supporter entry and sheet-reopen change in `catalog.tsx` is another such case. So is the 2026-11-15 catalog card layout (rounded distance range, fixed-width sign). The catalog select fix moving `slug` to `races` adds no column either.
 
 ## Purpose
 
@@ -187,3 +193,7 @@ Changing an existing client-writable table follows the same discipline: `2026110
 Note (2026-11-09): `schema-overview.md` received a presentation-only note about the mobile catalog scroll performance; no table, column or workflow step changed.
 
 Catalog end date (2026-11-14): no table added; the schema overview only records that mobile catalog visibility uses the latest format `race_date` of an event.
+
+`organizer_demo_requests` (2026-11-16) is the simplest service-only intake example for anonymous visitors: RLS enabled without client policies, all client privileges revoked, writes only through a rate-limited server route, and admin review through admin-authenticated routes.
+
+`feedback_survey_campaigns` and `feedback_survey_responses` (2026-11-16) follow this workflow as a service-only + insert-own pair: the campaign table keeps RLS on with every client privilege revoked; the response table grants `authenticated` a column-scoped INSERT and a narrow SELECT under `auth.uid()` policies, while a `SECURITY DEFINER` `BEFORE INSERT` trigger validates notification ownership and kind and fills the server-managed `campaign_id`. Service-role-only RPCs resolve recipients from `auth.users` (trusted `app_metadata` role) and count campaign stats; `supabase/tests/feedback_survey_checks.sql` asserts the grants and trigger outcomes.

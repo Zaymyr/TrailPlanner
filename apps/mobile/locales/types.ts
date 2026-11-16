@@ -166,6 +166,30 @@ export type MobileTranslations = {
     revokeBody: string;
   };
   supporterGuide: {
+    dayDone: string;
+    typeAnimations: string;
+    kindArrivalEstimate: string;
+    kindAnimation: string;
+    firstMan: string;
+    firstWoman: string;
+    closed: string;
+    typeAll: string;
+    typeStarts: string;
+    typeArrivals: string;
+    typeAwards: string;
+    iAmFollowing: string;
+    live: string;
+    nowLabel: string;
+    directions: string;
+    remindMe: string;
+    reminderOn: string;
+    remindMyRunners: string;
+    remindersAdded: string;
+    remindersAllSet: string;
+    reminderPermissionDenied: string;
+    reminderTitle: string;
+    reminderBody: string;
+    emptyFiltered: string;
     stayPartnerTitle: string;
     bookingDescription: string;
     shareAction: string;
@@ -434,6 +458,7 @@ export type MobileTranslations = {
     notificationsSendFeedback: string;
     notificationsRequestRace: string;
     notificationsFeedbackReplyLabel: string;
+    notificationsSurveyLabel: string;
     notificationsDelete: string;
     notificationsDeleteTitle: string;
     notificationsDeleteBody: string;
@@ -1073,6 +1098,24 @@ export type MobileTranslations = {
     sendFailed: string;
     sourceLabel: string;
     screenLabel: string;
+  };
+  feedbackSurvey: {
+    usefulQuestion: string;
+    yes: string;
+    no: string;
+    usefulTextLabel: string;
+    usefulTextPlaceholder: string;
+    missingTextLabel: string;
+    missingTextPlaceholder: string;
+    submit: string;
+    missingAnswer: string;
+    sendFailed: string;
+    answeredTitle: string;
+    answeredBody: string;
+    reviewTitle: string;
+    reviewBody: string;
+    reviewCta: string;
+    reviewLater: string;
   };
   helpTutorial: {
     triggerLabel: string;

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withSecurityHeaders } from "../../../../lib/http";
 import { jsonError, requireAdminAuth, serviceHeaders } from "../../../../lib/organizer";
 
-/** Pending items per admin inbox tab (bugs, feedback, race requests), for the tab badges. */
+/** Pending items per admin inbox tab (bugs, feedback, race and organizer demo requests), for the tab badges. */
 export async function GET(request: NextRequest) {
   const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
@@ -18,12 +18,14 @@ export async function GET(request: NextRequest) {
   };
 
   try {
-    const [bug, feedback, raceRequests] = await Promise.all([
+    const [bug, feedback, raceRequests, demoRequests] = await Promise.all([
       countPending("app_feedback?kind=eq.bug"),
       countPending("app_feedback?kind=eq.feedback"),
       countPending("race_requests?id=not.is.null"),
+      // Organizer demo requests share the « Demandes de course » badge; 0 until the table is deployed.
+      countPending("organizer_demo_requests?id=not.is.null").catch(() => 0),
     ]);
-    return withSecurityHeaders(NextResponse.json({ bug, feedback, raceRequests }));
+    return withSecurityHeaders(NextResponse.json({ bug, feedback, raceRequests: raceRequests + demoRequests }));
   } catch (error) {
     console.error("Unable to count admin inbox", error);
     return jsonError("Unable to count pending messages.", 502);

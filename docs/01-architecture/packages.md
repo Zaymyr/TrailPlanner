@@ -23,6 +23,12 @@ related_tables: []
 
 # Packages Architecture
 
+Supporter Guide course line endpoints (2026-11-15): `addCourseEndpoints` opens every `formats[].stops` line with a start stop (`endpoint: "start"`, km 0, `startTimes` — wave names only when there are several SAS — and start-area directions) and closes it with the finish (`endpoint: "finish"`: the organizer « Arrivée » checkpoint is enriched, otherwise a finish stop is added) carrying `expectedArrivals`, the resolved finish cutoff and finish directions. A single wave is never labelled (no « Départ commun ») in the programme either.
+
+`SupporterGuideTimelineEntry` gains `arrival_estimate` / `animation` kinds with `audience`, `eventWide`, `endTime`, `animationType`; formats gain `estimatedWinners`.
+
+`@trailplanner/shared` `SupporterGuideStop` types the server-grouped Supporter Guide places; timeline entries gain an optional `mapsUrl`.
+
 `@trailplanner/shared` exports `racebook-cutoffs`: organizer cutoff parsing, the official in-order multi-day resolution and race-day clock conversion. It mirrors `apps/mobile/lib/racebookPlanReflection.ts`; mobile keeps its local copy and receives already-resolved cutoffs in the Supporter Guide payload.
 
 `@trailplanner/shared` exports the transport-only `SupporterGuidePayload` contract consumed by web and mobile. The web-only `qrcode` dependency renders organizer download SVGs and is not shipped to the mobile bundle.

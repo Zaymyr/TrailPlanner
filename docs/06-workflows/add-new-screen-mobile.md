@@ -1,7 +1,8 @@
 ---
 title: Add New Mobile Screen
 scope: workflow
-last_verified: 2026-11-15
+last_verified: 2026-11-16
+# Livret supporter note (2026-11-16): the public name of the supporter_guide surface is now "Livret supporter" (formerly "Livret accompagnateur"); aid-station access wording ("Accompagnateurs autorisés") is unchanged; no data, contract or offer change.
 # Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
 # Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
 # Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
@@ -9,6 +10,7 @@ last_verified: 2026-11-15
 # Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: medium
 related_files:
+  - apps/mobile/components/feedback/FeedbackSurveyForm.tsx
   - apps/mobile/app
   - apps/mobile/app/(app)/_layout.tsx
   - apps/mobile/components/navigation/AppHeaderTitle.tsx
@@ -87,6 +89,12 @@ related_tables:
 ---
 
 # Add New Mobile Screen
+
+The Supporter Guide timeline adds `arrival_estimate` entries (official start + estimated winning time, `audience` men/women, multi-day aware) and event-wide `animation` entries (`eventWide`, `endTime`, `animationType`) shown whatever races are followed; Programme gains an Animations tab and the Arrivées tab groups expected first arrivals with the last-runner finish cutoff.
+
+Livret supporter programme (2026-11-15): type tabs (Tout, Départs, Arrivées, Podiums) instead of race tabs; a « Je suis » race selection (small checkboxes, remembered per edition) filters the Programme only (Suivre and Pratique keep their own race tabs); fully past days are dimmed and collapsed by default; on the event day the current day is live — past entries dimmed and checked, a « maintenant » line, the next entry with a countdown, auto-scroll to now — and Suivre marks a place « Fermé » once its last-runner cutoff has passed. Times are compared with the device clock, assuming the supporter is on the event timezone.
+
+Catalog query fix (2026-11-15): the mobile `EVENT_CATALOG_SELECT` requests `slug` on the embedded `races` rows (used to open `/courses/<slug>` deep links), not on `race_event_updates`, which has no such column. The misplaced column made PostgREST reject the whole catalog request (42703), so the development build showed no races.
 
 Mes courses (2026-11-15) uses `TrailTabs` (stretch) for « Mes plans / Je suis assistant » instead of a custom segmented control; the list inset follows the measured tab height, removing the extra gap above the first plan. The plan readiness wristband `inProgress` now reads « En construction » / « Under construction » with the `warning` (amber) tone. Catalog event cards (`RaceEventSummaryCard`, 2026-11-15) stack the format count and the distance range on the left in `Cote` size `xs`, rounded to whole kilometres (13–185 km; exact distances stay in the format sheet), so the fixed-width (172 pt) « Voir les distances » sign always fits on the right.
 
@@ -321,6 +329,7 @@ RaceBook GPX cards must also honor normalized `gpxDisplay` route/profile choices
 For RaceBook or plan-workspace changes, verify two-line hero titles at 100% and 130% text scaling, 44-point increment/decrement targets, content clearance below sticky selectors, localized distance/range/clock output, and image-error fallback without an empty rail. Keep the Livret/Plan switch as the sole plan entry control on RaceBook; a saved plan may show a revision warning, but must not add a duplicate creation card.
 
 - Inbox actions: the Notifications sub-tab reuses `FeedbackHeaderButton` (`initialKind`) and `RaceRequestHeaderButton` through their render-prop `children` instead of new forms, and deletes a message by hiding it (`deleted_at`), never with a client DELETE.
+- Inbox survey: a `feedback_survey` message renders `FeedbackSurveyForm` inside its expanded card (themed `ActionButton` yes/no and `Field` text areas). Store review stays an explicit button there (`openStoreReviewPage`); screens still never launch the native review dialog themselves.
 
 RaceBook polish (2026-11-09): the runner hero keeps the format/event thumbnail but renders it blurred (`blurRadius` 24) under a 90% organizer-primary veil, so no artwork text is readable behind the identity, omits the default `Solo` participation label, appends a `J-N`/`Aujourd'hui` countdown to the date line (hidden after race day), and moves its expanded block up with the collapse so titles never overlap and metrics are never clipped. Runner wording was simplified (`Où encourager`, `Barrière horaire`, `Sac d'allègement`, `Nourriture`, `Relais {n}`, weather-alert and partial-route sentences). Access transport notes turn pasted URLs into labelled buttons (`Réserver ma navette` / `Ouvrir le lien`) and bib pickup addresses without an organizer maps link fall back to a Google Maps search (`lib/racebookTextLinks.ts`). Profile cumulative tiles show `—` until the runner touches the curve. This is runner presentation only: no row, contract or tracking of this domain changes.
 

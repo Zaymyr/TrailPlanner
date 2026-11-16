@@ -24,7 +24,9 @@ related_tables:
 
 # `race_event_updates`
 
-The catalog event sheet opens the Livret accompagnateur from an interactive `TopoCard` placed before the distance list, and the guide's back action reopens that sheet through the existing `eventId` parameter plus a `sheet` nonce. Update rows and their sheet rendering are unchanged.
+Catalog query fix (2026-11-15): the mobile `EVENT_CATALOG_SELECT` requests `slug` on the embedded `races` rows (used to open `/courses/<slug>` deep links), not on `race_event_updates`, which has no such column. The misplaced column made PostgREST reject the whole catalog request (42703), so the development build showed no races.
+
+The catalog event sheet opens the Livret supporter from an interactive `TopoCard` placed before the distance list, and the guide's back action reopens that sheet through the existing `eventId` parameter plus a `sheet` nonce. Update rows and their sheet rendering are unchanged.
 
 The catalog Supporter Guide entry does not load, create or send event updates. Manual organizer notifications remain a separate flow.
 

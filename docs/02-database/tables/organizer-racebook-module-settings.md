@@ -1,7 +1,8 @@
 ---
 title: organizer_racebook_module_settings
 scope: database
-last_verified: 2026-11-03
+last_verified: 2026-11-16
+# Livret supporter note (2026-11-16): the public name of the supporter_guide surface is now "Livret supporter" (formerly "Livret accompagnateur"); aid-station access wording ("Accompagnateurs autorisés") is unchanged; no data, contract or offer change.
 ai_priority: high
 related_files:
   - supabase/migrations/20261115131556_add_supporter_guide_module.sql
@@ -20,7 +21,7 @@ related_tables:
 
 # `organizer_racebook_module_settings`
 
-`supporter_guide` is an edition-scoped Essential module, enabled for existing and new editions and copied by the existing edition-duplication flow. It controls the Livret accompagnateur surface only: every section still requires the effective module of its published source. Older immutable publications without this additive key are treated as enabled for compatibility; a later explicit disable is frozen on republication.
+`supporter_guide` is an edition-scoped Essential module, enabled for existing and new editions and copied by the existing edition-duplication flow. It controls the Livret supporter surface only: every section still requires the effective module of its published source. Older immutable publications without this additive key are treated as enabled for compatibility; a later explicit disable is frozen on republication.
 
 Effective module state now combines the selected plan with exact active feature grants. Services, start waves, awards, branding, sponsors, relay and official products each map to their own gift key; enabling or gifting one module never widens another module or the entire higher plan.
 

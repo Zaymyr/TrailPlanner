@@ -13,7 +13,7 @@ export function SiteFooter() {
   const partnersHref = (isEnglishPath ? "/en/partners" : "/partenaires") as Route;
   const partnersLabel = isEnglishPath ? "For brands" : "Espace marques";
   const groups = [
-    { title: isEnglishPath ? "Product" : "Produit", links: [[isEnglishPath ? "Races" : "Courses", "/courses"], [isEnglishPath ? "Race planner" : "Planificateur", "/race-planner"], [isEnglishPath ? "Carb calculator" : "Calculateur glucides", "/calculateur-glucides-trail"]] },
+    { title: isEnglishPath ? "Product" : "Produit", links: [[isEnglishPath ? "Races" : "Courses", "/courses"], [isEnglishPath ? "Race Book" : "Livret coureur", "/livret-coureur"], [isEnglishPath ? "Supporter Guide" : "Livret supporter", "/livret-supporter"], [isEnglishPath ? "Race planner" : "Planificateur", "/race-planner"], [isEnglishPath ? "Carb calculator" : "Calculateur glucides", "/calculateur-glucides-trail"]] },
     { title: isEnglishPath ? "Resources" : "Ressources", links: [["Blog", "/blog"], [isEnglishPath ? "Methodology" : "Méthodologie", "/methodologie"], [isEnglishPath ? "Organizers" : "Organisateurs", "/organisateurs"]] },
     { title: isEnglishPath ? "Company" : "Entreprise", links: [[isEnglishPath ? "About" : "À propos", "/a-propos"], [partnersLabel, partnersHref], ["Contact", `mailto:${supportEmail}`]] },
     { title: isEnglishPath ? "Legal" : "Légal", links: [[isEnglishPath ? "Legal notice" : "Mentions légales", "/legal/mentions-legales"], ["CGU", "/legal/cgu"], ["CGV", "/legal/cgv"], [isEnglishPath ? "Privacy" : "Confidentialité", "/legal/privacy"]] },

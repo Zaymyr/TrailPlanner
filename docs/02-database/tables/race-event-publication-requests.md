@@ -1,7 +1,8 @@
 ---
 title: race_event_publication_requests Table
 scope: database
-last_verified: 2026-11-15
+last_verified: 2026-11-16
+# Livret supporter note (2026-11-16): the public name of the supporter_guide surface is now "Livret supporter" (formerly "Livret accompagnateur"); aid-station access wording ("Accompagnateurs autorisés") is unchanged; no data, contract or offer change.
 # Assisted legacy conversion (2026-11-15): Apply updates only the local organizer form; publication rules evaluate the subsequently saved draft.
 # Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
 # Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
@@ -163,3 +164,5 @@ Local organizer validation no longer surfaces a background autosave failure, and
 The compact Organizer banner and completion rail expose the same publication actions and readiness state; publication-request persistence and review remain server-owned.
 
 Organizer finishing layouts do not change publication-request persistence or review.
+
+Organizer header (2026-11-16): the dashboard header no longer shows the « Aperçu coureur » and « Aperçu accompagnateur » web preview links (« Voir le Livret coureur » and « Télécharger le QR » remain), and its row wraps instead of letting the actions block overlap the edition selector. Presentation only; no data, contract or offer change.

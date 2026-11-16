@@ -1,9 +1,10 @@
 ---
 title: Resend Integration
 scope: integration
-last_verified: 2026-11-13
+last_verified: 2026-11-16
 ai_priority: medium
 related_files:
+  - apps/web/lib/feedback-surveys.ts
   - package.json
   - apps/web/package.json
   - emails/resend/production-launch.html
@@ -60,7 +61,7 @@ The repo has one checked-in Broadcast template and two server-side Resend Contac
 - `emails/resend/production-launch.html` is a static HTML template for the Google Play production launch Broadcast. Its support ask mentions both a Google Play rating and the `@pace_your.self` Instagram account.
 - `emails/resend/production-launch.txt` is the matching plain-text copy.
 - `apps/web/lib/resend.ts` wraps the Resend Contacts REST API with `fetch`; no `resend` npm dependency is installed.
-- Admin messages and race-request status notices may opt into a transactional Resend e-mail. Their durable in-app `user_notifications` row is created first, the notification UUID becomes the provider `Idempotency-Key`, and the delivery result is persisted as `sent`, `failed`, or `unavailable` without undoing the in-app message or race-request review. The e-mail includes escaped, accessible HTML and matching plain text. Because the inbox is currently mobile-only and no universal link is configured, it truthfully directs the recipient to the app's Notifications tab without rendering a broken web CTA. A missing recipient e-mail or server configuration is recorded as unavailable rather than treated as a successful send.
+- Admin messages and race-request status notices may opt into a transactional Resend e-mail. Their durable in-app `user_notifications` row is created first, the notification UUID becomes the provider `Idempotency-Key`, and the delivery result is persisted as `sent`, `failed`, or `unavailable` without undoing the in-app message or race-request review. The e-mail includes escaped, accessible HTML and matching plain text. Because the inbox is currently mobile-only and no universal link is configured, it truthfully directs the recipient to the app's Notifications tab without rendering a broken web CTA. A missing recipient e-mail or server configuration is recorded as unavailable rather than treated as a successful send. Feedback survey campaigns (`lib/feedback-surveys.ts`) reuse the same per-recipient delivery path when the admin ticks e-mail; push is their default channel.
 - The same REST helper sends an existing organizer account a transactional e-mail only after its direct membership assignment or reactivation succeeds. The message names the canonical event and links to `/sign-in?next=...`, whose validated internal destination is `/organizer?eventId=...`; this makes an e-mail opened in a browser without the original local session authenticate before entering the selected event. Newly created accounts receive the Supabase invitation instead and do not receive this second message. Its checked-in HTML reuses the production-launch visual language (logo, beige canvas, bordered white card, green responsive CTA, and fallback URL) while remaining a transactional message without a marketing unsubscribe link or a Resend Dashboard template dependency.
 - The web package also contains `tus-js-client` for Organizer Storage uploads, server-only `pdf-lib` for invoice PDFs, and server-only `sharp` for public thumbnail normalization; all are unrelated to Resend, which remains a direct REST integration without the Resend SDK.
 - The web package's route-local `mapbox-gl` dependency powers only the admin 3D viewer, the server-only `@anthropic-ai/sdk` dependency only writes its narration, and `mediabunny` / `html-to-image` only export its MP4; none changes Resend Contacts, Broadcasts or transactional delivery.
@@ -177,3 +178,5 @@ The web package now also depends on `@mediabunny/aac-encoder` for the admin reel
 Replies to bugs and feedback (`PATCH /api/admin/feedback` with a notification) follow the same contract: the in-app row is created first by `review_app_feedback_with_notification`, then the optional e-mail and push are delivered by `deliverAdminUserNotification` with the notification UUID as idempotency key. A status change without a notification sends nothing.
 
 A one-click close ("Clôturer") of a bug, feedback or race request changes only the status: no in-app notification, e-mail or push is created.
+
+`sendTransactionalEmail` (2026-11-16) sends a prebuilt HTML/text e-mail with optional `reply_to` and idempotency key, returning `sent` / `skipped` (missing configuration) / `failed`. It is used by organizer demo requests: a team notification (`ORGANIZER_DEMO_NOTIFY_EMAIL`, default the support mailbox) and a receipt to the organizer; visitor input is HTML-escaped.

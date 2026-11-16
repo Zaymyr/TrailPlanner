@@ -8,6 +8,7 @@ import type { Route } from "next";
 import { trackGoogleAnalyticsEvent } from "../../lib/google-analytics";
 import type { OrganizerAttribution } from "../../lib/organizer-acquisition";
 import type { OrganizerSocialProof } from "../../lib/organizer-social-proof";
+import { OrganizerDemoRequestForm } from "./organizer-demo-request-form";
 
 type OrganizerLandingPageProps = {
   attribution: OrganizerAttribution;
@@ -61,6 +62,31 @@ const demoViews: Array<{
   },
 ];
 
+const livretProducts = [
+  {
+    key: "coureur",
+    eyebrow: "Pour vos coureurs",
+    name: "Livret coureur",
+    features: ["Parcours, GPX et ravitos", "Horaires, dossards et matériel", "Accès, parkings et navettes"],
+    access: "Dans l’app Pace Yourself",
+    href: "/livret-coureur",
+  },
+  {
+    key: "supporter",
+    eyebrow: "Pour leurs proches",
+    name: "Livret supporter",
+    features: ["Programme jour par jour", "Points de suivi et d’encouragement", "Accès, séjour et infos pratiques"],
+    access: "Lien web et QR code, sans compte",
+    href: "/livret-supporter",
+  },
+] as const;
+
+const supporterPreviewRows = [
+  { tag: "Départ · Programme", title: "Départ de l’ultra" },
+  { tag: "Ravito · km 18", title: "Ravito du col" },
+  { tag: "Suivi · km 24", title: "Point de suivi" },
+] as const;
+
 const runnerInformation = [
   "Parcours et traces GPX",
   "Horaires de départ",
@@ -77,7 +103,7 @@ const scatteredSources = ["Site internet", "Règlement PDF", "Réseaux sociaux",
 const setupSteps = [
   { number: "01", title: "Créez votre événement", description: "Renseignez son nom, ses dates, son lieu et ses différents formats." },
   { number: "02", title: "Ajoutez les informations utiles", description: "Complétez parcours, horaires, ravitaillements, matériel et logistique à partir de vos contenus existants." },
-  { number: "03", title: "Publiez votre Livret coureur", description: "Après validation, vos coureurs retrouvent les informations directement dans Pace Yourself." },
+  { number: "03", title: "Publiez vos deux livrets", description: "Après validation, vos coureurs retrouvent le Livret coureur dans Pace Yourself et vous partagez le Livret supporter par lien ou QR code." },
 ];
 
 const tstDiscoverySteps = [
@@ -99,7 +125,7 @@ const tstDiscoverySteps = [
 ] as const;
 
 const organizerOffers = [
-  { name: "Essentiel", price: "99 €", description: "Le Livret coureur simple", features: ["Course et GPX", "Matériel et dossard", "Accès principal", "Ravitos simples"] },
+  { name: "Essentiel", price: "99 €", description: "Le Livret coureur simple", features: ["Livret coureur et Livret supporter", "Course et GPX", "Matériel et dossard", "Accès principal et ravitos simples"] },
   { name: "Complet", price: "199 €", description: "La logistique avancée", features: ["Tout Essentiel", "SAS et barrières", "Services et navettes", "Podiums et notifications"] },
   { name: "Signature", price: "349 €", description: "L'expérience personnalisée", features: ["Tout Complet", "Relais et produits officiels", "Sponsors et clics", "Identité visuelle et import assisté"] },
 ] as const;
@@ -198,22 +224,47 @@ export function OrganizerLandingPage({ attribution, creationHref, socialProofs }
         <div className="relative grid items-start gap-8 md:grid-cols-[minmax(0,1.15fr)_minmax(240px,0.75fr)] md:gap-7 lg:grid-cols-[minmax(0,1.08fr)_minmax(240px,0.72fr)] lg:gap-9 xl:gap-12">
           <div className="space-y-5 lg:space-y-6">
             <p className="inline-flex rounded-full border border-brand-border bg-card/85 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-brand shadow-sm dark:border-emerald-400/30 dark:bg-emerald-950/50 dark:text-emerald-100">
-              Le Livret coureur mobile des trails
+              Livret coureur + Livret supporter
             </p>
-            <div className="space-y-5">
-              <h1 className="max-w-3xl text-4xl font-semibold leading-[1.04] tracking-[-0.035em] text-foreground sm:text-[2.65rem] lg:text-[clamp(2.65rem,4vw,3.4rem)]">
-                Une seule source d’information pour vos coureurs. Jusqu’à la ligne de départ.
+            <div className="space-y-4">
+              <h1 className="max-w-3xl text-[2rem] font-semibold leading-[1.06] tracking-[-0.035em] text-foreground sm:text-[2.65rem] lg:text-[clamp(2.65rem,4vw,3.4rem)]">
+                Une seule source d’information pour vos coureurs et leurs proches.
               </h1>
               <p className="max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-                Regroupez parcours, horaires, ravitaillements, matériel, dossards et accès dans un Livret mobile que vos coureurs peuvent consulter au bon moment.
+                Publiez vos informations une fois : vos coureurs ont leur Livret coureur, leurs familles et amis le Livret supporter pour suivre la course.
               </p>
             </div>
+            <ul className="grid grid-cols-2 gap-2 sm:gap-3" aria-label="Les deux livrets inclus">
+              {livretProducts.map((product) => (
+                <li
+                  key={product.key}
+                  className="rounded-2xl border border-brand-border bg-card/90 p-3 shadow-sm sm:p-4 dark:border-emerald-400/25 dark:bg-card/80"
+                >
+                  <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{product.eyebrow}</p>
+                  <h2 className="mt-1 text-base font-semibold leading-tight text-foreground sm:text-lg">
+                    <Link href={product.href as Route} className="underline-offset-4 hover:text-brand hover:underline">{product.name}</Link>
+                  </h2>
+                  <ul className="mt-2 hidden space-y-1.5 text-sm text-foreground/85 sm:block">
+                    {product.features.map((feature) => (
+                      <li key={feature} className="flex gap-2">
+                        <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-brand dark:text-emerald-300" />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-xs font-semibold leading-snug text-brand sm:mt-3 dark:text-emerald-200">{product.access}</p>
+                </li>
+              ))}
+            </ul>
             <div className="flex flex-col gap-3 sm:flex-row md:flex-col md:items-start lg:flex-row">
               {primaryCta("hero", "Créer mon Livret coureur")}
               {demoCta()}
             </div>
+            <a href="#demande-demo" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand underline-offset-4 hover:underline dark:text-emerald-200">
+              Besoin d’en parler ? Demander une démo
+            </a>
             <ul className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-foreground/80" aria-label="Avantages de l’offre">
-              {["Présence au catalogue gratuite", "Tous vos formats inclus", "Dès 99 € HT par édition"].map((benefit) => (
+              {["Les deux livrets dès 99 € HT par édition", "Tous vos formats inclus", "Présence au catalogue gratuite"].map((benefit) => (
                 <li key={benefit} className="flex items-center gap-2">
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand text-brand-foreground dark:bg-emerald-400 dark:text-slate-950">
                     <CheckIcon className="h-3 w-3" />
@@ -244,7 +295,7 @@ export function OrganizerLandingPage({ attribution, creationHref, socialProofs }
             )}
           </div>
 
-          <div className="relative mx-auto w-full max-w-[260px] sm:max-w-[280px] md:mt-1 md:max-w-[260px] md:justify-self-end lg:max-w-[clamp(240px,calc(40svh-56px),290px)]">
+          <div className="relative mx-auto mb-6 w-full max-w-[260px] sm:max-w-[280px] md:mt-1 md:max-w-[260px] md:justify-self-end lg:max-w-[clamp(240px,calc(40svh-56px),290px)]">
             <div className="relative overflow-hidden rounded-[2.2rem] border border-foreground/10 bg-foreground p-2.5 shadow-2xl shadow-[rgba(45,80,22,0.22)] dark:border-emerald-300/15 dark:bg-emerald-950">
               <div className="flex items-center justify-between px-3 py-2 text-background dark:text-emerald-50">
                 <div>
@@ -253,7 +304,7 @@ export function OrganizerLandingPage({ attribution, creationHref, socialProofs }
                 </div>
                 <span className="flex items-center gap-1.5 rounded-full bg-background/10 px-2.5 py-1 text-[0.68rem] font-medium">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                  Livret publié
+                  Livret coureur
                 </span>
               </div>
               <div className="relative aspect-[540/1212] overflow-hidden rounded-[1.55rem] bg-card">
@@ -290,6 +341,25 @@ export function OrganizerLandingPage({ attribution, creationHref, socialProofs }
                 </button>
               </div>
             </div>
+
+            <figure
+              className="absolute -bottom-6 -left-6 w-[64%] overflow-hidden rounded-2xl border border-border bg-card shadow-2xl shadow-[rgba(45,80,22,0.25)] sm:-left-12 md:-left-16"
+              aria-label="Illustration du Livret supporter : programme, ravitos et points de suivi"
+            >
+              <div className="bg-brand px-3 pb-2.5 pt-3 text-brand-foreground dark:bg-emerald-800 dark:text-emerald-50">
+                <p className="text-[0.55rem] font-semibold uppercase tracking-[0.16em] opacity-80">Livret supporter</p>
+                <p className="text-sm font-semibold leading-tight">Suivre la course</p>
+              </div>
+              <ol className="space-y-1.5 p-2.5">
+                {supporterPreviewRows.map((row) => (
+                  <li key={row.tag} className="rounded-lg border border-border bg-background/70 px-2 py-1.5">
+                    <span className="block text-[0.55rem] font-semibold uppercase tracking-wide text-brand dark:text-emerald-200">{row.tag}</span>
+                    <span className="block truncate text-xs font-semibold text-foreground">{row.title}</span>
+                  </li>
+                ))}
+              </ol>
+              <figcaption className="border-t border-border px-2.5 py-1.5 text-[0.6rem] font-medium text-muted-foreground">Partagé par lien ou QR code</figcaption>
+            </figure>
           </div>
         </div>
       </section>
@@ -494,14 +564,26 @@ export function OrganizerLandingPage({ attribution, creationHref, socialProofs }
         </div>
       </section>
 
+      <section id="demande-demo" aria-labelledby="demo-request-title" className="scroll-mt-6 grid gap-6 rounded-3xl border border-brand-border bg-brand-surface p-5 sm:p-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center dark:border-emerald-400/30 dark:bg-emerald-400/10">
+        <div className="space-y-3">
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand dark:text-emerald-200">Démo personnalisée</p>
+          <h2 id="demo-request-title" className="text-3xl font-semibold tracking-tight text-foreground">Voyez le Livret appliqué à votre course</h2>
+          <p className="leading-7 text-muted-foreground">Laissez votre e-mail et le lien de votre course : nous vous montrons ce que vos coureurs verraient, avec vos informations, et répondons à vos questions.</p>
+        </div>
+        <OrganizerDemoRequestForm attribution={attribution} />
+      </section>
+
       <section className="rounded-3xl bg-foreground px-5 py-10 text-center text-background sm:px-10 sm:py-14 dark:bg-emerald-950 dark:text-emerald-50">
         <div className="mx-auto max-w-3xl space-y-5">
-          <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Votre prochain Livret coureur peut être prêt en quelques minutes</h2>
+          <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Vos Livrets coureur et supporter peuvent être prêts en quelques minutes</h2>
           <p className="text-base leading-7 text-background/75 dark:text-emerald-100/80">Commencez avec les informations que vous possédez déjà, puis complétez votre événement à votre rythme.</p>
           <div className="flex flex-col justify-center gap-3 sm:flex-row">
             {primaryCta("final", "Créer le Livret coureur de mon événement")}
             {appCta("final")}
           </div>
+          <a href="#demande-demo" className="inline-flex min-h-11 items-center justify-center text-sm font-semibold text-background underline underline-offset-4 dark:text-emerald-50">
+            Ou demander une démo
+          </a>
         </div>
       </section>
     </div>

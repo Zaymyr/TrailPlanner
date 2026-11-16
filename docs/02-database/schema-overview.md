@@ -1,9 +1,13 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-11-13
+last_verified: 2026-11-16
 ai_priority: high
 related_files:
+  - supabase/migrations/20261116150000_add_organizer_demo_requests.sql
+  - supabase/tests/organizer_demo_requests_checks.sql
+  - supabase/migrations/20261116180000_add_feedback_surveys.sql
+  - supabase/tests/feedback_survey_checks.sql
   - supabase/migrations/20261106142000_add_lut_by_night_2026_gpx.sql
   - supabase/migrations/20261105180000_add_app_feedback_review.sql
   - supabase/tests/app_feedback_review_checks.sql
@@ -133,9 +137,11 @@ related_tables:
 
 # Schema Overview
 
+Catalog query fix (2026-11-15): the mobile `EVENT_CATALOG_SELECT` requests `slug` on the embedded `races` rows (used to open `/courses/<slug>` deep links), not on `race_event_updates`, which has no such column. The misplaced column made PostgREST reject the whole catalog request (42703), so the development build showed no races.
+
 Catalog event cards (`RaceEventSummaryCard`, 2026-11-15) stack the format count and the distance range on the left in `Cote` size `xs`, rounded to whole kilometres (13–185 km; exact distances stay in the format sheet), so the fixed-width (172 pt) « Voir les distances » sign always fits on the right. No schema change.
 
-The catalog event sheet opens the Livret accompagnateur from an interactive `TopoCard` placed before the distance list, and the guide's back action reopens that sheet through the existing `eventId` parameter plus a `sheet` nonce. No schema change.
+The catalog event sheet opens the Livret supporter from an interactive `TopoCard` placed before the distance list, and the guide's back action reopens that sheet through the existing `eventId` parameter plus a `sheet` nonce. No schema change.
 
 The 2026 Radiance Mutuelle LUT By Night data-only enrichment attaches the three official downloadable GPX objects to the 10 km, 20 km and 30 km catalog formats, preserving their official distance/D+ labels and adding hashes plus parsed route metadata. The 10 km Rando remains without a GPX because its official page has no downloadable trace URL. No schema, grant, policy, visibility, or publication-state contract changes.
 
@@ -245,6 +251,7 @@ The November 2026 mobile plan-flow polish changes catalog search controls, image
 | `race_event_edition_branding` | Edition-scoped RaceBook identity with separate organizer draft and runner-visible published values. |
 | `race_plans` | Saved planner state and imported GPX plan metadata. |
 | `race_requests` | Authenticated user requests for races to add. |
+| `organizer_demo_requests` | Service-only demo requests from the public organizer page (e-mail, race link, optional phone), reviewed in the admin inbox. See [organizer_demo_requests](tables/organizer-demo-requests.md). |
 | `races` | Current race catalog/private race table, renamed from `race_catalog`, with yearly organizer edition grouping on `edition_group_id` / `series_name`. |
 | `race_slug_redirects` | Former course slugs mapped to stable race ids for visibility-gated permanent redirects. |
 | `rate_limit_entries` | DB-backed rate limit counters used by security-sensitive routes. |
@@ -253,6 +260,8 @@ The November 2026 mobile plan-flow polish changes catalog search controls, image
 | `user_favorite_products` | User favorites for products. |
 | `user_profiles` | App profile, independent Plan/RaceBook onboarding statuses, legacy completion, trial fields, defaults, sign-in metrics, and body metrics. |
 | `user_notifications` | Owner-readable admin messages and race-request status notifications with server-managed email/push delivery state. |
+| `feedback_survey_campaigns` | Service-only admin feedback surveys sent to a targeted audience (livret readers). See [feedback_survey_campaigns](tables/feedback-survey-campaigns.md). |
+| `feedback_survey_responses` | Runner answers to a survey message (useful yes/no, what helped, what was missing); insert-own, trigger-validated. See [feedback_survey_responses](tables/feedback-survey-responses.md). |
 
 Removed legacy tables:
 

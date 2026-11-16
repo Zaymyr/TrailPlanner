@@ -7,6 +7,7 @@ import {
   type SupporterGuideLocation,
   type SupporterGuidePayload,
   type SupporterGuideService,
+  type SupporterGuideStop,
   type SupporterGuideTimelineEntry,
 } from "@trailplanner/shared";
 import { z } from "zod";
@@ -84,26 +85,220 @@ function resolveFormatCutoffs(input: {
   };
 }
 
-function buildTimeline(formats: SupporterGuideFormat[]): SupporterGuideTimelineEntry[] {
+const STOP_MERGE_KM = 2;
+
+/** Place-name key: accents, case and punctuation ignored, « St »/« Ste » read as Saint/Sainte. */
+export function normalizePlaceName(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("fr")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\bste\b/g, "sainte")
+    .replace(/\bst\b/g, "saint")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+/**
+ * Groups aid stations and supporter points of one format by place: rows with
+ * the same normalized name within 2 km become one stop carrying all roles.
+ */
+export function buildSupporterStops(format: Pick<SupporterGuideFormat, "aidStations" | "supporterPoints">): SupporterGuideStop[] {
+  type Item =
+    | { kind: "station"; km: number; key: string; station: SupporterGuideFormat["aidStations"][number] }
+    | { kind: "point"; km: number; key: string; point: SupporterGuideFormat["supporterPoints"][number] };
+  const items: Item[] = [
+    ...format.aidStations.map((station) => ({ kind: "station" as const, km: station.km, key: normalizePlaceName(station.name), station })),
+    ...format.supporterPoints.map((point) => ({ kind: "point" as const, km: point.km, key: normalizePlaceName(point.name), point })),
+  ].sort((left, right) => left.km - right.km);
+
+  const groups: Item[][] = [];
+  for (const item of items) {
+    const group = item.key
+      ? groups.find((candidate) => candidate.some((other) => other.key === item.key && Math.abs(other.km - item.km) <= STOP_MERGE_KM))
+      : undefined;
+    if (group) group.push(item);
+    else groups.push([item]);
+  }
+
+  return groups.map((group) => {
+    const stations = group.flatMap((item) => item.kind === "station" ? [item.station] : []);
+    const points = group.flatMap((item) => item.kind === "point" ? [item.point] : []);
+    const station = stations[0] ?? null;
+    const located = points.find((point) => point.mapsUrl || (point.latitude !== null && point.longitude !== null)) ?? null;
+    const kms = group.map((item) => item.km);
+    const km = Math.min(...kms);
+    const kmMax = Math.max(...kms);
+    return {
+      id: group.map((item) => item.kind === "station" ? `s:${item.station.id}` : `p:${item.point.id}`).join("+"),
+      name: station?.name ?? points[0]!.name,
+      km,
+      kmMax: kmMax - km > 0.05 ? kmMax : null,
+      aidStation: stations.length > 0,
+      isFinish: stations.some((candidate) => candidate.isFinish === true),
+      encouragementAllowed: points.some((point) => point.encouragementAllowed),
+      assistanceAllowed: points.some((point) => point.assistanceAllowed),
+      supportersAccess: station?.supportersAccess ?? null,
+      maxStopMinutes: station?.maxStopMinutes ?? null,
+      services: {
+        water: stations.some((candidate) => candidate.waterAvailable !== false),
+        food: stations.some((candidate) => candidate.solidAvailable !== false),
+        runnerAssistance: stations.some((candidate) => candidate.assistanceAllowed),
+        amenities: [...new Set(stations.flatMap((candidate) => candidate.amenities))],
+      },
+      cutoff: station?.cutoff ?? null,
+      accessLabel: points.map((point) => point.accessLabel).find(Boolean) ?? null,
+      accessNote: points.map((point) => point.accessNote).find(Boolean) ?? null,
+      latitude: located?.latitude ?? null,
+      longitude: located?.longitude ?? null,
+      mapsUrl: located?.mapsUrl ?? null,
+      planUrl: points.map((point) => point.planUrl).find(Boolean) ?? null,
+    };
+  });
+}
+
+type ProgrammeItem = {
+  id: string;
+  type: NonNullable<SupporterGuideTimelineEntry["animationType"]>;
+  title: string;
+  date: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  location: string | null;
+};
+
+const PROGRAMME_TYPES = new Set(["animation", "concert", "kids_race", "briefing", "village", "other"]);
+
+/** Edition programme items (animations...) from event organizer details; invalid rows are skipped. */
+function parseProgramme(value: unknown): ProgrammeItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((raw, index) => {
+    const row = record(raw);
+    const title = text(row.title);
+    const startTime = clock(row.startTime);
+    if (!title || !startTime) return [];
+    const type = text(row.type);
+    return [{
+      id: text(row.id) ?? `programme-${index}`,
+      type: (type && PROGRAMME_TYPES.has(type) ? type : "animation") as ProgrammeItem["type"],
+      title,
+      date: text(row.date),
+      startTime,
+      endTime: clock(row.endTime),
+      location: text(row.location),
+    }];
+  });
+}
+
+/** "7:45" / "26:30" → minutes. */
+function durationMinutes(value: unknown): number | null {
+  const match = /^(\d{1,3}):(\d{2})$/.exec(text(value) ?? "");
+  return match ? Number(match[1]) * 60 + Number(match[2]) : null;
+}
+
+function buildTimeline(
+  formats: SupporterGuideFormat[],
+  startMapsUrlByRaceId: Map<string, string | null> = new Map(),
+  programme: ProgrammeItem[] = [],
+  defaultDate: string | null = null,
+): SupporterGuideTimelineEntry[] {
   const entries: SupporterGuideTimelineEntry[] = [];
   for (const format of formats) {
     if (format.startWaves.length > 0) {
       for (const wave of format.startWaves) {
-        entries.push({ id: `start-${wave.id}`, raceId: format.raceId, raceName: format.name, kind: "start", date: format.date, time: wave.time, label: wave.name, location: null });
+        entries.push({ id: `start-${wave.id}`, raceId: format.raceId, raceName: format.name, kind: "start", date: format.date, time: wave.time, label: format.startWaves.length > 1 ? wave.name : null, location: null, mapsUrl: startMapsUrlByRaceId.get(format.raceId) ?? null });
       }
     } else if (format.startTime) {
-      entries.push({ id: `start-${format.raceId}`, raceId: format.raceId, raceName: format.name, kind: "start", date: format.date, time: format.startTime, label: null, location: null });
+      entries.push({ id: `start-${format.raceId}`, raceId: format.raceId, raceName: format.name, kind: "start", date: format.date, time: format.startTime, label: null, location: null, mapsUrl: startMapsUrlByRaceId.get(format.raceId) ?? null });
     }
     if (format.finishCutoff) {
       entries.push({ id: `finish-${format.raceId}`, raceId: format.raceId, raceName: format.name, kind: "finish_cutoff", date: format.finishCutoff.date ?? format.date, time: format.finishCutoff.time, label: null, location: null });
+    }
+    for (const audience of ["men", "women"] as const) {
+      const estimate = format.estimatedWinners?.[audience];
+      if (estimate) {
+        entries.push({ id: `arrival-${audience}-${format.raceId}`, raceId: format.raceId, raceName: format.name, kind: "arrival_estimate", date: estimate.date ?? format.date, time: estimate.time, label: null, location: null, audience });
+      }
     }
     for (const award of format.awards) {
       entries.push({ id: `awards-${award.id}`, raceId: format.raceId, raceName: format.name, kind: "awards", date: format.date, time: award.time, label: award.label, location: award.location });
     }
   }
+  for (const item of programme) {
+    entries.push({
+      id: `animation-${item.id}`, raceId: "", raceName: "", kind: "animation", date: item.date ?? defaultDate, time: item.startTime!,
+      label: item.title, location: item.location, eventWide: true, endTime: item.endTime, animationType: item.type,
+    });
+  }
   return entries.sort((left, right) =>
     (left.date ?? "9999").localeCompare(right.date ?? "9999") || left.time.localeCompare(right.time) || left.raceName.localeCompare(right.raceName, "fr"),
   );
+}
+
+const emptyStop = (id: string, km: number): SupporterGuideStop => ({
+  id, name: "", km, kmMax: null, aidStation: false, isFinish: false, encouragementAllowed: false, assistanceAllowed: false,
+  supportersAccess: null, maxStopMinutes: null, services: { water: false, food: false, runnerAssistance: false, amenities: [] },
+  cutoff: null, accessLabel: null, accessNote: null, latitude: null, longitude: null, mapsUrl: null, planUrl: null,
+});
+
+/** Adds the start (times + directions) and the finish (expected arrivals, last runner, directions) to a course line. */
+export function addCourseEndpoints(
+  format: SupporterGuideFormat,
+  stops: SupporterGuideStop[],
+  access: { start: SupporterGuideLocation; finish: SupporterGuideLocation } | null,
+): SupporterGuideStop[] {
+  const result = [...stops];
+  const startTimes = format.startWaves.length > 1
+    ? format.startWaves.map((wave) => ({ label: wave.name, time: wave.time }))
+    : format.startTime ? [{ label: null, time: format.startTime }] : [];
+  if (startTimes.length > 0 || access) {
+    result.unshift({
+      ...emptyStop(`start:${format.raceId}`, 0),
+      endpoint: "start",
+      name: access?.start.label ?? access?.start.address ?? "",
+      address: access?.start.address ?? null,
+      startTimes,
+      latitude: access?.start.latitude ?? null,
+      longitude: access?.start.longitude ?? null,
+      mapsUrl: access ? startDirectionsUrl(access.start) : null,
+    });
+  }
+  const finishDirections = access ? startDirectionsUrl(access.finish) : null;
+  const expectedArrivals = format.estimatedWinners ?? { men: null, women: null };
+  const last = result.at(-1);
+  if (last && last.isFinish) {
+    result[result.length - 1] = {
+      ...last,
+      endpoint: "finish",
+      address: access?.finish.address ?? null,
+      expectedArrivals,
+      cutoff: format.finishCutoff ?? last.cutoff,
+      mapsUrl: last.mapsUrl ?? finishDirections,
+    };
+  } else {
+    result.push({
+      ...emptyStop(`finish:${format.raceId}`, format.distanceKm),
+      endpoint: "finish",
+      isFinish: true,
+      name: access?.finish.label ?? access?.finish.address ?? "",
+      address: access?.finish.address ?? null,
+      expectedArrivals,
+      cutoff: format.finishCutoff ?? null,
+      latitude: access?.finish.latitude ?? null,
+      longitude: access?.finish.longitude ?? null,
+      mapsUrl: finishDirections,
+    });
+  }
+  return result;
+}
+
+function startDirectionsUrl(location: SupporterGuideLocation): string | null {
+  if (location.mapsUrl) return location.mapsUrl;
+  if (location.latitude !== null && location.longitude !== null) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${location.latitude},${location.longitude}`;
+  }
+  return location.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.address)}` : null;
 }
 
 function firstStartTime(format: Pick<SupporterGuideFormat, "startTime" | "startWaves">) {
@@ -196,6 +391,10 @@ export async function loadSupporterGuide(
       startTime,
       finishCutoffTime: cutoffs.finish?.time ?? clock(schedule.finishCutoffTime),
       finishCutoff: cutoffs.finish,
+      estimatedWinners: {
+        men: durationMinutes(schedule.estimatedWinnerMen) !== null ? toRaceDayClock(startTime, raceDate, durationMinutes(schedule.estimatedWinnerMen)!) : null,
+        women: durationMinutes(schedule.estimatedWinnerWomen) !== null ? toRaceDayClock(startTime, raceDate, durationMinutes(schedule.estimatedWinnerWomen)!) : null,
+      },
       startWaves,
       awards: snapshot.awardRows.flatMap((value) => {
         const row = record(value); const label = text(row.category_label); const time = clock(row.podium_time);
@@ -229,7 +428,8 @@ export async function loadSupporterGuide(
         };
       }),
     };
-  }).sort((left, right) => (left.date ?? "9999").localeCompare(right.date ?? "9999") || firstStartTime(left).localeCompare(firstStartTime(right)));
+  }).sort((left, right) => (left.date ?? "9999").localeCompare(right.date ?? "9999") || firstStartTime(left).localeCompare(firstStartTime(right)))
+    .map((format) => ({ ...format, stops: buildSupporterStops(format) }));
 
   const representative = loaded[0]!.snapshot;
   const eventRow = firstRecord(record(representative.raceRow).race_events);
@@ -254,6 +454,10 @@ export async function loadSupporterGuide(
       roadRestrictions: text(source.roadRestrictions), mapUrl: text(source.mapUrl), note: text(source.note),
     }];
   });
+  const accessByRace = new Map(access.map((item) => [item.raceId, item]));
+  for (const format of formats) {
+    format.stops = addCourseEndpoints(format, format.stops ?? [], accessByRace.get(format.raceId) ?? null);
+  }
   const thirdPartyBibPickup = loaded.flatMap(({ race, snapshot }) => {
     if (!snapshot.modules.bib_pickup) return [];
     const raceBib = record(record(record(snapshot.raceRow).organizer_details).bibPickup);
@@ -290,7 +494,12 @@ export async function loadSupporterGuide(
     schemaVersion: 1,
     edition: { id: edition.id, eventId: edition.event_id, name: event.name, location: event.location, startDate: edition.start_date, endDate: edition.end_date, imageUrl: event.thumbnail_url },
     formats,
-    timeline: buildTimeline(formats),
+    timeline: buildTimeline(
+      formats,
+      new Map(access.map((item) => [item.raceId, startDirectionsUrl(item.start)])),
+      parseProgramme(eventDetails.programme),
+      edition.start_date,
+    ),
     onSiteServices: services.filter((service) => service.type === "recovery" || service.type === "other"),
     stayServices: services.filter((service) => service.type === "restaurant" || service.type === "accommodation"),
     lodgingPartner,

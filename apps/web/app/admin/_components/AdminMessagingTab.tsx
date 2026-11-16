@@ -7,14 +7,16 @@ import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { TabsList } from "../../../components/ui/tabs";
 import { AdminFeedbackTab } from "./AdminFeedbackTab";
+import { AdminDemoRequestsSection } from "./AdminDemoRequestsSection";
 import { AdminRaceRequestsTab } from "./AdminRaceRequestsTab";
+import { AdminSurveysTab } from "./AdminSurveysTab";
 
 const countsSchema = z.object({ bug: z.number(), feedback: z.number(), raceRequests: z.number() });
-type InboxTab = "bug" | "feedback" | "race-requests";
+type InboxTab = "bug" | "feedback" | "race-requests" | "surveys";
 
 const withCount = (label: string, count: number | undefined) => (count ? `${label} (${count})` : label);
 
-/** Admin inbox: bugs, feedback and race requests, each with its pending count. */
+/** Admin inbox: bugs, feedback and race requests, each with its pending count, plus feedback surveys. */
 export function AdminMessagingTab({ accessToken }: { accessToken: string | null }) {
   const [tab, setTab] = useState<InboxTab>("bug");
   const counts = useQuery({
@@ -42,13 +44,23 @@ export function AdminMessagingTab({ accessToken }: { accessToken: string | null 
             { id: "bug", label: withCount("Bugs", counts.data?.bug) },
             { id: "feedback", label: withCount("Feedback", counts.data?.feedback) },
             { id: "race-requests", label: withCount("Demandes de course", counts.data?.raceRequests) },
+            { id: "surveys", label: "Questionnaires" },
           ]}
           activeTab={tab}
           onTabChange={(next) => setTab(next as InboxTab)}
         />
         {tab === "bug" ? <AdminFeedbackTab key="bug" accessToken={accessToken} kind="bug" onChanged={refreshCounts} /> : null}
         {tab === "feedback" ? <AdminFeedbackTab key="feedback" accessToken={accessToken} kind="feedback" onChanged={refreshCounts} /> : null}
-        {tab === "race-requests" ? <AdminRaceRequestsTab accessToken={accessToken} onChanged={refreshCounts} /> : null}
+        {tab === "race-requests" ? (
+          <div className="space-y-6">
+            <AdminDemoRequestsSection accessToken={accessToken} onChanged={refreshCounts} />
+            <section aria-labelledby="admin-race-requests-heading" className="space-y-3">
+              <h3 id="admin-race-requests-heading" className="text-base font-semibold text-foreground">Demandes de course des coureurs</h3>
+              <AdminRaceRequestsTab accessToken={accessToken} onChanged={refreshCounts} />
+            </section>
+          </div>
+        ) : null}
+        {tab === "surveys" ? <AdminSurveysTab accessToken={accessToken} /> : null}
       </CardContent>
     </Card>
   );

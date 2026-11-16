@@ -1,7 +1,7 @@
 ---
 title: Mode opératoire Livret coureur organisateur
 scope: workflow
-last_verified: 2026-11-15
+last_verified: 2026-11-16
 # Conversion assistée (2026-11-15) : « Appliquer » préremplit seulement le formulaire après une revue champ par champ ; « Ignorer » écarte la proposition.
 # Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
 # Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
@@ -34,7 +34,7 @@ related_tables:
 
 # Mode opératoire Livret coureur organisateur
 
-L’en-tête organisateur propose désormais « Aperçu accompagnateur » et « Télécharger le QR ». Le Livret accompagnateur réutilise la dernière publication de chaque format visible : toute modification doit donc être publiée avant d’apparaître, et aucun nouveau formulaire n’est ajouté dans ce lot.
+L’en-tête organisateur propose désormais « Aperçu supporter » et « Télécharger le QR ». Le Livret supporter réutilise la dernière publication de chaque format visible : toute modification doit donc être publiée avant d’apparaître, et aucun nouveau formulaire n’est ajouté dans ce lot.
 
 Dans l’administration, la facturation et les droits sont désormais deux opérations distinctes. Une facture manuelle peut rester impayée, être rectifiée puis réglée sans ouvrir le pack ni les options ; l’ouverture du pack et des fonctionnalités offertes se fait séparément, fonctionnalité par fonctionnalité.
 
@@ -134,3 +134,5 @@ Les choix oui/non utilisent désormais la même ligne d’interrupteur dans Cour
 Dans Départ, ravitos, suivi coureur & relais, la ligne de course affiche départ, points triés par kilomètre et arrivée. Les filtres Ravitos, SAS, Suivi et Relais ouvrent les éditeurs existants ; un clic sur un ravito ouvre ses détails.
 
 Accès regroupe ses modules en cartes compactes, l’ajout d’un sponsor reste replié jusqu’à l’action dédiée, et Services signale uniquement le texte historique réellement présent à convertir.
+
+Mise à jour du 2026-11-16 : les liens « Aperçu coureur » et « Aperçu accompagnateur » ont été retirés de l’en-tête organisateur ; « Voir le Livret coureur » et « Télécharger le QR » restent disponibles.

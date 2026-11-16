@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-11-15
+last_verified: 2026-11-16
 # Assisted legacy conversion (2026-11-15): server logs contain identifiers and block type, never source text; analytics contracts are unchanged.
 # Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
 # Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
@@ -17,6 +17,8 @@ ai_priority: medium
 # Layout polish note (2026-11-13): organizer presentation changes (aid-station detail, format metrics row, media rail visibility, equipment status action) do not alter stored data or contracts.
 # Fill-flow note (2026-11-13): organizer form ergonomics (ravito services, Enter-to-add, slot undo, sponsor ordering) do not alter stored data or contracts.
 related_files:
+  - apps/mobile/components/feedback/FeedbackSurveyForm.tsx
+  - apps/web/lib/feedback-surveys.ts
   - apps/web/lib/posthog-organizer-analytics.ts
   - apps/web/lib/posthog-organizer-analytics.test.ts
   - apps/web/app/api/organizer/editions/[id]/analytics/route.ts
@@ -92,7 +94,9 @@ related_tables:
 
 # Analytics
 
-The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret accompagnateur, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret accompagnateur · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. With the sub-tab gone the runner RaceBook no longer emits `supporter_directions_opened` / `supporter_plan_opened`; Supporter Guide interactions are not tracked yet. The catalog event sheet opens the Livret accompagnateur from an interactive `TopoCard` placed before the distance list, and the guide's back action reopens that sheet through the existing `eventId` parameter plus a `sheet` nonce.
+Catalog query fix (2026-11-15): the mobile `EVENT_CATALOG_SELECT` requests `slug` on the embedded `races` rows (used to open `/courses/<slug>` deep links), not on `race_event_updates`, which has no such column. The misplaced column made PostgREST reject the whole catalog request (42703), so the development build showed no races.
+
+The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret supporter, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret supporter · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. With the sub-tab gone the runner RaceBook no longer emits `supporter_directions_opened` / `supporter_plan_opened`; Supporter Guide interactions are not tracked yet. The catalog event sheet opens the Livret supporter from an interactive `TopoCard` placed before the distance list, and the guide's back action reopens that sheet through the existing `eventId` parameter plus a `sheet` nonce.
 The retired multi-screen web onboarding and its `onboarding-analytics-tracker` are no longer mounted. Runner acquisition now preserves the validated planner return path; no synthetic completion event is emitted for the permanent `/onboarding/*` redirects.
 
 Organizer analytics access is checked against the active plan plus the exact `capability.racebook_analytics` feature grant. A different Signature feature gift must not authorize analytics, and manual invoice creation or settlement has no analytics effect.
@@ -505,3 +509,9 @@ The organizer and runner follow-up changes reuse existing actions and do not int
 Moving Organizer statistics from a top-level tab to the completion rail changes navigation presentation only; the existing analytics panel, access gates, requests, and event names are unchanged.
 
 Organizer finishing layouts do not introduce or rename analytics events.
+
+Organizer demo request (2026-11-16): a successful « Demander une démo » submission on `/organisateurs` emits `organizer_demo_requested` (category `organizer_acquisition`, `has_phone`, and the same validated UTM attribution) through the consent-gated bridge; no e-mail, phone or race link is sent to analytics. Organizer return paths (`/organizers`, `/organizer`) are now remembered like runner returns, so an OAuth or e-mail-confirmation round-trip that lands on the site root resumes event creation instead of the planner.
+
+## Feedback surveys
+
+The mobile survey form emits `feedback survey answered` (`notification_id`, `found_useful`, `has_useful_text`, `has_missing_text`; never the free text) after the answer is stored, and `feedback survey review clicked` (`notification_id`) when the runner taps "Laisser un avis". The answers themselves live in `feedback_survey_responses`. The admin audience reads PostHog `racebook opened` (`event_id`, `event_name`) through the HogQL query API, excluding `$internal_or_test_user` and `role = admin` persons, and keeps only distinct ids that are Supabase Auth UUID v4.

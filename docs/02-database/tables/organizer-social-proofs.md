@@ -1,7 +1,8 @@
 ---
 title: organizer_social_proofs
 scope: database
-last_verified: 2026-11-05
+last_verified: 2026-11-16
+# Organizer hero note (2026-11-16): /organisateurs now presents the Livret coureur and the Livret supporter side by side (hero cards, illustrative supporter preview, metadata title); presentation only, no data, analytics event or offer change.
 ai_priority: high
 related_files:
   - supabase/migrations/20260930115641_add_organizer_social_proofs.sql
@@ -113,3 +114,5 @@ limit 3;
 - [Analytics](../../05-integrations/analytics.md)
 - [Organizer Race Management](../../03-business-rules/organizer-race-management.md)
 - [RLS Policies](../rls-policies.md)
+
+Organizer header (2026-11-16): the dashboard header no longer shows the « Aperçu coureur » and « Aperçu accompagnateur » web preview links (« Voir le Livret coureur » and « Télécharger le QR » remain), and its row wraps instead of letting the actions block overlap the edition selector. Presentation only; no data, contract or offer change.

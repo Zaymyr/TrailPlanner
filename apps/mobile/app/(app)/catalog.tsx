@@ -124,7 +124,6 @@ const EVENT_CATALOG_SELECT = `
   organizer_details,
   race_event_updates (
     id,
-    slug,
     event_id,
     race_id,
     message,
@@ -132,6 +131,7 @@ const EVENT_CATALOG_SELECT = `
   ),
   races!inner (
     id,
+    slug,
     name,
     distance_km,
     elevation_gain_m,

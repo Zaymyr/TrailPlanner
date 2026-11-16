@@ -17,11 +17,49 @@ export type SupporterGuideFormat = {
   finishCutoffTime: string | null;
   /** Finish cutoff resolved from the official departure (multi-day aware). */
   finishCutoff?: RaceDayClock | null;
+  /** Expected first arrivals (start + organizer's estimated winning time). */
+  estimatedWinners?: { men: RaceDayClock | null; women: RaceDayClock | null };
   elevationGainM?: number | null;
   startWaves: Array<{ id: string; name: string; time: string }>;
   awards: Array<{ id: string; label: string; time: string; location: string | null }>;
   supporterPoints: Array<{ id: string; name: string; km: number; encouragementAllowed: boolean; assistanceAllowed: boolean; accessLabel: string | null; accessNote: string | null; latitude: number | null; longitude: number | null; mapsUrl: string | null; planUrl: string | null }>;
   aidStations: Array<{ id: string; name: string; km: number; assistanceAllowed: boolean; supportersAccess: 'allowed' | 'restricted' | 'forbidden' | null; maxStopMinutes: number | null; amenities: string[]; cutoffTime: string | null; cutoff?: RaceDayClock | null; waterAvailable?: boolean; solidAvailable?: boolean; isFinish?: boolean }>;
+  /** Aid stations and supporter points grouped by place, in course order. */
+  stops?: SupporterGuideStop[];
+};
+
+/**
+ * One place on the supporter course line: an aid station and/or supporter
+ * point(s) sharing the same normalized name within 2 km are merged so a place
+ * appears once with all its roles.
+ */
+export type SupporterGuideStop = {
+  id: string;
+  /** Start and finish of the course line (with times and directions); absent for ordinary places. */
+  endpoint?: "start" | "finish" | null;
+  /** Start: one time per wave; label only when there are several waves (SAS). */
+  startTimes?: Array<{ label: string | null; time: string }>;
+  /** Finish: expected first arrivals. */
+  expectedArrivals?: { men: RaceDayClock | null; women: RaceDayClock | null };
+  address?: string | null;
+  name: string;
+  km: number;
+  /** Set when merged rows sit at different kilometres (e.g. ravito km 43, cheering km 45). */
+  kmMax: number | null;
+  aidStation: boolean;
+  isFinish: boolean;
+  encouragementAllowed: boolean;
+  assistanceAllowed: boolean;
+  supportersAccess: 'allowed' | 'restricted' | 'forbidden' | null;
+  maxStopMinutes: number | null;
+  services: { water: boolean; food: boolean; runnerAssistance: boolean; amenities: string[] };
+  cutoff: RaceDayClock | null;
+  accessLabel: string | null;
+  accessNote: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  mapsUrl: string | null;
+  planUrl: string | null;
 };
 
 /** One dated entry of the edition programme, already sorted by the server. */
@@ -29,12 +67,21 @@ export type SupporterGuideTimelineEntry = {
   id: string;
   raceId: string;
   raceName: string;
-  kind: "start" | "finish_cutoff" | "awards";
+  kind: "start" | "finish_cutoff" | "awards" | "arrival_estimate" | "animation";
   date: string | null;
   time: string;
   /** Start wave name or award category; null for a single common start. */
   label: string | null;
   location: string | null;
+  /** Directions to the start area (start entries only). */
+  mapsUrl?: string | null;
+  /** arrival_estimate: first man or first woman. */
+  audience?: "men" | "women" | null;
+  /** animation: event-wide entry (raceId and raceName are empty), shown whatever races are followed. */
+  eventWide?: boolean;
+  /** animation: optional end time and type. */
+  endTime?: string | null;
+  animationType?: "animation" | "concert" | "kids_race" | "briefing" | "village" | "other";
 };
 
 export type SupporterGuideService = {

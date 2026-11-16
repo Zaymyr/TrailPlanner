@@ -18,14 +18,14 @@ export const fr: Translations = {
   landing: {
     hero: {
       eyebrow: "Pace Yourself",
-      heading: "Fini les coups de barre à cause d’un plan ravito bancal",
+      heading: "Ta course de trail, de la préparation à la ligne d’arrivée",
       subheading:
-        "Estime gratuitement ton temps et tes passages, puis prépare tes cibles en glucides, eau et sodium selon ton parcours.",
+        "Le Livret coureur officiel de ta course, un Livret supporter pour tes proches, ton temps estimé gratuit et ton plan ravito.",
       bullets: [
-        "Jauges claires pour carbs, eau et sodium pendant la course",
-        "Ravitos auto-cartographiés avec volumes et nombre de gels",
-        "Plan détaillé et export imprimable disponibles après déblocage",
-        "Tes estimations et le Livret coureur à retrouver dans l’app",
+        "Livret coureur : parcours, horaires, ravitos, dossards et matériel publiés par l’organisation",
+        "Livret supporter : programme et points de suivi pour tes proches, sans compte",
+        "Temps estimé gratuit et passages aux ravitos sur chaque course du catalogue",
+        "Plan ravito : glucides, eau et sodium adaptés à ton parcours",
       ],
       socialProof: "Créé par un traileur pour remplacer les tableurs dispersés.",
       primaryCta: "Créer mon plan",
