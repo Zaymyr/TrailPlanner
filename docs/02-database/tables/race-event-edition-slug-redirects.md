@@ -52,3 +52,5 @@ RLS is enabled with no `anon` or `authenticated` policy or table privilege. Only
 - [race_slug_redirects](race-slug-redirects.md)
 - [Public Race Discovery](../../03-business-rules/public-race-discovery.md)
 - [RLS Checklist](../../04-auth-and-security/rls-checklist.md)
+
+Follow-page loading (2026-11-16): the event page now reads the public Livret supporter through the cached public endpoint (see public-race-discovery); slug resolution and redirects are unchanged.
