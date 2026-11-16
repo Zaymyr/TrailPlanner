@@ -132,3 +132,5 @@ Compact edition selectors and corrected completion presentation do not change ed
 Repositioning the edition selector inside the compact Organizer banner does not change edition-request creation, duplication, or approval state.
 
 Organizer section-header finishing does not change edition-request state.
+
+Organizer header (2026-11-16): the dashboard header no longer shows the « Aperçu coureur » and « Aperçu accompagnateur » web preview links (« Voir le Livret coureur » and « Télécharger le QR » remain), and its row wraps instead of letting the actions block overlap the edition selector. Presentation only; no data, contract or offer change.

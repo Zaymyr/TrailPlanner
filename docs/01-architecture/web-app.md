@@ -880,3 +880,9 @@ On narrow screens, separate native selectors choose the event/format scope and t
 ## Brand positioning (2026-11-16)
 
 The default (home) metadata now leads with the Livret coureur and the Livret supporter instead of the nutrition planner, and the home hero copy presents the booklets, the free time estimate and the fueling plan (CTAs unchanged). Home JSON-LD adds a brand description, App/Play Store `sameAs` and a free `MobileApplication` node (`#app`). Signed-out visitors see « Organisateurs » in the header (signed-in users keep « Espace organisateur »); the footer links `/livret-coureur` and `/livret-supporter`.
+
+## Organizer demo requests and auth return (2026-11-16)
+
+`/organisateurs` offers a « Demander une démo » form (e-mail and race link required, phone optional) stored in the service-only `organizer_demo_requests` table and listed in the admin inbox tab « Demandes de course »; it creates no account, membership, entitlement or payment. See [organizer_demo_requests](../02-database/tables/organizer-demo-requests.md). Organizer return paths are remembered like runner returns, and the root hash-token handler resumes the remembered destination instead of always opening `/race-planner`.
+
+Organizer header (2026-11-16): the dashboard header no longer shows the « Aperçu coureur » and « Aperçu accompagnateur » web preview links (« Voir le Livret coureur » and « Télécharger le QR » remain), and its row wraps instead of letting the actions block overlap the edition selector. Presentation only; no data, contract or offer change.

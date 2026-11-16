@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-11-15
+last_verified: 2026-11-16
 # Assisted legacy conversion (2026-11-15): server logs contain identifiers and block type, never source text; analytics contracts are unchanged.
 # Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
 # Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
@@ -507,3 +507,5 @@ The organizer and runner follow-up changes reuse existing actions and do not int
 Moving Organizer statistics from a top-level tab to the completion rail changes navigation presentation only; the existing analytics panel, access gates, requests, and event names are unchanged.
 
 Organizer finishing layouts do not introduce or rename analytics events.
+
+Organizer demo request (2026-11-16): a successful « Demander une démo » submission on `/organisateurs` emits `organizer_demo_requested` (category `organizer_acquisition`, `has_phone`, and the same validated UTM attribution) through the consent-gated bridge; no e-mail, phone or race link is sent to analytics. Organizer return paths (`/organizers`, `/organizer`) are now remembered like runner returns, so an OAuth or e-mail-confirmation round-trip that lands on the site root resumes event creation instead of the planner.

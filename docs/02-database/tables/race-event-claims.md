@@ -239,3 +239,5 @@ Shared Organizer switches do not change claim or membership authorization.
 The course timeline is a client presentation of authorized sidecars and does not change claims or membership checks.
 
 Organizer finishing layouts do not change claims, memberships, or authorization.
+
+Organizer header (2026-11-16): the dashboard header no longer shows the « Aperçu coureur » and « Aperçu accompagnateur » web preview links (« Voir le Livret coureur » and « Télécharger le QR » remain), and its row wraps instead of letting the actions block overlap the edition selector. Presentation only; no data, contract or offer change.
