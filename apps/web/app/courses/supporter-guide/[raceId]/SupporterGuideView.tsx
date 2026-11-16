@@ -66,7 +66,7 @@ export function SupporterGuideView({ raceId }: { raceId: string }) {
   };
   useEffect(() => { if (navigator.language.toLowerCase().startsWith("en")) setLocale("en"); }, []);
   const labels = locale === "fr" ? {
-    title: "Livret accompagnateur", unavailable: "Livret accompagnateur indisponible", unavailableBody: "Aucun livret publié n’est disponible pour cette édition.", loading: "Chargement du Livret accompagnateur…",
+    title: "Livret supporter", unavailable: "Livret supporter indisponible", unavailableBody: "Aucun livret publié n’est disponible pour cette édition.", loading: "Chargement du Livret supporter…",
     programme: "Programme", follow: "Suivre", onsite: "Sur place", stay: "Séjour", practical: "Pratique", preview: "Aperçu organisateur · contenu publié uniquement",
   } : {
     title: "Supporter Guide", unavailable: "Supporter Guide unavailable", unavailableBody: "No published guide is available for this edition.", loading: "Loading the Supporter Guide…",

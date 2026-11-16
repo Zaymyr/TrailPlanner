@@ -28,7 +28,7 @@ related_tables:
 
 # `race_awards`
 
-The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret accompagnateur, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret accompagnateur · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. Award rows, ordering and visibility are unchanged; the Supporter Guide programme still reads published awards only.
+The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret supporter, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret supporter · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. Award rows, ordering and visibility are unchanged; the Supporter Guide programme still reads published awards only.
 
 Published awards are also rendered in the Supporter Guide Programme timeline. They remain format-scoped, require the effective `awards` module, and are never read from draft rows by the public guide.
 The organizer form-kit and section-navigation changes do not alter award rows, their ordering, their module gate, or their snapshot publication behavior.

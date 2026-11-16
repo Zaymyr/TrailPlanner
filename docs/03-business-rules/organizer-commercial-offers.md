@@ -1,7 +1,7 @@
 ---
 title: Organizer Commercial Offers
 scope: business-rule
-last_verified: 2026-11-15
+last_verified: 2026-11-16
 # Assisted legacy conversion (2026-11-15): conversion requires the effective assisted_import.request capability (Signature or its complimentary grant).
 # Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
 # Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
@@ -78,7 +78,7 @@ related_tables:
 
 # Organizer Commercial Offers
 
-The edition-level **Livret accompagnateur** (`supporter_guide`, English: **Supporter Guide**) is included from Essential through Signature and defaults to enabled. It aggregates immutable format publications without widening source rights: services, waves, awards, sponsors and every other section remain masked unless their own module is effective. The organizer header exposes its published preview and a downloadable QR link.
+The edition-level **Livret supporter** (`supporter_guide`, English: **Supporter Guide**) is included from Essential through Signature and defaults to enabled. It aggregates immutable format publications without widening source rights: services, waves, awards, sponsors and every other section remain masked unless their own module is effective. The organizer header exposes its published preview and a downloadable QR link.
 
 Course-point autosave now waits for the active format's ravito/supporter sidecars and preserves them across same-format refreshes. The guard prevents transient empty replacements and changes no module selection, effective capability, tier, or publication right.
 
@@ -96,7 +96,7 @@ Organizer form, completion, and navigation refinements are presentation-only: th
 
 One offer is purchased per event edition, independently of participant and format counts. Event membership authorizes every draft editor; the offer authorizes public output and costly operations. Disabling or losing publication access masks content without deleting it.
 
-The public `/organisateurs` page presents these edition offers after an acquisition hero whose secondary action scrolls to the Trail TST demonstration. Google Play remains available from that detailed demo and the final CTA surface. Neither demonstration path creates an organizer entitlement or starts a checkout.
+The public `/organisateurs` page presents these edition offers after an acquisition hero whose secondary action scrolls to the Trail TST demonstration. The hero presents both edition surfaces side by side, the Livret coureur (in the app) and the Livret supporter (public web link and QR code, no account), and the Essentiel offer lists both; the small supporter preview is an illustration, not published data, and the copy adds no offer gate. Google Play remains available from that detailed demo and the final CTA surface. Neither demonstration path creates an organizer entitlement or starts a checkout.
 
 Published organizer proof cards on the same page are independent editorial records. Their highlighted acquisition surface, prominent usage metrics, and visually separated testimonial are presentation only. Simplifying the adjacent hero phone by removing its floating explanatory badges, constraining it to the viewport height, or compacting the mobile information grid likewise changes no offer or entitlement. Featuring or depublishing an edition neither grants nor revokes its commercial tier, and the aggregate usage snapshot is not a billable participant count.
 

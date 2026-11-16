@@ -30,7 +30,7 @@ related_tables:
 
 # `race_relay_points`
 
-The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret accompagnateur, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret accompagnateur · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. Relay rows and the conditional Relais sub-tab are unchanged.
+The runner RaceBook no longer shows an « Où encourager » Course sub-tab: supporter points live only in the Livret supporter, and Course sub-tab keys now come from `apps/mobile/lib/racebookCourseTabs.ts` (tested so the tab cannot silently return through a merge). Its « Livret supporter · Partager à mes proches » entry is an interactive `TopoCard` with localized copy. Relay rows and the conditional Relais sub-tab are unchanged.
 
 Supporter Guide v1 does not render relay handover data. Removing the runner RaceBook supporter subtab leaves relay publication, gating and presentation unchanged.
 

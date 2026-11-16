@@ -1,7 +1,8 @@
 ---
 title: plan_share_follows Table
 scope: database
-last_verified: 2026-11-15
+last_verified: 2026-11-16
+# Livret supporter note (2026-11-16): the public name of the supporter_guide surface is now "Livret supporter" (formerly "Livret accompagnateur"); aid-station access wording ("Accompagnateurs autorisés") is unchanged; no data, contract or offer change.
 ai_priority: high
 related_files:
   - supabase/migrations/20261115122801_add_plan_share_follows.sql

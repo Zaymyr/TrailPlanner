@@ -1,7 +1,8 @@
 ---
 title: Add New Mobile Screen
 scope: workflow
-last_verified: 2026-11-15
+last_verified: 2026-11-16
+# Livret supporter note (2026-11-16): the public name of the supporter_guide surface is now "Livret supporter" (formerly "Livret accompagnateur"); aid-station access wording ("Accompagnateurs autorisés") is unchanged; no data, contract or offer change.
 # Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
 # Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
 # Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
@@ -90,7 +91,7 @@ related_tables:
 
 The Supporter Guide timeline adds `arrival_estimate` entries (official start + estimated winning time, `audience` men/women, multi-day aware) and event-wide `animation` entries (`eventWide`, `endTime`, `animationType`) shown whatever races are followed; Programme gains an Animations tab and the Arrivées tab groups expected first arrivals with the last-runner finish cutoff.
 
-Livret accompagnateur programme (2026-11-15): type tabs (Tout, Départs, Arrivées, Podiums) instead of race tabs; a « Je suis » race selection (small checkboxes, remembered per edition) filters the Programme only (Suivre and Pratique keep their own race tabs); fully past days are dimmed and collapsed by default; on the event day the current day is live — past entries dimmed and checked, a « maintenant » line, the next entry with a countdown, auto-scroll to now — and Suivre marks a place « Fermé » once its last-runner cutoff has passed. Times are compared with the device clock, assuming the supporter is on the event timezone.
+Livret supporter programme (2026-11-15): type tabs (Tout, Départs, Arrivées, Podiums) instead of race tabs; a « Je suis » race selection (small checkboxes, remembered per edition) filters the Programme only (Suivre and Pratique keep their own race tabs); fully past days are dimmed and collapsed by default; on the event day the current day is live — past entries dimmed and checked, a « maintenant » line, the next entry with a countdown, auto-scroll to now — and Suivre marks a place « Fermé » once its last-runner cutoff has passed. Times are compared with the device clock, assuming the supporter is on the event timezone.
 
 Catalog query fix (2026-11-15): the mobile `EVENT_CATALOG_SELECT` requests `slug` on the embedded `races` rows (used to open `/courses/<slug>` deep links), not on `race_event_updates`, which has no such column. The misplaced column made PostgREST reject the whole catalog request (42703), so the development build showed no races.
 

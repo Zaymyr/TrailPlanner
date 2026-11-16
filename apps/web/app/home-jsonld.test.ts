@@ -17,6 +17,18 @@ describe("homepage structured data", () => {
         "@id": "https://pace-yourself.com/#website",
         publisher: { "@id": "https://pace-yourself.com/#organization" },
       }),
+      expect.objectContaining({
+        "@type": "MobileApplication",
+        "@id": "https://pace-yourself.com/#app",
+        offers: { "@type": "Offer", price: "0", priceCurrency: "EUR" },
+      }),
     ]);
+  });
+
+  it("describes the brand with both booklets and links the app stores", () => {
+    const [organization] = buildHomeStructuredData()["@graph"];
+    expect(organization.description).toContain("Livret coureur");
+    expect(organization.description).toContain("Livret supporter");
+    expect(organization.sameAs).toContain("https://play.google.com/store/apps/details?id=com.paceyourself.app");
   });
 });

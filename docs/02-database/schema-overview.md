@@ -137,7 +137,7 @@ Catalog query fix (2026-11-15): the mobile `EVENT_CATALOG_SELECT` requests `slug
 
 Catalog event cards (`RaceEventSummaryCard`, 2026-11-15) stack the format count and the distance range on the left in `Cote` size `xs`, rounded to whole kilometres (13–185 km; exact distances stay in the format sheet), so the fixed-width (172 pt) « Voir les distances » sign always fits on the right. No schema change.
 
-The catalog event sheet opens the Livret accompagnateur from an interactive `TopoCard` placed before the distance list, and the guide's back action reopens that sheet through the existing `eventId` parameter plus a `sheet` nonce. No schema change.
+The catalog event sheet opens the Livret supporter from an interactive `TopoCard` placed before the distance list, and the guide's back action reopens that sheet through the existing `eventId` parameter plus a `sheet` nonce. No schema change.
 
 The 2026 Radiance Mutuelle LUT By Night data-only enrichment attaches the three official downloadable GPX objects to the 10 km, 20 km and 30 km catalog formats, preserving their official distance/D+ labels and adding hashes plus parsed route metadata. The 10 km Rando remains without a GPX because its official page has no downloadable trace URL. No schema, grant, policy, visibility, or publication-state contract changes.
 

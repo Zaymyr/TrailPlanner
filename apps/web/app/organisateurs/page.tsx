@@ -6,9 +6,9 @@ import { OrganizerLandingPage } from "./organizer-landing-page";
 import { SITE_URL } from "../seo";
 
 const canonicalPath = "/organisateurs";
-const title = "Livret coureur numérique pour organisateurs de trails | Pace Yourself";
+const title = "Livret coureur et livret supporter pour trails | Pace Yourself";
 const description =
-  "Rassemblez parcours, horaires, ravitaillements, matériel et informations pratiques dans un Livret coureur mobile simple à consulter par vos coureurs.";
+  "Livret coureur mobile (parcours, horaires, ravitos, matériel, accès) et Livret supporter pour les proches (programme, points de suivi, infos pratiques), partagé par QR code.";
 const ogImage = new URL("/landing/organisateurs/tst-course-ravitos.jpeg", SITE_URL).toString();
 
 export const metadata: Metadata = {
