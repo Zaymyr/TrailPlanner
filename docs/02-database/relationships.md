@@ -44,6 +44,8 @@ related_files:
   - supabase/migrations/20261103124538_cover_racebook_current_publication_foreign_key.sql
   - supabase/migrations/20261105115106_admin_user_notifications.sql
   - supabase/tests/admin_user_notifications_checks.sql
+  - supabase/migrations/20261116180000_add_feedback_surveys.sql
+  - supabase/tests/feedback_survey_checks.sql
 related_tables:
   - race_event_edition_partner_slots
   - race_plans
@@ -84,6 +86,8 @@ related_tables:
   - racebook_publication_assets
   - racebook_publication_asset_cleanup_queue
   - user_notifications
+  - feedback_survey_campaigns
+  - feedback_survey_responses
 ---
 
 # Database Relationships
@@ -123,6 +127,7 @@ User-owned tables include:
 - `nutrition_plans.user_id`
 - `race_requests.user_id`
 - `user_notifications.user_id`
+- `feedback_survey_responses.user_id`
 - `user_favorite_products.user_id`
 - `user_favorite_race_events.user_id`
 - `race_event_claims.user_id`
@@ -138,6 +143,8 @@ User-owned tables include:
 `subscriptions.user_id` and `premium_grants.user_id` reference `auth.users(id)` directly. Client code must not query `auth.users`; use service routes or SECURITY DEFINER functions when auth-user data is needed.
 
 `user_notifications.user_id` references `auth.users(id)` with cascade deletion. Its nullable `created_by` audit actor uses `on delete set null`, as does `race_request_id` when a request is removed. The in-app message therefore follows the recipient account lifecycle while preserving history independently from the source request and admin account.
+
+Feedback surveys: `feedback_survey_campaigns.created_by` references `auth.users(id)` with `on delete set null`; `user_notifications.survey_campaign_id` references the campaign with `on delete set null`. `feedback_survey_responses.user_id` cascades with the Auth user, while its `notification_id` and `campaign_id` are `on delete set null`, so answers outlive a removed message or campaign but not the runner's account.
 
 `partner_link_settings.updated_by` is a nullable admin-audit reference to `auth.users(id)` with `on delete set null`. It does not grant ownership or client access; the table remains service-only.
 

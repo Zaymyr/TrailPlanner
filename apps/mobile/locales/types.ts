@@ -458,6 +458,7 @@ export type MobileTranslations = {
     notificationsSendFeedback: string;
     notificationsRequestRace: string;
     notificationsFeedbackReplyLabel: string;
+    notificationsSurveyLabel: string;
     notificationsDelete: string;
     notificationsDeleteTitle: string;
     notificationsDeleteBody: string;
@@ -1097,6 +1098,24 @@ export type MobileTranslations = {
     sendFailed: string;
     sourceLabel: string;
     screenLabel: string;
+  };
+  feedbackSurvey: {
+    usefulQuestion: string;
+    yes: string;
+    no: string;
+    usefulTextLabel: string;
+    usefulTextPlaceholder: string;
+    missingTextLabel: string;
+    missingTextPlaceholder: string;
+    submit: string;
+    missingAnswer: string;
+    sendFailed: string;
+    answeredTitle: string;
+    answeredBody: string;
+    reviewTitle: string;
+    reviewBody: string;
+    reviewCta: string;
+    reviewLater: string;
   };
   helpTutorial: {
     triggerLabel: string;

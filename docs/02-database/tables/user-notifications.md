@@ -1,9 +1,11 @@
 ---
 title: user_notifications Table
 scope: database
-last_verified: 2026-11-05
+last_verified: 2026-11-16
 ai_priority: high
 related_files:
+  - supabase/migrations/20261116180000_add_feedback_surveys.sql
+  - supabase/tests/feedback_survey_checks.sql
   - supabase/migrations/20261105180000_add_app_feedback_review.sql
   - supabase/tests/app_feedback_review_checks.sql
   - supabase/migrations/20261105115106_admin_user_notifications.sql
@@ -12,17 +14,19 @@ related_tables:
   - user_notifications
   - race_requests
   - push_notification_events
+  - feedback_survey_campaigns
+  - feedback_survey_responses
 ---
 
 # user_notifications Table
 
 ## Purpose
 
-Stores the durable in-app inbox for messages sent by trusted administrators to one runner. The row is the source of truth even when optional Resend email or Expo push delivery is unavailable or fails.
+Stores the durable in-app inbox for messages sent by trusted administrators to one runner, including feedback survey messages sent to a targeted audience. The row is the source of truth even when optional Resend email or Expo push delivery is unavailable or fails.
 
 ## Key Concepts
 
-- Notification kinds are `admin_message` and `race_request_status`.
+- Notification kinds are `admin_message`, `race_request_status` and `feedback_survey` (a survey message; the app shows the 3-question form under its body).
 - The application channel is mandatory; `email_requested` and `push_requested` are optional.
 - Delivery statuses are `not_requested`, `pending`, `sent`, `failed`, or `unavailable`.
 - Reading a notification changes only `read_at`; deleting it from the inbox sets `deleted_at` (and `read_at` when still unread). Owners never hard-delete.
@@ -35,7 +39,8 @@ Stores the durable in-app inbox for messages sent by trusted administrators to o
 | `user_id` | uuid | Recipient Auth user; cascades on deletion. |
 | `created_by` | uuid nullable | Admin audit actor; set null if deleted. |
 | `race_request_id` | bigint nullable | Optional related request; set null if deleted. |
-| `kind` | text | `admin_message` or `race_request_status`. |
+| `kind` | text | `admin_message`, `race_request_status` or `feedback_survey`. |
+| `survey_campaign_id` | uuid nullable | [feedback_survey_campaigns](feedback-survey-campaigns.md) row of a survey message; set null if deleted. Non-null only for `feedback_survey`. Not client-readable. |
 | `title` | text | Trimmed, 1–160 characters. |
 | `body` | text | Trimmed, 1–4000 characters. |
 | `read_at` | timestamptz nullable | Owner read receipt. |
@@ -53,12 +58,14 @@ Stores the durable in-app inbox for messages sent by trusted administrators to o
 - `user_id -> auth.users(id) on delete cascade`.
 - `created_by -> auth.users(id) on delete set null`.
 - `race_request_id -> race_requests(id) on delete set null`.
+- `survey_campaign_id -> feedback_survey_campaigns(id) on delete set null`.
 
 ## Indexes
 
 - `(user_id, created_at desc)` for inbox pagination.
 - Partial `(user_id, created_at desc) where read_at is null` for badges.
 - Partial indexes on non-null `race_request_id` and `created_by` cover foreign-key lookups and delete actions.
+- Partial unique `(survey_campaign_id, user_id)`: a survey campaign reaches each runner once.
 
 ## RLS Policies
 
@@ -73,6 +80,7 @@ Stores the durable in-app inbox for messages sent by trusted administrators to o
 - Delivery errors, provider ids and the admin actor are never client-readable.
 - External delivery failure never deletes the in-app notification or rolls back an already-committed review.
 - Reusing a notification UUID is idempotent only when status, admin actor, recipient, request, message and requested channels match.
+- Survey notification ids are derived from `(campaign id, user id)`, so a retried campaign send inserts nothing new and only delivers rows still `pending`.
 
 ## Common Queries
 
@@ -83,10 +91,13 @@ The mobile inbox explicitly selects `id,user_id,race_request_id,feedback_id,kind
 - Column-level privileges intentionally make `select('*')` fail for client roles; mobile queries must list the safe columns.
 - `push_notification_events` records per-device push attempts and deduplication. It is not the runner-visible inbox or read state.
 - Delivery-state updates are service-only even though owners can see the notification content.
+- Older app versions render a `feedback_survey` message as a plain admin message (no form): its default body asks the runner to update the app.
 
 ## Related Docs
 
 - [race_requests](race-requests.md)
+- [feedback_survey_campaigns](feedback-survey-campaigns.md)
+- [feedback_survey_responses](feedback-survey-responses.md)
 - [RLS Policies](../rls-policies.md)
 - [Relationships](../relationships.md)
 - [RLS Checklist](../../04-auth-and-security/rls-checklist.md)

@@ -27,6 +27,13 @@ related_files:
   - apps/web/components/landing/LivretProductPage.tsx
   - apps/web/app/home-structured-data.ts
   - apps/web/components/SiteFooter.tsx
+  - apps/web/app/admin/_components/AdminSurveysTab.tsx
+  - apps/web/app/admin/_components/AdminSurveysTab.test.ts
+  - apps/web/app/api/admin/feedback-surveys/route.ts
+  - apps/web/app/api/admin/feedback-surveys/route.test.ts
+  - apps/web/app/api/admin/feedback-surveys/audiences/route.ts
+  - apps/web/lib/feedback-surveys.ts
+  - apps/web/lib/feedback-surveys.test.ts
   - apps/web/app/api/supporter-guide/route.ts
   - apps/web/app/api/supporter-guide/qr/route.ts
   - apps/web/app/courses/supporter-guide/[raceId]/page.tsx
@@ -840,9 +847,13 @@ The admin reel generator saves each race's narration in Supabase (`video_narrati
 
 ## Admin messaging inbox
 
-The admin "Messagerie" tab (`AdminMessagingTab`) replaced "Demandes de course". It has three sub-tabs with pending counts from `GET /api/admin/inbox-counts`: Bugs and Feedback (`AdminFeedbackTab`, `GET`/`PATCH /api/admin/feedback`) and Demandes de course (`AdminRaceRequestsTab`). Lists put pending items first (`is_pending`); handled ones sink below and their row is greyed (`handledRowClassName`). A status change on an item whose author has an account opens `AdminNotificationDialog`, and the reply and status commit together (`review_app_feedback_with_notification` / `review_race_request_with_notification`); "Répondre" sends a reply without changing the status; an author without an account gets a silent status change. Each row shows the last reply sent and its state (`AdminReplyStatus`: read, unread, deleted by the runner). Every prefilled message, including the free message of the Users tab, opens with "Bonjour," and ends with "Faustin de Pace Yourself" (`admin-message-template.ts`). `loadAdminUserIdentities` and `loadLatestReplies` in `lib/admin-user-notifications.ts` serve both list routes.
+The admin "Messagerie" tab (`AdminMessagingTab`) replaced "Demandes de course". It has three inbox sub-tabs with pending counts from `GET /api/admin/inbox-counts`: Bugs and Feedback (`AdminFeedbackTab`, `GET`/`PATCH /api/admin/feedback`) and Demandes de course (`AdminRaceRequestsTab`). Lists put pending items first (`is_pending`); handled ones sink below and their row is greyed (`handledRowClassName`). A status change on an item whose author has an account opens `AdminNotificationDialog`, and the reply and status commit together (`review_app_feedback_with_notification` / `review_race_request_with_notification`); "Répondre" sends a reply without changing the status; an author without an account gets a silent status change. Each row shows the last reply sent and its state (`AdminReplyStatus`: read, unread, deleted by the runner). Every prefilled message, including the free message of the Users tab, opens with "Bonjour," and ends with "Faustin de Pace Yourself" (`admin-message-template.ts`). `loadAdminUserIdentities` and `loadLatestReplies` in `lib/admin-user-notifications.ts` serve both list routes.
 
 Pending bugs, feedback and race requests also have a one-click "Clôturer" button: the item goes to completed with no dialog and no message to the runner (`PATCH /api/admin/feedback` without `notification`, `PATCH /api/admin/race-requests` with `silent: true`, a plain service-role update of `status`, `reviewed_at` and `reviewed_by`).
+
+### Feedback surveys (Questionnaires)
+
+"Messagerie" has a fourth sub-tab, "Questionnaires" (`AdminSurveysTab`). The admin picks an event from `GET /api/admin/feedback-surveys/audiences` (PostHog `racebook opened` readers per `event_id` over the last year), sees the reachable audience from `GET /api/admin/feedback-surveys/audiences?eventId=` (identified readers, accounts, push, e-mail), edits the prefilled message (`surveyDefaultCopy`: greeting and signature from `admin-message-template.ts`, plus a line asking older apps to update) and sends with `POST /api/admin/feedback-surveys`. The route resolves the audience server-side (`lib/feedback-surveys.ts`: PostHog HogQL query API with the organizer-analytics PostHog env, Supabase UUID v4 ids only, then `resolve_feedback_survey_recipients`), upserts the campaign, inserts one `feedback_survey` notification per runner with a derived id, then delivers pending rows with bounded concurrency. The form keeps its campaign id after a failure, so sending again resumes without duplicates. `GET /api/admin/feedback-surveys` returns the last 50 campaigns with counters from `feedback_survey_campaign_stats` (recipients, read, push sent, answers, useful rate) and up to 1000 answers with the runner's profile name, filterable by useful / not useful. See [feedback_survey_campaigns](../02-database/tables/feedback-survey-campaigns.md).
 
 Reel exports (in the browser and in the background render) keep the preview frame's CSS size and raise only the map's pixel density to the video resolution (`export-frame.ts`), so the framing, map detail and station bubbles match the preview.
 

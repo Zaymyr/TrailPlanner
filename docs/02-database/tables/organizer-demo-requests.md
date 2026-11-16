@@ -37,3 +37,4 @@ Service-role only: RLS is enabled with no client policy and every client privile
 
 - No user account is linked: the reply happens by e-mail or phone, not through `user_notifications`.
 - Deploy the migration through the production migration workflow after merging into `main`; before that, the admin section reports that the table is not deployed.
+- The admin inbox also has a separate « Questionnaires » tab (feedback surveys); demo requests stay in « Demandes de course ».
