@@ -7,6 +7,7 @@ related_files:
   - supabase/migrations/20261116150000_add_organizer_demo_requests.sql
   - supabase/tests/organizer_demo_requests_checks.sql
   - supabase/migrations/20261116180000_add_feedback_surveys.sql
+  - supabase/migrations/20261116200000_add_feedback_survey_single_user_audience.sql
   - supabase/tests/feedback_survey_checks.sql
   - supabase/migrations/20261106142000_add_lut_by_night_2026_gpx.sql
   - supabase/migrations/20261105180000_add_app_feedback_review.sql
@@ -260,7 +261,7 @@ The November 2026 mobile plan-flow polish changes catalog search controls, image
 | `user_favorite_products` | User favorites for products. |
 | `user_profiles` | App profile, independent Plan/RaceBook onboarding statuses, legacy completion, trial fields, defaults, sign-in metrics, and body metrics. |
 | `user_notifications` | Owner-readable admin messages and race-request status notifications with server-managed email/push delivery state. |
-| `feedback_survey_campaigns` | Service-only admin feedback surveys sent to a targeted audience (livret readers). See [feedback_survey_campaigns](tables/feedback-survey-campaigns.md). |
+| `feedback_survey_campaigns` | Service-only admin feedback surveys sent to a targeted audience (livret readers, or one chosen account for a test send). See [feedback_survey_campaigns](tables/feedback-survey-campaigns.md). |
 | `feedback_survey_responses` | Runner answers to a survey message (useful yes/no, what helped, what was missing); insert-own, trigger-validated. See [feedback_survey_responses](tables/feedback-survey-responses.md). |
 
 Removed legacy tables:

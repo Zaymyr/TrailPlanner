@@ -49,6 +49,7 @@ A runner's answer to a feedback survey message: "Did you find the app useful?" (
 ## Gotchas
 
 - The mobile insert uses the default minimal return; do not add `.select()` with text columns, they are not client-readable.
+- Answers to a single-user test send (`audience_kind = 'single_user'`) are attached to that test campaign, so they never skew the results of the real campaign.
 - Apply the migration before shipping the mobile update: older app versions show a survey as a plain Pace Yourself message (its body asks to update the app).
 
 ## Related Docs

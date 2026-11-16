@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ADMIN_MESSAGE_GREETING, ADMIN_MESSAGE_SIGNATURE } from "./admin-message-template";
-import { formatRate, surveyDefaultCopy } from "./AdminSurveysTab";
+import { accessTokenUser, formatRate, surveyDefaultCopy } from "./AdminSurveysTab";
 
 describe("surveyDefaultCopy", () => {
   it("names the event, stays within the title limit and keeps the admin greeting and signature", () => {
@@ -18,5 +18,21 @@ describe("formatRate", () => {
   it("rounds a share and shows a dash without a total", () => {
     expect(formatRate(31, 40)).toBe("78 %");
     expect(formatRate(0, 0)).toBe("—");
+  });
+});
+
+describe("accessTokenUser", () => {
+  const token = (claims: Record<string, unknown>) =>
+    `header.${Buffer.from(JSON.stringify(claims)).toString("base64url")}.signature`;
+
+  it("reads the signed-in admin from the access token", () => {
+    expect(accessTokenUser(token({ sub: "99999999-9999-4999-8999-999999999999", email: "admin@example.com" })))
+      .toEqual({ id: "99999999-9999-4999-8999-999999999999", email: "admin@example.com" });
+  });
+
+  it("returns null without a usable token", () => {
+    expect(accessTokenUser(null)).toBeNull();
+    expect(accessTokenUser("not-a-jwt")).toBeNull();
+    expect(accessTokenUser(token({ sub: "not-a-uuid" }))).toBeNull();
   });
 });

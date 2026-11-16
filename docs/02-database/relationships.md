@@ -45,6 +45,7 @@ related_files:
   - supabase/migrations/20261105115106_admin_user_notifications.sql
   - supabase/tests/admin_user_notifications_checks.sql
   - supabase/migrations/20261116180000_add_feedback_surveys.sql
+  - supabase/migrations/20261116200000_add_feedback_survey_single_user_audience.sql
   - supabase/tests/feedback_survey_checks.sql
 related_tables:
   - race_event_edition_partner_slots
@@ -144,7 +145,7 @@ User-owned tables include:
 
 `user_notifications.user_id` references `auth.users(id)` with cascade deletion. Its nullable `created_by` audit actor uses `on delete set null`, as does `race_request_id` when a request is removed. The in-app message therefore follows the recipient account lifecycle while preserving history independently from the source request and admin account.
 
-Feedback surveys: `feedback_survey_campaigns.created_by` references `auth.users(id)` with `on delete set null`; `user_notifications.survey_campaign_id` references the campaign with `on delete set null`. `feedback_survey_responses.user_id` cascades with the Auth user, while its `notification_id` and `campaign_id` are `on delete set null`, so answers outlive a removed message or campaign but not the runner's account.
+Feedback surveys: `feedback_survey_campaigns.created_by` and `audience_user_id` (single-user test sends) reference `auth.users(id)` with `on delete set null`; `user_notifications.survey_campaign_id` references the campaign with `on delete set null`. `feedback_survey_responses.user_id` cascades with the Auth user, while its `notification_id` and `campaign_id` are `on delete set null`, so answers outlive a removed message or campaign but not the runner's account.
 
 `partner_link_settings.updated_by` is a nullable admin-audit reference to `auth.users(id)` with `on delete set null`. It does not grant ownership or client access; the table remains service-only.
 
