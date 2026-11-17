@@ -12,6 +12,7 @@ last_verified: 2026-11-16
 # Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 
 ai_priority: high
+# Organizer nav fixes (2026-11-17): Statistiques and Gérer les sections move into the header Actions menu, and sticky/clipping fixes keep the left-nav button and ⋯ menus on screen; presentation only, no data or contract change.
 # Organizer layout (2026-11-13): wide desktop uses 240px navigation, a flexible editor, and a 300px contextual rail; below 1320px the rail follows the editor.
 # Aid-station interaction (2026-11-13): timeline selection drives a single detail editor, active E/S/A badges only are shown, and deletion requires confirmation from the station action menu.
 # Information editor (2026-11-13): social fields wrap without a nested module header, and required badges reflect existing validation rules only.

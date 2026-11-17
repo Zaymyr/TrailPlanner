@@ -141,6 +141,9 @@ export function OrganizerSummaryHeader({
   onDeleteEvent,
   onReplayOnboarding,
   onOpenInvoices,
+  onOpenAnalytics,
+  onManageSections,
+  manageSectionsDisabled = false,
 }: {
   selectedMembership: MembershipRow | null;
   event: OrganizerEventDetail | null;
@@ -177,6 +180,9 @@ export function OrganizerSummaryHeader({
   onDeleteEvent: () => Promise<boolean>;
   onReplayOnboarding: () => void;
   onOpenInvoices: () => void;
+  onOpenAnalytics: () => void;
+  onManageSections: () => void;
+  manageSectionsDisabled?: boolean;
 }) {
   const [newEditionDialogOpen, setNewEditionDialogOpen] = React.useState(false);
   const [duplicatePreviousEdition, setDuplicatePreviousEdition] = React.useState(true);
@@ -297,7 +303,14 @@ export function OrganizerSummaryHeader({
                 <path d="m5 7.5 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </summary>
-            <div role="menu" onClickCapture={() => setActionsMenuOpen(false)} className="absolute right-0 z-30 mt-2 grid w-64 gap-1 rounded-lg border border-border bg-card p-2 shadow-xl">
+            <div role="menu" onClickCapture={() => setActionsMenuOpen(false)} className="absolute left-0 z-30 mt-2 grid w-64 max-w-[calc(100vw-2rem)] gap-1 rounded-lg border border-border bg-card p-2 shadow-xl lg:left-auto lg:right-0">
+              <Button role="menuitem" type="button" variant="ghost" onClick={onOpenAnalytics} disabled={!event} className="!justify-start" title="Consulter la performance du Livret coureur de cette édition.">
+                Statistiques
+              </Button>
+              <Button role="menuitem" type="button" variant="ghost" onClick={onManageSections} disabled={manageSectionsDisabled} className="!justify-start" title="Choisir les sections affichées dans le Livret coureur sans supprimer leur contenu.">
+                Gérer les sections
+              </Button>
+              <div className="my-1 border-t border-border" />
               <Button role="menuitem" type="button" variant="ghost" onClick={() => onNotifyFollowers(activeRaceId ?? undefined)} disabled={!event} className="!justify-start" title="Envoyer une actualité aux coureurs qui suivent l’événement.">
                 Notifier les coureurs
               </Button>
@@ -462,7 +475,7 @@ export function OrganizerSummaryHeader({
                   >
                     …
                   </summary>
-                  <div role="menu" className="absolute right-0 z-40 mt-2 grid w-64 gap-1 rounded-lg border border-border bg-card p-2 shadow-xl">
+                  <div role="menu" className="absolute left-0 z-40 mt-2 grid w-64 max-w-[calc(100vw-2rem)] gap-1 rounded-lg border border-border bg-card p-2 shadow-xl lg:left-auto lg:right-0">
                     <Button
                       role="menuitem"
                       type="button"
@@ -908,7 +921,7 @@ export function CompletionTabsPanel({
   ));
 
   return (
-    <nav id="organizer-onboarding-module-tiles" aria-label="Sections" className="rounded-xl border border-border bg-card p-2 shadow-sm min-[1320px]:sticky min-[1320px]:top-3">
+    <nav id="organizer-onboarding-module-tiles" aria-label="Sections" className="rounded-xl border border-border bg-card p-2 shadow-sm">
       <div id="organizer-onboarding-scope-navigation" className="min-[1320px]:hidden">
         <label htmlFor="organizer-workspace-select" className="mb-1.5 block text-sm font-medium text-foreground">
           Informations à modifier

@@ -7,6 +7,7 @@ last_verified: 2026-11-16
 # Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
 # Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: medium
+# Organizer nav fixes (2026-11-17): Statistiques and Gérer les sections move into the header Actions menu, and sticky/clipping fixes keep the left-nav button and ⋯ menus on screen; presentation only, no data or contract change.
 # UI organisateur (2026-11-13) : les médias et aperçus des sections Informations, Course et Identité visuelle occupent le rail contextuel à droite sur grand écran, puis passent sous le formulaire.
 # Ravitos (2026-11-13) : sélectionner un point dans la timeline ouvre son unique panneau de détail ; sur mobile ce panneau est plein écran et le bouton Retour ramène à la liste.
 # Informations (2026-11-13) : les liens sociaux s’adaptent à la largeur disponible et les badges Requis reprennent les règles de validation existantes.
@@ -91,6 +92,8 @@ The active editor keeps save status visible while scrolling; destructive actions
 - Vérifier au clavier que le titre reçoit le focus à chaque étape, que Tab reste dans la carte, qu'Échap ferme le guide, que le document ne défile pas et que le focus initial est restauré.
 - Confirmer que les trois états restent `Masqué`, `Privé` et `Public`.
 - Depuis `Actions > Créer une nouvelle édition`, lancer une duplication et confirmer que la fenêtre reste ouverte avec `Duplication de l’édition en cours…`, un indicateur animé et le formulaire désactivé jusqu’à la fin de la création.
+- Depuis `Actions > Statistiques`, confirmer que les statistiques du Livret coureur s'ouvrent (ou l'offre Signature si elles ne sont pas incluses) et que `← Revenir au contenu` ramène à l'éditeur ; `Actions > Gérer les sections` ouvre le choix des sections.
+- En 1440 × 900 comme en 390 × 844, confirmer que le bouton `Gérer les sections` sous la navigation de gauche n'est jamais recouvert, et que les menus `Actions`, `…` des versions et `⋯` du format s'ouvrent entièrement dans le viewport.
 - Avec Essentiel déjà actif, confirmer que `Publier` et le passage d'un format à `Public` publient directement, que les sections Complet/Signature restent privées et qu'aucune erreur opérationnelle ne rouvre la fenêtre d'achat.
 - Dans l'app avec le compte organisateur, confirmer qu'un événement reste visible hors catalogue, qu'un format `Masqué` est légèrement grisé sans bouton Livret coureur, qu'un format `Privé` garde un bouton Livret coureur grisé mais fonctionnel, et qu'un format `Public` a le rendu coureur normal.
 - Dans `Formats & GPX`, confirmer que les interrupteurs `Afficher le parcours` et `Afficher le profil altimétrique` peuvent être combinés librement et que le Livret coureur masque uniquement les visuels désactivés sans retirer le GPX source.
