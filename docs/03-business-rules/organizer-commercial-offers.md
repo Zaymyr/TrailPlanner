@@ -7,6 +7,7 @@ last_verified: 2026-11-16
 # Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: high
 # Organizer UI note (2026-11-13): completion yields the contextual rail to media-heavy editors; offer and completion rules are unchanged.
+# Organizer nav fixes (2026-11-17): Statistiques (with its Signature upsell) and Gérer les sections are reachable from the header Actions menu; offer rules are unchanged.
 # Form note (2026-11-13): required badges are presentation of existing completion prerequisites and do not add offer gates.
 # Navigation note (2026-11-13): the single active subsection state does not alter offer availability.
 # Dense module note (2026-11-13): sponsor and course presentation changes do not alter offers.

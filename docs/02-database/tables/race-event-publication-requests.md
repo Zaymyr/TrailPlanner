@@ -7,6 +7,7 @@ last_verified: 2026-11-16
 # Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
 # Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: high
+# Organizer nav fixes (2026-11-17): Statistiques and Gérer les sections move into the header Actions menu, and sticky/clipping fixes keep the left-nav button and ⋯ menus on screen; presentation only, no data or contract change.
 # Organizer UI note (2026-11-13): publication controls keep their behavior in the wider shell; the contextual rail is presentation-only.
 # Validation UI note (2026-11-13): Requis badges expose existing prerequisites and do not change publication request rules.
 # Action-menu note (2026-11-13): moving destructive actions does not alter publication requests.

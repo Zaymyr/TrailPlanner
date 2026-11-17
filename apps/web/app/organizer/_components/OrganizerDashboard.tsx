@@ -3549,6 +3549,15 @@ export function OrganizerDashboard({
         onDeleteEvent={deleteSelectedEvent}
         onReplayOnboarding={replayOrganizerOnboarding}
         onOpenInvoices={() => setInvoicesDialogOpen(true)}
+        onOpenAnalytics={() => {
+          saveCurrentScopeInBackground();
+          setDashboardView("analytics");
+        }}
+        onManageSections={() => {
+          setDashboardView("content");
+          openModuleSettingsDialog();
+        }}
+        manageSectionsDisabled={!moduleSettings}
       />
 
       <Dialog open={publicationDialog !== null} onOpenChange={(open) => { if (!open && status === "idle") setPublicationDialog(null); }}>
@@ -3711,7 +3720,7 @@ export function OrganizerDashboard({
       {dashboardView === "content" ? <>
       <div className="grid items-start gap-4 min-[1320px]:grid-cols-[240px_minmax(0,1fr)_300px]">
       {completion ? (
-        <div className="space-y-2 min-[1320px]:col-start-1 min-[1320px]:row-start-1">
+        <div className="space-y-2 min-[1320px]:sticky min-[1320px]:top-3 min-[1320px]:col-start-1 min-[1320px]:row-start-1 min-[1320px]:max-h-[calc(100dvh-1.5rem)] min-[1320px]:overflow-y-auto min-[1320px]:overscroll-contain">
           <CompletionTabsPanel
             tabs={tabs}
             activeTab={activeTab}
@@ -3850,11 +3859,14 @@ export function OrganizerDashboard({
         <CardHeader
           id="organizer-onboarding-editor"
           tabIndex={-1}
-          className="relative flex flex-row flex-wrap items-center justify-between gap-3 space-y-0 overflow-hidden bg-[radial-gradient(circle_at_15%_120%,hsl(var(--brand)/0.08),transparent_42%)]"
+          className="relative flex flex-row flex-wrap items-center justify-between gap-3 space-y-0 rounded-t-lg bg-[radial-gradient(circle_at_15%_120%,hsl(var(--brand)/0.08),transparent_42%)]"
         >
-          <svg viewBox="0 0 320 96" aria-hidden="true" className="pointer-events-none absolute right-0 top-0 h-full w-80 text-brand opacity-[0.08]">
-            <path d="M8 75c35-50 67 18 105-24s74 19 112-14 61 5 87-27M28 91c28-38 61 5 91-19s62 18 94-10 64 9 94-20M76 8c19 20 34 21 52 4s39-8 55 8 41 18 60-2" fill="none" stroke="currentColor" strokeWidth="2" />
-          </svg>
+          {/* Only the watermark is clipped: clipping the header itself hid the format actions menu. */}
+          <span aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden rounded-t-lg">
+            <svg viewBox="0 0 320 96" className="absolute right-0 top-0 h-full w-80 text-brand opacity-[0.08]">
+              <path d="M8 75c35-50 67 18 105-24s74 19 112-14 61 5 87-27M28 91c28-38 61 5 91-19s62 18 94-10 64 9 94-20M76 8c19 20 34 21 52 4s39-8 55 8 41 18 60-2" fill="none" stroke="currentColor" strokeWidth="2" />
+            </svg>
+          </span>
           <SectionHeader
             title={activeRace && activeModule === "bibPickup"
                 ? `Retrait dossard - ${activeRace.name}`
@@ -3881,7 +3893,7 @@ export function OrganizerDashboard({
                 </span>
               ) : null}{activeModule === "formats" && activeRace ? <details className="relative z-20">
               <summary aria-label="Actions du format" className="grid h-9 w-9 cursor-pointer list-none place-items-center rounded-md border border-border bg-card text-lg font-bold marker:content-none">⋯</summary>
-              <div className="absolute right-0 top-11 z-20 w-56 rounded-lg border border-border bg-card p-2 shadow-xl">
+              <div className="absolute left-0 top-11 z-20 w-56 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-card p-2 shadow-xl sm:left-auto sm:right-0">
                 <Button type="button" variant="ghost" onClick={() => setDestructiveConfirmation("race")} disabled={status === "saving" || status === "uploading"} className="w-full justify-start text-red-700 hover:bg-red-50 hover:text-red-800">Supprimer ce format</Button>
               </div>
             </details> : null}</div>}
