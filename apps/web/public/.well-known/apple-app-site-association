@@ -2,9 +2,9 @@
   "applinks": {
     "details": [
       {
-        "appIDs": ["TODO_APPLE_TEAM_ID.com.paceyourself.app"],
+        "appIDs": ["8582RRM48Q.com.paceyourself.app"],
         "components": [
-          { "/": "/courses/*", "comment": "Published course, its Livret coureur or the Supporter Guide. TODO: verify Apple Team ID with maintainer" },
+          { "/": "/courses/*", "comment": "Published course, its Livret coureur or the Supporter Guide." },
           { "/": "/race-planner*", "comment": "Runner planner context." },
           { "/": "/share/plan/*", "comment": "Shared plan follow links." }
         ]
