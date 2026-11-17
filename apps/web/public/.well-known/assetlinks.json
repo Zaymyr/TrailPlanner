@@ -1,13 +1,15 @@
 [
   {
-    "relation": ["delegate_permission/common.handle_all_urls"],
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
     "target": {
       "namespace": "android_app",
       "package_name": "com.paceyourself.app",
       "sha256_cert_fingerprints": [
-        "TODO_ANDROID_SHA256_CERT_FINGERPRINT"
+        "CF:A9:3F:30:6D:71:1F:F5:CE:C4:09:63:52:71:74:BA:07:1D:EE:49:5C:50:3B:F9:33:E0:5E:01:15:9B:BA:0C"
       ]
-    },
-    "comment": "TODO: replace the fingerprint with the verified SHA-256 signing certificate fingerprint before deployment."
+    }
   }
 ]
