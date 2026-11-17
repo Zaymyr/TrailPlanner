@@ -10,6 +10,7 @@ last_verified: 2026-11-16
 # Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: medium
 # Organizer UI note (2026-11-13): the completion rail no longer duplicates an analytics button; analytics tracking and aggregation contracts are unchanged.
+# Organizer analytics entry (2026-11-17): the organizer analytics view is opened from the header Actions menu (Statistiques), since the 2026-11-13 rail change left it unreachable; tracking and aggregation contracts are unchanged.
 # Loading UI note (2026-11-13): neutral organizer skeletons emit no additional analytics events.
 # Header/navigation note (2026-11-13): visual hierarchy changes emit no additional analytics events.
 # Dense module note (2026-11-13): logo-grid navigation and same-place access emit no new analytics events.

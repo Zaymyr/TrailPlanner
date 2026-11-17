@@ -10,6 +10,7 @@ last_verified: 2026-11-16
 # Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
 # Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: high
+# Organizer nav fixes (2026-11-17): Statistiques and Gérer les sections move into the header Actions menu, and sticky/clipping fixes keep the left-nav button and ⋯ menus on screen; presentation only, no data or contract change.
 # Organizer UI note (2026-11-13): workspace sizing is presentation-only; claim and membership authorization remain unchanged.
 # Aid-station UI note (2026-11-13): timeline/detail presentation does not alter organizer membership authorization.
 # Loading/form UI note (2026-11-13): skeletons and required badges do not change claim authorization.
