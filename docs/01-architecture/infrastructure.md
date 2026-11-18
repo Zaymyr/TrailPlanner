@@ -142,7 +142,7 @@ The ignored-build command and the `preview/web` gate solve different problems. T
 
 `apps/mobile/app.config.ts` declares OTA updates through `expo-updates`:
 
-- App Store / Play Store marketing version `1.1.2`.
+- App Store / Play Store marketing version `1.1.3`. App Store Connect closed the `1.1.2` train once that version was approved (2026-11-18 uploads of builds 20/21 were rejected with « Invalid Pre-Release Train »), so the next store binaries carry `1.1.3` while staying on runtime `1.1.2`: no native module was added since build 18, only native configuration (associated domains / App Links, the Android screen-feature plugin), so `1.1.2` OTAs remain safe for build 18.
 - project id `c713a8a0-cd94-4f6e-9468-063c9c20da6c`
 - updates URL `https://u.expo.dev/c713a8a0-cd94-4f6e-9468-063c9c20da6c`
 - channels are set by the EAS profile.
@@ -158,7 +158,7 @@ The app config also registers the local `./plugins/withOptionalScreenFeatures` c
 
 The manual `apps/mobile/.eas/workflows/mobile-ux-audit.yml` workflow uses the EAS `preview` environment for both builds and Maestro jobs. Android targets a Pixel 6 emulator with screen recording; iOS uses a simulator build. Both jobs execute the same authenticated smoke/UX flow and retain screenshots plus recordings as artifacts. Expo requires a compatible paid plan for hosted Maestro jobs, and validation against the current project account stops on that billing capability before execution.
 
-Store candidates are manual and platform-specific. `store-candidate-android.yml` and `store-candidate-ios.yml` each expose only `workflow_dispatch`, pause at their own EAS approval gate, build the selected platform with the `production` profile, and submit with `store-candidate`. Operators must dispatch the chosen file from remote `main` (for example, `eas workflow:run .eas/workflows/store-candidate-ios.yml --ref main`); omitting `--ref` uploads the local project state instead. Android submission creates an internal draft, while iOS uploads to App Store Connect/TestFlight. Public Android rollout remains a separate GitHub dispatch protected by the `Production` environment; that dispatch checks the exact merged commit SHA and verifies the selected EAS build's project, platform, profile, application id, commit, status, artifact, and expiry before submission. Apple production review/release remains in App Store Connect.
+Store candidates are manual and platform-specific. `store-candidate-android.yml` and `store-candidate-ios.yml` each expose only `workflow_dispatch`, pause at their own EAS approval gate, build the selected platform with the `production` profile, and submit with `store-candidate`. Operators must dispatch the chosen file at the exact remote `main` commit: read it with `git ls-remote origin refs/heads/main`, then run `eas workflow:run .eas/workflows/store-candidate-ios.yml --ref <full main SHA>`. Omitting `--ref` uploads the local project state instead. Before anyone approves the gate, confirm that the CLI line `Using workflow file … at <sha>` (or `gitCommitHash` in `eas workflow:runs --json`) is that SHA. Cancel a wrong run with `eas workflow:cancel <run id>` while it is still `ACTION_REQUIRED`. Android submission creates an internal draft, while iOS uploads to App Store Connect/TestFlight. Public Android rollout remains a separate GitHub dispatch protected by the `Production` environment; that dispatch checks the exact merged commit SHA and verifies the selected EAS build's project, platform, profile, application id, commit, status, artifact, and expiry before submission. Apple production review/release remains in App Store Connect.
 
 The protected production OTA dispatch accepts one optional `legacy_ios_runtime_version`. After publishing the normal current-runtime update, it validates that input as a semantic version and publishes the same bundle to iOS only with the runtime override. This supports a narrowly reviewed compatibility bridge such as prompting runtime `1.1.1` / build 17 to install build 18; native-module or native-configuration changes must never be back-published this way.
 
@@ -277,6 +277,9 @@ For local setup, copy `apps/web/.env.example` to the ignored `apps/web/.env.loca
 - `MAESTRO_E2E_PASSWORD` (secret test-runner variable, never an Expo public value)
 
 ## Gotchas
+
+- `eas workflow:run --ref main` can resolve a stale `main`. On 2026-11-18 it targeted `95b2c54b` (#867) while GitHub `main` was already `6930a41e`, so the candidates would have shipped without the merged offline mode. Always pass the full SHA and check the run's commit before approval.
+- iOS store builds embed the Associated Domains entitlement for universal links. The App Store provisioning profile must have been generated after that capability was enabled on `com.paceyourself.app`. An older profile fails the build with `XCODE_BUILD_ERROR` ("doesn't support the Associated Domains capability"). Regenerate it with `eas credentials -p ios` (production profile; do not reuse the old profile). That command needs an interactive Apple login, so a non-interactive workflow cannot repair it.
 
 - `@react-native-community/datetimepicker` is a native Expo config plugin. A development/store rebuild must precede relying on it; an OTA cannot add the native module to an older runtime, so mobile keeps a lazy localized fallback for those binaries.
 
