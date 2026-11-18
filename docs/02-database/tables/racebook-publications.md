@@ -3,7 +3,10 @@ title: racebook_publications
 scope: database
 last_verified: 2026-11-15
 ai_priority: high
+# Demo race refresh (2026-11-18): the daily /api/cron/demo-race-refresh job moves Trail TST to today's Paris date and republishes its formats through publishRacebookSnapshot with a null actor (published_by null = automated), after the same blocking checks as organizer publication; visibility is unchanged.
 related_files:
+  - apps/web/app/api/cron/demo-race-refresh/route.ts
+  - apps/web/lib/demo-race-refresh.ts
   - apps/web/lib/supporter-guide.ts
   - apps/web/lib/supporter-guide.test.ts
   - apps/web/app/api/supporter-guide/route.ts
@@ -59,7 +62,7 @@ Stores immutable, versioned RaceBook snapshots assembled and validated by the se
 | `content` | JSON object | Validated canonical snapshot. |
 | `content_hash` | 64 lowercase hex characters | Canonical SHA-256 digest. |
 | `source_draft_revision` | positive bigint | Draft generation captured. |
-| `published_by`, `published_at` | nullable actor, required timestamp | Audit facts. |
+| `published_by`, `published_at` | nullable actor, required timestamp | Audit facts. `published_by` is null only for the automated Trail TST demo refresh. |
 | `restored_from_publication_id` | nullable UUID provenance | Source of a restore; intentionally survives source pruning. |
 
 ## Foreign Keys

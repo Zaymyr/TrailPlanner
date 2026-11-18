@@ -477,7 +477,8 @@ export const moduleMask = (modules: Partial<Record<OrganizerModuleKey, boolean>>
 export async function publishRacebookSnapshot(
   config: SupabaseServiceConfig,
   raceId: string,
-  actorId: string,
+  /** `null` only for trusted automated republication (demo race refresh cron): no human publisher. */
+  actorId: string | null,
   makePublic = false,
 ) {
   for (let attempt = 0; attempt < 2; attempt += 1) {
