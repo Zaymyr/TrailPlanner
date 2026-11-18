@@ -114,7 +114,7 @@ export function buildFollowedPreparation(checkpoints: readonly TrackingCheckpoin
   return { points, totals: [...totals.values()], totalWaterLiters: points.reduce((sum, point) => sum + point.water, 0) };
 }
 
-/** Mirrors `@trailplanner/shared` resolvePlanSharePassageCorrection (client-local adapter). */
+/** Mirrors the shared package's resolvePlanSharePassageCorrection (client-local adapter). */
 export function resolvePlanSharePassageCorrection(clock: string, startTime: string, checkpoint: Pick<TrackingCheckpoint, 'arrivalMinute'>) {
   const startMinutes = parsePlanShareClock(startTime);
   const clockMinutes = parsePlanShareClock(clock);
