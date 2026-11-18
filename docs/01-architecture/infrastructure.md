@@ -142,7 +142,7 @@ The ignored-build command and the `preview/web` gate solve different problems. T
 
 `apps/mobile/app.config.ts` declares OTA updates through `expo-updates`:
 
-- App Store / Play Store marketing version `1.1.2`.
+- App Store / Play Store marketing version `1.1.3`. App Store Connect closed the `1.1.2` train once that version was approved (2026-11-18 uploads of builds 20/21 were rejected with « Invalid Pre-Release Train »), so the next store binaries carry `1.1.3` while staying on runtime `1.1.2`: no native module was added since build 18, only native configuration (associated domains / App Links, the Android screen-feature plugin), so `1.1.2` OTAs remain safe for build 18.
 - project id `c713a8a0-cd94-4f6e-9468-063c9c20da6c`
 - updates URL `https://u.expo.dev/c713a8a0-cd94-4f6e-9468-063c9c20da6c`
 - channels are set by the EAS profile.

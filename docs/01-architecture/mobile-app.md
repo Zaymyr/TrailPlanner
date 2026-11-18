@@ -397,7 +397,7 @@ The app config in `apps/mobile/app.config.ts` declares:
 - owner `pace-yourself`;
 - scheme `paceyourself`;
 - production Android/iOS identifier `com.paceyourself.app` and development identifier `com.paceyourself.app.dev`, selected by `APP_VARIANT=development`;
-- app version `1.1.2`;
+- app version `1.1.3` (the `1.1.2` App Store train is closed; runtime unchanged);
 - shared iOS/Android runtime version `1.1.2` for the current native release line;
 - an OTA-visible iOS native-release marker, defaulting to available build `18` and the public App Store listing; `EXPO_PUBLIC_IOS_LATEST_BUILD` and `EXPO_PUBLIC_IOS_NATIVE_UPDATE_URL` may replace those public values when the next binary is actually installable;
 - an `EAS_UPDATE_RUNTIME_VERSION` override reserved for explicitly approved legacy OTA publication; ordinary builds and updates remain on `1.1.2`;
