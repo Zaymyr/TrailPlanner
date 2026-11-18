@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { DEMO_SUPPORTER_GUIDE_RACE_ID, demoFallbackUrl, resolveDemoRedirect } from "./demo-app-link";
+import { DEMO_SUPPORTER_GUIDE_RACE_ID, demoFallbackUrl, demoQrUrl, resolveDemoRedirect } from "./demo-app-link";
 
 const ORIGIN = "https://pace-yourself.com";
 const ANDROID = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36";
@@ -8,6 +8,10 @@ const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebK
 const DESKTOP = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
 
 describe("demo app link", () => {
+  it("encodes the real Supporter Guide URL so app builds with universal links open it directly", () => {
+    expect(demoQrUrl(ORIGIN)).toBe(`https://pace-yourself.com/courses/supporter-guide/${DEMO_SUPPORTER_GUIDE_RACE_ID}?src=plaquette`);
+  });
+
   it("tags the organizer landing fallback with the brochure campaign", () => {
     expect(demoFallbackUrl(ORIGIN)).toBe("https://pace-yourself.com/organisateurs?utm_source=plaquette&utm_medium=qr&utm_campaign=demo");
   });
