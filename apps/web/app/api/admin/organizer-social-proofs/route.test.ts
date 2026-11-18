@@ -16,6 +16,7 @@ const editionRow = {
   edition_year: 2026,
   start_date: "2026-09-13",
   end_date: "2026-09-13",
+  race_event_edition_branding: { published_logo_url: "https://supabase.example/storage/v1/object/public/race-images/organizer-branding/logo.png" },
   race_events: { name: "Trail des Sommets", location: "Annecy", thumbnail_url: null },
 };
 
@@ -66,8 +67,15 @@ describe("/api/admin/organizer-social-proofs", () => {
     const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(payload.editions[0]).toMatchObject({ id: editionId, eventName: "Trail des Sommets", editionYear: 2026 });
-    expect(payload.proofs[0]).toMatchObject({ editionId, uniqueReaders: 842, totalOpens: 2310 });
+    expect(payload.editions[0]).toMatchObject({ id: editionId, eventName: "Trail des Sommets", editionYear: 2026, logoSource: "racebook" });
+    expect(payload.proofs[0]).toMatchObject({
+      editionId,
+      uniqueReaders: 842,
+      totalOpens: 2310,
+      logoUrl: "https://supabase.example/storage/v1/object/public/race-images/organizer-branding/logo.png",
+      logoSource: "racebook",
+    });
+    expect(String(vi.mocked(fetch).mock.calls[0]?.[0])).toContain("race_event_edition_branding(published_logo_url)");
   });
 
   it("captures the complete published window before publishing the proof", async () => {
