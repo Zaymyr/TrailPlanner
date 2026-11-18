@@ -8,7 +8,7 @@ vi.mock('./supabase', () => ({
   },
 }));
 
-import { fetchRaceRacebookData } from './racebook';
+import { fetchRaceRacebookData, fetchRaceRacebookDataOutcome } from './racebook';
 
 describe('published RaceBook loading', () => {
   afterEach(() => {
@@ -56,5 +56,19 @@ describe('published RaceBook loading', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 404 })));
 
     await expect(fetchRaceRacebookData('race-without-publication')).resolves.toBeNull();
+  });
+
+  it('reports an unpublished RaceBook as a reachable answer, so its device copy is dropped', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 404 })));
+
+    await expect(fetchRaceRacebookDataOutcome('race-without-publication')).resolves.toEqual({ data: null, reachable: true });
+  });
+
+  it('reports a network failure or an unavailable server as unreachable', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Network request failed')));
+    await expect(fetchRaceRacebookDataOutcome('race-1')).resolves.toEqual({ data: null, reachable: false });
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 503 })));
+    await expect(fetchRaceRacebookDataOutcome('race-1')).resolves.toEqual({ data: null, reachable: false });
   });
 });

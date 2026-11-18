@@ -1,7 +1,7 @@
 ---
 title: Duplicate Events Pattern
 scope: auth
-last_verified: 2026-11-13
+last_verified: 2026-11-18
 ai_priority: high
 related_files:
   - apps/web/app/onboarding/account/page.tsx
@@ -74,7 +74,7 @@ This is the last line of defense if the browser guard fails.
 
 ## Mobile Auth Events
 
-Mobile listens to `supabase.auth.onAuthStateChange` in `apps/mobile/app/_layout.tsx` and other auth screens. The audited code tracks `SIGNED_IN` and sign-out analytics; no direct `USER_UPDATED` handling was found in the same onboarding-save pattern.
+Mobile listens to `supabase.auth.onAuthStateChange` in `apps/mobile/app/_layout.tsx` and other auth screens. The audited code tracks `SIGNED_IN` and sign-out analytics; no direct `USER_UPDATED` handling was found in the same onboarding-save pattern. Offline, the layout keeps the persisted session, ignores a null `INITIAL_SESSION` and clears the on-device offline copies on `SIGNED_OUT` (see `docs/03-business-rules/mobile-offline-access.md`).
 
 The layout retains push registration and delegates trial, Resend contact sync, and pending account/guest conversion to `useSessionSideEffects`. These are not onboarding plan saves, but they follow the same idempotency principle because Supabase sessions can refresh or be observed more than once.
 Repeated PostHog identification is also safe: it refreshes the same person's properties and marks owner/admin identities as internal without creating a second application record.

@@ -4,6 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { PlanRow } from '../components/plans/types';
 import { isAnonymousSession } from './appSession';
 import { buildLocalDepartureAt, readOrganizerStartTime } from './planDeparture';
+import { readOfflineCache, readStoredAuthSession, writeOfflineCache } from './offlineCache';
+import { buildUserScopedOfflineKey, isPostgrestNetworkFailure } from './offlineCacheFormat';
 import { getPlanSummaryDepartureTimeStorageKey } from './planSummary';
 import { supabase } from './supabase';
 
@@ -12,6 +14,8 @@ type PlansScreenBootstrap = {
   isAnonymous: boolean;
   plans: PlanRow[];
   userId: string | null;
+  /** Set when the list comes from the device copy because the network is unreachable. */
+  offlineSavedAt: string | null;
 };
 
 const PLANS_SCREEN_BOOTSTRAP_TTL_MS = 30_000;
@@ -35,17 +39,32 @@ export function clearPlansScreenBootstrap() {
 }
 
 export async function fetchPlansScreenBootstrap(sessionOverride?: Session | null) {
+  // While offline with an expired token, getSession() reports no session although
+  // the account is still signed in on the device: its persisted session is used.
   const session =
-    sessionOverride ?? (await supabase.auth.getSession()).data.session ?? null;
+    sessionOverride ?? (await supabase.auth.getSession()).data.session ?? readStoredAuthSession();
   const userId = session?.user?.id ?? null;
   const isAnonymous = isAnonymousSession(session);
 
-  const { data, error } = await supabase
+  const result = await supabase
     .from('race_plans')
     .select('id, created_at, name, updated_at, race_id, planner_values, elevation_profile, races(name,race_date,organizer_details,race_events(id,name))')
     .order('updated_at', { ascending: false });
+  const { data, error } = result;
 
   if (error) {
+    if (userId && isPostgrestNetworkFailure(result)) {
+      const stored = await readOfflineCache<PlanRow[]>('plans-list', buildUserScopedOfflineKey(userId));
+      if (stored && Array.isArray(stored.data)) {
+        return {
+          fetchedAt: Date.now(),
+          isAnonymous,
+          plans: stored.data,
+          userId,
+          offlineSavedAt: stored.savedAt,
+        } satisfies PlansScreenBootstrap;
+      }
+    }
     throw error;
   }
 
@@ -88,7 +107,9 @@ export async function fetchPlansScreenBootstrap(sessionOverride?: Session | null
     isAnonymous,
     plans: hydratedPlans,
     userId,
+    offlineSavedAt: null,
   };
+  if (userId) void writeOfflineCache('plans-list', buildUserScopedOfflineKey(userId), hydratedPlans);
 
   return cachedPlansScreenBootstrap;
 }

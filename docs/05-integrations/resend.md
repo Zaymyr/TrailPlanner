@@ -1,7 +1,7 @@
 ---
 title: Resend Integration
 scope: integration
-last_verified: 2026-11-16
+last_verified: 2026-11-18
 ai_priority: medium
 related_files:
   - apps/web/lib/feedback-surveys.ts

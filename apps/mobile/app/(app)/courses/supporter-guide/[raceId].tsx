@@ -66,6 +66,9 @@ import {
   type ReminderCopy,
 } from '../../../../lib/supporterGuideReminders';
 import { WEB_API_BASE_URL } from '../../../../lib/webApi';
+import { readOfflineCache, removeOfflineCache, writeOfflineCache } from '../../../../lib/offlineCache';
+import { formatOfflineSavedAt, isServerUnavailableStatus } from '../../../../lib/offlineCacheFormat';
+import { TapeAlertBanner } from '../../../../components/racebook/TapeAlertBanner';
 
 // The Supporter Guide uses the Pace Yourself theme (no organizer branding).
 const GUIDE_THEME = resolveRacebookTheme(null);
@@ -95,6 +98,8 @@ export default function SupporterGuideScreen() {
   const [guide, setGuide] = useState<SupporterGuidePayload | null>(null);
   const [state, setState] = useState<LoadState>('loading');
   const [refreshing, setRefreshing] = useState(false);
+  // Save time of the device copy on screen while the network is unreachable.
+  const [offlineSavedAt, setOfflineSavedAt] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<SupporterGuideSection>('programme');
   const [timelineKind, setTimelineKind] = useState<GuideTimelineKind>('all');
   const [followedRaceIds, setFollowedRaceIds] = useState<Set<string> | null>(null);
@@ -116,13 +121,33 @@ export default function SupporterGuideScreen() {
     try {
       const response = await fetchWithTimeout(`${WEB_API_BASE_URL}/api/supporter-guide?raceId=${encodeURIComponent(raceId)}`);
       if (response.status === 404) {
+        // No longer published: its device copy must not outlive it.
+        void removeOfflineCache('supporter-guide', raceId);
+        setOfflineSavedAt(null);
         setState('unavailable');
         return;
       }
-      if (!response.ok) throw new Error(`Supporter Guide request failed: ${response.status}`);
-      setGuide(await response.json() as SupporterGuidePayload);
+      if (!response.ok) {
+        throw Object.assign(new Error(`Supporter Guide request failed: ${response.status}`), { status: response.status });
+      }
+      const payload = await response.json() as SupporterGuidePayload;
+      setGuide(payload);
+      setOfflineSavedAt(null);
       setState('ready');
-    } catch {
+      void writeOfflineCache('supporter-guide', raceId, payload);
+    } catch (cause) {
+      const status = (cause as { status?: unknown } | null)?.status;
+      const unreachable = typeof status !== 'number' || isServerUnavailableStatus(status);
+      if (unreachable && mode === 'initial') {
+        // No network: show the device copy of the last guide loaded.
+        const stored = await readOfflineCache<SupporterGuidePayload>('supporter-guide', raceId);
+        if (stored) {
+          setGuide(stored.data);
+          setOfflineSavedAt(stored.savedAt);
+          setState('ready');
+          return;
+        }
+      }
       if (mode === 'initial') setState('error');
     } finally {
       setRefreshing(false);
@@ -435,6 +460,14 @@ export default function SupporterGuideScreen() {
           />
         )}
       >
+        {offlineSavedAt ? (
+          <TapeAlertBanner
+            icon="cloud-offline-outline"
+            message={t.common.offlineCopy.replace('{time}', formatOfflineSavedAt(offlineSavedAt, locale))}
+            title={t.common.offlineTitle}
+            variationKey="supporter-guide-offline"
+          />
+        ) : null}
         {guide.organizerPreview ? (
           <TopoCard blazeTone="warning" variant="signature">
             <Text style={styles.previewText}>{locale === 'fr' ? 'Aperçu organisateur · contenu publié uniquement' : 'Organizer preview · published content only'}</Text>

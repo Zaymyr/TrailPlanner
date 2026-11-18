@@ -1,5 +1,6 @@
 import { WEB_API_BASE_URL } from './webApi';
 import { fetchWithTimeout } from './fetchWithTimeout';
+import { isServerUnavailableStatus } from './offlineCacheFormat';
 import { parseRacebookSupporterPoints } from './racebookSupporterPoints';
 
 type OrganizerEquipmentItem = {
@@ -945,29 +946,41 @@ type RacebookApiPayload = {
   modules?: Record<string, boolean>;
 };
 
-async function fetchRacebookApiPayload(raceId: string): Promise<RacebookApiPayload | null> {
-  if (!WEB_API_BASE_URL) return null;
+type RacebookApiResult = {
+  payload: RacebookApiPayload | null;
+  /** False when the API could not be reached (no network, timeout, 5xx). */
+  reachable: boolean;
+};
+
+async function fetchRacebookApiPayload(raceId: string): Promise<RacebookApiResult> {
+  if (!WEB_API_BASE_URL) return { payload: null, reachable: true };
 
   const { supabase } = await import('./supabase');
   const url = `${WEB_API_BASE_URL}/api/racebook-data?raceId=${encodeURIComponent(raceId)}`;
 
+  let response: Response;
   try {
     const publicResponse = await fetchWithTimeout(url);
-    let response = publicResponse;
+    response = publicResponse;
 
-    if (!publicResponse.ok) {
+    if (!publicResponse.ok && !isServerUnavailableStatus(publicResponse.status)) {
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
       if (token) response = await fetchWithTimeout(url, { headers: { Authorization: `Bearer ${token}` } });
     }
+  } catch {
+    return { payload: null, reachable: false };
+  }
 
-    if (!response.ok) return null;
+  if (!response.ok) return { payload: null, reachable: !isServerUnavailableStatus(response.status) };
+
+  try {
     const payload = await response.json().catch(() => null) as Partial<RacebookApiPayload> | null;
     if (!payload?.raceRow || !Array.isArray(payload.stationRows) || !Array.isArray(payload.relayPointRows)) {
-      return null;
+      return { payload: null, reachable: true };
     }
 
-    return {
+    return { reachable: true, payload: {
       raceRow: payload.raceRow,
       stationRows: payload.stationRows,
       supporterPointRows: Array.isArray(payload.supporterPointRows) ? payload.supporterPointRows : [],
@@ -979,20 +992,35 @@ async function fetchRacebookApiPayload(raceId: string): Promise<RacebookApiPaylo
       publicationRevision: typeof payload.publicationRevision === 'number' ? payload.publicationRevision : undefined,
       publishedAt: typeof payload.publishedAt === 'string' ? payload.publishedAt : undefined,
       modules: payload.modules && typeof payload.modules === 'object' ? payload.modules : undefined,
-    };
+    } };
   } catch {
-    return null;
+    return { payload: null, reachable: true };
   }
 }
 
-export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScreenData | null> {
-  const apiPayload = await fetchRacebookApiPayload(raceId);
+export type RacebookFetchOutcome = {
+  data: RacebookScreenData | null;
+  /**
+   * False when the API could not be reached. The screen may then show the
+   * device copy of the last published RaceBook it loaded (never source tables).
+   */
+  reachable: boolean;
+};
+
+export async function fetchRaceRacebookDataOutcome(raceId: string): Promise<RacebookFetchOutcome> {
+  const { payload, reachable } = await fetchRacebookApiPayload(raceId);
   // A RaceBook is an explicitly published document.  In particular, do not
   // fall back to source tables when a runner is offline, a deployment is in
   // progress, or the format has never been published: doing so would expose
   // organizer drafts (and create a mixed-version screen).
-  if (!apiPayload) return null;
+  return { data: payload ? buildRacebookScreenData(payload) : null, reachable };
+}
 
+export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScreenData | null> {
+  return (await fetchRaceRacebookDataOutcome(raceId)).data;
+}
+
+function buildRacebookScreenData(apiPayload: RacebookApiPayload): RacebookScreenData {
   const {
     raceRow,
     stationRows,

@@ -33,6 +33,7 @@ export function usePlansScreen() {
   const [loading, setLoading] = useState(() => initialBootstrapRef.current == null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [offlineSavedAt, setOfflineSavedAt] = useState<string | null>(null);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => new Set(['__past__']));
   const [activePlanId, setActivePlanId] = useState<string | null>(null);
   const [sharingPlanId, setSharingPlanId] = useState<string | null>(null);
@@ -49,6 +50,9 @@ export function usePlansScreen() {
       const bootstrap = await fetchPlansScreenBootstrap();
       setIsAnonymous(bootstrap.isAnonymous);
       setPlans(bootstrap.plans);
+      setOfflineSavedAt(bootstrap.offlineSavedAt);
+      // Device copy shown offline: reminders are resynchronized on the next online load.
+      if (bootstrap.offlineSavedAt) return bootstrap;
 
       if (bootstrap.isAnonymous) {
         void syncLatestUnfinishedPlanReminder(bootstrap.plans, {
@@ -82,7 +86,7 @@ export function usePlansScreen() {
 
       void (async () => {
         const bootstrap = await fetchData({ showLoading: initialBootstrapRef.current == null });
-        if (cancelled || !bootstrap || bootstrap.isAnonymous || !bootstrap.userId) {
+        if (cancelled || !bootstrap || bootstrap.offlineSavedAt || bootstrap.isAnonymous || !bootstrap.userId) {
           return;
         }
 
@@ -375,6 +379,7 @@ export function usePlansScreen() {
     t,
     loading,
     error,
+    offlineSavedAt,
     refreshing,
     sections,
     collapsedSections,
