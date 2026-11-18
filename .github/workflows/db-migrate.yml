@@ -11,6 +11,17 @@ on:
         description: "Type APPLY_PRODUCTION_MIGRATIONS to confirm"
         required: true
         type: string
+  # Called by release.yml on every merge into main that contains migrations.
+  workflow_call:
+    inputs:
+      ref:
+        description: "Full commit SHA already merged into main"
+        required: true
+        type: string
+      confirmation:
+        description: "APPLY_PRODUCTION_MIGRATIONS"
+        required: true
+        type: string
 
 concurrency:
   group: supabase-production-migrations

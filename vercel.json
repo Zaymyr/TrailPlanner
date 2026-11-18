@@ -3,6 +3,7 @@
   "framework": "nextjs",
   "git": {
     "deploymentEnabled": {
+      "main": false,
       "dependabot/**": false
     }
   },

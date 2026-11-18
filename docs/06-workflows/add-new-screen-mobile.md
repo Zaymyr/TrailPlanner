@@ -241,7 +241,7 @@ Before promoting an Android store candidate, smoke-test the release build from t
 
 For the cross-platform authenticated shell audit, follow [Mobile UX Audit](mobile-ux-audit.md). Run `npm run test:e2e:ux -w @trailplanner/mobile` locally when Maestro and an installed build are available, or launch the manual EAS workflow.
 
-For production OTA updates, resolve and verify runtime `1.1.2` on both platforms. Publish only a commit already validated on the development OTA channel and only after matching production binaries exist.
+For production OTA updates, resolve and verify runtime `1.1.2` on both platforms. Production OTAs are published by the release workflow when a validated PR is merged (its `development` OTA is the validation); a native change must bump the runtime in the same PR or carry the `native-ota-safe` label, and the production OTA only reaches users once matching production binaries exist. See [Release Flow](release-flow.md).
 
 For the native iOS build prompt, keep release metadata separate from ordinary screen copy. `NativeBuildUpdatePrompt` reads the installed native build and the OTA-visible `nativeBuildUpdates.ios` marker, stays disabled in development and on non-iOS platforms, and reuses the shared actionable toast above the safe-area-aware tab bar. Increase the marker only after the build is installable; the default destination is the public App Store listing and the copy names the App Store rather than a build number. Use the production workflow's optional legacy iOS runtime input only when the exact JavaScript bundle is compatible with that older native bridge.
 

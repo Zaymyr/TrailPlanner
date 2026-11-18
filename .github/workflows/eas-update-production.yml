@@ -15,6 +15,25 @@ on:
         description: "Optional compatible legacy iOS runtime to receive the same OTA (for example 1.1.1)"
         required: false
         type: string
+  # Called by release.yml on every merge into main that changes the mobile app.
+  workflow_call:
+    inputs:
+      ref:
+        description: "Commit SHA already merged into main"
+        required: true
+        type: string
+      confirmation:
+        description: "PROMOTE_TO_PRODUCTION"
+        required: true
+        type: string
+      legacy_ios_runtime_version:
+        required: false
+        type: string
+        default: ""
+    outputs:
+      update_group:
+        description: "EAS update group published to the production branch"
+        value: ${{ jobs.update-production.outputs.update_group }}
 
 concurrency:
   group: eas-update-production
@@ -27,6 +46,8 @@ jobs:
   update-production:
     runs-on: ubuntu-latest
     environment: production
+    outputs:
+      update_group: ${{ steps.publish.outputs.update_group }}
     env:
       npm_config_fetch_retries: "5"
       npm_config_fetch_retry_factor: "2"
@@ -100,10 +121,15 @@ jobs:
         run: npx expo install --check
 
       - name: Publish production OTA update
+        id: publish
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           OTA_MESSAGE: Promote ${{ inputs.ref }} to production
-        run: eas update --branch production --environment production --message "$OTA_MESSAGE" --non-interactive
+        shell: bash
+        run: |
+          set -euo pipefail
+          eas update --branch production --environment production --message "$OTA_MESSAGE" --json > "$RUNNER_TEMP/ota.json"
+          echo "update_group=$(jq -r '.[0].group // empty' "$RUNNER_TEMP/ota.json")" >> "$GITHUB_OUTPUT"
 
       - name: Publish compatible legacy iOS OTA update
         if: ${{ inputs.legacy_ios_runtime_version != '' }}

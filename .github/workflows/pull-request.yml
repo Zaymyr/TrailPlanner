@@ -1,0 +1,194 @@
+name: Pull Request
+
+# One task = one PR into main. Every push to the PR:
+#   - checks the release guards (destructive migrations, native changes without a new runtime),
+#   - publishes the mobile app to the shared EAS `development` channel (Pace Yourself Dev),
+#   - keeps one status comment up to date on the PR.
+# The web Preview comes from the Vercel Git integration on the PR branch.
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
+
+concurrency:
+  # Label changes only re-evaluate the guards; they must not cancel a code run that is publishing.
+  group: pull-request-${{ github.event.pull_request.number }}-${{ (github.event.action == 'labeled' || github.event.action == 'unlabeled') && 'labels' || 'code' }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  npm_config_fetch_retries: "5"
+  npm_config_fetch_retry_factor: "2"
+  npm_config_fetch_retry_mintimeout: "20000"
+  npm_config_fetch_retry_maxtimeout: "120000"
+
+jobs:
+  release-guards:
+    name: release-guards
+    runs-on: ubuntu-latest
+    outputs:
+      mobile: ${{ steps.changes.outputs.mobile }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - name: Release script tests
+        run: node --test scripts/release/release-check.test.mjs
+
+      - name: Analyse changes
+        id: changes
+        run: node scripts/release/release-check.mjs changes --base "${{ github.event.pull_request.base.sha }}" --head HEAD --out release-analysis.json
+
+      - name: Install mobile dependencies
+        if: ${{ steps.changes.outputs.mobile == 'true' }}
+        working-directory: apps/mobile
+        run: |
+          for attempt in 1 2 3; do
+            npm ci --legacy-peer-deps && exit 0
+            if [ "$attempt" -eq 3 ]; then
+              echo "npm ci failed after $attempt attempts"
+              exit 1
+            fi
+            sleep 15
+          done
+
+      - name: Analyse native changes
+        if: ${{ steps.changes.outputs.mobile == 'true' }}
+        run: node scripts/release/release-check.mjs native --analysis release-analysis.json
+
+      - name: Keep analysis for the status comment
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-analysis
+          path: release-analysis.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Enforce release guards
+        env:
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: node scripts/release/release-check.mjs evaluate --analysis release-analysis.json --enforce
+
+  dev-ota:
+    name: dev-ota
+    needs: release-guards
+    if: ${{ always() && needs.release-guards.outputs.mobile == 'true' && github.event.action != 'labeled' && github.event.action != 'unlabeled' && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    # EXPO_TOKEN lives in this GitHub environment. The OTA targets the separate EAS
+    # development environment and channel installed in "Pace Yourself Dev".
+    environment: Preview
+    outputs:
+      group: ${{ steps.publish.outputs.group }}
+    env:
+      APP_VARIANT: development
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - name: Install EAS CLI
+        run: npm install -g eas-cli@18.4.0
+
+      - name: Install dependencies
+        run: |
+          for attempt in 1 2 3; do
+            npm ci --legacy-peer-deps && exit 0
+            if [ "$attempt" -eq 3 ]; then
+              echo "npm ci failed after $attempt attempts"
+              exit 1
+            fi
+            sleep 15
+          done
+
+      - name: Lint
+        run: npm run lint
+
+      - name: TypeScript check
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test
+
+      - name: Expo version check
+        run: npx expo install --check
+
+      - name: Publish development OTA update
+        id: publish
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          OTA_MESSAGE: "PR #${{ github.event.pull_request.number }} · ${{ github.event.pull_request.title }} (${{ github.event.pull_request.head.sha }})"
+        shell: bash
+        run: |
+          set -euo pipefail
+          eas update --channel development --environment development --message "$OTA_MESSAGE" --json > "$RUNNER_TEMP/dev-ota.json"
+          echo "group=$(jq -r '.[0].group // empty' "$RUNNER_TEMP/dev-ota.json")" >> "$GITHUB_OUTPUT"
+
+  status:
+    name: status-comment
+    needs: [release-guards, dev-ota]
+    if: ${{ always() && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download analysis
+        id: analysis
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: release-analysis
+
+      - name: Update the PR status comment
+        if: ${{ steps.analysis.outcome == 'success' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          DEV_OTA_RESULT: ${{ needs.dev-ota.result }}
+          DEV_OTA_GROUP: ${{ needs.dev-ota.outputs.group }}
+          EXPO_UPDATES_URL: https://expo.dev/accounts/pace-yourself/projects/pace-yourself-app/updates
+        shell: bash
+        run: |
+          set -euo pipefail
+          marker='<!-- release-status:pr -->'
+          comment_id="$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate \
+            --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | head -n 1)"
+          if [ -n "$comment_id" ]; then
+            PREVIOUS_OTA_LINE="$(gh api "repos/$REPO/issues/comments/$comment_id" --jq .body | grep -m1 '^- \*\*App Dev (OTA)\*\*' || true)"
+            export PREVIOUS_OTA_LINE
+          fi
+          node scripts/release/release-check.mjs report --mode pr --analysis release-analysis.json > comment.md
+          if [ -n "$comment_id" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$comment_id" -F body=@comment.md > /dev/null
+          else
+            gh api -X POST "repos/$REPO/issues/$PR_NUMBER/comments" -F body=@comment.md > /dev/null
+          fi
+          cat comment.md >> "$GITHUB_STEP_SUMMARY"
