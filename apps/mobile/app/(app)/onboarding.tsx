@@ -1298,12 +1298,7 @@ export default function OnboardingScreen() {
           goToPageLabel: copy.goToPageLabel,
           kicker: copy.kicker,
           nextCta: copy.nextCta,
-          officialBadge: copy.officialBadge,
           pagerLabel: copy.pagerLabel,
-          planBody: t.onboarding.tours.planChoiceBody,
-          planCta: copy.planCta,
-          planOptionalLabel: t.onboarding.tours.planOptionalLabel,
-          planTitle: t.onboarding.tours.planChoiceTitle,
           promises: [
             { icon: 'shield-checkmark', title: copy.promiseOfficialTitle, text: copy.promiseOfficialText },
             { icon: 'sync', title: copy.promiseUpdatedTitle, text: copy.promiseUpdatedText },
@@ -1322,7 +1317,6 @@ export default function OnboardingScreen() {
           { icon: 'navigate', label: t.catalog.racebookTabAccess, text: copy.tabAccessText },
           { icon: 'grid', label: t.catalog.racebookSectionServices, text: copy.tabServicesText },
         ]}
-        onChoosePlan={() => void handleChooseOnboarding('plan')}
         onChooseRacebook={() => void handleChooseOnboarding('racebook')}
         onDiscoverLater={() => void handleSkipChoice()}
       />

@@ -797,7 +797,6 @@ export const en: MobileTranslations = {
       pagerLabel: 'Introduction, page {page} of {total}',
       goToPageLabel: 'Go to page {page}',
       kicker: 'Race Book',
-      officialBadge: 'Official',
       title: 'Your race, in your pocket',
       subtitle: 'The Race Book gathers all your race information, published by the organizer.',
       promiseOfficialTitle: 'Official information',
@@ -816,7 +815,6 @@ export const en: MobileTranslations = {
       tabServicesText: 'On-site services and partners.',
       chooseRaceCta: 'Choose my race',
       chooseRaceHint: 'Pick your race — or explore with Trail TST — and we’ll show you where to find each piece of information.',
-      planCta: 'Create my plan',
     },
     racebookTour: {
       skip: 'Skip the guide',
@@ -844,9 +842,6 @@ export const en: MobileTranslations = {
       wrapUpBody: 'Come back to your Race Book before and during the race: the organizer keeps it up to date.',
     },
     tours: {
-      planChoiceTitle: 'Create a race plan (optional)',
-      planChoiceBody: 'Estimate your passage times and prepare your fueling. You can also do it later from the Race Book.',
-      planOptionalLabel: 'Want to go further?',
       discoverLater: 'Discover later',
       chooseRaceTitle: 'Choose your race',
       chooseRaceBody: 'This is the real catalog. Open a race, then tap “Create a plan”.',
