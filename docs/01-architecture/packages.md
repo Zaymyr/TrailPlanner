@@ -1,7 +1,8 @@
 ---
 title: Packages Architecture
 scope: architecture
-last_verified: 2026-11-15
+last_verified: 2026-11-17
+# Crew follow UX (2026-11-17): passed checkpoints collapse, confirmed passages can be corrected or undone, the crew handover is a device-local checklist, aid-station directions match supporter points by place name within 2 km, and phones without the app get an app-first gate on the public page; no column, RLS or crew_state shape change.
 ai_priority: medium
 related_files:
   - packages/shared/src/supporter-guide.ts
@@ -38,6 +39,8 @@ Supporter Guide course line endpoints (2026-11-15): `addCourseEndpoints` opens e
 `@trailplanner/shared` exports followed-plan kilometer interpolation, confirmed-passage recalibration, preparation aggregation and multi-day completion calculation. Web lifecycle logic/tests and the Expo assistant view use this pure module; it has no storage, analytics or network side effects.
 
 `@trailplanner/shared` now owns the pure shared-plan tracking calculations used by the public web timeline and native crew screen: clock parsing, midnight resolution, trackable-point selection, passage normalization and downstream ETA recalculation. UI, persistence and locale formatting remain app-specific.
+
+`plan-share-tracking.ts` also exports `resolvePlanSharePassageCorrection` (crew-entered clock → elapsed minute near the planned passage), `isPlanShareCheckpointPassed` (collapse rule), `formatPlanShareClockInput` and `buildPlanShareCheckpointHandover` (products then bladder refill). The native adapter `apps/mobile/lib/followedPlanTimeline.ts` mirrors them because the native dependency pre-check forbids importing this package.
 `@trailplanner/shared` owns the canonical runner profile field order, localized labels, units, required flags and readiness predicate used by web and mobile. It contains no UI or provider-specific access logic.
 
 ## Purpose

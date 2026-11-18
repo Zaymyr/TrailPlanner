@@ -2,6 +2,7 @@
 title: race_aid_stations Table
 scope: database
 last_verified: 2026-11-18
+# Crew follow UX (2026-11-17): passed checkpoints collapse, confirmed passages can be corrected or undone, the crew handover is a device-local checklist, aid-station directions match supporter points by place name within 2 km, and phones without the app get an app-first gate on the public page; no column, RLS or crew_state shape change.
 # Livret supporter note (2026-11-16): the public name of the supporter_guide surface is now "Livret supporter" (formerly "Livret accompagnateur"); aid-station access wording ("Accompagnateurs autorisés") is unchanged; no data, contract or offer change.
 # Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
 # Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
@@ -47,6 +48,8 @@ Supporter Guide programme data (2026-11-15): race `organizer_details.schedule` a
 Supporter Guide Follow cards reuse published station rows and additive `organizer_details.supportersAccess`, `maxStopMinutes`, `amenities` and cutoff values when present. The guide never reads draft rows and does not add or reinterpret station storage.
 
 The followed-plan mobile screen evaluates these published checkpoint values through its client-local timeline adapter; no direct station query or storage rule is introduced.
+
+Followed-plan station contexts get their crew directions from the published supporter point sharing the station's place name within 2 km (or the single point within 150 m), adding an optional `planUrl`. Station rows still carry no coordinates of their own.
 
 The shared organizer-details schema adds nullable third-party bib-pickup conditions and accent-insensitive equipment-label matching. Aid-station rows, GPX-derived cumulative metrics, service flags, products, replacement ordering, and RLS remain unchanged; ravito cards continue to keep their key metrics visible while the long edit form may remain collapsible.
 

@@ -29,7 +29,7 @@ export type FollowedPlanRaceContext = {
   finishCutoffTime: string | null;
   finishCutoffDayOffset: number;
   supporterPoints: Array<{ id: string; name: string; km: number; encouragementAllowed: boolean; assistanceAllowed: boolean; accessLabel: string | null; latitude: number; longitude: number; googleMapsUrl: string | null; accessNote: string | null; planUrl: string | null }>;
-  checkpointContexts: Array<{ checkpointIndex: number; id: string; name: string; km: number; supportersAccess: 'allowed' | 'restricted' | 'forbidden' | null; maxStopMinutes: number | null; amenities: string[]; cutoffTime: string | null; cutoffDayOffset: number; assistanceAllowed: boolean; accessLabel: string | null; accessNote: string | null; googleMapsUrl: string | null; latitude: number | null; longitude: number | null }>;
+  checkpointContexts: Array<{ checkpointIndex: number; id: string; name: string; km: number; supportersAccess: 'allowed' | 'restricted' | 'forbidden' | null; maxStopMinutes: number | null; amenities: string[]; cutoffTime: string | null; cutoffDayOffset: number; assistanceAllowed: boolean; accessLabel: string | null; accessNote: string | null; planUrl?: string | null; googleMapsUrl: string | null; latitude: number | null; longitude: number | null }>;
   access: { startAddress: string | null; startLocation: FollowedLocation; finishAddress: string | null; finishLocation: FollowedLocation; officialParkings: string | null; shuttles: string | null; shuttleSchedule: string | null; mapUrl: string | null; note: string | null } | null;
   bibPickup: { thirdPartyPickupAllowed: boolean | null; thirdPartyPickupConditions: string | null } | null;
   emergencyContact: { name: string | null; phone: string } | null;

@@ -1,7 +1,8 @@
 ---
 title: Public Race Discovery
 scope: business-rule
-last_verified: 2026-11-16
+last_verified: 2026-11-17
+# Shared-plan app gate (2026-11-17): app-store.ts gains detectMobileAppPlatform for the public crew page; course-page app bridge behavior is unchanged.
 # Structured access phase (2026-11-15): public race pages summarize parking and shuttle collections without exposing each logistics record; historical text remains the fallback.
 ai_priority: high
 related_files:
@@ -122,6 +123,7 @@ This document defines which public race pages Pace Yourself may expose to search
 - Normalized geography: explicit country, region, department and city fields, not a region guessed from `location` or `location_text`.
 - Former slug: a durable `race_slug_redirects.old_slug` mapping to the stable race id.
 - App bridge: the public course page may promise the Livret coureur only when `racebook_is_live` is true and the attached edition is mobile-visible; otherwise it uses generic app preparation copy.
+- `lib/app-store.ts` also exports `detectMobileAppPlatform`, used by the shared-plan app gate; course-page store resolution (`resolveAppStoreTarget`) is unchanged.
 - Former slug: a durable format or event-edition redirect mapping to a stable row id.
 
 ## Public Race Detail Pages
