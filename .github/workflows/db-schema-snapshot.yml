@@ -2,7 +2,8 @@ name: Supabase Schema Snapshot
 
 on:
   workflow_run:
-    workflows: ["Supabase DB Migrate"]
+    # Release calls db-migrate.yml as a reusable workflow, so its own completion is the signal.
+    workflows: ["Supabase DB Migrate", "Release"]
     types:
       - completed
 

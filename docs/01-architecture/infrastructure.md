@@ -17,6 +17,7 @@ related_files:
   - apps/mobile/.eas/workflows/store-candidate-ios.yml
   - .github/workflows/eas-submit-android-production.yml
   - .github/workflows/db-migrate.yml
+  - .github/workflows/release.yml
   - apps/mobile/react-native.config.js
   - apps/mobile/app.config.ts
   - apps/web/public/.well-known/apple-app-site-association
@@ -73,7 +74,7 @@ This document records the infrastructure visible from the repository: Vercel, EA
 
 ## Vercel
 
-The Vercel Production environment tracks `main`. The long-lived Git branch `preview/web` owns the fixed web integration Preview; it is not a paid Custom Environment and must not be deleted or used as a task-development branch. Every change that affects `apps/web`, a package consumed by web, the root workspace manifests or lockfile, Turbo configuration, or Vercel configuration is first integrated from its `dev/*` task branch into `preview/web` and validated on that stable Preview. Only the same reviewed change is then eligible for merge into `main`. Changes confined to mobile may bypass `preview/web` when they do not touch any shared web input.
+Vercel Production serves `main`, but Vercel no longer deploys it from the Git integration: `vercel.json` sets `git.deploymentEnabled.main` to `false`, and the `web` job of `.github/workflows/release.yml` deploys each merged commit with the Vercel CLI after its migrations. Every other branch, and therefore every task PR, still gets an ordinary Git Preview deployment, which is where web changes are validated. See [Release Flow](../06-workflows/release-flow.md).
 
 `vercel.json` configures the web deployment:
 
@@ -83,6 +84,7 @@ The Vercel Production environment tracks `main`. The long-lived Git branch `prev
   "framework": "nextjs",
   "git": {
     "deploymentEnabled": {
+      "main": false,
       "dependabot/**": false
     }
   },
@@ -127,7 +129,7 @@ The Git deployment filter prevents Vercel from creating deployments for branches
 
 If the parent commit is unavailable, `git diff` fails closed and Vercel proceeds with the build.
 
-The ignored-build command and the `preview/web` gate solve different problems. The command saves build capacity by skipping commits that cannot affect the web workspace; it does not authorize a web change to skip the stable Preview. A skipped mobile-only deployment may still appear in Vercel history without running the full web build. Keep `preview/web` synchronized from `main` after an approved production merge, and avoid merging the entire integration branch into production when it contains other unapproved tasks.
+The ignored-build command only saves build capacity on Preview deployments by skipping commits that cannot affect the web workspace. Production deployments are started by the release workflow when the merged range touches a web input, so they do not depend on it.
 
 ## EAS
 
@@ -160,7 +162,7 @@ The manual `apps/mobile/.eas/workflows/mobile-ux-audit.yml` workflow uses the EA
 
 Store candidates are manual and platform-specific. `store-candidate-android.yml` and `store-candidate-ios.yml` each expose only `workflow_dispatch`, pause at their own EAS approval gate, build the selected platform with the `production` profile, and submit with `store-candidate`. Operators must dispatch the chosen file at the exact remote `main` commit: read it with `git ls-remote origin refs/heads/main`, then run `eas workflow:run .eas/workflows/store-candidate-ios.yml --ref <full main SHA>`. Omitting `--ref` uploads the local project state instead. Before anyone approves the gate, confirm that the CLI line `Using workflow file … at <sha>` (or `gitCommitHash` in `eas workflow:runs --json`) is that SHA. Cancel a wrong run with `eas workflow:cancel <run id>` while it is still `ACTION_REQUIRED`. Android submission creates an internal draft, while iOS uploads to App Store Connect/TestFlight. Public Android rollout remains a separate GitHub dispatch protected by the `Production` environment; that dispatch checks the exact merged commit SHA and verifies the selected EAS build's project, platform, profile, application id, commit, status, artifact, and expiry before submission. Apple production review/release remains in App Store Connect.
 
-The protected production OTA dispatch accepts one optional `legacy_ios_runtime_version`. After publishing the normal current-runtime update, it validates that input as a semantic version and publishes the same bundle to iOS only with the runtime override. This supports a narrowly reviewed compatibility bridge such as prompting runtime `1.1.1` / build 17 to install build 18; native-module or native-configuration changes must never be back-published this way.
+Production OTAs are published automatically by the `ota` job of `.github/workflows/release.yml` on each merge that changes the mobile app, unless the release guards block a native change without a new runtime. The manual production OTA dispatch remains for exceptional cases and accepts one optional `legacy_ios_runtime_version`. After publishing the normal current-runtime update, it validates that input as a semantic version and publishes the same bundle to iOS only with the runtime override. This supports a narrowly reviewed compatibility bridge such as prompting runtime `1.1.1` / build 17 to install build 18; native-module or native-configuration changes must never be back-published this way.
 
 ## Supabase
 
@@ -288,7 +290,7 @@ For local setup, copy `apps/web/.env.example` to the ignored `apps/web/.env.loca
 - Keep the development profile's `APP_VARIANT` value aligned with local Expo startup. Firebase/Google configuration injected into that profile must use the dedicated `*_DEV` variables and register `com.paceyourself.app.dev`; files containing only the production client are not interchangeable. When those optional Dev files are absent, the app config omits them rather than embedding production configuration, so Dev push/Google features remain unavailable until the separate Firebase clients exist.
 - Keep Maestro credentials in the EAS `preview` secret environment or process-only local variables. Do not prefix them with `EXPO_PUBLIC_`.
 - Keep the ignored-build paths aligned with every repository-level input used by the web build. An omitted shared input can cause Vercel to skip a required deployment.
-- Keep Vercel branch tracking aligned with the documented flow: Production follows `main`, while `preview/web` remains an ordinary Preview branch with a stable branch URL. Do not create a paid Custom Environment for this purpose.
+- Keep Vercel branch tracking aligned with the documented flow: Production serves `main` but is deployed only by `release.yml` (`git.deploymentEnabled.main: false`); re-enabling Git deployments of `main` would let the site go live before its migrations. The legacy `preview/web` branch is no longer part of the flow.
 - Keep the `dependabot/**` Git deployment exclusion and its ignored-build fallback limited to that branch prefix. The merge commit on `main` must continue to trigger the single production deployment after a dependency batch is approved.
 - Keep every alternate production hostname on a permanent redirect to `https://pace-yourself.com`; temporary host redirects split canonical signals and should not be configured in the Vercel domain settings.
 - Keep `regions` on `cdg1`, co-located with Supabase `eu-west-3`. Moving functions away from the database lengthens every invocation and raises Fluid compute usage.

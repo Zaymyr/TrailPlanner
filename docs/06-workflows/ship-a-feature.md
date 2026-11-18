@@ -1,7 +1,7 @@
 ---
 title: Ship a Feature
 scope: workflow
-last_verified: 2026-11-13
+last_verified: 2026-11-18
 ai_priority: medium
 related_files:
   - package.json
@@ -13,7 +13,8 @@ related_files:
   - scripts/check-related-docs.mjs
   - .github/workflows/web-ci.yml
   - .github/workflows/main.yml
-  - .github/workflows/eas-update-development.yml
+  - .github/workflows/pull-request.yml
+  - .github/workflows/release.yml
   - .github/workflows/eas-update-production.yml
   - .github/CODEOWNERS
   - .github/pull_request_template.md
@@ -23,9 +24,9 @@ related_tables: []
 
 # Ship a Feature
 
-Supporter Guide v1 follows the existing web-preview gate and adds no release exception. The `qrcode` package is scoped to the web QR endpoint; universal-link config changes still require the normal native binary validation path.
+Supporter Guide v1 follows the normal release flow and adds no release exception. The `qrcode` package is scoped to the web QR endpoint; universal-link config changes still require the normal native binary validation path.
 
-The shared-plan follow lot uses the normal cross-surface gate: focused SQL and unit checks, web/mobile type checks, then `npm run verify`. Its association files still require verified signing identifiers and the web-affecting change still requires `preview/web` validation before production merge.
+The shared-plan follow lot uses the normal cross-surface gate: focused SQL and unit checks, web/mobile type checks, then `npm run verify`. Its association files still require verified signing identifiers, and the web-affecting change is validated on its PR Preview before the merge that releases it.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
@@ -39,7 +40,7 @@ Use this workflow as a repo-level checklist for implementing and validating a fe
 - Blast radius: how many routes/tables/apps the change touches.
 - Docs update: required when behavior, schema, auth, or workflows change.
 - Worktree visibility: GitHub and remote CI cannot see uncommitted changes stored in another local worktree.
-- Web preview gate: `preview/web` is the long-lived Vercel integration branch used to validate every change that can affect the web build before production.
+- One PR per task, merge = production: the PR carries every commit of the task and is validated on its Vercel Preview and `development` OTA; merging it releases migrations, web and the production OTA. See [Release Flow](release-flow.md).
 
 ## Steps
 
@@ -76,7 +77,7 @@ npm run verify
    Browser media dependencies (for example the admin MP4 export libraries) stay imported by the route that needs them only, pinned to a release that has been out for at least two weeks.
    Paid server-side AI or voice providers (Anthropic, ElevenLabs) stay behind admin-only routes with server-only keys listed in `apps/web/.env.example`, and must answer with an explicit message when their key is missing.
    Server image changes must also exercise a real decode/resize test and a clean production build so Sharp's platform-specific binary is present in the deployed web workspace.
-   Before a web-affecting change can target `main`, push its task branch and integrate it into `preview/web`, wait for the stable branch Preview to become ready, and validate the affected flow there. Web-affecting inputs are `apps/web`, packages consumed by web, root workspace manifests and lockfile, Turbo configuration, and Vercel configuration. Keep development on `dev/*`; `preview/web` is an integration target, not a task branch. After production merge, synchronize `preview/web` with `main` so the next preview is based on the deployed history. Mobile-only work may go directly from its task branch to `main` unless it changes one of the shared web inputs.
+   Open the task's pull request into `main` early and keep pushing to it. Validate web changes on the PR's Vercel Preview (URL in Vercel's PR comment) and mobile changes in Pace Yourself Dev after the PR's `dev-ota` job; the PR status comment links both. Merge only when the task is validated: the merge is the production release.
 9. For mobile native changes, use the EAS/dev-client path.
 10. For Supabase changes, verify RLS and service-role behavior separately.
 11. For mobile dependency changes, keep both the root workspace lockfile and `apps/mobile/package-lock.json` aligned when both are present.
@@ -97,13 +98,13 @@ git log --branches --not --remotes --oneline
 
 The web CI workflow runs on pull requests and on `main`; it also accepts an explicit dispatch so an automated schema-snapshot branch can receive the required status even though GitHub suppresses pull-request workflow events created by `GITHUB_TOKEN`. It fetches Git history and runs `npm run docs:check` against the pull-request base commit or the previous `main` commit, then runs lint, typecheck, the complete web Vitest suite, and the production build. The mobile pre-check runs on pull requests and on `main` when mobile code, shared packages, workspace manifests, the lockfile, Turbo configuration, or its workflow changes. It blocks on mobile lint, typecheck, unit tests, and Expo dependency compatibility. Keep targeted local tests for fast feedback, but do not remove these full gates from CI.
 
-For web delivery, open the first integration PR from the task's `dev/*` branch to `preview/web`. Record the stable Preview URL and validation result, then open or retarget the production PR for the same reviewed change to `main`. Do not merge the whole `preview/web` branch blindly when it contains multiple pending tasks; production must receive only the commits that were individually approved. The Vercel ignored-build command may show mobile-only commits as skipped deployments, but it must not be used to bypass the mandatory Preview for a web-affecting change.
+For delivery, follow [Release Flow](release-flow.md): one PR into `main` per task, validated on its own Preview and `development` OTA, then merged. The release workflow deploys only what the merged range contains, in order (migrations, web, OTA), and reports on the PR. The Vercel ignored-build command still skips Preview builds of commits that cannot affect web.
 
 Vercel Cron invokes the daily RevenueCat subscription reconciliation and Trace de Trail catalog enrichment declared in `vercel.json`. Both schedules require `CRON_SECRET`; Trace de Trail additionally requires its distinct server-only `TRACEDETRAIL_ENRICHMENT_SECRET`, while RevenueCat needs its provider configuration. Merging code alone does not create provider integrations or deployment secrets.
 
-`main` requires a pull request, the strict `web` and `static-migration-checks` statuses, and an up-to-date branch. Production GitHub jobs use the protected `Production` environment and require the configured reviewer. Supabase migrations are not coupled to a merge: dispatch the migration workflow with the exact merged SHA, the confirmation phrase, and a separate environment approval. The post-migration schema snapshot opens its own pull request instead of bypassing branch protection.
+`main` requires a pull request and the `web`, `static-migration-checks` and `release-guards` statuses. Production GitHub jobs use the `Production` environment for its secrets, without a reviewer: the merge is the approval. Supabase migrations are applied by the release when the merged range contains some; `db-migrate.yml` keeps a manual dispatch (exact SHA plus confirmation phrase) for exceptional cases. The post-migration schema snapshot opens its own pull request instead of bypassing branch protection.
 
-Development OTA publication runs only from the consolidated `preview/web` integration branch, after the same mobile lint, typecheck, unit tests, and Expo dependency checks pass. Feature branches and `main` must never publish directly to the shared EAS `development` channel: independent branch snapshots replace rather than accumulate, so allowing them to publish would make previously integrated pending work disappear from the installed `Pace Yourself Dev` build. A manual dispatch is also rejected unless its selected ref is `preview/web`. The workflow uses one fixed concurrency group so a newer integration snapshot cancels an older in-flight publication. The job still references the GitHub `Preview` environment solely because that existing environment stores `EXPO_TOKEN`; this GitHub secret boundary does not select the EAS OTA target. Production OTA publication is never automatic on a push to `main`: dispatch it manually with the exact commit SHA already merged into `main`, confirm with `PROMOTE_TO_PRODUCTION`, and use the protected `production` GitHub environment for required reviewer approval. Promote only changes already validated through the development OTA flow. The dispatch always publishes the current runtime first and accepts one optional `legacy_ios_runtime_version`; when supplied, it validates the semantic version and publishes the same bundle to that iOS runtime only. Use this compatibility bridge solely for JavaScript already verified against the older native binary, never for a change that depends on a newer native module or configuration.
+Development OTA publication runs from each pull request into `main` (`dev-ota` job of `pull-request.yml`) after mobile lint, typecheck, unit tests and the Expo dependency check. The shared EAS `development` channel therefore holds the last PR pushed: when two PRs are tested in parallel, re-push or re-run the one to inspect. The job references the GitHub `Preview` environment solely because it stores `EXPO_TOKEN`. Production OTA publication is automatic on merge (`ota` job of `release.yml`, which calls `eas-update-production.yml`) unless the release guards block it for a native change without a new runtime. The manual dispatch of `eas-update-production.yml` remains for exceptional cases: exact commit SHA already merged into `main`, `PROMOTE_TO_PRODUCTION`, and one optional `legacy_ios_runtime_version`; when supplied, it validates the semantic version and publishes the same bundle to that iOS runtime only. Use this compatibility bridge solely for JavaScript already verified against the older native binary, never for a change that depends on a newer native module or configuration.
 
 For native delivery, a merged `main` commit starts the EAS candidate workflow but waits for explicit approval before either platform build begins. After approval, it builds Android and iOS, leaves Android on the internal track as a draft, and uploads iOS to TestFlight. Android public rollout uses the separately protected GitHub dispatch, which verifies the selected build metadata against the exact approved commit; Apple public review/release remains an App Store Connect decision. Never point an automatic trigger at the full-rollout Android `production` submit profile.
 
@@ -120,7 +121,8 @@ The root `packageManager` pin is required by Turbo workspace discovery. Update i
 ## Do Not
 
 - Do not start a new task from an existing feature branch or reuse a branch whose pull request was merged or closed.
-- Do not develop directly on `preview/web`, delete it after validation, or send a web-affecting task directly to `main` without its stable Vercel Preview evidence.
+- Do not merge a PR into `main` before its Preview and `development` OTA were validated: the merge is the production release.
+- Do not mix unrelated tasks in one PR, and do not add a label `migration-destructive-ok` or `native-ota-safe` without checking what the guard reported.
 - Do not create an additional worktree for ordinary sequential work.
 - Do not push `main` or promote production while another registered worktree is dirty or a local commit is absent from all remotes.
 - Do not invent schema fields; verify migrations or live schema.
@@ -128,7 +130,7 @@ The root `packageManager` pin is required by Turbo workspace discovery. Update i
 - Do not add generic SaaS prose to project docs.
 - Do not skip duplicate-event/idempotency checks for onboarding/auth flows.
 - Do not bypass a failing CI check by making it non-blocking.
-- Do not publish a production OTA from an unmerged ref or without validating the changes through the development OTA flow first.
+- Do not publish a production OTA manually from an unmerged ref or without validating the changes through the PR's development OTA first.
 
 ## Native-module reminder
 

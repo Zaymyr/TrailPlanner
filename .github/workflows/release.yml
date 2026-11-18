@@ -1,0 +1,213 @@
+name: Release
+
+# Merging into main IS the production go:
+#   1. migrations (only when the released range contains some),
+#   2. web production deployment (after migrations, so the site never runs ahead of the schema),
+#   3. production OTA (after migrations; blocked when native code changed without a new runtime).
+# The released range starts at the last successful release, so a failed or skipped run is
+# caught up by the next one. Store binaries stay manual (the report gives the exact command).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  npm_config_fetch_retries: "5"
+  npm_config_fetch_retry_factor: "2"
+  npm_config_fetch_retry_mintimeout: "20000"
+  npm_config_fetch_retry_maxtimeout: "120000"
+
+jobs:
+  plan:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+    outputs:
+      web: ${{ steps.changes.outputs.web }}
+      mobile: ${{ steps.changes.outputs.mobile }}
+      migrations: ${{ steps.changes.outputs.migrations }}
+      publish_ota: ${{ steps.guards.outputs.publish_ota }}
+      pr: ${{ steps.pr.outputs.number }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - name: Resolve the last released commit
+        id: base
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow release.yml --branch main --status success \
+            --limit 20 --json headSha --jq '.[].headSha' | while read -r sha; do
+              if [ "$sha" != "$GITHUB_SHA" ] && git merge-base --is-ancestor "$sha" HEAD 2>/dev/null; then echo "$sha"; break; fi
+            done)"
+          if [ -z "$base" ]; then
+            base="$(git rev-parse HEAD^)"
+            echo "No previous successful release found; releasing the last commit only."
+          fi
+          echo "Released range: $base..$GITHUB_SHA"
+          echo "sha=$base" >> "$GITHUB_OUTPUT"
+
+      - name: Analyse changes
+        id: changes
+        run: node scripts/release/release-check.mjs changes --base "${{ steps.base.outputs.sha }}" --head HEAD --out release-analysis.json
+
+      - name: Install mobile dependencies
+        if: ${{ steps.changes.outputs.mobile == 'true' }}
+        working-directory: apps/mobile
+        run: |
+          for attempt in 1 2 3; do
+            npm ci --legacy-peer-deps && exit 0
+            if [ "$attempt" -eq 3 ]; then
+              echo "npm ci failed after $attempt attempts"
+              exit 1
+            fi
+            sleep 15
+          done
+
+      - name: Analyse native changes
+        if: ${{ steps.changes.outputs.mobile == 'true' }}
+        run: node scripts/release/release-check.mjs native --analysis release-analysis.json
+
+      - name: Find the merged pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          info="$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" \
+            --jq '[.[] | select(.merged_at != null)][0] | "\(.number)|\([.labels[].name] | join(","))"' 2>/dev/null || true)"
+          echo "number=${info%%|*}" >> "$GITHUB_OUTPUT"
+          echo "labels=${info#*|}" >> "$GITHUB_OUTPUT"
+
+      - name: Evaluate release guards
+        id: guards
+        env:
+          PR_LABELS: ${{ steps.pr.outputs.labels }}
+        run: node scripts/release/release-check.mjs evaluate --analysis release-analysis.json
+
+      - name: Keep analysis for the report
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-analysis
+          path: release-analysis.json
+          retention-days: 30
+
+  migrate:
+    needs: plan
+    if: ${{ needs.plan.outputs.migrations == 'true' }}
+    uses: ./.github/workflows/db-migrate.yml
+    with:
+      ref: ${{ github.sha }}
+      confirmation: APPLY_PRODUCTION_MIGRATIONS
+    secrets: inherit
+
+  web:
+    needs: [plan, migrate]
+    if: ${{ always() && needs.plan.result == 'success' && needs.plan.outputs.web == 'true' && (needs.migrate.result == 'success' || needs.migrate.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    environment: Production
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
+    env:
+      # Not secrets: they identify the trail-planner project (root directory apps/web).
+      VERCEL_ORG_ID: team_FZrrQ48P2HuYdcOgyfya4ZlQ
+      VERCEL_PROJECT_ID: prj_2SqLAGtqQzAHN87EDM3rqUIUYfag
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 20
+
+      - name: Deploy to Vercel production
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::error::VERCEL_TOKEN is missing from the Production environment secrets."
+            exit 1
+          fi
+          url="$(npx --yes vercel@65.9.0 deploy --prod --yes --archive=tgz --token "$VERCEL_TOKEN" \
+            --meta githubCommitSha="$GITHUB_SHA" --meta githubCommitRef=main)"
+          echo "Deployed $url"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+  ota:
+    needs: [plan, migrate]
+    if: ${{ always() && needs.plan.result == 'success' && needs.plan.outputs.publish_ota == 'true' && (needs.migrate.result == 'success' || needs.migrate.result == 'skipped') }}
+    uses: ./.github/workflows/eas-update-production.yml
+    with:
+      ref: ${{ github.sha }}
+      confirmation: PROMOTE_TO_PRODUCTION
+    secrets: inherit
+
+  report:
+    needs: [plan, migrate, web, ota]
+    if: ${{ always() && needs.plan.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download analysis
+        id: analysis
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: release-analysis
+
+      - name: Publish the release report
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ needs.plan.outputs.pr }}
+          PLAN_RESULT: ${{ needs.plan.result }}
+          HEAD_SHA: ${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          MIGRATE_RESULT: ${{ needs.migrate.result }}
+          WEB_RESULT: ${{ needs.web.result }}
+          WEB_URL: ${{ needs.web.outputs.url }}
+          OTA_RESULT: ${{ needs.ota.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f release-analysis.json ]; then
+            node scripts/release/release-check.mjs report --mode release --analysis release-analysis.json > report.md
+          else
+            printf '%s\n## Release prod · `%s`\n\n❌ Analyse impossible (job plan : %s). Rien n’a été déployé. [Run](%s)\n' \
+              '<!-- release-status:release -->' "${HEAD_SHA:0:8}" "$PLAN_RESULT" "$RUN_URL" > report.md
+          fi
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$PR_NUMBER" ]; then
+            gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" -F body=@report.md > /dev/null
+          fi

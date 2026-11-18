@@ -113,7 +113,7 @@ The web app is configured for Vercel in `vercel.json`. It declares:
 - `installCommand: "npm install --workspace @trailplanner/web --legacy-peer-deps --prefer-offline --no-audit --no-fund"`, which installs only the web workspace dependency graph, preserves Vercel's restored `node_modules` cache, and avoids unrelated Expo/mobile packages and install-time audit requests
 - `outputDirectory: ".next"`
 - `regions: ["cdg1"]`, so functions run in Paris next to the Supabase `eu-west-3` database (see `infrastructure.md` for the Fluid compute budget rationale)
-- a Git deployment filter that prevents creation of `dependabot/**` Preview deployments, backed by an ignored-build fallback; other Vercel deployments are skipped when `apps/web`, shared packages, workspace manifests, the lockfile, Turbo configuration, and Vercel configuration are unchanged, while the approved merge on `main` still produces the single production deployment
+- a Git deployment filter that disables Git deployments of `main` and of `dependabot/**` branches, backed by an ignored-build fallback; other Preview deployments are skipped when `apps/web`, shared packages, workspace manifests, the lockfile, Turbo configuration, and Vercel configuration are unchanged. Production is deployed by `.github/workflows/release.yml` after the merged migrations (see [Release Flow](../06-workflows/release-flow.md))
 - permanent redirects from `www.pace-yourself.com`, `trailplanner.app`, and `trail-planner.vercel.app` to `https://pace-yourself.com/:path*`
 - daily authenticated RevenueCat reconciliation, Trail TST demo refresh (keeps the demo event on today's date and republishes it) and reviewed Trace de Trail catalog-enrichment crons; the latter calls the separately authenticated internal import service and starts with six allowlisted 2027 Trace des Maquisards formats
 
@@ -187,7 +187,7 @@ When docs and code disagree, use this order:
 - Production Android and iOS build 18 use EAS Update runtime `1.1.2`. Normal production OTAs target that runtime only. The protected workflow may additionally target one explicitly supplied legacy iOS runtime when the same JavaScript is verified against its native bridge; all other older installs stay in their prior compatibility groups.
 - R8 minification is native release configuration, not an OTA change. A mapping file is valid only for the AAB that generated it.
 - Vercel's ignored-build command must include every root or shared-package input consumed by `apps/web`; otherwise an affected web deployment can be skipped.
-- Dependabot branches deliberately do not create Vercel deployments. GitHub CI validates them before batching, and the merge commit on `main` remains the production deployment trigger.
+- Dependabot branches deliberately do not create Vercel deployments. GitHub CI validates them before batching, and the merge commit on `main` remains the production release trigger through `release.yml`.
 - Keep the Vercel install command scoped to `@trailplanner/web`. An unscoped npm install from `apps/web` still resolves the monorepo root and installs unrelated mobile dependencies, increasing preview build time.
 - Keep large Organizer document uploads on the direct Storage TUS path; routing them through the Next.js deployment would reintroduce platform body-size limits.
 - Keep Mapbox GL JS route-local to `/admin/video-generator`; importing it into shared/public layouts would add WebGL and provider code to unrelated pages.
