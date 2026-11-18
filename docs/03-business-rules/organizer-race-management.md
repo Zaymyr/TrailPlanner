@@ -2,7 +2,7 @@
 title: Organizer Race Management
 scope: business-rule
 
-last_verified: 2026-11-16
+last_verified: 2026-11-18
 # Organizer hero note (2026-11-16): /organisateurs now presents the Livret coureur and the Livret supporter side by side (hero cards, illustrative supporter preview, metadata title); presentation only, no data, analytics event or offer change.
 # Assisted legacy conversion (2026-11-15): historical blocks offer schema-specific, field-by-field proposals with explicit Apply/Ignore and no automatic write.
 # Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
@@ -734,7 +734,7 @@ The mobile catalog (`apps/mobile/app/(app)/catalog.tsx`) now shows its quick fil
 
 `RaceEventSummaryCard` (catalog race card) shows the RaceBook availability as a `StatusPill` wristband, counts and distances as `Cote`s, the favourite heart on the title line and a « Voir les distances » sign. It draws no course profile (removed on 2026-11-11) and the catalog no longer fetches format profiles. No data contract changes.
 
-The RaceBook screen (`apps/mobile/app/(app)/race/[id]/racebook.tsx`) renders its last-minute update through `components/racebook/TapeAlertBanner` (orange/white tape strip, 44-point expand toggle) and passes the resolved start time to the plan invitation card; data loading and writes are unchanged.
+The RaceBook screen (`apps/mobile/app/(app)/race/[id]/racebook.tsx`) renders its last-minute update through `components/racebook/TapeAlertBanner` (orange/white tape strip, 44-point expand toggle) and passes the resolved start time to the plan invitation card; online data loading and writes are unchanged; when the API is unreachable it shows the device copy of the last published RaceBook (see `docs/03-business-rules/mobile-offline-access.md`).
 
 `RacebookGearSection` presents mandatory gear as a stamped checklist (session-stable stamp rotation, static dotted progress trail, 44-point rows); gear-check storage and partner slots are unchanged.
 

@@ -21,8 +21,10 @@ import { ErrorState } from '../../../../components/themed/ErrorState';
 import { LoadingState } from '../../../../components/themed/LoadingState';
 import { Screen } from '../../../../components/themed/Screen';
 import { Text } from '../../../../components/themed/Text';
+import { TapeAlertBanner } from '../../../../components/racebook/TapeAlertBanner';
+import { getFollowedPlanWithOfflineCopy, storeFollowedPlanOfflineCopy } from '../../../../lib/offlineFollowedPlans';
+import { formatOfflineSavedAt } from '../../../../lib/offlineCacheFormat';
 import {
-  getFollowedPlan,
   unfollowPlan,
   updateFollowedPlan,
   updateFollowedPlanCrewState,
@@ -71,13 +73,16 @@ export default function FollowedPlanScreen() {
   const [planUpdated, setPlanUpdated] = useState(false);
   const [preparationOpen, setPreparationOpen] = useState(false);
   const [prepared, setPrepared] = useState<Set<string>>(new Set());
+  // Save time of the device copy on screen while the network is unreachable.
+  const [offlineSavedAt, setOfflineSavedAt] = useState<string | null>(null);
 
   const load = useCallback(async (pull = false) => {
     if (!id) return;
     if (pull) setRefreshing(true);
     setError(null);
     try {
-      const next = await getFollowedPlan(id);
+      const { value: next, offlineSavedAt: savedAt } = await getFollowedPlanWithOfflineCopy(id);
+      setOfflineSavedAt(savedAt);
       setFollow(next);
       setNickname(next.nickname ?? '');
       setDepartureTime(next.departureTime ?? '');
@@ -141,6 +146,7 @@ export default function FollowedPlanScreen() {
     try {
       const updated = await updateFollowedPlanCrewState(id, departureTime, { passages: normalizePlanSharePassages(nextPassages, checkpoints) });
       setFollow((current) => current ? { ...current, crewState: updated.crewState, departureTime: updated.departureTime } : current);
+      if (follow) void storeFollowedPlanOfflineCopy({ ...follow, crewState: updated.crewState, departureTime: updated.departureTime });
       setDepartureTime(updated.departureTime ?? '');
     } catch {
       Alert.alert(t.common.error, t.planFollow.loadingError);
@@ -200,6 +206,14 @@ export default function FollowedPlanScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />}
       >
+        {offlineSavedAt ? (
+          <TapeAlertBanner
+            icon="cloud-offline-outline"
+            message={t.common.offlineCopy.replace('{time}', formatOfflineSavedAt(offlineSavedAt, locale))}
+            title={t.common.offlineTitle}
+            variationKey="followed-plan-offline"
+          />
+        ) : null}
         <Card surface="cream" style={styles.hero}>
           <Text accessibilityRole="header" size="2xl" weight="bold">{follow.nickname || follow.planName}</Text>
           {follow.nickname ? <Text tone="secondary">{follow.planName}</Text> : null}

@@ -78,10 +78,19 @@ import {
   buildPlanSummary,
   buildProductMap as buildSummaryProductMap,
   buildStoredRacePlanFromValues,
+  collectPlanProductIdsFromValues,
   formatDuration,
   getPlanSummaryDepartureTimeStorageKey,
   applyStoredDepartureTime,
 } from '../../../../lib/planSummary';
+import { readOfflineCache, readStoredAuthSession, writeOfflineCache } from '../../../../lib/offlineCache';
+import {
+  buildUserScopedOfflineKey,
+  formatOfflineSavedAt,
+  isPostgrestNetworkFailure,
+  type OfflineCacheEntry,
+} from '../../../../lib/offlineCacheFormat';
+import { BriefToast } from '../../../../components/themed/BriefToast';
 import { synchronizePlanShareIfFollowed } from '../../../../lib/planShareLinks';
 import { formatAveragePace, normalizePlanWorkspaceTab, resolvePlanElevationLoss, type PlanWorkspaceTab } from '../../../../lib/planWorkspace';
 import { formatDistance, formatElevation } from '../../../../lib/displayFormat';
@@ -126,6 +135,19 @@ type RacePlanRow = {
     }[];
   };
 };
+
+/** Device copy of a plan, read when the network is unreachable (docs/03-business-rules/mobile-offline-access.md). */
+type OfflinePlanCopy = {
+  plan: RacePlanRow;
+  elevationProfile: ElevationPoint[];
+  /** Only the products the plan references, so the summary keeps their names offline. */
+  products: PlanProduct[];
+};
+
+function pickPlanProducts(products: readonly PlanProduct[], values: PlanFormValues): PlanProduct[] {
+  const ids = new Set(collectPlanProductIdsFromValues(values));
+  return products.filter((product) => ids.has(product.id));
+}
 
 function planRowToFormValues(plan: RacePlanRow): PlanFormValues {
   const pv = plan.planner_values ?? {};
@@ -325,6 +347,11 @@ export default function EditPlanScreen() {
   const loadedPlanIdRef = useRef<string | null>(hasInitialWarmStart ? (id ?? null) : null);
   const activeRouteIdRef = useRef<string | null>(id ?? null);
   const loadRequestIdRef = useRef(0);
+  // Save time of the device copy on screen while the network is unreachable.
+  const [offlineSavedAt, setOfflineSavedAt] = useState<string | null>(null);
+  const [offlineNoticeDismissedAt, setOfflineNoticeDismissedAt] = useState<string | null>(null);
+  // Account and race of the loaded plan, used to keep its device copy in step after a save.
+  const offlinePlanContextRef = useRef<{ planId: string; userId: string; raceId: string | null } | null>(null);
   const router = useRouter();
   const [summitCelebrationVisible, setSummitCelebrationVisible] = useState(() => created === '1' && showHelp !== '1');
   const handleSummitCelebrationDone = useCallback(() => {
@@ -562,11 +589,13 @@ export default function EditPlanScreen() {
     if (!id) return;
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
-    const uid = data.session?.user.id;
-    if (!token || !uid) { setRunnerAccessError(true); return; }
+    // Offline with an expired token: the persisted account still reads its cached rights.
+    const uid = data.session?.user.id ?? readStoredAuthSession()?.user?.id;
+    if (!uid) { setRunnerAccessError(true); return; }
     const cached = await readCachedRunnerPlanCapabilities(uid, id);
     if (activeRouteIdRef.current !== id) return;
     try {
+      if (!token) throw new Error('authentication_unavailable_offline');
       const response = await fetchWithTimeout(`${WEB_API_BASE_URL}/api/plans/${encodeURIComponent(id)}/access`, { headers: { Authorization: `Bearer ${token}` } }, PLAN_ACCESS_TIMEOUT_MS);
       const payload = await response.json().catch(() => null) as { access?: RunnerPlanCapabilities } | null;
       if (activeRouteIdRef.current !== id) return;
@@ -618,14 +647,19 @@ export default function EditPlanScreen() {
     if (isStaleLoad()) return;
 
     const uid = sessionData.data?.session?.user?.id ?? null;
+    const accessToken = sessionData.data?.session?.access_token ?? null;
+    // Offline with an expired token, getSession() reports no session: the persisted
+    // account still reads its cached rights and the plan's device copy.
+    const offlineUserId = uid ?? readStoredAuthSession()?.user?.id ?? null;
     let nextPlanCanEdit = false;
     let planAccessResolved = false;
-    if (sessionData.data?.session?.access_token && id) {
-      const accessUserId = sessionData.data.session.user.id;
+    if (offlineUserId && id) {
+      const accessUserId = offlineUserId;
       const cachedAccess = await readCachedRunnerPlanCapabilities(accessUserId, id);
       try {
+        if (!accessToken) throw new Error('authentication_unavailable_offline');
         const accessResponse = await fetchWithTimeout(`${WEB_API_BASE_URL}/api/plans/${encodeURIComponent(id)}/access`, {
-          headers: { Authorization: `Bearer ${sessionData.data.session.access_token}` },
+          headers: { Authorization: `Bearer ${accessToken}` },
         }, PLAN_ACCESS_TIMEOUT_MS);
         const accessPayload = (await accessResponse.json().catch(() => null)) as { access?: RunnerPlanCapabilities } | null;
         const resolution = resolveRunnerPlanAccess(accessResponse.ok ? accessPayload?.access ?? null : null, cachedAccess);
@@ -659,6 +693,9 @@ export default function EditPlanScreen() {
     const productDataPromise = nextPlanCanEdit
       ? loadPlanProductsBootstrap(uid)
       : Promise.resolve<PlanProductsBootstrap>({ allProducts: [], favoriteProductIds: new Set() });
+    let offlineCopy: OfflineCacheEntry<OfflinePlanCopy> | null = null;
+    let onlinePlan: { plan: RacePlanRow; elevationProfile: ElevationPoint[]; values: PlanFormValues } | null = null;
+    setOfflineSavedAt(null);
 
     if (cachedDraft) {
       setLoadingProgress(0.48);
@@ -680,7 +717,14 @@ export default function EditPlanScreen() {
         .single();
       if (isStaleLoad()) return;
 
-      if (planResult.error) {
+      if (planResult.error && offlineUserId && isPostgrestNetworkFailure(planResult)) {
+        // No network: open the device copy of the plan, if this account saved one.
+        const stored = await readOfflineCache<OfflinePlanCopy>('plan', buildUserScopedOfflineKey(offlineUserId, id));
+        if (isStaleLoad()) return;
+        offlineCopy = stored?.data?.plan?.id === id ? stored : null;
+      }
+
+      if (planResult.error && !offlineCopy) {
         setError(planResult.error.message);
         setInitialValues(null);
         setLiveValues(null);
@@ -694,19 +738,24 @@ export default function EditPlanScreen() {
         return;
       }
 
-      if (planResult.data) {
-        const plan = planResult.data as RacePlanRow;
+      const loadedPlan = offlineCopy ? offlineCopy.data.plan : (planResult.data as RacePlanRow | null);
+      if (loadedPlan) {
+        const plan = loadedPlan;
         setLoadingPlanName(plan.name);
         setLoadingPlanNameId(id);
         setLoadingProgress(0.56);
         const nextValues = planRowToFormValues(plan);
         const storedPlanElevationProfile = Array.isArray(plan.elevation_profile) ? plan.elevation_profile : [];
-        const fetchedRaceElevationProfile = plan.race_id ? await fetchRaceElevationProfile(plan.race_id) : [];
+        const fetchedRaceElevationProfile = offlineCopy
+          ? offlineCopy.data.elevationProfile
+          : plan.race_id ? await fetchRaceElevationProfile(plan.race_id) : [];
         const nextElevationProfile = pickBestElevationProfile(
           [storedPlanElevationProfile, fetchedRaceElevationProfile],
           nextValues.raceDistanceKm,
         );
         if (isStaleLoad()) return;
+        if (offlineUserId) offlinePlanContextRef.current = { planId: id, userId: offlineUserId, raceId: plan.race_id ?? null };
+        if (!offlineCopy) onlinePlan = { plan, elevationProfile: nextElevationProfile, values: nextValues };
 
         setLoadingProgress(0.72);
 
@@ -721,8 +770,22 @@ export default function EditPlanScreen() {
     }
 
     setLoadingProgress(0.86);
-    const nextProductData = await productDataPromise;
+    let nextProductData = await productDataPromise;
     if (isStaleLoad()) return;
+
+    if (offlineCopy) {
+      // The catalog is unreachable too: use the products saved with the plan.
+      if (nextProductData.allProducts.length === 0) {
+        nextProductData = { ...nextProductData, allProducts: offlineCopy.data.products ?? [] };
+      }
+      setOfflineSavedAt(offlineCopy.savedAt);
+    } else if (onlinePlan && offlineUserId) {
+      void writeOfflineCache<OfflinePlanCopy>('plan', buildUserScopedOfflineKey(offlineUserId, id), {
+        plan: onlinePlan.plan,
+        elevationProfile: onlinePlan.elevationProfile,
+        products: pickPlanProducts(nextProductData.allProducts, onlinePlan.values),
+      });
+    }
 
     setPlanProductData(nextProductData);
     loadedPlanIdRef.current = id;
@@ -766,6 +829,22 @@ export default function EditPlanScreen() {
 
         if (!err && updatedPlan?.id === id) {
           lastSavedSnapshotRef.current = savedSnapshot;
+          setOfflineSavedAt(null);
+          const offlineContext = offlinePlanContextRef.current;
+          if (offlineContext?.planId === id) {
+            // Keep the device copy in step with what was just saved.
+            void writeOfflineCache<OfflinePlanCopy>('plan', buildUserScopedOfflineKey(offlineContext.userId, id), {
+              plan: {
+                id,
+                name: normalizedValues.name,
+                race_id: offlineContext.raceId,
+                planner_values: plannerValues as RacePlanRow['planner_values'],
+                elevation_profile: elevationProfileRef.current,
+              },
+              elevationProfile: elevationProfileRef.current,
+              products: pickPlanProducts(planProductData?.allProducts ?? [], normalizedValues),
+            });
+          }
 
           const latestDraft = latestDraftRef.current;
           const latestSnapshot = latestDraft
@@ -1378,6 +1457,14 @@ export default function EditPlanScreen() {
         title={t.planWorkspace.summitTitle}
         visible={summitCelebrationVisible}
       />
+      {offlineSavedAt && offlineNoticeDismissedAt !== offlineSavedAt ? (
+        <BriefToast
+          bottom={insets.bottom + 24}
+          durationMs={6_000}
+          message={t.common.offlineToast.replace('{time}', formatOfflineSavedAt(offlineSavedAt, locale))}
+          onDismiss={() => setOfflineNoticeDismissedAt(offlineSavedAt)}
+        />
+      ) : null}
     </View>
   );
 }

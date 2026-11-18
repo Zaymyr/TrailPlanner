@@ -9,11 +9,15 @@ import { Button } from '../themed/Button';
 import { useFollowedPlans } from '../../hooks/useFollowedPlans';
 import type { MobileTranslations } from '../../locales/types';
 import { updateFollowedPlan } from '../../lib/followedPlans';
+import { useI18n } from '../../lib/i18n';
+import { formatOfflineSavedAt } from '../../lib/offlineCacheFormat';
+import { TapeAlertBanner } from '../racebook/TapeAlertBanner';
 
 type Props = { contentTopInset: number; t: MobileTranslations; onScroll: (event: any) => void };
 
 export function FollowedPlansList({ contentTopInset, t, onScroll }: Props) {
   const router = useRouter();
+  const { locale } = useI18n();
   const followed = useFollowedPlans();
   if (followed.loading) return <LoadingState label={t.common.loading} style={{ paddingTop: contentTopInset }} />;
   if (followed.error) return <ErrorState title={t.planFollow.loadingError} retryLabel={t.common.retry} onRetry={() => void followed.refresh()} style={{ paddingTop: contentTopInset }} />;
@@ -46,6 +50,14 @@ export function FollowedPlansList({ contentTopInset, t, onScroll }: Props) {
       scrollEventThrottle={16}
       refreshControl={<RefreshControl refreshing={followed.refreshing} onRefresh={() => void followed.refresh(true)} />}
     >
+      {followed.offlineSavedAt ? (
+        <TapeAlertBanner
+          icon="cloud-offline-outline"
+          message={t.common.offlineCopy.replace('{time}', formatOfflineSavedAt(followed.offlineSavedAt, locale))}
+          title={t.common.offlineTitle}
+          variationKey="followed-plans-offline"
+        />
+      ) : null}
       {followed.follows.length === 0 ? (
         <Card surface="cream" style={styles.empty}>
           <Text size="xl" weight="bold">{t.planFollow.emptyTitle}</Text>

@@ -1,7 +1,7 @@
 ---
 title: plan_share_links Table
 scope: database
-last_verified: 2026-11-15
+last_verified: 2026-11-18
 ai_priority: high
 related_files:
   - supabase/migrations/20260609091933_add_plan_share_links.sql

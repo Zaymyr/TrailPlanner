@@ -1,7 +1,7 @@
 ---
 title: Debug Supabase Auth
 scope: workflow
-last_verified: 2026-11-13
+last_verified: 2026-11-18
 ai_priority: high
 related_files:
   - apps/web/app/api/auth/session/route.ts
@@ -56,7 +56,7 @@ Use this workflow when a user cannot sign in, a session is stale, trial state is
 6. Confirm `ensureTrialStatus` can read/write `user_profiles`.
 7. If the issue is RLS, reproduce with authenticated JWT context or a manual SQL check.
 8. If service routes work but client queries fail, inspect policies and grants.
-9. If mobile differs, inspect `apps/mobile/app/_layout.tsx` for listener/navigation behavior and `apps/mobile/hooks/useSessionSideEffects.ts` for trial, Resend, and pending-conversion maintenance.
+9. If mobile differs, inspect `apps/mobile/app/_layout.tsx` for listener/navigation behavior and `apps/mobile/hooks/useSessionSideEffects.ts` for trial, Resend, and pending-conversion maintenance. A phone that is offline at launch must keep its persisted session and open `/(app)/plans` rather than redirect to login; if it does not, see `docs/03-business-rules/mobile-offline-access.md`.
    For PostHog internal-user classification, confirm admin roles come from `session.user.app_metadata.role` / `roles` and that the owner email is normalized before comparison.
 10. If the issue is Resend contact sync, confirm the session is not anonymous and then inspect `POST /api/resend/contact`. On mobile, an `Invalid key provided to SecureStore` error means the local idempotency marker regressed: its key must remain the safe `resend-contact-synced.<user-id>.<sha256-email>` form and must never contain the raw address or colon separators.
 11. If the symptom is only bottom-tab availability during onboarding, inspect route options in `apps/mobile/app/(app)/_layout.tsx`; that is navigation-shell configuration, not an auth/session failure.
