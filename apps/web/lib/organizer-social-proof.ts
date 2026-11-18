@@ -10,6 +10,8 @@ export const organizerSocialProofSchema = z.object({
   editionYear: z.number().int(),
   location: z.string().nullable(),
   thumbnailUrl: z.string().nullable(),
+  logoUrl: z.string().nullable(),
+  logoSource: z.enum(["racebook", "event"]).nullable(),
   status: organizerSocialProofStatusSchema,
   displayOrder: z.number().int().min(0).max(999),
   quoteText: z.string().nullable(),
@@ -27,6 +29,31 @@ export const organizerSocialProofSchema = z.object({
 
 export type OrganizerSocialProof = z.infer<typeof organizerSocialProofSchema>;
 
+/**
+ * PostgREST embed of `race_event_edition_branding` from `race_event_editions`.
+ * `edition_id` is the branding primary key, so it is normally an object or null;
+ * an array is accepted defensively.
+ */
+const brandingLogoRowSchema = z.object({ published_logo_url: z.string().nullable() });
+export const organizerSocialProofBrandingEmbedSchema = z
+  .union([brandingLogoRowSchema, z.array(brandingLogoRowSchema)])
+  .nullable()
+  .optional();
+
+/**
+ * The proof logo is taken from the organizer space, never uploaded separately:
+ * the published Livret coureur logo first, then the event image the organizer set.
+ */
+export function resolveOrganizerSocialProofLogo(
+  branding: z.infer<typeof organizerSocialProofBrandingEmbedSchema>,
+  eventThumbnailUrl: string | null,
+): Pick<OrganizerSocialProof, "logoUrl" | "logoSource"> {
+  const brandingRow = Array.isArray(branding) ? branding[0] : branding;
+  if (brandingRow?.published_logo_url) return { logoUrl: brandingRow.published_logo_url, logoSource: "racebook" };
+  if (eventThumbnailUrl) return { logoUrl: eventThumbnailUrl, logoSource: "event" };
+  return { logoUrl: null, logoSource: null };
+}
+
 export const organizerSocialProofEditionSchema = z.object({
   id: z.string().uuid(),
   eventId: z.string().uuid(),
@@ -35,6 +62,8 @@ export const organizerSocialProofEditionSchema = z.object({
   startDate: z.string(),
   endDate: z.string(),
   location: z.string().nullable(),
+  logoUrl: z.string().nullable().default(null),
+  logoSource: z.enum(["racebook", "event"]).nullable().default(null),
 });
 
 export type OrganizerSocialProofEdition = z.infer<typeof organizerSocialProofEditionSchema>;

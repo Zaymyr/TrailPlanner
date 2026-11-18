@@ -10,11 +10,18 @@ describe("organizer landing TST discovery", () => {
     expect(source).toContain("Ils l’ont utilisé en course");
     expect(source).toContain("Usage mesuré");
     expect(source).toContain("lecteurs uniques estimés");
-    expect(source).toContain('<dl className="grid grid-cols-2 gap-3">');
-    expect(source).toContain("bg-gradient-to-br from-brand-surface");
     expect(source).toContain("socialProofs.map");
-    expect(source).toContain("Preuve terrain");
     expect(source).toContain("featuredProof.uniqueReaders");
+  });
+
+  it("leads the social proof with the race logo and testimonial, keeping metrics compact", () => {
+    expect(source).toContain('id="preuve-sociale"');
+    expect(source).toContain('href="#preuve-sociale"');
+    expect(source).toContain("<ProofLogo proof={featuredProof}");
+    expect(source).toContain("<ProofLogo proof={proof}");
+    expect(source).toContain("text-xl font-medium leading-relaxed text-foreground sm:text-2xl");
+    expect(source).not.toContain("text-4xl font-semibold tracking-[-0.04em]");
+    expect(source).not.toContain("sm:text-5xl");
   });
 
   it("keeps the hero demo on-page and the production Android CTA in the full demo", () => {

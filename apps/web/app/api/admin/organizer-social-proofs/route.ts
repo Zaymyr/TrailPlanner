@@ -6,8 +6,10 @@ import { withSecurityHeaders } from "../../../../lib/http";
 import { requireAdminAuth, serviceHeaders } from "../../../../lib/organizer";
 import {
   organizerSocialProofAdminResponseSchema,
+  organizerSocialProofBrandingEmbedSchema,
   organizerSocialProofSchema,
   organizerSocialProofUpdateSchema,
+  resolveOrganizerSocialProofLogo,
   type OrganizerSocialProof,
 } from "../../../../lib/organizer-social-proof";
 import { loadPostHogOrganizerAnalytics } from "../../../../lib/posthog-organizer-analytics";
@@ -18,6 +20,7 @@ const editionRowSchema = z.object({
   edition_year: z.number().int(),
   start_date: z.string(),
   end_date: z.string(),
+  race_event_edition_branding: organizerSocialProofBrandingEmbedSchema,
   race_events: z.object({
     name: z.string().min(1),
     location: z.string().nullable(),
@@ -61,6 +64,7 @@ const mapProof = (row: ProofRow, edition: EditionRow): OrganizerSocialProof =>
     editionYear: edition.edition_year,
     location: edition.race_events.location,
     thumbnailUrl: edition.race_events.thumbnail_url,
+    ...resolveOrganizerSocialProofLogo(edition.race_event_edition_branding, edition.race_events.thumbnail_url),
     status: row.status,
     displayOrder: row.display_order,
     quoteText: row.quote_text,
@@ -85,7 +89,7 @@ const addUtcDays = (date: string, days: number) => {
 async function loadAdminData(serviceConfig: Parameters<typeof serviceHeaders>[0]) {
   const [editionsResponse, proofsResponse] = await Promise.all([
     fetch(
-      `${serviceConfig.supabaseUrl}/rest/v1/race_event_editions?select=id,event_id,edition_year,start_date,end_date,race_events!inner(name,location,thumbnail_url)&order=start_date.desc&limit=500`,
+      `${serviceConfig.supabaseUrl}/rest/v1/race_event_editions?select=id,event_id,edition_year,start_date,end_date,race_event_edition_branding(published_logo_url),race_events!inner(name,location,thumbnail_url)&order=start_date.desc&limit=500`,
       { headers: serviceHeaders(serviceConfig, ""), cache: "no-store" },
     ),
     fetch(
@@ -115,6 +119,7 @@ async function loadAdminData(serviceConfig: Parameters<typeof serviceHeaders>[0]
       startDate: edition.start_date,
       endDate: edition.end_date,
       location: edition.race_events.location,
+      ...resolveOrganizerSocialProofLogo(edition.race_event_edition_branding, edition.race_events.thumbnail_url),
     })),
     proofs: proofs.flatMap((proof) => {
       const edition = editionsById.get(proof.edition_id);
@@ -150,7 +155,7 @@ export async function PUT(request: NextRequest) {
   try {
     const [editionResponse, existingResponse, racesResponse] = await Promise.all([
       fetch(
-        `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_editions?id=eq.${parsedBody.data.editionId}&select=id,event_id,edition_year,start_date,end_date,race_events!inner(name,location,thumbnail_url)&limit=1`,
+        `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_editions?id=eq.${parsedBody.data.editionId}&select=id,event_id,edition_year,start_date,end_date,race_event_edition_branding(published_logo_url),race_events!inner(name,location,thumbnail_url)&limit=1`,
         { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" },
       ),
       fetch(

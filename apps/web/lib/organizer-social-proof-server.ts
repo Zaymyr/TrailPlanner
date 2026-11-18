@@ -3,7 +3,12 @@ import "server-only";
 import { z } from "zod";
 
 import { getSupabaseServiceConfig } from "./supabase";
-import { organizerSocialProofSchema, type OrganizerSocialProof } from "./organizer-social-proof";
+import {
+  organizerSocialProofBrandingEmbedSchema,
+  organizerSocialProofSchema,
+  resolveOrganizerSocialProofLogo,
+  type OrganizerSocialProof,
+} from "./organizer-social-proof";
 
 const publicRowSchema = z.object({
   id: z.string().uuid(),
@@ -23,6 +28,7 @@ const publicRowSchema = z.object({
   updated_at: z.string(),
   race_event_editions: z.object({
     edition_year: z.number().int(),
+    race_event_edition_branding: organizerSocialProofBrandingEmbedSchema,
     race_events: z.object({
       id: z.string().uuid(),
       name: z.string().min(1),
@@ -41,6 +47,10 @@ const mapPublicRow = (row: z.infer<typeof publicRowSchema>): OrganizerSocialProo
     editionYear: row.race_event_editions.edition_year,
     location: row.race_event_editions.race_events.location,
     thumbnailUrl: row.race_event_editions.race_events.thumbnail_url,
+    ...resolveOrganizerSocialProofLogo(
+      row.race_event_editions.race_event_edition_branding,
+      row.race_event_editions.race_events.thumbnail_url,
+    ),
     status: row.status,
     displayOrder: row.display_order,
     quoteText: row.quote_text,
@@ -77,7 +87,7 @@ export async function loadPublishedOrganizerSocialProofs(limit = 3): Promise<Org
     "analytics_captured_at",
     "published_at",
     "updated_at",
-    "race_event_editions!inner(edition_year,race_events!inner(id,name,location,thumbnail_url))",
+    "race_event_editions!inner(edition_year,race_event_edition_branding(published_logo_url),race_events!inner(id,name,location,thumbnail_url))",
   ].join(",");
   const response = await fetch(
     `${serviceConfig.supabaseUrl}/rest/v1/organizer_social_proofs?status=eq.published&select=${encodeURIComponent(select)}&order=display_order.asc,published_at.desc&limit=${boundedLimit}`,
