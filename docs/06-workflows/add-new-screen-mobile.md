@@ -2,6 +2,7 @@
 title: Add New Mobile Screen
 scope: workflow
 last_verified: 2026-11-18
+# Supporter onboarding (2026-11-18): new copy blocks `onboarding.audience`, `onboarding.supporterIntro`, `onboarding.supporterTour` and tours keys `supporterTitle`, `pickSupporterRace*` (fr/en/types); `HelpTutorialScreenKey` gains `supporter-guide`.
 # Welcome onboarding cleanup (2026-11-18): onboarding steps render full page in OnboardingShell (no floating card, no pastel top glow); unused intro copy keys (officialBadge, planCta, tours.planChoice*/planOptionalLabel) removed from fr/en/types.
 # Profile attention trail (2026-11-18): a tab-bar attention dot must be repeated on the Profile sub-tab and the row that resolves it; the app icon badge counts unread inbox messages only (`lib/appIconBadge.ts`); `profileDotLabel` reads « Parcours guidé à terminer ».
 # Livret supporter private preview (2026-11-18): the catalog Livret supporter entry admits active organizers of a private event (preview only); runner badge, data and contracts unchanged.

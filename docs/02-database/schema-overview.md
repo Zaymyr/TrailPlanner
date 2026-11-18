@@ -2,6 +2,7 @@
 title: Schema Overview
 scope: database
 last_verified: 2026-11-18
+# Supporter onboarding (2026-11-18): `user_profiles.supporter_onboarding_status` (migration 20261118200000) joins the Plan/RaceBook statuses; the mobile guided catalog gains a `supporter` mode over the same public event list, no other table or RLS change.
 # Inbox push badge (2026-11-18): apps/web/lib/push.ts adds an iOS badge only to admin inbox pushes (unread user_notifications count); race event update pushes, schema and RLS are unchanged.
 # Livret supporter private preview (2026-11-18): the catalog Livret supporter entry admits active organizers of a private event (preview only); runner badge, data and contracts unchanged.
 ai_priority: high
@@ -261,7 +262,7 @@ The November 2026 mobile plan-flow polish changes catalog search controls, image
 | `subscriptions` | Web Stripe and mobile RevenueCat entitlement rows. |
 | `user_favorite_race_events` | User-owned favorites for `race_events`, used for catalog pinning and organizer-update audience selection. |
 | `user_favorite_products` | User favorites for products. |
-| `user_profiles` | App profile, independent Plan/RaceBook onboarding statuses, legacy completion, trial fields, defaults, sign-in metrics, and body metrics. |
+| `user_profiles` | App profile, independent Plan/RaceBook/Livret supporter onboarding statuses, legacy completion, trial fields, defaults, sign-in metrics, and body metrics. |
 | `user_notifications` | Owner-readable admin messages and race-request status notifications with server-managed email/push delivery state. |
 | `feedback_survey_campaigns` | Service-only admin feedback surveys sent to a targeted audience (livret readers, or one chosen account for a test send). See [feedback_survey_campaigns](tables/feedback-survey-campaigns.md). |
 | `feedback_survey_responses` | Runner answers to a survey message (useful yes/no, what helped, what was missing); insert-own, trigger-validated. See [feedback_survey_responses](tables/feedback-survey-responses.md). |

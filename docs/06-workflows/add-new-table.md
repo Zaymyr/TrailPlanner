@@ -2,6 +2,7 @@
 title: Add New Table
 scope: workflow
 last_verified: 2026-11-18
+# Supporter onboarding (2026-11-18): schema-overview lists the new `user_profiles.supporter_onboarding_status` column; no new table.
 # Inbox push badge (2026-11-18): schema-overview notes the admin inbox push badge; no table, column or RLS change.
 # Livret supporter private preview (2026-11-18): the catalog Livret supporter entry admits active organizers of a private event (preview only); runner badge, data and contracts unchanged.
 ai_priority: high

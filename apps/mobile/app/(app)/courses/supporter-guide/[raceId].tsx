@@ -70,6 +70,17 @@ import { WEB_API_BASE_URL } from '../../../../lib/webApi';
 import { readOfflineCache, removeOfflineCache, writeOfflineCache } from '../../../../lib/offlineCache';
 import { formatOfflineSavedAt, isServerUnavailableStatus } from '../../../../lib/offlineCacheFormat';
 import { TapeAlertBanner } from '../../../../components/racebook/TapeAlertBanner';
+import { OnboardingGuideCard } from '../../../../components/onboarding/OnboardingGuideCard';
+import { SpotlightTutorial } from '../../../../components/help/SpotlightTutorial';
+import { useRacebookOnboardingTour } from '../../../../hooks/useRacebookOnboardingTour';
+import type { SpotlightRect, TutorialStep } from '../../../../lib/helpTutorial';
+import { completeOnboarding, skipOnboardingKind } from '../../../../lib/onboardingStatus';
+import { fitRacebookTourHighlight, resolveRacebookTourScrollOffset } from '../../../../lib/racebookOnboardingTour';
+import {
+  buildSupporterGuideTourSteps,
+  type SupporterTourStepKey,
+  type SupporterTourStepSpec,
+} from '../../../../lib/supporterGuideOnboardingTour';
 
 // The Supporter Guide uses the Pace Yourself theme (no organizer branding).
 const GUIDE_THEME = resolveRacebookTheme(null);
@@ -85,8 +96,17 @@ const SECTION_ICONS: Record<SupporterGuideSection, keyof typeof Ionicons.glyphMa
 
 type LoadState = 'loading' | 'ready' | 'unavailable' | 'error';
 
+/** Room the tour card needs below or above a highlighted zone (same as the RaceBook tour). */
+const SUPPORTER_TOUR_MIN_CARD_SPACE = 260;
+
 export default function SupporterGuideScreen() {
-  const { raceId, returnTo, eventId } = useLocalSearchParams<{ raceId: string; returnTo?: string; eventId?: string }>();
+  const { raceId, returnTo, eventId, onboarding } = useLocalSearchParams<{
+    raceId: string;
+    returnTo?: string;
+    eventId?: string;
+    /** Guided Livret supporter onboarding: runs the spotlight tour once the guide is loaded. */
+    onboarding?: 'supporter';
+  }>();
   const router = useRouter();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
@@ -111,6 +131,12 @@ export default function SupporterGuideScreen() {
   const [selectedRaceId, setSelectedRaceId] = useState<string | null>(raceId ?? null);
   const [expandedTransport, setExpandedTransport] = useState<Record<RacebookAccessTransport['key'], boolean>>({ parking: false, shuttles: false });
   const [heroBodyHeight, setHeroBodyHeight] = useState<number | null>(null);
+  const [onboardingStage, setOnboardingStage] = useState<'tour' | 'done'>('tour');
+  const [onboardingBusy, setOnboardingBusy] = useState(false);
+  const [tabBarHeight, setTabBarHeight] = useState(0);
+  const contentAnchorRef = useRef<number | null>(null);
+  const scrollContentHeightRef = useRef(0);
+  const scrollViewHeightRef = useRef(0);
 
   const load = useCallback(async (mode: 'initial' | 'refresh') => {
     if (!raceId) {
@@ -313,6 +339,102 @@ export default function SupporterGuideScreen() {
   const resolvedHeroBodyHeight = heroBodyHeight ?? (emergencyUrl ? RACEBOOK_HERO_BODY_HEIGHT + 44 : RACEBOOK_HERO_BODY_HEIGHT);
   const heroExpandedHeight = insets.top + resolvedHeroBodyHeight;
 
+  // Guided spotlight tour of the real guide zones (onboarding only).
+  const tourSteps = useMemo(
+    () => buildSupporterGuideTourSteps({ sections, hasEmergency: Boolean(emergencyUrl) }),
+    [emergencyUrl, sections],
+  );
+  const tourActive = onboarding === 'supporter'
+    && onboardingStage === 'tour'
+    && state === 'ready'
+    && Boolean(guide)
+    && tabBarHeight > 0;
+  const compactHeaderBottom = insets.top + RACEBOOK_HERO_COMPACT_BODY_HEIGHT;
+  const tourViewportHeightRef = useRef(0);
+
+  const resolveTourScrollOffset = useCallback((step: SupporterTourStepSpec) => {
+    if (step.scroll === 'top') return 0;
+    return resolveRacebookTourScrollOffset({
+      anchorY: contentAnchorRef.current,
+      collapseDistance: Math.max(0, resolvedHeroBodyHeight - RACEBOOK_HERO_COMPACT_BODY_HEIGHT),
+      compactHeaderBottom,
+      maxOffset: scrollContentHeightRef.current - scrollViewHeightRef.current,
+    });
+  }, [compactHeaderBottom, resolvedHeroBodyHeight]);
+
+  const prepareTourStep = useCallback((step: SupporterTourStepSpec) => {
+    if (step.section) setActiveSection(step.section);
+  }, []);
+
+  const alignTourStep = useCallback((step: SupporterTourStepSpec) => {
+    const offset = resolveTourScrollOffset(step);
+    scrollRef.current?.scrollTo({ y: offset, animated: false });
+    scrollY.setValue(offset);
+  }, [resolveTourScrollOffset, scrollY]);
+
+  const fitTourTarget = useCallback((step: SupporterTourStepSpec, rect: SpotlightRect) => (
+    fitRacebookTourHighlight(
+      rect,
+      step.scroll === 'top'
+        ? { top: 0, bottom: tourViewportHeightRef.current }
+        : { top: compactHeaderBottom, bottom: tourViewportHeightRef.current - tabBarHeight },
+      SUPPORTER_TOUR_MIN_CARD_SPACE,
+    )
+  ), [compactHeaderBottom, tabBarHeight]);
+
+  const tour = useRacebookOnboardingTour<SupporterTourStepSpec>({
+    active: tourActive,
+    steps: tourSteps,
+    prepareStep: prepareTourStep,
+    alignStep: alignTourStep,
+    fitTarget: fitTourTarget,
+  });
+  tourViewportHeightRef.current = tour.viewport.height || viewportHeight;
+
+  const tourCopy = t.onboarding.supporterTour;
+  const tutorialSteps = useMemo<TutorialStep<SupporterTourStepKey>[]>(() => tourSteps.map((step) => {
+    const stepCopy: Record<SupporterTourStepKey, { title: string; body: string }> = {
+      tabBar: { title: tourCopy.tabBarTitle, body: tourCopy.tabBarBody },
+      programme: { title: tourCopy.programmeTitle, body: tourCopy.programmeBody },
+      follow: { title: tourCopy.followTitle, body: tourCopy.followBody },
+      onsite: { title: tourCopy.onsiteTitle, body: tourCopy.onsiteBody },
+      stay: { title: tourCopy.stayTitle, body: tourCopy.stayBody },
+      practical: { title: tourCopy.practicalTitle, body: tourCopy.practicalBody },
+      emergency: { title: tourCopy.emergencyTitle, body: tourCopy.emergencyBody },
+      wrapUp: { title: tourCopy.wrapUpTitle, body: tourCopy.wrapUpBody },
+    };
+    return {
+      screenKey: 'supporter-guide',
+      targetKey: step.key,
+      ...stepCopy[step.key],
+      centered: step.target === null,
+      highlightPadding: step.target === 'tabBar' ? 4 : 8,
+    };
+  }), [tourCopy, tourSteps]);
+
+  const finishSupporterOnboarding = useCallback(async (completed: boolean) => {
+    if (onboardingBusy) return;
+    setOnboardingBusy(true);
+    try {
+      if (completed) await completeOnboarding('supporter');
+      else await skipOnboardingKind('supporter', 'supporter');
+    } catch (caught) {
+      console.error('Unable to finish Livret supporter onboarding:', caught);
+    }
+    setOnboardingBusy(false);
+    // Stay on this guide: only leave the guided mode.
+    setOnboardingStage('done');
+    router.setParams({ onboarding: undefined });
+  }, [onboardingBusy, router]);
+
+  const handleTourNext = useCallback(() => {
+    if (tour.isLastStep) {
+      void finishSupporterOnboarding(true);
+      return;
+    }
+    tour.goNext();
+  }, [finishSupporterOnboarding, tour]);
+
   if (state !== 'ready' || !guide) {
     return (
       <View style={[styles.screen, styles.stateScreen, { paddingTop: insets.top + 24 }]}>
@@ -322,6 +444,15 @@ export default function SupporterGuideScreen() {
         ) : null}
         {state === 'error' ? (
           <ErrorState title={copy.loadingErrorTitle} description={copy.loadingErrorBody} retryLabel={t.common.retry} onRetry={() => { void load('initial'); }} />
+        ) : null}
+        {onboarding === 'supporter' && onboardingStage === 'tour' && state === 'unavailable' ? (
+          <OnboardingGuideCard
+            title={t.onboarding.tours.unavailableTitle}
+            body={t.onboarding.tours.unavailableBody}
+            skipLabel={t.onboarding.tours.skip}
+            onSkip={() => void finishSupporterOnboarding(false)}
+            busy={onboardingBusy}
+          />
         ) : null}
       </View>
     );
@@ -384,7 +515,7 @@ export default function SupporterGuideScreen() {
   );
 
   return (
-    <View style={styles.screen}>
+    <View ref={tour.rootRef} collapsable={false} onLayout={tour.handleRootLayout} style={styles.screen}>
       <RacebookCollapsibleHero
         scrollY={scrollY}
         topInset={insets.top}
@@ -440,6 +571,7 @@ export default function SupporterGuideScreen() {
           accessibilityLabel: t.catalog.racebookCallEmergency,
         } : null}
         onBack={exit}
+        emergencyTargetRef={tour.registerTarget('emergency')}
         onCallEmergency={emergencyUrl ? () => openUrl(emergencyUrl) : undefined}
         onOpenSocial={(url) => openUrl(url)}
         onExpandedBodyHeightChange={(height) => {
@@ -458,6 +590,8 @@ export default function SupporterGuideScreen() {
           },
         ]}
         onScroll={handleScroll}
+        onContentSizeChange={(_width, height) => { scrollContentHeightRef.current = height; }}
+        onLayout={(event) => { scrollViewHeightRef.current = event.nativeEvent.layout.height; }}
         scrollEventThrottle={16}
         alwaysBounceVertical
         refreshControl={(
@@ -484,6 +618,12 @@ export default function SupporterGuideScreen() {
           </TopoCard>
         ) : null}
 
+        <View
+          ref={tour.registerTarget('tabContent')}
+          collapsable={false}
+          onLayout={(event) => { contentAnchorRef.current = event.nativeEvent.layout.y; }}
+          style={styles.tourContent}
+        >
         {guide.formats.length > 1 && activeSection === 'programme' ? (
           <View style={styles.followedRow}>
             <Text style={styles.followedLabel}>{copy.iAmFollowing}</Text>
@@ -639,8 +779,35 @@ export default function SupporterGuideScreen() {
             )}
           </>
         ) : null}
+        </View>
       </Animated.ScrollView>
-      <RacebookTabBar tabs={tabs} activeTab={activeSection} onPress={selectSection} />
+      <View
+        ref={tour.registerTarget('tabBar')}
+        collapsable={false}
+        onLayout={(event) => {
+          const height = Math.round(event.nativeEvent.layout.height);
+          setTabBarHeight((current) => (current === height ? current : height));
+        }}
+      >
+        <RacebookTabBar tabs={tabs} activeTab={activeSection} onPress={selectSection} />
+      </View>
+      <SpotlightTutorial
+        activeStepIndex={tour.stepIndex}
+        closeLabel={tourCopy.skip}
+        dismissOnBackdropPress={false}
+        doneLabel={t.helpTutorial.done}
+        loadingLabel={t.helpTutorial.loadingTarget}
+        nextLabel={t.helpTutorial.next}
+        onClose={() => void finishSupporterOnboarding(false)}
+        onNext={handleTourNext}
+        onPrevious={tour.goPrevious}
+        previousLabel={t.helpTutorial.previous}
+        steps={tutorialSteps}
+        targetRect={tour.targetRect}
+        viewportHeight={tour.viewport.height}
+        viewportWidth={tour.viewport.width}
+        visible={tourActive}
+      />
     </View>
   );
 }
@@ -852,6 +1019,8 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
   stateScreen: { paddingHorizontal: 16, gap: 16 },
   container: { padding: 16, paddingBottom: 32, gap: 14, backgroundColor: Colors.background },
+  // Wraps every section so the onboarding tour can highlight it; keeps the container rhythm.
+  tourContent: { gap: 14 },
   tabsWrap: { alignSelf: 'stretch' },
   // A horizontal ScrollView grows by default; keep the trail at its own height on short sections.
   tabsScroller: { flexGrow: 0 },

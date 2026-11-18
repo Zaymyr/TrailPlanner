@@ -2,6 +2,7 @@
 title: Mobile UX Audit
 scope: workflow
 last_verified: 2026-11-18
+# Supporter onboarding (2026-11-18): Profil → Réglages → Parcours guidés lists Livret coureur, Livret supporter, Plan de course; the dots point to the Livret tours until one is completed.
 # Profile attention trail (2026-11-18): Profil dot → Réglages dot → unfinished Parcours guidés row; unread messages → Notifications dot; app icon badge = unread inbox count.
 # Livret supporter note (2026-11-16): the public name of the supporter_guide surface is now "Livret supporter" (formerly "Livret accompagnateur"); aid-station access wording ("Accompagnateurs autorisés") is unchanged; no data, contract or offer change.
 ai_priority: high

@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { StyleSheet, View } from 'react-native';
 
 import { Colors } from '../../constants/colors';
-import type { OnboardingKind, OnboardingStatuses, OnboardingStatus } from '../../lib/onboardingStatus';
+import { hasPendingOnboarding, type OnboardingKind, type OnboardingStatuses, type OnboardingStatus } from '../../lib/onboardingStatusCore';
 import type { MobileTranslations } from '../../locales/types';
 import { ActionButton } from '../themed/ActionButton';
 import { Card } from '../themed/Card';
@@ -31,10 +31,13 @@ function actionLabel(status: OnboardingStatus, copy: Props['copy']) {
 }
 
 export function ProfileOnboardingSection({ copy, statuses, onLaunch }: Props) {
-  const rows: Array<{ kind: OnboardingKind; title: string; icon: 'map-outline' | 'book-outline' }> = [
-    { kind: 'plan', title: copy.planTitle, icon: 'map-outline' },
+  const rows: { kind: OnboardingKind; title: string; icon: 'map-outline' | 'book-outline' | 'people-outline' }[] = [
     { kind: 'racebook', title: copy.racebookTitle, icon: 'book-outline' },
+    { kind: 'supporter', title: copy.supporterTitle, icon: 'people-outline' },
+    { kind: 'plan', title: copy.planTitle, icon: 'map-outline' },
   ];
+  // Same rule as the Profil and Réglages dots: until one Livret tour is finished, both Livret rows point to it.
+  const livretTourPending = hasPendingOnboarding(statuses);
 
   return (
     <Card style={styles.section} variationKey="profile-onboarding">
@@ -51,7 +54,7 @@ export function ProfileOnboardingSection({ copy, statuses, onLaunch }: Props) {
               <View style={styles.rowTitleLine}>
                 <Text style={styles.rowTitle}>{row.title}</Text>
                 {/* Ends the Profil → Réglages dot trail on the tour that still needs doing. */}
-                {status !== 'completed' ? (
+                {livretTourPending && row.kind !== 'plan' && status !== 'completed' ? (
                   <View accessibilityLabel={copy.profileDotLabel} accessible style={styles.attentionDot} />
                 ) : null}
               </View>
