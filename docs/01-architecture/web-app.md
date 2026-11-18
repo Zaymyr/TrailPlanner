@@ -2,6 +2,7 @@
 title: Web App Architecture
 scope: architecture
 last_verified: 2026-11-18
+# Inbox push badge (2026-11-18): `sendAdminUserNotificationPush` counts the runner's unread, non-deleted `user_notifications` (service role, after the row is inserted) and sends it as the Expo `badge`; a failed count only drops the badge. Other pushes (race reminders, race event updates) send no badge, unchanged.
 # Livret supporter private preview (2026-11-18): SupporterGuideView retries with the stored session token for organizer preview of a private edition.
 # Crew follow UX (2026-11-17): passed checkpoints collapse, confirmed passages can be corrected or undone, the crew handover is a device-local checklist, aid-station directions match supporter points by place name within 2 km, and phones without the app get an app-first gate on the public page; no column, RLS or crew_state shape change.
 # Organizer hero note (2026-11-16): /organisateurs now presents the Livret coureur and the Livret supporter side by side (hero cards, illustrative supporter preview, metadata title); presentation only, no data, analytics event or offer change.

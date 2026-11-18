@@ -3,6 +3,7 @@ title: Add New Mobile Screen
 scope: workflow
 last_verified: 2026-11-18
 # Welcome onboarding cleanup (2026-11-18): onboarding steps render full page in OnboardingShell (no floating card, no pastel top glow); unused intro copy keys (officialBadge, planCta, tours.planChoice*/planOptionalLabel) removed from fr/en/types.
+# Profile attention trail (2026-11-18): a tab-bar attention dot must be repeated on the Profile sub-tab and the row that resolves it; the app icon badge counts unread inbox messages only (`lib/appIconBadge.ts`); `profileDotLabel` reads « Parcours guidé à terminer ».
 # Livret supporter private preview (2026-11-18): the catalog Livret supporter entry admits active organizers of a private event (preview only); runner badge, data and contracts unchanged.
 # Crew follow UX (2026-11-17): passed checkpoints collapse, confirmed passages can be corrected or undone, the crew handover is a device-local checklist, aid-station directions match supporter points by place name within 2 km, and phones without the app get an app-first gate on the public page; no column, RLS or crew_state shape change.
 # Livret supporter note (2026-11-16): the public name of the supporter_guide surface is now "Livret supporter" (formerly "Livret accompagnateur"); aid-station access wording ("Accompagnateurs autorisés") is unchanged; no data, contract or offer change.

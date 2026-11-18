@@ -48,7 +48,13 @@ export function ProfileOnboardingSection({ copy, statuses, onLaunch }: Props) {
               <Ionicons name={row.icon} size={20} color={Colors.brandPrimary} />
             </View>
             <View style={styles.rowCopy}>
-              <Text style={styles.rowTitle}>{row.title}</Text>
+              <View style={styles.rowTitleLine}>
+                <Text style={styles.rowTitle}>{row.title}</Text>
+                {/* Ends the Profil → Réglages dot trail on the tour that still needs doing. */}
+                {status !== 'completed' ? (
+                  <View accessibilityLabel={copy.profileDotLabel} accessible style={styles.attentionDot} />
+                ) : null}
+              </View>
               <Text style={[styles.status, status === 'completed' && styles.statusCompleted]}>
                 {statusLabel(status, copy)}
               </Text>
@@ -75,7 +81,9 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: Colors.border },
   iconWrap: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.brandSurface },
   rowCopy: { flex: 1, gap: 2 },
-  rowTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700' },
+  rowTitleLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  rowTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700', flexShrink: 1 },
+  attentionDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.danger },
   status: { color: Colors.warning, fontSize: 12, fontWeight: '700' },
   statusCompleted: { color: Colors.success },
 });

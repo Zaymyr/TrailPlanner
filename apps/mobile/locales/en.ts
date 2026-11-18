@@ -873,7 +873,7 @@ export const en: MobileTranslations = {
       statusPending: 'To discover', statusInProgress: 'In progress',
       statusSkipped: 'Skipped', statusCompleted: 'Completed',
       actionStart: 'Start', actionResume: 'Resume', actionReview: 'Review',
-      profileDotLabel: 'Onboarding to complete',
+      profileDotLabel: 'Guided tour to complete',
     },
   },
   catalog: {
