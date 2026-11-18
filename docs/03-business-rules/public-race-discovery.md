@@ -2,6 +2,7 @@
 title: Public Race Discovery
 scope: business-rule
 last_verified: 2026-11-18
+# Business card QR (2026-11-18): ?src=carte on the guide page redirects to /carte-visite (app on Android, Google Play / App Store listing otherwise).
 # Livret supporter private preview (2026-11-18): the client guide page retries with the stored session token so an active organizer previews a private edition; public behavior unchanged.
 # Shared-plan app gate (2026-11-17): app-store.ts gains detectMobileAppPlatform for the public crew page; course-page app bridge behavior is unchanged.
 # Structured access phase (2026-11-15): public race pages summarize parking and shuttle collections without exposing each logistics record; historical text remains the fallback.
@@ -106,7 +107,7 @@ Course page layout (2026-11-16): app-style hero (veiled photo carrying event/nam
 
 The web Supporter Guide programme is grouped by calendar day from the server `timeline`, with localized dates/distances and cutoffs labelled with their weekday when they fall after the race day.
 
-`/courses/supporter-guide/[raceId]` is the public, mobile-first Livret supporter route. It is intentionally `noindex`, uses the same publication cache tags as RaceBook output, and returns unavailable when no visible format has a current immutable publication. Its UUID selects the edition; the payload may include every public, preview-visible published format in that edition. An active organizer of the event also opens it for a private edition: the client retries with the stored session token and shows the organizer preview banner; anonymous visitors still get unavailable. A visit tagged `?src=plaquette` (the printed organizer brochure QR code, see `apps/web/lib/demo-app-link.ts`) is redirected to `/demo` before rendering, which opens the app on Android or the organizer landing page otherwise; any other `src` value renders the guide normally.
+`/courses/supporter-guide/[raceId]` is the public, mobile-first Livret supporter route. It is intentionally `noindex`, uses the same publication cache tags as RaceBook output, and returns unavailable when no visible format has a current immutable publication. Its UUID selects the edition; the payload may include every public, preview-visible published format in that edition. An active organizer of the event also opens it for a private edition: the client retries with the stored session token and shows the organizer preview banner; anonymous visitors still get unavailable. A visit tagged `?src=plaquette` (the printed organizer brochure QR code, see `apps/web/lib/demo-app-link.ts`) is redirected to `/demo` before rendering, which opens the app on Android or the organizer landing page otherwise. A visit tagged `?src=carte` (the printed business card QR code) is redirected to `/carte-visite`, which opens the app on Android or sends the visitor to the Google Play / App Store listing (`/links` on desktop). Any other `src` value renders the guide normally.
 
 The public course practical section may show `thirdPartyPickupConditions` only when the bib-pickup module is public and third-party pickup is allowed. This additive copy does not participate in catalog eligibility, search, canonical identity, slug resolution, ISR visibility, or structured-data selection.
 
