@@ -2,6 +2,7 @@
 title: Analytics
 scope: integration
 last_verified: 2026-11-18
+# Livret supporter private preview (2026-11-18): the catalog Livret supporter entry admits active organizers of a private event (preview only); runner badge, data and contracts unchanged.
 # Crew follow UX (2026-11-17): passed checkpoints collapse, confirmed passages can be corrected or undone, the crew handover is a device-local checklist, aid-station directions match supporter points by place name within 2 km, and phones without the app get an app-first gate on the public page; no column, RLS or crew_state shape change.
 # Assisted legacy conversion (2026-11-15): server logs contain identifiers and block type, never source text; analytics contracts are unchanged.
 # Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.

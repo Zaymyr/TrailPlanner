@@ -2,6 +2,7 @@
 title: Mobile offline access (RaceBook, Supporter Guide, plans)
 scope: business-rule
 last_verified: 2026-11-18
+# Livret supporter private preview (2026-11-18): the 404 that deletes the Supporter Guide copy is evaluated after the authenticated organizer retry.
 ai_priority: high
 related_files:
   - apps/mobile/lib/offlineCache.ts
@@ -55,7 +56,7 @@ A plan copy stores the raw `race_plans` row, the best elevation profile and only
 
 ## Rules
 
-1. **Only published content is copied.** The RaceBook copy is the screen snapshot of an API-published RaceBook (`publicationId`), never source tables, so the "no draft fallback" rule of `fetchRaceRacebookData` still holds. When the API answers that the RaceBook (404 → `reachable: true`, `data: null`) or the Supporter Guide (404) is no longer published, the copy is deleted.
+1. **Only published content is copied.** The RaceBook copy is the screen snapshot of an API-published RaceBook (`publicationId`), never source tables, so the "no draft fallback" rule of `fetchRaceRacebookData` still holds. When the API answers that the RaceBook (404 → `reachable: true`, `data: null`) or the Supporter Guide (404, after the authenticated organizer retry) is no longer published, the copy is deleted. An organizer preview of a private Supporter Guide is still a published snapshot, so it may be copied on that organizer's device like any other guide load.
 2. **Access ends the copy.** A followed plan answered with an HTTP status below 500 (unfollowed, revoked share, 410) deletes its copy.
 3. **Copies belong to the account.** Plan and followed-plan copies are keyed by user id; every copy is deleted on `SIGNED_OUT` (`clearOfflineCache` in `apps/mobile/app/_layout.tsx`).
 4. **A copy never refreshes its own timestamp.** Only a network load (or a successful save / crew-state update) rewrites a copy; showing a copy, or the in-memory warm snapshot of the RaceBook screen, does not.

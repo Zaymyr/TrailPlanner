@@ -2,6 +2,7 @@
 title: Add New Table
 scope: workflow
 last_verified: 2026-11-16
+# Livret supporter private preview (2026-11-18): the catalog Livret supporter entry admits active organizers of a private event (preview only); runner badge, data and contracts unchanged.
 ai_priority: high
 related_files:
   - supabase/migrations/20261116150000_add_organizer_demo_requests.sql
