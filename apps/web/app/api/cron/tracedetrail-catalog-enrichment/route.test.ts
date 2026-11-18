@@ -9,6 +9,10 @@ const scheduledFormats = [
   { raceId: "9d4fb6cc-e6c9-4c43-b821-e78b5d5ba4ad", format: "Trace des Maquisards — 30 km" },
   { raceId: "eb91d0cd-493b-412e-94a9-499a7872697e", format: "Trace des Maquisards — 18 km" },
   { raceId: "dddc05d4-3ef9-4b53-952f-9ea6b791ce76", format: "Trace des Maquisards — 7 km" },
+  { raceId: "76a813fc-f88d-4063-b880-7af0a2f50235", format: "Trail de la Galinette — Les Drailles de la Galinette 50 km" },
+  { raceId: "eb20d1e4-c647-452e-80f9-8e5d883b7949", format: "Trail de la Galinette — La Brèche du Mont Julien 30 km" },
+  { raceId: "937dda92-73dc-4758-80aa-2124ad9f9e5a", format: "Trail de la Galinette — La Dualinette 24 km" },
+  { raceId: "7121c370-004a-4368-a6af-aabdb1f47ade", format: "Trail de la Galinette — La Petite Galinette 12 km" },
 ] as const;
 
 describe("Trace de Trail catalog enrichment cron", () => {
@@ -31,7 +35,7 @@ describe("Trace de Trail catalog enrichment cron", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("calls the authenticated internal service for the six reviewed 2027 formats", async () => {
+  it("calls the authenticated internal service for every reviewed 2027 format", async () => {
     vi.stubEnv("CRON_SECRET", "cron-secret");
     vi.stubEnv("TRACEDETRAIL_ENRICHMENT_SECRET", "enrichment-secret");
     const fetchMock = vi.fn().mockResolvedValue(
