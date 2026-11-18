@@ -20,6 +20,7 @@ related_files:
   - apps/mobile/lib/racebookCourseTabs.test.ts
   - apps/mobile/lib/supporterGuide.ts
   - apps/mobile/lib/followedPlanTimeline.ts
+  - apps/mobile/plugins/withOptionalScreenFeatures.js
   - apps/mobile/lib/followedPlanTimeline.test.ts
   - apps/mobile/components/plan-workspace/LockedPlanContent.tsx
   - apps/mobile/components/race-workspace/RaceWorkspaceSwitch.tsx
@@ -401,6 +402,8 @@ The app config in `apps/mobile/app.config.ts` declares:
 - update URL `https://u.expo.dev/c713a8a0-cd94-4f6e-9468-063c9c20da6c`.
 
 Expo SDK 54 and React Native 0.81 compile against and target Android 16 / API 36. The project relies on those SDK defaults for the API levels. Its `expo-build-properties` configuration enables R8 code minification and resource shrinking for Android release variants only. Development/debug builds remain unobfuscated. Each released AAB therefore carries its own R8 `mapping.txt`; preserve the mapping associated with that exact build when investigating obfuscated native stack traces.
+
+The app-wide `orientation: 'portrait'` lock makes Android imply a required `android.hardware.screen.portrait` feature, which Google Play reports as limiting availability on tablets, desktop and Android XR. The local config plugin `apps/mobile/plugins/withOptionalScreenFeatures.js` (registered in `app.config.ts`) adds a `uses-feature` entry with `android:required="false"`; the activity stays portrait-locked. Because it changes the manifest, it only takes effect in a new Android binary, not through OTA.
 
 `apps/mobile/package.json` excludes `@react-native-google-signin/google-signin` from Expo iOS autolinking, `apps/mobile/react-native.config.js` disables the package for iOS in the React Native community autolinking layer, and `apps/mobile/app.config.ts` does not register the package's Expo config plugin. Native Google Sign-In is Android-only in `apps/mobile/hooks/useGoogleAuth.ts`, while iOS uses the browser OAuth path; keeping the package out of the iOS native build avoids both the Swift `AppCheckCore` CocoaPods conflict on EAS and Fabric startup crashes from partially registered Google Sign-In native components.
 
