@@ -1,7 +1,7 @@
 ---
 title: Architecture Overview
 scope: architecture
-last_verified: 2026-11-13
+last_verified: 2026-11-18
 ai_priority: high
 related_files:
   - package.json
@@ -10,6 +10,7 @@ related_files:
   - apps/mobile/package.json
   - apps/web/next.config.mjs
   - apps/mobile/app.config.ts
+  - apps/mobile/plugins/withOptionalScreenFeatures.js
   - apps/mobile/eas.json
   - vercel.json
 related_tables: []
@@ -82,6 +83,7 @@ The mobile app is an Expo Router app:
 - Native analytics dependency: `posthog-react-native ^4.45.0`
 - Native date dependency: `@react-native-community/datetimepicker 8.4.4`; date UI requires a rebuilt EAS binary and cannot be added to an existing runtime by OTA alone.
 - Google native sign-in stays Android-only; iOS uses browser OAuth and does not register the Google Sign-In Expo config plugin.
+- The portrait orientation lock stays app-wide, but the local `withOptionalScreenFeatures` config plugin declares `android.hardware.screen.portrait` as `required="false"` so Google Play does not exclude tablets, desktop and XR devices; manifest changes need a new Android binary.
 
 ## Monorepo Structure
 

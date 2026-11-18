@@ -102,3 +102,65 @@ export function buildPlanShareTimeline(
     getCheckpointAbsolute,
   };
 }
+
+/**
+ * Elapsed minute for a crew-corrected passage clock ("HH:mm"), resolved to the
+ * day closest to the planned passage so overnight races stay coherent.
+ */
+export function resolvePlanSharePassageCorrection(
+  clock: string,
+  startTime: string,
+  checkpoint: Pick<PlanShareTrackingCheckpoint, 'arrivalMinute'>,
+) {
+  const startMinutes = parsePlanShareClock(startTime);
+  const clockMinutes = parsePlanShareClock(clock);
+  if (startMinutes === null || clockMinutes === null) return null;
+  const absolute = resolvePlanShareClockNearPlanned(clockMinutes, startMinutes + checkpoint.arrivalMinute);
+  return Math.max(0, Math.round(absolute - startMinutes));
+}
+
+/** A checkpoint is behind the runner once it, or a later checkpoint, has a confirmed passage. */
+export function isPlanShareCheckpointPassed(
+  checkpoint: Pick<PlanShareTrackingCheckpoint, 'index'>,
+  timeline: Pick<ReturnType<typeof buildPlanShareTimeline>, 'anchorCheckpoint' | 'anchorPassage' | 'passagesByIndex'>,
+) {
+  if (timeline.passagesByIndex.has(checkpoint.index)) return true;
+  return Boolean(timeline.anchorPassage && timeline.anchorCheckpoint && checkpoint.index < timeline.anchorCheckpoint.index);
+}
+
+/** "HH:mm" wall clock of an absolute minute (day offset dropped), for prefilling a correction. */
+export function formatPlanShareClockInput(absoluteMinutes: number) {
+  const minute = ((Math.round(absoluteMinutes) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
+}
+
+export type PlanShareHandoverItem = {
+  key: string;
+  kind: 'product' | 'water';
+  name: string;
+  quantity: number | null;
+  liters: number | null;
+};
+
+/** Checklist of what the crew hands over at one assistance checkpoint. */
+export function buildPlanShareCheckpointHandover(
+  checkpoint: Pick<PlanShareTrackingCheckpoint, 'index' | 'waterState'> & {
+    supplies?: ReadonlyArray<{ productId: string; name: string; quantity: number }>;
+  },
+  waterBagLiters: number,
+): PlanShareHandoverItem[] {
+  const products: PlanShareHandoverItem[] = (checkpoint.supplies ?? [])
+    .filter((product) => product.quantity > 0)
+    .map((product) => ({
+      key: `${checkpoint.index}:${product.productId}`,
+      kind: 'product',
+      name: product.name,
+      quantity: product.quantity,
+      liters: null,
+    }));
+  if (checkpoint.waterState !== 'refill') return products;
+  return [
+    ...products,
+    { key: `${checkpoint.index}:water`, kind: 'water', name: 'water', quantity: null, liters: waterBagLiters > 0 ? waterBagLiters : null },
+  ];
+}

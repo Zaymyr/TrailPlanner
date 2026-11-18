@@ -2,6 +2,7 @@
 title: Add New Mobile Screen
 scope: workflow
 last_verified: 2026-11-18
+# Crew follow UX (2026-11-17): passed checkpoints collapse, confirmed passages can be corrected or undone, the crew handover is a device-local checklist, aid-station directions match supporter points by place name within 2 km, and phones without the app get an app-first gate on the public page; no column, RLS or crew_state shape change.
 # Livret supporter note (2026-11-16): the public name of the supporter_guide surface is now "Livret supporter" (formerly "Livret accompagnateur"); aid-station access wording ("Accompagnateurs autorisés") is unchanged; no data, contract or offer change.
 # Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
 # Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
@@ -346,5 +347,7 @@ Catalog scroll performance (2026-11-09): the Courses list renders memoized `Cata
 ## Followed-plan field assistance
 
 The authenticated followed-plan detail consumes only the narrow server `raceContext`: published supporter points, unambiguous ravito matches, access, bib-pickup permission and emergency contact. Keep directions and preparation analytics bounded, persist preparation checks under a follow-specific device key, and show freshness only when server `plan_updated_at` is newer than the stored last view. Completed follows are grouped separately and remain restorable; no push notification or shared checklist belongs to this flow.
+
+Checkpoint cards in that detail collapse once passed (confirmed, or before the last confirmation) and reopen on tap. A confirmed card offers "Corriger l'heure" (inline `HH:mm`) and "Annuler ce passage" instead of re-confirming. The "À donner" list is a checkbox list (Ionicons `checkbox`/`square-outline`, 44 pt rows) persisted under `paceyourself.followed-plan-handover:<follow id>`; the preparation list reuses the same row style. New copy lives under `planFollow` in the locale files.
 
 - Catalog past/upcoming decisions must use `getCatalogEventEndDate` (latest of event and format `race_date`), never `race_events.race_date` alone, so multi-day events are not hidden while ongoing.

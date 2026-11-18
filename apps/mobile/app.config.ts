@@ -103,6 +103,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         },
       ],
       '@react-native-community/datetimepicker',
+      './plugins/withOptionalScreenFeatures',
       [
         'expo-notifications',
         {

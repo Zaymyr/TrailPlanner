@@ -1,7 +1,8 @@
 ---
 title: racebook_publications
 scope: database
-last_verified: 2026-11-15
+last_verified: 2026-11-17
+# Crew follow UX (2026-11-17): passed checkpoints collapse, confirmed passages can be corrected or undone, the crew handover is a device-local checklist, aid-station directions match supporter points by place name within 2 km, and phones without the app get an app-first gate on the public page; no column, RLS or crew_state shape change.
 ai_priority: high
 # Demo race refresh (2026-11-18): the daily /api/cron/demo-race-refresh job moves Trail TST to today's Paris date and republishes its formats through publishRacebookSnapshot with a null actor (published_by null = automated), after the same blocking checks as organizer publication; visibility is unchanged.
 related_files:
@@ -83,6 +84,8 @@ RLS is enabled with no client policies. `service_role` can select, insert and de
 - Bulk publication preflights and locks every expected revision before inserting any snapshot.
 - Restore copies an old payload into a new version and never overwrites draft source tables.
 - Only the ten newest versions per race are retained.
+- Followed-plan checkpoint contexts match published supporter points to stations by place name within 2 km before the 150 m distance fallback; both still come only from the immutable publication.
+
 - `loadPublishedRacebookData` is the shared effective-module normalizer for the public RaceBook endpoint and authenticated followed-plan context. The latter first requires current public race/event visibility and never falls back to source tables when no publication exists.
 
 ## Common Queries

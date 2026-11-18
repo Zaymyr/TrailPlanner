@@ -2,6 +2,7 @@ import { resolveFollowedPlanCompletionAt } from "@trailplanner/shared";
 
 import { loadPublishedRacebookData } from "./racebook-public-data";
 import type { PlanShareSnapshot } from "./plan-share";
+import { normalizePlaceName } from "./supporter-guide";
 import { planShareServiceHeaders } from "./plan-share-follow-service";
 import type { SupabaseServiceConfig } from "./supabase";
 
@@ -83,6 +84,34 @@ export function matchPlanCheckpointToPublishedStation<T extends { id: string; km
   return candidates.length === 1 ? candidates[0] : null;
 }
 
+/** Same window as the Livret supporter place merge (`buildSupporterStops`). */
+const PLACE_MATCH_KM = 2;
+
+/**
+ * Supporter access point giving crew directions to one aid station: a point
+ * sharing the station's place name within 2 km (as the Livret supporter merges
+ * them) wins, otherwise the single point within the 150 m tolerance. Points
+ * allowing assistance are preferred over cheer-only points at the same place.
+ */
+export function matchStationSupporterPoint<T extends { name: string; km: number; assistanceAllowed: boolean }>(
+  station: { name: string; km: number },
+  points: T[],
+) {
+  const preferAssistance = (candidates: T[]) => {
+    const assistance = candidates.filter((point) => point.assistanceAllowed);
+    return assistance.length > 0 ? assistance : candidates;
+  };
+  const key = normalizePlaceName(station.name);
+  const byName = key
+    ? points.filter((point) => normalizePlaceName(point.name) === key && Math.abs(point.km - station.km) <= PLACE_MATCH_KM)
+    : [];
+  if (byName.length > 0) {
+    return preferAssistance(byName).sort((left, right) => Math.abs(left.km - station.km) - Math.abs(right.km - station.km))[0]!;
+  }
+  const nearby = preferAssistance(points.filter((point) => Math.abs(point.km - station.km) <= KM_MATCH_TOLERANCE));
+  return nearby.length === 1 ? nearby[0]! : null;
+}
+
 function normalizeStation(row: Record<string, any>) {
   const details = record(row.organizer_details);
   const supportersAccess = ["allowed", "restricted", "forbidden"].includes(details.supportersAccess)
@@ -148,14 +177,12 @@ export async function loadPlanShareRaceContext(
     };
   }).filter((point): point is NonNullable<typeof point> => point !== null) : [];
   const checkpointContexts = matchedCheckpointContexts.map((checkpoint) => {
-    const directions = supporterPoints.filter((point): point is NonNullable<typeof point> =>
-      Boolean(point) && point.assistanceAllowed && Math.abs(point.km - checkpoint.km) <= KM_MATCH_TOLERANCE,
-    );
-    const point = directions.length === 1 ? directions[0] : null;
+    const point = matchStationSupporterPoint(checkpoint, supporterPoints);
     return {
       ...checkpoint,
       accessLabel: point?.accessLabel ?? null,
       accessNote: point?.accessNote ?? null,
+      planUrl: point?.planUrl ?? null,
       googleMapsUrl: point?.googleMapsUrl ?? null,
       latitude: point?.latitude ?? null,
       longitude: point?.longitude ?? null,

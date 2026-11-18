@@ -1,17 +1,22 @@
 import { useCallback, useMemo, useState } from 'react';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
+  buildCheckpointHandover,
   buildPlanShareTimeline,
   buildFollowedPreparation,
   buildFollowedSupporterTimeline,
+  formatPlanShareClockInput,
+  isPlanShareCheckpointPassed,
   isPlanShareCrewCheckpoint,
   isPlanShareTrackableCheckpoint,
   normalizePlanSharePassages,
   parsePlanShareClock,
   resolvePlanShareClockNearPlanned,
+  resolvePlanSharePassageCorrection,
 } from '../../../../lib/followedPlanTimeline';
 
 import { Colors } from '../../../../constants/colors';
@@ -50,8 +55,12 @@ function waterInstruction(checkpoint: any, liters: number, locale: 'fr' | 'en') 
 
 const lastViewKey = (id: string) => `paceyourself.followed-plan-last-view:${id}`;
 const preparationKey = (id: string) => `paceyourself.followed-plan-preparation:${id}`;
+const handoverKey = (id: string) => `paceyourself.followed-plan-handover:${id}`;
 
-function directionsUrl(value: { googleMapsUrl?: string | null; latitude?: number | null; longitude?: number | null }) {
+type DirectionsTarget = { googleMapsUrl?: string | null; latitude?: number | null; longitude?: number | null };
+
+function directionsUrl(value: DirectionsTarget | null | undefined) {
+  if (!value) return null;
   if (value.googleMapsUrl) return value.googleMapsUrl;
   return value.latitude !== null && value.latitude !== undefined && value.longitude !== null && value.longitude !== undefined
     ? `https://www.google.com/maps/dir/?api=1&destination=${value.latitude},${value.longitude}`
@@ -75,6 +84,11 @@ export default function FollowedPlanScreen() {
   const [prepared, setPrepared] = useState<Set<string>>(new Set());
   // Save time of the device copy on screen while the network is unreachable.
   const [offlineSavedAt, setOfflineSavedAt] = useState<string | null>(null);
+  const [handedOver, setHandedOver] = useState<Set<string>>(new Set());
+  const [expandedOverrides, setExpandedOverrides] = useState<Record<number, boolean>>({});
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
 
   const load = useCallback(async (pull = false) => {
     if (!id) return;
@@ -86,15 +100,17 @@ export default function FollowedPlanScreen() {
       setFollow(next);
       setNickname(next.nickname ?? '');
       setDepartureTime(next.departureTime ?? '');
-      const [lastView, storedPreparation] = await Promise.all([
+      const [lastView, storedPreparation, storedHandover] = await Promise.all([
         AsyncStorage.getItem(lastViewKey(id)),
         AsyncStorage.getItem(preparationKey(id)),
+        AsyncStorage.getItem(handoverKey(id)),
       ]);
       const updated = Boolean(next.planUpdatedAt && lastView && Date.parse(next.planUpdatedAt) > Date.parse(lastView));
       setPlanUpdated(updated);
       if (updated) captureAnalyticsEvent('followed plan updated seen', { source: 'followed_plan' });
       if (next.planUpdatedAt) void AsyncStorage.setItem(lastViewKey(id), next.planUpdatedAt);
       try { setPrepared(new Set(JSON.parse(storedPreparation ?? '[]'))); } catch { setPrepared(new Set()); }
+      try { setHandedOver(new Set(JSON.parse(storedHandover ?? '[]'))); } catch { setHandedOver(new Set()); }
     } catch (cause) {
       const status = (cause as Error & { status?: number })?.status;
       setError(status === 410 ? t.planFollow.unavailable : t.planFollow.loadingError);
@@ -133,23 +149,40 @@ export default function FollowedPlanScreen() {
     void AsyncStorage.setItem(preparationKey(id), JSON.stringify([...next]));
   };
 
-  const openDirections = (target: { googleMapsUrl?: string | null; latitude?: number | null; longitude?: number | null }) => {
+  const toggleHandedOver = (key: string) => {
+    if (!id) return;
+    const next = new Set(handedOver);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    setHandedOver(next);
+    void AsyncStorage.setItem(handoverKey(id), JSON.stringify([...next]));
+    if (next.has(key)) captureAnalyticsEvent('followed plan handover checked', { source: 'followed_plan' });
+  };
+
+  const openDirections = (target: DirectionsTarget) => {
     const url = directionsUrl(target);
     if (!url) return;
     captureAnalyticsEvent('followed plan directions opened', { source: 'followed_plan' });
     void Linking.openURL(url);
   };
 
+  const openAccessPlan = (url: string | null | undefined) => {
+    if (!url) return;
+    captureAnalyticsEvent('followed plan directions opened', { source: 'followed_plan' });
+    void Linking.openURL(url);
+  };
+
   const persist = async (nextPassages = passages) => {
-    if (!id || parsePlanShareClock(departureTime) === null) return;
+    if (!id || parsePlanShareClock(departureTime) === null) return false;
     setSaving(true);
     try {
       const updated = await updateFollowedPlanCrewState(id, departureTime, { passages: normalizePlanSharePassages(nextPassages, checkpoints) });
       setFollow((current) => current ? { ...current, crewState: updated.crewState, departureTime: updated.departureTime } : current);
       if (follow) void storeFollowedPlanOfflineCopy({ ...follow, crewState: updated.crewState, departureTime: updated.departureTime });
       setDepartureTime(updated.departureTime ?? '');
+      return true;
     } catch {
       Alert.alert(t.common.error, t.planFollow.loadingError);
+      return false;
     } finally {
       setSaving(false);
     }
@@ -167,8 +200,34 @@ export default function FollowedPlanScreen() {
       ...passages.filter((passage) => passage.checkpointIndex !== checkpoint.index),
       { checkpointIndex: checkpoint.index, actualMinute: Math.max(0, Math.round(actualAbsolute - startMinutes)), confirmedAt: now.toISOString() },
     ];
-    await persist(next);
-    captureAnalyticsEvent('plan crew passage confirmed in app', { source: 'followed_plan' });
+    if (await persist(next)) captureAnalyticsEvent('plan crew passage confirmed in app', { source: 'followed_plan' });
+  };
+
+  const startPassageCorrection = (checkpoint: any, absolute: number | null) => {
+    setEditingIndex(checkpoint.index);
+    setEditValue(absolute !== null ? formatPlanShareClockInput(absolute) : '');
+    setEditError(null);
+  };
+
+  const savePassageCorrection = async (checkpoint: any) => {
+    const actualMinute = resolvePlanSharePassageCorrection(editValue.trim(), departureTime, checkpoint);
+    if (actualMinute === null) {
+      setEditError(t.planFollow.invalidTime);
+      return;
+    }
+    const next = [
+      ...passages.filter((passage) => passage.checkpointIndex !== checkpoint.index),
+      { checkpointIndex: checkpoint.index, actualMinute, confirmedAt: new Date().toISOString() },
+    ];
+    if (!(await persist(next))) return;
+    setEditingIndex(null);
+    captureAnalyticsEvent('plan crew passage corrected in app', { source: 'followed_plan' });
+  };
+
+  const clearPassage = async (checkpoint: any) => {
+    if (!(await persist(passages.filter((passage) => passage.checkpointIndex !== checkpoint.index)))) return;
+    setExpandedOverrides((current) => ({ ...current, [checkpoint.index]: true }));
+    captureAnalyticsEvent('plan crew passage cleared in app', { source: 'followed_plan' });
   };
 
   const saveNickname = async () => {
@@ -200,11 +259,15 @@ export default function FollowedPlanScreen() {
   if (loading) return <Screen><LoadingState label={t.common.loading} /></Screen>;
   if (error || !follow?.snapshot) return <Screen><ErrorState title={error ?? t.planFollow.unavailable} retryLabel={t.common.retry} onRetry={() => void load()} /></Screen>;
 
+  const handoverProgress = (done: number, total: number) =>
+    t.planFollow.handoverProgress.replace('{done}', String(done)).replace('{total}', String(total));
+
   return (
     <Screen>
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />}
+        keyboardShouldPersistTaps="handled"
       >
         {offlineSavedAt ? (
           <TapeAlertBanner
@@ -250,12 +313,24 @@ export default function FollowedPlanScreen() {
             const muted = checkpoint.assistanceState === 'unavailable';
             const absolute = timeline.getCheckpointAbsolute(checkpoint);
             const confirmed = timeline.passagesByIndex.has(checkpoint.index);
+            const passed = isPlanShareCheckpointPassed(checkpoint, timeline);
+            const open = expandedOverrides[checkpoint.index] ?? !passed;
             const context = checkpointContext.get(checkpoint.index);
+            const finishLocation = checkpoint.isFinish ? follow.raceContext?.access?.finishLocation : null;
+            const directionsTarget = directionsUrl(context) ? context! : directionsUrl(finishLocation) ? finishLocation! : null;
+            const handover = crew ? buildCheckpointHandover(checkpoint, follow.snapshot.waterBagLiters ?? 0) : [];
+            const handedCount = handover.filter((item) => handedOver.has(item.key)).length;
             const previousDistance = checkpointOrder > 0 ? checkpoints[checkpointOrder - 1]?.distanceKm ?? -1 : -1;
             const supporterBefore = supporterTimeline.filter((point: any) => point.km > previousDistance && point.km <= checkpoint.distanceKm);
+            const isEditing = editingIndex === checkpoint.index;
+            const subtitle = [
+              `${checkpoint.distanceKm.toFixed(1)} km`,
+              confirmed && absolute !== null ? t.planFollow.passedAt.replace('{time}', formatClock(absolute)) : null,
+              !open && handover.length > 0 ? handoverProgress(handedCount, handover.length) : null,
+            ].filter(Boolean).join(' · ');
             return (
               <View key={`${checkpoint.index}-${checkpoint.name}`} style={styles.timelineGroup}>
-              {supporterBefore.map((point: any) => (
+              {open ? supporterBefore.map((point: any) => (
                 <Card key={`supporter-${point.id}`} surface="sandLight" style={styles.checkpoint}>
                   <View style={styles.row}>
                     <View style={styles.flex}>
@@ -264,37 +339,96 @@ export default function FollowedPlanScreen() {
                     </View>
                     {point.absoluteMinute !== null ? <Text tone="brand" weight="bold">{formatClock(point.absoluteMinute)}</Text> : null}
                   </View>
-                  <Button variant="secondary" onPress={() => openDirections(point)}>{locale === 'fr' ? 'Y aller' : 'Directions'}</Button>
+                  {point.accessNote ? <Text tone="secondary">{point.accessNote}</Text> : null}
+                  {directionsUrl(point) ? <Button variant="secondary" onPress={() => openDirections(point)}>{t.planFollow.directions}</Button> : null}
+                  {point.planUrl ? <Button variant="ghost" onPress={() => openAccessPlan(point.planUrl)}>{t.planFollow.accessPlan}</Button> : null}
                 </Card>
-              ))}
-              <Card surface={crew ? 'cream' : 'white'} style={[styles.checkpoint, muted && styles.muted]}>
-                <View style={styles.row}>
+              )) : null}
+              <Card surface={crew && !passed ? 'cream' : 'white'} style={[styles.checkpoint, (muted || passed) && styles.muted]}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: open }}
+                  accessibilityHint={open ? t.planFollow.hideDetails : t.planFollow.showDetails}
+                  onPress={() => setExpandedOverrides((current) => ({ ...current, [checkpoint.index]: !open }))}
+                  style={styles.row}
+                >
+                  {passed ? <Ionicons color={Colors.brandPrimary} name="checkmark-circle" size={22} /> : null}
                   <View style={styles.flex}>
                     <Text size="lg" weight="bold">{checkpoint.name}</Text>
-                    <Text tone="secondary">{checkpoint.distanceKm.toFixed(1)} km</Text>
+                    <Text tone="secondary">{subtitle}</Text>
                   </View>
-                  {absolute !== null ? <Text tone="brand" weight="bold">{formatClock(absolute)}</Text> : null}
-                </View>
-                {crew ? (
+                  {absolute !== null && !confirmed ? <Text tone="brand" weight="bold">{formatClock(absolute)}</Text> : null}
+                  <Ionicons color={Colors.textSecondary} name={open ? 'chevron-up' : 'chevron-down'} size={20} />
+                </Pressable>
+                {open ? (
                   <>
-                    {context?.supportersAccess ? <Text tone="brand" weight="bold">{{ allowed: locale === 'fr' ? 'Accompagnateurs autorisés' : 'Supporters allowed', restricted: locale === 'fr' ? 'Accès restreint' : 'Restricted access', forbidden: locale === 'fr' ? 'Accompagnateurs interdits' : 'Supporters forbidden' }[context.supportersAccess]}</Text> : null}
+                    {crew && context?.supportersAccess ? <Text tone="brand" weight="bold">{{ allowed: locale === 'fr' ? 'Accompagnateurs autorisés' : 'Supporters allowed', restricted: locale === 'fr' ? 'Accès restreint' : 'Restricted access', forbidden: locale === 'fr' ? 'Accompagnateurs interdits' : 'Supporters forbidden' }[context.supportersAccess]}</Text> : null}
                     {context?.accessLabel ? <Text tone="secondary">{context.accessLabel}</Text> : null}
                     {context?.accessNote ? <Text tone="secondary">{context.accessNote}</Text> : null}
-                    {context?.maxStopMinutes ? <Text tone="secondary">{locale === 'fr' ? `Arrêt max ${context.maxStopMinutes} min` : `Maximum stop ${context.maxStopMinutes} min`}</Text> : null}
-                    {context?.amenities.length ? <Text tone="secondary">{context.amenities.join(' · ')}</Text> : null}
-                    {context?.cutoffTime ? <Text style={styles.cutoff}>{locale === 'fr' ? 'Barrière' : 'Cutoff'} {context.cutoffTime}{context.cutoffDayOffset ? ` · J+${context.cutoffDayOffset}` : ''}</Text> : null}
-                    {context && directionsUrl(context) ? <Button variant="secondary" onPress={() => openDirections(context)}>{locale === 'fr' ? 'Y aller' : 'Directions'}</Button> : null}
-                    <Text tone="secondary">{t.planFollow.water}: {waterInstruction(checkpoint, follow.snapshot.waterBagLiters, locale)}</Text>
-                    <Text weight="semibold">{t.planFollow.give}</Text>
-                    {checkpoint.supplies?.length ? checkpoint.supplies.map((product: any) => (
-                      <Text key={product.productId} tone="secondary">{product.name} ×{product.quantity}</Text>
-                    )) : <Text tone="secondary">{t.planFollow.nothingToGive}</Text>}
+                    {crew && context?.maxStopMinutes ? <Text tone="secondary">{locale === 'fr' ? `Arrêt max ${context.maxStopMinutes} min` : `Maximum stop ${context.maxStopMinutes} min`}</Text> : null}
+                    {crew && context?.amenities.length ? <Text tone="secondary">{context.amenities.join(' · ')}</Text> : null}
+                    {crew && context?.cutoffTime ? <Text style={styles.cutoff}>{locale === 'fr' ? 'Barrière' : 'Cutoff'} {context.cutoffTime}{context.cutoffDayOffset ? ` · J+${context.cutoffDayOffset}` : ''}</Text> : null}
+                    {directionsTarget ? <Button variant="secondary" onPress={() => openDirections(directionsTarget)}>{t.planFollow.directions}</Button> : null}
+                    {context?.planUrl ? <Button variant="ghost" onPress={() => openAccessPlan(context.planUrl)}>{t.planFollow.accessPlan}</Button> : null}
+                    {crew ? (
+                      <>
+                        {checkpoint.waterState !== 'refill' ? <Text tone="secondary">{t.planFollow.water}: {waterInstruction(checkpoint, follow.snapshot.waterBagLiters, locale)}</Text> : null}
+                        <View style={styles.row}>
+                          <Text style={styles.flex} weight="semibold">{t.planFollow.give}</Text>
+                          {handover.length > 0 ? <Text tone="secondary" size="sm">{handoverProgress(handedCount, handover.length)}</Text> : null}
+                        </View>
+                        {handover.length ? handover.map((item) => {
+                          const checked = handedOver.has(item.key);
+                          const label = item.kind === 'water'
+                            ? item.liters ? t.planFollow.refillWater.replace('{liters}', String(item.liters)) : t.planFollow.refillWaterNoVolume
+                            : `${item.name} ×${item.quantity}`;
+                          return (
+                            <Pressable
+                              key={item.key}
+                              accessibilityLabel={label}
+                              accessibilityRole="checkbox"
+                              accessibilityState={{ checked }}
+                              onPress={() => toggleHandedOver(item.key)}
+                              style={styles.checkRow}
+                            >
+                              <Ionicons color={checked ? Colors.brandPrimary : Colors.textSecondary} name={checked ? 'checkbox' : 'square-outline'} size={22} />
+                              <Text style={[styles.flex, checked && styles.checkedLabel]}>{label}</Text>
+                            </Pressable>
+                          );
+                        }) : <Text tone="secondary">{t.planFollow.nothingToGive}</Text>}
+                      </>
+                    ) : null}
+                    {isPlanShareTrackableCheckpoint(checkpoint) && !checkpoint.isStart ? (
+                      isEditing ? (
+                        <View style={styles.editBlock}>
+                          <Text weight="semibold">{t.planFollow.passageTime}</Text>
+                          <TextInput
+                            accessibilityLabel={t.planFollow.passageTime}
+                            autoFocus
+                            keyboardType="numbers-and-punctuation"
+                            maxLength={5}
+                            value={editValue}
+                            onChangeText={(value) => { setEditValue(value); setEditError(null); }}
+                            placeholder="HH:mm"
+                            placeholderTextColor={Colors.textMuted}
+                            style={styles.input}
+                          />
+                          {editError ? <Text style={styles.cutoff}>{editError}</Text> : null}
+                          <Button isLoading={saving} onPress={() => void savePassageCorrection(checkpoint)}>{t.common.save}</Button>
+                          <Button variant="ghost" disabled={saving} onPress={() => setEditingIndex(null)}>{t.common.cancel}</Button>
+                        </View>
+                      ) : confirmed ? (
+                        <View style={styles.editBlock}>
+                          <Button variant="secondary" disabled={saving} onPress={() => startPassageCorrection(checkpoint, absolute)}>{t.planFollow.editPassage}</Button>
+                          <Button variant="ghost" disabled={saving} onPress={() => void clearPassage(checkpoint)}>{t.planFollow.clearPassage}</Button>
+                        </View>
+                      ) : (
+                        <Button disabled={saving} onPress={() => void confirmPassage(checkpoint)}>
+                          {t.planFollow.passed}
+                        </Button>
+                      )
+                    ) : null}
                   </>
-                ) : null}
-                {isPlanShareTrackableCheckpoint(checkpoint) && !checkpoint.isStart ? (
-                  <Button disabled={saving} variant={confirmed ? 'secondary' : 'primary'} onPress={() => void confirmPassage(checkpoint)}>
-                    {t.planFollow.passed}
-                  </Button>
                 ) : null}
               </Card>
               </View>
@@ -313,8 +447,10 @@ export default function FollowedPlanScreen() {
               <Text weight="bold">{point.name}</Text>
               {point.products.map((product) => {
                 const key = `${point.checkpointIndex}:${product.productId}`;
-                return <Pressable key={key} accessibilityRole="checkbox" accessibilityState={{ checked: prepared.has(key) }} onPress={() => togglePrepared(key)} style={styles.checkRow}>
-                  <Text>{prepared.has(key) ? '☑' : '☐'} {product.name} ×{product.quantity}</Text>
+                const checked = prepared.has(key);
+                return <Pressable key={key} accessibilityRole="checkbox" accessibilityState={{ checked }} onPress={() => togglePrepared(key)} style={styles.checkRow}>
+                  <Ionicons color={checked ? Colors.brandPrimary : Colors.textSecondary} name={checked ? 'checkbox' : 'square-outline'} size={22} />
+                  <Text style={[styles.flex, checked && styles.checkedLabel]}>{product.name} ×{product.quantity}</Text>
                 </Pressable>;
               })}
               {point.water > 0 ? <Text tone="secondary">{locale === 'fr' ? 'Prévoir' : 'Prepare'} {point.water.toFixed(1)} L</Text> : null}
@@ -325,6 +461,7 @@ export default function FollowedPlanScreen() {
         {follow.raceContext ? <Card style={styles.section}>
           <Text size="lg" weight="bold">{locale === 'fr' ? 'Pratique' : 'Practical'}</Text>
           <Button variant="secondary" onPress={() => router.push(`/courses/supporter-guide/${follow.raceContext!.raceId}` as any)}>{locale === 'fr' ? 'Livret supporter de l’événement' : 'Event Supporter Guide'}</Button>
+          {directionsUrl(follow.raceContext.access?.startLocation) ? <Button variant="secondary" onPress={() => openDirections(follow.raceContext!.access!.startLocation)}>{locale === 'fr' ? 'Itinéraire vers le départ' : 'Directions to the start'}</Button> : null}
           {follow.raceContext.access?.officialParkings ? <Text><Text weight="bold">Parking · </Text>{follow.raceContext.access.officialParkings}</Text> : null}
           {follow.raceContext.access?.shuttles ? <Text><Text weight="bold">{locale === 'fr' ? 'Navettes' : 'Shuttles'} · </Text>{follow.raceContext.access.shuttles}{follow.raceContext.access.shuttleSchedule ? ` · ${follow.raceContext.access.shuttleSchedule}` : ''}</Text> : null}
           {follow.raceContext.bibPickup ? <Text><Text weight="bold">{locale === 'fr' ? 'Retrait par un tiers' : 'Third-party bib pickup'} · </Text>{follow.raceContext.bibPickup.thirdPartyPickupAllowed ? (follow.raceContext.bibPickup.thirdPartyPickupConditions || (locale === 'fr' ? 'Autorisé' : 'Allowed')) : (locale === 'fr' ? 'Non autorisé' : 'Not allowed')}</Text> : null}
@@ -356,6 +493,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   flex: { flex: 1, gap: 3 },
   preparationPoint: { gap: 6, paddingTop: 8, borderTopWidth: 1, borderTopColor: Colors.border },
-  checkRow: { minHeight: 40, justifyContent: 'center' },
+  checkRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  checkedLabel: { color: Colors.textSecondary, textDecorationLine: 'line-through' },
+  editBlock: { gap: 8 },
   cutoff: { color: Colors.danger, fontWeight: '700' },
 });
