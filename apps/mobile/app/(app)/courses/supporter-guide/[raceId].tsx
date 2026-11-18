@@ -29,6 +29,7 @@ import { TrailTabs } from '../../../../components/themed/TrailTabs';
 import { Colors } from '../../../../constants/colors';
 import { formatDistance, formatDistanceRange, formatElevation } from '../../../../lib/displayFormat';
 import { fetchWithTimeout } from '../../../../lib/fetchWithTimeout';
+import { supabase } from '../../../../lib/supabase';
 import { useI18n } from '../../../../lib/i18n';
 import {
   availableGuideKinds,
@@ -119,7 +120,16 @@ export default function SupporterGuideScreen() {
     if (mode === 'initial') setState('loading');
     else setRefreshing(true);
     try {
-      const response = await fetchWithTimeout(`${WEB_API_BASE_URL}/api/supporter-guide?raceId=${encodeURIComponent(raceId)}`);
+      const url = `${WEB_API_BASE_URL}/api/supporter-guide?raceId=${encodeURIComponent(raceId)}`;
+      let response = await fetchWithTimeout(url);
+      if (!response.ok && !isServerUnavailableStatus(response.status)) {
+        // A private format answers 404 anonymously: retry with the session so
+        // an active organizer of the event receives the preview, like the
+        // RaceBook does.
+        const { data } = await supabase.auth.getSession();
+        const token = data.session?.access_token;
+        if (token) response = await fetchWithTimeout(url, { headers: { Authorization: `Bearer ${token}` } });
+      }
       if (response.status === 404) {
         // No longer published: its device copy must not outlive it.
         void removeOfflineCache('supporter-guide', raceId);

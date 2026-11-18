@@ -286,13 +286,17 @@ function sortEvents(events: EventGroup[], favoriteEventIds: string[] = []) {
   return sortCatalogEvents(events, favoriteEventIds);
 }
 
-/** A format has a runner-visible RaceBook when the shared publication gate allows it. */
-function isRaceRacebookAvailable(event: EventGroup, race: Race) {
+/**
+ * A format has a runner-visible RaceBook when the shared publication gate
+ * allows it. `hasOrganizerAccess` also admits a private format for an active
+ * organizer of the event (preview only, never the runner-facing badge).
+ */
+function isRaceRacebookAvailable(event: EventGroup, race: Race, hasOrganizerAccess = false) {
   return canShowRacebook({
     raceIsLive: race.is_live,
     racebookIsLive: race.racebook_is_live,
     racebookPreviewIsVisible: race.racebook_preview_is_visible,
-    hasOrganizerAccess: false,
+    hasOrganizerAccess,
     hasAidStations: race.has_aid_stations,
     hasRelayCourse: race.participation_mode === 'relay' || race.participation_mode === 'solo_and_relay',
     eventOrganizerDetails: event.organizer_details,
@@ -1440,7 +1444,9 @@ export default function CatalogScreen() {
             </View>
 
             {selectedEvent ? (() => {
-              const guideRace = selectedEvent.races.find((race) => isRaceRacebookAvailable(selectedEvent, race));
+              const guideOrganizerAccess = onboardingMode !== 'racebook' && organizerEventIds.has(selectedEvent.id);
+              const guideRace = selectedEvent.races.find((race) => isRaceRacebookAvailable(selectedEvent, race))
+                ?? selectedEvent.races.find((race) => isRaceRacebookAvailable(selectedEvent, race, guideOrganizerAccess));
               return guideRace ? (
                 <TopoCard
                   accessibilityLabel={`${t.supporterGuide.shareTitle}. ${t.supporterGuide.shareSubtitle}`}

@@ -1,7 +1,8 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-11-17
+last_verified: 2026-11-18
+# Livret supporter private preview (2026-11-18): SupporterGuideView retries with the stored session token for organizer preview of a private edition.
 # Crew follow UX (2026-11-17): passed checkpoints collapse, confirmed passages can be corrected or undone, the crew handover is a device-local checklist, aid-station directions match supporter points by place name within 2 km, and phones without the app get an app-first gate on the public page; no column, RLS or crew_state shape change.
 # Organizer hero note (2026-11-16): /organisateurs now presents the Livret coureur and the Livret supporter side by side (hero cards, illustrative supporter preview, metadata title); presentation only, no data, analytics event or offer change.
 # Assisted legacy conversion (2026-11-15): historical organizer text can request a schema-specific OpenAI proposal; every proposed field requires explicit Apply/Ignore review and the conversion endpoint never persists.
@@ -418,7 +419,7 @@ Supporter Guide places (2026-11-15): the payload adds `formats[].stops`, built s
 
 The Supporter Guide payload now carries resolved cutoffs and a sorted `timeline`; `SupporterGuideView` groups the programme by day and formats dates, distances and cross-day cutoffs per locale. Cutoff resolution uses `@trailplanner/shared` `racebook-cutoffs`, a server-side copy of the runner RaceBook rules.
 
-The public Supporter Guide lives at `/courses/supporter-guide/[raceId]` and consumes `/api/supporter-guide`, which aggregates only immutable format publications and reuses RaceBook cache tags. The client route is mobile-first and `noindex`; `/api/supporter-guide/qr` generates a downloadable SVG QR for the organizer workspace.
+The public Supporter Guide lives at `/courses/supporter-guide/[raceId]` and consumes `/api/supporter-guide`, which aggregates only immutable format publications and reuses RaceBook cache tags. The client route is mobile-first and `noindex`; `/api/supporter-guide/qr` generates a downloadable SVG QR for the organizer workspace. When the anonymous request fails with a non-5xx status, `SupporterGuideView` retries once with the stored session access token (`readStoredSession`), so an active organizer of the event sees the private preview banner.
 
 Shared-plan follow APIs are authenticated Next.js route handlers using service role only after bearer validation and per-user rate limiting. The public token route remains anonymous and token-based; its crew-state mutation and the authenticated follow-id mutation share one validation/update service. The public page only adds a native-app CTA and preserves its snapshot contract.
 Runner course pages expose one free-estimate destination (hero, reference-times block, desktop aside and a mobile fixed bar all link to the same planner URL) and an app bridge whose Livret wording is gated by public mobile visibility. The planner preserves validated course context through authentication, uses a narrow public race-summary endpoint for anonymous presentation and, in runner mode, renders `QuickRaceEstimate` for anonymous visitors with a catalog race: comfortable flat pace and/or UTMB Index → `POST /api/race-estimate` → time and ravito passages, then app download or web sign-up/sign-in with the same return path. The typed values are kept in `sessionStorage` (`runner.quickEstimate`) and prefill an empty `RunnerProfileStep`. It publishes association files under `public/.well-known/`. The global trial-expired overlay and blocking planner tutorial are retired.

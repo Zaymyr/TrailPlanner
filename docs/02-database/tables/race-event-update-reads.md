@@ -2,6 +2,7 @@
 title: race_event_update_reads Table
 scope: database
 last_verified: 2026-11-13
+# Livret supporter private preview (2026-11-18): the catalog Livret supporter entry admits active organizers of a private event (preview only); runner badge, data and contracts unchanged.
 ai_priority: high
 related_files:
   - supabase/migrations/20260820130930_add_format_targeted_race_updates.sql

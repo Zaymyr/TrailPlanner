@@ -4,6 +4,8 @@ import { colors as designColors } from "@pace-yourself/design-system";
 import type { SupporterGuidePayload, SupporterGuideStop, SupporterGuideTimelineEntry } from "@trailplanner/shared";
 import { useEffect, useMemo, useState } from "react";
 
+import { readStoredSession } from "../../../../lib/auth-storage";
+
 const SECTIONS = ["programme", "follow", "onsite", "stay", "practical"] as const;
 type Section = typeof SECTIONS[number];
 
@@ -74,9 +76,17 @@ export function SupporterGuideView({ raceId }: { raceId: string }) {
   };
   useEffect(() => {
     const controller = new AbortController();
-    fetch(`/api/supporter-guide?raceId=${encodeURIComponent(raceId)}`, { signal: controller.signal })
-      .then(async (response) => response.ok ? response.json() as Promise<SupporterGuidePayload> : Promise.reject())
-      .then(setGuide).catch(() => { if (!controller.signal.aborted) setFailed(true); });
+    const url = `/api/supporter-guide?raceId=${encodeURIComponent(raceId)}`;
+    const load = async () => {
+      let response = await fetch(url, { signal: controller.signal });
+      // A private format answers 404 anonymously: an active organizer of the
+      // event receives the preview with their session.
+      const accessToken = response.ok || response.status >= 500 ? null : readStoredSession()?.accessToken;
+      if (accessToken) response = await fetch(url, { signal: controller.signal, cache: "no-store", headers: { Authorization: `Bearer ${accessToken}` } });
+      if (!response.ok) throw new Error(`Supporter Guide request failed: ${response.status}`);
+      return response.json() as Promise<SupporterGuidePayload>;
+    };
+    load().then(setGuide).catch(() => { if (!controller.signal.aborted) setFailed(true); });
     return () => controller.abort();
   }, [raceId]);
   const visible = useMemo(() => guide ? {
