@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 
+import { syncAppIconBadge } from '../lib/appIconBadge';
 import { getNotificationsModule } from '../lib/notifications';
 import { supabase } from '../lib/supabase';
 import {
@@ -30,6 +31,19 @@ export function useUnreadNotificationCount() {
   }, []);
 
   useEffect(() => addUnreadNotificationCountListener(setCount), []);
+
+  // The app icon mirrors the unread inbox. Only real updates (a successful read, marking read, the sign-out
+  // reset) reach it: the cached value replayed on subscribe is skipped so an offline start keeps the badge.
+  useEffect(() => {
+    let replayedCachedCount = false;
+    return addUnreadNotificationCountListener((nextCount) => {
+      if (!replayedCachedCount) {
+        replayedCachedCount = true;
+        return;
+      }
+      void syncAppIconBadge(nextCount);
+    });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

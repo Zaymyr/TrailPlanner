@@ -879,7 +879,7 @@ export const fr: MobileTranslations = {
       statusPending: 'À découvrir', statusInProgress: 'En cours',
       statusSkipped: 'Passé', statusCompleted: 'Terminé',
       actionStart: 'Commencer', actionResume: 'Reprendre', actionReview: 'Revoir',
-      profileDotLabel: 'Onboarding à terminer',
+      profileDotLabel: 'Parcours guidé à terminer',
     },
   },
   catalog: {
