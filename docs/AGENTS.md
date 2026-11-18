@@ -109,6 +109,7 @@ You modify `apps/web/lib/auth/session.ts`, which is referenced by `docs/04-auth-
 | Booking / Decathlon partner links | `docs/05-integrations/affiliate-partner-links.md` + `docs/02-database/tables/partner-link-settings.md` |
 | Organizer LLM reconciliation | `docs/05-integrations/openai-organizer-import.md` + `docs/03-business-rules/organizer-race-management.md` + `docs/02-database/tables/organizer-import-sessions.md` |
 | Mobile-specific work | `docs/01-architecture/mobile-app.md` + `docs/06-workflows/add-new-screen-mobile.md` |
+| Mobile offline access (device copies, offline launch) | `docs/03-business-rules/mobile-offline-access.md` + `docs/01-architecture/mobile-app.md` + `docs/04-auth-and-security/auth-flows.md` |
 | Mobile UI/UX audit or E2E test | `docs/06-workflows/mobile-ux-audit.md` + `docs/01-architecture/mobile-app.md` |
 | Design system changes | `docs/07-design-system/` |
 | New feature shipping | `docs/06-workflows/ship-a-feature.md` |
@@ -155,6 +156,7 @@ Use the smallest reliable context first, then expand only when the task needs it
 - Organizer race management: `docs/03-business-rules/organizer-race-management.md`
 - Public race discovery: `docs/03-business-rules/public-race-discovery.md`
 - Plan persistence: `docs/03-business-rules/plan-storage.md`
+- Mobile offline copies (RaceBook, Supporter Guide, plans): `docs/03-business-rules/mobile-offline-access.md`
 
 ## If You Are Working On Web, Read:
 

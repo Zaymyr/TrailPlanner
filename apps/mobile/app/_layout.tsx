@@ -49,6 +49,8 @@ import {
   refreshInactivityReminder,
 } from '../lib/reminderNotifications';
 import { supabase, supabaseInitError } from '../lib/supabase';
+import { clearOfflineCache, readStoredAuthSession } from '../lib/offlineCache';
+import { isNetworkFailure } from '../lib/offlineCacheFormat';
 import { respondToAlert } from '../lib/raceLiveSession';
 import { I18nProvider, useI18n } from '../lib/i18n';
 import { getNotificationsModule } from '../lib/notifications';
@@ -295,6 +297,15 @@ function RootLayoutContent() {
       setUpdateState({ status: 'done', detail: null });
     } catch (error) {
       if (isUnsupportedDevelopmentUpdateError(error)) {
+        setUpdateState({ status: 'done', detail: null });
+        return;
+      }
+      // No network (e.g. race start in the mountains): open the installed
+      // version directly so the device copies of RaceBooks and plans stay
+      // reachable. The update is checked again on the next foreground.
+      if (isNetworkFailure(error)) {
+        console.warn('Startup OTA update check skipped offline:', error);
+        startupUpdateRunRef.current = false;
         setUpdateState({ status: 'done', detail: null });
         return;
       }
@@ -620,8 +631,12 @@ function RootLayoutContent() {
     try {
       supabase.auth
         .getSession()
-        .then(({ data: { session: s } }: { data: { session: Session | null } }) => {
-          setSession(s);
+        .then(({ data: { session: s }, error }: { data: { session: Session | null }; error?: unknown }) => {
+          // Offline with an expired access token, the refresh fails for lack of
+          // network and supabase-js reports no session, although the account is
+          // still signed in on this device. Keep it so the runner is not sent to
+          // login and can open the device copies of RaceBooks and plans.
+          setSession(s ?? (isNetworkFailure(error) ? readStoredAuthSession() : null));
           setReady(true);
         })
         .catch(async (err: Error) => {
@@ -647,7 +662,13 @@ function RootLayoutContent() {
 
           if (event === 'SIGNED_OUT') {
             captureAnalyticsEvent('auth signed out');
+            // Offline copies belong to the signed-in account.
+            clearOfflineCache();
           }
+
+          // The initial state comes from getSession() above, which keeps the
+          // persisted session when offline; a null INITIAL_SESSION must not undo it.
+          if (event === 'INITIAL_SESSION' && !s) return;
 
           setSession(s);
         },

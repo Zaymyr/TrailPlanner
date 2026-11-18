@@ -91,7 +91,9 @@ import {
   pickBestElevationProfile,
 } from '../../../../lib/raceProfile';
 import { elevationProfileFromRoute } from '../../../../lib/racebookCourseVisuals';
-import { approximateDistanceKm, fetchRaceRacebookData, type RacebookScreenData } from '../../../../lib/racebook';
+import { approximateDistanceKm, fetchRaceRacebookDataOutcome, type RacebookFetchOutcome, type RacebookScreenData } from '../../../../lib/racebook';
+import { readOfflineCache, removeOfflineCache, writeOfflineCache } from '../../../../lib/offlineCache';
+import { formatOfflineSavedAt, type OfflineCacheEntry } from '../../../../lib/offlineCacheFormat';
 import { fetchPartnerLinks, type ResolvedPartnerLink } from '../../../../lib/partnerLinks';
 import {
   createRacebookSponsorViewId,
@@ -140,7 +142,18 @@ import {
   getRacebookScrollOffset,
   setRacebookScreenSnapshot,
   setRacebookScrollOffset,
+  type RacebookScreenSnapshot,
 } from '../../../../lib/racebookScreenMemory';
+
+type LoadedRacebook = RacebookFetchOutcome & { offline: OfflineCacheEntry<RacebookScreenSnapshot> | null };
+
+/** Loads the published RaceBook; when the API is unreachable, falls back to its device copy. */
+async function loadRacebookWithOfflineCopy(raceId: string): Promise<LoadedRacebook> {
+  const outcome = await fetchRaceRacebookDataOutcome(raceId);
+  if (outcome.reachable || outcome.data) return { ...outcome, offline: null };
+  const stored = await readOfflineCache<RacebookScreenSnapshot>('racebook', raceId);
+  return { ...outcome, offline: stored?.data?.data?.race?.id === raceId ? stored : null };
+}
 
 type RacebookTabKey = 'gear' | 'bib' | 'course' | 'access' | 'services';
 type CourseTabKey = RacebookCourseTabKey;
@@ -629,6 +642,10 @@ export default function RaceRacebookScreen() {
   const [racebookTabBarHeight, setRacebookTabBarHeight] = useState(0);
   const [loading, setLoading] = useState(() => !initialSnapshot);
   const [refreshing, setRefreshing] = useState(false);
+  // Save time of the device copy on screen while the network is unreachable.
+  const [offlineSavedAt, setOfflineSavedAt] = useState<string | null>(null);
+  // Race whose RaceBook was just loaded from the network (its device copy may be refreshed).
+  const persistableRaceIdRef = useRef<string | null>(null);
   const [data, setData] = useState<RacebookScreenData | null>(() => initialSnapshot?.data ?? null);
   const [partnerLinks, setPartnerLinks] = useState<ResolvedPartnerLink[]>(() => initialSnapshot?.partnerLinks ?? []);
   const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>(() => initialSnapshot?.elevationProfile ?? []);
@@ -964,6 +981,8 @@ export default function RaceRacebookScreen() {
       return;
     }
 
+    persistableRaceIdRef.current = null;
+    setOfflineSavedAt(null);
     const warmSnapshot = getRacebookScreenSnapshot(id);
     const hasWarmSnapshot = warmSnapshot?.data.race.id === id;
     if (hasWarmSnapshot && warmSnapshot) {
@@ -992,28 +1011,46 @@ export default function RaceRacebookScreen() {
       setLoadingExitDone(false);
     }
 
-    const racebookDataRequest = fetchRaceRacebookData(id);
+    const racebookRequest = loadRacebookWithOfflineCopy(id);
     Promise.all([
-      racebookDataRequest,
+      racebookRequest,
       fetchPublishedRacebookElevationProfile(id),
       fetchPublishedRacebookRoutePreviewPoints(id),
       fetchPartnerLinks(),
     ])
       .then(([
-        result,
+        loaded,
         profilePoints,
         routePoints,
         resolvedPartnerLinks,
-      ]: [RacebookScreenData | null, ElevationPoint[], MobileGpxPreviewPoint[], ResolvedPartnerLink[]]) => {
-        if (!cancelled) {
-          setData(result);
-          setPartnerLinks(resolvedPartnerLinks);
-          setElevationProfile(pickBestElevationProfile(
-            [profilePoints, elevationProfileFromRoute(routePoints)],
-            result?.race.distanceKm,
-          ));
-          setRoutePreviewPoints(routePoints);
+      ]: [LoadedRacebook, ElevationPoint[], MobileGpxPreviewPoint[], ResolvedPartnerLink[]]) => {
+        if (cancelled) return;
+        if (loaded.offline) {
+          // No network: show the device copy of the last published RaceBook.
+          persistableRaceIdRef.current = null;
+          const snapshot = loaded.offline.data;
+          setOfflineSavedAt(loaded.offline.savedAt);
+          setData(snapshot.data);
+          setPartnerLinks(snapshot.partnerLinks);
+          setElevationProfile(snapshot.elevationProfile);
+          setRoutePreviewPoints(snapshot.routePreviewPoints);
+          return;
         }
+        if (!loaded.reachable && hasWarmSnapshot) return;
+        const result = loaded.data;
+        setOfflineSavedAt(null);
+        if (loaded.reachable) {
+          persistableRaceIdRef.current = result?.canOpen ? id : null;
+          // The RaceBook is no longer published: its device copy must not outlive it.
+          if (!result) void removeOfflineCache('racebook', id);
+        }
+        setData(result);
+        setPartnerLinks(resolvedPartnerLinks);
+        setElevationProfile(pickBestElevationProfile(
+          [profilePoints, elevationProfileFromRoute(routePoints)],
+          result?.race.distanceKm,
+        ));
+        setRoutePreviewPoints(routePoints);
       })
       .catch(() => {
         if (!cancelled && !hasWarmSnapshot) {
@@ -1029,8 +1066,10 @@ export default function RaceRacebookScreen() {
         }
       });
 
-    racebookDataRequest
-      .then((result) => fetchRacebookSponsors(id, result?.publicationId))
+    racebookRequest
+      .then((loaded) => loaded.offline
+        ? loaded.offline.data.sponsorPresentation
+        : fetchRacebookSponsors(id, loaded.data?.publicationId))
       .then(async (presentation) => {
         if (cancelled) return;
 
@@ -1089,12 +1128,19 @@ export default function RaceRacebookScreen() {
     clearRaceProfileRequestCache(id);
 
     try {
-      const [result, profilePoints, routePoints, resolvedPartnerLinks] = await Promise.all([
-        fetchRaceRacebookData(id),
+      const [outcome, profilePoints, routePoints, resolvedPartnerLinks] = await Promise.all([
+        fetchRaceRacebookDataOutcome(id),
         fetchPublishedRacebookElevationProfile(id),
         fetchPublishedRacebookRoutePreviewPoints(id),
         fetchPartnerLinks(),
       ]);
+
+      // Still offline: keep the RaceBook (or its device copy) on screen.
+      if (!outcome.reachable) return;
+      const result = outcome.data;
+      setOfflineSavedAt(null);
+      persistableRaceIdRef.current = result?.canOpen ? id : null;
+      if (!result) void removeOfflineCache('racebook', id);
 
       setData(result);
       setPartnerLinks(resolvedPartnerLinks);
@@ -1579,13 +1625,16 @@ export default function RaceRacebookScreen() {
 
   useEffect(() => {
     if (!id || showLoading || !data || data.race.id !== id) return;
-    setRacebookScreenSnapshot(id, {
+    const snapshot = {
       data,
       elevationProfile,
       partnerLinks,
       routePreviewPoints,
       sponsorPresentation,
-    });
+    };
+    setRacebookScreenSnapshot(id, snapshot);
+    // Only a RaceBook just loaded from the network refreshes the device copy.
+    if (persistableRaceIdRef.current === id && data.canOpen) void writeOfflineCache('racebook', id, snapshot);
   }, [data, elevationProfile, id, partnerLinks, routePreviewPoints, showLoading, sponsorPresentation]);
 
   useEffect(() => {
@@ -2227,6 +2276,15 @@ export default function RaceRacebookScreen() {
             <Card style={styles.heroCard}>
               <HeroDetailGroup title={t.catalog.racebookSectionRunnerInfo} values={runnerInfoLines} />
             </Card>
+          ) : null}
+
+          {offlineSavedAt ? (
+            <TapeAlertBanner
+              icon="cloud-offline-outline"
+              message={t.common.offlineCopy.replace('{time}', formatOfflineSavedAt(offlineSavedAt, locale))}
+              title={t.common.offlineTitle}
+              variationKey="racebook-offline"
+            />
           ) : null}
 
           {weatherAlertMessage ? (

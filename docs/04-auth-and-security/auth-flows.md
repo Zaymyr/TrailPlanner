@@ -1,7 +1,7 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-11-16
+last_verified: 2026-11-18
 ai_priority: high
 related_files:
   - apps/web/app/sign-in/page.tsx
@@ -38,6 +38,7 @@ related_files:
   - apps/mobile/hooks/useProfileScreen.ts
   - apps/mobile/hooks/profileScreenHelpers.ts
   - apps/mobile/lib/onboardingGate.ts
+  - apps/mobile/lib/offlineCache.ts
   - apps/mobile/lib/runnerPlanIntent.ts
   - apps/mobile/lib/resendContactSync.ts
   - apps/mobile/lib/resendContactSync.test.ts
@@ -132,7 +133,9 @@ their routes. Both screens use the same scrollable keyboard-avoidance layout,
 so account actions remain reachable when the iOS keyboard is open or Dynamic
 Type enlarges the form. Their content starts near the top instead of vertically
 centering a long guest notice, and the social-auth separator is localized.
-The session shell resolves required onboarding before navigation; otherwise it opens the Courses catalog directly and does not preload the Plans screen.
+The session shell resolves required onboarding before navigation; otherwise it opens the Courses catalog directly and does not preload the Plans screen. When the post-auth profile read fails with a transport error (offline launch), `getPostAuthRoute` opens Plans instead, where the device copies of plans and RaceBooks are reachable.
+
+Offline launch (2026-11-18): when the access token has expired and its refresh fails for lack of network, supabase-js reports no session while the refresh token stays stored. The root layout then keeps the persisted session read from the Supabase storage key (`readStoredAuthSession` in `apps/mobile/lib/offlineCache.ts`) instead of bootstrapping a guest session or redirecting to login, and ignores a null `INITIAL_SESSION` event. This session is used for routing and to read user-scoped device copies and cached plan capabilities only; it authorizes nothing server-side, and the first successful refresh replaces it through the ordinary `TOKEN_REFRESHED` event. `SIGNED_OUT` purges every device copy. See [Mobile offline access](../03-business-rules/mobile-offline-access.md).
 The Profile root may retry its own `getSession()` plus `user_profiles` bootstrap after a recoverable read failure. That retry reuses the existing session and does not create a second auth listener, navigation gate, guest conversion, or onboarding lifecycle.
 Profile dirty-state retention, its single save dock, and native birth-date entry remain local form presentation. Changing Profile sub-tabs or root tabs does not write, discard, or create a session; only the existing explicit save path persists the normalized ISO date and validated fields.
 
@@ -189,6 +192,7 @@ Mobile Profile admin/debug presentation follows the same boundary: it accepts on
 - Keep Profile fetch retry local to the screen data bootstrap; do not turn it into a new global auth-state subscription or session side effect.
 - Keep admin access simulation server-verified. The mobile selector may explain an unavailable route or stale administrator session, but it must not fall back to a client-only Premium/free override.
 - The app shell's route-derived light status-bar style for the four branded root headers is presentation-only; it must not become an auth gate, redirect condition, or session listener.
+- Use the persisted-session fallback only after `getSession()` returned no session with a network failure (or for a null `INITIAL_SESSION`). Never apply it after `SIGNED_OUT`: the SecureStore removal is asynchronous, so reading the key right after sign-out could resurrect the old session.
 
 
 ## Mobile presentation
@@ -207,8 +211,9 @@ The onboarding intro now tells the runner to pick a race or discover with Trail 
 - [Duplicate Events Pattern](duplicate-events-pattern.md)
 - [Trial Lifecycle](../03-business-rules/trial-lifecycle.md)
 - [RLS Checklist](rls-checklist.md)
+- [Mobile offline access](../03-business-rules/mobile-offline-access.md)
 
-The root layout skips unsupported Expo OTA checks only for the development Android package (and ordinary development runtimes). This runtime guard does not alter session bootstrap, authentication listeners, redirects, or production update checks.
+The root layout skips unsupported Expo OTA checks only for the development Android package (and ordinary development runtimes). This runtime guard does not alter session bootstrap, authentication listeners, redirects, or production update checks. A production startup check that fails for lack of network continues to the installed version instead of the blocking update-error screen; the foreground check retries later.
 
 Livret-first navigation (2026-11-09): the onboarding tour choice now presents the RaceBook tour as the default and the plan tour as optional below it, and its copy/notification promises changed. Account choice, guest handling, session gates and redirects are unchanged; skipping the plan tour at the products step now returns to Mes courses because Nutrition is no longer a root tab.
 
