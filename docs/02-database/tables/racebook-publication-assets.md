@@ -3,6 +3,7 @@ title: racebook_publication_assets
 scope: database
 last_verified: 2026-11-13
 ai_priority: high
+# Demo race refresh (2026-11-18): the daily Trail TST republication records assets exactly like an organizer publication; no contract change.
 related_files:
   - supabase/migrations/20261103123918_racebook_versioned_publications.sql
   - supabase/tests/racebook_versioned_publications_checks.sql

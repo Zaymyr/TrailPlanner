@@ -10,6 +10,7 @@ last_verified: 2026-11-16
 # Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
 # Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: high
+# Brochure demo link (2026-11-18): the printed organizer brochure QR code encodes the Trail TST Supporter Guide URL with ?src=plaquette, so app builds that declare /courses universal links / App Links open it directly. In a browser, the web guide page redirects that tagged visit to /demo, a no-store 302: Android opens the app through a Chrome intent URL whose browser fallback is /organisateurs, while iOS and desktop go straight to /organisateurs. Both fallbacks carry utm_source=plaquette, utm_medium=qr, utm_campaign=demo.
 # Organizer shell (2026-11-13): the 1440px workspace switches at 1320px to a 240px / flexible / 300px grid; media-heavy editors span the two content columns.
 # Organizer nav fixes (2026-11-17): the whole left column (nav + Gérer les sections) is the sticky, self-scrolling unit so the nav no longer covers that button; the header Actions menu starts with Statistiques (analytics view) and Gérer les sections; the editor header clips only its watermark so the format ⋯ menu shows; header, versions and format menus anchor left below their breakpoint so they stay on screen on mobile.
 # Aid-station editor (2026-11-13): the course timeline is the selection list, with one adjacent detail panel on desktop and a full-screen detail surface after selection on mobile; arrow keys move between aid stations.
@@ -224,6 +225,9 @@ related_files:
   - apps/web/lib/tracedetrail-gpx-enrichment.test.ts
   - apps/web/lib/tracedetrail-race-import.ts
   - apps/web/lib/organizer.ts
+  - apps/web/app/demo/route.ts
+  - apps/web/lib/demo-app-link.ts
+  - apps/web/lib/demo-app-link.test.ts
   - apps/web/app/organisateurs/page.tsx
   - apps/web/app/organisateurs/organizer-landing-page.tsx
   - apps/web/app/organisateurs/organizer-landing-page.test.ts
@@ -721,6 +725,8 @@ Legacy `TextField`, `NumberField`, and `TextAreaField` remain compatibility wrap
 Organizer material, bib, access, services, sponsors, partner slots, products, analytics, and import-review editors consume the shared controls. Repeatable additions stay local until valid, and eligible removals expose a six-second undo window.
 
 ## Gotchas
+
+- The organizer brochure prints `demoQrUrl()` (`/courses/supporter-guide/<Trail TST id>?src=plaquette`) as a QR code, so keep that URL, the `src=plaquette` redirect in the guide page and `/demo` stable. App builds that declare the `/courses` universal links / App Links open the guide directly; published builds up to 1.1.2 only declare the `paceyourself://` scheme, so the browser path is what runs until a newer native build ships. `/demo` is a Route Handler that sets `Location` by hand: `NextResponse.redirect` normalizes URLs and must not rewrite the `intent://` target. Its absolute fallback is built from `NEXT_PUBLIC_SITE_URL`, defaulting to `https://pace-yourself.com`, not from `request.nextUrl.origin`, which can be the server bind address (`0.0.0.0`). iOS deliberately skips a `paceyourself://` attempt: without the app, Safari shows an invalid-address alert. Keep the Trail TST demo event public and dated in the future so the scan never lands on a finished race.
 
 - `utf8-copy.test.ts` also locks corrected Organizer accents, plain-language analytics help, current section-status copy, and the sticky save-status location.
 

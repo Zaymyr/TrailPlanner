@@ -3,6 +3,7 @@ title: racebook_publication_states
 scope: database
 last_verified: 2026-11-13
 ai_priority: high
+# Demo race refresh (2026-11-18): the daily Trail TST republication leaves last_published_by null (automated actor); state transitions are unchanged.
 related_files:
   - supabase/migrations/20261103123918_racebook_versioned_publications.sql
   - supabase/migrations/20261103124133_index_racebook_publication_foreign_keys.sql
