@@ -17,6 +17,11 @@ const APP_SCHEME = "paceyourself";
 const FALLBACK_PATH = "/organisateurs";
 const FALLBACK_UTM: Record<string, string> = { utm_source: "plaquette", utm_medium: "qr", utm_campaign: "demo" };
 
+/** The intent fallback must be absolute; the request origin is the server bind address behind some hosts. */
+export function demoPublicOrigin(): string {
+  return process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://pace-yourself.com";
+}
+
 export function demoFallbackUrl(origin: string): string {
   const url = new URL(FALLBACK_PATH, origin);
   for (const [key, value] of Object.entries(FALLBACK_UTM)) url.searchParams.set(key, value);
