@@ -1,7 +1,8 @@
 ---
 title: plan_share_links Table
 scope: database
-last_verified: 2026-11-15
+last_verified: 2026-11-17
+# Crew follow UX (2026-11-17): passed checkpoints collapse, confirmed passages can be corrected or undone, the crew handover is a device-local checklist, aid-station directions match supporter points by place name within 2 km, and phones without the app get an app-first gate on the public page; no column, RLS or crew_state shape change.
 ai_priority: high
 related_files:
   - supabase/migrations/20260609091933_add_plan_share_links.sql
@@ -101,6 +102,10 @@ Summary:
 - The server ignores any client-provided `raceId` and binds the owned plan's current `race_id` without bumping snapshot schema version 1. The public web share page does not consume this additive field.
 - Crew-confirmed passages are stored separately in `crew_state`; no-assistance checkpoints are treated by the public page as planned-time passages and do not need stored confirmations.
 - Resetting public tracking clears `crew_state.passages` through the same secret-link route so the page returns to planned snapshot timing without mutating `snapshot`.
+
+- A confirmed passage can be corrected (crew enters the real `HH:mm`, resolved by `resolvePlanSharePassageCorrection` to the day nearest the planned passage) or undone for one checkpoint. Both rewrite `crew_state.passages` through the same narrow route; the shape `{ checkpointIndex, actualMinute, confirmedAt }` is unchanged. Checkpoints at or before the last confirmed passage render collapsed by default.
+- The "À donner" block of crew checkpoints is a checklist (products, then the bladder refill when `waterState` is `refill`). Ticks are device-local (`localStorage` keyed by snapshot id) and are never written to `crew_state`.
+- On a phone the page first shows a full-screen app gate (download, open in the app via the custom scheme, small "Continuer sur le web"); the web choice is remembered per plan in `localStorage`. It means the installed app did not claim the universal link, which stays inactive while the association files hold placeholder identifiers.
 - `snapshot_schema_version` must be bumped before storing a breaking public snapshot shape.
 - `expires_at` and `revoked_at` are optional controls; the public page must ignore revoked or expired links.
 - Revoking or expiring a link also immediately invalidates every authenticated follow. Owners can list/remove followers and revoke the link from the mobile recap.

@@ -164,6 +164,18 @@ export type MobileTranslations = {
     revokeLink: string;
     revokeTitle: string;
     revokeBody: string;
+    passedAt: string;
+    editPassage: string;
+    clearPassage: string;
+    passageTime: string;
+    invalidTime: string;
+    handoverProgress: string;
+    refillWater: string;
+    refillWaterNoVolume: string;
+    directions: string;
+    accessPlan: string;
+    showDetails: string;
+    hideDetails: string;
   };
   supporterGuide: {
     dayDone: string;

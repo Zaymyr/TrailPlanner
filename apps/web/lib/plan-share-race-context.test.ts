@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { bindPlanShareSnapshotToRace, type PlanShareSnapshot } from "./plan-share";
 import * as publicData from "./racebook-public-data";
-import { loadPlanShareRaceContext, matchPlanCheckpointToPublishedStation } from "./plan-share-race-context";
+import { loadPlanShareRaceContext, matchPlanCheckpointToPublishedStation, matchStationSupporterPoint } from "./plan-share-race-context";
 
 const snapshot = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -42,6 +42,18 @@ describe("plan share race context", () => {
     expect(matchPlanCheckpointToPublishedStation({ sourceAidStationId: null, distanceKm: 10 }, [{ id: "near", km: 10.14 }])?.id).toBe("near");
     expect(matchPlanCheckpointToPublishedStation({ sourceAidStationId: null, distanceKm: 10 }, [{ id: "far", km: 10.16 }])).toBeNull();
     expect(matchPlanCheckpointToPublishedStation({ sourceAidStationId: null, distanceKm: 10 }, [{ id: "a", km: 9.9 }, { id: "b", km: 10.1 }])).toBeNull();
+  });
+
+  it("finds aid-station directions by place name within 2 km, then by the 150 m tolerance", () => {
+    const point = (id: string, name: string, km: number, assistanceAllowed: boolean) => ({ id, name, km, assistanceAllowed });
+    expect(matchStationSupporterPoint({ name: "St-Martin", km: 20 }, [
+      point("cheer", "Saint Martin", 20.4, false),
+      point("crew", "saint-martin", 21.5, true),
+    ])?.id).toBe("crew");
+    expect(matchStationSupporterPoint({ name: "Col", km: 20 }, [point("near", "Parking", 20.1, false)])?.id).toBe("near");
+    expect(matchStationSupporterPoint({ name: "Col", km: 20 }, [point("a", "A", 19.95, false), point("b", "B", 20.05, false)])).toBeNull();
+    expect(matchStationSupporterPoint({ name: "Col", km: 20 }, [point("a", "A", 19.95, true), point("b", "B", 20.05, false)])?.id).toBe("a");
+    expect(matchStationSupporterPoint({ name: "Col", km: 20 }, [point("far", "Col", 23, true)])).toBeNull();
   });
 
   it("returns no context when the visible race has no immutable publication", async () => {

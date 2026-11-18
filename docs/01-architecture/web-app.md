@@ -1,7 +1,8 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-11-16
+last_verified: 2026-11-17
+# Crew follow UX (2026-11-17): passed checkpoints collapse, confirmed passages can be corrected or undone, the crew handover is a device-local checklist, aid-station directions match supporter points by place name within 2 km, and phones without the app get an app-first gate on the public page; no column, RLS or crew_state shape change.
 # Organizer hero note (2026-11-16): /organisateurs now presents the Livret coureur and the Livret supporter side by side (hero cards, illustrative supporter preview, metadata title); presentation only, no data, analytics event or offer change.
 # Assisted legacy conversion (2026-11-15): historical organizer text can request a schema-specific OpenAI proposal; every proposed field requires explicit Apply/Ignore review and the conversion endpoint never persists.
 # Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
@@ -537,6 +538,8 @@ When the source race has organizer station products, the route loads them server
 Plan crew recap links are handled by `apps/web/app/api/plan-shares/route.ts`, `apps/web/app/api/plan-shares/crew-state/route.ts`, `apps/web/app/share/plan/[token]/page.tsx`, and `apps/web/app/share/plan/[token]/PlanShareCrewTimeline.tsx`. The mobile app sends an authenticated snapshot generated from the saved plan recap. The API verifies the bearer token, checks `race_plans.user_id`, creates a stable server-derived public token for new reusable links, stores only its SHA-256 hash in `plan_share_links`, and returns the public URL. Re-sharing a plan updates the existing stable link snapshot instead of creating another URL; legacy random-token links remain readable but cannot be re-shown because the raw token was never stored. Share URLs use the canonical web domain from `PLAN_SHARE_BASE_URL`, `NEXT_PUBLIC_SITE_URL`, or `APP_URL`, falling back to `https://pace-yourself.com`; `.vercel.app` hostnames are ignored even when they come from those env vars. The public page hashes the URL token server-side and renders the stored snapshot plus limited `crew_state`, with highlighted assistance checkpoints, muted no-assistance checkpoints, and crew controls that persist the corrected start time and confirmed assistance passages. The crew can clear confirmed passages from the tracking card to return calculations to the planned snapshot times without changing the runner's shared snapshot.
 
 The public client emits consent-gated, aggregate-only crew engagement events for link opening and successful state mutations. The URL token, plan identity, snapshot content, and individual passage details never leave the server-rendered secret-link boundary as analytics properties.
+
+`PlanShareAppGate.tsx` (same folder) renders an app-first, full-screen gate when the server user agent (`detectMobileAppPlatform` in `lib/app-store.ts`) or the client (touch iPadOS) is a phone: download from the platform store, open the plan through `paceyourself://share/plan/<token>`, or a small "Continuer sur le web" remembered per plan in `localStorage`. The timeline collapses passed checkpoints, lets the crew correct or undo one confirmed passage, and turns the handover into a device-local checklist.
 
 ### Race Catalog and GPX
 

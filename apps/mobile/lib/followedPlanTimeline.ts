@@ -113,3 +113,38 @@ export function buildFollowedPreparation(checkpoints: readonly TrackingCheckpoin
   });
   return { points, totals: [...totals.values()], totalWaterLiters: points.reduce((sum, point) => sum + point.water, 0) };
 }
+
+/** Mirrors `@trailplanner/shared` resolvePlanSharePassageCorrection (client-local adapter). */
+export function resolvePlanSharePassageCorrection(clock: string, startTime: string, checkpoint: Pick<TrackingCheckpoint, 'arrivalMinute'>) {
+  const startMinutes = parsePlanShareClock(startTime);
+  const clockMinutes = parsePlanShareClock(clock);
+  if (startMinutes === null || clockMinutes === null) return null;
+  const absolute = resolvePlanShareClockNearPlanned(clockMinutes, startMinutes + checkpoint.arrivalMinute);
+  return Math.max(0, Math.round(absolute - startMinutes));
+}
+
+/** A checkpoint is behind the runner once it, or a later checkpoint, has a confirmed passage. */
+export function isPlanShareCheckpointPassed(
+  checkpoint: Pick<TrackingCheckpoint, 'index'>,
+  timeline: Pick<ReturnType<typeof buildPlanShareTimeline>, 'anchorCheckpoint' | 'anchorPassage' | 'passagesByIndex'>,
+) {
+  if (timeline.passagesByIndex.has(checkpoint.index)) return true;
+  return Boolean(timeline.anchorPassage && timeline.anchorCheckpoint && checkpoint.index < timeline.anchorCheckpoint.index);
+}
+
+export function formatPlanShareClockInput(absoluteMinutes: number) {
+  const minute = ((Math.round(absoluteMinutes) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
+}
+
+export type HandoverItem = { key: string; kind: 'product' | 'water'; name: string; quantity: number | null; liters: number | null };
+
+/** Checklist of what the crew hands over at one assistance checkpoint. */
+export function buildCheckpointHandover(checkpoint: TrackingCheckpoint, waterBagLiters: number): HandoverItem[] {
+  const products: HandoverItem[] = (checkpoint.supplies ?? [])
+    .filter((product) => product.quantity > 0)
+    .map((product) => ({ key: `${checkpoint.index}:${product.productId}`, kind: 'product', name: product.name, quantity: product.quantity, liters: null }));
+  return checkpoint.waterState === 'refill'
+    ? [...products, { key: `${checkpoint.index}:water`, kind: 'water', name: 'water', quantity: null, liters: waterBagLiters > 0 ? waterBagLiters : null }]
+    : products;
+}

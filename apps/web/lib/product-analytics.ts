@@ -49,13 +49,24 @@ export function trackCrewLinkOpened(input: {
 }
 
 export function trackCrewStateUpdated(input: {
-  action: "start_time_saved" | "checkpoint_confirmed" | "tracking_reset";
+  action: "start_time_saved" | "checkpoint_confirmed" | "checkpoint_corrected" | "checkpoint_cleared" | "tracking_reset";
   confirmedPassageCount: number;
 }) {
   trackGoogleAnalyticsEvent("plan crew state updated", {
     event_category: "plan_share",
     action: input.action,
     confirmed_passage_count: input.confirmedPassageCount,
+  });
+}
+
+export function trackCrewAppGate(input: {
+  action: "viewed" | "download" | "open_app" | "continue_web";
+  platform: "android" | "ios" | "other";
+}) {
+  trackGoogleAnalyticsEvent("plan crew app gate", {
+    event_category: "plan_share",
+    action: input.action,
+    platform: input.platform,
   });
 }
 

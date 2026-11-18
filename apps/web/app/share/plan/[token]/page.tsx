@@ -12,7 +12,11 @@ import {
   planShareSnapshotSchema,
   type PlanShareSnapshot,
 } from "../../../../lib/plan-share";
+import { headers } from "next/headers";
+
+import { detectMobileAppPlatform } from "../../../../lib/app-store";
 import { getSupabaseServiceConfig, type SupabaseServiceConfig } from "../../../../lib/supabase";
+import { PlanShareAppGate } from "./PlanShareAppGate";
 import { PlanShareCrewTimeline } from "./PlanShareCrewTimeline";
 
 export const dynamic = "force-dynamic";
@@ -271,8 +275,17 @@ export default async function SharedPlanPage({ params }: PageProps) {
     summary.targetWaterPerHour
   )} ml/h - ${Math.round(summary.targetSodiumPerHour)} mg/h`;
 
+  const initialPlatform = detectMobileAppPlatform(headers().get("user-agent") ?? "");
+
   return (
     <LightShareShell>
+      <PlanShareAppGate
+        token={params.token}
+        planId={summary.id}
+        planName={summary.name}
+        locale={locale}
+        initialPlatform={initialPlatform}
+      />
       <div className="flex w-full flex-col gap-6">
       <section className="rounded-lg border border-brand-border bg-brand-surface p-5 sm:p-6">
         <div className="flex flex-col gap-5">

@@ -1,7 +1,8 @@
 ---
 title: plan_share_follows Table
 scope: database
-last_verified: 2026-11-16
+last_verified: 2026-11-17
+# Crew follow UX (2026-11-17): passed checkpoints collapse, confirmed passages can be corrected or undone, the crew handover is a device-local checklist, aid-station directions match supporter points by place name within 2 km, and phones without the app get an app-first gate on the public page; no column, RLS or crew_state shape change.
 # Livret supporter note (2026-11-16): the public name of the supporter_guide surface is now "Livret supporter" (formerly "Livret accompagnateur"); aid-station access wording ("Accompagnateurs autorisés") is unchanged; no data, contract or offer change.
 ai_priority: high
 related_files:
@@ -65,6 +66,8 @@ The `(share_link_id, follower_user_id)` pair is unique. A database trigger rejec
 - Active detail reads may add a narrow `raceContext` built only from the current immutable, publicly visible RaceBook publication. Disabled modules contribute no section and there is no draft fallback.
 - List reads calculate completion from the published race date, the longest published cutoff/day offset or plan duration, then add a six-hour margin. Completed follows appear archived without deletion; an explicit restore sets `auto_archive_dismissed_at`.
 - Supporter-point passage estimates interpolate the plan by kilometer and apply the last confirmed-passage delta. Preparation checkboxes remain device-local and keyed by follow id; cross-assistant checklist sharing is deferred.
+
+- The detail's per-checkpoint handover checklist is device-local too (`paceyourself.followed-plan-handover:<follow id>`). Passage corrections and single-passage undo go through the existing `[id]/crew-state` route with the unchanged passage shape. Aid-station `checkpointContexts` add an optional `planUrl`; older clients ignore it.
 
 ## Related docs
 
