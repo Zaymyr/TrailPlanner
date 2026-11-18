@@ -1,7 +1,8 @@
 ---
 title: race_supporter_points
 scope: database
-last_verified: 2026-11-15
+last_verified: 2026-11-18
+# Crew follow UX (2026-11-17): passed checkpoints collapse, confirmed passages can be corrected or undone, the crew handover is a device-local checklist, aid-station directions match supporter points by place name within 2 km, and phones without the app get an app-first gate on the public page; no column, RLS or crew_state shape change.
 # Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
 # Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
 # Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
@@ -69,6 +70,8 @@ Draft rows may be incomplete and remain visible through the authenticated organi
 Mobile presents permission chips inside the title/distance header, hides `access_label` only when its normalized value repeats `name`, and keeps directions plus the optional external plan as right-aligned icon actions. A distinct access label and access note remain visible beneath the header.
 
 Authenticated followed-plan detail is a second read-only consumer of the published snapshot. It inserts visible supporter points into the assistance timeline, interpolates a plan ETA by kilometer, reapplies the latest confirmed-passage delay, distinguishes encouragement from assistance, and builds directions from the published Maps URL or coordinates. Draft rows and disabled modules are never consulted.
+
+Aid-station directions in that detail come from `matchStationSupporterPoint` (`apps/web/lib/plan-share-race-context.ts`): a point with the station's normalized place name (`normalizePlaceName`, same rule as the Livret supporter stop merge) within 2 km wins, otherwise the single point within 150 m. Assistance points are preferred over cheer-only points; cheer-only points now also provide directions when they are the only match. `access_note` and `plan_url` travel with the match.
 
 Mobile performs that interpolation with a client-local pure helper to respect its package boundary; the input remains the same immutable server projection.
 

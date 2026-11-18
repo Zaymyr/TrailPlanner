@@ -44,6 +44,8 @@ import {
   revokePlanShare,
 } from '../../lib/followedPlans';
 import { captureAnalyticsEvent } from '../../lib/posthog';
+import { readOfflineCache, writeOfflineCache } from '../../lib/offlineCache';
+import { isPostgrestNetworkFailure } from '../../lib/offlineCacheFormat';
 import { supabase } from '../../lib/supabase';
 import { DataText } from '../themed/DataText';
 import { MetricTile } from '../themed/MetricTile';
@@ -61,6 +63,9 @@ type Props = {
   onShareIntentConsumed?: () => void;
   onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
 };
+
+/** Official start of the plan's race, kept on the device for offline summaries. */
+type PlanRaceStartCopy = { raceDate: string | null; startTime: string | null; waves: PlanStartWave[] };
 
 function formatLiters(value: number) {
   return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1);
@@ -148,14 +153,25 @@ export function PlanRecapContent({ id, summary, contentTopInset, stickyTopInset,
       supabase.from('race_plans').select('race_id,races(race_date,organizer_details)').eq('id', id).single(),
     ]).then(async ([stored, result]) => {
       if (cancelled) return;
-      const row = result.data as { race_id?: string | null; races?: { race_date?: string | null; organizer_details?: unknown } | null } | null;
-      const raceDate = row?.races?.race_date;
-      let startTime = readOrganizerStartTime(row?.races?.organizer_details);
+      let raceDate: string | null | undefined;
+      let startTime: string | null;
       let waves: PlanStartWave[] = [];
-      if (row?.race_id) {
-        const { data } = await supabase.from('race_start_waves').select('id,name,start_time').eq('race_id', row.race_id).order('order_index', { ascending: true });
-        waves = normalizePlanStartWaves(data);
-        if (!startTime) startTime = waves[0]?.startTime ?? null;
+      const offlineStart = isPostgrestNetworkFailure(result)
+        ? await readOfflineCache<PlanRaceStartCopy>('plan-race-start', id)
+        : null;
+      if (offlineStart) {
+        // No network: the official start saved with the plan's last online load.
+        ({ raceDate, startTime, waves } = offlineStart.data);
+      } else {
+        const row = result.data as { race_id?: string | null; races?: { race_date?: string | null; organizer_details?: unknown } | null } | null;
+        raceDate = row?.races?.race_date;
+        startTime = readOrganizerStartTime(row?.races?.organizer_details);
+        if (row?.race_id) {
+          const { data } = await supabase.from('race_start_waves').select('id,name,start_time').eq('race_id', row.race_id).order('order_index', { ascending: true });
+          waves = normalizePlanStartWaves(data);
+          if (!startTime) startTime = waves[0]?.startTime ?? null;
+        }
+        if (!result.error) void writeOfflineCache<PlanRaceStartCopy>('plan-race-start', id, { raceDate: raceDate ?? null, startTime, waves });
       }
       if (cancelled) return;
       const officialIso = buildLocalDepartureAt(raceDate, startTime);

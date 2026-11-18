@@ -3,7 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   buildFollowedPreparation,
   buildFollowedSupporterTimeline,
+  buildPlanShareCheckpointHandover,
+  buildPlanShareTimeline,
+  formatPlanShareClockInput,
+  isPlanShareCheckpointPassed,
   resolveFollowedPlanCompletionAt,
+  resolvePlanSharePassageCorrection,
   type FollowedPlanCheckpoint,
 } from "@trailplanner/shared";
 
@@ -33,5 +38,28 @@ describe("followed plan field helpers", () => {
       raceDate: "2026-06-20", officialStartTime: "14:00", totalDurationMin: 600,
       finishCutoffTime: "01:00", finishCutoffDayOffset: 2,
     })).toBe("2026-06-22T07:00:00.000Z");
+  });
+
+  it("resolves a corrected passage clock to the day nearest the planned passage", () => {
+    expect(resolvePlanSharePassageCorrection("10:15", "08:00", { arrivalMinute: 120 })).toBe(135);
+    expect(resolvePlanSharePassageCorrection("01:10", "22:00", { arrivalMinute: 180 })).toBe(190);
+    expect(resolvePlanSharePassageCorrection("25:00", "08:00", { arrivalMinute: 120 })).toBeNull();
+    expect(resolvePlanSharePassageCorrection("10:15", "", { arrivalMinute: 120 })).toBeNull();
+    expect(formatPlanShareClockInput(1440 + 75)).toBe("01:15");
+  });
+
+  it("treats confirmed checkpoints and everything before the last confirmation as passed", () => {
+    const none = buildPlanShareTimeline(checkpoints, [], "08:00");
+    expect(isPlanShareCheckpointPassed(checkpoints[0]!, none)).toBe(false);
+    const atFinish = buildPlanShareTimeline(checkpoints, [{ checkpointIndex: 2, actualMinute: 250, confirmedAt: "now" }], "08:00");
+    expect(checkpoints.map((checkpoint) => isPlanShareCheckpointPassed(checkpoint, atFinish))).toEqual([true, true, true]);
+  });
+
+  it("lists products then the bladder refill as the crew handover checklist", () => {
+    expect(buildPlanShareCheckpointHandover(checkpoints[1]!, 1.5)).toEqual([
+      { key: "1:gel", kind: "product", name: "Gel", quantity: 2, liters: null },
+      { key: "1:water", kind: "water", name: "water", quantity: null, liters: 1.5 },
+    ]);
+    expect(buildPlanShareCheckpointHandover(checkpoints[2]!, 1.5)).toEqual([]);
   });
 });

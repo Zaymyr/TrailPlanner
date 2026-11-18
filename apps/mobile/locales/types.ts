@@ -14,6 +14,10 @@ export type MobileTranslations = {
     datePickerUnavailable: string;
     loading: string;
     error: string;
+    /** Shown when a screen displays its on-device copy because the network is unreachable. {time} = save time. */
+    offlineTitle: string;
+    offlineCopy: string;
+    offlineToast: string;
     back: string;
     next: string;
     create: string;
@@ -164,6 +168,18 @@ export type MobileTranslations = {
     revokeLink: string;
     revokeTitle: string;
     revokeBody: string;
+    passedAt: string;
+    editPassage: string;
+    clearPassage: string;
+    passageTime: string;
+    invalidTime: string;
+    handoverProgress: string;
+    refillWater: string;
+    refillWaterNoVolume: string;
+    directions: string;
+    accessPlan: string;
+    showDetails: string;
+    hideDetails: string;
   };
   supporterGuide: {
     dayDone: string;

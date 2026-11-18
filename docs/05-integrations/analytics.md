@@ -1,7 +1,8 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-11-16
+last_verified: 2026-11-18
+# Crew follow UX (2026-11-17): passed checkpoints collapse, confirmed passages can be corrected or undone, the crew handover is a device-local checklist, aid-station directions match supporter points by place name within 2 km, and phones without the app get an app-first gate on the public page; no column, RLS or crew_state shape change.
 # Assisted legacy conversion (2026-11-15): server logs contain identifiers and block type, never source text; analytics contracts are unchanged.
 # Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
 # Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
@@ -224,6 +225,9 @@ Opening, replaying, stepping through, or closing the Organizer spotlight guide e
 - `plan exported` records GPX download or assistance-print initiation, with saved/draft state;
 - public crew links emit `plan crew link opened` and `plan crew state updated` with aggregate checkpoint counts and a bounded action. They never include the secret URL token, plan name, or another direct identifier.
 
+- `plan crew state updated` actions also include `checkpoint_corrected` and `checkpoint_cleared`. On phones the public page emits `plan crew app gate` with a bounded `action` (`viewed`, `download`, `open_app`, `continue_web`) and `platform` (`android`, `ios`, `other`), never the token or plan identity.
+- Mobile followed plans add `plan crew passage corrected in app`, `plan crew passage cleared in app` and `followed plan handover checked`, each with only `source: followed_plan`.
+
 Mobile additionally emits `race favorite updated` only after the server returns the persisted favorite set, and `push notification opened` after a notification interaction with a bounded notification kind/action. The optimistic heart animation, stable current ordering, in-memory quick-filter changes, and fourteen-day post-race visibility of an existing favorite emit no additional analytics event. Guest account gates emit `guest account prompt viewed` with a bounded `race_favorite` or `plan_limit` source, then `guest account conversion started` only when the runner chooses account creation or existing-account sign-in. Notification hrefs, message bodies, and guest-prompt copy are excluded.
 
 The linked mobile race workspace emits `race workspace switched` only after the user chooses a direction. Its payload is limited to `racebook_to_plan` or `plan_to_racebook` and, for the former, the bounded `open|create` action. In the Livret the switch is rendered only for an owned plan, so `create` there only occurs if the owner row disappeared between lookups. It never contains plan values, an address, coordinates, notes, or free text.
@@ -445,7 +449,7 @@ Trail signature iteration 3 (2026-11-11): presentation only. The active-state ac
 
 The mobile catalog (`apps/mobile/app/(app)/catalog.tsx`) now shows its quick filters as kilometre-milestone `ChoiceChip`s behind a compass filter button (Favoris first, heart variant) and the race sheet favourite as a forest `HeartMark`; this is presentation only — queries, favourite writes and analytics events are unchanged.
 
-The RaceBook screen (`apps/mobile/app/(app)/race/[id]/racebook.tsx`) renders its last-minute update through `components/racebook/TapeAlertBanner` (orange/white tape strip, 44-point expand toggle) and passes the resolved start time to the plan invitation card; data loading and writes are unchanged.
+The RaceBook screen (`apps/mobile/app/(app)/race/[id]/racebook.tsx`) renders its last-minute update through `components/racebook/TapeAlertBanner` (orange/white tape strip, 44-point expand toggle) and passes the resolved start time to the plan invitation card; online data loading and writes are unchanged; when the API is unreachable it shows the device copy of the last published RaceBook (see `docs/03-business-rules/mobile-offline-access.md`).
 
 Catalog search, sheet header and header buttons were restyled (`Field`, `IconAction`); analytics events and their properties are unchanged.
 

@@ -15,5 +15,12 @@ export function resolveAppStoreTarget(userAgent: string): AppStoreTarget {
   return { url: APP_INSTALL_HELP_URL, platform: "fallback" };
 }
 
+/** Phone platform from a user agent, or null on desktop (iPadOS desktop UAs are refined client-side). */
+export function detectMobileAppPlatform(userAgent: string): "android" | "ios" | "other" | null {
+  if (/Android/i.test(userAgent)) return "android";
+  if (/iPhone|iPad|iPod/i.test(userAgent)) return "ios";
+  return /Mobile|IEMobile|Opera Mini/i.test(userAgent) ? "other" : null;
+}
+
 /** Public App Store listing, also used by /links when the env override is unset. */
 export const PUBLIC_IOS_APP_STORE_URL = IOS_APP_STORE_URL || "https://apps.apple.com/app/id6772180071";

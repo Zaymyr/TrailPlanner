@@ -1,7 +1,8 @@
 ---
 title: Plan Storage
 scope: business-rule
-last_verified: 2026-11-15
+last_verified: 2026-11-18
+# Crew follow UX (2026-11-17): passed checkpoints collapse, confirmed passages can be corrected or undone, the crew handover is a device-local checklist, aid-station directions match supporter points by place name within 2 km, and phones without the app get an app-first gate on the public page; no column, RLS or crew_state shape change.
 # Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
 # Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
 ai_priority: high
@@ -48,6 +49,7 @@ related_files:
   - apps/mobile/lib/planPersistence.test.ts
   - apps/mobile/lib/webApi.ts
   - apps/mobile/lib/onboardingDemoPlan.ts
+  - apps/mobile/lib/plansScreenBootstrap.ts
 related_tables:
   - race_plans
   - plan_share_links
@@ -156,6 +158,8 @@ When the in-app recap opens, mobile sends the regenerated recap snapshot to `app
 
 The public shared page can persist limited crew-side tracking data through `apps/web/app/api/plan-shares/crew-state/route.ts`. That route validates the secret URL token, hashes it server-side, and updates only `plan_share_links.departure_time` plus `plan_share_links.crew_state`. The crew marks assistance points as done; the page records the current clock time, recalculates the next crew point from that confirmed passage, and treats no-assistance checkpoints as planned-time passages by default. If the crew validates too early, the tracking card can clear confirmed passages and return calculations to the planned snapshot values while keeping the entered departure time.
 
+A single confirmed passage can also be corrected afterwards: the crew types the real clock time, which is resolved to the day nearest the planned passage (overnight safe) and replaces that checkpoint's `actualMinute`, or it can undo only that passage. Passed checkpoints (confirmed, or before the last confirmation) are collapsed by default and reopen on tap. The handover list is a device-local checklist that never feeds `crew_state` or `race_plans`.
+
 Linked plan creation first resolves the existing `(user_id, race_id)` row before applying the free-plan limit. This applies to identified and anonymous Supabase sessions. A concurrent uniqueness conflict reloads that row instead of surfacing a creation failure. The mobile Livret and linked-plan editor share a persistent `Livret officiel | Mon plan` switch below their collapsing headers; in the Livret it is rendered only once the owner row exists. Both directions use route replacement; entering the plan preserves the Livret tab/course-tab context, leaving the plan flushes the current draft first, and native back/exit still targets Courses or Plans rather than the opposite workspace. The editor may include its plan id as a return-route hint so the Livret can open that row immediately, but the Livret still reloads the `(user_id, race_id)` owner row on every focus and clears an invalid hint instead of entering the creation route.
 
 The general rule that a saved local draft must not bypass a fresh database read still applies to entries from Plans and other unrelated routes. The workspace switch is a narrow, one-use exception: after the plan-to-Livret save succeeds, mobile stages the current draft and product bootstrap in memory for the immediate return to that same plan. When the Livret was instead opened directly, it first reloads the owner-scoped row and then stages the persisted values, best available elevation profile and product bootstrap. Consuming either handoff avoids a second loading screen; the handoff is never persisted and its token plus returned `planId` must both match the current dynamic editor route. A route change therefore discards the previous format's warm start before any draft state or autosave target is initialized.
@@ -216,7 +220,7 @@ It:
 - Updating by plan name in `/api/plans` can patch an existing plan rather than creating a new one.
 - Missing `organizerAidStationProducts` should be treated as no organizer suggestions. Older plans may not have this field, and plans without `sourceAidStationId` must keep matching official products by the legacy `name|km` key.
 - Mobile recap/share should save or read the current draft before deriving the checklist. Persist only the deliberate `plan_share_links.snapshot` public share record, not another editable plan-summary source of truth.
-- Do not compare mobile draft dirtiness from `planner_values` alone. A changed `elevation_profile` must trigger the same durable save, and a saved local cache must not bypass a fresh database load on the next editor opening.
+- Do not compare mobile draft dirtiness from `planner_values` alone. A changed `elevation_profile` must trigger the same durable save, and a saved local cache must not bypass a fresh database load on the next editor opening. The offline device copy is consulted only after that load failed for lack of network, and must never be written from a copy shown offline.
 - Never reuse a workspace warm start after the route plan id changes. The token and returned `planId` are a pair; accepting content scoped to another plan can display and then autosave one format over another.
 - The in-app recap must reload the saved plan when it regains focus, then synchronize the recalculated public snapshot while keeping the stable share URL.
 - Do not derive recap totals or checkpoint passage times from the five-minute-rounded nutrition reminder timeline; use the exact section durations shared with the plan editor.
@@ -240,6 +244,10 @@ Trail signature (2026-11-09): a standard plan creation opens the editor with a o
 An authenticated follower never receives the editable `race_plans` row: it reads the server-projected shared snapshot and the narrow published race context through the share API. `plan_share_follows` records membership and archive/restore state only; the device-local preparation checklist and last-viewed revision are not shared-plan persistence. Revocation, expiry, or follower removal must make the native detail unavailable rather than falling back to owner data.
 
 
+## Offline device copy (mobile)
+
+`race_plans` stays the source of truth. Mobile additionally keeps a read-only device copy, keyed by user id and plan id, of the last plan row it loaded or saved successfully (raw row, best elevation profile, and only the products the plan references), plus the plans list and the summary's official start (race date, start time, waves). These copies are read only when the `race_plans` query fails with a transport error (PostgREST `status: 0`); a fresh database read always runs first, so they never act as a warm start. The offline workspace shows a `BriefToast` with the save time; edits made offline still go through the ordinary autosave, which fails without network and is not queued. Copies are purged on sign-out. See [Mobile offline access](mobile-offline-access.md).
+
 ## Mobile presentation
 
 The RaceBook plan invitation card shows the race start time on its dashed aid-station trail. Plan status in Mes courses (`apps/mobile/lib/planReadiness.ts`, presentation only, nothing stored):
@@ -261,6 +269,7 @@ The plan workspace bottom bar has a fourth « Nutrition » tab next to Mon plan,
 - [GPX Import](gpx-import.md)
 - [Organizer Race Management](organizer-race-management.md)
 - [Premium Entitlement](premium-entitlement.md)
+- [Mobile offline access](mobile-offline-access.md)
 
 The RaceBook workspace switch is the only plan opening entry in the RaceBook header area and exists only for an owned plan; creation without a plan goes through the Course-tab invite card, which reuses the same existing-row check before routing to `/plan/new`. Removing the duplicate creation card, localizing its remaining revision warning, and sharing distance/clock presentation do not add writes or alter the persisted plan snapshot. Official station locks remain display-only constraints over organizer-owned fields.
 

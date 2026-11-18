@@ -2,12 +2,16 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  buildPlanShareCheckpointHandover,
   buildPlanShareTimeline,
+  formatPlanShareClockInput,
+  isPlanShareCheckpointPassed,
   isPlanShareCrewCheckpoint as isCrewCheckpoint,
   isPlanShareTrackableCheckpoint as isTrackableCheckpoint,
   normalizePlanSharePassages as normalizePassages,
   parsePlanShareClock as parseClock,
   resolvePlanShareClockNearPlanned as resolveClockNearPlanned,
+  resolvePlanSharePassageCorrection,
 } from "@trailplanner/shared";
 
 import type { PlanShareCrewState, PlanShareSnapshot } from "../../../../lib/plan-share";
@@ -59,6 +63,16 @@ const COPY = {
     dayOffset: "J+{days}",
     remaining: "dans {duration}",
     confirmedAt: "Validé à {time}",
+    editPassage: "Corriger l'heure",
+    clearPassage: "Annuler ce passage",
+    passageTime: "Heure de passage réelle",
+    invalidTime: "Heure invalide, format HH:mm.",
+    cancel: "Annuler",
+    handoverProgress: "{done}/{total} donné(s)",
+    refillWater: "Remplir la poche ({liters} L)",
+    refillWaterNoVolume: "Remplir la poche",
+    showDetails: "Voir le détail",
+    hideDetails: "Masquer le détail",
   },
   en: {
     title: "Crew aid stations",
@@ -94,6 +108,16 @@ const COPY = {
     dayOffset: "D+{days}",
     remaining: "in {duration}",
     confirmedAt: "Confirmed at {time}",
+    editPassage: "Fix the time",
+    clearPassage: "Undo this passage",
+    passageTime: "Actual passage time",
+    invalidTime: "Invalid time, use HH:mm.",
+    cancel: "Cancel",
+    handoverProgress: "{done}/{total} handed over",
+    refillWater: "Refill the bladder ({liters} L)",
+    refillWaterNoVolume: "Refill the bladder",
+    showDetails: "Show details",
+    hideDetails: "Hide details",
   },
 } as const;
 
@@ -172,6 +196,33 @@ export function PlanShareCrewTimeline({
   const [feedback, setFeedback] = useState<"saved" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const hasTrackedOpen = useRef(false);
+  const [expandedOverrides, setExpandedOverrides] = useState<Record<number, boolean>>({});
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [handedOver, setHandedOver] = useState<Set<string>>(new Set());
+  const handoverStorageKey = `paceyourself.plan-share-handover:${summary.id}`;
+
+  useEffect(() => {
+    try {
+      setHandedOver(new Set(JSON.parse(window.localStorage.getItem(handoverStorageKey) ?? "[]")));
+    } catch {
+      setHandedOver(new Set());
+    }
+  }, [handoverStorageKey]);
+
+  function toggleHandedOver(key: string) {
+    setHandedOver((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      try {
+        window.localStorage.setItem(handoverStorageKey, JSON.stringify([...next]));
+      } catch {
+        // Device-local convenience only; the checklist still works for this page view.
+      }
+      return next;
+    });
+  }
 
   useEffect(() => {
     if (hasTrackedOpen.current) return;
@@ -226,11 +277,21 @@ export function PlanShareCrewTimeline({
       setPassages(normalizePassages(data.crewState.passages, summary.checkpoints));
       setFeedback("saved");
       trackCrewStateUpdated({
-        action: key === "start" ? "start_time_saved" : key === "reset" ? "tracking_reset" : "checkpoint_confirmed",
+        action: key === "start"
+          ? "start_time_saved"
+          : key === "reset"
+            ? "tracking_reset"
+            : key.startsWith("correct-")
+              ? "checkpoint_corrected"
+              : key.startsWith("clear-")
+                ? "checkpoint_cleared"
+                : "checkpoint_confirmed",
         confirmedPassageCount: data.crewState.passages.length,
       });
+      return true;
     } catch {
       setError(copy.saveError);
+      return false;
     } finally {
       setSavingKey(null);
     }
@@ -263,6 +324,30 @@ export function PlanShareCrewTimeline({
     const nextPassages = [...passages.filter((passage) => passage.checkpointIndex !== checkpoint.index), nextPassage];
 
     await persistCrewState(nextPassages, startTime, `checkpoint-${checkpoint.index}`);
+  }
+
+  async function handleCorrectPassage(checkpoint: PlanShareCheckpoint) {
+    if (parseClock(startTime) === null) {
+      setError(copy.startRequired);
+      return;
+    }
+    const actualMinute = resolvePlanSharePassageCorrection(editValue.trim(), startTime, checkpoint);
+    if (actualMinute === null) {
+      setError(copy.invalidTime);
+      return;
+    }
+    const nextPassages = [
+      ...passages.filter((passage) => passage.checkpointIndex !== checkpoint.index),
+      { checkpointIndex: checkpoint.index, actualMinute, confirmedAt: new Date().toISOString() },
+    ];
+    if (await persistCrewState(nextPassages, startTime, `correct-${checkpoint.index}`)) setEditingIndex(null);
+  }
+
+  async function handleClearPassage(checkpoint: PlanShareCheckpoint) {
+    const nextPassages = passages.filter((passage) => passage.checkpointIndex !== checkpoint.index);
+    if (await persistCrewState(nextPassages, startTime, `clear-${checkpoint.index}`)) {
+      setExpandedOverrides((current) => ({ ...current, [checkpoint.index]: true }));
+    }
   }
 
   async function handleResetTracking() {
@@ -373,23 +458,41 @@ export function PlanShareCrewTimeline({
           const isAssistancePoint = isCrewCheckpoint(checkpoint);
           const isTrackable = isTrackableCheckpoint(checkpoint);
           const isNext = timeline.nextCheckpoint !== null && checkpoint.index === timeline.nextCheckpoint.index;
+          const isPassed = isPlanShareCheckpointPassed(checkpoint, timeline);
+          const isOpen = expandedOverrides[checkpoint.index] ?? !isPassed;
+          const isEditing = editingIndex === checkpoint.index;
           const shouldShowGiveBlock = !isNoAssistance;
           const canValidate = isTrackable && !checkpoint.isStart;
-          const cardIsSaving = savingKey === `checkpoint-${checkpoint.index}`;
-          const cardClasses = isAssistancePoint
-            ? "border-brand-border bg-brand-surface shadow-sm"
-            : isNoAssistance
-              ? "border-border bg-muted/60 opacity-80"
-              : "border-border bg-card";
+          const cardIsSaving = savingKey !== null && savingKey.endsWith(`-${checkpoint.index}`);
+          const handover = isAssistancePoint ? buildPlanShareCheckpointHandover(checkpoint, summary.waterBagLiters) : [];
+          const handedCount = handover.filter((item) => handedOver.has(item.key)).length;
+          const progressLabel = copy.handoverProgress
+            .replace("{done}", String(handedCount))
+            .replace("{total}", String(handover.length));
+          const detailsId = `plan-share-checkpoint-${checkpoint.index}`;
+          const cardClasses = isPassed
+            ? "border-border bg-muted/60"
+            : isAssistancePoint
+              ? "border-brand-border bg-brand-surface shadow-sm"
+              : isNoAssistance
+                ? "border-border bg-muted/60 opacity-80"
+                : "border-border bg-card";
 
           return (
             <article key={`${checkpoint.index}-${checkpoint.name}`} className={`rounded-lg border p-4 ${cardClasses}`}>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <button
+                type="button"
+                aria-expanded={isOpen}
+                aria-controls={detailsId}
+                title={isOpen ? copy.hideDetails : copy.showDetails}
+                onClick={() => setExpandedOverrides((current) => ({ ...current, [checkpoint.index]: !isOpen }))}
+                className="flex w-full items-start justify-between gap-3 text-left"
+              >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <h3
                       className={`break-words text-lg font-bold ${
-                        isNoAssistance ? "text-muted-foreground" : "text-foreground"
+                        isNoAssistance || isPassed ? "text-muted-foreground" : "text-foreground"
                       }`}
                     >
                       {checkpoint.name}
@@ -417,13 +520,23 @@ export function PlanShareCrewTimeline({
                       {copy.confirmedAt.replace("{time}", formatAbsoluteClock(checkpointAbsolute, locale))}
                     </p>
                   ) : null}
+                  {!isOpen && handover.length > 0 ? (
+                    <p className="mt-1 text-xs font-semibold text-muted-foreground">{progressLabel}</p>
+                  ) : null}
                 </div>
+                <span aria-hidden="true" className="mt-1 flex-shrink-0 font-mono text-sm font-bold text-muted-foreground">
+                  {isOpen ? "▲" : "▼"}
+                </span>
+              </button>
 
-                <div className="flex flex-col gap-2 sm:items-end">
-                  <div className="flex flex-wrap gap-2 sm:justify-end">
-                    <span className="rounded-full border border-border bg-muted px-3 py-1 text-xs font-bold text-muted-foreground">
-                      {copy.water}: {waterInstruction}
-                    </span>
+              {isOpen ? (
+                <div id={detailsId} className="mt-3 flex flex-col gap-4">
+                  <div className="flex flex-wrap gap-2">
+                    {checkpoint.waterState !== "refill" || !isAssistancePoint ? (
+                      <span className="rounded-full border border-border bg-muted px-3 py-1 text-xs font-bold text-muted-foreground">
+                        {copy.water}: {waterInstruction}
+                      </span>
+                    ) : null}
                     {checkpoint.solidState === "unavailable" ? (
                       <span className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">
                         {copy.solidUnavailable}
@@ -451,45 +564,131 @@ export function PlanShareCrewTimeline({
                     ) : null}
                   </div>
 
+                  {shouldShowGiveBlock ? (
+                    <div>
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-xs font-semibold uppercase text-muted-foreground">{copy.give}</p>
+                        {handover.length > 0 ? (
+                          <p className="text-xs font-semibold text-muted-foreground">{progressLabel}</p>
+                        ) : null}
+                      </div>
+                      {handover.length > 0 ? (
+                        <ul className="mt-2 flex flex-col gap-1">
+                          {handover.map((item) => {
+                            const checked = handedOver.has(item.key);
+                            const label = item.kind === "water"
+                              ? item.liters
+                                ? copy.refillWater.replace("{liters}", formatLiters(item.liters))
+                                : copy.refillWaterNoVolume
+                              : `${item.name} x${item.quantity}`;
+                            return (
+                              <li key={item.key}>
+                                <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg bg-surface-muted px-3 py-2 text-sm font-semibold text-foreground">
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => toggleHandedOver(item.key)}
+                                    className="h-5 w-5 flex-shrink-0 accent-[hsl(var(--brand))]"
+                                  />
+                                  <span className={`min-w-0 break-words ${checked ? "text-muted-foreground line-through" : ""}`}>
+                                    {label}
+                                  </span>
+                                </label>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      ) : checkpoint.supplies.length === 0 ? (
+                        <p className="mt-2 text-sm text-muted-foreground">{copy.nothingToGive}</p>
+                      ) : (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {checkpoint.supplies.map((product) => (
+                            <span
+                              key={product.productId}
+                              className="inline-flex max-w-full items-center gap-2 rounded-lg bg-surface-muted px-3 py-2 text-sm font-semibold text-foreground"
+                            >
+                              <span className="truncate">{product.name}</span>
+                              <span className="font-mono font-bold text-brand">x{product.quantity}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+
                   {canValidate ? (
-                    <button
-                      type="button"
-                      disabled={savingKey !== null}
-                      onClick={() => handleConfirmPassage(checkpoint)}
-                      className="min-h-11 rounded-lg bg-brand px-4 text-sm font-bold text-brand-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {cardIsSaving
-                        ? copy.saving
-                        : confirmedPassage
-                          ? checkpoint.isFinish
-                            ? copy.validateFinish
-                            : copy.revalidatePassage
+                    isEditing ? (
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                        <label className="flex flex-col gap-2 text-xs font-semibold uppercase text-muted-foreground">
+                          {copy.passageTime}
+                          <input
+                            type="time"
+                            step="60"
+                            value={editValue}
+                            autoFocus
+                            onChange={(event) => {
+                              setEditValue(event.target.value);
+                              setError(null);
+                            }}
+                            className="min-h-11 rounded-lg border border-border bg-background px-3 font-mono text-base font-bold text-foreground outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          disabled={savingKey !== null}
+                          onClick={() => handleCorrectPassage(checkpoint)}
+                          className="min-h-11 rounded-lg bg-brand px-4 text-sm font-bold text-brand-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {cardIsSaving ? copy.saving : copy.saveStart}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={savingKey !== null}
+                          onClick={() => setEditingIndex(null)}
+                          className="min-h-11 rounded-lg border border-border bg-background px-4 text-sm font-bold text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {copy.cancel}
+                        </button>
+                      </div>
+                    ) : confirmedPassage ? (
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={savingKey !== null}
+                          onClick={() => {
+                            setEditingIndex(checkpoint.index);
+                            setEditValue(checkpointAbsolute !== null ? formatPlanShareClockInput(checkpointAbsolute) : "");
+                            setError(null);
+                          }}
+                          className="min-h-11 rounded-lg border border-brand-border bg-card px-4 text-sm font-bold text-brand disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {copy.editPassage}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={savingKey !== null}
+                          onClick={() => handleClearPassage(checkpoint)}
+                          className="min-h-11 rounded-lg border border-border bg-background px-4 text-sm font-bold text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {cardIsSaving ? copy.saving : copy.clearPassage}
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={savingKey !== null}
+                        onClick={() => handleConfirmPassage(checkpoint)}
+                        className="min-h-11 self-start rounded-lg bg-brand px-4 text-sm font-bold text-brand-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {cardIsSaving
+                          ? copy.saving
                           : checkpoint.isFinish
                             ? copy.validateFinish
                             : copy.validatePassage}
-                    </button>
+                      </button>
+                    )
                   ) : null}
-                </div>
-              </div>
-
-              {shouldShowGiveBlock ? (
-                <div className="mt-4">
-                  <p className="text-xs font-semibold uppercase text-muted-foreground">{copy.give}</p>
-                  {checkpoint.supplies.length === 0 ? (
-                    <p className="mt-2 text-sm text-muted-foreground">{copy.nothingToGive}</p>
-                  ) : (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {checkpoint.supplies.map((product) => (
-                        <span
-                          key={product.productId}
-                          className="inline-flex max-w-full items-center gap-2 rounded-lg bg-surface-muted px-3 py-2 text-sm font-semibold text-foreground"
-                        >
-                          <span className="truncate">{product.name}</span>
-                          <span className="font-mono font-bold text-brand">x{product.quantity}</span>
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                  {isEditing && error ? <p className="text-sm font-semibold text-red-700">{error}</p> : null}
                 </div>
               ) : null}
             </article>

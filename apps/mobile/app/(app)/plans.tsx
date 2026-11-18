@@ -19,6 +19,8 @@ import { LoadingState } from '../../components/themed/LoadingState';
 import { Screen } from '../../components/themed/Screen';
 import { Text } from '../../components/themed/Text';
 import { TrailTabs } from '../../components/themed/TrailTabs';
+import { TapeAlertBanner } from '../../components/racebook/TapeAlertBanner';
+import { formatOfflineSavedAt } from '../../lib/offlineCacheFormat';
 import { useFollowedRaces } from '../../hooks/useFollowedRaces';
 import { usePlansScreen } from '../../hooks/usePlansScreen';
 
@@ -42,6 +44,7 @@ export default function PlansScreen() {
     t,
     loading,
     error,
+    offlineSavedAt,
     refreshing,
     sections,
     collapsedSections,
@@ -195,6 +198,14 @@ export default function PlansScreen() {
         racebookButtonLabel={t.catalog.racebookCta}
         listHeaderComponent={
           <>
+            {offlineSavedAt ? (
+              <TapeAlertBanner
+                icon="cloud-offline-outline"
+                message={t.common.offlineCopy.replace('{time}', formatOfflineSavedAt(offlineSavedAt, locale))}
+                title={t.common.offlineTitle}
+                variationKey="plans-offline"
+              />
+            ) : null}
             <FollowedRacesSection
               events={followedEventsWithoutPlan}
               locale={locale}

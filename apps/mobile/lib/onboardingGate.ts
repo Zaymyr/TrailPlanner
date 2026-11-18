@@ -2,6 +2,7 @@ import type { Session } from '@supabase/supabase-js';
 import { isRunnerProfileReady, type RunnerProfileValues } from './runnerProfileFields';
 
 import { supabase } from './supabase';
+import { isPostgrestNetworkFailure } from './offlineCacheFormat';
 import { loadOnboardingProgress, parseOnboardingStatuses } from './onboardingStatus';
 import { getPendingRunnerRace } from './runnerPlanIntent';
 
@@ -88,11 +89,15 @@ export async function getPostAuthRoute(session: Session | null | undefined) {
   const pendingRace = !session.user.is_anonymous ? await getPendingRunnerRace() : null;
   if (pendingRace) return `/(app)/plan/new?catalogRaceId=${pendingRace}&onboarding=plan`;
 
-  const { data, error } = await supabase
+  const profileResult = await supabase
     .from('user_profiles')
     .select('plan_onboarding_status, racebook_onboarding_status')
     .eq('user_id', session.user.id)
     .maybeSingle();
+  const { data, error } = profileResult;
+
+  // Offline launch: open the plans, whose RaceBooks and plans have device copies.
+  if (isPostgrestNetworkFailure(profileResult)) return '/(app)/plans';
 
   if (error || !data) {
     return (await shouldOpenOnboarding(session)) ? '/(app)/onboarding' : '/(app)/catalog';

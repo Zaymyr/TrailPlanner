@@ -2,7 +2,7 @@
 title: race_events Table
 scope: database
 
-last_verified: 2026-11-16
+last_verified: 2026-11-18
 # Assisted legacy conversion (2026-11-15): legacy event-level text can become a review-only proposal; the endpoint does not update race_events.
 # Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
 # Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
@@ -417,7 +417,7 @@ The mobile catalog (`apps/mobile/app/(app)/catalog.tsx`) now shows its quick fil
 
 `RaceEventSummaryCard` (catalog race card) shows the RaceBook availability as a `StatusPill` wristband, counts and distances as `Cote`s, the favourite heart on the title line and a « Voir les distances » sign. It draws no course profile (removed on 2026-11-11) and the catalog no longer fetches format profiles. No data contract changes.
 
-The RaceBook screen (`apps/mobile/app/(app)/race/[id]/racebook.tsx`) renders its last-minute update through `components/racebook/TapeAlertBanner` (orange/white tape strip, 44-point expand toggle) and passes the resolved start time to the plan invitation card; data loading and writes are unchanged.
+The RaceBook screen (`apps/mobile/app/(app)/race/[id]/racebook.tsx`) renders its last-minute update through `components/racebook/TapeAlertBanner` (orange/white tape strip, 44-point expand toggle) and passes the resolved start time to the plan invitation card; online data loading and writes are unchanged; when the API is unreachable it shows the device copy of the last published RaceBook (see `docs/03-business-rules/mobile-offline-access.md`).
 
 The RaceBook Course map and profile cards open fullscreen through watch `IconAction`s (labels `racebookMapExpand` / `racebookProfileExpand`) instead of ad-hoc square buttons; behaviour unchanged.
 
