@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-11-15
+last_verified: 2026-11-18
 # Assisted legacy conversion (2026-11-15): review controls do not alter GPX parsing, waypoint hydration or persistence.
 # Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
 # Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
@@ -146,7 +146,7 @@ A successful run writes a new versioned object under the existing format's `cata
 
 The admin format editor may pass one-shot provider credentials. Automated callers use `POST /api/internal/race-catalog/tracedetrail/enrich` with the dedicated `TRACEDETRAIL_ENRICHMENT_SECRET` bearer secret; optional provider credentials come only from the server-side `TRACEDETRAIL_LOGIN` and `TRACEDETRAIL_PASSWORD` deployment variables. The route never accepts or returns a Supabase service-role key.
 
-The daily Vercel route `/api/cron/tracedetrail-catalog-enrichment` authenticates the scheduler with `CRON_SECRET`, then calls that existing internal POST route over HTTP with the separate enrichment secret. It does not call the enrichment library directly or bypass the internal route authentication. Its initial reviewed allowlist contains only the six 2027 Trace des Maquisards formats already carrying a `trace_id`; broad discovery of every Trace de Trail row is deliberately disabled. Expanding the allowlist requires confirming that the organizer permits the official GPX download. Embedded-only/forbidden downloads remain errors before any Storage or database write. Successful and unchanged results both include a verified Storage object.
+The daily Vercel route `/api/cron/tracedetrail-catalog-enrichment` authenticates the scheduler with `CRON_SECRET`, then calls that existing internal POST route over HTTP with the separate enrichment secret. It does not call the enrichment library directly or bypass the internal route authentication. Its reviewed allowlist contains only the six 2027 Trace des Maquisards formats and the four 2027 Trail de la Galinette formats already carrying a `trace_id` (download permission checked on their Trace de Trail pages on 2026-11-18; the Trail Hivernal des Coursières traces are excluded because their organizer disables the GPX download); broad discovery of every Trace de Trail row is deliberately disabled. Expanding the allowlist requires confirming that the organizer permits the official GPX download. Embedded-only/forbidden downloads remain errors before any Storage or database write. Successful and unchanged results both include a verified Storage object.
 
 New Trace de Trail catalog races initialize `edition_group_id` with their own race id and `series_name` with the imported course name. These values are required by the edition-group schema even for the first edition of a format.
 
