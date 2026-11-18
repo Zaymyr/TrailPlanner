@@ -37,9 +37,8 @@ export function OnboardingShell({
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Light sand/brand-surface background: keep status bar glyphs dark. */}
+      {/* Light sand background: keep status bar glyphs dark. */}
       <StatusBar style="dark" />
-      <View style={styles.topGlow} />
       <ScrollView
         contentContainerStyle={styles.shellScrollContent}
         keyboardShouldPersistTaps="handled"
@@ -288,18 +287,8 @@ export function OnboardingCompletionStep({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  topGlow: {
-    position: 'absolute',
-    top: -60,
-    left: -20,
-    right: -20,
-    height: 220,
-    backgroundColor: Colors.brandSurface,
-    borderBottomLeftRadius: 120,
-    borderBottomRightRadius: 120,
-  },
   shellScrollContent: { flexGrow: 1 },
-  inner: { flexGrow: 1, paddingHorizontal: 20, paddingVertical: 24, justifyContent: 'center' },
+  inner: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 24 },
   hero: { alignItems: 'center', marginBottom: 18 },
   heroTitleRow: { width: '100%', flexDirection: 'row', alignItems: 'center' },
   logo: {
@@ -321,19 +310,8 @@ const styles = StyleSheet.create({
   progressSegment: { flex: 1, height: 6, borderRadius: 999 },
   progressSegmentActive: { backgroundColor: Colors.brandPrimary },
   progressSegmentInactive: { backgroundColor: Colors.surfaceMuted },
-  card: {
-    backgroundColor: Colors.surface,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    elevation: 4,
-    marginBottom: 12,
-  },
+  // Full-page content: onboarding steps sit directly on the screen background, not in a floating card.
+  card: { flexGrow: 1 },
   title: {
     fontSize: 28,
     fontWeight: '800',
