@@ -1,7 +1,7 @@
 ---
 title: organizer_social_proofs
 scope: database
-last_verified: 2026-11-16
+last_verified: 2026-11-18
 # Organizer hero note (2026-11-16): /organisateurs now presents the Livret coureur and the Livret supporter side by side (hero cards, illustrative supporter preview, metadata title); presentation only, no data, analytics event or offer change.
 ai_priority: high
 related_files:
@@ -21,6 +21,7 @@ related_files:
 related_tables:
   - organizer_social_proofs
   - race_event_editions
+  - race_event_edition_branding
   - race_events
   - races
 ---
@@ -29,7 +30,7 @@ related_tables:
 
 ## Purpose
 
-`organizer_social_proofs` stores the administrator-curated, edition-scoped proof cards published on `/organisateurs`. It combines optional consented organizer copy with a durable snapshot of aggregate RaceBook usage. The public landing summarizes the first ordered proof in its conversion hero, independently of the now self-contained and viewport-height-constrained phone demonstration, then gives the complete published selection a dedicated highlighted surface with semantic metrics and an optional visually distinct testimonial. Responsive compaction changes only presentation; the landing never queries PostHog directly and never receives runner identities.
+`organizer_social_proofs` stores the administrator-curated, edition-scoped proof cards published on `/organisateurs`. It combines optional consented organizer copy with a durable snapshot of aggregate RaceBook usage. The public landing summarizes the first ordered proof in its conversion hero as a clickable strip (race logo, two-line testimonial excerpt, metrics as plain text) that scrolls to `#preuve-sociale`, independently of the now self-contained and viewport-height-constrained phone demonstration. The dedicated section then leads each published proof with the race logo and a large testimonial with its attribution, and keeps the two metrics in a compact « Usage mesuré » side column. Responsive compaction changes only presentation; the landing never queries PostHog directly and never receives runner identities.
 
 The admin page now also includes an independent messaging inbox (bugs, feedback, race requests). That additional tab does not read, write, publish, or invalidate organizer social-proof rows.
 
@@ -42,6 +43,7 @@ The admin page now also includes an independent messaging inbox (bugs, feedback,
 - `total_opens` counts successful RaceBook opens in the same window.
 - The snapshot begins at the earliest attached format's first publication and ends at the earlier of today or fourteen days after the edition end date.
 - Internal/test PostHog persons remain excluded by the shared organizer analytics query.
+- The proof logo is never uploaded or stored on the proof row. `resolveOrganizerSocialProofLogo` (`apps/web/lib/organizer-social-proof.ts`) takes it from the organizer space at read time: the edition's published Livret coureur logo (`race_event_edition_branding.published_logo_url`) first, otherwise the event image (`race_events.thumbnail_url`), otherwise none (the landing shows the race initial). `logoSource` (`racebook` | `event` | null) tells the admin preview where it came from. Draft branding logos are never used.
 
 ## Columns
 
@@ -107,6 +109,7 @@ limit 3;
 - The event favorite count is event-scoped current stock and is intentionally not stored in an edition proof.
 - The hero and highlighted section intentionally reuse the same first ordered snapshot; do not compute a separate or fresher metric in the client.
 - The admin header's separate 3D video-generator link neither reads nor mutates organizer proof snapshots.
+- Changing the organizer logo or event image does not call `revalidateTag("organizer-social-proofs")`; the landing picks it up within the five-minute cache window (or immediately after any proof save). The race-events thumbnail can be a photo rather than a logo, so check the admin preview before publishing.
 
 ## Related Docs
 

@@ -369,6 +369,25 @@ export function AdminOrganizerSocialProofsTab({ accessToken }: { accessToken: st
             </CardHeader>
             <CardContent className="space-y-5">
               <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
+                <div className="mb-4 flex items-center gap-3">
+                  {selectedEdition.logoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={selectedEdition.logoUrl}
+                      alt={`Logo ${selectedEdition.eventName}`}
+                      className="h-14 w-14 shrink-0 rounded-xl border border-border bg-card object-contain p-1"
+                    />
+                  ) : (
+                    <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-dashed border-border bg-card text-[0.6rem] font-medium text-muted-foreground">Sans logo</span>
+                  )}
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    {selectedEdition.logoSource === "racebook"
+                      ? "Logo du Livret coureur, repris de l’espace organisateur."
+                      : selectedEdition.logoSource === "event"
+                        ? "Image de l’événement, reprise de l’espace organisateur. Pour la changer, modifiez l’image de l’événement ou publiez un logo dans l’identité visuelle du Livret."
+                        : "Aucun logo dans l’espace organisateur : ajoutez l’image de l’événement ou le logo du Livret pour l’afficher."}
+                  </p>
+                </div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">{selectedEdition.eventName} · {selectedEdition.editionYear}</p>
                 <p className="mt-3 text-3xl font-semibold text-foreground">{(selectedProof?.uniqueReaders ?? 0).toLocaleString("fr-FR")}</p>
                 <p className="text-sm text-muted-foreground">lecteurs uniques estimés</p>
