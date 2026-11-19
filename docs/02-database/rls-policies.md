@@ -505,3 +505,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 ## Followed plan publication context
 
 `plan_share_follows` keeps authenticated SELECT-only grants and service-route writes. The auto-archive dismissal timestamp does not widen either policy. Follow detail/list routes recheck identified membership and active link state before a service-role RaceBook read; they require current public visibility and an immutable publication. Owner share status returns only an aggregate non-removed follower count. Client-supplied `snapshot.raceId` is overwritten from the owned plan row.
+
+## Instagram social publishing
+
+`social_posts` and `social_accounts` (2026-11-19): RLS enabled, no client policy, every privilege revoked from `public`, `anon` and `authenticated`, `service_role` only, like `video_render_jobs`. Admin routes authorize through `authorizeVideoAdmin` (trusted `app_metadata`) before the service role; the cron routes require `CRON_SECRET`. The token column only accepts the server-side `v1:` AES-GCM envelope. `configure_social_publishing_cron()` is `SECURITY DEFINER` (it schedules pg_cron jobs), revoked from client roles and executable by `service_role`. See [social_posts](tables/social-posts.md) and [social_accounts](tables/social-accounts.md).

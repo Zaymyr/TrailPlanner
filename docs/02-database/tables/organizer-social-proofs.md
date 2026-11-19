@@ -108,7 +108,7 @@ limit 3;
 - Do not expose drafts or audit ids through an anonymous Data API grant. Public presentation remains server-only and allowlisted.
 - The event favorite count is event-scoped current stock and is intentionally not stored in an edition proof.
 - The hero and highlighted section intentionally reuse the same first ordered snapshot; do not compute a separate or fresher metric in the client.
-- The admin header's separate 3D video-generator link neither reads nor mutates organizer proof snapshots.
+- The admin header's separate 3D video-generator link neither reads nor mutates organizer proof snapshots. The same holds for the « Publications » link (`/admin/publications`, Instagram Reels, see [Instagram Reels Publishing](../../05-integrations/instagram-publishing.md)).
 - Changing the organizer logo or event image does not call `revalidateTag("organizer-social-proofs")`; the landing picks it up within the five-minute cache window (or immediately after any proof save). The race-events thumbnail can be a photo rather than a logo, so check the admin preview before publishing.
 
 ## Related Docs

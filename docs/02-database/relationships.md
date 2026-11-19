@@ -278,6 +278,10 @@ Organizer access should be checked through an active `race_event_organizers` row
 
 `organizer_import_sessions` is temporary workflow state. Its scope trigger requires the selected edition to belong to the selected event. Confirmed formats are stored as validated JSON `raceId` bindings rather than foreign-key child rows because the whole snapshot expires; both import RPCs revalidate every bound race against the session event and edition before mutation.
 
+## Social publishing relationships
+
+`social_posts.video_job_id` references `video_render_jobs(id)` and `social_posts.race_id` references `races(id)`, both **on delete set null** so the publication history survives a deleted render or race. `social_posts.created_by` and `social_accounts.connected_by` reference `auth.users(id)` on delete set null. `social_accounts` is unique on `(platform, ig_user_id)` and has no link to `social_posts`: publishing uses the most recently updated connected account.
+
 ## Gotchas
 
 - Public cache tags mirror race, edition, and event ownership scopes for invalidation, but are not relational constraints or authorization primitives. The database foreign keys and route membership checks remain authoritative.
@@ -314,5 +318,7 @@ Organizer access should be checked through an active `race_event_organizers` row
 - [race_relay_points](tables/race-relay-points.md)
 - [race_slug_redirects](tables/race-slug-redirects.md)
 - [video_render_jobs](tables/video-render-jobs.md)
+- [social_posts](tables/social-posts.md)
+- [social_accounts](tables/social-accounts.md)
 - [race_event_organizers](tables/race-event-organizers.md)
 - [race_aid_station_products](tables/race-aid-station-products.md)
