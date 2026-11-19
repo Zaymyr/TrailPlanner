@@ -1,11 +1,11 @@
 -- Scheduler of the Instagram publishing state machine. Vercel Hobby runs its own crons once a
--- day only, so pg_cron + pg_net call the protected Next routes:
---   - every 5 minutes  POST /api/cron/social-posts-publish   (due posts, container polling)
---   - daily at 04:23   POST /api/cron/instagram-token-refresh (long-lived token refresh)
+-- day only, so pg_cron + pg_net call the protected Next route every 5 minutes:
+--   POST /api/cron/social-posts-publish (due posts, container polling). The System User token
+--   never expires, so no token job is scheduled.
 --
--- The jobs read the Vault secrets shared with the organizer import cleanup job (`web_app_url`,
+-- The job reads the Vault secrets shared with the organizer import cleanup job (`web_app_url`,
 -- `cron_secret` = the web deployment's CRON_SECRET) at run time, so this migration never fails and
--- never copies a secret into cron.job. Until both secrets exist the jobs run but send nothing.
+-- never copies a secret into cron.job. Until both secrets exist the job runs but sends nothing.
 -- One-time setup when they are missing (SQL editor, see docs/05-integrations/instagram-publishing.md):
 --   select vault.create_secret('https://pace-yourself.com', 'web_app_url');
 --   select vault.create_secret('<same value as the Vercel CRON_SECRET>', 'cron_secret');
@@ -27,8 +27,7 @@ begin
   for v_job in
     select *
     from (values
-      ('social-posts-publish', '*/5 * * * *', '/api/cron/social-posts-publish'),
-      ('instagram-token-refresh', '23 4 * * *', '/api/cron/instagram-token-refresh')
+      ('social-posts-publish', '*/5 * * * *', '/api/cron/social-posts-publish')
     ) as jobs(name, schedule, path)
   loop
     for v_job_id in select job.jobid from cron.job as job where job.jobname = v_job.name loop

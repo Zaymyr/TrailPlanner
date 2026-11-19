@@ -1,23 +1,52 @@
-import { getInstagramAccount, toPublicAccount } from "../../../../lib/instagram/accounts";
-import { getInstagramAppConfig, isInstagramPublishDryRun } from "../../../../lib/instagram/config";
-import { getSocialTokenKey } from "../../../../lib/instagram/crypto";
-import { authorizeVideoAdmin, renderJson, renderJsonError } from "../../../../lib/video-render-api";
+import {
+  getInstagramCredentials,
+  getInstagramGraphVersion,
+  INSTAGRAM_TOKEN_ERROR_MESSAGE,
+  isInstagramPublishDryRun,
+} from "../../../../lib/instagram/config";
+import { createInstagramGraphClient, InstagramGraphError, type AccountProfile, type PublishingLimit } from "../../../../lib/instagram/graph";
+import { authorizeVideoAdmin, renderJson } from "../../../../lib/video-render-api";
 
-/** Connection card: the connected account (never its token) and the publishing mode. */
+const describeGraphError = (error: unknown) => {
+  if (error instanceof InstagramGraphError) {
+    return error.kind === "auth" ? `${INSTAGRAM_TOKEN_ERROR_MESSAGE} (${error.message}).` : error.message;
+  }
+  return "Instagram injoignable.";
+};
+
+/**
+ * Read-only status card: whether the System User credentials are configured, the account profile
+ * and publishing quota (read from Meta only when credentials exist), and the publishing mode.
+ * The token is never returned.
+ */
 export async function GET(request: Request) {
   const gate = await authorizeVideoAdmin(request);
   if (!gate.ok) return gate.response;
 
-  try {
-    const account = await getInstagramAccount(gate.value.supabase);
-    return renderJson({
-      account: toPublicAccount(account),
-      dryRun: isInstagramPublishDryRun(),
-      appConfigured: getInstagramAppConfig() !== null,
-      encryptionConfigured: getSocialTokenKey() !== null,
-    });
-  } catch (error) {
-    console.error("Instagram account read failed", error instanceof Error ? error.message : error);
-    return renderJsonError("Le compte Instagram n’a pas pu être lu.", 502);
+  const credentials = getInstagramCredentials();
+  let profile: AccountProfile | null = null;
+  let quota: PublishingLimit | null = null;
+  let profileError: string | null = null;
+
+  if (credentials) {
+    const client = createInstagramGraphClient();
+    const [profileResult, quotaResult] = await Promise.allSettled([
+      client.getAccountProfile(credentials.igUserId, credentials.accessToken),
+      client.getPublishingLimit(credentials.igUserId, credentials.accessToken),
+    ]);
+    if (profileResult.status === "fulfilled") profile = profileResult.value;
+    else profileError = describeGraphError(profileResult.reason);
+    if (quotaResult.status === "fulfilled") quota = quotaResult.value;
   }
+
+  return renderJson({
+    credentialsConfigured: credentials !== null,
+    igUserId: credentials?.igUserId ?? null,
+    pageId: credentials?.pageId ?? (process.env.FB_PAGE_ID?.trim() || null),
+    graphVersion: getInstagramGraphVersion(),
+    profile,
+    profileError,
+    quota,
+    dryRun: isInstagramPublishDryRun(),
+  });
 }

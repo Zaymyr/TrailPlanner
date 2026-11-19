@@ -2,9 +2,8 @@
 
 import type { Route } from "next";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
@@ -12,7 +11,7 @@ import { Label } from "../../../components/ui/label";
 import { formatParisDateTime } from "../../../lib/social-posts";
 import { useVerifiedSession } from "../../hooks/useVerifiedSession";
 import { CaptionForm, toCaptionFormValues, type CaptionPayload } from "./CaptionForm";
-import { InstagramConnectionCard } from "./InstagramConnectionCard";
+import { InstagramStatusCard } from "./InstagramStatusCard";
 import { PostCard } from "./PostCard";
 import { adminFetch, instagramStatusSchema, postResponseSchema, postsResponseSchema } from "./publications-api";
 
@@ -26,7 +25,6 @@ function PublicationsContent() {
   const { session, isLoading: sessionLoading } = useVerifiedSession();
   const accessToken = session?.accessToken ?? null;
   const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
-  const callbackResult = useSearchParams()?.get("instagram") ?? null;
 
   const statusQuery = useQuery({
     queryKey: ["admin", "instagram-status", accessToken],
@@ -104,12 +102,10 @@ function PublicationsContent() {
         </div>
       </div>
 
-      <InstagramConnectionCard
-        accessToken={accessToken}
+      <InstagramStatusCard
         status={statusQuery.data}
         isLoading={statusQuery.isLoading}
         error={statusQuery.error instanceof Error ? statusQuery.error.message : null}
-        callbackResult={callbackResult}
       />
 
       <Card>
@@ -167,9 +163,5 @@ function PublicationsContent() {
 }
 
 export default function PublicationsPage() {
-  return (
-    <Suspense fallback={null}>
-      <PublicationsContent />
-    </Suspense>
-  );
+  return <PublicationsContent />;
 }

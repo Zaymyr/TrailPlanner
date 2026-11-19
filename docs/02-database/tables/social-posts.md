@@ -101,7 +101,6 @@ from public.social_posts where status = 'publishing';
 
 ## Related Docs
 
-- [social_accounts](social-accounts.md)
 - [video_render_jobs](video-render-jobs.md)
 - [Instagram Reels Publishing](../../05-integrations/instagram-publishing.md)
 - [RLS Policies](../rls-policies.md)

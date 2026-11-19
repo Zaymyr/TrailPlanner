@@ -53,12 +53,17 @@ begin
     raise exception 'Client roles must not configure the publishing cron.';
   end if;
 
-  if not exists (select 1 from cron.job where jobname = 'social-posts-publish')
-    or not exists (select 1 from cron.job where jobname = 'instagram-token-refresh') then
-    raise exception 'The social publishing cron jobs must be scheduled.';
+  if not exists (select 1 from cron.job where jobname = 'social-posts-publish') then
+    raise exception 'The social publishing cron job must be scheduled.';
   end if;
-  if exists (select 1 from cron.job where jobname in ('social-posts-publish', 'instagram-token-refresh') and command not like '%vault.decrypted_secrets%') then
-    raise exception 'The cron jobs must read their secrets from Vault at run time.';
+  if exists (select 1 from cron.job where jobname = 'instagram-token-refresh') then
+    raise exception 'No token refresh job: the System User token does not expire.';
+  end if;
+  if exists (select 1 from cron.job where jobname = 'social-posts-publish' and command not like '%vault.decrypted_secrets%') then
+    raise exception 'The cron job must read its secrets from Vault at run time.';
+  end if;
+  if to_regclass('public.social_accounts') is not null then
+    raise exception 'social_accounts must not exist: credentials live in server env vars.';
   end if;
 end;
 $$;

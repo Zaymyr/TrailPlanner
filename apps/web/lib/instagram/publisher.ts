@@ -4,6 +4,7 @@ import {
   type SocialPostRepository,
   type SocialPostRow,
 } from "../social-posts";
+import { INSTAGRAM_TOKEN_ERROR_MESSAGE } from "./config";
 import { InstagramGraphError, isDryRunId, type InstagramGraphClient } from "./graph";
 
 /**
@@ -41,16 +42,15 @@ export const RECOVERY_CLOCK_SKEW_MS = 5 * 60_000;
 export const MANUAL_CHECK_NOTE =
   "Publiée sur Instagram, mais le média n’a pas pu être identifié : vérifie la publication sur le compte (lien indisponible).";
 
-export type PublishingAccount = { id: string; igUserId: string; accessToken: string };
+export type PublishingAccount = { igUserId: string; accessToken: string };
 
 export type PublisherDeps = {
   posts: SocialPostRepository;
   now: () => Date;
   /** Real client for a live post, simulated client for a dry-run post. */
   graphFor: (dryRun: boolean) => InstagramGraphClient;
-  /** Live posts only: the connected account with its decrypted token, or a reason. */
+  /** Live posts only: the configured System User credentials, or a reason. */
   getAccount: () => Promise<PublishingAccount | { error: string }>;
-  markNeedsReconnect: (accountId: string, message: string) => Promise<void>;
   getVideoJob: (jobId: string) => Promise<{ status: string; finished_at: string | null } | null>;
   /** Signed GET URL of the MP4 for Meta (live posts only). */
   signVideoUrl: (objectPath: string) => Promise<string>;
@@ -66,7 +66,7 @@ export type StepOutcome =
 
 export type StepResult = { outcome: StepOutcome; post: SocialPostRow };
 
-const DRY_RUN_ACCOUNT: PublishingAccount = { id: "dry-run", igUserId: "dry-run", accessToken: "dry-run" };
+const DRY_RUN_ACCOUNT: PublishingAccount = { igUserId: "dry-run", accessToken: "dry-run" };
 
 const later = (now: Date, ms: number) => new Date(now.getTime() + ms).toISOString();
 
@@ -155,7 +155,7 @@ export const advanceSocialPost = async (post: SocialPostRow, deps: PublisherDeps
       }
       const resolved = await deps.getAccount();
       if ("error" in resolved) {
-        // 1a. Already published: it stays published even if the account needs a reconnect.
+        // 1a. Already published: it stays published even if the credentials are now missing.
         if (post.ig_media_id) return finalize(post.ig_media_id, post.ig_permalink, post.error);
         return fail(resolved.error);
       }
@@ -226,9 +226,9 @@ export const advanceSocialPost = async (post: SocialPostRow, deps: PublisherDeps
   } catch (error) {
     if (error instanceof InstagramGraphError) {
       if (error.kind === "auth") {
-        if (account.id !== DRY_RUN_ACCOUNT.id) await deps.markNeedsReconnect(account.id, error.message).catch(() => undefined);
-        // The container is kept: once reconnected, "Réessayer" resumes from it.
-        return fail(`Jeton Instagram refusé : reconnecte le compte (${error.message}).`);
+        // No reconnect exists with a System User token: the admin fixes the env var. The
+        // container is kept, so « Réessayer » resumes from it afterwards.
+        return fail(`${INSTAGRAM_TOKEN_ERROR_MESSAGE} (${error.message}).`);
       }
       if (error.kind === "rate_limit") return wait(RATE_LIMIT_BACKOFF_MS, { error: `Limite Instagram atteinte : nouvel essai automatique (${error.message}).` });
       if (error.kind === "not_ready") return wait(POLL_INTERVAL_MS, { error: null });

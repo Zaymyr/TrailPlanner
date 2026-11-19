@@ -5,18 +5,22 @@ import { publicSocialPostSchema, type SocialPostAction } from "../../../lib/soci
 /** Client contracts of the admin publications routes (every response is parsed). */
 
 export const instagramStatusSchema = z.object({
-  account: z.object({
-    id: z.string(),
-    igUserId: z.string(),
+  credentialsConfigured: z.boolean(),
+  igUserId: z.string().nullable(),
+  pageId: z.string().nullable(),
+  graphVersion: z.string(),
+  profile: z.object({
     username: z.string().nullable(),
-    status: z.enum(["connected", "needs_reconnect"]),
-    statusMessage: z.string().nullable(),
-    tokenExpiresAt: z.string(),
-    tokenRefreshedAt: z.string(),
+    name: z.string().nullable(),
+    profilePictureUrl: z.string().nullable(),
+  }).nullable(),
+  profileError: z.string().nullable(),
+  quota: z.object({
+    usage: z.number(),
+    total: z.number(),
+    durationSeconds: z.number().nullable(),
   }).nullable(),
   dryRun: z.boolean(),
-  appConfigured: z.boolean(),
-  encryptionConfigured: z.boolean(),
 });
 export type InstagramStatus = z.infer<typeof instagramStatusSchema>;
 

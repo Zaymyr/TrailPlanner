@@ -8,7 +8,6 @@ related_files:
   - supabase/migrations/20261116150000_add_organizer_demo_requests.sql
   - supabase/migrations/20261119130000_add_social_posts.sql
   - supabase/tests/social_posts_checks.sql
-  - supabase/tests/social_accounts_checks.sql
   - supabase/tests/organizer_demo_requests_checks.sql
   - supabase/migrations/20261116180000_add_feedback_surveys.sql
   - supabase/migrations/20261116200000_add_feedback_survey_single_user_audience.sql
@@ -258,7 +257,6 @@ The November 2026 mobile plan-flow polish changes catalog search controls, image
 | `race_requests` | Authenticated user requests for races to add. |
 | `organizer_demo_requests` | Service-only demo requests from the public organizer page (e-mail, race link, optional phone), reviewed in the admin inbox. See [organizer_demo_requests](tables/organizer-demo-requests.md). |
 | `social_posts` | Service-only Instagram Reels drafted from finished `video_render_jobs` and published by explicit admin action through a resumable state machine. See [social_posts](tables/social-posts.md). |
-| `social_accounts` | Service-only connected Instagram account with its server-encrypted long-lived token. See [social_accounts](tables/social-accounts.md). |
 | `races` | Current race catalog/private race table, renamed from `race_catalog`, with yearly organizer edition grouping on `edition_group_id` / `series_name`. |
 | `race_slug_redirects` | Former course slugs mapped to stable race ids for visibility-gated permanent redirects. |
 | `rate_limit_entries` | DB-backed rate limit counters used by security-sensitive routes. |
@@ -343,7 +341,6 @@ erDiagram
 - [video_render_jobs](tables/video-render-jobs.md)
 - [video_narrations](tables/video-narrations.md)
 - [social_posts](tables/social-posts.md)
-- [social_accounts](tables/social-accounts.md)
 - [organizer_import_sessions](tables/organizer-import-sessions.md)
 - [race_events](tables/race-events.md)
 - [race_event_editions](tables/race-event-editions.md)

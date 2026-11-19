@@ -2,9 +2,8 @@
 -- social_posts: one Reel per row, created as a draft from a finished video_render_jobs row and
 --   published only after an admin clicks "Publier maintenant" or "Programmer". Publishing is a
 --   resumable state machine (container -> polling -> media_publish) advanced by a pg_cron tick.
--- social_accounts: the connected Instagram professional account, with its long-lived token
---   encrypted at rest by the web server (AES-256-GCM); the database never sees the clear token.
--- Both tables are service-role only, like video_render_jobs: RLS on, no policy, no client grant.
+-- The Instagram credentials (System User token, IG user id) are server env vars, never stored here.
+-- Service-role only, like video_render_jobs: RLS on, no policy, no client grant.
 
 begin;
 
@@ -20,29 +19,6 @@ end;
 $$;
 
 revoke all on function public.set_social_publishing_updated_at() from public, anon, authenticated;
-
-create table public.social_accounts (
-  id uuid primary key default gen_random_uuid(),
-  platform text not null default 'instagram' check (platform in ('instagram')),
-  ig_user_id text not null check (char_length(ig_user_id) between 1 and 64),
-  username text check (username is null or char_length(username) <= 64),
-  -- "v1:<iv>:<tag>:<ciphertext>" (base64url), encrypted with SOCIAL_TOKEN_ENCRYPTION_KEY.
-  access_token_encrypted text not null check (access_token_encrypted like 'v1:%'),
-  token_expires_at timestamptz not null,
-  token_refreshed_at timestamptz not null,
-  status text not null default 'connected' check (status in ('connected', 'needs_reconnect')),
-  status_message text check (status_message is null or char_length(status_message) <= 500),
-  connected_by uuid references auth.users(id) on delete set null,
-  created_at timestamptz not null default timezone('utc', now()),
-  updated_at timestamptz not null default timezone('utc', now()),
-  constraint social_accounts_platform_user_key unique (platform, ig_user_id)
-);
-
-create index social_accounts_connected_by_idx on public.social_accounts (connected_by);
-
-create trigger set_social_accounts_updated_at
-before update on public.social_accounts
-for each row execute function public.set_social_publishing_updated_at();
 
 create table public.social_posts (
   id uuid primary key default gen_random_uuid(),
@@ -89,17 +65,12 @@ create trigger set_social_posts_updated_at
 before update on public.social_posts
 for each row execute function public.set_social_publishing_updated_at();
 
-alter table public.social_accounts enable row level security;
 alter table public.social_posts enable row level security;
 
-revoke all on table public.social_accounts from public, anon, authenticated;
 revoke all on table public.social_posts from public, anon, authenticated;
-grant select, insert, update, delete on table public.social_accounts to service_role;
 grant select, insert, update, delete on table public.social_posts to service_role;
 
 comment on table public.social_posts is
   'Instagram Reels drafted from finished video_render_jobs and published by admin action only. Service-role only.';
-comment on table public.social_accounts is
-  'Connected Instagram professional account; long-lived token encrypted by the web server. Service-role only.';
 
 commit;

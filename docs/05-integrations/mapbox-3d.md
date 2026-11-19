@@ -66,7 +66,7 @@ The workspace dependency update for shared plan-tracking code does not change Ma
 
 The admin page now also has a messaging inbox (bugs, feedback, race requests). That tab and its user-notification delivery are independent from the lazy 3D video-generator route and do not load Mapbox, GPX, narration, or rendering dependencies.
 
-The admin header also links to `/admin/publications` (2026-11-19), which publishes finished background renders as Instagram Reels. It loads no Mapbox code: it only reads `video_render_jobs` and plays the stored MP4. Its server-only variables (`INSTAGRAM_*`, `SOCIAL_TOKEN_ENCRYPTION_KEY`) are listed in `apps/web/.env.example` and documented in [Instagram Reels Publishing](instagram-publishing.md); none is a `NEXT_PUBLIC_` value.
+The admin header also links to `/admin/publications` (2026-11-19), which publishes finished background renders as Instagram Reels. It loads no Mapbox code: it only reads `video_render_jobs` and plays the stored MP4. Its server-only variables (`IG_SYSTEM_USER_TOKEN`, `IG_USER_ID`, `FB_PAGE_ID`, `INSTAGRAM_*`) are listed in `apps/web/.env.example` and documented in [Instagram Reels Publishing](instagram-publishing.md); none is a `NEXT_PUBLIC_` value.
 
 ## Purpose
 

@@ -100,8 +100,7 @@ const makeDeps = (repository: SocialPostRepository, graph: InstagramGraphClient,
     posts: repository,
     now: () => current,
     graphFor: (dryRun) => (dryRun ? createDryRunGraphClient() : graph),
-    getAccount: vi.fn().mockResolvedValue({ id: "account-1", igUserId: "1784", accessToken: "TOKEN" }),
-    markNeedsReconnect: vi.fn().mockResolvedValue(undefined),
+    getAccount: vi.fn().mockResolvedValue({ igUserId: "1784", accessToken: "TOKEN" }),
     getVideoJob: vi.fn().mockResolvedValue({ status: "done", finished_at: "2026-11-18T10:00:00Z" }),
     signVideoUrl: vi.fn().mockResolvedValue("https://storage.googleapis.com/signed"),
     ...extra,
@@ -161,10 +160,10 @@ describe("publishing state machine", () => {
     expect(store.get(basePost().id)).toMatchObject({ status: "published", ig_media_id: "media-7" });
   });
 
-  it("keeps a stored media id published even when the account needs a reconnect", async () => {
+  it("keeps a stored media id published even when the credentials are now missing", async () => {
     const { repository, store } = memoryRepository([basePost({ ig_container_id: "c", ig_media_id: "media-7" })]);
     const graph = fakeGraph();
-    const { deps } = makeDeps(repository, graph, NOW, { getAccount: vi.fn().mockResolvedValue({ error: "Compte Instagram à reconnecter." }) });
+    const { deps } = makeDeps(repository, graph, NOW, { getAccount: vi.fn().mockResolvedValue({ error: "IG_SYSTEM_USER_TOKEN ou IG_USER_ID absent : publication réelle impossible." }) });
     expect((await claimAndAdvance(basePost().id, deps))?.outcome).toBe("published");
     expect(graph.publishContainer).not.toHaveBeenCalled();
     expect(store.get(basePost().id)).toMatchObject({ status: "published", ig_media_id: "media-7" });
@@ -190,13 +189,25 @@ describe("publishing state machine", () => {
     }
   });
 
-  it("asks for a reconnect on an expired token and keeps the container", async () => {
-    const { repository, store } = memoryRepository([basePost({ ig_container_id: "c", ig_container_created_at: NOW.toISOString() })]);
-    const graph = fakeGraph({ getContainerStatus: vi.fn().mockRejectedValue(new InstagramGraphError("Session has expired", "auth", { code: 190 })) });
-    const { deps } = makeDeps(repository, graph);
+  it("fails with the token message on an invalid token or missing permission and keeps the container", async () => {
+    for (const code of [190, 10, 200]) {
+      const { repository, store } = memoryRepository([basePost({ ig_container_id: "c", ig_container_created_at: NOW.toISOString() })]);
+      const graph = fakeGraph({ getContainerStatus: vi.fn().mockRejectedValue(new InstagramGraphError("Invalid OAuth access token", "auth", { code })) });
+      expect((await claimAndAdvance(basePost().id, makeDeps(repository, graph).deps))?.outcome).toBe("failed");
+      const row = store.get(basePost().id)!;
+      expect(row).toMatchObject({ status: "failed", ig_container_id: "c" });
+      expect(row.error).toContain("Jeton Instagram invalide ou droits insuffisants — vérifier IG_SYSTEM_USER_TOKEN");
+      expect(row.error).not.toContain("TOKEN)");
+    }
+  });
+
+  it("fails clearly when the credentials are missing for a live post", async () => {
+    const { repository, store } = memoryRepository([basePost()]);
+    const { deps } = makeDeps(repository, fakeGraph(), NOW, {
+      getAccount: vi.fn().mockResolvedValue({ error: "IG_SYSTEM_USER_TOKEN ou IG_USER_ID absent : publication réelle impossible." }),
+    });
     expect((await claimAndAdvance(basePost().id, deps))?.outcome).toBe("failed");
-    expect(deps.markNeedsReconnect).toHaveBeenCalledWith("account-1", "Session has expired");
-    expect(store.get(basePost().id)).toMatchObject({ status: "failed", ig_container_id: "c" });
+    expect(store.get(basePost().id)?.error).toContain("IG_SYSTEM_USER_TOKEN");
   });
 
   it("backs off on a rate limit and on an exhausted quota", async () => {
