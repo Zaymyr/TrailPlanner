@@ -158,6 +158,7 @@ Docs conventions are in [_conventions.md](_conventions.md).
 ### 08 Decisions
 
 - [ADR Placeholder](08-decisions/README.md)
+- [Reel figures and highlights mode](08-decisions/2026-11-19-reel-highlights-and-figures.md)
 
 ### Archive
 

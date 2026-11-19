@@ -1,7 +1,8 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-11-18
+last_verified: 2026-11-19
+# Reel figures (2026-11-19): the admin reel generator shows the race record distance and D+ as the announced truth and rescales GPX kilometres and D+ to it (race-figures.ts); badge, counter, story, aid cards and AI inputs share one rounding policy.
 # Livret supporter private preview (2026-11-18): SupporterGuideView retries with the stored session token for organizer preview of a private edition.
 # Crew follow UX (2026-11-17): passed checkpoints collapse, confirmed passages can be corrected or undone, the crew handover is a device-local checklist, aid-station directions match supporter points by place name within 2 km, and phones without the app get an app-first gate on the public page; no column, RLS or crew_state shape change.
 # Organizer hero note (2026-11-16): /organisateurs now presents the Livret coureur and the Livret supporter side by side (hero cards, illustrative supporter preview, metadata title); presentation only, no data, analytics event or offer change.
@@ -876,6 +877,8 @@ Background renders can be deleted from the reel panel ("Supprimer" on finished o
 Reel aid bubbles and place labels are centred by layout inside zero-size markers, so the rasterised export clone keeps them on their station whatever its fonts; the aid bubbles float 28 px above their icon so the tail does not touch it.
 
 Reels light the told climb or descent in the profile slope colours on the map and on the elevation profile while its caption is shown (setting "Pente racontée en couleur"), and no longer show the logo and CTA in the bottom-left corner by default ("Logo et CTA en bas"), where Instagram puts its follow button.
+
+Reel numbers have one source of truth (`app/admin/video-generator/race-figures.ts`): the race record distance and D+ are the announced figures, GPX kilometres and D+ are rescaled to them (fallback to the GPX with a console warning when a race figure is more than 15 % / 35 % away), organizer station kilometres are placed on the GPX through the same scale, and the badge, the counter, the story, the aid cards, the transport bar and the script and caption inputs share one rounding policy. See [Mapbox 3D](../05-integrations/mapbox-3d.md#race-figures-single-source-of-truth).
 
 ## RaceBook publication checks and partner slots (2026-11-09)
 

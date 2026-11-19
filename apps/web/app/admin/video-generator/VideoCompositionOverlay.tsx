@@ -17,6 +17,15 @@ import {
   type VideoFrameState,
 } from "./video-composition";
 import { formatClockTime } from "./route-clock";
+import {
+  formatKm,
+  formatKmFixed,
+  formatTotalElevationM,
+  formatTotalKm,
+  toAnnouncedKm,
+  toRouteKm,
+  type RaceFigures,
+} from "./race-figures";
 
 export type VideoRaceInfo = {
   /** Catalog race id, used to file background renders. */
@@ -60,14 +69,17 @@ const LOGO_SRC = "/branding/pace-yourself-logo-mark-white-transparent.png";
 const FADE_MS = 300;
 const TEXT_SHADOW = "0 0.3cqmin 1.2cqmin rgba(0, 0, 0, 0.65)";
 
-const formatKm = (value: number) => value.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const formatInteger = (value: number) => Math.round(value).toLocaleString("fr-FR");
 const formatGrade = (grade: number) => `${grade >= 0 ? "+" : "−"}${Math.abs(Math.round(grade * 100))} %`;
 
-export const formatRaceStats = (race: VideoRaceInfo, settings: VideoCompositionSettings) => [
-  settings.showDistance ? `${formatInteger(race.distanceKm)} KM` : null,
-  settings.showElevation && race.elevationGainM ? `${formatInteger(race.elevationGainM)} M D+` : null,
-].filter(Boolean).join(" · ");
+/** Badge figures: the canonical announced totals, so they match the counter and the voice. */
+export const formatRaceStats = (figures: RaceFigures, settings: VideoCompositionSettings) => {
+  const gain = formatTotalElevationM(figures);
+  return [
+    settings.showDistance && figures.distanceKm > 0 ? `${formatTotalKm(figures.distanceKm)} KM` : null,
+    settings.showElevation && gain ? `${gain} M D+` : null,
+  ].filter(Boolean).join(" · ");
+};
 
 const ProfileSegments = memo(function ProfileSegments({ profile }: { profile: ElevationProfile }) {
   return (
@@ -109,8 +121,10 @@ const CAPTION_KIND_LABELS: Record<ScheduledBeat["kind"], string> = {
   outro: "",
 };
 
-const getCaptionTitle = (beat: ScheduledBeat) => {
-  if (beat.kind === "climb" || beat.kind === "descent" || beat.kind === "flat") return `km ${formatKm(beat.startKm)} → ${formatKm(beat.endKm)}`;
+const getCaptionTitle = (beat: ScheduledBeat, figures: RaceFigures) => {
+  if (beat.kind === "climb" || beat.kind === "descent" || beat.kind === "flat") {
+    return `km ${formatKm(toAnnouncedKm(figures, beat.startKm))} → ${formatKm(toAnnouncedKm(figures, beat.endKm))}`;
+  }
   if (beat.kind === "start" || beat.kind === "finish") return null;
   return beat.title;
 };
@@ -119,9 +133,9 @@ const getCaptionTitle = (beat: ScheduledBeat) => {
  * Lower-third caption of the narrated moment: fixed above the profile so it stays readable
  * whatever the route does, and in sync with the voice-over.
  */
-function StoryCaption({ accent, beat, timeMs, top }: { accent: string; beat: ScheduledBeat; timeMs: number; top: string }) {
+function StoryCaption({ accent, beat, figures, timeMs, top }: { accent: string; beat: ScheduledBeat; figures: RaceFigures; timeMs: number; top: string }) {
   const appear = Math.max(0, Math.min(1, (timeMs - beat.startMs) / FADE_MS, (beat.endMs - timeMs) / FADE_MS));
-  const title = getCaptionTitle(beat);
+  const title = getCaptionTitle(beat, figures);
   return (
     <div
       className="absolute rounded-[2cqmin] bg-white text-[#1a1a1a] shadow-[0_0.6cqmin_2.4cqmin_rgba(0,0,0,0.35)]"
@@ -158,6 +172,8 @@ function StoryCaption({ accent, beat, timeMs, top }: { accent: string; beat: Sch
 
 type OverlayProps = {
   elevationAtDistance: (distanceKm: number) => number;
+  /** Canonical figures: announced totals and the GPX rescale of every kilometre shown. */
+  figures: RaceFigures;
   frameStore: VideoFrameStore;
   gradeAtDistance: (distanceKm: number) => number;
   profile: ElevationProfile;
@@ -165,9 +181,9 @@ type OverlayProps = {
   settings: VideoCompositionSettings;
 };
 
-function VideoCompositionOverlayComponent({ elevationAtDistance, frameStore, gradeAtDistance, profile, race, settings }: OverlayProps) {
+function VideoCompositionOverlayComponent({ elevationAtDistance, figures, frameStore, gradeAtDistance, profile, race, settings }: OverlayProps) {
   const frame = useSyncExternalStore(frameStore.subscribe, frameStore.get, frameStore.get);
-  const stats = formatRaceStats(race, settings);
+  const stats = formatRaceStats(figures, settings);
   const isIntro = frame.phase === "intro";
   const isOutro = frame.phase === "outro";
   const introOpacity = isIntro ? Math.min(1, (1 - frame.phaseProgress) / 0.3) : 0;
@@ -216,7 +232,7 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, frameStore, gra
         </header>
       ) : null}
 
-      {settings.showCaptions && frame.beat ? <StoryCaption accent={accent} beat={frame.beat} timeMs={frame.timeMs} top={captionTop} /> : null}
+      {settings.showCaptions && frame.beat ? <StoryCaption accent={accent} beat={frame.beat} figures={figures} timeMs={frame.timeMs} top={captionTop} /> : null}
 
       {/* Burned-in subtitles of the voice-over in the Pace Yourself look: white text on a brand-green
           band with a soft shadow; high contrast on any map. */}
@@ -248,8 +264,8 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, frameStore, gra
           {settings.showCurrentKm ? (
             <p className="flex items-baseline justify-between font-black tabular-nums" style={{ fontSize: "5cqmin" }}>
               <span>
-                KM {formatKm(frame.distanceKm)}
-                <span className="font-semibold text-white/75"> / {formatInteger(profile.totalDistanceKm)}</span>
+                KM {formatKmFixed(toAnnouncedKm(figures, frame.distanceKm))}
+                <span className="font-semibold text-white/75"> / {formatTotalKm(figures.distanceKm)}</span>
               </span>
               <span className="font-bold" style={{ fontSize: "3.6cqmin" }}>
                 {frame.daylight ? (
@@ -307,8 +323,9 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, frameStore, gra
                 />
               </div>
               <div className="relative h-[3.6cqmin]">
-                {getProfileTicks(profileWindow).map((km) => (
-                  <span key={km} className="absolute top-0 -translate-x-1/2 font-semibold tabular-nums text-white/75" style={{ left: `${toWindowPercent(km)}%`, fontSize: "2.6cqmin" }}>
+                {/* Ticks in announced kilometres, placed on the GPX. */}
+                {getProfileTicks({ startKm: toAnnouncedKm(figures, profileWindow.startKm), endKm: toAnnouncedKm(figures, profileWindow.endKm) }).map((km) => (
+                  <span key={km} className="absolute top-0 -translate-x-1/2 font-semibold tabular-nums text-white/75" style={{ left: `${toWindowPercent(toRouteKm(figures, km))}%`, fontSize: "2.6cqmin" }}>
                     {km} km
                   </span>
                 ))}

@@ -90,6 +90,18 @@ import {
   type SavedVoice,
 } from "./voice-library";
 import { getSpeechRateKey, loadSpeechRates, measureWordsPerSecond, storeSpeechRates } from "./speech-rate";
+import {
+  buildRaceFigures,
+  formatElevationM,
+  formatKm,
+  getAnnouncedElevationGainM,
+  roundKm,
+  roundTotalKm,
+  toAnnouncedElevationM,
+  toAnnouncedKm,
+  toRouteAidStations,
+  type RaceFigures,
+} from "./race-figures";
 import { loadScriptNotes, storeScriptNotes } from "./script-notes";
 import { fetchNearestPlaceName, resolveEndpointNames, type EndpointNames } from "./place-labels";
 
@@ -273,7 +285,7 @@ const createPinnedMarkerElement = () => {
  * cutoff. Mapbox owns the marker element (position, transform, occlusion opacity), so all styles
  * and the fading live on the inner card, which sizes to its text.
  */
-const createAidCardElement = (station: VideoAidStation, cumulativeGainM: number, accent: string) => {
+const createAidCardElement = (station: VideoAidStation, cumulativeGainM: number, accent: string, figures: RaceFigures) => {
   const element = createPinnedMarkerElement();
   const card = document.createElement("div");
   Object.assign(card.style, {
@@ -300,8 +312,9 @@ const createAidCardElement = (station: VideoAidStation, cumulativeGainM: number,
     line("Base de vie", { display: "inline-block", marginBottom: "0.5cqmin", padding: "0.2cqmin 1cqmin", borderRadius: "9999px", background: accent, color: "#ffffff", fontWeight: "800", fontSize: "1.7cqmin", letterSpacing: "0.04em", textTransform: "uppercase" });
   }
   line(station.name, { fontWeight: "800", fontSize: "2.6cqmin", lineHeight: "1.15", color: accent, textTransform: "uppercase", letterSpacing: "0.02em" });
-  const kilometre = station.distanceKm.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
-  const gain = Math.round(cumulativeGainM).toLocaleString("fr-FR");
+  // Station in route kilometres, GPX D+: both shown in the announced scale.
+  const kilometre = formatKm(toAnnouncedKm(figures, station.distanceKm));
+  const gain = formatElevationM(toAnnouncedElevationM(figures, cumulativeGainM));
   line(`km ${kilometre} · D+ ${gain} m`, { fontWeight: "600", fontSize: "2.1cqmin", color: "#3f3f3f", fontVariantNumeric: "tabular-nums" });
   if (station.cutoffTime) {
     // Cutoff in red with a clock, so it stands out from the other figures.
@@ -612,10 +625,22 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   const [snapshot, setSnapshot] = useState<AnimationPlaybackSnapshot>(initialSnapshot);
   const [webGlAvailable] = useState(() => typeof document === "undefined" || supportsWebGl());
 
+  // Canonical figures: the race record is the announced truth, the GPX is rescaled to it.
+  const figures = useMemo(() => buildRaceFigures({
+    raceDistanceKm: race.distanceKm,
+    raceElevationGainM: race.elevationGainM,
+    routeDistanceKm: preparedPath.totalDistanceKm,
+    routeElevationGainM: getCumulativeGainAt(preparedPath, preparedPath.totalDistanceKm),
+  }), [preparedPath, race.distanceKm, race.elevationGainM]);
+  useEffect(() => {
+    figures.warnings.forEach((warning) => console.warn(`Video generator figures: ${warning}`));
+  }, [figures.warnings]);
+  // Organizer stations are in announced kilometres: placed on the GPX once, in route kilometres.
+  const routeAidStations = useMemo(() => toRouteAidStations(figures, aidStations), [aidStations, figures]);
   const enabledAidStations = useMemo(() => {
     const disabled = new Set(settings.disabledAidStationIds);
-    return aidStations.filter((station) => !disabled.has(station.id));
-  }, [aidStations, settings.disabledAidStationIds]);
+    return routeAidStations.filter((station) => !disabled.has(station.id));
+  }, [routeAidStations, settings.disabledAidStationIds]);
   const routeData = useMemo(() => buildRouteGeoJson(points), [points]);
   const lineProgressTable = useMemo(() => buildLineProgressTable(points), [points]);
   // Start, finish and station icons at the exact route point of their kilometre.
@@ -638,7 +663,8 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     includeStart: settings.showStartInfo,
     landmarks,
     daylightAt,
-  }), [daylightAt, enabledAidStations, landmarks, maxSeconds, preparedPath, race, settings.showAidStations, settings.showStartInfo]);
+    figures,
+  }), [daylightAt, enabledAidStations, figures, landmarks, maxSeconds, preparedPath, race, settings.showAidStations, settings.showStartInfo]);
 
   // Summit names make the story concrete ("la montée vers le Mont Thou"): ask Mapbox for the
   // highest named peak near each climb top, once per route.
@@ -889,7 +915,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       .filter((station) => station.distanceKm > 0 && station.distanceKm < preparedPath.totalDistanceKm)
       .map((station): AidBubble => {
         const point = getRoutePointAtDistance(preparedPath, station.distanceKm);
-        const { element, card } = createAidCardElement(station, getCumulativeGainAt(preparedPath, station.distanceKm), settings.accentColor);
+        const { element, card } = createAidCardElement(station, getCumulativeGainAt(preparedPath, station.distanceKm), settings.accentColor, figures);
         // The card tail stops a few pixels above the station icon drawn by the map (about 15 px
         // radius), so the bubble floats over its station instead of touching it.
         const marker = new mapboxgl.Marker({ element, anchor: "center", offset: [0, -28], occludedOpacity: 1 })
@@ -903,7 +929,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       bubbles.forEach((bubble) => bubble.marker.remove());
       aidBubblesRef.current = [];
     };
-  }, [enabledAidStations, isReady, preparedPath, refreshCurrentFrame, settings.accentColor]);
+  }, [enabledAidStations, figures, isReady, preparedPath, refreshCurrentFrame, settings.accentColor]);
 
   // Start and finish names, pinned above their icons for the whole reel.
   useEffect(() => {
@@ -971,6 +997,14 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   useEffect(() => {
     restartNarration();
   }, [narrationCues, restartNarration, snapshot.isPlaying]);
+
+  // Race figures sent to the script and caption writers: the announced totals, rounded as shown.
+  const announcedRace = {
+    title: race.title,
+    subtitle: race.subtitle,
+    distanceKm: roundTotalKm(figures.distanceKm),
+    elevationGainM: getAnnouncedElevationGainM(figures),
+  };
 
   const authorizedPost = (url: string, body: unknown) => fetch(url, {
     method: "POST",
@@ -1045,16 +1079,21 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     setScriptState({ status: "loading", message: "Claude rédige la narration…" });
     try {
       const response = await authorizedPost("/api/admin/video-generator/script", {
-        race: { title: race.title, subtitle: race.subtitle, distanceKm: race.distanceKm, elevationGainM: race.elevationGainM, startDetail: race.startDetail },
+        race: { ...announcedRace, startDetail: race.startDetail },
         targetSeconds: maxSeconds,
         wordsPerSecond: speechRates[speechRateKey],
         voiceModel: voiceOptions.model,
         notes: scriptNotes.trim() || undefined,
         style: scriptStyle === "auto" ? undefined : scriptStyle,
         beats: beats.map(({ id, kind, title, startKm, endKm, facts, services, cutoffTime, narration }) => ({
-          id, kind, title, startKm, endKm, facts, services, cutoffTime, narration,
+          id, kind, title, facts, services, cutoffTime, narration,
+          // The writer only sees announced kilometres, like the captions and the badge.
+          startKm: roundKm(toAnnouncedKm(figures, startKm)),
+          endKm: roundKm(toAnnouncedKm(figures, endKm)),
           // Intro and outro have no span; a leg tells the stations it flies over before reaching them.
-          passages: kind === "intro" || kind === "outro" ? [] : getLegPassages(timeline, { startKm, endKm }, enabledAidStations),
+          passages: kind === "intro" || kind === "outro"
+            ? []
+            : getLegPassages(timeline, { startKm, endKm }, enabledAidStations).map((passage) => ({ ...passage, km: roundKm(toAnnouncedKm(figures, passage.km)) })),
         })),
       });
       if (!response.ok) throw new Error(await readError(response, "La narration n’a pas pu être rédigée."));
@@ -1155,10 +1194,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     setInstagramState({ status: "loading", message: "Claude rédige la description du reel…" });
     try {
       const response = await authorizedPost("/api/admin/video-generator/caption", {
-        race: {
-          title: race.title, subtitle: race.subtitle, distanceKm: race.distanceKm, elevationGainM: race.elevationGainM,
-          startDetail: race.startDetail, raceDate: race.raceDate ?? null,
-        },
+        race: { ...announcedRace, startDetail: race.startDetail, raceDate: race.raceDate ?? null },
         legs: beats.map(({ kind, title, facts, narration }) => ({ kind, title, facts, narration })),
       });
       if (!response.ok) throw new Error(await readError(response, "La description n’a pas pu être rédigée."));
@@ -1390,6 +1426,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
           </div>
           <VideoCompositionOverlay
             elevationAtDistance={elevationAtDistance}
+            figures={figures}
             frameStore={frameStore}
             gradeAtDistance={gradeAtDistance}
             profile={profile}
@@ -1405,7 +1442,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
         <div className={portrait ? "w-full max-w-md" : "w-full"}>
           <AnimationControls
             canAnimate={preparedPath.canAnimate}
-            currentDistanceKm={currentFrame.distanceKm}
+            currentDistanceKm={toAnnouncedKm(figures, currentFrame.distanceKm)}
             isReady={isReady}
             onPause={() => animationRef.current?.pause()}
             onPlay={() => animationRef.current?.play()}
@@ -1418,7 +1455,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
               restartNarration();
             }}
             snapshot={snapshot}
-            totalDistanceKm={preparedPath.totalDistanceKm}
+            totalDistanceKm={figures.distanceKm}
           />
         </div>
         )}
