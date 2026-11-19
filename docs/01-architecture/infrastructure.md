@@ -9,6 +9,8 @@ related_files:
   - apps/web/lib/demo-race-refresh.ts
   - apps/web/lib/demo-race-refresh.test.ts
   - apps/web/.env.example
+  - supabase/migrations/20261119130100_schedule_social_posts_cron.sql
+  - apps/web/app/api/cron/social-posts-publish/route.ts
   - apps/web/lib/posthog-organizer-analytics.ts
   - apps/web/app/api/organizer/editions/[id]/analytics/route.ts
   - vercel.json
@@ -211,6 +213,10 @@ Vercel invokes `/api/cron/tracedetrail-catalog-enrichment` daily at 03:47 UTC wi
 
 The internal service verifies every uploaded object by downloading it from the private `race-gpx` bucket and comparing its SHA-256 both before and after the selective race update. An unchanged result also requires a successful Storage read and matching hash. Embedded page geometry, including a trace whose official download is forbidden, is rejected before any write.
 
+## Instagram Reels Publishing
+
+`20261119130100_schedule_social_posts_cron.sql` schedules one pg_cron job because Vercel Hobby runs its own crons once a day only: `social-posts-publish` every 5 minutes (`POST /api/cron/social-posts-publish`, due posts and container polling). The Instagram System User token never expires, so there is no token job. It reuses the Vault values `web_app_url` and `cron_secret` of the organizer import cleanup, read when the job runs (never copied into `cron.job`); while either is missing the job sends nothing and the migration still succeeds. The route checks `CRON_SECRET` like the other web crons. See [Instagram Reels Publishing](../05-integrations/instagram-publishing.md).
+
 ## Rate Limiting
 
 `supabase/migrations/20260304120000_add_rate_limit_entries.sql` creates:
@@ -267,6 +273,8 @@ For local setup, copy `apps/web/.env.example` to the ignored `apps/web/.env.loca
 - `OPENAI_API_KEY`
 - `OPENAI_ORGANIZER_IMPORT_MODEL`
 - `CRON_SECRET`
+- `IG_SYSTEM_USER_TOKEN` (server-only, Sensitive: Meta System User token with no expiration for the Instagram API with Facebook Login) and `IG_USER_ID` (Instagram professional account id); `FB_PAGE_ID` (linked Page id, informational)
+- `INSTAGRAM_PUBLISH_DRY_RUN` (publishing is simulated unless exactly `false` and both credentials are set) and optional `INSTAGRAM_GRAPH_API_VERSION` (default `v27.0`)
 - `TRACEDETRAIL_ENRICHMENT_SECRET` (server-only bearer secret dedicated to the bounded Trace de Trail enrichment API)
 - `TRACEDETRAIL_LOGIN` and `TRACEDETRAIL_PASSWORD` (optional server-only provider credentials; configure both or neither)
 - `REVENUECAT_*`
@@ -308,6 +316,7 @@ For local setup, copy `apps/web/.env.example` to the ignored `apps/web/.env.loca
 - Organizer cleanup additionally requires matching Vault values `web_app_url` and `cron_secret`; `cron_secret` must equal the web deployment's `CRON_SECRET`.
 - Vercel's RevenueCat reconciliation also requires `CRON_SECRET`, RevenueCat app API keys, entitlement/product identifiers, and server-side webhook verification configuration. Missing provider configuration must fail closed without revoking existing access.
 - Automated Trace de Trail enrichment requires both `CRON_SECRET` for the scheduled GET and `TRACEDETRAIL_ENRICHMENT_SECRET` for its internal POST in every Vercel environment that may run the job. Keep them distinct; the internal endpoint accepts only race ids and obtains both the Supabase service role and optional Trace de Trail credentials from server-only deployment variables.
+- The Instagram publishing job shares `web_app_url` and `cron_secret` with the organizer cleanup: rotating `CRON_SECRET` in Vercel requires updating the Vault `cron_secret` too, or every pg_cron call answers 401. If the System User token is ever revoked, generate a new one in Meta Business Settings and replace `IG_SYSTEM_USER_TOKEN` (manual rotation).
 - Do not replace the cleanup HTTP job with direct SQL deletion. The private Storage objects must be removed before their manifest row.
 - The archived storage doc predates the image buckets.
 - Organizer event image upload is mediated by a server route and stores only PNG files in `race-images`; clients should not receive service-role credentials.
