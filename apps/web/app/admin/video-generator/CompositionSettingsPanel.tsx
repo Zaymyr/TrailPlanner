@@ -12,6 +12,7 @@ import {
   HIGHLIGHT_MIN_SECONDS,
   isHookIntroEnabled,
   isCompactOverlayEnabled,
+  isTiltedCameraEnabled,
   MAPBOX_STYLE_URL_PATTERN,
   PROFILE_SLOPE_CLASSES,
   VIDEO_DURATION_PRESETS,
@@ -300,6 +301,10 @@ export function CompositionSettingsPanel({
           <Button type="button" variant="outline" className="h-8 flex-1 px-2 text-xs" disabled={cameraActionsDisabled} onClick={onFitOverview}>Vue d’ensemble</Button>
           <Button type="button" variant="outline" className="h-8 flex-1 px-2 text-xs" disabled={cameraActionsDisabled} onClick={onResetCamera}>Réinitialiser</Button>
         </div>
+        <Toggle label="Caméra inclinée (parcours toujours dans le cadre)" checked={isTiltedCameraEnabled(settings)} onChange={(checked) => update("tiltedCamera", checked)} />
+        <p className="text-xs text-muted-foreground">
+          Vue à environ 60° qui garde le coureur et les 2 prochains km dans le cadre. Par défaut en Temps forts.
+        </p>
       </PanelSection>
 
       <PanelSection title="Informations affichées">

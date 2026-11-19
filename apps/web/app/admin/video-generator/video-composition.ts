@@ -7,10 +7,12 @@ import {
   getOverviewCameraPose,
   getRoutePointAtDistance,
   interpolateCameraPose,
+  TILTED_PITCH_DEG,
   type AnimationViewport,
   type CameraPose,
   type PreparedAnimationPath,
 } from "./route-animation";
+import { ensureRouteInFrame, getFramingPoints } from "./camera-framing";
 import { findHardestClimb } from "./highlights";
 import { HOOK_INTRO_MS, HOOK_NARRATION_START_MS } from "./reel-hook";
 import { getSmoothedDaylightAt, type Daylight, type RaceClock } from "./route-clock";
@@ -105,6 +107,10 @@ export const videoCompositionSettingsSchema = z.object({
   // bubbles reduced to the station name (its figures go in the leg card). Null follows the mode:
   // on for highlights, off for the full flyover.
   compactOverlay: z.boolean().nullable().default(null),
+  // Tilted chase camera (55-65 degrees from the vertical, about 60) that keeps the runner and the
+  // next 2 km of trail in the frame (camera-framing.ts), instead of the high 36 degree view. Null
+  // follows the mode: on for highlights, off for the full flyover (which stays as it was).
+  tiltedCamera: z.boolean().nullable().default(null),
   outroEnabled: z.boolean().default(true),
   disabledAidStationIds: z.array(z.string()).default([]),
 });
@@ -121,6 +127,10 @@ export const isHookIntroEnabled = (settings: Pick<VideoCompositionSettings, "hoo
 /** Whether the reel uses the light phone overlay: the explicit setting, otherwise on for highlights only. */
 export const isCompactOverlayEnabled = (settings: Pick<VideoCompositionSettings, "compactOverlay" | "storyMode">) =>
   settings.compactOverlay ?? settings.storyMode === "highlights";
+
+/** Whether the chase camera is tilted: the explicit setting, otherwise on for highlights only. */
+export const isTiltedCameraEnabled = (settings: Pick<VideoCompositionSettings, "tiltedCamera" | "storyMode">) =>
+  settings.tiltedCamera ?? settings.storyMode === "highlights";
 
 /**
  * Smallest font, in cqmin, of any text meant to be read on a phone: 3 cqmin = 32.4 px at 1080 wide.
@@ -221,6 +231,8 @@ export type VideoTimeline = {
   cameraAverageBlend?: number;
   /** Reel hook in place of the classic intro, or null. */
   hook?: HookPlan | null;
+  /** Tilted chase camera that keeps the route ahead in frame (the full flyover keeps the high view). */
+  tiltedCamera?: boolean;
   /** Route kilometre where the flyover starts (a hooked highlights reel skips the run-up to its first moment). */
   flyoverStartKm?: number;
 };
@@ -475,6 +487,7 @@ export const buildVideoTimeline = (
     cameraAverageBlend: highlights ? 0.1 : 0.7,
     hook: null,
     flyoverStartKm: 0,
+    tiltedCamera: isTiltedCameraEnabled(settings),
   };
   if (hooked) {
     // The flyover starts where the time starts to flow (the end of the skipped run-up).
@@ -836,6 +849,9 @@ export const getCameraSpeedMps = (timeline: VideoTimeline, timeMs: number) => {
 };
 
 const ORBIT_SIDE_OFFSET_DEG = 35;
+// The tilted camera looks nearly along the trail: at 60 degrees the portrait frame is narrow, and
+// a 35 degree side view would push the trail to the edge.
+const TILTED_ORBIT_SIDE_OFFSET_DEG = 12;
 // Helicopter-like framing: the camera aims at where the runner is on average over ±6 s, so the
 // trail switchbacks do not shake the picture; the dot drifts gently around the centre instead.
 const TARGET_SMOOTHING_MS = 6_000;
@@ -911,7 +927,8 @@ const getOrbitKeyframes = (path: PreparedAnimationPath, timeline: VideoTimeline)
     if (Math.hypot(east, north) < 50) return;
     const travel = toBearingDeg(east, north);
     const previous = keyframes[keyframes.length - 1]?.bearingDeg;
-    const candidates = [travel + ORBIT_SIDE_OFFSET_DEG, travel - ORBIT_SIDE_OFFSET_DEG].map((value) => (value + 360) % 360);
+    const sideDeg = timeline.tiltedCamera ? TILTED_ORBIT_SIDE_OFFSET_DEG : ORBIT_SIDE_OFFSET_DEG;
+    const candidates = [travel + sideDeg, travel - sideDeg].map((value) => (value + 360) % 360);
     const bearingDeg = previous === undefined
       ? candidates[0]
       : candidates.reduce((best, value) => Math.abs(shortestTurnDeg(previous, value)) < Math.abs(shortestTurnDeg(previous, best)) ? value : best);
@@ -1023,7 +1040,8 @@ export const getRawVideoCameraPose = (
   viewport: AnimationViewport,
 ): CameraPose => {
   const exaggeration = timeline.terrainExaggeration;
-  const chase = shiftIntoVisibleZone(getChaseCameraPose(
+  const tilted = timeline.tiltedCamera === true;
+  const shiftedChase = shiftIntoVisibleZone(getChaseCameraPose(
     path,
     frame.distanceKm,
     getCameraSpeedMps(timeline, frame.timeMs),
@@ -1034,7 +1052,12 @@ export const getRawVideoCameraPose = (
     // meet the flyover framing without a jump.
     // The leash (10 % of the camera distance) keeps a fast runner well inside the frame.
     getSmoothedCameraTarget(path, timeline, frame.timeMs, 0.1 * Math.min(20_000, Math.max(4_500, getCameraSpeedMps(timeline, frame.timeMs) * 3))),
+    tilted ? TILTED_PITCH_DEG : undefined,
   ));
+  // Tilted camera: the runner and the next 2 km of trail must stay in the safe rectangle of the frame.
+  const chase = tilted
+    ? ensureRouteInFrame(shiftedChase, getFramingPoints(path, frame.distanceKm, exaggeration), viewport)
+    : shiftedChase;
   if (frame.phase === "flyover") return chase;
   if (frame.phase === "intro" && timeline.hook) return getHookRawPose(path, timeline, timeline.hook, frame, viewport, chase);
   const overview = getOverviewCameraPose(path, viewport, exaggeration);

@@ -213,11 +213,19 @@ export const getRoutePointAtDistance = (
 
 const METERS_PER_DEGREE_LAT = 111_320;
 // Mapbox GL default vertical field of view.
-const VERTICAL_FOV_RAD = (36.87 * Math.PI) / 180;
+export const VERTICAL_FOV_RAD = (36.87 * Math.PI) / 180;
 // A high viewpoint: the map reads like a relief map and small turns barely move the picture.
 const CHASE_ELEVATION_ANGLE_RAD = (54 * Math.PI) / 180;
 const OVERVIEW_ELEVATION_ANGLE_RAD = (50 * Math.PI) / 180;
 const MIN_TERRAIN_CLEARANCE_M = 300;
+
+/** Tilted chase camera: Mapbox pitch (from the vertical), kept in 55-65 degrees. */
+export const TILTED_PITCH_DEG = 60;
+export const TILTED_PITCH_MIN_DEG = 55;
+export const TILTED_PITCH_MAX_DEG = 65;
+// The tilted camera steps back (angle kept) up to this multiple of its ground distance to clear the
+// terrain; past it, it rises instead and the pitch drops below the target.
+const TILTED_MAX_STEP_BACK = 2.5;
 
 export type CameraPose = {
   camera: CameraPosition;
@@ -276,6 +284,8 @@ export const getChaseCameraPose = (
   headingOverride?: { east: number; north: number },
   /** Point to centre on; defaults to the exact runner position. */
   targetOverride?: { lat: number; lon: number; elevationM: number },
+  /** Tilted chase camera: Mapbox pitch in degrees from the vertical (default: the 54 degree high view). */
+  tiltedPitchDeg?: number,
 ): CameraPose => {
   const portrait = viewport === "portrait";
   const target = targetOverride ?? getRoutePointAtDistance(path, distanceKm);
@@ -284,10 +294,31 @@ export const getChaseCameraPose = (
   const backDistanceM = clamp(speedMps * 3, 4_500, 20_000) * (portrait ? 1.25 : 1);
   const headingWindowKm = clamp(speedMps * 3, 2_500, 15_000) / 1_000;
   const heading = headingOverride ?? getRouteHeading(path, distanceKm, headingWindowKm);
+  const targetAltitudeM = target.elevationM * terrainExaggeration;
+  if (tiltedPitchDeg !== undefined) {
+    // Same ground distance, lower and flatter: the camera keeps its pitch and steps back until it
+    // clears the surrounding terrain (like the hook), and only rises past TILTED_MAX_STEP_BACK.
+    const dropPerGround = 1 / Math.tan((tiltedPitchDeg * Math.PI) / 180);
+    const place = (groundM: number) => ({
+      groundM,
+      altitudeM: targetAltitudeM + groundM * dropPerGround,
+      clearanceM: getMaxElevationAround(path, distanceKm, (groundM * 1.3) / 1_000) * terrainExaggeration + MIN_TERRAIN_CLEARANCE_M,
+    });
+    let placed = place(backDistanceM);
+    for (let step = 0; step < 12 && placed.altitudeM < placed.clearanceM && placed.groundM < backDistanceM * TILTED_MAX_STEP_BACK; step += 1) {
+      placed = place(placed.groundM * 1.15);
+    }
+    return {
+      camera: {
+        ...offsetPosition(target, -heading.east * placed.groundM, -heading.north * placed.groundM),
+        altitudeM: Math.max(placed.altitudeM, placed.clearanceM),
+      },
+      target: { lat: target.lat, lon: target.lon, altitudeM: targetAltitudeM },
+    };
+  }
   const cameraGround = offsetPosition(target, -heading.east * backDistanceM, -heading.north * backDistanceM);
   const heightM = backDistanceM * Math.tan(CHASE_ELEVATION_ANGLE_RAD);
   const surroundingMaxM = getMaxElevationAround(path, distanceKm, (backDistanceM * 1.3) / 1_000);
-  const targetAltitudeM = target.elevationM * terrainExaggeration;
 
   return {
     camera: {
