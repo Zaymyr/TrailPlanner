@@ -1,5 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { execFileSync, spawnSync } from "node:child_process";
+import { existsSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   effectiveScope,
@@ -8,6 +13,9 @@ import {
   normalizePattern,
   outOfScope,
   patternsOverlap,
+  processIsAlive,
+  ScopeError,
+  withLock,
 } from "./agent-scope.mjs";
 
 const files = [
@@ -86,4 +94,90 @@ test("verify ignores docs and rejects files outside scope or in unreserved group
     ["apps/mobile/package.json", "apps/web/components/Button.tsx"],
   );
   assert.deepEqual(outOfScope(["apps/mobile/package.json"], ["apps/mobile/**", "apps/mobile/package.json"]), []);
+});
+
+function tempRegistry() {
+  const registry = mkdtempSync(join(tmpdir(), "agent-scope-"));
+  return { registry, lock: join(registry, ".lock") };
+}
+
+function deadPid() {
+  const child = spawnSync(process.execPath, ["-e", ""]);
+  assert.equal(child.status, 0);
+  return child.pid;
+}
+
+test("a failing locked action still releases the lock", () => {
+  const { registry, lock } = tempRegistry();
+  try {
+    assert.throws(
+      () =>
+        withLock(registry, () => {
+          throw new ScopeError("overlap");
+        }),
+      ScopeError,
+    );
+    assert.equal(existsSync(lock), false);
+  } finally {
+    rmSync(registry, { recursive: true, force: true });
+  }
+});
+
+test("a lock left by a process that is gone is reclaimed", () => {
+  const { registry, lock } = tempRegistry();
+  try {
+    const pid = deadPid();
+    assert.equal(processIsAlive(pid), false);
+    writeFileSync(lock, String(pid));
+    assert.equal(withLock(registry, () => "done", { attempts: 2, waitMs: 1 }), "done");
+    assert.equal(existsSync(lock), false);
+  } finally {
+    rmSync(registry, { recursive: true, force: true });
+  }
+});
+
+test("a lock held by a running process is respected", () => {
+  const { registry, lock } = tempRegistry();
+  try {
+    assert.equal(processIsAlive(process.ppid), true);
+    writeFileSync(lock, String(process.ppid));
+    assert.throws(
+      () => withLock(registry, () => "never", { attempts: 2, waitMs: 1 }),
+      (error) => error instanceof ScopeError && /Registry locked/.test(error.message),
+    );
+    assert.equal(existsSync(lock), true);
+  } finally {
+    rmSync(registry, { recursive: true, force: true });
+  }
+});
+
+test("an unreadable lock is only reclaimed once it is old", () => {
+  const { registry, lock } = tempRegistry();
+  try {
+    writeFileSync(lock, "");
+    const options = { attempts: 2, waitMs: 1 };
+    assert.throws(() => withLock(registry, () => "never", options), ScopeError);
+    const old = new Date(Date.now() - 60_000);
+    utimesSync(lock, old, old);
+    assert.equal(withLock(registry, () => "done", options), "done");
+  } finally {
+    rmSync(registry, { recursive: true, force: true });
+  }
+});
+
+test("a rejected CLI command exits 1 without leaving the registry locked", () => {
+  const repo = mkdtempSync(join(tmpdir(), "agent-scope-repo-"));
+  const script = resolve(fileURLToPath(new URL(".", import.meta.url)), "agent-scope.mjs");
+  try {
+    execFileSync("git", ["init", "-q"], { cwd: repo });
+    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "--allow-empty", "-m", "init"], {
+      cwd: repo,
+    });
+    const result = spawnSync(process.execPath, [script, "release", "missing-task"], { cwd: repo, encoding: "utf8" });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /No claim named "missing-task"/);
+    assert.equal(existsSync(join(repo, ".git", "agent-scopes", ".lock")), false);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
 });

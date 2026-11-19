@@ -86,3 +86,7 @@ Whether Chrome can drive the L4 depends on the graphics libraries in the mounted
 ## Deleting a video
 
 Each finished or failed render in the panel has a "Supprimer" action (with a confirmation): `DELETE /api/admin/video-generator/render-jobs/<id>` deletes `jobs/<id>/reel.mp4` and `jobs/<id>/input.json` with the Google access token (`deleteStorageObject`, a 404 counts as deleted), then the row (`deleteRenderJob`, limited to `done`/`failed`). A render still `uploading`, `queued` or `running` answers 409. When the bucket refuses the object deletion (the `vercel-trigger` account may lack `storage.objects.delete`), the row is still deleted and the response says `filesDeleted: false`: the 30-day lifecycle removes the files. Dropping the row also lowers the race's video count in the race picker.
+
+## Instagram publishing
+
+Finished renders can be published as Instagram Reels from `/admin/publications` (see [Instagram Reels Publishing](instagram-publishing.md)). That feature only reads this integration: it calls `getRenderJob`, `getGoogleAccessToken` and `signStorageUrl` to sign a 2-hour GET URL of `jobs/<id>/reel.mp4` for Meta when the Instagram container is created, and refuses to publish a render within 24 h of the bucket's 30-day lifecycle deletion. Deleting a render sets `social_posts.video_job_id` to null; nothing in the render routes changed.

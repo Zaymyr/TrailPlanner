@@ -58,6 +58,7 @@ Docs conventions are in [_conventions.md](_conventions.md).
 - [races](02-database/tables/races.md)
 - [race_slug_redirects](02-database/tables/race-slug-redirects.md)
 - [video_render_jobs](02-database/tables/video-render-jobs.md)
+- [social_posts](02-database/tables/social-posts.md)
 - [race_events](02-database/tables/race-events.md)
 - [race_event_editions](02-database/tables/race-event-editions.md)
 - [race_event_edition_slug_redirects](02-database/tables/race-event-edition-slug-redirects.md)
@@ -130,6 +131,7 @@ Docs conventions are in [_conventions.md](_conventions.md).
 - [OpenStreetMap and Leaflet](05-integrations/openstreetmap-leaflet.md)
 - [Mapbox 3D Admin Course Viewer](05-integrations/mapbox-3d.md)
 - [Google Cloud Background Reel Render](05-integrations/google-cloud-video-render.md)
+- [Instagram Reels Publishing](05-integrations/instagram-publishing.md)
 - [Mapbox 3D Admin Course Viewer](05-integrations/mapbox-3d.md)
 - [Geocoding](05-integrations/geocoding.md)
 - [Supabase Edge Functions](05-integrations/supabase-edge-functions.md)
@@ -159,6 +161,7 @@ Docs conventions are in [_conventions.md](_conventions.md).
 
 - [ADR Placeholder](08-decisions/README.md)
 - [Reel figures and highlights mode](08-decisions/2026-11-19-reel-highlights-and-figures.md)
+- [2026-11-19 Automated Instagram Reels publishing](08-decisions/2026-11-19-instagram-publishing.md)
 
 ### Archive
 

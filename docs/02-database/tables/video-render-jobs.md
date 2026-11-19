@@ -44,3 +44,5 @@ RLS is enabled with no policy and every privilege is revoked from `anon` and `au
 `started_at` and `finished_at` are returned by the admin job list to show each render's duration, and finished (`done`) jobs are counted per race for the video generator picker (`race-stats`).
 
 The admin can delete a finished or failed job (`DELETE /api/admin/video-generator/render-jobs/<id>`, service role, guarded by `status=in.(done,failed)`); its Cloud Storage objects are deleted best-effort and otherwise expire with the 30-day lifecycle.
+
+`social_posts.video_job_id` references this table **on delete set null** (2026-11-19): deleting a render never fails because of a post, and an unpublished post whose render is gone fails with an explicit message. See [social_posts](social-posts.md).
