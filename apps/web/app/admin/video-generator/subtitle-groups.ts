@@ -7,9 +7,10 @@ export type SubtitleGroup = { text: string; startMs: number; endMs: number };
 
 // -- Layout: the Instagram safe zone ----------------------------------------------------------
 // Instagram covers the bottom of a Reel (caption, buttons) and the right edge (action column).
-// The subtitle box is centred on 64 % of the frame height, so even two lines stay far above
-// y = 1500 px of a 1920 px frame, and it never enters the right 15 % band.
-export const SUBTITLE_CENTER_Y_RATIO = 0.64;
+// The subtitle box sits as low as the safe zone allows, in the lower quarter where viewers expect
+// captions: centred on 74 % of the frame height, two lines end near y = 1489 px of a 1920 px frame
+// (limit 1500), and it never enters the right 15 % band.
+export const SUBTITLE_CENTER_Y_RATIO = 0.74;
 /** Instagram's unsafe bottom starts here (share of the frame height; 1500 px on 1920). */
 export const SUBTITLE_SAFE_BOTTOM_RATIO = 1500 / 1920;
 export const SUBTITLE_LEFT_RATIO = 0.06;

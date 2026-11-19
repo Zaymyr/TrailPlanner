@@ -181,10 +181,10 @@ describe("subtitle layout", () => {
     const box = getSubtitleBoxBounds(1080, 1920, SUBTITLE_MAX_LINES);
     expect(box.bottom).toBeLessThanOrEqual(1500);
     expect(box.bottom / 1920).toBeLessThanOrEqual(SUBTITLE_SAFE_BOTTOM_RATIO);
-    // Vertically centred between 60 % and 70 % of the frame height.
+    // In the lower quarter (captions read there), not mid-screen.
     const centre = (box.top + box.bottom) / 2 / 1920;
-    expect(centre).toBeGreaterThanOrEqual(0.6);
-    expect(centre).toBeLessThanOrEqual(0.7);
+    expect(centre).toBeGreaterThanOrEqual(0.72);
+    expect(box.top / 1920).toBeGreaterThan(0.68);
     expect(box.left).toBeGreaterThanOrEqual(1080 * 0.06 - 1e-6);
     expect(box.right).toBeLessThanOrEqual(1080 * 0.85 + 1e-6);
     expect(SUBTITLE_RIGHT_RATIO).toBeLessThanOrEqual(0.85);
