@@ -7,6 +7,12 @@ related_files:
   - apps/web/app/admin/video-generator/race-figures.ts
   - apps/web/app/admin/video-generator/highlights.ts
   - apps/web/app/admin/video-generator/video-composition.ts
+  - apps/web/app/admin/video-generator/reel-pipeline.ts
+  - apps/web/app/admin/video-generator/useReelPipeline.ts
+  - apps/web/app/admin/video-generator/ReelPipelinePanel.tsx
+  - apps/web/lib/social-post-auto-draft.ts
+  - apps/web/app/api/video-render/jobs/[id]/route.ts
+  - supabase/migrations/20261119170000_add_render_job_auto_draft.sql
   - apps/web/app/api/admin/video-generator/script/route.ts
   - apps/web/lib/video-narrations.ts
   - apps/web/app/api/admin/video-generator/narrations/[raceId]/route.ts
@@ -69,6 +75,8 @@ Second, a full-course flyover of an ultra lasts up to 2-3 minutes; a short "temp
 
 11. **Audio and end screen (phase 6b).** The soundtrack is mastered by a pure JS module (`audio-master.ts`): BS.1770-4 integrated loudness and 4x true peak, one linear gain to -14 LUFS with a true peak of at most -1 dBTP (no limiter; when the ceiling wins, the report says the mix stays quieter). It runs the same in the browser export and the Cloud Run render because no step depends on Web Audio automation or ffmpeg. An optional music bed (`musicTrack`: none, auto from the race id, or a manifest id; manifest in `public/reel-music/`, shipped empty, royalty-free licence required) is looped or trimmed, set 8 LU under the voice (voice -16 LUFS, music -24 LUFS), ducked 10 dB under the voice with a 150 ms attack and 400 ms release, faded 0.5 s in and 1.5 s out. The end screen lasts `max(2.5 s, gap + CTA voice + 2 s hold)`; in highlights it shows « Ton plan pour cette course est prêt » / « Dans l’appli Pace Yourself » / « Lien en bio » inside the Instagram safe zone, and the full mode keeps its card. Tests assert the voice never ends within 0.5 s of the video end.
 
+12. **One-click generation.** « Générer le reel » replaces the nine manual clicks by one for the common case. (a) **Pipeline:** text (`/content`), voice (`/voice`), narration save, then the background render, in that order, on the same functions as the individual buttons (extracted as `requestScript`, `applyHighlightsContent`, `requestVoiceClips`, `putNarration` and `launchBackgroundRender`), with the data of each step handed to the next explicitly rather than read back from React state. A failing step stops the chain and « Reprendre » resumes from it; the run can be cancelled until the render starts; the text step's warnings are shown and never block. (b) **Highlights is the UI default**, set in `INITIAL_EDITOR_SETTINGS` only: the Zod default of `storyMode` stays `full`, so old render snapshots and saved settings without `storyMode` parse as before (decision 4 is unchanged). (c) **Automatic draft:** `video_render_jobs.auto_draft` (set by the render-jobs POST `autoDraft`, only with `content`) makes the render completion route create the job's `social_posts` draft, never scheduled or published, owned by the job's creator, with the service role the callback already uses, so no auth, RLS or grant change. It is idempotent and non-fatal: an existing automatic draft is returned first, a partial unique index on `social_posts (video_job_id) where auto_generated` backs it up (this is why the migration also adds `social_posts.auto_generated`, which also lets Publications show a precise « Généré automatiquement » badge instead of inferring it), and a failure is logged without payload and leaves the job `done`. Human control stays at publication: the admin reviews the draft in Publications and publishes or schedules it. Alternatives rejected: creating the draft from the browser when it sees the job done (needs the tab open, defeats the background render); inferring the badge from `content` plus the job flag (also matches a manual draft of the same render).
+
 ## Consequences
 
 - Badge, counter, voice, captions, aid cards and AI inputs show the same numbers; the counter ends exactly on the badge total.
@@ -85,6 +93,9 @@ Second, a full-course flyover of an ultra lasts up to 2-3 minutes; a short "temp
 - The full layout gets larger small texts (ticks, chips, bubbles, place labels) but keeps its elements; the light layout is the highlights default.
 - The previous web version upserts on `race_id` alone: between the migration and the web deploy of the release, its saves fail (reads keep working).
 - Without a manifest track the reel has no music but is still loudness-mastered, so its sound level changes compared with phase 7 exports (normalised to -14 LUFS).
+- Opening the generator on Temps forts changes what an admin sees first, not what is stored: a race with a saved « Parcours complet » narration still loads it when that mode is chosen.
+- A render launched by one click costs a GPU render without a human review of the text first; the warnings and the Publications review are the guard, and the draft is never published automatically.
+- The render time shown (≈ 10 min) is a fixed estimate, not a measurement.
 - The outro is about 2 s longer than before (voice plus a 2 s hold); the 50 s cap on highlights is unchanged and the flyover absorbs it when the total is clamped.
 
 ## Related Docs

@@ -9,6 +9,7 @@ ai_priority: high
 related_files:
   - supabase/migrations/20261116150000_add_organizer_demo_requests.sql
   - supabase/migrations/20261119130000_add_social_posts.sql
+  - supabase/migrations/20261119170000_add_render_job_auto_draft.sql
   - supabase/tests/social_posts_checks.sql
   - supabase/tests/organizer_demo_requests_checks.sql
   - supabase/migrations/20261116180000_add_feedback_surveys.sql
@@ -258,7 +259,7 @@ The November 2026 mobile plan-flow polish changes catalog search controls, image
 | `race_plans` | Saved planner state and imported GPX plan metadata. |
 | `race_requests` | Authenticated user requests for races to add. |
 | `organizer_demo_requests` | Service-only demo requests from the public organizer page (e-mail, race link, optional phone), reviewed in the admin inbox. See [organizer_demo_requests](tables/organizer-demo-requests.md). |
-| `social_posts` | Service-only Instagram Reels drafted from finished `video_render_jobs` and published by explicit admin action through a resumable state machine. See [social_posts](tables/social-posts.md). |
+| `social_posts` | Service-only Instagram Reels drafted from finished `video_render_jobs` (by an admin, or automatically when a one-click render finishes: `auto_generated`, one per render) and published by explicit admin action through a resumable state machine. See [social_posts](tables/social-posts.md). |
 | `races` | Current race catalog/private race table, renamed from `race_catalog`, with yearly organizer edition grouping on `edition_group_id` / `series_name`. |
 | `race_slug_redirects` | Former course slugs mapped to stable race ids for visibility-gated permanent redirects. |
 | `rate_limit_entries` | DB-backed rate limit counters used by security-sensitive routes. |

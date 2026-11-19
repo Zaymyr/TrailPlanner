@@ -4,8 +4,8 @@ import React, { useCallback, useEffect, useState } from "react";
 
 import { Button } from "../../../components/ui/button";
 import type { ReelContent } from "../../../lib/reel-content";
+import { launchBackgroundRender, readRenderMessage as readMessage } from "./background-render";
 import type { VideoRenderSnapshot } from "./render-snapshot";
-import { VIDEO_RESOLUTIONS } from "./video-composition";
 
 export type BackgroundRenderJob = {
   id: string;
@@ -68,18 +68,15 @@ type BackgroundRenderPanelProps = {
   raceId?: string;
   raceTitle: string;
   resolutionLabel: string;
-};
-
-const readMessage = async (response: Response, fallback: string) => {
-  const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-  return payload?.message ?? fallback;
+  /** Bumped by the one-click reel when it launches a render, to list it right away. */
+  refreshSignal?: number;
 };
 
 /**
  * Background render on Google Cloud: the composition is saved, rendered by a headless browser in
  * Cloud Run and listed here when ready, so the admin can close the tab meanwhile.
  */
-export function BackgroundRenderPanel({ accessToken, canRender, createSnapshot, hasVoice, raceId, raceTitle, reelContent, resolutionLabel }: BackgroundRenderPanelProps) {
+export function BackgroundRenderPanel({ accessToken, canRender, createSnapshot, hasVoice, raceId, raceTitle, reelContent, resolutionLabel, refreshSignal = 0 }: BackgroundRenderPanelProps) {
   const [jobs, setJobs] = useState<BackgroundRenderJob[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -112,38 +109,15 @@ export function BackgroundRenderPanel({ accessToken, canRender, createSnapshot, 
       controller.abort();
       window.clearInterval(timer);
     };
-  }, [accessToken, hasActiveJob, loadJobs]);
+  }, [accessToken, hasActiveJob, loadJobs, refreshSignal]);
 
   const submit = async () => {
     if (!raceId) return;
     setSubmitting(true);
     setError(null);
     try {
-      const snapshot = createSnapshot();
-      const base = VIDEO_RESOLUTIONS[snapshot.settings.resolution];
-      const size = snapshot.settings.viewport === "portrait" ? base : { width: base.height, height: base.width };
-      const created = await fetch("/api/admin/video-generator/render-jobs", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ raceId, raceTitle, ...size, ...(reelContent ? { content: reelContent } : {}) }),
-      });
-      if (!created.ok) throw new Error(await readMessage(created, "Le rendu n’a pas pu être créé."));
-      const { job, inputUploadUrl } = (await created.json()) as { job: { id: string }; inputUploadUrl: string };
-
-      // The snapshot (route, narration, voice clips) goes straight to Cloud Storage: it can weigh
-      // several megabytes, more than a serverless request body allows.
-      const uploaded = await fetch(inputUploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(snapshot),
-      });
-      if (!uploaded.ok) throw new Error(`L’envoi de la composition a échoué (${uploaded.status}).`);
-
-      const started = await fetch(`/api/admin/video-generator/render-jobs/${job.id}/start`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (!started.ok) throw new Error(await readMessage(started, "Le rendu n’a pas pu démarrer."));
+      // The snapshot (route, narration, voice clips) goes straight to Cloud Storage (see launchBackgroundRender).
+      await launchBackgroundRender({ accessToken, raceId, raceTitle, snapshot: createSnapshot(), content: reelContent });
       await loadJobs();
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Le rendu n’a pas pu démarrer.");

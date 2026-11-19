@@ -54,6 +54,21 @@ describe("POST /api/admin/video-generator/render-jobs", () => {
     for (const call of mocks.insertRenderJob.mock.calls) expect(call[1]).not.toHaveProperty("content");
   });
 
+  it("flags the job for an automatic draft only when it carries reel content", async () => {
+    expect((await POST(request({ ...base, content, autoDraft: true }))).status).toBe(201);
+    expect(mocks.insertRenderJob.mock.calls[0][1]).toMatchObject({ auto_draft: true, content });
+    // No content: nothing to pre-fill, the flag is dropped. Absent or false: no flag.
+    await POST(request({ ...base, autoDraft: true }));
+    await POST(request({ ...base, content, autoDraft: false }));
+    await POST(request({ ...base, content }));
+    for (const call of mocks.insertRenderJob.mock.calls.slice(1)) expect(call[1]).not.toHaveProperty("auto_draft");
+  });
+
+  it("rejects a non-boolean autoDraft", async () => {
+    expect((await POST(request({ ...base, content, autoDraft: "yes" }))).status).toBe(400);
+    expect(mocks.insertRenderJob).not.toHaveBeenCalled();
+  });
+
   it("rejects a content that does not fit the schema, before creating anything", async () => {
     expect((await POST(request({ ...base, content: { ...content, caption: "x".repeat(2_201) } }))).status).toBe(400);
     expect((await POST(request({ ...base, content: { hook: "seul" } }))).status).toBe(400);

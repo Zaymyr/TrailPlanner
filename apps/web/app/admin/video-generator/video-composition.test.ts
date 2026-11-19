@@ -8,6 +8,8 @@ import {
   buildToldSlopeGeoJson,
   buildVideoTimeline,
   DEFAULT_VIDEO_COMPOSITION_SETTINGS,
+  INITIAL_EDITOR_SETTINGS,
+  withStoryMode,
   getDistanceAtFlyoverFraction,
   getFlyoverFractionAtDistance,
   getGradeAtDistance,
@@ -89,6 +91,21 @@ describe("videoCompositionSettingsSchema", () => {
     const timeline = buildVideoTimeline(flatPath(30), [beat("leg-0", "flat", 0, 30, "Tout droit.")], DEFAULT_VIDEO_COMPOSITION_SETTINGS);
     expect(timeline.cameraTempo).toBe(1);
     expect(timeline.cameraAverageBlend).toBe(0.7);
+  });
+
+  it("opens the editor on Temps forts without changing what an older snapshot parses to", () => {
+    expect(INITIAL_EDITOR_SETTINGS.storyMode).toBe("highlights");
+    expect(INITIAL_EDITOR_SETTINGS).toEqual({ ...DEFAULT_VIDEO_COMPOSITION_SETTINGS, storyMode: "highlights" });
+    // The schema default is untouched: a snapshot or saved settings with no storyMode are full reels.
+    expect(videoCompositionSettingsSchema.parse({}).storyMode).toBe("full");
+    expect(DEFAULT_VIDEO_COMPOSITION_SETTINGS.storyMode).toBe("full");
+  });
+
+  it("switches the story mode, going back to auto for a manual length a highlights reel cannot take", () => {
+    const longManual = { ...DEFAULT_VIDEO_COMPOSITION_SETTINGS, durationMode: "manual" as const, durationSeconds: 90 };
+    expect(withStoryMode(longManual, "highlights")).toMatchObject({ storyMode: "highlights", durationMode: "auto", durationSeconds: 90 });
+    expect(withStoryMode({ ...longManual, durationSeconds: 40 }, "highlights").durationMode).toBe("manual");
+    expect(withStoryMode(longManual, "full")).toMatchObject({ storyMode: "full", durationMode: "manual" });
   });
 });
 

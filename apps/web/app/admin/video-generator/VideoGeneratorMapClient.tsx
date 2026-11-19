@@ -77,6 +77,8 @@ import {
   HIGHLIGHT_MAX_SECONDS,
   HIGHLIGHT_MIN_SECONDS,
   HIGHLIGHT_TARGET_SECONDS,
+  INITIAL_EDITOR_SETTINGS,
+  withStoryMode,
   getGradeAtDistance,
   getLegPassages,
   getVideoCameraPose,
@@ -95,6 +97,10 @@ import { createVideoFrameStore, VideoCompositionOverlay } from "./VideoCompositi
 import type { VideoGeneratorMapProps } from "./VideoGeneratorMap";
 import type { VideoRenderSnapshot } from "./render-snapshot";
 import { BackgroundRenderPanel } from "./BackgroundRenderPanel";
+import { launchBackgroundRender } from "./background-render";
+import { ReelPipelinePanel } from "./ReelPipelinePanel";
+import { waitUntil, type ReelPipelineRunners } from "./reel-pipeline";
+import { useReelPipeline } from "./useReelPipeline";
 import {
   forgetVoice,
   getLastUsedVoiceId,
@@ -477,6 +483,14 @@ const waitForMapIdle = (map: MapboxMap, timeoutMs: number) => new Promise<void>(
   map.triggerRepaint();
 });
 
+/** What the one-click reel steps hand to each other. */
+type ReelRunContext = { overrides?: Record<string, string>; content?: ReelContent; clips?: Record<string, NarrationClip>; jobId?: string };
+const newReelRunContext = (): ReelRunContext => ({});
+
+/** A clip only counts while its text still matches the narration it was generated from. */
+const freshClipsFor = (beats: Array<{ id: string; narration: string }>, clips: Record<string, NarrationClip>) =>
+  beats.flatMap((beat) => clips[beat.id]?.text === beat.narration ? [clips[beat.id]] : []);
+
 const readError = async (response: Response, fallback: string) => {
   const payload = await response.json().catch(() => null) as { message?: unknown } | null;
   return typeof payload?.message === "string" ? payload.message : fallback;
@@ -699,7 +713,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   const boundsRef = useRef(bounds);
   const pointsRef = useRef(points);
 
-  const [settings, setSettings] = useState<VideoCompositionSettings>(renderSnapshot?.settings ?? DEFAULT_VIDEO_COMPOSITION_SETTINGS);
+  const [settings, setSettings] = useState<VideoCompositionSettings>(renderSnapshot?.settings ?? INITIAL_EDITOR_SETTINGS);
   const [preparedPath, setPreparedPath] = useState<PreparedAnimationPath>(() => prepareAnimationPath(points));
   const [mapError, setMapError] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
@@ -841,10 +855,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   const [instagramHashtags, setInstagramHashtags] = useState<string[]>([]);
   const [instagramState, setInstagramState] = useState<AsyncActionState>(IDLE_ACTION);
   // A clip only counts while its text still matches the narration it was generated from.
-  const freshClips = useMemo(
-    () => beats.flatMap((beat) => voiceClips[beat.id]?.text === beat.narration ? [voiceClips[beat.id]] : []),
-    [beats, voiceClips],
-  );
+  const freshClips = useMemo(() => freshClipsFor(beats, voiceClips), [beats, voiceClips]);
   const narrationAlignments = useMemo<NarrationAlignments>(
     () => Object.fromEntries(freshClips.flatMap((clip) => clip.characterEndMs ? [[clip.beatId, { characterEndMs: clip.characterEndMs, characterStartMs: clip.characterStartMs }]] : [])),
     [freshClips],
@@ -1196,39 +1207,48 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [race.id, render, storyMode]);
 
-  useEffect(() => {
-    if (!pendingSave || !race.id) return;
-    setPendingSave(null);
-    setSavedNarration({ status: "loading", message: "Enregistrement du récit…" });
+  /**
+   * Saves the narration of the current mode (the "Enregistrer" button, the AI draft, the voice and
+   * the one-click reel share it). Each mode saves only its own texts: highlight beats are the
+   * "hl-…" ids. Clips and content are written only when given.
+   */
+  const putNarration = async ({ texts, clips, content }: { texts: Record<string, string>; clips?: NarrationClip[]; content?: ReelContent | null }) => {
     const highlightsSave = settings.storyMode === "highlights";
-    void fetch(`/api/admin/video-generator/narrations/${race.id}?mode=${settings.storyMode}`, {
+    const response = await fetch(`/api/admin/video-generator/narrations/${race.id}?mode=${settings.storyMode}`, {
       method: "PUT",
       headers: { Authorization: `Bearer ${sessionToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         settings,
-        // Each mode saves only its own texts: highlight beats are the "hl-…" ids.
-        narrationOverrides: Object.fromEntries(Object.entries(narrationOverrides).filter(([beatId]) => beatId.startsWith("hl-") === highlightsSave)),
+        narrationOverrides: Object.fromEntries(Object.entries(texts).filter(([beatId]) => beatId.startsWith("hl-") === highlightsSave)),
         voice: { voiceId: voiceId || null, ...voiceOptions },
-        ...(pendingSave.clips ? { clips: freshClips } : {}),
-        ...(highlightsSave && reelContent ? { content: currentReelContent() } : {}),
+        ...(clips ? { clips } : {}),
+        ...(highlightsSave && content ? { content } : {}),
       }),
+    });
+    if (!response.ok) throw new Error(await readError(response, "Le récit n’a pas pu être enregistré."));
+    const time = new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    return `${highlightsSave ? "Récit « Temps forts »" : "Récit"} enregistré à ${time}${clips?.length ? " avec sa voix off" : ""}.`;
+  };
+
+  useEffect(() => {
+    if (!pendingSave || !race.id) return;
+    setPendingSave(null);
+    setSavedNarration({ status: "loading", message: "Enregistrement du récit…" });
+    putNarration({
+      texts: narrationOverrides,
+      ...(pendingSave.clips ? { clips: freshClips } : {}),
+      content: reelContent ? currentReelContent() : null,
     })
-      .then(async (response) => {
-        if (!response.ok) throw new Error(await readError(response, "Le récit n’a pas pu être enregistré."));
-        const time = new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-        setSavedNarration({ status: "success", message: `${highlightsSave ? "Récit « Temps forts »" : "Récit"} enregistré à ${time}${pendingSave.clips && freshClips.length ? " avec sa voix off" : ""}.` });
-      })
+      .then((message) => setSavedNarration({ status: "success", message }))
       .catch((error: unknown) => {
         setSavedNarration({ status: "error", message: error instanceof Error ? error.message : "Le récit n’a pas pu être enregistré." });
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [freshClips, narrationOverrides, pendingSave, race.id, sessionToken, settings, voiceId, voiceOptions]);
 
-  const writeScript = async () => {
-    setScriptState({ status: "loading", message: "Claude rédige la narration…" });
-    try {
-      // A highlights reel is written in one call: script, hook, call to action, caption, hashtags, cover text.
-      const response = await authorizedPost(isHighlights ? "/api/admin/video-generator/content" : "/api/admin/video-generator/script", {
+  /** The writer call. A highlights reel is written in one call: script, hook, call to action, caption, hashtags, cover text. */
+  const requestScript = async () => {
+    const response = await authorizedPost(isHighlights ? "/api/admin/video-generator/content" : "/api/admin/video-generator/script", {
         mode: settings.storyMode,
         race: { ...announcedRace, startDetail: race.startDetail, ...(isHighlights ? { raceDate: race.raceDate ?? null } : {}) },
         ...(isHighlights ? {
@@ -1256,20 +1276,33 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
             : getLegPassages(timeline, { startKm, endKm }, enabledAidStations).map((passage) => ({ ...passage, km: roundKm(toAnnouncedKm(figures, passage.km)) })),
         })),
       });
-      if (!response.ok) throw new Error(await readError(response, "La narration n’a pas pu être rédigée."));
+    if (!response.ok) throw new Error(await readError(response, "La narration n’a pas pu être rédigée."));
+    return response;
+  };
+
+  /** Reads the highlights content of the writer call, and puts it in the editor (texts, caption, hashtags, cover text). */
+  const applyHighlightsContent = async (response: Response) => {
+    const content = reelContentResponseSchema.safeParse(await response.json());
+    if (!content.success) throw new Error("Le contenu reçu est invalide.");
+    setNarrationOverrides((current) => ({ ...current, ...buildNarrationOverrides(content.data.content) }));
+    setReelContent(content.data.content);
+    setReelWarnings(content.data.warnings);
+    setInstagramCaption(content.data.content.caption);
+    setInstagramHashtags(content.data.content.hashtags);
+    setCoverText(content.data.content.cover_text);
+    const styleKey = content.data.style as keyof typeof NARRATION_STYLE_LABELS | undefined;
+    const styleLabel = styleKey && NARRATION_STYLE_LABELS[styleKey] ? ` (style : ${NARRATION_STYLE_LABELS[styleKey]})` : "";
+    const toCheck = content.data.warnings.length ? ` ${content.data.warnings.length} point(s) à vérifier.` : "";
+    setScriptState({ status: "success", message: `Contenu rédigé${styleLabel}.${toCheck} Relis-le puis génère la voix off.` });
+    return content.data;
+  };
+
+  const writeScript = async () => {
+    setScriptState({ status: "loading", message: "Claude rédige la narration…" });
+    try {
+      const response = await requestScript();
       if (isHighlights) {
-        const content = reelContentResponseSchema.safeParse(await response.json());
-        if (!content.success) throw new Error("Le contenu reçu est invalide.");
-        setNarrationOverrides((current) => ({ ...current, ...buildNarrationOverrides(content.data.content) }));
-        setReelContent(content.data.content);
-        setReelWarnings(content.data.warnings);
-        setInstagramCaption(content.data.content.caption);
-        setInstagramHashtags(content.data.content.hashtags);
-        setCoverText(content.data.content.cover_text);
-        const styleKey = content.data.style as keyof typeof NARRATION_STYLE_LABELS | undefined;
-        const styleLabel = styleKey && NARRATION_STYLE_LABELS[styleKey] ? ` (style : ${NARRATION_STYLE_LABELS[styleKey]})` : "";
-        const toCheck = content.data.warnings.length ? ` ${content.data.warnings.length} point(s) à vérifier.` : "";
-        setScriptState({ status: "success", message: `Contenu rédigé${styleLabel}.${toCheck} Relis-le puis génère la voix off.` });
+        await applyHighlightsContent(response);
         requestSave(false);
         return;
       }
@@ -1391,37 +1424,41 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     }
   };
 
-  const generateVoice = async () => {
-    const items = beats.filter((beat) => beat.narration.trim()).map((beat) => ({ id: beat.id, text: beat.narration.trim() }));
+  /** The voice call for the given beats: clips kept in the editor and returned (the one-click reel needs them at once). */
+  const requestVoiceClips = async (voiceBeats: Array<{ id: string; narration: string }>) => {
+    const items = voiceBeats.filter((beat) => beat.narration.trim()).map((beat) => ({ id: beat.id, text: beat.narration.trim() }));
     setVoiceState({ status: "loading", message: `Génération de ${items.length} phrases avec ElevenLabs…` });
+    const response = await authorizedPost("/api/admin/video-generator/voice", { voiceId: voiceId || null, items, ...voiceOptions });
+    if (!response.ok) throw new Error(await readError(response, "La voix off n’a pas pu être générée."));
+    const parsed = narrationVoiceResponseSchema.safeParse(await response.json());
+    if (!parsed.success) throw new Error("L’audio reçu est invalide.");
+    // The clip keeps the exact narration text so it stays valid only while that text is unchanged.
+    const textById = new Map(voiceBeats.map((beat) => [beat.id, beat.narration]));
+    const clips: Record<string, NarrationClip> = Object.fromEntries(parsed.data.clips.map((clip) => [clip.id, {
+      beatId: clip.id,
+      text: textById.get(clip.id) ?? clip.text,
+      audioBase64: clip.audioBase64,
+      durationMs: clip.durationMs,
+      characterEndMs: clip.characterEndMs,
+      characterStartMs: clip.characterStartMs,
+    }]));
+    setVoiceClips((current) => ({ ...current, ...clips }));
+    if (voiceId) updateVoiceLibrary((voices) => rememberVoice(voices, voiceId));
+    const measured = measureWordsPerSecond(parsed.data.clips.map((clip) => ({ text: textById.get(clip.id) ?? clip.text, durationMs: clip.durationMs })));
+    if (measured) {
+      setSpeechRates((current) => {
+        const next = { ...current, [speechRateKey]: measured };
+        storeSpeechRates(next);
+        return next;
+      });
+    }
+    setVoiceState({ status: "success", message: "Voix off prête : lance la lecture." });
+    return clips;
+  };
+
+  const generateVoice = async () => {
     try {
-      const response = await authorizedPost("/api/admin/video-generator/voice", { voiceId: voiceId || null, items, ...voiceOptions });
-      if (!response.ok) throw new Error(await readError(response, "La voix off n’a pas pu être générée."));
-      const parsed = narrationVoiceResponseSchema.safeParse(await response.json());
-      if (!parsed.success) throw new Error("L’audio reçu est invalide.");
-      // The clip keeps the exact narration text so it stays valid only while that text is unchanged.
-      const textById = new Map(beats.map((beat) => [beat.id, beat.narration]));
-      setVoiceClips((current) => ({
-        ...current,
-        ...Object.fromEntries(parsed.data.clips.map((clip) => [clip.id, {
-          beatId: clip.id,
-          text: textById.get(clip.id) ?? clip.text,
-          audioBase64: clip.audioBase64,
-          durationMs: clip.durationMs,
-          characterEndMs: clip.characterEndMs,
-          characterStartMs: clip.characterStartMs,
-        }])),
-      }));
-      if (voiceId) updateVoiceLibrary((voices) => rememberVoice(voices, voiceId));
-      const measured = measureWordsPerSecond(parsed.data.clips.map((clip) => ({ text: textById.get(clip.id) ?? clip.text, durationMs: clip.durationMs })));
-      if (measured) {
-        setSpeechRates((current) => {
-          const next = { ...current, [speechRateKey]: measured };
-          storeSpeechRates(next);
-          return next;
-        });
-      }
-      setVoiceState({ status: "success", message: "Voix off prête : lance la lecture." });
+      await requestVoiceClips(beats);
       requestSave(true);
     } catch (error) {
       setVoiceState({ status: "error", message: error instanceof Error ? error.message : "La voix off n’a pas pu être générée." });
@@ -1438,17 +1475,18 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     void startExportRef.current();
   }, [isReady, render]);
 
-  const createRenderSnapshot = (): VideoRenderSnapshot => ({
+  /** The composition sent to the renderer; the one-click reel passes the texts and clips it has just made. */
+  const createRenderSnapshot = (own?: { narrationOverrides: Record<string, string>; voiceClips: NarrationClip[] }): VideoRenderSnapshot => ({
     version: 1,
     race,
     aidStations,
     bounds,
     points,
     settings,
-    narrationOverrides,
+    narrationOverrides: own?.narrationOverrides ?? narrationOverrides,
     landmarks,
     placeNames: endpointNames,
-    voiceClips: freshClips,
+    voiceClips: own?.voiceClips ?? freshClips,
     previewSize: measurePreviewFrame(),
   });
 
@@ -1569,6 +1607,73 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     setSettings(nextSettings);
   };
 
+  // One-click reel: the steps of the manual flow (AI text, voice, save, background render) chained
+  // on the same functions as the individual buttons. Each step hands its result to the next one
+  // explicitly, so the chain never depends on React having re-rendered in between.
+  const [renderRefresh, setRenderRefresh] = useState(0);
+  const highlightsNarrationLoaded = loadedNarrationsRef.current.has(`${race.id}:highlights`) || savedNarration.status === "error";
+  const pipelineReadyRef = useRef(false);
+  pipelineReadyRef.current = isHighlights && highlightsNarrationLoaded;
+  const beatsWithTexts = (overrides?: Record<string, string>) => {
+    const texts = { ...narrationOverrides, ...overrides };
+    return defaultBeats.map((beat) => texts[beat.id] !== undefined ? { ...beat, narration: texts[beat.id] } : beat);
+  };
+  const reelRunners: ReelPipelineRunners<ReelRunContext> = {
+    // Temps forts mode, with its saved narration loaded first (it would overwrite a fresh draft).
+    prepare: async () => {
+      if (!isHighlights) updateSettings(withStoryMode(settings, "highlights"));
+      await waitUntil(() => pipelineReadyRef.current, { message: "Le récit « Temps forts » n’a pas pu être préparé." });
+    },
+    text: async () => {
+      setScriptState({ status: "loading", message: "Claude rédige la narration…" });
+      try {
+        const data = await applyHighlightsContent(await requestScript());
+        return { overrides: buildNarrationOverrides(data.content), content: data.content, warnings: data.warnings.map((warning) => warning.message) };
+      } catch (error) {
+        setScriptState({ status: "error", message: error instanceof Error ? error.message : "La narration n’a pas pu être rédigée." });
+        throw error;
+      }
+    },
+    voice: async (context) => {
+      try {
+        return { clips: await requestVoiceClips(beatsWithTexts(context.overrides)) };
+      } catch (error) {
+        setVoiceState({ status: "error", message: error instanceof Error ? error.message : "La voix off n’a pas pu être générée." });
+        throw error;
+      }
+    },
+    save: async (context) => {
+      setSavedNarration({ status: "loading", message: "Enregistrement du récit…" });
+      try {
+        const message = await putNarration({
+          texts: { ...narrationOverrides, ...context.overrides },
+          clips: freshClipsFor(beatsWithTexts(context.overrides), context.clips ?? voiceClips),
+          content: context.content ?? (reelContent ? currentReelContent() : null),
+        });
+        setSavedNarration({ status: "success", message });
+      } catch (error) {
+        setSavedNarration({ status: "error", message: error instanceof Error ? error.message : "Le récit n’a pas pu être enregistré." });
+        throw error;
+      }
+    },
+    render: async (context) => {
+      const content = context.content ?? (reelContent ? currentReelContent() : null);
+      if (!race.id || !content) throw new Error("Le texte du reel est manquant : relance depuis la rédaction.");
+      const clips = freshClipsFor(beatsWithTexts(context.overrides), context.clips ?? voiceClips);
+      const { jobId } = await launchBackgroundRender({
+        accessToken: sessionToken,
+        raceId: race.id,
+        raceTitle: race.title,
+        snapshot: createRenderSnapshot({ narrationOverrides: { ...narrationOverrides, ...context.overrides }, voiceClips: clips }),
+        content,
+        autoDraft: true,
+      });
+      setRenderRefresh((version) => version + 1);
+      return { jobId };
+    },
+  };
+  const reelPipeline = useReelPipeline(reelRunners, newReelRunContext);
+
   if (!accessToken) {
     return <div className="flex min-h-[34rem] w-full items-center justify-center bg-muted p-8 text-center text-sm text-muted-foreground">Configurez <code className="mx-1 rounded bg-background px-1.5 py-0.5">NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN</code> pour charger le terrain 3D.</div>;
   }
@@ -1652,6 +1757,10 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
           <CardTitle className="text-base">Narration</CardTitle>
         </CardHeader>
         <CardContent>
+          <ReelPipelinePanel
+            canRun={preparedPath.canAnimate && Boolean(race.id) && scriptState.status !== "loading" && voiceState.status !== "loading" && exportState.status !== "running"}
+            pipeline={reelPipeline}
+          />
           <StoryEditor
             beats={timeline.beats}
             onSaveNarration={() => requestSave(true)}
@@ -1702,12 +1811,13 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
           <BackgroundRenderPanel
             accessToken={sessionToken}
             canRender={isReady && preparedPath.canAnimate && exportState.status !== "running"}
-            createSnapshot={createRenderSnapshot}
+            createSnapshot={() => createRenderSnapshot()}
             hasVoice={freshClips.length > 0}
             reelContent={isHighlights && reelContent ? currentReelContent() : null}
             raceId={race.id}
             raceTitle={race.title}
             resolutionLabel={settings.resolution}
+            refreshSignal={renderRefresh}
           />
         </CardContent>
       </Card>

@@ -58,6 +58,12 @@ related_files:
   - apps/web/app/admin/video-generator/route-story.test.ts
   - apps/web/app/admin/video-generator/narration-player.ts
   - apps/web/app/admin/video-generator/StoryEditor.tsx
+  - apps/web/app/admin/video-generator/reel-pipeline.ts
+  - apps/web/app/admin/video-generator/reel-pipeline.test.ts
+  - apps/web/app/admin/video-generator/useReelPipeline.ts
+  - apps/web/app/admin/video-generator/ReelPipelinePanel.tsx
+  - apps/web/app/admin/video-generator/background-render.ts
+  - apps/web/app/admin/video-generator/BackgroundRenderPanel.tsx
   - apps/web/app/api/admin/video-generator/script/route.ts
   - apps/web/app/api/admin/video-generator/voice/route.ts
   - apps/web/lib/video-narration.ts
@@ -299,6 +305,23 @@ The editor fills the narration texts from the segments and keeps the caption, ha
 - **Loudness master** (`audio-master.ts`, pure): integrated loudness per ITU-R BS.1770-4 / EBU R128 (the two K-weighting biquads recomputed for the sample rate, 400 ms blocks every 100 ms, absolute gate -70 LUFS, relative gate -10 LU, L and R summed), true peak by 4x oversampling (Hann-windowed sinc, 16 taps) in dBTP. `normalizeToMaster` applies one linear gain to reach **-14 LUFS** and lowers it when the true peak would pass **-1 dBTP** (no limiter); in that case the report says `limitedByPeak` and the export panel notes that the mix stays under -14. Silence is left untouched. The panel (`SoundtrackSummary` in `ExportPanel.tsx`) shows the loudness and true peak before and after, and the music used or « Aucune musique ». The background render has no panel: the render page logs the report to the console (Cloud Run logs).
 - **Music bed** (`reel-music.ts`): optional tracks listed in `apps/web/public/reel-music/manifest.json` (`{tracks:[{id,file,mood,title,license,source}]}`, shipped empty, its README explains the royalty-free commercial licence required and how to add files). Setting `musicTrack`: `"none" | "auto" | <id>`, default `"auto"` (a stable FNV-1a hash of the race id picks among the tracks; none when the manifest is empty or a track id is gone). The file is fetched from `/reel-music/<file>` on the page origin, so the admin preview and the Cloud Run render page (same app origin) both reach it; the Content-Security-Policy is report-only and needs no change. A failed fetch or decode exports without music and the panel says so. With a track: the voice is first leveled to -16 LUFS, the track (looped or trimmed to the video length) is set to -24 LUFS, ducked by 10 dB while any voice clip speaks (linear gain envelope built sample by sample from the clip intervals: 150 ms attack ending at the clip start, 400 ms release after its end), faded in over 0.5 s and out over the last 1.5 s; then the master runs on the sum. The voice itself is never faded. The settings panel has a « Musique » select (Aucune / Auto / tracks), disabled with an explanation while the manifest is empty.
 - **End screen**: the outro lasts `max(2.5 s, 0.5 s gap + CTA voice + 2 s hold)` (`MIN_OUTRO_MS`, `OUTRO_HOLD_MS`), so the card stays at least 2 s after the CTA is told; the highlights total is still clamped to 50 s and `end-screen.test.ts` asserts, on both fixtures, with the default and a long CTA, that the last voice clip ends at least 0.5 s before the video end. Highlights only: headline « Ton plan pour cette course est prêt », « Dans l’appli Pace Yourself », pill « Lien en bio » (`END_SCREEN_TEXT`; sizes `END_SCREEN_FONT_CQMIN` above the 32 px floor; side padding 16 cqmin to keep the right 15 % free; block centred above the Instagram bottom band). The full mode keeps its own card and narration. The highlights CTA fallback (no AI text) is « Ton plan pour cette course est prêt dans l’appli. Lien en bio. »
+
+## One-click reel
+
+**Default mode.** The editor opens a race with no saved narration or settings on « Temps forts » (`INITIAL_EDITOR_SETTINGS` in `video-composition.ts`, used as the initial `settings` state of `VideoGeneratorMapClient`). This is the UI start state only: the Zod default of `storyMode` stays `"full"`, so older render snapshots and saved settings without a `storyMode` still parse as full reels. A saved narration of the mode opened is loaded as before; « Parcours complet » stays one click away in « Type de reel » (`withStoryMode` is the shared mode switch).
+
+**« Générer le reel »** (`ReelPipelinePanel`, top of the Narration card) runs the steps of the manual flow for the current race in highlights mode, on the same functions as the individual buttons (those stay available to retouch the result). It is enabled once a race with a usable GPX is loaded and no script, voice or export is running.
+
+| Step | What runs | Same code as |
+| --- | --- | --- |
+| Texte | `POST /api/admin/video-generator/content`, then the texts, caption, hashtags and cover text fill the editor | « Rédiger avec l’IA » (`requestScript` + `applyHighlightsContent`) |
+| Voix | `POST /api/admin/video-generator/voice` for the new texts, clips kept in the editor | « Générer la voix off » (`requestVoiceClips`) |
+| Enregistrement | narrations PUT for this race in highlights mode with the clips and the content | « Enregistrer » (`putNarration`) |
+| Rendu lancé | render-jobs POST with `content` and `autoDraft: true`, snapshot PUT to Cloud Storage, `start` | « Générer en arrière-plan » (`launchBackgroundRender`, `background-render.ts`) |
+
+Orchestration (`reel-pipeline.ts`, pure; `useReelPipeline.ts`, React state): the steps run in that order; before the first one a `prepare` step switches to highlights and waits for the saved highlights narration to load (it would otherwise overwrite the fresh draft). Each step returns its data (texts, content, clips) and the next steps receive it explicitly, so the chain never depends on React having re-rendered in between; the snapshot sent to the renderer is built from those values. A failing step stops the chain, shows « Échec à l’étape « Voix » : <message> » and a « Reprendre » button that runs again from the failed step; the steps already done are not replayed (their data is kept). « Annuler » is available until the render step starts (it stops before the next step; the step in flight finishes) and the run can be resumed. The warnings of the text step (figures not provided, limits, see « Reel Content, One Call ») are listed under « À vérifier avant de publier » and never block: the admin still reviews the draft in Publications before publishing.
+
+Feedback: once launched, the panel shows « Rendu lancé — le brouillon apparaîtra dans Publications à la fin du rendu (≈ 10 min) » with a link to `/admin/publications` (`REEL_RENDER_ETA_MINUTES` is an estimate, not measured per job) and the render list refreshes (`refreshSignal`). The draft itself is created by the render completion route when the job carries `auto_draft` (see [Google Cloud Background Reel Render](google-cloud-video-render.md) and [Instagram publishing](instagram-publishing.md)). Decision: [reel highlights and figures](../08-decisions/2026-11-19-reel-highlights-and-figures.md) (12).
 
 ## Related Docs
 

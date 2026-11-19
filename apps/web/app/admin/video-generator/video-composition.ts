@@ -126,6 +126,23 @@ export type VideoPhase = "intro" | "flyover" | "outro";
 
 export const DEFAULT_VIDEO_COMPOSITION_SETTINGS: VideoCompositionSettings = videoCompositionSettingsSchema.parse({});
 
+/**
+ * Settings the generator opens with when a race has no saved narration: Temps forts first. This is
+ * the UI start state only: the schema default stays "full", so older render snapshots and saved
+ * settings without a storyMode keep parsing as full reels.
+ */
+export const INITIAL_EDITOR_SETTINGS: VideoCompositionSettings = { ...DEFAULT_VIDEO_COMPOSITION_SETTINGS, storyMode: "highlights" };
+
+/** Switches the story mode. A manual length outside 30-50 s does not fit a highlights reel: back to auto. */
+export const withStoryMode = (settings: VideoCompositionSettings, storyMode: VideoCompositionSettings["storyMode"]): VideoCompositionSettings => ({
+  ...settings,
+  storyMode,
+  ...(storyMode === "highlights" && settings.durationMode === "manual"
+    && (settings.durationSeconds < HIGHLIGHT_MIN_SECONDS || settings.durationSeconds > HIGHLIGHT_MAX_SECONDS)
+    ? { durationMode: "auto" as const }
+    : {}),
+});
+
 /** Whether the reel opens on the hook: the explicit setting, otherwise on for highlights only. */
 export const isHookIntroEnabled = (settings: Pick<VideoCompositionSettings, "hookIntro" | "storyMode" | "introEnabled">) =>
   settings.introEnabled && (settings.hookIntro ?? settings.storyMode === "highlights");
