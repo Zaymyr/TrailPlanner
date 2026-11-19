@@ -2,7 +2,7 @@
 title: Migrations
 scope: database
 
-last_verified: 2026-11-09
+last_verified: 2026-11-19
 
 ai_priority: high
 related_files:
@@ -35,6 +35,7 @@ related_files:
   - supabase/migrations/20261103124538_cover_racebook_current_publication_foreign_key.sql
   - supabase/migrations/20261104140000_add_video_render_jobs.sql
   - supabase/migrations/20261105160000_add_video_narrations.sql
+  - supabase/migrations/20261119120000_add_video_narrations_mode.sql
   - supabase/tests/racebook_versioned_publications_checks.sql
   - supabase/migrations/20260821143417_add_organizer_imports_bucket.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
@@ -158,6 +159,8 @@ related_tables:
 `20261104140000_add_video_render_jobs.sql` adds `video_render_jobs` (background reel renders on Google Cloud Run): status, progress, video size and timing, with covering indexes for its race and creator foreign keys, RLS on and service-role-only grants.
 
 `20261105160000_add_video_narrations.sql` adds `video_narrations` (the saved reel narration per race: settings, texts by beat id, voice choice, clip count) and the private Storage bucket `video-narrations` for the voice clips, RLS on with no policy and service-role-only grants.
+
+`20261119120000_add_video_narrations_mode.sql` adds `video_narrations.mode` (`text not null default 'full'`, check in `full` / `highlights`, existing rows become `full`) and widens the primary key from `race_id` to `(race_id, mode)`, so each reel story mode keeps its own narration. RLS, grants and the bucket are unchanged. The release guard does not flag it (constraint swap, no dropped data); the previous web version's `on_conflict=race_id` upsert fails until the new web is deployed. `supabase/tests/video_narrations_checks.sql` checks the key, the default and the mode constraint.
 
 `20260907160043_add_structured_racebook_content.sql` adds normalized services, start waves and awards, their constraints/indexes/RLS, atomic replacement RPCs, and the `schedule.startTime` start-wave backfill.
 

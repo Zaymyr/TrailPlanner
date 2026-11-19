@@ -9,7 +9,7 @@ import mapboxgl, {
 
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { buildRouteGeoJson, type VideoAidStation } from "../../../lib/video-generator";
-import { isNarrationModePersisted, savedNarrationResponseSchema } from "../../../lib/video-narrations";
+import { savedNarrationResponseSchema } from "../../../lib/video-narrations";
 import { instagramCaptionResponseSchema, NARRATION_STYLE_LABELS, narrationScriptResponseSchema, narrationVoiceResponseSchema } from "../../../lib/video-narration";
 import { InstagramPanel } from "./InstagramPanel";
 import { ExportPanel, type ExportState } from "./ExportPanel";
@@ -1027,65 +1027,67 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     body: JSON.stringify(body),
   });
 
-  // Saved narration of this race (text, settings, voice): restored once when the race opens, saved
-  // after every AI draft or voice generation and on demand, so a race is written and voiced once.
+  // Saved narration of this race, one per story mode (text, settings, voice): each mode is restored
+  // once, when the race opens or when the mode is first chosen, and saved after every AI draft or
+  // voice generation and on demand, so a race is written and voiced once per mode.
   const [savedNarration, setSavedNarration] = useState<AsyncActionState>(IDLE_ACTION);
   const [pendingSave, setPendingSave] = useState<{ clips: boolean } | null>(null);
-  // Only the full narration has a row today: a highlights draft stays in this tab until it gets one.
-  const canSaveNarration = isNarrationModePersisted(settings.storyMode);
-  const saveDisabledReason = canSaveNarration
-    ? null
-    : "Le récit « Temps forts » n’est pas encore enregistré : seul le récit « Parcours complet » est sauvegardé pour cette course.";
-  const requestSave = (clips: boolean) => {
-    if (canSaveNarration) setPendingSave({ clips });
-  };
+  const loadedNarrationsRef = useRef(new Set<string>());
+  const requestSave = (clips: boolean) => setPendingSave({ clips });
+  const storyMode = settings.storyMode;
   useEffect(() => {
     if (render || !race.id || !sessionToken) return;
+    const key = `${race.id}:${storyMode}`;
+    if (loadedNarrationsRef.current.has(key)) return;
     const controller = new AbortController();
     setSavedNarration({ status: "loading", message: "Recherche d’un récit enregistré…" });
-    void fetch(`/api/admin/video-generator/narrations/${race.id}`, { headers: { Authorization: `Bearer ${sessionToken}` }, cache: "no-store", signal: controller.signal })
+    void fetch(`/api/admin/video-generator/narrations/${race.id}?mode=${storyMode}`, { headers: { Authorization: `Bearer ${sessionToken}` }, cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) throw new Error(await readError(response, "Le récit enregistré n’a pas pu être lu."));
         const parsed = savedNarrationResponseSchema.safeParse(await response.json());
         if (!parsed.success) throw new Error("Le récit enregistré est illisible.");
         const saved = parsed.data.narration;
         if (controller.signal.aborted) return;
+        loadedNarrationsRef.current.add(key);
         if (!saved) {
           setSavedNarration(IDLE_ACTION);
           return;
         }
         // Settings first: they decide the story cut, hence which beat each saved text belongs to.
-        const restoredSettings = videoCompositionSettingsSchema.safeParse({ ...DEFAULT_VIDEO_COMPOSITION_SETTINGS, ...saved.settings });
+        // The mode stays the one being opened (older full saves have no storyMode).
+        const restoredSettings = videoCompositionSettingsSchema.safeParse({ ...DEFAULT_VIDEO_COMPOSITION_SETTINGS, ...saved.settings, storyMode });
         if (restoredSettings.success) setSettings(restoredSettings.data);
-        setNarrationOverrides(saved.narrationOverrides);
+        // Texts and clips of the other mode use other beat ids: keep them.
+        setNarrationOverrides((current) => ({ ...current, ...saved.narrationOverrides }));
         if (saved.voice.voiceId) setVoiceId(saved.voice.voiceId);
         if (saved.voice.model && saved.voice.expressiveness !== undefined) {
           setVoiceOptions({ model: saved.voice.model, expressiveness: saved.voice.expressiveness });
         }
-        setVoiceClips(Object.fromEntries(saved.clips.map((clip) => [clip.beatId, clip])));
+        setVoiceClips((current) => ({ ...current, ...Object.fromEntries(saved.clips.map((clip) => [clip.beatId, clip])) }));
         const when = new Date(saved.updatedAt).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
-        setSavedNarration({ status: "success", message: `Récit enregistré du ${when} chargé${saved.clips.length ? " avec sa voix off" : ""}.` });
+        const label = storyMode === "highlights" ? "Récit « Temps forts »" : "Récit";
+        setSavedNarration({ status: "success", message: `${label} enregistré du ${when} chargé${saved.clips.length ? " avec sa voix off" : ""}.` });
       })
       .catch((error: unknown) => {
         if (!controller.signal.aborted) setSavedNarration({ status: "error", message: error instanceof Error ? error.message : "Le récit enregistré n’a pas pu être lu." });
       });
     return () => controller.abort();
-    // Once per race: later edits are saved, never overwritten by a reload.
+    // Once per race and mode: later edits are saved, never overwritten by a reload.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [race.id, render]);
+  }, [race.id, render, storyMode]);
 
   useEffect(() => {
     if (!pendingSave || !race.id) return;
     setPendingSave(null);
-    if (!isNarrationModePersisted(settings.storyMode)) return;
     setSavedNarration({ status: "loading", message: "Enregistrement du récit…" });
-    void fetch(`/api/admin/video-generator/narrations/${race.id}`, {
+    const highlightsSave = settings.storyMode === "highlights";
+    void fetch(`/api/admin/video-generator/narrations/${race.id}?mode=${settings.storyMode}`, {
       method: "PUT",
       headers: { Authorization: `Bearer ${sessionToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         settings,
-        // Highlights texts ("hl-…" beat ids) never go into the full narration.
-        narrationOverrides: Object.fromEntries(Object.entries(narrationOverrides).filter(([beatId]) => !beatId.startsWith("hl-"))),
+        // Each mode saves only its own texts: highlight beats are the "hl-…" ids.
+        narrationOverrides: Object.fromEntries(Object.entries(narrationOverrides).filter(([beatId]) => beatId.startsWith("hl-") === highlightsSave)),
         voice: { voiceId: voiceId || null, ...voiceOptions },
         ...(pendingSave.clips ? { clips: freshClips } : {}),
       }),
@@ -1093,7 +1095,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       .then(async (response) => {
         if (!response.ok) throw new Error(await readError(response, "Le récit n’a pas pu être enregistré."));
         const time = new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-        setSavedNarration({ status: "success", message: `Récit enregistré à ${time}${pendingSave.clips && freshClips.length ? " avec sa voix off" : ""}.` });
+        setSavedNarration({ status: "success", message: `${highlightsSave ? "Récit « Temps forts »" : "Récit"} enregistré à ${time}${pendingSave.clips && freshClips.length ? " avec sa voix off" : ""}.` });
       })
       .catch((error: unknown) => {
         setSavedNarration({ status: "error", message: error instanceof Error ? error.message : "Le récit n’a pas pu être enregistré." });
@@ -1497,7 +1499,6 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
           <StoryEditor
             beats={timeline.beats}
             onSaveNarration={() => requestSave(true)}
-            saveDisabledReason={saveDisabledReason}
             savedNarration={savedNarration}
             durationControl={<DurationSelect autoDurationSeconds={autoDurationSeconds} onChange={updateSettings} settings={settings} />}
             narrationOverflow={timeline.narrationOverflow}

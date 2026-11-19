@@ -50,8 +50,6 @@ type StoryEditorProps = {
   onWriteScript: () => void;
   /** Saves the text, settings and voice of this race (see the saved narration in the client). */
   onSaveNarration: () => void;
-  /** Why saving is not available for the current story mode; saving is enabled when null. */
-  saveDisabledReason?: string | null;
   savedNarration: AsyncActionState;
   onScriptNotesChange: (notes: string) => void;
   onScriptStyleChange: (style: ScriptStyleChoice) => void;
@@ -85,7 +83,6 @@ export function StoryEditor({
   onVoiceOptionsChange,
   onWriteScript,
   onSaveNarration,
-  saveDisabledReason = null,
   savedNarration,
   onScriptNotesChange,
   onScriptStyleChange,
@@ -117,14 +114,12 @@ export function StoryEditor({
           type="button"
           variant="ghost"
           className="h-7 shrink-0 px-2 text-xs"
-          disabled={busy || savedNarration.status === "loading" || Boolean(saveDisabledReason)}
-          title={saveDisabledReason ?? undefined}
+          disabled={busy || savedNarration.status === "loading"}
           onClick={onSaveNarration}
         >
           Enregistrer
         </Button>
       </div>
-      {saveDisabledReason ? <p className="text-xs text-muted-foreground">{saveDisabledReason}</p> : null}
       <ActionMessage state={scriptState} />
       <ActionMessage state={voiceState} />
       <p className="text-xs text-muted-foreground">

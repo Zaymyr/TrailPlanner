@@ -327,13 +327,14 @@ export const buildHighlightBeats = (
 
   return [
     {
-      id: "intro", kind: "intro", title: race.title, startKm: 0, endKm: 0, anchorKm: 0,
+      // Own ids: the full story already uses "intro" / "outro" for its texts and clips.
+      id: "hl-intro", kind: "intro", title: race.title, startKm: 0, endKm: 0, anchorKm: 0,
       facts: [], services: [], cutoffTime: null,
       narration: `${race.title} : ${format.total()} km${totalGain ? `, ${totalGain} m D+` : ""}. Les temps forts !`,
     },
     ...momentBeats,
     {
-      id: "outro", kind: "outro", title: "Pace Yourself", startKm: total, endKm: total, anchorKm: total,
+      id: "hl-outro", kind: "outro", title: "Pace Yourself", startKm: total, endKm: total, anchorKm: total,
       facts: [], services: [], cutoffTime: null,
       narration: "Prépare ta course avec l’appli Pace Yourself.",
     },
