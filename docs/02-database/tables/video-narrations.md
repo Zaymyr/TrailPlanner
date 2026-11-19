@@ -37,7 +37,7 @@ The saved narration of the admin 3D reel, one row per race and story mode ("Parc
 
 ## Storage
 
-Bucket `video-narrations`: private, 20 MB per object, `application/json` only, no policy. A text-only save leaves the object as is; a save with clips replaces it (`x-upsert`). A missing or unreadable object only costs a voice regeneration: the text still loads.
+Bucket `video-narrations`: private, 20 MB per object, `application/json` only, no policy. A text-only save leaves the object as is; a save with clips replaces it (`x-upsert`). A missing or unreadable object only costs a voice regeneration: the text still loads. Each clip carries `characterEndMs` and, since the word-timed subtitles, an optional `characterStartMs` (per-character times of `text`); clips saved before have none, still parse, and their subtitle pauses follow punctuation only.
 
 ## Access
 

@@ -158,6 +158,17 @@ export const toSpokenText = (text: string): SpokenText => {
   return { spoken, spokenIndexOf };
 };
 
+/**
+ * Maps per-character start times of the spoken text back onto the original text: each original
+ * character starts where the spoken characters it stands for begin (the token's first spoken
+ * character for a number read in words).
+ */
+export const mapSpokenStartTimingToText = (spokenText: SpokenText, spokenStartTimes: number[]) =>
+  spokenText.spokenIndexOf.map((spokenIndex, index) => {
+    const first = index === 0 ? 0 : Math.min(spokenText.spokenIndexOf[index - 1] + 1, spokenIndex);
+    return spokenStartTimes[Math.min(first, spokenStartTimes.length - 1)] ?? 0;
+  });
+
 /** Maps per-character end times of the spoken text back onto the original text. */
 export const mapSpokenTimingToText = (spokenText: SpokenText, spokenEndTimes: number[]) =>
   spokenText.spokenIndexOf.map((spokenIndex) => spokenEndTimes[Math.min(spokenIndex, spokenEndTimes.length - 1)] ?? 0);

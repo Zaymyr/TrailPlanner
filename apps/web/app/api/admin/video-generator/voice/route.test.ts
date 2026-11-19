@@ -146,6 +146,29 @@ describe("POST /api/admin/video-generator/voice", () => {
     expect(payload.clips[0].characterEndMs.at(-1)).toBe(200);
   });
 
+  it("returns start times mapped onto the digits, and drops them when they do not line up", async () => {
+    const text = "Puis 6 km.";
+    const spoken = "Puis six kilomètres.";
+    const ends = [...spoken].map((_, index) => (index + 1) / 100);
+    const starts = [...spoken].map((_, index) => index / 100);
+    vi.mocked(fetch).mockImplementation(async () => Response.json({
+      audio_base64: "AAA",
+      alignment: { character_end_times_seconds: ends, character_start_times_seconds: starts },
+    }));
+    const payload = await (await POST(request({ voiceId: null, items: [{ id: "leg", text }] }))).json();
+    expect(payload.clips[0].characterStartMs).toHaveLength(text.length);
+    // "6" starts where "six" starts.
+    expect(payload.clips[0].characterStartMs[5]).toBe(50);
+
+    vi.mocked(fetch).mockImplementation(async () => Response.json({
+      audio_base64: "AAA",
+      alignment: { character_end_times_seconds: ends, character_start_times_seconds: starts.slice(1) },
+    }));
+    const partial = await (await POST(request({ voiceId: null, items: [{ id: "leg", text }] }))).json();
+    expect(partial.clips[0].characterEndMs).toHaveLength(text.length);
+    expect(partial.clips[0].characterStartMs).toBeUndefined();
+  });
+
   it("rejects an invalid voice id before calling ElevenLabs", async () => {
     const response = await POST(request({ voiceId: "../../admin", items }));
     expect(response.status).toBe(400);

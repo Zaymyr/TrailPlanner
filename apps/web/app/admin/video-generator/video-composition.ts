@@ -11,6 +11,7 @@ import {
   type PreparedAnimationPath,
 } from "./route-animation";
 import { getSmoothedDaylightAt, type Daylight, type RaceClock } from "./route-clock";
+import { buildSubtitleGroups } from "./subtitle-groups";
 import { estimateNarrationMs, getAutoDurationSeconds, MAX_NARRATED_VIDEO_SECONDS, MAX_VIDEO_SECONDS, stripVoiceTags, type StoryBeat } from "./route-story";
 
 export { AID_SERVICES, getAidStationServices, type AidService } from "./route-story";
@@ -105,8 +106,11 @@ export const DEFAULT_VIDEO_COMPOSITION_SETTINGS: VideoCompositionSettings = vide
 /** Real narration lengths once the voice is generated, by beat id. */
 export type NarrationDurations = Record<string, number>;
 
-/** Per-character end times (ms) of each generated narration, by beat id. */
-export type NarrationAlignments = Record<string, number[]>;
+/** Per-character timing (ms) of a generated narration; start times are absent from older clips. */
+export type NarrationAlignment = { characterEndMs: number[]; characterStartMs?: number[] };
+
+/** Per-character timing of each generated narration, by beat id. */
+export type NarrationAlignments = Record<string, NarrationAlignment>;
 
 export type ScheduledBeat = StoryBeat & {
   /** Caption window. */
@@ -114,67 +118,29 @@ export type ScheduledBeat = StoryBeat & {
   endMs: number;
   narrationStartMs: number;
   narrationMs: number;
-  /** Burned-in subtitle lines of the narration, timed in proportion to their length. */
+  /** Burned-in subtitle groups of the narration, timed word by word when the voice timing is exact. */
   subtitles: SubtitleLine[];
 };
 
 export type SubtitleLine = { text: string; startMs: number; endMs: number };
 
-const SUBTITLE_MAX_CHARS = 60;
-
-/** Splits a narration into short lines: by sentence, then by words when a sentence is too long. */
-export const splitSubtitleText = (text: string, maxChars = SUBTITLE_MAX_CHARS) => {
-  const sentences = text.replace(/\s+/g, " ").trim().split(/(?<=[.!?…:;])\s+/).filter(Boolean);
-  return sentences.flatMap((sentence) => {
-    if (sentence.length <= maxChars) return [sentence];
-    const lines: string[] = [];
-    let line = "";
-    sentence.split(" ").forEach((word) => {
-      if (line && line.length + word.length + 1 > maxChars) {
-        lines.push(line);
-        line = word;
-      } else {
-        line = line ? `${line} ${word}` : word;
-      }
-    });
-    if (line) lines.push(line);
-    return lines;
-  });
-};
-
 /**
- * Times subtitle lines: exactly from the ElevenLabs per-character timing when it matches the
- * text, otherwise in proportion to the line lengths.
+ * Subtitle groups of a narration (2 to 5 words, cut at natural boundaries), timed from the
+ * ElevenLabs character timing when it matches the text, otherwise in proportion to their length.
  */
-const timeSubtitles = (text: string, startMs: number, durationMs: number, characterEndMs?: number[]): SubtitleLine[] => {
+const timeSubtitles = (text: string, startMs: number, durationMs: number, alignment?: NarrationAlignment): SubtitleLine[] => {
   // Performance tags ("[excited]") are spoken as intonation, never shown.
   const { text: shown, rawIndex } = stripVoiceTags(text);
-  const lines = splitSubtitleText(shown);
   const spoken = text.trim();
-  const leadingSpaces = text.length - text.trimStart().length;
-  if (characterEndMs && characterEndMs.length === spoken.length && lines.length) {
-    let cursor = 0;
-    let previousEndMs = 0;
-    const aligned = lines.map((line) => {
-      const at = shown.indexOf(line, cursor);
-      if (at < 0) return null;
-      cursor = at + line.length;
-      const endMs = characterEndMs[rawIndex[cursor - 1] - leadingSpaces];
-      if (endMs === undefined) return null;
-      const entry = { text: line, startMs: startMs + previousEndMs, endMs: startMs + endMs };
-      previousEndMs = endMs;
-      return entry;
-    });
-    if (aligned.every((entry): entry is SubtitleLine => entry !== null)) return aligned;
-  }
-  const totalChars = lines.reduce((sum, line) => sum + line.length, 0);
-  let cursor = startMs;
-  return lines.map((line) => {
-    const lineMs = totalChars > 0 ? (durationMs * line.length) / totalChars : 0;
-    const entry = { text: line, startMs: cursor, endMs: cursor + lineMs };
-    cursor += lineMs;
-    return entry;
-  });
+  return buildSubtitleGroups({
+    shown,
+    rawIndex,
+    rawOffset: text.length - text.trimStart().length,
+    rawLength: spoken.length,
+    durationMs,
+    characterEndMs: alignment?.characterEndMs,
+    characterStartMs: alignment?.characterStartMs,
+  }).map((group) => ({ text: group.text, startMs: startMs + group.startMs, endMs: startMs + group.endMs }));
 };
 
 export type VideoTimeline = {

@@ -80,6 +80,8 @@ export const narrationVoiceResponseSchema = z.object({
     durationMs: z.number(),
     /** End time of every character of `text`, in ms, to time subtitles exactly. */
     characterEndMs: z.array(z.number()).optional(),
+    /** Start time of every character, in ms; absent from older clips (pauses then follow punctuation only). */
+    characterStartMs: z.array(z.number()).optional(),
   })),
 });
 
