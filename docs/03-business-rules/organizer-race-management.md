@@ -3,6 +3,8 @@ title: Organizer Race Management
 scope: business-rule
 
 last_verified: 2026-11-18
+# Supporter onboarding (2026-11-18): the mobile guided catalog gains a `supporter` mode over the same public event list; no read, table or RLS change here (the only schema change is `user_profiles.supporter_onboarding_status`).
+# Inbox push badge (2026-11-18): apps/web/lib/push.ts adds an iOS badge only to admin inbox pushes (unread user_notifications count); race event update pushes, schema and RLS are unchanged.
 # Livret supporter private preview (2026-11-18): an active organizer opens the private Livret supporter (catalog entry, app screen and web page send the session token); runners still need a public format.
 # Organizer hero note (2026-11-16): /organisateurs now presents the Livret coureur and the Livret supporter side by side (hero cards, illustrative supporter preview, metadata title); presentation only, no data, analytics event or offer change.
 # Assisted legacy conversion (2026-11-15): historical blocks offer schema-specific, field-by-field proposals with explicit Apply/Ignore and no automatic write.

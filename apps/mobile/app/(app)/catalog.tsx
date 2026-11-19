@@ -426,8 +426,11 @@ export default function CatalogScreen() {
     raceId?: string;
     updateId?: string;
     raceSlug?: string;
-    onboarding?: 'plan' | 'racebook';
+    onboarding?: 'plan' | 'racebook' | 'supporter';
   }>();
+  // Guided Livret onboarding: the runner picks a race for its Livret coureur, a
+  // supporter picks their runner's race for its Livret supporter. Same list.
+  const isGuidedLivretMode = onboardingMode === 'racebook' || onboardingMode === 'supporter';
   const insets = useSafeAreaInsets();
   const scrollY = useRef(new Animated.Value(0)).current;
   const { locale, t } = useI18n();
@@ -633,7 +636,7 @@ export default function CatalogScreen() {
   // resolved from the unfiltered catalog so search, filters and its past date
   // never hide it.
   const onboardingDemoRace = useMemo(
-    () => onboardingMode === 'racebook'
+    () => isGuidedLivretMode
       ? resolveOnboardingDemoRace<EventGroup>(eventGroups, (race, event) => canShowRacebook({
         raceIsLive: race.is_live,
         racebookIsLive: race.racebook_is_live,
@@ -645,8 +648,31 @@ export default function CatalogScreen() {
         raceOrganizerDetails: race.organizer_details,
       }))
       : null,
-    [eventGroups, onboardingMode],
+    [eventGroups, isGuidedLivretMode],
   );
+
+  /** Guided Livret supporter onboarding: remembers the race, then opens the guide tour. */
+  function openOnboardingSupporterGuide(event: EventGroup, race: Race, selectionMethod: string) {
+    captureAnalyticsEvent('supporter onboarding guide selected', {
+      onboarding_kind: 'supporter',
+      event_id: event.id,
+      event_name: event.name,
+      race_id: race.id,
+      query_length: normalizeRacebookOnboardingSearch(nameFilter).length,
+      selection_method: selectionMethod,
+    });
+    setSelectedEvent(null);
+    void saveOnboardingProgress({
+      kind: 'supporter',
+      stage: 'supporter',
+      selectedRaceId: race.id,
+    }).then(() => {
+      router.push({
+        pathname: '/(app)/courses/supporter-guide/[raceId]',
+        params: { raceId: race.id, onboarding: 'supporter', returnTo: 'catalog', eventId: event.id },
+      } as any);
+    });
+  }
 
   /** Guided RaceBook onboarding: remembers the race, then opens its tour. */
   function openOnboardingRacebook(event: EventGroup, race: Race, selectionMethod: string) {
@@ -878,21 +904,21 @@ export default function CatalogScreen() {
     ),
     [filteredEventGroups],
   );
-  const visibleEventGroups = onboardingMode === 'racebook'
+  const visibleEventGroups = isGuidedLivretMode
     ? racebookOnboardingEventGroups
     : organizerDemoEventGroups;
   const isRacebookSearchReady = isRacebookOnboardingSearchReady(nameFilter);
   const racebookOnboardingSelectionMethod = isRacebookSearchReady ? 'search' : 'browse';
 
   function captureRacebookOnboardingSearch() {
-    if (onboardingMode !== 'racebook' || !isRacebookSearchReady) return;
+    if (!isGuidedLivretMode || !isRacebookSearchReady) return;
 
     const normalizedQuery = normalizeRacebookOnboardingSearch(nameFilter);
     if (lastTrackedRacebookSearchRef.current === normalizedQuery) return;
 
     lastTrackedRacebookSearchRef.current = normalizedQuery;
     captureAnalyticsEvent('racebook onboarding search performed', {
-      onboarding_kind: 'racebook',
+      onboarding_kind: onboardingMode,
       query_length: normalizedQuery.length,
       result_event_count: racebookOnboardingEventGroups.length,
       result_racebook_count: racebookOnboardingEventGroups.reduce(
@@ -961,6 +987,13 @@ export default function CatalogScreen() {
     rowHandlersRef.current = {
       toggle: (eventId) => { void handleToggleFavorite(eventId); },
       open: (event) => {
+        if (onboardingMode === 'supporter') {
+          // The Livret supporter covers the whole edition: open it directly, no format sheet.
+          captureRacebookOnboardingSearch();
+          const guideRace = event.races.find((race) => isRaceRacebookAvailable(event, race)) ?? event.races[0];
+          if (guideRace) openOnboardingSupporterGuide(event, guideRace, racebookOnboardingSelectionMethod);
+          return;
+        }
         if (onboardingMode === 'racebook') {
           captureRacebookOnboardingSearch();
           captureAnalyticsEvent('racebook onboarding race selected', {
@@ -1249,7 +1282,7 @@ export default function CatalogScreen() {
                   </TouchableOpacity>
                 ) : null}
               />
-              {onboardingMode !== 'racebook' ? <View style={styles.filterActionsRow}>
+              {!isGuidedLivretMode ? <View style={styles.filterActionsRow}>
                 <MilestoneCompassButton
                   accessibilityLabel={activeFiltersCount > 0
                     ? `${t.catalog.filters} (${activeFiltersCount})`
@@ -1284,7 +1317,7 @@ export default function CatalogScreen() {
         ListEmptyComponent={
           <EmptyState
             description={
-              onboardingMode === 'racebook'
+              isGuidedLivretMode
                 ? isRacebookSearchReady
                   ? t.onboarding.tours.searchRacebookEmptyBody
                   : t.onboarding.tours.searchRacebookBody
@@ -1292,14 +1325,14 @@ export default function CatalogScreen() {
             }
             icon={
               <Ionicons
-                name={onboardingMode === 'racebook' ? 'search-outline' : 'map-outline'}
+                name={isGuidedLivretMode ? 'search-outline' : 'map-outline'}
                 size={32}
                 color={Colors.brandPrimary}
               />
             }
             style={styles.emptyState}
             title={
-              onboardingMode === 'racebook'
+              isGuidedLivretMode
                 ? isRacebookSearchReady
                   ? t.onboarding.tours.searchRacebookEmptyTitle
                   : t.onboarding.tours.searchRacebookTitle
@@ -1353,22 +1386,24 @@ export default function CatalogScreen() {
           onSkip={() => void handleSkipGuidedCatalog()}
         />
       ) : null}
-      {onboardingMode === 'racebook' && !selectedEvent ? (
+      {isGuidedLivretMode && !selectedEvent ? (
         // The race choice is required: pick a race, or use the Trail TST demo
-        // when the runner has none yet. Skipping stays a soft secondary exit.
+        // when the reader has none yet. Skipping stays a soft secondary exit.
         <OnboardingGuideCard
-          title={t.onboarding.tours.pickRaceTitle}
+          title={onboardingMode === 'supporter' ? t.onboarding.tours.pickSupporterRaceTitle : t.onboarding.tours.pickRaceTitle}
           body={
             publishedRacebookCount === 0
               ? t.onboarding.tours.noRacebookBody
               : onboardingDemoRace
-                ? `${t.onboarding.tours.pickRaceBody} ${t.onboarding.tours.demoRaceBody}`
-                : t.onboarding.tours.pickRaceBody
+                ? `${onboardingMode === 'supporter' ? t.onboarding.tours.pickSupporterRaceBody : t.onboarding.tours.pickRaceBody} ${t.onboarding.tours.demoRaceBody}`
+                : onboardingMode === 'supporter' ? t.onboarding.tours.pickSupporterRaceBody : t.onboarding.tours.pickRaceBody
           }
           actionLabel={onboardingDemoRace ? t.onboarding.tours.demoRaceCta : undefined}
           actionKind="navigate"
           onAction={onboardingDemoRace
-            ? () => openOnboardingRacebook(onboardingDemoRace.event, onboardingDemoRace.race, 'demo_race')
+            ? () => (onboardingMode === 'supporter'
+              ? openOnboardingSupporterGuide(onboardingDemoRace.event, onboardingDemoRace.race, 'demo_race')
+              : openOnboardingRacebook(onboardingDemoRace.event, onboardingDemoRace.race, 'demo_race'))
             : undefined}
           skipLabel={t.onboarding.tours.skip}
           onSkip={() => void handleSkipGuidedCatalog()}

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { LayoutChangeEvent, View } from 'react-native';
 
 import type { SpotlightRect } from '../lib/helpTutorial';
-import type { RacebookTourStepSpec, RacebookTourTargetKey } from '../lib/racebookOnboardingTour';
+import type { RacebookTourStepSpec } from '../lib/racebookOnboardingTour';
 
 /** Delay before the precise scroll: the tab switch and its scroll restore render first. */
 const ALIGN_DELAY_MS = 120;
@@ -13,15 +13,19 @@ const MEASURE_MAX_ATTEMPTS = 8;
 /** Late pass for content that grows after the first layout (maps, images). */
 const SETTLE_MEASURE_MS = 800;
 
-type Options = {
+/** Any guided Livret tour step: the RaceBook one, or the Livret supporter one. */
+type TourStep = { target: string | null };
+type TourTarget<TStep extends TourStep> = NonNullable<TStep['target']>;
+
+type Options<TStep extends TourStep> = {
   active: boolean;
-  steps: RacebookTourStepSpec[];
+  steps: TStep[];
   /** Shows the step's tab/sub-tab (state changes only). */
-  prepareStep: (step: RacebookTourStepSpec) => void;
+  prepareStep: (step: TStep) => void;
   /** Scrolls so the step's zone is visible. */
-  alignStep: (step: RacebookTourStepSpec) => void;
+  alignStep: (step: TStep) => void;
   /** Turns a measured zone (root coordinates) into the highlighted rect, or null when not visible yet. */
-  fitTarget: (step: RacebookTourStepSpec, rect: SpotlightRect) => SpotlightRect | null;
+  fitTarget: (step: TStep, rect: SpotlightRect) => SpotlightRect | null;
 };
 
 function sameRect(left: SpotlightRect | null, right: SpotlightRect) {
@@ -33,17 +37,19 @@ function sameRect(left: SpotlightRect | null, right: SpotlightRect) {
 }
 
 /**
- * Drives the guided RaceBook tour: current step, measured target zones
- * (real views, `measureInWindow` relative to the screen root) and the
- * viewport handed to `SpotlightTutorial`.
+ * Drives a guided Livret tour (RaceBook or Livret supporter): current step,
+ * measured target zones (real views, `measureInWindow` relative to the screen
+ * root) and the viewport handed to `SpotlightTutorial`.
  */
-export function useRacebookOnboardingTour({ active, steps, prepareStep, alignStep, fitTarget }: Options) {
+export function useRacebookOnboardingTour<TStep extends TourStep = RacebookTourStepSpec>(
+  { active, steps, prepareStep, alignStep, fitTarget }: Options<TStep>,
+) {
   const [stepIndex, setStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState<SpotlightRect | null>(null);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const rootRef = useRef<View>(null);
-  const targetsRef = useRef(new Map<RacebookTourTargetKey, View>());
-  const targetCallbacksRef = useRef(new Map<RacebookTourTargetKey, (node: View | null) => void>());
+  const targetsRef = useRef(new Map<TourTarget<TStep>, View>());
+  const targetCallbacksRef = useRef(new Map<TourTarget<TStep>, (node: View | null) => void>());
   const prepareRef = useRef(prepareStep);
   const alignRef = useRef(alignStep);
   const fitRef = useRef(fitTarget);
@@ -54,7 +60,7 @@ export function useRacebookOnboardingTour({ active, steps, prepareStep, alignSte
   const clampedIndex = Math.min(stepIndex, Math.max(0, steps.length - 1));
   const step = active ? steps[clampedIndex] ?? null : null;
 
-  const registerTarget = useCallback((key: RacebookTourTargetKey) => {
+  const registerTarget = useCallback((key: TourTarget<TStep>) => {
     let callback = targetCallbacksRef.current.get(key);
     if (!callback) {
       callback = (node: View | null) => {

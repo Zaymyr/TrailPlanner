@@ -51,6 +51,7 @@ import { shouldOpenNotificationsTab } from '../../lib/userNotifications';
 import {
   addOnboardingStatusListener,
   DEFAULT_ONBOARDING_STATUSES,
+  hasPendingOnboarding,
   loadOnboardingStatuses,
   startOnboarding,
   type OnboardingKind,
@@ -73,6 +74,12 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const scrollY = useRef(new Animated.Value(0)).current;
   const [onboardingStatuses, setOnboardingStatuses] = useState<OnboardingStatuses>(DEFAULT_ONBOARDING_STATUSES);
+  // Defaults read as pending: only mark Réglages once real statuses arrived, so the dot never flashes.
+  const [onboardingStatusesKnown, setOnboardingStatusesKnown] = useState(false);
+  const applyOnboardingStatuses = useCallback((statuses: OnboardingStatuses) => {
+    setOnboardingStatuses(statuses);
+    setOnboardingStatusesKnown(true);
+  }, []);
   const [keyboardInset, setKeyboardInset] = useState(0);
   const {
     userId,
@@ -183,6 +190,8 @@ export default function ProfileScreen() {
   const unreadNotifications = useUnreadNotificationCount();
   const refreshUnreadNotifications = unreadNotifications.refresh;
 
+  // Same rule as the Profil tab-bar dot: pending guided tours live in Réglages, unread messages in Notifications.
+  const hasPendingGuidedTours = onboardingStatusesKnown && hasPendingOnboarding(onboardingStatuses);
   const profileTabsWithNotifications = useMemo(
     () => [
       ...profileTabs.filter((profileTab) => profileTab.key !== 'settings'),
@@ -194,10 +203,20 @@ export default function ProfileScreen() {
           ? `${t.profile.notificationsTabLabel}. ${t.profile.notificationsUnreadLabel}`
           : t.profile.notificationsTabLabel,
       },
-      ...profileTabs.filter((profileTab) => profileTab.key === 'settings'),
+      ...profileTabs
+        .filter((profileTab) => profileTab.key === 'settings')
+        .map((profileTab) => ({
+          ...profileTab,
+          hasUnread: hasPendingGuidedTours,
+          accessibilityLabel: hasPendingGuidedTours
+            ? `${profileTab.label}. ${t.onboarding.tours.profileDotLabel}`
+            : profileTab.label,
+        })),
     ],
     [
+      hasPendingGuidedTours,
       profileTabs,
+      t.onboarding.tours.profileDotLabel,
       t.profile.notificationsTabLabel,
       t.profile.notificationsUnreadLabel,
       unreadNotifications.hasUnread,
@@ -211,16 +230,16 @@ export default function ProfileScreen() {
   }, [notificationId, setActiveProfileTab, tab]);
 
   const refreshOnboardingStatuses = useCallback(() => {
-    void loadOnboardingStatuses().then(setOnboardingStatuses).catch((caught) => {
+    void loadOnboardingStatuses().then(applyOnboardingStatuses).catch((caught) => {
       console.error('Unable to load profile onboarding statuses:', caught);
     });
-  }, []);
+  }, [applyOnboardingStatuses]);
 
   useFocusEffect(refreshOnboardingStatuses);
   useFocusEffect(useCallback(() => {
     void refreshUnreadNotifications();
   }, [refreshUnreadNotifications]));
-  useEffect(() => addOnboardingStatusListener(setOnboardingStatuses), []);
+  useEffect(() => addOnboardingStatusListener(applyOnboardingStatuses), [applyOnboardingStatuses]);
   useEffect(() => {
     if (Platform.OS !== 'ios') return undefined;
     const showSubscription = Keyboard.addListener('keyboardWillShow', (event) => {
@@ -239,7 +258,7 @@ export default function ProfileScreen() {
     router.push(
       kind === 'plan'
         ? '/(app)/onboarding?flow=plan'
-        : '/(app)/catalog?onboarding=racebook',
+        : `/(app)/catalog?onboarding=${kind}`,
     );
   }, [onboardingStatuses, router]);
 

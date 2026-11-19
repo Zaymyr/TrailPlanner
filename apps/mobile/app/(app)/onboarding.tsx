@@ -54,6 +54,7 @@ import {
   skipOnboardingChoice,
   skipOnboardingKind,
   startOnboarding,
+  type OnboardingKind,
 } from '../../lib/onboardingStatus';
 import {
   clearPendingOnboardingTransition,
@@ -1102,14 +1103,14 @@ export default function OnboardingScreen() {
     }
   }
 
-  async function handleChooseOnboarding(kind: 'plan' | 'racebook') {
+  async function handleChooseOnboarding(kind: OnboardingKind) {
     setChoiceBusy(true);
     try {
       await startOnboarding(kind);
       router.replace(
         kind === 'plan'
           ? '/(app)/onboarding?flow=plan'
-          : '/(app)/catalog?onboarding=racebook',
+          : `/(app)/catalog?onboarding=${kind}`,
       );
     } catch (error) {
       console.error('Unable to start onboarding:', error);
@@ -1286,38 +1287,75 @@ export default function OnboardingScreen() {
 
   if (flow !== 'plan') {
     const copy = t.onboarding.racebookIntro;
+    const supporterCopy = t.onboarding.supporterIntro;
+    const audienceCopy = t.onboarding.audience;
 
     return (
       <OnboardingRacebookIntro
         busy={choiceBusy}
         copy={{
+          audienceSubtitle: audienceCopy.subtitle,
+          audienceTitle: audienceCopy.title,
           backLabel: t.common.back,
-          chooseRaceCta: copy.chooseRaceCta,
-          chooseRaceHint: copy.chooseRaceHint,
           discoverLater: t.onboarding.tours.discoverLater,
           goToPageLabel: copy.goToPageLabel,
-          kicker: copy.kicker,
-          nextCta: copy.nextCta,
           pagerLabel: copy.pagerLabel,
-          promises: [
-            { icon: 'shield-checkmark', title: copy.promiseOfficialTitle, text: copy.promiseOfficialText },
-            { icon: 'sync', title: copy.promiseUpdatedTitle, text: copy.promiseUpdatedText },
-            { icon: 'megaphone', title: copy.promiseLastMinuteTitle, text: copy.promiseLastMinuteText },
-          ],
-          subtitle: copy.subtitle,
-          tabsSubtitle: copy.tabsSubtitle,
-          tabsTitle: copy.tabsTitle,
-          title: copy.title,
+          runnerText: audienceCopy.runnerText,
+          runnerTitle: audienceCopy.runnerTitle,
+          supporterText: audienceCopy.supporterText,
+          supporterTitle: audienceCopy.supporterTitle,
         }}
-        // Same glyphs as the RaceBook tab bar (race/[id]/racebook.tsx).
-        tabs={[
-          { icon: 'bag-check', label: t.catalog.racebookTabGear, text: copy.tabGearText },
-          { icon: 'ticket', label: t.catalog.racebookTabBib, text: copy.tabBibText },
-          { icon: 'map', label: t.catalog.racebookTabCourse, text: copy.tabCourseText },
-          { icon: 'navigate', label: t.catalog.racebookTabAccess, text: copy.tabAccessText },
-          { icon: 'grid', label: t.catalog.racebookSectionServices, text: copy.tabServicesText },
-        ]}
-        onChooseRacebook={() => void handleChooseOnboarding('racebook')}
+        livrets={{
+          runner: {
+            chooseRaceCta: copy.chooseRaceCta,
+            chooseRaceHint: copy.chooseRaceHint,
+            heroIcon: 'book',
+            kicker: copy.kicker,
+            nextCta: copy.nextCta,
+            promises: [
+              { icon: 'shield-checkmark', title: copy.promiseOfficialTitle, text: copy.promiseOfficialText },
+              { icon: 'sync', title: copy.promiseUpdatedTitle, text: copy.promiseUpdatedText },
+              { icon: 'megaphone', title: copy.promiseLastMinuteTitle, text: copy.promiseLastMinuteText },
+            ],
+            subtitle: copy.subtitle,
+            // Same glyphs as the RaceBook tab bar (race/[id]/racebook.tsx).
+            tabs: [
+              { icon: 'bag-check', label: t.catalog.racebookTabGear, text: copy.tabGearText },
+              { icon: 'ticket', label: t.catalog.racebookTabBib, text: copy.tabBibText },
+              { icon: 'map', label: t.catalog.racebookTabCourse, text: copy.tabCourseText },
+              { icon: 'navigate', label: t.catalog.racebookTabAccess, text: copy.tabAccessText },
+              { icon: 'grid', label: t.catalog.racebookSectionServices, text: copy.tabServicesText },
+            ],
+            tabsSubtitle: copy.tabsSubtitle,
+            tabsTitle: copy.tabsTitle,
+            title: copy.title,
+          },
+          supporter: {
+            chooseRaceCta: supporterCopy.chooseRaceCta,
+            chooseRaceHint: supporterCopy.chooseRaceHint,
+            heroIcon: 'people',
+            kicker: supporterCopy.kicker,
+            nextCta: supporterCopy.nextCta,
+            promises: [
+              { icon: 'calendar', title: supporterCopy.promiseProgrammeTitle, text: supporterCopy.promiseProgrammeText },
+              { icon: 'location', title: supporterCopy.promiseFollowTitle, text: supporterCopy.promiseFollowText },
+              { icon: 'notifications', title: supporterCopy.promiseRemindersTitle, text: supporterCopy.promiseRemindersText },
+            ],
+            subtitle: supporterCopy.subtitle,
+            // Same glyphs as the Livret supporter tab bar (courses/supporter-guide/[raceId].tsx).
+            tabs: [
+              { icon: 'calendar', label: t.supporterGuide.sectionProgramme, text: supporterCopy.tabProgrammeText },
+              { icon: 'people', label: t.supporterGuide.sectionFollow, text: supporterCopy.tabFollowText },
+              { icon: 'location', label: t.supporterGuide.sectionOnSite, text: supporterCopy.tabOnSiteText },
+              { icon: 'bed', label: t.supporterGuide.sectionStay, text: supporterCopy.tabStayText },
+              { icon: 'navigate', label: t.supporterGuide.sectionPractical, text: supporterCopy.tabPracticalText },
+            ],
+            tabsSubtitle: supporterCopy.tabsSubtitle,
+            tabsTitle: supporterCopy.tabsTitle,
+            title: supporterCopy.title,
+          },
+        }}
+        onChooseRace={(audience) => void handleChooseOnboarding(audience === 'supporter' ? 'supporter' : 'racebook')}
         onDiscoverLater={() => void handleSkipChoice()}
       />
     );

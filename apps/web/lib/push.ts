@@ -65,15 +65,29 @@ type PendingReminder = {
   title: string;
   body: string;
   payload: Record<string, unknown>;
+  /** iOS app icon badge to set on delivery (the runner's unread inbox count). */
+  badge?: number;
 };
 
-type ExpoPushMessage = {
+export type ExpoPushMessage = {
   to: string;
   title: string;
   body: string;
   sound: "default";
   data: Record<string, unknown>;
+  badge?: number;
 };
+
+export function toExpoPushMessage(reminder: Pick<PendingReminder, "expoPushToken" | "title" | "body" | "payload" | "badge">): ExpoPushMessage {
+  return {
+    to: reminder.expoPushToken,
+    title: reminder.title,
+    body: reminder.body,
+    sound: "default",
+    data: reminder.payload,
+    ...(reminder.badge === undefined ? {} : { badge: reminder.badge }),
+  };
+}
 
 type ExpoPushResult = {
   status?: "ok" | "error";
@@ -422,6 +436,26 @@ async function fetchEnabledDevicesForUsers(userIds: string[]) {
   return (data ?? []) as PushDeviceRow[];
 }
 
+async function countUnreadUserNotifications(userId: string) {
+  const client = getServiceClient();
+  if (!client) {
+    throw new Error("Supabase service configuration is missing.");
+  }
+
+  const { count, error } = await client
+    .from("user_notifications")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .is("read_at", null)
+    .is("deleted_at", null);
+
+  if (error) {
+    throw error;
+  }
+
+  return count ?? 0;
+}
+
 async function fetchFavoriteRaceEventUserIds(eventId: string) {
   const client = getServiceClient();
   if (!client) {
@@ -464,13 +498,7 @@ async function sendPendingNotifications(candidates: PendingReminder[]): Promise<
   }
 
   const results = await sendExpoPushMessages(
-    remindersToSend.map<ExpoPushMessage>((reminder) => ({
-      to: reminder.expoPushToken,
-      title: reminder.title,
-      body: reminder.body,
-      sound: "default",
-      data: reminder.payload,
-    }))
+    remindersToSend.map<ExpoPushMessage>(toExpoPushMessage)
   );
 
   const invalidTokens = remindersToSend.flatMap((reminder, index) => {
@@ -662,6 +690,8 @@ export async function sendAdminUserNotificationPush(input: {
   body: string;
 }): Promise<AdminUserNotificationPushSummary> {
   const devices = await fetchEnabledDevicesForUsers([input.userId]);
+  // The inbox row already exists, so the count includes this message. A failed count only drops the badge.
+  const badge = devices.length > 0 ? await countUnreadUserNotifications(input.userId).catch(() => undefined) : undefined;
   const href = `/(app)/profile?tab=notifications&notificationId=${encodeURIComponent(input.notificationId)}`;
   const reminders = devices.map<PendingReminder>((device) => ({
     userId: device.user_id,
@@ -677,6 +707,7 @@ export async function sendAdminUserNotificationPush(input: {
       kind: "admin-user-notification",
       notificationId: input.notificationId,
     },
+    badge,
   }));
 
   return sendPendingNotifications(reminders);

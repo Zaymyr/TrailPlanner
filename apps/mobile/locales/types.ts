@@ -825,19 +825,46 @@ export type MobileTranslations = {
       linksTitle: string; linksBody: string;
       wrapUpTitle: string; wrapUpBody: string;
     };
+    audience: {
+      title: string; subtitle: string;
+      runnerTitle: string; runnerText: string;
+      supporterTitle: string; supporterText: string;
+    };
+    supporterIntro: {
+      kicker: string; title: string; subtitle: string;
+      promiseProgrammeTitle: string; promiseProgrammeText: string;
+      promiseFollowTitle: string; promiseFollowText: string;
+      promiseRemindersTitle: string; promiseRemindersText: string;
+      nextCta: string; tabsTitle: string; tabsSubtitle: string;
+      tabProgrammeText: string; tabFollowText: string; tabOnSiteText: string;
+      tabStayText: string; tabPracticalText: string;
+      chooseRaceCta: string; chooseRaceHint: string;
+    };
+    supporterTour: {
+      skip: string;
+      tabBarTitle: string; tabBarBody: string;
+      programmeTitle: string; programmeBody: string;
+      followTitle: string; followBody: string;
+      onsiteTitle: string; onsiteBody: string;
+      stayTitle: string; stayBody: string;
+      practicalTitle: string; practicalBody: string;
+      emergencyTitle: string; emergencyBody: string;
+      wrapUpTitle: string; wrapUpBody: string;
+    };
     tours: {
       discoverLater: string;
       chooseRaceTitle: string; chooseRaceBody: string; openRacebookTitle: string;
       openRacebookBody: string; searchRacebookTitle: string; searchRacebookBody: string;
       searchRacebookEmptyTitle: string; searchRacebookEmptyBody: string;
       noRacebookBody: string; pickRaceTitle: string; pickRaceBody: string;
+      pickSupporterRaceTitle: string; pickSupporterRaceBody: string;
       demoRaceBody: string; demoRaceCta: string; productsTitle: string;
       productsBody: string; continueToPlan: string; exploreRacebookTitle: string;
       exploreRacebookBody: string; unavailableTitle: string; unavailableBody: string;
       understood: string; skip: string;
       planOfferTitle: string; planOfferBody: string; planOfferLater: string;
       profileTitle: string; profileSubtitle: string;
-      planTitle: string; racebookTitle: string; statusPending: string;
+      planTitle: string; racebookTitle: string; supporterTitle: string; statusPending: string;
       statusInProgress: string; statusSkipped: string; statusCompleted: string;
       actionStart: string; actionResume: string; actionReview: string;
       profileDotLabel: string;

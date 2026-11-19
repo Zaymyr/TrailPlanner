@@ -2,6 +2,7 @@
 title: Analytics
 scope: integration
 last_verified: 2026-11-18
+# Supporter onboarding (2026-11-18): the welcome chooser asks « Je cours » / « J’accompagne un coureur » and routes to the Livret coureur or the Livret supporter; a new `supporter` tour (status `user_profiles.supporter_onboarding_status`, migration 20261118200000) runs a spotlight tour on the Livret supporter.
 # Livret supporter private preview (2026-11-18): the catalog Livret supporter entry admits active organizers of a private event (preview only); runner badge, data and contracts unchanged.
 # Crew follow UX (2026-11-17): passed checkpoints collapse, confirmed passages can be corrected or undone, the crew handover is a device-local checklist, aid-station directions match supporter points by place name within 2 km, and phones without the app get an app-first gate on the public page; no column, RLS or crew_state shape change.
 # Assisted legacy conversion (2026-11-15): server logs contain identifiers and block type, never source text; analytics contracts are unchanged.
@@ -292,7 +293,8 @@ The guided RaceBook catalog emits explicit selection events before the RaceBook 
 
 - `racebook onboarding search performed` after an optional deliberate search of at least two characters, with query length and result counts but never the search text;
 - `racebook onboarding race selected` when the runner opens an event from either the initial list or filtered results;
-- `racebook onboarding racebook selected` when the runner chooses an accessible published format.
+- `racebook onboarding racebook selected` when the runner chooses an accessible published format;
+- `supporter onboarding guide selected` when a supporter opens an event (or the Trail TST demo) in the guided `supporter` catalog; it carries `event_id`, `event_name`, `race_id`, `query_length` and `selection_method`, never the search text. The supporter funnel is `onboarding started` with `onboarding_kind = supporter`, then this event, then `onboarding completed` or `onboarding skipped` with the same kind. `racebook onboarding search performed` now reports `onboarding_kind` `racebook` or `supporter`.
 
 The ordered funnel is `onboarding started` filtered to `onboarding_kind = racebook`, `racebook onboarding race selected`, `racebook onboarding racebook selected`, then `racebook opened`. Search is an optional behavior metric and is not a required conversion step. Both selection events expose `selection_method: browse|search`, based on whether a valid search was active. A `$screen` Catalog view is navigation only and must not be interpreted as course selection.
 

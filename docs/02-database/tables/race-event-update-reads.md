@@ -1,7 +1,8 @@
 ---
 title: race_event_update_reads Table
 scope: database
-last_verified: 2026-11-13
+last_verified: 2026-11-18
+# Supporter onboarding (2026-11-18): the mobile guided catalog gains a `supporter` mode over the same public event list; no read, table or RLS change here (the only schema change is `user_profiles.supporter_onboarding_status`).
 # Livret supporter private preview (2026-11-18): the catalog Livret supporter entry admits active organizers of a private event (preview only); runner badge, data and contracts unchanged.
 ai_priority: high
 related_files:

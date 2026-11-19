@@ -3,7 +3,12 @@ import { isRunnerProfileReady, type RunnerProfileValues } from './runnerProfileF
 
 import { supabase } from './supabase';
 import { isPostgrestNetworkFailure } from './offlineCacheFormat';
-import { loadOnboardingProgress, parseOnboardingStatuses } from './onboardingStatus';
+import {
+  isOnboardingUntouched,
+  loadOnboardingProgress,
+  parseOnboardingStatuses,
+  selectProfileWithOnboardingStatuses,
+} from './onboardingStatus';
 import { getPendingRunnerRace } from './runnerPlanIntent';
 
 const onboardingBypassUntilByUserId = new Map<string, number>();
@@ -11,6 +16,7 @@ const onboardingBypassUntilByUserId = new Map<string, number>();
 type OnboardingGateProfileRow = {
   plan_onboarding_status: string | null;
   racebook_onboarding_status: string | null;
+  supporter_onboarding_status: string | null;
   onboarding_completed_at: string | null;
   full_name: string | null;
   water_bag_liters: number | null;
@@ -48,13 +54,10 @@ export async function shouldOpenOnboarding(session: Session | null | undefined) 
 
   onboardingBypassUntilByUserId.delete(session.user.id);
 
-  const profileResult = await supabase
-    .from('user_profiles')
-    .select(
-      'plan_onboarding_status, racebook_onboarding_status, onboarding_completed_at, full_name, water_bag_liters, utmb_index, comfortable_flat_pace_min_per_km, weight_kg, height_cm, default_carbs_g_per_hour, default_water_ml_per_hour, default_sodium_mg_per_hour',
-    )
-    .eq('user_id', session.user.id)
-    .maybeSingle();
+  const profileResult = await selectProfileWithOnboardingStatuses<OnboardingGateProfileRow>(
+    session.user.id,
+    'onboarding_completed_at, full_name, water_bag_liters, utmb_index, comfortable_flat_pace_min_per_km, weight_kg, height_cm, default_carbs_g_per_hour, default_water_ml_per_hour, default_sodium_mg_per_hour',
+  );
 
   if (profileResult.error) {
     console.error('Unable to resolve onboarding gate profile:', profileResult.error);
@@ -62,9 +65,8 @@ export async function shouldOpenOnboarding(session: Session | null | undefined) 
   }
 
   const profile = (profileResult.data as OnboardingGateProfileRow | null) ?? null;
-  if (profile?.plan_onboarding_status || profile?.racebook_onboarding_status) {
-    const statuses = parseOnboardingStatuses(profile);
-    return statuses.plan === 'pending' && statuses.racebook === 'pending';
+  if (profile?.plan_onboarding_status || profile?.racebook_onboarding_status || profile?.supporter_onboarding_status) {
+    return isOnboardingUntouched(parseOnboardingStatuses(profile));
   }
 
   if (hasSavedOnboardingProfileData(profile)) {
@@ -89,11 +91,7 @@ export async function getPostAuthRoute(session: Session | null | undefined) {
   const pendingRace = !session.user.is_anonymous ? await getPendingRunnerRace() : null;
   if (pendingRace) return `/(app)/plan/new?catalogRaceId=${pendingRace}&onboarding=plan`;
 
-  const profileResult = await supabase
-    .from('user_profiles')
-    .select('plan_onboarding_status, racebook_onboarding_status')
-    .eq('user_id', session.user.id)
-    .maybeSingle();
+  const profileResult = await selectProfileWithOnboardingStatuses(session.user.id);
   const { data, error } = profileResult;
 
   // Offline launch: open the plans, whose RaceBooks and plans have device copies.
@@ -104,12 +102,18 @@ export async function getPostAuthRoute(session: Session | null | undefined) {
   }
 
   const statuses = parseOnboardingStatuses(data);
-  if (statuses.plan === 'pending' && statuses.racebook === 'pending') {
+  if (isOnboardingUntouched(statuses)) {
     return '/(app)/onboarding';
   }
 
   const progress = await loadOnboardingProgress();
   if (!progress || statuses[progress.kind] !== 'in_progress') return '/(app)/catalog';
+
+  if (progress.kind === 'supporter') {
+    return progress.stage === 'supporter' && progress.selectedRaceId
+      ? `/(app)/courses/supporter-guide/${progress.selectedRaceId}?onboarding=supporter&returnTo=catalog`
+      : '/(app)/catalog?onboarding=supporter';
+  }
 
   if (progress.kind === 'racebook') {
     return progress.stage === 'racebook' && progress.selectedRaceId
