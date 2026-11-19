@@ -3,6 +3,7 @@ title: race_events Table
 scope: database
 
 last_verified: 2026-11-19
+# Inbox push badge (2026-11-18): apps/web/lib/push.ts adds an iOS badge only to admin inbox pushes (unread user_notifications count); race event update pushes, schema and RLS are unchanged.
 # Reel hook short name (2026-11-19): nullable `short_name` (1-40 characters once trimmed, no ellipsis) edited by admins and read only by admin service-role routes; RLS, grants and public reads unchanged.
 # Livret supporter private preview (2026-11-18): the catalog Livret supporter entry admits active organizers of a private event (preview only); runner badge, data and contracts unchanged.
 # Assisted legacy conversion (2026-11-15): legacy event-level text can become a review-only proposal; the endpoint does not update race_events.
