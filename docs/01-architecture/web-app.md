@@ -107,6 +107,15 @@ related_files:
   - apps/web/app/api/admin/video-generator/script/route.ts
   - apps/web/app/api/admin/video-generator/voice/route.ts
   - apps/web/app/api/admin/video-generator/caption/route.ts
+  - apps/web/app/admin/publications/page.tsx
+  - apps/web/app/admin/publications/PostCard.tsx
+  - apps/web/app/admin/publications/CaptionForm.tsx
+  - apps/web/app/admin/publications/publications-api.ts
+  - apps/web/app/api/admin/social-posts/route.ts
+  - apps/web/app/api/admin/social-posts/[id]/route.ts
+  - apps/web/app/api/admin/instagram/route.ts
+  - apps/web/app/api/admin/instagram/route.test.ts
+  - apps/web/app/admin/publications/InstagramStatusCard.tsx
   - apps/web/app/admin/video-generator/map-appearance.ts
   - apps/web/app/admin/video-generator/VideoCompositionOverlay.tsx
   - apps/web/app/admin/video-generator/CompositionSettingsPanel.tsx
@@ -913,3 +922,7 @@ The default (home) metadata now leads with the Livret coureur and the Livret sup
 Organizer header (2026-11-16): the dashboard header no longer shows the « Aperçu coureur » and « Aperçu accompagnateur » web preview links (« Voir le Livret coureur » and « Télécharger le QR » remain), and its row wraps instead of letting the actions block overlap the edition selector. Presentation only; no data, contract or offer change.
 
 Follow-page fix (2026-11-16): `getPublicSupporterGuide` now reads `/api/supporter-guide` with `next.revalidate` (15 min, edition tag) instead of the `no-store` service loader, which aborted ISR renders with DYNAMIC_SERVER_USAGE and made every « Suivre » page 404 in production.
+
+## Admin Instagram publications (2026-11-19)
+
+The admin header links to `/admin/publications` (« Publications »), next to the 3D video generator. The page, protected by the shared admin layout and by `authorizeVideoAdmin` on every route, shows a read-only Instagram status card (`/api/admin/instagram`: System User credentials configured or not, account username and profile and publishing quota read server side from `graph.facebook.com`, linked Page id, Graph version, mode « Simulation » / « Publication réelle »; the token is never returned and there is no connect button), creates drafts from finished background renders (`/api/admin/social-posts`), edits caption, hashtags and cover text with react-hook-form + Zod (Instagram limits checked live and again on the server), previews the MP4 through a 1-hour signed URL, and offers « Publier maintenant », « Programmer » (Europe/Paris wall time, stored UTC), « Annuler la programmation », « Réessayer » and « Supprimer » (`/api/admin/social-posts/[id]`). Data loading uses the local TanStack Query shim; while a post is publishing the page polls the list and advances the post every 30 s. Nothing is published without one of those clicks, and publishing is simulated unless `INSTAGRAM_PUBLISH_DRY_RUN=false`; a post scheduled in one mode fails instead of being published in the other. Once a live publish was requested, any action that would drop the Instagram container (editing a failed post, retrying after a mode change, « Recommencer avec un nouveau conteneur ») gets a 409 `needsConfirmation` from the route, which the page turns into a confirmation dialog before resending with `confirmRestart: true`. The report-only CSP has no `media-src`, so the preview `<video>` from `storage.googleapis.com` may raise a report; it still plays. Flow, limits and setup: [Instagram Reels Publishing](../05-integrations/instagram-publishing.md).

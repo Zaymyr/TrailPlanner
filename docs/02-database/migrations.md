@@ -35,6 +35,9 @@ related_files:
   - supabase/migrations/20261103124538_cover_racebook_current_publication_foreign_key.sql
   - supabase/migrations/20261104140000_add_video_render_jobs.sql
   - supabase/migrations/20261105160000_add_video_narrations.sql
+  - supabase/migrations/20261119130000_add_social_posts.sql
+  - supabase/migrations/20261119130100_schedule_social_posts_cron.sql
+  - supabase/tests/social_posts_checks.sql
   - supabase/tests/racebook_versioned_publications_checks.sql
   - supabase/migrations/20260821143417_add_organizer_imports_bucket.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
@@ -156,6 +159,8 @@ related_tables:
 `20261103124538_cover_racebook_current_publication_foreign_key.sql` replaces the single-column current-publication index with a covering index matching its composite parent constraint.
 
 `20261104140000_add_video_render_jobs.sql` adds `video_render_jobs` (background reel renders on Google Cloud Run): status, progress, video size and timing, with covering indexes for its race and creator foreign keys, RLS on and service-role-only grants.
+
+`20261119130000_add_social_posts.sql` adds `social_posts` (Instagram Reels drafted from finished renders, with the container/media ids and lease of the publishing state machine), additive, RLS on with no policy and service-role-only grants, with an `updated_at` trigger and one index per foreign key. `20261119130100_schedule_social_posts_cron.sql` schedules the pg_cron job `social-posts-publish` (every 5 minutes); its command reads the Vault secrets `web_app_url` and `cron_secret` when they run, so the migration succeeds even before the secrets exist. Check: `supabase/tests/social_posts_checks.sql`. The Instagram credentials are server env vars (System User token), so no account table exists.
 
 `20261105160000_add_video_narrations.sql` adds `video_narrations` (the saved reel narration per race: settings, texts by beat id, voice choice, clip count) and the private Storage bucket `video-narrations` for the voice clips, RLS on with no policy and service-role-only grants.
 
@@ -563,3 +568,4 @@ Organizer import cleanup additionally uses `organizer-import-cleanup-hourly` at 
 - [Organizer Race Management](../03-business-rules/organizer-race-management.md)
 - [Race Slug Redirects](tables/race-slug-redirects.md)
 - [Video Render Jobs](tables/video-render-jobs.md)
+- [Social Posts](tables/social-posts.md)

@@ -50,7 +50,7 @@ Chronological cutoff resolution, the Courses image placeholder and plan access g
 
 The race-workspace header toolbar/footer layout (lot 10) does not change partner-link resolution, placement, click tracking, or destinations.
 
-The separate admin link to `/admin/video-generator` does not share partner-link configuration, persistence, destinations, or analytics.
+The separate admin link to `/admin/video-generator` does not share partner-link configuration, persistence, destinations, or analytics. Neither does the « Publications » link to `/admin/publications` (Instagram Reels publishing, [instagram-publishing.md](instagram-publishing.md)).
 
 Moving official timing into the shared RaceBook header and removing its duplicate Trace row does not change partner-link resolution, placement, click tracking, or destinations.
 

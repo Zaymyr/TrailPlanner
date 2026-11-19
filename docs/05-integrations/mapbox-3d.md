@@ -66,6 +66,8 @@ The workspace dependency update for shared plan-tracking code does not change Ma
 
 The admin page now also has a messaging inbox (bugs, feedback, race requests). That tab and its user-notification delivery are independent from the lazy 3D video-generator route and do not load Mapbox, GPX, narration, or rendering dependencies.
 
+The admin header also links to `/admin/publications` (2026-11-19), which publishes finished background renders as Instagram Reels. It loads no Mapbox code: it only reads `video_render_jobs` and plays the stored MP4. Its server-only variables (`IG_SYSTEM_USER_TOKEN`, `IG_USER_ID`, `FB_PAGE_ID`, `INSTAGRAM_*`) are listed in `apps/web/.env.example` and documented in [Instagram Reels Publishing](instagram-publishing.md); none is a `NEXT_PUBLIC_` value.
+
 ## Purpose
 
 The admin-only `/admin/video-generator` route renders existing race GPX files over satellite imagery and real 3D terrain. Phase 2 adds a deterministic automatic flyover and interactive timeline. Phase 3 priority 1 adds the full Reel composition preview (header, animated elevation profile, current kilometre, aid-station labels, branding, intro and outro) driven by one time function meant to be reused by the future MP4 export. It still does not capture frames, encode video, or install Remotion/FFmpeg.
