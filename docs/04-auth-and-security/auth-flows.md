@@ -2,6 +2,7 @@
 title: Auth Flows
 scope: auth
 last_verified: 2026-11-18
+# Supporter onboarding (2026-11-18): the welcome chooser asks « Je cours » / « J’accompagne un coureur » and routes to the Livret coureur or the Livret supporter; a new `supporter` tour (status `user_profiles.supporter_onboarding_status`, migration 20261118200000) runs a spotlight tour on the Livret supporter.
 # Welcome onboarding cleanup (2026-11-18): the onboarding route drops the intro plan offer and the Officiel badge copy; presentation only, no auth, session or callback change.
 ai_priority: high
 related_files:
@@ -144,9 +145,9 @@ The Profile admin access selector sends the current bearer token to the protecte
 
 Non-auth onboarding steps, such as the extracted race/catalog and nutrition-product presentation components, must not add separate session side effects; their callbacks remain owned by the onboarding route, while session, analytics identity, push registration, and Resend sync behavior stay in `_layout.tsx` or the existing dedicated helpers.
 The onboarding race chooser inner-filters event formats to `races.is_live = true`. This visibility filter is catalog behavior only and must not add a new authentication/session side effect.
-`apps/mobile/lib/onboardingGate.ts` decides whether the initial chooser or an in-progress tour should reopen after auth. Two durable owner-scoped statuses distinguish Plan and RaceBook. The gate shows the chooser only while both are untouched, resumes a stored in-progress stage on cold start, and otherwise opens Courses. The status migration marks Plan completed for existing profiles while leaving RaceBook pending; profiles created afterward start with both tours pending.
+`apps/mobile/lib/onboardingGate.ts` decides whether the initial chooser or an in-progress tour should reopen after auth. Three durable owner-scoped statuses distinguish Plan, RaceBook and the Livret supporter tour (`supporter_onboarding_status`). The gate shows the chooser only while all three are untouched, resumes a `supporter` stage on the Livret supporter (`?onboarding=supporter`), resumes a stored in-progress stage on cold start, and otherwise opens Courses. The status migration marks Plan completed for existing profiles while leaving RaceBook pending; profiles created afterward start with both tours pending.
 When onboarding does reopen for an identified user, `apps/mobile/app/(app)/onboarding.tsx` should hydrate existing `user_profiles` values and favorite products before the runner edits anything, so revisits do not appear empty or overwrite stored profile defaults unintentionally.
-The Plan setup route hides the bottom tab bar. Once a tour reaches Courses, Nutrition, Plan, or RaceBook, the real route and ordinary tab navigation remain available with a contextual guide. Skipping persists that tour as `skipped`; dismissing the initial chooser skips both. Neither action is treated as completion.
+The Plan setup route hides the bottom tab bar. Once a tour reaches Courses, Nutrition, Plan, or RaceBook, the real route and ordinary tab navigation remain available with a contextual guide. Skipping persists that tour as `skipped`; dismissing the initial chooser skips all three. While the supporter column is missing (the PR development build reads the production database before the migration is applied), status reads fall back to the two runner columns and the supporter status is kept on the device; no auth or session behavior changes. Neither action is treated as completion.
 
 Social sign-in is split into hooks:
 

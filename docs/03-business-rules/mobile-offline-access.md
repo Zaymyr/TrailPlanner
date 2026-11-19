@@ -2,6 +2,7 @@
 title: Mobile offline access (RaceBook, Supporter Guide, plans)
 scope: business-rule
 last_verified: 2026-11-18
+# Supporter onboarding (2026-11-18): the onboarding gate reads the new supporter tour status through a tolerant select (device-local fallback while the column is missing); the offline launch route to Plans and the Livret supporter device copy are unchanged.
 # Livret supporter private preview (2026-11-18): the 404 that deletes the Supporter Guide copy is evaluated after the authenticated organizer retry.
 ai_priority: high
 related_files:

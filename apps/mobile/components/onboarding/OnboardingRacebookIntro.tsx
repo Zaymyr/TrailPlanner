@@ -5,65 +5,84 @@ import { Colors } from '../../constants/colors';
 import { ActionButton } from '../themed/ActionButton';
 import { IconAction } from '../themed/IconAction';
 import { Text } from '../themed/Text';
+import { TopoCard } from '../themed/TopoCard';
 import { TrailSignButton } from '../themed/TrailSignButton';
 import { OnboardingShell } from './OnboardingIntroSteps';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
+/** Who the app is for this time: the runner (Livret coureur) or a supporter (Livret supporter). */
+export type OnboardingAudience = 'runner' | 'supporter';
+
 export type OnboardingRacebookIntroTab = {
-  /** Same glyph as the RaceBook tab bar so the runner recognises it later. */
+  /** Same glyph as the Livret tab bar so the reader recognises it later. */
   icon: IoniconName;
   label: string;
   text: string;
 };
 
-export type OnboardingRacebookIntroCopy = {
-  backLabel: string;
+/** Presentation of one Livret: its promises, then its tabs and the race choice. */
+export type OnboardingLivretIntro = {
   chooseRaceCta: string;
   /** Promise shown right above the race choice: race or demo, then the guided tour. */
   chooseRaceHint?: string;
-  discoverLater: string;
-  goToPageLabel: string;
+  heroIcon: IoniconName;
   kicker: string;
   nextCta: string;
-  pagerLabel: string;
   promises: { icon: IoniconName; text: string; title: string }[];
   subtitle: string;
+  tabs: OnboardingRacebookIntroTab[];
   tabsSubtitle: string;
   tabsTitle: string;
   title: string;
 };
 
+export type OnboardingRacebookIntroCopy = {
+  audienceSubtitle: string;
+  audienceTitle: string;
+  backLabel: string;
+  discoverLater: string;
+  goToPageLabel: string;
+  pagerLabel: string;
+  runnerText: string;
+  runnerTitle: string;
+  supporterText: string;
+  supporterTitle: string;
+};
+
 type OnboardingRacebookIntroProps = {
   busy: boolean;
   copy: OnboardingRacebookIntroCopy;
-  onChooseRacebook: () => void;
+  livrets: Record<OnboardingAudience, OnboardingLivretIntro>;
+  onChooseRace: (audience: OnboardingAudience) => void;
   onDiscoverLater: () => void;
-  tabs: OnboardingRacebookIntroTab[];
 };
 
-const PAGE_COUNT = 2;
+const PAGE_COUNT = 3;
 
 /**
- * First-run presentation of the Livret coureur (the product the organizer
- * sells), then the race choice as the single action. Plan creation is offered
- * later, from the RaceBook tour, so it is not a choice here.
+ * First-run welcome: the reader says whether they race or support a runner,
+ * which picks the Livret presented next (Livret coureur or Livret supporter),
+ * then its tabs and the race choice as the single action. Plan creation is
+ * offered later, from the RaceBook tour, so it is not a choice here.
  * Pages switch instantly (no animation), so reduced motion needs no branch.
  */
 export function OnboardingRacebookIntro({
   busy,
   copy,
-  onChooseRacebook,
+  livrets,
+  onChooseRace,
   onDiscoverLater,
-  tabs,
 }: OnboardingRacebookIntroProps) {
   const [page, setPage] = useState(0);
+  const [audience, setAudience] = useState<OnboardingAudience | null>(null);
+  const livret = audience ? livrets[audience] : null;
 
-  // Android back returns to the first panel instead of leaving onboarding.
+  // Android back steps back one panel instead of leaving onboarding.
   useEffect(() => {
     if (page === 0) return undefined;
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      setPage(0);
+      setPage((current) => Math.max(0, current - 1));
       return true;
     });
     return () => subscription.remove();
@@ -73,42 +92,88 @@ export function OnboardingRacebookIntro({
     .replace('{page}', String(page + 1))
     .replace('{total}', String(PAGE_COUNT));
 
+  function chooseAudience(next: OnboardingAudience) {
+    setAudience(next);
+    setPage(1);
+  }
+
+  const audienceChoices: { audience: OnboardingAudience; icon: IoniconName; text: string; title: string }[] = [
+    { audience: 'runner', icon: 'walk', title: copy.runnerTitle, text: copy.runnerText },
+    { audience: 'supporter', icon: 'people', title: copy.supporterTitle, text: copy.supporterText },
+  ];
+
   return (
     <OnboardingShell showProgress={false}>
       <View style={styles.topRow}>
         {page > 0 ? (
-          <IconAction accessibilityLabel={copy.backLabel} onPress={() => setPage(0)} variant="back" />
+          <IconAction accessibilityLabel={copy.backLabel} onPress={() => setPage(page - 1)} variant="back" />
         ) : (
           <View style={styles.topRowSpacer} />
         )}
         <View accessibilityLabel={pagerText} accessible style={styles.pager}>
-          {Array.from({ length: PAGE_COUNT }).map((_, index) => (
-            <Pressable
-              key={`intro-page-${index + 1}`}
-              accessibilityLabel={copy.goToPageLabel.replace('{page}', String(index + 1))}
-              accessibilityRole="button"
-              accessibilityState={{ selected: index === page }}
-              hitSlop={4}
-              onPress={() => setPage(index)}
-              style={styles.pagerTarget}
-            >
-              <View style={[styles.pagerDot, index === page && styles.pagerDotActive]} />
-            </Pressable>
-          ))}
+          {Array.from({ length: PAGE_COUNT }).map((_, index) => {
+            // The Livret pages only exist once the audience is chosen.
+            const reachable = index === 0 || Boolean(audience);
+            return (
+              <Pressable
+                key={`intro-page-${index + 1}`}
+                accessibilityLabel={copy.goToPageLabel.replace('{page}', String(index + 1))}
+                accessibilityRole="button"
+                accessibilityState={{ selected: index === page, disabled: !reachable }}
+                disabled={!reachable}
+                hitSlop={4}
+                onPress={() => setPage(index)}
+                style={styles.pagerTarget}
+              >
+                <View style={[styles.pagerDot, index === page && styles.pagerDotActive]} />
+              </Pressable>
+            );
+          })}
         </View>
         <View style={styles.topRowSpacer} />
       </View>
 
-      {page === 0 ? (
+      {page === 0 || !livret || !audience ? (
+        <View>
+          <Text accessibilityRole="header" style={styles.title}>{copy.audienceTitle}</Text>
+          <Text style={styles.subtitle}>{copy.audienceSubtitle}</Text>
+          <View style={styles.choiceList}>
+            {audienceChoices.map((choice) => (
+              <TopoCard
+                key={choice.audience}
+                accessibilityLabel={`${choice.title}. ${choice.text}`}
+                accessibilityRole="button"
+                accessibilityState={{ selected: audience === choice.audience }}
+                onPress={() => chooseAudience(choice.audience)}
+                variant="interactive"
+              >
+                <View style={styles.choiceRow}>
+                  <View style={styles.choiceIcon}>
+                    <Ionicons color={Colors.brandPrimary} name={choice.icon} size={26} />
+                  </View>
+                  <View style={styles.rowBody}>
+                    <Text style={styles.choiceTitle}>{choice.title}</Text>
+                    <Text style={styles.rowText}>{choice.text}</Text>
+                  </View>
+                  <Ionicons color={Colors.brandPrimary} name="chevron-forward" size={20} />
+                </View>
+              </TopoCard>
+            ))}
+          </View>
+          <ActionButton isLoading={busy} onPress={onDiscoverLater} style={styles.softExit} variant="ghost">
+            {copy.discoverLater}
+          </ActionButton>
+        </View>
+      ) : page === 1 ? (
         <View>
           <View style={styles.heroIcon}>
-            <Ionicons color={Colors.brandPrimary} name="book" size={34} />
+            <Ionicons color={Colors.brandPrimary} name={livret.heroIcon} size={34} />
           </View>
-          <Text style={styles.kicker}>{copy.kicker}</Text>
-          <Text accessibilityRole="header" style={styles.title}>{copy.title}</Text>
-          <Text style={styles.subtitle}>{copy.subtitle}</Text>
+          <Text style={styles.kicker}>{livret.kicker}</Text>
+          <Text accessibilityRole="header" style={styles.title}>{livret.title}</Text>
+          <Text style={styles.subtitle}>{livret.subtitle}</Text>
           <View style={styles.promiseList}>
-            {copy.promises.map((promise) => (
+            {livret.promises.map((promise) => (
               <View key={promise.title} style={styles.promiseRow}>
                 <View style={styles.tabIcon}>
                   <Ionicons color={Colors.brandPrimary} name={promise.icon} size={20} />
@@ -120,8 +185,8 @@ export function OnboardingRacebookIntro({
               </View>
             ))}
           </View>
-          <ActionButton fullWidth onPress={() => setPage(1)} size="lg">
-            {copy.nextCta}
+          <ActionButton fullWidth onPress={() => setPage(2)} size="lg">
+            {livret.nextCta}
           </ActionButton>
           <ActionButton isLoading={busy} onPress={onDiscoverLater} style={styles.softExit} variant="ghost">
             {copy.discoverLater}
@@ -129,10 +194,10 @@ export function OnboardingRacebookIntro({
         </View>
       ) : (
         <View>
-          <Text accessibilityRole="header" style={styles.title}>{copy.tabsTitle}</Text>
-          <Text style={styles.subtitle}>{copy.tabsSubtitle}</Text>
+          <Text accessibilityRole="header" style={styles.title}>{livret.tabsTitle}</Text>
+          <Text style={styles.subtitle}>{livret.tabsSubtitle}</Text>
           <View style={styles.tabList}>
-            {tabs.map((tab) => (
+            {livret.tabs.map((tab) => (
               <View
                 key={tab.label}
                 accessibilityLabel={`${tab.label}. ${tab.text}`}
@@ -149,13 +214,13 @@ export function OnboardingRacebookIntro({
               </View>
             ))}
           </View>
-          {copy.chooseRaceHint ? <Text style={styles.chooseRaceHint}>{copy.chooseRaceHint}</Text> : null}
+          {livret.chooseRaceHint ? <Text style={styles.chooseRaceHint}>{livret.chooseRaceHint}</Text> : null}
           <TrailSignButton
             disabled={busy}
             fullWidth
             icon={<Ionicons color={Colors.textOnBrand} name="search" size={16} />}
-            label={copy.chooseRaceCta}
-            onPress={onChooseRacebook}
+            label={livret.chooseRaceCta}
+            onPress={() => onChooseRace(audience)}
             tilt={0}
             variant="solid"
           />
@@ -199,6 +264,19 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 26, fontWeight: '800', color: Colors.textPrimary, textAlign: 'center', marginBottom: 8 },
   subtitle: { fontSize: 15, color: Colors.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: 20 },
+  choiceList: { gap: 14, marginBottom: 12 },
+  choiceRow: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 64 },
+  choiceIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: Colors.brandSurface,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  choiceTitle: { color: Colors.textPrimary, fontSize: 17, fontWeight: '800', marginBottom: 2 },
   promiseList: { gap: 14, marginBottom: 24 },
   promiseRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   rowBody: { flex: 1, minWidth: 0 },

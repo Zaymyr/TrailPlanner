@@ -258,7 +258,7 @@ export default function ProfileScreen() {
     router.push(
       kind === 'plan'
         ? '/(app)/onboarding?flow=plan'
-        : '/(app)/catalog?onboarding=racebook',
+        : `/(app)/catalog?onboarding=${kind}`,
     );
   }, [onboardingStatuses, router]);
 

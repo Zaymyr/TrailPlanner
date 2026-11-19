@@ -1,9 +1,11 @@
 ---
 title: user_profiles Table
 scope: database
-last_verified: 2026-11-13
+last_verified: 2026-11-18
+# Supporter onboarding (2026-11-18): adds `supporter_onboarding_status` (pending/in_progress/skipped/completed, default pending), written by its owner under the existing profile policies.
 ai_priority: high
 related_files:
+  - supabase/migrations/20261118200000_add_supporter_onboarding_status.sql
   - supabase/migrations/20250624103000_add_user_profiles.sql
   - supabase/migrations/20260201090000_add_trial_fields_to_user_profiles.sql
   - supabase/migrations/20260408100000_initialize_trial_profile_on_user_created.sql
@@ -47,6 +49,7 @@ Runner profile readiness is shared across clients and requires first name, comfo
 | `onboarding_completed_at` | `timestamptz` | nullable | Legacy timestamp retained for completed Plan onboarding. |
 | `plan_onboarding_status` | `text` | not null, default `pending`, checked enum | Plan guided-tour state. |
 | `racebook_onboarding_status` | `text` | not null, default `pending`, checked enum | RaceBook guided-tour state. |
+| `supporter_onboarding_status` | `text` | not null, default `pending`, checked enum | Livret supporter guided-tour state (migration `20261118200000`). Clients that predate it ignore it; the mobile app falls back to a device-local value while the column is missing. |
 | `full_name` | `text` | nullable | User display name. |
 | `role` | `text` | nullable, server-managed | Legacy display value; never an authorization source. |
 | `age` | `integer` | nullable, check `age >= 0` | Legacy age field. |
