@@ -108,6 +108,9 @@ related_files:
   - apps/web/app/admin/video-generator/VideoGeneratorMapClient.tsx
   - apps/web/app/admin/video-generator/AnimationControls.tsx
   - apps/web/app/admin/video-generator/video-composition.ts
+  - apps/web/app/admin/video-generator/audio-master.ts
+  - apps/web/app/admin/video-generator/reel-music.ts
+  - apps/web/public/reel-music/manifest.json
   - apps/web/app/admin/video-generator/route-story.ts
   - apps/web/app/admin/video-generator/StoryEditor.tsx
   - apps/web/app/api/admin/video-generator/script/route.ts

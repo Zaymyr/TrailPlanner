@@ -342,7 +342,7 @@ export const buildHighlightBeats = (
     {
       id: "hl-outro", kind: "outro", title: "Pace Yourself", startKm: total, endKm: total, anchorKm: total,
       facts: [], services: [], cutoffTime: null,
-      narration: "Prépare ta course avec l’appli Pace Yourself.",
+      narration: "Ton plan pour cette course est prêt dans l’appli. Lien en bio.",
     },
   ];
 };

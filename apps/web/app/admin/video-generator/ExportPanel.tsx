@@ -3,7 +3,7 @@
 import React from "react";
 
 import { Button } from "../../../components/ui/button";
-import type { ExportProgress } from "./video-export";
+import type { ExportProgress, SoundtrackReport } from "./video-export";
 
 export type ExportState =
   | { status: "idle"; message?: string }
@@ -16,7 +16,31 @@ const formatDuration = (ms: number) => {
   return seconds < 60 ? `${seconds} s` : `${Math.floor(seconds / 60)} min ${String(seconds % 60).padStart(2, "0")}`;
 };
 
+const formatLufs = (value: number) => (Number.isFinite(value) ? `${value.toFixed(1).replace(".", ",")} LUFS` : "silence");
+const formatDbtp = (value: number) => (Number.isFinite(value) ? `${value.toFixed(1).replace(".", ",")} dBTP` : "—");
+
+/** What the mix measured before and after the -14 LUFS / -1 dBTP master, and the music used. */
+export function SoundtrackSummary({ report }: { report: SoundtrackReport }) {
+  const { master } = report;
+  return (
+    <div className="space-y-1 rounded-md border border-border bg-muted/40 p-2 text-xs" data-testid="soundtrack-report">
+      <p className="font-medium">Son du mix</p>
+      <p className="text-muted-foreground">Avant : {formatLufs(master.before.lufs)} · crête {formatDbtp(master.before.truePeakDbtp)}</p>
+      <p className="text-muted-foreground">Après : {formatLufs(master.after.lufs)} · crête {formatDbtp(master.after.truePeakDbtp)}</p>
+      <p className="text-muted-foreground">
+        {report.music ? `Musique : ${report.music.title || report.music.id}` : report.musicFailed ? "Musique indisponible : export sans musique" : "Aucune musique"}
+      </p>
+      {master.limitedByPeak ? (
+        <p className="text-amber-800">
+          Le plafond de crête ({master.ceilingDbtp} dBTP) a limité le volume : le mix reste sous {master.targetLufs} LUFS.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 type ExportPanelProps = {
+  soundtrack?: SoundtrackReport | null;
   canExport: boolean;
   hasVoice: boolean;
   onCancel: () => void;
@@ -26,7 +50,7 @@ type ExportPanelProps = {
 };
 
 /** MP4 export: start, follow the frame-by-frame progress, cancel, then download. */
-export function ExportPanel({ canExport, hasVoice, onCancel, onExport, resolutionLabel, state }: ExportPanelProps) {
+export function ExportPanel({ canExport, hasVoice, onCancel, onExport, resolutionLabel, soundtrack = null, state }: ExportPanelProps) {
   const progress = state.status === "running" ? state.progress : undefined;
   const ratio = progress ? progress.frame / progress.totalFrames : 0;
   const remainingMs = progress && progress.frame > 0
@@ -69,6 +93,7 @@ export function ExportPanel({ canExport, hasVoice, onCancel, onExport, resolutio
           Télécharger {state.fileName} ({(state.sizeBytes / 1_048_576).toFixed(1)} Mo)
         </a>
       ) : null}
+      {soundtrack && state.status !== "idle" ? <SoundtrackSummary report={soundtrack} /> : null}
       {state.status === "error" ? <p className="text-xs text-red-700">{state.message}</p> : null}
       {state.status === "idle" && state.message ? <p className="text-xs text-muted-foreground">{state.message}</p> : null}
     </div>

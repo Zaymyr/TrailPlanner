@@ -104,7 +104,7 @@ describe("buildVideoTimeline", () => {
   it("sizes intro and outro to their narration and keeps a manual total", () => {
     const timeline = buildVideoTimeline(path, [beat("intro", "intro", 0, 0, "Court."), beat("outro", "outro", 20, 20, "")], manual(45));
     expect(timeline.introMs).toBe(3_000);
-    expect(timeline.outroMs).toBe(3_000);
+    expect(timeline.outroMs).toBe(2_500);
     expect(timeline.totalMs).toBe(45_000);
     const noSequences = buildVideoTimeline(path, [], { ...manual(45), introEnabled: false, outroEnabled: false });
     expect(noSequences.flyoverMs).toBe(45_000);

@@ -21,7 +21,8 @@ import { instagramCaptionResponseSchema, NARRATION_STYLE_LABELS, narrationScript
 import { InstagramPanel } from "./InstagramPanel";
 import { ExportPanel, type ExportState } from "./ExportPanel";
 import { getExportFrame, overrideDevicePixelRatio } from "./export-frame";
-import { exportVideo } from "./video-export";
+import { loadReelMusicManifest, resolveMusicTrack, EMPTY_REEL_MUSIC_MANIFEST, type ReelMusicManifest } from "./reel-music";
+import { exportVideo, type SoundtrackReport } from "./video-export";
 import { AnimationControls } from "./AnimationControls";
 import {
   createRouteAnimationController,
@@ -669,6 +670,14 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   const exportAbortRef = useRef<AbortController | null>(null);
   const [exportLayout, setExportLayout] = useState<{ width: number; height: number; scale: number } | null>(null);
   const [exportState, setExportState] = useState<ExportState>({ status: "idle" });
+  const [soundtrack, setSoundtrack] = useState<SoundtrackReport | null>(null);
+  const [musicManifest, setMusicManifest] = useState<ReelMusicManifest>(EMPTY_REEL_MUSIC_MANIFEST);
+  useEffect(() => {
+    if (render) return;
+    let cancelled = false;
+    void loadReelMusicManifest().then((manifest) => { if (!cancelled) setMusicManifest(manifest); });
+    return () => { cancelled = true; };
+  }, [render]);
   const mapRef = useRef<MapboxMap | null>(null);
   const cameraRef = useRef<RouteCameraController | null>(null);
   const animationRef = useRef<RouteAnimationController | null>(null);
@@ -1298,6 +1307,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     const controller = new AbortController();
     exportAbortRef.current = controller;
     setExportState({ status: "running" });
+    setSoundtrack(null);
     setExportLayout({ width: frame.width, height: frame.height, scale: 1 });
     let lastProgressAt = 0;
     try {
@@ -1329,6 +1339,12 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
           },
         },
         narration: freshClips.length ? { clips: freshClips, cues: narrationCuesRef.current } : null,
+        music: resolveMusicTrack(settings.musicTrack, race.id ?? race.title, await loadReelMusicManifest()),
+        onSoundtrack: (report) => {
+          setSoundtrack(report);
+          // The background render has no panel: its console reaches the Cloud Run logs.
+          if (render) console.info("[video-render] soundtrack", JSON.stringify(report.master), report.music?.id ?? "no-music", report.musicFailed ? "music-failed" : "");
+        },
         onProgress: (progress) => {
           const now = performance.now();
           if (progress.phase === "rendering" && progress.frame < progress.totalFrames && now - lastProgressAt < 250) return;
@@ -1680,6 +1696,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
             onCancel={() => exportAbortRef.current?.abort()}
             onExport={() => void startExport()}
             resolutionLabel={settings.resolution}
+            soundtrack={soundtrack}
             state={exportState}
           />
           <BackgroundRenderPanel
@@ -1723,6 +1740,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
             narratedIds={new Set(beats.map((beat) => beat.id))}
             aidStations={aidStations}
             cameraActionsDisabled={!isReady || snapshot.isPlaying}
+            musicTracks={musicManifest.tracks}
             onChange={updateSettings}
             onFitOverview={() => cameraRef.current?.fitOverview()}
             onResetCamera={() => cameraRef.current?.reset()}
