@@ -11,6 +11,7 @@ import {
   HIGHLIGHT_MAX_SECONDS,
   HIGHLIGHT_MIN_SECONDS,
   isHookIntroEnabled,
+  isCompactOverlayEnabled,
   MAPBOX_STYLE_URL_PATTERN,
   PROFILE_SLOPE_CLASSES,
   VIDEO_DURATION_PRESETS,
@@ -302,6 +303,10 @@ export function CompositionSettingsPanel({
       </PanelSection>
 
       <PanelSection title="Informations affichées">
+        <Toggle label="Affichage allégé (téléphone)" checked={isCompactOverlayEnabled(settings)} onChange={(checked) => update("compactOverlay", checked)} />
+        <p className="text-xs text-muted-foreground">
+          Sans bandeau titre ni graduations, bulles de ravito réduites au nom. Par défaut en Temps forts.
+        </p>
         <div className="grid grid-cols-2 gap-x-2">
           {INFORMATION_TOGGLES.map(([key, label]) => (
             <Toggle key={key} label={label} checked={settings[key]} onChange={(checked) => update(key, checked)} />

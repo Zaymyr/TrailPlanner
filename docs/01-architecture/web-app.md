@@ -2,6 +2,7 @@
 title: Web App Architecture
 scope: architecture
 last_verified: 2026-11-19
+# Reel light overlay (2026-11-19): highlights reels (or compactOverlay on) drop the title band, the profile ticks and the aid bubble details; every readable overlay text is at least 32 px at 1080 wide.
 # Reel hook (2026-11-19): highlights reels (and full ones with hookIntro on) open on a 2.4 s hook: tilted camera on the hardest climb, one headline figure and the short event name (race_events.short_name, editable in the admin event dialog).
 # Reel highlights (2026-11-19): storyMode "highlights" tells 3 to 5 key moments in 30-50 s (highlights.ts); narrations are saved per race and mode.
 # Reel figures (2026-11-19): the admin reel generator shows the race record distance and D+ as the announced truth and rescales GPX kilometres and D+ to it (race-figures.ts); badge, counter, story, aid cards and AI inputs share one rounding policy.
@@ -893,7 +894,7 @@ Reels light the told climb or descent in the profile slope colours on the map an
 
 Reel numbers have one source of truth (`app/admin/video-generator/race-figures.ts`): the race record distance and D+ are the announced figures, GPX kilometres and D+ are rescaled to them (fallback to the GPX with a console warning when a race figure is more than 15 % / 35 % away), organizer station kilometres are placed on the GPX through the same scale, and the badge, the counter, the story, the aid cards, the transport bar and the script and caption inputs share one rounding policy. See [Mapbox 3D](../05-integrations/mapbox-3d.md#race-figures-single-source-of-truth).
 
-The reel type ("Parcours complet" / "Temps forts", setting `storyMode`, default full) can switch to a highlights reel: 3 to 5 key moments (hardest climb, refuel station, last climb, biggest descent, night passage, strategic stations) told in 30-50 s with fast transits between them, a script sized for that length (`mode: "highlights"`), and its own saved narration (`video_narrations` keyed by race and mode). See [Mapbox 3D](../05-integrations/mapbox-3d.md#highlights-reel-temps-forts).
+The reel type ("Parcours complet" / "Temps forts", setting `storyMode`, default full) can switch to a highlights reel: 3 to 5 key moments (hardest climb, refuel station, last climb, biggest descent, night passage, strategic stations) told in 30-50 s with fast transits between them, a script sized for that length (`mode: "highlights"`), and its own saved narration (`video_narrations` keyed by race and mode), with a lighter overlay by default (no title band or profile ticks, aid bubbles with the name only, every readable text at least 32 px). See [Mapbox 3D](../05-integrations/mapbox-3d.md#highlights-reel-temps-forts).
 
 ## RaceBook publication checks and partner slots (2026-11-09)
 

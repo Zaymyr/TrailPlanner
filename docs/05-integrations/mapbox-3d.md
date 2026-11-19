@@ -47,6 +47,7 @@ related_files:
   - apps/web/app/admin/video-generator/highlights.test.ts
   - apps/web/app/admin/video-generator/reel-hook.ts
   - apps/web/app/admin/video-generator/reel-hook.test.ts
+  - apps/web/app/admin/video-generator/overlay-readability.test.ts
   - apps/web/app/admin/video-generator/reel-race-fixtures.ts
   - apps/web/app/admin/video-generator/route-clock.ts
   - apps/web/app/admin/video-generator/route-clock.test.ts
@@ -189,6 +190,16 @@ Tests: `highlights.test.ts` covers the selection on a fixed profile and on two f
 - **Short name**: `getReelShortName(eventName, shortName)` uses `race_events.short_name` (admin field « Nom court (vidéo) » in the catalog event dialog) when set, otherwise drops years, ® ™ ©, edition markers (« 10e édition », « Édition 2026 »), sponsor suffixes (« by », « powered by », « présenté par », « avec », a trailing « - X » / « | X » segment), collapses spaces and trims edge punctuation; it never truncates or adds « … ». The detail DTO carries `race.eventShortName`.
 - **Script**: the highlights prompt asks that the intro's first sentence be a question or a strong statement of 12 words at most with no figure absent from the race; the intro budget stays 10 words.
 
+## Light Phone Overlay (phase 4)
+
+`VideoCompositionSettings.compactOverlay` (nullable, null = automatic: on in highlights mode, off in the full flyover; `isCompactOverlayEnabled`) lightens the top third for a phone screen ([ADR](../08-decisions/2026-11-19-reel-highlights-and-figures.md), decision 8). Settings toggle « Affichage allégé (téléphone) » under Informations affichées. With it off, the full flyover keeps its layout (title band, ticks, detailed bubbles), only with the larger fonts below.
+
+- **Kept:** the current kilometre line (`KM x / N`, time, altitude, grade), the slope-coloured profile with its window bar, and the leg card (kind chip, title, facts, services).
+- **Removed in the light overlay:** the title band (title, repeated subtitle and the permanent km / D+ pill; the hook and the voice already say them), the profile kilometre ticks, and the aid bubble details: a bubble shows the station name only, larger (4 cqmin); its kilometre, D+, life-base pill and cutoff are in the leg card. The leg card now also shows a station cutoff in red (« Barrière HH:MM », `CUTOFF_RED`) when no fact already says it, in both layouts.
+- **Position:** the light profile band starts at `COMPACT_TOP_CQMIN` = 12 cqmin (about 130 px), below Instagram's own top bar, and the leg card at 40 cqmin (about 430 px). Both stay far above the subtitles (64 % of the height) and the bottom 20 %.
+- **Minimum size:** every text meant to be read is at least `OVERLAY_MIN_FONT_CQMIN` = 3 cqmin = 32.4 px at 1080 wide, in both layouts (`OVERLAY_FONT_CQMIN`: caption chip, profile ticks, footer CTA, aid name and details, life-base pill, place labels; the cutoff clock icon follows its text at 1 em). Only the Mapbox attribution line (legal, not read) stays at 1.9 cqmin.
+- **Tests:** `overlay-readability.test.ts` checks the mode default, legacy settings, every listed font ≥ 32 px and the band top below 120 px.
+
 ## Environment And Provider Terms
 
 - `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`: public Mapbox token used only by the browser map. Restrict production, preview and local origins as needed; never place a Mapbox secret token in this variable.
@@ -227,6 +238,7 @@ Provider references:
 - Do not compute overlay content, camera or pacing anywhere else than `video-composition.ts` and `route-animation.ts`; the export must replay exactly what the preview shows.
 - Do not format a kilometre or a D+ with a local `toLocaleString` in the generator: go through `race-figures.ts`, otherwise the badge, the counter and the voice disagree again (the former badge used the race record, the counter the GPX length). Internal geometry stays in GPX kilometres; convert only for display and AI inputs.
 - Do not let the hook text wrap the figure or truncate the name: the figure shrinks to hold one line, the short name wraps to two lines whole.
+- Do not hard-code a font size for a readable overlay or map text: add it to `OVERLAY_FONT_CQMIN` so the 32 px test covers it.
 - Do not describe the current preview as video generation. It produces no video artifact until the export phase ships.
 
 ## Related Docs
