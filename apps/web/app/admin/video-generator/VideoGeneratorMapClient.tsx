@@ -111,6 +111,7 @@ import {
 } from "./race-figures";
 import { loadScriptNotes, storeScriptNotes } from "./script-notes";
 import { fetchNearestPlaceName, resolveEndpointNames, type EndpointNames } from "./place-labels";
+import { getEndpointLabelSpecs, getPinnedLabelBox, resolveLabelVisibility, type LabelCandidate, type LabelKind } from "./label-layout";
 
 const TERRAIN_SOURCE_ID = "video-terrain-dem";
 const ROUTE_SOURCE_ID = "video-route";
@@ -158,7 +159,9 @@ export const fetchNearestPeakName = async (lon: number, lat: number, token: stri
   return (peaks[0]?.name as string | undefined) ?? null;
 };
 
-type AidBubble = { distanceKm: number; card: HTMLElement; marker: mapboxgl.Marker; opacity: number };
+/** A label card pinned above a route point; `hidden` is the verdict of the label layout. */
+type PinnedLabel = { id: string; kind: LabelKind; card: HTMLElement; marker: mapboxgl.Marker; lon: number; lat: number; elevationM: number; offsetY: number; tailCqmin: number; hidden: boolean };
+type AidBubble = PinnedLabel & { distanceKm: number; opacity: number };
 
 type StationIconKind = "start" | "finish" | "aid" | "lifeBase";
 const STATION_ICON_IDS: Record<StationIconKind, string> = {
@@ -371,7 +374,7 @@ const createPlaceLabelElement = (kind: string, name: string, accent: string) => 
   Object.assign(nameLine.style, { fontWeight: "800", fontSize: `${OVERLAY_FONT_CQMIN.placeName}cqmin`, lineHeight: "1.15", color: "#1a1a1a" });
   card.append(kindLine, nameLine);
   element.appendChild(card);
-  return element;
+  return { element, card };
 };
 
 // A card shows from 3.5 s before the runner reaches its station to 1.5 s after, with short fades:
@@ -393,6 +396,57 @@ const updateAidBubbles = (bubbles: AidBubble[], timeline: VideoTimeline, timeMs:
     if (rounded !== bubble.opacity) {
       bubble.opacity = rounded;
       bubble.card.style.opacity = String(rounded);
+    }
+  });
+};
+
+// The marker offsets (px) of the aid bubbles and of the start / finish labels, and the tail that
+// hangs under an aid card (cqmin).
+const AID_MARKER_OFFSET_Y = -28;
+const PLACE_MARKER_OFFSET_Y = -18;
+const AID_TAIL_CQMIN = 1.2;
+
+// Card sizes only change with the frame size: measured once per size, never inside the frame loop.
+const labelSizeCache = new WeakMap<HTMLElement, { key: string; width: number; height: number }>();
+const measureLabelCard = (card: HTMLElement, key: string) => {
+  const cached = labelSizeCache.get(card);
+  if (cached && cached.key === key) return cached;
+  const measured = { key, width: card.offsetWidth, height: card.offsetHeight };
+  labelSizeCache.set(card, measured);
+  return measured;
+};
+
+/**
+ * Hides the labels that overlap a more important one or that the frame edge would cut (see
+ * label-layout.ts). The boxes come from the projection of each anchor through the current camera,
+ * so the verdict only depends on the frame; it is written as `visibility` (the aid cards fade with
+ * `opacity`, Mapbox owns the marker element), and only when it changes.
+ */
+const updateLabelLayout = (map: MapboxMap, labels: PinnedLabel[], isActive: (label: PinnedLabel) => boolean, terrainExaggeration: number) => {
+  if (labels.length === 0 || typeof map.project !== "function") return;
+  const container = map.getContainer();
+  const frame = { width: container.clientWidth, height: container.clientHeight };
+  // Not laid out (hidden tab, no size yet): leave the labels as they are.
+  if (frame.width <= 0 || frame.height <= 0) return;
+  const sizeKey = `${frame.width}x${frame.height}`;
+  const cqminPx = Math.min(frame.width, frame.height) / 100;
+  const candidates = labels.map((label): LabelCandidate => {
+    const size = measureLabelCard(label.card, sizeKey);
+    const anchor = map.project([label.lon, label.lat], label.elevationM * terrainExaggeration);
+    const projected = Number.isFinite(anchor.x) && Number.isFinite(anchor.y) && anchor.x < Number.MAX_VALUE && size.width > 0;
+    return {
+      id: label.id,
+      kind: label.kind,
+      active: isActive(label),
+      box: projected ? getPinnedLabelBox(anchor, size, label.offsetY, label.tailCqmin * cqminPx) : null,
+    };
+  });
+  const verdicts = resolveLabelVisibility(candidates, frame);
+  labels.forEach((label) => {
+    const hidden = verdicts.get(label.id) === false;
+    if (hidden !== label.hidden) {
+      label.hidden = hidden;
+      label.card.style.visibility = hidden ? "hidden" : "visible";
     }
   });
 };
@@ -616,7 +670,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   // Told slope on the map: data changes once per beat, opacity only when its rounded value moves.
   const toldSlopeIdRef = useRef<string | null>(null);
   const toldSlopeOpacityRef = useRef(-1);
-  const placeLabelMarkersRef = useRef<mapboxgl.Marker[]>([]);
+  const placeLabelsRef = useRef<PinnedLabel[]>([]);
   const narrationPlayerRef = useRef<NarrationPlayer | null>(null);
   // `map.isStyleLoaded()` is false whenever a tile is loading or a source was just updated, which is
   // permanently the case while the camera flies. Gating frames on it skipped most of them.
@@ -822,6 +876,13 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     const routePoint = getRoutePointAtDistance(path, frame.distanceKm);
     progressMarkerRef.current?.setLngLat([routePoint.lon, routePoint.lat]);
     updateAidBubbles(aidBubblesRef.current, timelineRef.current, frame.phase === "flyover" && settingsRef.current.showAidBubbles ? frame.timeMs : null);
+    // Labels hidden when they overlap a more important one or would be cut by the frame edge.
+    updateLabelLayout(
+      map,
+      [...aidBubblesRef.current, ...placeLabelsRef.current],
+      (label) => (label.kind === "aid" ? (label as AidBubble).opacity > 0 : true),
+      settingsRef.current.terrainExaggeration,
+    );
     const toldSlope = settingsRef.current.highlightToldSlopes ? getToldSlope(frame) : null;
     const toldSource = map.getSource(TOLD_SLOPE_SOURCE_ID) as GeoJSONSource | undefined;
     if (toldSource && (toldSlope?.id ?? null) !== toldSlopeIdRef.current) {
@@ -940,10 +1001,23 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
         const { element, card } = createAidCardElement(station, getCumulativeGainAt(preparedPath, station.distanceKm), settings.accentColor, figures, compactOverlay);
         // The card tail stops a few pixels above the station icon drawn by the map (about 15 px
         // radius), so the bubble floats over its station instead of touching it.
-        const marker = new mapboxgl.Marker({ element, anchor: "center", offset: [0, -28], occludedOpacity: 1 })
+        const marker = new mapboxgl.Marker({ element, anchor: "center", offset: [0, AID_MARKER_OFFSET_Y], occludedOpacity: 1 })
           .setLngLat([point.lon, point.lat])
           .addTo(map);
-        return { distanceKm: station.distanceKm, card, marker, opacity: -1 };
+        return {
+          id: `aid-${station.id}`,
+          kind: "aid",
+          distanceKm: station.distanceKm,
+          card,
+          marker,
+          lon: point.lon,
+          lat: point.lat,
+          elevationM: point.elevationM,
+          offsetY: AID_MARKER_OFFSET_Y,
+          tailCqmin: AID_TAIL_CQMIN,
+          hidden: false,
+          opacity: -1,
+        };
       });
     aidBubblesRef.current = bubbles;
     refreshCurrentFrame();
@@ -957,22 +1031,24 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !isReady || !settings.showPlaceNames || !preparedPath.canAnimate) return;
-    const labels = ([["start", "Départ", 0], ["finish", "Arrivée", preparedPath.totalDistanceKm]] as const)
-      .flatMap(([key, kind, distanceKm]) => {
-        const name = endpointNames[key];
-        if (!name) return [];
-        const point = getRoutePointAtDistance(preparedPath, distanceKm);
-        const marker = new mapboxgl.Marker({ element: createPlaceLabelElement(kind, name, settings.accentColor), anchor: "center", offset: [0, -18], occludedOpacity: 1 })
-          .setLngLat([point.lon, point.lat])
-          .addTo(map);
-        return [marker];
-      });
-    placeLabelMarkersRef.current = labels;
+    // A loop (start and finish under 1,500 m apart) gets one « Départ / Arrivée » label.
+    const startPoint = getRoutePointAtDistance(preparedPath, 0);
+    const finishPoint = getRoutePointAtDistance(preparedPath, preparedPath.totalDistanceKm);
+    const labels = getEndpointLabelSpecs(endpointNames, startPoint, finishPoint).map((spec): PinnedLabel => {
+      const point = spec.atFinish ? finishPoint : startPoint;
+      const { element, card } = createPlaceLabelElement(spec.kind, spec.name, settings.accentColor);
+      const marker = new mapboxgl.Marker({ element, anchor: "center", offset: [0, PLACE_MARKER_OFFSET_Y], occludedOpacity: 1 })
+        .setLngLat([point.lon, point.lat])
+        .addTo(map);
+      return { id: `place-${spec.id}`, kind: "endpoint", card, marker, lon: point.lon, lat: point.lat, elevationM: point.elevationM, offsetY: PLACE_MARKER_OFFSET_Y, tailCqmin: 0, hidden: false };
+    });
+    placeLabelsRef.current = labels;
+    refreshCurrentFrame();
     return () => {
-      labels.forEach((marker) => marker.remove());
-      placeLabelMarkersRef.current = [];
+      labels.forEach((label) => label.marker.remove());
+      placeLabelsRef.current = [];
     };
-  }, [endpointNames, isReady, preparedPath, settings.accentColor, settings.showPlaceNames]);
+  }, [endpointNames, isReady, preparedPath, refreshCurrentFrame, settings.accentColor, settings.showPlaceNames]);
 
   // Station icons are images in the style: redraw them when the accent colour changes.
   useEffect(() => {
@@ -1186,7 +1262,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
             // DOM markers take the terrain height known when the camera moved; the finer elevation
             // tiles loaded since can lift the station icons drawn by the map. Place them again so
             // every bubble sits on its icon in the captured frame.
-            for (const marker of [...aidBubblesRef.current.map((bubble) => bubble.marker), ...placeLabelMarkersRef.current, progressMarkerRef.current]) {
+            for (const marker of [...aidBubblesRef.current.map((bubble) => bubble.marker), ...placeLabelsRef.current.map((label) => label.marker), progressMarkerRef.current]) {
               marker?.setLngLat(marker.getLngLat());
             }
           },

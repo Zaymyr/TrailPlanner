@@ -36,6 +36,10 @@ const distanceMeters = (from: { lat: number; lon: number }, to: { lat: number; l
   return 2 * 6_371_000 * Math.asin(Math.sqrt(a));
 };
 
+/** Start and finish under 1,500 m apart are one place (a loop): one label, the start name. */
+export const isSamePlace = (start: { lat: number; lon: number }, finish: { lat: number; lon: number }) =>
+  distanceMeters(start, finish) < SAME_PLACE_METERS;
+
 export const resolveEndpointNames = async (
   start: { lat: number; lon: number },
   finish: { lat: number; lon: number },
@@ -43,7 +47,7 @@ export const resolveEndpointNames = async (
   lookup: (lon: number, lat: number) => Promise<string | null>,
 ): Promise<EndpointNames> => {
   const known = startPlace?.trim() ? shorten(startPlace.trim()) : null;
-  const loop = distanceMeters(start, finish) < SAME_PLACE_METERS;
+  const loop = isSamePlace(start, finish);
   const [startName, finishName] = await Promise.all([
     known ? Promise.resolve(known) : lookup(start.lon, start.lat).catch(() => null),
     loop ? Promise.resolve(null) : lookup(finish.lon, finish.lat).catch(() => null),

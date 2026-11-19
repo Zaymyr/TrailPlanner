@@ -2,6 +2,7 @@
 title: Web App Architecture
 scope: architecture
 last_verified: 2026-11-19
+# Reel camera and labels (2026-11-19): highlights reels (or tiltedCamera on) use a 60 degree chase camera that keeps the runner and the next 2 km in frame (camera-framing.ts); start/finish/aid labels never overlap or get cut by the frame edge, and a loop shows one Départ / Arrivée label (label-layout.ts).
 # Inbox push badge (2026-11-18): `sendAdminUserNotificationPush` counts the runner's unread, non-deleted `user_notifications` (service role, after the row is inserted) and sends it as the Expo `badge`; a failed count only drops the badge. Other pushes (race reminders, race event updates) send no badge, unchanged.
 # Reel light overlay (2026-11-19): highlights reels (or compactOverlay on) drop the title band, the profile ticks and the aid bubble details; every readable overlay text is at least 32 px at 1080 wide.
 # Reel hook (2026-11-19): highlights reels (and full ones with hookIntro on) open on a 2.4 s hook: tilted camera on the hardest climb, one headline figure and the short event name (race_events.short_name, editable in the admin event dialog).
