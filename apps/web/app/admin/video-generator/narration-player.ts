@@ -6,6 +6,8 @@ export type NarrationClip = {
   durationMs: number;
   /** Per-character end times (ms) of `text`, when ElevenLabs returned an exact alignment. */
   characterEndMs?: number[];
+  /** Per-character start times (ms), absent from older clips. */
+  characterStartMs?: number[];
 };
 
 export type NarrationCue = { beatId: string; startMs: number };

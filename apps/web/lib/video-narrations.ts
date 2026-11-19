@@ -26,6 +26,8 @@ export const savedClipSchema = z.object({
   audioBase64: z.string().max(2_000_000),
   durationMs: z.number().min(0).max(120_000),
   characterEndMs: z.array(z.number()).max(600).optional(),
+  // Absent from clips saved before the subtitles used word timing.
+  characterStartMs: z.array(z.number()).max(600).optional(),
 });
 
 export const saveNarrationRequestSchema = z.object({

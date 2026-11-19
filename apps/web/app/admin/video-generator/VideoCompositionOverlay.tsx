@@ -18,6 +18,15 @@ import {
 } from "./video-composition";
 import { formatClockTime } from "./route-clock";
 import {
+  SUBTITLE_CENTER_Y_RATIO,
+  SUBTITLE_FONT_CQMIN,
+  SUBTITLE_LEFT_RATIO,
+  SUBTITLE_LINE_HEIGHT,
+  SUBTITLE_PADDING_X_CQMIN,
+  SUBTITLE_PADDING_Y_CQMIN,
+  SUBTITLE_RIGHT_RATIO,
+} from "./subtitle-groups";
+import {
   formatKm,
   formatKmFixed,
   formatTotalElevationM,
@@ -193,7 +202,7 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, figures, frameS
   const accent = settings.accentColor;
   const hasHeader = settings.showTitle || Boolean(stats);
   const hasProfileBand = settings.showProfile || settings.showCurrentKm;
-  // The leg card sits under the profile band so the bottom stays free for the subtitles.
+  // The leg card sits under the profile band; the subtitles sit lower, centred at 64 % of the frame.
   const captionTop = hasProfileBand ? (hasHeader ? "47cqmin" : "35cqmin") : hasHeader ? "16cqmin" : "4cqmin";
   // The accent is a background, never text on the dark gradients, so a dark brand green stays legible.
   const accentPill = { background: accent, color: "#ffffff", padding: "0.6cqmin 2.2cqmin", textShadow: "none" };
@@ -235,26 +244,29 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, figures, frameS
 
       {settings.showCaptions && frame.beat ? <StoryCaption accent={accent} beat={frame.beat} figures={figures} timeMs={frame.timeMs} top={captionTop} /> : null}
 
-      {/* Burned-in subtitles of the voice-over in the Pace Yourself look: white text on a brand-green
-          band with a soft shadow; high contrast on any map. */}
+      {/* Burned-in subtitles of the voice-over: a fixed-width accent box centred at 64 % of the frame,
+          inside the Instagram safe zone (above y = 1500 px of 1920, clear of the right 15 % band). */}
       {settings.showSubtitles && frame.subtitle ? (
-        <p
-          className="absolute text-center font-medium leading-snug text-white"
-          style={{ left: "6cqmin", right: "6cqmin", bottom: "15cqmin", fontSize: "4.2cqmin", textShadow: "none", letterSpacing: "0.01em" }}
+        <div
+          className="absolute flex items-center justify-center text-center font-medium text-white"
+          style={{
+            left: `${SUBTITLE_LEFT_RATIO * 100}%`,
+            width: `${(SUBTITLE_RIGHT_RATIO - SUBTITLE_LEFT_RATIO) * 100}%`,
+            top: `${SUBTITLE_CENTER_Y_RATIO * 100}%`,
+            transform: "translateY(-50%)",
+            minHeight: `${SUBTITLE_FONT_CQMIN * SUBTITLE_LINE_HEIGHT + 2 * SUBTITLE_PADDING_Y_CQMIN}cqmin`,
+            padding: `${SUBTITLE_PADDING_Y_CQMIN}cqmin ${SUBTITLE_PADDING_X_CQMIN}cqmin`,
+            fontSize: `${SUBTITLE_FONT_CQMIN}cqmin`,
+            lineHeight: SUBTITLE_LINE_HEIGHT,
+            letterSpacing: "0.01em",
+            textShadow: "none",
+            background: `${accent}eb`,
+            borderRadius: "1.2cqmin",
+            boxShadow: "0 0.5cqmin 1.6cqmin rgba(0, 0, 0, 0.35)",
+          }}
         >
-          <span
-            className="rounded-[1.2cqmin]"
-            style={{
-              padding: "0.6cqmin 1.8cqmin",
-              background: `${accent}eb`,
-              boxShadow: "0 0.5cqmin 1.6cqmin rgba(0, 0, 0, 0.35)",
-              boxDecorationBreak: "clone",
-              WebkitBoxDecorationBreak: "clone",
-            }}
-          >
-            {frame.subtitle}
-          </span>
-        </p>
+          {frame.subtitle}
+        </div>
       ) : null}
 
       {/* Mapbox attribution as legible text; the Mapbox logo stays on the map itself. */}

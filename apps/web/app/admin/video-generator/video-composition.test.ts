@@ -197,7 +197,7 @@ describe("buildVideoTimeline", () => {
     const text = "Départ. Ça grimpe.";
     // The second sentence is spoken slowly: 2 s for its 10 characters.
     const timing = Array.from(text, (_, index) => (index < 8 ? (index + 1) * 50 : 400 + (index - 7) * 200));
-    const timeline = buildVideoTimeline(flatPath(10), [beat("leg", "start", 0, 10, text)], { ...manual(30), introEnabled: false, outroEnabled: false }, { leg: 2_400 }, null, { leg: timing });
+    const timeline = buildVideoTimeline(flatPath(10), [beat("leg", "start", 0, 10, text)], { ...manual(30), introEnabled: false, outroEnabled: false }, { leg: 2_400 }, null, { leg: { characterEndMs: timing } });
     const [first, second] = timeline.beats[0].subtitles;
     expect(first.text).toBe("Départ.");
     expect(second.text).toBe("Ça grimpe.");

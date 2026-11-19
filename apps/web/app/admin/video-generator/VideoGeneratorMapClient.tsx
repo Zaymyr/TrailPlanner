@@ -764,7 +764,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     [beats, voiceClips],
   );
   const narrationAlignments = useMemo<NarrationAlignments>(
-    () => Object.fromEntries(freshClips.flatMap((clip) => clip.characterEndMs ? [[clip.beatId, clip.characterEndMs]] : [])),
+    () => Object.fromEntries(freshClips.flatMap((clip) => clip.characterEndMs ? [[clip.beatId, { characterEndMs: clip.characterEndMs, characterStartMs: clip.characterStartMs }]] : [])),
     [freshClips],
   );
   const narrationDurations = useMemo<NarrationDurations>(
@@ -1254,6 +1254,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
           audioBase64: clip.audioBase64,
           durationMs: clip.durationMs,
           characterEndMs: clip.characterEndMs,
+          characterStartMs: clip.characterStartMs,
         }])),
       }));
       if (voiceId) updateVoiceLibrary((voices) => rememberVoice(voices, voiceId));

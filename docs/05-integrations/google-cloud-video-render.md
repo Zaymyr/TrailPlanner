@@ -1,7 +1,7 @@
 ---
 title: Google Cloud Background Reel Render
 scope: integration
-last_verified: 2026-11-04
+last_verified: 2026-11-19
 ai_priority: medium
 related_files:
   - apps/web/app/api/admin/video-generator/render-jobs/[id]/route.test.ts
@@ -42,7 +42,7 @@ The admin 3D reel can be exported in the browser, which needs the tab open and v
 ## Flow
 
 1. The admin clicks "Générer en arrière-plan". The browser posts `{ raceId, raceTitle, width, height }` to `POST /api/admin/video-generator/render-jobs`, which inserts a `video_render_jobs` row (`uploading`) and returns a 15-minute signed PUT URL.
-2. The browser uploads the composition snapshot (`render-snapshot.ts`: route points, stations, settings, edited narration, summit names, generated voice clips) straight to Cloud Storage as `jobs/<id>/input.json`. It can weigh several megabytes, more than a serverless request body allows.
+2. The browser uploads the composition snapshot (`render-snapshot.ts`: route points, stations, settings, edited narration, summit names, generated voice clips with their per-character end and optional start times, absent from snapshots saved before word-timed subtitles) straight to Cloud Storage as `jobs/<id>/input.json`. It can weigh several megabytes, more than a serverless request body allows.
 3. `POST /api/admin/video-generator/render-jobs/<id>/start` checks the snapshot exists, then runs one execution of the Cloud Run job `video-render` with a single env override, `RENDER_URL`: `https://<app>/render/video/<id>?w=<width>&h=<height>#token=<job token>`. The row becomes `queued`.
 4. The job (`apps/video-render-worker`) opens that URL in headless Google Chrome with a window of exactly the video size and waits for `window.__videoRender.status` to be `done` or `failed` (55 min at most, `RENDER_TIMEOUT_MS`, set by the deploy). WebGL runs on the job's NVIDIA L4: `gpu.mjs` tries ANGLE on Vulkan, then on EGL, keeps the first whose unmasked WebGL renderer is not a software rasterizer, and falls back to SwiftShader (CPU); the chosen backend, its renderer string and the mounted driver libraries are logged. `RENDER_GPU=off` forces SwiftShader.
 5. The render page (`/render/video/[id]`, standalone, noindex) calls `GET /api/video-render/jobs/<id>` with the token. That call marks the job `running` and returns a signed GET URL of the snapshot and a signed PUT URL for `jobs/<id>/reel.mp4` valid `MAX_RENDER_HOURS` (8 h). It then mounts the normal viewer in render mode: the saved settings, narration, landmarks and clips seed its state, no panel is shown, the Tilequery peak lookup is skipped and the export starts as soon as the map is ready. The snapshot carries the editor's `previewSize` (CSS size of the preview frame; 405 × 720, or 720 × 405 in 16:9, for snapshots saved before): the page forces `window.devicePixelRatio` to video width ÷ preview width before creating the map, so the render frames the map exactly like the preview, at the video resolution.
