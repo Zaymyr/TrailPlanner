@@ -7,6 +7,7 @@ import {
   getProfileShades,
   getToldSlope,
   getProfileTicks,
+  isHookIntroEnabled,
   getProfileWindow,
   getProfileY,
   PROFILE_UNITS_PER_KM,
@@ -17,6 +18,19 @@ import {
   type VideoFrameState,
 } from "./video-composition";
 import { formatClockTime } from "./route-clock";
+import {
+  getHookOverlayState,
+  getShockFigureFontCqmin,
+  HOOK_FIGURE_TOP_RATIO,
+  HOOK_INTRO_MS,
+  HOOK_LEFT_RATIO,
+  HOOK_NAME_CQMIN,
+  HOOK_NAME_GAP_CQMIN,
+  HOOK_NAME_LINE_HEIGHT,
+  HOOK_RIGHT_RATIO,
+  HOOK_UNIT_SCALE,
+  pickShockFigure,
+} from "./reel-hook";
 import {
   SUBTITLE_CENTER_Y_RATIO,
   SUBTITLE_FONT_CQMIN,
@@ -45,6 +59,8 @@ export type VideoRaceInfo = {
   elevationGainM: number | null;
   /** Start place, date and time, e.g. "Lyon · 28 novembre · 23:30". */
   startDetail: string | null;
+  /** Short event name of the reel hook (race_events.short_name, else derived from the event name). */
+  shortName?: string | null;
   /** Organizer start place, shortened to its landmark ("Saint-Étienne"), for the map label. */
   startPlace?: string | null;
   /** Raw race date (YYYY-MM-DD) and start time (HH:MM), for the estimated race clock. */
@@ -196,9 +212,12 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, figures, frameS
   const stats = formatRaceStats(figures, settings);
   const isIntro = frame.phase === "intro";
   const isOutro = frame.phase === "outro";
-  const introOpacity = isIntro ? Math.min(1, (1 - frame.phaseProgress) / 0.3) : 0;
+  // The hook replaces the title card: one figure and the short name, no pill, subtitle or start.
+  const hook = isIntro && isHookIntroEnabled(settings) ? getHookOverlayState(frame.timeMs, HOOK_INTRO_MS) : null;
+  const shockFigure = hook ? pickShockFigure(figures) : null;
+  const introOpacity = isIntro && !hook ? Math.min(1, (1 - frame.phaseProgress) / 0.3) : 0;
   const outroOpacity = isOutro ? Math.min(1, Math.max(0, (frame.phaseProgress - 0.4) / 0.3)) : 0;
-  const chromeOpacity = isIntro ? 1 - introOpacity : isOutro ? 1 - outroOpacity : 1;
+  const chromeOpacity = hook ? hook.chromeOpacity : isIntro ? 1 - introOpacity : isOutro ? 1 - outroOpacity : 1;
   const accent = settings.accentColor;
   const hasHeader = settings.showTitle || Boolean(stats);
   const hasProfileBand = settings.showProfile || settings.showCurrentKm;
@@ -372,7 +391,43 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, figures, frameS
         </footer>
       ) : null}
 
-      {isIntro ? (
+      {hook ? (
+        <>
+          {/* Legibility veil over the upper half only: the map stays bright where the camera flies. */}
+          <div className="absolute inset-x-0 top-0 h-[55%] bg-gradient-to-b from-black/60 via-black/30 to-transparent" style={{ opacity: Math.max(hook.figureOpacity, hook.nameOpacity) }} />
+          <div
+            className="absolute flex flex-col items-center text-center"
+            style={{ left: `${HOOK_LEFT_RATIO * 100}%`, width: `${(HOOK_RIGHT_RATIO - HOOK_LEFT_RATIO) * 100}%`, top: `${HOOK_FIGURE_TOP_RATIO * 100}%` }}
+          >
+            {shockFigure ? (
+              <p
+                className="whitespace-nowrap font-black leading-none tabular-nums tracking-tight"
+                style={{ fontSize: `${getShockFigureFontCqmin(shockFigure)}cqmin`, opacity: hook.figureOpacity }}
+              >
+                {shockFigure.value}
+                <span style={{ fontSize: `${HOOK_UNIT_SCALE}em`, marginLeft: "0.25em" }}>{shockFigure.unit}</span>
+              </p>
+            ) : null}
+            {race.shortName ? (
+              <p
+                className="font-black uppercase"
+                style={{
+                  marginTop: `${HOOK_NAME_GAP_CQMIN}cqmin`,
+                  fontSize: `${HOOK_NAME_CQMIN}cqmin`,
+                  lineHeight: HOOK_NAME_LINE_HEIGHT,
+                  overflowWrap: "break-word",
+                  opacity: hook.nameOpacity,
+                  transform: `translateY(${hook.nameOffsetCqmin}cqmin)`,
+                }}
+              >
+                {race.shortName}
+              </p>
+            ) : null}
+          </div>
+        </>
+      ) : null}
+
+      {isIntro && !hook ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/35 px-[6cqmin] text-center" style={{ opacity: introOpacity }}>
           <p className="font-black uppercase leading-none" style={{ fontSize: "10cqmin" }}>{race.title}</p>
           {race.subtitle ? <p className="mt-[2cqmin] font-bold uppercase" style={{ fontSize: "5.5cqmin" }}>{race.subtitle}</p> : null}

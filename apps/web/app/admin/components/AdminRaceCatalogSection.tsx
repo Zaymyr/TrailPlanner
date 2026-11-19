@@ -32,6 +32,7 @@ const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const raceEventSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
+  short_name: z.string().nullable().optional(),
   location: z.string().nullable().optional(),
   race_date: z.string().nullable().optional(),
   thumbnail_url: z.string().nullable().optional(),
@@ -87,6 +88,7 @@ type EditFormValues = z.infer<typeof editFormSchema>;
 
 const editEventFormSchema = z.object({
   name: z.string().trim().min(1),
+  short_name: z.string().trim().max(40, "40 caractères au plus.").refine((value) => !value.includes("…"), "Sans « … » : le nom s’affiche en entier.").optional(),
   location: z.string().trim().optional(),
   race_date: z.string().trim().optional(),
   thumbnail_url: z.string().trim().optional(),
@@ -345,6 +347,7 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
       if (fields.race_date !== undefined) body.race_date = fields.race_date || null;
       if (fields.thumbnail_url !== undefined) body.thumbnail_url = fields.thumbnail_url || null;
       if (fields.is_live !== undefined) body.is_live = fields.is_live;
+      if (fields.short_name !== undefined) body.short_name = fields.short_name || null;
 
       const response = await fetch(`/api/admin/race-events/${id}`, {
         method: "PATCH",
@@ -662,6 +665,7 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
     setEditEvent(event);
     editEventForm.reset({
       name: event.name,
+      short_name: event.short_name ?? "",
       location: event.location ?? "",
       race_date: event.race_date ?? "",
       thumbnail_url: event.thumbnail_url ?? "",
@@ -2248,6 +2252,15 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
                 <div className="space-y-1">
                   <Label className="text-xs">{t.fields.location}</Label>
                   <Input className="h-9 text-sm" {...editEventForm.register("location")} />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label className="text-xs">Nom court (vidéo)</Label>
+                  <Input className="h-9 text-sm" maxLength={40} placeholder="Facultatif : sinon déduit du nom" {...editEventForm.register("short_name")} />
+                  {editEventForm.formState.errors.short_name ? (
+                    <p className="text-xs text-red-500">{editEventForm.formState.errors.short_name.message}</p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Affiché en ouverture des reels. Sans année ni sponsor, 40 caractères au plus.</p>
+                  )}
                 </div>
                 <div className="space-y-1 sm:col-span-2">
                   <Label className="text-xs">Date de l’événement</Label>

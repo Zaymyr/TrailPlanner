@@ -61,6 +61,12 @@ const clamp = (value: number, minimum: number, maximum: number) => Math.min(maxi
 
 const slopeScore = (slope: RouteSlope) => slope.elevationM * Math.sqrt(Math.max(0.01, slope.averageGrade));
 
+/** The hardest climb of a route, with the same score as the highlights (null without climb). */
+export const findHardestClimb = (path: PreparedAnimationPath): RouteSlope | null =>
+  detectRouteSlopes(path)
+    .filter((slope) => slope.kind === "climb")
+    .sort((left, right) => slopeScore(right) - slopeScore(left) || left.startKm - right.startKm)[0] ?? null;
+
 type Candidate = Omit<Highlight, "id" | "facts" | "nearbyStations"> & { nearbyStations: VideoAidStation[] };
 
 /** Dwell span around a point moment (station, nightfall): about 1 % of the route. */

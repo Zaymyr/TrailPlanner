@@ -123,7 +123,7 @@ Chaque tronçon est un temps fort isolé (la plus grosse montée, la dernière m
 - enchaîne d'un temps fort au suivant par une transition très courte (« plus loin… », « et en fin de course… ») : le reste du parcours n'est pas montré, ne le raconte pas ;
 ${FACTS_RULE} ne cite aucun chiffre absent de course ou des faits du tronçon ;
 ${EAR_RULE}
-- l'intro accroche en une phrase avec la distance et le dénivelé de la course ; l'outro invite à télécharger l'appli Pace Yourself, dispo sur iPhone et Android, pour préparer son plan de course, sur le même ton.
+- l'intro (hl-intro) est l'accroche des 2 premières secondes, dite sous le chiffre choc et le nom de la course : sa première phrase est une question ou une affirmation forte de 12 mots au plus, sans aucun chiffre absent de course ; l'outro invite à télécharger l'appli Pace Yourself, dispo sur iPhone et Android, pour préparer son plan de course, sur le même ton.
 
 Renvoie une narration pour chaque id reçu, dans le même ordre.`;
 
