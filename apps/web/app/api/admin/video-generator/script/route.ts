@@ -23,6 +23,29 @@ const FIXED_WORDS: Partial<Record<NarrationScriptRequest["beats"][number]["kind"
   intro: 18,
   outro: 12,
 };
+// Highlights reel (30-45 s): a short hook and a short call to action around 3 to 5 moments.
+const HIGHLIGHT_FIXED_WORDS: Partial<Record<NarrationScriptRequest["beats"][number]["kind"], number>> = {
+  intro: 10,
+  outro: 8,
+};
+// Fast flight between two moments, one more than the moments (HIGHLIGHT_TRANSIT_MS in video-composition).
+const HIGHLIGHT_TRANSIT_SECONDS = 1.2;
+const HIGHLIGHT_MIN_WORDS = 7;
+const HIGHLIGHT_MAX_WORDS = 30;
+
+/**
+ * A highlights reel spends its time on the moments: the target minus the transits and the
+ * silences, shared equally between the moments (each is told on its own, not by its length).
+ */
+const allocateHighlightWords = (beats: NarrationScriptRequest["beats"], targetSeconds: number, wordsPerSecond: number) => {
+  const fixed = beats.reduce((sum, beat) => sum + (HIGHLIGHT_FIXED_WORDS[beat.kind] ?? 0), 0);
+  const moments = beats.filter((beat) => HIGHLIGHT_FIXED_WORDS[beat.kind] === undefined);
+  // Intro and outro keep 0.5 s of silence on each side, each moment 0.5 s after its sentence.
+  const speakingSeconds = targetSeconds - HIGHLIGHT_TRANSIT_SECONDS * (moments.length + 1) - GAP_SECONDS_PER_BEAT * (moments.length + 4);
+  const budget = Math.max(moments.length * HIGHLIGHT_MIN_WORDS, Math.round(speakingSeconds * wordsPerSecond) - fixed);
+  const perMoment = Math.max(HIGHLIGHT_MIN_WORDS, Math.min(HIGHLIGHT_MAX_WORDS, Math.floor(budget / Math.max(1, moments.length))));
+  return beats.map((beat) => HIGHLIGHT_FIXED_WORDS[beat.kind] ?? perMoment);
+};
 
 /**
  * Each leg is on screen for as long as its narration lasts, so its words follow its share of the
@@ -65,18 +88,46 @@ const OPENINGS = [
 
 const pick = <T,>(items: readonly T[]) => items[Math.floor(Math.random() * items.length)];
 
-const buildSystemPrompt = (style: NarrationStyle, opening: string, voiceModel: NarrationScriptRequest["voiceModel"]) =>
-  `${SYSTEM_PROMPT_HEAD}${STYLE_PROMPTS[style]}
+const buildSystemPrompt = (
+  style: NarrationStyle,
+  opening: string,
+  voiceModel: NarrationScriptRequest["voiceModel"],
+  mode: NarrationScriptRequest["mode"] = "full",
+) =>
+  `${mode === "highlights" ? HIGHLIGHTS_PROMPT_HEAD : SYSTEM_PROMPT_HEAD}${STYLE_PROMPTS[style]}
 
 Pour ce reel, l'intro s'ouvre sur ${opening}. Varie tes formulations : pas de phrases toutes faites ni de tics (« c'est parti », « accroche-toi ») répétés d'un tronçon à l'autre ; le brouillon de chaque tronçon ne sert qu'à connaître les faits, ne reprends pas sa façon de dire.
 
-${SYSTEM_PROMPT_RULES}${voiceModel === "v3" ? V3_TAGS_PROMPT : ""}`;
+${mode === "highlights" ? HIGHLIGHTS_PROMPT_RULES : SYSTEM_PROMPT_RULES}${voiceModel === "v3" ? V3_TAGS_PROMPT : ""}`;
 
-const SYSTEM_PROMPT_HEAD = `Tu es la voix off des reels de Pace Yourself, l'appli qui aide les traileurs à préparer leur plan de course.
+const PROMPT_INTRO = `Tu es la voix off des reels de Pace Yourself, l'appli qui aide les traileurs à préparer leur plan de course.
 
-Le reel survole tout le parcours en 3D, du départ à l'arrivée. `;
+`;
 
-const SYSTEM_PROMPT_RULES = `Si consignes est fourni, ce sont les consignes de l'équipe pour cette course : elles passent avant toutes les autres règles et avant ton style (par exemple « bâtons interdits » : ne parle jamais de bâtons, même pour conseiller de ne pas en prendre).
+const SYSTEM_PROMPT_HEAD = `${PROMPT_INTRO}Le reel survole tout le parcours en 3D, du départ à l'arrivée. `;
+
+const HIGHLIGHTS_PROMPT_HEAD = `${PROMPT_INTRO}Ce reel ne montre que les temps forts du parcours en 3D : la caméra s'attarde sur chacun puis file au suivant en une seconde, sans survoler le reste. `;
+
+const NOTES_RULE = `Si consignes est fourni, ce sont les consignes de l'équipe pour cette course : elles passent avant toutes les autres règles et avant ton style (par exemple « bâtons interdits » : ne parle jamais de bâtons, même pour conseiller de ne pas en prendre).`;
+
+// Shared by both modes: the reel never states a number that is not in the facts.
+const FACTS_RULE = `- n'invente rien : uniquement les faits fournis (noms, kilomètres, dénivelés, pourcentages, services, horaires) ; pas de météo, de paysage ni d'anecdote ;`;
+const EAR_RULE = `- écris pour l'oreille : tutoiement, phrases courtes, pas d'emoji ; les nombres s'affichent en sous-titres, donc écris-les en chiffres avec leur unité courte (« 6,2 km », « 850 m D+ », « 9 % », « km 12 », « 14h30 ») : la voix les lit automatiquement en toutes lettres ;
+- garde les lieux courts : le nom du lieu, jamais une adresse postale ;`;
+
+const HIGHLIGHTS_PROMPT_RULES = `${NOTES_RULE}
+
+Chaque tronçon est un temps fort isolé (la plus grosse montée, la dernière montée, la grande descente, un ravito ou une base de vie stratégique, le passage de nuit), dans l'ordre du parcours. Ta phrase commence quand la caméra arrive sur le temps fort et dure le temps qu'elle y reste. Donc :
+- une ou deux phrases courtes par temps fort, entre minWords et maxWords, au plus près de maxWords sans jamais le dépasser (un nombre et son unité comptent pour un mot) : le reel entier dure 30 à 45 secondes ;
+- dis pourquoi ce moment compte et donne un conseil concret lié au terrain (mode diesel dans la montée, garde des cuisses pour la descente, fais le plein au ravito, frontale de nuit) ; insiste sur une barrière horaire quand elle est fournie ;
+- enchaîne d'un temps fort au suivant par une transition très courte (« plus loin… », « et en fin de course… ») : le reste du parcours n'est pas montré, ne le raconte pas ;
+${FACTS_RULE} ne cite aucun chiffre absent de course ou des faits du tronçon ;
+${EAR_RULE}
+- l'intro (hl-intro) est l'accroche des 2 premières secondes, dite sous le chiffre choc et le nom de la course : sa première phrase est une question ou une affirmation forte de 12 mots au plus, sans aucun chiffre absent de course ; l'outro invite à télécharger l'appli Pace Yourself, dispo sur iPhone et Android, pour préparer son plan de course, sur le même ton.
+
+Renvoie une narration pour chaque id reçu, dans le même ordre.`;
+
+const SYSTEM_PROMPT_RULES = `${NOTES_RULE}
 
 Le parcours est découpé en tronçons consécutifs. Ta phrase pour un tronçon commence quand la caméra y entre et dure tout le tronçon : la caméra avance au rythme de ta voix. Donc :
 - le récit est continu et sans trou : chaque tronçon enchaîne naturellement avec le précédent (« bon, une fois en haut… », « et là, ça redescend… ») et annonce la suite ; jamais une lecture de fiches point par point ;
@@ -85,9 +136,8 @@ Le parcours est découpé en tronçons consécutifs. Ta phrase pour un tronçon 
 - cite les ravitos naturellement, en passant, sans lister tous les services ; insiste seulement sur une base de vie ou une barrière horaire ;
 - ta phrase suit la caméra dans l'ordre du parcours : un tronçon de type aid ou lifeBase commence au ravito, donc ta phrase commence par lui ; un ravito de ravitosTraverses est atteint à momentDuTroncon de la durée du tronçon : cite-le avant ce moment dans ta phrase (à 40 %, dans les premiers 40 % de tes mots), jamais après, sinon la caméra l'a déjà dépassé ;
 - utilise les sommets, lieux et heures estimées fournis (de nuit : frontale ; au lever du jour…) ;
-- n'invente rien : uniquement les faits fournis (noms, kilomètres, dénivelés, pourcentages, services, horaires) ; pas de météo, de paysage ni d'anecdote ;
-- écris pour l'oreille : tutoiement, phrases courtes, pas d'emoji ; les nombres s'affichent en sous-titres, donc écris-les en chiffres avec leur unité courte (« 6,2 km », « 850 m D+ », « 9 % », « km 12 », « 14h30 ») : la voix les lit automatiquement en toutes lettres ;
-- garde les lieux courts : le nom du lieu, jamais une adresse postale ;
+${FACTS_RULE}
+${EAR_RULE}
 - l'intro accroche en une phrase ; l'outro invite à télécharger l'appli Pace Yourself, dispo sur iPhone et Android, pour préparer son plan de course, sur le même ton.
 
 Renvoie une narration pour chaque id reçu, dans le même ordre.`;
@@ -125,10 +175,10 @@ export async function POST(request: NextRequest) {
     console.error("Video narration script request rejected", parsed.error.issues.slice(0, 5));
     return jsonError(`Requête de script invalide (${issue?.path.join(".") || "corps"} : ${issue?.message ?? "format"}).`, 400);
   }
-  const { race, beats, targetSeconds, voiceModel, wordsPerSecond, notes } = parsed.data;
-  const maxWords = allocateWords(beats, targetSeconds, wordsPerSecond ?? DEFAULT_WORDS_PER_SECOND);
+  const { race, beats, targetSeconds, voiceModel, wordsPerSecond, notes, mode } = parsed.data;
+  const maxWords = (mode === "highlights" ? allocateHighlightWords : allocateWords)(beats, targetSeconds, wordsPerSecond ?? DEFAULT_WORDS_PER_SECOND);
   const style = parsed.data.style ?? pick(NARRATION_STYLES);
-  const system = buildSystemPrompt(style, pick(OPENINGS), voiceModel);
+  const system = buildSystemPrompt(style, pick(OPENINGS), voiceModel, mode);
 
   const input = {
     course: race,
@@ -145,7 +195,7 @@ export async function POST(request: NextRequest) {
       barriereHoraire: beat.cutoffTime,
       brouillon: beat.narration,
       ravitosTraverses: beat.passages.map((passage) => ({ nom: passage.name, km: passage.km, momentDuTroncon: `${Math.round(passage.moment * 100)} %` })),
-      minWords: Math.max(5, Math.round(maxWords[index] * 0.85)),
+      minWords: Math.max(mode === "highlights" ? 4 : 5, Math.round(maxWords[index] * 0.85)),
       maxWords: maxWords[index],
     })),
   };

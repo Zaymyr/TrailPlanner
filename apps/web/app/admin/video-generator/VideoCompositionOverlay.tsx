@@ -7,6 +7,11 @@ import {
   getProfileShades,
   getToldSlope,
   getProfileTicks,
+  isHookIntroEnabled,
+  isCompactOverlayEnabled,
+  COMPACT_TOP_CQMIN,
+  CUTOFF_RED,
+  OVERLAY_FONT_CQMIN,
   getProfileWindow,
   getProfileY,
   PROFILE_UNITS_PER_KM,
@@ -17,6 +22,37 @@ import {
   type VideoFrameState,
 } from "./video-composition";
 import { formatClockTime } from "./route-clock";
+import {
+  getHookOverlayState,
+  getShockFigureFontCqmin,
+  HOOK_FIGURE_TOP_RATIO,
+  HOOK_INTRO_MS,
+  HOOK_LEFT_RATIO,
+  HOOK_NAME_CQMIN,
+  HOOK_NAME_GAP_CQMIN,
+  HOOK_NAME_LINE_HEIGHT,
+  HOOK_RIGHT_RATIO,
+  HOOK_UNIT_SCALE,
+  pickShockFigure,
+} from "./reel-hook";
+import {
+  SUBTITLE_CENTER_Y_RATIO,
+  SUBTITLE_FONT_CQMIN,
+  SUBTITLE_LEFT_RATIO,
+  SUBTITLE_LINE_HEIGHT,
+  SUBTITLE_PADDING_X_CQMIN,
+  SUBTITLE_PADDING_Y_CQMIN,
+  SUBTITLE_RIGHT_RATIO,
+} from "./subtitle-groups";
+import {
+  formatKm,
+  formatKmFixed,
+  formatTotalElevationM,
+  formatTotalKm,
+  toAnnouncedKm,
+  toRouteKm,
+  type RaceFigures,
+} from "./race-figures";
 
 export type VideoRaceInfo = {
   /** Catalog race id, used to file background renders. */
@@ -27,6 +63,8 @@ export type VideoRaceInfo = {
   elevationGainM: number | null;
   /** Start place, date and time, e.g. "Lyon · 28 novembre · 23:30". */
   startDetail: string | null;
+  /** Short event name of the reel hook (race_events.short_name, else derived from the event name). */
+  shortName?: string | null;
   /** Organizer start place, shortened to its landmark ("Saint-Étienne"), for the map label. */
   startPlace?: string | null;
   /** Raw race date (YYYY-MM-DD) and start time (HH:MM), for the estimated race clock. */
@@ -60,14 +98,17 @@ const LOGO_SRC = "/branding/pace-yourself-logo-mark-white-transparent.png";
 const FADE_MS = 300;
 const TEXT_SHADOW = "0 0.3cqmin 1.2cqmin rgba(0, 0, 0, 0.65)";
 
-const formatKm = (value: number) => value.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const formatInteger = (value: number) => Math.round(value).toLocaleString("fr-FR");
 const formatGrade = (grade: number) => `${grade >= 0 ? "+" : "−"}${Math.abs(Math.round(grade * 100))} %`;
 
-export const formatRaceStats = (race: VideoRaceInfo, settings: VideoCompositionSettings) => [
-  settings.showDistance ? `${formatInteger(race.distanceKm)} KM` : null,
-  settings.showElevation && race.elevationGainM ? `${formatInteger(race.elevationGainM)} M D+` : null,
-].filter(Boolean).join(" · ");
+/** Badge figures: the canonical announced totals, so they match the counter and the voice. */
+export const formatRaceStats = (figures: RaceFigures, settings: VideoCompositionSettings) => {
+  const gain = formatTotalElevationM(figures);
+  return [
+    settings.showDistance && figures.distanceKm > 0 ? `${formatTotalKm(figures.distanceKm)} KM` : null,
+    settings.showElevation && gain ? `${gain} M D+` : null,
+  ].filter(Boolean).join(" · ");
+};
 
 const ProfileSegments = memo(function ProfileSegments({ profile }: { profile: ElevationProfile }) {
   return (
@@ -105,12 +146,15 @@ const CAPTION_KIND_LABELS: Record<ScheduledBeat["kind"], string> = {
   flat: "Roulant",
   aid: "Ravito",
   lifeBase: "Base de vie",
+  night: "Nuit",
   finish: "Arrivée",
   outro: "",
 };
 
-const getCaptionTitle = (beat: ScheduledBeat) => {
-  if (beat.kind === "climb" || beat.kind === "descent" || beat.kind === "flat") return `km ${formatKm(beat.startKm)} → ${formatKm(beat.endKm)}`;
+const getCaptionTitle = (beat: ScheduledBeat, figures: RaceFigures) => {
+  if (beat.kind === "climb" || beat.kind === "descent" || beat.kind === "flat") {
+    return `km ${formatKm(toAnnouncedKm(figures, beat.startKm))} → ${formatKm(toAnnouncedKm(figures, beat.endKm))}`;
+  }
   if (beat.kind === "start" || beat.kind === "finish") return null;
   return beat.title;
 };
@@ -119,9 +163,11 @@ const getCaptionTitle = (beat: ScheduledBeat) => {
  * Lower-third caption of the narrated moment: fixed above the profile so it stays readable
  * whatever the route does, and in sync with the voice-over.
  */
-function StoryCaption({ accent, beat, timeMs, top }: { accent: string; beat: ScheduledBeat; timeMs: number; top: string }) {
+function StoryCaption({ accent, beat, figures, timeMs, top }: { accent: string; beat: ScheduledBeat; figures: RaceFigures; timeMs: number; top: string }) {
   const appear = Math.max(0, Math.min(1, (timeMs - beat.startMs) / FADE_MS, (beat.endMs - timeMs) / FADE_MS));
-  const title = getCaptionTitle(beat);
+  const title = getCaptionTitle(beat, figures);
+  // The station cutoff lives in the leg card (the light map bubble shows the name only), unless a fact already says it.
+  const cutoff = beat.cutoffTime && !beat.facts.some((fact) => fact.startsWith("Barrière")) ? `Barrière ${beat.cutoffTime}` : null;
   return (
     <div
       className="absolute rounded-[2cqmin] bg-white text-[#1a1a1a] shadow-[0_0.6cqmin_2.4cqmin_rgba(0,0,0,0.35)]"
@@ -137,14 +183,15 @@ function StoryCaption({ accent, beat, timeMs, top }: { accent: string; beat: Sch
       }}
     >
       <div className="flex items-center" style={{ gap: "1.8cqmin" }}>
-        <span className="shrink-0 rounded-full font-black uppercase leading-none text-white" style={{ fontSize: "2.6cqmin", padding: "0.8cqmin 1.8cqmin", background: accent }}>
+        <span className="shrink-0 rounded-full font-black uppercase leading-none text-white" style={{ fontSize: `${OVERLAY_FONT_CQMIN.captionKind}cqmin`, padding: "0.8cqmin 1.8cqmin", background: accent }}>
           {CAPTION_KIND_LABELS[beat.kind]}
         </span>
         {title ? <p className="truncate font-black uppercase leading-none" style={{ fontSize: "4.4cqmin" }}>{title}</p> : null}
       </div>
-      {beat.facts.length || beat.services.length ? (
-        <div className="flex flex-wrap items-center font-bold tabular-nums leading-tight" style={{ gap: "2cqmin", marginTop: "1.4cqmin", fontSize: "3.4cqmin" }}>
+      {beat.facts.length || beat.services.length || cutoff ? (
+        <div className="flex flex-wrap items-center font-bold tabular-nums leading-tight" style={{ gap: "2cqmin", marginTop: "1.4cqmin", fontSize: `${OVERLAY_FONT_CQMIN.captionFacts}cqmin` }}>
           {beat.facts.length ? <span>{beat.facts.join(" · ")}</span> : null}
+          {cutoff ? <span style={{ color: CUTOFF_RED }}>{cutoff}</span> : null}
           {beat.services.length ? (
             <span className="flex items-center" style={{ gap: "1.6cqmin", color: accent }}>
               {beat.services.map((service) => <CaptionIcon key={service} name={service} />)}
@@ -158,6 +205,8 @@ function StoryCaption({ accent, beat, timeMs, top }: { accent: string; beat: Sch
 
 type OverlayProps = {
   elevationAtDistance: (distanceKm: number) => number;
+  /** Canonical figures: announced totals and the GPX rescale of every kilometre shown. */
+  figures: RaceFigures;
   frameStore: VideoFrameStore;
   gradeAtDistance: (distanceKm: number) => number;
   profile: ElevationProfile;
@@ -165,19 +214,28 @@ type OverlayProps = {
   settings: VideoCompositionSettings;
 };
 
-function VideoCompositionOverlayComponent({ elevationAtDistance, frameStore, gradeAtDistance, profile, race, settings }: OverlayProps) {
+function VideoCompositionOverlayComponent({ elevationAtDistance, figures, frameStore, gradeAtDistance, profile, race, settings }: OverlayProps) {
   const frame = useSyncExternalStore(frameStore.subscribe, frameStore.get, frameStore.get);
-  const stats = formatRaceStats(race, settings);
+  const stats = formatRaceStats(figures, settings);
   const isIntro = frame.phase === "intro";
   const isOutro = frame.phase === "outro";
-  const introOpacity = isIntro ? Math.min(1, (1 - frame.phaseProgress) / 0.3) : 0;
+  // The hook replaces the title card: one figure and the short name, no pill, subtitle or start.
+  const hook = isIntro && isHookIntroEnabled(settings) ? getHookOverlayState(frame.timeMs, HOOK_INTRO_MS) : null;
+  const shockFigure = hook ? pickShockFigure(figures) : null;
+  const introOpacity = isIntro && !hook ? Math.min(1, (1 - frame.phaseProgress) / 0.3) : 0;
   const outroOpacity = isOutro ? Math.min(1, Math.max(0, (frame.phaseProgress - 0.4) / 0.3)) : 0;
-  const chromeOpacity = isIntro ? 1 - introOpacity : isOutro ? 1 - outroOpacity : 1;
+  const chromeOpacity = hook ? hook.chromeOpacity : isIntro ? 1 - introOpacity : isOutro ? 1 - outroOpacity : 1;
   const accent = settings.accentColor;
-  const hasHeader = settings.showTitle || Boolean(stats);
+  const compact = isCompactOverlayEnabled(settings);
+  // Light overlay: no title band (the hook and the voice already name the race and its figures).
+  const hasHeader = !compact && (settings.showTitle || Boolean(stats));
   const hasProfileBand = settings.showProfile || settings.showCurrentKm;
-  // The leg card sits under the profile band so the bottom stays free for the subtitles.
-  const captionTop = hasProfileBand ? (hasHeader ? "47cqmin" : "35cqmin") : hasHeader ? "16cqmin" : "4cqmin";
+  // The leg card sits under the profile band; the subtitles sit lower, centred at 64 % of the frame.
+  // The light overlay starts lower, below Instagram's own top bar, and has no tick row.
+  const bandTop = compact ? `${COMPACT_TOP_CQMIN}cqmin` : hasHeader ? "16cqmin" : "4cqmin";
+  const captionTop = compact
+    ? `${COMPACT_TOP_CQMIN + (hasProfileBand ? 28 : 0)}cqmin`
+    : hasProfileBand ? (hasHeader ? "47cqmin" : "35cqmin") : hasHeader ? "16cqmin" : "4cqmin";
   // The accent is a background, never text on the dark gradients, so a dark brand green stays legible.
   const accentPill = { background: accent, color: "#ffffff", padding: "0.6cqmin 2.2cqmin", textShadow: "none" };
 
@@ -216,40 +274,43 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, frameStore, gra
         </header>
       ) : null}
 
-      {settings.showCaptions && frame.beat ? <StoryCaption accent={accent} beat={frame.beat} timeMs={frame.timeMs} top={captionTop} /> : null}
+      {settings.showCaptions && frame.beat ? <StoryCaption accent={accent} beat={frame.beat} figures={figures} timeMs={frame.timeMs} top={captionTop} /> : null}
 
-      {/* Burned-in subtitles of the voice-over in the Pace Yourself look: white text on a brand-green
-          band with a soft shadow; high contrast on any map. */}
+      {/* Burned-in subtitles of the voice-over: a fixed-width accent box centred at 64 % of the frame,
+          inside the Instagram safe zone (above y = 1500 px of 1920, clear of the right 15 % band). */}
       {settings.showSubtitles && frame.subtitle ? (
-        <p
-          className="absolute text-center font-medium leading-snug text-white"
-          style={{ left: "6cqmin", right: "6cqmin", bottom: "15cqmin", fontSize: "4.2cqmin", textShadow: "none", letterSpacing: "0.01em" }}
+        <div
+          className="absolute flex items-center justify-center text-center font-medium text-white"
+          style={{
+            left: `${SUBTITLE_LEFT_RATIO * 100}%`,
+            width: `${(SUBTITLE_RIGHT_RATIO - SUBTITLE_LEFT_RATIO) * 100}%`,
+            top: `${SUBTITLE_CENTER_Y_RATIO * 100}%`,
+            transform: "translateY(-50%)",
+            minHeight: `${SUBTITLE_FONT_CQMIN * SUBTITLE_LINE_HEIGHT + 2 * SUBTITLE_PADDING_Y_CQMIN}cqmin`,
+            padding: `${SUBTITLE_PADDING_Y_CQMIN}cqmin ${SUBTITLE_PADDING_X_CQMIN}cqmin`,
+            fontSize: `${SUBTITLE_FONT_CQMIN}cqmin`,
+            lineHeight: SUBTITLE_LINE_HEIGHT,
+            letterSpacing: "0.01em",
+            textShadow: "none",
+            background: `${accent}eb`,
+            borderRadius: "1.2cqmin",
+            boxShadow: "0 0.5cqmin 1.6cqmin rgba(0, 0, 0, 0.35)",
+          }}
         >
-          <span
-            className="rounded-[1.2cqmin]"
-            style={{
-              padding: "0.6cqmin 1.8cqmin",
-              background: `${accent}eb`,
-              boxShadow: "0 0.5cqmin 1.6cqmin rgba(0, 0, 0, 0.35)",
-              boxDecorationBreak: "clone",
-              WebkitBoxDecorationBreak: "clone",
-            }}
-          >
-            {frame.subtitle}
-          </span>
-        </p>
+          {frame.subtitle}
+        </div>
       ) : null}
 
       {/* Mapbox attribution as legible text; the Mapbox logo stays on the map itself. */}
       <p className="absolute text-white/75" style={{ right: "2cqmin", bottom: "7cqmin", fontSize: "1.9cqmin" }}>© Mapbox © OpenStreetMap</p>
 
       {settings.showProfile || settings.showCurrentKm ? (
-        <section className="absolute" style={{ left: "4cqmin", right: "4cqmin", top: hasHeader ? "16cqmin" : "4cqmin", opacity: chromeOpacity }}>
+        <section className="absolute" style={{ left: "4cqmin", right: "4cqmin", top: bandTop, opacity: chromeOpacity }}>
           {settings.showCurrentKm ? (
             <p className="flex items-baseline justify-between font-black tabular-nums" style={{ fontSize: "5cqmin" }}>
               <span>
-                KM {formatKm(frame.distanceKm)}
-                <span className="font-semibold text-white/75"> / {formatInteger(profile.totalDistanceKm)}</span>
+                KM {formatKmFixed(toAnnouncedKm(figures, frame.distanceKm))}
+                <span className="font-semibold text-white/75"> / {formatTotalKm(figures.distanceKm)}</span>
               </span>
               <span className="font-bold" style={{ fontSize: "3.6cqmin" }}>
                 {frame.daylight ? (
@@ -306,13 +367,16 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, frameStore, gra
                   }}
                 />
               </div>
-              <div className="relative h-[3.6cqmin]">
-                {getProfileTicks(profileWindow).map((km) => (
-                  <span key={km} className="absolute top-0 -translate-x-1/2 font-semibold tabular-nums text-white/75" style={{ left: `${toWindowPercent(km)}%`, fontSize: "2.6cqmin" }}>
-                    {km} km
-                  </span>
-                ))}
-              </div>
+              {compact ? null : (
+                <div className="relative h-[4cqmin]">
+                  {/* Ticks in announced kilometres, placed on the GPX. */}
+                  {getProfileTicks({ startKm: toAnnouncedKm(figures, profileWindow.startKm), endKm: toAnnouncedKm(figures, profileWindow.endKm) }).map((km) => (
+                    <span key={km} className="absolute top-0 -translate-x-1/2 font-semibold tabular-nums text-white/75" style={{ left: `${toWindowPercent(toRouteKm(figures, km))}%`, fontSize: `${OVERLAY_FONT_CQMIN.profileTick}cqmin` }}>
+                      {km} km
+                    </span>
+                  ))}
+                </div>
+              )}
               {settings.profileMode === "window" ? (
                 <div className="relative mt-[0.8cqmin] h-[1cqmin] rounded-full bg-white/25">
                   <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${frame.routeProgress * 100}%`, background: accent }} />
@@ -335,14 +399,50 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, frameStore, gra
           {settings.showLogo ? <Image src={LOGO_SRC} alt="" width={256} height={256} unoptimized style={{ width: "7cqmin", height: "7cqmin" }} /> : null}
           {settings.showCta ? (
             <div className="leading-tight">
-              <p className="font-black uppercase" style={{ fontSize: "2.8cqmin" }}>Télécharge l’appli</p>
-              <p className="font-semibold text-white/85" style={{ fontSize: "2.8cqmin" }}>Dispo sur iPhone et Android</p>
+              <p className="font-black uppercase" style={{ fontSize: `${OVERLAY_FONT_CQMIN.footerCta}cqmin` }}>Télécharge l’appli</p>
+              <p className="font-semibold text-white/85" style={{ fontSize: `${OVERLAY_FONT_CQMIN.footerCta}cqmin` }}>Dispo sur iPhone et Android</p>
             </div>
           ) : null}
         </footer>
       ) : null}
 
-      {isIntro ? (
+      {hook ? (
+        <>
+          {/* Legibility veil over the upper half only: the map stays bright where the camera flies. */}
+          <div className="absolute inset-x-0 top-0 h-[55%] bg-gradient-to-b from-black/60 via-black/30 to-transparent" style={{ opacity: Math.max(hook.figureOpacity, hook.nameOpacity) }} />
+          <div
+            className="absolute flex flex-col items-center text-center"
+            style={{ left: `${HOOK_LEFT_RATIO * 100}%`, width: `${(HOOK_RIGHT_RATIO - HOOK_LEFT_RATIO) * 100}%`, top: `${HOOK_FIGURE_TOP_RATIO * 100}%` }}
+          >
+            {shockFigure ? (
+              <p
+                className="whitespace-nowrap font-black leading-none tabular-nums tracking-tight"
+                style={{ fontSize: `${getShockFigureFontCqmin(shockFigure)}cqmin`, opacity: hook.figureOpacity }}
+              >
+                {shockFigure.value}
+                <span style={{ fontSize: `${HOOK_UNIT_SCALE}em`, marginLeft: "0.25em" }}>{shockFigure.unit}</span>
+              </p>
+            ) : null}
+            {race.shortName ? (
+              <p
+                className="font-black uppercase"
+                style={{
+                  marginTop: `${HOOK_NAME_GAP_CQMIN}cqmin`,
+                  fontSize: `${HOOK_NAME_CQMIN}cqmin`,
+                  lineHeight: HOOK_NAME_LINE_HEIGHT,
+                  overflowWrap: "break-word",
+                  opacity: hook.nameOpacity,
+                  transform: `translateY(${hook.nameOffsetCqmin}cqmin)`,
+                }}
+              >
+                {race.shortName}
+              </p>
+            ) : null}
+          </div>
+        </>
+      ) : null}
+
+      {isIntro && !hook ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/35 px-[6cqmin] text-center" style={{ opacity: introOpacity }}>
           <p className="font-black uppercase leading-none" style={{ fontSize: "10cqmin" }}>{race.title}</p>
           {race.subtitle ? <p className="mt-[2cqmin] font-bold uppercase" style={{ fontSize: "5.5cqmin" }}>{race.subtitle}</p> : null}

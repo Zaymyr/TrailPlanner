@@ -13,6 +13,7 @@ import {
 const raceEventSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
+  short_name: z.string().nullable().optional(),
   location: z.string().nullable().optional(),
   race_date: z.string().nullable().optional(),
   thumbnail_url: z.string().nullable().optional(),
@@ -70,14 +71,14 @@ export async function GET(request: NextRequest) {
     };
     const [response, eventsResponse] = await Promise.all([
       fetch(
-        `${supabaseConfig.supabaseUrl}/rest/v1/races?select=id,name,event_id,location_text,location,distance_km,elevation_gain_m,elevation_loss_m,trace_provider,trace_id,external_site_url,thumbnail_url,gpx_storage_path,is_live,slug,created_at,race_events(id,name,location,race_date,thumbnail_url,is_live)&order=name.asc`,
+        `${supabaseConfig.supabaseUrl}/rest/v1/races?select=id,name,event_id,location_text,location,distance_km,elevation_gain_m,elevation_loss_m,trace_provider,trace_id,external_site_url,thumbnail_url,gpx_storage_path,is_live,slug,created_at,race_events(id,name,short_name,location,race_date,thumbnail_url,is_live)&order=name.asc`,
         {
           headers,
           cache: "no-store",
         }
       ),
       fetch(
-        `${supabaseConfig.supabaseUrl}/rest/v1/race_events?select=id,name,location,race_date,thumbnail_url,is_live&order=name.asc`,
+        `${supabaseConfig.supabaseUrl}/rest/v1/race_events?select=id,name,short_name,location,race_date,thumbnail_url,is_live&order=name.asc`,
         {
           headers,
           cache: "no-store",

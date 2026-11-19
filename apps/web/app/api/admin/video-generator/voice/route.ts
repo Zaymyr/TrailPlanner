@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { withSecurityHeaders } from "../../../../../lib/http";
-import { mapSpokenTimingToText, toSpokenText } from "../../../../../lib/spoken-numbers";
+import { mapSpokenStartTimingToText, mapSpokenTimingToText, toSpokenText } from "../../../../../lib/spoken-numbers";
 import { extractBearerToken, fetchSupabaseUser, getSupabaseAnonConfig, isAdminUser } from "../../../../../lib/supabase";
 import { narrationVoiceRequestSchema } from "../../../../../lib/video-narration";
 
@@ -29,7 +29,11 @@ const TAIL_MS = 150;
 
 const speechSchema = z.object({
   audio_base64: z.string(),
-  alignment: z.object({ character_end_times_seconds: z.array(z.number()) }).nullable().optional(),
+  alignment: z.object({
+    character_end_times_seconds: z.array(z.number()),
+    // Optional: only used when it covers the same characters as the end times.
+    character_start_times_seconds: z.array(z.number()).optional(),
+  }).nullable().optional(),
 });
 
 // ElevenLabs caps parallel requests per plan (2 on the free plan, 3 on Starter).
@@ -142,6 +146,7 @@ export async function POST(request: NextRequest) {
     const speech = speechSchema.safeParse(await response.json().catch(() => null));
     if (!speech.success) throw new VoiceError("Réponse de voix invalide.", 502);
     const endTimes = speech.data.alignment?.character_end_times_seconds ?? [];
+    const startTimes = speech.data.alignment?.character_start_times_seconds ?? [];
     const spokenMs = endTimes.length ? endTimes[endTimes.length - 1] * 1_000 : item.text.length * 66;
     return {
       id: item.id,
@@ -151,7 +156,13 @@ export async function POST(request: NextRequest) {
       // Exact per-character timing of the spoken text, mapped back onto the narration characters,
       // only when ElevenLabs aligned exactly the text sent.
       ...(endTimes.length === spokenTexts[index].spoken.length
-        ? { characterEndMs: mapSpokenTimingToText(spokenTexts[index], endTimes).map((seconds) => Math.round(seconds * 1_000)) }
+        ? {
+          characterEndMs: mapSpokenTimingToText(spokenTexts[index], endTimes).map((seconds) => Math.round(seconds * 1_000)),
+          // Start times let the subtitles detect pauses; they are dropped when they do not line up.
+          ...(startTimes.length === endTimes.length
+            ? { characterStartMs: mapSpokenStartTimingToText(spokenTexts[index], startTimes).map((seconds) => Math.round(seconds * 1_000)) }
+            : {}),
+        }
         : {}),
     };
   };

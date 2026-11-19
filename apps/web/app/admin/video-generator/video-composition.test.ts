@@ -79,6 +79,17 @@ describe("videoCompositionSettingsSchema", () => {
     expect(videoCompositionSettingsSchema.safeParse({ durationSeconds: 37 }).success).toBe(true);
     expect(videoCompositionSettingsSchema.safeParse({ durationSeconds: 10 }).success).toBe(false);
   });
+
+  it("keeps the full story mode for settings saved before the highlights mode", () => {
+    expect(DEFAULT_VIDEO_COMPOSITION_SETTINGS.storyMode).toBe("full");
+    const { storyMode: _omitted, ...older } = DEFAULT_VIDEO_COMPOSITION_SETTINGS;
+    expect(videoCompositionSettingsSchema.parse(older).storyMode).toBe("full");
+    expect(videoCompositionSettingsSchema.safeParse({ storyMode: "teaser" }).success).toBe(false);
+    // A full timeline keeps the original camera smoothing.
+    const timeline = buildVideoTimeline(flatPath(30), [beat("leg-0", "flat", 0, 30, "Tout droit.")], DEFAULT_VIDEO_COMPOSITION_SETTINGS);
+    expect(timeline.cameraTempo).toBe(1);
+    expect(timeline.cameraAverageBlend).toBe(0.7);
+  });
 });
 
 const beat = (id: string, kind: StoryBeat["kind"], startKm: number, endKm: number, narration: string): StoryBeat => ({
@@ -186,7 +197,7 @@ describe("buildVideoTimeline", () => {
     const text = "Départ. Ça grimpe.";
     // The second sentence is spoken slowly: 2 s for its 10 characters.
     const timing = Array.from(text, (_, index) => (index < 8 ? (index + 1) * 50 : 400 + (index - 7) * 200));
-    const timeline = buildVideoTimeline(flatPath(10), [beat("leg", "start", 0, 10, text)], { ...manual(30), introEnabled: false, outroEnabled: false }, { leg: 2_400 }, null, { leg: timing });
+    const timeline = buildVideoTimeline(flatPath(10), [beat("leg", "start", 0, 10, text)], { ...manual(30), introEnabled: false, outroEnabled: false }, { leg: 2_400 }, null, { leg: { characterEndMs: timing } });
     const [first, second] = timeline.beats[0].subtitles;
     expect(first.text).toBe("Départ.");
     expect(second.text).toBe("Ça grimpe.");

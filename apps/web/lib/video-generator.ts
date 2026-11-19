@@ -23,6 +23,8 @@ export const videoRaceSchema = z.object({
   id: z.string().uuid(),
   eventId: z.string().uuid().nullable(),
   eventName: z.string().nullable(),
+  /** race_events.short_name: the reel hook name set by an admin (optional for older payloads). */
+  eventShortName: z.string().nullable().optional(),
   name: z.string(),
   distanceKm: z.number(),
   elevationGainM: z.number().nullable(),

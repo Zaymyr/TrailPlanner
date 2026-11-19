@@ -12,6 +12,7 @@ import { videoGeneratorDetailSchema, type VideoGeneratorDetail } from "../../../
 import { useVerifiedSession } from "../../hooks/useVerifiedSession";
 import { VideoGeneratorMap } from "./VideoGeneratorMap";
 import type { VideoRaceInfo } from "./VideoCompositionOverlay";
+import { getReelShortName } from "./reel-hook";
 import {
   countEventVideos,
   formatRaceChoiceLabel,
@@ -67,6 +68,7 @@ const buildVideoRaceInfo = (detail: VideoGeneratorDetail): VideoRaceInfo => {
     distanceKm: race.distanceKm,
     elevationGainM: race.elevationGainM,
     startDetail: formatStartDetail(race),
+    shortName: getReelShortName(race.eventName ?? race.name, race.eventShortName),
     startPlace: shortenPlace(race.startLocation),
     raceDate: race.raceDate,
     startTime: race.startTime,

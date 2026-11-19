@@ -74,6 +74,9 @@ export default function AdminPage() {
           <Link href={"/admin/video-generator" as Route}>
             <Button variant="outline">Générateur vidéo 3D</Button>
           </Link>
+          <Link href={"/admin/publications" as Route}>
+            <Button variant="outline">Publications</Button>
+          </Link>
           <Link href="/race-planner" className="text-brand underline-offset-4 hover:underline dark:text-emerald-200">
             {t.homeHero.cta}
           </Link>
