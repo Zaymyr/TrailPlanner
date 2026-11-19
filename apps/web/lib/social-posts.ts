@@ -11,9 +11,9 @@ import type { SupabaseServiceConfig } from "./supabase";
 export const SOCIAL_POST_STATUSES = ["draft", "scheduled", "publishing", "published", "failed"] as const;
 export type SocialPostStatus = (typeof SOCIAL_POST_STATUSES)[number];
 
-/** Instagram limits for a caption: 2,200 characters, 30 hashtags, 20 @mentions. */
+/** Instagram limits for a caption: 2,200 characters, 5 hashtags (Instagram's limit since late 2025, 30 before), 20 @mentions. */
 export const CAPTION_MAX_CHARS = 2_200;
-export const CAPTION_MAX_HASHTAGS = 30;
+export const CAPTION_MAX_HASHTAGS = 5;
 export const CAPTION_MAX_MENTIONS = 20;
 export const COVER_TEXT_MAX_CHARS = 200;
 

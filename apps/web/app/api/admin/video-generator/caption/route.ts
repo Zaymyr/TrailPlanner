@@ -23,7 +23,7 @@ La description raconte une petite histoire de la course, sur le ton d'un pote tr
 - N'invente rien : uniquement les faits fournis.
 - 500 à 1 200 caractères, sans hashtags dans le texte.
 
-Hashtags : 15 à 20, en minuscules, sans accents ni espaces, sans le #. Mélange des hashtags génériques trail (trail, trailrunning, ultratrail…), spécifiques à la course (son nom, l'édition), au lieu et à la région s'ils se déduisent des faits, et paceyourself.`;
+Hashtags : 3 à 5 (Instagram n'en accepte pas plus), en minuscules, sans accents ni espaces, sans le #. Choisis les plus utiles : le nom de la course, un ou deux hashtags trail génériques (trail, trailrunning, ultratrail…) et paceyourself.`;
 
 const captionOutputSchema = z4.object({
   caption: z4.string(),
@@ -33,7 +33,7 @@ const captionOutputSchema = z4.object({
 const jsonError = (message: string, status: number) =>
   withSecurityHeaders(NextResponse.json({ message }, { status }));
 
-/** Keeps hashtags Instagram accepts: letters, digits and underscores, unique, 30 at most. */
+/** Keeps hashtags Instagram accepts: letters, digits and underscores, unique, 5 at most. */
 const cleanHashtags = (hashtags: string[]) => {
   const seen = new Set<string>();
   return hashtags

@@ -14,7 +14,7 @@ import {
 } from "./reel-content";
 import { buildDefaultCaption, DEFAULT_HASHTAGS } from "./social-posts";
 
-const TAGS = ["trail", "trailrunning", "ultratrail", "paceyourself", "saintelyon", "nuit", "d_plus", "montagne", "course"];
+const TAGS = ["trail", "trailrunning", "ultratrail", "paceyourself", "saintelyon"];
 
 const raw = (patch: Partial<ReelContent> = {}): ReelContent => ({
   hook: "185 km, ça se prépare ?",
@@ -100,7 +100,7 @@ describe("sanitizeReelContent", () => {
   it("keeps a valid content without a problem", () => {
     const result = sanitizeReelContent(raw(), budgets);
     expect(result.problems).toEqual([]);
-    expect(result.content.hashtags).toHaveLength(9);
+    expect(result.content.hashtags).toHaveLength(5);
   });
 
   it("maps one segment per beat: unknown ids are dropped and a repeated id is kept once", () => {
@@ -147,10 +147,10 @@ describe("sanitizeReelContent", () => {
     expect(result.problems).toEqual([expect.objectContaining({ field: "hook", message: expect.stringContaining("commencer") })]);
   });
 
-  it("normalises hashtags (ASCII lowercase, unique), keeps 15 at most and wants 8 at least", () => {
+  it("normalises hashtags (ASCII lowercase, unique), keeps Instagram's 5 at most and wants 3 at least", () => {
     const messy = ["#Trail", "trail", "Ultra-Trail", "Saintélyon", "à_é", ...Array.from({ length: 20 }, (_, index) => `tag${index}`)];
     const many = sanitizeReelContent(raw({ hashtags: messy }), budgets);
-    expect(many.content.hashtags).toHaveLength(15);
+    expect(many.content.hashtags).toHaveLength(5);
     expect(many.content.hashtags.slice(0, 4)).toEqual(["trail", "ultratrail", "saintelyon", "a_e"]);
     expect(many.problems).toEqual([]);
     const few = sanitizeReelContent(raw({ hashtags: ["trail", "#Trail", "ultra"] }), budgets);
