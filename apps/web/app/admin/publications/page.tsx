@@ -50,7 +50,7 @@ function PublicationsContent() {
   const videos = useMemo(() => postsQuery.data?.videos ?? [], [postsQuery.data?.videos]);
   const selectedVideo = videos.find((video) => video.id === selectedVideoId) ?? null;
   const draftInitialValues = useMemo(
-    () => toCaptionFormValues(selectedVideo?.defaultCaption ?? "", selectedVideo?.defaultHashtags ?? [], null),
+    () => toCaptionFormValues(selectedVideo?.defaultCaption ?? "", selectedVideo?.defaultHashtags ?? [], selectedVideo?.defaultCoverText ?? null),
     [selectedVideo],
   );
   const [createMessage, setCreateMessage] = useState<string | null>(null);

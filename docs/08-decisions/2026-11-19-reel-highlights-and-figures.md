@@ -23,6 +23,12 @@ related_files:
   - apps/web/app/admin/video-generator/camera-framing.ts
   - apps/web/app/admin/video-generator/label-layout.ts
   - supabase/migrations/20261119150000_add_race_events_short_name.sql
+  - supabase/migrations/20261119160000_add_reel_content.sql
+  - apps/web/lib/reel-content.ts
+  - apps/web/lib/reel-content.test.ts
+  - apps/web/lib/video-script-prompt.ts
+  - apps/web/app/api/admin/video-generator/content/route.ts
+  - apps/web/app/api/admin/video-generator/content/route.test.ts
 related_tables:
   - races
   - race_aid_stations
@@ -59,6 +65,8 @@ Second, a full-course flyover of an ultra lasts up to 2-3 minutes; a short "temp
 
 9. **Camera and labels (phase 5).** Setting `tiltedCamera` (null = on for highlights, off for full). The chase camera tilts to a Mapbox pitch of 60° (55-65°, was about 36°) behind the runner, bearing from the leg direction with a 12° side offset, terrain clearance kept (it steps back before it rises). `camera-framing.ts` guarantees by a pinhole projection that the runner and the next 2 km stay in a safe rectangle of the frame (below the leg card at 56 cqmin, above the bottom 20 %, 6 % side margins), by pulling back, turning or moving the raw pose before the smoothing; tilted mode only, so the full flyover without the setting is exactly the previous camera. No framing is promised during the 1.2 s jump between two moments. Map labels (both modes, `label-layout.ts`): a loop (under 1,500 m) shows one « Départ / Arrivée » label with the start name; labels are hidden when cut by the frame edge or when they overlap a more important one (shown aid bubble, then start/finish, then others), computed from `map.project` and cached card sizes. The dedicated brand-style environment variable was dropped: the existing brand style setting is enough.
 
+10. **Single text content (phase 7).** In highlights mode one Claude call (`POST /api/admin/video-generator/content`, same model, refusal fallback and max_tokens as the script route, shared prompt blocks in `lib/video-script-prompt.ts`) replaces the script call and the caption call. Output validated by Zod: `{ hook, script_segments: [{ highlight_id, text }], cta, caption, hashtags, cover_text }`. Server-side limits: hook ≤ 12 words, cover text ≤ 6 words, 8 to 15 hashtags once normalised, caption ≤ 2,200 characters, one segment per beat id sent within its word budget (unknown ids dropped), `hl-intro` starting with the hook. **Anti-invention:** the prompt receives only facts and forbids any figure not provided, and `findUnprovidedNumbers` (pure, tested, French number formats) checks every text field against the numbers of the input; a limit or number failure triggers one low-effort revision, then the remaining problems are returned as warnings shown in the editor, never silently fixed. **Storage:** the JSON is stored with the video: `video_narrations.content` (reloaded with the race and mode) and a snapshot in `video_render_jobs.content` at render creation (migration `20261119160000_add_reel_content.sql`, two additive nullable columns, RLS and grants unchanged). **Publications:** a draft made from a job with content is pre-filled with its caption, hashtags and cover text (all editable) and copies the full JSON into `social_posts.content`; without content the plain template stays. `cover_url` stays unset (Instagram uses the first frame), the cover text is only stored. The full mode keeps its two calls (script, then caption) and has no content.
+
 ## Consequences
 
 - Badge, counter, voice, captions, aid cards and AI inputs show the same numbers; the counter ends exactly on the badge total.
@@ -70,6 +78,7 @@ Second, a full-course flyover of an ultra lasts up to 2-3 minutes; a short "temp
 - Switching to a mode for the first time restores that mode's saved composition settings too (they decide its beat ids).
 - Subtitle timing needs no migration: clips saved before keep working with end times only; regenerating the voice adds start times.
 - A hooked reel spends no time on the run-up to its first moment and its first moment absorbs the end of the hook sentence: the fixture reels last 30 s and 39 s (41 s without the hook). Render snapshots saved before the hook lack `hookIntro`, so a highlights snapshot replayed afterwards opens on the hook.
+- Highlights texts come from one call, so the caption and the script cannot disagree on a fact; the cost is one larger structured output and a revision that can fail (the draft and its warnings are kept). Content is null for full reels and for rows saved before phase 7, and every consumer works without it.
 - `race_events.short_name` is read only by admin service-role routes; RLS, grants and public reads are unchanged.
 - The full layout gets larger small texts (ticks, chips, bubbles, place labels) but keeps its elements; the light layout is the highlights default.
 - The previous web version upserts on `race_id` alone: between the migration and the web deploy of the release, its saves fail (reads keep working).

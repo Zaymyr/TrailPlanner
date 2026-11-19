@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 
 import { Button } from "../../../components/ui/button";
+import type { ReelContent } from "../../../lib/reel-content";
 import type { VideoRenderSnapshot } from "./render-snapshot";
 import { VIDEO_RESOLUTIONS } from "./video-composition";
 
@@ -62,6 +63,8 @@ type BackgroundRenderPanelProps = {
   canRender: boolean;
   createSnapshot: () => VideoRenderSnapshot;
   hasVoice: boolean;
+  /** Reel text of a highlights video, stored with the render job (null for full reels). */
+  reelContent?: ReelContent | null;
   raceId?: string;
   raceTitle: string;
   resolutionLabel: string;
@@ -76,7 +79,7 @@ const readMessage = async (response: Response, fallback: string) => {
  * Background render on Google Cloud: the composition is saved, rendered by a headless browser in
  * Cloud Run and listed here when ready, so the admin can close the tab meanwhile.
  */
-export function BackgroundRenderPanel({ accessToken, canRender, createSnapshot, hasVoice, raceId, raceTitle, resolutionLabel }: BackgroundRenderPanelProps) {
+export function BackgroundRenderPanel({ accessToken, canRender, createSnapshot, hasVoice, raceId, raceTitle, reelContent, resolutionLabel }: BackgroundRenderPanelProps) {
   const [jobs, setJobs] = useState<BackgroundRenderJob[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -122,7 +125,7 @@ export function BackgroundRenderPanel({ accessToken, canRender, createSnapshot, 
       const created = await fetch("/api/admin/video-generator/render-jobs", {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ raceId, raceTitle, ...size }),
+        body: JSON.stringify({ raceId, raceTitle, ...size, ...(reelContent ? { content: reelContent } : {}) }),
       });
       if (!created.ok) throw new Error(await readMessage(created, "Le rendu n’a pas pu être créé."));
       const { job, inputUploadUrl } = (await created.json()) as { job: { id: string }; inputUploadUrl: string };

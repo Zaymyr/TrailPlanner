@@ -61,6 +61,12 @@ related_files:
   - apps/web/app/api/admin/video-generator/script/route.ts
   - apps/web/app/api/admin/video-generator/voice/route.ts
   - apps/web/lib/video-narration.ts
+  - apps/web/lib/reel-content.ts
+  - apps/web/lib/reel-content.test.ts
+  - apps/web/lib/video-script-prompt.ts
+  - apps/web/app/api/admin/video-generator/content/route.ts
+  - apps/web/app/api/admin/video-generator/content/route.test.ts
+  - supabase/migrations/20261119160000_add_reel_content.sql
   - apps/web/app/admin/video-generator/InstagramPanel.tsx
   - apps/web/app/admin/video-generator/ExportPanel.tsx
   - apps/web/app/admin/video-generator/video-export.ts
@@ -268,6 +274,14 @@ Provider references:
 - Do not apply the frame guarantee after the time smoothing or from the previous frame: it corrects the raw pose so the track stays a pure function of time. It cannot hold during the jump between two highlights (documented above).
 - Do not lower the tilted pitch below 55° to clear terrain: the camera steps back first. On very steep terrain the clearance can still raise the camera past the x2.5 step-back and reduce the pitch: check the pitch-range test on the fixtures when changing the clearance.
 - Do not describe the current preview as video generation. It produces no video artifact until the export phase ships.
+
+## Reel Content, One Call (phase 7, highlights only)
+
+In highlights mode « Rédiger avec l’IA » calls `POST /api/admin/video-generator/content` instead of the script route (the full mode keeps the script route and the separate caption route, untouched). One Claude Opus 5.5 call (same SDK pattern, refusal fallback and 16,000 max_tokens as the script route; the word budgets and prompt blocks live in `apps/web/lib/video-script-prompt.ts`, shared by both routes) returns, validated by Zod, `{ hook, script_segments: [{ highlight_id, text }], cta, caption, hashtags, cover_text }`. The prompt gets only facts: the highlights with their facts, the aid stations with cutoffs, the announced distance and D+ (`race-figures.ts`), the short name (`getReelShortName`) and the shock figure (`pickShockFigure`).
+
+Limits enforced server-side after parsing (`sanitizeReelContent`, `apps/web/lib/reel-content.ts`): hook ≤ 12 words; `cover_text` ≤ 6 words; hashtags normalised with the Publications normaliser (ASCII lowercase, unique), 8 to 15 (more are cut to 15); caption ≤ 2,200 characters (cut and flagged); exactly one segment per beat id sent (unknown ids dropped, a repeated id kept once, a missing one reported); each segment within its beat's word budget (10 % tolerance; the intro up to 12 words because it starts with the hook). `hl-intro` must start with the hook; the editor prepends the hook when a text lacks it, and `cta` is the outro sentence. Anti-invention: `findUnprovidedNumbers(text, allowedNumbers)` reads French formats (no-break and narrow no-break spaces, decimal commas, « 18h12 », « 9 % », « 3D » ignored) and runs on the hook, segments, cta, caption and cover text against every number in the input (race, short name, shock figure, beats, facts, cutoffs, stations, race date, number of moments); hashtags are not checked. Any limit or number failure triggers one low-effort revision listing the problems; the revision replaces the draft only when it is not worse, and what remains is returned as `warnings` (`{ field, message }`), shown under the script (hook, segments, cta) and the Instagram panel (caption, hashtags, cover text).
+
+The editor fills the narration texts from the segments and keeps the caption, hashtags and cover text in the Instagram panel (all editable; « générer la description » is hidden in highlights mode and kept in full mode). The content is assembled from the texts as they stand (`assembleReelContent`) and stored twice: with the narration (`video_narrations.content`, PUT/GET of the narrations route, reloaded with the race and mode) and as a snapshot on the render job at creation (`video_render_jobs.content`, sent by `BackgroundRenderPanel`). Old narrations, old jobs and full reels have a null content and work as before. The Publications drafts start from it (see [Instagram publishing](instagram-publishing.md)). The decision is recorded in [reel highlights and figures](../08-decisions/2026-11-19-reel-highlights-and-figures.md) (decision 10).
 
 ## Related Docs
 

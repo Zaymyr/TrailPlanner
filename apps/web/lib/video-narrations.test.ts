@@ -41,6 +41,36 @@ describe("saved narrations", () => {
     expect(getClipsObjectName(raceId)).toBe(`${raceId}.json`);
   });
 
+  it("saves the reel content of a highlights narration, never of a full one, and keeps it on a save without content", async () => {
+    const content = {
+      hook: "Prêt ?",
+      script_segments: [{ highlight_id: "hl-intro", text: "Prêt ?" }],
+      cta: "Lien en bio.",
+      caption: "Description.",
+      hashtags: ["trail"],
+      cover_text: "Prêt ?",
+    };
+    const base = { settings: {}, narrationOverrides: {}, voice: { voiceId: null, model: "v3" as const, expressiveness: 0.9 } };
+    const body = async (mode: "full" | "highlights", content_?: typeof content | null) => {
+      const fetcher = vi.fn(async () => new Response(null, { status: 200 }));
+      await saveNarration(supabase, raceId, "user-1", { ...base, ...(content_ !== undefined ? { content: content_ } : {}) }, mode, fetcher);
+      return JSON.parse(String((fetcher.mock.calls[0] as unknown as [string, RequestInit])[1].body));
+    };
+    expect(await body("highlights", content)).toMatchObject({ content });
+    expect(await body("highlights", null)).toMatchObject({ content: null });
+    expect(await body("highlights")).not.toHaveProperty("content");
+    expect(await body("full", content)).not.toHaveProperty("content");
+  });
+
+  it("restores the saved content, null for old rows and for unreadable content", async () => {
+    const row = { race_id: raceId, settings: {}, narration_overrides: {}, voice: {}, clip_count: 0, updated_at: "2026-11-19T10:00:00Z" };
+    const content = { hook: "Prêt ?", script_segments: [], cta: "", caption: "Description.", hashtags: [], cover_text: "" };
+    const read = (value: unknown) => readNarration(supabase, raceId, "highlights", vi.fn(async () => Response.json([{ ...row, ...(value === undefined ? {} : { content: value }) }])));
+    expect((await read(content))?.content).toEqual(content);
+    expect((await read(undefined))?.content).toBeNull();
+    expect((await read({ hook: 3 }))?.content).toBeNull();
+  });
+
   it("defaults the mode to full and rejects an unknown one", () => {
     expect(narrationModeSchema.parse(undefined)).toBe("full");
     expect(narrationModeSchema.safeParse("teaser").success).toBe(false);

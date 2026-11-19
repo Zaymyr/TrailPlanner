@@ -34,6 +34,8 @@ export const publishableVideoSchema = z.object({
   latestPublishAt: z.string().nullable(),
   defaultCaption: z.string(),
   defaultHashtags: z.array(z.string()),
+  defaultCoverText: z.string().nullable().default(null),
+  hasContent: z.boolean().default(false),
 });
 export type PublishableVideo = z.infer<typeof publishableVideoSchema>;
 

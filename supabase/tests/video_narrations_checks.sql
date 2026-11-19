@@ -1,6 +1,6 @@
 -- Saved reel narration checks.
 -- Run in a privileged SQL session after 20261105160000_add_video_narrations.sql and
--- 20261119120000_add_video_narrations_mode.sql.
+-- 20261119120000_add_video_narrations_mode.sql and 20261119160000_add_reel_content.sql.
 
 begin;
 
@@ -35,6 +35,11 @@ begin
     raise exception 'video_narrations must be keyed by (race_id, mode), got %.', key_columns;
   end if;
 
+  -- Reel content: a nullable jsonb object.
+  if not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'video_narrations' and column_name = 'content' and data_type = 'jsonb' and is_nullable = 'YES') then
+    raise exception 'video_narrations.content must be a nullable jsonb column.';
+  end if;
+
   select id into race from public.races limit 1;
   if race is not null then
     delete from public.video_narrations where race_id = race;
@@ -53,6 +58,13 @@ begin
       insert into public.video_narrations (race_id, mode) values (race, 'full');
       raise exception 'A second full narration for the same race must be rejected.';
     exception when unique_violation then
+      null;
+    end;
+    update public.video_narrations set content = '{"hook":"Prêt ?"}'::jsonb where race_id = race and mode = 'highlights';
+    begin
+      update public.video_narrations set content = '[]'::jsonb where race_id = race and mode = 'highlights';
+      raise exception 'A non-object reel content must be rejected.';
+    exception when check_violation then
       null;
     end;
   end if;

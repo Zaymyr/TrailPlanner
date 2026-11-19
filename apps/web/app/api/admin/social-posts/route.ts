@@ -1,10 +1,9 @@
 import { isInstagramPublishDryRun } from "../../../../lib/instagram/config";
+import { buildDraftPrefill, parseReelContent } from "../../../../lib/reel-content";
 import {
-  buildDefaultCaption,
   canPublishNow,
   createSocialPostRepository,
   createSocialPostSchema,
-  DEFAULT_HASHTAGS,
   getLatestPublishTime,
   getVideoAvailableUntil,
   listVideoJobsForPublishing,
@@ -38,17 +37,23 @@ export async function GET(request: Request) {
           videoAvailableUntil: job?.finished_at ? getVideoAvailableUntil(job.finished_at).toISOString() : null,
         });
       }),
-      videos: Array.from(recentJobs.values()).map((job) => ({
-        id: job.id,
-        raceId: job.race_id,
-        raceTitle: job.race_title,
-        width: job.width,
-        height: job.height,
-        finishedAt: job.finished_at,
-        latestPublishAt: job.finished_at ? getLatestPublishTime(job.finished_at).toISOString() : null,
-        defaultCaption: buildDefaultCaption(job.race_title),
-        defaultHashtags: DEFAULT_HASHTAGS,
-      })),
+      videos: Array.from(recentJobs.values()).map((job) => {
+        // A video with reel content starts its draft from it; older ones from the plain template.
+        const prefill = buildDraftPrefill(job.race_title, parseReelContent(job.content));
+        return {
+          id: job.id,
+          raceId: job.race_id,
+          raceTitle: job.race_title,
+          width: job.width,
+          height: job.height,
+          finishedAt: job.finished_at,
+          latestPublishAt: job.finished_at ? getLatestPublishTime(job.finished_at).toISOString() : null,
+          defaultCaption: prefill.caption,
+          defaultHashtags: prefill.hashtags,
+          defaultCoverText: prefill.coverText,
+          hasContent: parseReelContent(job.content) !== null,
+        };
+      }),
     });
   } catch (error) {
     console.error("Social posts list failed", error instanceof Error ? error.message : error);
@@ -70,6 +75,7 @@ export async function POST(request: Request) {
     if (!job || job.status !== "done" || !job.finished_at) return renderJsonError("Cette vidéo n’est pas terminée.", 409);
     if (!canPublishNow(job.finished_at)) return renderJsonError("Cette vidéo arrive en fin de conservation (30 jours) : relance un rendu.", 409);
 
+    const reelContent = parseReelContent(job.content);
     const post = await createSocialPostRepository(supabase).insert({
       race_id: job.race_id,
       video_job_id: job.id,
@@ -78,6 +84,8 @@ export async function POST(request: Request) {
       caption: parsed.data.caption,
       hashtags: parsed.data.hashtags,
       cover_text: parsed.data.coverText || null,
+      // The reel text of the video, copied as is (full JSON), whatever the admin edited above.
+      ...(reelContent ? { content: reelContent } : {}),
       video_url: getRenderOutputObject(job.id),
       dry_run: isInstagramPublishDryRun(),
       created_by: userId,

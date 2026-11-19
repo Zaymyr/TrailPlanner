@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { reelContentSchema } from "./reel-content";
 import type { SupabaseServiceConfig } from "./supabase";
 import { VIDEO_STORY_MODES, type VideoStoryMode } from "./video-narration";
 
@@ -37,6 +38,8 @@ export const saveNarrationRequestSchema = z.object({
   voice: savedVoiceSchema,
   // Omitted: the saved clips are kept as they are (a text-only save).
   clips: z.array(savedClipSchema).max(40).optional(),
+  // Highlights reel text (script, hook, caption, hashtags...): omitted keeps the saved content, null clears it.
+  content: reelContentSchema.nullable().optional(),
 });
 
 export type SaveNarrationRequest = z.infer<typeof saveNarrationRequestSchema>;
@@ -46,6 +49,8 @@ export const savedNarrationSchema = z.object({
   narrationOverrides: z.record(z.string(), z.string()),
   voice: savedVoiceSchema.partial(),
   clips: z.array(savedClipSchema),
+  /** Highlights reel text; null for full narrations and for saves made before it existed. */
+  content: reelContentSchema.nullable().default(null),
   updatedAt: z.string(),
 });
 
@@ -59,6 +64,8 @@ const rowSchema = z.object({
   narration_overrides: z.record(z.string(), z.string()).catch({}),
   voice: savedVoiceSchema.partial().catch({}),
   clip_count: z.number(),
+  // An unreadable content only costs the caption: the narration itself is restored.
+  content: reelContentSchema.nullable().catch(null),
   updated_at: z.string(),
 });
 
@@ -82,7 +89,7 @@ export const readNarration = async (
   fetcher: typeof fetch = fetch,
 ): Promise<SavedNarration | null> => {
   const response = await fetcher(
-    `${supabase.supabaseUrl}/rest/v1/video_narrations?race_id=eq.${raceId}&mode=eq.${mode}&select=race_id,settings,narration_overrides,voice,clip_count,updated_at&limit=1`,
+    `${supabase.supabaseUrl}/rest/v1/video_narrations?race_id=eq.${raceId}&mode=eq.${mode}&select=race_id,settings,narration_overrides,voice,clip_count,content,updated_at&limit=1`,
     { headers: headers(supabase), cache: "no-store" },
   );
   if (!response.ok) throw new Error(`Unable to read narration: ${await response.text()}`);
@@ -94,7 +101,7 @@ export const readNarration = async (
     // Missing or unreadable clips only cost a voice regeneration: the text is still restored.
     if (clipsResponse.ok) clips = z.array(savedClipSchema).catch([]).parse(await clipsResponse.json().catch(() => []));
   }
-  return { settings: row.settings, narrationOverrides: row.narration_overrides, voice: row.voice, clips, updatedAt: row.updated_at };
+  return { settings: row.settings, narrationOverrides: row.narration_overrides, voice: row.voice, clips, content: row.content, updatedAt: row.updated_at };
 };
 
 export const saveNarration = async (
@@ -124,6 +131,8 @@ export const saveNarration = async (
     updated_by: userId,
     updated_at: updatedAt,
     ...(request.clips ? { clip_count: request.clips.length } : {}),
+    // Only a highlights reel has content: a full narration never stores one.
+    ...(mode === "highlights" && request.content !== undefined ? { content: request.content } : {}),
   };
   const response = await fetcher(`${supabase.supabaseUrl}/rest/v1/video_narrations?on_conflict=race_id,mode`, {
     method: "POST",
