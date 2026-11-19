@@ -21,6 +21,8 @@ const createSchema = z.object({
   height: z.number().int().min(160).max(4096),
   // Highlights reel text, snapshotted with the video so Publications can pre-fill its drafts.
   content: reelContentSchema.nullable().optional(),
+  // One-click reel: create the Instagram draft when the render finishes (needs content).
+  autoDraft: z.boolean().optional(),
 });
 
 export async function GET(request: Request) {
@@ -88,6 +90,8 @@ export async function POST(request: Request) {
       status: "uploading",
       created_by: userId,
       ...(parsed.data.content ? { content: parsed.data.content } : {}),
+      // Without reel text there is nothing to pre-fill: the flag would never fire.
+      ...(parsed.data.autoDraft && parsed.data.content ? { auto_draft: true } : {}),
     });
     const inputUploadUrl = await signStorageUrl({
       config,

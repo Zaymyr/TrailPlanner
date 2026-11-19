@@ -1,6 +1,6 @@
 -- Instagram social post checks.
 -- Run in a privileged SQL session after 20261119130000_add_social_posts.sql and
--- 20261119130100_schedule_social_posts_cron.sql.
+-- 20261119130100_schedule_social_posts_cron.sql and 20261119170000_add_render_job_auto_draft.sql.
 
 begin;
 
@@ -28,6 +28,19 @@ begin
   if (select status from public.social_posts where id = v_post_id) <> 'draft'
     or not (select dry_run from public.social_posts where id = v_post_id) then
     raise exception 'A new post must default to a dry-run draft.';
+  end if;
+
+  -- One-click reel: a manual draft is not auto-generated; at most one automatic draft per render.
+  if (select auto_generated from public.social_posts where id = v_post_id) then
+    raise exception 'A new post must default to auto_generated = false.';
+  end if;
+  if not exists (
+    select 1 from pg_indexes
+    where schemaname = 'public' and tablename = 'social_posts'
+      and indexname = 'social_posts_auto_generated_video_job_uidx'
+      and indexdef like 'CREATE UNIQUE INDEX%' and indexdef like '%auto_generated%'
+  ) then
+    raise exception 'social_posts needs the partial unique index of automatic drafts per render job.';
   end if;
 
   begin

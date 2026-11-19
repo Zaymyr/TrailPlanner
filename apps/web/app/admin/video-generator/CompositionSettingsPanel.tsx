@@ -17,6 +17,7 @@ import {
   MAPBOX_STYLE_URL_PATTERN,
   PROFILE_SLOPE_CLASSES,
   VIDEO_DURATION_PRESETS,
+  withStoryMode,
   type VideoCompositionSettings,
 } from "./video-composition";
 
@@ -188,15 +189,7 @@ export function CompositionSettingsPanel({
             label="Type de reel"
             value={settings.storyMode}
             options={[["full", "Parcours complet"], ["highlights", "Temps forts"]]}
-            onChange={(value) => onChange({
-              ...settings,
-              storyMode: value,
-              // A manual length outside 30-50 s does not fit a highlights reel: back to auto.
-              ...(value === "highlights" && settings.durationMode === "manual"
-                && (settings.durationSeconds < HIGHLIGHT_MIN_SECONDS || settings.durationSeconds > HIGHLIGHT_MAX_SECONDS)
-                ? { durationMode: "auto" as const }
-                : {}),
-            })}
+            onChange={(value) => onChange(withStoryMode(settings, value))}
           />
           <p className="text-xs text-muted-foreground">
             {settings.storyMode === "highlights"

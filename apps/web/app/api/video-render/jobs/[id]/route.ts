@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { createAutoDraftForRenderJob } from "../../../../../lib/social-post-auto-draft";
 import {
   getGoogleAccessToken,
   getRenderInputObject,
@@ -64,13 +65,24 @@ export async function POST(request: Request, context: { params: { id?: string } 
     } else {
       const size = await getStorageObjectSize(config, await getGoogleAccessToken(config, request), getRenderOutputObject(job.id));
       if (!size) return renderJsonError("La vidéo n’a pas été reçue.", 409);
-      await updateRenderJob(supabase, job.id, {
+      const finished = await updateRenderJob(supabase, job.id, {
         status: "done",
         progress: 1,
         output_size_bytes: size,
         message: null,
         finished_at: new Date().toISOString(),
       }, active);
+      // One-click reel: the draft appears in Publications. A retried callback (the job is already
+      // done) goes through the same idempotent creation, so a failed first attempt is repaired.
+      const doneJob = finished ?? (job.status === "done" ? job : null);
+      if (doneJob?.auto_draft && doneJob.content) {
+        try {
+          await createAutoDraftForRenderJob(supabase, doneJob);
+        } catch (error) {
+          // The video is done and downloadable: the admin can still create the draft by hand.
+          console.error("Automatic social draft failed", error instanceof Error ? error.message : "unknown error");
+        }
+      }
     }
     return renderJson({ ok: true });
   } catch (error) {

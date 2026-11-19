@@ -6,11 +6,13 @@ ai_priority: low
 related_files:
   - supabase/migrations/20261104140000_add_video_render_jobs.sql
   - supabase/migrations/20261119160000_add_reel_content.sql
+  - supabase/migrations/20261119170000_add_render_job_auto_draft.sql
   - supabase/tests/video_render_jobs_checks.sql
   - apps/web/lib/video-render.ts
   - apps/web/app/api/admin/video-generator/render-jobs/route.ts
   - apps/web/app/api/admin/video-generator/render-jobs/[id]/start/route.ts
   - apps/web/app/api/video-render/jobs/[id]/route.ts
+  - apps/web/lib/social-post-auto-draft.ts
 related_tables:
   - video_render_jobs
   - races
@@ -36,8 +38,13 @@ Tracks background renders of the admin 3D reel. The render runs in a Google Clou
 | `output_size_bytes` | `bigint` | null or ≥ 0 | Size of the uploaded MP4, checked against Storage. |
 | `cloud_run_execution` | `text` | nullable | Cloud Run execution name, for the logs. |
 | `content` | `jsonb` | nullable, JSON object when set (`video_render_jobs_content_object`) | Snapshot of the highlights reel text (see `video_narrations.content`) taken when the job is created, so Publications can pre-fill the Instagram draft of this very video; validated by the render-jobs POST with the same Zod schema. Null for full reels and older jobs. |
+| `auto_draft` | `boolean` | not null, default `false` | One-click reel: create the job's Instagram draft when the render finishes. Set by the render-jobs POST (`autoDraft: true`, only accepted together with `content`); read by the render completion route, which then creates one `social_posts` draft (service role). Older rows are `false`. |
 | `created_by` | `uuid` | references `auth.users(id)` on delete set null | Admin who started it. |
 | `created_at`, `updated_at`, `started_at`, `finished_at` | `timestamptz` | | Timing; `updated_at` is refreshed by every progress report, and an active job silent for 15 minutes (or older than `MAX_RENDER_HOURS` + 1 h) is marked failed; the GPU task itself stops at 1 h. |
+
+## Automatic draft
+
+Migration `20261119170000_add_render_job_auto_draft.sql` adds `auto_draft` (additive, not null with a default: existing rows and older clients are unaffected; RLS and grants unchanged). When `POST /api/video-render/jobs/<id>` marks a job `done` and the row has `auto_draft = true` and a non-null `content`, it creates one draft in [`social_posts`](social-posts.md) owned by the job's `created_by`; a failure to do so is logged and never fails the completion. See [Google Cloud Background Reel Render](../../05-integrations/google-cloud-video-render.md).
 
 ## Access
 

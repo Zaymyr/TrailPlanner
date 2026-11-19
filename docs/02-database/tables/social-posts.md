@@ -6,8 +6,10 @@ ai_priority: medium
 related_files:
   - supabase/migrations/20261119130000_add_social_posts.sql
   - supabase/migrations/20261119130100_schedule_social_posts_cron.sql
+  - supabase/migrations/20261119170000_add_render_job_auto_draft.sql
   - supabase/tests/social_posts_checks.sql
   - apps/web/lib/social-posts.ts
+  - apps/web/lib/social-post-auto-draft.ts
   - apps/web/lib/instagram/publisher.ts
   - apps/web/app/api/admin/social-posts/route.ts
   - apps/web/app/api/admin/social-posts/[id]/route.ts
@@ -53,7 +55,8 @@ One Instagram Reel drafted from a finished background render and published from 
 | `attempt_count` | `integer` | ≥ 0, default 0 | Transient failures in a row (8 → failed). |
 | `locked_until` | `timestamptz` | | Lease and throttle of the state machine. |
 | `content` | `jsonb` | object or null | Full reel content JSON (hook, script segments, cta, caption, hashtags, cover text) copied from `video_render_jobs.content` when the draft is created; null without content. Informational: the publisher only reads `caption`, `hashtags` and `video_url`. |
-| `created_by` | `uuid` | references `auth.users(id)` on delete set null | Admin who created the draft. |
+| `auto_generated` | `boolean` | not null, default `false` | The draft was created by the render completion (one-click reel), not by an admin; shown as « Généré automatiquement » in Publications. Informational for the publisher. |
+| `created_by` | `uuid` | references `auth.users(id)` on delete set null | Admin who created the draft (for an automatic draft, the admin who launched the render). |
 | `created_at`, `updated_at` | `timestamptz` | `updated_at` set by trigger `set_social_posts_updated_at` | Timing. |
 
 ## Foreign Keys
@@ -65,6 +68,7 @@ One Instagram Reel drafted from a finished background render and published from 
 
 - `social_posts_status_scheduled_idx (status, scheduled_at)`: the cron's due-post and runnable-post scans.
 - `social_posts_created_idx (created_at desc)`: the admin list.
+- `social_posts_auto_generated_video_job_uidx (video_job_id) where auto_generated and video_job_id is not null` (unique, partial): at most one automatic draft per render, so a retried completion callback can never create a second one. It was added with `auto_generated` in `20261119170000_add_render_job_auto_draft.sql` (the idempotency is also checked in the application before inserting). Manual drafts are not constrained: an admin can still create several drafts for one render.
 - One index per foreign key (`race_id`, `video_job_id`, `created_by`).
 
 ## RLS Policies
@@ -73,7 +77,7 @@ RLS is enabled with no policy; every privilege is revoked from `public`, `anon` 
 
 ## Business Invariants
 
-- A new row is a dry-run `draft`.
+- A new row is a dry-run `draft`. An automatic draft (`auto_generated`) is a `draft` too: it is never scheduled or published without an admin action.
 - Every status transition is a PATCH guarded by the expected current status (and `ig_media_id=is.null` where relevant), so two clicks or a click racing the cron cannot both win.
 - A step runs only after claiming the lease (`status=eq.publishing` and `locked_until` null or past).
 - `media_publish` is never called when `ig_media_id` is set, nor for a container that is not `FINISHED`.

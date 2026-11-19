@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import React, { createElement } from "react";
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -186,6 +186,10 @@ describe("VideoGeneratorMapClient", () => {
     }));
     const map = mapboxMock.instances[0];
     expect(map).toBeTruthy();
+    // The editor opens on Temps forts: this test covers the full flyover.
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: "Parcours complet" }));
+    });
 
     act(() => map.emit("style.load"));
     act(() => flushAnimationFrames());
@@ -269,6 +273,127 @@ describe("VideoGeneratorMapClient", () => {
     view.unmount();
     expect(map.remove).toHaveBeenCalledOnce();
     expect(progressMarker.remove).toHaveBeenCalled();
+    // A dozen user interactions on the full editor: well under 2 s alone, but it went past the
+    // default 5 s on a loaded CI runner.
+  }, 20_000);
+});
+
+describe("VideoGeneratorMapClient default mode", () => {
+  it("opens a race without saved settings on Temps forts, with the one-click reel", () => {
+    render(createElement(VideoGeneratorMapClient, {
+      aidStations: [],
+      bounds: { minLat: 45, minLon: 4, maxLat: 46, maxLon: 5 },
+      points: [
+        { lat: 45, lon: 4, elevationM: 400, distanceKm: 0 },
+        { lat: 46, lon: 5, elevationM: 900, distanceKm: 20 },
+      ],
+      race: { title: "SaintéLyon 2026", subtitle: null, distanceKm: 82, elevationGainM: 2_300, startDetail: "Lyon" },
+      accessToken: "admin-token",
+    }));
+    const modes = screen.getByRole("group", { name: "Type de reel" });
+    expect(within(modes).getByRole("button", { name: "Temps forts" }).getAttribute("aria-pressed")).toBe("true");
+    expect(within(modes).getByRole("button", { name: "Parcours complet" }).getAttribute("aria-pressed")).toBe("false");
+    // The highlights caption comes with the script: no separate caption generator.
+    expect(screen.queryByRole("button", { name: /Générer la description et les hashtags/ })).toBeNull();
+    // The individual buttons stay available next to the one-click reel.
+    expect(screen.getByRole("button", { name: "Générer le reel" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Rédiger avec l’IA" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Générer la voix off" })).toBeTruthy();
+  });
+});
+
+describe("VideoGeneratorMapClient one-click reel", () => {
+  const content = {
+    hook: "82 km de nuit.",
+    script_segments: [{ highlight_id: "hl-intro", text: "Prêt pour la nuit ?" }],
+    cta: "Lien en bio.",
+    caption: "La SaintéLyon en 40 secondes.",
+    hashtags: ["saintelyon"],
+    cover_text: "82 km de nuit",
+  };
+  type Call = { url: string; method: string; body: Record<string, unknown> | null };
+
+  const stubBackend = (failVoiceOnce: boolean) => {
+    const calls: Call[] = [];
+    let voiceFailures = failVoiceOnce ? 1 : 0;
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+      const body = typeof init?.body === "string" ? JSON.parse(init.body) as Record<string, unknown> : null;
+      calls.push({ url, method, body });
+      if (url.includes("/narrations/") && method === "GET") return Response.json({ narration: null });
+      if (url.endsWith("/video-generator/content")) return Response.json({ content, warnings: [{ field: "hook", message: "Chiffre non fourni : 3 200 m" }] });
+      if (url.endsWith("/video-generator/voice")) {
+        if (voiceFailures-- > 0) return Response.json({ message: "ElevenLabs indisponible" }, { status: 502 });
+        const items = (body?.items ?? []) as Array<{ id: string; text: string }>;
+        return Response.json({ clips: items.map((item) => ({ id: item.id, text: item.text, audioBase64: "AAAA", durationMs: 2_000 })) });
+      }
+      if (url.includes("/narrations/") && method === "PUT") return Response.json({ ok: true });
+      if (url.endsWith("/render-jobs") && method === "POST") return Response.json({ job: { id: "job-1" }, inputUploadUrl: "https://storage.example/input" }, { status: 201 });
+      if (url === "https://storage.example/input") return new Response(null, { status: 200 });
+      if (url.endsWith("/start")) return Response.json({ ok: true });
+      if (url.endsWith("/render-jobs")) return Response.json({ jobs: [] });
+      return Response.json({ features: [] });
+    }));
+    return calls;
+  };
+
+  const renderEditor = () => render(createElement(VideoGeneratorMapClient, {
+    aidStations: [],
+    bounds: { minLat: 45, minLon: 4, maxLat: 46, maxLon: 5 },
+    points: [
+      { lat: 45, lon: 4, elevationM: 400, distanceKm: 0 },
+      { lat: 46, lon: 5, elevationM: 900, distanceKm: 20 },
+    ],
+    race: { id: "33333333-3333-4333-8333-333333333333", title: "SaintéLyon 2026", subtitle: null, distanceKm: 82, elevationGainM: 2_300, startDetail: "Lyon" },
+    accessToken: "admin-token",
+  }));
+
+  const steps = (calls: Call[]) => calls
+    .filter((call) => call.method !== "GET")
+    .map((call) => `${call.method} ${new URL(call.url, "http://localhost").pathname}`);
+
+  it("chains text, voice, save and render with the automatic draft, and shows the warnings", async () => {
+    const calls = stubBackend(false);
+    renderEditor();
+    await userEvent.click(screen.getByRole("button", { name: "Générer le reel" }));
+
+    await waitFor(() => expect(screen.getByRole("status").textContent).toContain("Rendu lancé"), { timeout: 5_000 });
+    expect(steps(calls)).toEqual([
+      "POST /api/admin/video-generator/content",
+      "POST /api/admin/video-generator/voice",
+      "PUT /api/admin/video-generator/narrations/33333333-3333-4333-8333-333333333333",
+      "POST /api/admin/video-generator/render-jobs",
+      "PUT /input",
+      "POST /api/admin/video-generator/render-jobs/job-1/start",
+    ]);
+    expect(calls.find((call) => call.url.includes("/narrations/") && call.method === "PUT")?.url).toContain("mode=highlights");
+    expect(calls.find((call) => call.url.includes("/narrations/") && call.method === "PUT")?.body).toMatchObject({ content: { hook: content.hook } });
+    expect(calls.find((call) => call.url.endsWith("/render-jobs") && call.method === "POST")?.body).toMatchObject({ autoDraft: true, content: { caption: content.caption } });
+    // The composition sent to the renderer carries the new text and the clips just generated.
+    const snapshot = calls.find((call) => call.url === "https://storage.example/input")?.body as { narrationOverrides: Record<string, string>; voiceClips: unknown[]; settings: { storyMode: string } };
+    expect(snapshot.settings.storyMode).toBe("highlights");
+    expect(snapshot.narrationOverrides["hl-intro"]).toContain("Prêt pour la nuit ?");
+    expect(snapshot.voiceClips.length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: "Publications" }).getAttribute("href")).toBe("/admin/publications");
+    expect(screen.getByLabelText("Points à vérifier").textContent).toContain("Chiffre non fourni : 3 200 m");
+  });
+
+  it("stops on a failing step, then resumes from it without writing the text again", async () => {
+    const calls = stubBackend(true);
+    renderEditor();
+    await userEvent.click(screen.getByRole("button", { name: "Générer le reel" }));
+
+    const alert = await screen.findByRole("alert", undefined, { timeout: 5_000 });
+    expect(alert.textContent).toContain("« Voix »");
+    expect(alert.textContent).toContain("ElevenLabs indisponible");
+    expect(steps(calls)).toEqual(["POST /api/admin/video-generator/content", "POST /api/admin/video-generator/voice"]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Reprendre" }));
+    await waitFor(() => expect(screen.getByRole("status").textContent).toContain("Rendu lancé"), { timeout: 5_000 });
+    expect(steps(calls).filter((step) => step.endsWith("/content"))).toHaveLength(1);
+    expect(steps(calls).filter((step) => step.endsWith("/voice"))).toHaveLength(2);
+    expect(steps(calls).at(-1)).toBe("POST /api/admin/video-generator/render-jobs/job-1/start");
   });
 });
 

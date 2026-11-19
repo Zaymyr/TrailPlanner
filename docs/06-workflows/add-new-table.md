@@ -5,6 +5,7 @@ last_verified: 2026-11-19
 # Supporter onboarding (2026-11-18): schema-overview lists the new `user_profiles.supporter_onboarding_status` column; no new table.
 # Inbox push badge (2026-11-18): schema-overview notes the admin inbox push badge; no table, column or RLS change.
 # Reel narration mode (2026-11-19): supabase/tests/video_narrations_checks.sql also checks the (race_id, mode) key; this workflow is unchanged.
+# One-click reel (2026-11-19): supabase/tests/video_render_jobs_checks.sql and social_posts_checks.sql also check `video_render_jobs.auto_draft`, `social_posts.auto_generated` and the partial unique index of automatic drafts (migration 20261119170000); no new table, this workflow is unchanged.
 # Reel content (2026-11-19): supabase/tests/video_narrations_checks.sql and video_render_jobs_checks.sql also check the nullable `content` jsonb columns (migration 20261119160000); this workflow is unchanged.
 # Livret supporter private preview (2026-11-18): the catalog Livret supporter entry admits active organizers of a private event (preview only); runner badge, data and contracts unchanged.
 ai_priority: high

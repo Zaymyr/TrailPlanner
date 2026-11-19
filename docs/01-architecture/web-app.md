@@ -2,6 +2,7 @@
 title: Web App Architecture
 scope: architecture
 last_verified: 2026-11-19
+# One-click reel (2026-11-19): « Générer le reel » chains the AI text, voice, narration save and background render in Temps forts mode (now the editor's initial mode; the schema default stays full), and the render completion route creates the Instagram draft (video_render_jobs.auto_draft, social_posts.auto_generated, service role) shown with a « Généré automatiquement » badge in Publications.
 # Reel subtitles lower (2026-11-19): the burned-in subtitle box moves from 64 % to 74 % of the frame height (still above y = 1500 px).
 # Reel camera and labels (2026-11-19): highlights reels (or tiltedCamera on) use a 60 degree chase camera that keeps the runner and the next 2 km in frame (camera-framing.ts); start/finish/aid labels never overlap or get cut by the frame edge, and a loop shows one Départ / Arrivée label (label-layout.ts).
 # Inbox push badge (2026-11-18): `sendAdminUserNotificationPush` counts the runner's unread, non-deleted `user_notifications` (service role, after the row is inserted) and sends it as the Expo `badge`; a failed count only drops the badge. Other pushes (race reminders, race event updates) send no badge, unchanged.
@@ -114,6 +115,13 @@ related_files:
   - apps/web/public/reel-music/manifest.json
   - apps/web/app/admin/video-generator/route-story.ts
   - apps/web/app/admin/video-generator/StoryEditor.tsx
+  - apps/web/app/admin/video-generator/reel-pipeline.ts
+  - apps/web/app/admin/video-generator/useReelPipeline.ts
+  - apps/web/app/admin/video-generator/ReelPipelinePanel.tsx
+  - apps/web/app/admin/video-generator/background-render.ts
+  - apps/web/app/admin/video-generator/BackgroundRenderPanel.tsx
+  - apps/web/lib/social-post-auto-draft.ts
+  - apps/web/app/api/video-render/jobs/[id]/route.ts
   - apps/web/app/api/admin/video-generator/script/route.ts
   - apps/web/app/api/admin/video-generator/voice/route.ts
   - apps/web/app/api/admin/video-generator/caption/route.ts
@@ -947,3 +955,5 @@ Follow-page fix (2026-11-16): `getPublicSupporterGuide` now reads `/api/supporte
 ## Admin Instagram publications (2026-11-19)
 
 The admin header links to `/admin/publications` (« Publications »), next to the 3D video generator. The page, protected by the shared admin layout and by `authorizeVideoAdmin` on every route, shows a read-only Instagram status card (`/api/admin/instagram`: System User credentials configured or not, account username and profile and publishing quota read server side from `graph.facebook.com`, linked Page id, Graph version, mode « Simulation » / « Publication réelle »; the token is never returned and there is no connect button), creates drafts from finished background renders (`/api/admin/social-posts`), edits caption, hashtags and cover text with react-hook-form + Zod (Instagram limits checked live and again on the server), previews the MP4 through a 1-hour signed URL, and offers « Publier maintenant », « Programmer » (Europe/Paris wall time, stored UTC), « Annuler la programmation », « Réessayer » and « Supprimer » (`/api/admin/social-posts/[id]`). Data loading uses the local TanStack Query shim; while a post is publishing the page polls the list and advances the post every 30 s. Nothing is published without one of those clicks, and publishing is simulated unless `INSTAGRAM_PUBLISH_DRY_RUN=false`; a post scheduled in one mode fails instead of being published in the other. Once a live publish was requested, any action that would drop the Instagram container (editing a failed post, retrying after a mode change, « Recommencer avec un nouveau conteneur ») gets a 409 `needsConfirmation` from the route, which the page turns into a confirmation dialog before resending with `confirmRestart: true`. The report-only CSP has no `media-src`, so the preview `<video>` from `storage.googleapis.com` may raise a report; it still plays. Flow, limits and setup: [Instagram Reels Publishing](../05-integrations/instagram-publishing.md).
+
+One-click reel (2026-11-19): the generator opens on Temps forts and « Générer le reel » (`ReelPipelinePanel`, `reel-pipeline.ts`, `useReelPipeline.ts`) runs text, voice, save and the background render on the same functions as the individual buttons, with a resumable progress list and warnings that never block. The render-jobs POST accepts `autoDraft`; when such a job reaches `done`, the token-authenticated completion route `POST /api/video-render/jobs/<id>` creates one `draft` post through `createAutoDraftForRenderJob` (service role, idempotent, a failure is logged and keeps the job `done`). Details: [Mapbox 3D](../05-integrations/mapbox-3d.md) (« One-click reel »), [Google Cloud render](../05-integrations/google-cloud-video-render.md).

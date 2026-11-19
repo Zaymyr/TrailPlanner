@@ -1,4 +1,3 @@
-import { isInstagramPublishDryRun } from "../../../../lib/instagram/config";
 import { buildDraftPrefill, parseReelContent } from "../../../../lib/reel-content";
 import {
   canPublishNow,
@@ -11,7 +10,8 @@ import {
   VIDEO_LIFETIME_MARGIN_HOURS,
   VIDEO_STORAGE_LIFETIME_DAYS,
 } from "../../../../lib/social-posts";
-import { getRenderJob, getRenderOutputObject } from "../../../../lib/video-render";
+import { buildSocialPostDraftRow } from "../../../../lib/social-post-auto-draft";
+import { getRenderJob } from "../../../../lib/video-render";
 import { authorizeVideoAdmin, renderJson, renderJsonError } from "../../../../lib/video-render-api";
 
 /** Publications list, plus the finished renders a new draft can start from. */
@@ -75,21 +75,14 @@ export async function POST(request: Request) {
     if (!job || job.status !== "done" || !job.finished_at) return renderJsonError("Cette vidéo n’est pas terminée.", 409);
     if (!canPublishNow(job.finished_at)) return renderJsonError("Cette vidéo arrive en fin de conservation (30 jours) : relance un rendu.", 409);
 
-    const reelContent = parseReelContent(job.content);
-    const post = await createSocialPostRepository(supabase).insert({
-      race_id: job.race_id,
-      video_job_id: job.id,
-      platform: "instagram",
-      status: "draft",
+    // The reel text of the video is copied as is (full JSON), whatever the admin edited above.
+    const post = await createSocialPostRepository(supabase).insert(buildSocialPostDraftRow({
+      job,
       caption: parsed.data.caption,
       hashtags: parsed.data.hashtags,
-      cover_text: parsed.data.coverText || null,
-      // The reel text of the video, copied as is (full JSON), whatever the admin edited above.
-      ...(reelContent ? { content: reelContent } : {}),
-      video_url: getRenderOutputObject(job.id),
-      dry_run: isInstagramPublishDryRun(),
-      created_by: userId,
-    });
+      coverText: parsed.data.coverText ?? null,
+      createdBy: userId,
+    }));
     return renderJson({
       post: toPublicSocialPost(post, {
         raceTitle: job.race_title,
