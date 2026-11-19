@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import React, { createElement } from "react";
-import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -187,7 +187,9 @@ describe("VideoGeneratorMapClient", () => {
     const map = mapboxMock.instances[0];
     expect(map).toBeTruthy();
     // The editor opens on Temps forts: this test covers the full flyover.
-    await userEvent.click(screen.getByRole("button", { name: "Parcours complet" }));
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: "Parcours complet" }));
+    });
 
     act(() => map.emit("style.load"));
     act(() => flushAnimationFrames());
@@ -271,7 +273,9 @@ describe("VideoGeneratorMapClient", () => {
     view.unmount();
     expect(map.remove).toHaveBeenCalledOnce();
     expect(progressMarker.remove).toHaveBeenCalled();
-  });
+    // A dozen user interactions on the full editor: well under 2 s alone, but it went past the
+    // default 5 s on a loaded CI runner.
+  }, 20_000);
 });
 
 describe("VideoGeneratorMapClient default mode", () => {
