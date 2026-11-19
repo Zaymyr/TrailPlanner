@@ -125,6 +125,6 @@ export const instagramCaptionResponseSchema = z.object({
 
 export type InstagramCaptionRequest = z.infer<typeof instagramCaptionRequestSchema>;
 
-/** Instagram limits: 2,200 characters per caption, 30 hashtags. */
+/** Instagram limits: 2,200 characters per caption, 5 hashtags (30 before late 2025). */
 export const INSTAGRAM_CAPTION_MAX_CHARS = 2_200;
-export const INSTAGRAM_MAX_HASHTAGS = 30;
+export const INSTAGRAM_MAX_HASHTAGS = 5;

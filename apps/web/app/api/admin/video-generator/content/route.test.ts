@@ -51,7 +51,7 @@ const validBody = {
   ],
 };
 
-const TAGS = ["trail", "trailrunning", "ultratrail", "paceyourself", "saintelyon", "nuit", "montagne", "course"];
+const TAGS = ["trail", "trailrunning", "ultratrail", "paceyourself", "saintelyon"];
 const output = (patch: Record<string, unknown> = {}) => ({
   hook: "82 km, ça se prépare ?",
   script_segments: [

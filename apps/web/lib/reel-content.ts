@@ -12,8 +12,9 @@ import { countWords, OVER_BUDGET_TOLERANCE } from "./video-script-prompt";
 
 export const REEL_HOOK_MAX_WORDS = 12;
 export const REEL_COVER_TEXT_MAX_WORDS = 6;
-export const REEL_MIN_HASHTAGS = 8;
-export const REEL_MAX_HASHTAGS = 15;
+// Instagram accepts 5 hashtags per post (since late 2025): the race, generic trail tags, paceyourself.
+export const REEL_MIN_HASHTAGS = 3;
+export const REEL_MAX_HASHTAGS = 5;
 export const REEL_CAPTION_MAX_CHARS = 2_200;
 const COVER_TEXT_STORED_MAX_CHARS = 200;
 
@@ -310,7 +311,7 @@ export const assembleReelContent = ({
     script_segments: segments,
     cta: (outro?.text ?? base?.cta ?? "").slice(0, 300),
     caption: caption.trim().slice(0, REEL_CAPTION_MAX_CHARS),
-    hashtags: normalizeHashtags(hashtags).slice(0, 30),
+    hashtags: normalizeHashtags(hashtags).slice(0, REEL_MAX_HASHTAGS),
     cover_text: coverText.trim().slice(0, COVER_TEXT_STORED_MAX_CHARS),
   };
 };

@@ -42,7 +42,7 @@ One Instagram Reel drafted from a finished background render and published from 
 | `platform` | `text` | `instagram` only, default `instagram` | Target network. |
 | `status` | `text` | `draft`, `scheduled`, `publishing`, `published`, `failed`; default `draft` | Lifecycle. |
 | `caption` | `text` | ≤ 2,200 characters, default `''` | Text without hashtags. |
-| `hashtags` | `text[]` | ≤ 30 entries, default `{}` | Normalized hashtags without `#`, appended after a blank line. |
+| `hashtags` | `text[]` | ≤ 30 entries (DB check), default `{}` | Normalized hashtags without `#`, appended after a blank line. The app enforces Instagram's current limit of 5 hashtags per caption (`CAPTION_MAX_HASHTAGS`); the DB check is only an upper bound. |
 | `cover_text` | `text` | ≤ 200 characters | Text for a future generated cover (not sent yet). |
 | `video_url` | `text` | ≤ 300 characters | Cloud Storage object path `jobs/<job id>/reel.mp4`, not a URL: the signed URL Meta downloads is generated when the container is created. |
 | `scheduled_at` | `timestamptz` | required when `scheduled` | Planned time (UTC; entered and shown in Europe/Paris); set to now by « Publier maintenant » and « Réessayer » and used as the start of the 24-hour publishing deadline. |

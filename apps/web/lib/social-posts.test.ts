@@ -30,13 +30,14 @@ describe("caption and hashtags", () => {
     expect(buildFullCaption("Le parcours", [])).toBe("Le parcours");
   });
 
-  it("enforces 2,200 characters, 30 hashtags and 20 mentions", () => {
+  it("enforces 2,200 characters, 5 hashtags and 20 mentions", () => {
     expect(checkCaption("ok", ["trail"]).problems).toEqual([]);
     expect(checkCaption("a".repeat(2_195), ["trail"]).problems[0]).toContain("2200");
-    const tags = Array.from({ length: 31 }, (_, index) => `tag${index}`);
-    expect(checkCaption("texte", tags).problems[0]).toContain("30 hashtags");
-    expect(checkCaption("texte #inline", tags.slice(0, 29)).hashtagCount).toBe(30);
-    expect(checkCaption("texte #inline", tags.slice(0, 30)).problems).toHaveLength(1);
+    const tags = Array.from({ length: 6 }, (_, index) => `tag${index}`);
+    expect(checkCaption("texte", tags).problems[0]).toContain("5 hashtags");
+    expect(checkCaption("texte #inline", tags.slice(0, 4)).hashtagCount).toBe(5);
+    expect(checkCaption("texte #inline", tags.slice(0, 4)).problems).toEqual([]);
+    expect(checkCaption("texte #inline", tags.slice(0, 5)).problems).toHaveLength(1);
     const mentions = Array.from({ length: 21 }, (_, index) => `@user${index}`).join(" ");
     expect(checkCaption(mentions, []).problems[0]).toContain("20 mentions");
     expect(checkCaption("contact@pace-yourself.com", []).mentionCount).toBe(0);
