@@ -32,7 +32,7 @@ The connected Instagram professional account (`pace_your.self`) and its long-liv
 | --- | --- | --- | --- |
 | `id` | `uuid` | primary key | Row id. |
 | `platform` | `text` | `instagram` only | Network. |
-| `ig_user_id` | `text` | 1-64 characters; unique with `platform` | Instagram professional account id (`user_id` of `/me`). |
+| `ig_user_id` | `text` | 1-64 characters; unique with `platform` | Instagram professional account id (`user_id` of `/me`; the callback refuses the connection without it, never using the code-exchange id). |
 | `username` | `text` | ≤ 64 characters | Handle shown in the admin. |
 | `access_token_encrypted` | `text` | must start with `v1:` | `v1:<iv>:<tag>:<ciphertext>` (base64url). |
 | `token_expires_at` | `timestamptz` | not null | Expiry of the long-lived token (60 days). |

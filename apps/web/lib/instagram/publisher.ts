@@ -13,8 +13,11 @@ import { InstagramGraphError, isDryRunId, type InstagramGraphClient } from "./gr
  *   container     -> poll status_code (at most once a minute)
  *     IN_PROGRESS -> wait
  *     FINISHED    -> mark publish_requested_at, media_publish, store ig_media_id at once
- *     PUBLISHED   -> already published by an interrupted step: mark published, never publish again
+ *     PUBLISHED   -> already published by an interrupted step: recover the media, never publish again
  *     ERROR/EXPIRED -> failed (the container is dropped so a retry creates a new one)
+ *   publish_requested_at set, no ig_media_id -> the container status decides first, before any
+ *     deadline or expiry rule: PUBLISHED recovers the media (or asks for a manual check),
+ *     FINISHED publishes, ERROR/EXPIRED fails keeping every id; never a new container
  *   ig_media_id   -> fetch the permalink, mark published
  *
  * The caller holds the post lease (`locked_until`), so two workers never run the same step.
@@ -32,6 +35,11 @@ export const MAX_TRANSIENT_ATTEMPTS = 8;
 /** Containers expire after 24 h; a publication never lasts longer. */
 export const CONTAINER_LIFETIME_MS = 24 * 60 * 60_000;
 export const PUBLISHING_DEADLINE_MS = 24 * 60 * 60_000;
+
+/** Tolerance between our clock and Instagram's media timestamps when recovering a lost media id. */
+export const RECOVERY_CLOCK_SKEW_MS = 5 * 60_000;
+export const MANUAL_CHECK_NOTE =
+  "Publiée sur Instagram, mais le média n’a pas pu être identifié : vérifie la publication sur le compte (lien indisponible).";
 
 export type PublishingAccount = { id: string; igUserId: string; accessToken: string };
 
@@ -88,6 +96,55 @@ export const advanceSocialPost = async (post: SocialPostRow, deps: PublisherDeps
     }, "published");
 
   let account: PublishingAccount = DRY_RUN_ACCOUNT;
+
+  /** FINISHED: record the attempt before calling Meta, then store the media id at once. */
+  const publishFinishedContainer = async (containerId: string): Promise<StepResult> => {
+    const marked = await deps.posts.update(post.id, { publish_requested_at: now.toISOString() }, "status=eq.publishing&ig_media_id=is.null");
+    if (!marked) return { outcome: "skipped", post };
+    Object.assign(post, marked);
+    const mediaId = await graph.publishContainer(account.igUserId, containerId, account.accessToken);
+    await deps.posts.update(post.id, { ig_media_id: mediaId }, "status=eq.publishing");
+    const permalink = await graph.getPermalink(mediaId, account.accessToken).catch(() => null);
+    return finalize(mediaId, permalink);
+  };
+
+  /**
+   * The container is PUBLISHED but the media id was never stored (lost response): find the reel
+   * among the account's latest media; when it cannot be identified for sure, mark the post
+   * published with a manual-check note. Never a new container, never a second media_publish.
+   */
+  const recoverPublishedMedia = async (since: string | null): Promise<StepResult> => {
+    const media = await graph.listRecentMedia(account.igUserId, account.accessToken).catch(() => null);
+    const sinceMs = since ? Date.parse(since) - RECOVERY_CLOCK_SKEW_MS : Number.NEGATIVE_INFINITY;
+    const candidates = (media ?? []).filter((item) =>
+      (!item.mediaProductType || item.mediaProductType === "REELS") && item.timestampMs !== null && item.timestampMs >= sinceMs);
+    if (candidates.length === 1) return finalize(candidates[0].id, candidates[0].permalink);
+    return save({
+      status: "published",
+      published_at: now.toISOString(),
+      error: MANUAL_CHECK_NOTE,
+      locked_until: null,
+    }, "published");
+  };
+
+  /** A publish was requested: only the container status may decide what happens next. */
+  const resumeRequestedPublish = async (containerId: string, requestedAt: string): Promise<StepResult> => {
+    let result: { statusCode: string; status: string | null };
+    try {
+      result = await graph.getContainerStatus(containerId, account.accessToken);
+    } catch (error) {
+      if (error instanceof InstagramGraphError && error.kind === "permanent") {
+        return fail(`Publication demandée à Instagram mais le conteneur est illisible (${error.message}) : vérifie sur Instagram avant de relancer.`);
+      }
+      throw error;
+    }
+    if (result.statusCode === "PUBLISHED") return recoverPublishedMedia(requestedAt);
+    // FINISHED: Meta confirms the container was not published, so publishing it is safe.
+    if (result.statusCode === "FINISHED") return await publishFinishedContainer(containerId);
+    if (result.statusCode === "IN_PROGRESS") return wait(POLL_INTERVAL_MS, { error: null });
+    // ERROR / EXPIRED after a request: keep every id, the admin checks Instagram first.
+    return fail(`Instagram indique ${result.statusCode} après une demande de publication : vérifie sur Instagram avant de relancer.`);
+  };
   try {
     if (!post.dry_run) {
       // A post started in simulation can never reach Meta with its fake ids, and vice versa.
@@ -111,12 +168,18 @@ export const advanceSocialPost = async (post: SocialPostRow, deps: PublisherDeps
       return finalize(post.ig_media_id, permalink, post.error);
     }
 
+    // 2. A publish was already requested (media_publish called, its result unknown): the
+    //    container status decides, before any deadline or expiry rule could drop the container.
+    if (post.ig_container_id && post.publish_requested_at) {
+      return await resumeRequestedPublish(post.ig_container_id, post.publish_requested_at);
+    }
+
     const startedAt = Date.parse(post.scheduled_at ?? post.created_at);
     if (now.getTime() - startedAt > PUBLISHING_DEADLINE_MS) {
       return fail("La publication n’a pas abouti en 24 h.", { ig_container_id: null, ig_container_created_at: null });
     }
 
-    // 2. No container yet: create it (the video must still be in storage).
+    // 3. No container yet: create it (the video must still be in storage).
     if (!post.ig_container_id) {
       if (!post.video_job_id || !post.video_url) return fail("La vidéo de cette publication a été supprimée.");
       const job = await deps.getVideoJob(post.video_job_id);
@@ -144,10 +207,10 @@ export const advanceSocialPost = async (post: SocialPostRow, deps: PublisherDeps
       }, "container_created");
     }
 
-    // 3. Container: poll, then publish once.
+    // 4. Container, no publish requested yet: poll, then publish once.
     const containerAge = now.getTime() - Date.parse(post.ig_container_created_at ?? post.updated_at);
     if (containerAge > CONTAINER_LIFETIME_MS) {
-      return fail("Le conteneur Instagram a expiré (24 h).", { ig_container_id: null, ig_container_created_at: null, publish_requested_at: null });
+      return fail("Le conteneur Instagram a expiré (24 h).", { ig_container_id: null, ig_container_created_at: null });
     }
 
     const { statusCode, status } = await graph.getContainerStatus(post.ig_container_id, account.accessToken);
@@ -155,26 +218,11 @@ export const advanceSocialPost = async (post: SocialPostRow, deps: PublisherDeps
     if (statusCode === "ERROR" || statusCode === "EXPIRED") {
       return fail(
         statusCode === "EXPIRED" ? "Le conteneur Instagram a expiré." : `Instagram a refusé la vidéo${status ? ` : ${status}` : "."}`,
-        { ig_container_id: null, ig_container_created_at: null, publish_requested_at: null },
+        { ig_container_id: null, ig_container_created_at: null },
       );
     }
-    if (statusCode === "PUBLISHED") {
-      // An earlier step published but could not store the media id: never publish again.
-      return save({
-        status: "published",
-        published_at: now.toISOString(),
-        error: "Publiée sur Instagram, mais l’identifiant du média n’a pas pu être enregistré (lien indisponible).",
-        locked_until: null,
-      }, "published");
-    }
-
-    // FINISHED: record the attempt before calling Meta, then store the media id at once.
-    const marked = await deps.posts.update(post.id, { publish_requested_at: now.toISOString() }, "status=eq.publishing&ig_media_id=is.null");
-    if (!marked) return { outcome: "skipped", post };
-    const mediaId = await graph.publishContainer(account.igUserId, post.ig_container_id, account.accessToken);
-    await deps.posts.update(post.id, { ig_media_id: mediaId }, "status=eq.publishing");
-    const permalink = await graph.getPermalink(mediaId, account.accessToken).catch(() => null);
-    return finalize(mediaId, permalink);
+    if (statusCode === "PUBLISHED") return await recoverPublishedMedia(post.publish_requested_at ?? post.ig_container_created_at);
+    return await publishFinishedContainer(post.ig_container_id);
   } catch (error) {
     if (error instanceof InstagramGraphError) {
       if (error.kind === "auth") {
@@ -220,12 +268,12 @@ export const advancePost = async (postId: string, dryRun: boolean, deps: Publish
  * in `publishing` after a crash is simply resumed from its stored container id once its lease expires.
  */
 export const runPublishingTick = async (deps: PublisherDeps & { dryRun: boolean; limit?: number }) => {
-  const promoted = await deps.posts.promoteDue(deps.now(), deps.dryRun);
+  const { promoted, refused } = await deps.posts.promoteDue(deps.now(), deps.dryRun);
   const runnable = await deps.posts.listRunnable(deps.now(), deps.limit ?? 10);
   const results: { id: string; outcome: StepOutcome | "locked" }[] = [];
   for (const candidate of runnable) {
     const result = await advancePost(candidate.id, candidate.dry_run, deps);
     results.push({ id: candidate.id, outcome: result?.outcome ?? "locked" });
   }
-  return { promoted: promoted.length, processed: results };
+  return { promoted: promoted.length, refused: refused.length, processed: results };
 };

@@ -179,16 +179,47 @@ export const updateSocialPostSchema = withCaptionLimits(z.object({
   caption: captionField,
   hashtags: hashtagsField,
   coverText: z.string().trim().max(COVER_TEXT_MAX_CHARS).nullable().optional(),
+  /** The admin checked Instagram after a publish request and accepts starting over. */
+  confirmRestart: z.boolean().optional(),
 }));
 
 export const socialPostActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("publish_now") }),
   z.object({ action: z.literal("schedule"), scheduledAtLocal: z.string().regex(LOCAL_PATTERN) }),
   z.object({ action: z.literal("unschedule") }),
-  z.object({ action: z.literal("retry") }),
+  z.object({ action: z.literal("retry"), confirmRestart: z.boolean().optional() }),
   z.object({ action: z.literal("advance") }),
 ]);
 export type SocialPostAction = z.infer<typeof socialPostActionSchema>;
+
+/** Shown before an action that would drop a container whose publication was already requested. */
+export const PUBLISH_REQUESTED_CONFIRMATION =
+  "Une publication a déjà été demandée à Instagram pour ce post. Vérifie sur le compte qu’elle n’a pas été publiée : en confirmant, un nouveau conteneur sera créé et le reel pourrait apparaître deux fois.";
+
+type RestartFields = Pick<SocialPostRow, "status" | "publish_requested_at" | "ig_media_id" | "ig_container_id" | "dry_run">;
+
+/** A live media_publish was called and its outcome is not stored: the reel may already be online. */
+export const publishWasRequested = (post: RestartFields) => Boolean(post.publish_requested_at) && !post.ig_media_id && !post.dry_run;
+
+export type RestartPlan = { kind: "needs_confirmation" } | { kind: "proceed"; dropContainer: boolean };
+
+/**
+ * « Réessayer » resumes from the stored container; it starts over (drops the container) when the
+ * mode changed or the admin asked to. Starting over after a live publish request needs the
+ * admin's explicit confirmation, since the first attempt may already be on Instagram.
+ */
+export const planRetry = (post: RestartFields, dryRun: boolean, confirmRestart = false): RestartPlan => {
+  const dropContainer = post.dry_run !== dryRun || confirmRestart;
+  if (dropContainer && publishWasRequested(post) && !confirmRestart) return { kind: "needs_confirmation" };
+  return { kind: "proceed", dropContainer };
+};
+
+/** Editing a failed post drops its container (the caption is inside it): same confirmation rule. */
+export const planEdit = (post: RestartFields, confirmRestart = false): RestartPlan => {
+  const dropContainer = post.status === "failed";
+  if (dropContainer && publishWasRequested(post) && !confirmRestart) return { kind: "needs_confirmation" };
+  return { kind: "proceed", dropContainer };
+};
 
 // ---------------------------------------------------------------------------------------------
 // Rows (service role)
@@ -221,6 +252,12 @@ export const socialPostRowSchema = z.object({
 });
 export type SocialPostRow = z.infer<typeof socialPostRowSchema>;
 
+/** Why a scheduled post was not promoted after the publishing mode changed. */
+export const modeMismatchMessage = (scheduledInDryRun: boolean) =>
+  scheduledInDryRun
+    ? "Programmée en simulation — reprogramme-la pour publier sur Instagram."
+    : "Programmée pour une publication réelle alors que la simulation est active — reprogramme-la.";
+
 export const SOCIAL_POST_COLUMNS = Object.keys(socialPostRowSchema.shape).join(",");
 
 /** What the admin page receives: no internal lease fields. */
@@ -238,6 +275,7 @@ export const toPublicSocialPost = (row: SocialPostRow, extra: { raceTitle?: stri
   igMediaId: row.ig_media_id,
   igPermalink: row.ig_permalink,
   hasContainer: Boolean(row.ig_container_id),
+  publishRequested: Boolean(row.publish_requested_at) && !row.ig_media_id,
   error: row.error,
   dryRun: row.dry_run,
   createdAt: row.created_at,
@@ -259,6 +297,7 @@ export const publicSocialPostSchema = z.object({
   igMediaId: z.string().nullable(),
   igPermalink: z.string().nullable(),
   hasContainer: z.boolean(),
+  publishRequested: z.boolean(),
   error: z.string().nullable(),
   dryRun: z.boolean(),
   createdAt: z.string(),
@@ -286,8 +325,11 @@ export type SocialPostRepository = {
   /** Guarded update: applied only when the row matches `filter` (PostgREST query string). */
   update: (id: string, patch: Record<string, unknown>, filter?: string) => Promise<SocialPostRow | null>;
   remove: (id: string, filter: string) => Promise<boolean>;
-  /** Scheduled posts whose time has come become `publishing` (atomic, guarded by status). */
-  promoteDue: (now: Date, dryRun: boolean) => Promise<SocialPostRow[]>;
+  /**
+   * Scheduled posts whose time has come become `publishing` (atomic, guarded by status) only when
+   * they were scheduled in the current mode; the others fail and must be rescheduled.
+   */
+  promoteDue: (now: Date, dryRun: boolean) => Promise<{ promoted: SocialPostRow[]; refused: SocialPostRow[] }>;
   /** Publishing posts whose lease is free. */
   listRunnable: (now: Date, limit: number) => Promise<SocialPostRow[]>;
   /** Takes the lease of one publishing post; null when another worker holds it. */
@@ -358,14 +400,22 @@ export const createSocialPostRepository = (supabase: SupabaseServiceConfig, fetc
       if (!response.ok) throw new Error(`Unable to delete social post (${response.status}).`);
       return z.array(z.object({ id: z.string() })).parse(await response.json()).length > 0;
     },
-    promoteDue: (now, dryRun) =>
-      patch(`status=eq.scheduled&scheduled_at=lte.${encodeURIComponent(now.toISOString())}`, {
+    promoteDue: async (now, dryRun) => {
+      const due = `status=eq.scheduled&scheduled_at=lte.${encodeURIComponent(now.toISOString())}`;
+      // dry_run is never rewritten here: a post scheduled in simulation can never go live.
+      const promoted = await patch(`${due}&dry_run=eq.${dryRun}`, {
         status: "publishing",
-        dry_run: dryRun,
         attempt_count: 0,
         error: null,
         locked_until: null,
-      }),
+      });
+      const refused = await patch(`${due}&dry_run=eq.${!dryRun}`, {
+        status: "failed",
+        error: modeMismatchMessage(!dryRun),
+        locked_until: null,
+      });
+      return { promoted, refused };
+    },
     listRunnable: async (now, limit) => rows(await fetcher(
       `${base}?status=eq.publishing&${leaseFree(now)}&select=${SOCIAL_POST_COLUMNS}&order=scheduled_at.asc.nullsfirst&limit=${limit}`,
       { headers: headers(supabase), cache: "no-store" },

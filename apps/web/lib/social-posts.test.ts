@@ -10,6 +10,8 @@ import {
   normalizeHashtags,
   parisLocalToUtc,
   parseHashtagInput,
+  planEdit,
+  planRetry,
   socialPostActionSchema,
   utcToParisLocal,
   validateSchedule,
@@ -110,11 +112,45 @@ describe("social post repository", () => {
     expect(JSON.parse(init.body)).toEqual({ locked_until: "2026-11-19T10:01:30.000Z" });
   });
 
-  it("promotes only due scheduled posts", async () => {
-    const fetcher = vi.fn().mockResolvedValue(new Response("[]", { status: 200 }));
-    await createSocialPostRepository(supabase, fetcher).promoteDue(new Date("2026-11-19T10:00:00Z"), true);
-    const [url, init] = fetcher.mock.calls[0];
-    expect(url).toContain("status=eq.scheduled&scheduled_at=lte.2026-11-19T10%3A00%3A00.000Z");
-    expect(JSON.parse(init.body)).toMatchObject({ status: "publishing", dry_run: true });
+  it("promotes only due posts scheduled in the current mode and fails the others", async () => {
+    const fetcher = vi.fn().mockImplementation(async () => new Response("[]", { status: 200 }));
+    await createSocialPostRepository(supabase, fetcher).promoteDue(new Date("2026-11-19T10:00:00Z"), false);
+    const [promoteUrl, promoteInit] = fetcher.mock.calls[0];
+    expect(promoteUrl).toContain("status=eq.scheduled&scheduled_at=lte.2026-11-19T10%3A00%3A00.000Z&dry_run=eq.false");
+    const promoteBody = JSON.parse(promoteInit.body);
+    expect(promoteBody).toMatchObject({ status: "publishing" });
+    expect(promoteBody).not.toHaveProperty("dry_run");
+    const [refuseUrl, refuseInit] = fetcher.mock.calls[1];
+    expect(refuseUrl).toContain("&dry_run=eq.true");
+    expect(JSON.parse(refuseInit.body)).toMatchObject({ status: "failed", error: "Programmée en simulation — reprogramme-la pour publier sur Instagram." });
+  });
+});
+
+describe("starting over after a publish request", () => {
+  const failed = {
+    status: "failed" as const,
+    publish_requested_at: "2026-11-19T09:00:00Z",
+    ig_media_id: null,
+    ig_container_id: "container-1",
+    dry_run: false,
+  };
+
+  it("resumes a retry in the same mode without confirmation", () => {
+    expect(planRetry(failed, false)).toEqual({ kind: "proceed", dropContainer: false });
+  });
+
+  it("requires a confirmation before dropping a requested container", () => {
+    expect(planRetry(failed, true)).toEqual({ kind: "needs_confirmation" });
+    expect(planRetry(failed, true, true)).toEqual({ kind: "proceed", dropContainer: true });
+    expect(planRetry(failed, false, true)).toEqual({ kind: "proceed", dropContainer: true });
+    expect(planEdit(failed)).toEqual({ kind: "needs_confirmation" });
+    expect(planEdit(failed, true)).toEqual({ kind: "proceed", dropContainer: true });
+  });
+
+  it("needs no confirmation when nothing reached Meta", () => {
+    expect(planRetry({ ...failed, publish_requested_at: null }, true)).toEqual({ kind: "proceed", dropContainer: true });
+    expect(planRetry({ ...failed, dry_run: true }, false)).toEqual({ kind: "proceed", dropContainer: true });
+    expect(planEdit({ ...failed, publish_requested_at: null })).toEqual({ kind: "proceed", dropContainer: true });
+    expect(planEdit({ ...failed, status: "draft", ig_container_id: null })).toEqual({ kind: "proceed", dropContainer: false });
   });
 });

@@ -121,6 +121,8 @@ export type ReelContainerInput = {
   shareToFeed?: boolean;
 };
 
+export type RecentMedia = { id: string; permalink: string | null; timestampMs: number | null; mediaProductType: string | null };
+
 export type PublishingLimit = { usage: number; total: number; durationSeconds: number | null };
 
 export type InstagramGraphClient = {
@@ -129,6 +131,8 @@ export type InstagramGraphClient = {
   publishContainer: (igUserId: string, containerId: string, accessToken: string) => Promise<string>;
   getPermalink: (mediaId: string, accessToken: string) => Promise<string | null>;
   getPublishingLimit: (igUserId: string, accessToken: string) => Promise<PublishingLimit | null>;
+  /** Latest media of the account, to recover a media id whose publish response was lost. */
+  listRecentMedia: (igUserId: string, accessToken: string) => Promise<RecentMedia[]>;
 };
 
 const idSchema = z.object({ id: z.coerce.string().min(1) }).passthrough();
@@ -137,6 +141,22 @@ const containerStatusSchema = z.object({
   status: z.string().optional(),
 }).passthrough();
 const permalinkSchema = z.object({ permalink: z.string().url().optional() }).passthrough();
+const recentMediaSchema = z.object({
+  data: z.array(z.object({
+    id: z.coerce.string().min(1),
+    permalink: z.string().url().optional(),
+    timestamp: z.string().optional(),
+    media_product_type: z.string().optional(),
+  }).passthrough()),
+}).passthrough();
+
+/** Instagram timestamps look like "2026-11-19T10:00:00+0000". */
+export const parseInstagramTimestamp = (value: string | undefined) => {
+  if (!value) return null;
+  const parsed = Date.parse(value.replace(/([+-]\d{2})(\d{2})$/, "$1:$2"));
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 const publishingLimitSchema = z.object({
   data: z.array(z.object({
     quota_usage: z.coerce.number(),
@@ -198,6 +218,19 @@ export const createInstagramGraphClient = ({
         durationSeconds: entry.config?.quota_duration ?? null,
       };
     },
+    listRecentMedia: async (igUserId, accessToken) => {
+      const result = await get(`${encodeURIComponent(igUserId)}/media`, {
+        fields: "id,permalink,timestamp,media_product_type",
+        limit: "10",
+        access_token: accessToken,
+      }, recentMediaSchema);
+      return result.data.map((item) => ({
+        id: item.id,
+        permalink: item.permalink ?? null,
+        timestampMs: parseInstagramTimestamp(item.timestamp),
+        mediaProductType: item.media_product_type ?? null,
+      }));
+    },
   };
 };
 
@@ -211,6 +244,7 @@ export const createDryRunGraphClient = (): InstagramGraphClient => ({
   publishContainer: async () => `dry-run-media-${randomUUID()}`,
   getPermalink: async () => null,
   getPublishingLimit: async () => ({ usage: 0, total: INSTAGRAM_DAILY_PUBLISH_BUDGET, durationSeconds: 86_400 }),
+  listRecentMedia: async () => [],
 });
 
 export const isDryRunId = (id: string | null | undefined) => Boolean(id?.startsWith("dry-run-"));

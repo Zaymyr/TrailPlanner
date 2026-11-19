@@ -11,13 +11,14 @@ import { Label } from "../../../components/ui/label";
 import {
   buildFullCaption,
   formatParisDateTime,
+  PUBLISH_REQUESTED_CONFIRMATION,
   utcToParisLocal,
   type PublicSocialPost,
   type SocialPostAction,
   type SocialPostStatus,
 } from "../../../lib/social-posts";
 import { CaptionForm, toCaptionFormValues, type CaptionPayload } from "./CaptionForm";
-import { adminFetch, postAction, postDetailSchema, postResponseSchema } from "./publications-api";
+import { adminFetch, ConfirmationRequiredError, postAction, postDetailSchema, postResponseSchema } from "./publications-api";
 
 const STATUS_LABELS: Record<SocialPostStatus, string> = {
   draft: "Brouillon",
@@ -66,18 +67,31 @@ export function PostCard({
       setMessage(null);
       onChanged();
     },
-    onError: (error) => setMessage(error instanceof Error ? error.message : "L’action a échoué."),
+    onError: (error, body) => {
+      // After a live publish request, starting over needs an explicit confirmation.
+      if (error instanceof ConfirmationRequiredError && body.action === "retry" && !body.confirmRestart) {
+        if (window.confirm(error.message)) action.mutate({ action: "retry", confirmRestart: true });
+        return;
+      }
+      setMessage(error instanceof Error ? error.message : "L’action a échoué.");
+    },
   });
 
   const save = useMutation({
-    mutationFn: (payload: CaptionPayload) =>
+    mutationFn: (payload: CaptionPayload & { confirmRestart?: boolean }) =>
       adminFetch(accessToken, `/api/admin/social-posts/${post.id}`, postResponseSchema, { method: "PATCH", body: payload }, "Enregistrement impossible."),
     onSuccess: () => {
       setEditing(false);
       setMessage(null);
       onChanged();
     },
-    onError: (error) => setMessage(error instanceof Error ? error.message : "Enregistrement impossible."),
+    onError: (error, payload) => {
+      if (error instanceof ConfirmationRequiredError && !payload.confirmRestart) {
+        if (window.confirm(error.message)) save.mutate({ ...payload, confirmRestart: true });
+        return;
+      }
+      setMessage(error instanceof Error ? error.message : "Enregistrement impossible.");
+    },
   });
 
   const remove = useMutation({
@@ -183,6 +197,18 @@ export function PostCard({
           ) : null}
           {post.status === "failed" ? (
             <Button type="button" disabled={busy || editing} onClick={() => action.mutate({ action: "retry" })}>Réessayer</Button>
+          ) : null}
+          {post.status === "failed" && post.publishRequested ? (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy || editing}
+              onClick={() => {
+                if (window.confirm(PUBLISH_REQUESTED_CONFIRMATION)) action.mutate({ action: "retry", confirmRestart: true });
+              }}
+            >
+              Recommencer avec un nouveau conteneur
+            </Button>
           ) : null}
           {post.status === "scheduled" ? (
             <Button type="button" variant="outline" disabled={busy} onClick={() => action.mutate({ action: "unschedule" })}>

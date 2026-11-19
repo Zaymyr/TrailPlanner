@@ -54,9 +54,11 @@ export async function GET(request: Request) {
   try {
     const shortLived = await exchangeCodeForShortLivedToken(app, code);
     const longLived = await exchangeForLongLivedToken(app, shortLived.accessToken);
-    const profile = await fetchInstagramProfile(longLived.accessToken).catch(() => ({ igUserId: null, username: null }));
+    // The publishing id must come from /me: no fallback to the code-exchange user_id.
+    const profile = await fetchInstagramProfile(longLived.accessToken);
+    if (!profile.igUserId) return back("error");
     await upsertInstagramAccount(supabase, key, {
-      igUserId: profile.igUserId ?? shortLived.userId,
+      igUserId: profile.igUserId,
       username: profile.username,
       token: longLived,
       connectedBy: user.id,

@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { SocialPostRepository, SocialPostRow } from "../social-posts";
+import { modeMismatchMessage, type SocialPostRepository, type SocialPostRow } from "../social-posts";
 import { createDryRunGraphClient, InstagramGraphError, type InstagramGraphClient } from "./graph";
-import { advanceSocialPost, claimAndAdvance, runPublishingTick, type PublisherDeps } from "./publisher";
+import { advanceSocialPost, claimAndAdvance, MANUAL_CHECK_NOTE, runPublishingTick, type PublisherDeps } from "./publisher";
 
 const NOW = new Date("2026-11-19T10:00:00Z");
 
@@ -59,13 +59,19 @@ const memoryRepository = (initial: SocialPostRow[]) => {
     remove: async () => false,
     promoteDue: async (now, dryRun) => {
       const promoted: SocialPostRow[] = [];
+      const refused: SocialPostRow[] = [];
       store.forEach((row) => {
         if (row.status === "scheduled" && row.scheduled_at && Date.parse(row.scheduled_at) <= now.getTime()) {
-          Object.assign(row, { status: "publishing", dry_run: dryRun, attempt_count: 0, error: null, locked_until: null });
-          promoted.push({ ...row });
+          if (row.dry_run === dryRun) {
+            Object.assign(row, { status: "publishing", attempt_count: 0, error: null, locked_until: null });
+            promoted.push({ ...row });
+          } else {
+            Object.assign(row, { status: "failed", error: modeMismatchMessage(row.dry_run), locked_until: null });
+            refused.push({ ...row });
+          }
         }
       });
-      return promoted;
+      return { promoted, refused };
     },
     listRunnable: async (now) => Array.from(store.values()).filter((row) => row.status === "publishing" && leaseFree(row, now)).map((row) => ({ ...row })),
     claim: async (id, now, until) => {
@@ -84,6 +90,7 @@ const fakeGraph = (overrides: Partial<InstagramGraphClient> = {}): InstagramGrap
   publishContainer: vi.fn().mockResolvedValue("media-1"),
   getPermalink: vi.fn().mockResolvedValue("https://www.instagram.com/reel/abc/"),
   getPublishingLimit: vi.fn().mockResolvedValue({ usage: 1, total: 50, durationSeconds: 86400 }),
+  listRecentMedia: vi.fn().mockResolvedValue([]),
   ...overrides,
 }) as InstagramGraphClient & Record<string, ReturnType<typeof vi.fn>>;
 
@@ -169,7 +176,7 @@ describe("publishing state machine", () => {
     const { deps } = makeDeps(repository, graph);
     expect((await claimAndAdvance(basePost().id, deps))?.outcome).toBe("published");
     expect(graph.publishContainer).not.toHaveBeenCalled();
-    expect(store.get(basePost().id)?.status).toBe("published");
+    expect(store.get(basePost().id)).toMatchObject({ status: "published", ig_media_id: null, error: MANUAL_CHECK_NOTE });
   });
 
   it("fails on an ERROR or EXPIRED container and drops it so a retry starts over", async () => {
@@ -241,10 +248,114 @@ describe("publishing state machine", () => {
   });
 });
 
+describe("after a publish was requested", () => {
+  const requested = (overrides: Partial<SocialPostRow> = {}) => basePost({
+    // Scheduled two days ago, container created and publish requested 25 h ago.
+    scheduled_at: "2026-11-17T10:00:00Z",
+    ig_container_id: "container-9",
+    ig_container_created_at: "2026-11-18T09:00:00Z",
+    publish_requested_at: "2026-11-18T09:00:00Z",
+    ...overrides,
+  });
+
+  it("checks the container before any 24 h rule and recovers the published media", async () => {
+    const { repository, store } = memoryRepository([requested()]);
+    const graph = fakeGraph({
+      getContainerStatus: vi.fn().mockResolvedValue({ statusCode: "PUBLISHED", status: null }),
+      listRecentMedia: vi.fn().mockResolvedValue([
+        { id: "older", permalink: "https://www.instagram.com/reel/old/", timestampMs: Date.parse("2026-11-10T09:00:00Z"), mediaProductType: "REELS" },
+        { id: "media-9", permalink: "https://www.instagram.com/reel/new/", timestampMs: Date.parse("2026-11-18T09:00:30Z"), mediaProductType: "REELS" },
+      ]),
+    });
+    expect((await claimAndAdvance(basePost().id, makeDeps(repository, graph).deps))?.outcome).toBe("published");
+    expect(store.get(basePost().id)).toMatchObject({ status: "published", ig_media_id: "media-9", ig_permalink: "https://www.instagram.com/reel/new/", error: null });
+    expect(graph.createReelContainer).not.toHaveBeenCalled();
+    expect(graph.publishContainer).not.toHaveBeenCalled();
+  });
+
+  it("keeps every id and asks for a manual check when the old container is EXPIRED", async () => {
+    const { repository, store } = memoryRepository([requested()]);
+    const graph = fakeGraph({ getContainerStatus: vi.fn().mockResolvedValue({ statusCode: "EXPIRED", status: null }) });
+    expect((await claimAndAdvance(basePost().id, makeDeps(repository, graph).deps))?.outcome).toBe("failed");
+    expect(store.get(basePost().id)).toMatchObject({
+      status: "failed",
+      ig_container_id: "container-9",
+      publish_requested_at: "2026-11-18T09:00:00Z",
+    });
+    expect(store.get(basePost().id)?.error).toContain("vérifie sur Instagram");
+    expect(graph.createReelContainer).not.toHaveBeenCalled();
+    expect(graph.publishContainer).not.toHaveBeenCalled();
+  });
+
+  it("publishes again only when Meta confirms the container is still FINISHED", async () => {
+    const { repository, store } = memoryRepository([requested()]);
+    const graph = fakeGraph();
+    expect((await claimAndAdvance(basePost().id, makeDeps(repository, graph).deps))?.outcome).toBe("published");
+    expect(graph.publishContainer).toHaveBeenCalledTimes(1);
+    expect(store.get(basePost().id)?.ig_media_id).toBe("media-1");
+  });
+
+  it("recovers the media id when the media_publish response was lost", async () => {
+    const { repository, store } = memoryRepository([basePost({ ig_container_id: "container-1", ig_container_created_at: NOW.toISOString() })]);
+    const graph = fakeGraph({
+      getContainerStatus: vi.fn()
+        .mockResolvedValueOnce({ statusCode: "FINISHED", status: null })
+        .mockResolvedValueOnce({ statusCode: "PUBLISHED", status: null }),
+      // Meta published the reel, but the response never came back.
+      publishContainer: vi.fn().mockRejectedValue(new InstagramGraphError("Instagram injoignable.", "transient")),
+      listRecentMedia: vi.fn().mockResolvedValue([
+        { id: "media-lost", permalink: "https://www.instagram.com/reel/lost/", timestampMs: NOW.getTime() + 2_000, mediaProductType: "REELS" },
+      ]),
+    });
+    const { deps, advanceClock } = makeDeps(repository, graph);
+    expect((await claimAndAdvance(basePost().id, deps))?.outcome).toBe("retry_later");
+    expect(store.get(basePost().id)?.publish_requested_at).toBe(NOW.toISOString());
+    advanceClock(3 * 60_000);
+    expect((await claimAndAdvance(basePost().id, deps))?.outcome).toBe("published");
+    expect(store.get(basePost().id)).toMatchObject({ status: "published", ig_media_id: "media-lost" });
+    expect(graph.publishContainer).toHaveBeenCalledTimes(1);
+    expect(graph.createReelContainer).not.toHaveBeenCalled();
+  });
+
+  it("marks the post for a manual check when the media cannot be identified", async () => {
+    const { repository, store } = memoryRepository([requested()]);
+    const graph = fakeGraph({
+      getContainerStatus: vi.fn().mockResolvedValue({ statusCode: "PUBLISHED", status: null }),
+      listRecentMedia: vi.fn().mockResolvedValue([
+        { id: "a", permalink: null, timestampMs: Date.parse("2026-11-18T09:01:00Z"), mediaProductType: "REELS" },
+        { id: "b", permalink: null, timestampMs: Date.parse("2026-11-18T09:02:00Z"), mediaProductType: "REELS" },
+      ]),
+    });
+    await claimAndAdvance(basePost().id, makeDeps(repository, graph).deps);
+    expect(store.get(basePost().id)).toMatchObject({ status: "published", ig_media_id: null, error: MANUAL_CHECK_NOTE });
+  });
+});
+
+describe("mode changes", () => {
+  it("never publishes for real a post scheduled in simulation", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const { repository, store } = memoryRepository([basePost({ status: "scheduled", scheduled_at: "2026-11-19T09:55:00Z", dry_run: true })]);
+    const graph = fakeGraph();
+    const { deps } = makeDeps(repository, graph);
+    const result = await runPublishingTick({ ...deps, dryRun: false });
+    expect(result).toMatchObject({ promoted: 0, refused: 1, processed: [] });
+    expect(store.get(basePost().id)).toMatchObject({ status: "failed", dry_run: true, error: modeMismatchMessage(true) });
+    expect(graph.createReelContainer).not.toHaveBeenCalled();
+    expect(deps.getAccount).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("does not simulate a post scheduled for a real publication either", async () => {
+    const { repository, store } = memoryRepository([basePost({ status: "scheduled", scheduled_at: "2026-11-19T09:55:00Z", dry_run: false })]);
+    await runPublishingTick({ ...makeDeps(repository, fakeGraph()).deps, dryRun: true });
+    expect(store.get(basePost().id)).toMatchObject({ status: "failed", dry_run: false, error: modeMismatchMessage(false) });
+  });
+});
+
 describe("dry run", () => {
   it("runs a scheduled post end to end within one tick with zero network calls", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
-    const { repository, store } = memoryRepository([basePost({ status: "scheduled", scheduled_at: "2026-11-19T09:55:00Z" })]);
+    const { repository, store } = memoryRepository([basePost({ status: "scheduled", scheduled_at: "2026-11-19T09:55:00Z", dry_run: true })]);
     const graph = fakeGraph();
     const { deps } = makeDeps(repository, graph);
 
@@ -267,7 +378,7 @@ describe("dry run", () => {
     ]);
     const { deps } = makeDeps(repository, fakeGraph());
     const result = await runPublishingTick({ ...deps, dryRun: true });
-    expect(result).toEqual({ promoted: 0, processed: [] });
+    expect(result).toEqual({ promoted: 0, refused: 0, processed: [] });
     expect(store.get("44444444-4444-4444-8444-444444444444")?.status).toBe("draft");
     expect(store.get(basePost().id)?.status).toBe("scheduled");
   });

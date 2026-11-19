@@ -93,6 +93,19 @@ describe("Instagram Graph client", () => {
     expect(await createInstagramGraphClient({ fetcher }).getPublishingLimit("1", "T")).toEqual({ usage: 3, total: 50, durationSeconds: 86400 });
   });
 
+  it("lists the latest media to recover a lost media id", async () => {
+    const fetcher = vi.fn().mockResolvedValue(json({ data: [
+      { id: "m1", permalink: "https://www.instagram.com/reel/a/", timestamp: "2026-11-19T10:00:05+0000", media_product_type: "REELS" },
+      { id: "m2", timestamp: "garbage" },
+    ] }));
+    const media = await createInstagramGraphClient({ fetcher, version: "v27.0" }).listRecentMedia("1784", "T");
+    expect(media).toEqual([
+      { id: "m1", permalink: "https://www.instagram.com/reel/a/", timestampMs: Date.parse("2026-11-19T10:00:05Z"), mediaProductType: "REELS" },
+      { id: "m2", permalink: null, timestampMs: null, mediaProductType: null },
+    ]);
+    expect(String(fetcher.mock.calls[0][0])).toContain("/v27.0/1784/media?fields=id%2Cpermalink%2Ctimestamp%2Cmedia_product_type&limit=10");
+  });
+
   it("simulates the whole flow without any network call in dry run", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     const client = createDryRunGraphClient();

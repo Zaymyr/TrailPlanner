@@ -46,7 +46,7 @@ One Instagram Reel drafted from a finished background render and published from 
 | `scheduled_at` | `timestamptz` | required when `scheduled` | Planned time (UTC; entered and shown in Europe/Paris); set to now by « Publier maintenant » and « Réessayer » and used as the start of the 24-hour publishing deadline. |
 | `published_at` | `timestamptz` | required when `published` | Publication time. |
 | `ig_container_id`, `ig_container_created_at` | `text`, `timestamptz` | | Meta media container, stored as soon as it is created so a retry resumes it. |
-| `publish_requested_at` | `timestamptz` | | Set just before `media_publish`. |
+| `publish_requested_at` | `timestamptz` | | Set just before `media_publish`. While set without `ig_media_id`, the container status is read before any other rule, and dropping the container needs the admin's confirmation. |
 | `ig_media_id`, `ig_permalink` | `text` | | Published media id (never published twice once set) and its link. |
 | `error` | `text` | ≤ 1,000 characters | Last failure or retry message (French, shown to the admin). |
 | `dry_run` | `boolean` | not null, default `true` | Simulated publication. |
@@ -78,6 +78,8 @@ RLS is enabled with no policy; every privilege is revoked from `public`, `anon` 
 - A step runs only after claiming the lease (`status=eq.publishing` and `locked_until` null or past).
 - `media_publish` is never called when `ig_media_id` is set, nor for a container that is not `FINISHED`.
 - Published posts cannot be edited or deleted.
+- The cron promotes a due post only when its `dry_run` equals the current mode; a mismatch fails the post with a reschedule message, so a post scheduled in simulation is never published for real.
+- `ig_container_id` and `publish_requested_at` are never cleared automatically once a live publish was requested; only an admin-confirmed restart (`confirmRestart`) drops them.
 
 ## Common Queries
 
@@ -95,7 +97,7 @@ from public.social_posts where status = 'publishing';
 
 - `video_url` is a path, not a URL; never store a signed URL (it expires in 2 hours).
 - Scheduling is refused past `finished_at + 30 days − 24 h` of the render (bucket lifecycle).
-- `dry_run` is re-evaluated when the post enters `scheduled` and again when it enters `publishing`; a retry after a mode change drops the stored container.
+- `dry_run` is set when the post is scheduled and never rewritten by the cron. « Publier maintenant » and « Réessayer » use the current mode; a retry after a mode change drops the stored container (with confirmation if a live publish was requested).
 
 ## Related Docs
 

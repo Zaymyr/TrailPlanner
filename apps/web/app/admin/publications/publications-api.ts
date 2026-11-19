@@ -46,9 +46,13 @@ export const postDetailSchema = z.object({
   previewMessage: z.string().nullable(),
 });
 
-const readMessage = async (response: Response, fallback: string) => {
-  const payload = await response.json().catch(() => null) as { message?: unknown } | null;
-  return typeof payload?.message === "string" ? payload.message : fallback;
+/** The server refused an action that needs the admin's explicit confirmation first. */
+export class ConfirmationRequiredError extends Error {}
+
+const toError = async (response: Response, fallback: string) => {
+  const payload = await response.json().catch(() => null) as { message?: unknown; needsConfirmation?: unknown } | null;
+  const message = typeof payload?.message === "string" ? payload.message : fallback;
+  return payload?.needsConfirmation === true ? new ConfirmationRequiredError(message) : new Error(message);
 };
 
 export const adminFetch = async <T>(
@@ -64,7 +68,7 @@ export const adminFetch = async <T>(
     body: init.body === undefined ? undefined : JSON.stringify(init.body),
     cache: "no-store",
   });
-  if (!response.ok) throw new Error(await readMessage(response, fallback));
+  if (!response.ok) throw await toError(response, fallback);
   return schema.parse(await response.json());
 };
 

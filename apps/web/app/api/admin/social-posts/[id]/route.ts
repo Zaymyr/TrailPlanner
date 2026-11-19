@@ -11,6 +11,9 @@ import {
   toPublicSocialPost,
   updateSocialPostSchema,
   validateSchedule,
+  planEdit,
+  planRetry,
+  PUBLISH_REQUESTED_CONFIRMATION,
   type SocialPostRow,
 } from "../../../../../lib/social-posts";
 import type { SupabaseServiceConfig } from "../../../../../lib/supabase";
@@ -33,6 +36,8 @@ const present = async (supabase: SupabaseServiceConfig, post: SocialPostRow) => 
     }),
   };
 };
+
+const needsConfirmation = () => renderJson({ message: PUBLISH_REQUESTED_CONFIRMATION, needsConfirmation: true }, 409);
 
 const conflict = (message = "La publication a changé entre-temps : recharge la page.") => renderJsonError(message, 409);
 
@@ -91,11 +96,13 @@ export async function PATCH(request: Request, context: { params: { id: string } 
     if (current.status !== "draft" && current.status !== "failed") {
       return conflict("Seul un brouillon (ou une publication en échec) peut être modifié : annule d’abord la programmation.");
     }
+    const plan = planEdit(current, parsed.data.confirmRestart);
+    if (plan.kind === "needs_confirmation") return needsConfirmation();
     const updated = await posts.update(current.id, {
       caption: parsed.data.caption,
       hashtags: parsed.data.hashtags,
       cover_text: parsed.data.coverText || null,
-      ...(current.status === "failed" ? CLEARED_CONTAINER : {}),
+      ...(plan.dropContainer ? CLEARED_CONTAINER : {}),
     }, `status=eq.${current.status}&ig_media_id=is.null`);
     if (!updated) return conflict();
     return renderJson({ post: (await present(supabase, updated)).post });
@@ -161,8 +168,10 @@ export async function POST(request: Request, context: { params: { id: string } }
       if (!updated) return conflict("Cette publication n’est plus programmée.");
     } else if (action.action === "retry") {
       if (current.status !== "failed") return conflict("Seule une publication en échec peut être relancée.");
-      const modeChanged = current.dry_run !== dryRun;
-      if (!current.ig_container_id || modeChanged) {
+      const plan = planRetry(current, dryRun, action.confirmRestart);
+      if (plan.kind === "needs_confirmation") return needsConfirmation();
+      const restart = plan.dropContainer;
+      if (!current.ig_container_id || restart) {
         if (!job || job.status !== "done" || !canPublishNow(job.finished_at, now)) return conflict("La vidéo n’est plus disponible : relance un rendu.");
       }
       updated = await posts.update(current.id, {
@@ -172,7 +181,7 @@ export async function POST(request: Request, context: { params: { id: string } }
         attempt_count: 0,
         error: null,
         locked_until: null,
-        ...(modeChanged ? CLEARED_CONTAINER : {}),
+        ...(restart ? CLEARED_CONTAINER : {}),
       }, "status=eq.failed&ig_media_id=is.null");
       if (!updated) return conflict();
       updated = await runStep(updated);
