@@ -52,7 +52,7 @@ One Instagram Reel drafted from a finished background render and published from 
 | `dry_run` | `boolean` | not null, default `true` | Simulated publication. |
 | `attempt_count` | `integer` | ≥ 0, default 0 | Transient failures in a row (8 → failed). |
 | `locked_until` | `timestamptz` | | Lease and throttle of the state machine. |
-| `content` | `jsonb` | object or null | Reserved for the phase-7 content JSON. |
+| `content` | `jsonb` | object or null | Full reel content JSON (hook, script segments, cta, caption, hashtags, cover text) copied from `video_render_jobs.content` when the draft is created; null without content. Informational: the publisher only reads `caption`, `hashtags` and `video_url`. |
 | `created_by` | `uuid` | references `auth.users(id)` on delete set null | Admin who created the draft. |
 | `created_at`, `updated_at` | `timestamptz` | `updated_at` set by trigger `set_social_posts_updated_at` | Timing. |
 

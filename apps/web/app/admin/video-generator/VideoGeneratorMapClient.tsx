@@ -9,6 +9,13 @@ import mapboxgl, {
 
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { buildRouteGeoJson, type VideoAidStation } from "../../../lib/video-generator";
+import {
+  assembleReelContent,
+  buildNarrationOverrides,
+  reelContentResponseSchema,
+  type ReelContent,
+  type ReelContentWarning,
+} from "../../../lib/reel-content";
 import { savedNarrationResponseSchema } from "../../../lib/video-narrations";
 import { instagramCaptionResponseSchema, NARRATION_STYLE_LABELS, narrationScriptResponseSchema, narrationVoiceResponseSchema } from "../../../lib/video-narration";
 import { InstagramPanel } from "./InstagramPanel";
@@ -109,6 +116,7 @@ import {
   toRouteAidStations,
   type RaceFigures,
 } from "./race-figures";
+import { pickShockFigure } from "./reel-hook";
 import { loadScriptNotes, storeScriptNotes } from "./script-notes";
 import { fetchNearestPlaceName, resolveEndpointNames, type EndpointNames } from "./place-labels";
 import { getEndpointLabelSpecs, getPinnedLabelBox, resolveLabelVisibility, type LabelCandidate, type LabelKind } from "./label-layout";
@@ -814,6 +822,11 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   }, [render]);
   const speechRateKey = getSpeechRateKey(voiceOptions.model, voiceId);
   const [scriptState, setScriptState] = useState<AsyncActionState>(IDLE_ACTION);
+  // Highlights reel text written in one call (hook, call to action, caption, hashtags, cover text):
+  // kept with the narration, saved with it and snapshotted on the render job. Null until written or loaded.
+  const [reelContent, setReelContent] = useState<ReelContent | null>(null);
+  const [reelWarnings, setReelWarnings] = useState<ReelContentWarning[]>([]);
+  const [coverText, setCoverText] = useState("");
   const [voiceState, setVoiceState] = useState<AsyncActionState>(IDLE_ACTION);
   const [instagramCaption, setInstagramCaption] = useState("");
   const [instagramHashtags, setInstagramHashtags] = useState<string[]>([]);
@@ -1110,6 +1123,15 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     body: JSON.stringify(body),
   });
 
+  /** The reel text as it stands: current narrations (hand edits included), caption, hashtags, cover text. */
+  const currentReelContent = () => assembleReelContent({
+    base: reelContent,
+    narrations: beats.map((beat) => ({ id: beat.id, text: beat.narration })),
+    caption: instagramCaption,
+    hashtags: instagramHashtags,
+    coverText,
+  });
+
   // Saved narration of this race, one per story mode (text, settings, voice): each mode is restored
   // once, when the race opens or when the mode is first chosen, and saved after every AI draft or
   // voice generation and on demand, so a race is written and voiced once per mode.
@@ -1147,6 +1169,12 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
           setVoiceOptions({ model: saved.voice.model, expressiveness: saved.voice.expressiveness });
         }
         setVoiceClips((current) => ({ ...current, ...Object.fromEntries(saved.clips.map((clip) => [clip.beatId, clip])) }));
+        if (storyMode === "highlights" && saved.content) {
+          setReelContent(saved.content);
+          setInstagramCaption(saved.content.caption);
+          setInstagramHashtags(saved.content.hashtags);
+          setCoverText(saved.content.cover_text);
+        }
         const when = new Date(saved.updatedAt).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
         const label = storyMode === "highlights" ? "Récit « Temps forts »" : "Récit";
         setSavedNarration({ status: "success", message: `${label} enregistré du ${when} chargé${saved.clips.length ? " avec sa voix off" : ""}.` });
@@ -1173,6 +1201,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
         narrationOverrides: Object.fromEntries(Object.entries(narrationOverrides).filter(([beatId]) => beatId.startsWith("hl-") === highlightsSave)),
         voice: { voiceId: voiceId || null, ...voiceOptions },
         ...(pendingSave.clips ? { clips: freshClips } : {}),
+        ...(highlightsSave && reelContent ? { content: currentReelContent() } : {}),
       }),
     })
       .then(async (response) => {
@@ -1183,14 +1212,25 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       .catch((error: unknown) => {
         setSavedNarration({ status: "error", message: error instanceof Error ? error.message : "Le récit n’a pas pu être enregistré." });
       });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [freshClips, narrationOverrides, pendingSave, race.id, sessionToken, settings, voiceId, voiceOptions]);
 
   const writeScript = async () => {
     setScriptState({ status: "loading", message: "Claude rédige la narration…" });
     try {
-      const response = await authorizedPost("/api/admin/video-generator/script", {
+      // A highlights reel is written in one call: script, hook, call to action, caption, hashtags, cover text.
+      const response = await authorizedPost(isHighlights ? "/api/admin/video-generator/content" : "/api/admin/video-generator/script", {
         mode: settings.storyMode,
-        race: { ...announcedRace, startDetail: race.startDetail },
+        race: { ...announcedRace, startDetail: race.startDetail, ...(isHighlights ? { raceDate: race.raceDate ?? null } : {}) },
+        ...(isHighlights ? {
+          shortName: race.shortName ?? null,
+          shockFigure: pickShockFigure(figures)?.text ?? null,
+          aidStations: enabledAidStations.map((station) => ({
+            name: station.name,
+            km: roundKm(toAnnouncedKm(figures, station.distanceKm)),
+            cutoffTime: station.cutoffTime ?? null,
+          })),
+        } : {}),
         targetSeconds: maxSeconds,
         wordsPerSecond: speechRates[speechRateKey],
         voiceModel: voiceOptions.model,
@@ -1208,6 +1248,22 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
         })),
       });
       if (!response.ok) throw new Error(await readError(response, "La narration n’a pas pu être rédigée."));
+      if (isHighlights) {
+        const content = reelContentResponseSchema.safeParse(await response.json());
+        if (!content.success) throw new Error("Le contenu reçu est invalide.");
+        setNarrationOverrides((current) => ({ ...current, ...buildNarrationOverrides(content.data.content) }));
+        setReelContent(content.data.content);
+        setReelWarnings(content.data.warnings);
+        setInstagramCaption(content.data.content.caption);
+        setInstagramHashtags(content.data.content.hashtags);
+        setCoverText(content.data.content.cover_text);
+        const styleKey = content.data.style as keyof typeof NARRATION_STYLE_LABELS | undefined;
+        const styleLabel = styleKey && NARRATION_STYLE_LABELS[styleKey] ? ` (style : ${NARRATION_STYLE_LABELS[styleKey]})` : "";
+        const toCheck = content.data.warnings.length ? ` ${content.data.warnings.length} point(s) à vérifier.` : "";
+        setScriptState({ status: "success", message: `Contenu rédigé${styleLabel}.${toCheck} Relis-le puis génère la voix off.` });
+        requestSave(false);
+        return;
+      }
       const parsed = narrationScriptResponseSchema.safeParse(await response.json());
       if (!parsed.success) throw new Error("Le script reçu est invalide.");
       setNarrationOverrides((current) => ({ ...current, ...Object.fromEntries(parsed.data.beats.map((beat) => [beat.id, beat.narration])) }));
@@ -1591,6 +1647,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
             onResetScript={() => {
               setNarrationOverrides({});
               setScriptState(IDLE_ACTION);
+              setReelWarnings([]);
             }}
             onForgetVoice={(id) => updateVoiceLibrary((voices) => forgetVoice(voices, id))}
             onSaveVoice={(id, name) => updateVoiceLibrary((voices) => nameVoice(voices, id, name))}
@@ -1601,6 +1658,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
             onScriptStyleChange={setScriptStyle}
             scriptNotes={scriptNotes}
             scriptStyle={scriptStyle}
+            scriptWarnings={isHighlights ? reelWarnings.filter((warning) => ["hook", "script_segments", "cta"].includes(warning.field)).map((warning) => warning.message) : []}
             onWriteScript={() => void writeScript()}
             scriptState={scriptState}
             totalMs={timeline.totalMs}
@@ -1629,6 +1687,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
             canRender={isReady && preparedPath.canAnimate && exportState.status !== "running"}
             createSnapshot={createRenderSnapshot}
             hasVoice={freshClips.length > 0}
+            reelContent={isHighlights && reelContent ? currentReelContent() : null}
             raceId={race.id}
             raceTitle={race.title}
             resolutionLabel={settings.resolution}
@@ -1643,8 +1702,12 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
           <InstagramPanel
             caption={instagramCaption}
             hashtags={instagramHashtags}
+            coverText={isHighlights ? coverText : undefined}
+            onCoverTextChange={setCoverText}
+            warnings={isHighlights ? reelWarnings.filter((warning) => ["caption", "hashtags", "cover_text"].includes(warning.field)).map((warning) => warning.message) : []}
             onCaptionChange={setInstagramCaption}
-            onGenerate={() => void writeInstagramCaption()}
+            // In highlights mode the caption comes with the script (« Rédiger avec l’IA »).
+            onGenerate={isHighlights ? undefined : () => void writeInstagramCaption()}
             onHashtagsChange={setInstagramHashtags}
             state={instagramState}
           />

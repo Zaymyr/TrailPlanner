@@ -5,6 +5,7 @@ last_verified: 2026-11-04
 ai_priority: low
 related_files:
   - supabase/migrations/20261104140000_add_video_render_jobs.sql
+  - supabase/migrations/20261119160000_add_reel_content.sql
   - supabase/tests/video_render_jobs_checks.sql
   - apps/web/lib/video-render.ts
   - apps/web/app/api/admin/video-generator/render-jobs/route.ts
@@ -34,6 +35,7 @@ Tracks background renders of the admin 3D reel. The render runs in a Google Clou
 | `width`, `height` | `integer` | 160-4096 | Video size; the renderer opens a window of this size. |
 | `output_size_bytes` | `bigint` | null or ≥ 0 | Size of the uploaded MP4, checked against Storage. |
 | `cloud_run_execution` | `text` | nullable | Cloud Run execution name, for the logs. |
+| `content` | `jsonb` | nullable, JSON object when set (`video_render_jobs_content_object`) | Snapshot of the highlights reel text (see `video_narrations.content`) taken when the job is created, so Publications can pre-fill the Instagram draft of this very video; validated by the render-jobs POST with the same Zod schema. Null for full reels and older jobs. |
 | `created_by` | `uuid` | references `auth.users(id)` on delete set null | Admin who started it. |
 | `created_at`, `updated_at`, `started_at`, `finished_at` | `timestamptz` | | Timing; `updated_at` is refreshed by every progress report, and an active job silent for 15 minutes (or older than `MAX_RENDER_HOURS` + 1 h) is marked failed; the GPU task itself stops at 1 h. |
 

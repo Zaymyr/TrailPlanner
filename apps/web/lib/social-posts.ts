@@ -345,6 +345,8 @@ const videoJobSummarySchema = z.object({
   width: z.number().int(),
   height: z.number().int(),
   finished_at: z.string().nullable(),
+  // Reel text written with the video (parsed by reel-content, which depends on this module).
+  content: z.unknown().optional(),
 });
 export type VideoJobSummary = z.infer<typeof videoJobSummarySchema>;
 
@@ -357,7 +359,7 @@ export const listVideoJobsForPublishing = async (
     ? `id=in.(${ids.join(",")})`
     : `status=eq.done&finished_at=gte.${encodeURIComponent((finishedSince ?? new Date(0)).toISOString())}&order=finished_at.desc&limit=30`;
   if (ids && ids.length === 0) return new Map<string, VideoJobSummary>();
-  const response = await fetcher(`${supabase.supabaseUrl}/rest/v1/video_render_jobs?${filters}&select=id,race_id,race_title,status,width,height,finished_at`, {
+  const response = await fetcher(`${supabase.supabaseUrl}/rest/v1/video_render_jobs?${filters}&select=id,race_id,race_title,status,width,height,finished_at,content`, {
     headers: headers(supabase),
     cache: "no-store",
   });

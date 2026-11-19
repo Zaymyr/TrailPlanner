@@ -1,8 +1,9 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-11-16
+last_verified: 2026-11-19
 # Reel narration mode (2026-11-19): supabase/tests/video_narrations_checks.sql also checks the (race_id, mode) key; this workflow is unchanged.
+# Reel content (2026-11-19): supabase/tests/video_narrations_checks.sql and video_render_jobs_checks.sql also check the nullable `content` jsonb columns (migration 20261119160000); this workflow is unchanged.
 # Livret supporter private preview (2026-11-18): the catalog Livret supporter entry admits active organizers of a private event (preview only); runner badge, data and contracts unchanged.
 ai_priority: high
 related_files:

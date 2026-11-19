@@ -6,6 +6,7 @@ ai_priority: low
 related_files:
   - supabase/migrations/20261105160000_add_video_narrations.sql
   - supabase/migrations/20261119120000_add_video_narrations_mode.sql
+  - supabase/migrations/20261119160000_add_reel_content.sql
   - supabase/tests/video_narrations_checks.sql
   - apps/web/lib/video-narrations.ts
   - apps/web/app/api/admin/video-generator/narrations/[raceId]/route.ts
@@ -31,6 +32,7 @@ The saved narration of the admin 3D reel, one row per race and story mode ("Parc
 | `settings` | `jsonb` | not null, `{}` | Composition settings when saved. They decide the story cut, hence the beat ids the texts belong to; the editor parses them with its own schema so older saves stay readable. |
 | `narration_overrides` | `jsonb` | not null, `{}` | Narration text by beat id (AI draft or hand edit). |
 | `voice` | `jsonb` | not null, `{}` | `voiceId` (ElevenLabs, nullable for the default voice), `model`, `expressiveness`. |
+| `content` | `jsonb` | nullable, JSON object when set (`video_narrations_content_object`) | Highlights reel text written in one call (hook, script segments, call to action, caption, hashtags, cover text), validated by `reelContentSchema` (`apps/web/lib/reel-content.ts`) and reloaded with the race and mode. Only saved for `highlights`; null for `full` rows, rows saved before 2026-11-19 and when the save omitted it (an omitted `content` keeps the stored one, `null` clears it). |
 | `clip_count` | `integer` | not null, ≥ 0, default 0 | Number of clips in the Storage object; 0 when none was saved. |
 | `updated_by` | `uuid` | references `auth.users(id)` on delete set null, indexed | Admin who saved last. |
 | `updated_at` | `timestamptz` | not null, now | Last save. |

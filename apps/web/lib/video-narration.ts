@@ -53,6 +53,23 @@ export const narrationScriptRequestSchema = z.object({
   style: z.enum(NARRATION_STYLES).optional(),
 });
 
+/**
+ * Request of the one-call content route (highlights reels only): the script request, plus the short
+ * race name and the headline figure of the hook, the race date and the aid stations with their cutoffs.
+ */
+export const reelContentRequestSchema = narrationScriptRequestSchema.extend({
+  mode: z.literal("highlights").default("highlights"),
+  race: narrationScriptRequestSchema.shape.race.extend({ raceDate: z.string().max(20).nullable().optional() }),
+  shortName: z.string().max(120).nullable().optional(),
+  shockFigure: z.string().max(40).nullable().optional(),
+  aidStations: z.array(z.object({
+    name: z.string().max(120),
+    km: z.number(),
+    cutoffTime: z.string().max(120).nullable(),
+  })).max(60).default([]),
+});
+export type ReelContentRequest = z.infer<typeof reelContentRequestSchema>;
+
 export const narrationScriptResponseSchema = z.object({
   beats: z.array(z.object({ id: z.string(), narration: z.string() })),
   /** The style actually used (the random pick when none was asked). */

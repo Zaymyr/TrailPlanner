@@ -55,6 +55,8 @@ type StoryEditorProps = {
   onScriptStyleChange: (style: ScriptStyleChoice) => void;
   scriptNotes: string;
   scriptState: AsyncActionState;
+  /** Limits and figures the writer got wrong (highlights content), shown under the script message. */
+  scriptWarnings?: string[];
   scriptStyle: ScriptStyleChoice;
   totalMs: number;
   voiceId: string;
@@ -88,6 +90,7 @@ export function StoryEditor({
   onScriptStyleChange,
   scriptNotes,
   scriptState,
+  scriptWarnings = [],
   scriptStyle,
   totalMs,
   voiceId,
@@ -121,6 +124,11 @@ export function StoryEditor({
         </Button>
       </div>
       <ActionMessage state={scriptState} />
+      {scriptWarnings.length ? (
+        <ul aria-label="Points à vérifier dans le script" className="list-disc space-y-0.5 pl-4 text-xs text-amber-800">
+          {scriptWarnings.map((warning) => <li key={warning}>{warning}</li>)}
+        </ul>
+      ) : null}
       <ActionMessage state={voiceState} />
       <p className="text-xs text-muted-foreground">
         Vidéo de {formatTime(totalMs)} · {beats.length} moments · voix {voicedCount}/{beats.length}

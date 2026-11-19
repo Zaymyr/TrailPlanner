@@ -26,6 +26,9 @@ related_files:
   - apps/web/app/admin/page.tsx
   - apps/web/.env.example
   - supabase/migrations/20261119130000_add_social_posts.sql
+  - supabase/migrations/20261119160000_add_reel_content.sql
+  - apps/web/lib/reel-content.ts
+  - apps/web/app/api/admin/social-posts/route.test.ts
   - supabase/migrations/20261119130100_schedule_social_posts_cron.sql
   - supabase/tests/social_posts_checks.sql
 related_tables:
@@ -75,7 +78,7 @@ pg_cron (`20261119130100_schedule_social_posts_cron.sql`) calls `POST /api/cron/
 ## Admin page
 
 - Read-only status card (`GET /api/admin/instagram`): credentials configured or not, account username, name and profile picture (`GET /{IG_USER_ID}?fields=username,name,profile_picture_url`), publishing quota, `IG_USER_ID`, `FB_PAGE_ID` (informational), Graph version, and the mode « Simulation » / « Publication réelle ». Meta is read only when both credentials are set; a rejected token shows the token message. The token is never returned. There is no connect button.
-- « Nouveau brouillon »: renders finished within the last 29 days. The caption starts from a sober template (race title, plan de course, livret coureur) and four generic hashtags; the AI caption route of the video generator is not called because it needs the editor's narration legs (see Gotchas).
+- « Nouveau brouillon »: renders finished within the last 29 days. When the render job carries reel content (highlights reels, phase 7), the draft form starts from its caption, hashtags and cover text (`buildDraftPrefill`, `apps/web/lib/reel-content.ts`; the list route returns `defaultCaption`, `defaultHashtags`, `defaultCoverText`, `hasContent`), all editable, and creating the draft copies the job's full content JSON, read server-side from the job row, into `social_posts.content`. Without content (full reels, older renders) the caption starts from a sober template (race title, plan de course, livret coureur) and four generic hashtags, as before. The publisher state machine and the cron are unchanged.
 - Each post: status and « Simulation » badge, error, permalink, caption preview, signed video preview (« Voir la vidéo »), « Modifier » (draft or failed), « Publier maintenant » (confirmation), « Programmer » (datetime in Europe/Paris, stored UTC; nonexistent DST times are refused), « Annuler la programmation », « Réessayer », « Recommencer avec un nouveau conteneur » (after a publish request, with confirmation), « Supprimer » (draft or failed; published history is kept).
 
 ## Configuration
@@ -118,8 +121,8 @@ The Meta side (app with Facebook Login, linked Page, System User and its token) 
 - The profile picture comes from Meta's CDN; the report-only CSP does not list it in `img-src`, so it may raise a report.
 - Deleting a render (`video_render_jobs`) sets `social_posts.video_job_id` to null; an unpublished post then fails with « La vidéo de cette publication a été supprimée ».
 - `cover_text` is stored for a future generated cover; no `cover_url` is sent yet, so Instagram uses the first frame.
-- `content` (jsonb) is reserved for the phase-7 content JSON and unused today.
-- The AI caption route (`/api/admin/video-generator/caption`) needs the narration legs computed by the editor; prefilling from it here would duplicate the editor's story logic. Copy the caption from the video generator's Instagram panel when needed.
+- `content` (jsonb) holds the reel content JSON copied at draft creation; the publisher ignores it. `cover_text` comes from it too but, with no `cover_url`, Instagram still uses the first frame: the cover text is only stored.
+- Full reels have no stored content: the separate caption route (`/api/admin/video-generator/caption`) needs the narration legs computed by the editor, so copy its caption from the video generator's Instagram panel when needed.
 
 ## Related Docs
 

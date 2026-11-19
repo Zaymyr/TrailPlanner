@@ -112,6 +112,11 @@ related_files:
   - apps/web/app/api/admin/video-generator/script/route.ts
   - apps/web/app/api/admin/video-generator/voice/route.ts
   - apps/web/app/api/admin/video-generator/caption/route.ts
+  - apps/web/lib/reel-content.ts
+  - apps/web/lib/reel-content.test.ts
+  - apps/web/lib/video-script-prompt.ts
+  - apps/web/app/api/admin/video-generator/content/route.ts
+  - apps/web/app/api/admin/video-generator/content/route.test.ts
   - apps/web/app/admin/publications/page.tsx
   - apps/web/app/admin/publications/PostCard.tsx
   - apps/web/app/admin/publications/CaptionForm.tsx

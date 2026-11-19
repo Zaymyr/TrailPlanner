@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { reelContentSchema } from "../../../../../lib/reel-content";
 import {
   getGoogleAccessToken,
   getReelFileName,
@@ -18,6 +19,8 @@ const createSchema = z.object({
   raceTitle: z.string().trim().min(1).max(200),
   width: z.number().int().min(160).max(4096),
   height: z.number().int().min(160).max(4096),
+  // Highlights reel text, snapshotted with the video so Publications can pre-fill its drafts.
+  content: reelContentSchema.nullable().optional(),
 });
 
 export async function GET(request: Request) {
@@ -84,6 +87,7 @@ export async function POST(request: Request) {
       height: parsed.data.height,
       status: "uploading",
       created_by: userId,
+      ...(parsed.data.content ? { content: parsed.data.content } : {}),
     });
     const inputUploadUrl = await signStorageUrl({
       config,

@@ -2,6 +2,7 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 import { z } from "zod";
 
+import { reelContentSchema } from "./reel-content";
 import type { SupabaseServiceConfig } from "./supabase";
 
 /**
@@ -28,10 +29,12 @@ export const videoRenderJobRowSchema = z.object({
   updated_at: z.string(),
   started_at: z.string().nullable(),
   finished_at: z.string().nullable(),
+  // Reel text (hook, caption, hashtags...) snapshotted at creation; null for older jobs and full reels.
+  content: reelContentSchema.nullable().catch(null),
 });
 export type VideoRenderJobRow = z.infer<typeof videoRenderJobRowSchema>;
 
-export const VIDEO_RENDER_JOB_COLUMNS = "id,race_id,race_title,status,progress,message,width,height,output_size_bytes,created_at,updated_at,started_at,finished_at";
+export const VIDEO_RENDER_JOB_COLUMNS = "id,race_id,race_title,status,progress,message,width,height,output_size_bytes,created_at,updated_at,started_at,finished_at,content";
 
 /**
  * Upper bound on a render, end to end, for the page token, the upload URL and the stale rule. The
