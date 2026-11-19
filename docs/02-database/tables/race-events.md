@@ -2,7 +2,8 @@
 title: race_events Table
 scope: database
 
-last_verified: 2026-11-18
+last_verified: 2026-11-19
+# Reel hook short name (2026-11-19): nullable `short_name` (1-40 characters once trimmed, no ellipsis) edited by admins and read only by admin service-role routes; RLS, grants and public reads unchanged.
 # Livret supporter private preview (2026-11-18): the catalog Livret supporter entry admits active organizers of a private event (preview only); runner badge, data and contracts unchanged.
 # Assisted legacy conversion (2026-11-15): legacy event-level text can become a review-only proposal; the endpoint does not update race_events.
 # Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
@@ -40,6 +41,9 @@ related_files:
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
   - supabase/tests/web_race_visibility_checks.sql
+  - supabase/migrations/20261119150000_add_race_events_short_name.sql
+  - supabase/tests/race_events_short_name_checks.sql
+  - apps/web/app/api/admin/video-generator/races/[id]/route.ts
   - apps/web/app/api/race-catalog/route.ts
   - apps/web/app/api/admin/race-events/[id]/thumbnail/route.ts
   - scripts/optimize-supabase-race-images.mjs
@@ -189,8 +193,11 @@ The mobile Livret may separately load an owner's linked plan for personal reflec
 | `location_region`, `location_region_code` | nullable `text` | paired curated values | Normalized French region or equivalent first-level area. |
 | `location_country`, `location_country_code` | nullable `text` | country code is checked as two uppercase letters | Normalized country identity. |
 | `location_latitude`, `location_longitude` | nullable `double precision` | valid ranges; both null or both present | Approximate event anchor used for nearby-city discovery. |
+| `short_name` | nullable `text` | `race_events_short_name_check`: null, or 1-40 characters once trimmed and no « … »; added by `20261119150000_add_race_events_short_name.sql` | Short event name shown by the admin reel hook (« Nom court (vidéo) »). Null: the reel derives one from `name` (`getReelShortName`). |
 
 <!-- TODO: verify with maintainer: confirm exact race_events column types, constraints, indexes, and RLS policies in the live Supabase project. -->
+
+Reel hook short name (2026-11-19): `short_name` is edited only in the admin catalog event dialog (`PATCH /api/admin/race-events/:id`, trusted `app_metadata` admin check, service-role write; an empty value clears it, an absent key leaves it unchanged) and read by the admin catalog list and the admin video-generator race read (`race_events(id,name,short_name,organizer_details)`). No public, organizer or mobile read selects it, and the migration adds no policy, grant, view or function. `supabase/tests/race_events_short_name_checks.sql` checks the column, the constraint and its bounds inside a rolled-back transaction. A deployment reading a database that lacks the column (for instance a preview before the merge) fails those admin reads; production is safe because the release applies migrations before the web deploy.
 
 ## Foreign Keys
 

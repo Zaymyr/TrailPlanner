@@ -134,6 +134,9 @@ describe("POST /api/admin/video-generator/script", () => {
     expect(params.system).toMatch(/n'invente rien/);
     expect(params.system).toMatch(/ne cite aucun chiffre absent/);
     expect(params.system).not.toMatch(/tronçons consécutifs/);
+    // The hook: first sentence a question or a strong statement, 12 words at most, no new figure.
+    expect(params.system).toMatch(/question ou une affirmation forte de 12 mots au plus, sans aucun chiffre absent de course/);
+    expect(params.system).not.toMatch(/accroche en une phrase avec la distance et le dénivelé/);
   });
 
   it("sends back the legs over their word budget once, and tells when the camera reaches a station", async () => {

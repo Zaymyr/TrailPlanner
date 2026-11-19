@@ -28,12 +28,23 @@ const optionalUrl = z
   .transform((value) => (value && value.length > 0 ? value : null))
   .refine((value) => !value || /^https?:\/\//i.test(value), { message: "Invalid URL." });
 
+// Reel hook name (« Nom court (vidéo) »): 1-40 characters once trimmed, never an ellipsis (the
+// race_events_short_name_check constraint); an empty value clears it. Absent means unchanged.
+const shortNameField = z
+  .string()
+  .trim()
+  .max(40)
+  .refine((value) => !value.includes("…"), { message: "No ellipsis." })
+  .nullable()
+  .optional();
+
 const updateRaceEventSchema = z.object({
   name: z.string().trim().min(1).optional(),
   location: optionalText,
   race_date: optionalText,
   thumbnail_url: optionalUrl,
   is_live: z.boolean().optional(),
+  short_name: shortNameField,
 });
 
 const raceEventRowSchema = z.object({
@@ -43,6 +54,7 @@ const raceEventRowSchema = z.object({
   race_date: z.string().nullable().optional(),
   thumbnail_url: z.string().nullable().optional(),
   is_live: z.boolean().nullable().optional(),
+  short_name: z.string().nullable().optional(),
 });
 
 export async function PATCH(request: NextRequest, context: { params: { id?: string } }) {
@@ -100,6 +112,7 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   if (parsed.data.race_date !== undefined) updatePayload.race_date = parsed.data.race_date;
   if (parsed.data.thumbnail_url !== undefined) updatePayload.thumbnail_url = parsed.data.thumbnail_url;
   if (parsed.data.is_live !== undefined) updatePayload.is_live = parsed.data.is_live;
+  if (parsed.data.short_name !== undefined) updatePayload.short_name = parsed.data.short_name || null;
 
   if (Object.keys(updatePayload).length === 0) {
     return withSecurityHeaders(NextResponse.json({ message: "No fields to update." }, { status: 400 }));

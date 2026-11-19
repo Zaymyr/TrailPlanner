@@ -10,6 +10,7 @@ import {
   getAidStationServices,
   HIGHLIGHT_MAX_SECONDS,
   HIGHLIGHT_MIN_SECONDS,
+  isHookIntroEnabled,
   MAPBOX_STYLE_URL_PATTERN,
   PROFILE_SLOPE_CLASSES,
   VIDEO_DURATION_PRESETS,
@@ -347,6 +348,14 @@ export function CompositionSettingsPanel({
           <Toggle label="Introduction" checked={settings.introEnabled} onChange={(checked) => update("introEnabled", checked)} />
           <Toggle label="Conclusion" checked={settings.outroEnabled} onChange={(checked) => update("outroEnabled", checked)} />
         </div>
+        {settings.introEnabled ? (
+          <>
+            <Toggle label="Accroche (2 premières secondes)" checked={isHookIntroEnabled(settings)} onChange={(checked) => update("hookIntro", checked)} />
+            <p className="text-xs text-muted-foreground">
+              La caméra survole déjà la plus grosse montée, un chiffre choc et le nom court de la course à la place du carton titre. Par défaut en Temps forts.
+            </p>
+          </>
+        ) : null}
       </PanelSection>
 
       <PanelSection title={`Ravitaillements (${aidStations.length})`}>

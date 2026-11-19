@@ -18,10 +18,14 @@ related_files:
   - apps/web/app/admin/video-generator/render-snapshot.ts
   - apps/web/app/api/admin/video-generator/voice/route.ts
   - apps/web/lib/spoken-numbers.ts
+  - apps/web/app/admin/video-generator/reel-hook.ts
+  - apps/web/app/admin/video-generator/route-animation.ts
+  - supabase/migrations/20261119150000_add_race_events_short_name.sql
 related_tables:
   - races
   - race_aid_stations
   - video_narrations
+  - race_events
 ---
 
 # Reel Figures And Highlights Mode
@@ -47,6 +51,8 @@ Second, a full-course flyover of an ultra lasts up to 2-3 minutes; a short "temp
 
 6. **Subtitles (phase 3).** The burned-in subtitles are groups of 2 to 5 words (`subtitle-groups.ts`, both story modes) instead of 60-character lines, cut only at natural boundaries: punctuation, a pause over 250 ms between words when start times exist, otherwise between phrases (before a preposition or conjunction). A group never ends on an article, contraction, preposition, determiner, conjunction or clitic (`FRENCH_FUNCTION_WORDS`, `'` and `’`) nor on a bare numeral, never crosses a sentence end, is never a singleton (unless the sentence is one word; a trailing singleton merges into the previous group, up to 6 words), and keeps number + unit ("5 520 m D+", "13 %", "18h12") and consecutive capitalised names ("La Comelle", "Hivernale des Templiers") together. Instagram safe zone: a fixed-width box (x 6 % to 85 %, text centred, one line preferred, two at most, 4.2 cqmin = 45 px at 1080) centred at 64 % of the frame height, so its bottom is at most about 1,300 px of 1920 (assert: 1,500); the Mapbox attribution is not moved. **Optional start times:** ElevenLabs `character_start_times_seconds` are read with the same length check and spoken-to-displayed mapping as the end times and stored as `characterStartMs`, optional in the saved clip and in the render snapshot, so old narrations and snapshots parse and render (pause detection then falls back to punctuation, timing to the end times). The sober karaoke word highlight was not built.
 
+7. **Hook (phase 2).** The first 2.4 s of a reel stop the scroll instead of showing a title card over a static overview. Setting `hookIntro` (null = on for highlights, off for full; the full mode keeps its intro exactly unless it is switched on). From frame 0 the camera already flies the hardest climb (else the first moment) at 58° from the vertical, 3 to 8 km away, orbiting 14° while moving forward, then glides into the chase camera of the first moment through the existing smoothed camera track. The overlay shows one headline figure on one line (at least 14 cqmin; it shrinks rather than wraps) and, from 0.5 to 0.9 s, the short race name, inside the Instagram safe zone; the first moment's caption follows at 2.4 s. Headline figure rule (`pickShockFigure`): 100 km or more → the distance (an ultra length is the most striking fact: « 185 km » for L'Ultra des Druides); otherwise a D+ of at least 30 m/km → the D+ (a clearly hilly course: « 2 276 m D+ » for Astragale Trail, 34 m/km); otherwise the distance. It replaces the suggested « D+ ≥ 3,000 m or ≥ 35 m/km » rule, which put 5,520 m D+ before 185 km for a 30 m/km ultra and 67 km before 2,276 m D+ on a 34 m/km course. The short name is `race_events.short_name` (new nullable column, migration `20261119150000_add_race_events_short_name.sql`, 1-40 characters once trimmed, no « … »; edited by admins in the catalog event dialog) or derived from the event name without year, marks, edition marker or sponsor; never truncated. The hook sentence keeps the `hl-intro` id; the prompt now asks for a question or a strong statement of 12 words at most without unprovided figures.
+
 ## Consequences
 
 - Badge, counter, voice, captions, aid cards and AI inputs show the same numbers; the counter ends exactly on the badge total.
@@ -57,6 +63,8 @@ Second, a full-course flyover of an ultra lasts up to 2-3 minutes; a short "temp
 - Highlight ids derive from GPX kilometres (like leg ids), so a GPX replacement re-keys their texts, as it already does for full legs.
 - Switching to a mode for the first time restores that mode's saved composition settings too (they decide its beat ids).
 - Subtitle timing needs no migration: clips saved before keep working with end times only; regenerating the voice adds start times.
+- A hooked reel spends no time on the run-up to its first moment and its first moment absorbs the end of the hook sentence: the fixture reels last 30 s and 39 s (41 s without the hook). Render snapshots saved before the hook lack `hookIntro`, so a highlights snapshot replayed afterwards opens on the hook.
+- `race_events.short_name` is read only by admin service-role routes; RLS, grants and public reads are unchanged.
 - The previous web version upserts on `race_id` alone: between the migration and the web deploy of the release, its saves fail (reads keep working).
 
 ## Related Docs
@@ -64,3 +72,4 @@ Second, a full-course flyover of an ultra lasts up to 2-3 minutes; a short "temp
 - `../05-integrations/mapbox-3d.md`
 - `../01-architecture/web-app.md`
 - `../02-database/tables/video-narrations.md`
+- `../02-database/tables/race-events.md`
