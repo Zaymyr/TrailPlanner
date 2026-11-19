@@ -1,4 +1,14 @@
 import type { VideoAidStation } from "../../../lib/video-generator";
+import {
+  buildRaceFigures,
+  formatElevationM,
+  formatKm,
+  formatTotalElevationM,
+  formatTotalKm,
+  toAnnouncedElevationM,
+  toAnnouncedKm,
+  type RaceFigures,
+} from "./race-figures";
 import { getRoutePointAtDistance, type PreparedAnimationPath } from "./route-animation";
 
 export const AID_SERVICES = {
@@ -30,7 +40,7 @@ export type RouteSlope = {
   endElevationM: number;
 };
 
-export type StoryBeatKind = "intro" | "start" | "climb" | "descent" | "flat" | "aid" | "lifeBase" | "finish" | "outro";
+export type StoryBeatKind = "intro" | "start" | "climb" | "descent" | "flat" | "aid" | "lifeBase" | "night" | "finish" | "outro";
 
 /**
  * One moment of the narrated video. Route beats own a distance span the camera covers while the
@@ -63,9 +73,31 @@ const clamp = (value: number, minimum: number, maximum: number) => Math.min(maxi
 
 const formatNumber = (value: number, digits = 0) =>
   value.toLocaleString("fr-FR", { minimumFractionDigits: digits, maximumFractionDigits: digits });
-// One decimal below 10 km, except for whole numbers ("1 kilomètre", not "1,0").
-const formatKm = (value: number) => formatNumber(value, value < 10 && Math.abs(value - Math.round(value)) >= 0.05 ? 1 : 0);
-const formatPercent = (ratio: number) => formatNumber(ratio * 100, 0);
+export const formatPercent = (ratio: number) => formatNumber(ratio * 100, 0);
+
+/** Every number a story shows, in the announced scale and with the single rounding policy. */
+export const createStoryFormatter = (figures: RaceFigures) => ({
+  /** A route kilometre (position), announced: "12,4". */
+  km: (routeKm: number) => formatKm(toAnnouncedKm(figures, routeKm)),
+  /** A route length, announced: "6,2". */
+  length: (routeLengthKm: number) => formatKm(Math.max(0, routeLengthKm) * figures.kmScale),
+  /** A GPX D+, rescaled to the announced D+: "540". */
+  gain: (routeGainM: number) => formatElevationM(toAnnouncedElevationM(figures, routeGainM)),
+  /** A GPX D- (not rescaled, the race D- is not used): "540". */
+  loss: (routeLossM: number) => formatElevationM(routeLossM),
+  total: () => formatTotalKm(figures.distanceKm),
+  totalGain: () => formatTotalElevationM(figures),
+});
+export type StoryFormatter = ReturnType<typeof createStoryFormatter>;
+
+/** Story figures when the caller gives none: the race record checked against the route. */
+export const resolveStoryFigures = (path: PreparedAnimationPath, race: StoryRaceInfo, figures?: RaceFigures) =>
+  figures ?? buildRaceFigures({
+    raceDistanceKm: race.distanceKm,
+    raceElevationGainM: race.elevationGainM,
+    routeDistanceKm: path.totalDistanceKm,
+    routeElevationGainM: getCumulativeGainAt(path, path.totalDistanceKm),
+  });
 
 /** Elevation every ~100 m, smoothed over ±250 m so GPS noise does not create fake climbs. */
 const sampleElevation = (path: PreparedAnimationPath) => {
@@ -186,6 +218,8 @@ export type StoryOptions = {
   landmarks?: StoryLandmarks;
   /** Estimated time of day at a distance, for night / sunrise mentions (see route-clock). */
   daylightAt?: (distanceKm: number) => { minutesOfDay: number; isNight: boolean } | null;
+  /** Canonical figures (announced totals, GPX rescale); built from the race when omitted. */
+  figures?: RaceFigures;
 };
 
 type Boundary = { km: number; priority: number; climb?: RouteSlope; station?: VideoAidStation };
@@ -194,7 +228,7 @@ type Boundary = { km: number; priority: number; climb?: RouteSlope; station?: Vi
 export const LIFE_BASE_PAUSE_MS = 2_200;
 export const AID_PAUSE_MS = 900;
 
-const formatClock = (minutesOfDay: number) => {
+export const formatClock = (minutesOfDay: number) => {
   const minutes = ((Math.round(minutesOfDay) % 1_440) + 1_440) % 1_440;
   return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 };
@@ -202,12 +236,12 @@ const formatClock = (minutesOfDay: number) => {
 const joinFrench = (items: string[]) =>
   items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} et ${items[items.length - 1]}`;
 
-const servicesSentence = (station: VideoAidStation) => {
+export const servicesSentence = (station: VideoAidStation) => {
   const words = getAidStationServices(station).map((service) => AID_SERVICES[service].toLowerCase());
   return words.length ? ` : ${joinFrench(words)}` : "";
 };
 
-const elevationChange = (path: PreparedAnimationPath, startKm: number, endKm: number) => {
+export const elevationChange = (path: PreparedAnimationPath, startKm: number, endKm: number) => {
   let gain = 0;
   let loss = 0;
   let previous: number | null = null;
@@ -243,6 +277,7 @@ export const buildStoryBeats = (
   const total = path.totalDistanceKm;
   if (!path.canAnimate || total <= 0) return [];
   const landmarks = options.landmarks ?? {};
+  const format = createStoryFormatter(resolveStoryFigures(path, race, options.figures));
   const slopes = detectRouteSlopes(path);
   const climbs = slopes.filter((slope) => slope.kind === "climb").sort((left, right) => slopeScore(right) - slopeScore(left));
   const stations = options.includeAidStations
@@ -347,8 +382,8 @@ export const buildStoryBeats = (
     if (index === 0) parts.push(startPlace ? `On part de ${startPlace}.` : "Allez, c’est parti.");
     if (leg.station) {
       parts.push(leg.station.isLifeBase
-        ? `Base de vie à ${leg.station.name}, kilomètre ${formatKm(leg.station.distanceKm)}${servicesSentence(leg.station)}. Prends le temps de bien manger, ça compte pour la suite.`
-        : `Ravito à ${leg.station.name}, kilomètre ${formatKm(leg.station.distanceKm)}${servicesSentence(leg.station)} : sers-toi.`);
+        ? `Base de vie à ${leg.station.name}, kilomètre ${format.km(leg.station.distanceKm)}${servicesSentence(leg.station)}. Prends le temps de bien manger, ça compte pour la suite.`
+        : `Ravito à ${leg.station.name}, kilomètre ${format.km(leg.station.distanceKm)}${servicesSentence(leg.station)} : sers-toi.`);
     }
     if (leg.kind === "climb") {
       climbCount += 1;
@@ -357,19 +392,19 @@ export const buildStoryBeats = (
       const climbKm = leg.focus ? leg.focus.endKm - leg.focus.startKm : lengthKm;
       const climbGain = leg.focus ? leg.focus.elevationM : leg.gain;
       const climbGrade = leg.focus ? leg.focus.averageGrade : grade;
-      parts.push(`Et là, ça grimpe : ${name}, ${formatKm(climbKm)} kilomètres à ${formatPercent(climbGrade)} pour cent, ${formatNumber(climbGain)} mètres de dénivelé. Mode diesel, et si t’as des bâtons, c’est le moment de les sortir.`);
+      parts.push(`Et là, ça grimpe : ${name}, ${format.length(climbKm)} kilomètres à ${formatPercent(climbGrade)} pour cent, ${format.gain(climbGain)} mètres de dénivelé. Mode diesel, et si t’as des bâtons, c’est le moment de les sortir.`);
     } else if (leg.kind === "descent") {
-      parts.push(`Ensuite ça bascule : ${formatNumber(leg.loss)} mètres à descendre sur ${formatKm(lengthKm)} kilomètres. Garde des cuisses, ça tape.`);
+      parts.push(`Ensuite ça bascule : ${format.loss(leg.loss)} mètres à descendre sur ${format.length(lengthKm)} kilomètres. Garde des cuisses, ça tape.`);
     } else {
       const until = isLast ? "jusqu’à l’arrivée"
         : next.kind === "climb" ? `jusqu’au pied de ${next.summit ? `la montée vers ${next.summit}` : "la prochaine montée"}`
           : next.station ? `${next.station.isLifeBase ? "jusqu’à la base de vie" : "jusqu’au ravito"} de ${next.station.name}`
             : "";
-      parts.push(`${formatKm(lengthKm)} ${lengthKm < 1.5 ? "borne" : "bornes"} sans grosse difficulté${until ? ` ${until}` : ""} : pars cool et trouve ton rythme confortable.`);
+      parts.push(`${format.length(lengthKm)} ${lengthKm < 1.5 ? "borne" : "bornes"} sans grosse difficulté${until ? ` ${until}` : ""} : pars cool et trouve ton rythme confortable.`);
       // A long easy stretch gets more to say, so the voice keeps up with the camera.
       if (lengthKm >= 6) parts.push("C’est là que ça déroule : bois régulièrement, relance sans te cramer, la suite se joue sur la fraîcheur.");
     }
-    leg.passing.forEach((station) => parts.push(`Petit ravito au passage à ${station.name}, kilomètre ${formatKm(station.distanceKm)}.`));
+    leg.passing.forEach((station) => parts.push(`Petit ravito au passage à ${station.name}, kilomètre ${format.km(station.distanceKm)}.`));
     const lightAtStart = options.daylightAt?.(leg.startKm) ?? null;
     const lightAtEnd = options.daylightAt?.(leg.endKm) ?? null;
     if (lightAtStart && lightAtEnd) {
@@ -377,21 +412,21 @@ export const buildStoryBeats = (
       else if (!lightAtStart.isNight && lightAtEnd.isNight) parts.push("La nuit tombe : sors la frontale.");
       else if (lightAtStart.isNight && leg.kind === "climb") parts.push("De nuit : frontale bien réglée.");
     }
-    if (isLast) parts.push(`Et derrière, la ligne d’arrivée au kilomètre ${formatNumber(total)} : savoure !`);
+    if (isLast) parts.push(`Et derrière, la ligne d’arrivée au kilomètre ${format.total()} : savoure !`);
 
     const facts = [
-      `${formatKm(lengthKm)} km`,
-      leg.gain >= 30 ? `+${formatNumber(leg.gain)} m` : null,
-      leg.loss >= 30 ? `−${formatNumber(leg.loss)} m` : null,
+      `${format.length(lengthKm)} km`,
+      leg.gain >= 30 ? `+${format.gain(leg.gain)} m` : null,
+      leg.loss >= 30 ? `−${format.loss(leg.loss)} m` : null,
       leg.summit ? `▲ ${leg.summit}` : null,
       lightAtStart ? `≈ ${formatClock(lightAtStart.minutesOfDay)}${lightAtStart.isNight ? " · nuit" : ""}` : null,
-      ...leg.passing.map((station) => `Ravito ${station.name} km ${formatKm(station.distanceKm)}`),
+      ...leg.passing.map((station) => `Ravito ${station.name} km ${format.km(station.distanceKm)}`),
     ].filter((fact): fact is string => Boolean(fact));
 
     return {
       id: `leg-${Math.round(leg.startKm * 10)}`,
       kind: leg.kind,
-      title: leg.station?.name ?? leg.summit ?? (index === 0 && startPlace ? startPlace : `km ${formatKm(leg.startKm)} → ${formatKm(leg.endKm)}`),
+      title: leg.station?.name ?? leg.summit ?? (index === 0 && startPlace ? startPlace : `km ${format.km(leg.startKm)} → ${format.km(leg.endKm)}`),
       startKm: leg.startKm,
       endKm: leg.endKm,
       anchorKm: leg.station?.distanceKm ?? leg.startKm,
@@ -403,9 +438,10 @@ export const buildStoryBeats = (
     };
   });
 
+  const totalGain = format.totalGain();
   const stats = [
-    `${formatNumber(race.distanceKm)} kilomètres`,
-    race.elevationGainM ? `${formatNumber(race.elevationGainM)} mètres de dénivelé positif` : null,
+    `${format.total()} kilomètres`,
+    totalGain ? `${totalGain} mètres de dénivelé positif` : null,
   ].filter(Boolean).join(" et ");
   return [
     {

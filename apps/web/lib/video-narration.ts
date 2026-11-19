@@ -4,7 +4,7 @@ import { z } from "zod";
 
 export const narrationBeatInputSchema = z.object({
   id: z.string().min(1).max(80),
-  kind: z.enum(["intro", "start", "climb", "descent", "flat", "aid", "lifeBase", "finish", "outro"]),
+  kind: z.enum(["intro", "start", "climb", "descent", "flat", "aid", "lifeBase", "night", "finish", "outro"]),
   title: z.string().max(160),
   startKm: z.number(),
   endKm: z.number(),
@@ -28,7 +28,12 @@ export const NARRATION_STYLE_LABELS: Record<NarrationStyle, string> = {
   chambreur: "Chambreur",
 };
 
+/** "full" tells the whole course leg by leg; "highlights" tells 3 to 5 key moments in 30-45 s. */
+export const VIDEO_STORY_MODES = ["full", "highlights"] as const;
+export type VideoStoryMode = (typeof VIDEO_STORY_MODES)[number];
+
 export const narrationScriptRequestSchema = z.object({
+  mode: z.enum(VIDEO_STORY_MODES).default("full"),
   race: z.object({
     title: z.string().max(160),
     subtitle: z.string().max(160).nullable(),

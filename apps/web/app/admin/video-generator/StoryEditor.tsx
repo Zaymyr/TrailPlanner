@@ -25,6 +25,7 @@ const KIND_LABELS: Record<ScheduledBeat["kind"], string> = {
   flat: "Roulant",
   aid: "Ravito",
   lifeBase: "Base de vie",
+  night: "Nuit",
   finish: "Arrivée",
   outro: "Conclusion",
 };
@@ -109,7 +110,13 @@ export function StoryEditor({
       </div>
       <div className="flex items-center justify-between gap-2">
         <ActionMessage state={savedNarration.message ? savedNarration : { status: "idle", message: "Aucun récit enregistré pour cette course." }} />
-        <Button type="button" variant="ghost" className="h-7 shrink-0 px-2 text-xs" disabled={busy || savedNarration.status === "loading"} onClick={onSaveNarration}>
+        <Button
+          type="button"
+          variant="ghost"
+          className="h-7 shrink-0 px-2 text-xs"
+          disabled={busy || savedNarration.status === "loading"}
+          onClick={onSaveNarration}
+        >
           Enregistrer
         </Button>
       </div>

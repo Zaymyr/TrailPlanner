@@ -1,12 +1,17 @@
 import { z } from "zod";
 
 import type { SupabaseServiceConfig } from "./supabase";
+import { VIDEO_STORY_MODES, type VideoStoryMode } from "./video-narration";
 
 /**
- * Saved reel narration per race (table video_narrations + one JSON of voice clips in the private
- * Storage bucket video-narrations), so a race's script and voice are written once and reused.
+ * Saved reel narration per race and story mode (table video_narrations keyed by race_id + mode,
+ * plus one JSON of voice clips per mode in the private Storage bucket video-narrations), so a
+ * race's script and voice are written once per mode and reused.
  */
 export const VIDEO_NARRATIONS_BUCKET = "video-narrations";
+
+/** `?mode=` of the narration routes: "full" when absent (older editors), 400 when unknown. */
+export const narrationModeSchema = z.enum(VIDEO_STORY_MODES).default("full");
 
 export const savedVoiceSchema = z.object({
   voiceId: z.string().max(64).nullable(),
@@ -61,12 +66,21 @@ const headers = (supabase: SupabaseServiceConfig, extra: Record<string, string> 
   ...extra,
 });
 
-const clipsObjectUrl = (supabase: SupabaseServiceConfig, raceId: string) =>
-  `${supabase.supabaseUrl}/storage/v1/object/${VIDEO_NARRATIONS_BUCKET}/${raceId}.json`;
+/** Voice clips object: `<race_id>.json` for the full narration (as before), `<race_id>.<mode>.json` otherwise. */
+export const getClipsObjectName = (raceId: string, mode: VideoStoryMode = "full") =>
+  mode === "full" ? `${raceId}.json` : `${raceId}.${mode}.json`;
 
-export const readNarration = async (supabase: SupabaseServiceConfig, raceId: string, fetcher: typeof fetch = fetch): Promise<SavedNarration | null> => {
+const clipsObjectUrl = (supabase: SupabaseServiceConfig, raceId: string, mode: VideoStoryMode) =>
+  `${supabase.supabaseUrl}/storage/v1/object/${VIDEO_NARRATIONS_BUCKET}/${getClipsObjectName(raceId, mode)}`;
+
+export const readNarration = async (
+  supabase: SupabaseServiceConfig,
+  raceId: string,
+  mode: VideoStoryMode = "full",
+  fetcher: typeof fetch = fetch,
+): Promise<SavedNarration | null> => {
   const response = await fetcher(
-    `${supabase.supabaseUrl}/rest/v1/video_narrations?race_id=eq.${raceId}&select=race_id,settings,narration_overrides,voice,clip_count,updated_at&limit=1`,
+    `${supabase.supabaseUrl}/rest/v1/video_narrations?race_id=eq.${raceId}&mode=eq.${mode}&select=race_id,settings,narration_overrides,voice,clip_count,updated_at&limit=1`,
     { headers: headers(supabase), cache: "no-store" },
   );
   if (!response.ok) throw new Error(`Unable to read narration: ${await response.text()}`);
@@ -74,7 +88,7 @@ export const readNarration = async (supabase: SupabaseServiceConfig, raceId: str
   if (!row) return null;
   let clips: SavedNarration["clips"] = [];
   if (row.clip_count > 0) {
-    const clipsResponse = await fetcher(clipsObjectUrl(supabase, raceId), { headers: headers(supabase), cache: "no-store" });
+    const clipsResponse = await fetcher(clipsObjectUrl(supabase, raceId, mode), { headers: headers(supabase), cache: "no-store" });
     // Missing or unreadable clips only cost a voice regeneration: the text is still restored.
     if (clipsResponse.ok) clips = z.array(savedClipSchema).catch([]).parse(await clipsResponse.json().catch(() => []));
   }
@@ -86,10 +100,11 @@ export const saveNarration = async (
   raceId: string,
   userId: string,
   request: SaveNarrationRequest,
+  mode: VideoStoryMode = "full",
   fetcher: typeof fetch = fetch,
 ) => {
   if (request.clips) {
-    const upload = await fetcher(clipsObjectUrl(supabase, raceId), {
+    const upload = await fetcher(clipsObjectUrl(supabase, raceId, mode), {
       method: "POST",
       headers: headers(supabase, { "Content-Type": "application/json", "x-upsert": "true" }),
       body: JSON.stringify(request.clips),
@@ -100,6 +115,7 @@ export const saveNarration = async (
   const updatedAt = new Date().toISOString();
   const row: Record<string, unknown> = {
     race_id: raceId,
+    mode,
     settings: request.settings,
     narration_overrides: request.narrationOverrides,
     voice: request.voice,
@@ -107,7 +123,7 @@ export const saveNarration = async (
     updated_at: updatedAt,
     ...(request.clips ? { clip_count: request.clips.length } : {}),
   };
-  const response = await fetcher(`${supabase.supabaseUrl}/rest/v1/video_narrations?on_conflict=race_id`, {
+  const response = await fetcher(`${supabase.supabaseUrl}/rest/v1/video_narrations?on_conflict=race_id,mode`, {
     method: "POST",
     headers: headers(supabase, { "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" }),
     body: JSON.stringify(row),
@@ -117,7 +133,7 @@ export const saveNarration = async (
   return { updatedAt };
 };
 
-/** Per race: finished background videos and whether a narration is saved, for the race picker. */
+/** Per race: finished background videos and whether a narration (any mode) is saved, for the race picker. */
 export const readVideoRaceStats = async (supabase: SupabaseServiceConfig, fetcher: typeof fetch = fetch) => {
   const [jobs, narrations] = await Promise.all([
     fetcher(`${supabase.supabaseUrl}/rest/v1/video_render_jobs?status=eq.done&select=race_id`, { headers: headers(supabase), cache: "no-store" }),
@@ -130,7 +146,8 @@ export const readVideoRaceStats = async (supabase: SupabaseServiceConfig, fetche
   z.array(z.object({ race_id: z.string(), clip_count: z.number() })).parse(await narrations.json()).forEach((row) => {
     const item = entry(row.race_id);
     item.narration = true;
-    item.voice = row.clip_count > 0;
+    // One row per story mode: a voice in either counts.
+    item.voice ||= row.clip_count > 0;
   });
   return stats;
 };

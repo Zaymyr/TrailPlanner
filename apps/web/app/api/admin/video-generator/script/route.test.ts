@@ -103,6 +103,39 @@ describe("POST /api/admin/video-generator/script", () => {
     expect(legWords(1)).toBe(11);
   });
 
+  it("tells a highlights reel moment by moment, sized for 30-45 s, without inventing numbers", async () => {
+    state.parse.mockResolvedValue({ stop_reason: "end_turn", parsed_output: { beats: [] } });
+    const moment = (id: string, kind: string, startKm: number) => ({
+      id, kind, title: id, startKm, endKm: startKm + 4, facts: ["4 km", "+300 m"], services: [], cutoffTime: null, narration: "Brouillon.",
+    });
+    const body = {
+      ...validBody,
+      mode: "highlights",
+      targetSeconds: 40,
+      beats: [
+        validBody.beats[0],
+        moment("hl-hardestClimb-100", "climb", 10),
+        moment("hl-aid-x", "aid", 30),
+        moment("hl-biggestDescent-400", "descent", 40),
+        moment("hl-night-500", "night", 50),
+        moment("hl-lastClimb-600", "climb", 60),
+        { ...validBody.beats[0], id: "outro", kind: "outro" },
+      ],
+    };
+    await POST(request(body));
+    const params = state.parse.mock.calls[0][0];
+    const input = JSON.parse(String(params.messages[0].content).replace(/^[^{]*/, ""));
+    const words = input.troncons.map((troncon: { maxWords: number }) => troncon.maxWords);
+    // 40 s minus 6 transits of 1.2 s and 4.5 s of silences, at 2.2 words/s, minus 18 fixed words.
+    expect(words).toEqual([10, 8, 8, 8, 8, 8, 8]);
+    const spokenSeconds = words.reduce((sum: number, value: number) => sum + value, 0) / 2.2;
+    expect(spokenSeconds + 6 * 1.2 + 4.5).toBeLessThanOrEqual(45);
+    expect(params.system).toMatch(/temps forts/);
+    expect(params.system).toMatch(/n'invente rien/);
+    expect(params.system).toMatch(/ne cite aucun chiffre absent/);
+    expect(params.system).not.toMatch(/tronçons consécutifs/);
+  });
+
   it("sends back the legs over their word budget once, and tells when the camera reaches a station", async () => {
     const long = Array.from({ length: 60 }, () => "bla").join(" ");
     state.parse

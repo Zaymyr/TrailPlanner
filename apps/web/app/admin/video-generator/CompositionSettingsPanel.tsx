@@ -8,6 +8,8 @@ import { MAP_AMBIANCES } from "./map-appearance";
 import {
   AID_SERVICES,
   getAidStationServices,
+  HIGHLIGHT_MAX_SECONDS,
+  HIGHLIGHT_MIN_SECONDS,
   MAPBOX_STYLE_URL_PATTERN,
   PROFILE_SLOPE_CLASSES,
   VIDEO_DURATION_PRESETS,
@@ -110,6 +112,11 @@ export function DurationSelect({
   onChange: (settings: VideoCompositionSettings) => void;
   settings: VideoCompositionSettings;
 }) {
+  const highlights = settings.storyMode === "highlights";
+  // A highlights reel stays between 30 and 50 s: longer presets make no sense there.
+  const presets = highlights
+    ? VIDEO_DURATION_PRESETS.filter((duration) => duration >= HIGHLIGHT_MIN_SECONDS && duration <= HIGHLIGHT_MAX_SECONDS)
+    : VIDEO_DURATION_PRESETS;
   return (
     <label className="block space-y-1 text-xs">
       <span className="font-medium">Durée totale</span>
@@ -121,8 +128,12 @@ export function DurationSelect({
           ? { ...settings, durationMode: "auto" }
           : { ...settings, durationMode: "manual", durationSeconds: Number(event.target.value) })}
       >
-        <option value="auto">Auto selon le parcours (≈ {autoDurationSeconds} s, suit la voix)</option>
-        {VIDEO_DURATION_PRESETS.map((duration) => <option key={duration} value={duration}>{duration} secondes</option>)}
+        <option value="auto">
+          {highlights
+            ? `Auto (≈ ${autoDurationSeconds} s, entre ${HIGHLIGHT_MIN_SECONDS} et ${HIGHLIGHT_MAX_SECONDS} s)`
+            : `Auto selon le parcours (≈ ${autoDurationSeconds} s, suit la voix)`}
+        </option>
+        {presets.map((duration) => <option key={duration} value={duration}>{duration} secondes</option>)}
       </select>
       <span className="block text-xs text-muted-foreground">
         {settings.durationMode === "auto"
@@ -164,6 +175,28 @@ export function CompositionSettingsPanel({
       {/* Quick access: what is worth changing per video. */}
       <div className="space-y-2 pb-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Réglages rapides</p>
+        <div className="space-y-1 text-sm">
+          <span className="font-medium">Type de reel</span>
+          <Segmented
+            label="Type de reel"
+            value={settings.storyMode}
+            options={[["full", "Parcours complet"], ["highlights", "Temps forts"]]}
+            onChange={(value) => onChange({
+              ...settings,
+              storyMode: value,
+              // A manual length outside 30-50 s does not fit a highlights reel: back to auto.
+              ...(value === "highlights" && settings.durationMode === "manual"
+                && (settings.durationSeconds < HIGHLIGHT_MIN_SECONDS || settings.durationSeconds > HIGHLIGHT_MAX_SECONDS)
+                ? { durationMode: "auto" as const }
+                : {}),
+            })}
+          />
+          <p className="text-xs text-muted-foreground">
+            {settings.storyMode === "highlights"
+              ? `3 à 5 temps forts (grosse montée, grande descente, ravito clé, nuit, dernière montée) en ${HIGHLIGHT_MIN_SECONDS} à ${HIGHLIGHT_MAX_SECONDS} s, la caméra file de l’un à l’autre.`
+              : "Tout le parcours raconté tronçon par tronçon, du départ à l’arrivée."}
+          </p>
+        </div>
         <label className="block space-y-1 text-sm">
           <span className="flex justify-between font-medium">
             Relief

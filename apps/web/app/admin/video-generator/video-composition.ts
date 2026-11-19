@@ -28,6 +28,18 @@ export const MIN_CAPTION_MS = 1_200;
 // The voice starts just before the camera reaches the point it talks about.
 export const NARRATION_LEAD_MS = 400;
 
+// "Temps forts" reels: 30 to 45 s aimed at, 50 s at most, whatever the narration.
+export const HIGHLIGHT_TARGET_SECONDS = 40;
+export const HIGHLIGHT_MIN_SECONDS = 30;
+export const HIGHLIGHT_MAX_SECONDS = 50;
+// Fast flight between two moments (accelerated flyover; the camera pulls back with the speed).
+export const HIGHLIGHT_TRANSIT_MS = 1_200;
+// A gap this short (share of the route) is not worth a full transit.
+const HIGHLIGHT_SHORT_GAP_SHARE = 0.005;
+const HIGHLIGHT_SHORT_TRANSIT_MS = 300;
+// Camera smoothing windows shrink so a dwell is not blurred with the jumps around it.
+export const HIGHLIGHT_CAMERA_TEMPO = 0.25;
+
 export const VIDEO_RESOLUTIONS = {
   "540p": { width: 540, height: 960 },
   "1080p": { width: 1080, height: 1920 },
@@ -39,6 +51,8 @@ export const MAPBOX_STYLE_URL_PATTERN = /^mapbox:\/\/styles\/[\w.-]+\/[\w-]+$/;
 // Serializable on purpose: the same object must reproduce the same render later (export jobs).
 export const videoCompositionSettingsSchema = z.object({
   version: z.literal(1).default(1),
+  // "full" flies the whole course as one story; "highlights" dwells on 3 to 5 key moments.
+  storyMode: z.enum(["full", "highlights"]).default("full"),
   durationMode: z.enum(["auto", "manual"]).default("auto"),
   durationSeconds: z.number().int().min(15).max(120).default(45),
   resolution: z.enum(["540p", "1080p"]).default("540p"),
@@ -179,6 +193,10 @@ export type VideoTimeline = {
   narrationOverflow: boolean;
   /** Estimated race clock for the day/night look, when the start time is known and the look is on. */
   clock: RaceClock | null;
+  /** Scale of the camera smoothing windows: 1 for a full flyover, smaller for a highlights reel. */
+  cameraTempo?: number;
+  /** Weight of the whole-flyover average speed in the camera distance (the rest is local speed). */
+  cameraAverageBlend?: number;
 };
 
 export type VideoFrameState = {
@@ -287,14 +305,38 @@ export const buildVideoTimeline = (
   // A continuous story lasts as long as it is told: the voice runs over every leg, no silent dash.
   // Auto mode never cuts the voice to the 2-minute target (a 123 s story makes a 123 s reel), up
   // to the 3-minute Instagram limit; a manual length is a hard cap, flagged when the voice overflows.
-  const totalMs = settings.durationMode === "auto"
-    ? Math.min(MAX_NARRATED_VIDEO_SECONDS * 1_000, Math.ceil((continuous
-      ? introMs + outroMs + beatsTotal
-      : Math.max(getAutoDurationSeconds(totalDistanceKm) * 1_000, introMs + outroMs + beatsTotal / narrationShare)) / 1_000) * 1_000)
-    : Math.min(MAX_VIDEO_SECONDS * 1_000, settings.durationSeconds * 1_000);
+  const highlights = settings.storyMode === "highlights";
+  // Highlights: the route outside the moments is a fast transit, a fixed time per gap.
+  const gapsKm = highlights
+    ? routeBeats.map((beat, index) => Math.max(0, beat.startKm - (index > 0 ? routeBeats[index - 1].endKm : 0)))
+      .concat(Math.max(0, totalDistanceKm - (routeBeats[routeBeats.length - 1]?.endKm ?? 0)))
+    : [];
+  const gapTransitMs = gapsKm.map((km): number => (km <= 0 ? 0 : km < totalDistanceKm * HIGHLIGHT_SHORT_GAP_SHARE ? HIGHLIGHT_SHORT_TRANSIT_MS : HIGHLIGHT_TRANSIT_MS));
+  const transitTotalMs = gapTransitMs.reduce((sum, value) => sum + value, 0);
+  const highlightsNaturalMs = introMs + outroMs + beatsTotal + transitTotalMs;
+
+  const totalMs = highlights
+    ? (settings.durationMode === "auto"
+      ? clamp(Math.ceil(highlightsNaturalMs / 1_000) * 1_000, HIGHLIGHT_MIN_SECONDS * 1_000, HIGHLIGHT_MAX_SECONDS * 1_000)
+      : clamp(settings.durationSeconds, HIGHLIGHT_MIN_SECONDS, HIGHLIGHT_MAX_SECONDS) * 1_000)
+    : settings.durationMode === "auto"
+      ? Math.min(MAX_NARRATED_VIDEO_SECONDS * 1_000, Math.ceil((continuous
+        ? introMs + outroMs + beatsTotal
+        : Math.max(getAutoDurationSeconds(totalDistanceKm) * 1_000, introMs + outroMs + beatsTotal / narrationShare)) / 1_000) * 1_000)
+      : Math.min(MAX_VIDEO_SECONDS * 1_000, settings.durationSeconds * 1_000);
   const flyoverMs = Math.max(1_000, totalMs - introMs - outroMs);
-  const narrationOverflow = beatsTotal > flyoverMs * (continuous ? 0.95 : 0.9);
-  if (beatsTotal > flyoverMs * narrationShare) {
+  const narrationOverflow = highlights
+    ? highlightsNaturalMs > totalMs + NARRATION_GAP_MS
+    : beatsTotal > flyoverMs * (continuous ? 0.95 : 0.9);
+  if (highlights) {
+    // Every moment gets its narration time, stretched or squeezed so the reel hits its length;
+    // the transits keep their fixed time (shortened only if they would take over 40 %).
+    const transitBudgetMs = beatsTotal > 0 ? Math.min(transitTotalMs, flyoverMs * 0.4) : flyoverMs;
+    const transitScale = transitTotalMs > 0 ? transitBudgetMs / transitTotalMs : 0;
+    gapTransitMs.forEach((value, index) => { gapTransitMs[index] = value * transitScale; });
+    const scale = beatsTotal > 0 ? (flyoverMs - transitBudgetMs) / beatsTotal : 1;
+    beatNeeds = beatNeeds.map((value) => value * scale);
+  } else if (beatsTotal > flyoverMs * narrationShare) {
     const scale = (flyoverMs * narrationShare) / beatsTotal;
     beatNeeds = beatNeeds.map((value) => value * scale);
   }
@@ -361,9 +403,19 @@ export const buildVideoTimeline = (
     }
     return transitWeight > 0 ? (transitMs * weight) / transitWeight : 0;
   });
-  const densities = continuous ? continuousDensities() : isolatedDensities();
+  // Highlights: the moment's time spread over its whole span (terrain-weighted), each gap crossed
+  // at a constant speed in its fixed transit time.
+  const gapIndexAt = (distanceKm: number) => routeBeats.filter((beat) => beat.endKm <= distanceKm).length;
+  const highlightDensities = () => intervals.map(({ beatIndex, middleKm, terrain: weight }) => {
+    if (beatIndex >= 0) return terrainTotals[beatIndex] > 0 ? (beatNeeds[beatIndex] * weight) / terrainTotals[beatIndex] : 0;
+    const gap = gapIndexAt(middleKm);
+    return gapsKm[gap] > 0 ? (gapTransitMs[gap] ?? 0) / gapsKm[gap] : 0;
+  });
+  const densities = highlights ? highlightDensities() : continuous ? continuousDensities() : isolatedDensities();
   const spacingKm = samples.length > 1 ? totalDistanceKm / (samples.length - 1) : 1;
-  const smoothed = movingAverage(densities, Math.max(1, Math.round((totalDistanceKm * 0.0035) / spacingKm)));
+  // Highlights keep crisp edges (0.1 % of the route) so the dwell time does not leak into the jumps.
+  const smoothingShare = highlights ? 0.001 : 0.0035;
+  const smoothed = movingAverage(densities, Math.max(1, Math.round((totalDistanceKm * smoothingShare) / spacingKm)));
 
   const cumulative = [0];
   smoothed.forEach((density, interval) => {
@@ -385,8 +437,10 @@ export const buildVideoTimeline = (
     sampleDistancesKm,
     cumulativeTimeFraction,
     beats: [],
-    narrationOverflow: settings.durationMode === "manual" && narrationOverflow,
+    narrationOverflow: (highlights || settings.durationMode === "manual") && narrationOverflow,
     clock: settings.dayNight ? clock : null,
+    cameraTempo: highlights ? HIGHLIGHT_CAMERA_TEMPO : 1,
+    cameraAverageBlend: highlights ? 0.1 : 0.7,
   };
 
   const msAtDistance = (distanceKm: number) =>
@@ -691,7 +745,8 @@ export const getTimeSmoothedHeading = (path: PreparedAnimationPath, timeline: Vi
     getDistanceAtFlyoverFraction(timeline, (clamp(ms, flyoverStart, flyoverEnd) - flyoverStart) / Math.max(1, timeline.flyoverMs));
   let east = 0;
   let north = 0;
-  HEADING_WINDOWS_MS.forEach((windowMs) => {
+  const tempo = timeline.cameraTempo ?? 1;
+  HEADING_WINDOWS_MS.map((windowMs) => windowMs * tempo).forEach((windowMs) => {
     const from = getRoutePointAtDistance(path, distanceAt(timeMs - windowMs));
     const to = getRoutePointAtDistance(path, distanceAt(timeMs + windowMs));
     const metersPerDegreeLat = 111_320;
@@ -711,13 +766,16 @@ export const getCameraSpeedMps = (timeline: VideoTimeline, timeMs: number) => {
   if (timeline.flyoverMs <= 0) return timeline.averageSpeedMps;
   const flyoverStart = timeline.introMs;
   const flyoverEnd = timeline.introMs + timeline.flyoverMs;
-  const from = clamp(timeMs - CAMERA_SPEED_WINDOW_MS, flyoverStart, flyoverEnd - CAMERA_SPEED_WINDOW_MS * 2);
-  const to = Math.min(flyoverEnd, from + CAMERA_SPEED_WINDOW_MS * 2);
+  const windowMs = CAMERA_SPEED_WINDOW_MS * (timeline.cameraTempo ?? 1);
+  const from = clamp(timeMs - windowMs, flyoverStart, flyoverEnd - windowMs * 2);
+  const to = Math.min(flyoverEnd, from + windowMs * 2);
   if (to <= from) return timeline.averageSpeedMps;
   const distanceAt = (ms: number) => getDistanceAtFlyoverFraction(timeline, (ms - flyoverStart) / timeline.flyoverMs);
   const localMps = ((distanceAt(to) - distanceAt(from)) * 1_000) / ((to - from) / 1_000);
-  // Half of the average keeps the zoom from pumping on every speed change.
-  return 0.7 * timeline.averageSpeedMps + 0.3 * localMps;
+  // Mostly the average keeps the zoom from pumping on every speed change; a highlights reel wants
+  // the opposite (close on a moment, pulled back during the jump), so it follows the local speed.
+  const blend = timeline.cameraAverageBlend ?? 0.7;
+  return blend * timeline.averageSpeedMps + (1 - blend) * localMps;
 };
 
 const ORBIT_SIDE_OFFSET_DEG = 35;
@@ -744,7 +802,7 @@ export const getSmoothedCameraTarget = (
   const centerKm = distanceAt(timeMs);
   // Symmetric window that shrinks near the start and the finish: a window cut on one side would
   // aim ahead of the runner (or behind), which left the start off-centre.
-  const windowMs = Math.max(0, Math.min(TARGET_SMOOTHING_MS, timeMs - flyoverStart, flyoverEnd - timeMs));
+  const windowMs = Math.max(0, Math.min(TARGET_SMOOTHING_MS * (timeline.cameraTempo ?? 1), timeMs - flyoverStart, flyoverEnd - timeMs));
   const fromKm = distanceAt(timeMs - windowMs);
   const toKm = distanceAt(timeMs + windowMs);
   const center = getRoutePointAtDistance(path, centerKm);
@@ -937,8 +995,9 @@ const buildCameraTrack = (path: PreparedAnimationPath, timeline: VideoTimeline, 
     target.lon[index] = pose.target.lon;
     target.alt[index] = pose.target.altitudeM;
   }
-  const radius = Math.ceil((CAMERA_TRACK_SIGMA_MS * 3) / CAMERA_TRACK_STEP_MS);
-  const sigma = CAMERA_TRACK_SIGMA_MS / CAMERA_TRACK_STEP_MS;
+  const sigmaMs = Math.max(CAMERA_TRACK_STEP_MS, CAMERA_TRACK_SIGMA_MS * (timeline.cameraTempo ?? 1));
+  const radius = Math.ceil((sigmaMs * 3) / CAMERA_TRACK_STEP_MS);
+  const sigma = sigmaMs / CAMERA_TRACK_STEP_MS;
   const weights = Array.from({ length: radius * 2 + 1 }, (_, index) => Math.exp(-((index - radius) ** 2) / (2 * sigma * sigma)));
   const total = weights.reduce((sum, weight) => sum + weight, 0);
   const kernel = weights.map((weight) => weight / total);

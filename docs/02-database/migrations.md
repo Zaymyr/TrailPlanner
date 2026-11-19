@@ -2,7 +2,7 @@
 title: Migrations
 scope: database
 
-last_verified: 2026-11-09
+last_verified: 2026-11-19
 
 ai_priority: high
 related_files:
@@ -35,6 +35,7 @@ related_files:
   - supabase/migrations/20261103124538_cover_racebook_current_publication_foreign_key.sql
   - supabase/migrations/20261104140000_add_video_render_jobs.sql
   - supabase/migrations/20261105160000_add_video_narrations.sql
+  - supabase/migrations/20261119120000_add_video_narrations_mode.sql
   - supabase/migrations/20261119130000_add_social_posts.sql
   - supabase/migrations/20261119130100_schedule_social_posts_cron.sql
   - supabase/tests/social_posts_checks.sql
@@ -163,6 +164,8 @@ related_tables:
 `20261119130000_add_social_posts.sql` adds `social_posts` (Instagram Reels drafted from finished renders, with the container/media ids and lease of the publishing state machine), additive, RLS on with no policy and service-role-only grants, with an `updated_at` trigger and one index per foreign key. `20261119130100_schedule_social_posts_cron.sql` schedules the pg_cron job `social-posts-publish` (every 5 minutes); its command reads the Vault secrets `web_app_url` and `cron_secret` when they run, so the migration succeeds even before the secrets exist. Check: `supabase/tests/social_posts_checks.sql`. The Instagram credentials are server env vars (System User token), so no account table exists.
 
 `20261105160000_add_video_narrations.sql` adds `video_narrations` (the saved reel narration per race: settings, texts by beat id, voice choice, clip count) and the private Storage bucket `video-narrations` for the voice clips, RLS on with no policy and service-role-only grants.
+
+`20261119120000_add_video_narrations_mode.sql` adds `video_narrations.mode` (`text not null default 'full'`, check in `full` / `highlights`, existing rows become `full`) and widens the primary key from `race_id` to `(race_id, mode)`, so each reel story mode keeps its own narration. RLS, grants and the bucket are unchanged. The release guard does not flag it (constraint swap, no dropped data); the previous web version's `on_conflict=race_id` upsert fails until the new web is deployed. `supabase/tests/video_narrations_checks.sql` checks the key, the default and the mode constraint.
 
 `20260907160043_add_structured_racebook_content.sql` adds normalized services, start waves and awards, their constraints/indexes/RLS, atomic replacement RPCs, and the `schedule.startTime` start-wave backfill.
 

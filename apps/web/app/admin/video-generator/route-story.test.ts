@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import type { VideoAidStation, VideoRoutePoint } from "../../../lib/video-generator";
 import { prepareAnimationPath } from "./route-animation";
-import { buildStoryBeats, detectRouteSlopes, estimateNarrationMs, getAutoDurationSeconds, getSlopeId, stripVoiceTags } from "./route-story";
+import { buildRaceFigures, toRouteAidStations } from "./race-figures";
+import { buildStoryBeats, detectRouteSlopes, estimateNarrationMs, getAutoDurationSeconds, getCumulativeGainAt, getSlopeId, stripVoiceTags } from "./route-story";
 
 // 0-10 km flat, 10-16 km climb of 600 m, 16-22 km descent of 600 m, 22-30 km flat.
 const profilePoints: VideoRoutePoint[] = Array.from({ length: 301 }, (_, index) => {
@@ -93,6 +94,20 @@ describe("buildStoryBeats", () => {
     expect(short.length - 2).toBeLessThanOrEqual(4);
     const told = short.map((beat) => beat.narration).join(" ");
     stations.forEach((item) => expect(told).toContain(item.name));
+  });
+
+  it("tells the announced race figures, the GPX kilometres rescaled to them", () => {
+    // The race record says 33 km and 660 m D+; the GPX measures 30 km.
+    const figures = buildRaceFigures({ raceDistanceKm: 33, raceElevationGainM: 660, routeDistanceKm: 30, routeElevationGainM: getCumulativeGainAt(path, 30) });
+    const announcedStation = station("1", 24.2);
+    const beats = buildStoryBeats(path, toRouteAidStations(figures, [announcedStation]), { ...race, distanceKm: 33, elevationGainM: 660 }, { ...options, figures });
+    expect(beats[0].narration).toContain("33 kilomètres et 660 mètres");
+    expect(beats[beats.length - 2].narration).toContain("au kilomètre 33 :");
+    // The station keeps its organizer kilometre.
+    expect(beats.map((beat) => beat.narration).join(" ")).toContain("kilomètre 24,2");
+    // Leg lengths add up to the announced total.
+    const legLengths = beats.slice(1, -1).map((beat) => Number(beat.facts[0].replace(" km", "").replace(",", ".")));
+    expect(legLengths.reduce((sum, value) => sum + value, 0)).toBeCloseTo(33, 0);
   });
 });
 

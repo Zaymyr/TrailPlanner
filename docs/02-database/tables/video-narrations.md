@@ -1,10 +1,11 @@
 ---
 title: video_narrations Table
 scope: database
-last_verified: 2026-11-05
+last_verified: 2026-11-19
 ai_priority: low
 related_files:
   - supabase/migrations/20261105160000_add_video_narrations.sql
+  - supabase/migrations/20261119120000_add_video_narrations_mode.sql
   - supabase/tests/video_narrations_checks.sql
   - apps/web/lib/video-narrations.ts
   - apps/web/app/api/admin/video-generator/narrations/[raceId]/route.ts
@@ -19,13 +20,14 @@ related_tables:
 
 ## Purpose
 
-The saved narration of the admin 3D reel, one row per race, so a race's script is written and voiced once and reloaded the next time it is opened in the video generator. The voice clips (base64 MP3, about 2 MB per reel) are not in the table: they live in the private Storage bucket `video-narrations` as `<race_id>.json`.
+The saved narration of the admin 3D reel, one row per race and story mode ("Parcours complet" `full`, "Temps forts" `highlights`), so a race's script is written and voiced once per mode and reloaded the next time it is opened in the video generator. The voice clips (base64 MP3, about 2 MB per reel) are not in the table: they live in the private Storage bucket `video-narrations` as `<race_id>.json` (full) and `<race_id>.highlights.json` (highlights).
 
 ## Columns
 
 | Column | Type | Constraints/default | Purpose |
 | --- | --- | --- | --- |
-| `race_id` | `uuid` | primary key, references `races(id)` on delete cascade | Narrated race. |
+| `race_id` | `uuid` | primary key with `mode`, references `races(id)` on delete cascade | Narrated race. |
+| `mode` | `text` | primary key with `race_id`, not null, default `'full'`, check in (`full`, `highlights`) | Story mode of the narration; rows saved before 2026-11-19 are `full`. |
 | `settings` | `jsonb` | not null, `{}` | Composition settings when saved. They decide the story cut, hence the beat ids the texts belong to; the editor parses them with its own schema so older saves stay readable. |
 | `narration_overrides` | `jsonb` | not null, `{}` | Narration text by beat id (AI draft or hand edit). |
 | `voice` | `jsonb` | not null, `{}` | `voiceId` (ElevenLabs, nullable for the default voice), `model`, `expressiveness`. |
@@ -39,9 +41,15 @@ Bucket `video-narrations`: private, 20 MB per object, `application/json` only, n
 
 ## Access
 
-RLS is on with no policy; `anon` and `authenticated` have no privilege. Only the service role (admin API routes `GET`/`PUT /api/admin/video-generator/narrations/[raceId]` and `GET /api/admin/video-generator/race-stats`) reads and writes the table and the bucket.
+RLS is on with no policy; `anon` and `authenticated` have no privilege. Only the service role (admin API routes `GET`/`PUT /api/admin/video-generator/narrations/[raceId]?mode=full|highlights`, `full` when absent and 400 when unknown, and `GET /api/admin/video-generator/race-stats`) reads and writes the table and the bucket. Saves upsert on `(race_id, mode)`.
 
 ## Business rules
 
 - A clip is used only while its text equals the beat narration, so a stale clip after an edit is ignored, never played over the wrong text.
 - The race picker shows, per format, whether a narration (and its voice) is saved, from `race-stats`, next to the number of finished background videos from `video_render_jobs`.
+- Each mode saves only its own texts: highlight beats use `hl-…` ids (`hl-intro`, `hl-outro` included), full beats never do. The editor loads a mode's narration once per race, when the race opens or when the mode is first chosen, and merges its texts and clips with the other mode's ([ADR](../../08-decisions/2026-11-19-reel-highlights-and-figures.md)).
+- `race-stats` reports a race as narrated (and voiced) when any of its modes is.
+
+## Gotchas
+
+- The `(race_id)` to `(race_id, mode)` key change makes an upsert with `on_conflict=race_id` fail (no matching unique constraint). Between the migration and the web deploy of the same release, a save from the previous web version fails with an error message; reads keep working.
