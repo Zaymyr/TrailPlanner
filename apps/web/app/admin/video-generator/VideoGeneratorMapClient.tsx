@@ -61,7 +61,10 @@ import {
   getToldSlope,
   buildElevationProfile,
   buildVideoTimeline,
+  CUTOFF_RED,
   DEFAULT_VIDEO_COMPOSITION_SETTINGS,
+  isCompactOverlayEnabled,
+  OVERLAY_FONT_CQMIN,
   getFlyoverFractionAtDistance,
   HIGHLIGHT_MAX_SECONDS,
   HIGHLIGHT_MIN_SECONDS,
@@ -243,7 +246,6 @@ const buildStationIconGeoJson = (path: PreparedAnimationPath, stations: VideoAid
   };
 };
 
-const CUTOFF_RED = "#d7263d";
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 const createClockIcon = (color: string) => {
@@ -254,7 +256,7 @@ const createClockIcon = (color: string) => {
   svg.setAttribute("stroke-width", "2.6");
   svg.setAttribute("stroke-linecap", "round");
   svg.setAttribute("stroke-linejoin", "round");
-  Object.assign(svg.style, { width: "2.3cqmin", height: "2.3cqmin", flex: "none" });
+  Object.assign(svg.style, { width: "1em", height: "1em", flex: "none" });
   ["M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z", "M12 7v5l3 2"].forEach((d) => {
     const path = document.createElementNS(SVG_NS, "path");
     path.setAttribute("d", d);
@@ -286,10 +288,11 @@ const createPinnedMarkerElement = () => {
 
 /**
  * Card shown above a station icon while the runner arrives: name, kilometre, cumulative D+ and
- * cutoff. Mapbox owns the marker element (position, transform, occlusion opacity), so all styles
+ * cutoff. The light overlay keeps the name only, larger; its figures are in the leg card.
+ * Mapbox owns the marker element (position, transform, occlusion opacity), so all styles
  * and the fading live on the inner card, which sizes to its text.
  */
-const createAidCardElement = (station: VideoAidStation, cumulativeGainM: number, accent: string, figures: RaceFigures) => {
+const createAidCardElement = (station: VideoAidStation, cumulativeGainM: number, accent: string, figures: RaceFigures, compact: boolean) => {
   const element = createPinnedMarkerElement();
   const card = document.createElement("div");
   Object.assign(card.style, {
@@ -312,18 +315,21 @@ const createAidCardElement = (station: VideoAidStation, cumulativeGainM: number,
     Object.assign(node.style, styles);
     card.appendChild(node);
   };
-  if (station.isLifeBase) {
-    line("Base de vie", { display: "inline-block", marginBottom: "0.5cqmin", padding: "0.2cqmin 1cqmin", borderRadius: "9999px", background: accent, color: "#ffffff", fontWeight: "800", fontSize: "1.7cqmin", letterSpacing: "0.04em", textTransform: "uppercase" });
+  if (station.isLifeBase && !compact) {
+    line("Base de vie", { display: "inline-block", marginBottom: "0.5cqmin", padding: "0.2cqmin 1cqmin", borderRadius: "9999px", background: accent, color: "#ffffff", fontWeight: "800", fontSize: `${OVERLAY_FONT_CQMIN.aidLifeBase}cqmin`, letterSpacing: "0.04em", textTransform: "uppercase" });
   }
-  line(station.name, { fontWeight: "800", fontSize: "2.6cqmin", lineHeight: "1.15", color: accent, textTransform: "uppercase", letterSpacing: "0.02em" });
-  // Station in route kilometres, GPX D+: both shown in the announced scale.
-  const kilometre = formatKm(toAnnouncedKm(figures, station.distanceKm));
-  const gain = formatElevationM(toAnnouncedElevationM(figures, cumulativeGainM));
-  line(`km ${kilometre} · D+ ${gain} m`, { fontWeight: "600", fontSize: "2.1cqmin", color: "#3f3f3f", fontVariantNumeric: "tabular-nums" });
-  if (station.cutoffTime) {
+  const nameFont = compact ? OVERLAY_FONT_CQMIN.aidNameCompact : OVERLAY_FONT_CQMIN.aidName;
+  line(station.name, { fontWeight: "800", fontSize: `${nameFont}cqmin`, lineHeight: "1.15", color: accent, textTransform: "uppercase", letterSpacing: "0.02em" });
+  if (!compact) {
+    // Station in route kilometres, GPX D+: both shown in the announced scale.
+    const kilometre = formatKm(toAnnouncedKm(figures, station.distanceKm));
+    const gain = formatElevationM(toAnnouncedElevationM(figures, cumulativeGainM));
+    line(`km ${kilometre} · D+ ${gain} m`, { fontWeight: "600", fontSize: `${OVERLAY_FONT_CQMIN.aidDetail}cqmin`, color: "#3f3f3f", fontVariantNumeric: "tabular-nums" });
+  }
+  if (station.cutoffTime && !compact) {
     // Cutoff in red with a clock, so it stands out from the other figures.
     const cutoff = document.createElement("div");
-    Object.assign(cutoff.style, { display: "flex", alignItems: "center", gap: "0.6cqmin", fontWeight: "700", fontSize: "2cqmin", color: CUTOFF_RED });
+    Object.assign(cutoff.style, { display: "flex", alignItems: "center", gap: "0.6cqmin", fontWeight: "700", fontSize: `${OVERLAY_FONT_CQMIN.aidDetail}cqmin`, color: CUTOFF_RED });
     cutoff.append(createClockIcon(CUTOFF_RED), document.createTextNode(`Barrière ${station.cutoffTime}`));
     card.appendChild(cutoff);
   }
@@ -359,10 +365,10 @@ const createPlaceLabelElement = (kind: string, name: string, accent: string) => 
   });
   const kindLine = document.createElement("div");
   kindLine.textContent = kind;
-  Object.assign(kindLine.style, { fontWeight: "800", fontSize: "1.7cqmin", color: accent, textTransform: "uppercase", letterSpacing: "0.04em" });
+  Object.assign(kindLine.style, { fontWeight: "800", fontSize: `${OVERLAY_FONT_CQMIN.placeKind}cqmin`, color: accent, textTransform: "uppercase", letterSpacing: "0.04em" });
   const nameLine = document.createElement("div");
   nameLine.textContent = name;
-  Object.assign(nameLine.style, { fontWeight: "800", fontSize: "2.4cqmin", lineHeight: "1.15", color: "#1a1a1a" });
+  Object.assign(nameLine.style, { fontWeight: "800", fontSize: `${OVERLAY_FONT_CQMIN.placeName}cqmin`, lineHeight: "1.15", color: "#1a1a1a" });
   card.append(kindLine, nameLine);
   element.appendChild(card);
   return element;
@@ -923,6 +929,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   }, [snapshot.isPlaying]);
 
   // Bubbles above aid stations: built once per route and settings, faded per frame.
+  const compactOverlay = isCompactOverlayEnabled(settings);
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !isReady) return;
@@ -930,7 +937,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       .filter((station) => station.distanceKm > 0 && station.distanceKm < preparedPath.totalDistanceKm)
       .map((station): AidBubble => {
         const point = getRoutePointAtDistance(preparedPath, station.distanceKm);
-        const { element, card } = createAidCardElement(station, getCumulativeGainAt(preparedPath, station.distanceKm), settings.accentColor, figures);
+        const { element, card } = createAidCardElement(station, getCumulativeGainAt(preparedPath, station.distanceKm), settings.accentColor, figures, compactOverlay);
         // The card tail stops a few pixels above the station icon drawn by the map (about 15 px
         // radius), so the bubble floats over its station instead of touching it.
         const marker = new mapboxgl.Marker({ element, anchor: "center", offset: [0, -28], occludedOpacity: 1 })
@@ -944,7 +951,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       bubbles.forEach((bubble) => bubble.marker.remove());
       aidBubblesRef.current = [];
     };
-  }, [enabledAidStations, figures, isReady, preparedPath, refreshCurrentFrame, settings.accentColor]);
+  }, [compactOverlay, enabledAidStations, figures, isReady, preparedPath, refreshCurrentFrame, settings.accentColor]);
 
   // Start and finish names, pinned above their icons for the whole reel.
   useEffect(() => {

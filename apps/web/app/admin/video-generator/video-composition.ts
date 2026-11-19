@@ -101,6 +101,10 @@ export const videoCompositionSettingsSchema = z.object({
   // under one headline figure and the short race name (reel-hook.ts). Null follows the mode: on
   // for highlights, off for the full flyover.
   hookIntro: z.boolean().nullable().default(null),
+  // Light overlay for phones: no title band (the hook already says it), no profile ticks, aid
+  // bubbles reduced to the station name (its figures go in the leg card). Null follows the mode:
+  // on for highlights, off for the full flyover.
+  compactOverlay: z.boolean().nullable().default(null),
   outroEnabled: z.boolean().default(true),
   disabledAidStationIds: z.array(z.string()).default([]),
 });
@@ -113,6 +117,36 @@ export const DEFAULT_VIDEO_COMPOSITION_SETTINGS: VideoCompositionSettings = vide
 /** Whether the reel opens on the hook: the explicit setting, otherwise on for highlights only. */
 export const isHookIntroEnabled = (settings: Pick<VideoCompositionSettings, "hookIntro" | "storyMode" | "introEnabled">) =>
   settings.introEnabled && (settings.hookIntro ?? settings.storyMode === "highlights");
+
+/** Whether the reel uses the light phone overlay: the explicit setting, otherwise on for highlights only. */
+export const isCompactOverlayEnabled = (settings: Pick<VideoCompositionSettings, "compactOverlay" | "storyMode">) =>
+  settings.compactOverlay ?? settings.storyMode === "highlights";
+
+/**
+ * Smallest font, in cqmin, of any text meant to be read on a phone: 3 cqmin = 32.4 px at 1080 wide.
+ * Only the Mapbox attribution (legal line, not read) stays below it.
+ */
+export const OVERLAY_MIN_FONT_CQMIN = 3;
+
+/** Font sizes (cqmin) of the small overlay and map texts, all at or above OVERLAY_MIN_FONT_CQMIN. */
+export const OVERLAY_FONT_CQMIN = {
+  captionKind: 3,
+  captionFacts: 3.4,
+  profileTick: 3,
+  footerCta: 3,
+  aidName: 3.4,
+  aidNameCompact: 4,
+  aidDetail: 3,
+  aidLifeBase: 3,
+  placeKind: 3,
+  placeName: 3.6,
+} as const;
+
+/** Station cutoffs ("Barrière HH:MM") stand out in red, on the map bubble and in the leg card. */
+export const CUTOFF_RED = "#d7263d";
+
+/** Top of the profile band (cqmin) in the light overlay: below Instagram's own top bar. */
+export const COMPACT_TOP_CQMIN = 12;
 
 /** What the hook camera flies over (route kilometres) and how it hands over to the flyover. */
 export type HookPlan = {

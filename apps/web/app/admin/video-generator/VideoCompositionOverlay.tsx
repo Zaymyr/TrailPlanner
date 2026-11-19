@@ -8,6 +8,10 @@ import {
   getToldSlope,
   getProfileTicks,
   isHookIntroEnabled,
+  isCompactOverlayEnabled,
+  COMPACT_TOP_CQMIN,
+  CUTOFF_RED,
+  OVERLAY_FONT_CQMIN,
   getProfileWindow,
   getProfileY,
   PROFILE_UNITS_PER_KM,
@@ -162,6 +166,8 @@ const getCaptionTitle = (beat: ScheduledBeat, figures: RaceFigures) => {
 function StoryCaption({ accent, beat, figures, timeMs, top }: { accent: string; beat: ScheduledBeat; figures: RaceFigures; timeMs: number; top: string }) {
   const appear = Math.max(0, Math.min(1, (timeMs - beat.startMs) / FADE_MS, (beat.endMs - timeMs) / FADE_MS));
   const title = getCaptionTitle(beat, figures);
+  // The station cutoff lives in the leg card (the light map bubble shows the name only), unless a fact already says it.
+  const cutoff = beat.cutoffTime && !beat.facts.some((fact) => fact.startsWith("Barrière")) ? `Barrière ${beat.cutoffTime}` : null;
   return (
     <div
       className="absolute rounded-[2cqmin] bg-white text-[#1a1a1a] shadow-[0_0.6cqmin_2.4cqmin_rgba(0,0,0,0.35)]"
@@ -177,14 +183,15 @@ function StoryCaption({ accent, beat, figures, timeMs, top }: { accent: string; 
       }}
     >
       <div className="flex items-center" style={{ gap: "1.8cqmin" }}>
-        <span className="shrink-0 rounded-full font-black uppercase leading-none text-white" style={{ fontSize: "2.6cqmin", padding: "0.8cqmin 1.8cqmin", background: accent }}>
+        <span className="shrink-0 rounded-full font-black uppercase leading-none text-white" style={{ fontSize: `${OVERLAY_FONT_CQMIN.captionKind}cqmin`, padding: "0.8cqmin 1.8cqmin", background: accent }}>
           {CAPTION_KIND_LABELS[beat.kind]}
         </span>
         {title ? <p className="truncate font-black uppercase leading-none" style={{ fontSize: "4.4cqmin" }}>{title}</p> : null}
       </div>
-      {beat.facts.length || beat.services.length ? (
-        <div className="flex flex-wrap items-center font-bold tabular-nums leading-tight" style={{ gap: "2cqmin", marginTop: "1.4cqmin", fontSize: "3.4cqmin" }}>
+      {beat.facts.length || beat.services.length || cutoff ? (
+        <div className="flex flex-wrap items-center font-bold tabular-nums leading-tight" style={{ gap: "2cqmin", marginTop: "1.4cqmin", fontSize: `${OVERLAY_FONT_CQMIN.captionFacts}cqmin` }}>
           {beat.facts.length ? <span>{beat.facts.join(" · ")}</span> : null}
+          {cutoff ? <span style={{ color: CUTOFF_RED }}>{cutoff}</span> : null}
           {beat.services.length ? (
             <span className="flex items-center" style={{ gap: "1.6cqmin", color: accent }}>
               {beat.services.map((service) => <CaptionIcon key={service} name={service} />)}
@@ -219,10 +226,16 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, figures, frameS
   const outroOpacity = isOutro ? Math.min(1, Math.max(0, (frame.phaseProgress - 0.4) / 0.3)) : 0;
   const chromeOpacity = hook ? hook.chromeOpacity : isIntro ? 1 - introOpacity : isOutro ? 1 - outroOpacity : 1;
   const accent = settings.accentColor;
-  const hasHeader = settings.showTitle || Boolean(stats);
+  const compact = isCompactOverlayEnabled(settings);
+  // Light overlay: no title band (the hook and the voice already name the race and its figures).
+  const hasHeader = !compact && (settings.showTitle || Boolean(stats));
   const hasProfileBand = settings.showProfile || settings.showCurrentKm;
   // The leg card sits under the profile band; the subtitles sit lower, centred at 64 % of the frame.
-  const captionTop = hasProfileBand ? (hasHeader ? "47cqmin" : "35cqmin") : hasHeader ? "16cqmin" : "4cqmin";
+  // The light overlay starts lower, below Instagram's own top bar, and has no tick row.
+  const bandTop = compact ? `${COMPACT_TOP_CQMIN}cqmin` : hasHeader ? "16cqmin" : "4cqmin";
+  const captionTop = compact
+    ? `${COMPACT_TOP_CQMIN + (hasProfileBand ? 28 : 0)}cqmin`
+    : hasProfileBand ? (hasHeader ? "47cqmin" : "35cqmin") : hasHeader ? "16cqmin" : "4cqmin";
   // The accent is a background, never text on the dark gradients, so a dark brand green stays legible.
   const accentPill = { background: accent, color: "#ffffff", padding: "0.6cqmin 2.2cqmin", textShadow: "none" };
 
@@ -292,7 +305,7 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, figures, frameS
       <p className="absolute text-white/75" style={{ right: "2cqmin", bottom: "7cqmin", fontSize: "1.9cqmin" }}>© Mapbox © OpenStreetMap</p>
 
       {settings.showProfile || settings.showCurrentKm ? (
-        <section className="absolute" style={{ left: "4cqmin", right: "4cqmin", top: hasHeader ? "16cqmin" : "4cqmin", opacity: chromeOpacity }}>
+        <section className="absolute" style={{ left: "4cqmin", right: "4cqmin", top: bandTop, opacity: chromeOpacity }}>
           {settings.showCurrentKm ? (
             <p className="flex items-baseline justify-between font-black tabular-nums" style={{ fontSize: "5cqmin" }}>
               <span>
@@ -354,14 +367,16 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, figures, frameS
                   }}
                 />
               </div>
-              <div className="relative h-[3.6cqmin]">
-                {/* Ticks in announced kilometres, placed on the GPX. */}
-                {getProfileTicks({ startKm: toAnnouncedKm(figures, profileWindow.startKm), endKm: toAnnouncedKm(figures, profileWindow.endKm) }).map((km) => (
-                  <span key={km} className="absolute top-0 -translate-x-1/2 font-semibold tabular-nums text-white/75" style={{ left: `${toWindowPercent(toRouteKm(figures, km))}%`, fontSize: "2.6cqmin" }}>
-                    {km} km
-                  </span>
-                ))}
-              </div>
+              {compact ? null : (
+                <div className="relative h-[4cqmin]">
+                  {/* Ticks in announced kilometres, placed on the GPX. */}
+                  {getProfileTicks({ startKm: toAnnouncedKm(figures, profileWindow.startKm), endKm: toAnnouncedKm(figures, profileWindow.endKm) }).map((km) => (
+                    <span key={km} className="absolute top-0 -translate-x-1/2 font-semibold tabular-nums text-white/75" style={{ left: `${toWindowPercent(toRouteKm(figures, km))}%`, fontSize: `${OVERLAY_FONT_CQMIN.profileTick}cqmin` }}>
+                      {km} km
+                    </span>
+                  ))}
+                </div>
+              )}
               {settings.profileMode === "window" ? (
                 <div className="relative mt-[0.8cqmin] h-[1cqmin] rounded-full bg-white/25">
                   <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${frame.routeProgress * 100}%`, background: accent }} />
@@ -384,8 +399,8 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, figures, frameS
           {settings.showLogo ? <Image src={LOGO_SRC} alt="" width={256} height={256} unoptimized style={{ width: "7cqmin", height: "7cqmin" }} /> : null}
           {settings.showCta ? (
             <div className="leading-tight">
-              <p className="font-black uppercase" style={{ fontSize: "2.8cqmin" }}>Télécharge l’appli</p>
-              <p className="font-semibold text-white/85" style={{ fontSize: "2.8cqmin" }}>Dispo sur iPhone et Android</p>
+              <p className="font-black uppercase" style={{ fontSize: `${OVERLAY_FONT_CQMIN.footerCta}cqmin` }}>Télécharge l’appli</p>
+              <p className="font-semibold text-white/85" style={{ fontSize: `${OVERLAY_FONT_CQMIN.footerCta}cqmin` }}>Dispo sur iPhone et Android</p>
             </div>
           ) : null}
         </footer>
