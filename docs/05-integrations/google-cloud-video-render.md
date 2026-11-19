@@ -70,6 +70,7 @@ The workflow `.github/workflows/video-render-worker.yml` tests the worker, build
 
 - Storage is on Google Cloud, not Supabase: the Supabase free plan caps a file at 50 MB, while a 2-minute 1080p reel is about 150 MB.
 - Chrome on Linux has no native WebCodecs AAC encoder: `video-export.ts` registers `@mediabunny/aac-encoder` (WASM build of FFmpeg's AAC encoder, loaded only when needed) when `canEncodeAudio("aac")` is false. The same fallback serves Firefox.
+- The soundtrack is mastered in JS to -14 LUFS / -1 dBTP before AAC encoding (`audio-master.ts`), and an optional music track is fetched from `/reel-music/<file>` on the render page origin (the same app origin as the preview; no worker or bucket change). The render page logs the loudness report to the console. The `musicTrack` setting travels in the snapshot; `"auto"` resolves against the manifest deployed at render time, so changing the manifest between saving and rendering can change the track.
 - Software WebGL is slow: expect a render to take several times the reel length. Try 540p first.
 - The render page must stay a pure replay: anything the viewer fetches or randomizes at runtime would make the render differ from the preview. Summit names are saved in the snapshot for that reason.
 

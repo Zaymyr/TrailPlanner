@@ -10,6 +10,9 @@ import {
   isHookIntroEnabled,
   isCompactOverlayEnabled,
   COMPACT_TOP_CQMIN,
+  END_SCREEN_FONT_CQMIN,
+  END_SCREEN_SIDE_PADDING_CQMIN,
+  END_SCREEN_TEXT,
   CUTOFF_RED,
   OVERLAY_FONT_CQMIN,
   getProfileWindow,
@@ -453,7 +456,21 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, figures, frameS
         </div>
       ) : null}
 
-      {isOutro ? (
+      {isOutro && settings.storyMode === "highlights" ? (
+        <div
+          className="absolute inset-0 flex flex-col items-center justify-center bg-black/45 pb-[8cqmin] text-center"
+          style={{ opacity: outroOpacity, paddingInline: `${END_SCREEN_SIDE_PADDING_CQMIN}cqmin` }}
+        >
+          {settings.showLogo ? <Image src={LOGO_SRC} alt="" width={256} height={256} unoptimized style={{ width: "20cqmin", height: "20cqmin" }} /> : null}
+          {settings.showCta ? (
+            <>
+              <p className="mt-[3cqmin] font-black uppercase leading-tight" style={{ fontSize: `${END_SCREEN_FONT_CQMIN.headline}cqmin` }}>{END_SCREEN_TEXT.headline}</p>
+              <p className="mt-[1.5cqmin] font-semibold" style={{ fontSize: `${END_SCREEN_FONT_CQMIN.sub}cqmin` }}>{END_SCREEN_TEXT.sub}</p>
+              <p className="mt-[2.5cqmin] rounded-full font-bold" style={{ ...accentPill, fontSize: `${END_SCREEN_FONT_CQMIN.pill}cqmin` }}>{END_SCREEN_TEXT.pill}</p>
+            </>
+          ) : null}
+        </div>
+      ) : isOutro ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/45 px-[6cqmin] text-center" style={{ opacity: outroOpacity }}>
           {settings.showLogo ? <Image src={LOGO_SRC} alt="" width={256} height={256} unoptimized style={{ width: "22cqmin", height: "22cqmin" }} /> : null}
           {settings.showCta ? (

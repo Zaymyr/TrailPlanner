@@ -24,6 +24,9 @@ export { AID_SERVICES, getAidStationServices, type AidService } from "./route-st
 export const VIDEO_DURATION_PRESETS = [30, 45, 60, 90, 120] as const;
 export const VIDEO_FPS = 30;
 export const MIN_SEQUENCE_MS = 3_000;
+/** The end screen: at least 2.5 s, else the opening gap, the CTA voice, then a 2 s hold of the card once it is told. */
+export const MIN_OUTRO_MS = 2_500;
+export const OUTRO_HOLD_MS = 2_000;
 // Silence kept after each narration so sentences do not run into each other.
 export const NARRATION_GAP_MS = 500;
 // Narrated moments may take at most this share of the flyover; the rest is transit between them.
@@ -112,6 +115,9 @@ export const videoCompositionSettingsSchema = z.object({
   // follows the mode: on for highlights, off for the full flyover (which stays as it was).
   tiltedCamera: z.boolean().nullable().default(null),
   outroEnabled: z.boolean().default(true),
+  // Music bed under the voice (reel-music.ts): "none", "auto" (picked from the race id among the
+  // tracks of public/reel-music/manifest.json, none when it is empty) or a track id.
+  musicTrack: z.string().min(1).max(64).default("auto"),
   disabledAidStationIds: z.array(z.string()).default([]),
 });
 
@@ -150,6 +156,19 @@ export const OVERLAY_FONT_CQMIN = {
   aidLifeBase: 3,
   placeKind: 3,
   placeName: 3.6,
+} as const;
+
+/**
+ * End screen of the highlights reel (the full story keeps its own card). Text sizes in cqmin, all
+ * above OVERLAY_MIN_FONT_CQMIN; the side padding keeps everything out of the right 15 % where
+ * Instagram puts its buttons, and the block stays well above y 1500 px of 1920 (78 %).
+ */
+export const END_SCREEN_FONT_CQMIN = { headline: 6.5, sub: 4.4, pill: 4.8 } as const;
+export const END_SCREEN_SIDE_PADDING_CQMIN = 16;
+export const END_SCREEN_TEXT = {
+  headline: "Ton plan pour cette course est prêt",
+  sub: "Dans l’appli Pace Yourself",
+  pill: "Lien en bio",
 } as const;
 
 /** Station cutoffs ("Barrière HH:MM") stand out in red, on the map bubble and in the leg card. */
@@ -335,7 +354,7 @@ export const buildVideoTimeline = (
   const introMs = hooked ? HOOK_INTRO_MS : sequenceMs(introBeat, settings.introEnabled);
   const hookVoiceEndMs = hooked && introBeat ? HOOK_NARRATION_START_MS + getNarrationMs(introBeat, durations) + NARRATION_GAP_MS : 0;
   const hookOverflowMs = Math.max(0, hookVoiceEndMs - introMs);
-  const outroMs = sequenceMs(outroBeat, settings.outroEnabled);
+  const outroMs = settings.outroEnabled ? Math.max(MIN_OUTRO_MS, outroBeat ? NARRATION_GAP_MS + getNarrationMs(outroBeat, durations) + OUTRO_HOLD_MS : 0) : 0;
   // A pause (life base, aid station) holds the camera a moment longer around the point.
   const pauses = routeBeats.map((beat) => beat.pauseMs ?? 0);
   let beatNeeds = routeBeats.map((beat, index) => getNarrationMs(beat, durations) + NARRATION_GAP_MS + pauses[index] + (index === 0 ? hookOverflowMs : 0));

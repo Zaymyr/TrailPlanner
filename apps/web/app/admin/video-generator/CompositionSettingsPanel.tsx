@@ -5,6 +5,7 @@ import React, { useState, type ReactNode } from "react";
 import { Button } from "../../../components/ui/button";
 import type { VideoAidStation } from "../../../lib/video-generator";
 import { MAP_AMBIANCES } from "./map-appearance";
+import type { ReelMusicTrack } from "./reel-music";
 import {
   AID_SERVICES,
   getAidStationServices,
@@ -24,6 +25,8 @@ type BooleanSettingKey = {
 }[keyof VideoCompositionSettings];
 
 type CompositionSettingsPanelProps = {
+  /** Tracks of the music manifest; empty disables the select. */
+  musicTracks: ReelMusicTrack[];
   /** Ids of the beats kept in the narration, to flag stations left out. */
   narratedIds: Set<string>;
   /** False when the race has no start time: the day/night look cannot be estimated. */
@@ -148,6 +151,7 @@ export function DurationSelect({
 }
 
 export function CompositionSettingsPanel({
+  musicTracks,
   narratedIds,
   dayNightAvailable,
   aidStations,
@@ -304,6 +308,28 @@ export function CompositionSettingsPanel({
         <Toggle label="Caméra inclinée (parcours toujours dans le cadre)" checked={isTiltedCameraEnabled(settings)} onChange={(checked) => update("tiltedCamera", checked)} />
         <p className="text-xs text-muted-foreground">
           Vue à environ 60° qui garde le coureur et les 2 prochains km dans le cadre. Par défaut en Temps forts.
+        </p>
+      </PanelSection>
+
+      <PanelSection title="Musique">
+        <label className="block space-y-1 text-xs">
+          <span className="font-medium">Musique</span>
+          <select
+            aria-label="Musique de fond"
+            className="min-h-9 w-full rounded-md border border-input bg-card px-2 text-sm"
+            disabled={musicTracks.length === 0}
+            value={musicTracks.length === 0 ? "none" : settings.musicTrack}
+            onChange={(event) => update("musicTrack", event.target.value)}
+          >
+            <option value="none">Aucune</option>
+            <option value="auto">Auto (selon la course)</option>
+            {musicTracks.map((track) => <option key={track.id} value={track.id}>{track.title || track.id}{track.mood ? ` · ${track.mood}` : ""}</option>)}
+          </select>
+        </label>
+        <p className="text-xs text-muted-foreground">
+          {musicTracks.length === 0
+            ? "Aucune musique disponible : ajoute des pistes libres de droits dans apps/web/public/reel-music (voir son README)."
+            : "Discrète sous la voix, baissée de 10 dB quand elle parle, avec fondu d’entrée et de sortie."}
         </p>
       </PanelSection>
 
