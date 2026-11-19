@@ -4,6 +4,7 @@ import React from "react";
 
 import { Button } from "../../../components/ui/button";
 import type { AnimationPlaybackSnapshot } from "./animation-controller";
+import { formatKm, formatTotalKm } from "./race-figures";
 
 const formatTime = (timeMs: number) => {
   const totalSeconds = Math.max(0, Math.floor(timeMs / 1_000));
@@ -67,9 +68,9 @@ export function AnimationControls({
       <div className="mt-1 flex items-center justify-between gap-3 text-xs tabular-nums text-muted-foreground">
         <span>{formatTime(snapshot.currentTimeMs)} / {formatTime(snapshot.durationMs)}</span>
         <span>
-          {currentDistanceKm.toLocaleString("fr-FR", { maximumFractionDigits: 1 })}
+          {formatKm(currentDistanceKm)}
           {" / "}
-          {totalDistanceKm.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} km
+          {formatTotalKm(totalDistanceKm)} km
         </span>
       </div>
       {!canAnimate ? (

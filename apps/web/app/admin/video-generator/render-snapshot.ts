@@ -40,6 +40,7 @@ const narrationClipSchema = z.object({
   audioBase64: z.string(),
   durationMs: z.number(),
   characterEndMs: z.array(z.number()).optional(),
+  characterStartMs: z.array(z.number()).optional(),
 });
 
 const snapshotSchema = z.object({

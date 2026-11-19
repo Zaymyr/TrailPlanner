@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-11-18
+last_verified: 2026-11-19
 # Assisted legacy conversion (2026-11-15): review controls do not alter GPX parsing, waypoint hydration or persistence.
 # Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
 # Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
@@ -330,6 +330,8 @@ Background reel renders replay the parsed GPX points saved in the composition sn
 The admin reel animation (`route-animation.ts`) no longer computes a slope framing shot: the camera stays on the chase pose while a climb is told. Route sampling and interpolation rules are unchanged.
 
 The admin reel page also passes the shortened organizer start place (`startPlace`) to the generator for the start label on the map; it reads the existing `start_location` only.
+
+The reel hook (2026-11-19) flies the hardest climb detected from the same sampled elevations (`findHardestClimb`, the highlights score) for its first 2.4 s; the detail route additionally returns the event `short_name`. The admin catalog event dialog edits that name only; GPX parsing, sampling and Storage are unchanged.
 
 The video generator format picker labels each format "GPX" or "sans GPX" from the catalog `gpx_storage_path`; it reads no GPX until the format is opened.
 

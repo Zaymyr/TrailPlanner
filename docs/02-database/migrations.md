@@ -2,7 +2,7 @@
 title: Migrations
 scope: database
 
-last_verified: 2026-11-09
+last_verified: 2026-11-19
 
 ai_priority: high
 related_files:
@@ -35,6 +35,10 @@ related_files:
   - supabase/migrations/20261103124538_cover_racebook_current_publication_foreign_key.sql
   - supabase/migrations/20261104140000_add_video_render_jobs.sql
   - supabase/migrations/20261105160000_add_video_narrations.sql
+  - supabase/migrations/20261119120000_add_video_narrations_mode.sql
+  - supabase/migrations/20261119130000_add_social_posts.sql
+  - supabase/migrations/20261119130100_schedule_social_posts_cron.sql
+  - supabase/tests/social_posts_checks.sql
   - supabase/tests/racebook_versioned_publications_checks.sql
   - supabase/migrations/20260821143417_add_organizer_imports_bucket.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
@@ -157,7 +161,11 @@ related_tables:
 
 `20261104140000_add_video_render_jobs.sql` adds `video_render_jobs` (background reel renders on Google Cloud Run): status, progress, video size and timing, with covering indexes for its race and creator foreign keys, RLS on and service-role-only grants.
 
+`20261119130000_add_social_posts.sql` adds `social_posts` (Instagram Reels drafted from finished renders, with the container/media ids and lease of the publishing state machine), additive, RLS on with no policy and service-role-only grants, with an `updated_at` trigger and one index per foreign key. `20261119130100_schedule_social_posts_cron.sql` schedules the pg_cron job `social-posts-publish` (every 5 minutes); its command reads the Vault secrets `web_app_url` and `cron_secret` when they run, so the migration succeeds even before the secrets exist. Check: `supabase/tests/social_posts_checks.sql`. The Instagram credentials are server env vars (System User token), so no account table exists.
+
 `20261105160000_add_video_narrations.sql` adds `video_narrations` (the saved reel narration per race: settings, texts by beat id, voice choice, clip count) and the private Storage bucket `video-narrations` for the voice clips, RLS on with no policy and service-role-only grants.
+
+`20261119120000_add_video_narrations_mode.sql` adds `video_narrations.mode` (`text not null default 'full'`, check in `full` / `highlights`, existing rows become `full`) and widens the primary key from `race_id` to `(race_id, mode)`, so each reel story mode keeps its own narration. RLS, grants and the bucket are unchanged. The release guard does not flag it (constraint swap, no dropped data); the previous web version's `on_conflict=race_id` upsert fails until the new web is deployed. `supabase/tests/video_narrations_checks.sql` checks the key, the default and the mode constraint.
 
 `20260907160043_add_structured_racebook_content.sql` adds normalized services, start waves and awards, their constraints/indexes/RLS, atomic replacement RPCs, and the `schedule.startTime` start-wave backfill.
 
@@ -382,6 +390,8 @@ The manual RLS SQL check file was expanded accordingly so organizer relationship
 
 `supabase/migrations/20260820135823_add_racebook_publication_control.sql` separates course catalog visibility from Racebook publication. It adds `races.racebook_is_live` plus durable admin approval provenance, replaces the publication-review function, and adds the service-role-only admin event switch function. As a safety migration it keeps organizer-managed courses live in the catalog but resets their Racebooks to hidden/unapproved for one fresh admin validation pass.
 
+`supabase/migrations/20261119150000_add_race_events_short_name.sql` adds the nullable `race_events.short_name` (reel hook name: null, or 1-40 characters once trimmed without « … », `race_events_short_name_check`). Additive only: no backfill, policy, grant, view or function change; admin routes read and write it with the service role. `supabase/tests/race_events_short_name_checks.sql` checks it inside a rolled-back transaction.
+
 `supabase/migrations/20260910170144_separate_racebook_preview_visibility.sql` separates private organizer demo selection from runner publication. It adds `races.racebook_preview_is_visible`, enforces that a runner-live RaceBook remains preview-selected, and adds a service-role-only atomic edition publication function that publishes only selected, complete, catalog-live formats under an active paid or complimentary entitlement.
 
 `supabase/migrations/20260910210621_align_organizer_format_visibility_states.sql` aligns the per-format Organizer states across course and RaceBook visibility. The service-only invoker RPC locks the format and atomically writes public as true/true/true or private as false/true/false for course live, preview selection, and RaceBook live; the membership-checked route writes masked as false/false/false in one update. Existing organizer-managed formats without a public RaceBook are normalized to non-live. The migration also narrows `races_select` so non-live public-source rows are readable only by their creator, an active parent-event organizer, or a trusted `app_metadata` admin, and prevents re-showing an edition from implicitly publishing its complete formats.
@@ -563,3 +573,4 @@ Organizer import cleanup additionally uses `organizer-import-cleanup-hourly` at 
 - [Organizer Race Management](../03-business-rules/organizer-race-management.md)
 - [Race Slug Redirects](tables/race-slug-redirects.md)
 - [Video Render Jobs](tables/video-render-jobs.md)
+- [Social Posts](tables/social-posts.md)

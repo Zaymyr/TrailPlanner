@@ -1,7 +1,7 @@
 ---
 title: Agentic Development
 scope: workflow
-last_verified: 2026-11-11
+last_verified: 2026-11-19
 ai_priority: high
 related_files:
   - AGENTS.md
@@ -99,6 +99,8 @@ Rules:
 - Exclusive groups are reserved as a whole when a claim points inside them: dependency manifests and lockfiles, `supabase/migrations/**`, `packages/design-system/src/tokens/**`, agent instruction files (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`, `.codex/**`, `.claude/agents/**`), and CI/deployment config. A broad claim such as `apps/mobile/**` does not reserve them, and `verify` rejects changes to an unreserved group member. Two agents can therefore never add migrations or change dependencies at the same time.
 - Claims prevent textual collisions only. A change to a shared type, contract, or business rule can still break another branch semantically; the integration verification gate is what catches it.
 - `node scripts/agent-scope.mjs prune` drops claims whose worktree no longer exists; `list` marks them as stale.
+- Every registry write runs under `<git-common-dir>/agent-scopes/.lock`, which holds the writer's PID. A rejected command (overlap, unknown task, out-of-scope files) releases the lock before exiting, and a lock whose PID is no longer running is removed automatically by the next command. A lock that still blocks after the retries belongs to a running command: wait instead of deleting it.
+- Claude Code worktree isolation can be refused on this Windows checkout (the drive-letter case of the repository path differs from what Git reports). Create the sibling worktree manually with the `git worktree add` command above and give the agent its absolute path.
 - The release worktree audit of [Ship a Feature](ship-a-feature.md) still applies to every parallel worktree.
 
 ## Validation

@@ -12,6 +12,7 @@ import {
   readdirSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { resolve } from "node:path";
@@ -241,28 +242,80 @@ function readClaims(registry) {
     .map((name) => JSON.parse(readFileSync(resolve(registry, name), "utf8")));
 }
 
-function withLock(registry, action) {
+// A command error. The CLI entry point prints it and sets the exit code, so every
+// `withLock` `finally` runs first: exiting from inside a locked action used to leave the lock behind.
+export class ScopeError extends Error {}
+
+// A lock whose content is not a PID yet may be mid-write by a live process,
+// so it only counts as abandoned once it is older than this.
+const UNREADABLE_LOCK_GRACE_MS = 10_000;
+
+export function processIsAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error.code === "EPERM";
+  }
+}
+
+function sleep(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+// Removes the lock when the process that wrote it is gone. Returns true when the lock
+// is no longer there, so the caller can retry at once.
+function clearAbandonedLock(lock, isAlive, now) {
+  let content;
+  let modifiedMs;
+  try {
+    content = readFileSync(lock, "utf8").trim();
+    modifiedMs = statSync(lock).mtimeMs;
+  } catch (error) {
+    if (error.code === "ENOENT") return true;
+    throw error;
+  }
+  const pid = /^[0-9]+$/.test(content) ? Number(content) : null;
+  const abandoned =
+    pid === null
+      ? now() - modifiedMs > UNREADABLE_LOCK_GRACE_MS
+      : pid !== process.pid && !isAlive(pid);
+  if (!abandoned) return false;
+  rmSync(lock, { force: true });
+  const reason = pid === null ? "unreadable content" : `PID ${pid} is not running`;
+  console.error(`Removed an abandoned registry lock (${reason}).`);
+  return true;
+}
+
+export function withLock(
+  registry,
+  action,
+  { attempts = 50, waitMs = 100, isAlive = processIsAlive, now = Date.now } = {},
+) {
   mkdirSync(registry, { recursive: true });
   const lock = resolve(registry, ".lock");
-  for (let attempt = 0; attempt < 50; attempt += 1) {
+  let acquired = false;
+  for (let attempt = 0; attempt < attempts && !acquired; attempt += 1) {
     try {
       writeFileSync(lock, String(process.pid), { flag: "wx" });
-      try {
-        return action();
-      } finally {
-        rmSync(lock, { force: true });
-      }
+      acquired = true;
     } catch (error) {
       if (error.code !== "EEXIST") throw error;
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
+      if (!clearAbandonedLock(lock, isAlive, now)) sleep(waitMs);
     }
   }
-  throw new Error(`Registry locked (${lock}). Delete it if no scope command is running.`);
+  if (!acquired) {
+    throw new ScopeError(`Registry locked (${lock}) by a running scope command. Retry once it finishes.`);
+  }
+  try {
+    return action();
+  } finally {
+    rmSync(lock, { force: true });
+  }
 }
 
 function fail(message) {
-  console.error(message);
-  process.exit(1);
+  throw new ScopeError(message);
 }
 
 function parsePatterns(values) {
@@ -314,8 +367,7 @@ function claim(task, values, { extend }) {
     const conflicts = findConflicts(nextPatterns, others, files);
     if (conflicts.length > 0) {
       printConflicts(conflicts);
-      console.error("Ask the user before proceeding; do not edit these paths.");
-      process.exit(1);
+      fail("Ask the user before proceeding; do not edit these paths.");
     }
 
     const record = {
@@ -341,7 +393,7 @@ function check(values) {
   const conflicts = findConflicts(patterns, readClaims(context.registry), files);
   if (conflicts.length > 0) {
     printConflicts(conflicts);
-    process.exit(1);
+    fail("Overlap found.");
   }
   console.log("No overlap with active claims.");
 }
@@ -405,8 +457,7 @@ function verify(task, base) {
   if (outside.length > 0) {
     console.error(`Files changed outside the "${task}" scope:`);
     for (const issue of outside) console.error(`- ${issue.file} (${issue.reason})`);
-    console.error('Run "extend" for each needed path (it fails on overlap) or revert them.');
-    process.exit(1);
+    fail('Run "extend" for each needed path (it fails on overlap) or revert them.');
   }
   console.log(`All ${changed.length - docs.length} code change(s) are inside the "${task}" scope.`);
 }
@@ -446,5 +497,11 @@ function main(argv) {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  main(process.argv.slice(2));
+  try {
+    main(process.argv.slice(2));
+  } catch (error) {
+    if (!(error instanceof ScopeError)) throw error;
+    console.error(error.message);
+    process.exitCode = 1;
+  }
 }

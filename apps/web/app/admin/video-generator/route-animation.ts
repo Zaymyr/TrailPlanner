@@ -351,3 +351,45 @@ export const interpolateCameraPose = (from: CameraPose, to: CameraPose, ratio: n
   target: interpolatePosition(from.target, to.target, ratio),
 });
 
+
+/** Hook camera: angle from the vertical (Mapbox pitch), low enough to read the relief in 3D. */
+export const HOOK_PITCH_DEG = 58;
+
+/**
+ * Opening shot of the reel hook: a tilted three-quarter view (58° from the vertical) aimed at a
+ * route point, from a bearing given by the caller (it orbits slowly), at a view distance that
+ * frames the moment. The camera keeps its angle and steps back until it clears the surrounding
+ * terrain; only past three times the distance does it rise instead.
+ */
+export const getHookCameraPose = (
+  path: PreparedAnimationPath,
+  distanceKm: number,
+  options: {
+    bearingDeg: number;
+    viewDistanceM: number;
+    pitchDeg?: number;
+    terrainExaggeration?: number;
+  },
+): CameraPose => {
+  const exaggeration = options.terrainExaggeration ?? TERRAIN_EXAGGERATION;
+  const pitchRad = ((options.pitchDeg ?? HOOK_PITCH_DEG) * Math.PI) / 180;
+  const target = getRoutePointAtDistance(path, distanceKm);
+  const targetAltitudeM = target.elevationM * exaggeration;
+  const look = { east: Math.sin((options.bearingDeg * Math.PI) / 180), north: Math.cos((options.bearingDeg * Math.PI) / 180) };
+  const place = (viewDistanceM: number) => {
+    const groundM = viewDistanceM * Math.sin(pitchRad);
+    const clearanceM = getMaxElevationAround(path, distanceKm, (groundM * 1.3) / 1_000) * exaggeration + MIN_TERRAIN_CLEARANCE_M;
+    return { groundM, altitudeM: targetAltitudeM + viewDistanceM * Math.cos(pitchRad), clearanceM };
+  };
+  let viewDistanceM = Math.max(500, options.viewDistanceM);
+  let placed = place(viewDistanceM);
+  for (let step = 0; step < 8 && placed.altitudeM < placed.clearanceM && viewDistanceM < options.viewDistanceM * 3; step += 1) {
+    viewDistanceM *= 1.15;
+    placed = place(viewDistanceM);
+  }
+  const cameraGround = offsetPosition(target, -look.east * placed.groundM, -look.north * placed.groundM);
+  return {
+    camera: { ...cameraGround, altitudeM: Math.max(placed.altitudeM, placed.clearanceM) },
+    target: { lat: target.lat, lon: target.lon, altitudeM: targetAltitudeM },
+  };
+};

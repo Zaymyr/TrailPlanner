@@ -797,7 +797,6 @@ export const fr: MobileTranslations = {
       pagerLabel: 'Présentation, page {page} sur {total}',
       goToPageLabel: 'Aller à la page {page}',
       kicker: 'Livret coureur',
-      officialBadge: 'Officiel',
       title: 'Ta course, dans ta poche',
       subtitle: 'Le Livret coureur réunit toutes les infos de ta course, publiées par l’organisateur.',
       promiseOfficialTitle: 'Infos officielles',
@@ -816,7 +815,6 @@ export const fr: MobileTranslations = {
       tabServicesText: 'Les services sur place et les partenaires.',
       chooseRaceCta: 'Choisir ma course',
       chooseRaceHint: 'Choisis ta course — ou découvre avec Trail TST — et on te montre où trouver chaque info.',
-      planCta: 'Créer mon plan',
     },
     racebookTour: {
       skip: 'Passer le guide',
@@ -844,9 +842,6 @@ export const fr: MobileTranslations = {
       wrapUpBody: 'Reviens dans ton Livret avant et pendant la course : l’organisateur le tient à jour.',
     },
     tours: {
-      planChoiceTitle: 'Créer un plan de course (facultatif)',
-      planChoiceBody: 'Estime tes heures de passage et prépare ta nutrition. Tu pourras le faire plus tard depuis le Livret.',
-      planOptionalLabel: 'Envie d’aller plus loin ?',
       discoverLater: 'Découvrir plus tard',
       chooseRaceTitle: 'Choisis ta course',
       chooseRaceBody: 'Tu es dans le vrai catalogue. Ouvre une course puis touche « Créer un plan ».',

@@ -18,7 +18,12 @@ import {
 
 const paramsSchema = z.object({ id: z.string().uuid() });
 
-const eventSchema = z.object({ id: z.string().uuid(), name: z.string(), organizer_details: z.unknown().optional() });
+const eventSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  short_name: z.string().nullable().optional(),
+  organizer_details: z.unknown().optional(),
+});
 
 const raceSchema = z.object({
   id: z.string().uuid(),
@@ -98,7 +103,7 @@ export async function GET(request: NextRequest, context: { params: { id?: string
   try {
     const [raceResponse, aidStationsResponse] = await Promise.all([
       fetch(
-        `${supabaseService.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=id,event_id,name,distance_km,elevation_gain_m,elevation_loss_m,gpx_storage_path,race_date,location_text,organizer_details,race_events(id,name,organizer_details)&limit=1`,
+        `${supabaseService.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=id,event_id,name,distance_km,elevation_gain_m,elevation_loss_m,gpx_storage_path,race_date,location_text,organizer_details,race_events(id,name,short_name,organizer_details)&limit=1`,
         { headers: serviceHeaders, cache: "no-store" },
       ),
       fetch(
@@ -125,6 +130,7 @@ export async function GET(request: NextRequest, context: { params: { id?: string
         id: race.id,
         eventId: race.event_id ?? null,
         eventName: race.race_events?.name ?? null,
+        eventShortName: race.race_events?.short_name ?? null,
         name: race.name,
         distanceKm: race.distance_km,
         elevationGainM: race.elevation_gain_m,

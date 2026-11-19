@@ -1,8 +1,12 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-11-18
+last_verified: 2026-11-19
 # Inbox push badge (2026-11-18): `sendAdminUserNotificationPush` counts the runner's unread, non-deleted `user_notifications` (service role, after the row is inserted) and sends it as the Expo `badge`; a failed count only drops the badge. Other pushes (race reminders, race event updates) send no badge, unchanged.
+# Reel light overlay (2026-11-19): highlights reels (or compactOverlay on) drop the title band, the profile ticks and the aid bubble details; every readable overlay text is at least 32 px at 1080 wide.
+# Reel hook (2026-11-19): highlights reels (and full ones with hookIntro on) open on a 2.4 s hook: tilted camera on the hardest climb, one headline figure and the short event name (race_events.short_name, editable in the admin event dialog).
+# Reel highlights (2026-11-19): storyMode "highlights" tells 3 to 5 key moments in 30-50 s (highlights.ts); narrations are saved per race and mode.
+# Reel figures (2026-11-19): the admin reel generator shows the race record distance and D+ as the announced truth and rescales GPX kilometres and D+ to it (race-figures.ts); badge, counter, story, aid cards and AI inputs share one rounding policy.
 # Livret supporter private preview (2026-11-18): SupporterGuideView retries with the stored session token for organizer preview of a private edition.
 # Crew follow UX (2026-11-17): passed checkpoints collapse, confirmed passages can be corrected or undone, the crew handover is a device-local checklist, aid-station directions match supporter points by place name within 2 km, and phones without the app get an app-first gate on the public page; no column, RLS or crew_state shape change.
 # Organizer hero note (2026-11-16): /organisateurs now presents the Livret coureur and the Livret supporter side by side (hero cards, illustrative supporter preview, metadata title); presentation only, no data, analytics event or offer change.
@@ -108,6 +112,15 @@ related_files:
   - apps/web/app/api/admin/video-generator/script/route.ts
   - apps/web/app/api/admin/video-generator/voice/route.ts
   - apps/web/app/api/admin/video-generator/caption/route.ts
+  - apps/web/app/admin/publications/page.tsx
+  - apps/web/app/admin/publications/PostCard.tsx
+  - apps/web/app/admin/publications/CaptionForm.tsx
+  - apps/web/app/admin/publications/publications-api.ts
+  - apps/web/app/api/admin/social-posts/route.ts
+  - apps/web/app/api/admin/social-posts/[id]/route.ts
+  - apps/web/app/api/admin/instagram/route.ts
+  - apps/web/app/api/admin/instagram/route.test.ts
+  - apps/web/app/admin/publications/InstagramStatusCard.tsx
   - apps/web/app/admin/video-generator/map-appearance.ts
   - apps/web/app/admin/video-generator/VideoCompositionOverlay.tsx
   - apps/web/app/admin/video-generator/CompositionSettingsPanel.tsx
@@ -856,7 +869,9 @@ Organizer address autocomplete (`/api/location-search`) queries Photon and Nomin
 
 The admin voice route adds an ElevenLabs library voice with a single first request before generating two sentences at a time, and retries a transient 409 `already_running`.
 
-Admin reel narration keeps digits for subtitles while the voice route converts numbers, units and times to French words before calling ElevenLabs (`lib/spoken-numbers.ts`), remapping the alignment onto the original text. In auto mode the reel length targets 30 s + 6.7 s × √km (80 km: 90 s; 2-minute target cap), set in the narration panel before writing, but follows the voice up to 180 s, so a longer narration is never delayed and cut; the script word budget uses the voice pace measured on its last clips (`speech-rate.ts`, per browser), 2.2 words per second until then; legs over budget are revised once, and stations flown over carry the moment the camera reaches them. The told climb is no longer highlighted: no orange route border, no climb card on the map, no framing shot (the camera stays on the chase pose). The narration panel also sets a storytelling style (random by default, so reels vary) and per-race instructions for Claude (`script-notes.ts`, browser only), which override every other prompt rule. Start and finish names are pinned on the map (`place-labels.ts`: organizer start place, else nearest Mapbox settlement).
+Admin reel hook (2026-11-19, `reel-hook.ts`): a highlights reel, or a full one with « Accroche (2 premières secondes) » on, opens on a 2.4 s hook instead of the title card: the camera already flies the hardest climb at 58° from the vertical, one headline figure fills the upper-middle on one line (100 km or more: the distance; else 30 m D+ per km or more: the D+; else the distance) and the short event name slides in at 0.5-0.9 s. The detail route also returns `eventShortName` (`race_events.short_name`), which admins set as « Nom court (vidéo) » in the catalog event dialog (`PATCH /api/admin/race-events/:id`); without it the name is derived from the event name (no year, ® ™ ©, edition marker or sponsor, never truncated). See [Mapbox 3D](../05-integrations/mapbox-3d.md#reel-hook-first-24-s).
+
+Admin reel narration keeps digits for subtitles while the voice route converts numbers, units and times to French words before calling ElevenLabs (`lib/spoken-numbers.ts`), remapping the alignment (end and optional start times) onto the original text; the subtitles are word-timed groups of 2 to 5 words (`subtitle-groups.ts`). In auto mode the reel length targets 30 s + 6.7 s × √km (80 km: 90 s; 2-minute target cap), set in the narration panel before writing, but follows the voice up to 180 s, so a longer narration is never delayed and cut; the script word budget uses the voice pace measured on its last clips (`speech-rate.ts`, per browser), 2.2 words per second until then; legs over budget are revised once, and stations flown over carry the moment the camera reaches them. The told climb is no longer highlighted: no orange route border, no climb card on the map, no framing shot (the camera stays on the chase pose). The narration panel also sets a storytelling style (random by default, so reels vary) and per-race instructions for Claude (`script-notes.ts`, browser only), which override every other prompt rule. Start and finish names are pinned on the map (`place-labels.ts`: organizer start place, else nearest Mapbox settlement).
 
 The admin reel generator saves each race's narration in Supabase (`video_narrations` + private bucket `video-narrations`) and restores it when the race opens; its event picker filters while typing and shows video counts, and formats show GPX availability, videos and saved narration.
 
@@ -877,6 +892,10 @@ Background renders can be deleted from the reel panel ("Supprimer" on finished o
 Reel aid bubbles and place labels are centred by layout inside zero-size markers, so the rasterised export clone keeps them on their station whatever its fonts; the aid bubbles float 28 px above their icon so the tail does not touch it.
 
 Reels light the told climb or descent in the profile slope colours on the map and on the elevation profile while its caption is shown (setting "Pente racontée en couleur"), and no longer show the logo and CTA in the bottom-left corner by default ("Logo et CTA en bas"), where Instagram puts its follow button.
+
+Reel numbers have one source of truth (`app/admin/video-generator/race-figures.ts`): the race record distance and D+ are the announced figures, GPX kilometres and D+ are rescaled to them (fallback to the GPX with a console warning when a race figure is more than 15 % / 35 % away), organizer station kilometres are placed on the GPX through the same scale, and the badge, the counter, the story, the aid cards, the transport bar and the script and caption inputs share one rounding policy. See [Mapbox 3D](../05-integrations/mapbox-3d.md#race-figures-single-source-of-truth).
+
+The reel type ("Parcours complet" / "Temps forts", setting `storyMode`, default full) can switch to a highlights reel: 3 to 5 key moments (hardest climb, refuel station, last climb, biggest descent, night passage, strategic stations) told in 30-50 s with fast transits between them, a script sized for that length (`mode: "highlights"`), and its own saved narration (`video_narrations` keyed by race and mode), with a lighter overlay by default (no title band or profile ticks, aid bubbles with the name only, every readable text at least 32 px). See [Mapbox 3D](../05-integrations/mapbox-3d.md#highlights-reel-temps-forts).
 
 ## RaceBook publication checks and partner slots (2026-11-09)
 
@@ -914,3 +933,7 @@ The default (home) metadata now leads with the Livret coureur and the Livret sup
 Organizer header (2026-11-16): the dashboard header no longer shows the « Aperçu coureur » and « Aperçu accompagnateur » web preview links (« Voir le Livret coureur » and « Télécharger le QR » remain), and its row wraps instead of letting the actions block overlap the edition selector. Presentation only; no data, contract or offer change.
 
 Follow-page fix (2026-11-16): `getPublicSupporterGuide` now reads `/api/supporter-guide` with `next.revalidate` (15 min, edition tag) instead of the `no-store` service loader, which aborted ISR renders with DYNAMIC_SERVER_USAGE and made every « Suivre » page 404 in production.
+
+## Admin Instagram publications (2026-11-19)
+
+The admin header links to `/admin/publications` (« Publications »), next to the 3D video generator. The page, protected by the shared admin layout and by `authorizeVideoAdmin` on every route, shows a read-only Instagram status card (`/api/admin/instagram`: System User credentials configured or not, account username and profile and publishing quota read server side from `graph.facebook.com`, linked Page id, Graph version, mode « Simulation » / « Publication réelle »; the token is never returned and there is no connect button), creates drafts from finished background renders (`/api/admin/social-posts`), edits caption, hashtags and cover text with react-hook-form + Zod (Instagram limits checked live and again on the server), previews the MP4 through a 1-hour signed URL, and offers « Publier maintenant », « Programmer » (Europe/Paris wall time, stored UTC), « Annuler la programmation », « Réessayer » and « Supprimer » (`/api/admin/social-posts/[id]`). Data loading uses the local TanStack Query shim; while a post is publishing the page polls the list and advances the post every 30 s. Nothing is published without one of those clicks, and publishing is simulated unless `INSTAGRAM_PUBLISH_DRY_RUN=false`; a post scheduled in one mode fails instead of being published in the other. Once a live publish was requested, any action that would drop the Instagram container (editing a failed post, retrying after a mode change, « Recommencer avec un nouveau conteneur ») gets a 409 `needsConfirmation` from the route, which the page turns into a confirmation dialog before resending with `confirmRestart: true`. The report-only CSP has no `media-src`, so the preview `<video>` from `storage.googleapis.com` may raise a report; it still plays. Flow, limits and setup: [Instagram Reels Publishing](../05-integrations/instagram-publishing.md).

@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   easeInOut,
   getChaseCameraPose,
+  getHookCameraPose,
   getOverviewCameraPose,
   getRoutePointAtDistance,
   interpolateCameraPose,
@@ -10,7 +11,10 @@ import {
   type CameraPose,
   type PreparedAnimationPath,
 } from "./route-animation";
+import { findHardestClimb } from "./highlights";
+import { HOOK_INTRO_MS, HOOK_NARRATION_START_MS } from "./reel-hook";
 import { getSmoothedDaylightAt, type Daylight, type RaceClock } from "./route-clock";
+import { buildSubtitleGroups } from "./subtitle-groups";
 import { estimateNarrationMs, getAutoDurationSeconds, MAX_NARRATED_VIDEO_SECONDS, MAX_VIDEO_SECONDS, stripVoiceTags, type StoryBeat } from "./route-story";
 
 export { AID_SERVICES, getAidStationServices, type AidService } from "./route-story";
@@ -28,6 +32,18 @@ export const MIN_CAPTION_MS = 1_200;
 // The voice starts just before the camera reaches the point it talks about.
 export const NARRATION_LEAD_MS = 400;
 
+// "Temps forts" reels: 30 to 45 s aimed at, 50 s at most, whatever the narration.
+export const HIGHLIGHT_TARGET_SECONDS = 40;
+export const HIGHLIGHT_MIN_SECONDS = 30;
+export const HIGHLIGHT_MAX_SECONDS = 50;
+// Fast flight between two moments (accelerated flyover; the camera pulls back with the speed).
+export const HIGHLIGHT_TRANSIT_MS = 1_200;
+// A gap this short (share of the route) is not worth a full transit.
+const HIGHLIGHT_SHORT_GAP_SHARE = 0.005;
+const HIGHLIGHT_SHORT_TRANSIT_MS = 300;
+// Camera smoothing windows shrink so a dwell is not blurred with the jumps around it.
+export const HIGHLIGHT_CAMERA_TEMPO = 0.25;
+
 export const VIDEO_RESOLUTIONS = {
   "540p": { width: 540, height: 960 },
   "1080p": { width: 1080, height: 1920 },
@@ -39,6 +55,8 @@ export const MAPBOX_STYLE_URL_PATTERN = /^mapbox:\/\/styles\/[\w.-]+\/[\w-]+$/;
 // Serializable on purpose: the same object must reproduce the same render later (export jobs).
 export const videoCompositionSettingsSchema = z.object({
   version: z.literal(1).default(1),
+  // "full" flies the whole course as one story; "highlights" dwells on 3 to 5 key moments.
+  storyMode: z.enum(["full", "highlights"]).default("full"),
   durationMode: z.enum(["auto", "manual"]).default("auto"),
   durationSeconds: z.number().int().min(15).max(120).default(45),
   resolution: z.enum(["540p", "1080p"]).default("540p"),
@@ -79,6 +97,14 @@ export const videoCompositionSettingsSchema = z.object({
   // already overlays its own follow button there on reels.
   showFooterBrand: z.boolean().default(false),
   introEnabled: z.boolean().default(true),
+  // Reel hook instead of the title card: from frame 0 the camera flies low over the hardest climb
+  // under one headline figure and the short race name (reel-hook.ts). Null follows the mode: on
+  // for highlights, off for the full flyover.
+  hookIntro: z.boolean().nullable().default(null),
+  // Light overlay for phones: no title band (the hook already says it), no profile ticks, aid
+  // bubbles reduced to the station name (its figures go in the leg card). Null follows the mode:
+  // on for highlights, off for the full flyover.
+  compactOverlay: z.boolean().nullable().default(null),
   outroEnabled: z.boolean().default(true),
   disabledAidStationIds: z.array(z.string()).default([]),
 });
@@ -88,11 +114,59 @@ export type VideoPhase = "intro" | "flyover" | "outro";
 
 export const DEFAULT_VIDEO_COMPOSITION_SETTINGS: VideoCompositionSettings = videoCompositionSettingsSchema.parse({});
 
+/** Whether the reel opens on the hook: the explicit setting, otherwise on for highlights only. */
+export const isHookIntroEnabled = (settings: Pick<VideoCompositionSettings, "hookIntro" | "storyMode" | "introEnabled">) =>
+  settings.introEnabled && (settings.hookIntro ?? settings.storyMode === "highlights");
+
+/** Whether the reel uses the light phone overlay: the explicit setting, otherwise on for highlights only. */
+export const isCompactOverlayEnabled = (settings: Pick<VideoCompositionSettings, "compactOverlay" | "storyMode">) =>
+  settings.compactOverlay ?? settings.storyMode === "highlights";
+
+/**
+ * Smallest font, in cqmin, of any text meant to be read on a phone: 3 cqmin = 32.4 px at 1080 wide.
+ * Only the Mapbox attribution (legal line, not read) stays below it.
+ */
+export const OVERLAY_MIN_FONT_CQMIN = 3;
+
+/** Font sizes (cqmin) of the small overlay and map texts, all at or above OVERLAY_MIN_FONT_CQMIN. */
+export const OVERLAY_FONT_CQMIN = {
+  captionKind: 3,
+  captionFacts: 3.4,
+  profileTick: 3,
+  footerCta: 3,
+  aidName: 3.4,
+  aidNameCompact: 4,
+  aidDetail: 3,
+  aidLifeBase: 3,
+  placeKind: 3,
+  placeName: 3.6,
+} as const;
+
+/** Station cutoffs ("Barrière HH:MM") stand out in red, on the map bubble and in the leg card. */
+export const CUTOFF_RED = "#d7263d";
+
+/** Top of the profile band (cqmin) in the light overlay: below Instagram's own top bar. */
+export const COMPACT_TOP_CQMIN = 12;
+
+/** What the hook camera flies over (route kilometres) and how it hands over to the flyover. */
+export type HookPlan = {
+  /** The hardest climb when there is one, otherwise the first moment. */
+  startKm: number;
+  endKm: number;
+  /** The hook subject is where the flyover starts: the camera approaches it at the flyover speed. */
+  isFirst: boolean;
+  /** Route distance covered before the subject during the hook (isFirst only). */
+  approachKm: number;
+};
+
 /** Real narration lengths once the voice is generated, by beat id. */
 export type NarrationDurations = Record<string, number>;
 
-/** Per-character end times (ms) of each generated narration, by beat id. */
-export type NarrationAlignments = Record<string, number[]>;
+/** Per-character timing (ms) of a generated narration; start times are absent from older clips. */
+export type NarrationAlignment = { characterEndMs: number[]; characterStartMs?: number[] };
+
+/** Per-character timing of each generated narration, by beat id. */
+export type NarrationAlignments = Record<string, NarrationAlignment>;
 
 export type ScheduledBeat = StoryBeat & {
   /** Caption window. */
@@ -100,67 +174,29 @@ export type ScheduledBeat = StoryBeat & {
   endMs: number;
   narrationStartMs: number;
   narrationMs: number;
-  /** Burned-in subtitle lines of the narration, timed in proportion to their length. */
+  /** Burned-in subtitle groups of the narration, timed word by word when the voice timing is exact. */
   subtitles: SubtitleLine[];
 };
 
 export type SubtitleLine = { text: string; startMs: number; endMs: number };
 
-const SUBTITLE_MAX_CHARS = 60;
-
-/** Splits a narration into short lines: by sentence, then by words when a sentence is too long. */
-export const splitSubtitleText = (text: string, maxChars = SUBTITLE_MAX_CHARS) => {
-  const sentences = text.replace(/\s+/g, " ").trim().split(/(?<=[.!?…:;])\s+/).filter(Boolean);
-  return sentences.flatMap((sentence) => {
-    if (sentence.length <= maxChars) return [sentence];
-    const lines: string[] = [];
-    let line = "";
-    sentence.split(" ").forEach((word) => {
-      if (line && line.length + word.length + 1 > maxChars) {
-        lines.push(line);
-        line = word;
-      } else {
-        line = line ? `${line} ${word}` : word;
-      }
-    });
-    if (line) lines.push(line);
-    return lines;
-  });
-};
-
 /**
- * Times subtitle lines: exactly from the ElevenLabs per-character timing when it matches the
- * text, otherwise in proportion to the line lengths.
+ * Subtitle groups of a narration (2 to 5 words, cut at natural boundaries), timed from the
+ * ElevenLabs character timing when it matches the text, otherwise in proportion to their length.
  */
-const timeSubtitles = (text: string, startMs: number, durationMs: number, characterEndMs?: number[]): SubtitleLine[] => {
+const timeSubtitles = (text: string, startMs: number, durationMs: number, alignment?: NarrationAlignment): SubtitleLine[] => {
   // Performance tags ("[excited]") are spoken as intonation, never shown.
   const { text: shown, rawIndex } = stripVoiceTags(text);
-  const lines = splitSubtitleText(shown);
   const spoken = text.trim();
-  const leadingSpaces = text.length - text.trimStart().length;
-  if (characterEndMs && characterEndMs.length === spoken.length && lines.length) {
-    let cursor = 0;
-    let previousEndMs = 0;
-    const aligned = lines.map((line) => {
-      const at = shown.indexOf(line, cursor);
-      if (at < 0) return null;
-      cursor = at + line.length;
-      const endMs = characterEndMs[rawIndex[cursor - 1] - leadingSpaces];
-      if (endMs === undefined) return null;
-      const entry = { text: line, startMs: startMs + previousEndMs, endMs: startMs + endMs };
-      previousEndMs = endMs;
-      return entry;
-    });
-    if (aligned.every((entry): entry is SubtitleLine => entry !== null)) return aligned;
-  }
-  const totalChars = lines.reduce((sum, line) => sum + line.length, 0);
-  let cursor = startMs;
-  return lines.map((line) => {
-    const lineMs = totalChars > 0 ? (durationMs * line.length) / totalChars : 0;
-    const entry = { text: line, startMs: cursor, endMs: cursor + lineMs };
-    cursor += lineMs;
-    return entry;
-  });
+  return buildSubtitleGroups({
+    shown,
+    rawIndex,
+    rawOffset: text.length - text.trimStart().length,
+    rawLength: spoken.length,
+    durationMs,
+    characterEndMs: alignment?.characterEndMs,
+    characterStartMs: alignment?.characterStartMs,
+  }).map((group) => ({ text: group.text, startMs: startMs + group.startMs, endMs: startMs + group.endMs }));
 };
 
 export type VideoTimeline = {
@@ -179,6 +215,14 @@ export type VideoTimeline = {
   narrationOverflow: boolean;
   /** Estimated race clock for the day/night look, when the start time is known and the look is on. */
   clock: RaceClock | null;
+  /** Scale of the camera smoothing windows: 1 for a full flyover, smaller for a highlights reel. */
+  cameraTempo?: number;
+  /** Weight of the whole-flyover average speed in the camera distance (the rest is local speed). */
+  cameraAverageBlend?: number;
+  /** Reel hook in place of the classic intro, or null. */
+  hook?: HookPlan | null;
+  /** Route kilometre where the flyover starts (a hooked highlights reel skips the run-up to its first moment). */
+  flyoverStartKm?: number;
 };
 
 export type VideoFrameState = {
@@ -273,11 +317,16 @@ export const buildVideoTimeline = (
 
   const sequenceMs = (beat: StoryBeat | undefined, enabled: boolean) =>
     enabled ? Math.max(MIN_SEQUENCE_MS, beat ? getNarrationMs(beat, durations) + NARRATION_GAP_MS * 2 : 0) : 0;
-  const introMs = sequenceMs(introBeat, settings.introEnabled);
+  // The hook replaces the intro by a fixed 2.4 s; its sentence may run on over the first moment,
+  // which then gets that extra time so its own voice still fits its dwell.
+  const hooked = isHookIntroEnabled(settings);
+  const introMs = hooked ? HOOK_INTRO_MS : sequenceMs(introBeat, settings.introEnabled);
+  const hookVoiceEndMs = hooked && introBeat ? HOOK_NARRATION_START_MS + getNarrationMs(introBeat, durations) + NARRATION_GAP_MS : 0;
+  const hookOverflowMs = Math.max(0, hookVoiceEndMs - introMs);
   const outroMs = sequenceMs(outroBeat, settings.outroEnabled);
   // A pause (life base, aid station) holds the camera a moment longer around the point.
   const pauses = routeBeats.map((beat) => beat.pauseMs ?? 0);
-  let beatNeeds = routeBeats.map((beat, index) => getNarrationMs(beat, durations) + NARRATION_GAP_MS + pauses[index]);
+  let beatNeeds = routeBeats.map((beat, index) => getNarrationMs(beat, durations) + NARRATION_GAP_MS + pauses[index] + (index === 0 ? hookOverflowMs : 0));
   const beatsTotal = beatNeeds.reduce((sum, value) => sum + value, 0);
   // A story of consecutive legs covers the whole route: there is no transit outside the beats.
   const coveredKm = routeBeats.reduce((sum, beat) => sum + (beat.endKm - beat.startKm), 0);
@@ -287,14 +336,39 @@ export const buildVideoTimeline = (
   // A continuous story lasts as long as it is told: the voice runs over every leg, no silent dash.
   // Auto mode never cuts the voice to the 2-minute target (a 123 s story makes a 123 s reel), up
   // to the 3-minute Instagram limit; a manual length is a hard cap, flagged when the voice overflows.
-  const totalMs = settings.durationMode === "auto"
-    ? Math.min(MAX_NARRATED_VIDEO_SECONDS * 1_000, Math.ceil((continuous
-      ? introMs + outroMs + beatsTotal
-      : Math.max(getAutoDurationSeconds(totalDistanceKm) * 1_000, introMs + outroMs + beatsTotal / narrationShare)) / 1_000) * 1_000)
-    : Math.min(MAX_VIDEO_SECONDS * 1_000, settings.durationSeconds * 1_000);
+  const highlights = settings.storyMode === "highlights";
+  // Highlights: the route outside the moments is a fast transit, a fixed time per gap.
+  const gapsKm = highlights
+    ? routeBeats.map((beat, index) => Math.max(0, beat.startKm - (index > 0 ? routeBeats[index - 1].endKm : 0)))
+      .concat(Math.max(0, totalDistanceKm - (routeBeats[routeBeats.length - 1]?.endKm ?? 0)))
+    : [];
+  // A hooked reel is already on the moments: no run-up from the start line to the first one.
+  const gapTransitMs = gapsKm.map((km, index): number => (km <= 0 || (hooked && index === 0) ? 0 : km < totalDistanceKm * HIGHLIGHT_SHORT_GAP_SHARE ? HIGHLIGHT_SHORT_TRANSIT_MS : HIGHLIGHT_TRANSIT_MS));
+  const transitTotalMs = gapTransitMs.reduce((sum, value) => sum + value, 0);
+  const highlightsNaturalMs = introMs + outroMs + beatsTotal + transitTotalMs;
+
+  const totalMs = highlights
+    ? (settings.durationMode === "auto"
+      ? clamp(Math.ceil(highlightsNaturalMs / 1_000) * 1_000, HIGHLIGHT_MIN_SECONDS * 1_000, HIGHLIGHT_MAX_SECONDS * 1_000)
+      : clamp(settings.durationSeconds, HIGHLIGHT_MIN_SECONDS, HIGHLIGHT_MAX_SECONDS) * 1_000)
+    : settings.durationMode === "auto"
+      ? Math.min(MAX_NARRATED_VIDEO_SECONDS * 1_000, Math.ceil((continuous
+        ? introMs + outroMs + beatsTotal
+        : Math.max(getAutoDurationSeconds(totalDistanceKm) * 1_000, introMs + outroMs + beatsTotal / narrationShare)) / 1_000) * 1_000)
+      : Math.min(MAX_VIDEO_SECONDS * 1_000, settings.durationSeconds * 1_000);
   const flyoverMs = Math.max(1_000, totalMs - introMs - outroMs);
-  const narrationOverflow = beatsTotal > flyoverMs * (continuous ? 0.95 : 0.9);
-  if (beatsTotal > flyoverMs * narrationShare) {
+  const narrationOverflow = highlights
+    ? highlightsNaturalMs > totalMs + NARRATION_GAP_MS
+    : beatsTotal > flyoverMs * (continuous ? 0.95 : 0.9);
+  if (highlights) {
+    // Every moment gets its narration time, stretched or squeezed so the reel hits its length;
+    // the transits keep their fixed time (shortened only if they would take over 40 %).
+    const transitBudgetMs = beatsTotal > 0 ? Math.min(transitTotalMs, flyoverMs * 0.4) : flyoverMs;
+    const transitScale = transitTotalMs > 0 ? transitBudgetMs / transitTotalMs : 0;
+    gapTransitMs.forEach((value, index) => { gapTransitMs[index] = value * transitScale; });
+    const scale = beatsTotal > 0 ? (flyoverMs - transitBudgetMs) / beatsTotal : 1;
+    beatNeeds = beatNeeds.map((value) => value * scale);
+  } else if (beatsTotal > flyoverMs * narrationShare) {
     const scale = (flyoverMs * narrationShare) / beatsTotal;
     beatNeeds = beatNeeds.map((value) => value * scale);
   }
@@ -361,9 +435,19 @@ export const buildVideoTimeline = (
     }
     return transitWeight > 0 ? (transitMs * weight) / transitWeight : 0;
   });
-  const densities = continuous ? continuousDensities() : isolatedDensities();
+  // Highlights: the moment's time spread over its whole span (terrain-weighted), each gap crossed
+  // at a constant speed in its fixed transit time.
+  const gapIndexAt = (distanceKm: number) => routeBeats.filter((beat) => beat.endKm <= distanceKm).length;
+  const highlightDensities = () => intervals.map(({ beatIndex, middleKm, terrain: weight }) => {
+    if (beatIndex >= 0) return terrainTotals[beatIndex] > 0 ? (beatNeeds[beatIndex] * weight) / terrainTotals[beatIndex] : 0;
+    const gap = gapIndexAt(middleKm);
+    return gapsKm[gap] > 0 ? (gapTransitMs[gap] ?? 0) / gapsKm[gap] : 0;
+  });
+  const densities = highlights ? highlightDensities() : continuous ? continuousDensities() : isolatedDensities();
   const spacingKm = samples.length > 1 ? totalDistanceKm / (samples.length - 1) : 1;
-  const smoothed = movingAverage(densities, Math.max(1, Math.round((totalDistanceKm * 0.0035) / spacingKm)));
+  // Highlights keep crisp edges (0.1 % of the route) so the dwell time does not leak into the jumps.
+  const smoothingShare = highlights ? 0.001 : 0.0035;
+  const smoothed = movingAverage(densities, Math.max(1, Math.round((totalDistanceKm * smoothingShare) / spacingKm)));
 
   const cumulative = [0];
   smoothed.forEach((density, interval) => {
@@ -385,9 +469,33 @@ export const buildVideoTimeline = (
     sampleDistancesKm,
     cumulativeTimeFraction,
     beats: [],
-    narrationOverflow: settings.durationMode === "manual" && narrationOverflow,
+    narrationOverflow: (highlights || settings.durationMode === "manual") && narrationOverflow,
     clock: settings.dayNight ? clock : null,
+    cameraTempo: highlights ? HIGHLIGHT_CAMERA_TEMPO : 1,
+    cameraAverageBlend: highlights ? 0.1 : 0.7,
+    hook: null,
+    flyoverStartKm: 0,
   };
+  if (hooked) {
+    // The flyover starts where the time starts to flow (the end of the skipped run-up).
+    let startIndex = 0;
+    while (startIndex + 1 < cumulativeTimeFraction.length && cumulativeTimeFraction[startIndex + 1] <= 1e-9) startIndex += 1;
+    timeline.flyoverStartKm = sampleDistancesKm[startIndex] ?? 0;
+    const hardestBeat = highlights ? routeBeats.find((beat) => beat.id.startsWith("hl-hardestClimb-")) : undefined;
+    const hardestSlope = highlights ? null : findHardestClimb(path);
+    const subject = hardestBeat ?? hardestSlope ?? routeBeats[0] ?? { startKm: 0, endKm: Math.min(totalDistanceKm, 2) };
+    // The time smoothing lets the flyover start a few samples before the first moment.
+    const isFirst = Math.abs(subject.startKm - timeline.flyoverStartKm) < Math.max(0.3, totalDistanceKm * 0.005);
+    // Approach at the speed the flyover has right after the hook, so the hand-over is seamless.
+    const probeMs = Math.min(1_000, flyoverMs);
+    const flyoverKmPerMs = (getDistanceAtFlyoverFraction(timeline, probeMs / flyoverMs) - timeline.flyoverStartKm) / Math.max(1, probeMs);
+    timeline.hook = {
+      startKm: subject.startKm,
+      endKm: Math.max(subject.endKm, subject.startKm + 0.2),
+      isFirst,
+      approachKm: isFirst ? clamp(flyoverKmPerMs * introMs, 0, timeline.flyoverStartKm) : 0,
+    };
+  }
 
   const msAtDistance = (distanceKm: number) =>
     introMs + getFlyoverFractionAtDistance(timeline, clamp(distanceKm, 0, totalDistanceKm)) * flyoverMs;
@@ -395,9 +503,10 @@ export const buildVideoTimeline = (
   const scheduled: ScheduledBeat[] = [];
   if (introBeat && introMs > 0) {
     const narrationMs = getNarrationMs(introBeat, durations);
-    scheduled.push({ ...introBeat, startMs: 0, endMs: introMs, narrationStartMs: NARRATION_GAP_MS, narrationMs, subtitles: timeSubtitles(introBeat.narration, NARRATION_GAP_MS, narrationMs, alignments[introBeat.id]) });
+    const narrationStartMs = hooked ? HOOK_NARRATION_START_MS : NARRATION_GAP_MS;
+    scheduled.push({ ...introBeat, startMs: 0, endMs: introMs, narrationStartMs, narrationMs, subtitles: timeSubtitles(introBeat.narration, narrationStartMs, narrationMs, alignments[introBeat.id]) });
   }
-  let voiceFreeAtMs = introMs;
+  let voiceFreeAtMs = Math.max(introMs, hookVoiceEndMs);
   routeBeats.forEach((beat, index) => {
     const startMs = msAtDistance(beat.startKm);
     const narrationStartMs = Math.max(introMs, startMs - NARRATION_LEAD_MS, voiceFreeAtMs);
@@ -409,7 +518,8 @@ export const buildVideoTimeline = (
     // The caption appears with the voice, which may start just before the camera reaches the point.
     scheduled.push({
       ...beat,
-      startMs: Math.min(startMs, narrationStartMs),
+      // After the hook the first caption arrives with the first moment, whatever the smoothing.
+      startMs: Math.min(startMs, narrationStartMs, hooked && index === 0 ? introMs : Number.POSITIVE_INFINITY),
       endMs,
       narrationStartMs,
       narrationMs,
@@ -434,7 +544,8 @@ export const buildVideoTimeline = (
 
 export const getDistanceAtFlyoverFraction = (timeline: VideoTimeline, fraction: number) => {
   if (timeline.sampleDistancesKm.length < 2) return 0;
-  return interpolateTable(timeline.cumulativeTimeFraction, timeline.sampleDistancesKm, clamp(fraction, 0, 1));
+  const distanceKm = interpolateTable(timeline.cumulativeTimeFraction, timeline.sampleDistancesKm, clamp(fraction, 0, 1));
+  return Math.max(timeline.flyoverStartKm ?? 0, distanceKm);
 };
 
 export const getFlyoverFractionAtDistance = (timeline: VideoTimeline, distanceKm: number) => {
@@ -477,7 +588,7 @@ export const getVideoFrameState = (timeline: VideoTimeline, requestedTimeMs: num
   if (timeMs < timeline.introMs) {
     phase = "intro";
     phaseProgress = timeMs / timeline.introMs;
-    distanceKm = 0;
+    distanceKm = timeline.flyoverStartKm ?? 0;
   } else if (timeMs >= flyoverEndMs && timeline.outroMs > 0) {
     phase = "outro";
     phaseProgress = clamp((timeMs - flyoverEndMs) / timeline.outroMs, 0, 1);
@@ -691,7 +802,8 @@ export const getTimeSmoothedHeading = (path: PreparedAnimationPath, timeline: Vi
     getDistanceAtFlyoverFraction(timeline, (clamp(ms, flyoverStart, flyoverEnd) - flyoverStart) / Math.max(1, timeline.flyoverMs));
   let east = 0;
   let north = 0;
-  HEADING_WINDOWS_MS.forEach((windowMs) => {
+  const tempo = timeline.cameraTempo ?? 1;
+  HEADING_WINDOWS_MS.map((windowMs) => windowMs * tempo).forEach((windowMs) => {
     const from = getRoutePointAtDistance(path, distanceAt(timeMs - windowMs));
     const to = getRoutePointAtDistance(path, distanceAt(timeMs + windowMs));
     const metersPerDegreeLat = 111_320;
@@ -711,13 +823,16 @@ export const getCameraSpeedMps = (timeline: VideoTimeline, timeMs: number) => {
   if (timeline.flyoverMs <= 0) return timeline.averageSpeedMps;
   const flyoverStart = timeline.introMs;
   const flyoverEnd = timeline.introMs + timeline.flyoverMs;
-  const from = clamp(timeMs - CAMERA_SPEED_WINDOW_MS, flyoverStart, flyoverEnd - CAMERA_SPEED_WINDOW_MS * 2);
-  const to = Math.min(flyoverEnd, from + CAMERA_SPEED_WINDOW_MS * 2);
+  const windowMs = CAMERA_SPEED_WINDOW_MS * (timeline.cameraTempo ?? 1);
+  const from = clamp(timeMs - windowMs, flyoverStart, flyoverEnd - windowMs * 2);
+  const to = Math.min(flyoverEnd, from + windowMs * 2);
   if (to <= from) return timeline.averageSpeedMps;
   const distanceAt = (ms: number) => getDistanceAtFlyoverFraction(timeline, (ms - flyoverStart) / timeline.flyoverMs);
   const localMps = ((distanceAt(to) - distanceAt(from)) * 1_000) / ((to - from) / 1_000);
-  // Half of the average keeps the zoom from pumping on every speed change.
-  return 0.7 * timeline.averageSpeedMps + 0.3 * localMps;
+  // Mostly the average keeps the zoom from pumping on every speed change; a highlights reel wants
+  // the opposite (close on a moment, pulled back during the jump), so it follows the local speed.
+  const blend = timeline.cameraAverageBlend ?? 0.7;
+  return blend * timeline.averageSpeedMps + (1 - blend) * localMps;
 };
 
 const ORBIT_SIDE_OFFSET_DEG = 35;
@@ -744,7 +859,7 @@ export const getSmoothedCameraTarget = (
   const centerKm = distanceAt(timeMs);
   // Symmetric window that shrinks near the start and the finish: a window cut on one side would
   // aim ahead of the runner (or behind), which left the start off-centre.
-  const windowMs = Math.max(0, Math.min(TARGET_SMOOTHING_MS, timeMs - flyoverStart, flyoverEnd - timeMs));
+  const windowMs = Math.max(0, Math.min(TARGET_SMOOTHING_MS * (timeline.cameraTempo ?? 1), timeMs - flyoverStart, flyoverEnd - timeMs));
   const fromKm = distanceAt(timeMs - windowMs);
   const toKm = distanceAt(timeMs + windowMs);
   const center = getRoutePointAtDistance(path, centerKm);
@@ -853,6 +968,53 @@ export const shiftIntoVisibleZone = (pose: CameraPose, ratio = VISIBLE_ZONE_SHIF
   };
 };
 
+// Reel hook camera: a slow orbit (14 degrees over the hook) while it moves forward, then a glide
+// into the chase camera over the last 45 % of the hook. The time smoothing of the whole flight
+// rounds the hand-over off, so the first moment starts without a jump.
+export const HOOK_ORBIT_DEG = 14;
+const HOOK_HANDOVER_FROM = 0.55;
+// Share of the subject the camera moves along when it is not where the flyover starts.
+const HOOK_SUBJECT_ADVANCE = 0.2;
+
+/** View distance of the hook: close on the subject (3 to 8 km, a quarter more in portrait). */
+export const getHookViewDistanceM = (hook: HookPlan, viewport: AnimationViewport) =>
+  clamp((hook.endKm - hook.startKm) * 900, 3_000, 8_000) * (viewport === "portrait" ? 1.25 : 1);
+
+const getHookRawPose = (
+  path: PreparedAnimationPath,
+  timeline: VideoTimeline,
+  hook: HookPlan,
+  frame: VideoFrameState,
+  viewport: AnimationViewport,
+  chase: CameraPose,
+): CameraPose => {
+  const progress = clamp(frame.timeMs / Math.max(1, timeline.introMs), 0, 1);
+  let distanceKm: number;
+  let baseBearingDeg: number;
+  if (hook.isFirst) {
+    // Already moving towards the first moment, looking the way the chase camera will.
+    distanceKm = (timeline.flyoverStartKm ?? hook.startKm) - hook.approachKm * (1 - progress);
+    const eastM = (chase.target.lon - chase.camera.lon) * 111_320 * Math.cos((chase.camera.lat * Math.PI) / 180);
+    const northM = (chase.target.lat - chase.camera.lat) * 111_320;
+    baseBearingDeg = toBearingDeg(eastM, northM);
+  } else {
+    // A teaser of the hardest climb, in three-quarter view, before gliding to the first moment.
+    distanceKm = hook.startKm + (hook.endKm - hook.startKm) * HOOK_SUBJECT_ADVANCE * progress;
+    const from = getRoutePointAtDistance(path, hook.startKm);
+    const to = getRoutePointAtDistance(path, hook.endKm);
+    baseBearingDeg = toBearingDeg(
+      (to.lon - from.lon) * 111_320 * Math.cos((from.lat * Math.PI) / 180),
+      (to.lat - from.lat) * 111_320,
+    ) + ORBIT_SIDE_OFFSET_DEG;
+  }
+  const hookPose = shiftIntoVisibleZone(getHookCameraPose(path, distanceKm, {
+    bearingDeg: baseBearingDeg - HOOK_ORBIT_DEG * (1 - progress),
+    viewDistanceM: getHookViewDistanceM(hook, viewport),
+    terrainExaggeration: timeline.terrainExaggeration,
+  }));
+  return interpolateCameraPose(hookPose, chase, easeInOut((progress - HOOK_HANDOVER_FROM) / (1 - HOOK_HANDOVER_FROM)));
+};
+
 /** Camera pose computed from this moment alone, before the time smoothing of the whole flight. */
 export const getRawVideoCameraPose = (
   path: PreparedAnimationPath,
@@ -874,6 +1036,7 @@ export const getRawVideoCameraPose = (
     getSmoothedCameraTarget(path, timeline, frame.timeMs, 0.1 * Math.min(20_000, Math.max(4_500, getCameraSpeedMps(timeline, frame.timeMs) * 3))),
   ));
   if (frame.phase === "flyover") return chase;
+  if (frame.phase === "intro" && timeline.hook) return getHookRawPose(path, timeline, timeline.hook, frame, viewport, chase);
   const overview = getOverviewCameraPose(path, viewport, exaggeration);
   if (frame.phase === "intro") {
     return interpolateCameraPose(
@@ -902,11 +1065,12 @@ const createTrack = (length: number): CameraTrack => ({
   alt: new Float64Array(length),
 });
 
-const smoothTrack = (track: CameraTrack, kernel: number[]): CameraTrack => {
+const smoothTrack = (track: CameraTrack, kernelOrAt: number[] | ((index: number) => number[])): CameraTrack => {
   const length = track.lat.length;
-  const radius = (kernel.length - 1) / 2;
   const smoothed = createTrack(length);
   for (let index = 0; index < length; index += 1) {
+    const kernel = typeof kernelOrAt === "function" ? kernelOrAt(index) : kernelOrAt;
+    const radius = (kernel.length - 1) / 2;
     let lat = 0;
     let lon = 0;
     let alt = 0;
@@ -937,13 +1101,36 @@ const buildCameraTrack = (path: PreparedAnimationPath, timeline: VideoTimeline, 
     target.lon[index] = pose.target.lon;
     target.alt[index] = pose.target.altitudeM;
   }
-  const radius = Math.ceil((CAMERA_TRACK_SIGMA_MS * 3) / CAMERA_TRACK_STEP_MS);
-  const sigma = CAMERA_TRACK_SIGMA_MS / CAMERA_TRACK_STEP_MS;
+  const sigmaMs = Math.max(CAMERA_TRACK_STEP_MS, CAMERA_TRACK_SIGMA_MS * (timeline.cameraTempo ?? 1));
+  const kernel = buildGaussianKernel(sigmaMs);
+  if (!timeline.hook || sigmaMs <= HOOK_TRACK_SIGMA_MS) return { camera: smoothTrack(camera, kernel), target: smoothTrack(target, kernel) };
+  // A full flyover smooths over 1.8 s: during a 2.4 s hook that would average the hook shot with
+  // the chase camera. The hook keeps the highlights smoothing, widened back to the full one over
+  // the 3 s after it (kernels by 0.1-step of sigma, so the change is gradual).
+  const kernels = new Map<number, number[]>();
+  const kernelAt = (index: number) => {
+    const ratio = easeInOut((index * CAMERA_TRACK_STEP_MS - timeline.introMs) / HOOK_TRACK_WIDEN_MS);
+    const key = Math.round((HOOK_TRACK_SIGMA_MS + (sigmaMs - HOOK_TRACK_SIGMA_MS) * ratio) / 10);
+    let cached = kernels.get(key);
+    if (!cached) {
+      cached = buildGaussianKernel(key * 10);
+      kernels.set(key, cached);
+    }
+    return cached;
+  };
+  return { camera: smoothTrack(camera, kernelAt), target: smoothTrack(target, kernelAt) };
+};
+
+const HOOK_TRACK_SIGMA_MS = CAMERA_TRACK_SIGMA_MS * HIGHLIGHT_CAMERA_TEMPO;
+const HOOK_TRACK_WIDEN_MS = 3_000;
+
+function buildGaussianKernel(sigmaMs: number) {
+  const radius = Math.ceil((sigmaMs * 3) / CAMERA_TRACK_STEP_MS);
+  const sigma = sigmaMs / CAMERA_TRACK_STEP_MS;
   const weights = Array.from({ length: radius * 2 + 1 }, (_, index) => Math.exp(-((index - radius) ** 2) / (2 * sigma * sigma)));
   const total = weights.reduce((sum, weight) => sum + weight, 0);
-  const kernel = weights.map((weight) => weight / total);
-  return { camera: smoothTrack(camera, kernel), target: smoothTrack(target, kernel) };
-};
+  return weights.map((weight) => weight / total);
+}
 
 const sampleTrack = (track: CameraTrack, position: number) => {
   const index = clamp(Math.floor(position), 0, track.lat.length - 1);

@@ -3,6 +3,7 @@ title: Add New Table
 scope: workflow
 last_verified: 2026-11-18
 # Inbox push badge (2026-11-18): schema-overview notes the admin inbox push badge; no table, column or RLS change.
+# Reel narration mode (2026-11-19): supabase/tests/video_narrations_checks.sql also checks the (race_id, mode) key; this workflow is unchanged.
 # Livret supporter private preview (2026-11-18): the catalog Livret supporter entry admits active organizers of a private event (preview only); runner badge, data and contracts unchanged.
 ai_priority: high
 related_files:
@@ -23,6 +24,8 @@ related_files:
   - supabase/migrations/20261104140000_add_video_render_jobs.sql
   - supabase/tests/video_render_jobs_checks.sql
   - supabase/tests/video_narrations_checks.sql
+  - supabase/migrations/20261119130000_add_social_posts.sql
+  - supabase/tests/social_posts_checks.sql
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
@@ -199,3 +202,5 @@ Catalog end date (2026-11-14): no table added; the schema overview only records 
 `organizer_demo_requests` (2026-11-16) is the simplest service-only intake example for anonymous visitors: RLS enabled without client policies, all client privileges revoked, writes only through a rate-limited server route, and admin review through admin-authenticated routes.
 
 `feedback_survey_campaigns` and `feedback_survey_responses` (2026-11-16) follow this workflow as a service-only + insert-own pair: the campaign table keeps RLS on with every client privilege revoked; the response table grants `authenticated` a column-scoped INSERT and a narrow SELECT under `auth.uid()` policies, while a `SECURITY DEFINER` `BEFORE INSERT` trigger validates notification ownership and kind and fills the server-managed `campaign_id`. Service-role-only RPCs resolve recipients from `auth.users` (trusted `app_metadata` role) and count campaign stats; `supabase/tests/feedback_survey_checks.sql` asserts the grants and trigger outcomes. A follow-up migration (`20261116200000_add_feedback_survey_single_user_audience.sql`) shows how to widen a check-constrained `audience_kind`: drop and re-add the named constraint in the same transaction, and add any new service-only RPC with explicit `revoke` / `grant`.
+
+`social_posts` (2026-11-19) follows the `video_render_jobs` service-only pattern (RLS on, no policy, client privileges revoked, service-role grants, one index per foreign key) with a per-table `updated_at` trigger whose function is revoked from client roles. Its scheduler lives in a separate migration whose pg_cron commands read Vault at run time, so adding the table never depends on secrets being present. Credentials that never expire belong in server env vars rather than in a table (no account table was added). `supabase/tests/social_posts_checks.sql` also asserts check constraints with `begin … exception when check_violation` blocks inside a rolled-back transaction.

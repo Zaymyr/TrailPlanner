@@ -2,6 +2,7 @@
 title: Auth Flows
 scope: auth
 last_verified: 2026-11-18
+# Welcome onboarding cleanup (2026-11-18): the onboarding route drops the intro plan offer and the Officiel badge copy; presentation only, no auth, session or callback change.
 ai_priority: high
 related_files:
   - apps/web/app/sign-in/page.tsx

@@ -801,7 +801,7 @@ export type MobileTranslations = {
     skipOnboardingConfirmBody: string;
     skipOnboardingError: string;
     racebookIntro: {
-      pagerLabel: string; goToPageLabel: string; kicker: string; officialBadge: string;
+      pagerLabel: string; goToPageLabel: string; kicker: string;
       title: string; subtitle: string;
       promiseOfficialTitle: string; promiseOfficialText: string;
       promiseUpdatedTitle: string; promiseUpdatedText: string;
@@ -809,7 +809,7 @@ export type MobileTranslations = {
       nextCta: string; tabsTitle: string; tabsSubtitle: string;
       tabGearText: string; tabBibText: string; tabCourseText: string;
       tabAccessText: string; tabServicesText: string;
-      chooseRaceCta: string; chooseRaceHint: string; planCta: string;
+      chooseRaceCta: string; chooseRaceHint: string;
     };
     racebookTour: {
       skip: string;
@@ -826,7 +826,6 @@ export type MobileTranslations = {
       wrapUpTitle: string; wrapUpBody: string;
     };
     tours: {
-      planChoiceTitle: string; planChoiceBody: string; planOptionalLabel: string;
       discoverLater: string;
       chooseRaceTitle: string; chooseRaceBody: string; openRacebookTitle: string;
       openRacebookBody: string; searchRacebookTitle: string; searchRacebookBody: string;
