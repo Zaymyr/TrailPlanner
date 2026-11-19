@@ -40,7 +40,7 @@ export type RouteSlope = {
   endElevationM: number;
 };
 
-export type StoryBeatKind = "intro" | "start" | "climb" | "descent" | "flat" | "aid" | "lifeBase" | "finish" | "outro";
+export type StoryBeatKind = "intro" | "start" | "climb" | "descent" | "flat" | "aid" | "lifeBase" | "night" | "finish" | "outro";
 
 /**
  * One moment of the narrated video. Route beats own a distance span the camera covers while the

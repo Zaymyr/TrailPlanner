@@ -25,6 +25,7 @@ const KIND_LABELS: Record<ScheduledBeat["kind"], string> = {
   flat: "Roulant",
   aid: "Ravito",
   lifeBase: "Base de vie",
+  night: "Nuit",
   finish: "Arrivée",
   outro: "Conclusion",
 };
@@ -49,6 +50,8 @@ type StoryEditorProps = {
   onWriteScript: () => void;
   /** Saves the text, settings and voice of this race (see the saved narration in the client). */
   onSaveNarration: () => void;
+  /** Why saving is not available for the current story mode; saving is enabled when null. */
+  saveDisabledReason?: string | null;
   savedNarration: AsyncActionState;
   onScriptNotesChange: (notes: string) => void;
   onScriptStyleChange: (style: ScriptStyleChoice) => void;
@@ -82,6 +85,7 @@ export function StoryEditor({
   onVoiceOptionsChange,
   onWriteScript,
   onSaveNarration,
+  saveDisabledReason = null,
   savedNarration,
   onScriptNotesChange,
   onScriptStyleChange,
@@ -109,10 +113,18 @@ export function StoryEditor({
       </div>
       <div className="flex items-center justify-between gap-2">
         <ActionMessage state={savedNarration.message ? savedNarration : { status: "idle", message: "Aucun récit enregistré pour cette course." }} />
-        <Button type="button" variant="ghost" className="h-7 shrink-0 px-2 text-xs" disabled={busy || savedNarration.status === "loading"} onClick={onSaveNarration}>
+        <Button
+          type="button"
+          variant="ghost"
+          className="h-7 shrink-0 px-2 text-xs"
+          disabled={busy || savedNarration.status === "loading" || Boolean(saveDisabledReason)}
+          title={saveDisabledReason ?? undefined}
+          onClick={onSaveNarration}
+        >
           Enregistrer
         </Button>
       </div>
+      {saveDisabledReason ? <p className="text-xs text-muted-foreground">{saveDisabledReason}</p> : null}
       <ActionMessage state={scriptState} />
       <ActionMessage state={voiceState} />
       <p className="text-xs text-muted-foreground">

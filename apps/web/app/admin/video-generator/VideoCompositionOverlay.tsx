@@ -117,6 +117,7 @@ const CAPTION_KIND_LABELS: Record<ScheduledBeat["kind"], string> = {
   flat: "Roulant",
   aid: "Ravito",
   lifeBase: "Base de vie",
+  night: "Nuit",
   finish: "Arrivée",
   outro: "",
 };

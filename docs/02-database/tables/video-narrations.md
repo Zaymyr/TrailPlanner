@@ -1,7 +1,7 @@
 ---
 title: video_narrations Table
 scope: database
-last_verified: 2026-11-05
+last_verified: 2026-11-19
 ai_priority: low
 related_files:
   - supabase/migrations/20261105160000_add_video_narrations.sql
@@ -45,3 +45,4 @@ RLS is on with no policy; `anon` and `authenticated` have no privilege. Only the
 
 - A clip is used only while its text equals the beat narration, so a stale clip after an edit is ignored, never played over the wrong text.
 - The race picker shows, per format, whether a narration (and its voice) is saved, from `race-stats`, next to the number of finished background videos from `video_render_jobs`.
+- The row holds the "Parcours complet" narration only (`storyMode: "full"`). `isNarrationModePersisted` (`apps/web/lib/video-narrations.ts`, `PERSISTED_NARRATION_MODES = ["full"]`) is the seam the editor checks: in "Temps forts" mode the "Enregistrer" button and the automatic saves are disabled with a French explanation, and a full save drops the highlight texts (`hl-…` beat ids) from `narration_overrides`. A per-mode key (`race_id`, `mode`) is planned (see the [ADR](../../08-decisions/2026-11-19-reel-highlights-and-figures.md)); until it ships, a highlights draft lives only in the editor tab.

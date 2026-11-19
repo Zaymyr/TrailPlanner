@@ -40,6 +40,9 @@ related_files:
   - apps/web/app/admin/video-generator/route-story.ts
   - apps/web/app/admin/video-generator/race-figures.ts
   - apps/web/app/admin/video-generator/race-figures.test.ts
+  - apps/web/app/admin/video-generator/highlights.ts
+  - apps/web/app/admin/video-generator/highlights.test.ts
+  - apps/web/app/admin/video-generator/reel-race-fixtures.ts
   - apps/web/app/admin/video-generator/route-clock.ts
   - apps/web/app/admin/video-generator/route-clock.test.ts
   - apps/web/app/admin/video-generator/route-story.test.ts
@@ -156,6 +159,18 @@ Every number of the reel comes from `race-figures.ts` ([ADR](../08-decisions/202
 - one rounding policy: total distance in whole kilometres from 10 km (one decimal below), positions and partial lengths with one decimal (",0" dropped in text, kept on the live counter), every D+ computed from the GPX to the nearest 10 m, the announced race D+ as announced.
 
 The badge "N KM", the counter "KM x / N", the intro sentence and the script and caption requests (`distanceKm` = rounded total, `elevationGainM`) therefore all show the same N. The story (`createStoryFormatter`), the overlay, the aid cards and the transport bar format numbers only through this module.
+
+## Highlights Reel ("Temps forts")
+
+`VideoCompositionSettings.storyMode` (`"full"` by default, so older settings and snapshots keep the full flyover unchanged) selects "Parcours complet" or "Temps forts" in the quick settings ("Type de reel"). In highlights mode ([ADR](../08-decisions/2026-11-19-reel-highlights-and-figures.md)):
+
+- `selectHighlights` (`highlights.ts`, pure and deterministic) keeps 3 to 5 moments, most important first, then in course order: the hardest climb (D+ × √mean grade), the last station before it (within 15 % of the route or 5 km), the last climb of the second half (at least 30 % of the hardest, 100 m minimum), the biggest descent, the first night stretch of the estimated race clock (at least 3 % of the route, picked even when the day/night look is off), then strategic stations (life base with a cutoff, cutoff, life base). Other climbs and descents only fill up to 3. Spans may touch but not overlap (100 m margin); a station inside a kept moment becomes a fact of it ("Ravito X km 30,2"). A station or nightfall spans about 1.2 % of the route (0.6 to 2 km). Ids are stable (`hl-<kind>-<route km × 10>`, `hl-strategicAid-<station id>`). Facts and default narrations use the race figures (announced km, rescaled D+), so the script never gets an invented number.
+- `buildHighlightBeats` produces a short intro ("<course> : 67 km, 2 276 m D+. Les temps forts !"), one beat per moment (`climb`, `descent`, `aid`/`lifeBase`, or the new `night` kind, caption "Nuit") with a default narration of about 4 s, and a short outro.
+- `buildVideoTimeline` gives each moment its narration time spread over the whole span (terrain-weighted), crosses each gap between moments (and from the start and to the finish) in a fixed 1.2 s transit (0.3 s for a gap under 0.5 % of the route), and smooths the time density over 0.1 % of the route only, so the dwell does not leak into the jumps. Auto length is the natural length clamped to 30-50 s (stretching or squeezing the moments; transits keep their time up to 40 % of the flyover); a manual length is clamped to 30-50 s and the presets above 50 s are hidden; past 50 s the narration is flagged as overflowing. The camera windows shrink (`cameraTempo` 0.25: σ 0.45 s track smoothing, ±1.5 s target and speed windows) and the camera distance follows the local speed (`cameraAverageBlend` 0.1): close on a moment, pulled back up to 20 km during the jump (accelerated flyover).
+- The script request carries `mode: "highlights"`: one beat per moment without stations flown over, intro 10 words, outro 8, the rest of the 40 s target (minus 1.2 s per transit and the silences) shared equally between moments (7 to 30 words each). The prompt describes isolated key moments with very short transitions and still forbids any number absent from the facts.
+- The narration of this mode is not saved yet: the editor disables "Enregistrer" and the automatic saves with a French explanation (see [video_narrations](../02-database/tables/video-narrations.md)).
+
+Tests: `highlights.test.ts` covers the selection on a fixed profile and on two fixtures shaped like the test races (`reel-race-fixtures.ts`: Hivernale des Templiers Astragale Trail, 66.63 km / 2,276 m D+ on a 64.9 km GPX, and Bibracte L'Ultra des Druides, 184.7 km / 5,520 m D+ on a 188 km GPX, with the catalog stations and cutoffs; the GPX profiles are synthetic). Both reels stay within 30-45 s with the default narration (about 30 s and 41 s).
 
 ## Environment And Provider Terms
 

@@ -9,7 +9,7 @@ import mapboxgl, {
 
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { buildRouteGeoJson, type VideoAidStation } from "../../../lib/video-generator";
-import { savedNarrationResponseSchema } from "../../../lib/video-narrations";
+import { isNarrationModePersisted, savedNarrationResponseSchema } from "../../../lib/video-narrations";
 import { instagramCaptionResponseSchema, NARRATION_STYLE_LABELS, narrationScriptResponseSchema, narrationVoiceResponseSchema } from "../../../lib/video-narration";
 import { InstagramPanel } from "./InstagramPanel";
 import { ExportPanel, type ExportState } from "./ExportPanel";
@@ -55,6 +55,7 @@ import {
   type StoryLandmarks,
 } from "./route-story";
 import { StoryEditor, type AsyncActionState, type ScriptStyleChoice, type VoiceOptions } from "./StoryEditor";
+import { buildHighlightBeats, selectHighlights } from "./highlights";
 import {
   buildToldSlopeGeoJson,
   getToldSlope,
@@ -62,6 +63,9 @@ import {
   buildVideoTimeline,
   DEFAULT_VIDEO_COMPOSITION_SETTINGS,
   getFlyoverFractionAtDistance,
+  HIGHLIGHT_MAX_SECONDS,
+  HIGHLIGHT_MIN_SECONDS,
+  HIGHLIGHT_TARGET_SECONDS,
   getGradeAtDistance,
   getLegPassages,
   getVideoCameraPose,
@@ -647,8 +651,12 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   const markerData = useMemo(() => buildStationIconGeoJson(preparedPath, enabledAidStations), [enabledAidStations, preparedPath]);
 
   // The story: detected moments with a default narration, overridden by the AI or by hand.
-  const autoDurationSeconds = getAutoDurationSeconds(preparedPath.totalDistanceKm);
-  const maxSeconds = settings.durationMode === "auto" ? autoDurationSeconds : settings.durationSeconds;
+  const isHighlights = settings.storyMode === "highlights";
+  // A highlights reel aims at 40 s (30 to 50 s); a full flyover grows with the route.
+  const autoDurationSeconds = isHighlights ? HIGHLIGHT_TARGET_SECONDS : getAutoDurationSeconds(preparedPath.totalDistanceKm);
+  const maxSeconds = settings.durationMode === "auto"
+    ? autoDurationSeconds
+    : isHighlights ? Math.min(HIGHLIGHT_MAX_SECONDS, Math.max(HIGHLIGHT_MIN_SECONDS, settings.durationSeconds)) : settings.durationSeconds;
   const [landmarks, setLandmarks] = useState<StoryLandmarks>(renderSnapshot?.landmarks ?? {});
   // Estimated passing time at each kilometre (classic pace, cutoffs) for the day/night look.
   const raceClock = useMemo(() => buildRaceClock(preparedPath, enabledAidStations, race), [enabledAidStations, preparedPath, race]);
@@ -657,14 +665,21 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     (distanceKm: number) => (activeClock ? getDaylightAt(activeClock, distanceKm) : null),
     [activeClock],
   );
-  const defaultBeats = useMemo(() => buildStoryBeats(preparedPath, enabledAidStations, race, {
-    maxSeconds,
-    includeAidStations: settings.showAidStations,
-    includeStart: settings.showStartInfo,
-    landmarks,
-    daylightAt,
-    figures,
-  }), [daylightAt, enabledAidStations, figures, landmarks, maxSeconds, preparedPath, race, settings.showAidStations, settings.showStartInfo]);
+  const defaultBeats = useMemo(() => {
+    if (isHighlights) {
+      // The night passage is picked from the estimated clock even when the day/night look is off.
+      const highlights = selectHighlights(preparedPath, settings.showAidStations ? enabledAidStations : [], raceClock, figures, { landmarks });
+      return buildHighlightBeats(highlights, preparedPath, race, { figures, landmarks });
+    }
+    return buildStoryBeats(preparedPath, enabledAidStations, race, {
+      maxSeconds,
+      includeAidStations: settings.showAidStations,
+      includeStart: settings.showStartInfo,
+      landmarks,
+      daylightAt,
+      figures,
+    });
+  }, [daylightAt, enabledAidStations, figures, isHighlights, landmarks, maxSeconds, preparedPath, race, raceClock, settings.showAidStations, settings.showStartInfo]);
 
   // Summit names make the story concrete ("la montée vers le Mont Thou"): ask Mapbox for the
   // highest named peak near each climb top, once per route.
@@ -1016,6 +1031,14 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   // after every AI draft or voice generation and on demand, so a race is written and voiced once.
   const [savedNarration, setSavedNarration] = useState<AsyncActionState>(IDLE_ACTION);
   const [pendingSave, setPendingSave] = useState<{ clips: boolean } | null>(null);
+  // Only the full narration has a row today: a highlights draft stays in this tab until it gets one.
+  const canSaveNarration = isNarrationModePersisted(settings.storyMode);
+  const saveDisabledReason = canSaveNarration
+    ? null
+    : "Le récit « Temps forts » n’est pas encore enregistré : seul le récit « Parcours complet » est sauvegardé pour cette course.";
+  const requestSave = (clips: boolean) => {
+    if (canSaveNarration) setPendingSave({ clips });
+  };
   useEffect(() => {
     if (render || !race.id || !sessionToken) return;
     const controller = new AbortController();
@@ -1054,13 +1077,15 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   useEffect(() => {
     if (!pendingSave || !race.id) return;
     setPendingSave(null);
+    if (!isNarrationModePersisted(settings.storyMode)) return;
     setSavedNarration({ status: "loading", message: "Enregistrement du récit…" });
     void fetch(`/api/admin/video-generator/narrations/${race.id}`, {
       method: "PUT",
       headers: { Authorization: `Bearer ${sessionToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         settings,
-        narrationOverrides,
+        // Highlights texts ("hl-…" beat ids) never go into the full narration.
+        narrationOverrides: Object.fromEntries(Object.entries(narrationOverrides).filter(([beatId]) => !beatId.startsWith("hl-"))),
         voice: { voiceId: voiceId || null, ...voiceOptions },
         ...(pendingSave.clips ? { clips: freshClips } : {}),
       }),
@@ -1079,6 +1104,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     setScriptState({ status: "loading", message: "Claude rédige la narration…" });
     try {
       const response = await authorizedPost("/api/admin/video-generator/script", {
+        mode: settings.storyMode,
         race: { ...announcedRace, startDetail: race.startDetail },
         targetSeconds: maxSeconds,
         wordsPerSecond: speechRates[speechRateKey],
@@ -1091,7 +1117,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
           startKm: roundKm(toAnnouncedKm(figures, startKm)),
           endKm: roundKm(toAnnouncedKm(figures, endKm)),
           // Intro and outro have no span; a leg tells the stations it flies over before reaching them.
-          passages: kind === "intro" || kind === "outro"
+          passages: kind === "intro" || kind === "outro" || isHighlights
             ? []
             : getLegPassages(timeline, { startKm, endKm }, enabledAidStations).map((passage) => ({ ...passage, km: roundKm(toAnnouncedKm(figures, passage.km)) })),
         })),
@@ -1102,7 +1128,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       setNarrationOverrides((current) => ({ ...current, ...Object.fromEntries(parsed.data.beats.map((beat) => [beat.id, beat.narration])) }));
       const usedStyle = parsed.data.style ? ` (style : ${NARRATION_STYLE_LABELS[parsed.data.style]})` : "";
       setScriptState({ status: "success", message: `Narration rédigée${usedStyle}. Relis-la puis génère la voix off.` });
-      setPendingSave({ clips: false });
+      requestSave(false);
     } catch (error) {
       setScriptState({ status: "error", message: error instanceof Error ? error.message : "La narration n’a pas pu être rédigée." });
     }
@@ -1238,7 +1264,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
         });
       }
       setVoiceState({ status: "success", message: "Voix off prête : lance la lecture." });
-      setPendingSave({ clips: true });
+      requestSave(true);
     } catch (error) {
       setVoiceState({ status: "error", message: error instanceof Error ? error.message : "La voix off n’a pas pu être générée." });
     }
@@ -1470,7 +1496,8 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
         <CardContent>
           <StoryEditor
             beats={timeline.beats}
-            onSaveNarration={() => setPendingSave({ clips: true })}
+            onSaveNarration={() => requestSave(true)}
+            saveDisabledReason={saveDisabledReason}
             savedNarration={savedNarration}
             durationControl={<DurationSelect autoDurationSeconds={autoDurationSeconds} onChange={updateSettings} settings={settings} />}
             narrationOverflow={timeline.narrationOverflow}

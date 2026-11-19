@@ -8,6 +8,14 @@ import type { SupabaseServiceConfig } from "./supabase";
  */
 export const VIDEO_NARRATIONS_BUCKET = "video-narrations";
 
+/**
+ * Story modes whose narration can be saved. One row per race holds the "full" narration; the
+ * "highlights" narration needs its own row (per-mode key), so it is not saved until then and the
+ * editor disables saving in that mode.
+ */
+export const PERSISTED_NARRATION_MODES: readonly string[] = ["full"];
+export const isNarrationModePersisted = (mode: string) => PERSISTED_NARRATION_MODES.includes(mode);
+
 export const savedVoiceSchema = z.object({
   voiceId: z.string().max(64).nullable(),
   model: z.enum(["multilingual_v2", "v3"]),
