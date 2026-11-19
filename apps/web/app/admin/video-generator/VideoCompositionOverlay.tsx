@@ -233,7 +233,7 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, figures, frameS
   // Light overlay: no title band (the hook and the voice already name the race and its figures).
   const hasHeader = !compact && (settings.showTitle || Boolean(stats));
   const hasProfileBand = settings.showProfile || settings.showCurrentKm;
-  // The leg card sits under the profile band; the subtitles sit lower, centred at 64 % of the frame.
+  // The leg card sits under the profile band; the subtitles sit lower, centred at 74 % of the frame.
   // The light overlay starts lower, below Instagram's own top bar, and has no tick row.
   const bandTop = compact ? `${COMPACT_TOP_CQMIN}cqmin` : hasHeader ? "16cqmin" : "4cqmin";
   const captionTop = compact
@@ -279,7 +279,7 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, figures, frameS
 
       {settings.showCaptions && frame.beat ? <StoryCaption accent={accent} beat={frame.beat} figures={figures} timeMs={frame.timeMs} top={captionTop} /> : null}
 
-      {/* Burned-in subtitles of the voice-over: a fixed-width accent box centred at 64 % of the frame,
+      {/* Burned-in subtitles of the voice-over: a fixed-width accent box centred at 74 % of the frame,
           inside the Instagram safe zone (above y = 1500 px of 1920, clear of the right 15 % band). */}
       {settings.showSubtitles && frame.subtitle ? (
         <div
