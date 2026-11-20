@@ -6,6 +6,7 @@ import React, { useEffect, useRef, useState } from "react";
 
 import { CAROUSEL_SLIDE_HEIGHT, CAROUSEL_SLIDE_WIDTH, getSlideCount, parseCarouselSnapshot, type CarouselSnapshot } from "../../../../lib/carousels/carousel-snapshot";
 import { CarouselStrip } from "./CarouselStrip";
+import { primaryFontFamily } from "./carousel-styles";
 
 // Self-hosted at build time: same origin, so html-to-image can embed them in the capture.
 const bricolage = Bricolage_Grotesque({ subsets: ["latin"], variable: "--font-bricolage", display: "block" });
@@ -28,9 +29,12 @@ const setStatus = (status: RenderStatus) => {
 
 /** Waits for every font weight the slides use and every image, so the capture is deterministic. */
 const waitForAssets = async (root: HTMLElement) => {
-  const families = [bricolage.style.fontFamily, jetbrains.style.fontFamily];
-  await Promise.all(families.flatMap((family) => ["500", "700", "800"].map((weight) => document.fonts.load(`${weight} 40px ${family}`))));
+  const families = [bricolage.style.fontFamily, jetbrains.style.fontFamily].map(primaryFontFamily);
+  const checks = families.flatMap((family) => ["500", "700", "800"].map((weight) => `${weight} 40px ${family}`));
+  await Promise.all(checks.map((font) => document.fonts.load(font).catch(() => [])));
   await document.fonts.ready;
+  const missing = checks.filter((font) => !document.fonts.check(font));
+  if (missing.length) throw new Error(`Polices non chargées : ${missing.join(", ")}.`);
   await Promise.all(Array.from(root.querySelectorAll("img")).map((image) => image.decode().catch(() => undefined)));
   await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 };
@@ -88,12 +92,20 @@ export function RenderCarouselClient({ jobId }: { jobId: string }) {
   useEffect(() => {
     const root = stripRef.current;
     if (!snapshot || !root) return;
+    // Each failure names its stage, so the admin sees where a render stopped.
+    const stage = async <T,>(label: string, run: () => Promise<T>) => {
+      try {
+        return await run();
+      } catch (stageError) {
+        throw new Error(`${label} : ${stageError instanceof Error ? stageError.message : "erreur inconnue"}`);
+      }
+    };
     void (async () => {
-      await waitForAssets(root);
+      await stage("Polices et images", () => waitForAssets(root));
       const count = getSlideCount(snapshot);
       const width = count * CAROUSEL_SLIDE_WIDTH;
-      const fontEmbedCSS = await getFontEmbedCSS(root);
-      const strip = await toCanvas(root, { width, height: CAROUSEL_SLIDE_HEIGHT, canvasWidth: width, canvasHeight: CAROUSEL_SLIDE_HEIGHT, pixelRatio: 1, fontEmbedCSS, backgroundColor: "#FAF8F2" });
+      const fontEmbedCSS = await stage("Polices embarquées", () => getFontEmbedCSS(root));
+      const strip = await stage("Capture", () => toCanvas(root, { width, height: CAROUSEL_SLIDE_HEIGHT, canvasWidth: width, canvasHeight: CAROUSEL_SLIDE_HEIGHT, pixelRatio: 1, fontEmbedCSS, backgroundColor: "#FAF8F2" }));
       setStatus({ status: "uploading" });
       for (let index = 0; index < count; index += 1) {
         const slide = document.createElement("canvas");
@@ -104,8 +116,10 @@ export function RenderCarouselClient({ jobId }: { jobId: string }) {
         context.fillStyle = "#FAF8F2";
         context.fillRect(0, 0, CAROUSEL_SLIDE_WIDTH, CAROUSEL_SLIDE_HEIGHT);
         context.drawImage(strip, index * CAROUSEL_SLIDE_WIDTH, 0, CAROUSEL_SLIDE_WIDTH, CAROUSEL_SLIDE_HEIGHT, 0, 0, CAROUSEL_SLIDE_WIDTH, CAROUSEL_SLIDE_HEIGHT);
-        const upload = await fetch(uploadUrlsRef.current[index], { method: "PUT", headers: { "Content-Type": "image/jpeg" }, body: await toJpeg(slide) });
-        if (!upload.ok) throw new Error(`Envoi de l’image ${index + 1} refusé (${upload.status}).`);
+        await stage(`Envoi de l’image ${index + 1}`, async () => {
+          const upload = await fetch(uploadUrlsRef.current[index], { method: "PUT", headers: { "Content-Type": "image/jpeg" }, body: await toJpeg(slide) });
+          if (!upload.ok) throw new Error(`refusé (${upload.status})`);
+        });
       }
       await reportRef.current({ status: "done" });
       setStatus({ status: "done" });

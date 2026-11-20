@@ -147,3 +147,18 @@ export const carouselAutomationResponseSchema = z.object({
   items: z.array(carouselItemViewSchema),
 });
 export type CarouselAutomationView = z.infer<typeof carouselAutomationResponseSchema>;
+
+/** Recent reel and carousel renders with their stage (`/api/admin/render-activity`). */
+export const renderActivitySchema = z.object({
+  id: z.string(),
+  kind: z.enum(["reel", "carousel"]),
+  title: z.string(),
+  status: z.enum(["active", "done", "failed"]),
+  progress: z.number().nullable(),
+  stage: z.string(),
+  createdAt: z.string(),
+  startedAt: z.string().nullable(),
+  finishedAt: z.string().nullable(),
+});
+export type RenderActivityView = z.infer<typeof renderActivitySchema>;
+export const renderActivityResponseSchema = z.object({ jobs: z.array(renderActivitySchema) });

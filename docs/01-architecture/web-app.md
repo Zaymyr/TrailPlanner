@@ -146,6 +146,10 @@ related_files:
   - apps/web/app/admin/publications/PostCard.tsx
   - apps/web/app/admin/publications/CaptionForm.tsx
   - apps/web/app/admin/publications/publications-api.ts
+  - apps/web/app/admin/publications/publication-tabs.ts
+  - apps/web/app/admin/publications/RenderActivityCard.tsx
+  - apps/web/app/api/admin/render-activity/route.ts
+  - apps/web/lib/render-activity.ts
   - apps/web/app/api/admin/social-posts/route.ts
   - apps/web/app/api/admin/social-posts/[id]/route.ts
   - apps/web/app/api/admin/instagram/route.ts
@@ -979,5 +983,7 @@ The admin header links to `/admin/publications` (« Publications »), next to th
 One-click reel (2026-11-19): the generator opens on Temps forts and « Générer le reel » (`ReelPipelinePanel`, `reel-pipeline.ts`, `useReelPipeline.ts`) runs text, voice, save and the background render on the same functions as the individual buttons, with a resumable progress list and warnings that never block. The render-jobs POST accepts `autoDraft`; when such a job reaches `done`, the token-authenticated completion route `POST /api/video-render/jobs/<id>` creates one `draft` post through `createAutoDraftForRenderJob` (service role, idempotent, a failure is logged and keeps the job `done`). Details: [Mapbox 3D](../05-integrations/mapbox-3d.md) (« One-click reel »), [Google Cloud render](../05-integrations/google-cloud-video-render.md).
 
 Automatic reels (2026-11-20): `/admin/publications` adds the « Automatisation » card (two switches off by default, caps, upcoming plan with « Exclure » / « Rétablir », planned reels in grey in the month calendar), backed by `/api/admin/reel-automation` and `/api/admin/reel-automation/items/[id]` (`authorizeVideoAdmin`), and the cron route `/api/cron/reel-automation` (`CRON_SECRET`, pg_cron hourly). To run without a browser, the AI writer, voice and race detail route cores moved to `lib/reel-writer.ts`, `lib/reel-voice.ts` and `lib/video-generator-race.ts` (the routes keep their contracts), the editor's race info builder to `app/admin/video-generator/video-race-info.ts`, the Tilequery peak lookup to `place-labels.ts`, and `reel-composition.ts` rebuilds beats, writer requests and the render snapshot from the same pure modules; « Programmer » goes through `scheduleSocialPostDraft`. See [Automatic Reel Pipeline](../05-integrations/reel-automation.md).
+
+Publications tabs (2026-11-20): the page is split into Agenda, Reels, Carrousels, Publiées and Paramètres tabs (`publication-tabs.ts`, `?onglet=`), with « Rendus en cours » read from `/api/admin/render-activity` (`authorizeVideoAdmin`, `lib/render-activity.ts`); see [Instagram Reels Publishing](../05-integrations/instagram-publishing.md).
 
 Automatic carousels (2026-11-20): the « Automatisation » card gains a « Carrousels » section (`CarouselAutomationSection.tsx`: one switch per series, weekly slots with « Exclure » / « Rétablir », « Générer maintenant » for a chosen race or week) backed by `/api/admin/carousel-automation` and `/api/admin/carousel-automation/items/[id]` (`authorizeVideoAdmin`) and the cron route `/api/cron/carousel-automation` (`CRON_SECRET`, pg_cron hourly at :47). The Cloud Run renderer opens the standalone noindex page `/render/carousel/[id]` (carousel-scoped job token in the fragment, `/api/carousel-render/jobs/[id]`), which draws the slides from a server snapshot and uploads JPEGs. Carousel drafts show their slides in order in the post card; the calendar marks carousels with ▦. See [Automatic Instagram Carousels](../05-integrations/instagram-carousels.md).

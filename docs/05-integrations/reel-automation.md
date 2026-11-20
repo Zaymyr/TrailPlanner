@@ -79,7 +79,7 @@ Turning generation off stops new work at the next tick; renders in flight finish
 
 ## Admin page
 
-`/admin/publications`, card « Automatisation » (`AutomationCard.tsx`), routes gated by `authorizeVideoAdmin`:
+`/admin/publications` (`AutomationCard.tsx`): the switches live in the **Paramètres** tab (`ReelAutomationSettings`), the upcoming automatic reels in the **Reels** tab (`ReelPlanList`, showing the live render stage of an item being rendered). Routes gated by `authorizeVideoAdmin`:
 
 - `GET /api/admin/reel-automation`: settings (with `carousels`, the three carousel series switches) and items. The carousel section of the same card has its own routes, see [Automatic Instagram Carousels](instagram-carousels.md).
 - `PATCH /api/admin/reel-automation` `{ generationEnabled?, autoPublishEnabled?, confirmAutoPublish? }`: turning publication on needs generation and `confirmAutoPublish: true` (409 otherwise), sent after the confirmation dialog « Publier sans relecture ? »; turning generation off turns publication off (also a table check). `updated_by` records the admin: automatic renders, narrations and drafts are created in their name.

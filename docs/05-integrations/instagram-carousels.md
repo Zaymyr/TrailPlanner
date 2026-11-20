@@ -120,7 +120,7 @@ Example, SaintéLyon-like course (80 km, 2 500 m D+, stations at 17, 32, 46, 60,
 1. The server builds the snapshot (`carousel-data.ts` reads the race, its stations, GPX, schedule and livret signal with the service role; the pure builders compute every figure and position) and writes the caption.
 2. `launchCarouselRender` inserts a `carousel_render_jobs` row (`queued`, snapshot in the row, a few dozen kB) and starts the existing Cloud Run job `video-render` with `RENDER_URL = https://<app>/render/carousel/<id>?w=1080&h=1350#token=…`. The token is the reel HMAC with the scope `carousel-render` (`createRenderToken(…, "carousel-render")`): a reel token never opens a carousel job and the reverse.
 3. The worker (`render-url.mjs` accepts `/render/carousel/<id>` and reports failures to `/api/carousel-render/jobs/<id>`) opens the page and waits on `window.__videoRender` as for reels.
-4. The page (`RenderCarouselClient.tsx`) fetches the snapshot and one signed PUT URL per slide (`GET /api/carousel-render/jobs/<id>`, job → `running`), waits for every font weight and image, captures the strip once with `html-to-image` (`toCanvas`, embedded fonts), slices it into 1080 × 1350 canvases and PUTs each as JPEG (quality 0.92) to `carousels/<id>/slide-<n>.jpg`.
+4. The page (`RenderCarouselClient.tsx`) fetches the snapshot and one signed PUT URL per slide (`GET /api/carousel-render/jobs/<id>`, job → `running`), waits for every font weight of the self-hosted faces only (`primaryFontFamily`: the next/font stack also names a metric fallback face sourced from `local("Arial")`, absent on the Linux renderer, whose load rejected with « A network error occurred. » and failed the first production render) and every image, checks them with `document.fonts.check`, captures the strip once with `html-to-image` (`toCanvas`, embedded fonts), slices it into 1080 × 1350 canvases and PUTs each as JPEG (quality 0.92) to `carousels/<id>/slide-<n>.jpg`. A failure names its stage (« Polices et images », « Polices embarquées », « Capture », « Envoi de l’image N »).
 5. `POST … { status: "done" }` checks every object exists, stores `image_paths` and marks the job `done`; with `auto_draft` it creates the `social_posts` draft (idempotent, partial unique index).
 
 **Why a new table** rather than a kind on `video_render_jobs`: that table requires a race, a video size and an MP4, and its rows count as reels (duplicate guard of the reel planner, « vidéos » counts of the race picker, render list of the video generator). Carousels have no race for « La semaine qui vient », several outputs and their own lifecycle; mixing them would have meant guarding every existing reader.
@@ -164,7 +164,7 @@ Three failed attempts → `failed`.
 
 ## Admin
 
-`/admin/publications`, card « Automatisation », section « ▦ Carrousels » (`CarouselAutomationSection.tsx`):
+`/admin/publications` (`CarouselAutomationSection.tsx`): series switches in the **Paramètres** tab (`CarouselSeriesSettings`), slots and « Générer un carrousel » in the **Carrousels** tab (`CarouselPlanList`, `CarouselGenerateNow`) next to « Rendus des images » (render stage, elapsed time, failure message):
 
 - one switch per series (`PATCH /api/admin/carousel-automation { plan?, brief?, week? }`, stored in `reel_automation_settings`); the two existing switches (génération, publication automatique) apply to carousels too;
 - the slots with status and reason, « Exclure » / « Rétablir » (`PATCH /api/admin/carousel-automation/items/<id>`), « Recalculer » (`POST { action: "refresh" }`);
