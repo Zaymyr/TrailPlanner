@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { z } from "zod";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Label } from "../../../components/ui/label";
@@ -13,8 +14,16 @@ import { InstagramStatusCard } from "./InstagramStatusCard";
 import { PostCard } from "./PostCard";
 import { PublicationCalendar } from "./PublicationCalendar";
 import { AutomationCard } from "./AutomationCard";
-import { toPlannedCalendarEntries } from "./automation-labels";
-import { adminFetch, instagramStatusSchema, postResponseSchema, postsResponseSchema, reelAutomationResponseSchema } from "./publications-api";
+import { toPlannedCalendarEntries, toPlannedCarouselEntries } from "./automation-labels";
+import { CarouselAutomationSection } from "./CarouselAutomationSection";
+import {
+  adminFetch,
+  carouselAutomationResponseSchema,
+  instagramStatusSchema,
+  postResponseSchema,
+  postsResponseSchema,
+  reelAutomationResponseSchema,
+} from "./publications-api";
 
 /** While a post is publishing, the list refreshes on this rhythm. */
 const LIST_POLL_MS = 30_000;
@@ -106,10 +115,31 @@ function PublicationsContent() {
     },
     onError: (error) => setAutomationMessage(error instanceof Error ? error.message : "L’automatisation n’a pas pu être modifiée."),
   });
-  const plannedEntries = useMemo(
-    () => (automationQuery.data ? toPlannedCalendarEntries(automationQuery.data.items, automationQuery.data.settings.publishTime) : []),
-    [automationQuery.data],
-  );
+  const carouselQuery = useQuery({
+    queryKey: ["admin", "carousel-automation", accessToken],
+    enabled: Boolean(accessToken && isAdmin),
+    queryFn: () => adminFetch(accessToken as string, "/api/admin/carousel-automation", carouselAutomationResponseSchema, {}, "Les carrousels n’ont pas pu être lus."),
+  });
+  const refetchCarousels = carouselQuery.refetch;
+  const [carouselMessage, setCarouselMessage] = useState<string | null>(null);
+  const carouselMutation = useMutation({
+    mutationFn: (request: { url: string; method: string; body: unknown }) =>
+      adminFetch(accessToken as string, request.url, z.object({ message: z.string().optional() }).passthrough(), { method: request.method, body: request.body }, "Les carrousels n’ont pas pu être modifiés."),
+    onSuccess: (result) => {
+      setCarouselMessage(typeof result.message === "string" ? result.message : null);
+      refetchCarousels();
+      // Turning a series on or off moves the reels off (or back onto) its weekday.
+      refetchAutomation();
+    },
+    onError: (error) => setCarouselMessage(error instanceof Error ? error.message : "Les carrousels n’ont pas pu être modifiés."),
+  });
+  const plannedEntries = useMemo(() => {
+    const publishTime = automationQuery.data?.settings.publishTime ?? "18:00";
+    return [
+      ...(automationQuery.data ? toPlannedCalendarEntries(automationQuery.data.items, publishTime) : []),
+      ...(carouselQuery.data ? toPlannedCarouselEntries(carouselQuery.data.items, publishTime) : []),
+    ];
+  }, [automationQuery.data, carouselQuery.data]);
 
   if (sessionLoading) {
     return <div className={shellClass}><p className="text-sm text-muted-foreground">Vérification de la session…</p></div>;
@@ -128,7 +158,7 @@ function PublicationsContent() {
         <div>
           <h1 className="text-2xl font-semibold text-foreground dark:text-slate-50">Publications</h1>
           <p className="text-sm text-muted-foreground dark:text-slate-300">
-            Reels Instagram à partir des rendus 3D terminés. Chaque publication part sur une action explicite.
+            Reels Instagram à partir des rendus 3D terminés, et carrousels automatiques. Chaque publication part sur une action explicite (ou la publication automatique).
           </p>
         </div>
         <AdminWorkspaceNav current="publish" />
@@ -215,7 +245,19 @@ function PublicationsContent() {
         onSettings={(patch) => automationMutation.mutate({ url: "/api/admin/reel-automation", method: "PATCH", body: patch })}
         onItemAction={(itemId, action) => automationMutation.mutate({ url: `/api/admin/reel-automation/items/${itemId}`, method: "PATCH", body: { action } })}
         onRefresh={() => automationMutation.mutate({ url: "/api/admin/reel-automation", method: "POST", body: { action: "refresh" } })}
-      />
+      >
+        <CarouselAutomationSection
+          data={carouselQuery.data}
+          publishTime={automationQuery.data?.settings.publishTime ?? "18:00"}
+          busy={carouselMutation.isPending}
+          message={carouselMessage ?? (carouselQuery.error instanceof Error ? carouselQuery.error.message : null)}
+          highlightedItemId={highlightedItemId}
+          onSeries={(patch) => carouselMutation.mutate({ url: "/api/admin/carousel-automation", method: "PATCH", body: patch })}
+          onItemAction={(itemId, action) => carouselMutation.mutate({ url: `/api/admin/carousel-automation/items/${itemId}`, method: "PATCH", body: { action } })}
+          onRefresh={() => carouselMutation.mutate({ url: "/api/admin/carousel-automation", method: "POST", body: { action: "refresh" } })}
+          onGenerate={(request) => carouselMutation.mutate({ url: "/api/admin/carousel-automation", method: "POST", body: { action: "generate", ...request } })}
+        />
+      </AutomationCard>
 
       <section className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">

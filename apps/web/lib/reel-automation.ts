@@ -14,6 +14,7 @@ import {
   type PlannerPriorReel,
   type ReelPlan,
 } from "./reel-planner";
+import { carouselWeekdays } from "./carousels/carousel-planner";
 import { PARIS_TIME_ZONE } from "./social-posts";
 import type { SupabaseServiceConfig } from "./supabase";
 
@@ -43,6 +44,10 @@ export const reelAutomationSettingsSchema = z.object({
   publish_time: z.string(),
   updated_by: z.string().uuid().nullable(),
   updated_at: z.string(),
+  // One switch per carousel series (docs/05-integrations/instagram-carousels.md), off by default.
+  plan_carousel_enabled: z.boolean().optional().default(false),
+  brief_carousel_enabled: z.boolean().optional().default(false),
+  week_carousel_enabled: z.boolean().optional().default(false),
 });
 export type ReelAutomationSettings = z.infer<typeof reelAutomationSettingsSchema>;
 
@@ -55,7 +60,17 @@ export const DEFAULT_REEL_AUTOMATION_SETTINGS: ReelAutomationSettings = {
   publish_time: `${DEFAULT_REEL_PUBLISH_TIME}:00`,
   updated_by: null,
   updated_at: new Date(0).toISOString(),
+  plan_carousel_enabled: false,
+  brief_carousel_enabled: false,
+  week_carousel_enabled: false,
 };
+
+/** Carousel series whose switch is on. */
+export const enabledCarouselSeries = (settings: Pick<ReelAutomationSettings, "plan_carousel_enabled" | "brief_carousel_enabled" | "week_carousel_enabled">) => [
+  ...(settings.plan_carousel_enabled ? ["plan" as const] : []),
+  ...(settings.brief_carousel_enabled ? ["brief" as const] : []),
+  ...(settings.week_carousel_enabled ? ["week" as const] : []),
+];
 
 export const reelAutomationItemSchema = z.object({
   id: z.string().uuid(),
@@ -79,7 +94,7 @@ export const reelAutomationItemSchema = z.object({
 export type ReelAutomationItem = z.infer<typeof reelAutomationItemSchema>;
 
 const ITEM_COLUMNS = "id,race_id,edition_key,mode,planned_publish_date,status,step,attempts,error,reason,work,render_job_id,social_post_id,locked_until,created_at,updated_at,races(name)";
-const SETTINGS_COLUMNS = "generation_enabled,auto_publish_enabled,max_per_week,max_per_day,lead_days,publish_time,updated_by,updated_at";
+const SETTINGS_COLUMNS = "generation_enabled,auto_publish_enabled,max_per_week,max_per_day,lead_days,publish_time,updated_by,updated_at,plan_carousel_enabled,brief_carousel_enabled,week_carousel_enabled";
 
 /** "18:00:00" → "18:00". */
 export const formatPublishTime = (value: string) => value.slice(0, 5);
@@ -101,6 +116,11 @@ export const toPublicAutomation = (settings: ReelAutomationSettings, items: Reel
     leadDays: settings.lead_days,
     publishTime: formatPublishTime(settings.publish_time),
     updatedAt: settings.updated_at,
+    carousels: {
+      plan: settings.plan_carousel_enabled,
+      brief: settings.brief_carousel_enabled,
+      week: settings.week_carousel_enabled,
+    },
   },
   items: items.map((item) => ({
     id: item.id,
@@ -224,7 +244,13 @@ const catalogRaceSchema = z.object({
 const reelRowSchema = z.object({ race_id: z.string().uuid().nullable(), created_at: z.string() });
 const scheduledPostSchema = z.object({ id: z.string().uuid(), scheduled_at: z.string().nullable() });
 
-export type PlannerCatalog = { formats: PlannerFormat[]; priorReels: PlannerPriorReel[]; scheduledPosts: Array<{ id: string; scheduledAt: string }> };
+export type PlannerCatalog = {
+  formats: PlannerFormat[];
+  priorReels: PlannerPriorReel[];
+  scheduledPosts: Array<{ id: string; scheduledAt: string }>;
+  /** Days of the automatic carousels still waiting for their slot (they take the day). */
+  carouselDates?: string[];
+};
 
 /** Paris calendar day of an instant. */
 export const toParisDay = (iso: string) =>
@@ -251,10 +277,13 @@ export const loadPlannerCatalog = async (supabase: SupabaseServiceConfig, fetche
     ? await Promise.all([
       get(`race_aid_stations?${inIds}&select=race_id&limit=20000`),
       get(`video_render_jobs?${inIds}&status=neq.failed&select=race_id,created_at&limit=5000`),
-      get(`social_posts?${inIds}&status=neq.failed&select=race_id,created_at&limit=5000`),
+      // A carousel of the race is not a reel: it never blocks its reel.
+      get(`social_posts?${inIds}&status=neq.failed&media_type=eq.reel&select=race_id,created_at&limit=5000`),
       get("social_posts?status=in.(scheduled,publishing)&scheduled_at=not.is.null&select=id,scheduled_at&limit=1000"),
     ])
     : [[], [], [], await get("social_posts?status=in.(scheduled,publishing)&scheduled_at=not.is.null&select=id,scheduled_at&limit=1000")];
+  const carouselSlots = z.array(z.object({ planned_publish_date: z.string() }))
+    .parse(await get("carousel_automation_items?status=in.(planned,generating,rendering,drafted)&select=planned_publish_date&limit=1000"));
   const stationCounts = new Map<string, number>();
   z.array(z.object({ race_id: z.string() })).parse(stations).forEach((row) => stationCounts.set(row.race_id, (stationCounts.get(row.race_id) ?? 0) + 1));
   const priorReels = [...z.array(reelRowSchema).parse(jobs), ...z.array(reelRowSchema).parse(posts)]
@@ -276,6 +305,7 @@ export const loadPlannerCatalog = async (supabase: SupabaseServiceConfig, fetche
     })),
     priorReels,
     scheduledPosts: z.array(scheduledPostSchema).parse(scheduled).flatMap((row) => (row.scheduled_at ? [{ id: row.id, scheduledAt: row.scheduled_at }] : [])),
+    carouselDates: carouselSlots.map((row) => row.planned_publish_date.slice(0, 10)),
   };
 };
 
@@ -288,7 +318,7 @@ export const loadRaceReels = async (
 ): Promise<PlannerPriorReel[]> => {
   const read = async (table: string, ownId: string | null) => {
     const response = await fetcher(
-      `${supabase.supabaseUrl}/rest/v1/${table}?race_id=eq.${raceId}&status=neq.failed${ownId ? `&id=neq.${ownId}` : ""}&select=race_id,created_at&limit=100`,
+      `${supabase.supabaseUrl}/rest/v1/${table}?race_id=eq.${raceId}&status=neq.failed${table === "social_posts" ? "&media_type=eq.reel" : ""}${ownId ? `&id=neq.${ownId}` : ""}&select=race_id,created_at&limit=100`,
       { headers: headers(supabase), cache: "no-store" },
     );
     if (!response.ok) throw new Error(`Unable to read the reels of a race (${response.status}).`);
@@ -346,19 +376,23 @@ export const diffPlan = (items: ReelAutomationItem[], plan: ReelPlan): PlanChang
   return changes;
 };
 
-/** Planner caps and lead time from the settings. */
+/** Planner caps and lead time from the settings; reels avoid the weekdays of the enabled carousel series. */
 export const plannerOptionsFrom = (settings: ReelAutomationSettings, today: string, occupiedDates: string[]) => ({
   today,
   leadDays: settings.lead_days,
   maxPerWeek: settings.max_per_week,
   maxPerDay: settings.max_per_day,
   occupiedDates,
+  blockedWeekdays: carouselWeekdays(enabledCarouselSeries(settings)),
 });
 
 /** The plan for today: catalog, prior reels, locked items and the days other scheduled posts take. */
 export const computePlan = (catalog: PlannerCatalog, items: ReelAutomationItem[], settings: ReelAutomationSettings, today: string) => {
   const automationPosts = new Set(items.flatMap((item) => (item.social_post_id ? [item.social_post_id] : [])));
-  const occupiedDates = catalog.scheduledPosts.filter((post) => !automationPosts.has(post.id)).map((post) => toParisDay(post.scheduledAt));
+  const occupiedDates = [
+    ...catalog.scheduledPosts.filter((post) => !automationPosts.has(post.id)).map((post) => toParisDay(post.scheduledAt)),
+    ...(catalog.carouselDates ?? []),
+  ];
   return planReels(catalog.formats, catalog.priorReels, toLockedItems(items), plannerOptionsFrom(settings, today, occupiedDates));
 };
 

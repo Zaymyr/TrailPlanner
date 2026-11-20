@@ -51,6 +51,8 @@ export const postResponseSchema = z.object({ post: publicSocialPostSchema });
 export const postDetailSchema = z.object({
   post: publicSocialPostSchema,
   previewUrl: z.string().nullable(),
+  /** Carousel: one signed URL per slide, in order. */
+  previewImages: z.array(z.string()).default([]),
   previewMessage: z.string().nullable(),
 });
 
@@ -110,7 +112,38 @@ export const reelAutomationResponseSchema = z.object({
     leadDays: z.number(),
     publishTime: z.string(),
     updatedAt: z.string(),
+    carousels: z.object({ plan: z.boolean(), brief: z.boolean(), week: z.boolean() }).optional(),
   }),
   items: z.array(reelAutomationItemSchema),
 });
 export type ReelAutomationView = z.infer<typeof reelAutomationResponseSchema>;
+
+/** Automatic carousels (`/api/admin/carousel-automation`). */
+export const CAROUSEL_SERIES_KEYS = ["plan", "brief", "week"] as const;
+export type CarouselSeriesKey = (typeof CAROUSEL_SERIES_KEYS)[number];
+
+export const carouselItemViewSchema = z.object({
+  id: z.string(),
+  series: z.enum(CAROUSEL_SERIES_KEYS),
+  plannedPublishDate: z.string(),
+  generateOn: z.string(),
+  raceId: z.string().nullable(),
+  raceName: z.string().nullable(),
+  weekStart: z.string().nullable(),
+  status: z.enum(["planned", "generating", "rendering", "drafted", "scheduled", "skipped", "failed"]),
+  step: z.enum(["content", "render"]).nullable(),
+  attempts: z.number(),
+  error: z.string().nullable(),
+  reason: z.enum(["too_late", "no_candidate", "occupied", "duplicate", "excluded", "ineligible"]).nullable(),
+  carouselJobId: z.string().nullable(),
+  socialPostId: z.string().nullable(),
+});
+export type CarouselItemView = z.infer<typeof carouselItemViewSchema>;
+
+export const carouselAutomationResponseSchema = z.object({
+  races: z.array(z.object({ id: z.string(), label: z.string(), date: z.string() })).default([]),
+  weeks: z.array(z.string()).default([]),
+  series: z.object({ plan: z.boolean(), brief: z.boolean(), week: z.boolean() }),
+  items: z.array(carouselItemViewSchema),
+});
+export type CarouselAutomationView = z.infer<typeof carouselAutomationResponseSchema>;

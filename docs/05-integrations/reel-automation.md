@@ -26,6 +26,7 @@ related_files:
   - supabase/migrations/20261120140000_add_reel_automation.sql
   - supabase/migrations/20261120140100_schedule_reel_automation_cron.sql
   - supabase/tests/reel_automation_checks.sql
+  - apps/web/app/admin/publications/CarouselAutomationSection.tsx
 related_tables:
   - reel_automation_settings
   - reel_automation_items
@@ -54,9 +55,9 @@ Plans from the catalog which races get an Instagram reel and on which day, and, 
 1. **Eligible format** (`isEligibleFormat`): `races.is_live`; name not matching `relais|relay|duo|team` (case-insensitive); `gpx_storage_path` set; at least one `race_aid_stations` row; `distance_km >= 30`; format date in the future. Format date = `races.race_date`, else `race_event_editions.start_date`, else `race_events.race_date`.
 2. **Mode**: 30-60 km → `full` (« Parcours complet »); over 60 km → `highlights` (« Temps forts »).
 3. **Edition** (`getEditionKey`): `edition:<edition_id>`, else `event:<event_id>:<year>`, else `race:<race_id>:<date>`. Event start = earliest date of its eligible formats. Formats publish shortest to longest; the longest at event start − 7 days at the latest, each shorter one at least 7 days before the actual day of the next longer one.
-4. **Capacity**: at most `max_per_week` (3) reels per Monday-Sunday week and `max_per_day` (1) per day, Paris days. Editions are assigned in event-start order (earliest first, they have the fewest days left; ties by edition key), each from its longest format down, on the latest free day at or before its target. Days of locked items (generating, rendering, drafted, scheduled) and of posts scheduled by hand (not linked to an item) count in the caps.
+4. **Capacity**: at most `max_per_week` (3) reels per Monday-Sunday week and `max_per_day` (1) per day, Paris days. Editions are assigned in event-start order (earliest first, they have the fewest days left; ties by edition key), each from its longest format down, on the latest free day at or before its target. Days of locked items (generating, rendering, drafted, scheduled) and of posts scheduled by hand (not linked to an item) count in the caps. **Carousels** ([Automatic Instagram Carousels](instagram-carousels.md)): no reel is planned on the weekday of an enabled carousel series (Tuesday plan, Thursday brief, Sunday week: `blockedWeekdays` from `plannerOptionsFrom`), nor on the day of a carousel slot still waiting (`carouselDates`), so there is at most one post a day across reels and carousels; scheduled carousel posts already count as posts scheduled outside the reel items.
 5. **Too late**: no valid day on or after today + `lead_days` (3) → skipped `too_late`, shown « Trop tard — à faire à la main ». No compression. The shorter siblings of a too-late format are too late as well.
-6. **Duplicate guard**: a race with a non-failed `video_render_jobs` or `social_posts` row created on or after its format date − 180 days is skipped `duplicate`. Window choice: editions are yearly and reels are made in the weeks before a race, so last year's reel of a reused race row is always older than 180 days, while early announcements are still caught. The executor checks again (window from the planned day − 180 days, the item's own render and post excluded) before the text step and before the render step. A failed automatic launch marks its render job failed so it never blocks a retry.
+6. **Duplicate guard**: a race with a non-failed `video_render_jobs` or reel `social_posts` row (`media_type=eq.reel`: a carousel of the race never blocks its reel) created on or after its format date − 180 days is skipped `duplicate`. Window choice: editions are yearly and reels are made in the weeks before a race, so last year's reel of a reused race row is always older than 180 days, while early announcements are still caught. The executor checks again (window from the planned day − 180 days, the item's own render and post excluded) before the text step and before the render step. A failed automatic launch marks its render job failed so it never blocks a retry.
 7. **Never twice**: `unique (race_id, edition_key)` on the items; the insert ignores duplicates.
 
 Recomputed at every tick: `planned` items and automatic skips (`too_late`, `duplicate`) are updated or deleted (format gone from the catalog). Locked: everything else, including `skipped`/`excluded` (« Exclure ») and `failed`; an excluded or failed format leaves the edition chain without taking a day.
@@ -80,7 +81,7 @@ Turning generation off stops new work at the next tick; renders in flight finish
 
 `/admin/publications`, card « Automatisation » (`AutomationCard.tsx`), routes gated by `authorizeVideoAdmin`:
 
-- `GET /api/admin/reel-automation`: settings and items.
+- `GET /api/admin/reel-automation`: settings (with `carousels`, the three carousel series switches) and items. The carousel section of the same card has its own routes, see [Automatic Instagram Carousels](instagram-carousels.md).
 - `PATCH /api/admin/reel-automation` `{ generationEnabled?, autoPublishEnabled?, confirmAutoPublish? }`: turning publication on needs generation and `confirmAutoPublish: true` (409 otherwise), sent after the confirmation dialog « Publier sans relecture ? »; turning generation off turns publication off (also a table check). `updated_by` records the admin: automatic renders, narrations and drafts are created in their name.
 - `POST /api/admin/reel-automation` `{ action: "refresh" }`: recompute the plan now; never generates.
 - `PATCH /api/admin/reel-automation/items/<id>` `{ action: "exclude" | "include" }`: « Exclure » (planned, failed, automatic skip, or paused between steps; 409 during a step) and « Rétablir » (excluded → planned, the next plan decides).
