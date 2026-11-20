@@ -4,6 +4,7 @@ scope: architecture
 last_verified: 2026-11-20
 # Reel caption voice (2026-11-20): the reel caption is written for reading (lively tone, a hook line, a question, 2-8 emojis) and may not copy 7 words of the voice-over (reel-content.ts checks).
 # Reel voice pool (2026-11-20): the admin keeps a shared pool of ElevenLabs voices (video_voices, service role only, /api/admin/video-generator/voices); each new reel draws an active voice at random (pickPoolVoice), the choice is saved with the narration and shown as « Voix : <nom> ».
+# Admin publications workflow (2026-11-20): generate/publish switch on both pages, month calendar and filters in Publications, « déjà publiée » marks on videos and in the generator race picker, published posts removable from the admin list.
 # Instagram 5 hashtags (2026-11-19): captions, reel content and the full-mode caption writer keep 5 hashtags at most (3-5 asked), Instagram's limit since late 2025.
 # One-click reel (2026-11-19): « Générer le reel » chains the AI text, voice, narration save and background render in Temps forts mode (now the editor's initial mode; the schema default stays full), and the render completion route creates the Instagram draft (video_render_jobs.auto_draft, social_posts.auto_generated, service role) shown with a « Généré automatiquement » badge in Publications.
 # Reel subtitles lower (2026-11-19): the burned-in subtitle box moves from 64 % to 74 % of the frame height (still above y = 1500 px).

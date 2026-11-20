@@ -1,7 +1,8 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-11-19
+last_verified: 2026-11-20
+# Video generator header (2026-11-20): the admin video generator page header now uses the shared generate/publish switch; GPX rules unchanged.
 # Assisted legacy conversion (2026-11-15): review controls do not alter GPX parsing, waypoint hydration or persistence.
 # Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
 # Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.

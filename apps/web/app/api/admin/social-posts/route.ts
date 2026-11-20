@@ -6,6 +6,7 @@ import {
   getLatestPublishTime,
   getVideoAvailableUntil,
   listVideoJobsForPublishing,
+  readPublicationMarks,
   toPublicSocialPost,
   VIDEO_LIFETIME_MARGIN_HOURS,
   VIDEO_STORAGE_LIFETIME_DAYS,
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
   const { supabase } = gate.value;
 
   try {
-    const posts = await createSocialPostRepository(supabase).list(50);
+    const [posts, marks] = await Promise.all([createSocialPostRepository(supabase).list(200), readPublicationMarks(supabase)]);
     const jobIds = Array.from(new Set(posts.map((post) => post.video_job_id).filter((id): id is string => Boolean(id))));
     const [postJobs, recentJobs] = await Promise.all([
       listVideoJobsForPublishing(supabase, { ids: jobIds }),
@@ -52,6 +53,9 @@ export async function GET(request: Request) {
           defaultHashtags: prefill.hashtags,
           defaultCoverText: prefill.coverText,
           hasContent: parseReelContent(job.content) !== null,
+          // Already published, scheduled or drafted: the page warns before a second post of the same reel.
+          publication: marks.byVideo[job.id] ?? null,
+          racePublication: marks.byRace[job.race_id] ?? null,
         };
       }),
     });

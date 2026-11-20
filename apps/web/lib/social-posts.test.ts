@@ -6,6 +6,7 @@ import {
   checkCaption,
   createSocialPostRepository,
   createSocialPostSchema,
+  describePublicationMark,
   getLatestPublishTime,
   normalizeHashtags,
   parisLocalToUtc,
@@ -14,6 +15,7 @@ import {
   planRetry,
   socialPostActionSchema,
   socialPostRowSchema,
+  summarizePublications,
   toPublicSocialPost,
   utcToParisLocal,
   validateSchedule,
@@ -173,5 +175,33 @@ describe("starting over after a publish request", () => {
     expect(planRetry({ ...failed, dry_run: true }, false)).toEqual({ kind: "proceed", dropContainer: true });
     expect(planEdit({ ...failed, publish_requested_at: null })).toEqual({ kind: "proceed", dropContainer: true });
     expect(planEdit({ ...failed, status: "draft", ig_container_id: null })).toEqual({ kind: "proceed", dropContainer: false });
+  });
+});
+
+describe("publication marks", () => {
+  const row = (status: string, dryRun: boolean, at: string) => ({
+    status: status as "draft" | "scheduled" | "publishing" | "published" | "failed",
+    dry_run: dryRun,
+    published_at: status === "published" ? at : null,
+    scheduled_at: status === "scheduled" || status === "publishing" ? at : null,
+    created_at: at,
+  });
+
+  it("keeps the strongest mark: live publication, then simulation, then scheduled, then draft; failures never count", () => {
+    expect(summarizePublications([])).toBeNull();
+    expect(summarizePublications([row("failed", false, "2026-11-01T10:00:00Z")])).toBeNull();
+    expect(summarizePublications([row("draft", true, "2026-11-01T10:00:00Z"), row("scheduled", false, "2026-11-25T17:00:00Z")]))
+      .toEqual({ state: "scheduled", at: "2026-11-25T17:00:00Z", dryRun: false });
+    expect(summarizePublications([row("published", true, "2026-11-20T10:00:00Z"), row("published", false, "2026-11-10T10:00:00Z")]))
+      .toEqual({ state: "published", at: "2026-11-10T10:00:00Z", dryRun: false });
+    expect(summarizePublications([row("published", true, "2026-11-10T10:00:00Z"), row("published", true, "2026-11-18T10:00:00Z")]))
+      .toEqual({ state: "published", at: "2026-11-18T10:00:00Z", dryRun: true });
+  });
+
+  it("describes a mark in French", () => {
+    expect(describePublicationMark({ state: "published", at: "2026-11-12T10:00:00Z", dryRun: false })).toBe("publiée le 12 nov. 2026");
+    expect(describePublicationMark({ state: "published", at: "2026-11-12T10:00:00Z", dryRun: true })).toBe("publiée en simulation le 12 nov. 2026");
+    expect(describePublicationMark({ state: "scheduled", at: "2026-11-25T17:00:00Z", dryRun: false })).toBe("programmée le 25 nov. 2026");
+    expect(describePublicationMark({ state: "draft", at: null, dryRun: true })).toBe("brouillon en cours");
   });
 });

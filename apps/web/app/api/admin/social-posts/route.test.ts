@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildDefaultCaption, DEFAULT_HASHTAGS } from "../../../../lib/social-posts";
 import { GET, POST } from "./route";
 
-const mocks = vi.hoisted(() => ({ gate: vi.fn(), getRenderJob: vi.fn(), insert: vi.fn(), list: vi.fn(), listJobs: vi.fn() }));
+const mocks = vi.hoisted(() => ({ gate: vi.fn(), getRenderJob: vi.fn(), insert: vi.fn(), list: vi.fn(), listJobs: vi.fn(), marks: vi.fn() }));
 
 vi.mock("../../../../lib/video-render-api", async () => {
   const actual = await vi.importActual<typeof import("../../../../lib/video-render-api")>("../../../../lib/video-render-api");
@@ -19,6 +19,7 @@ vi.mock("../../../../lib/social-posts", async () => {
     ...actual,
     createSocialPostRepository: () => ({ insert: mocks.insert, list: mocks.list }),
     listVideoJobsForPublishing: mocks.listJobs,
+    readPublicationMarks: mocks.marks,
   };
 });
 
@@ -46,6 +47,7 @@ describe("Publications drafts from a render job", () => {
     Object.values(mocks).forEach((mock) => mock.mockReset());
     mocks.gate.mockResolvedValue({ ok: true, value: { userId: "admin", supabase: { supabaseUrl: "https://db", supabaseServiceRoleKey: "s" } } });
     mocks.list.mockResolvedValue([]);
+    mocks.marks.mockResolvedValue({ byVideo: {}, byRace: {} });
     mocks.insert.mockImplementation(async (row: Record<string, unknown>) => ({
       id: "77777777-7777-4777-8777-777777777777", platform: "instagram", status: "draft", scheduled_at: null, published_at: null,
       ig_container_id: null, ig_container_created_at: null, publish_requested_at: null, ig_media_id: null, ig_permalink: null,
@@ -97,5 +99,28 @@ describe("Publications drafts from a render job", () => {
     mocks.getRenderJob.mockResolvedValue(job({ content: null }));
     expect((await POST(post({ videoJobId: jobId, caption: "Texte.", hashtags: ["trail"] }))).status).toBe(201);
     expect(mocks.insert.mock.calls[0][0]).not.toHaveProperty("content");
+  });
+});
+
+describe("Publications marks on the videos", () => {
+  beforeEach(() => {
+    Object.values(mocks).forEach((mock) => mock.mockReset());
+    mocks.gate.mockResolvedValue({ ok: true, value: { userId: "admin", supabase: { supabaseUrl: "https://db", supabaseServiceRoleKey: "s" } } });
+    mocks.list.mockResolvedValue([]);
+  });
+
+  it("says which video and which race were already published", async () => {
+    const mark = { state: "published", at: finishedAt, dryRun: false };
+    mocks.listJobs.mockResolvedValue(new Map([[jobId, job()]]));
+    mocks.marks.mockResolvedValue({ byVideo: { [jobId]: mark }, byRace: { [job().race_id]: mark } });
+    const { videos } = await (await GET(new Request("http://localhost/api/admin/social-posts"))).json();
+    expect(videos[0]).toMatchObject({ publication: mark, racePublication: mark });
+  });
+
+  it("leaves the marks empty for a video never posted", async () => {
+    mocks.listJobs.mockResolvedValue(new Map([[jobId, job()]]));
+    mocks.marks.mockResolvedValue({ byVideo: {}, byRace: {} });
+    const { videos } = await (await GET(new Request("http://localhost/api/admin/social-posts"))).json();
+    expect(videos[0]).toMatchObject({ publication: null, racePublication: null });
   });
 });

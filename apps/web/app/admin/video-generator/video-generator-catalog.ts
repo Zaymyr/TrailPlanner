@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { describePublicationMark, publicationMarkSchema } from "../../../lib/social-posts";
+
 const eventSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
@@ -38,9 +40,14 @@ export const getRacesForEvent = (catalog: VideoGeneratorCatalog, eventId: string
     eventId === STANDALONE_EVENT_ID ? !race.event_id : race.event_id === eventId
   );
 
-/** Per race: finished background videos and saved narration (see /api/admin/video-generator/race-stats). */
+/** Per race: finished background videos, saved narration and Instagram publication (see /api/admin/video-generator/race-stats). */
 export const videoRaceStatsSchema = z.object({
-  races: z.record(z.string(), z.object({ videos: z.number(), narration: z.boolean(), voice: z.boolean() })),
+  races: z.record(z.string(), z.object({
+    videos: z.number(),
+    narration: z.boolean(),
+    voice: z.boolean(),
+    publication: publicationMarkSchema.nullable().default(null),
+  })),
 });
 export type VideoRaceStats = z.infer<typeof videoRaceStatsSchema>["races"];
 
@@ -61,7 +68,7 @@ export const countEventVideos = (catalog: VideoGeneratorCatalog, eventId: string
 
 export const formatVideoCount = (count: number) => (count === 0 ? "aucune vidéo" : count === 1 ? "1 vidéo" : `${count} vidéos`);
 
-/** "SaintéLyon 82 km · GPX · 2 vidéos · récit enregistré", or "· sans GPX". */
+/** "SaintéLyon 82 km · GPX · 2 vidéos · récit enregistré · publiée le 12 nov. 2026", or "· sans GPX". */
 export const formatRaceChoiceLabel = (race: VideoGeneratorCatalogRace, stats: VideoRaceStats) => {
   const entry = stats[race.id];
   const parts = [
@@ -69,6 +76,7 @@ export const formatRaceChoiceLabel = (race: VideoGeneratorCatalogRace, stats: Vi
     race.gpx_storage_path ? "GPX" : "sans GPX",
     entry?.videos ? formatVideoCount(entry.videos) : null,
     entry?.narration ? (entry.voice ? "récit + voix enregistrés" : "récit enregistré") : null,
+    entry?.publication ? describePublicationMark(entry.publication) : null,
   ].filter((part): part is string => Boolean(part));
   return parts.join(" · ");
 };

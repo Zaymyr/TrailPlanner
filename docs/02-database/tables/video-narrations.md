@@ -2,6 +2,7 @@
 title: video_narrations Table
 scope: database
 last_verified: 2026-11-20
+# Race stats publication mark (2026-11-20): race-stats adds each race's Instagram publication mark for the picker; video_narrations itself is unchanged.
 ai_priority: low
 related_files:
   - supabase/migrations/20261105160000_add_video_narrations.sql
@@ -51,7 +52,7 @@ RLS is on with no policy; `anon` and `authenticated` have no privilege. Only the
 - A clip is used only while its text equals the beat narration, so a stale clip after an edit is ignored, never played over the wrong text.
 - The race picker shows, per format, whether a narration (and its voice) is saved, from `race-stats`, next to the number of finished background videos from `video_render_jobs`.
 - Each mode saves only its own texts: highlight beats use `hl-…` ids (`hl-intro`, `hl-outro` included), full beats never do. The editor loads a mode's narration once per race, when the race opens or when the mode is first chosen, and merges its texts and clips with the other mode's ([ADR](../../08-decisions/2026-11-19-reel-highlights-and-figures.md)).
-- `race-stats` reports a race as narrated (and voiced) when any of its modes is.
+- `race-stats` reports a race as narrated (and voiced) when any of its modes is. It also returns the race's Instagram publication mark (`publication`, from `social_posts` through `readPublicationMarks`; null when none or when that read fails).
 
 ## Gotchas
 
