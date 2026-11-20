@@ -18,7 +18,9 @@ import {
   type ReelContentWarning,
 } from "../../../lib/reel-content";
 import { savedNarrationResponseSchema } from "../../../lib/video-narrations";
+import { getReelMode } from "../../../lib/reel-planner";
 import { instagramCaptionResponseSchema, NARRATION_STYLE_LABELS, narrationScriptResponseSchema, narrationVoiceResponseSchema } from "../../../lib/video-narration";
+import { assembleFullReelContent } from "./reel-composition";
 import { InstagramPanel } from "./InstagramPanel";
 import { ExportPanel, type ExportState } from "./ExportPanel";
 import { getExportFrame, overrideDevicePixelRatio } from "./export-frame";
@@ -1666,24 +1668,48 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   // on the same functions as the individual buttons. Each step hands its result to the next one
   // explicitly, so the chain never depends on React having re-rendered in between.
   const [renderRefresh, setRenderRefresh] = useState(0);
-  const highlightsNarrationLoaded = loadedNarrationsRef.current.has(`${race.id}:highlights`) || savedNarration.status === "error";
+  // The button generates the editor's story mode (chosen in the panel); its saved narration is loaded first.
+  const pipelineNarrationLoaded = loadedNarrationsRef.current.has(`${race.id}:${settings.storyMode}`) || savedNarration.status === "error";
   const pipelineReadyRef = useRef(false);
-  pipelineReadyRef.current = isHighlights && highlightsNarrationLoaded;
+  pipelineReadyRef.current = pipelineNarrationLoaded;
   const beatsWithTexts = (overrides?: Record<string, string>) => {
     const texts = { ...narrationOverrides, ...overrides };
     return defaultBeats.map((beat) => texts[beat.id] !== undefined ? { ...beat, narration: texts[beat.id] } : beat);
   };
   const reelRunners: ReelPipelineRunners<ReelRunContext> = {
-    // Temps forts mode, with its saved narration loaded first (it would overwrite a fresh draft).
+    // The saved narration of the chosen mode is loaded first (it would overwrite a fresh draft).
     prepare: async () => {
-      if (!isHighlights) updateSettings(withStoryMode(settings, "highlights"));
-      await waitUntil(() => pipelineReadyRef.current, { message: "Le récit « Temps forts » n’a pas pu être préparé." });
+      await waitUntil(() => pipelineReadyRef.current, { message: `Le récit « ${isHighlights ? "Temps forts" : "Parcours complet"} » n’a pas pu être préparé.` });
     },
     text: async () => {
       setScriptState({ status: "loading", message: "Claude rédige la narration…" });
       try {
-        const data = await applyHighlightsContent(await requestScript());
-        return { overrides: buildNarrationOverrides(data.content), content: data.content, warnings: data.warnings.map((warning) => warning.message) };
+        if (isHighlights) {
+          const data = await applyHighlightsContent(await requestScript());
+          return { overrides: buildNarrationOverrides(data.content), content: data.content, warnings: data.warnings.map((warning) => warning.message) };
+        }
+        // Parcours complet: the narration leg by leg, then the caption written from it; the reel text
+        // stored with the render (hook, call to action, caption, hashtags) is assembled like the
+        // automatic full reels do (assembleFullReelContent).
+        const parsed = narrationScriptResponseSchema.safeParse(await (await requestScript()).json());
+        if (!parsed.success) throw new Error("Le script reçu est invalide.");
+        const overrides = Object.fromEntries(parsed.data.beats.map((beat) => [beat.id, beat.narration]));
+        setNarrationOverrides((current) => ({ ...current, ...overrides }));
+        const written = beatsWithTexts(overrides);
+        setInstagramState({ status: "loading", message: "Claude rédige la description du reel…" });
+        const captionResponse = await authorizedPost("/api/admin/video-generator/caption", {
+          race: { ...announcedRace, startDetail: race.startDetail, raceDate: race.raceDate ?? null },
+          legs: written.map(({ kind, title, facts, narration }) => ({ kind, title, facts, narration })),
+        });
+        if (!captionResponse.ok) throw new Error(await readError(captionResponse, "La description n’a pas pu être rédigée."));
+        const caption = instagramCaptionResponseSchema.safeParse(await captionResponse.json());
+        if (!caption.success) throw new Error("La description reçue est invalide.");
+        setInstagramCaption(caption.data.caption);
+        setInstagramHashtags(caption.data.hashtags);
+        setInstagramState({ status: "success", message: "Description prête : elle sera reprise dans le brouillon Instagram." });
+        const content = assembleFullReelContent({ beats: written, caption: caption.data.caption, hashtags: caption.data.hashtags, coverText: race.shortName ?? null });
+        setScriptState({ status: "success", message: "Narration et description rédigées." });
+        return { overrides, content, warnings: [] };
       } catch (error) {
         setScriptState({ status: "error", message: error instanceof Error ? error.message : "La narration n’a pas pu être rédigée." });
         throw error;
@@ -1816,6 +1842,11 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
         </CardHeader>
         <CardContent>
           <ReelPipelinePanel
+            mode={settings.storyMode}
+            recommendedMode={getReelMode(figures.distanceKm)}
+            onModeChange={(mode) => {
+              if (mode !== settings.storyMode) updateSettings(withStoryMode(settings, mode));
+            }}
             canRun={preparedPath.canAnimate && Boolean(race.id) && scriptState.status !== "loading" && voiceState.status !== "loading" && exportState.status !== "running"}
             pipeline={reelPipeline}
             voiceLabel={activeVoice.voiceId ? activeVoice.name ?? activeVoice.voiceId : null}
