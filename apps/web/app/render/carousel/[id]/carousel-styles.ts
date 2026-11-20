@@ -1,4 +1,11 @@
 /**
+ * Only the self-hosted face of a next/font family stack. The generated stack also names a metric
+ * fallback face whose source is `local("Arial")`: Arial is absent on the Linux renderer, so loading
+ * the whole stack rejected with « A network error occurred. » and failed every render.
+ */
+export const primaryFontFamily = (stack: string) => stack.split(",")[0].trim();
+
+/**
  * Styles of the carousel slides (validated maquettes, docs/05-integrations/instagram-carousels.md).
  * Fonts come from CSS variables set by next/font on the strip root, so the capture can embed them.
  */

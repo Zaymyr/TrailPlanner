@@ -6,6 +6,14 @@ import { buildBriefSnapshot } from "../../../../lib/carousels/carousel-brief";
 import { buildPlanSnapshot, type CarouselRaceData } from "../../../../lib/carousels/carousel-plan";
 import { buildWeekSnapshot } from "../../../../lib/carousels/carousel-week";
 import { CarouselStrip, sharedHydration } from "./CarouselStrip";
+import { primaryFontFamily } from "./carousel-styles";
+
+describe("render fonts", () => {
+  it("waits only for the self-hosted face, never the local Arial fallback of next/font", () => {
+    expect(primaryFontFamily("'__Bricolage_Grotesque_a1b2c3', '__Bricolage_Grotesque_Fallback_a1b2c3'")).toBe("'__Bricolage_Grotesque_a1b2c3'");
+    expect(primaryFontFamily("'__JetBrains_Mono_x'")).toBe("'__JetBrains_Mono_x'");
+  });
+});
 
 const race: CarouselRaceData = {
   raceId: "r", raceName: "SaintéLyon", eventName: "Asics SaintéLyon", shortName: "SaintéLyon", raceDate: "2026-11-28", startTime: "23:30",
