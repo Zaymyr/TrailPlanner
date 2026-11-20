@@ -117,7 +117,7 @@ Second, a full-course flyover of an ultra lasts up to 2-3 minutes; a short "temp
 - A render launched by one click costs a GPU render without a human review of the text first; the warnings and the Publications review are the guard, and the draft is never published automatically.
 - The render time shown (≈ 10 min) is a fixed estimate, not a measurement.
 - A deactivated or deleted pool voice stays in the saved narrations that used it (the voice id and name are copied there), so older reels are unaffected; the table check accepts ids of 8-64 characters while the voice route accepts 10-40, narrower than real ElevenLabs ids (20).
-- Automatic reels use the default composition and voice settings, never an admin's browser preferences; races whose GPX has no elevation stay manual. With « Publication automatique » on, a reel can reach Instagram without anyone reading it: the warning in Publications and the dry-run mode are the remaining guards.
+- Automatic reels use the default composition (forced to 1080p, since the reel goes to Instagram as is) and voice settings, never an admin's browser preferences; races whose GPX has no elevation stay manual. With « Publication automatique » on, a reel can reach Instagram without anyone reading it: the warning in Publications and the dry-run mode are the remaining guards.
 - The outro is about 2 s longer than before (voice plus a 2 s hold); the 50 s cap on highlights is unchanged and the flyover absorbs it when the total is clamped.
 
 ## Related Docs
