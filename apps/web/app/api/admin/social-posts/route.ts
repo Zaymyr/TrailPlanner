@@ -12,6 +12,7 @@ import {
   VIDEO_STORAGE_LIFETIME_DAYS,
 } from "../../../../lib/social-posts";
 import { buildSocialPostDraftRow } from "../../../../lib/social-post-auto-draft";
+import { listCarouselMedia } from "../../../../lib/social-post-media";
 import { getRenderJob } from "../../../../lib/video-render";
 import { authorizeVideoAdmin, renderJson, renderJsonError } from "../../../../lib/video-render-api";
 
@@ -24,14 +25,22 @@ export async function GET(request: Request) {
   try {
     const [posts, marks] = await Promise.all([createSocialPostRepository(supabase).list(200), readPublicationMarks(supabase)]);
     const jobIds = Array.from(new Set(posts.map((post) => post.video_job_id).filter((id): id is string => Boolean(id))));
-    const [postJobs, recentJobs] = await Promise.all([
+    const [postJobs, carouselJobs, recentJobs] = await Promise.all([
       listVideoJobsForPublishing(supabase, { ids: jobIds }),
+      listCarouselMedia(supabase, posts),
       listVideoJobsForPublishing(supabase, {
         finishedSince: new Date(Date.now() - (VIDEO_STORAGE_LIFETIME_DAYS * 24 - VIDEO_LIFETIME_MARGIN_HOURS) * 60 * 60 * 1_000),
       }),
     ]);
     return renderJson({
       posts: posts.map((post) => {
+        if (post.media_type === "carousel") {
+          const carousel = post.carousel_job_id ? carouselJobs.get(post.carousel_job_id) : undefined;
+          return toPublicSocialPost(post, {
+            raceTitle: carousel?.title ?? null,
+            videoAvailableUntil: carousel?.finished_at ? getVideoAvailableUntil(carousel.finished_at).toISOString() : null,
+          });
+        }
         const job = post.video_job_id ? postJobs.get(post.video_job_id) : undefined;
         return toPublicSocialPost(post, {
           raceTitle: job?.race_title ?? null,

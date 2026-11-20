@@ -36,6 +36,8 @@ related_files:
   - apps/web/app/admin/video-generator/reel-composition.ts
   - supabase/migrations/20261104140000_add_video_render_jobs.sql
   - supabase/migrations/20261119170000_add_render_job_auto_draft.sql
+  - apps/web/app/render/carousel/[id]/RenderCarouselClient.tsx
+  - apps/web/app/api/carousel-render/jobs/[id]/route.ts
 related_tables:
   - video_render_jobs
 ---
@@ -102,6 +104,10 @@ Each finished or failed render in the panel has a "Supprimer" action (with a con
 ## Automatic reels
 
 The automatic reel pipeline ([Automatic Reel Pipeline](reel-automation.md)) launches renders without a browser: the cron route builds the snapshot on the server (`buildReelRenderSnapshot` in `reel-composition.ts`, same pure modules as the editor, checked by `parseRenderSnapshot`, `previewSize` 405 × 720), inserts the job with `content` and `auto_draft`, signs the PUT URL and uploads the snapshot itself, then starts the execution like the start route. The render URL is built by `buildRenderUrl` (`apps/web/lib/video-render.ts`, moved from the start route, unchanged: `VIDEO_RENDER_APP_ORIGIN` or the request origin, optional Vercel bypass, token in the fragment). Google access uses the Vercel OIDC token of the incoming cron request, as the social publishing cron already does.
+
+## Carousel slides
+
+The same Cloud Run job renders Instagram carousels ([Automatic Instagram Carousels](instagram-carousels.md)): `buildRenderUrl(…, "carousel")` opens `/render/carousel/<id>?w=1080&h=1350` with a token signed with the scope `carousel-render` (`createRenderToken` / `verifyRenderToken` take an optional scope, `video-render` by default, so a reel token never opens a carousel job). `render-url.mjs` accepts `/render/carousel/<id>` and reports a worker failure to `/api/carousel-render/jobs/<id>`; `render.mjs` is unchanged (same `window.__videoRender` protocol). The page captures the strip with `html-to-image` and PUTs one JPEG per slide to `carousels/<id>/slide-<n>.jpg` in the same bucket (same 30-day lifecycle; the bucket CORS must accept `image/jpeg` PUTs). Rows live in `carousel_render_jobs`.
 
 ## Instagram publishing
 

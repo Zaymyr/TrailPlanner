@@ -53,6 +53,8 @@ RLS is enabled with no policy and every privilege is revoked from `anon` and `au
 
 The automatic reel pipeline ([Automatic Reel Pipeline](../../05-integrations/reel-automation.md)) also creates jobs, from the cron route with the service role (`runRenderStep`, `apps/web/lib/reel-generation.ts`): `created_by` = the admin who last changed the automation switches, `content` set, `auto_draft = true`; a failed launch marks its job `failed` so it never counts as a reel of the race. `reel_automation_items.render_job_id` references the job (on delete set null). A non-failed job of a race also stops the pipeline from processing that race (duplicate guard).
 
+Carousel renders use their own table, [`carousel_render_jobs`](carousel-render-jobs.md), with the same Cloud Run job and bucket; `lib/video-render.ts` only gained a token scope (`video-render` by default, `carousel-render` for carousels) and the page kind of `buildRenderUrl` (`video` by default). Nothing changes for this table.
+
 `started_at` and `finished_at` are returned by the admin job list to show each render's duration, and finished (`done`) jobs are counted per race for the video generator picker (`race-stats`).
 
 The admin can delete a finished or failed job (`DELETE /api/admin/video-generator/render-jobs/<id>`, service role, guarded by `status=in.(done,failed)`); its Cloud Storage objects are deleted best-effort and otherwise expire with the 30-day lifecycle.

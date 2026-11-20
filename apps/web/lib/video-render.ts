@@ -103,20 +103,26 @@ export const getVideoRenderConfig = (): VideoRenderConfig | null => {
 
 const base64Url = (buffer: Buffer) => buffer.toString("base64url");
 
-const signTokenPayload = (secret: string, jobId: string, expiresAt: number) =>
-  base64Url(createHmac("sha256", secret).update(`video-render:${jobId}:${expiresAt}`).digest());
+/**
+ * Token scope: a reel token (`video-render`) never opens a carousel render (`carousel-render`) of
+ * the same id, and the reverse.
+ */
+export type RenderTokenScope = "video-render" | "carousel-render";
 
-export const createRenderToken = (secret: string, jobId: string, nowMs = Date.now()) => {
+const signTokenPayload = (secret: string, jobId: string, expiresAt: number, scope: RenderTokenScope) =>
+  base64Url(createHmac("sha256", secret).update(`${scope}:${jobId}:${expiresAt}`).digest());
+
+export const createRenderToken = (secret: string, jobId: string, nowMs = Date.now(), scope: RenderTokenScope = "video-render") => {
   const expiresAt = Math.floor(nowMs / 1_000) + RENDER_TOKEN_TTL_SECONDS;
-  return `${expiresAt}.${signTokenPayload(secret, jobId, expiresAt)}`;
+  return `${expiresAt}.${signTokenPayload(secret, jobId, expiresAt, scope)}`;
 };
 
-export const verifyRenderToken = (secret: string, jobId: string, token: string | null, nowMs = Date.now()) => {
+export const verifyRenderToken = (secret: string, jobId: string, token: string | null, nowMs = Date.now(), scope: RenderTokenScope = "video-render") => {
   if (!token) return false;
   const [expiresRaw, signature] = token.split(".");
   const expiresAt = Number(expiresRaw);
   if (!Number.isInteger(expiresAt) || !signature || expiresAt * 1_000 < nowMs) return false;
-  const expected = Buffer.from(signTokenPayload(secret, jobId, expiresAt));
+  const expected = Buffer.from(signTokenPayload(secret, jobId, expiresAt, scope));
   const received = Buffer.from(signature);
   return expected.length === received.length && timingSafeEqual(expected, received);
 };
@@ -370,9 +376,15 @@ export const getReelFileName = (title: string) =>
  * send to a server or write to access logs. Preview deployments are behind Vercel protection: the
  * automation bypass secret (when enabled in Vercel) lets the renderer through.
  */
-export const buildRenderUrl = (requestOrigin: string, job: { id: string; width: number; height: number }, token: string) => {
+export const buildRenderUrl = (
+  requestOrigin: string,
+  job: { id: string; width: number; height: number },
+  token: string,
+  kind: "video" | "carousel" = "video",
+) => {
   const origin = process.env.VIDEO_RENDER_APP_ORIGIN?.trim() || requestOrigin;
-  const url = new URL(`/render/video/${job.id}`, origin);
+  // Carousel slides use the same renderer on their own page (/render/carousel/<id>).
+  const url = new URL(`/render/${kind}/${job.id}`, origin);
   // The renderer opens a browser window of exactly the video size.
   url.searchParams.set("w", String(job.width));
   url.searchParams.set("h", String(job.height));

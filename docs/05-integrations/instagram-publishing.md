@@ -42,6 +42,8 @@ related_files:
   - apps/web/app/api/admin/social-posts/route.test.ts
   - supabase/migrations/20261119130100_schedule_social_posts_cron.sql
   - supabase/tests/social_posts_checks.sql
+  - apps/web/lib/social-post-media.ts
+  - apps/web/app/admin/publications/CarouselAutomationSection.tsx
 related_tables:
   - social_posts
   - video_render_jobs
@@ -81,6 +83,10 @@ All calls go to `https://graph.facebook.com/<INSTAGRAM_GRAPH_API_VERSION>` (defa
 - **Caption limits**: 2,200 characters (hashtags included), 5 hashtags (Instagram's limit since late 2025, 30 before; every `#tag` occurrence, list and text), 20 `@mentions`. Hashtags are normalized like the caption generator (lowercase ASCII letters, digits, underscores, unique). Checked in the form, in the API schema and by the `social_posts` check constraints.
 - **Dry-run mode flip**: a post keeps the mode it was scheduled in. When `INSTAGRAM_PUBLISH_DRY_RUN` (or the presence of the credentials) changes, the tick promotes only due posts whose `dry_run` matches the current mode; the others become `failed` with « Programmée en simulation — reprogramme-la pour publier sur Instagram. » (or the reverse message for a post scheduled for real while simulation is active). « Publier maintenant » and « Réessayer » are explicit clicks and use the current mode, which the confirmation dialog states.
 - **Quota budget**: 50 posts per 24 h by default when Meta returns no `quota_total` (the docs mention both 50 and 100).
+
+## Carousels
+
+Carousel posts (`media_type = carousel`, [Automatic Instagram Carousels](instagram-carousels.md)) go through the same state machine. Step 3a replaces the REELS container: one item container per slide (`POST /{IG_USER_ID}/media` `image_url` = 2-hour signed GET URL of the JPEG, `is_carousel_item=true`), each id stored at once in `ig_child_container_ids` so a retry resumes after the last stored one, then the carousel container (`media_type=CAROUSEL`, `children` in slide order, `caption`) stored in `ig_container_id`. Poll, `media_publish`, permalink, dry run, leases, quota, deadlines and error classes are unchanged; a lost media id is looked up among `FEED` media (reels: `REELS`); dropping the container also clears the item containers (`DROPPED_CONTAINER`). The images live 30 days like the MP4: `getPostMedia` (`lib/social-post-media.ts`) gives the routes the reel's or the carousel's render, so « Programmer », « Publier maintenant » and « Réessayer » apply the same lifetime rule (messages speak of « images »). The post card shows a « Carrousel · série · N images » badge and the slides in order (`previewImages` of `GET /api/admin/social-posts/<id>`, loaded at once for a carousel draft); the calendar marks carousels with ▦ and planned carousel slots in violet. `readPublicationMarks` reads reels only.
 
 ## Scheduler
 

@@ -147,3 +147,30 @@ describe("Instagram Graph client", () => {
     fetchSpy.mockRestore();
   });
 });
+
+describe("Instagram Graph carousel calls", () => {
+  it("creates an item container per image, then the CAROUSEL container with its children", async () => {
+    const fetcher = vi.fn<Parameters<typeof fetch>, Promise<Response>>()
+      .mockResolvedValueOnce(json({ id: "item-1" }))
+      .mockResolvedValueOnce(json({ id: "carousel-1" }));
+    const client = createInstagramGraphClient({ fetcher, version: "v27.0" });
+    expect(await client.createCarouselItemContainer({ igUserId: "1784", accessToken: "TOKEN", imageUrl: "https://storage.googleapis.com/b/slide-1.jpg?sig" })).toBe("item-1");
+    const item = new URLSearchParams(String(fetcher.mock.calls[0][1]?.body));
+    expect(fetcher.mock.calls[0][0]).toBe("https://graph.facebook.com/v27.0/1784/media");
+    expect(item.get("image_url")).toBe("https://storage.googleapis.com/b/slide-1.jpg?sig");
+    expect(item.get("is_carousel_item")).toBe("true");
+    expect(item.has("caption")).toBe(false);
+
+    expect(await client.createCarouselContainer({ igUserId: "1784", accessToken: "TOKEN", children: ["item-1", "item-2"], caption: "Texte\n\n#trail" })).toBe("carousel-1");
+    const parent = new URLSearchParams(String(fetcher.mock.calls[1][1]?.body));
+    expect(parent.get("media_type")).toBe("CAROUSEL");
+    expect(parent.get("children")).toBe("item-1,item-2");
+    expect(parent.get("caption")).toBe("Texte\n\n#trail");
+  });
+
+  it("simulates carousel containers with dry-run ids", async () => {
+    const dry = createDryRunGraphClient();
+    expect(await dry.createCarouselItemContainer({ igUserId: "x", accessToken: "x", imageUrl: "dry-run://a" })).toMatch(/^dry-run-item-/);
+    expect(await dry.createCarouselContainer({ igUserId: "x", accessToken: "x", children: [], caption: "" })).toMatch(/^dry-run-container-/);
+  });
+});

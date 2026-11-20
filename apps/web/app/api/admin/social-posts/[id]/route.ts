@@ -16,22 +16,24 @@ import {
   PUBLISH_REQUESTED_CONFIRMATION,
   type SocialPostRow,
 } from "../../../../../lib/social-posts";
+import { getPostMedia } from "../../../../../lib/social-post-media";
 import type { SupabaseServiceConfig } from "../../../../../lib/supabase";
-import { getGoogleAccessToken, getRenderJob, getVideoRenderConfig, signStorageUrl } from "../../../../../lib/video-render";
+import { getGoogleAccessToken, getVideoRenderConfig, signStorageUrl } from "../../../../../lib/video-render";
 import { authorizeVideoAdmin, describeRenderError, renderJson, renderJsonError } from "../../../../../lib/video-render-api";
 
 export const maxDuration = 60;
 
 const paramsSchema = z.object({ id: z.string().uuid() });
 
-const CLEARED_CONTAINER = { ig_container_id: null, ig_container_created_at: null, publish_requested_at: null };
+const CLEARED_CONTAINER = { ig_container_id: null, ig_container_created_at: null, publish_requested_at: null, ig_child_container_ids: [] as string[] };
 
 const present = async (supabase: SupabaseServiceConfig, post: SocialPostRow) => {
-  const job = post.video_job_id ? await getRenderJob(supabase, post.video_job_id) : null;
+  // The reel's video render or the carousel's slide render: same lifetime rules.
+  const job = await getPostMedia(supabase, post);
   return {
     job,
     post: toPublicSocialPost(post, {
-      raceTitle: job?.race_title ?? null,
+      raceTitle: job?.title ?? null,
       videoAvailableUntil: job?.finished_at ? getVideoAvailableUntil(job.finished_at).toISOString() : null,
     }),
   };
@@ -41,7 +43,7 @@ const needsConfirmation = () => renderJson({ message: PUBLISH_REQUESTED_CONFIRMA
 
 const conflict = (message = "La publication a changé entre-temps : recharge la page.") => renderJsonError(message, 409);
 
-/** One post with a 1-hour signed preview of its video. */
+/** One post with a 1-hour signed preview of its video, or of each carousel slide in order. */
 export async function GET(request: Request, context: { params: { id: string } }) {
   const params = paramsSchema.safeParse(context.params);
   if (!params.success) return renderJsonError("Publication invalide.", 400);
@@ -55,23 +57,22 @@ export async function GET(request: Request, context: { params: { id: string } })
     const { job, post } = await present(supabase, row);
     const config = getVideoRenderConfig();
     let previewUrl: string | null = null;
+    let previewImages: string[] = [];
     let previewMessage: string | null = null;
-    if (!job || job.status !== "done" || !row.video_url) previewMessage = "Vidéo supprimée.";
+    const objects = row.media_type === "carousel" ? row.image_paths ?? [] : row.video_url ? [row.video_url] : [];
+    if (!job || job.status !== "done" || !objects.length) previewMessage = row.media_type === "carousel" ? "Images supprimées." : "Vidéo supprimée.";
     else if (!config) previewMessage = "Aperçu indisponible : stockage vidéo non configuré.";
     else {
       try {
-        previewUrl = await signStorageUrl({
-          config,
-          accessToken: await getGoogleAccessToken(config, request),
-          method: "GET",
-          objectName: row.video_url,
-          expiresSeconds: 60 * 60,
-        });
+        const accessToken = await getGoogleAccessToken(config, request);
+        const urls = await Promise.all(objects.map((objectName) => signStorageUrl({ config, accessToken, method: "GET", objectName, expiresSeconds: 60 * 60 })));
+        if (row.media_type === "carousel") previewImages = urls;
+        else previewUrl = urls[0];
       } catch (error) {
         previewMessage = describeRenderError(error, "Aperçu indisponible.");
       }
     }
-    return renderJson({ post, previewUrl, previewMessage });
+    return renderJson({ post, previewUrl, previewImages, previewMessage });
   } catch (error) {
     console.error("Social post read failed", error instanceof Error ? error.message : error);
     return renderJsonError("La publication n’a pas pu être lue.", 502);
@@ -128,7 +129,7 @@ export async function POST(request: Request, context: { params: { id: string } }
     const posts = createSocialPostRepository(supabase);
     const current = await posts.get(params.data.id);
     if (!current) return renderJsonError("Publication introuvable.", 404);
-    const job = current.video_job_id ? await getRenderJob(supabase, current.video_job_id) : null;
+    const job = await getPostMedia(supabase, current);
     const now = new Date();
     const dryRun = isInstagramPublishDryRun();
     let updated: SocialPostRow | null = null;
@@ -141,7 +142,7 @@ export async function POST(request: Request, context: { params: { id: string } }
 
     if (action.action === "publish_now") {
       if (current.status !== "draft" && current.status !== "scheduled") return conflict("Cette publication n’est plus un brouillon.");
-      if (!job || job.status !== "done" || !canPublishNow(job.finished_at, now)) return conflict("La vidéo n’est plus disponible : relance un rendu.");
+      if (!job || job.status !== "done" || !canPublishNow(job.finished_at, now)) return conflict(current.media_type === "carousel" ? "Les images ne sont plus disponibles : relance un rendu." : "La vidéo n’est plus disponible : relance un rendu.");
       updated = await posts.update(current.id, {
         status: "publishing",
         scheduled_at: now.toISOString(),
@@ -172,7 +173,7 @@ export async function POST(request: Request, context: { params: { id: string } }
       if (plan.kind === "needs_confirmation") return needsConfirmation();
       const restart = plan.dropContainer;
       if (!current.ig_container_id || restart) {
-        if (!job || job.status !== "done" || !canPublishNow(job.finished_at, now)) return conflict("La vidéo n’est plus disponible : relance un rendu.");
+        if (!job || job.status !== "done" || !canPublishNow(job.finished_at, now)) return conflict(current.media_type === "carousel" ? "Les images ne sont plus disponibles : relance un rendu." : "La vidéo n’est plus disponible : relance un rendu.");
       }
       updated = await posts.update(current.id, {
         status: "publishing",
