@@ -11,6 +11,8 @@ import {
   reelContentSchema,
   sanitizeReelContent,
   type ReelContent,
+  countEmojis,
+  findCopiedPhrase,
 } from "./reel-content";
 import { buildDefaultCaption, DEFAULT_HASHTAGS } from "./social-posts";
 
@@ -24,7 +26,7 @@ const raw = (patch: Partial<ReelContent> = {}): ReelContent => ({
     { highlight_id: "hl-outro", text: "Plan de course prêt, lien en bio." },
   ],
   cta: "Plan de course prêt, lien en bio.",
-  caption: "Une course longue, des moments clés. Prépare ton plan de course dans l’appli Pace Yourself (lien en bio).",
+  caption: "185 km au compteur ⛰️\nUne nuit entière à gérer, frontale vissée sur le front 🔦\nTu pars sur quel rythme ?\nTon plan de course est prêt dans l’appli Pace Yourself, lien en bio 👆",
   hashtags: TAGS,
   cover_text: "185 km de nuit",
   ...patch,
@@ -159,7 +161,7 @@ describe("sanitizeReelContent", () => {
   });
 
   it("cuts a caption over 2,200 characters and says so", () => {
-    const result = sanitizeReelContent(raw({ caption: "a".repeat(2_300) }), budgets);
+    const result = sanitizeReelContent(raw({ caption: `⛰️ 🌙 ${"a".repeat(2_300)}` }), budgets);
     expect(result.content.caption).toHaveLength(2_200);
     expect(result.problems).toEqual([expect.objectContaining({ field: "caption" })]);
   });
@@ -216,5 +218,24 @@ describe("buildDraftPrefill", () => {
       hashtags: DEFAULT_HASHTAGS,
       coverText: null,
     });
+  });
+});
+
+describe("caption voice", () => {
+  it("counts emojis and finds a caption that rereads the voice-over", () => {
+    expect(countEmojis("Prêt ⛰️ ? Go 🏃‍♂️ 🌙")).toBe(3);
+    expect(findCopiedPhrase("Sur la grosse montée du km 12 : mode diesel, garde des forces.", ["La grosse montée du km 12 : mode diesel."])).toBe("la grosse montee du km 12 mode");
+    expect(findCopiedPhrase("Une autre façon de le dire ⛰️", ["La grosse montée du km 12 : mode diesel."])).toBeNull();
+  });
+
+  it("flags a flat caption, an emoji burst and a copy of the script, but not the shared call to action", () => {
+    const flat = sanitizeReelContent(raw({ caption: "Une course longue. Prépare ton plan de course (lien en bio)." }), budgets);
+    expect(flat.problems).toEqual([expect.objectContaining({ field: "caption", message: expect.stringContaining("plate") })]);
+    const burst = sanitizeReelContent(raw({ caption: "Go ⛰️⛰️⛰️🏃🏃🌙🌙🔦🔦 lien en bio" }), budgets);
+    expect(burst.problems).toEqual([expect.objectContaining({ field: "caption", message: expect.stringContaining("Trop") })]);
+    const copy = sanitizeReelContent(raw({ caption: "⛰️ La grosse montée du km 12 : mode diesel. Lien en bio 👆" }), budgets);
+    expect(copy.problems).toEqual([expect.objectContaining({ field: "caption", message: expect.stringContaining("voix off") })]);
+    const cta = sanitizeReelContent(raw({ caption: "Prêt ⛰️ ? Plan de course prêt, lien en bio. 👆" }), budgets);
+    expect(cta.problems).toEqual([]);
   });
 });
