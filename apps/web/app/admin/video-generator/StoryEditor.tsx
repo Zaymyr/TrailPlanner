@@ -10,7 +10,7 @@ import type { ScheduledBeat } from "./video-composition";
 
 export type AsyncActionState = { status: "idle" | "loading" | "success" | "error"; message: string | null };
 
-export type VoiceOptions = { model: "multilingual_v2" | "v3"; expressiveness: number };
+export type VoiceOptions = { model: "multilingual_v2" | "v3" | "v4"; expressiveness: number };
 
 /** A fixed storytelling style, or "auto" for a random one at each draft. */
 export type ScriptStyleChoice = NarrationStyle | "auto";
@@ -126,7 +126,7 @@ export function StoryEditor({
       </p>
       <div className="space-y-2 rounded-md border border-border bg-muted/20 p-2">
         <div role="group" aria-label="Modèle de voix" className="flex rounded-md border border-border bg-muted/30 p-1">
-          {([["multilingual_v2", "Stable (v2)"], ["v3", "Expressive (v3)"]] as const).map(([model, label]) => (
+          {([["multilingual_v2", "Stable (v2)"], ["v3", "Expressive (v3)"], ["v4", "Naturelle (v4)"]] as const).map(([model, label]) => (
             <Button
               key={model}
               type="button"

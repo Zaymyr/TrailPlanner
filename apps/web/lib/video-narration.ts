@@ -45,7 +45,7 @@ export const narrationScriptRequestSchema = z.object({
   /** Measured pace of the chosen voice (shown words per second of audio), when known. */
   wordsPerSecond: z.number().min(1).max(4).optional(),
   /** With the expressive v3 voice, the script may carry performance tags such as [excited]. */
-  voiceModel: z.enum(["multilingual_v2", "v3"]).default("multilingual_v2"),
+  voiceModel: z.enum(["multilingual_v2", "v3", "v4"]).default("multilingual_v2"),
   beats: z.array(narrationBeatInputSchema).min(1).max(40),
   /** Admin instructions for this race ("bâtons interdits"), applied before every other rule. */
   notes: z.string().max(1_000).optional(),
@@ -78,11 +78,11 @@ export const narrationScriptResponseSchema = z.object({
 
 export const ELEVENLABS_VOICE_ID_PATTERN = /^[A-Za-z0-9]{10,40}$/;
 
-export const NARRATION_VOICE_MODELS = ["multilingual_v2", "v3"] as const;
+export const NARRATION_VOICE_MODELS = ["multilingual_v2", "v3", "v4"] as const;
 
 export const narrationVoiceRequestSchema = z.object({
   voiceId: z.string().regex(ELEVENLABS_VOICE_ID_PATTERN).nullable(),
-  /** multilingual_v2 is steady; v3 is far more expressive. */
+  /** multilingual_v2 is steady; v3 is far more expressive; v4 is ElevenLabs' newest, natural and context-aware. */
   model: z.enum(NARRATION_VOICE_MODELS).default("multilingual_v2"),
   /** 0 = calm and steady, 1 = lively and varied intonation. */
   expressiveness: z.number().min(0).max(1).default(0.6),

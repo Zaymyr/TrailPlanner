@@ -77,6 +77,19 @@ describe("POST /api/admin/video-generator/voice", () => {
     expect(body.previous_text).toBeUndefined();
   });
 
+  it("uses ElevenLabs v4 with neighbouring context, continuous stability and no style or speaker boost", async () => {
+    vi.mocked(fetch).mockImplementation(async () => Response.json({
+      audio_base64: "AAA",
+      alignment: { character_end_times_seconds: [0.4, 1.2] },
+    }));
+    const response = await POST(request({ voiceId: null, model: "v4", expressiveness: 0.6, items }));
+    expect(response.status).toBe(200);
+    const body = JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body));
+    expect(body).toMatchObject({ model_id: "eleven_v4", next_text: "Dernier effort.", voice_settings: { stability: 0.4, similarity_boost: 0.8 } });
+    expect(body.voice_settings.style).toBeUndefined();
+    expect(body.voice_settings.use_speaker_boost).toBeUndefined();
+  });
+
   it("turns ElevenLabs plan and key errors into actionable messages", async () => {
     vi.mocked(fetch).mockImplementation(async () => new Response(JSON.stringify({ detail: { code: "paid_plan_required", status: "payment_required" } }), { status: 402 }));
     const planResponse = await POST(request({ voiceId: null, items }));

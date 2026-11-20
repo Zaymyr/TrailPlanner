@@ -10,15 +10,19 @@ export const maxDuration = 60;
 
 // ElevenLabs premade voice used when neither the request nor ELEVENLABS_VOICE_ID names one.
 const FALLBACK_VOICE_ID = "pNInz6obpgDQGcFmaJgB";
-const MODEL_IDS = { multilingual_v2: "eleven_multilingual_v2", v3: "eleven_v3" } as const;
+const MODEL_IDS = { multilingual_v2: "eleven_multilingual_v2", v3: "eleven_v3", v4: "eleven_v4" } as const;
 
 /**
  * Expressiveness 0-1 → ElevenLabs voice settings. Lower stability and more style give a livelier,
  * more varied intonation; v3 only accepts three stability presets (creative, natural, robust).
+ * v4 takes a continuous stability and similarity but no style or speaker boost (ElevenLabs
+ * /v1/models: can_use_style and can_use_speaker_boost are false), checked live on 2026-11-20.
  */
 const buildVoiceSettings = (model: keyof typeof MODEL_IDS, expressiveness: number) => (model === "v3"
   ? { stability: expressiveness >= 0.66 ? 0 : expressiveness >= 0.33 ? 0.5 : 1 }
-  : {
+  : model === "v4"
+    ? { stability: Number((0.7 - 0.5 * expressiveness).toFixed(2)), similarity_boost: 0.8 }
+    : {
     stability: Number((0.7 - 0.5 * expressiveness).toFixed(2)),
     similarity_boost: 0.8,
     style: Number((0.1 + 0.5 * expressiveness).toFixed(2)),
@@ -119,7 +123,7 @@ export async function POST(request: NextRequest) {
         text: spokenTexts[index].spoken,
         model_id: MODEL_IDS[model],
         voice_settings: voiceSettings,
-        // v3 does not take neighbouring text; v2 uses it for a continuous delivery.
+        // v3 does not take neighbouring text; v2 and v4 use it for a continuous delivery.
         ...(model === "v3" ? {} : { previous_text: spokenTexts[index - 1]?.spoken, next_text: spokenTexts[index + 1]?.spoken }),
       }),
       cache: "no-store",
