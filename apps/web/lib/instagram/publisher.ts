@@ -10,7 +10,9 @@ import { InstagramGraphError, isDryRunId, type InstagramGraphClient } from "./gr
 /**
  * Resumable publishing state machine of one `publishing` post, advanced one step per call:
  *
- *   no container  -> create the REELS container, store ig_container_id at once
+ *   no container  -> create the REELS container, store ig_container_id at once; a carousel first
+ *                    creates one item container per image (stored one by one, resumed on retry),
+ *                    then the CAROUSEL container with its children and the caption
  *   container     -> poll status_code (at most once a minute)
  *     IN_PROGRESS -> wait
  *     FINISHED    -> mark publish_requested_at, media_publish, store ig_media_id at once
@@ -54,7 +56,14 @@ export type PublisherDeps = {
   getVideoJob: (jobId: string) => Promise<{ status: string; finished_at: string | null } | null>;
   /** Signed GET URL of the MP4 for Meta (live posts only). */
   signVideoUrl: (objectPath: string) => Promise<string>;
+  /** Carousel render behind a carousel post (its JPEGs live as long as a reel MP4). */
+  getCarouselJob: (jobId: string) => Promise<{ status: string; finished_at: string | null } | null>;
+  /** Signed GET URL of one carousel JPEG for Meta (live posts only). */
+  signImageUrl: (objectPath: string) => Promise<string>;
 };
+
+/** Fields cleared when a container is dropped (a carousel also drops its item containers). */
+export const DROPPED_CONTAINER = { ig_container_id: null, ig_container_created_at: null, ig_child_container_ids: [] as string[] };
 
 export type StepOutcome =
   | "skipped"
@@ -116,8 +125,10 @@ export const advanceSocialPost = async (post: SocialPostRow, deps: PublisherDeps
   const recoverPublishedMedia = async (since: string | null): Promise<StepResult> => {
     const media = await graph.listRecentMedia(account.igUserId, account.accessToken).catch(() => null);
     const sinceMs = since ? Date.parse(since) - RECOVERY_CLOCK_SKEW_MS : Number.NEGATIVE_INFINITY;
+    // A reel is a REELS media; a carousel is a FEED media (media_type CAROUSEL_ALBUM).
+    const productType = post.media_type === "carousel" ? "FEED" : "REELS";
     const candidates = (media ?? []).filter((item) =>
-      (!item.mediaProductType || item.mediaProductType === "REELS") && item.timestampMs !== null && item.timestampMs >= sinceMs);
+      (!item.mediaProductType || item.mediaProductType === productType) && item.timestampMs !== null && item.timestampMs >= sinceMs);
     if (candidates.length === 1) return finalize(candidates[0].id, candidates[0].permalink);
     return save({
       status: "published",
@@ -148,9 +159,9 @@ export const advanceSocialPost = async (post: SocialPostRow, deps: PublisherDeps
   try {
     if (!post.dry_run) {
       // A post started in simulation can never reach Meta with its fake ids, and vice versa.
-      if (isDryRunId(post.ig_container_id) || isDryRunId(post.ig_media_id)) {
+      if (isDryRunId(post.ig_container_id) || isDryRunId(post.ig_media_id) || (post.ig_child_container_ids ?? []).some(isDryRunId)) {
         return fail("Publication commencée en simulation : relance-la pour publier pour de vrai.", {
-          ig_container_id: null, ig_container_created_at: null, publish_requested_at: null, ig_media_id: null,
+          ...DROPPED_CONTAINER, publish_requested_at: null, ig_media_id: null,
         });
       }
       const resolved = await deps.getAccount();
@@ -176,10 +187,47 @@ export const advanceSocialPost = async (post: SocialPostRow, deps: PublisherDeps
 
     const startedAt = Date.parse(post.scheduled_at ?? post.created_at);
     if (now.getTime() - startedAt > PUBLISHING_DEADLINE_MS) {
-      return fail("La publication n’a pas abouti en 24 h.", { ig_container_id: null, ig_container_created_at: null });
+      return fail("La publication n’a pas abouti en 24 h.", DROPPED_CONTAINER);
     }
 
-    // 3. No container yet: create it (the video must still be in storage).
+    // 3a. Carousel without its container yet: item containers (resumable), then the carousel.
+    if (!post.ig_container_id && post.media_type === "carousel") {
+      const images = post.image_paths ?? [];
+      if (!post.carousel_job_id || images.length < 2) return fail("Les images de cette publication ont été supprimées.");
+      const job = await deps.getCarouselJob(post.carousel_job_id);
+      if (!job || job.status !== "done") return fail("Les images de cette publication ne sont plus disponibles.");
+      if (!canPublishNow(job.finished_at, now)) return fail("Les images arrivent en fin de conservation (30 jours) : relance un rendu.");
+
+      const limit = await graph.getPublishingLimit(account.igUserId, account.accessToken).catch(() => null);
+      if (limit && limit.usage >= limit.total) {
+        return wait(QUOTA_BACKOFF_MS, { error: `Quota Instagram atteint (${limit.usage}/${limit.total} sur 24 h) : nouvel essai automatique.` });
+      }
+
+      // Each item container is stored as soon as Meta returns it, so a crash or an error resumes
+      // after the last stored one instead of creating it again.
+      const children = [...(post.ig_child_container_ids ?? [])].slice(0, images.length);
+      for (let index = children.length; index < images.length; index += 1) {
+        const imageUrl = post.dry_run ? `dry-run://${images[index]}` : await deps.signImageUrl(images[index]);
+        children.push(await graph.createCarouselItemContainer({ igUserId: account.igUserId, accessToken: account.accessToken, imageUrl }));
+        const stored = await deps.posts.update(post.id, { ig_child_container_ids: children }, "status=eq.publishing");
+        if (!stored) return { outcome: "skipped", post };
+        Object.assign(post, stored);
+      }
+      const containerId = await graph.createCarouselContainer({
+        igUserId: account.igUserId,
+        accessToken: account.accessToken,
+        children,
+        caption: buildFullCaption(post.caption, post.hashtags),
+      });
+      return save({
+        ig_container_id: containerId,
+        ig_container_created_at: now.toISOString(),
+        error: null,
+        locked_until: post.dry_run ? null : later(now, POLL_INTERVAL_MS),
+      }, "container_created");
+    }
+
+    // 3b. No container yet: create it (the video must still be in storage).
     if (!post.ig_container_id) {
       if (!post.video_job_id || !post.video_url) return fail("La vidéo de cette publication a été supprimée.");
       const job = await deps.getVideoJob(post.video_job_id);
@@ -210,15 +258,17 @@ export const advanceSocialPost = async (post: SocialPostRow, deps: PublisherDeps
     // 4. Container, no publish requested yet: poll, then publish once.
     const containerAge = now.getTime() - Date.parse(post.ig_container_created_at ?? post.updated_at);
     if (containerAge > CONTAINER_LIFETIME_MS) {
-      return fail("Le conteneur Instagram a expiré (24 h).", { ig_container_id: null, ig_container_created_at: null });
+      return fail("Le conteneur Instagram a expiré (24 h).", DROPPED_CONTAINER);
     }
 
     const { statusCode, status } = await graph.getContainerStatus(post.ig_container_id, account.accessToken);
     if (statusCode === "IN_PROGRESS") return wait(POLL_INTERVAL_MS, { error: null });
     if (statusCode === "ERROR" || statusCode === "EXPIRED") {
       return fail(
-        statusCode === "EXPIRED" ? "Le conteneur Instagram a expiré." : `Instagram a refusé la vidéo${status ? ` : ${status}` : "."}`,
-        { ig_container_id: null, ig_container_created_at: null },
+        statusCode === "EXPIRED"
+          ? "Le conteneur Instagram a expiré."
+          : `Instagram a refusé ${post.media_type === "carousel" ? "le carrousel" : "la vidéo"}${status ? ` : ${status}` : "."}`,
+        DROPPED_CONTAINER,
       );
     }
     if (statusCode === "PUBLISHED") return await recoverPublishedMedia(post.publish_requested_at ?? post.ig_container_created_at);

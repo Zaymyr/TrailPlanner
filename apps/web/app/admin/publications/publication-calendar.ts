@@ -67,8 +67,8 @@ export const shiftMonth = ({ year, month }: { year: number; month: number }, del
 export const formatMonthTitle = ({ year, month }: { year: number; month: number }) =>
   new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(year, month - 1, 15)));
 
-/** An automatic reel not yet scheduled on Instagram, shown in grey on its planned day. */
-export type PlannedCalendarEntry = { id: string; day: string; label: string; time: string };
+/** An automatic reel or carousel not yet scheduled on Instagram, shown in grey on its planned day. */
+export type PlannedCalendarEntry = { id: string; day: string; label: string; time: string; kind?: "reel" | "carousel" };
 
 /** Statuses of an automation item that still wait for their publication slot (not skipped, failed or scheduled). */
 export const PLANNED_CALENDAR_STATUSES = ["planned", "generating", "rendering", "drafted"] as const;

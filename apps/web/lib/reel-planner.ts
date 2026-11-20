@@ -43,8 +43,13 @@ export type PlannerOptions = {
   leadDays?: number;
   maxPerWeek?: number;
   maxPerDay?: number;
-  /** Paris days already taken by other publications (scheduled posts made by hand). */
+  /** Paris days already taken by other publications (scheduled posts made by hand, carousels). */
   occupiedDates?: string[];
+  /**
+   * Weekdays reserved for the automatic carousels (0 = Sunday): no reel is planned on them, so
+   * there is at most one post a day across reels and carousels.
+   */
+  blockedWeekdays?: number[];
 };
 
 export type PlannedReel = {
@@ -151,7 +156,7 @@ type Candidate = PlannerFormat & { date: string; editionKey: string; mode: ReelP
  * the event start − 7 days at the latest, each shorter one at least 7 days before the next longer
  * one. Editions are assigned in event order (earliest first: they have the fewest days left), each
  * from its longest format down, on the latest free day at or before its target that keeps at most
- * `maxPerDay` reels a day and `maxPerWeek` a week. A format with no free day from today + lead
+ * `maxPerDay` reels a day and `maxPerWeek` a week, and is not a weekday reserved for carousels. A format with no free day from today + lead
  * time is skipped as too late, never compressed. Locked items keep their day and count in the caps.
  */
 export const planReels = (
@@ -171,7 +176,10 @@ export const planReels = (
     perDay.set(day, (perDay.get(day) ?? 0) + 1);
     perWeek.set(weekStart(day), (perWeek.get(weekStart(day)) ?? 0) + 1);
   };
-  const isFree = (day: string) => (perDay.get(day) ?? 0) < maxPerDay && (perWeek.get(weekStart(day)) ?? 0) < maxPerWeek;
+  const blocked = new Set(options.blockedWeekdays ?? []);
+  const isFree = (day: string) => !blocked.has(new Date(dayNumber(day) * DAY_MS).getUTCDay())
+    && (perDay.get(day) ?? 0) < maxPerDay
+    && (perWeek.get(weekStart(day)) ?? 0) < maxPerWeek;
   (options.occupiedDates ?? []).forEach((day) => { if (toDay(day)) occupy(toDay(day) as string); });
   lockedItems.forEach((item) => { if (OCCUPYING_STATUSES.has(item.status) && toDay(item.plannedPublishDate)) occupy(toDay(item.plannedPublishDate) as string); });
 

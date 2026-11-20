@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
@@ -10,7 +10,7 @@ import type { ReelAutomationItemView, ReelAutomationView } from "./publications-
 
 const MODE_LABELS: Record<ReelAutomationItemView["mode"], string> = { full: "Parcours complet", highlights: "Temps forts" };
 
-const TONE_CLASS = {
+export const AUTOMATION_TONE_CLASS = {
   muted: "text-muted-foreground",
   active: "text-sky-700 dark:text-sky-300",
   done: "text-emerald-700 dark:text-emerald-300",
@@ -25,7 +25,7 @@ const canExclude = (item: ReelAutomationItemView) =>
 const isFinished = (item: ReelAutomationItemView) =>
   item.status === "scheduled" || item.status === "failed" || (item.status === "skipped" && item.reason !== "too_late");
 
-function Switch({ id, checked, disabled, onChange, label }: { id: string; checked: boolean; disabled?: boolean; onChange: (next: boolean) => void; label: string }) {
+export function AutomationSwitch({ id, checked, disabled, onChange, label }: { id: string; checked: boolean; disabled?: boolean; onChange: (next: boolean) => void; label: string }) {
   return (
     <button
       id={id}
@@ -46,7 +46,7 @@ function Switch({ id, checked, disabled, onChange, label }: { id: string; checke
  * « Automatisation »: the two switches (both off by default), the caps, and the upcoming plan with
  * « Exclure » / « Rétablir ». Publication without review is behind a confirmation dialog.
  */
-export function AutomationCard({ data, isLoading, error, busy, highlightedItemId, onSettings, onItemAction, onRefresh }: {
+export function AutomationCard({ data, isLoading, error, busy, highlightedItemId, onSettings, onItemAction, onRefresh, children }: {
   data: ReelAutomationView | undefined;
   isLoading: boolean;
   error: string | null;
@@ -55,6 +55,8 @@ export function AutomationCard({ data, isLoading, error, busy, highlightedItemId
   onSettings: (patch: { generationEnabled?: boolean; autoPublishEnabled?: boolean; confirmAutoPublish?: true }) => void;
   onItemAction: (itemId: string, action: "exclude" | "include") => void;
   onRefresh: () => void;
+  /** The carousel series, slots and « Générer maintenant » (CarouselAutomationSection). */
+  children?: ReactNode;
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [showAll, setShowAll] = useState(false);
@@ -77,7 +79,7 @@ export function AutomationCard({ data, isLoading, error, busy, highlightedItemId
           <>
             <div className="flex flex-col gap-3">
               <div className="flex items-start gap-3">
-                <Switch
+                <AutomationSwitch
                   id="automation-generation"
                   label="Génération automatique"
                   checked={settings.generationEnabled}
@@ -87,12 +89,12 @@ export function AutomationCard({ data, isLoading, error, busy, highlightedItemId
                 <div>
                   <label htmlFor="automation-generation" className="font-medium text-foreground">Génération automatique</label>
                   <p className="text-xs text-muted-foreground">
-                    Rédige le texte, génère la voix et lance le rendu {settings.leadDays} jours avant la date prévue, puis crée le brouillon Instagram. Désactivée, plus rien ne démarre ; les rendus en cours se terminent.
+                    Rédige le texte, génère la voix (reels) et lance le rendu {settings.leadDays} jours avant la date prévue, puis crée le brouillon Instagram. Vaut pour les reels et les carrousels. Désactivée, plus rien ne démarre ; les rendus en cours se terminent.
                   </p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
-                <Switch
+                <AutomationSwitch
                   id="automation-publish"
                   label="Publication automatique"
                   checked={settings.autoPublishEnabled}
@@ -137,7 +139,7 @@ export function AutomationCard({ data, isLoading, error, busy, highlightedItemId
                         <div className="min-w-0">
                           <p className="truncate font-medium text-foreground">{item.raceName ?? "Course supprimée"}</p>
                           <p className="text-xs text-muted-foreground">{MODE_LABELS[item.mode]} · {formatAutomationDay(item.plannedPublishDate)} à {settings.publishTime}</p>
-                          <p className={`text-xs ${TONE_CLASS[status.tone]}`}>{status.label}</p>
+                          <p className={`text-xs ${AUTOMATION_TONE_CLASS[status.tone]}`}>{status.label}</p>
                         </div>
                         {item.status === "skipped" && item.reason === "excluded" ? (
                           <Button type="button" variant="ghost" className="h-8 px-2 text-xs" disabled={busy} onClick={() => onItemAction(item.id, "include")}>Rétablir</Button>
@@ -152,6 +154,7 @@ export function AutomationCard({ data, isLoading, error, busy, highlightedItemId
             </div>
           </>
         ) : null}
+        {children}
       </CardContent>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>

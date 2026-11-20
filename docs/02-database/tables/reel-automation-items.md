@@ -50,5 +50,6 @@ RLS on, no policy, every privilege revoked from `public`, `anon` and `authentica
 ## Business rules
 
 - `planned` rows and `skipped` rows with reason `too_late` or `duplicate` are recomputed by every plan refresh (updated or deleted); all other rows are kept as they are.
+- The plan never puts an item on the weekday of an enabled carousel series nor on the day of a carousel slot still waiting (one post a day across reels and carousels).
 - Status changes are guarded by the expected status in the update filter; a step runs only under a free lease.
 - `supabase/tests/reel_automation_checks.sql` checks RLS, grants, the unique key and the status, mode and `work` checks.

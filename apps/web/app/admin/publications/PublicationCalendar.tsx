@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import type { PublicSocialPost } from "../../../lib/social-posts";
+import { CAROUSEL_MARK } from "./automation-labels";
 import { buildMonthGrid, currentParisMonth, formatMonthTitle, getCalendarTime, groupPlannedByDay, shiftMonth, toParisDay, type PlannedCalendarEntry } from "./publication-calendar";
 
 const WEEKDAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
@@ -25,7 +26,7 @@ const timeOf = (post: PublicSocialPost) => {
 
 /**
  * Month view of what was published (green, amber in simulation), what is scheduled (blue) and the
- * automatic reels planned but not yet scheduled (grey).
+ * automatic reels (grey) and carousels (violet) planned but not yet scheduled; carousels carry ▦.
  */
 export function PublicationCalendar({ posts, planned = [], onSelect, onSelectPlanned }: {
   posts: PublicSocialPost[];
@@ -68,7 +69,7 @@ export function PublicationCalendar({ posts, planned = [], onSelect, onSelectPla
                   title={`${post.raceTitle ?? "Vidéo supprimée"} · ${timeOf(post)}`}
                   className={`truncate rounded border px-1 py-0.5 text-left text-[11px] leading-tight ${chipClass(post)}`}
                 >
-                  {timeOf(post)} {post.raceTitle ?? "Vidéo supprimée"}
+                  {post.mediaType === "carousel" ? `${CAROUSEL_MARK} ` : ""}{timeOf(post)} {post.raceTitle ?? (post.mediaType === "carousel" ? "Carrousel" : "Vidéo supprimée")}
                 </button>
               ))}
               {(plannedByDay.get(day.day) ?? []).map((entry) => (
@@ -76,10 +77,10 @@ export function PublicationCalendar({ posts, planned = [], onSelect, onSelectPla
                   key={entry.id}
                   type="button"
                   onClick={() => onSelectPlanned?.(entry.id)}
-                  title={`Prévu automatiquement : ${entry.label} · ${entry.time}`}
-                  className="truncate rounded border border-dashed border-slate-300 bg-slate-100 px-1 py-0.5 text-left text-[11px] leading-tight text-slate-600 dark:border-slate-600 dark:bg-slate-800/60 dark:text-slate-300"
+                  title={`Prévu automatiquement${entry.kind === "carousel" ? " (carrousel)" : ""} : ${entry.label} · ${entry.time}`}
+                  className={`truncate rounded border border-dashed px-1 py-0.5 text-left text-[11px] leading-tight dark:bg-slate-800/60 dark:text-slate-300 ${entry.kind === "carousel" ? "border-violet-300 bg-violet-50 text-violet-800 dark:border-violet-700" : "border-slate-300 bg-slate-100 text-slate-600 dark:border-slate-600"}`}
                 >
-                  {entry.time} {entry.label}
+                  {entry.kind === "carousel" ? `${CAROUSEL_MARK} ` : ""}{entry.time} {entry.label}
                 </button>
               ))}
             </div>
@@ -90,6 +91,7 @@ export function PublicationCalendar({ posts, planned = [], onSelect, onSelectPla
           <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-amber-400" /> Simulation</span>
           <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-sky-400" /> Programmée</span>
           <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-slate-300" /> Prévue (auto)</span>
+          <span className="flex items-center gap-1"><span aria-hidden="true">{CAROUSEL_MARK}</span> Carrousel</span>
           <span className="ml-auto">{inMonthCount === 0 ? "Rien ce mois-ci" : `${inMonthCount} ce mois-ci`}</span>
         </div>
       </CardContent>

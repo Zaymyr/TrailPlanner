@@ -394,3 +394,115 @@ describe("dry run", () => {
     expect(store.get(basePost().id)?.status).toBe("scheduled");
   });
 });
+
+describe("carousel publishing", () => {
+  const carouselPost = (overrides: Partial<SocialPostRow> = {}) => basePost({
+    video_job_id: null,
+    video_url: null,
+    media_type: "carousel",
+    carousel_series: "plan",
+    carousel_job_id: "44444444-4444-4444-8444-444444444444",
+    image_paths: ["carousels/j/slide-1.jpg", "carousels/j/slide-2.jpg", "carousels/j/slide-3.jpg"],
+    ig_child_container_ids: [],
+    ...overrides,
+  });
+  const carouselGraph = (overrides: Partial<InstagramGraphClient> = {}) => {
+    let child = 0;
+    return fakeGraph({
+      createCarouselItemContainer: vi.fn().mockImplementation(async () => `item-${(child += 1)}`),
+      createCarouselContainer: vi.fn().mockResolvedValue("carousel-1"),
+      ...overrides,
+    });
+  };
+  const carouselExtra = () => ({
+    getCarouselJob: vi.fn().mockResolvedValue({ status: "done", finished_at: "2026-11-18T10:00:00Z" }),
+    signImageUrl: vi.fn().mockImplementation(async (path: string) => `https://storage.googleapis.com/signed/${path}`),
+  });
+
+  it("creates one item container per image in order, then the carousel container, then publishes once", async () => {
+    const { repository, store } = memoryRepository([carouselPost()]);
+    const graph = carouselGraph();
+    const { deps, advanceClock } = makeDeps(repository, graph, NOW, carouselExtra());
+    const id = basePost().id;
+
+    expect((await claimAndAdvance(id, deps))?.outcome).toBe("container_created");
+    expect(graph.createCarouselItemContainer.mock.calls.map(([input]) => input.imageUrl)).toEqual([
+      "https://storage.googleapis.com/signed/carousels/j/slide-1.jpg",
+      "https://storage.googleapis.com/signed/carousels/j/slide-2.jpg",
+      "https://storage.googleapis.com/signed/carousels/j/slide-3.jpg",
+    ]);
+    expect(graph.createCarouselContainer).toHaveBeenCalledWith(expect.objectContaining({ children: ["item-1", "item-2", "item-3"], caption: "Le parcours\n\n#trail" }));
+    expect(graph.createReelContainer).not.toHaveBeenCalled();
+    expect(store.get(id)).toMatchObject({ ig_container_id: "carousel-1", ig_child_container_ids: ["item-1", "item-2", "item-3"] });
+
+    advanceClock(61_000);
+    expect((await claimAndAdvance(id, deps))?.outcome).toBe("published");
+    expect(graph.publishContainer).toHaveBeenCalledTimes(1);
+    expect(graph.publishContainer).toHaveBeenCalledWith("1784", "carousel-1", "TOKEN");
+    expect(store.get(id)?.status).toBe("published");
+  });
+
+  it("resumes after the item containers already stored instead of creating them again", async () => {
+    const { repository } = memoryRepository([carouselPost({ ig_child_container_ids: ["item-a", "item-b"] })]);
+    const graph = carouselGraph();
+    const { deps } = makeDeps(repository, graph, NOW, carouselExtra());
+    await claimAndAdvance(basePost().id, deps);
+    expect(graph.createCarouselItemContainer).toHaveBeenCalledTimes(1);
+    expect(graph.createCarouselContainer).toHaveBeenCalledWith(expect.objectContaining({ children: ["item-a", "item-b", "item-1"] }));
+  });
+
+  it("keeps the item containers created before an error, for the retry", async () => {
+    const { repository, store } = memoryRepository([carouselPost()]);
+    const graph = carouselGraph({
+      createCarouselItemContainer: vi.fn().mockResolvedValueOnce("item-1").mockRejectedValueOnce(new InstagramGraphError("Boom", "transient")),
+    });
+    const { deps } = makeDeps(repository, graph, NOW, carouselExtra());
+    expect((await claimAndAdvance(basePost().id, deps))?.outcome).toBe("retry_later");
+    expect(store.get(basePost().id)).toMatchObject({ ig_child_container_ids: ["item-1"], ig_container_id: null });
+  });
+
+  it("fails without its images and drops the item containers with an expired carousel", async () => {
+    const missing = memoryRepository([carouselPost({ carousel_job_id: null })]);
+    const { deps } = makeDeps(missing.repository, carouselGraph(), NOW, carouselExtra());
+    expect((await claimAndAdvance(basePost().id, deps))?.outcome).toBe("failed");
+
+    const expired = memoryRepository([carouselPost({ ig_container_id: "carousel-1", ig_container_created_at: NOW.toISOString(), ig_child_container_ids: ["item-1", "item-2"] })]);
+    const graph = carouselGraph({ getContainerStatus: vi.fn().mockResolvedValue({ statusCode: "EXPIRED", status: null }) });
+    const second = makeDeps(expired.repository, graph, NOW, carouselExtra());
+    expect((await claimAndAdvance(basePost().id, second.deps))?.outcome).toBe("failed");
+    expect(expired.store.get(basePost().id)).toMatchObject({ ig_container_id: null, ig_child_container_ids: [] });
+  });
+
+  it("recovers a lost media id among FEED media, never REELS", async () => {
+    const { repository, store } = memoryRepository([carouselPost({ ig_container_id: "carousel-1", ig_container_created_at: NOW.toISOString(), publish_requested_at: NOW.toISOString() })]);
+    const graph = carouselGraph({
+      getContainerStatus: vi.fn().mockResolvedValue({ statusCode: "PUBLISHED", status: null }),
+      listRecentMedia: vi.fn().mockResolvedValue([
+        { id: "reel-9", permalink: "https://www.instagram.com/reel/x/", timestampMs: NOW.getTime(), mediaProductType: "REELS" },
+        { id: "feed-9", permalink: "https://www.instagram.com/p/y/", timestampMs: NOW.getTime(), mediaProductType: "FEED" },
+      ]),
+    });
+    const { deps } = makeDeps(repository, graph, NOW, carouselExtra());
+    await claimAndAdvance(basePost().id, deps);
+    expect(store.get(basePost().id)).toMatchObject({ status: "published", ig_media_id: "feed-9" });
+    expect(graph.publishContainer).not.toHaveBeenCalled();
+  });
+
+  it("runs a dry-run carousel to the end without signing anything", async () => {
+    const { repository, store } = memoryRepository([carouselPost({ dry_run: true })]);
+    const extra = carouselExtra();
+    const { deps } = makeDeps(repository, carouselGraph(), NOW, extra);
+    await advancePostForTest(basePost().id, deps);
+    expect(store.get(basePost().id)?.status).toBe("published");
+    expect(store.get(basePost().id)?.ig_media_id).toMatch(/^dry-run-media-/);
+    expect(extra.signImageUrl).not.toHaveBeenCalled();
+  });
+});
+
+const advancePostForTest = async (id: string, deps: PublisherDeps) => {
+  for (let step = 0; step < 5; step += 1) {
+    const result = await claimAndAdvance(id, deps);
+    if (!result || result.post.status !== "publishing") return result;
+  }
+  return null;
+};

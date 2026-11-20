@@ -8,6 +8,8 @@ related_files:
   - supabase/tests/reel_automation_checks.sql
   - apps/web/lib/reel-automation.ts
   - apps/web/app/api/admin/reel-automation/route.ts
+  - supabase/migrations/20261120180000_add_instagram_carousels.sql
+  - apps/web/app/api/admin/carousel-automation/route.ts
 related_tables:
   - reel_automation_settings
 ---
@@ -29,6 +31,7 @@ The single settings row of the automatic reel pipeline: the two admin switches a
 | `max_per_day` | `integer` | 1-3, default 1 | Reels per day. |
 | `lead_days` | `integer` | 1-14, default 3 | Generation starts this many days before the planned day. |
 | `publish_time` | `time` | default `18:00` | Paris wall time of the automatic publication. |
+| `plan_carousel_enabled`, `brief_carousel_enabled`, `week_carousel_enabled` | `boolean` | not null, default `false` | One switch per carousel series ([Automatic Instagram Carousels](../../05-integrations/instagram-carousels.md)); added by `20261120180000_add_instagram_carousels.sql`. The reels avoid the weekday of every enabled series. The two switches above also drive carousel generation and publication. |
 | `updated_by` | `uuid` | references `auth.users(id)` on delete set null, indexed | Admin who last changed a switch; owner of the automatic renders, narrations and drafts. |
 | `updated_at` | `timestamptz` | not null, refreshed by trigger | Last change. |
 
@@ -36,4 +39,4 @@ The caps, lead time and publication time have no UI yet: change them in SQL if n
 
 ## Access
 
-RLS on, no policy, every privilege revoked from `public`, `anon` and `authenticated`, granted to `service_role`. Read and written by `/api/admin/reel-automation` (`authorizeVideoAdmin`) and read by the cron route.
+RLS on, no policy, every privilege revoked from `public`, `anon` and `authenticated`, granted to `service_role`. Read and written by `/api/admin/reel-automation` and `/api/admin/carousel-automation` (series switches) (`authorizeVideoAdmin`), and read by both cron routes.

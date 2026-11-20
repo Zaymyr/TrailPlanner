@@ -3,13 +3,18 @@ import { z } from "zod";
 import type { SupabaseServiceConfig } from "./supabase";
 
 /**
- * Instagram Reels drafted from finished background renders (video_render_jobs) and published by
- * the admin "Publications" page. Rows are service-role only; this module holds the contracts,
+ * Instagram Reels drafted from finished background renders (video_render_jobs), and carousels
+ * drafted from finished slide renders (carousel_render_jobs), published by the admin
+ * "Publications" page. Rows are service-role only; this module holds the contracts,
  * the Instagram caption limits, the Europe/Paris scheduling rules and the row access.
  */
 
 export const SOCIAL_POST_STATUSES = ["draft", "scheduled", "publishing", "published", "failed"] as const;
 export type SocialPostStatus = (typeof SOCIAL_POST_STATUSES)[number];
+
+export const SOCIAL_MEDIA_TYPES = ["reel", "carousel"] as const;
+export type SocialMediaType = (typeof SOCIAL_MEDIA_TYPES)[number];
+export const CAROUSEL_SERIES_VALUES = ["plan", "brief", "week"] as const;
 
 /** Instagram limits for a caption: 2,200 characters, 5 hashtags (Instagram's limit since late 2025, 30 before), 20 @mentions. */
 export const CAPTION_MAX_CHARS = 2_200;
@@ -138,15 +143,19 @@ export const getLatestPublishTime = (finishedAt: string) =>
 
 export type ScheduleCheck = { ok: true; scheduledAt: Date } | { ok: false; message: string };
 
-/** Checks a Paris wall time for "Programmer": in the future and before the MP4 expires. */
-export const validateSchedule = ({ local, finishedAt, now = new Date() }: { local: string; finishedAt: string | null; now?: Date }): ScheduleCheck => {
+/**
+ * Checks a Paris wall time for "Programmer": in the future and before the MP4 (or the carousel
+ * images, same bucket and lifecycle) expires.
+ */
+export const validateSchedule = ({ local, finishedAt, now = new Date(), mediaType = "reel" }: { local: string; finishedAt: string | null; now?: Date; mediaType?: SocialMediaType }): ScheduleCheck => {
+  const media = mediaType === "carousel" ? { subject: "Les images", done: "terminées", deleted: "supprimées" } : { subject: "La vidéo", done: "terminée", deleted: "supprimée" };
   const scheduledAt = parisLocalToUtc(local);
   if (!scheduledAt) return { ok: false, message: "Date ou heure invalide (heure inexistante au changement d’heure ?)." };
   if (scheduledAt.getTime() < now.getTime() + 60_000) return { ok: false, message: "Choisis une date dans le futur." };
-  if (!finishedAt) return { ok: false, message: "La vidéo n’est pas terminée." };
+  if (!finishedAt) return { ok: false, message: `${media.subject} ${mediaType === "carousel" ? "ne sont pas" : "n’est pas"} ${media.done}.` };
   const latest = getLatestPublishTime(finishedAt);
   if (scheduledAt.getTime() > latest.getTime()) {
-    return { ok: false, message: `La vidéo sera supprimée du stockage : programme avant le ${formatParisDateTime(latest.toISOString())}.` };
+    return { ok: false, message: `${media.subject} ${mediaType === "carousel" ? "seront" : "sera"} ${media.deleted} du stockage : programme avant le ${formatParisDateTime(latest.toISOString())}.` };
   }
   return { ok: true, scheduledAt };
 };
@@ -246,8 +255,14 @@ export const socialPostRowSchema = z.object({
   attempt_count: z.number().int(),
   locked_until: z.string().nullable(),
   content: z.record(z.string(), z.unknown()).nullable(),
-  // Created by the render completion (one-click reel), not by an admin.
+  // Created by the render completion (one-click reel, automatic carousel), not by an admin.
   auto_generated: z.boolean().default(false),
+  // Carousels (docs/05-integrations/instagram-carousels.md); every older row is a reel.
+  media_type: z.enum(SOCIAL_MEDIA_TYPES).default("reel"),
+  carousel_series: z.enum(CAROUSEL_SERIES_VALUES).nullable().default(null),
+  carousel_job_id: z.string().uuid().nullable().default(null),
+  image_paths: z.array(z.string()).nullable().default(null),
+  ig_child_container_ids: z.array(z.string()).default([]),
   created_by: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
@@ -264,6 +279,10 @@ export const SOCIAL_POST_COLUMNS = Object.keys(socialPostRowSchema.shape).join("
 
 /** What the admin page receives: no internal lease fields. */
 export const toPublicSocialPost = (row: SocialPostRow, extra: { raceTitle?: string | null; videoAvailableUntil?: string | null } = {}) => ({
+  mediaType: row.media_type,
+  carouselSeries: row.carousel_series,
+  carouselJobId: row.carousel_job_id,
+  slideCount: row.image_paths?.length ?? 0,
   id: row.id,
   raceId: row.race_id,
   videoJobId: row.video_job_id,
@@ -287,6 +306,10 @@ export const toPublicSocialPost = (row: SocialPostRow, extra: { raceTitle?: stri
 });
 
 export const publicSocialPostSchema = z.object({
+  mediaType: z.enum(SOCIAL_MEDIA_TYPES).default("reel"),
+  carouselSeries: z.enum(CAROUSEL_SERIES_VALUES).nullable().default(null),
+  carouselJobId: z.string().nullable().default(null),
+  slideCount: z.number().default(0),
   id: z.string(),
   raceId: z.string().nullable(),
   videoJobId: z.string().nullable(),
@@ -326,6 +349,8 @@ export type SocialPostRepository = {
   get: (id: string) => Promise<SocialPostRow | null>;
   /** The automatic draft of a render (at most one: partial unique index), or null. */
   findAutoDraft: (videoJobId: string) => Promise<SocialPostRow | null>;
+  /** The automatic draft of a carousel render (at most one: partial unique index), or null. */
+  findCarouselAutoDraft: (carouselJobId: string) => Promise<SocialPostRow | null>;
   list: (limit?: number) => Promise<SocialPostRow[]>;
   insert: (row: Record<string, unknown>) => Promise<SocialPostRow>;
   /** Guarded update: applied only when the row matches `filter` (PostgREST query string). */
@@ -392,6 +417,9 @@ export const createSocialPostRepository = (supabase: SupabaseServiceConfig, fetc
     findAutoDraft: async (videoJobId) => (await rows(await fetcher(`${base}?video_job_id=eq.${videoJobId}&auto_generated=eq.true&select=${SOCIAL_POST_COLUMNS}&limit=1`, {
       headers: headers(supabase), cache: "no-store",
     }), "read"))[0] ?? null,
+    findCarouselAutoDraft: async (carouselJobId) => (await rows(await fetcher(`${base}?carousel_job_id=eq.${carouselJobId}&auto_generated=eq.true&select=${SOCIAL_POST_COLUMNS}&limit=1`, {
+      headers: headers(supabase), cache: "no-store",
+    }), "read"))[0] ?? null,
     list: async (limit = 50) => rows(await fetcher(`${base}?select=${SOCIAL_POST_COLUMNS}&order=created_at.desc&limit=${limit}`, {
       headers: headers(supabase), cache: "no-store",
     }), "list"),
@@ -444,7 +472,7 @@ export const createSocialPostRepository = (supabase: SupabaseServiceConfig, fetc
  */
 export const scheduleSocialPostDraft = async ({ posts, post, finishedAt, local, now = new Date(), dryRun }: {
   posts: Pick<SocialPostRepository, "update">;
-  post: Pick<SocialPostRow, "id" | "status">;
+  post: Pick<SocialPostRow, "id" | "status"> & { media_type?: SocialMediaType };
   /** `finished_at` of the post's render when it is done, else null. */
   finishedAt: string | null;
   local: string;
@@ -452,7 +480,7 @@ export const scheduleSocialPostDraft = async ({ posts, post, finishedAt, local, 
   dryRun: boolean;
 }): Promise<{ ok: true; post: SocialPostRow } | { ok: false; conflict: boolean; message: string | null }> => {
   if (post.status !== "draft") return { ok: false, conflict: true, message: "Seul un brouillon peut être programmé." };
-  const check = validateSchedule({ local, finishedAt, now });
+  const check = validateSchedule({ local, finishedAt, now, mediaType: post.media_type ?? "reel" });
   if (!check.ok) return { ok: false, conflict: false, message: check.message };
   const updated = await posts.update(post.id, {
     status: "scheduled",
@@ -513,7 +541,8 @@ type PublicationMarkRow = z.infer<typeof markRowSchema>;
 /** Every post that still counts (failed ones excluded), grouped into marks by video and by race. */
 export const readPublicationMarks = async (supabase: SupabaseServiceConfig, fetcher: typeof fetch = fetch) => {
   const columns = Object.keys(markRowSchema.shape).join(",");
-  const response = await fetcher(`${supabase.supabaseUrl}/rest/v1/social_posts?status=neq.failed&select=${columns}&limit=5000`, {
+  // Marks are about reels: a carousel of a race never marks its video or the race as published.
+  const response = await fetcher(`${supabase.supabaseUrl}/rest/v1/social_posts?status=neq.failed&media_type=eq.reel&select=${columns}&limit=5000`, {
     headers: headers(supabase),
     cache: "no-store",
   });

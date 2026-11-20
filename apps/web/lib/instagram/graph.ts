@@ -122,6 +122,12 @@ export type ReelContainerInput = {
   shareToFeed?: boolean;
 };
 
+/** One slide of a carousel: a JPEG reachable by Meta (signed GCS URL). */
+export type CarouselItemInput = { igUserId: string; accessToken: string; imageUrl: string };
+
+/** The carousel itself: its item containers in slide order and the caption. */
+export type CarouselContainerInput = { igUserId: string; accessToken: string; children: string[]; caption: string };
+
 export type RecentMedia = { id: string; permalink: string | null; timestampMs: number | null; mediaProductType: string | null };
 
 export type AccountProfile = { username: string | null; name: string | null; profilePictureUrl: string | null };
@@ -130,6 +136,10 @@ export type PublishingLimit = { usage: number; total: number; durationSeconds: n
 
 export type InstagramGraphClient = {
   createReelContainer: (input: ReelContainerInput) => Promise<string>;
+  /** `POST /{ig-user-id}/media` with `image_url` and `is_carousel_item=true`. */
+  createCarouselItemContainer: (input: CarouselItemInput) => Promise<string>;
+  /** `POST /{ig-user-id}/media` with `media_type=CAROUSEL`, `children` and `caption`. */
+  createCarouselContainer: (input: CarouselContainerInput) => Promise<string>;
   getContainerStatus: (containerId: string, accessToken: string) => Promise<{ statusCode: ContainerStatusCode; status: string | null }>;
   publishContainer: (igUserId: string, containerId: string, accessToken: string) => Promise<string>;
   getPermalink: (mediaId: string, accessToken: string) => Promise<string | null>;
@@ -204,6 +214,23 @@ export const createInstagramGraphClient = ({
       }, idSchema);
       return result.id;
     },
+    createCarouselItemContainer: async ({ igUserId, accessToken, imageUrl }) => {
+      const result = await post(`${encodeURIComponent(igUserId)}/media`, {
+        image_url: imageUrl,
+        is_carousel_item: "true",
+        access_token: accessToken,
+      }, idSchema);
+      return result.id;
+    },
+    createCarouselContainer: async ({ igUserId, accessToken, children, caption }) => {
+      const result = await post(`${encodeURIComponent(igUserId)}/media`, {
+        media_type: "CAROUSEL",
+        children: children.join(","),
+        caption,
+        access_token: accessToken,
+      }, idSchema);
+      return result.id;
+    },
     getContainerStatus: async (containerId, accessToken) => {
       const result = await get(encodeURIComponent(containerId), { fields: "status_code,status", access_token: accessToken }, containerStatusSchema);
       return { statusCode: result.status_code, status: result.status ? sanitize(result.status) : null };
@@ -255,6 +282,8 @@ export const createInstagramGraphClient = ({
  */
 export const createDryRunGraphClient = (): InstagramGraphClient => ({
   createReelContainer: async () => `dry-run-container-${randomUUID()}`,
+  createCarouselItemContainer: async () => `dry-run-item-${randomUUID()}`,
+  createCarouselContainer: async () => `dry-run-container-${randomUUID()}`,
   getContainerStatus: async () => ({ statusCode: "FINISHED", status: "Simulation" }),
   publishContainer: async () => `dry-run-media-${randomUUID()}`,
   getPermalink: async () => null,

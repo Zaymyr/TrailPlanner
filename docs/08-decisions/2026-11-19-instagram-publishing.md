@@ -1,7 +1,7 @@
 ---
 title: Automated Instagram Reels publishing
 scope: decision
-last_verified: 2026-11-19
+last_verified: 2026-11-20
 ai_priority: medium
 related_files:
   - apps/web/lib/instagram/publisher.ts
@@ -33,6 +33,7 @@ The first version of this decision chose the Instagram API with Instagram Login:
 - **Resumable state machine.** Container creation, polling and publication are separate short steps under a lease; ids are stored as soon as Meta returns them so any retry resumes and `media_publish` is never called twice.
 - **Dry run by default.** Unless `INSTAGRAM_PUBLISH_DRY_RUN` is exactly `false` and both credentials are set, the whole flow runs on a simulated client with zero calls to Meta and flags posts `dry_run`. A post keeps the mode it was scheduled in: after a mode change it fails instead of being promoted, so a simulation can never turn into a real post.
 - **No automatic double post.** Once `media_publish` has been called, only the container status decides the next step; a lost response is recovered from the account's latest Reels, and starting over with a new container needs an admin's explicit confirmation.
+- **Carousels (2026-11-20).** The same state machine publishes carousels: one item container per JPEG (stored one by one), then the CAROUSEL container, then the usual poll and single `media_publish`; a lost media id is recovered among FEED media. Every guarantee above applies unchanged. See [Automatic Instagram Carousels](../05-integrations/instagram-carousels.md).
 - **Human validation guardrail.** Posts start as drafts. Only « Publier maintenant » or « Programmer » clicked by an admin can lead to a publication; the scheduler only executes what an admin scheduled.
 
 ## Consequences

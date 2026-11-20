@@ -16,6 +16,9 @@ related_files:
   - apps/web/app/api/admin/social-posts/[id]/route.ts
   - apps/web/app/api/cron/social-posts-publish/route.ts
   - apps/web/lib/reel-automation.ts
+  - supabase/migrations/20261120180000_add_instagram_carousels.sql
+  - apps/web/lib/social-post-media.ts
+  - apps/web/lib/carousels/carousel-render.ts
 related_tables:
   - social_posts
   - video_render_jobs
@@ -26,7 +29,7 @@ related_tables:
 
 ## Purpose
 
-One Instagram Reel drafted from a finished background render and published from the admin « Publications » page. The publication itself is a resumable state machine; see [Instagram Reels Publishing](../../05-integrations/instagram-publishing.md).
+One Instagram Reel drafted from a finished background render, or one Instagram carousel drafted from a finished slide render (`media_type = carousel`, [Automatic Instagram Carousels](../../05-integrations/instagram-carousels.md)), published from the admin « Publications » page. The publication itself is a resumable state machine; see [Instagram Reels Publishing](../../05-integrations/instagram-publishing.md).
 
 ## Key Concepts
 
@@ -58,6 +61,11 @@ One Instagram Reel drafted from a finished background render and published from 
 | `locked_until` | `timestamptz` | | Lease and throttle of the state machine. |
 | `content` | `jsonb` | object or null | Full reel content JSON (hook, script segments, cta, caption, hashtags, cover text) copied from `video_render_jobs.content` when the draft is created; null without content. Informational: the publisher only reads `caption`, `hashtags` and `video_url`. |
 | `auto_generated` | `boolean` | not null, default `false` | The draft was created by the render completion (one-click reel), not by an admin; shown as « Généré automatiquement » in Publications. Informational for the publisher. |
+| `media_type` | `text` | `reel` (default) or `carousel` | Kind of post; every row before the carousels is a reel. |
+| `carousel_series` | `text` | null or `plan`, `brief`, `week` | Carousel series (required for a carousel, null for a reel). |
+| `carousel_job_id` | `uuid` | references `carousel_render_jobs(id)` on delete set null | Source slide render of a carousel. |
+| `image_paths` | `text[]` | null or 2-10 entries | Ordered Cloud Storage object paths of the slides (never signed URLs); required for a carousel. |
+| `ig_child_container_ids` | `text[]` | ≤ 10, default `{}` | Carousel item containers created so far, in slide order, stored one by one so a retry resumes them; cleared with the container. Always empty for a reel. |
 | `created_by` | `uuid` | references `auth.users(id)` on delete set null | Admin who created the draft (for an automatic draft, the admin who launched the render). |
 | `created_at`, `updated_at` | `timestamptz` | `updated_at` set by trigger `set_social_posts_updated_at` | Timing. |
 
@@ -71,7 +79,9 @@ One Instagram Reel drafted from a finished background render and published from 
 - `social_posts_status_scheduled_idx (status, scheduled_at)`: the cron's due-post and runnable-post scans.
 - `social_posts_created_idx (created_at desc)`: the admin list.
 - `social_posts_auto_generated_video_job_uidx (video_job_id) where auto_generated and video_job_id is not null` (unique, partial): at most one automatic draft per render, so a retried completion callback can never create a second one. It was added with `auto_generated` in `20261119170000_add_render_job_auto_draft.sql` (the idempotency is also checked in the application before inserting). Manual drafts are not constrained: an admin can still create several drafts for one render.
-- One index per foreign key (`race_id`, `video_job_id`, `created_by`).
+- One index per foreign key (`race_id`, `video_job_id`, `created_by`, `carousel_job_id`).
+- `social_posts_auto_generated_carousel_job_uidx (carousel_job_id) where auto_generated and carousel_job_id is not null` (unique, partial): at most one automatic draft per carousel render (`20261120180000_add_instagram_carousels.sql`).
+- Checks `social_posts_carousel_shape` (a carousel has a series and images, never a video) and `social_posts_reel_shape` (a reel has no carousel field and no item container).
 
 ## RLS Policies
 
@@ -101,6 +111,7 @@ from public.social_posts where status = 'publishing';
 
 ## Gotchas
 
+- Reel-only readers filter `media_type=eq.reel`: the reel planner duplicate guard (`loadPlannerCatalog`, `loadRaceReels`) and `readPublicationMarks`, so a carousel of a race never blocks its reel nor marks its video as published.
 - Deleting a published row (« Retirer de la liste ») only removes it from the admin: a live Instagram post stays online, and its video and race lose their « publiée » mark (`readPublicationMarks` reads the remaining non-failed rows). Scheduled and publishing rows cannot be deleted.
 - `video_url` is a path, not a URL; never store a signed URL (it expires in 2 hours).
 - Scheduling is refused past `finished_at + 30 days − 24 h` of the render (bucket lifecycle).

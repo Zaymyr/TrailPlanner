@@ -14,6 +14,14 @@ test("reads the job, the video size and the fragment token", () => {
   assert.equal(render.reportUrl, `https://pace-yourself.com/api/video-render/jobs/${jobId}`);
 });
 
+test("reads a carousel render page and reports to the carousel route", () => {
+  const render = parseRenderUrl(`https://pace-yourself.com/render/carousel/${jobId}?w=1080&h=1350#token=9.xyz`);
+  assert.equal(render.kind, "carousel");
+  assert.equal(render.jobId, jobId);
+  assert.equal(render.height, 1350);
+  assert.equal(render.reportUrl, `https://pace-yourself.com/api/carousel-render/jobs/${jobId}`);
+});
+
 test("rejects URLs that are not a render page or miss the token or size", () => {
   assert.throws(() => parseRenderUrl(undefined), /missing/);
   assert.throws(() => parseRenderUrl(`https://pace-yourself.com/admin/${jobId}?w=1080&h=1920#token=x`), /render page/);
