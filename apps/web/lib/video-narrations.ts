@@ -109,7 +109,8 @@ export const readNarration = async (
 export const saveNarration = async (
   supabase: SupabaseServiceConfig,
   raceId: string,
-  userId: string,
+  /** Null for an automatic reel whose settings have no author. */
+  userId: string | null,
   request: SaveNarrationRequest,
   mode: VideoStoryMode = "full",
   fetcher: typeof fetch = fetch,

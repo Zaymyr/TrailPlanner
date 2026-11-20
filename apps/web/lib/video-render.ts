@@ -364,3 +364,23 @@ export const deleteRenderJob = async (supabase: SupabaseServiceConfig, jobId: st
 /** Filename-safe slug of the race title, like the in-browser export. */
 export const getReelFileName = (title: string) =>
   `${title.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "parcours"}-reel.mp4`;
+
+/**
+ * The page the headless browser opens. The token travels in the fragment, which browsers never
+ * send to a server or write to access logs. Preview deployments are behind Vercel protection: the
+ * automation bypass secret (when enabled in Vercel) lets the renderer through.
+ */
+export const buildRenderUrl = (requestOrigin: string, job: { id: string; width: number; height: number }, token: string) => {
+  const origin = process.env.VIDEO_RENDER_APP_ORIGIN?.trim() || requestOrigin;
+  const url = new URL(`/render/video/${job.id}`, origin);
+  // The renderer opens a browser window of exactly the video size.
+  url.searchParams.set("w", String(job.width));
+  url.searchParams.set("h", String(job.height));
+  const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim();
+  if (bypass) {
+    url.searchParams.set("x-vercel-protection-bypass", bypass);
+    url.searchParams.set("x-vercel-set-bypass-cookie", "true");
+  }
+  url.hash = `token=${token}`;
+  return url.toString();
+};

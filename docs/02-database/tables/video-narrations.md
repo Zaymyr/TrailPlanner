@@ -12,6 +12,7 @@ related_files:
   - apps/web/lib/video-narrations.ts
   - apps/web/app/api/admin/video-generator/narrations/[raceId]/route.ts
   - apps/web/app/api/admin/video-generator/race-stats/route.ts
+  - apps/web/lib/reel-generation.ts
 related_tables:
   - video_narrations
   - video_render_jobs
@@ -36,7 +37,7 @@ The saved narration of the admin 3D reel, one row per race and story mode ("Parc
 | `voice` | `jsonb` | not null, `{}` | `voiceId` (ElevenLabs, nullable for the default voice), `voiceName` (optional, name of the [pool voice](video-voices.md) drawn for this narration, absent from older saves), `model`, `expressiveness`. |
 | `content` | `jsonb` | nullable, JSON object when set (`video_narrations_content_object`) | Highlights reel text written in one call (hook, script segments, call to action, caption, hashtags, cover text), validated by `reelContentSchema` (`apps/web/lib/reel-content.ts`) and reloaded with the race and mode. Only saved for `highlights`; null for `full` rows, rows saved before 2026-11-19 and when the save omitted it (an omitted `content` keeps the stored one, `null` clears it). |
 | `clip_count` | `integer` | not null, ≥ 0, default 0 | Number of clips in the Storage object; 0 when none was saved. |
-| `updated_by` | `uuid` | references `auth.users(id)` on delete set null, indexed | Admin who saved last. |
+| `updated_by` | `uuid` | references `auth.users(id)` on delete set null, indexed | Admin who saved last; for an automatic reel, the admin who last changed the automation switches (`reel_automation_settings.updated_by`, `saveNarration` accepts null). |
 | `updated_at` | `timestamptz` | not null, now | Last save. |
 
 ## Storage
@@ -45,13 +46,14 @@ Bucket `video-narrations`: private, 20 MB per object, `application/json` only, n
 
 ## Access
 
-RLS is on with no policy; `anon` and `authenticated` have no privilege. Only the service role (admin API routes `GET`/`PUT /api/admin/video-generator/narrations/[raceId]?mode=full|highlights`, `full` when absent and 400 when unknown, and `GET /api/admin/video-generator/race-stats`) reads and writes the table and the bucket. Saves upsert on `(race_id, mode)`.
+RLS is on with no policy; `anon` and `authenticated` have no privilege. Only the service role (the automatic reel pipeline's cron route, which saves the narration of its voice step and reads the clips back for the render, and the admin API routes `GET`/`PUT /api/admin/video-generator/narrations/[raceId]?mode=full|highlights`, `full` when absent and 400 when unknown, and `GET /api/admin/video-generator/race-stats`) reads and writes the table and the bucket. Saves upsert on `(race_id, mode)`.
 
 ## Business rules
 
 - A clip is used only while its text equals the beat narration, so a stale clip after an edit is ignored, never played over the wrong text.
 - The race picker shows, per format, whether a narration (and its voice) is saved, from `race-stats`, next to the number of finished background videos from `video_render_jobs`.
 - Each mode saves only its own texts: highlight beats use `hl-…` ids (`hl-intro`, `hl-outro` included), full beats never do. The editor loads a mode's narration once per race, when the race opens or when the mode is first chosen, and merges its texts and clips with the other mode's ([ADR](../../08-decisions/2026-11-19-reel-highlights-and-figures.md)).
+- An automatic reel ([Automatic Reel Pipeline](../../05-integrations/reel-automation.md)) saves the narration of its race and mode like the one-click reel, overwriting an earlier save of that mode; a full automatic reel stores no `content` here (only on its render job).
 - `race-stats` reports a race as narrated (and voiced) when any of its modes is. It also returns the race's Instagram publication mark (`publication`, from `social_posts` through `readPublicationMarks`; null when none or when that read fails).
 
 ## Gotchas

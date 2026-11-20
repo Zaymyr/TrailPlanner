@@ -14,10 +14,10 @@ const MAX_NAME_LENGTH = 40;
 const shorten = (name: string) => (name.length > MAX_NAME_LENGTH ? `${name.slice(0, MAX_NAME_LENGTH - 1).trimEnd()}…` : name);
 
 /** Nearest settlement (city, town, village, hamlet) within 5 km of a point. */
-export const fetchNearestPlaceName = async (lon: number, lat: number, token: string, signal?: AbortSignal) => {
+export const fetchNearestPlaceName = async (lon: number, lat: number, token: string, signal?: AbortSignal, fetcher: typeof fetch = fetch) => {
   const url = `https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/tilequery/${lon.toFixed(5)},${lat.toFixed(5)}.json`
     + `?radius=5000&limit=20&layers=place_label&access_token=${encodeURIComponent(token)}`;
-  const response = await fetch(url, { signal });
+  const response = await fetcher(url, { signal });
   if (!response.ok) return null;
   const payload = await response.json().catch(() => null) as { features?: PlaceFeature[] } | null;
   const places = (payload?.features ?? [])
@@ -53,4 +53,20 @@ export const resolveEndpointNames = async (
     loop ? Promise.resolve(null) : lookup(finish.lon, finish.lat).catch(() => null),
   ]);
   return { start: startName, finish: loop ? startName : finishName };
+};
+
+type TilequeryFeature = { properties?: { name?: unknown; maki?: unknown; elevation_m?: unknown } };
+
+/** Highest named peak within 1.5 km of a point, from the Mapbox Streets natural labels. */
+export const fetchNearestPeakName = async (lon: number, lat: number, token: string, signal?: AbortSignal, fetcher: typeof fetch = fetch) => {
+  const url = `https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/tilequery/${lon.toFixed(5)},${lat.toFixed(5)}.json`
+    + `?radius=1500&limit=20&layers=natural_label&access_token=${encodeURIComponent(token)}`;
+  const response = await fetcher(url, { signal });
+  if (!response.ok) return null;
+  const payload = await response.json().catch(() => null) as { features?: TilequeryFeature[] } | null;
+  const peaks = (payload?.features ?? [])
+    .map((feature) => feature.properties ?? {})
+    .filter((properties) => typeof properties.name === "string" && (properties.maki === "mountain" || properties.maki === "volcano"))
+    .sort((left, right) => (Number(right.elevation_m) || 0) - (Number(left.elevation_m) || 0));
+  return (peaks[0]?.name as string | undefined) ?? null;
 };

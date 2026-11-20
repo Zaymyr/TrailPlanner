@@ -39,6 +39,9 @@ related_files:
   - supabase/migrations/20261119130000_add_social_posts.sql
   - supabase/migrations/20261119130100_schedule_social_posts_cron.sql
   - supabase/migrations/20261120090000_add_video_voices.sql
+  - supabase/migrations/20261120140000_add_reel_automation.sql
+  - supabase/migrations/20261120140100_schedule_reel_automation_cron.sql
+  - supabase/tests/reel_automation_checks.sql
   - supabase/tests/video_voices_checks.sql
   - supabase/tests/social_posts_checks.sql
   - supabase/tests/racebook_versioned_publications_checks.sql
@@ -164,6 +167,8 @@ related_tables:
 `20261104140000_add_video_render_jobs.sql` adds `video_render_jobs` (background reel renders on Google Cloud Run): status, progress, video size and timing, with covering indexes for its race and creator foreign keys, RLS on and service-role-only grants.
 
 `20261120090000_add_video_voices.sql` adds `video_voices` (the admin reel generator's shared pool of ElevenLabs voices: unique `elevenlabs_voice_id` checked against `^[A-Za-z0-9]{8,64}$`, `name` 1-40, `active` default true, `created_by`, trigger-maintained `updated_at`), additive, RLS on with no policy, every client privilege revoked and `service_role` only, like `video_render_jobs`. `supabase/tests/video_voices_checks.sql` checks the grants, defaults, trigger, unique id and checks. See [video_voices](tables/video-voices.md).
+
+`20261120140000_add_reel_automation.sql` adds the automatic reel pipeline tables: `reel_automation_settings` (single row forced by a boolean primary key and inserted by the migration; `generation_enabled` and `auto_publish_enabled` default false, publication only with generation by check; caps 3 per week and 1 per day, `lead_days` 3, `publish_time` 18:00, `updated_by`) and `reel_automation_items` (race, `edition_key`, mode, planned day, status, step, attempts, error, skip reason, `work` jsonb, render job and social post links on delete set null, lease, `unique (race_id, edition_key)`), with an `updated_at` trigger function, indexes on every foreign key, RLS on with no policy and `service_role`-only grants. Additive only: no existing table, policy or function changes. `20261120140100_schedule_reel_automation_cron.sql` schedules the pg_cron job `reel-automation` (`17 * * * *`) calling `/api/cron/reel-automation` through pg_net with a 5-minute timeout; it reads the same Vault secrets as `social-posts-publish` at run time, through the `SECURITY DEFINER` `configure_reel_automation_cron()` revoked from client roles. Check: `supabase/tests/reel_automation_checks.sql`. See [Automatic Reel Pipeline](../05-integrations/reel-automation.md).
 
 `20261119130000_add_social_posts.sql` adds `social_posts` (Instagram Reels drafted from finished renders, with the container/media ids and lease of the publishing state machine), additive, RLS on with no policy and service-role-only grants, with an `updated_at` trigger and one index per foreign key. `20261119130100_schedule_social_posts_cron.sql` schedules the pg_cron job `social-posts-publish` (every 5 minutes); its command reads the Vault secrets `web_app_url` and `cron_secret` when they run, so the migration succeeds even before the secrets exist. Check: `supabase/tests/social_posts_checks.sql`. The Instagram credentials are server env vars (System User token), so no account table exists.
 

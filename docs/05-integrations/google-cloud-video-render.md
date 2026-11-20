@@ -1,7 +1,7 @@
 ---
 title: Google Cloud Background Reel Render
 scope: integration
-last_verified: 2026-11-19
+last_verified: 2026-11-20
 ai_priority: medium
 related_files:
   - apps/web/app/api/admin/video-generator/render-jobs/[id]/route.test.ts
@@ -32,6 +32,8 @@ related_files:
   - apps/web/app/admin/video-generator/BackgroundRenderPanel.tsx
   - apps/web/app/admin/video-generator/render-snapshot.ts
   - apps/web/app/admin/video-generator/video-export.ts
+  - apps/web/lib/reel-generation.ts
+  - apps/web/app/admin/video-generator/reel-composition.ts
   - supabase/migrations/20261104140000_add_video_render_jobs.sql
   - supabase/migrations/20261119170000_add_render_job_auto_draft.sql
 related_tables:
@@ -96,6 +98,10 @@ Each finished or failed render in the panel has a "Supprimer" action (with a con
 ## Automatic draft (one-click reel)
 
 `POST /api/video-render/jobs/<id>` (render token, no admin session) calls `createAutoDraftForRenderJob` (`apps/web/lib/social-post-auto-draft.ts`) right after marking the job `done`, with the service role only: no auth, RLS or grant change. It inserts one `social_posts` row with status `draft` (never scheduled or published), `created_by` = the job's `created_by`, `auto_generated = true`, `dry_run` from the current publishing mode, and the caption, hashtags and cover text pre-filled from `job.content` exactly like a manual draft (`buildDraftPrefill`, shared row builder `buildSocialPostDraftRow`). It is idempotent: a retried callback (a done job answers through the same path, so a failed first attempt is repaired) finds the existing automatic draft of the job first, and the partial unique index `social_posts_auto_generated_video_job_uidx` makes a concurrent double insert fail, which is then read back as success. A failure never fails the completion: it is logged (`Automatic social draft failed` plus the error message, no payload or secret), the job stays `done` and the admin can still create the draft by hand. `getRenderJob`, `listRenderJobs`, `insertRenderJob` and `updateRenderJob` now also return `created_by` and `auto_draft` (`VIDEO_RENDER_JOB_COLUMNS`).
+
+## Automatic reels
+
+The automatic reel pipeline ([Automatic Reel Pipeline](reel-automation.md)) launches renders without a browser: the cron route builds the snapshot on the server (`buildReelRenderSnapshot` in `reel-composition.ts`, same pure modules as the editor, checked by `parseRenderSnapshot`, `previewSize` 405 × 720), inserts the job with `content` and `auto_draft`, signs the PUT URL and uploads the snapshot itself, then starts the execution like the start route. The render URL is built by `buildRenderUrl` (`apps/web/lib/video-render.ts`, moved from the start route, unchanged: `VIDEO_RENDER_APP_ORIGIN` or the request origin, optional Vercel bypass, token in the fragment). Google access uses the Vercel OIDC token of the incoming cron request, as the social publishing cron already does.
 
 ## Instagram publishing
 

@@ -15,6 +15,7 @@ related_files:
   - apps/web/app/api/admin/social-posts/route.ts
   - apps/web/app/api/admin/social-posts/[id]/route.ts
   - apps/web/app/api/cron/social-posts-publish/route.ts
+  - apps/web/lib/reel-automation.ts
 related_tables:
   - social_posts
   - video_render_jobs
@@ -30,7 +31,7 @@ One Instagram Reel drafted from a finished background render and published from 
 ## Key Concepts
 
 - Lifecycle: `draft` → (`scheduled` →) `publishing` → `published` | `failed`. `failed` can go back to `publishing` (« Réessayer ») and `scheduled` back to `draft` (« Annuler la programmation »).
-- Only an admin action moves a draft out of `draft`; the cron only promotes `scheduled` posts whose time has come.
+- Only an admin action moves a draft out of `draft`, or the automatic reel pipeline when an admin turned « Publication automatique » on (it schedules the automatic draft of an automatic reel at its planned slot through `scheduleSocialPostDraft`, the same rule as « Programmer »); the cron only promotes `scheduled` posts whose time has come.
 - `dry_run` records the mode the post was published in; a simulated post keeps fake `dry-run-…` ids.
 
 ## Columns
@@ -78,7 +79,7 @@ RLS is enabled with no policy; every privilege is revoked from `public`, `anon` 
 
 ## Business Invariants
 
-- A new row is a dry-run `draft`. An automatic draft (`auto_generated`) is a `draft` too: it is never scheduled or published without an admin action.
+- A new row is a dry-run `draft`. An automatic draft (`auto_generated`) is a `draft` too: it is never scheduled or published without an admin action, except by the automatic reel pipeline when « Publication automatique » is on ([reel_automation_items](reel-automation-items.md) links it through `social_post_id`).
 - Every status transition is a PATCH guarded by the expected current status (and `ig_media_id=is.null` where relevant), so two clicks or a click racing the cron cannot both win.
 - A step runs only after claiming the lease (`status=eq.publishing` and `locked_until` null or past).
 - `media_publish` is never called when `ig_media_id` is set, nor for a container that is not `FINISHED`.
@@ -110,3 +111,4 @@ from public.social_posts where status = 'publishing';
 - [video_render_jobs](video-render-jobs.md)
 - [Instagram Reels Publishing](../../05-integrations/instagram-publishing.md)
 - [RLS Policies](../rls-policies.md)
+- [Automatic Reel Pipeline](../../05-integrations/reel-automation.md)

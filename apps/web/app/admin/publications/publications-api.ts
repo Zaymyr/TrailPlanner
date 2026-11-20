@@ -82,3 +82,35 @@ export const adminFetch = async <T>(
 
 export const postAction = (accessToken: string, postId: string, action: SocialPostAction) =>
   adminFetch(accessToken, `/api/admin/social-posts/${postId}`, postResponseSchema, { method: "POST", body: action }, "L’action a échoué.");
+
+/** Automatic reels (`/api/admin/reel-automation`). */
+export const reelAutomationItemSchema = z.object({
+  id: z.string(),
+  raceId: z.string(),
+  raceName: z.string().nullable(),
+  mode: z.enum(["full", "highlights"]),
+  plannedPublishDate: z.string(),
+  generateOn: z.string(),
+  status: z.enum(["planned", "generating", "rendering", "drafted", "scheduled", "skipped", "failed"]),
+  step: z.enum(["content", "voice", "render"]).nullable(),
+  attempts: z.number(),
+  error: z.string().nullable(),
+  reason: z.enum(["too_late", "duplicate", "excluded", "ineligible"]).nullable(),
+  renderJobId: z.string().nullable(),
+  socialPostId: z.string().nullable(),
+});
+export type ReelAutomationItemView = z.infer<typeof reelAutomationItemSchema>;
+
+export const reelAutomationResponseSchema = z.object({
+  settings: z.object({
+    generationEnabled: z.boolean(),
+    autoPublishEnabled: z.boolean(),
+    maxPerWeek: z.number(),
+    maxPerDay: z.number(),
+    leadDays: z.number(),
+    publishTime: z.string(),
+    updatedAt: z.string(),
+  }),
+  items: z.array(reelAutomationItemSchema),
+});
+export type ReelAutomationView = z.infer<typeof reelAutomationResponseSchema>;

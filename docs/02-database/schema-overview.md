@@ -260,6 +260,8 @@ The November 2026 mobile plan-flow polish changes catalog search controls, image
 | `race_requests` | Authenticated user requests for races to add. |
 | `organizer_demo_requests` | Service-only demo requests from the public organizer page (e-mail, race link, optional phone), reviewed in the admin inbox. See [organizer_demo_requests](tables/organizer-demo-requests.md). |
 | `video_voices` | Service-only shared pool of ElevenLabs voices of the admin reel generator (unique ElevenLabs id, name, `active`); each new reel draws an active voice at random. See [video_voices](tables/video-voices.md). |
+| `reel_automation_settings` | Service-only single row of the automatic reel pipeline: generation and publication switches (off by default), caps, lead time, publication time. See [reel_automation_settings](tables/reel-automation-settings.md). |
+| `reel_automation_items` | Service-only planned automatic reels, one per race and edition (unique), with their status, step, lease and links to the render job and draft. See [reel_automation_items](tables/reel-automation-items.md). |
 | `social_posts` | Service-only Instagram Reels drafted from finished `video_render_jobs` (by an admin, or automatically when a one-click render finishes: `auto_generated`, one per render) and published by explicit admin action through a resumable state machine. See [social_posts](tables/social-posts.md). |
 | `races` | Current race catalog/private race table, renamed from `race_catalog`, with yearly organizer edition grouping on `edition_group_id` / `series_name`. |
 | `race_slug_redirects` | Former course slugs mapped to stable race ids for visibility-gated permanent redirects. |
@@ -346,6 +348,8 @@ erDiagram
 - [video_voices](tables/video-voices.md)
 - [video_narrations](tables/video-narrations.md)
 - [social_posts](tables/social-posts.md)
+- [reel_automation_settings](tables/reel-automation-settings.md)
+- [reel_automation_items](tables/reel-automation-items.md)
 - [organizer_import_sessions](tables/organizer-import-sessions.md)
 - [race_events](tables/race-events.md)
 - [race_event_editions](tables/race-event-editions.md)
