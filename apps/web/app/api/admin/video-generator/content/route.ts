@@ -7,6 +7,8 @@ import {
   checkUnprovidedNumbers,
   collectAllowedNumbers,
   REEL_CAPTION_MAX_CHARS,
+  REEL_CAPTION_MAX_EMOJIS,
+  REEL_CAPTION_MIN_EMOJIS,
   REEL_COVER_TEXT_MAX_WORDS,
   REEL_HOOK_MAX_WORDS,
   REEL_MAX_HASHTAGS,
@@ -32,7 +34,7 @@ FORMAT DE SORTIE : cette fois tu ne renvoies pas seulement les narrations, mais 
 - hook : l'accroche des 2 premières secondes, ${REEL_HOOK_MAX_WORDS} mots au plus, une question ou une affirmation forte, dite sous chiffreChoc et nomCourt : n'y répète pas le nom de la course et ne cite aucun chiffre absent des données ;
 - script_segments : une entrée par id reçu (hl-intro, chaque temps fort, hl-outro), avec highlight_id et text, dans l'ordre, chaque text dans ses minWords / maxWords. Le text de hl-intro COMMENCE par le hook, mot pour mot, puis éventuellement quelques mots ;
 - cta : la phrase de fin dite à voix haute, celle de hl-outro : le plan de course de cette course est prêt dans l'appli Pace Yourself, lien en bio ;
-- caption : la description Instagram, ton sobre et crédible, sans exagération ni emoji en rafale : 2 à 4 phrases (la course, ce qui compte dans le parcours, un conseil) puis un appel à l'action vers le plan de course dans l'appli Pace Yourself (lien en bio) ; au plus ${REEL_CAPTION_MAX_CHARS} caractères, sans hashtags dans le texte. Parle de « livret coureur » ou de « plan de course », jamais de promesse de performance ;
+- caption : la description Instagram, lue sous le reel. Ce n'est PAS la voix off : ne reprends aucune phrase du script, écris un autre texte, dans le même ton et le même style que la vidéo (vivant, complice, tutoiement, vocabulaire trail). Structure, en lignes courtes séparées par des retours à la ligne : une première ligne qui accroche, avec un emoji ; 2 à 4 phrases courtes sur ce qui rend cette course particulière et un conseil concret ; une question qui donne envie de répondre en commentaire ; puis l'appel à l'action : ton plan de course pour cette course est prêt dans l'appli Pace Yourself, lien en bio. Mets ${REEL_CAPTION_MIN_EMOJIS + 1} à ${REEL_CAPTION_MAX_EMOJIS - 2} emojis pertinents (⛰️ 🏃 🌙 🔦 ⏱️ 🥤 💪 👆…), en début ou fin de ligne, jamais en rafale. Parle de « livret coureur » ou de « plan de course », jamais de promesse de performance ; au plus ${REEL_CAPTION_MAX_CHARS} caractères, sans hashtags dans le texte ;
 - hashtags : ${REEL_MIN_HASHTAGS} à ${REEL_MAX_HASHTAGS}, en minuscules, sans accents, espaces ni #, mélange de hashtags de niche (le nom de la course, nomCourt) et de hashtags trail génériques (trail, trailrunning, ultratrail…), et paceyourself ;
 - cover_text : le texte de couverture, ${REEL_COVER_TEXT_MAX_WORDS} mots au plus.
 

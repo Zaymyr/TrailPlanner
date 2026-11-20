@@ -17,6 +17,42 @@ export const REEL_MIN_HASHTAGS = 3;
 export const REEL_MAX_HASHTAGS = 5;
 export const REEL_CAPTION_MAX_CHARS = 2_200;
 const COVER_TEXT_STORED_MAX_CHARS = 200;
+/** The caption is read under the reel, so it has its own voice: a few emojis, never a burst. */
+export const REEL_CAPTION_MIN_EMOJIS = 2;
+export const REEL_CAPTION_MAX_EMOJIS = 8;
+/** A run of this many words shared with the voice-over means the caption copies the script. */
+export const REEL_CAPTION_COPY_WORDS = 7;
+
+// One emoji per visible symbol: joined sequences (🏃‍♂️), variation selectors and skin tones count once.
+const EMOJI_PATTERN = /\p{Extended_Pictographic}(?:‍\p{Extended_Pictographic}|️|[\u{1F3FB}-\u{1F3FF}])*/gu;
+export const countEmojis = (text: string) => Array.from(text.matchAll(EMOJI_PATTERN)).length;
+
+const compareWords = (text: string) =>
+  text
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[’']/g, " ")
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+
+/**
+ * First run of `size` consecutive words of the caption that also appears in one of the voice-over
+ * texts (accents, case and punctuation ignored), or null: the caption must not reread the video.
+ */
+export const findCopiedPhrase = (caption: string, voiceTexts: string[], size = REEL_CAPTION_COPY_WORDS) => {
+  const grams = new Set<string>();
+  for (const text of voiceTexts) {
+    const words = compareWords(text);
+    for (let index = 0; index + size <= words.length; index += 1) grams.add(words.slice(index, index + size).join(" "));
+  }
+  const words = compareWords(caption);
+  for (let index = 0; index + size <= words.length; index += 1) {
+    const gram = words.slice(index, index + size).join(" ");
+    if (grams.has(gram)) return gram;
+  }
+  return null;
+};
 
 export const reelContentSchema = z.object({
   hook: z.string().max(300),
@@ -234,6 +270,15 @@ export const sanitizeReelContent = (raw: RawReelContent, beats: ReelBeatBudget[]
   const caption = raw.caption.trim();
   if (!caption) problem("caption", "Description manquante.");
   else if (caption.length > REEL_CAPTION_MAX_CHARS) problem("caption", `La description dépasse ${REEL_CAPTION_MAX_CHARS} caractères (${caption.length}) : elle a été coupée.`);
+  if (caption) {
+    const emojis = countEmojis(caption);
+    if (emojis < REEL_CAPTION_MIN_EMOJIS) problem("caption", `La description est plate : ${emojis} emoji pour ${REEL_CAPTION_MIN_EMOJIS} au moins.`);
+    else if (emojis > REEL_CAPTION_MAX_EMOJIS) problem("caption", `Trop d’emojis dans la description (${emojis}, ${REEL_CAPTION_MAX_EMOJIS} au plus).`);
+    // The closing call to action may echo the spoken one; the rest of the caption must not.
+    const voiceTexts = [hook, ...script_segments.filter((segment) => segment.highlight_id !== "hl-outro").map((segment) => segment.text)];
+    const copied = findCopiedPhrase(caption, voiceTexts);
+    if (copied) problem("caption", `La description reprend la voix off (« ${copied} ») : écris-la pour être lue, pas entendue.`);
+  }
 
   return {
     content: {

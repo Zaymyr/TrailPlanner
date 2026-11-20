@@ -60,7 +60,7 @@ const output = (patch: Record<string, unknown> = {}) => ({
     { highlight_id: "hl-outro", text: "Plan de course prêt, lien en bio." },
   ],
   cta: "Plan de course prêt, lien en bio.",
-  caption: "Une course de nuit exigeante. Prépare ton plan de course dans l’appli Pace Yourself (lien en bio).",
+  caption: "Une course de nuit exigeante 🌙\nTu pars sur quel rythme ?\nTon plan de course est prêt dans l’appli Pace Yourself, lien en bio 👆",
   hashtags: TAGS,
   cover_text: "82 km de nuit",
   ...patch,
@@ -146,7 +146,7 @@ describe("POST /api/admin/video-generator/content", () => {
   });
 
   it("revises a figure that is not in the data, then shows it as a warning when it stays", async () => {
-    const invented = output({ caption: "Une course de 190 km. Prépare ton plan de course (lien en bio)." });
+    const invented = output({ caption: "Une course de 190 km ⛰️ Prépare ton plan de course (lien en bio) 👆" });
     state.parse.mockResolvedValue(reply(invented));
     const payload = await (await POST(request(validBody))).json();
 

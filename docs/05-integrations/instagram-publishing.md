@@ -1,7 +1,8 @@
 ---
 title: Instagram Reels Publishing
 scope: integration
-last_verified: 2026-11-19
+last_verified: 2026-11-20
+# Reel caption voice (2026-11-20): drafts pre-filled from reel content now carry a livelier caption with a few emojis, distinct from the voice-over; the plain template (no content) is unchanged.
 ai_priority: medium
 related_files:
   - apps/web/lib/instagram/config.ts
