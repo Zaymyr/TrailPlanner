@@ -128,7 +128,7 @@ import {
 } from "./race-figures";
 import { pickShockFigure } from "./reel-hook";
 import { loadScriptNotes, storeScriptNotes } from "./script-notes";
-import { fetchNearestPlaceName, resolveEndpointNames, type EndpointNames } from "./place-labels";
+import { fetchNearestPeakName, fetchNearestPlaceName, resolveEndpointNames, type EndpointNames } from "./place-labels";
 import { getEndpointLabelSpecs, getPinnedLabelBox, resolveLabelVisibility, type LabelCandidate, type LabelKind } from "./label-layout";
 
 const TERRAIN_SOURCE_ID = "video-terrain-dem";
@@ -160,22 +160,6 @@ const OWN_LAYER_IDS = new Set([
 const EMPTY_FEATURES = { type: "FeatureCollection", features: [] } as const;
 const IDLE_ACTION: AsyncActionState = { status: "idle", message: null };
 
-
-type TilequeryFeature = { properties?: { name?: unknown; maki?: unknown; elevation_m?: unknown } };
-
-/** Highest named peak within 1.5 km of a point, from the Mapbox Streets natural labels. */
-export const fetchNearestPeakName = async (lon: number, lat: number, token: string, signal?: AbortSignal) => {
-  const url = `https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/tilequery/${lon.toFixed(5)},${lat.toFixed(5)}.json`
-    + `?radius=1500&limit=20&layers=natural_label&access_token=${encodeURIComponent(token)}`;
-  const response = await fetch(url, { signal });
-  if (!response.ok) return null;
-  const payload = await response.json().catch(() => null) as { features?: TilequeryFeature[] } | null;
-  const peaks = (payload?.features ?? [])
-    .map((feature) => feature.properties ?? {})
-    .filter((properties) => typeof properties.name === "string" && (properties.maki === "mountain" || properties.maki === "volcano"))
-    .sort((left, right) => (Number(right.elevation_m) || 0) - (Number(left.elevation_m) || 0));
-  return (peaks[0]?.name as string | undefined) ?? null;
-};
 
 /** A label card pinned above a route point; `hidden` is the verdict of the label layout. */
 type PinnedLabel = { id: string; kind: LabelKind; card: HTMLElement; marker: mapboxgl.Marker; lon: number; lat: number; elevationM: number; offsetY: number; tailCqmin: number; hidden: boolean };

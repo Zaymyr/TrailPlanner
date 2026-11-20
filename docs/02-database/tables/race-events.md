@@ -2,7 +2,7 @@
 title: race_events Table
 scope: database
 
-last_verified: 2026-11-19
+last_verified: 2026-11-20
 # Supporter onboarding (2026-11-18): the mobile guided catalog gains a `supporter` mode over the same public event list; no read, table or RLS change here (the only schema change is `user_profiles.supporter_onboarding_status`).
 # Inbox push badge (2026-11-18): apps/web/lib/push.ts adds an iOS badge only to admin inbox pushes (unread user_notifications count); race event update pushes, schema and RLS are unchanged.
 # Reel hook short name (2026-11-19): nullable `short_name` (1-40 characters once trimmed, no ellipsis) edited by admins and read only by admin service-role routes; RLS, grants and public reads unchanged.
@@ -46,6 +46,7 @@ related_files:
   - supabase/migrations/20261119150000_add_race_events_short_name.sql
   - supabase/tests/race_events_short_name_checks.sql
   - apps/web/app/api/admin/video-generator/races/[id]/route.ts
+  - apps/web/lib/video-generator-race.ts
   - apps/web/app/api/race-catalog/route.ts
   - apps/web/app/api/admin/race-events/[id]/thumbnail/route.ts
   - scripts/optimize-supabase-race-images.mjs
@@ -199,7 +200,7 @@ The mobile Livret may separately load an owner's linked plan for personal reflec
 
 <!-- TODO: verify with maintainer: confirm exact race_events column types, constraints, indexes, and RLS policies in the live Supabase project. -->
 
-Reel hook short name (2026-11-19): `short_name` is edited only in the admin catalog event dialog (`PATCH /api/admin/race-events/:id`, trusted `app_metadata` admin check, service-role write; an empty value clears it, an absent key leaves it unchanged) and read by the admin catalog list and the admin video-generator race read (`race_events(id,name,short_name,organizer_details)`). No public, organizer or mobile read selects it, and the migration adds no policy, grant, view or function. `supabase/tests/race_events_short_name_checks.sql` checks the column, the constraint and its bounds inside a rolled-back transaction. A deployment reading a database that lacks the column (for instance a preview before the merge) fails those admin reads; production is safe because the release applies migrations before the web deploy.
+Reel hook short name (2026-11-19): `short_name` is edited only in the admin catalog event dialog (`PATCH /api/admin/race-events/:id`, trusted `app_metadata` admin check, service-role write; an empty value clears it, an absent key leaves it unchanged) and read by the admin catalog list and the admin video-generator race read (`race_events(id,name,short_name,organizer_details)`, now in `loadVideoGeneratorDetail`, `apps/web/lib/video-generator-race.ts`, also used by the automatic reel cron with the service role). No public, organizer or mobile read selects it, and the migration adds no policy, grant, view or function. `supabase/tests/race_events_short_name_checks.sql` checks the column, the constraint and its bounds inside a rolled-back transaction. A deployment reading a database that lacks the column (for instance a preview before the merge) fails those admin reads; production is safe because the release applies migrations before the web deploy.
 
 ## Foreign Keys
 

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import {
+  buildRenderUrl,
   createRenderToken,
   getGoogleAccessToken,
   getRenderInputObject,
@@ -12,26 +13,6 @@ import {
 import { authorizeRenderAdmin, describeRenderError, renderJson, renderJsonError } from "../../../../../../../lib/video-render-api";
 
 const paramsSchema = z.object({ id: z.string().uuid() });
-
-/**
- * The page the headless browser opens. The token travels in the fragment, which browsers never
- * send to a server or write to access logs. Preview deployments are behind Vercel protection: the
- * automation bypass secret (when enabled in Vercel) lets the renderer through.
- */
-const buildRenderUrl = (request: Request, job: { id: string; width: number; height: number }, token: string) => {
-  const origin = process.env.VIDEO_RENDER_APP_ORIGIN?.trim() || new URL(request.url).origin;
-  const url = new URL(`/render/video/${job.id}`, origin);
-  // The renderer opens a browser window of exactly the video size.
-  url.searchParams.set("w", String(job.width));
-  url.searchParams.set("h", String(job.height));
-  const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim();
-  if (bypass) {
-    url.searchParams.set("x-vercel-protection-bypass", bypass);
-    url.searchParams.set("x-vercel-set-bypass-cookie", "true");
-  }
-  url.hash = `token=${token}`;
-  return url.toString();
-};
 
 export async function POST(request: Request, context: { params: { id?: string } }) {
   const params = paramsSchema.safeParse(context.params);
@@ -50,7 +31,7 @@ export async function POST(request: Request, context: { params: { id?: string } 
     if ((await getStorageObjectSize(config, accessToken, getRenderInputObject(jobId))) === null) {
       return renderJsonError("La composition n’a pas été reçue : relance le rendu.", 409);
     }
-    const execution = await runRenderJob(config, accessToken, buildRenderUrl(request, job, createRenderToken(config.tokenSecret, jobId)));
+    const execution = await runRenderJob(config, accessToken, buildRenderUrl(new URL(request.url).origin, job, createRenderToken(config.tokenSecret, jobId)));
     const updated = await updateRenderJob(supabase, jobId, { status: "queued", cloud_run_execution: execution }, ["uploading"]);
     return renderJson({ job: { id: jobId, status: updated?.status ?? "queued" } });
   } catch (error) {

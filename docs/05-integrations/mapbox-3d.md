@@ -7,6 +7,11 @@ ai_priority: high
 related_files:
   - apps/web/app/admin/video-generator/export-frame.test.ts
   - apps/web/app/admin/video-generator/export-frame.ts
+  - apps/web/app/admin/video-generator/reel-composition.ts
+  - apps/web/app/admin/video-generator/video-race-info.ts
+  - apps/web/lib/reel-writer.ts
+  - apps/web/lib/reel-voice.ts
+  - apps/web/lib/video-generator-race.ts
   - apps/web/package.json
   - apps/web/.env.example
   - apps/web/app/admin/page.tsx
@@ -136,7 +141,7 @@ The admin-only `/admin/video-generator` route renders existing race GPX files ov
 
 The page reuses `GET /api/admin/race-catalog` for the authorized event/format selector. Standalone formats are grouped under a synthetic UI label only; their database identity remains the stable race id.
 
-`GET /api/admin/video-generator/races/[id]` then:
+`GET /api/admin/video-generator/races/[id]` (loader `loadVideoGeneratorDetail`, `apps/web/lib/video-generator-race.ts`, shared with the automatic reels) then:
 
 1. validates the UUID and bearer token;
 2. verifies the user through Supabase Auth and `isAdminUser`;
@@ -332,9 +337,16 @@ Orchestration (`reel-pipeline.ts`, pure; `useReelPipeline.ts`, React state): the
 
 Feedback: once launched, the panel shows « Rendu lancé — le brouillon apparaîtra dans Publications à la fin du rendu (≈ 10 min) » with a link to `/admin/publications` (`REEL_RENDER_ETA_MINUTES` is an estimate, not measured per job) and the render list refreshes (`refreshSignal`). The draft itself is created by the render completion route when the job carries `auto_draft` (see [Google Cloud Background Reel Render](google-cloud-video-render.md) and [Instagram publishing](instagram-publishing.md)). Decision: [reel highlights and figures](../08-decisions/2026-11-19-reel-highlights-and-figures.md) (12).
 
+## Server-built reels (automatic pipeline)
+
+The automatic reel pipeline ([Automatic Reel Pipeline](reel-automation.md)) produces the same reel without this page. The editor-only derivations it needs are shared, not copied: the race info builder (title with edition year, start detail, short name, start place) is `video-race-info.ts`, used by `page.tsx`; the Tilequery peak lookup `fetchNearestPeakName` moved to `place-labels.ts` next to `fetchNearestPlaceName`, both with an optional fetcher; `reel-composition.ts` repeats the editor's memos in the same order (figures, enabled stations, race clock, length, beats from `selectHighlights`/`buildHighlightBeats` or `buildStoryBeats`) and builds the `/content`, `/script` and `/caption` requests and the render snapshot. The AI and voice route cores live in `lib/reel-writer.ts` and `lib/reel-voice.ts`; the routes only authenticate, validate and map the result, with unchanged contracts. `reel-composition.test.ts` checks that a server snapshot parses with `parseRenderSnapshot` and that the beats re-derived from it (as the render page does) have the same ids, every clip still fresh. Any change to how `VideoGeneratorMapClient` derives beats or requests must be mirrored in `reel-composition.ts`.
+
+Limits of a server reel: the default composition (no admin browser preferences), the default speech rate, and no terrain elevation (a GPX without any elevation is left to the editor). Summit and place names need the public token to accept server calls; a URL-restricted token degrades to no names, logged.
+
 ## Related Docs
 
 - [Web App](../01-architecture/web-app.md)
+- [Automatic Reel Pipeline](reel-automation.md)
 - [Infrastructure](../01-architecture/infrastructure.md)
 - [GPX Import](../03-business-rules/gpx-import.md)
 - [OpenStreetMap and Leaflet](openstreetmap-leaflet.md)

@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import type { PublicSocialPost } from "../../../lib/social-posts";
-import { buildMonthGrid, currentParisMonth, formatMonthTitle, getCalendarTime, shiftMonth, toParisDay } from "./publication-calendar";
+import { buildMonthGrid, currentParisMonth, formatMonthTitle, getCalendarTime, groupPlannedByDay, shiftMonth, toParisDay, type PlannedCalendarEntry } from "./publication-calendar";
 
 const WEEKDAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
@@ -23,10 +23,19 @@ const timeOf = (post: PublicSocialPost) => {
   return time ? new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit" }).format(new Date(time)) : "";
 };
 
-/** Month view of what was published (green, amber in simulation) and what is scheduled (blue). */
-export function PublicationCalendar({ posts, onSelect }: { posts: PublicSocialPost[]; onSelect: (postId: string) => void }) {
+/**
+ * Month view of what was published (green, amber in simulation), what is scheduled (blue) and the
+ * automatic reels planned but not yet scheduled (grey).
+ */
+export function PublicationCalendar({ posts, planned = [], onSelect, onSelectPlanned }: {
+  posts: PublicSocialPost[];
+  planned?: PlannedCalendarEntry[];
+  onSelect: (postId: string) => void;
+  onSelectPlanned?: (itemId: string) => void;
+}) {
   const [month, setMonth] = useState(() => currentParisMonth());
   const weeks = useMemo(() => buildMonthGrid(month.year, month.month, posts), [month, posts]);
+  const plannedByDay = useMemo(() => groupPlannedByDay(planned), [planned]);
   const today = toParisDay(new Date().toISOString());
   const inMonthCount = weeks.flat().filter((day) => day.inMonth).reduce((sum, day) => sum + day.posts.length, 0);
 
@@ -62,6 +71,17 @@ export function PublicationCalendar({ posts, onSelect }: { posts: PublicSocialPo
                   {timeOf(post)} {post.raceTitle ?? "Vidéo supprimée"}
                 </button>
               ))}
+              {(plannedByDay.get(day.day) ?? []).map((entry) => (
+                <button
+                  key={entry.id}
+                  type="button"
+                  onClick={() => onSelectPlanned?.(entry.id)}
+                  title={`Prévu automatiquement : ${entry.label} · ${entry.time}`}
+                  className="truncate rounded border border-dashed border-slate-300 bg-slate-100 px-1 py-0.5 text-left text-[11px] leading-tight text-slate-600 dark:border-slate-600 dark:bg-slate-800/60 dark:text-slate-300"
+                >
+                  {entry.time} {entry.label}
+                </button>
+              ))}
             </div>
           ))}
         </div>
@@ -69,6 +89,7 @@ export function PublicationCalendar({ posts, onSelect }: { posts: PublicSocialPo
           <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-emerald-400" /> Publiée</span>
           <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-amber-400" /> Simulation</span>
           <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-sky-400" /> Programmée</span>
+          <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-slate-300" /> Prévue (auto)</span>
           <span className="ml-auto">{inMonthCount === 0 ? "Rien ce mois-ci" : `${inMonthCount} ce mois-ci`}</span>
         </div>
       </CardContent>

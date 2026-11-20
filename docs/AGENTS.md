@@ -105,6 +105,7 @@ You modify `apps/web/lib/auth/session.ts`, which is referenced by `docs/04-auth-
 | Integration work (Stripe, Resend, Geocoding, Edge Functions) | `docs/05-integrations/` |
 | Admin Mapbox 3D video preview | `docs/05-integrations/mapbox-3d.md` + `docs/03-business-rules/gpx-import.md` + `docs/01-architecture/web-app.md` |
 | Admin 3D course viewer / Mapbox | `docs/05-integrations/mapbox-3d.md` + `docs/03-business-rules/gpx-import.md` + `docs/01-architecture/web-app.md` |
+| Admin automatic reels (calendar, generation, auto publication) | `docs/05-integrations/reel-automation.md` + `docs/02-database/tables/reel-automation-items.md` + `docs/02-database/tables/reel-automation-settings.md` + `docs/05-integrations/instagram-publishing.md` + `docs/05-integrations/google-cloud-video-render.md` |
 | Admin Instagram Reels publishing (Publications) | `docs/05-integrations/instagram-publishing.md` + `docs/02-database/tables/social-posts.md` + `docs/08-decisions/2026-11-19-instagram-publishing.md` + `docs/05-integrations/google-cloud-video-render.md` |
 | Admin reel background render / Google Cloud | `docs/05-integrations/google-cloud-video-render.md` + `docs/02-database/tables/video-render-jobs.md` + `docs/05-integrations/mapbox-3d.md` |
 | Admin reel voice pool (random ElevenLabs voice per reel) | `docs/02-database/tables/video-voices.md` + `docs/05-integrations/mapbox-3d.md` |
@@ -186,6 +187,7 @@ Use the smallest reliable context first, then expand only when the task needs it
 - RevenueCat context: `docs/03-business-rules/premium-entitlement.md`
 - Supabase functions: `docs/05-integrations/supabase-edge-functions.md`
 - Instagram Reels publishing: `docs/05-integrations/instagram-publishing.md`
+- Automatic reel pipeline: `docs/05-integrations/reel-automation.md`
 - Analytics: `docs/05-integrations/analytics.md`
 - Booking / Decathlon outbound links: `docs/05-integrations/affiliate-partner-links.md`
 - Email/Resend status: `docs/05-integrations/resend.md`

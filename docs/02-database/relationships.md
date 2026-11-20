@@ -282,6 +282,10 @@ Organizer access should be checked through an active `race_event_organizers` row
 
 `social_posts.video_job_id` references `video_render_jobs(id)` and `social_posts.race_id` references `races(id)`, both **on delete set null** so the publication history survives a deleted render or race. `social_posts.created_by` references `auth.users(id)` on delete set null. The Instagram account is not a table: its id and System User token are server env vars.
 
+## Automatic reel relationships
+
+`reel_automation_items.race_id` references `races(id)` **on delete cascade** (a deleted race has nothing to plan); `render_job_id` references `video_render_jobs(id)` and `social_post_id` references `social_posts(id)`, both **on delete set null** so deleting a render or a post never fails because of the automation. `reel_automation_settings.updated_by` references `auth.users(id)` on delete set null. `edition_key` is a text key, not a foreign key (`edition:<edition_id>`, `event:<event_id>:<year>` or `race:<race_id>:<date>`).
+
 ## Gotchas
 
 - Public cache tags mirror race, edition, and event ownership scopes for invalidation, but are not relational constraints or authorization primitives. The database foreign keys and route membership checks remain authoritative.
@@ -319,5 +323,6 @@ Organizer access should be checked through an active `race_event_organizers` row
 - [race_slug_redirects](tables/race-slug-redirects.md)
 - [video_render_jobs](tables/video-render-jobs.md)
 - [social_posts](tables/social-posts.md)
+- [reel_automation_items](tables/reel-automation-items.md)
 - [race_event_organizers](tables/race-event-organizers.md)
 - [race_aid_station_products](tables/race-aid-station-products.md)

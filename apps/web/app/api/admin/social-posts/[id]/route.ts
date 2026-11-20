@@ -10,7 +10,7 @@ import {
   socialPostActionSchema,
   toPublicSocialPost,
   updateSocialPostSchema,
-  validateSchedule,
+  scheduleSocialPostDraft,
   planEdit,
   planRetry,
   PUBLISH_REQUESTED_CONFIRMATION,
@@ -153,16 +153,16 @@ export async function POST(request: Request, context: { params: { id: string } }
       if (!updated) return conflict();
       updated = await runStep(updated);
     } else if (action.action === "schedule") {
-      if (current.status !== "draft") return conflict("Seul un brouillon peut être programmé.");
-      const check = validateSchedule({ local: action.scheduledAtLocal, finishedAt: job?.status === "done" ? job.finished_at : null, now });
-      if (!check.ok) return renderJsonError(check.message, 400);
-      updated = await posts.update(current.id, {
-        status: "scheduled",
-        scheduled_at: check.scheduledAt.toISOString(),
-        dry_run: dryRun,
-        error: null,
-      }, "status=eq.draft");
-      if (!updated) return conflict();
+      const scheduled = await scheduleSocialPostDraft({
+        posts,
+        post: current,
+        finishedAt: job?.status === "done" ? job.finished_at : null,
+        local: action.scheduledAtLocal,
+        now,
+        dryRun,
+      });
+      if (!scheduled.ok) return scheduled.conflict ? conflict(scheduled.message ?? undefined) : renderJsonError(scheduled.message ?? "Programmation invalide.", 400);
+      updated = scheduled.post;
     } else if (action.action === "unschedule") {
       updated = await posts.update(current.id, { status: "draft", scheduled_at: null }, "status=eq.scheduled");
       if (!updated) return conflict("Cette publication n’est plus programmée.");

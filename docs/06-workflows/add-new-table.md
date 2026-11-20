@@ -11,6 +11,7 @@ last_verified: 2026-11-20
 ai_priority: high
 related_files:
   - supabase/migrations/20261116150000_add_organizer_demo_requests.sql
+  - supabase/tests/reel_automation_checks.sql
   - supabase/tests/organizer_demo_requests_checks.sql
   - supabase/migrations/20261109140000_add_racebook_edition_partner_slots.sql
   - supabase/migrations/20261109192905_remove_organizer_gift_feature_prices.sql
@@ -211,3 +212,5 @@ Catalog end date (2026-11-14): no table added; the schema overview only records 
 `social_posts` (2026-11-19) follows the `video_render_jobs` service-only pattern (RLS on, no policy, client privileges revoked, service-role grants, one index per foreign key) with a per-table `updated_at` trigger whose function is revoked from client roles. Its scheduler lives in a separate migration whose pg_cron commands read Vault at run time, so adding the table never depends on secrets being present. Credentials that never expire belong in server env vars rather than in a table (no account table was added). `supabase/tests/social_posts_checks.sql` also asserts check constraints with `begin … exception when check_violation` blocks inside a rolled-back transaction.
 
 `video_voices` (2026-11-20, the reel generator's shared voice pool) follows the same service-only pattern with its own `updated_at` trigger function (`set_video_voices_updated_at`, execute revoked from client roles), a unique ElevenLabs id and an index on its `created_by` foreign key; `supabase/tests/video_voices_checks.sql` checks the grants, trigger and checks. See [video_voices](../02-database/tables/video-voices.md).
+
+`reel_automation_settings` and `reel_automation_items` (2026-11-20, automatic reels) follow the same service-only pattern. The settings table is the single-row example: a `boolean` primary key defaulting to `true` with `check (id)`, the row inserted by the migration, and cross-column rules as table checks (publication only with generation). The items table shows a natural uniqueness rule enforced in the database (`unique (race_id, edition_key)`, inserts use `on_conflict … ignore-duplicates`) and a lease column for a cron state machine. The scheduler is again a separate migration reading Vault at run time. `supabase/tests/reel_automation_checks.sql` checks grants, defaults, the single row, the unique key and the checks. See [Automatic Reel Pipeline](../05-integrations/reel-automation.md).

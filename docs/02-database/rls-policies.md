@@ -510,6 +510,10 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 
 `video_voices` (2026-11-20): RLS enabled, no client policy, every privilege revoked from `public`, `anon` and `authenticated`, `service_role` only, like `video_render_jobs`. The admin routes under `/api/admin/video-generator/voices` authorize through `authorizeVideoAdmin` (admin role from `app_metadata`) before using the service role. See [video_voices](tables/video-voices.md).
 
+## Automatic reels
+
+`reel_automation_settings` and `reel_automation_items` (2026-11-20): RLS enabled, no client policy, every privilege revoked from `public`, `anon` and `authenticated`, `service_role` only, like `video_render_jobs`. The admin routes under `/api/admin/reel-automation` authorize through `authorizeVideoAdmin` (admin role from `app_metadata`) before using the service role; the cron route `/api/cron/reel-automation` requires `CRON_SECRET`. `configure_reel_automation_cron()` is `SECURITY DEFINER`, revoked from client roles and executable by `service_role`. See [Automatic Reel Pipeline](../05-integrations/reel-automation.md).
+
 ## Instagram social publishing
 
 `social_posts` (2026-11-19): RLS enabled, no client policy, every privilege revoked from `public`, `anon` and `authenticated`, `service_role` only, like `video_render_jobs`. Admin routes authorize through `authorizeVideoAdmin` (trusted `app_metadata`) before the service role; the cron route requires `CRON_SECRET`. No Instagram credential is stored in the database (System User token in server env vars). `configure_social_publishing_cron()` is `SECURITY DEFINER` (it schedules pg_cron jobs), revoked from client roles and executable by `service_role`. See [social_posts](tables/social-posts.md).

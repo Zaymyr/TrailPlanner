@@ -11,8 +11,7 @@ import { Label } from "../../../components/ui/label";
 import { videoGeneratorDetailSchema, type VideoGeneratorDetail } from "../../../lib/video-generator";
 import { useVerifiedSession } from "../../hooks/useVerifiedSession";
 import { VideoGeneratorMap } from "./VideoGeneratorMap";
-import type { VideoRaceInfo } from "./VideoCompositionOverlay";
-import { getReelShortName } from "./reel-hook";
+import { buildVideoRaceInfo } from "./video-race-info";
 import {
   countEventVideos,
   formatRaceChoiceLabel,
@@ -36,43 +35,6 @@ const idleState = <T,>(): LoadState<T> => ({ status: "idle", data: null, message
 const readErrorMessage = async (response: Response, fallback: string) => {
   const payload = await response.json().catch(() => null) as { message?: unknown } | null;
   return typeof payload?.message === "string" ? payload.message : fallback;
-};
-
-const formatStartDetail = (race: VideoGeneratorDetail["race"]) => {
-  const date = race.raceDate && /^\d{4}-\d{2}-\d{2}/.test(race.raceDate)
-    ? new Date(`${race.raceDate.slice(0, 10)}T00:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "UTC" })
-    : null;
-  const parts = [shortenPlace(race.startLocation), date, race.startTime].filter((part): part is string => Boolean(part?.trim()));
-  return parts.length ? parts.join(" · ") : null;
-};
-
-/**
- * Organizer start places are often full postal addresses ("Musée de Bibracte, Mont Beuvray, 71990
- * Saint-Léger-sous-Beuvray"). The video only needs the landmark: the first part of the address.
- */
-const shortenPlace = (place: string | null | undefined) => {
-  const first = place?.split(/[,\n]/)[0]?.trim();
-  if (!first) return null;
-  return first.length > 48 ? `${first.slice(0, 47).trimEnd()}…` : first;
-};
-
-const buildVideoRaceInfo = (detail: VideoGeneratorDetail): VideoRaceInfo => {
-  const { race } = detail;
-  const baseTitle = race.eventName ?? race.name;
-  return {
-    id: race.id,
-    title: race.editionYear && !baseTitle.includes(String(race.editionYear))
-      ? `${baseTitle} ${race.editionYear}`
-      : baseTitle,
-    subtitle: race.eventName && race.eventName !== race.name ? race.name : null,
-    distanceKm: race.distanceKm,
-    elevationGainM: race.elevationGainM,
-    startDetail: formatStartDetail(race),
-    shortName: getReelShortName(race.eventName ?? race.name, race.eventShortName),
-    startPlace: shortenPlace(race.startLocation),
-    raceDate: race.raceDate,
-    startTime: race.startTime,
-  };
 };
 
 const formatMetric = (value: number | null | undefined, unit: string) =>

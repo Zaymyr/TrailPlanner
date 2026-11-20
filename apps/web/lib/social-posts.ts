@@ -437,6 +437,33 @@ export const createSocialPostRepository = (supabase: SupabaseServiceConfig, fetc
   };
 };
 
+/**
+ * « Programmer » a draft: a Paris wall time in the future and before the MP4 expires, in the
+ * current publishing mode. Shared by the admin action and the automatic reels (publication auto).
+ * `conflict` means the post is not (or no longer) a draft.
+ */
+export const scheduleSocialPostDraft = async ({ posts, post, finishedAt, local, now = new Date(), dryRun }: {
+  posts: Pick<SocialPostRepository, "update">;
+  post: Pick<SocialPostRow, "id" | "status">;
+  /** `finished_at` of the post's render when it is done, else null. */
+  finishedAt: string | null;
+  local: string;
+  now?: Date;
+  dryRun: boolean;
+}): Promise<{ ok: true; post: SocialPostRow } | { ok: false; conflict: boolean; message: string | null }> => {
+  if (post.status !== "draft") return { ok: false, conflict: true, message: "Seul un brouillon peut être programmé." };
+  const check = validateSchedule({ local, finishedAt, now });
+  if (!check.ok) return { ok: false, conflict: false, message: check.message };
+  const updated = await posts.update(post.id, {
+    status: "scheduled",
+    scheduled_at: check.scheduledAt.toISOString(),
+    dry_run: dryRun,
+    error: null,
+  }, "status=eq.draft");
+  if (!updated) return { ok: false, conflict: true, message: null };
+  return { ok: true, post: updated };
+};
+
 // -- Publication marks: avoid publishing the same reel twice ---------------------------------
 
 /** What a video or a race already has on Instagram, strongest first: live > simulated > scheduled > draft. */

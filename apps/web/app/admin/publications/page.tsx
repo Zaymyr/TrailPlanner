@@ -12,7 +12,9 @@ import { CaptionForm, toCaptionFormValues, type CaptionPayload } from "./Caption
 import { InstagramStatusCard } from "./InstagramStatusCard";
 import { PostCard } from "./PostCard";
 import { PublicationCalendar } from "./PublicationCalendar";
-import { adminFetch, instagramStatusSchema, postResponseSchema, postsResponseSchema } from "./publications-api";
+import { AutomationCard } from "./AutomationCard";
+import { toPlannedCalendarEntries } from "./automation-labels";
+import { adminFetch, instagramStatusSchema, postResponseSchema, postsResponseSchema, reelAutomationResponseSchema } from "./publications-api";
 
 /** While a post is publishing, the list refreshes on this rhythm. */
 const LIST_POLL_MS = 30_000;
@@ -86,6 +88,28 @@ function PublicationsContent() {
   const onChanged = useCallback(() => {
     refetchPosts();
   }, [refetchPosts]);
+
+  const automationQuery = useQuery({
+    queryKey: ["admin", "reel-automation", accessToken],
+    enabled: Boolean(accessToken && isAdmin),
+    queryFn: () => adminFetch(accessToken as string, "/api/admin/reel-automation", reelAutomationResponseSchema, {}, "L’automatisation n’a pas pu être lue."),
+  });
+  const refetchAutomation = automationQuery.refetch;
+  const [automationMessage, setAutomationMessage] = useState<string | null>(null);
+  const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
+  const automationMutation = useMutation({
+    mutationFn: (request: { url: string; method: string; body: unknown }) =>
+      adminFetch(accessToken as string, request.url, reelAutomationResponseSchema.partial(), { method: request.method, body: request.body }, "L’automatisation n’a pas pu être modifiée."),
+    onSuccess: () => {
+      setAutomationMessage(null);
+      refetchAutomation();
+    },
+    onError: (error) => setAutomationMessage(error instanceof Error ? error.message : "L’automatisation n’a pas pu être modifiée."),
+  });
+  const plannedEntries = useMemo(
+    () => (automationQuery.data ? toPlannedCalendarEntries(automationQuery.data.items, automationQuery.data.settings.publishTime) : []),
+    [automationQuery.data],
+  );
 
   if (sessionLoading) {
     return <div className={shellClass}><p className="text-sm text-muted-foreground">Vérification de la session…</p></div>;
@@ -169,6 +193,11 @@ function PublicationsContent() {
 
       <PublicationCalendar
         posts={posts}
+        planned={plannedEntries}
+        onSelectPlanned={(itemId) => {
+          setHighlightedItemId(itemId);
+          window.setTimeout(() => document.getElementById(`automation-${itemId}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
+        }}
         onSelect={(postId) => {
           setFilter("all");
           setHighlightedPostId(postId);
@@ -176,6 +205,17 @@ function PublicationsContent() {
         }}
       />
       </div>
+
+      <AutomationCard
+        data={automationQuery.data}
+        isLoading={automationQuery.isLoading}
+        error={automationMessage ?? (automationQuery.error instanceof Error ? automationQuery.error.message : null)}
+        busy={automationMutation.isPending}
+        highlightedItemId={highlightedItemId}
+        onSettings={(patch) => automationMutation.mutate({ url: "/api/admin/reel-automation", method: "PATCH", body: patch })}
+        onItemAction={(itemId, action) => automationMutation.mutate({ url: `/api/admin/reel-automation/items/${itemId}`, method: "PATCH", body: { action } })}
+        onRefresh={() => automationMutation.mutate({ url: "/api/admin/reel-automation", method: "POST", body: { action: "refresh" } })}
+      />
 
       <section className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">

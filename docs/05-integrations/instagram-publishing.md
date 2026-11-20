@@ -29,6 +29,8 @@ related_files:
   - apps/web/app/admin/publications/CaptionForm.tsx
   - apps/web/app/admin/publications/InstagramStatusCard.tsx
   - apps/web/app/admin/publications/publications-api.ts
+  - apps/web/app/admin/publications/AutomationCard.tsx
+  - apps/web/app/admin/publications/automation-labels.ts
   - apps/web/app/admin/page.tsx
   - apps/web/.env.example
   - supabase/migrations/20261119130000_add_social_posts.sql
@@ -49,7 +51,7 @@ related_tables:
 
 ## Purpose
 
-The admin page `/admin/publications` (« Publications », linked from the admin header) turns a finished background render (`video_render_jobs`, status `done`) into an Instagram Reel on the professional account `pace_your.self`. A draft is created first; nothing leaves Pace Yourself until an admin clicks « Publier maintenant » or « Programmer ». The decision record is [2026-11-19 Instagram publishing](../08-decisions/2026-11-19-instagram-publishing.md).
+The admin page `/admin/publications` (« Publications », linked from the admin header) turns a finished background render (`video_render_jobs`, status `done`) into an Instagram Reel on the professional account `pace_your.self`. A draft is created first; nothing leaves Pace Yourself until an admin clicks « Publier maintenant » or « Programmer », or has turned « Publication automatique » on for automatic reels ([Automatic Reel Pipeline](reel-automation.md)). The decision record is [2026-11-19 Instagram publishing](../08-decisions/2026-11-19-instagram-publishing.md).
 
 ## Key Concepts
 
@@ -92,7 +94,9 @@ pg_cron (`20261119130100_schedule_social_posts_cron.sql`) calls `POST /api/cron/
 - Each post: status and « Simulation » badge, error, permalink, caption preview, signed video preview (« Voir la vidéo »), « Modifier » (draft or failed), « Publier maintenant » (confirmation), « Programmer » (datetime in Europe/Paris, stored UTC; nonexistent DST times are refused), « Annuler la programmation », « Réessayer », « Recommencer avec un nouveau conteneur » (after a publish request, with confirmation), « Supprimer » (draft or failed) and « Retirer de la liste » (published, simulated or live: the row leaves the admin list only; the Graph API cannot delete an Instagram post, so a live one stays online and must be removed from the Instagram app; the video then loses its « publiée » mark). Scheduled and in-flight posts must be unscheduled or finish first.
 
 - Workflow switch: `AdminWorkspaceNav` (`apps/web/app/admin/components/AdminWorkspaceNav.tsx`) heads both the video generator (« 1 · Générer une vidéo ») and this page (« 2 · Publier »).
-- Layout: status card, then « Nouveau brouillon » next to a month calendar (`PublicationCalendar.tsx`, pure grid in `publication-calendar.ts`: Monday-first weeks, posts on their Paris day, published in green, simulated in amber, scheduled in blue; a click shows the post in the list), then the list filtered « À traiter » (default: everything not published), « Publiées », « Toutes ».
+- Layout: status card, then « Nouveau brouillon » next to a month calendar (`PublicationCalendar.tsx`, pure grid in `publication-calendar.ts`: Monday-first weeks, posts on their Paris day, published in green, simulated in amber, scheduled in blue, automatic reels planned but not yet scheduled in grey with a dashed border (`groupPlannedByDay`, entries from `toPlannedCalendarEntries`); a click shows the post in the list, or the automation item in its card), then the « Automatisation » card, then the list filtered « À traiter » (default: everything not published), « Publiées », « Toutes ».
+- « Automatisation » (`AutomationCard.tsx`, labels in `automation-labels.ts`): the switches « Génération automatique » and « Publication automatique » (the second behind the dialog « Publier sans relecture ? » and an amber warning while on), the caps, and the upcoming automatic reels (race, mode, planned day at 18:00, status, reason of a skip such as « Trop tard — à faire à la main ») with « Exclure » / « Rétablir » and « Recalculer ». See [Automatic Reel Pipeline](reel-automation.md).
+- « Programmer » goes through `scheduleSocialPostDraft` (`apps/web/lib/social-posts.ts`: draft only, `validateSchedule`, current dry-run mode, guarded update), shared with the automatic publication, which schedules the automatic draft of a reel at its planned day and time when « Publication automatique » is on. Nothing else in the publisher changes: an automatically scheduled post is published by the same cron tick, in the mode it was scheduled in.
 - Duplicates: `readPublicationMarks` (`apps/web/lib/social-posts.ts`) summarises the non-failed posts per video and per race (live publication > simulation > scheduled > draft). The video list prefixes a posted video with ✓ and its mark (« publiée le 12 nov. 2026 »), shows a warning when the chosen video or its race was already published, and asks for confirmation before a second draft. The video generator race picker shows the same mark (race-stats route).
 
 ## Configuration
@@ -144,3 +148,4 @@ The Meta side (app with Facebook Login, linked Page, System User and its token) 
 - [Google Cloud Background Reel Render](google-cloud-video-render.md)
 - [video_render_jobs](../02-database/tables/video-render-jobs.md)
 - [Infrastructure](../01-architecture/infrastructure.md)
+- [Automatic Reel Pipeline](reel-automation.md)
