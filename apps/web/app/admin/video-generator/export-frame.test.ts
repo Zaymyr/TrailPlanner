@@ -4,27 +4,26 @@ import { describe, expect, it } from "vitest";
 import { getExportFrame, overrideDevicePixelRatio } from "./export-frame";
 
 describe("getExportFrame", () => {
-  it("keeps the preview size and raises the pixel density to the video resolution", () => {
-    expect(getExportFrame({ width: 1080, height: 1920 }, { width: 408, height: 726 })).toEqual({
-      width: 408,
-      height: 725,
-      pixelRatio: 1080 / 408,
-    });
+  it("lays a 1080p export out at half the video size, density 2, and scales the map's pixel sizes", () => {
+    expect(getExportFrame({ width: 1080, height: 1920 }, { width: 405, height: 720 })).toEqual({ width: 540, height: 960, pixelRatio: 2, pxScale: 540 / 405 });
+    const measured = getExportFrame({ width: 1080, height: 1920 }, { width: 408, height: 726 });
+    expect(measured).toMatchObject({ width: 540, height: 960, pixelRatio: 2 });
+    expect(measured.pxScale).toBeCloseTo(540 / 408, 5);
   });
 
-  it("frames a 540p render like the same preview", () => {
+  it("keeps the preview size when it is already larger (540p render)", () => {
     const frame = getExportFrame({ width: 540, height: 960 }, { width: 408, height: 726 });
-    expect(frame.width).toBe(408);
+    expect(frame).toMatchObject({ width: 408, height: 725, pxScale: 1 });
     expect(frame.pixelRatio).toBeCloseTo(1.32, 2);
   });
 
   it("falls back to a 1080p-screen preview for compositions saved without one", () => {
-    expect(getExportFrame({ width: 1080, height: 1920 }, null)).toEqual({ width: 405, height: 720, pixelRatio: 1080 / 405 });
-    expect(getExportFrame({ width: 1920, height: 1080 }, undefined)).toEqual({ width: 720, height: 405, pixelRatio: 1920 / 720 });
+    expect(getExportFrame({ width: 1080, height: 1920 }, null)).toMatchObject({ width: 540, height: 960, pixelRatio: 2 });
+    expect(getExportFrame({ width: 1920, height: 1080 }, undefined)).toMatchObject({ width: 960, height: 540, pixelRatio: 2, pxScale: 960 / 720 });
   });
 
   it("ignores a collapsed preview measurement", () => {
-    expect(getExportFrame({ width: 1080, height: 1920 }, { width: 0, height: 0 }).width).toBe(405);
+    expect(getExportFrame({ width: 1080, height: 1920 }, { width: 0, height: 0 }).pxScale).toBeCloseTo(540 / 405, 5);
   });
 });
 

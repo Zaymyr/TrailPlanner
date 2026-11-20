@@ -209,3 +209,18 @@ export const applyDaylight = (
     }
   }
 };
+
+/**
+ * Multiplies the outputs of a zoom curve (`["interpolate", …, ["zoom"], z1, v1, z2, v2]`). Mapbox
+ * only accepts `["zoom"]` as the input of a top-level curve, so a size is scaled stop by stop.
+ */
+export const scaleZoomCurve = (expression: ExpressionSpecification, scale: number): ExpressionSpecification => {
+  if (scale === 1 || !Array.isArray(expression) || (expression[0] !== "interpolate" && expression[0] !== "step")) return expression;
+  const firstStop = expression[0] === "interpolate" ? 3 : 2;
+  return expression.map((value, index) => {
+    if (index < firstStop || typeof value !== "number") return value;
+    // interpolate: z, v, z, v… from index 3 (outputs at even offsets); step: v0, z, v, z, v… from index 2.
+    const isOutput = expression[0] === "interpolate" ? (index - firstStop) % 2 === 1 : (index - firstStop) % 2 === 0;
+    return isOutput ? value * scale : value;
+  }) as ExpressionSpecification;
+};

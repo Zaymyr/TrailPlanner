@@ -191,8 +191,11 @@ export const END_SCREEN_TEXT = {
 /** Station cutoffs ("Barrière HH:MM") stand out in red, on the map bubble and in the leg card. */
 export const CUTOFF_RED = "#d7263d";
 
-/** Top of the profile band (cqmin) in the light overlay: below Instagram's own top bar. */
-export const COMPACT_TOP_CQMIN = 12;
+/**
+ * Top of the profile band (cqmin) in the light overlay: below Instagram's own top bar, and below the
+ * top of the 4:5 feed crop (y = 285 of 1920 = 26.4 cqmin), so the km and profile show in the feed too.
+ */
+export const COMPACT_TOP_CQMIN = 28;
 
 /** What the hook camera flies over (route kilometres) and how it hands over to the flyover. */
 export type HookPlan = {

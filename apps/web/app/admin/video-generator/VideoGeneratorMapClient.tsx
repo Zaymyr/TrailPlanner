@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import mapboxgl, {
+  type ExpressionSpecification,
   type GeoJSONSource,
   type Map as MapboxMap,
   type MapboxEvent,
@@ -39,6 +40,7 @@ import {
   resolveMapStyleUrl,
   ROUTE_CASING_WIDTHS,
   ROUTE_GLOW_WIDTH,
+  scaleZoomCurve,
   ROUTE_LINE_WIDTHS,
   type MapAppearanceState,
 } from "./map-appearance";
@@ -406,6 +408,11 @@ const updateAidBubbles = (bubbles: AidBubble[], timeline: VideoTimeline, timeMs:
 // hangs under an aid card (cqmin).
 const AID_MARKER_OFFSET_Y = -28;
 const PLACE_MARKER_OFFSET_Y = -18;
+/** Size of the station icons drawn by the map (pixels, scaled with the export frame). */
+const MARKER_ICON_SIZE: ExpressionSpecification = ["interpolate", ["linear"], ["zoom"], 7, 0.6, 13, 0.9];
+const ROUTE_GLOW_BLUR = 8;
+const PROGRESS_DOT_PX = 14;
+const PROGRESS_RING_PX = 4;
 const AID_TAIL_CQMIN = 1.2;
 
 // Card sizes only change with the frame size: measured once per size, never inside the frame loop.
@@ -514,11 +521,11 @@ const createProgressMarkerElement = (color: string) => {
   const element = document.createElement("div");
   element.setAttribute("aria-hidden", "true");
   Object.assign(element.style, {
-    width: "14px",
-    height: "14px",
+    width: `${PROGRESS_DOT_PX}px`,
+    height: `${PROGRESS_DOT_PX}px`,
     borderRadius: "9999px",
     background: "#ffffff",
-    border: `4px solid ${color}`,
+    border: `${PROGRESS_RING_PX}px solid ${color}`,
     boxShadow: "0 0 0 2px #ffffff, 0 2px 8px rgba(0, 0, 0, 0.45)",
     boxSizing: "content-box",
   });
@@ -564,7 +571,7 @@ const syncMapData = (
       paint: {
         "line-color": `${routeColor}${GLOW_ROUTE_ALPHA_HEX}`,
         "line-width": ROUTE_GLOW_WIDTH,
-        "line-blur": 8,
+        "line-blur": ROUTE_GLOW_BLUR,
         "line-emissive-strength": 1,
         "line-trim-offset": buildRouteTrimOffset("progressive", 0),
       },
@@ -644,7 +651,7 @@ const syncMapData = (
       slot: "top",
       layout: {
         "icon-image": ["get", "icon"],
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 7, 0.6, 13, 0.9],
+        "icon-size": MARKER_ICON_SIZE,
         "icon-anchor": "center",
         "icon-allow-overlap": true,
         "icon-ignore-placement": true,
@@ -1328,6 +1335,37 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   // MP4 export: the frame keeps the preview's CSS size (so the camera, the map details and the
   // bubbles match the preview) while the map renders at the video resolution; then every frame is
   // rendered, waited for and captured at the video size.
+
+  // The export frame is larger than the preview (export-frame.ts): the map's fixed pixel sizes are
+  // multiplied by `scale` so the route, the station icons, the bubbles' offsets and the progress dot
+  // keep their size relative to the picture; 1 restores the preview.
+  const applyMapPixelScale = (map: MapboxMap, scale: number) => {
+    const current = settingsRef.current;
+    const line = scaleZoomCurve(ROUTE_LINE_WIDTHS[current.routeWidth], scale);
+    const casing = scaleZoomCurve(ROUTE_CASING_WIDTHS[current.routeWidth], scale);
+    for (const id of [ROUTE_LAYER_ID, ROUTE_REVEAL_LAYER_ID, TOLD_SLOPE_LAYER_ID]) if (map.getLayer(id)) map.setPaintProperty(id, "line-width", line);
+    for (const id of [ROUTE_CASING_LAYER_ID, TOLD_SLOPE_CASING_LAYER_ID]) if (map.getLayer(id)) map.setPaintProperty(id, "line-width", casing);
+    if (map.getLayer(ROUTE_GLOW_LAYER_ID)) {
+      map.setPaintProperty(ROUTE_GLOW_LAYER_ID, "line-width", scaleZoomCurve(ROUTE_GLOW_WIDTH, scale));
+      map.setPaintProperty(ROUTE_GLOW_LAYER_ID, "line-blur", ROUTE_GLOW_BLUR * scale);
+    }
+    if (map.getLayer(MARKER_ICON_LAYER_ID)) map.setLayoutProperty(MARKER_ICON_LAYER_ID, "icon-size", scaleZoomCurve(MARKER_ICON_SIZE, scale));
+    for (const bubble of aidBubblesRef.current) {
+      bubble.offsetY = AID_MARKER_OFFSET_Y * scale;
+      bubble.marker.setOffset([0, bubble.offsetY]);
+    }
+    for (const label of placeLabelsRef.current) {
+      label.offsetY = PLACE_MARKER_OFFSET_Y * scale;
+      label.marker.setOffset([0, label.offsetY]);
+    }
+    const dot = progressMarkerRef.current?.getElement();
+    if (dot) {
+      dot.style.width = `${PROGRESS_DOT_PX * scale}px`;
+      dot.style.height = `${PROGRESS_DOT_PX * scale}px`;
+      dot.style.borderWidth = `${PROGRESS_RING_PX * scale}px`;
+    }
+  };
+
   const startExport = async () => {
     const map = mapRef.current;
     if (!map || !isReady || exportAbortRef.current) return;
@@ -1344,6 +1382,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     setExportState({ status: "running" });
     setSoundtrack(null);
     setExportLayout({ width: frame.width, height: frame.height, scale: 1 });
+    applyMapPixelScale(map, frame.pxScale);
     let lastProgressAt = 0;
     try {
       await waitMs(80);
@@ -1400,6 +1439,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     } finally {
       exportAbortRef.current = null;
       restorePixelRatio?.();
+      applyMapPixelScale(map, 1);
       setExportLayout(null);
       window.requestAnimationFrame(() => {
         map.resize();

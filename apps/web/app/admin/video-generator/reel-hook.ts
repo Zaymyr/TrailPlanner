@@ -33,17 +33,23 @@ export const HOOK_NAME_CQMIN = 6.5;
 export const HOOK_NAME_LINE_HEIGHT = 1.08;
 export const HOOK_NAME_MAX_LINES = 2;
 export const HOOK_NAME_GAP_CQMIN = 2;
+/** The event name under a format name: smaller, spaced capitals, at most two lines. */
+export const HOOK_EVENT_CQMIN = 3.6;
+export const HOOK_EVENT_GAP_CQMIN = 1.2;
+export const HOOK_EVENT_MAX_LINES = 2;
 // Glyph width as a share of the font size for heavy uppercase digits (conservative estimate).
 const GLYPH_WIDTH_EM = 0.62;
 const WORD_GAP_EM = 0.25;
 
-/** Lowest point of the hook text, in px of a 1080 x 1920 frame (must stay above 1500). */
+/** Lowest point of the hook text (format name and event name), in px of a 1080 x 1920 frame (must stay above the safe bottom). */
 export const getHookTextBottomPx = (figureCqmin = HOOK_FIGURE_MAX_CQMIN, width = 1080, height = 1920) => {
   const cqminPx = width / 100;
   return height * HOOK_FIGURE_TOP_RATIO
     + figureCqmin * cqminPx
     + HOOK_NAME_GAP_CQMIN * cqminPx
-    + HOOK_NAME_MAX_LINES * HOOK_NAME_CQMIN * HOOK_NAME_LINE_HEIGHT * cqminPx;
+    + HOOK_NAME_MAX_LINES * HOOK_NAME_CQMIN * HOOK_NAME_LINE_HEIGHT * cqminPx
+    + HOOK_EVENT_GAP_CQMIN * cqminPx
+    + HOOK_EVENT_MAX_LINES * HOOK_EVENT_CQMIN * HOOK_NAME_LINE_HEIGHT * cqminPx;
 };
 
 export const HOOK_SAFE_BOTTOM_RATIO = SUBTITLE_SAFE_BOTTOM_RATIO;
@@ -86,6 +92,43 @@ export const getReelShortName = (eventName: string, shortName?: string | null) =
   const withoutSegment = name.replace(TRAILING_SEGMENT, "");
   if (collapse(withoutSegment)) name = withoutSegment;
   return collapse(name) || original;
+};
+
+// --- Format name ---
+
+// A spaced separator between the event part and the format part of a race name.
+const NAME_SEPARATOR = /\s+[-–—|:·]\s+/u;
+// A trailing distance (« 60 km », « 130K », « (42,2 km) »), with its separator.
+const DISTANCE_TAIL = /\s*[-–—|:·]?\s*\(?\d+(?:[.,]\d+)?\s*(?:km|k)\)?\s*$/iu;
+// What is left when a format name only says its kind: the distance or the event is the real name.
+const GENERIC_FORMAT = /^(?:(?:le|la|les|l')\s*)?(?:trail|course|ultra|ultra-trail|marathon|semi|semi-marathon|nocturne|rando|randonn[ée]e|grand|petit|parcours|boucle|format|distance)?$/iu;
+const LEGAL = /[®™©]/gu;
+const words = (value: string) => value.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(LEGAL, "").split(/[^a-z0-9]+/).filter(Boolean);
+
+/**
+ * Name of the format for the hook, shown in large type above the event name (« Marathon de
+ * l'Orchis » / « Hivernale des Templiers »). The event part of the race name (« Bariloche Patagonia
+ * by UTMB - TRONADOR 130K ») and a trailing distance are dropped. Null when nothing specific is
+ * left (« Trail 23 km », « Trail du Soleil Levens — 60 km », a name equal to the event): the hook
+ * then shows the event name alone, as before.
+ */
+export const getReelFormatName = (raceName: string, eventName: string | null | undefined, eventShortName?: string | null) => {
+  const eventWords = new Set([...words(eventName ?? ""), ...words(eventShortName ?? "")]);
+  let name = collapse(raceName.replace(LEGAL, ""));
+  const parts = name.split(NAME_SEPARATOR);
+  if (parts.length > 1 && eventWords.size) {
+    const head = words(parts[0]);
+    const shared = head.filter((word) => eventWords.has(word)).length;
+    if (head.length && shared / head.length >= 0.6) name = parts.slice(1).join(" ");
+  }
+  const withoutDistance = collapse(name.replace(DISTANCE_TAIL, ""));
+  // « Combiné 15 + 23 km » keeps its distance: without it the name would end on « 15 + ».
+  if (!/[\d+&]$/u.test(withoutDistance)) name = withoutDistance;
+  if (!name || GENERIC_FORMAT.test(name)) return null;
+  const event = words(getReelShortName(eventName ?? raceName, eventShortName)).join(" ");
+  const own = words(name).join(" ");
+  if (!own || own === event || event.includes(own)) return null;
+  return name;
 };
 
 // --- Shock figure ---

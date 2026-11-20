@@ -154,7 +154,9 @@ export const buildSoundtrack = async (narration: { clips: NarrationClip[]; cues:
 export const exportVideo = async ({ width, height, fps, totalMs, driver, narration, music = null, onSoundtrack, onProgress, signal }: ExportOptions) => {
   const startedAt = performance.now();
   const totalFrames = Math.max(1, Math.round((totalMs / 1_000) * fps));
-  const bitrate = height >= 1_920 || width >= 1_920 ? 10_000_000 : 3_500_000;
+  // Satellite or shaded relief in motion compresses badly, and Instagram re-encodes on top: 16 Mb/s
+  // at 1080p keeps paths and the route crisp in the source (≈ 2 MB per second of reel).
+  const bitrate = height >= 1_920 || width >= 1_920 ? 16_000_000 : 3_500_000;
   if (typeof VideoEncoder === "undefined" || !(await canEncodeVideo("avc", { width, height, bitrate }))) {
     throw new ExportUnsupportedError("Ce navigateur ne sait pas encoder la vidéo en H.264 : utilise Chrome ou Edge à jour.");
   }

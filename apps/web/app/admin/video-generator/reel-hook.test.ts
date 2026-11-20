@@ -7,6 +7,7 @@ import { astragaleTrail, ultraDesDruides } from "./reel-race-fixtures";
 import {
   getHookOverlayState,
   getHookTextBottomPx,
+  getReelFormatName,
   getReelShortName,
   getShockFigureFontCqmin,
   HOOK_FIGURE_MIN_CQMIN,
@@ -139,8 +140,8 @@ describe("hook overlay timing and layout", () => {
 
   it("stays inside the Instagram safe zone with text of 32 px or more", () => {
     expect(getHookTextBottomPx()).toBeLessThan(1_500);
-    expect(HOOK_SAFE_BOTTOM_RATIO * 1_920).toBe(1_500);
-    expect(HOOK_RIGHT_RATIO).toBeLessThanOrEqual(0.85);
+    expect(HOOK_SAFE_BOTTOM_RATIO * 1_920).toBe(1_570);
+    expect(HOOK_RIGHT_RATIO).toBeLessThanOrEqual(0.87);
     // cqmin = 10.8 px at 1080 px wide.
     expect(HOOK_NAME_CQMIN * 10.8).toBeGreaterThanOrEqual(32);
     expect(HOOK_FIGURE_MIN_CQMIN * 10.8).toBeGreaterThanOrEqual(32);
@@ -273,5 +274,29 @@ describe("full mode", () => {
     expect(pitchAt(start)).toBeLessThanOrEqual(60);
     const subjectPoint = getRoutePointAtDistance(on.path, on.timeline.hook!.startKm);
     expect(groundDistanceM(start.target, subjectPoint)).toBeLessThan(3_000);
+  });
+});
+
+describe("getReelFormatName", () => {
+  it("names the format when it has its own name, without the event part or the distance", () => {
+    expect(getReelFormatName("Marathon de l'Orchis", "Hivernale des Templiers")).toBe("Marathon de l'Orchis");
+    expect(getReelFormatName("Bariloche Patagonia by UTMB - TRONADOR 130K", "Patagonia BARILOCHE by UTMB")).toBe("TRONADOR");
+    expect(getReelFormatName("Chiangmai Thailand by UTMB® - PAGODA 50-DAY", "HOKA Chiang Mai Thailand by UTMB®")).toBe("PAGODA 50-DAY");
+    expect(getReelFormatName("Ultra-Trail Kosciuszko by UTMB - Kosci50", "Ultra-Trail Kosciuszko by UTMB")).toBe("Kosci50");
+  });
+
+  it("keeps a distance that is part of the name", () => {
+    expect(getReelFormatName("Combiné 15 + 23 km", "Les Foulées de Coursac")).toBe("Combiné 15 + 23 km");
+  });
+
+  it("falls back to the event alone for a generic or repeated name", () => {
+    expect(getReelFormatName("Trail 23 km", "Les Foulées de Coursac")).toBeNull();
+    expect(getReelFormatName("Trail du Soleil Levens — 60 km", "Trail du Soleil Levens")).toBeNull();
+    expect(getReelFormatName("SaintéLyon", "ASICS SaintéLyon")).toBeNull();
+    expect(getReelFormatName("Course 15 km", "Boucles de l’Oison")).toBeNull();
+  });
+
+  it("keeps the event and format lines inside the safe zone", () => {
+    expect(getHookTextBottomPx()).toBeLessThan(1920 * HOOK_SAFE_BOTTOM_RATIO);
   });
 });

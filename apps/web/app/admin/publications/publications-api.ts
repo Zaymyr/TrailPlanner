@@ -162,3 +162,18 @@ export const renderActivitySchema = z.object({
 });
 export type RenderActivityView = z.infer<typeof renderActivitySchema>;
 export const renderActivityResponseSchema = z.object({ jobs: z.array(renderActivitySchema) });
+
+/** « GPX à traiter » (`/api/admin/race-data-gaps`). */
+export const raceDataGapSchema = z.object({
+  raceId: z.string(),
+  date: z.string(),
+  eventName: z.string().nullable(),
+  name: z.string(),
+  distanceKm: z.number(),
+  missing: z.array(z.enum(["gpx", "aid_stations", "elevation_gain"])),
+  unlocks: z.array(z.enum(["reel", "plan", "brief"])),
+  reelDeadline: z.string().nullable(),
+  reelTooLate: z.boolean(),
+});
+export type RaceDataGapView = z.infer<typeof raceDataGapSchema>;
+export const raceDataGapsResponseSchema = z.object({ today: z.string(), leadDays: z.number(), gaps: z.array(raceDataGapSchema) });
