@@ -1,5 +1,9 @@
 # AGENTS.md
 
+## Context hub
+
+Before any task, read `docs/context/README.md` and the files it lists (project, decisions, data model, ops). When a task changes the data model, update `docs/context/DATA-MODEL.md` in the same commit; when a task implements a decision, add it to `docs/context/DECISIONS.md`. Both obligations are part of the Documentation Maintenance Protocol (`docs/AGENTS.md`). Task tracking lives in the Claude Sheet "Pace Yourself — Suivi de projet", not in the repo.
+
 This repository is Pace Yourself — a trail race planning SaaS (Next.js + Expo + Supabase).
 
 This file is the canonical entry point for every AI assistant. Tool-specific instruction files must only redirect here and must not maintain a separate copy of project rules.
@@ -8,9 +12,10 @@ This file is the canonical entry point for every AI assistant. Tool-specific ins
 
 Before doing ANY task in this repo, read in this order:
 1. This entire file
-2. `docs/AGENTS.md` — full agent routing and protocols
-3. `docs/README.md` — documentation table of contents
-4. Any doc in `docs/` whose `related_files` frontmatter lists a file you intend to modify
+2. `docs/context/README.md` and the context files it lists
+3. `docs/AGENTS.md` — full agent routing and protocols
+4. `docs/README.md` — documentation table of contents
+5. Any doc in `docs/` whose `related_files` frontmatter lists a file you intend to modify
 
 ## Task-start preflight
 
