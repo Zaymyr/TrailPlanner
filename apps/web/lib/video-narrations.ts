@@ -16,6 +16,8 @@ export const narrationModeSchema = z.enum(VIDEO_STORY_MODES).default("full");
 
 export const savedVoiceSchema = z.object({
   voiceId: z.string().max(64).nullable(),
+  // Name of the pool voice (shown as « Voix : … »); absent from narrations saved before the pool.
+  voiceName: z.string().max(40).nullable().optional(),
   model: z.enum(["multilingual_v2", "v3"]),
   expressiveness: z.number().min(0).max(1),
 });

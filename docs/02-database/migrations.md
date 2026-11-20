@@ -2,7 +2,7 @@
 title: Migrations
 scope: database
 
-last_verified: 2026-11-19
+last_verified: 2026-11-20
 
 ai_priority: high
 related_files:
@@ -38,6 +38,8 @@ related_files:
   - supabase/migrations/20261119120000_add_video_narrations_mode.sql
   - supabase/migrations/20261119130000_add_social_posts.sql
   - supabase/migrations/20261119130100_schedule_social_posts_cron.sql
+  - supabase/migrations/20261120090000_add_video_voices.sql
+  - supabase/tests/video_voices_checks.sql
   - supabase/tests/social_posts_checks.sql
   - supabase/tests/racebook_versioned_publications_checks.sql
   - supabase/migrations/20260821143417_add_organizer_imports_bucket.sql
@@ -160,6 +162,8 @@ related_tables:
 `20261103124538_cover_racebook_current_publication_foreign_key.sql` replaces the single-column current-publication index with a covering index matching its composite parent constraint.
 
 `20261104140000_add_video_render_jobs.sql` adds `video_render_jobs` (background reel renders on Google Cloud Run): status, progress, video size and timing, with covering indexes for its race and creator foreign keys, RLS on and service-role-only grants.
+
+`20261120090000_add_video_voices.sql` adds `video_voices` (the admin reel generator's shared pool of ElevenLabs voices: unique `elevenlabs_voice_id` checked against `^[A-Za-z0-9]{8,64}$`, `name` 1-40, `active` default true, `created_by`, trigger-maintained `updated_at`), additive, RLS on with no policy, every client privilege revoked and `service_role` only, like `video_render_jobs`. `supabase/tests/video_voices_checks.sql` checks the grants, defaults, trigger, unique id and checks. See [video_voices](tables/video-voices.md).
 
 `20261119130000_add_social_posts.sql` adds `social_posts` (Instagram Reels drafted from finished renders, with the container/media ids and lease of the publishing state machine), additive, RLS on with no policy and service-role-only grants, with an `updated_at` trigger and one index per foreign key. `20261119130100_schedule_social_posts_cron.sql` schedules the pg_cron job `social-posts-publish` (every 5 minutes); its command reads the Vault secrets `web_app_url` and `cron_secret` when they run, so the migration succeeds even before the secrets exist. Check: `supabase/tests/social_posts_checks.sql`. The Instagram credentials are server env vars (System User token), so no account table exists.
 

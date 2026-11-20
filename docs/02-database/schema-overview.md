@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-11-18
+last_verified: 2026-11-20
 # Supporter onboarding (2026-11-18): `user_profiles.supporter_onboarding_status` (migration 20261118200000) joins the Plan/RaceBook statuses; the mobile guided catalog gains a `supporter` mode over the same public event list, no other table or RLS change.
 # Inbox push badge (2026-11-18): apps/web/lib/push.ts adds an iOS badge only to admin inbox pushes (unread user_notifications count); race event update pushes, schema and RLS are unchanged.
 # Livret supporter private preview (2026-11-18): the catalog Livret supporter entry admits active organizers of a private event (preview only); runner badge, data and contracts unchanged.
@@ -259,6 +259,7 @@ The November 2026 mobile plan-flow polish changes catalog search controls, image
 | `race_plans` | Saved planner state and imported GPX plan metadata. |
 | `race_requests` | Authenticated user requests for races to add. |
 | `organizer_demo_requests` | Service-only demo requests from the public organizer page (e-mail, race link, optional phone), reviewed in the admin inbox. See [organizer_demo_requests](tables/organizer-demo-requests.md). |
+| `video_voices` | Service-only shared pool of ElevenLabs voices of the admin reel generator (unique ElevenLabs id, name, `active`); each new reel draws an active voice at random. See [video_voices](tables/video-voices.md). |
 | `social_posts` | Service-only Instagram Reels drafted from finished `video_render_jobs` (by an admin, or automatically when a one-click render finishes: `auto_generated`, one per render) and published by explicit admin action through a resumable state machine. See [social_posts](tables/social-posts.md). |
 | `races` | Current race catalog/private race table, renamed from `race_catalog`, with yearly organizer edition grouping on `edition_group_id` / `series_name`. |
 | `race_slug_redirects` | Former course slugs mapped to stable race ids for visibility-gated permanent redirects. |
@@ -342,6 +343,7 @@ erDiagram
 - [races](tables/races.md)
 - [race_slug_redirects](tables/race-slug-redirects.md)
 - [video_render_jobs](tables/video-render-jobs.md)
+- [video_voices](tables/video-voices.md)
 - [video_narrations](tables/video-narrations.md)
 - [social_posts](tables/social-posts.md)
 - [organizer_import_sessions](tables/organizer-import-sessions.md)

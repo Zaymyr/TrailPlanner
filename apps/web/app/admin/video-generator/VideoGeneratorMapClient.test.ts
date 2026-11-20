@@ -313,7 +313,7 @@ describe("VideoGeneratorMapClient one-click reel", () => {
   };
   type Call = { url: string; method: string; body: Record<string, unknown> | null };
 
-  const stubBackend = (failVoiceOnce: boolean) => {
+  const stubBackend = (failVoiceOnce: boolean, pool: unknown[] = []) => {
     const calls: Call[] = [];
     let voiceFailures = failVoiceOnce ? 1 : 0;
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -323,6 +323,7 @@ describe("VideoGeneratorMapClient one-click reel", () => {
       calls.push({ url, method, body });
       if (url.includes("/narrations/") && method === "GET") return Response.json({ narration: null });
       if (url.endsWith("/video-generator/content")) return Response.json({ content, warnings: [{ field: "hook", message: "Chiffre non fourni : 3 200 m" }] });
+      if (url.endsWith("/video-generator/voices")) return Response.json({ voices: pool });
       if (url.endsWith("/video-generator/voice")) {
         if (voiceFailures-- > 0) return Response.json({ message: "ElevenLabs indisponible" }, { status: 502 });
         const items = (body?.items ?? []) as Array<{ id: string; text: string }>;
@@ -378,6 +379,27 @@ describe("VideoGeneratorMapClient one-click reel", () => {
     expect(screen.getByRole("link", { name: "Publications" }).getAttribute("href")).toBe("/admin/publications");
     expect(screen.getByLabelText("Points à vérifier").textContent).toContain("Chiffre non fourni : 3 200 m");
   });
+
+  it("voices the reel with a voice drawn from the pool, saves its name and shows it", async () => {
+    const pool = [
+      { id: "v1", voiceId: "voiceAAAAAAAA01", name: "Thomas", active: true },
+      { id: "v2", voiceId: "voiceBBBBBBBB02", name: "Léa", active: true },
+      { id: "v3", voiceId: "voiceCCCCCCCC03", name: "Éteinte", active: false },
+    ];
+    const calls = stubBackend(false, pool);
+    renderEditor();
+    await screen.findByRole("option", { name: "Au hasard parmi 2 voix actives" });
+    await userEvent.click(screen.getByRole("button", { name: "Générer le reel" }));
+
+    await waitFor(() => expect(screen.getByRole("status").textContent).toContain("Rendu lancé"), { timeout: 5_000 });
+    const voiceCall = calls.find((call) => call.url.endsWith("/video-generator/voice"));
+    const picked = pool.find((voice) => voice.voiceId === voiceCall?.body?.voiceId);
+    expect(picked?.active).toBe(true);
+    expect(calls.find((call) => call.url.includes("/narrations/") && call.method === "PUT")?.body).toMatchObject({
+      voice: { voiceId: picked?.voiceId, voiceName: picked?.name },
+    });
+    expect(screen.getByTestId("reel-voice").textContent).toBe(`Voix : ${picked?.name}`);
+  }, 20_000);
 
   it("stops on a failing step, then resumes from it without writing the text again", async () => {
     const calls = stubBackend(true);

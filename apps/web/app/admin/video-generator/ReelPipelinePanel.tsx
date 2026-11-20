@@ -18,6 +18,8 @@ const STATUS_LABELS: Record<ReelStepStatus, string> = { pending: "À faire", run
 type ReelPipelinePanelProps = {
   /** A race with a usable GPX is loaded and no other action is running. */
   canRun: boolean;
+  /** Name of the voice of the narration (« Voix : … »), when one is known. */
+  voiceLabel?: string | null;
   pipeline: {
     state: ReelPipelineState;
     cancelRequested: boolean;
@@ -32,7 +34,7 @@ type ReelPipelinePanelProps = {
  * « Générer le reel »: the whole flow of the Temps forts reel in one click. The individual buttons
  * below stay available to retouch the text, the voice or the settings afterwards.
  */
-export function ReelPipelinePanel({ canRun, pipeline }: ReelPipelinePanelProps) {
+export function ReelPipelinePanel({ canRun, pipeline, voiceLabel }: ReelPipelinePanelProps) {
   const { state, running, cancelRequested } = pipeline;
   const started = state.status !== "idle";
   const renderStarted = state.steps.render === "running" || state.steps.render === "done";
@@ -60,6 +62,10 @@ export function ReelPipelinePanel({ canRun, pipeline }: ReelPipelinePanelProps) 
           })}
         </ol>
       )}
+
+      {started && voiceLabel && state.steps.voice === "done" ? (
+        <p className="text-xs" data-testid="reel-voice">Voix : <span className="font-semibold">{voiceLabel}</span></p>
+      ) : null}
 
       {state.status === "error" && state.failedStep ? (
         <div role="alert" className="space-y-1.5 rounded border border-red-300 bg-red-50 p-2 text-xs text-red-800">
