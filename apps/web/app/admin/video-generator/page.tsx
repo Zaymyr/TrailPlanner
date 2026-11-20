@@ -2,7 +2,7 @@
 
 import "mapbox-gl/dist/mapbox-gl.css";
 
-import Link from "next/link";
+import { AdminWorkspaceNav } from "../components/AdminWorkspaceNav";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { Button } from "../../../components/ui/button";
@@ -257,9 +257,7 @@ export default function AdminVideoGeneratorPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand">Administration</p>
           <h1 className="text-2xl font-semibold text-foreground">Générateur vidéo 3D</h1>
         </div>
-        <Link href="/admin" className="text-sm font-medium text-brand underline-offset-4 hover:underline">
-          Retour à l’administration
-        </Link>
+        <AdminWorkspaceNav current="generate" />
       </header>
 
       <div className="grid gap-4 lg:grid-cols-[17rem_auto_minmax(24rem,1fr)] xl:grid-cols-[19rem_auto_minmax(28rem,1fr)]">

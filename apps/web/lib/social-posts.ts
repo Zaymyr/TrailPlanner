@@ -436,3 +436,84 @@ export const createSocialPostRepository = (supabase: SupabaseServiceConfig, fetc
     }))[0] ?? null,
   };
 };
+
+// -- Publication marks: avoid publishing the same reel twice ---------------------------------
+
+/** What a video or a race already has on Instagram, strongest first: live > simulated > scheduled > draft. */
+export const publicationMarkSchema = z.object({
+  state: z.enum(["published", "scheduled", "draft"]),
+  at: z.string().nullable(),
+  dryRun: z.boolean(),
+});
+export type PublicationMark = z.infer<typeof publicationMarkSchema>;
+
+type MarkRow = Pick<SocialPostRow, "status" | "dry_run" | "published_at" | "scheduled_at" | "created_at">;
+
+const markRank = (row: MarkRow) => {
+  if (row.status === "published") return row.dry_run ? 3 : 4;
+  if (row.status === "scheduled" || row.status === "publishing") return 2;
+  if (row.status === "draft") return 1;
+  return 0; // failed posts do not count
+};
+
+const markDate = (row: MarkRow) =>
+  row.status === "published" ? row.published_at : row.status === "draft" ? row.created_at : row.scheduled_at;
+
+/** The strongest mark among the posts of one video or one race (latest date on a tie), or null. */
+export const summarizePublications = (rows: MarkRow[]): PublicationMark | null => {
+  const best = rows
+    .filter((row) => markRank(row) > 0)
+    .sort((left, right) => markRank(right) - markRank(left) || (markDate(right) ?? "").localeCompare(markDate(left) ?? ""))[0];
+  if (!best) return null;
+  return {
+    state: best.status === "published" ? "published" : best.status === "draft" ? "draft" : "scheduled",
+    at: markDate(best),
+    dryRun: best.dry_run,
+  };
+};
+
+const markRowSchema = socialPostRowSchema.pick({
+  race_id: true,
+  video_job_id: true,
+  status: true,
+  dry_run: true,
+  published_at: true,
+  scheduled_at: true,
+  created_at: true,
+});
+type PublicationMarkRow = z.infer<typeof markRowSchema>;
+
+/** Every post that still counts (failed ones excluded), grouped into marks by video and by race. */
+export const readPublicationMarks = async (supabase: SupabaseServiceConfig, fetcher: typeof fetch = fetch) => {
+  const columns = Object.keys(markRowSchema.shape).join(",");
+  const response = await fetcher(`${supabase.supabaseUrl}/rest/v1/social_posts?status=neq.failed&select=${columns}&limit=5000`, {
+    headers: headers(supabase),
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error(`Unable to read publication marks (${response.status}).`);
+  const rows = z.array(markRowSchema).parse(await response.json());
+  const group = (key: (row: PublicationMarkRow) => string | null) => {
+    const groups = new Map<string, PublicationMarkRow[]>();
+    rows.forEach((row) => {
+      const id = key(row);
+      if (id) groups.set(id, [...(groups.get(id) ?? []), row]);
+    });
+    const marks: Record<string, PublicationMark> = {};
+    groups.forEach((group, id) => {
+      const mark = summarizePublications(group);
+      if (mark) marks[id] = mark;
+    });
+    return marks;
+  };
+  return { byVideo: group((row) => row.video_job_id), byRace: group((row) => row.race_id) };
+};
+
+/** « publiée le 12 nov. 2026 », « publiée en simulation », « programmée le … », « brouillon en cours ». */
+export const describePublicationMark = (mark: PublicationMark) => {
+  const day = mark.at
+    ? new Intl.DateTimeFormat("fr-FR", { timeZone: PARIS_TIME_ZONE, dateStyle: "medium" }).format(new Date(mark.at))
+    : null;
+  if (mark.state === "published") return mark.dryRun ? `publiée en simulation${day ? ` le ${day}` : ""}` : `publiée le ${day ?? "?"}`;
+  if (mark.state === "scheduled") return `programmée${day ? ` le ${day}` : ""}`;
+  return "brouillon en cours";
+};

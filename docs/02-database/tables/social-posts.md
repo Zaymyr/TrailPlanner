@@ -1,7 +1,8 @@
 ---
 title: social_posts Table
 scope: database
-last_verified: 2026-11-19
+last_verified: 2026-11-20
+# Publication marks (2026-11-20): readPublicationMarks summarises non-failed rows per video and race for the admin; published rows can now be deleted from the admin list (DELETE accepts status published).
 ai_priority: medium
 related_files:
   - supabase/migrations/20261119130000_add_social_posts.sql
@@ -99,6 +100,7 @@ from public.social_posts where status = 'publishing';
 
 ## Gotchas
 
+- Deleting a published row (« Retirer de la liste ») only removes it from the admin: a live Instagram post stays online, and its video and race lose their « publiée » mark (`readPublicationMarks` reads the remaining non-failed rows). Scheduled and publishing rows cannot be deleted.
 - `video_url` is a path, not a URL; never store a signed URL (it expires in 2 hours).
 - Scheduling is refused past `finished_at + 30 days − 24 h` of the render (bucket lifecycle).
 - `dry_run` is set when the post is scheduled and never rewritten by the cron. « Publier maintenant » and « Réessayer » use the current mode; a retry after a mode change drops the stored container (with confirmation if a live publish was requested).
