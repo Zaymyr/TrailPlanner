@@ -63,8 +63,9 @@ export const REEL_DEFAULT_VOICE_OPTIONS = { model: "v3", expressiveness: 0.9 } a
 export const REEL_DEFAULT_PREVIEW_SIZE = { width: 405, height: 720 };
 
 /** Default composition of an automatic reel: the editor defaults in the given story mode. */
+/** Automatic reels go to Instagram as is: always rendered in 1080p (the editor's 540p default is for previews). */
 export const buildReelSettings = (mode: ReelStoryMode): VideoCompositionSettings =>
-  withStoryMode(DEFAULT_VIDEO_COMPOSITION_SETTINGS, mode);
+  ({ ...withStoryMode(DEFAULT_VIDEO_COMPOSITION_SETTINGS, mode), resolution: "1080p" });
 
 export type ReadyDetail = VideoGeneratorDetail & { gpx: Extract<VideoGeneratorDetail["gpx"], { status: "ready" }> };
 

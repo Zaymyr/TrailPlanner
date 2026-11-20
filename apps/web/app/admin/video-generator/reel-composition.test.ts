@@ -61,7 +61,7 @@ describe("server reel composition", () => {
     expect(highlights.storyMode).toBe("highlights");
     expect([isHookIntroEnabled(highlights), isCompactOverlayEnabled(highlights), isTiltedCameraEnabled(highlights)]).toEqual([true, true, true]);
     expect([isHookIntroEnabled(full), isCompactOverlayEnabled(full), isTiltedCameraEnabled(full)]).toEqual([false, false, false]);
-    expect(getReelVideoSize(highlights)).toEqual({ width: 540, height: 960 });
+    expect(getReelVideoSize(highlights)).toEqual({ width: 1080, height: 1920 });
   });
 
   it("detects a GPX without any elevation (the editor would ask the terrain)", () => {

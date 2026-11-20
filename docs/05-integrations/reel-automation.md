@@ -96,7 +96,7 @@ Turning generation off stops new work at the next tick; renders in flight finish
 
 - The public Mapbox token may be URL-restricted: server Tilequery calls are then refused, the reel has no summit or start/finish names, and the route logs `Mapbox Tilequery refused (<status>)`. Unrestricting the token for Tilequery (or a server token) restores the names.
 - A GPX without any elevation makes the editor fill the profile from the 3D terrain; the server cannot, so the item is skipped (« GPX sans altitudes ») and must be done by hand.
-- The render uses the default composition (`DEFAULT_VIDEO_COMPOSITION_SETTINGS` in the planned mode: 540p, portrait, preview size 405 × 720), the default speech rate and a random writing style; nothing from the admin's browser (script notes, measured voice pace) applies.
+- The render uses the default composition (`DEFAULT_VIDEO_COMPOSITION_SETTINGS` in the planned mode, forced to 1080p because the reel goes to Instagram as is; portrait, preview size 405 × 720), the default speech rate and a random writing style; nothing from the admin's browser (script notes, measured voice pace) applies.
 - The voice step overwrites the saved narration of that race and mode, like the one-click reel.
 - `created_by` of the automatic render and draft is `reel_automation_settings.updated_by` (null if never set by an admin).
 - Planned items move day to day until their generation starts: the plan is recomputed every hour.
