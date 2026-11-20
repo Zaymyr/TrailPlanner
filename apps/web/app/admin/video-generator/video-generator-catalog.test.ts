@@ -69,4 +69,15 @@ describe("video generator pickers", () => {
     expect(formatRaceChoiceLabel({ ...catalog.races[0], gpx_storage_path: "race/82.gpx" }, stats)).toBe("82 km · GPX · 2 vidéos · récit + voix enregistrés");
     expect(formatRaceChoiceLabel(catalog.races[1], stats)).toBe("Format autonome · sans GPX");
   });
+
+  it("marks a format already published on Instagram, so the same reel is not made twice", () => {
+    const published = {
+      "33333333-3333-4333-8333-333333333333": {
+        videos: 1, narration: true, voice: true,
+        publication: { state: "published" as const, at: "2026-11-12T10:00:00Z", dryRun: false },
+      },
+    };
+    expect(formatRaceChoiceLabel({ ...catalog.races[0], gpx_storage_path: "race/82.gpx" }, published))
+      .toBe("82 km · GPX · 1 vidéo · récit + voix enregistrés · publiée le 12 nov. 2026");
+  });
 });

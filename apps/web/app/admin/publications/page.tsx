@@ -1,25 +1,32 @@
 "use client";
 
-import type { Route } from "next";
-import Link from "next/link";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Label } from "../../../components/ui/label";
-import { formatParisDateTime } from "../../../lib/social-posts";
+import { describePublicationMark, formatParisDateTime, type PublicSocialPost } from "../../../lib/social-posts";
+import { AdminWorkspaceNav } from "../components/AdminWorkspaceNav";
 import { useVerifiedSession } from "../../hooks/useVerifiedSession";
 import { CaptionForm, toCaptionFormValues, type CaptionPayload } from "./CaptionForm";
 import { InstagramStatusCard } from "./InstagramStatusCard";
 import { PostCard } from "./PostCard";
+import { PublicationCalendar } from "./PublicationCalendar";
 import { adminFetch, instagramStatusSchema, postResponseSchema, postsResponseSchema } from "./publications-api";
 
 /** While a post is publishing, the list refreshes on this rhythm. */
 const LIST_POLL_MS = 30_000;
 
+type ListFilter = "todo" | "published" | "all";
+
+const FILTERS: Array<{ key: ListFilter; label: string; matches: (post: PublicSocialPost) => boolean }> = [
+  { key: "todo", label: "À traiter", matches: (post) => post.status !== "published" },
+  { key: "published", label: "Publiées", matches: (post) => post.status === "published" },
+  { key: "all", label: "Toutes", matches: () => true },
+];
+
 const shellClass =
-  "mx-auto flex max-w-5xl flex-col gap-6 rounded-lg border border-border bg-card/90 p-6 shadow-lg shadow-[rgba(45,80,22,0.08)] dark:border-slate-800 dark:bg-slate-950/70";
+  "mx-auto flex max-w-6xl flex-col gap-6 rounded-lg border border-border bg-card/90 p-6 shadow-lg shadow-[rgba(45,80,22,0.08)] dark:border-slate-800 dark:bg-slate-950/70";
 
 function PublicationsContent() {
   const { session, isLoading: sessionLoading } = useVerifiedSession();
@@ -54,6 +61,13 @@ function PublicationsContent() {
     [selectedVideo],
   );
   const [createMessage, setCreateMessage] = useState<string | null>(null);
+  const [filter, setFilter] = useState<ListFilter>("todo");
+  const [highlightedPostId, setHighlightedPostId] = useState<string | null>(null);
+  const duplicateWarning = selectedVideo?.publication
+    ? `Cette vidéo est déjà ${describePublicationMark(selectedVideo.publication)}.`
+    : selectedVideo?.racePublication && selectedVideo.racePublication.state === "published"
+      ? `Cette course a déjà une vidéo ${describePublicationMark(selectedVideo.racePublication)}.`
+      : null;
 
   const createDraft = useMutation({
     mutationFn: (payload: CaptionPayload) =>
@@ -81,6 +95,7 @@ function PublicationsContent() {
   }
 
   const posts = postsQuery.data?.posts ?? [];
+  const visiblePosts = posts.filter(FILTERS.find((item) => item.key === filter)?.matches ?? (() => true));
   const dryRunMode = statusQuery.data?.dryRun ?? true;
 
   return (
@@ -92,14 +107,7 @@ function PublicationsContent() {
             Reels Instagram à partir des rendus 3D terminés. Chaque publication part sur une action explicite.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Link href={"/admin/video-generator" as Route}>
-            <Button variant="outline">Générateur vidéo 3D</Button>
-          </Link>
-          <Link href={"/admin" as Route} className="text-brand underline-offset-4 hover:underline dark:text-emerald-200">
-            Retour à l’admin
-          </Link>
-        </div>
+        <AdminWorkspaceNav current="publish" />
       </div>
 
       <InstagramStatusCard
@@ -108,7 +116,8 @@ function PublicationsContent() {
         error={statusQuery.error instanceof Error ? statusQuery.error.message : null}
       />
 
-      <Card>
+      <div className="grid gap-4 lg:grid-cols-2">
+      <Card className="h-fit">
         <CardHeader>
           <CardTitle>Nouveau brouillon</CardTitle>
           <CardDescription>Choisis un rendu terminé (conservé 30 jours), puis rédige la description.</CardDescription>
@@ -128,10 +137,16 @@ function PublicationsContent() {
               <option value="">{videos.length ? "Choisir un rendu…" : "Aucun rendu terminé récent"}</option>
               {videos.map((video) => (
                 <option key={video.id} value={video.id}>
-                  {video.raceTitle} · {video.width}×{video.height} · rendu le {formatParisDateTime(video.finishedAt)}
+                  {video.publication ? "✓ " : ""}{video.raceTitle} · rendu le {formatParisDateTime(video.finishedAt)}
+                  {video.publication ? ` · ${describePublicationMark(video.publication)}` : ""}
                 </option>
               ))}
             </select>
+            {duplicateWarning ? (
+              <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
+                {duplicateWarning} Vérifie avant d’en créer un autre : Instagram n’aime pas les doublons.
+              </p>
+            ) : null}
             {selectedVideo?.latestPublishAt ? (
               <p className="text-xs text-muted-foreground">À publier avant le {formatParisDateTime(selectedVideo.latestPublishAt)} (heure de Paris).</p>
             ) : null}
@@ -142,20 +157,52 @@ function PublicationsContent() {
               initialValues={draftInitialValues}
               submitLabel="Créer le brouillon"
               isSubmitting={createDraft.isPending}
-              onSubmit={(payload) => createDraft.mutate(payload)}
+              onSubmit={(payload) => {
+                if (duplicateWarning && !window.confirm(`${duplicateWarning} Créer quand même un nouveau brouillon ?`)) return;
+                createDraft.mutate(payload);
+              }}
             />
           ) : null}
           {createMessage ? <p className="text-muted-foreground">{createMessage}</p> : null}
         </CardContent>
       </Card>
 
+      <PublicationCalendar
+        posts={posts}
+        onSelect={(postId) => {
+          setFilter("all");
+          setHighlightedPostId(postId);
+          window.setTimeout(() => document.getElementById(`post-${postId}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
+        }}
+      />
+      </div>
+
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold text-foreground">Publications</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold text-foreground">Publications</h2>
+          <div className="inline-flex rounded-full border border-border bg-card p-1" role="group" aria-label="Filtrer les publications">
+            {FILTERS.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                aria-pressed={filter === item.key}
+                onClick={() => setFilter(item.key)}
+                className={`rounded-full px-3 py-1 text-sm ${filter === item.key ? "bg-brand text-white" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                {item.label} ({posts.filter(item.matches).length})
+              </button>
+            ))}
+          </div>
+        </div>
         {postsQuery.isLoading && !postsQuery.data ? <p className="text-sm text-muted-foreground">Chargement…</p> : null}
         {postsQuery.error instanceof Error ? <p className="text-sm text-red-600 dark:text-red-300">{postsQuery.error.message}</p> : null}
-        {postsQuery.data && posts.length === 0 ? <p className="text-sm text-muted-foreground">Aucune publication pour l’instant.</p> : null}
-        {posts.map((post) => (
-          <PostCard key={post.id} accessToken={accessToken} post={post} dryRunMode={dryRunMode} onChanged={onChanged} />
+        {postsQuery.data && visiblePosts.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{posts.length === 0 ? "Aucune publication pour l’instant." : "Rien dans ce filtre."}</p>
+        ) : null}
+        {visiblePosts.map((post) => (
+          <div key={post.id} id={`post-${post.id}`} className={highlightedPostId === post.id ? "rounded-lg ring-2 ring-brand" : undefined}>
+            <PostCard accessToken={accessToken} post={post} dryRunMode={dryRunMode} onChanged={onChanged} />
+          </div>
         ))}
       </section>
     </div>

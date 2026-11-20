@@ -122,6 +122,14 @@ export function PostCard({
 
   const busy = action.isPending || save.isPending || remove.isPending;
   const canEdit = post.status === "draft" || post.status === "failed";
+  // Published posts can leave the list too; scheduled or in-flight ones must be stopped first.
+  const canDelete = canEdit || post.status === "published";
+  const deleteLabel = post.status === "published" ? "Retirer de la liste" : "Supprimer";
+  const deleteConfirmation = post.status !== "published"
+    ? "Supprimer cette publication ?"
+    : post.dryRun
+      ? "Retirer cette publication simulée de la liste ? La vidéo ne sera plus marquée comme publiée."
+      : "Retirer cette publication de la liste ? Elle reste en ligne sur Instagram (l’API ne permet pas de la supprimer : fais-le depuis l’app Instagram si besoin), et la vidéo ne sera plus marquée comme publiée.";
   const modeLabel = dryRunMode ? "en simulation" : "sur Instagram";
 
   const publishNow = () => {
@@ -218,16 +226,16 @@ export function PostCard({
               Annuler la programmation
             </Button>
           ) : null}
-          {canEdit ? (
+          {canDelete ? (
             <Button
               type="button"
               variant="ghost"
               disabled={busy}
               onClick={() => {
-                if (window.confirm("Supprimer cette publication ?")) remove.mutate();
+                if (window.confirm(deleteConfirmation)) remove.mutate();
               }}
             >
-              Supprimer
+              {deleteLabel}
             </Button>
           ) : null}
         </div>

@@ -204,8 +204,13 @@ export async function DELETE(request: Request, context: { params: { id: string }
   if (!gate.ok) return gate.response;
 
   try {
-    const deleted = await createSocialPostRepository(gate.value.supabase).remove(params.data.id, "status=in.(draft,failed)&ig_media_id=is.null");
-    if (!deleted) return conflict("Seul un brouillon ou une publication en échec peut être supprimé.");
+    // A draft or a failed post that never reached Instagram, or a published one: only removed from this
+    // list (the API cannot delete an Instagram post). Scheduled and in-flight posts must be stopped first.
+    const deleted = await createSocialPostRepository(gate.value.supabase).remove(
+      params.data.id,
+      "or=(and(status.in.(draft,failed),ig_media_id.is.null),status.eq.published)",
+    );
+    if (!deleted) return conflict("Annule d’abord la programmation : une publication programmée ou en cours ne peut pas être supprimée.");
     return renderJson({ deleted: true });
   } catch (error) {
     console.error("Social post deletion failed", error instanceof Error ? error.message : error);

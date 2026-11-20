@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { publicSocialPostSchema, type SocialPostAction } from "../../../lib/social-posts";
+import { publicationMarkSchema, publicSocialPostSchema, type SocialPostAction } from "../../../lib/social-posts";
 
 /** Client contracts of the admin publications routes (every response is parsed). */
 
@@ -36,6 +36,8 @@ export const publishableVideoSchema = z.object({
   defaultHashtags: z.array(z.string()),
   defaultCoverText: z.string().nullable().default(null),
   hasContent: z.boolean().default(false),
+  publication: publicationMarkSchema.nullable().default(null),
+  racePublication: publicationMarkSchema.nullable().default(null),
 });
 export type PublishableVideo = z.infer<typeof publishableVideoSchema>;
 

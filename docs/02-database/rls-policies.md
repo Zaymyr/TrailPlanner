@@ -1,7 +1,7 @@
 ---
 title: RLS Policies
 scope: database
-last_verified: 2026-11-15
+last_verified: 2026-11-20
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -505,6 +505,10 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 ## Followed plan publication context
 
 `plan_share_follows` keeps authenticated SELECT-only grants and service-route writes. The auto-archive dismissal timestamp does not widen either policy. Follow detail/list routes recheck identified membership and active link state before a service-role RaceBook read; they require current public visibility and an immutable publication. Owner share status returns only an aggregate non-removed follower count. Client-supplied `snapshot.raceId` is overwritten from the owned plan row.
+
+## Reel voice pool
+
+`video_voices` (2026-11-20): RLS enabled, no client policy, every privilege revoked from `public`, `anon` and `authenticated`, `service_role` only, like `video_render_jobs`. The admin routes under `/api/admin/video-generator/voices` authorize through `authorizeVideoAdmin` (admin role from `app_metadata`) before using the service role. See [video_voices](tables/video-voices.md).
 
 ## Instagram social publishing
 

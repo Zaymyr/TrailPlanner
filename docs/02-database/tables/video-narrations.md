@@ -1,7 +1,8 @@
 ---
 title: video_narrations Table
 scope: database
-last_verified: 2026-11-19
+last_verified: 2026-11-20
+# Race stats publication mark (2026-11-20): race-stats adds each race's Instagram publication mark for the picker; video_narrations itself is unchanged.
 ai_priority: low
 related_files:
   - supabase/migrations/20261105160000_add_video_narrations.sql
@@ -14,6 +15,7 @@ related_files:
 related_tables:
   - video_narrations
   - video_render_jobs
+  - video_voices
   - races
 ---
 
@@ -31,7 +33,7 @@ The saved narration of the admin 3D reel, one row per race and story mode ("Parc
 | `mode` | `text` | primary key with `race_id`, not null, default `'full'`, check in (`full`, `highlights`) | Story mode of the narration; rows saved before 2026-11-19 are `full`. |
 | `settings` | `jsonb` | not null, `{}` | Composition settings when saved. They decide the story cut, hence the beat ids the texts belong to; the editor parses them with its own schema so older saves stay readable. |
 | `narration_overrides` | `jsonb` | not null, `{}` | Narration text by beat id (AI draft or hand edit). |
-| `voice` | `jsonb` | not null, `{}` | `voiceId` (ElevenLabs, nullable for the default voice), `model`, `expressiveness`. |
+| `voice` | `jsonb` | not null, `{}` | `voiceId` (ElevenLabs, nullable for the default voice), `voiceName` (optional, name of the [pool voice](video-voices.md) drawn for this narration, absent from older saves), `model`, `expressiveness`. |
 | `content` | `jsonb` | nullable, JSON object when set (`video_narrations_content_object`) | Highlights reel text written in one call (hook, script segments, call to action, caption, hashtags, cover text), validated by `reelContentSchema` (`apps/web/lib/reel-content.ts`) and reloaded with the race and mode. Only saved for `highlights`; null for `full` rows, rows saved before 2026-11-19 and when the save omitted it (an omitted `content` keeps the stored one, `null` clears it). |
 | `clip_count` | `integer` | not null, ≥ 0, default 0 | Number of clips in the Storage object; 0 when none was saved. |
 | `updated_by` | `uuid` | references `auth.users(id)` on delete set null, indexed | Admin who saved last. |
@@ -50,7 +52,7 @@ RLS is on with no policy; `anon` and `authenticated` have no privilege. Only the
 - A clip is used only while its text equals the beat narration, so a stale clip after an edit is ignored, never played over the wrong text.
 - The race picker shows, per format, whether a narration (and its voice) is saved, from `race-stats`, next to the number of finished background videos from `video_render_jobs`.
 - Each mode saves only its own texts: highlight beats use `hl-…` ids (`hl-intro`, `hl-outro` included), full beats never do. The editor loads a mode's narration once per race, when the race opens or when the mode is first chosen, and merges its texts and clips with the other mode's ([ADR](../../08-decisions/2026-11-19-reel-highlights-and-figures.md)).
-- `race-stats` reports a race as narrated (and voiced) when any of its modes is.
+- `race-stats` reports a race as narrated (and voiced) when any of its modes is. It also returns the race's Instagram publication mark (`publication`, from `social_posts` through `readPublicationMarks`; null when none or when that read fails).
 
 ## Gotchas
 

@@ -1,7 +1,8 @@
 ---
 title: Mapbox 3D Admin Course Viewer
 scope: integration
-last_verified: 2026-11-19
+last_verified: 2026-11-20
+# Generator header and publication marks (2026-11-20): the generator header uses the shared « Générer une vidéo / Publier » switch and the race picker labels a format already published on Instagram (« publiée le … »).
 ai_priority: high
 related_files:
   - apps/web/app/admin/video-generator/export-frame.test.ts
@@ -66,6 +67,14 @@ related_files:
   - apps/web/app/admin/video-generator/BackgroundRenderPanel.tsx
   - apps/web/app/api/admin/video-generator/script/route.ts
   - apps/web/app/api/admin/video-generator/voice/route.ts
+  - apps/web/app/admin/video-generator/voice-pool.ts
+  - apps/web/app/admin/video-generator/voice-pool.test.ts
+  - apps/web/app/admin/video-generator/useVoicePool.ts
+  - apps/web/app/admin/video-generator/VoiceSection.tsx
+  - apps/web/lib/video-voices.ts
+  - apps/web/app/api/admin/video-generator/voices/route.ts
+  - apps/web/app/api/admin/video-generator/voices/[id]/route.ts
+  - apps/web/app/api/admin/video-generator/voices/route.test.ts
   - apps/web/lib/video-narration.ts
   - apps/web/lib/reel-content.ts
   - apps/web/lib/reel-content.test.ts
@@ -334,7 +343,9 @@ Feedback: once launched, the panel shows « Rendu lancé — le brouillon appara
 
 "Générer en arrière-plan" (under the MP4 export) saves the composition and renders it on Google Cloud Run in headless Chrome, so the tab can be closed; the finished MP4 is listed in the same panel. `VideoGeneratorMapClient` accepts a `render` prop (`VideoRenderHooks`): it seeds settings, narration overrides, summit names and voice clips from the snapshot, skips the Tilequery lookup, hides every panel, exports at scale 1 as soon as the map is ready and hands the blob over instead of offering a download. See [Google Cloud Background Reel Render](google-cloud-video-render.md). When the browser has no native AAC encoder (Linux Chrome, Firefox), the export registers `@mediabunny/aac-encoder` (pinned to the `mediabunny` version). `VideoRaceInfo` carries the catalog race `id` to file renders.
 
-The ElevenLabs voice field (`VoiceIdPicker`, `voice-library.ts`) remembers voices in this browser's `localStorage` (`py.videoGenerator.voices`): every voice used for a successful voice-over joins a 6-entry recent history, a voice can be saved under a name (kept until removed), chips select a voice in one click, and the last one used is filled in on the next visit. It is a per-browser convenience, not shared between admins or devices.
+**Voice pool** ([video_voices](../02-database/tables/video-voices.md), 2026-11-20). The voice choice (`VoiceSection`) is « Au hasard parmi N voix actives » (default), one voice of the shared pool, or « Autre ID » (the free `VoiceIdPicker` field). The « Voix (pool) » list adds a voice by ElevenLabs id and name (the name is suggested from ElevenLabs when left empty; a failed lookup is only a warning), renames, activates or deactivates, and deletes (`/api/admin/video-generator/voices`, admin only, `useVoicePool`). « Importer mes voix enregistrées » copies the named voices of the browser library into the pool once (it disappears when nothing is left to import). In random mode `resolveVoiceForGeneration` (`voice-pool.ts`, pure) decides the voice for « Générer la voix off » and the one-click reel: the voice the narration already has is kept when the voice is generated again, a new reel (the pipeline voice step) or « Changer de voix » draws another one with `pickPoolVoice(active, previousVoiceId, random)`, which leaves out the previous voice when two or more are active. The chosen `voiceId` and `voiceName` are saved in `video_narrations.voice` and shown as « Voix : <nom> » in the editor and the pipeline panel; the pipeline hands the voice from the voice step to the save step through its context. An empty pool keeps the former behaviour (free id field, then `ELEVENLABS_VOICE_ID`, then the premade default).
+
+The free id field (`VoiceIdPicker`, `voice-library.ts`) still remembers voices in this browser's `localStorage` (`py.videoGenerator.voices`): every voice used from « Autre ID » for a successful voice-over joins a 6-entry recent history, a voice can be saved under a name (kept until removed), chips select a voice in one click, and the last one used is filled in on the next visit. It is a per-browser convenience, not shared between admins or devices; the shared pool is the source for random picks.
 
 The script request accepts a station cutoff of up to 120 characters: organizers type it as free text ("Samedi 14h30 au plus tard"), not only a clock time.
 
