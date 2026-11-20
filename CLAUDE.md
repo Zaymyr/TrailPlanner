@@ -2,4 +2,6 @@
 
 Before doing anything in this repository, read and follow `AGENTS.md` in the repository root. It is the canonical instruction source and routes you to `docs/AGENTS.md` and the minimum relevant project documentation.
 
+Project context hub: `docs/context/README.md` (read it before any task).
+
 Do not duplicate project rules in this file. If this file and `AGENTS.md` ever disagree, `AGENTS.md` wins.

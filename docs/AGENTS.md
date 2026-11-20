@@ -57,6 +57,13 @@ If your task introduces:
 
 Use the frontmatter template from `docs/_conventions.md`. Cross-link from `docs/README.md` and `docs/AGENTS.md` routing table.
 
+### Context hub (`docs/context/`)
+
+`docs/context/` is the cross-surface context hub (Claude Code, claude.ai project, scheduled tasks); read `docs/context/README.md` before any task. The protocol extends to it:
+- A task that changes the data model (table, column, relation, RLS) MUST update `docs/context/DATA-MODEL.md` in the same commit, in addition to the `docs/02-database/` docs.
+- A task that implements a structural decision MUST add an entry to `docs/context/DECISIONS.md` (newest on top).
+- Keep `docs/context/` short: link to the detailed docs in `docs/` instead of copying them.
+
 ### Anti-patterns (DO NOT DO)
 
 ❌ Bumping `last_verified` without re-reading the doc.
