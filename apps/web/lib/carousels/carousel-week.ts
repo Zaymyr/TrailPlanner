@@ -42,11 +42,23 @@ export type WeekSnapshot = {
 const EXCLUDED_FORMAT = /relais|relay|\bduo|team|[ée]quipe|marche|rando|walk|nordique/i;
 export const COVER_PLANKS_MAX = 5;
 export const LIST_EVENTS_MAX = 6;
-/** Height budget of the list (px between the header and the footer card of slide 2). */
-export const LIST_HEIGHT_BUDGET = 960;
-const DAY_HEIGHT = 70;
-const ROW_BASE_HEIGHT = 74;
-const TILE_LINE_HEIGHT = 74;
+/**
+ * Slide 2 vertical layout (px): the footer card « Ta course y est ? » always keeps this safe margin
+ * under it, so it never sits at the bottom edge of the post.
+ */
+export const WEEK_LIST_BOTTOM_MARGIN = 120;
+const SLIDE_HEIGHT = 1350;
+const LIST_TOP = 160; // top padding 72 + header 70 + its margin 10 + gap 8
+const FOOTER_CARD_HEIGHT = 112; // two lines of 30 px text + 2 × 20 px padding
+const FOOTER_GAP = 16;
+const MORE_LINE_HEIGHT = 40; // « + N autres courses » line, always reserved
+/** Height budget of the list (day labels and rows), measured on the rendered slide. */
+export const LIST_HEIGHT_BUDGET = SLIDE_HEIGHT - WEEK_LIST_BOTTOM_MARGIN - FOOTER_CARD_HEIGHT - FOOTER_GAP - MORE_LINE_HEIGHT - LIST_TOP;
+// Rendered heights (upper bounds): day label 56 + gap 8 + top margin 12; row = name line 44 + gap 10
+// + padding 22 + border 2 + gap 8; one line of tiles 50 + wrap gap 8. Six tiles always fit a line.
+const DAY_HEIGHT = 76;
+const ROW_BASE_HEIGHT = 86;
+const TILE_LINE_HEIGHT = 58;
 const TILES_PER_LINE = 6;
 
 export const isListedFormat = (format: WeekFormat) =>

@@ -12,6 +12,8 @@ export const CAROUSEL_CSS = `
 .cz .plate{display:inline-flex;align-items:center;gap:14px;padding:14px 46px 14px 26px;background:linear-gradient(180deg,#4A7A2A 0%,#2D5016 70%);color:#FAF8F2;clip-path:polygon(0 0,calc(100% - 26px) 0,100% 50%,calc(100% - 26px) 100%,0 100%)}
 .cz .bolt{width:10px;height:10px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#E5E2D8,#8A917E);flex:none}
 .cz .grid{display:grid;grid-template-columns:200px repeat(3,minmax(0,1fr)) 196px;align-items:center}
+.cz .grid3{display:grid;grid-template-columns:260px minmax(0,1fr) 300px;align-items:center}
+.cz .grid3.row{height:100px}
 .cz .head{font-family:var(--font-jetbrains),'JetBrains Mono',monospace;font-size:19px;font-weight:800;letter-spacing:.12em;color:#5C6450;line-height:1.25;text-align:center}
 .cz .headunit{display:block;font-weight:700;letter-spacing:.08em;color:#8A917E}
 .cz .row{background:#FFFFFF;border:2px solid #E5E2D8;border-radius:18px;height:112px;overflow:hidden}
@@ -38,11 +40,11 @@ export const CAROUSEL_CSS = `
 .cz .plank-l{position:absolute;display:flex;flex-direction:column;justify-content:center;align-items:flex-end;gap:4px;height:118px;padding:0 30px 0 70px;background:linear-gradient(180deg,#F4E7C8 0%,#E2CFA3 85%);color:#3B2E17;clip-path:polygon(36px 0,100% 0,100% 100%,36px 100%,0 50%);box-shadow:0 8px 0 rgba(110,90,60,.3)}
 .cz .cotes{font-family:var(--font-jetbrains),'JetBrains Mono',monospace;font-size:24px;font-weight:700;letter-spacing:.08em;color:#2D5016}
 .cz .day{display:inline-flex;align-items:center;gap:12px;padding:10px 40px 10px 20px;background:linear-gradient(180deg,#4A7A2A 0%,#2D5016 70%);color:#FAF8F2;clip-path:polygon(0 0,calc(100% - 22px) 0,100% 50%,calc(100% - 22px) 100%,0 100%);font-family:var(--font-jetbrains),'JetBrains Mono',monospace;font-size:26px;font-weight:800;letter-spacing:.14em}
-.cz .wrow{display:flex;flex-direction:column;gap:10px;padding:12px 0 14px 22px;margin-left:24px;border-bottom:2px dotted #C9C5B8;border-left:4px solid #B5CC9A}
-.cz .wname{font-size:32px;font-weight:800}
-.cz .wmeta{font-family:var(--font-jetbrains),'JetBrains Mono',monospace;font-size:19px;font-weight:700;color:#5C6450;letter-spacing:.1em}
-.cz .tiles{display:flex;flex-wrap:wrap;gap:12px}
-.cz .tile{display:flex;flex-direction:column;gap:2px;padding:8px 12px;background:#FFFFFF;border:2px solid #B5CC9A;border-radius:12px}
-.cz .km{font-family:var(--font-jetbrains),'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#1F3810;line-height:1.05;white-space:nowrap}
-.cz .dp{font-family:var(--font-jetbrains),'JetBrains Mono',monospace;font-size:17px;font-weight:700;color:#3F6B1F;letter-spacing:.06em;white-space:nowrap}
+.cz .wrow{display:flex;flex-direction:column;gap:10px;padding:10px 0 12px 22px;margin-left:24px;border-bottom:2px dotted #C9C5B8;border-left:4px solid #B5CC9A}
+.cz .wname{font-size:42px;font-weight:800;line-height:1.05;letter-spacing:-0.01em;color:#1F3810}
+.cz .wmeta{font-family:var(--font-jetbrains),'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:#5C6450;letter-spacing:.1em}
+.cz .tiles{display:flex;flex-wrap:wrap;gap:8px}
+.cz .tile{display:flex;flex-direction:column;gap:0;padding:5px 10px;background:#EEF2E6;border-radius:8px}
+.cz .km{font-family:var(--font-jetbrains),'JetBrains Mono',monospace;font-size:21px;font-weight:800;color:#3F4632;line-height:1.1;white-space:nowrap}
+.cz .dp{font-family:var(--font-jetbrains),'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:#7A826C;letter-spacing:.04em;white-space:nowrap}
 `;

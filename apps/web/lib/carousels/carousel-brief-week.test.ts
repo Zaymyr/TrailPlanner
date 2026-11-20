@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { buildBriefSnapshot, buildClosingSlide, buildStationsSlide, formatCutoff, selectBriefPalette, type BriefInput } from "./carousel-brief";
+import { buildBriefSnapshot, buildClosingSlide, buildStationsSlide, formatCutoff, isPaidLivretEntitlement, selectBriefPalette, type BriefInput } from "./carousel-brief";
 import { formatWeekRange, isoWeekNumber } from "./carousel-format";
-import { buildWeekSnapshot, groupWeekDays, isListedFormat, paginateWeek, selectWeekEvents, type WeekEvent } from "./carousel-week";
+import { buildWeekSnapshot, estimateListHeight, groupWeekDays, isListedFormat, LIST_HEIGHT_BUDGET, paginateWeek, selectWeekEvents, WEEK_LIST_BOTTOM_MARGIN, type WeekEvent } from "./carousel-week";
 
 const station = (km: number, cutoffTime: string | null = null, water = true, solid = true) => ({ name: `Ravito ${km}`, km, waterAvailable: water, solidAvailable: solid, cutoffTime });
 
@@ -39,6 +39,15 @@ describe("le brief", () => {
     expect(slide.kind).toBe("ravitos");
     expect(slide.rows[0]).toMatchObject({ kmLabel: "KM", big: "16,2" });
     expect(slide.lead).toContain("2 ravitos sur 80 km");
+  });
+
+  it("counts only a paid livret (Stripe or bank transfer), never an admin or complimentary grant", () => {
+    const right = { tier: "complete", status: "active", source: "stripe" };
+    expect(isPaidLivretEntitlement(right)).toBe(true);
+    expect(isPaidLivretEntitlement({ ...right, source: "manual_payment", tier: "essential" })).toBe(true);
+    for (const source of ["admin", "complimentary", "legacy_admin", "system"]) expect(isPaidLivretEntitlement({ ...right, source })).toBe(false);
+    expect(isPaidLivretEntitlement({ ...right, tier: "visibility" })).toBe(false);
+    expect(isPaidLivretEntitlement({ ...right, status: "revoked" })).toBe(false);
   });
 
   it("promotes the livret only when the organizer bought it, else the plan de course", () => {
@@ -92,8 +101,26 @@ describe("la semaine qui vient", () => {
       eventId: `m${index}`, name: `Course ${index}`, location: null, formats: [format(`r${index}`, "2026-11-28", 20 + index)],
     }));
     const { days, more } = paginateWeek(selectWeekEvents(many, "2026-11-23"));
-    expect(days.flatMap((day) => day.rows)).toHaveLength(6);
-    expect(more).toBe(3);
+    expect(days.flatMap((day) => day.rows)).toHaveLength(5);
+    expect(more).toBe(4);
+  });
+
+  it("keeps a loaded week inside its height budget, above the footer safe margin", () => {
+    const loaded: WeekEvent[] = Array.from({ length: 9 }, (_, index) => ({
+      eventId: `l${index}`, name: `Grand Trail ${index}`, location: "Haute-Savoie",
+      formats: Array.from({ length: 4 + (index % 6) }, (__, f) => format(`l${index}-${f}`, index % 2 ? "2026-11-29" : "2026-11-28", 10 + f * 15)),
+    }));
+    const { days, more } = paginateWeek(selectWeekEvents(loaded, "2026-11-23"));
+    expect(estimateListHeight(days)).toBeLessThanOrEqual(LIST_HEIGHT_BUDGET);
+    expect(more).toBeGreaterThan(0);
+    expect(WEEK_LIST_BOTTOM_MARGIN).toBeGreaterThanOrEqual(120);
+    // The validated example: two days, five events with 6, 3, 1, 1 and 1 formats fit; a sixth one does not.
+    const sizes = [6, 3, 1, 1, 1, 2];
+    const example: WeekEvent[] = sizes.map((count, index) => ({
+      eventId: `x${index}`, name: `Course ${index}`, location: null,
+      formats: Array.from({ length: count }, (__, f) => format(`x${index}-${f}`, index < 3 ? "2026-11-28" : "2026-11-29", 60 - f * 5 - index)),
+    }));
+    expect(paginateWeek(example).more).toBe(1);
   });
 
   it("builds the cover planks and the week range", () => {

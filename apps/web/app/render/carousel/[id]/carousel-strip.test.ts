@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { buildBriefSnapshot } from "../../../../lib/carousels/carousel-brief";
 import { buildPlanSnapshot, type CarouselRaceData } from "../../../../lib/carousels/carousel-plan";
 import { buildWeekSnapshot } from "../../../../lib/carousels/carousel-week";
-import { CarouselStrip } from "./CarouselStrip";
+import { CarouselStrip, sharedHydration } from "./CarouselStrip";
 
 const race: CarouselRaceData = {
   raceId: "r", raceName: "SaintéLyon", eventName: "Asics SaintéLyon", shortName: "SaintéLyon", raceDate: "2026-11-28", startTime: "23:30",
@@ -29,6 +29,19 @@ describe("carousel strip", () => {
     expect(html).toContain("KM 17 · Ravito 17");
     expect(html).toContain("tronçon par tronçon");
     expect(html).not.toMatch(/\b1\s*\/\s*3\b/);
+  });
+
+  it("shows water and sodium once, under the table, when every objective shares them", () => {
+    const result = buildPlanSnapshot(race);
+    if (!result.ok) throw new Error(result.reason);
+    expect(sharedHydration(result.snapshot.objectives)).not.toBeNull();
+    const html = render(result.snapshot);
+    expect(html).toContain("QUEL QUE SOIT");
+    expect(html).not.toContain("ML / HEURE");
+    const [first, ...rest] = result.snapshot.objectives;
+    const differing = [first, ...rest.map((objective) => ({ ...objective, waterMlPerHour: objective.waterMlPerHour + 50 }))];
+    expect(sharedHydration(differing)).toBeNull();
+    expect(render({ ...result.snapshot, objectives: differing })).toContain("ML / HEURE");
   });
 
   it("draws the brief and the week", () => {

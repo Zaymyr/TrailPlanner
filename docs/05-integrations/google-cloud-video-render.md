@@ -107,7 +107,7 @@ The automatic reel pipeline ([Automatic Reel Pipeline](reel-automation.md)) laun
 
 ## Carousel slides
 
-The same Cloud Run job renders Instagram carousels ([Automatic Instagram Carousels](instagram-carousels.md)): `buildRenderUrl(…, "carousel")` opens `/render/carousel/<id>?w=1080&h=1350` with a token signed with the scope `carousel-render` (`createRenderToken` / `verifyRenderToken` take an optional scope, `video-render` by default, so a reel token never opens a carousel job). `render-url.mjs` accepts `/render/carousel/<id>` and reports a worker failure to `/api/carousel-render/jobs/<id>`; `render.mjs` is unchanged (same `window.__videoRender` protocol). The page captures the strip with `html-to-image` and PUTs one JPEG per slide to `carousels/<id>/slide-<n>.jpg` in the same bucket (same 30-day lifecycle; the bucket CORS must accept `image/jpeg` PUTs). Rows live in `carousel_render_jobs`.
+The same Cloud Run job renders Instagram carousels ([Automatic Instagram Carousels](instagram-carousels.md)): `buildRenderUrl(…, "carousel")` opens `/render/carousel/<id>?w=1080&h=1350` with a token signed with the scope `carousel-render` (`createRenderToken` / `verifyRenderToken` take an optional scope, `video-render` by default, so a reel token never opens a carousel job). `render-url.mjs` accepts `/render/carousel/<id>` and reports a worker failure to `/api/carousel-render/jobs/<id>`; `render.mjs` is unchanged (same `window.__videoRender` protocol). The page captures the strip with `html-to-image` and PUTs one JPEG per slide to `carousels/<id>/slide-<n>.jpg` in the same bucket (same 30-day lifecycle; the bucket CORS already allows `PUT` with any `Content-Type`). Rows live in `carousel_render_jobs`.
 
 ## Instagram publishing
 

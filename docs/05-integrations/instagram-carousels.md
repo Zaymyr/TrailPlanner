@@ -79,7 +79,7 @@ Drawn as ONE continuous strip of `slideCount × 1080` px, then sliced (`Carousel
   - Plates: full « KM 17 · Name » when every short name (before « · », « - », « ( », « , ») has 18 characters at most and no two plates or flag labels overlap; otherwise short « KM 58 » plates for all. A short plate that still overlaps goes up one row; with no free row it keeps only its post.
   - Sky: sampled 25 times along the race from the race clock (start time from the organizer schedule, elapsed time of the middle objective) through the solar elevation (`getSunPosition`, `route-clock.ts`): night `#0E1A06` → twilight blue → dawn orange → day blue. Stars over night stretches, the moon in the first one, the sun at the brightest point. No start time: plain day sky. Coordinates: first GPX point, else `races.start_lat/lng`, else France's centre (colour only).
 - **Slide 1**: « Combien manger sur {course} {km} km ? », cotes (km, D+, ravitos), the big g/h range, « SUIS LE PARCOURS → ».
-- **Slide 2**: objectives as wooden plates (« 12 h »), columns glucides g/h | eau ml/h | sodium mg/h (units once in the header) and a dark « glucides au total » column; the sentence; grouped bars (g/h light green, total dark green, values on the bars, legend).
+- **Slide 2**: objectives as wooden plates (« 12 h »), columns glucides par heure and a dark « glucides au total » column; water and sodium, which the app does not vary with the objective, shown once in a « quel que soit ton objectif » strip under the table (`sharedHydration`; if they ever differ per objective, the eau ml/h and sodium mg/h columns come back); the sentence; grouped bars (g/h light green, total dark green, values on the bars, legend).
 - **Slide 3**: « N g de glucides, tronçon par tronçon. » Sections start → aid stations → finish without station names: « KM a → b », length, grams, cumulative gauge (eaten before light green, this section dark green, against the total) with the cumulative figure.
   - ≤ 6 sections: tall rows. 7–14: compact one-line rows with cumulative %. More: sections under 5 km merge into the next one (the last into the previous); still more than 14 → a fourth slide « suite » (rows split in two halves).
   - No aid station: « heure par heure » rows (blocks of whole hours, at most 12 rows).
@@ -92,7 +92,7 @@ Drawn as ONE continuous strip of `slideCount × 1080` px, then sliced (`Carousel
 - Slide 2: « Les barrières horaires. » when at least one station has an organizer `cutoffTime` (plus the finish cutoff when given), otherwise « Les ravitos. » with their services (SOLIDE / EAU, EAU SEULEMENT, …). Rows tall up to 5, medium up to 8, compact up to 12; the rest is counted.
 - Slide 3: the organizer's livret coureur when the **livret signal** is true, otherwise the plan de course signs. Livret rows only list what the organizer filled in (matériel, dossard, accès, services; « Course » always).
 
-**Livret signal** (`loadCarouselRace`): an active `organizer_edition_entitlements` row of the edition with tier `essential`, `complete` or `signature` (the tiers whose capabilities include `racebook.publish`), **and** `races.racebook_is_live = true` **and** the edition `is_visible`. Every entitlement source counts (Stripe, transfer, admin or complimentary grant): the effective tier is what gives runners the livret. A paid livret that is not published yet is not promoted, since runners could not open it.
+**Livret signal** (`loadCarouselRace`): an active `organizer_edition_entitlements` row of the edition with tier `essential`, `complete` or `signature` (the tiers whose capabilities include `racebook.publish`), **and** `races.racebook_is_live = true` **and** the edition `is_visible`. Only a **paid** livret counts (`isPaidLivretEntitlement` in `carousel-brief.ts`): source `stripe` or `manual_payment`. Admin, complimentary, legacy-admin and system rights do not promote the livret, even though they publish it. A paid livret that is not published yet is not promoted, since runners could not open it.
 
 ### La semaine qui vient
 
@@ -100,15 +100,15 @@ Drawn as ONE continuous strip of `slideCount × 1080` px, then sliced (`Carousel
 
 - Priority: more formats first, then the longest format, then the name, then the id (deterministic).
 - Cover: the carrefour signpost, « LA SEMAINE QUI VIENT », the week range (« 23–29 NOV. »), « SEMAINE 48 · N COURSES » (« · TOUT SE JOUE LE WEEK-END » when every format is on Saturday or Sunday), one plank for each of the first 5 events (« 160 · 80 · 46 KM », a single format adds its D+, a short location is appended when it fits).
-- Slide 2: wooden day plates, events indented under each day with a light-green left rule, one two-line tile per format (distance, « D+ x M »). An event on two days appears under both. Overflow: at most 6 events, then the lowest-priority ones are dropped until the list fits its height; the dropped ones are counted (« + N autres courses cette semaine dans l’appli »).
+- Slide 2: wooden day plates, events indented under each day with a light-green left rule, one two-line tile per format (distance, « D+ x M »). An event on two days appears under both. The race name leads (42 px), formats are secondary (small muted tiles). The footer card « Ta course y est ? » always keeps a 120 px safe margin under it (`WEEK_LIST_BOTTOM_MARGIN`). Overflow: at most 6 events, then the lowest-priority ones are dropped until the list fits `LIST_HEIGHT_BUDGET` (derived from that margin, the footer card and a reserved line, with row heights measured on the rendered slide); the dropped ones are counted (« + N autres courses cette semaine dans l’appli »).
 
 ## Numbers
 
 Nothing new is modelled (`carousel-nutrition.ts`):
 
 - **Objectives**: the public course page's three reference levels (`REFERENCE_FLAT_PACES`: 5:00, 6:30, 8:00 min/km flat), through `estimateCourseTime` (planner effort model, aid stations as checkpoints, GPX shape scaled to the official totals), rounded like a runner states a goal (whole hours from 5 h, half hours below). Fast / middle / comfortable; two identical rounded objectives skip the race.
-- **Carbs per hour**: the public carb calculator `estimateCarbs(duration, tolerance)` with digestive tolerance 75 / 50 / 25 for the three levels (a confirmed runner's trained gut). <!-- TODO: verify with maintainer — level → tolerance mapping -->
-- **Water and sodium per hour**: the onboarding estimate `calculateNutrition` (500 ml, +150 ml above 800 m D+; 400 mg). They do not depend on the objective in the app, so the three rows show the same values.
+- **Carbs per hour**: the public carb calculator `estimateCarbs(duration, tolerance)` with digestive tolerance 75 / 50 / 25 for the three levels (a confirmed runner's trained gut), validated by the maintainer on 2026-11-20.
+- **Water and sodium per hour**: the onboarding estimate `calculateNutrition` (500 ml, +150 ml above 800 m D+; 400 mg). They do not depend on the objective in the app, so slide 2 shows them once, in the shared strip.
 - **Totals**: carbs/h × objective hours, rounded to 5 g. **Section grams**: middle objective's carbs/h × each section's estimated duration (rescaled to the rounded objective), allocated in 5 g steps by largest remainder so they add up to the total exactly.
 - **Sentence**: true for the figures only: « Plus tu vas vite, plus tu dois manger par heure. » when the faster objective eats more per hour, « Plus tu restes dehors, plus le total grimpe. » when a longer objective eats more in total, « Même rythme par heure : … » when the rates are equal.
 - Missing distance, D+, date or a model without a time: the race is skipped (`CarouselSkip`, item `skipped`/`ineligible`), never filled in.
@@ -176,7 +176,7 @@ All routes use `authorizeVideoAdmin`; the render page routes use the carousel-sc
 ## Setup
 
 1. Merge applies the migrations (`20261120180000_add_instagram_carousels.sql`, `20261120180100_schedule_carousel_automation_cron.sql`) and redeploys the worker (the workflow triggers on `apps/video-render-worker/**`). Check `select jobname, schedule from cron.job where jobname = 'carousel-automation';`.
-2. No new environment variable: Google Cloud render variables, `ANTHROPIC_API_KEY`, `CRON_SECRET`, Instagram variables and the Vault secrets are reused. The bucket's CORS must accept browser `PUT` with `Content-Type: image/jpeg` from the app origin (it already accepts the MP4 `PUT`).
+2. No new environment variable: Google Cloud render variables, `ANTHROPIC_API_KEY`, `CRON_SECRET`, Instagram variables and the Vault secrets are reused. No bucket change either: its CORS (checked 2026-11-20 by preflight) allows `GET` and `PUT` from any origin with the `Content-Type` header, whatever the type, so the JPEG `PUT` works like the MP4 one.
 3. Try « Générer maintenant » once per series and review the drafts; then turn the series on. Leave « Publication automatique » off until a few drafts are reviewed.
 
 ## Gotchas

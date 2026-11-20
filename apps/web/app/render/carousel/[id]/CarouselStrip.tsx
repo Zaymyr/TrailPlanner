@@ -5,7 +5,7 @@ import { BAND_TOP, SKY_TOP, SLIDE_HEIGHT, SLIDE_WIDTH, type BandLayout } from ".
 import type { BriefSnapshot } from "../../../../lib/carousels/carousel-brief";
 import type { PlanSnapshot } from "../../../../lib/carousels/carousel-plan";
 import { getSlideCount, type CarouselSnapshot } from "../../../../lib/carousels/carousel-snapshot";
-import type { WeekSnapshot } from "../../../../lib/carousels/carousel-week";
+import { WEEK_LIST_BOTTOM_MARGIN, type WeekSnapshot } from "../../../../lib/carousels/carousel-week";
 import { CAROUSEL_CSS } from "./carousel-styles";
 
 /**
@@ -112,7 +112,7 @@ function PlanBars({ plan }: { plan: PlanSnapshot }) {
   const maxH = Math.max(...plan.objectives.map((objective) => objective.carbsPerHour));
   const maxT = Math.max(...plan.objectives.map((objective) => objective.totalCarbsG));
   const bar = (x: number, value: number, max: number, color: string, text: string) => {
-    const height = Math.round((value / max) * 112);
+    const height = Math.round((value / max) * 98);
     return (
       <g key={`${x}-${text}`}>
         <rect x={x} y={158 - height} width="64" height={height} rx="6" fill={color} />
@@ -131,8 +131,8 @@ function PlanBars({ plan }: { plan: PlanSnapshot }) {
         const center = 270 + index * 250;
         return (
           <g key={objective.label}>
-            {bar(center - 72, objective.carbsPerHour, maxH, "#B5CC9A", `${objective.carbsPerHour} g/h`)}
-            {bar(center + 8, objective.totalCarbsG, maxT, "#2D5016", objective.total)}
+            {bar(center - 82, objective.carbsPerHour, maxH, "#B5CC9A", `${objective.carbsPerHour} g/h`)}
+            {bar(center + 18, objective.totalCarbsG, maxT, "#2D5016", objective.total)}
             <text x={center} y="188" textAnchor="middle" fontFamily="var(--font-bricolage), sans-serif" fontSize="21" fontWeight="700" fill="#5C6450">{index ? objective.label : `objectif ${objective.label}`}</text>
           </g>
         );
@@ -173,9 +173,55 @@ function PlanRows({ rows, dense }: { rows: PlanSnapshot["pages"][number]; dense:
   );
 }
 
+/**
+ * Water and sodium shared by every objective (the app's estimate does not depend on pace): shown once
+ * in a strip under the table instead of two identical columns. Null when they differ.
+ */
+export const sharedHydration = (objectives: PlanSnapshot["objectives"]) => {
+  const [first] = objectives;
+  if (!first) return null;
+  const shared = objectives.every((objective) => objective.waterMlPerHour === first.waterMlPerHour && objective.sodiumMgPerHour === first.sodiumMgPerHour);
+  return shared ? { waterMlPerHour: first.waterMlPerHour, sodiumMgPerHour: first.sodiumMgPerHour } : null;
+};
+
+const groupThousands = (value: number) => String(value).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+
+function HydrationStrip({ waterMlPerHour, sodiumMgPerHour }: { waterMlPerHour: number; sodiumMgPerHour: number }) {
+  const label = { fontSize: 17, fontWeight: 700, letterSpacing: ".1em", color: "#5C6450" } as const;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 28, background: "#FFFFFF", border: "2px solid #E5E2D8", borderRadius: 18, padding: "18px 26px" }}>
+      <span className="mono" style={{ fontSize: 19, fontWeight: 800, letterSpacing: ".12em", lineHeight: 1.3, color: "#5C6450", width: 250 }}>QUEL QUE SOIT<br />TON OBJECTIF</span>
+      <span style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <svg aria-hidden="true" width="34" height="44" viewBox="0 0 34 44">
+          <path d="M17 2 C17 2 3 20 3 29 a14 14 0 0 0 28 0 C31 20 17 2 17 2 Z" fill="#3F6F8F" />
+          <path d="M10 29 a7 7 0 0 0 7 7" fill="none" stroke="#CFE3EE" strokeWidth="3" strokeLinecap="round" />
+        </svg>
+        <span style={{ display: "flex", flexDirection: "column" }}>
+          <span className="mono" style={{ fontSize: 44, fontWeight: 800, lineHeight: 1, color: "#3F6F8F" }}>{groupThousands(waterMlPerHour)}<span className="unit"> ML</span></span>
+          <span className="mono" style={label}>D’EAU / HEURE</span>
+        </span>
+      </span>
+      <span style={{ width: 2, alignSelf: "stretch", background: "#EFEDE6" }} />
+      <span style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <svg aria-hidden="true" width="34" height="44" viewBox="0 0 34 44">
+          <rect x="5" y="12" width="24" height="30" rx="7" fill="#B45309" />
+          <path d="M7 14 a10 10 0 0 1 20 0 Z" fill="#8A3F07" />
+          <circle cx="13" cy="7" r="1.8" fill="#8A3F07" /><circle cx="17" cy="5" r="1.8" fill="#8A3F07" /><circle cx="21" cy="7" r="1.8" fill="#8A3F07" />
+          <rect x="10" y="22" width="14" height="10" rx="2" fill="#F6EBD0" />
+        </svg>
+        <span style={{ display: "flex", flexDirection: "column" }}>
+          <span className="mono" style={{ fontSize: 44, fontWeight: 800, lineHeight: 1, color: "#B45309" }}>{groupThousands(sodiumMgPerHour)}<span className="unit"> MG</span></span>
+          <span className="mono" style={label}>DE SODIUM / HEURE</span>
+        </span>
+      </span>
+    </div>
+  );
+}
+
 function PlanStrip({ plan }: { plan: PlanSnapshot }) {
   const dense = plan.density === "compact";
   const lastPage = plan.pages.length - 1;
+  const hydration = sharedHydration(plan.objectives);
   return (
     <>
       <div aria-hidden="true" style={{ position: "absolute", inset: 0, display: "flex" }}>
@@ -211,27 +257,45 @@ function PlanStrip({ plan }: { plan: PlanSnapshot }) {
         <span className="mono" style={{ position: "absolute", right: 80, top: BAND_TOP - 40, fontSize: 24, fontWeight: 800, letterSpacing: ".12em", color: "#2D5016" }}>SUIS LE PARCOURS →</span>
       </Slide>
 
-      <Slide index={1} style={{ padding: "76px 80px 0", display: "flex", flexDirection: "column", gap: 26 }}>
+      <Slide index={1} style={{ padding: "76px 80px 0", display: "flex", flexDirection: "column", gap: 20 }}>
         <Head label={plan.label2} />
         <h2 style={{ margin: 0, fontSize: 64, lineHeight: 1.02, fontWeight: 800, letterSpacing: "-0.02em", color: "#1F3810" }}>Ton objectif change tout.</h2>
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div className="grid" style={{ paddingBottom: 2 }}>
-            <span className="head">TON OBJECTIF</span>
-            <span className="head">GLUCIDES<span className="headunit">G / HEURE</span></span>
-            <span className="head">EAU<span className="headunit">ML / HEURE</span></span>
-            <span className="head">SODIUM<span className="headunit">MG / HEURE</span></span>
-            <span className="head" style={{ color: "#2D5016" }}>GLUCIDES<span className="headunit" style={{ color: "#3F6B1F" }}>AU TOTAL</span></span>
-          </div>
-          {plan.objectives.map((objective) => (
-            <div key={objective.label} className="grid row">
-              <div className="goal"><span className="plate2"><span className="bolt2" /><span className="goaltxt">{objective.label}</span></span></div>
-              <span className="cell" style={{ color: "#2D5016" }}>{objective.carbsPerHour}</span>
-              <span className="cell" style={{ color: "#3F6F8F" }}>{objective.waterMlPerHour}</span>
-              <span className="cell" style={{ color: "#B45309", borderRight: "none" }}>{objective.sodiumMgPerHour}</span>
-              <span className="total">{objective.total}</span>
+        {hydration ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div className="grid3" style={{ paddingBottom: 2 }}>
+              <span className="head">TON OBJECTIF</span>
+              <span className="head">GLUCIDES<span className="headunit">PAR HEURE</span></span>
+              <span className="head" style={{ color: "#2D5016" }}>GLUCIDES<span className="headunit" style={{ color: "#3F6B1F" }}>AU TOTAL</span></span>
             </div>
-          ))}
-        </div>
+            {plan.objectives.map((objective) => (
+              <div key={objective.label} className="grid3 row">
+                <div className="goal"><span className="plate2"><span className="bolt2" /><span className="goaltxt">{objective.label}</span></span></div>
+                <span className="cell" style={{ color: "#2D5016", fontSize: 62 }}>{objective.carbsPerHour}<span className="unit" style={{ color: "#5C6450" }}> G/H</span></span>
+                <span className="total" style={{ fontSize: 50 }}>{objective.total}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div className="grid" style={{ paddingBottom: 2 }}>
+              <span className="head">TON OBJECTIF</span>
+              <span className="head">GLUCIDES<span className="headunit">G / HEURE</span></span>
+              <span className="head">EAU<span className="headunit">ML / HEURE</span></span>
+              <span className="head">SODIUM<span className="headunit">MG / HEURE</span></span>
+              <span className="head" style={{ color: "#2D5016" }}>GLUCIDES<span className="headunit" style={{ color: "#3F6B1F" }}>AU TOTAL</span></span>
+            </div>
+            {plan.objectives.map((objective) => (
+              <div key={objective.label} className="grid row" style={{ height: 100 }}>
+                <div className="goal"><span className="plate2"><span className="bolt2" /><span className="goaltxt">{objective.label}</span></span></div>
+                <span className="cell" style={{ color: "#2D5016" }}>{objective.carbsPerHour}</span>
+                <span className="cell" style={{ color: "#3F6F8F" }}>{objective.waterMlPerHour}</span>
+                <span className="cell" style={{ color: "#B45309", borderRight: "none" }}>{objective.sodiumMgPerHour}</span>
+                <span className="total">{objective.total}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {hydration ? <HydrationStrip waterMlPerHour={hydration.waterMlPerHour} sodiumMgPerHour={hydration.sodiumMgPerHour} /> : null}
         <p style={{ margin: 0, fontSize: 28, lineHeight: 1.35, color: "#3F4632" }}>
           {plan.sentence.map((part, index) => (part.strong ? <strong key={index} style={{ color: "#1F3810" }}>{part.text}</strong> : <span key={index}>{part.text}</span>))}
         </p>
@@ -426,7 +490,7 @@ function WeekStrip({ week }: { week: WeekSnapshot }) {
         </div>
       </Slide>
 
-      <Slide index={1} style={{ background: "#FAF8F2", display: "flex", flexDirection: "column", padding: "72px 80px 64px", gap: 8 }}>
+      <Slide index={1} style={{ background: "#FAF8F2", display: "flex", flexDirection: "column", padding: `72px 80px ${WEEK_LIST_BOTTOM_MARGIN}px`, gap: 8 }}>
         <div style={{ marginBottom: 10 }}><Head label={week.label} /></div>
         {week.days.map((day, dayIndex) => (
           <React.Fragment key={day.label}>
@@ -446,7 +510,7 @@ function WeekStrip({ week }: { week: WeekSnapshot }) {
             ))}
           </React.Fragment>
         ))}
-        {week.more > 0 ? <span className="mono" style={{ fontSize: 22, fontWeight: 700, color: "#5C6450", marginTop: 8 }}>+ {week.more} {week.more > 1 ? "AUTRES COURSES" : "AUTRE COURSE"} CETTE SEMAINE DANS L’APPLI</span> : null}
+        {week.more > 0 ? <span className="mono" style={{ fontSize: 22, fontWeight: 700, color: "#5C6450", marginTop: 10, letterSpacing: ".04em" }}>+ {week.more} {week.more > 1 ? "AUTRES COURSES" : "AUTRE COURSE"} CETTE SEMAINE DANS L’APPLI</span> : null}
         <div style={{ marginTop: "auto", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24, background: "#E8F0E0", borderRadius: 16, padding: "20px 28px" }}>
           <span style={{ fontSize: 30, fontWeight: 800, color: "#1F3810", lineHeight: 1.2 }}>Ta course y est&nbsp;? Ton plan de course en 2 minutes, lien en bio.</span>
           <img src={LOGO_GREEN} alt="Pace Yourself" style={{ width: 72, height: 72, objectFit: "contain", flex: "none" }} />

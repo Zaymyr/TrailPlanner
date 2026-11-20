@@ -13,7 +13,7 @@ import {
 import { buildPublicRaceRoutePreview } from "../public-race-detail";
 import { addDays, getEditionKey, getFormatDate } from "../reel-planner";
 import type { SupabaseServiceConfig } from "../supabase";
-import { buildBriefSnapshot, type BriefSnapshot } from "./carousel-brief";
+import { buildBriefSnapshot, isPaidLivretEntitlement, type BriefSnapshot } from "./carousel-brief";
 import { isNightStart, parisStartUtcMs } from "./carousel-band";
 import { formatKm, upper } from "./carousel-format";
 import { buildPlanSnapshot, titleWithDistance, type CarouselRaceData, type PlanFigures, type PlanSnapshot } from "./carousel-plan";
@@ -28,8 +28,6 @@ import { buildWeekSnapshot, isListedFormat, type WeekEvent, type WeekSnapshot } 
 
 /** France's centre: only used for the sky colours when neither the GPX nor the race has coordinates. */
 const FALLBACK_COORDINATES = { lat: 46.6, lon: 2.4 };
-/** Tiers whose edition right includes the livret coureur (`racebook.publish`). */
-const LIVRET_TIERS = new Set(["essential", "complete", "signature"]);
 
 const headers = (supabase: SupabaseServiceConfig) => ({
   apikey: supabase.supabaseServiceRoleKey,
@@ -74,16 +72,15 @@ const hasText = (value: unknown) => typeof value === "string" && value.trim().le
 export class CarouselSkip extends Error {}
 
 /**
- * The livret coureur signal of the brief: an active edition entitlement whose tier includes the
- * RaceBook (Essentiel, Complet, Signature; any source, including an admin or complimentary grant),
- * and the RaceBook of this format live and visible in the app. A paid livret that is not published
- * yet is not shown, since runners could not open it.
+ * The livret coureur signal of the brief: a paid livret entitlement (isPaidLivretEntitlement) and
+ * the RaceBook of this format live and visible in the app. A paid livret that is not published yet
+ * is not shown, since runners could not open it.
  */
 const loadLivretAvailable = async (supabase: SupabaseServiceConfig, race: z.infer<typeof raceRowSchema>) => {
   if (!race.edition_id || race.racebook_is_live !== true || race.edition?.is_visible !== true) return false;
-  const rows = z.array(z.object({ tier: z.string(), status: z.string() })).parse(await read(supabase,
-    `organizer_edition_entitlements?edition_id=eq.${race.edition_id}&select=tier,status&limit=1`));
-  return rows.some((row) => row.status === "active" && LIVRET_TIERS.has(row.tier));
+  const rows = z.array(z.object({ tier: z.string(), status: z.string(), source: z.string() })).parse(await read(supabase,
+    `organizer_edition_entitlements?edition_id=eq.${race.edition_id}&select=tier,status,source&limit=1`));
+  return rows.some(isPaidLivretEntitlement);
 };
 
 /** Everything a plan or brief carousel needs about one format. */

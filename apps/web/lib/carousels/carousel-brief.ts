@@ -44,6 +44,19 @@ export type BriefSnapshot = {
 };
 
 /** Station rows: tall up to 5, medium up to 8, compact up to 12; the rest is counted. */
+/** Tiers whose edition right includes the livret coureur (`racebook.publish`). */
+const LIVRET_TIERS = new Set(["essential", "complete", "signature"]);
+/** Entitlement sources that mean the organizer actually paid (Stripe or bank transfer). */
+const PAID_SOURCES = new Set(["stripe", "manual_payment"]);
+
+/**
+ * A paid livret: an active edition entitlement whose tier includes the RaceBook (Essentiel, Complet,
+ * Signature) and whose source is a real payment. Admin, complimentary, legacy and system rights do
+ * not count.
+ */
+export const isPaidLivretEntitlement = (row: { tier: string; status: string; source: string }) =>
+  row.status === "active" && LIVRET_TIERS.has(row.tier) && PAID_SOURCES.has(row.source);
+
 export const BRIEF_ROWS_MAX = 12;
 
 /** Night palette when the start is at night, otherwise day. */
