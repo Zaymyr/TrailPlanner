@@ -20,9 +20,10 @@ export const FRAME_ASPECT: Record<AnimationViewport, number> = { portrait: 9 / 1
 
 /**
  * Bottom of the leg card of the light overlay, in cqmin from the top of the frame: the card starts
- * at COMPACT_TOP_CQMIN + 28 = 40 cqmin and is about 13 cqmin tall (pill, title, facts line).
+ * at COMPACT_TOP_CQMIN + 28 = 56 cqmin and is about 13 cqmin tall (pill, title, facts line). In
+ * portrait the band share is capped by MAX_TOP_BAND_SHARE (40 % of the height).
  */
-export const OVERLAY_TOP_BAND_CQMIN = 56;
+export const OVERLAY_TOP_BAND_CQMIN = 72;
 /** Bottom share of the frame kept clear (subtitles, Instagram interface). */
 export const FRAME_BOTTOM_MARGIN = 0.2;
 /** Share of the width kept clear on each side. */

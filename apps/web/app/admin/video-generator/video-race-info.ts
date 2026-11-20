@@ -1,6 +1,6 @@
 import type { VideoGeneratorDetail } from "../../../lib/video-generator";
 import type { VideoRaceInfo } from "./VideoCompositionOverlay";
-import { getReelShortName } from "./reel-hook";
+import { getReelFormatName, getReelShortName } from "./reel-hook";
 
 /**
  * The race as the reel shows it (title with the edition year, start detail, short name), from the
@@ -39,6 +39,7 @@ export const buildVideoRaceInfo = (detail: VideoGeneratorDetail): VideoRaceInfo 
     elevationGainM: race.elevationGainM,
     startDetail: formatStartDetail(race),
     shortName: getReelShortName(race.eventName ?? race.name, race.eventShortName),
+    formatName: race.eventName ? getReelFormatName(race.name, race.eventName, race.eventShortName) : null,
     startPlace: shortenPlace(race.startLocation),
     raceDate: race.raceDate,
     startTime: race.startTime,

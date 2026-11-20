@@ -5,17 +5,18 @@
 
 export type SubtitleGroup = { text: string; startMs: number; endMs: number };
 
-// -- Layout: the Instagram safe zone ----------------------------------------------------------
-// Instagram covers the bottom of a Reel (caption, buttons) and the right edge (action column).
-// The subtitle box sits as low as the safe zone allows, in the lower quarter where viewers expect
-// captions: centred on 74 % of the frame height, two lines end near y = 1489 px of a 1920 px frame
-// (limit 1500), and it never enters the right 15 % band.
-export const SUBTITLE_CENTER_Y_RATIO = 0.74;
-/** Instagram's unsafe bottom starts here (share of the frame height; 1500 px on 1920). */
-export const SUBTITLE_SAFE_BOTTOM_RATIO = 1500 / 1920;
-export const SUBTITLE_LEFT_RATIO = 0.06;
-/** Right edge of the box; the right 15 % band stays empty. */
-export const SUBTITLE_RIGHT_RATIO = 0.85;
+// -- Layout: the Instagram safe zones -------------------------------------------------------
+// Reels tab: Instagram covers the bottom (account, caption, sound, from about y = 1570 of 1920) and
+// the right edge (action column, about 13 % of the width). Feed: the reel is cropped to 4:5, so only
+// y = 285 to 1635 shows, without any interface. The subtitle box is centred horizontally (equal
+// margins, clear of the action column) so it does not lean left in the feed, and centred on 77.5 %
+// of the height: two lines end near y = 1557, above the Reels caption and inside the feed crop.
+export const SUBTITLE_CENTER_Y_RATIO = 0.775;
+/** Instagram's unsafe bottom (Reels caption) starts here (share of the frame height; 1570 px on 1920). */
+export const SUBTITLE_SAFE_BOTTOM_RATIO = 1570 / 1920;
+/** Left and right edges of the box: symmetric, the right 13 % (action column) stays empty. */
+export const SUBTITLE_LEFT_RATIO = 0.13;
+export const SUBTITLE_RIGHT_RATIO = 0.87;
 export const SUBTITLE_FONT_CQMIN = 4.2;
 export const SUBTITLE_LINE_HEIGHT = 1.3;
 export const SUBTITLE_PADDING_Y_CQMIN = 0.9;
@@ -46,7 +47,7 @@ export const SUBTITLE_PAUSE_MS = 250;
 /** Two groups separated by less than this stay on screen without a blank between them. */
 const SUBTITLE_BRIDGE_MS = 300;
 /** Comfortable width of one line at the subtitle font size; beyond it the group wraps. */
-const SUBTITLE_LINE_CHARS = 34;
+const SUBTITLE_LINE_CHARS = 32;
 
 const PREPOSITIONS_AND_CONJUNCTIONS = [
   "à", "au", "aux", "en", "sur", "sous", "dans", "par", "pour", "avec", "vers", "chez", "entre", "jusqu'à", "jusqu'au", "jusqu'aux",

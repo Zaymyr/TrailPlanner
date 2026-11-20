@@ -55,4 +55,11 @@ describe("publication tabs", () => {
     expect(list.find((entry) => entry.key === "post-draft")?.detail).toBe("Brouillon automatique à relire");
     expect(list.find((entry) => entry.key === "post-failed")).toMatchObject({ tone: "error", target: { tab: "reels", postId: "failed" } });
   });
+
+  it("brings a dismissed alert back when its state changes", () => {
+    const key = (overrides: Partial<PublicSocialPost>) => buildAttentionList({ nowMs: NOW, renders: [], posts: [post({ id: "x", ...overrides })] })[0].dismissKey;
+    expect(key({ status: "failed", error: "Vidéo refusée" })).toBe(key({ status: "failed", error: "Vidéo refusée" }));
+    expect(key({ status: "failed", error: "Quota atteint" })).not.toBe(key({ status: "failed", error: "Vidéo refusée" }));
+    expect(key({ status: "draft" })).not.toBe(key({ status: "failed", error: "Vidéo refusée" }));
+  });
 });

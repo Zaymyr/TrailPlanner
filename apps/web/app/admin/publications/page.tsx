@@ -18,17 +18,19 @@ import { CarouselGenerateNow, CarouselPlanList, CarouselSeriesSettings } from ".
 import { InstagramStatusCard } from "./InstagramStatusCard";
 import { PostCard } from "./PostCard";
 import { PublicationCalendar } from "./PublicationCalendar";
-import { buildAttentionList, PUBLICATION_TABS, readTabFromLocation, tabForPost, type AttentionEntry, type PublicationTab } from "./publication-tabs";
+import { buildAttentionList, PUBLICATION_TABS, readDismissedAlerts, readTabFromLocation, tabForPost, writeDismissedAlerts, type AttentionEntry, type PublicationTab } from "./publication-tabs";
 import {
   adminFetch,
   carouselAutomationResponseSchema,
   instagramStatusSchema,
   postResponseSchema,
   postsResponseSchema,
+  raceDataGapsResponseSchema,
   reelAutomationResponseSchema,
   renderActivityResponseSchema,
   type RenderActivityView,
 } from "./publications-api";
+import { isReelReachable, RaceDataGapsCard } from "./RaceDataGapsCard";
 import { RenderActivityCard } from "./RenderActivityCard";
 
 /** While a post is publishing, the list refreshes on this rhythm. */
@@ -156,6 +158,14 @@ function PublicationsContent() {
     refetchPosts();
   }, [refetchPosts]);
 
+  // Read once per visit of the tab: the catalog changes slowly.
+  const gapsQuery = useQuery({
+    queryKey: ["admin", "race-data-gaps", accessToken],
+    enabled: enabled && tab === "gpx",
+    staleTime: 5 * 60_000,
+    queryFn: () => adminFetch(accessToken as string, "/api/admin/race-data-gaps", raceDataGapsResponseSchema, {}, "La liste des données manquantes n’a pas pu être lue."),
+  });
+
   const automationQuery = useQuery({
     queryKey: ["admin", "reel-automation", accessToken],
     enabled,
@@ -213,7 +223,16 @@ function PublicationsContent() {
   ], [automationQuery.data, carouselQuery.data, publishTime]);
 
   const posts = useMemo(() => postsQuery.data?.posts ?? [], [postsQuery.data?.posts]);
-  const attention = useMemo(() => buildAttentionList({ posts, renders, nowMs: Date.now() }), [posts, renders]);
+  const allAlerts = useMemo(() => buildAttentionList({ posts, renders, nowMs: Date.now() }), [posts, renders]);
+  const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
+  const [showDismissed, setShowDismissed] = useState(false);
+  useEffect(() => {
+    setDismissed(readDismissedAlerts());
+  }, []);
+  const attention = useMemo(() => allAlerts.filter((entry) => showDismissed || !dismissed.has(entry.dismissKey)), [allAlerts, dismissed, showDismissed]);
+  const hiddenCount = allAlerts.filter((entry) => dismissed.has(entry.dismissKey)).length;
+  const dismissAlert = (entry: AttentionEntry) => setDismissed((current) => writeDismissedAlerts(new Set([...current, entry.dismissKey]), allAlerts));
+  const restoreAlert = (entry: AttentionEntry) => setDismissed((current) => writeDismissedAlerts(new Set([...current].filter((key) => key !== entry.dismissKey)), allAlerts));
 
   if (sessionLoading) {
     return <div className={shellClass}><p className="text-sm text-muted-foreground">Vérification de la session…</p></div>;
@@ -243,9 +262,10 @@ function PublicationsContent() {
 
   const tabs = PUBLICATION_TABS.map((item) => ({
     id: item.id,
-    label: item.id === "agenda" ? countLabel(item.label, attention.filter((entry) => entry.tone !== "scheduled").length)
+    label: item.id === "agenda" ? countLabel(item.label, allAlerts.filter((entry) => entry.tone !== "scheduled" && !dismissed.has(entry.dismissKey)).length)
       : item.id === "reels" ? countLabel(item.label, reelsToPublish.length)
         : item.id === "carousels" ? countLabel(item.label, carouselsToPublish.length)
+          : item.id === "gpx" ? countLabel(item.label, (gapsQuery.data?.gaps ?? []).filter(isReelReachable).length)
           : item.id === "published" ? countLabel(item.label, published.length)
             : item.label,
   }));
@@ -278,7 +298,14 @@ function PublicationsContent() {
           <Card className="h-fit">
             <CardHeader>
               <CardTitle className="text-base">À surveiller</CardTitle>
-              <CardDescription>Rendus en cours, échecs, brouillons à relire et prochaines publications.</CardDescription>
+              <CardDescription>
+                Rendus en cours, échecs, brouillons à relire et prochaines publications. « Masquer » cache une alerte traitée ; elle revient si son état change.
+                {hiddenCount ? (
+                  <button type="button" className="ml-1 text-brand underline-offset-4 hover:underline" onClick={() => setShowDismissed((value) => !value)}>
+                    {showDismissed ? "Cacher les alertes masquées" : `Voir les ${hiddenCount} masquée${hiddenCount > 1 ? "s" : ""}`}
+                  </button>
+                ) : null}
+              </CardDescription>
             </CardHeader>
             <CardContent className="text-sm">
               {attention.length === 0 ? <p className="text-muted-foreground">Rien à signaler.</p> : (
@@ -292,7 +319,14 @@ function PublicationsContent() {
                           <p className="text-xs text-muted-foreground">{entry.detail}</p>
                         </div>
                       </div>
-                      <Button type="button" variant="ghost" className="h-8 shrink-0 px-2 text-xs" onClick={() => goTo(entry.target)}>Voir</Button>
+                      <div className="flex shrink-0 items-center">
+                        <Button type="button" variant="ghost" className="h-8 px-2 text-xs" onClick={() => goTo(entry.target)}>Voir</Button>
+                        {dismissed.has(entry.dismissKey) ? (
+                          <Button type="button" variant="ghost" className="h-8 px-2 text-xs" onClick={() => restoreAlert(entry)}>Réafficher</Button>
+                        ) : entry.tone === "active" ? null : (
+                          <Button type="button" variant="ghost" className="h-8 px-2 text-xs text-muted-foreground" onClick={() => dismissAlert(entry)}>Masquer</Button>
+                        )}
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -415,6 +449,15 @@ function PublicationsContent() {
             onRefresh={() => carouselMutation.mutate({ url: "/api/admin/carousel-automation", method: "POST", body: { action: "refresh" } })}
           />
         </div>
+      ) : null}
+
+      {tab === "gpx" ? (
+        <RaceDataGapsCard
+          gaps={gapsQuery.data?.gaps ?? []}
+          leadDays={gapsQuery.data?.leadDays ?? null}
+          isLoading={gapsQuery.isLoading}
+          error={gapsQuery.error instanceof Error ? gapsQuery.error.message : null}
+        />
       ) : null}
 
       {tab === "published" ? (

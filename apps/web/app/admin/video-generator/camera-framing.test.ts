@@ -107,7 +107,8 @@ describe("projectToFrame", () => {
 
   it("keeps the overlay band, the bottom 20 % and the side margins out of the safe rectangle", () => {
     const rect = getSafeFrameRect("portrait");
-    expect(rect.top).toBeCloseTo(56 / (100 / (9 / 16)), 6);
+    // The band (72 cqmin) is capped at 40 % of the portrait height.
+    expect(rect.top).toBeCloseTo(0.4, 6);
     expect(rect.top).toBeGreaterThan(0.3);
     expect(rect.bottom).toBeCloseTo(0.8, 6);
     expect(rect.left).toBeGreaterThan(0);

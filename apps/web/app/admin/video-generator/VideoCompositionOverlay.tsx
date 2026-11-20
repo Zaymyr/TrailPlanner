@@ -33,6 +33,8 @@ import {
   HOOK_LEFT_RATIO,
   HOOK_NAME_CQMIN,
   HOOK_NAME_GAP_CQMIN,
+  HOOK_EVENT_CQMIN,
+  HOOK_EVENT_GAP_CQMIN,
   HOOK_NAME_LINE_HEIGHT,
   HOOK_RIGHT_RATIO,
   HOOK_UNIT_SCALE,
@@ -68,6 +70,8 @@ export type VideoRaceInfo = {
   startDetail: string | null;
   /** Short event name of the reel hook (race_events.short_name, else derived from the event name). */
   shortName?: string | null;
+  /** Name of the format (« Marathon de l'Orchis »), shown large by the hook above the event name; null when generic. */
+  formatName?: string | null;
   /** Organizer start place, shortened to its landmark ("Saint-Étienne"), for the map label. */
   startPlace?: string | null;
   /** Raw race date (YYYY-MM-DD) and start time (HH:MM), for the estimated race clock. */
@@ -230,10 +234,13 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, figures, frameS
   const chromeOpacity = hook ? hook.chromeOpacity : isIntro ? 1 - introOpacity : isOutro ? 1 - outroOpacity : 1;
   const accent = settings.accentColor;
   const compact = isCompactOverlayEnabled(settings);
+  // The hook names the format in large type and the event under it; a generic format keeps the event alone.
+  const hookTitle = race.formatName || race.shortName || null;
+  const hookEvent = race.formatName && race.shortName ? race.shortName : null;
   // Light overlay: no title band (the hook and the voice already name the race and its figures).
   const hasHeader = !compact && (settings.showTitle || Boolean(stats));
   const hasProfileBand = settings.showProfile || settings.showCurrentKm;
-  // The leg card sits under the profile band; the subtitles sit lower, centred at 74 % of the frame.
+  // The leg card sits under the profile band; the subtitles sit lower, centred at 77.5 % of the frame.
   // The light overlay starts lower, below Instagram's own top bar, and has no tick row.
   const bandTop = compact ? `${COMPACT_TOP_CQMIN}cqmin` : hasHeader ? "16cqmin" : "4cqmin";
   const captionTop = compact
@@ -279,8 +286,9 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, figures, frameS
 
       {settings.showCaptions && frame.beat ? <StoryCaption accent={accent} beat={frame.beat} figures={figures} timeMs={frame.timeMs} top={captionTop} /> : null}
 
-      {/* Burned-in subtitles of the voice-over: a fixed-width accent box centred at 74 % of the frame,
-          inside the Instagram safe zone (above y = 1500 px of 1920, clear of the right 15 % band). */}
+      {/* Burned-in subtitles of the voice-over: a fixed-width accent box centred horizontally and at
+          77.5 % of the frame height, inside the Instagram safe zones (Reels caption, action column,
+          feed 4:5 crop; subtitle-groups.ts). */}
       {settings.showSubtitles && frame.subtitle ? (
         <div
           className="absolute flex items-center justify-center text-center font-medium text-white"
@@ -426,7 +434,7 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, figures, frameS
                 <span style={{ fontSize: `${HOOK_UNIT_SCALE}em`, marginLeft: "0.25em" }}>{shockFigure.unit}</span>
               </p>
             ) : null}
-            {race.shortName ? (
+            {hookTitle ? (
               <p
                 className="font-black uppercase"
                 style={{
@@ -438,7 +446,22 @@ function VideoCompositionOverlayComponent({ elevationAtDistance, figures, frameS
                   transform: `translateY(${hook.nameOffsetCqmin}cqmin)`,
                 }}
               >
-                {race.shortName}
+                {hookTitle}
+              </p>
+            ) : null}
+            {hookEvent ? (
+              <p
+                className="font-bold uppercase text-white/85"
+                style={{
+                  marginTop: `${HOOK_EVENT_GAP_CQMIN}cqmin`,
+                  fontSize: `${HOOK_EVENT_CQMIN}cqmin`,
+                  letterSpacing: "0.08em",
+                  lineHeight: HOOK_NAME_LINE_HEIGHT,
+                  opacity: hook.nameOpacity,
+                  transform: `translateY(${hook.nameOffsetCqmin}cqmin)`,
+                }}
+              >
+                {hookEvent}
               </p>
             ) : null}
           </div>
