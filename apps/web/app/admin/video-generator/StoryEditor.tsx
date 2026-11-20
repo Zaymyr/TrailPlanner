@@ -7,8 +7,6 @@ import { NARRATION_STYLE_LABELS, NARRATION_STYLES, type NarrationStyle } from ".
 import { SCRIPT_NOTES_MAX_LENGTH } from "./script-notes";
 import { estimateNarrationMs } from "./route-story";
 import type { ScheduledBeat } from "./video-composition";
-import type { SavedVoice } from "./voice-library";
-import { VoiceIdPicker } from "./VoiceIdPicker";
 
 export type AsyncActionState = { status: "idle" | "loading" | "success" | "error"; message: string | null };
 
@@ -43,9 +41,6 @@ type StoryEditorProps = {
   onGenerateVoice: () => void;
   onNarrationChange: (beatId: string, narration: string) => void;
   onResetScript: () => void;
-  onVoiceIdChange: (voiceId: string) => void;
-  onForgetVoice: (voiceId: string) => void;
-  onSaveVoice: (voiceId: string, name: string) => void;
   onVoiceOptionsChange: (options: VoiceOptions) => void;
   onWriteScript: () => void;
   /** Saves the text, settings and voice of this race (see the saved narration in the client). */
@@ -59,11 +54,11 @@ type StoryEditorProps = {
   scriptWarnings?: string[];
   scriptStyle: ScriptStyleChoice;
   totalMs: number;
-  voiceId: string;
+  /** Voice choice and pool (VoiceSection), rendered by the client that owns the voice state. */
+  voiceSection: React.ReactNode;
   voiceOptions: VoiceOptions;
   voiceReadyIds: Set<string>;
   voiceState: AsyncActionState;
-  voices: SavedVoice[];
 };
 
 function ActionMessage({ state }: { state: AsyncActionState }) {
@@ -79,9 +74,6 @@ export function StoryEditor({
   onGenerateVoice,
   onNarrationChange,
   onResetScript,
-  onVoiceIdChange,
-  onForgetVoice,
-  onSaveVoice,
   onVoiceOptionsChange,
   onWriteScript,
   onSaveNarration,
@@ -93,11 +85,10 @@ export function StoryEditor({
   scriptWarnings = [],
   scriptStyle,
   totalMs,
-  voiceId,
   voiceOptions,
+  voiceSection,
   voiceReadyIds,
   voiceState,
-  voices,
 }: StoryEditorProps) {
   const busy = scriptState.status === "loading" || voiceState.status === "loading";
   const voicedCount = beats.filter((beat) => voiceReadyIds.has(beat.id)).length;
@@ -168,14 +159,7 @@ export function StoryEditor({
       </div>
 
       <div className="flex items-start gap-2">
-        <VoiceIdPicker
-          disabled={busy}
-          onForget={onForgetVoice}
-          onSave={onSaveVoice}
-          onVoiceIdChange={onVoiceIdChange}
-          voiceId={voiceId}
-          voices={voices}
-        />
+        {voiceSection}
         <Button type="button" variant="ghost" className="mb-auto mt-5 h-8 px-2 text-xs" disabled={busy} onClick={onResetScript}>
           Texte par défaut
         </Button>

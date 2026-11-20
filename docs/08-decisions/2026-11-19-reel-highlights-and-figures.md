@@ -1,7 +1,7 @@
 ---
 title: Reel figures and highlights mode
 scope: decision
-last_verified: 2026-11-19
+last_verified: 2026-11-20
 ai_priority: medium
 related_files:
   - apps/web/app/admin/video-generator/race-figures.ts
@@ -10,6 +10,14 @@ related_files:
   - apps/web/app/admin/video-generator/reel-pipeline.ts
   - apps/web/app/admin/video-generator/useReelPipeline.ts
   - apps/web/app/admin/video-generator/ReelPipelinePanel.tsx
+  - apps/web/app/admin/video-generator/voice-pool.ts
+  - apps/web/app/admin/video-generator/voice-pool.test.ts
+  - apps/web/app/admin/video-generator/useVoicePool.ts
+  - apps/web/app/admin/video-generator/VoiceSection.tsx
+  - apps/web/lib/video-voices.ts
+  - apps/web/app/api/admin/video-generator/voices/route.ts
+  - apps/web/app/api/admin/video-generator/voices/[id]/route.ts
+  - apps/web/app/api/admin/video-generator/voices/route.test.ts
   - apps/web/lib/social-post-auto-draft.ts
   - apps/web/app/api/video-render/jobs/[id]/route.ts
   - supabase/migrations/20261119170000_add_render_job_auto_draft.sql
@@ -76,6 +84,7 @@ Second, a full-course flyover of an ultra lasts up to 2-3 minutes; a short "temp
 11. **Audio and end screen (phase 6b).** The soundtrack is mastered by a pure JS module (`audio-master.ts`): BS.1770-4 integrated loudness and 4x true peak, one linear gain to -14 LUFS with a true peak of at most -1 dBTP (no limiter; when the ceiling wins, the report says the mix stays quieter). It runs the same in the browser export and the Cloud Run render because no step depends on Web Audio automation or ffmpeg. An optional music bed (`musicTrack`: none, auto from the race id, or a manifest id; manifest in `public/reel-music/`, shipped empty, royalty-free licence required) is looped or trimmed, set 8 LU under the voice (voice -16 LUFS, music -24 LUFS), ducked 10 dB under the voice with a 150 ms attack and 400 ms release, faded 0.5 s in and 1.5 s out. The end screen lasts `max(2.5 s, gap + CTA voice + 2 s hold)`; in highlights it shows « Ton plan pour cette course est prêt » / « Dans l’appli Pace Yourself » / « Lien en bio » inside the Instagram safe zone, and the full mode keeps its card. Tests assert the voice never ends within 0.5 s of the video end.
 
 12. **One-click generation.** « Générer le reel » replaces the nine manual clicks by one for the common case. (a) **Pipeline:** text (`/content`), voice (`/voice`), narration save, then the background render, in that order, on the same functions as the individual buttons (extracted as `requestScript`, `applyHighlightsContent`, `requestVoiceClips`, `putNarration` and `launchBackgroundRender`), with the data of each step handed to the next explicitly rather than read back from React state. A failing step stops the chain and « Reprendre » resumes from it; the run can be cancelled until the render starts; the text step's warnings are shown and never block. (b) **Highlights is the UI default**, set in `INITIAL_EDITOR_SETTINGS` only: the Zod default of `storyMode` stays `full`, so old render snapshots and saved settings without `storyMode` parse as before (decision 4 is unchanged). (c) **Automatic draft:** `video_render_jobs.auto_draft` (set by the render-jobs POST `autoDraft`, only with `content`) makes the render completion route create the job's `social_posts` draft, never scheduled or published, owned by the job's creator, with the service role the callback already uses, so no auth, RLS or grant change. It is idempotent and non-fatal: an existing automatic draft is returned first, a partial unique index on `social_posts (video_job_id) where auto_generated` backs it up (this is why the migration also adds `social_posts.auto_generated`, which also lets Publications show a precise « Généré automatiquement » badge instead of inferring it), and a failure is logged without payload and leaves the job `done`. Human control stays at publication: the admin reviews the draft in Publications and publishes or schedules it. Alternatives rejected: creating the draft from the browser when it sees the job done (needs the tab open, defeats the background render); inferring the badge from `content` plus the job flag (also matches a manual draft of the same render).
+13. **Pool de voix.** The reel's voice was remembered per browser only, so every reel sounded the same. (a) **Shared pool:** the admin keeps 4 or 5 ElevenLabs voices in `video_voices` (additive, service-role-only table like `video_render_jobs`: RLS on, no policy, client privileges revoked; unique ElevenLabs id, name 1-40, `active`), managed from the generator's voice settings through admin routes gated by `authorizeVideoAdmin` and validated with Zod. (b) **Random pick:** by default (« Au hasard parmi N voix actives ») a new reel, whether from the button or the one-click pipeline, draws one active voice with the pure `pickPoolVoice`, leaving out the voice of the race's previous saved narration when at least two are active so consecutive reels vary; re-generating the voice of an existing narration keeps its saved voice unless the admin clicks « Changer de voix »; a specific pool voice or the free id (« Autre ID ») bypass the draw. (c) **Saved with the narration:** `voiceId` and `voiceName` go into the existing `video_narrations.voice` jsonb (no schema change) and are handed from the pipeline's voice step to its save step through the context, never read back from React state. (d) **Empty pool:** falls back to the free id, then `ELEVENLABS_VOICE_ID`, then the premade default, so nothing changes until a voice is added. (e) **Import:** a one-time button copies the named voices of the browser library into the pool. Alternatives rejected: an env var list of voices (needs a deploy to change); drawing the voice on the server in the voice route (the editor must know and save the voice, and the voice route stays a plain text-to-speech call); a per-race fixed voice (reels of one race would never vary).
 
 ## Consequences
 
@@ -96,6 +105,7 @@ Second, a full-course flyover of an ultra lasts up to 2-3 minutes; a short "temp
 - Opening the generator on Temps forts changes what an admin sees first, not what is stored: a race with a saved « Parcours complet » narration still loads it when that mode is chosen.
 - A render launched by one click costs a GPU render without a human review of the text first; the warnings and the Publications review are the guard, and the draft is never published automatically.
 - The render time shown (≈ 10 min) is a fixed estimate, not a measurement.
+- A deactivated or deleted pool voice stays in the saved narrations that used it (the voice id and name are copied there), so older reels are unaffected; the table check accepts ids of 8-64 characters while the voice route accepts 10-40, narrower than real ElevenLabs ids (20).
 - The outro is about 2 s longer than before (voice plus a 2 s hold); the 50 s cap on highlights is unchanged and the flyover absorbs it when the total is clamped.
 
 ## Related Docs
@@ -103,4 +113,5 @@ Second, a full-course flyover of an ultra lasts up to 2-3 minutes; a short "temp
 - `../05-integrations/mapbox-3d.md`
 - `../01-architecture/web-app.md`
 - `../02-database/tables/video-narrations.md`
+- `../02-database/tables/video-voices.md`
 - `../02-database/tables/race-events.md`

@@ -63,6 +63,9 @@ import {
   type StoryLandmarks,
 } from "./route-story";
 import { StoryEditor, type AsyncActionState, type ScriptStyleChoice, type VoiceOptions } from "./StoryEditor";
+import { useVoicePool } from "./useVoicePool";
+import { OTHER_VOICE_CHOICE, RANDOM_VOICE_CHOICE, resolveVoiceForGeneration, type ChosenVoice } from "./voice-pool";
+import { VoiceSection } from "./VoiceSection";
 import { buildHighlightBeats, selectHighlights } from "./highlights";
 import {
   buildToldSlopeGeoJson,
@@ -484,7 +487,7 @@ const waitForMapIdle = (map: MapboxMap, timeoutMs: number) => new Promise<void>(
 });
 
 /** What the one-click reel steps hand to each other. */
-type ReelRunContext = { overrides?: Record<string, string>; content?: ReelContent; clips?: Record<string, NarrationClip>; jobId?: string };
+type ReelRunContext = { overrides?: Record<string, string>; content?: ReelContent; clips?: Record<string, NarrationClip>; jobId?: string; voice?: ChosenVoice };
 const newReelRunContext = (): ReelRunContext => ({});
 
 /** A clip only counts while its text still matches the narration it was generated from. */
@@ -809,7 +812,14 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   const [voiceClips, setVoiceClips] = useState<Record<string, NarrationClip>>(
     () => Object.fromEntries((renderSnapshot?.voiceClips ?? []).map((clip) => [clip.beatId, clip])),
   );
+  // The free ElevenLabs id field ("Autre ID"), kept for voices outside the shared pool.
   const [voiceId, setVoiceId] = useState("");
+  // "Au hasard" among the pool's active voices by default; or one pool voice (its ElevenLabs id), or "other".
+  const [voiceChoice, setVoiceChoice] = useState(RANDOM_VOICE_CHOICE);
+  // The voice the narration has (saved, or generated in this session). Never taken from the browser's last used voice.
+  const [currentVoice, setCurrentVoice] = useState<ChosenVoice | null>(null);
+  const [changeVoiceRequested, setChangeVoiceRequested] = useState(false);
+  const voicePool = useVoicePool(sessionToken, !render);
   // Storytelling: a random style by default so reels vary, and the admin's instructions for this race.
   const [scriptStyle, setScriptStyle] = useState<ScriptStyleChoice>("auto");
   const [scriptNotes, setScriptNotes] = useState("");
@@ -843,7 +853,12 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   useEffect(() => {
     if (!render) setSpeechRates(loadSpeechRates());
   }, [render]);
-  const speechRateKey = getSpeechRateKey(voiceOptions.model, voiceId);
+  const voiceFromPool = (id: string | null) => (id ? voicePool.voices.find((voice) => voice.voiceId === id)?.name ?? null : null);
+  // The voice this narration is voiced with (and saved with) for the current choice.
+  const activeVoice: ChosenVoice = voiceChoice === RANDOM_VOICE_CHOICE && voicePool.voices.some((voice) => voice.active)
+    ? { voiceId: currentVoice?.voiceId ?? null, name: currentVoice?.name ?? voiceFromPool(currentVoice?.voiceId ?? null) }
+    : resolveVoiceForGeneration({ choice: voiceChoice, pool: voicePool.voices, otherVoiceId: voiceId, current: null, forceNew: false });
+  const speechRateKey = getSpeechRateKey(voiceOptions.model, activeVoice.voiceId ?? "");
   const [scriptState, setScriptState] = useState<AsyncActionState>(IDLE_ACTION);
   // Highlights reel text written in one call (hook, call to action, caption, hashtags, cover text):
   // kept with the narration, saved with it and snapshotted on the render job. Null until written or loaded.
@@ -1184,7 +1199,10 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
         if (restoredSettings.success) setSettings(restoredSettings.data);
         // Texts and clips of the other mode use other beat ids: keep them.
         setNarrationOverrides((current) => ({ ...current, ...saved.narrationOverrides }));
-        if (saved.voice.voiceId) setVoiceId(saved.voice.voiceId);
+        if (saved.voice.voiceId) {
+          setVoiceId(saved.voice.voiceId);
+          setCurrentVoice({ voiceId: saved.voice.voiceId, name: saved.voice.voiceName ?? null });
+        }
         if (saved.voice.model && saved.voice.expressiveness !== undefined) {
           setVoiceOptions({ model: saved.voice.model, expressiveness: saved.voice.expressiveness });
         }
@@ -1212,7 +1230,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
    * the one-click reel share it). Each mode saves only its own texts: highlight beats are the
    * "hl-…" ids. Clips and content are written only when given.
    */
-  const putNarration = async ({ texts, clips, content }: { texts: Record<string, string>; clips?: NarrationClip[]; content?: ReelContent | null }) => {
+  const putNarration = async ({ texts, clips, content, voice = activeVoice }: { texts: Record<string, string>; clips?: NarrationClip[]; content?: ReelContent | null; voice?: ChosenVoice }) => {
     const highlightsSave = settings.storyMode === "highlights";
     const response = await fetch(`/api/admin/video-generator/narrations/${race.id}?mode=${settings.storyMode}`, {
       method: "PUT",
@@ -1220,7 +1238,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       body: JSON.stringify({
         settings,
         narrationOverrides: Object.fromEntries(Object.entries(texts).filter(([beatId]) => beatId.startsWith("hl-") === highlightsSave)),
-        voice: { voiceId: voiceId || null, ...voiceOptions },
+        voice: { voiceId: voice.voiceId, voiceName: voice.name, ...voiceOptions },
         ...(clips ? { clips } : {}),
         ...(highlightsSave && content ? { content } : {}),
       }),
@@ -1244,7 +1262,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
         setSavedNarration({ status: "error", message: error instanceof Error ? error.message : "Le récit n’a pas pu être enregistré." });
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [freshClips, narrationOverrides, pendingSave, race.id, sessionToken, settings, voiceId, voiceOptions]);
+  }, [freshClips, narrationOverrides, pendingSave, race.id, sessionToken, settings, activeVoice.voiceId, activeVoice.name, voiceOptions]);
 
   /** The writer call. A highlights reel is written in one call: script, hook, call to action, caption, hashtags, cover text. */
   const requestScript = async () => {
@@ -1424,11 +1442,22 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     }
   };
 
-  /** The voice call for the given beats: clips kept in the editor and returned (the one-click reel needs them at once). */
-  const requestVoiceClips = async (voiceBeats: Array<{ id: string; narration: string }>) => {
+  /**
+   * The voice call for the given beats: clips kept in the editor and returned with the voice used
+   * (the one-click reel needs both at once). `newVoice` draws another pool voice instead of keeping
+   * the one the narration already has.
+   */
+  const requestVoiceClips = async (voiceBeats: Array<{ id: string; narration: string }>, newVoice: boolean) => {
+    const voice = resolveVoiceForGeneration({
+      choice: voiceChoice,
+      pool: voicePool.voices,
+      otherVoiceId: voiceId,
+      current: currentVoice,
+      forceNew: newVoice || changeVoiceRequested,
+    });
     const items = voiceBeats.filter((beat) => beat.narration.trim()).map((beat) => ({ id: beat.id, text: beat.narration.trim() }));
     setVoiceState({ status: "loading", message: `Génération de ${items.length} phrases avec ElevenLabs…` });
-    const response = await authorizedPost("/api/admin/video-generator/voice", { voiceId: voiceId || null, items, ...voiceOptions });
+    const response = await authorizedPost("/api/admin/video-generator/voice", { voiceId: voice.voiceId, items, ...voiceOptions });
     if (!response.ok) throw new Error(await readError(response, "La voix off n’a pas pu être générée."));
     const parsed = narrationVoiceResponseSchema.safeParse(await response.json());
     if (!parsed.success) throw new Error("L’audio reçu est invalide.");
@@ -1443,7 +1472,9 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       characterStartMs: clip.characterStartMs,
     }]));
     setVoiceClips((current) => ({ ...current, ...clips }));
-    if (voiceId) updateVoiceLibrary((voices) => rememberVoice(voices, voiceId));
+    setCurrentVoice(voice);
+    setChangeVoiceRequested(false);
+    if (voice.voiceId && voiceChoice === OTHER_VOICE_CHOICE) updateVoiceLibrary((voices) => rememberVoice(voices, voice.voiceId as string));
     const measured = measureWordsPerSecond(parsed.data.clips.map((clip) => ({ text: textById.get(clip.id) ?? clip.text, durationMs: clip.durationMs })));
     if (measured) {
       setSpeechRates((current) => {
@@ -1453,12 +1484,12 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       });
     }
     setVoiceState({ status: "success", message: "Voix off prête : lance la lecture." });
-    return clips;
+    return { clips, voice };
   };
 
   const generateVoice = async () => {
     try {
-      await requestVoiceClips(beats);
+      await requestVoiceClips(beats, false);
       requestSave(true);
     } catch (error) {
       setVoiceState({ status: "error", message: error instanceof Error ? error.message : "La voix off n’a pas pu être générée." });
@@ -1636,7 +1667,9 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     },
     voice: async (context) => {
       try {
-        return { clips: await requestVoiceClips(beatsWithTexts(context.overrides)) };
+        // A new reel draws a new voice (not the one of the previous narration of this race).
+        const { clips, voice } = await requestVoiceClips(beatsWithTexts(context.overrides), true);
+        return { clips, voice };
       } catch (error) {
         setVoiceState({ status: "error", message: error instanceof Error ? error.message : "La voix off n’a pas pu être générée." });
         throw error;
@@ -1649,6 +1682,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
           texts: { ...narrationOverrides, ...context.overrides },
           clips: freshClipsFor(beatsWithTexts(context.overrides), context.clips ?? voiceClips),
           content: context.content ?? (reelContent ? currentReelContent() : null),
+          voice: context.voice,
         });
         setSavedNarration({ status: "success", message });
       } catch (error) {
@@ -1760,6 +1794,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
           <ReelPipelinePanel
             canRun={preparedPath.canAnimate && Boolean(race.id) && scriptState.status !== "loading" && voiceState.status !== "loading" && exportState.status !== "running"}
             pipeline={reelPipeline}
+            voiceLabel={activeVoice.voiceId ? activeVoice.name ?? activeVoice.voiceId : null}
           />
           <StoryEditor
             beats={timeline.beats}
@@ -1774,9 +1809,6 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
               setScriptState(IDLE_ACTION);
               setReelWarnings([]);
             }}
-            onForgetVoice={(id) => updateVoiceLibrary((voices) => forgetVoice(voices, id))}
-            onSaveVoice={(id, name) => updateVoiceLibrary((voices) => nameVoice(voices, id, name))}
-            onVoiceIdChange={setVoiceId}
             onVoiceOptionsChange={setVoiceOptions}
             voiceOptions={voiceOptions}
             onScriptNotesChange={updateScriptNotes}
@@ -1787,10 +1819,27 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
             onWriteScript={() => void writeScript()}
             scriptState={scriptState}
             totalMs={timeline.totalMs}
-            voiceId={voiceId}
+            voiceSection={(
+              <VoiceSection
+                changeRequested={changeVoiceRequested}
+                choice={voiceChoice}
+                currentVoice={currentVoice ? { ...currentVoice, name: currentVoice.name ?? voiceFromPool(currentVoice.voiceId) } : null}
+                disabled={scriptState.status === "loading" || voiceState.status === "loading"}
+                library={savedVoices}
+                onChangeVoice={() => setChangeVoiceRequested(true)}
+                onChoiceChange={(choice) => {
+                  setVoiceChoice(choice);
+                  setChangeVoiceRequested(false);
+                }}
+                onForgetVoice={(id) => updateVoiceLibrary((voices) => forgetVoice(voices, id))}
+                onSaveVoice={(id, name) => updateVoiceLibrary((voices) => nameVoice(voices, id, name))}
+                onVoiceIdChange={setVoiceId}
+                pool={voicePool}
+                voiceId={voiceId}
+              />
+            )}
             voiceReadyIds={new Set(Object.keys(narrationDurations))}
             voiceState={voiceState}
-            voices={savedVoices}
           />
         </CardContent>
       </Card>

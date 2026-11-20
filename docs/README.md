@@ -58,6 +58,7 @@ Docs conventions are in [_conventions.md](_conventions.md).
 - [races](02-database/tables/races.md)
 - [race_slug_redirects](02-database/tables/race-slug-redirects.md)
 - [video_render_jobs](02-database/tables/video-render-jobs.md)
+- [video_voices](02-database/tables/video-voices.md)
 - [social_posts](02-database/tables/social-posts.md)
 - [race_events](02-database/tables/race-events.md)
 - [race_event_editions](02-database/tables/race-event-editions.md)
