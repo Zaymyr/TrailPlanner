@@ -377,6 +377,7 @@
 | `created_at` | `t` | ✅ | `` |
 | `updated_at` | `t` | ✅ | `` |
 | `expires_at` | `t` | ❌ | `` |
+| `link_token_hash` | `t` | ❌ | `` |
 
 **Primary keys**
 - `one_time_tokens_pkey` on (id)
@@ -429,6 +430,7 @@
 | `created_at` | `t` | ❌ | `` |
 | `updated_at` | `t` | ❌ | `` |
 | `name_id_format` | `t` | ❌ | `` |
+| `dedicated_scope` | `b` | ❌ | `` |
 
 **Primary keys**
 - `saml_providers_pkey` on (id)
@@ -791,6 +793,66 @@
 
 ---
 
+### Table `public.feedback_survey_campaigns`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `id` | `u` | ✅ | `` |
+| `created_by` | `u` | ❌ | `` |
+| `title` | `t` | ✅ | `` |
+| `body` | `t` | ✅ | `` |
+| `audience_kind` | `t` | ✅ | `` |
+| `audience_event_id` | `t` | ❌ | `` |
+| `audience_label` | `t` | ❌ | `` |
+| `email_requested` | `b` | ✅ | `` |
+| `push_requested` | `b` | ✅ | `` |
+| `recipient_count` | `i` | ✅ | `` |
+| `created_at` | `t` | ✅ | `` |
+| `updated_at` | `t` | ✅ | `` |
+| `audience_user_id` | `u` | ❌ | `` |
+
+**Primary keys**
+- `feedback_survey_campaigns_pkey` on (id)
+
+**Foreign keys**
+- `feedback_survey_campaigns_audience_user_id_fkey`: (audience_user_id) → auth.users(id)
+- `feedback_survey_campaigns_created_by_fkey`: (created_by) → auth.users(id)
+
+**RLS**: ❌ disabled
+
+---
+
+### Table `public.feedback_survey_responses`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `id` | `u` | ✅ | `` |
+| `notification_id` | `u` | ❌ | `` |
+| `campaign_id` | `u` | ❌ | `` |
+| `user_id` | `u` | ✅ | `` |
+| `found_useful` | `b` | ✅ | `` |
+| `useful_text` | `t` | ❌ | `` |
+| `missing_text` | `t` | ❌ | `` |
+| `app_version` | `t` | ❌ | `` |
+| `platform` | `t` | ❌ | `` |
+| `created_at` | `t` | ✅ | `` |
+
+**Primary keys**
+- `feedback_survey_responses_pkey` on (id)
+
+**Foreign keys**
+- `feedback_survey_responses_campaign_id_fkey`: (campaign_id) → public.feedback_survey_campaigns(id)
+- `feedback_survey_responses_notification_id_fkey`: (notification_id) → public.user_notifications(id)
+- `feedback_survey_responses_user_id_fkey`: (user_id) → auth.users(id)
+
+**RLS**: ❌ disabled
+
+---
+
 ### Table `public.nutrition_plans`
 
 **Columns**
@@ -814,6 +876,36 @@
 
 **Foreign keys**
 - `nutrition_plans_user_id_fkey`: (user_id) → auth.users(id)
+
+**RLS**: ❌ disabled
+
+---
+
+### Table `public.organizer_demo_requests`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `id` | `u` | ✅ | `` |
+| `created_at` | `t` | ✅ | `` |
+| `updated_at` | `t` | ✅ | `` |
+| `email` | `t` | ✅ | `` |
+| `race_url` | `t` | ✅ | `` |
+| `phone` | `t` | ❌ | `` |
+| `attribution` | `j` | ✅ | `` |
+| `status` | `t` | ✅ | `` |
+| `is_pending` | `b` | ❌ | `` |
+| `reviewed_at` | `t` | ❌ | `` |
+| `reviewed_by` | `u` | ❌ | `` |
+| `admin_email_status` | `t` | ❌ | `` |
+| `confirmation_email_status` | `t` | ❌ | `` |
+
+**Primary keys**
+- `organizer_demo_requests_pkey` on (id)
+
+**Foreign keys**
+- `organizer_demo_requests_reviewed_by_fkey`: (reviewed_by) → auth.users(id)
 
 **RLS**: ❌ disabled
 
@@ -1137,6 +1229,33 @@
 **Foreign keys**
 - `plan_aid_stations_plan_id_fkey`: (plan_id) → public.race_plans(id)
 - `plan_aid_stations_race_aid_station_id_fkey`: (race_aid_station_id) → public.race_aid_stations(id)
+
+**RLS**: ❌ disabled
+
+---
+
+### Table `public.plan_share_follows`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `id` | `u` | ✅ | `` |
+| `share_link_id` | `u` | ✅ | `` |
+| `follower_user_id` | `u` | ✅ | `` |
+| `nickname` | `t` | ❌ | `` |
+| `created_at` | `t` | ✅ | `` |
+| `updated_at` | `t` | ✅ | `` |
+| `removed_at` | `t` | ❌ | `` |
+| `archived_at` | `t` | ❌ | `` |
+| `auto_archive_dismissed_at` | `t` | ❌ | `` |
+
+**Primary keys**
+- `plan_share_follows_pkey` on (id)
+
+**Foreign keys**
+- `plan_share_follows_follower_user_id_fkey`: (follower_user_id) → auth.users(id)
+- `plan_share_follows_share_link_id_fkey`: (share_link_id) → public.plan_share_links(id)
 
 **RLS**: ❌ disabled
 
@@ -1529,6 +1648,26 @@
 
 ---
 
+### Table `public.race_event_edition_slug_redirects`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `old_slug` | `t` | ✅ | `` |
+| `edition_id` | `u` | ✅ | `` |
+| `created_at` | `t` | ✅ | `` |
+
+**Primary keys**
+- `race_event_edition_slug_redirects_pkey` on (old_slug)
+
+**Foreign keys**
+- `race_event_edition_slug_redirects_edition_id_fkey`: (edition_id) → public.race_event_editions(id)
+
+**RLS**: ❌ disabled
+
+---
+
 ### Table `public.race_event_edition_sponsors`
 
 **Columns**
@@ -1578,6 +1717,7 @@
 | `is_current` | `b` | ✅ | `` |
 | `is_visible` | `b` | ✅ | `` |
 | `module_setup_completed_at` | `t` | ❌ | `` |
+| `slug` | `t` | ✅ | `` |
 
 **Primary keys**
 - `race_event_editions_pkey` on (id)
@@ -1725,6 +1865,7 @@
 | `location_country_code` | `t` | ❌ | `` |
 | `location_latitude` | `d` | ❌ | `` |
 | `location_longitude` | `d` | ❌ | `` |
+| `short_name` | `t` | ❌ | `` |
 
 **Primary keys**
 - `race_events_pkey` on (id)
@@ -2421,6 +2562,50 @@
 
 ---
 
+### Table `public.social_posts`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `id` | `u` | ✅ | `` |
+| `race_id` | `u` | ❌ | `` |
+| `video_job_id` | `u` | ❌ | `` |
+| `platform` | `t` | ✅ | `` |
+| `status` | `t` | ✅ | `` |
+| `caption` | `t` | ✅ | `` |
+| `hashtags` | `t` | ✅ | `` |
+| `cover_text` | `t` | ❌ | `` |
+| `video_url` | `t` | ❌ | `` |
+| `scheduled_at` | `t` | ❌ | `` |
+| `published_at` | `t` | ❌ | `` |
+| `ig_container_id` | `t` | ❌ | `` |
+| `ig_container_created_at` | `t` | ❌ | `` |
+| `publish_requested_at` | `t` | ❌ | `` |
+| `ig_media_id` | `t` | ❌ | `` |
+| `ig_permalink` | `t` | ❌ | `` |
+| `error` | `t` | ❌ | `` |
+| `dry_run` | `b` | ✅ | `` |
+| `attempt_count` | `i` | ✅ | `` |
+| `locked_until` | `t` | ❌ | `` |
+| `content` | `j` | ❌ | `` |
+| `created_by` | `u` | ❌ | `` |
+| `created_at` | `t` | ✅ | `` |
+| `updated_at` | `t` | ✅ | `` |
+| `auto_generated` | `b` | ✅ | `` |
+
+**Primary keys**
+- `social_posts_pkey` on (id)
+
+**Foreign keys**
+- `social_posts_created_by_fkey`: (created_by) → auth.users(id)
+- `social_posts_race_id_fkey`: (race_id) → public.races(id)
+- `social_posts_video_job_id_fkey`: (video_job_id) → public.video_render_jobs(id)
+
+**RLS**: ❌ disabled
+
+---
+
 ### Table `public.subscriptions`
 
 **Columns**
@@ -2517,6 +2702,7 @@
 | `updated_at` | `t` | ✅ | `` |
 | `feedback_id` | `b` | ❌ | `` |
 | `deleted_at` | `t` | ❌ | `` |
+| `survey_campaign_id` | `u` | ❌ | `` |
 
 **Primary keys**
 - `user_notifications_pkey` on (id)
@@ -2525,6 +2711,7 @@
 - `user_notifications_created_by_fkey`: (created_by) → auth.users(id)
 - `user_notifications_feedback_id_fkey`: (feedback_id) → public.app_feedback(id)
 - `user_notifications_race_request_id_fkey`: (race_request_id) → public.race_requests(id)
+- `user_notifications_survey_campaign_id_fkey`: (survey_campaign_id) → public.feedback_survey_campaigns(id)
 - `user_notifications_user_id_fkey`: (user_id) → auth.users(id)
 
 **RLS**: ❌ disabled
@@ -2562,6 +2749,7 @@
 | `onboarding_completed_at` | `t` | ❌ | `` |
 | `plan_onboarding_status` | `t` | ✅ | `` |
 | `racebook_onboarding_status` | `t` | ✅ | `` |
+| `supporter_onboarding_status` | `t` | ✅ | `` |
 
 **Primary keys**
 - `user_profiles_pkey` on (user_id)
@@ -2586,9 +2774,11 @@
 | `clip_count` | `i` | ✅ | `` |
 | `updated_by` | `u` | ❌ | `` |
 | `updated_at` | `t` | ✅ | `` |
+| `mode` | `t` | ✅ | `` |
+| `content` | `j` | ❌ | `` |
 
 **Primary keys**
-- `video_narrations_pkey` on (race_id)
+- `video_narrations_pkey` on (race_id, mode)
 
 **Foreign keys**
 - `video_narrations_race_id_fkey`: (race_id) → public.races(id)
@@ -2619,6 +2809,8 @@
 | `updated_at` | `t` | ✅ | `` |
 | `started_at` | `t` | ❌ | `` |
 | `finished_at` | `t` | ❌ | `` |
+| `content` | `j` | ❌ | `` |
+| `auto_draft` | `b` | ✅ | `` |
 
 **Primary keys**
 - `video_render_jobs_pkey` on (id)
@@ -2626,6 +2818,30 @@
 **Foreign keys**
 - `video_render_jobs_created_by_fkey`: (created_by) → auth.users(id)
 - `video_render_jobs_race_id_fkey`: (race_id) → public.races(id)
+
+**RLS**: ❌ disabled
+
+---
+
+### Table `public.video_voices`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `id` | `u` | ✅ | `` |
+| `elevenlabs_voice_id` | `t` | ✅ | `` |
+| `name` | `t` | ✅ | `` |
+| `active` | `b` | ✅ | `` |
+| `created_by` | `u` | ❌ | `` |
+| `created_at` | `t` | ✅ | `` |
+| `updated_at` | `t` | ✅ | `` |
+
+**Primary keys**
+- `video_voices_pkey` on (id)
+
+**Foreign keys**
+- `video_voices_created_by_fkey`: (created_by) → auth.users(id)
 
 **RLS**: ❌ disabled
 
