@@ -20,6 +20,14 @@ const scheduledFormats = [
   { raceId: "eb20d1e4-c647-452e-80f9-8e5d883b7949", format: "Trail de la Galinette — La Brèche du Mont Julien 30 km" },
   { raceId: "937dda92-73dc-4758-80aa-2124ad9f9e5a", format: "Trail de la Galinette — La Dualinette 24 km" },
   { raceId: "7121c370-004a-4368-a6af-aabdb1f47ade", format: "Trail de la Galinette — La Petite Galinette 12 km" },
+  // Checked 2026-11-20: the official GPX downloads without an account (organizer allows it).
+  { raceId: "37fbd9cf-9b29-40d9-8811-5cb6c0bbb84e", format: "Trail des Passerelles du Monteynard — La Grande Course 68 km" },
+  { raceId: "7f762fc7-94ca-4fd0-8d4a-e884872549c5", format: "Trail des Passerelles du Monteynard — La Grande Course relais à 3" },
+  { raceId: "22f51bd7-6494-47be-903e-6b0a51bc35dc", format: "Trail des Passerelles du Monteynard — Maratrail 44 km" },
+  { raceId: "3a30b604-c042-4d84-a20a-33b1cf9e20c4", format: "La 6000D — La 6000D 69 km" },
+  { raceId: "2079f493-ec93-4c54-b8bd-bcd6f95d12be", format: "La 6000D — La 6000D relais à 3" },
+  { raceId: "fa76b94c-9b0c-44bf-a4d7-7bd5eab62c8f", format: "La 6000D — La 6D Marathon 43 km" },
+  { raceId: "65da1669-9bce-4e43-b190-919d5ac75596", format: "La 6000D — La 6D Lacs 30 km" },
 ] as const;
 
 type EnrichmentResult = {
