@@ -4,6 +4,14 @@
 
 Journal en ajout seul, la plus récente en haut. Format : `## AAAA-MM-JJ — Titre`, puis Contexte / Décision / Conséquence (2 à 4 lignes chacun). Les décisions d'architecture détaillées (ADR) vont dans [docs/08-decisions/](../08-decisions/README.md).
 
+## 2026-11-21 — Tâches planifiées web via pg_cron, pas Vercel Cron
+
+**Contexte.** Les crons déclarés dans `vercel.json` ne reçoivent aucun appel de Vercel en production (17–21/11) ; la démo Trail TST est restée figée au 18/11 alors que toutes les tâches pg_cron tournent.
+
+**Décision.** `demo-race-refresh` passe sur pg_cron + pg_net (toutes les heures à :05, idempotent) et sort de `vercel.json`. Les nouvelles tâches planifiées web utilisent pg_cron.
+
+**Conséquence.** La démo se recale dans la première heure de chaque jour. RevenueCat et Trace de Trail restent dans `vercel.json`, non exécutés tant que leur migration pg_cron n’est pas décidée.
+
 ## 2026-11-21 — Reels sans ravitos obligatoires
 
 **Contexte.** Le choix des courses à mettre en reel exigeait au moins un ravito, ce qui bloquait les formats dont l'organisateur n'a pas encore saisi ses ravitos.

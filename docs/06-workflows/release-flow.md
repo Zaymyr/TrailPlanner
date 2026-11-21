@@ -1,7 +1,7 @@
 ---
 title: Release Flow (one PR per task, merge = production)
 scope: workflow
-last_verified: 2026-11-18
+last_verified: 2026-11-21
 ai_priority: high
 related_files:
   - .github/workflows/pull-request.yml

@@ -19,10 +19,6 @@
     {
       "path": "/api/cron/tracedetrail-catalog-enrichment",
       "schedule": "47 3 * * *"
-    },
-    {
-      "path": "/api/cron/demo-race-refresh",
-      "schedule": "5 23 * * *"
     }
   ],
   "ignoreCommand": "node -e \"process.exit(process.env.VERCEL_GIT_COMMIT_REF?.startsWith('dependabot/') ? 0 : 1)\" || git diff --quiet HEAD^ HEAD -- . ../../packages ../../package.json ../../package-lock.json ../../turbo.json ../../vercel.json",

@@ -2,7 +2,7 @@
 title: Migrations
 scope: database
 
-last_verified: 2026-11-20
+last_verified: 2026-11-21
 
 ai_priority: high
 related_files:
@@ -41,6 +41,7 @@ related_files:
   - supabase/migrations/20261120090000_add_video_voices.sql
   - supabase/migrations/20261120140000_add_reel_automation.sql
   - supabase/migrations/20261120140100_schedule_reel_automation_cron.sql
+  - supabase/migrations/20261121090000_schedule_demo_race_refresh_cron.sql
   - supabase/tests/reel_automation_checks.sql
   - supabase/tests/video_voices_checks.sql
   - supabase/tests/social_posts_checks.sql
@@ -165,6 +166,8 @@ related_tables:
 `20261103124538_cover_racebook_current_publication_foreign_key.sql` replaces the single-column current-publication index with a covering index matching its composite parent constraint.
 
 `20261104140000_add_video_render_jobs.sql` adds `video_render_jobs` (background reel renders on Google Cloud Run): status, progress, video size and timing, with covering indexes for its race and creator foreign keys, RLS on and service-role-only grants.
+
+`20261121090000_schedule_demo_race_refresh_cron.sql` schedules the pg_cron job `demo-race-refresh` every hour at minute 5 (`POST /api/cron/demo-race-refresh`, which moves the Trail TST demo to today and republishes it), through the security definer function `configure_demo_race_refresh_cron()` (executable by `service_role` only) and the Vault values `web_app_url` and `cron_secret`, read at run time. It replaces the Vercel Cron of `vercel.json`, which never fired in production. No table or policy change.
 
 `20261120090000_add_video_voices.sql` adds `video_voices` (the admin reel generator's shared pool of ElevenLabs voices: unique `elevenlabs_voice_id` checked against `^[A-Za-z0-9]{8,64}$`, `name` 1-40, `active` default true, `created_by`, trigger-maintained `updated_at`), additive, RLS on with no policy, every client privilege revoked and `service_role` only, like `video_render_jobs`. `supabase/tests/video_voices_checks.sql` checks the grants, defaults, trigger, unique id and checks. See [video_voices](tables/video-voices.md).
 
