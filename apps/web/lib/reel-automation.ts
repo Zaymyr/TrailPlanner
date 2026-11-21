@@ -273,19 +273,16 @@ export const loadPlannerCatalog = async (supabase: SupabaseServiceConfig, fetche
   ));
   const ids = races.map((race) => race.id);
   const inIds = `race_id=in.(${ids.join(",")})`;
-  const [stations, jobs, posts, scheduled] = ids.length
+  const [jobs, posts, scheduled] = ids.length
     ? await Promise.all([
-      get(`race_aid_stations?${inIds}&select=race_id&limit=20000`),
       get(`video_render_jobs?${inIds}&status=neq.failed&select=race_id,created_at&limit=5000`),
       // A carousel of the race is not a reel: it never blocks its reel.
       get(`social_posts?${inIds}&status=neq.failed&media_type=eq.reel&select=race_id,created_at&limit=5000`),
       get("social_posts?status=in.(scheduled,publishing)&scheduled_at=not.is.null&select=id,scheduled_at&limit=1000"),
     ])
-    : [[], [], [], await get("social_posts?status=in.(scheduled,publishing)&scheduled_at=not.is.null&select=id,scheduled_at&limit=1000")];
+    : [[], [], await get("social_posts?status=in.(scheduled,publishing)&scheduled_at=not.is.null&select=id,scheduled_at&limit=1000")];
   const carouselSlots = z.array(z.object({ planned_publish_date: z.string() }))
     .parse(await get("carousel_automation_items?status=in.(planned,generating,rendering,drafted)&select=planned_publish_date&limit=1000"));
-  const stationCounts = new Map<string, number>();
-  z.array(z.object({ race_id: z.string() })).parse(stations).forEach((row) => stationCounts.set(row.race_id, (stationCounts.get(row.race_id) ?? 0) + 1));
   const priorReels = [...z.array(reelRowSchema).parse(jobs), ...z.array(reelRowSchema).parse(posts)]
     .flatMap((row) => (row.race_id ? [{ raceId: row.race_id, createdAt: row.created_at }] : []));
   return {
@@ -295,7 +292,6 @@ export const loadPlannerCatalog = async (supabase: SupabaseServiceConfig, fetche
       distanceKm: race.distance_km,
       isLive: Boolean(race.is_live),
       hasGpx: Boolean(race.gpx_storage_path),
-      aidStationCount: stationCounts.get(race.id) ?? 0,
       raceDate: race.race_date,
       editionStartDate: race.edition?.start_date ?? null,
       eventDate: race.race_events?.race_date ?? null,

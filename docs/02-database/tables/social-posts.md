@@ -1,7 +1,7 @@
 ---
 title: social_posts Table
 scope: database
-last_verified: 2026-11-20
+last_verified: 2026-11-21
 # Publication marks (2026-11-20): readPublicationMarks summarises non-failed rows per video and race for the admin; published rows can now be deleted from the admin list (DELETE accepts status published).
 ai_priority: medium
 related_files:

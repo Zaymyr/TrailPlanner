@@ -1,7 +1,7 @@
 ---
 title: Automatic Instagram Carousels
 scope: integration
-last_verified: 2026-11-20
+last_verified: 2026-11-21
 ai_priority: medium
 related_files:
   - apps/web/lib/carousels/carousel-format.ts

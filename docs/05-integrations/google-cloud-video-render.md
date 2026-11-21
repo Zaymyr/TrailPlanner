@@ -1,7 +1,7 @@
 ---
 title: Google Cloud Background Reel Render
 scope: integration
-last_verified: 2026-11-20
+last_verified: 2026-11-21
 ai_priority: medium
 related_files:
   - apps/web/app/api/admin/video-generator/render-jobs/[id]/route.test.ts

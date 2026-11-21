@@ -1,7 +1,7 @@
 ---
 title: reel_automation_items Table
 scope: database
-last_verified: 2026-11-20
+last_verified: 2026-11-21
 ai_priority: low
 related_files:
   - supabase/migrations/20261120140000_add_reel_automation.sql

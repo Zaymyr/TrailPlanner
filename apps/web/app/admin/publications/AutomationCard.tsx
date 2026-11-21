@@ -115,7 +115,7 @@ export function ReelAutomationSettings({ data, isLoading, error, busy, onSetting
               ) : null}
             </SettingRow>
             <p className="rounded-md bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
-              Reels : formats en ligne avec GPX, au moins un ravito et 30 km ; temps forts au-delà de 60 km, parcours complet en dessous. Au plus {settings.maxPerWeek} reels par semaine (lundi-dimanche) et {settings.maxPerDay} par jour. Par événement, du format le plus court au plus long : le plus long au plus tard 7 jours avant le départ, chacun au moins 7 jours avant le suivant.
+              Reels : formats en ligne avec GPX et 30 km (ravitos facultatifs) ; temps forts au-delà de 60 km, parcours complet en dessous. Au plus {settings.maxPerWeek} reels par semaine (lundi-dimanche) et {settings.maxPerDay} par jour. Par événement, du format le plus court au plus long : le plus long au plus tard 7 jours avant le départ, chacun au moins 7 jours avant le suivant.
             </p>
           </>
         ) : null}

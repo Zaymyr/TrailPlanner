@@ -108,6 +108,19 @@ describe("server reel composition", () => {
     expect(content.cover_text).toBe("Astragale");
   });
 
+  it.each([["highlights" as const, druides], ["full" as const, astragale]])("tells a %s reel of a race without any aid station", (mode, detail) => {
+    const bare = { ...detail, aidStations: [] };
+    const settings = buildReelSettings(mode);
+    const story = prepareReelStory(getReelStoryInput(bare), settings, {});
+    expect(story.enabledAidStations).toEqual([]);
+    expect(story.beats.length).toBeGreaterThan(2);
+    const request = mode === "highlights" ? buildReelContentRequest(story) : buildNarrationScriptRequest(story, settings);
+    expect(request.beats.length).toBeGreaterThan(2);
+    const written = applyNarrationOverrides(story.beats, Object.fromEntries(story.beats.map((beat) => [beat.id, `Voix ${beat.id}.`])));
+    const snapshot = buildReelRenderSnapshot({ detail: bare, settings, narrationOverrides: {}, landmarks: {}, placeNames: { start: "Bibracte", finish: "Bibracte" }, voiceClips: freshClipsFor(written, {}) });
+    expect(parseRenderSnapshot(JSON.parse(JSON.stringify(snapshot))).aidStations).toEqual([]);
+  });
+
   it.each([["highlights" as const, druides], ["full" as const, astragale]])("round-trips a %s snapshot that the render page replays identically", (mode, detail) => {
     const settings = buildReelSettings(mode);
     const landmarks = Object.fromEntries(getClimbTops(prepareReelStory(getReelStoryInput(detail), settings, {}).path).slice(0, 2).map((top) => [top.slopeId, `Mont ${top.slopeId}`]));

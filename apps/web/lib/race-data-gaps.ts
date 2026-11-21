@@ -6,7 +6,7 @@ import type { SupabaseServiceConfig } from "./supabase";
 /**
  * « GPX à traiter » of the Publications admin: the upcoming formats whose missing data keeps a reel
  * or a carousel from being made, with what each missing piece unlocks and the date it is needed by.
- * Rules mirror the planners: a reel needs a GPX, at least one aid station and 30 km
+ * Rules mirror the planners: a reel needs a GPX and 30 km, aid stations are optional
  * (reel-planner.ts); « Le plan chiffré » needs a known D+, « Le brief » at least one aid station
  * (carousel-planner.ts). The GPX also gives the plan chiffré its real profile.
  */
@@ -57,7 +57,7 @@ export const buildRaceDataGaps = (formats: GapFormat[], today: string, leadDays:
     if (!missing.length) continue;
     const unlocks: RaceDataGap["unlocks"] = [];
     const reelSized = format.distanceKm >= REEL_MIN_DISTANCE_KM;
-    if (reelSized && (missing.includes("gpx") || missing.includes("aid_stations"))) unlocks.push("reel");
+    if (reelSized && missing.includes("gpx")) unlocks.push("reel");
     const carouselSized = format.distanceKm >= DATA_GAPS_MIN_CAROUSEL_KM;
     if (carouselSized && (missing.includes("elevation_gain") || missing.includes("gpx"))) unlocks.push("plan");
     if (carouselSized && missing.includes("aid_stations")) unlocks.push("brief");

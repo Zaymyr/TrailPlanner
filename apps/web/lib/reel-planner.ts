@@ -15,7 +15,6 @@ export type PlannerFormat = {
   distanceKm: number;
   isLive: boolean;
   hasGpx: boolean;
-  aidStationCount: number;
   /** `races.race_date`, `race_event_editions.start_date`, `race_events.race_date`: the first set wins. */
   raceDate: string | null;
   editionStartDate: string | null;
@@ -128,13 +127,12 @@ export const getEditionKey = (format: Pick<PlannerFormat, "raceId" | "eventId" |
 
 export const getReelMode = (distanceKm: number): ReelPlanMode => (distanceKm > REEL_FULL_MAX_DISTANCE_KM ? "highlights" : "full");
 
-/** Rule 1: a live, solo format with its GPX, at least one aid station, 30 km or more, in the future. */
+/** Rule 1: a live, solo format with its GPX, 30 km or more, in the future. Aid stations are optional. */
 export const isEligibleFormat = (format: PlannerFormat, today: string) => {
   const date = getFormatDate(format);
   return format.isLive
     && !TEAM_FORMAT_PATTERN.test(format.name)
     && format.hasGpx
-    && format.aidStationCount >= 1
     && Number.isFinite(format.distanceKm)
     && format.distanceKm >= REEL_MIN_DISTANCE_KM
     && date !== null

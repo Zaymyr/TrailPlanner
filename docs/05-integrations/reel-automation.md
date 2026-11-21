@@ -1,7 +1,7 @@
 ---
 title: Automatic Reel Pipeline
 scope: integration
-last_verified: 2026-11-20
+last_verified: 2026-11-21
 ai_priority: medium
 related_files:
   - apps/web/lib/reel-planner.ts
@@ -52,7 +52,7 @@ Plans from the catalog which races get an Instagram reel and on which day, and, 
 
 ## Planning rules (as implemented)
 
-1. **Eligible format** (`isEligibleFormat`): `races.is_live`; name not matching `relais|relay|duo|team` (case-insensitive); `gpx_storage_path` set; at least one `race_aid_stations` row; `distance_km >= 30`; format date in the future. Format date = `races.race_date`, else `race_event_editions.start_date`, else `race_events.race_date`.
+1. **Eligible format** (`isEligibleFormat`): `races.is_live`; name not matching `relais|relay|duo|team` (case-insensitive); `gpx_storage_path` set; `distance_km >= 30`; aid stations are optional since 2026-11-21 (a race without any is told from its GPX alone); format date in the future. Format date = `races.race_date`, else `race_event_editions.start_date`, else `race_events.race_date`.
 2. **Mode**: 30-60 km → `full` (« Parcours complet »); over 60 km → `highlights` (« Temps forts »).
 3. **Edition** (`getEditionKey`): `edition:<edition_id>`, else `event:<event_id>:<year>`, else `race:<race_id>:<date>`. Event start = earliest date of its eligible formats. Formats publish shortest to longest; the longest at event start − 7 days at the latest, each shorter one at least 7 days before the actual day of the next longer one.
 4. **Capacity**: at most `max_per_week` (3) reels per Monday-Sunday week and `max_per_day` (1) per day, Paris days. Editions are assigned in event-start order (earliest first, they have the fewest days left; ties by edition key), each from its longest format down, on the latest free day at or before its target. Days of locked items (generating, rendering, drafted, scheduled) and of posts scheduled by hand (not linked to an item) count in the caps. **Carousels** ([Automatic Instagram Carousels](instagram-carousels.md)): no reel is planned on the weekday of an enabled carousel series (Tuesday plan, Thursday brief, Sunday week: `blockedWeekdays` from `plannerOptionsFrom`), nor on the day of a carousel slot still waiting (`carouselDates`), so there is at most one post a day across reels and carousels; scheduled carousel posts already count as posts scheduled outside the reel items.
@@ -73,7 +73,7 @@ Defaults: generation `lead_days` = 3 days before the planned day, publication ti
    - `content`: race detail (`loadVideoGeneratorDetail`, private GPX), summit and place names (Mapbox Tilequery), beats, then the AI text: one `writeReelContent` call in Temps forts; `writeNarrationScript` then `writeInstagramCaption` in Parcours complet, assembled into the same content JSON (`assembleFullReelContent`: segments, intro's first sentence as hook, outro as call to action, caption, hashtags, short name as cover text; the render race info also carries the format name of the hook, `getReelFormatName`) so its draft is pre-filled too. Stored in `work`.
    - `voice`: a random active pool voice (`pickPoolVoice`, not the previous one of the race), ElevenLabs (`synthesizeNarration`, model v3, expressiveness 0.9 like the editor), then `saveNarration` for the race and mode (overwrites a saved narration of that mode) with the clips.
    - `render`: snapshot (`buildReelRenderSnapshot`, checked by `parseRenderSnapshot`), render job with `content` and `auto_draft = true`, snapshot PUT to Cloud Storage through a signed URL, Cloud Run started (`runRenderJob`, `buildRenderUrl`); item `rendering`.
-   A failed step keeps its step, increments `attempts` and stores the error; it runs again at the next tick and the item fails after 3 attempts. A race the server cannot tell (GPX gone or unreadable, GPX without any elevation, no aid station left) becomes `skipped`/`ineligible` with the reason.
+   A failed step keeps its step, increments `attempts` and stores the error; it runs again at the next tick and the item fails after 3 attempts. A race the server cannot tell (GPX gone or unreadable, GPX without any elevation) becomes `skipped`/`ineligible` with the reason.
 
 Turning generation off stops new work at the next tick; renders in flight finish and get their draft. Items paused between steps resume when it is turned back on.
 

@@ -26,7 +26,6 @@ const format = (n: number, overrides: Partial<PlannerFormat> = {}): PlannerForma
   distanceKm: 80,
   isLive: true,
   hasGpx: true,
-  aidStationCount: 4,
   raceDate: "2026-12-06",
   editionStartDate: null,
   eventDate: null,
