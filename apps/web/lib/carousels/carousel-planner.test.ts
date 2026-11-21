@@ -98,7 +98,7 @@ describe("race choice", () => {
 
 describe("cross-type daily cap", () => {
   const reelFormat = (overrides: Partial<PlannerFormat> = {}): PlannerFormat => ({
-    raceId: "reel-1", name: "Trail", distanceKm: 42, isLive: true, hasGpx: true, aidStationCount: 2,
+    raceId: "reel-1", name: "Trail", distanceKm: 42, isLive: true, hasGpx: true,
     raceDate: "2027-03-17", editionStartDate: null, eventDate: null, eventId: "e", editionId: "ed", ...overrides,
   });
 

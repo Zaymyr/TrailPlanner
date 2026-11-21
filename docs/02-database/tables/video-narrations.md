@@ -1,7 +1,7 @@
 ---
 title: video_narrations Table
 scope: database
-last_verified: 2026-11-20
+last_verified: 2026-11-21
 # Race stats publication mark (2026-11-20): race-stats adds each race's Instagram publication mark for the picker; video_narrations itself is unchanged.
 ai_priority: low
 related_files:

@@ -21,7 +21,6 @@ const format = (overrides: Partial<PlannerFormat> = {}): PlannerFormat => {
     distanceKm: 42,
     isLive: true,
     hasGpx: true,
-    aidStationCount: 3,
     raceDate: "2027-03-20",
     editionStartDate: null,
     eventDate: null,
@@ -73,13 +72,16 @@ describe("eligibility and mode", () => {
     ["duo", { name: "Trail en Duo" }],
     ["team", { name: "Team challenge" }],
     ["no GPX", { hasGpx: false }],
-    ["no aid station", { aidStationCount: 0 }],
     ["under 30 km", { distanceKm: 29.9 }],
     ["past", { raceDate: "2026-11-01" }],
     ["today", { raceDate: TODAY }],
     ["undated", { raceDate: null, editionStartDate: null, eventDate: null }],
   ])("rejects a format %s", (_label, overrides) => {
     expect(isEligibleFormat(format(overrides as Partial<PlannerFormat>), TODAY)).toBe(false);
+  });
+
+  it("does not need aid stations: a GPX of 30 km or more is enough", () => {
+    expect(isEligibleFormat(format({ distanceKm: 30 }), TODAY)).toBe(true);
   });
 
   it("flies the whole course up to 60 km, the highlights beyond", () => {

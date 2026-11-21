@@ -100,7 +100,6 @@ export const loadReadyDetail = async (supabase: SupabaseServiceConfig, raceId: s
   if (!isReadyDetail(result.detail)) throw new ReelAutomationSkip("La course n’a plus de GPX.");
   // Without any GPX elevation the editor asks the 3D terrain, which the server cannot do.
   if (!hasGpxElevations(result.detail)) throw new ReelAutomationSkip("GPX sans altitudes : à faire à la main dans le générateur.");
-  if (result.detail.aidStations.length === 0) throw new ReelAutomationSkip("La course n’a plus de ravitaillement.");
   return result.detail;
 };
 

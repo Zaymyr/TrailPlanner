@@ -36,7 +36,7 @@ export function RaceDataGapsCard({ gaps, leadDays, isLoading, error }: {
         <div>
           <CardTitle className="text-base">Courses à compléter</CardTitle>
           <CardDescription>
-            Les 60 prochains jours. Un reel automatique demande un GPX, au moins un ravito et 30 km ; il sort 7 jours avant la course et se prépare {leadDays ?? 3} jours plus tôt, d’où la date « à compléter avant ». Le plan chiffré demande le D+ (le GPX lui donne le vrai profil), le brief au moins un ravito.
+            Les 60 prochains jours. Un reel automatique demande un GPX et 30 km (les ravitos sont facultatifs) ; il sort 7 jours avant la course et se prépare {leadDays ?? 3} jours plus tôt, d’où la date « à compléter avant ». Le plan chiffré demande le D+ (le GPX lui donne le vrai profil), le brief au moins un ravito.
           </CardDescription>
         </div>
         <div className="inline-flex rounded-full border border-border bg-card p-1" role="group" aria-label="Filtrer les courses">

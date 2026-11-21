@@ -40,6 +40,11 @@ describe("buildRaceDataGaps", () => {
     expect(gaps.find((gap) => gap.raceId === "dplus")).toMatchObject({ missing: ["elevation_gain"], unlocks: ["plan"], reelDeadline: null });
   });
 
+  it("does not ask aid stations for a reel, only for the brief", () => {
+    const [gap] = buildRaceDataGaps([format({ raceId: "no-aid", hasGpx: true })], TODAY, 3);
+    expect(gap).toMatchObject({ missing: ["aid_stations"], unlocks: ["brief"], reelDeadline: null });
+  });
+
   it("puts the reels still reachable first, soonest deadline first", () => {
     const gaps = buildRaceDataGaps([
       format({ raceId: "late", date: "2026-11-27" }),

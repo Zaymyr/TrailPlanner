@@ -1,7 +1,7 @@
 ---
 title: Reel figures and highlights mode
 scope: decision
-last_verified: 2026-11-20
+last_verified: 2026-11-21
 ai_priority: medium
 related_files:
   - apps/web/app/admin/video-generator/race-figures.ts
@@ -105,6 +105,8 @@ Second, a full-course flyover of an ultra lasts up to 2-3 minutes; a short "temp
 17. **Reels as Instagram shows them (2026-11-20).** After the first live publications: (a) the feed shows a reel cropped to 4:5 (y 285 to 1635 of 1920) without any interface, so the subtitle box is now centred (x 13 % to 87 %, it leaned left) and lower (centre 77.5 %, still above the Reels caption at y 1570), and the light profile band starts at 28 cqmin, below the crop (it was cut off at 12 cqmin); the route framing keeps the band out (capped at 40 % of the height). (b) The hook names the format (« Marathon de l'Orchis ») in large type and the event under it; a generic format name keeps the event alone. (c) Map detail: exports lay the frame out at the video size ÷ 2 at density 2 instead of the preview size at 2.67, so Mapbox loads the zoom level made for 1080p (paths, contour lines, streams; checked side by side on the same free camera, which frames identically), the fixed pixel sizes are scaled to keep their look, and the 1080p bitrate is 16 Mb/s. Alternatives rejected: a raster tile-size override (the Pace Yourself style imports its basemap, there is no raster source to tune); supersampling at 4K (four times the GPU work for less gain than the right tile level).
 
 18. **One click in both modes (2026-11-20).** « Générer le reel » was highlights only, while the reel rules make every format up to 60 km a full-course reel. The admin now picks the mode above the button (the editor story mode, advised one marked ★); a full reel chains `/script`, `/caption`, the voice, the save and the render, its stored text assembled by `assembleFullReelContent` like the automatic ones, so its Instagram draft is pre-filled too.
+
+19. **Aid stations optional for reels (2026-11-21).** The automatic reel rule (15a) no longer asks for an aid station: a live solo format with a GPX, 30 km or more and a future date is eligible, and the server generation no longer skips a race without any. Both story modes already tell a race from its GPX alone (climbs, descents, night, finish); stations only add cuts and bubbles when present. « GPX à traiter » no longer lists missing aid stations as blocking a reel; they still block « Le brief », which is built from them. Alternative rejected: keeping the rule, which held back reels of races whose organizer has not entered stations yet.
 
 ## Consequences
 
