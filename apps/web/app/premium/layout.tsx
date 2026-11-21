@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
-import { localeToOgLocale, SITE_URL } from "../seo";
+import { DEFAULT_SOCIAL_IMAGE, DEFAULT_SOCIAL_IMAGE_PATH, localeToOgLocale, SITE_URL } from "../seo";
 
 const canonicalPath = "/premium";
 const canonicalUrl = new URL(canonicalPath, SITE_URL).toString();
-const title = "Pace Yourself Premium : plans trail illimités";
+const title = "Pace Yourself Premium : allures, ravitos et plan nutrition";
 const description =
-  "Débloquez les plans de course illimités, le remplissage nutritionnel automatique et les exports PDF et CSV avec Pace Yourself Premium.";
+  "Ton temps estimé reste gratuit. Débloque les allures section par section, les produits ravito par ravito et les exports, pour une course ou à l’année.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -21,8 +21,9 @@ export const metadata: Metadata = {
     siteName: "Pace Yourself",
     locale: localeToOgLocale("fr"),
     type: "website",
+    images: [DEFAULT_SOCIAL_IMAGE],
   },
-  twitter: { card: "summary_large_image", title, description },
+  twitter: { card: "summary_large_image", title, description, images: [DEFAULT_SOCIAL_IMAGE_PATH] },
 };
 
 export default function PremiumLayout({ children }: { children: ReactNode }) {

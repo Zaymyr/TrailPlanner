@@ -54,3 +54,5 @@ RLS is enabled with no `anon` or `authenticated` policy or table privilege. Only
 - [RLS Checklist](../../04-auth-and-security/rls-checklist.md)
 
 Follow-page loading (2026-11-16): the event page now reads the public Livret supporter through the cached public endpoint (see public-race-discovery); slug resolution and redirects are unchanged.
+
+The canonical event-edition page title is built by `buildEventEditionMetadataTitle` (`Event Year` plus the longest suffix fitting 60 characters). Redirect resolution is unchanged.

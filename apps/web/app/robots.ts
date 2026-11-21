@@ -9,8 +9,11 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
       // Catalog filter combinations are already `noindex` (see courses/page.tsx)
       // and each one is a server render. Pagination (`?page=`) stays crawlable.
+      // Every course page links to `/race-planner?catalogRaceId=…`, a
+      // canonicalized app state with no search value: keep it out of the crawl.
       disallow: [
         "/api/",
+        "/race-planner?",
         "/courses?q=",
         "/courses?*&q=",
         "/courses?distance=",

@@ -8,11 +8,11 @@ import { SITE_URL } from "../seo";
 const path = "/livret-coureur";
 const title = "Livret coureur trail : toutes les infos de ta course dans ton téléphone";
 const description =
-  "Parcours, GPX, horaires, barrières, ravitos, retrait des dossards, matériel obligatoire et accès : le Livret coureur officiel de ta course, gratuit dans l’app Pace Yourself.";
+  "Parcours, horaires, barrières, ravitos, dossards, matériel obligatoire et accès : le Livret coureur officiel de ta course, gratuit dans l’app Pace Yourself.";
 const ogImage = new URL("/landing/organisateurs/tst-course-ravitos.jpeg", SITE_URL).toString();
 
 export const metadata: Metadata = {
-  title: "Livret coureur trail : infos officielles de ta course | Pace Yourself",
+  title: "Livret coureur : les infos officielles de ta course",
   description,
   alternates: { canonical: path },
   openGraph: { title, description, url: new URL(path, SITE_URL), type: "website", images: [{ url: ogImage, alt: "Livret coureur affichant les ravitaillements d’un trail" }] },

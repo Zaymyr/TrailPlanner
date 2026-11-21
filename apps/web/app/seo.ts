@@ -25,7 +25,7 @@ export const localeToLanguageTag = (locale: Locale): string =>
 export const buildLocaleMetaCopy = (locale: Locale) => {
   if (locale === "fr") {
     return {
-      title: "Pace Yourself : livret coureur, livret supporter et plan trail",
+      title: "Pace Yourself : livret coureur, supporter et plan trail",
       description:
         "Le Livret coureur officiel de ta course, le Livret supporter pour tes proches, ton temps estimé gratuit sur chaque trail du catalogue et ton plan ravito.",
     };

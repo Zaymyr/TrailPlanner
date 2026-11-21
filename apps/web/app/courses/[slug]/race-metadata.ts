@@ -46,24 +46,50 @@ const getEditionYear = (race: PublicRace) => {
 const normalizeForMatch = (value: string) =>
   value.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, "");
 
+// A format name such as « 10 km » or « Trail 22 km » is shared by many events;
+// prefix the parent event so two course pages never emit the same title.
+const buildRaceIdentity = (race: PublicRace) => {
+  const eventName = race.eventName?.trim();
+  if (!eventName) return race.name;
+  const name = normalizeForMatch(race.name);
+  const event = normalizeForMatch(eventName);
+  if (name.includes(event) || event.includes(name)) return race.name;
+  return `${eventName} — ${race.name}`;
+};
+
 export const buildRaceMetadataTitle = (race: PublicRace) => {
   const year = getEditionYear(race);
+  const identity = buildRaceIdentity(race);
   const distanceLabel = race.distanceKm !== null ? `${race.distanceKm.toLocaleString("fr-FR")} km` : null;
   // Do not repeat a distance the race name already carries (« SaintéLyon — 80 km »)
   // unless the name has to be truncated, where the suffix keeps formats distinct.
-  const nameCarriesDistance = distanceLabel !== null && normalizeForMatch(race.name).includes(normalizeForMatch(distanceLabel));
+  const nameCarriesDistance = distanceLabel !== null && normalizeForMatch(identity).includes(normalizeForMatch(distanceLabel));
   const buildSuffix = (includeDistance: boolean) => {
     const facts = [includeDistance ? distanceLabel : null, year].filter((value): value is string => Boolean(value));
     return facts.length ? ` | ${facts.join(" · ")}` : " | infos course";
   };
   const compactSuffix = buildSuffix(!nameCarriesDistance);
-  const compact = `${race.name}${compactSuffix}`;
+  const compact = `${identity}${compactSuffix}`;
   if (compact.length <= MAX_TITLE_LENGTH) {
     const hook = " · temps & ravitos";
     return compact.length + hook.length <= MAX_TITLE_LENGTH ? `${compact}${hook}` : compact;
   }
   const suffix = buildSuffix(true);
-  return `${truncateSeoIdentity(race.name, MAX_TITLE_LENGTH - suffix.length)}${suffix}`;
+  return `${truncateSeoIdentity(identity, MAX_TITLE_LENGTH - suffix.length)}${suffix}`;
+};
+
+const EVENT_TITLE_SUFFIXES = [" : formats, parcours et ravitos", " : parcours et ravitos", " : formats et parcours"];
+
+export const buildEventEditionMetadataTitle = (eventName: string, editionYear: number | string | null) => {
+  const name = eventName.trim();
+  const year = editionYear === null ? "" : String(editionYear);
+  const identity = year && !name.includes(year) ? `${name} ${year}` : name;
+  for (const suffix of EVENT_TITLE_SUFFIXES) {
+    if (identity.length + suffix.length <= MAX_TITLE_LENGTH) return `${identity}${suffix}`;
+  }
+  if (identity.length <= MAX_TITLE_LENGTH) return identity;
+  const yearSuffix = year && identity.endsWith(year) ? ` ${year}` : "";
+  return `${truncateSeoText(identity.slice(0, identity.length - yearSuffix.length), MAX_TITLE_LENGTH - yearSuffix.length)}${yearSuffix}`;
 };
 
 export const buildRaceMetadataDescription = (race: PublicRace | null, estimateRange: string | null = null) => {
@@ -74,7 +100,8 @@ export const buildRaceMetadataDescription = (race: PublicRace | null, estimateRa
     race.location,
     formatPublicRaceDate(race.date),
   ].filter(Boolean);
-  const intro = details.length ? `${race.name} : ${details.join(", ")}.` : `${race.name} sur Pace Yourself.`;
+  const identity = buildRaceIdentity(race);
+  const intro = details.length ? `${identity} : ${details.join(", ")}.` : `${identity} sur Pace Yourself.`;
   const hook = estimateRange
     ? ` Temps estimé de ${estimateRange} selon ton niveau. Parcours, ravitos, infos pratiques.`
     : " Parcours, ravitos, infos pratiques et ton temps estimé gratuitement.";

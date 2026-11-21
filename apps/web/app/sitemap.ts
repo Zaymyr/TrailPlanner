@@ -49,15 +49,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     url: toAbsoluteUrl(`/courses/${race.slug}`),
     lastModified: race.updatedAt ?? undefined,
   }));
-  const eventEditionEntries: MetadataRoute.Sitemap = Array.from(
-    new Map(
-      races
-        .filter((race) => Boolean(race.eventEditionSlug))
-        .map((race) => [race.eventEditionSlug as string, race]),
-    ).values(),
-  ).map((race) => ({
-    url: toAbsoluteUrl(`/courses/evenements/${race.eventEditionSlug}`),
-    lastModified: race.updatedAt ?? undefined,
+  // An edition page changes whenever any of its formats changes: use the
+  // latest format update rather than whichever format was seen last.
+  const editionLastModified = new Map<string, string | undefined>();
+  races.forEach((race) => {
+    if (!race.eventEditionSlug) return;
+    const current = editionLastModified.get(race.eventEditionSlug);
+    const next = race.updatedAt ?? undefined;
+    editionLastModified.set(race.eventEditionSlug, !current || (next && next > current) ? next ?? current : current);
+  });
+  const eventEditionEntries: MetadataRoute.Sitemap = Array.from(editionLastModified, ([slug, lastModified]) => ({
+    url: toAbsoluteUrl(`/courses/evenements/${slug}`),
+    lastModified,
   }));
   const distanceEntries: MetadataRoute.Sitemap = getIndexableDistancePages(races).map(({ page, races: matchingRaces }) => {
     const lastModified = matchingRaces

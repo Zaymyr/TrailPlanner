@@ -107,3 +107,5 @@ from public.rename_race_slug(:race_id, :new_slug);
 - [Public Race Discovery](../../03-business-rules/public-race-discovery.md)
 - [RLS Policies](../rls-policies.md)
 - [Migrations](../migrations.md)
+
+The canonical page reached after a slug redirect keeps the same metadata rules; course titles now prefix generic format names with their event name (`Event — Format`). Redirect resolution is unchanged.

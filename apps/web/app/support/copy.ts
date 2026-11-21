@@ -5,7 +5,7 @@ export const supportEmail = "faustin@pace-yourself.com";
 export const supportCopy = {
   en: {
     meta: {
-      title: "Support | Pace Yourself",
+      title: "Support: account, race plans and app help | Pace Yourself",
       description:
         "Get help with Pace Yourself accounts, race plans, GPX imports, subscriptions, and mobile app issues.",
     },
@@ -34,7 +34,7 @@ export const supportCopy = {
   },
   fr: {
     meta: {
-      title: "Support | Pace Yourself",
+      title: "Support et aide : compte, plans et app | Pace Yourself",
       description:
         "Obtenez de l'aide pour votre compte Pace Yourself, vos plans de course, vos imports GPX, vos abonnements et l'application mobile.",
     },

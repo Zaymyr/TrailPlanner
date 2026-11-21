@@ -7,10 +7,10 @@ import { DEFAULT_SOCIAL_IMAGE, DEFAULT_SOCIAL_IMAGE_PATH, SITE_URL } from "../se
 const path = "/livret-supporter";
 const title = "Livret supporter : suivre un trail et encourager un coureur";
 const description =
-  "Programme, départs, points d’encouragement, ravitos accessibles, parkings et navettes : le Livret supporter aide la famille, les amis et le public à suivre une course de trail. Gratuit, sans compte.";
+  "Programme, départs, points d’encouragement, ravitos accessibles, parkings et navettes : suis une course et encourage tes coureurs. Gratuit, sans compte.";
 
 export const metadata: Metadata = {
-  title: "Livret supporter : suivre un trail et encourager un coureur | Pace Yourself",
+  title: "Livret supporter : suivre une course et encourager",
   description,
   alternates: { canonical: path },
   openGraph: { title, description, url: new URL(path, SITE_URL), type: "website", images: [DEFAULT_SOCIAL_IMAGE] },
