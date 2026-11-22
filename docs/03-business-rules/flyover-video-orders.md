@@ -7,6 +7,12 @@ related_files:
   - apps/web/lib/flyover-orders.ts
   - apps/web/lib/flyover-orders.test.ts
   - apps/web/lib/flyover-shared.ts
+  - apps/web/lib/flyover-admin.ts
+  - apps/web/lib/flyover-admin.test.ts
+  - apps/web/app/api/admin/flyover-orders/route.ts
+  - apps/web/app/api/admin/flyover-orders/[id]/route.ts
+  - apps/web/app/admin/publications/FlyoverOrdersCard.tsx
+  - supabase/migrations/20261122210000_flyover_orders_cancelled.sql
   - apps/web/app/survol/flyover-preview.tsx
   - apps/web/lib/flyover-generation.ts
   - apps/web/lib/flyover-generation.test.ts
@@ -63,7 +69,7 @@ The price comes last, after the organizer has seen the video:
 
 ## Payment (Stripe webhook)
 
-`checkout.session.completed` (paid) or `async_payment_succeeded` → `paid` (guarded `pending_payment|expired`), then one confirmation email (`flyover/paid/<id>`, never fails the webhook). `expired` / `async_payment_failed` → `expired` (from `pending_payment` only). `charge.refunded` / `charge.dispute.created` → `refunded` (the pipeline stops; a finished video and its scheduled post stay, to be cancelled by hand in Publications).
+`checkout.session.completed` (paid) or `async_payment_succeeded` → `paid` (guarded `pending_payment|expired`), then one confirmation email (`flyover/paid/<id>`, never fails the webhook, only for an order in progress: a cancelled order paid late gets none). `expired` / `async_payment_failed` → `expired` (from `pending_payment` only). `charge.refunded` / `charge.dispute.created` → `refunded`, also from `cancelled` (the pipeline stops; a finished video and its scheduled post stay, to be cancelled by hand in Publications).
 
 ## Pipeline (`POST /api/cron/flyover-orders`, every 10 min, pg_cron)
 
@@ -78,6 +84,15 @@ One tick (`runFlyoverTick`):
 
 **Finish**: collab → one automatic `social_posts` draft of the job (`auto_generated`, unique per job) with the caption mention and `collaborators = [handle]`, scheduled through `scheduleSocialPostDraft` at `publish_local` in the current publishing mode (dry run included). A refused schedule keeps the draft, sets `error` « Programmation Instagram à faire à la main. » and emails the team. Then `ready` and the ready email to the organizer (`flyover/ready/<id>`): download link, or the scheduled date and the reminder to accept Instagram's collaboration invitation.
 
+## Admin (Publications › Survols, 2026-11-22)
+
+`/admin/publications?onglet=flyovers` (`FlyoverOrdersCard.tsx`) lists the 50 latest orders (filter « En cours et à traiter » by default, or all): race, offer, Instagram account and slot, format, basemap, email, payment and delivery times, status, render progress (polled every 15 s while an order is in progress), last error with its attempt count, a 1-hour MP4 download link for a finished render and the customer's order page link. Routes gated by `authorizeVideoAdmin`: `GET /api/admin/flyover-orders` and `PATCH /api/admin/flyover-orders/<id>` `{ action }`. Actions (`planFlyoverAdminAction`, `lib/flyover-admin.ts`, pure and tested; every update is guarded on the current status):
+
+- **Annuler** (`cancel`, any open status: `pending_payment`, `paid`, `scripted`, `rendering`, `ready`, `failed`) → `cancelled` (migration `20261122210000`); the cron never touches it again; a scheduled collab post goes back to draft (it then shows in the Reels tab, to delete or keep). A render already running finishes but is ignored. The refund is done in the Stripe dashboard (its webhook then marks the order `refunded`).
+- **Relancer** (`retry`, `failed` or `cancelled`, paid only) → `scripted` when the text was written, else `paid`; attempts, error, render and delivery reset.
+- **Réécrire le texte** (`rewrite`, `failed`, `cancelled` or `scripted`) → `paid` with the work dropped: the AI text is written again.
+- **Renvoyer l’e-mail** (`resend_ready_email`, `ready`) clears `ready_email_sent_at`; the next tick sends the ready email again (its idempotency key includes the row's `updated_at`, so Resend does not drop it as a duplicate).
+
 ## Order page and download
 
 `/survol/commande/<id>?t=<token>` (noindex): status, progress, summary; download button for a ready `download` order. The token is an HMAC of the order id (`FLYOVER_ORDER_TOKEN_SECRET`, else `VIDEO_RENDER_TOKEN_SECRET`, 32+ characters), without expiry. `GET /api/flyover-orders/<id>/download?t=` checks it, then redirects to a 10-minute signed GCS URL (attachment named after the race).
@@ -90,6 +105,8 @@ One tick (`runFlyoverTick`):
 - The cron reuses the Vault secrets `web_app_url` and `cron_secret`; the steps reuse the reel env vars (`ANTHROPIC_API_KEY`, `ELEVENLABS_API_KEY`, Google Cloud render variables, `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`, Resend).
 
 ## Gotchas
+
+- « Annuler » never refunds: refund in Stripe. Cancelling an unpaid order does not close its Checkout session; if the customer still pays, the order stays `cancelled` (no confirmation email) and must be resumed or refunded by hand.
 
 - The preview uses the public Mapbox token in the browser, like the admin editor: each preview loads Mapbox terrain and tiles (map loads count on the Mapbox bill).
 - The preview has no voice: the story texts shown are the default beat narrations; the paid video gets AI-written texts and a voice-over.

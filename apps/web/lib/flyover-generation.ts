@@ -110,7 +110,9 @@ const sendReadyEmail = async (deps: FlyoverDeps, order: FlyoverOrderRow) => {
     to: order.contact_email,
     ...buildFlyoverReadyEmail(order, deps.orderUrl(order.id), scheduled),
     replyTo: flyoverNotifyEmail(),
-    idempotencyKey: `flyover/ready/${order.id}`,
+    // The row's update time is part of the key: a retried send of the same state is deduplicated by
+    // Resend, while an admin « Renvoyer l’e-mail » (which updates the row) sends it again.
+    idempotencyKey: `flyover/ready/${order.id}/${order.updated_at}`,
   }).catch(() => false);
   if (sent) await deps.orders.update(order.id, { ready_email_sent_at: deps.now().toISOString() });
 };

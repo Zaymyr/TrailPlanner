@@ -19,6 +19,7 @@ export {
   buildFlyoverDetail,
   checkFlyoverGpx,
   readGpxAidStations,
+  FLYOVER_MAX_ATTEMPTS,
   FLYOVER_MAX_DISTANCE_KM,
   type GpxCheck,
   FLYOVER_MAP_PRESET_VALUES,
@@ -49,10 +50,8 @@ export const FLYOVER_DELIVERY_HOURS = 24;
 /** A collab slot leaves the production window first, and must publish before the MP4 expires (30 days). */
 export const FLYOVER_PUBLISH_MIN_HOURS = 48;
 export const FLYOVER_PUBLISH_MAX_DAYS = 21;
-/** A step is retried this many times before the order fails (and the team is told). */
-export const FLYOVER_MAX_ATTEMPTS = 3;
 
-export const FLYOVER_STATUSES = ["pending_payment", "paid", "scripted", "rendering", "ready", "failed", "expired", "refunded"] as const;
+export const FLYOVER_STATUSES = ["pending_payment", "paid", "scripted", "rendering", "ready", "failed", "expired", "refunded", "cancelled"] as const;
 export type FlyoverStatus = (typeof FLYOVER_STATUSES)[number];
 
 const HOUR_MS = 60 * 60 * 1_000;
@@ -208,6 +207,8 @@ export type FlyoverOrderRepository = {
   /** Orders of these statuses, oldest payment first. */
   listByStatus: (statuses: FlyoverStatus[], limit: number) => Promise<FlyoverOrderRow[]>;
   findByPaymentIntent: (paymentIntentId: string) => Promise<FlyoverOrderRow[]>;
+  /** Latest orders, newest first (admin list). */
+  listRecent: (limit: number) => Promise<FlyoverOrderRow[]>;
   /** Ready orders whose ready email has not gone out yet (a failed send is retried by the next tick). */
   listReadyWithoutEmail: (limit: number) => Promise<FlyoverOrderRow[]>;
 };
@@ -241,6 +242,10 @@ export const createFlyoverOrderRepository = (supabase: SupabaseServiceConfig, fe
       cache: "no-store",
     })),
     listReadyWithoutEmail: async (limit) => rows(await fetcher(`${base}?status=eq.ready&ready_email_sent_at=is.null&select=${FLYOVER_ORDER_COLUMNS}&order=ready_at.asc&limit=${limit}`, {
+      headers: serviceHeaders(supabase),
+      cache: "no-store",
+    })),
+    listRecent: async (limit) => rows(await fetcher(`${base}?select=${FLYOVER_ORDER_COLUMNS}&order=created_at.desc&limit=${limit}`, {
       headers: serviceHeaders(supabase),
       cache: "no-store",
     })),

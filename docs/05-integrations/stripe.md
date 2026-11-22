@@ -113,7 +113,7 @@ Runner course checkout uses Checkout mode `payment` and requires a race or editi
 - handles `checkout.session.completed`.
 - handles `checkout.session.async_payment_succeeded` for runner and organizer fulfillment.
 - handles organizer async payment success/failure, Checkout expiry, charge refunds, and disputes.
-- routes `checkout.session.*` events whose `metadata.purchase_type` is `flyover_video` to `handleFlyoverCheckout` first (before the organizer and runner branches); `charge.refunded` and `charge.dispute.created` also mark matching flyover orders `refunded` (`refundFlyoverOrdersByIntent`). Organizer, runner and subscription handling is unchanged.
+- routes `checkout.session.*` events whose `metadata.purchase_type` is `flyover_video` to `handleFlyoverCheckout` first (before the organizer and runner branches); `charge.refunded` and `charge.dispute.created` also mark matching flyover orders `refunded` (`refundFlyoverOrdersByIntent`, also from `cancelled`); the flyover confirmation email is only sent for an order in progress, never for a cancelled one paid late. Organizer, runner and subscription handling is unchanged.
 
 Subscription events upsert:
 
