@@ -360,6 +360,8 @@ related_files:
   - apps/web/app/api/organizer/editions/[id]/analytics/route.test.ts
   - apps/web/app/organizer/_components/dashboard/analytics-panel.tsx
   - apps/web/app/organizer/_components/dashboard/analytics-panel.test.ts
+  - apps/web/app/api/organizer/editions/[id]/sponsor-report/route.ts
+  - apps/web/app/organizer/_components/dashboard/sponsor-report-card.tsx
   - apps/web/lib/posthog-organizer-analytics.ts
   - apps/web/lib/posthog-organizer-analytics.test.ts
   - apps/web/app/api/admin/organizer-payments/route.ts
@@ -1028,3 +1030,7 @@ Home copy that changed (heading, subheading, how-it-works including the Livret c
 ## Race funnel analytics (2026-11-22)
 
 `PublicHeroShell` mounts the client-only `RaceFunnelTracker` (page view and delegated estimate CTA click) and `Analytics` mounts `CheckoutReturnTracker`; neither renders UI. The hero and sticky bar links expose `data-estimate-placement`. Web runner funnel analytics (2026-11-22): see [analytics.md](../05-integrations/analytics.md#web-runner-funnel-2026-11-22).
+
+## Organizer partner report (2026-11-22)
+
+`GET /api/organizer/editions/[id]/sponsor-report?format=json|csv|pdf` returns the aggregated Signature partner report as JSON or as a `Content-Disposition: attachment` CSV/PDF with `Cache-Control: private, no-store`. The client card (`dashboard/sponsor-report-card.tsx`, rendered under the Sponsors editor) downloads it with the bearer header through a temporary object URL, since a plain link cannot carry the token. Rules: [Organizer Commercial Offers](../03-business-rules/organizer-commercial-offers.md#rapport-partenaires-2026-11-22).

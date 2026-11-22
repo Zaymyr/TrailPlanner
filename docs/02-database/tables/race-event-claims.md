@@ -244,3 +244,5 @@ Organizer finishing layouts do not change claims, memberships, or authorization.
 Organizer header (2026-11-16): the dashboard header no longer shows the « Aperçu coureur » and « Aperçu accompagnateur » web preview links (« Voir le Livret coureur » and « Télécharger le QR » remain), and its row wraps instead of letting the actions block overlap the edition selector. Presentation only; no data, contract or offer change.
 
 - The `/organizers` creation page addresses organizers with « vous » and no longer mentions claims or drafts to the user (2026-11-22); this is copy only and the direct-creation behavior described above is unchanged.
+
+Partner report note (2026-11-22): the Organizer dashboard adds a « Rapport partenaires » card under the Sponsors editor and the /organisateurs Signature card lists « Rapport partenaires »; neither touches this document's domain, data or contracts.

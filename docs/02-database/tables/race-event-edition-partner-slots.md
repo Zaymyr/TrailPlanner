@@ -83,6 +83,8 @@ RLS is enabled with no client policy; `PUBLIC`, `anon` and `authenticated` have 
 
 `/api/racebook-sponsors` adds `partnerSlots: { equipment, lodging }`, each `{ mode: "affiliate" }`, `{ mode: "hidden" }` or `{ mode: "partner", name, logoUrl, headline, clickUrl }`. The destination URL never leaves the server; `clickUrl` is the counted redirect. Older clients ignore the field; older payloads normalize to affiliate defaults on mobile.
 
+The organizer partner report (`/api/organizer/editions/:id/sponsor-report`) reads the per-slot counters of `partner`-mode rows only, labelled by slot with the linked sponsor name; affiliate and hidden rows are omitted and nothing is written.
+
 ## Gotchas
 
 - Organizer partner-slot selects use the shared route-local `SelectField`; this is presentation-only and does not change stored slot kinds or constraints.
