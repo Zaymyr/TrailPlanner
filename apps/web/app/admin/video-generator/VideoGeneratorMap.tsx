@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import type { VideoAidStation, VideoRouteBounds, VideoRoutePoint } from "../../../lib/video-generator";
 import type { VideoRaceInfo } from "./VideoCompositionOverlay";
 import type { VideoRenderSnapshot } from "./render-snapshot";
+import type { VideoCompositionSettings } from "./video-composition";
 
 const VideoGeneratorMapClient = dynamic(
   () => import("./VideoGeneratorMapClient").then((module) => module.VideoGeneratorMapClient),
@@ -23,6 +24,11 @@ export type VideoGeneratorMapProps = {
   accessToken: string;
   /** Background render: replay a saved composition, export it at once and hand the MP4 over. */
   render?: VideoRenderHooks;
+  /**
+   * Public preview (organizer flyover order on /survol): the given composition is played with its
+   * transport bar only, no editor panel, no admin call and no voice. Settings changes apply live.
+   */
+  preview?: { settings: VideoCompositionSettings };
 };
 
 export type VideoRenderHooks = {

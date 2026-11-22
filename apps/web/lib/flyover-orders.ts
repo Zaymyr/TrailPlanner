@@ -3,10 +3,7 @@ import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 
 import { supportEmail } from "../app/support/copy";
-import type { VideoCompositionSettings } from "../app/admin/video-generator/video-composition";
-import type { VideoGeneratorDetail } from "./video-generator";
-import type { ParsedGpx } from "./gpx/parseGpx";
-import { getReelMode } from "./reel-planner";
+import { FLYOVER_MAP_PRESET_VALUES, FLYOVER_MAX_DISTANCE_KM, FLYOVER_TERRAIN } from "./flyover-shared";
 import { escapeEmailHtml } from "./resend";
 import { formatParisDateTime, parisLocalToUtc } from "./social-posts";
 import type { SupabaseServiceConfig } from "./supabase";
@@ -17,8 +14,22 @@ import type { SupabaseServiceConfig } from "./supabase";
  * reel steps and emails the organizer. See docs/03-business-rules/flyover-video-orders.md.
  */
 
+export {
+  applyFlyoverSettings,
+  buildFlyoverDetail,
+  checkFlyoverGpx,
+  readGpxAidStations,
+  FLYOVER_MAX_DISTANCE_KM,
+  type GpxCheck,
+  FLYOVER_MAP_PRESET_VALUES,
+  FLYOVER_MAP_PRESETS,
+  FLYOVER_TERRAIN,
+  getFlyoverMode,
+  type FlyoverMapPreset,
+} from "./flyover-shared";
+
 // ---------------------------------------------------------------------------------------------
-// Offers, presets, rules
+// Offers, rules
 
 export const FLYOVER_OFFERS = {
   collab: { amountCents: 2_999, label: "Publication en collaboration", stripeEnv: "STRIPE_FLYOVER_COLLAB_PRICE_ID" },
@@ -27,19 +38,7 @@ export const FLYOVER_OFFERS = {
 export type FlyoverOffer = keyof typeof FLYOVER_OFFERS;
 export const FLYOVER_OFFER_VALUES = Object.keys(FLYOVER_OFFERS) as [FlyoverOffer, ...FlyoverOffer[]];
 
-/** The four basemaps offered to organizers, mapped onto the editor's style and ambiance. */
-export const FLYOVER_MAP_PRESETS = {
-  signature: { label: "Pace Yourself", description: "Topographie crème et vert, la signature de la marque.", mapStyle: "paceyourself", mapAmbiance: "brand" },
-  satellite: { label: "Satellite", description: "Imagerie satellite naturelle, routes et lieux.", mapStyle: "classic", mapAmbiance: "natural" },
-  relief: { label: "Relief 3D", description: "Satellite 3D aux couleurs éclatantes.", mapStyle: "standard", mapAmbiance: "vivid" },
-  cinema: { label: "Cinéma", description: "Satellite contrasté et chaud, ambiance film.", mapStyle: "classic", mapAmbiance: "cinematic" },
-} as const satisfies Record<string, { label: string; description: string; mapStyle: VideoCompositionSettings["mapStyle"]; mapAmbiance: VideoCompositionSettings["mapAmbiance"] }>;
-export type FlyoverMapPreset = keyof typeof FLYOVER_MAP_PRESETS;
-export const FLYOVER_MAP_PRESET_VALUES = Object.keys(FLYOVER_MAP_PRESETS) as [FlyoverMapPreset, ...FlyoverMapPreset[]];
-
-export const FLYOVER_TERRAIN = { min: 1, max: 3, default: 1.8 } as const;
 export const FLYOVER_MAX_GPX_BYTES = 10 * 1024 * 1024;
-export const FLYOVER_MAX_DISTANCE_KM = 400;
 export const FLYOVER_MAX_AID_STATIONS = 40;
 /** Production promise: the video is ready within 24 h of the payment. */
 export const FLYOVER_DELIVERY_HOURS = 24;
@@ -92,6 +91,8 @@ export const flyoverOrderFormSchema = z.object({
   terrainExaggeration: z.coerce.number().min(FLYOVER_TERRAIN.min).max(FLYOVER_TERRAIN.max),
   publishLocal: z.string().nullable().optional().transform((value) => value || null),
   aidStations: z.array(aidStationInputSchema).max(FLYOVER_MAX_AID_STATIONS).default([]),
+  // The organizer cleared or edited the stations: never fall back to the GPX waypoints.
+  aidStationsEdited: z.boolean().default(false),
   // Honeypot.
   website: z.string().optional(),
 }).superRefine((value, context) => {
@@ -127,21 +128,9 @@ export const readFlyoverOrderFormData = (formData: FormData) => {
     terrainExaggeration: text("terrainExaggeration") ?? FLYOVER_TERRAIN.default,
     publishLocal: text("publishLocal"),
     aidStations,
+    aidStationsEdited: text("aidStationsEdited") === "1",
     website: text("website"),
   });
-};
-
-export type GpxCheck = { ok: true; distanceKm: number; gainM: number | null; lossM: number | null } | { ok: false; message: string };
-
-/** A GPX the server can tell: a real trace with altitudes (the server cannot ask the 3D terrain). */
-export const checkFlyoverGpx = (gpx: ParsedGpx): GpxCheck => {
-  if (gpx.points.length < 2) return { ok: false, message: "Le GPX ne contient pas de tracé." };
-  const withElevation = gpx.points.filter((point) => point.ele !== null && Number.isFinite(point.ele)).length;
-  if (withElevation < gpx.points.length / 2) return { ok: false, message: "Le GPX n’a pas d’altitudes : exportez-le avec l’altitude depuis votre outil." };
-  const distanceKm = gpx.stats.distanceKm;
-  if (!(distanceKm > 0.5)) return { ok: false, message: "Le tracé est trop court." };
-  if (distanceKm > FLYOVER_MAX_DISTANCE_KM) return { ok: false, message: `Le tracé dépasse ${FLYOVER_MAX_DISTANCE_KM} km.` };
-  return { ok: true, distanceKm, gainM: gpx.stats.gainM ?? null, lossM: gpx.stats.lossM ?? null };
 };
 
 // ---------------------------------------------------------------------------------------------
@@ -255,65 +244,6 @@ export const createFlyoverOrderRepository = (supabase: SupabaseServiceConfig, fe
 
 // ---------------------------------------------------------------------------------------------
 // Composition
-
-/** The reel settings of an order: the automatic reel defaults, its mode, basemap and relief. */
-export const applyFlyoverSettings = (
-  base: VideoCompositionSettings,
-  order: Pick<FlyoverOrderRow, "map_preset" | "terrain_exaggeration">,
-): VideoCompositionSettings => {
-  const preset = FLYOVER_MAP_PRESETS[order.map_preset];
-  return {
-    ...base,
-    mapStyle: preset.mapStyle,
-    mapAmbiance: preset.mapAmbiance,
-    terrainExaggeration: Math.min(FLYOVER_TERRAIN.max, Math.max(FLYOVER_TERRAIN.min, order.terrain_exaggeration)),
-  };
-};
-
-/** Same rule as the automatic reels: up to 60 km the whole course, beyond it the highlights. */
-export const getFlyoverMode = (distanceKm: number) => getReelMode(distanceKm);
-
-/** The order as the video generator detail the reel steps read (the order id stands for the race). */
-export const buildFlyoverDetail = (order: FlyoverOrderRow, gpx: ParsedGpx): VideoGeneratorDetail => {
-  const first = gpx.points[0];
-  const year = order.race_date ? Number.parseInt(order.race_date.slice(0, 4), 10) : Number.NaN;
-  return {
-    race: {
-      id: order.id,
-      eventId: null,
-      eventName: null,
-      eventShortName: null,
-      name: order.race_name,
-      distanceKm: Math.round(gpx.stats.distanceKm * 10) / 10,
-      elevationGainM: gpx.stats.gainM ?? order.elevation_gain_m,
-      elevationLossM: gpx.stats.lossM ?? order.elevation_loss_m,
-      editionYear: Number.isInteger(year) ? year : null,
-      raceDate: order.race_date,
-    },
-    aidStations: order.aid_stations.map((station) => ({
-      id: station.id,
-      name: station.name,
-      distanceKm: station.km,
-      waterAvailable: true,
-      foodAvailable: true,
-      assistanceAllowed: true,
-      isLifeBase: false,
-      dropBagAvailable: false,
-      cutoffTime: null,
-    })),
-    gpx: {
-      status: "ready",
-      pointCount: gpx.points.length,
-      bounds: {
-        minLat: gpx.stats.boundsMinLat ?? first.lat,
-        minLon: gpx.stats.boundsMinLng ?? first.lng,
-        maxLat: gpx.stats.boundsMaxLat ?? first.lat,
-        maxLon: gpx.stats.boundsMaxLng ?? first.lng,
-      },
-      points: gpx.points.map((point) => ({ lat: point.lat, lon: point.lng, elevationM: point.ele, distanceKm: point.distKmCum })),
-    },
-  } as VideoGeneratorDetail;
-};
 
 /** The collab caption: the written one, then the organizer's account. */
 export const withCollabMention = (caption: string, handle: string | null) => {

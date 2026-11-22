@@ -128,7 +128,7 @@ vi.mock("mapbox-gl", () => ({
   AttributionControl: class AttributionControl {},
 }));
 
-import { buildRouteTrimOffset, VideoGeneratorMapClient } from "./VideoGeneratorMapClient";
+import { buildRouteTrimOffset, VideoGeneratorMapClient, withAlpha } from "./VideoGeneratorMapClient";
 
 let animationFrames = new Map<number, FrameRequestCallback>();
 let nextAnimationFrameId = 0;
@@ -426,5 +426,12 @@ describe("buildRouteTrimOffset", () => {
     expect(buildRouteTrimOffset("progressive", 1)).toEqual([0, 0]);
     expect(buildRouteTrimOffset("progressive", -1)).toEqual([0, 1]);
     expect(buildRouteTrimOffset("full", 0.4)).toEqual([0, 0]);
+  });
+});
+
+describe("withAlpha", () => {
+  it("turns a hex color and an alpha into rgba, which Mapbox GL accepts", () => {
+    expect(withAlpha("#2d5016", 0x38 / 255)).toBe("rgba(45, 80, 22, 0.22)");
+    expect(withAlpha("not-a-hex", 0.5)).toBe("not-a-hex");
   });
 });
