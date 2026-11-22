@@ -1029,7 +1029,7 @@ Home copy that changed (heading, subheading, how-it-works including the Livret c
 
 ## Race funnel analytics (2026-11-22)
 
-`PublicHeroShell` mounts the client-only `RaceFunnelTracker` (page view and delegated estimate CTA click) and `Analytics` mounts `CheckoutReturnTracker`; neither renders UI. The hero and sticky bar links expose `data-estimate-placement`. Web runner funnel analytics (2026-11-22): see [analytics.md](../05-integrations/analytics.md#web-runner-funnel-2026-11-22).
+`PublicHeroShell` mounts the client-only `RaceFunnelTracker` (page view and delegated estimate CTA click) and `Analytics` mounts `CheckoutReturnTracker`; neither renders UI. The hero and sticky bar links expose `data-estimate-placement`. Web runner funnel analytics (2026-11-22): see [analytics.md](../05-integrations/analytics.md#web-runner-funnel-2026-11-22). `EventEditionSections` passes the edition funnel context (event id, start date, demo flag) to `PublicHeroShell` for both hub and edition pages.
 
 ## Organizer partner report (2026-11-22)
 

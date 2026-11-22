@@ -184,6 +184,8 @@ After the inclusive `end_date` has passed in Europe/Paris, an edition page shows
 
 ## Permanent Event Hubs (2026-11-22)
 
+Hub and edition pages share `EventEditionSections`, which also hands the edition funnel context to the hero analytics tracker (no visible change).
+
 Every yearly edition used to be its own indexable URL (`hoka-utmb-mont-blanc-2026`, then `-2027`), so authority and queries split every year. Each event now has a durable year-free slug (`race_events.slug`, generated on insert, immutable, trailing edition year stripped) and a hub at `/courses/evenements/<event-slug>` in the same route as the edition pages. The database keeps event slugs disjoint from edition slugs and reserved edition redirects, so the route resolves the edition namespace first (current slug, then former slug with a 301), then the hub; nothing that resolved before changes.
 
 - Indexation: the hub is the only indexable event page; every edition page (upcoming or past) canonicalizes to it but stays reachable with a 200, so inbound links, the Livret supporter follow page (`/<edition-slug>/suivre`) and printed links keep working. No edition URL is redirected: a 301 of past editions would remove the history the hub links to. Canonicalizing the upcoming edition too avoids two near-identical pages competing for the event query; its yearly facts are on the hub.

@@ -124,6 +124,7 @@ export async function EventEditionSections({
         title={title}
         share={{ title: editionTitle, url: shareUrl }}
         metrics={metrics}
+        funnel={{ pageType: "event", slug: edition.slug, eventId: edition.eventId, date: edition.startDate, isDemo }}
         meta={(
           <>
             {isDemo ? <DemoRaceBadge /> : null}
