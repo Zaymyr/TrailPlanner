@@ -63,13 +63,16 @@ export default function SignInPage() {
         access_token?: string;
         refresh_token?: string;
         code?: string;
+        message?: string;
       } | null;
 
       if (!response.ok || !data?.access_token) {
         setFormError(
           data?.code === SIGN_IN_ERROR_CODES.invalidCredentials
             ? t.auth.signIn.invalidCredentials
-            : t.auth.signIn.error
+            : response.status === 429 && data?.message
+              ? data.message
+              : t.auth.signIn.error
         );
         return;
       }
