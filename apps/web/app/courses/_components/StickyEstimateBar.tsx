@@ -32,6 +32,7 @@ export function StickyEstimateBar({ href, targetId }: { href: string; targetId: 
     >
       <Link
         href={href as Route}
+        data-estimate-placement="sticky_bar"
         tabIndex={visible ? undefined : -1}
         className="flex min-h-12 w-full items-center justify-center rounded-xl bg-brand px-5 text-base font-semibold text-brand-foreground transition hover:bg-brand-light"
       >

@@ -5,6 +5,8 @@ import { useEffect, useState, type FormEvent } from "react";
 
 import { APP_INSTALL_HELP_URL, resolveAppStoreTarget, type AppStoreTarget } from "../../../../lib/app-store";
 import { trackGoogleAnalyticsEvent } from "../../../../lib/google-analytics";
+import { trackQuickEstimateCompleted } from "../../../../lib/product-analytics";
+import { rememberFunnelSourceRace } from "../../../../lib/race-funnel-source";
 import { formatDurationHm, formatPaceMinPerKm, type QuickEstimateResult } from "../utils/quick-estimate";
 
 export const QUICK_ESTIMATE_STORAGE_KEY = "runner.quickEstimate";
@@ -67,6 +69,11 @@ export function QuickRaceEstimate({ race, returnPath }: { race: RaceSummary | nu
     if (stored?.utmbIndex) setUtmbIndex(String(stored.utmbIndex));
   }, []);
 
+  const raceId = race?.id ?? null;
+  useEffect(() => {
+    rememberFunnelSourceRace(raceId);
+  }, [raceId]);
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!race) return;
@@ -105,10 +112,9 @@ export function QuickRaceEstimate({ race, returnPath }: { race: RaceSummary | nu
       } catch {
         // Storage is a convenience only.
       }
-      trackGoogleAnalyticsEvent("quick estimate completed", {
-        event_category: "plan",
-        source: "web_catalog",
+      trackQuickEstimateCompleted({
         input: hasPace && hasIndex ? "pace_and_utmb" : hasPace ? "pace" : "utmb",
+        sourceRace: race.id,
       });
     } catch {
       setStatus("error");

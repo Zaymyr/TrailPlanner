@@ -818,3 +818,7 @@ Organizer finishing presentation adds compact Access module cards, collapsed spo
 Organizer header (2026-11-16): the dashboard header no longer shows the « Aperçu coureur » and « Aperçu accompagnateur » web preview links (« Voir le Livret coureur » and « Télécharger le QR » remain), and its row wraps instead of letting the actions block overlap the edition selector. Presentation only; no data, contract or offer change.
 
 The `/organisateurs` acquisition page metadata now targets « organisateurs » (title within 60 characters, description within 160) without changing the page content or the `/organizers` creation flow.
+
+## Funnel analytics touch (2026-11-22)
+
+The web runner funnel instrumentation (analytics events only) touched `RacePlannerPageContent.tsx`: the planner upgrade modal emits `premium checkout started` and `QuickRaceEstimate` remembers the source race. No data contract, RLS rule or business rule described here changed. Web runner funnel analytics (2026-11-22): see [analytics.md](../05-integrations/analytics.md#web-runner-funnel-2026-11-22).

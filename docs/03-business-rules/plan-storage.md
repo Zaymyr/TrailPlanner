@@ -274,3 +274,7 @@ The plan workspace bottom bar has a fourth « Nutrition » tab next to Mon plan,
 The RaceBook workspace switch is the only plan opening entry in the RaceBook header area and exists only for an owned plan; creation without a plan goes through the Course-tab invite card, which reuses the same existing-row check before routing to `/plan/new`. Removing the duplicate creation card, localizing its remaining revision warning, and sharing distance/clock presentation do not add writes or alter the persisted plan snapshot. Official station locks remain display-only constraints over organizer-owned fields.
 
 The web planner now restores `?planId=` on mount and updates it with `router.replace` when a saved plan is opened. Plans with no course identifier remain grouped under “Sans course”; no database repair is performed by the client.
+
+## Plan creation analytics (2026-11-22)
+
+`plan created` and `plan saved` now carry `source_race` (the plan's catalog race id) through `trackPlanPersisted`. Storage, payload and save semantics are unchanged. Web runner funnel analytics (2026-11-22): see [analytics.md](../05-integrations/analytics.md#web-runner-funnel-2026-11-22).

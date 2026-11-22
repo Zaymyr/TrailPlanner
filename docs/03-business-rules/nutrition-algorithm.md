@@ -422,3 +422,7 @@ In the plan Ravitos view, auto-fill is the primary `ActionButton` (a secondary t
 Official aid-station distance, name, type, and services remain read-only in the mobile editor and are now visibly marked as such with an accessibility explanation. Localized decimal parsing and shared one-decimal distance display affect input/presentation only; they do not change pacing, carbohydrate, sodium, or hydration calculations.
 
 The web runner now presents a true no-course empty state and restores selected saved plans through `planId`; these journey changes do not calculate a fictitious estimate and do not alter nutrition formulas.
+
+## Funnel analytics touch (2026-11-22)
+
+The web runner funnel instrumentation (analytics events only) touched `RacePlannerPageContent.tsx`: the planner upgrade modal emits `premium checkout started` and `QuickRaceEstimate` remembers the source race. No data contract, RLS rule or business rule described here changed. Web runner funnel analytics (2026-11-22): see [analytics.md](../05-integrations/analytics.md#web-runner-funnel-2026-11-22).

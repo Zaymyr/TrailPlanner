@@ -267,3 +267,7 @@ Edition slugs follow the same no-chain rule through `race_event_edition_slug_red
 `/livret-coureur` and `/livret-supporter` are static, indexable product pages for runners and for supporters (family, friends, public), listed in the sitemap and the footer; they describe only existing surfaces and route organizers to `/organisateurs`.
 
 The `/livret-coureur` product page mentions the organizer entry price (« dès 199 € HT par édition », since 2026-11-22); it stays a static copy aligned with `ORGANIZER_TIER_PRICE_EUR`.
+
+## Funnel analytics (2026-11-22)
+
+The hero shell mounts `RaceFunnelTracker`, which emits `race page viewed` and `race estimate cta clicked` (the hero, sticky bar and estimates-section links carry `data-estimate-placement`). Navigation, links, SEO output and the estimate flow are unchanged. Web runner funnel analytics (2026-11-22): see [analytics.md](../05-integrations/analytics.md#web-runner-funnel-2026-11-22).

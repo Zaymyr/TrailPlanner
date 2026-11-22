@@ -1015,3 +1015,7 @@ Presentation and copy only; no API, schema or analytics-event change. The home h
 Home copy that changed (heading, subheading, how-it-works including the Livret coureur, FAQ in "tu" with the 9,99 € / 29,99 € runner prices) lives in `components/landing/home-copy.ts`, layered over `t.landing`; fold it back into `locales/fr.ts` / `locales/en.ts` when convenient. `/organizers` addresses organizers with "vous", has its own noindex title and shows the free-until-publication reassurance using `ORGANIZER_TIER_PRICE_EUR.essential`; `/organisateurs` pricing cards get one CTA each and read prices from the same constant.
 
 - Gotcha: the runner prices in the FAQ copy are literal strings (no shared constant exists); update them with the commercial prices.
+
+## Race funnel analytics (2026-11-22)
+
+`PublicHeroShell` mounts the client-only `RaceFunnelTracker` (page view and delegated estimate CTA click) and `Analytics` mounts `CheckoutReturnTracker`; neither renders UI. The hero and sticky bar links expose `data-estimate-placement`. Web runner funnel analytics (2026-11-22): see [analytics.md](../05-integrations/analytics.md#web-runner-funnel-2026-11-22).
