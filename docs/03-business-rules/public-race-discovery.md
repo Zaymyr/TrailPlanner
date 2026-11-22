@@ -1,7 +1,7 @@
 ---
 title: Public Race Discovery
 scope: business-rule
-last_verified: 2026-11-18
+last_verified: 2026-11-22
 # Business card QR (2026-11-18): ?src=carte on the guide page redirects to /carte-visite (app on Android, Google Play / App Store listing otherwise).
 # Livret supporter private preview (2026-11-18): the client guide page retries with the stored session token so an active organizer previews a private edition; public behavior unchanged.
 # Shared-plan app gate (2026-11-17): app-store.ts gains detectMobileAppPlatform for the public crew page; course-page app bridge behavior is unchanged.

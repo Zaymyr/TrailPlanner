@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_slug_redirects
 scope: database
-last_verified: 2026-11-16
+last_verified: 2026-11-22
 # Livret supporter note (2026-11-16): the public name of the supporter_guide surface is now "Livret supporter" (formerly "Livret accompagnateur"); aid-station access wording ("Accompagnateurs autorisés") is unchanged; no data, contract or offer change.
 ai_priority: high
 related_files:

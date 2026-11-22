@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-11-21
+last_verified: 2026-11-22
 # Reel caption voice (2026-11-20): the reel caption is written for reading (lively tone, a hook line, a question, 2-8 emojis) and may not copy 7 words of the voice-over (reel-content.ts checks).
 # Reel voice pool (2026-11-20): the admin keeps a shared pool of ElevenLabs voices (video_voices, service role only, /api/admin/video-generator/voices); each new reel draws an active voice at random (pickPoolVoice), the choice is saved with the narration and shown as « Voix : <nom> ».
 # Admin publications workflow (2026-11-20): generate/publish switch on both pages, month calendar and filters in Publications, « déjà publiée » marks on videos and in the generator race picker, published posts removable from the admin list.

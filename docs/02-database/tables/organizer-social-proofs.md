@@ -1,7 +1,7 @@
 ---
 title: organizer_social_proofs
 scope: database
-last_verified: 2026-11-18
+last_verified: 2026-11-22
 # Organizer hero note (2026-11-16): /organisateurs now presents the Livret coureur and the Livret supporter side by side (hero cards, illustrative supporter preview, metadata title); presentation only, no data, analytics event or offer change.
 ai_priority: high
 related_files:

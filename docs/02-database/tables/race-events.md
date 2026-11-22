@@ -2,7 +2,7 @@
 title: race_events Table
 scope: database
 
-last_verified: 2026-11-20
+last_verified: 2026-11-22
 # Supporter onboarding (2026-11-18): the mobile guided catalog gains a `supporter` mode over the same public event list; no read, table or RLS change here (the only schema change is `user_profiles.supporter_onboarding_status`).
 # Inbox push badge (2026-11-18): apps/web/lib/push.ts adds an iOS badge only to admin inbox pushes (unread user_notifications count); race event update pushes, schema and RLS are unchanged.
 # Reel hook short name (2026-11-19): nullable `short_name` (1-40 characters once trimmed, no ellipsis) edited by admins and read only by admin service-role routes; RLS, grants and public reads unchanged.
