@@ -1,7 +1,7 @@
 ---
 title: Reel figures and highlights mode
 scope: decision
-last_verified: 2026-11-21
+last_verified: 2026-11-22
 ai_priority: medium
 related_files:
   - apps/web/app/admin/video-generator/race-figures.ts
@@ -131,6 +131,7 @@ Second, a full-course flyover of an ultra lasts up to 2-3 minutes; a short "temp
 - Automatic reels use the default composition (forced to 1080p, since the reel goes to Instagram as is) and voice settings, never an admin's browser preferences; races whose GPX has no elevation stay manual. With « Publication automatique » on, a reel can reach Instagram without anyone reading it: the warning in Publications and the dry-run mode are the remaining guards.
 - Carousels take three weekdays from the reels when their series are on; the reel caps (3 a week) then fit in the four remaining days. The plan chiffré g/h depend on a tolerance mapping per runner level that is a calibration choice, not a published rule.
 - The outro is about 2 s longer than before (voice plus a 2 s hold); the 50 s cap on highlights is unchanged and the flyover absorbs it when the total is clamped.
+- The pipeline steps of `reel-generation.ts` (`writeReelWork`, `synthesizeReelClips`, `launchReelRender`) are now shared with the organizer flyover video product (2026-11-22, [rules](../03-business-rules/flyover-video-orders.md)); the figures, highlights and automatic reel behavior decided here are unchanged.
 
 ## Related Docs
 

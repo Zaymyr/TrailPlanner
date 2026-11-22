@@ -114,6 +114,7 @@ You modify `apps/web/lib/auth/session.ts`, which is referenced by `docs/04-auth-
 | Admin 3D course viewer / Mapbox | `docs/05-integrations/mapbox-3d.md` + `docs/03-business-rules/gpx-import.md` + `docs/01-architecture/web-app.md` |
 | Admin automatic reels (calendar, generation, auto publication) | `docs/05-integrations/reel-automation.md` + `docs/02-database/tables/reel-automation-items.md` + `docs/02-database/tables/reel-automation-settings.md` + `docs/05-integrations/instagram-publishing.md` + `docs/05-integrations/google-cloud-video-render.md` |
 | Admin automatic Instagram carousels (plan chiffré, brief, semaine qui vient) | `docs/05-integrations/instagram-carousels.md` + `docs/02-database/tables/carousel-render-jobs.md` + `docs/02-database/tables/carousel-automation-items.md` + `docs/05-integrations/instagram-publishing.md` + `docs/05-integrations/reel-automation.md` |
+| Organizer flyover video orders (`/survol`, Stripe, cron pipeline) | `docs/03-business-rules/flyover-video-orders.md` + `docs/02-database/tables/flyover-video-orders.md` + `docs/05-integrations/reel-automation.md` + `docs/05-integrations/google-cloud-video-render.md` + `docs/05-integrations/stripe.md` + `docs/05-integrations/instagram-publishing.md` |
 | Admin Instagram Reels publishing (Publications) | `docs/05-integrations/instagram-publishing.md` + `docs/02-database/tables/social-posts.md` + `docs/08-decisions/2026-11-19-instagram-publishing.md` + `docs/05-integrations/google-cloud-video-render.md` |
 | Admin reel background render / Google Cloud | `docs/05-integrations/google-cloud-video-render.md` + `docs/02-database/tables/video-render-jobs.md` + `docs/05-integrations/mapbox-3d.md` |
 | Admin reel voice pool (random ElevenLabs voice per reel) | `docs/02-database/tables/video-voices.md` + `docs/05-integrations/mapbox-3d.md` |
@@ -167,6 +168,7 @@ Use the smallest reliable context first, then expand only when the task needs it
 - Trial: `docs/03-business-rules/trial-lifecycle.md`
 - Organizer race management: `docs/03-business-rules/organizer-race-management.md`
 - Public race discovery: `docs/03-business-rules/public-race-discovery.md`
+- Organizer flyover video orders: `docs/03-business-rules/flyover-video-orders.md`
 - Plan persistence: `docs/03-business-rules/plan-storage.md`
 - Mobile offline copies (RaceBook, Supporter Guide, plans): `docs/03-business-rules/mobile-offline-access.md`
 

@@ -1,7 +1,7 @@
 ---
 title: Automated Instagram Reels publishing
 scope: decision
-last_verified: 2026-11-20
+last_verified: 2026-11-22
 ai_priority: medium
 related_files:
   - apps/web/lib/instagram/publisher.ts
@@ -38,6 +38,7 @@ The first version of this decision chose the Instagram API with Instagram Login:
 
 ## Consequences
 
+- Collaborators (2026-11-22): `social_posts.collaborators` is passed to the REELS container (at most 3), used by the organizer flyover collab offer ([Organizer Flyover Video Orders](../03-business-rules/flyover-video-orders.md)); the state machine and every guarantee above are unchanged, and the invitation must be accepted in Instagram.
 - Simpler code and data: no OAuth routes, no encryption key, no account table, no token job.
 - A Facebook Page link is required for the account; unlinking it breaks publishing.
 - Token rotation is manual: if the System User token is ever revoked, publishing fails with « Jeton Instagram invalide ou droits insuffisants — vérifier IG_SYSTEM_USER_TOKEN » until a new token is set in Vercel. There is no reconnect button.

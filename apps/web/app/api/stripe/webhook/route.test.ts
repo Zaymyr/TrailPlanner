@@ -58,8 +58,27 @@ describe("organizer Stripe webhooks", () => {
     expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
   });
 
+  it("marks a paid flyover video order without touching organizer payments", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(Response.json([]))
+      .mockResolvedValueOnce(Response.json([]));
+    const response = await POST(webhookRequest("checkout.session.completed", {
+      id: "cs_flyover",
+      payment_status: "paid",
+      payment_intent: "pi_flyover",
+      metadata: { purchase_type: "flyover_video", order_id: paymentId },
+    }));
+    expect(response.status).toBe(200);
+    const [url, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+    expect(String(url)).toContain(`/flyover_video_orders?id=eq.${paymentId}&status=in.(pending_payment,expired)`);
+    expect(JSON.parse(String(init?.body))).toMatchObject({ status: "paid", stripe_payment_intent_id: "pi_flyover" });
+    expect(vi.mocked(fetch).mock.calls.some(([target]) => String(target).includes("organizer_edition_payments"))).toBe(false);
+  });
+
   it.each(["charge.refunded", "charge.dispute.created"])("invalidates a payment on %s", async (eventType) => {
     vi.mocked(fetch)
+      // No flyover video order paid with this intent.
+      .mockResolvedValueOnce(Response.json([]))
       .mockResolvedValueOnce(Response.json([{ id: paymentId }]))
       .mockResolvedValueOnce(Response.json([{ edition_id: editionId }]))
       .mockResolvedValueOnce(Response.json({ tier: "visibility" }))
@@ -68,13 +87,14 @@ describe("organizer Stripe webhooks", () => {
     const response = await POST(webhookRequest(eventType, { payment_intent: "pi_invalidated", amount_refunded: 1 }));
 
     expect(response.status).toBe(200);
-    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[1]?.[1]?.body))).toMatchObject({
+    expect(String(vi.mocked(fetch).mock.calls[0]?.[0])).toContain("/flyover_video_orders?stripe_payment_intent_id=eq.pi_invalidated");
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[2]?.[1]?.body))).toMatchObject({
       status: eventType === "charge.refunded" ? "refunded" : "disputed",
     });
-    expect(String(vi.mocked(fetch).mock.calls[2]?.[0])).toContain("/rpc/recalculate_organizer_edition_entitlement");
+    expect(String(vi.mocked(fetch).mock.calls[3]?.[0])).toContain("/rpc/recalculate_organizer_edition_entitlement");
     if (eventType === "charge.dispute.created") {
-      expect(JSON.parse(String(vi.mocked(fetch).mock.calls[3]?.[1]?.body))).toMatchObject({ transaction_status: "revoked" });
-      expect(String(vi.mocked(fetch).mock.calls[4]?.[0])).toContain("/rpc/revoke_runner_payment_transaction");
+      expect(JSON.parse(String(vi.mocked(fetch).mock.calls[4]?.[1]?.body))).toMatchObject({ transaction_status: "revoked" });
+      expect(String(vi.mocked(fetch).mock.calls[5]?.[0])).toContain("/rpc/revoke_runner_payment_transaction");
     }
   });
 

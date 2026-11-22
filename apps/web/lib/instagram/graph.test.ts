@@ -15,6 +15,14 @@ afterEach(() => {
 });
 
 describe("Instagram Graph client", () => {
+  it("invites collaborators (at most 3) on a reel container", async () => {
+    const fetcher = vi.fn<Parameters<typeof fetch>, Promise<Response>>().mockResolvedValueOnce(json({ id: "container-2" }));
+    const client = createInstagramGraphClient({ fetcher, version: "v27.0" });
+    await client.createReelContainer({ igUserId: "1784", accessToken: "TOKEN", videoUrl: "https://v", caption: "c", collaborators: ["a", "b", "c", "d"] });
+    const body = new URLSearchParams(String(fetcher.mock.calls[0][1]?.body));
+    expect(body.get("collaborators")).toBe(JSON.stringify(["a", "b", "c"]));
+  });
+
   it("creates a REELS container, polls it, publishes it and reads the permalink", async () => {
     const fetcher = vi.fn<Parameters<typeof fetch>, Promise<Response>>()
       .mockResolvedValueOnce(json({ id: "container-1" }))
@@ -40,6 +48,7 @@ describe("Instagram Graph client", () => {
     expect(body.get("caption")).toBe("Le parcours\n\n#trail");
     expect(body.get("access_token")).toBe("TOKEN");
     expect(body.has("cover_url")).toBe(false);
+    expect(body.has("collaborators")).toBe(false);
 
     expect(await client.getContainerStatus("container-1", "TOKEN")).toEqual({ statusCode: "IN_PROGRESS", status: "In Progress" });
     expect(String(fetcher.mock.calls[1][0])).toContain("/v27.0/container-1?fields=status_code%2Cstatus");

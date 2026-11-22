@@ -19,6 +19,8 @@ const stripeConfigSchema = z.object({
   organizerCompleteToSignaturePriceId: z.string().trim().min(1).optional(),
   organizerCheckoutSuccessUrl: z.string().trim().url().optional(),
   organizerCheckoutCancelUrl: z.string().trim().url().optional(),
+  flyoverCollabPriceId: z.string().trim().min(1).optional(),
+  flyoverDownloadPriceId: z.string().trim().min(1).optional(),
 });
 
 export type StripeConfig = z.infer<typeof stripeConfigSchema>;
@@ -41,6 +43,8 @@ export const getStripeConfig = (): StripeConfig | null => {
     organizerCompleteToSignaturePriceId: process.env.STRIPE_ORGANIZER_COMPLETE_TO_SIGNATURE_PRICE_ID,
     organizerCheckoutSuccessUrl: process.env.STRIPE_ORGANIZER_CHECKOUT_SUCCESS_URL,
     organizerCheckoutCancelUrl: process.env.STRIPE_ORGANIZER_CHECKOUT_CANCEL_URL,
+    flyoverCollabPriceId: process.env.STRIPE_FLYOVER_COLLAB_PRICE_ID,
+    flyoverDownloadPriceId: process.env.STRIPE_FLYOVER_DOWNLOAD_PRICE_ID,
   });
 
   if (!parsed.success) {
