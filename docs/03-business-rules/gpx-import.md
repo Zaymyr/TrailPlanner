@@ -350,3 +350,5 @@ Course/GPX now groups the compact route map, altitude profile, GPX file, display
 GPX route/profile visibility now uses the shared Organizer switch row without changing the stored `gpxDisplay` flags.
 
 Terrain-style section headers do not change GPX import or publication behavior.
+
+Partner report note (2026-11-22): the Organizer dashboard adds a « Rapport partenaires » card under the Sponsors editor and the /organisateurs Signature card lists « Rapport partenaires »; neither touches this document's domain, data or contracts.

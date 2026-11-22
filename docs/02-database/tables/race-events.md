@@ -3,6 +3,7 @@ title: race_events Table
 scope: database
 
 last_verified: 2026-11-22
+# Event hub slug (2026-11-22): `slug` (not null, unique, immutable, year-free, disjoint from edition slugs) generated on insert by `assign_race_event_slug`; French `location_region_code` backfilled from the exact normalized region name.
 # Supporter onboarding (2026-11-18): the mobile guided catalog gains a `supporter` mode over the same public event list; no read, table or RLS change here (the only schema change is `user_profiles.supporter_onboarding_status`).
 # Inbox push badge (2026-11-18): apps/web/lib/push.ts adds an iOS badge only to admin inbox pushes (unread user_notifications count); race event update pushes, schema and RLS are unchanged.
 # Reel hook short name (2026-11-19): nullable `short_name` (1-40 characters once trimmed, no ellipsis) edited by admins and read only by admin service-role routes; RLS, grants and public reads unchanged.
@@ -86,7 +87,11 @@ related_files:
   - apps/web/app/courses/_components/RaceCatalogFilter.test.ts
   - apps/web/app/courses/_components/catalog-display.ts
   - apps/web/app/courses/_components/PublicRaceLinks.tsx
-  - apps/web/app/courses/distances/[category]/page.tsx
+  - apps/web/app/courses/distances/[category]/[[...page]]/page.tsx
+  - apps/web/app/courses/regions/[region]/[[...page]]/page.tsx
+  - apps/web/lib/race-landing-pages.ts
+  - supabase/migrations/20261122230000_add_race_event_slugs_and_region_codes.sql
+  - supabase/tests/race_event_slugs_checks.sql
   - apps/web/app/courses/race-discovery.test.ts
   - apps/web/lib/race-discovery.ts
   - apps/web/lib/demo-race.ts
@@ -197,11 +202,14 @@ The mobile Livret may separately load an owner's linked plan for personal reflec
 | `location_region`, `location_region_code` | nullable `text` | paired curated values | Normalized French region or equivalent first-level area. |
 | `location_country`, `location_country_code` | nullable `text` | country code is checked as two uppercase letters | Normalized country identity. |
 | `location_latitude`, `location_longitude` | nullable `double precision` | valid ranges; both null or both present | Approximate event anchor used for nearby-city discovery. |
+| `slug` | `text` not null | unique `race_events_slug_key`; `race_events_slug_format_check` (lowercase ASCII words joined by single hyphens, 1-160 characters); added by `20261122230000_add_race_event_slugs_and_region_codes.sql` | Durable year-free public slug of the event hub `/courses/evenements/<slug>`. Generated on insert by `build_race_event_slug(name)` (accents folded, trailing edition year stripped), suffixed with the first 8 hex characters of the id on a collision; never changed afterwards. |
 | `short_name` | nullable `text` | `race_events_short_name_check`: null, or 1-40 characters once trimmed and no « … »; added by `20261119150000_add_race_events_short_name.sql` | Short event name shown by the admin reel hook (« Nom court (vidéo) »). Null: the reel derives one from `name` (`getReelShortName`). |
 
 <!-- TODO: verify with maintainer: confirm exact race_events column types, constraints, indexes, and RLS policies in the live Supabase project. -->
 
 Reel hook short name (2026-11-19): `short_name` is edited only in the admin catalog event dialog (`PATCH /api/admin/race-events/:id`, trusted `app_metadata` admin check, service-role write; an empty value clears it, an absent key leaves it unchanged) and read by the admin catalog list and the admin video-generator race read (`race_events(id,name,short_name,organizer_details)`, now in `loadVideoGeneratorDetail`, `apps/web/lib/video-generator-race.ts`, also used by the automatic reel cron with the service role). No public, organizer or mobile read selects it, and the migration adds no policy, grant, view or function. `supabase/tests/race_events_short_name_checks.sql` checks the column, the constraint and its bounds inside a rolled-back transaction. A deployment reading a database that lacks the column (for instance a preview before the merge) fails those admin reads; production is safe because the release applies migrations before the web deploy.
+
+Event hub slug (2026-11-22): the `assign_race_event_slug` invoker trigger (`before insert or update of slug`) generates the slug when none is given, rejects an explicit slug already used by an event, an edition or a reserved edition redirect (23505), and rejects any later change of the slug (22023): there is no event-slug redirect table, so a hub URL is permanent. The edition trigger `record_race_event_edition_slug_redirect` was replaced with the same body plus a check that an edition slug never equals an event slug, so both kinds share the `/courses/evenements/` namespace without ambiguity (one advisory-lock namespace for both). The backfill assigned base slugs to 215 of the 216 events present on 2026-11-22 (one duplicate name got the id suffix); no base slug collided with an edition slug. Writes are service-role only (organizer/admin API routes, migrations); the column is readable wherever `race_events` already is, and public web reads select it through a separate lenient query in `lib/public-races.ts`. The same migration backfilled `location_region_code` (INSEE) for French events whose `location_region` matched one of the 18 region names exactly (typographic apostrophe normalized); it changes no `location` label. Checks: `supabase/tests/race_event_slugs_checks.sql` (rolled back).
 
 ## Foreign Keys
 
@@ -334,6 +342,9 @@ where is_live = true
 ```
 
 ## Gotchas
+
+- `race_events.slug` is immutable and shares the public URL namespace with edition slugs: never write it from a client, never reuse an edition slug, and do not rename it without first adding an event-slug redirect table.
+- Region landing pages trust only `location_region_code` with `location_country_code = 'FR'`; a new French event without the code is absent from its region page.
 
 - The web catalog index's single-main-landmark cleanup is presentation-only and does not change event visibility gates, projections or table ownership.
 

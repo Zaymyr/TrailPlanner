@@ -111,6 +111,7 @@ import {
 import { shouldOpenOrganizerOnboarding } from "./dashboard/onboarding";
 import { OrganizerInvoicesDialog } from "./dashboard/invoices-dialog";
 import { OrganizerAnalyticsPanel } from "./dashboard/analytics-panel";
+import { SponsorReportCard } from "./dashboard/sponsor-report-card";
 import { PublicationReview, type PublicationAffiliateSlot } from "./dashboard/publication-review";
 import { hasBlockingRacebookPublicationIssue, type RacebookPublicationIssue } from "../../../lib/racebook-publication-checks";
 import {
@@ -4203,6 +4204,7 @@ export function OrganizerDashboard({
               onToast={showToast}
             />
           ) : activeModule === "sponsors" && isEventTab && activeEdition?.id ? (
+            <div className="space-y-4">
             <SponsorsEditor
               key={activeEdition.id}
               editionId={activeEdition.id}
@@ -4210,6 +4212,13 @@ export function OrganizerDashboard({
               onSummaryChange={handleSponsorSummaryChange}
               onToast={showToast}
             />
+            <SponsorReportCard
+              editionId={activeEdition.id}
+              authHeaders={authHeaders}
+              allowed={activeTier === "signature" || grantedFeatures.includes("module.sponsors")}
+              onOpenPricing={() => openPricingDialog("upgrade")}
+            />
+            </div>
           ) : null}
         </CardContent>
       </Card>

@@ -137,3 +137,5 @@ Organizer section-header finishing does not change edition-request state.
 Organizer header (2026-11-16): the dashboard header no longer shows the « Aperçu coureur » and « Aperçu accompagnateur » web preview links (« Voir le Livret coureur » and « Télécharger le QR » remain), and its row wraps instead of letting the actions block overlap the edition selector. Presentation only; no data, contract or offer change.
 
 Organizer pricing (2026-11-22): pack prices are now Essentiel 199 €, Complet 349 € and Signature 499 € HT, read from `ORGANIZER_TIER_PRICE_EUR` (see [Organizer Commercial Offers](../../03-business-rules/organizer-commercial-offers.md)). Copy and default amounts only; no table, contract or state change.
+
+Partner report note (2026-11-22): the Organizer dashboard adds a « Rapport partenaires » card under the Sponsors editor and the /organisateurs Signature card lists « Rapport partenaires »; neither touches this document's domain, data or contracts.

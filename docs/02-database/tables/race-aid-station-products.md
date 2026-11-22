@@ -132,3 +132,7 @@ order by order_index asc;
 - [Organizer Race Management](../../03-business-rules/organizer-race-management.md)
 
 Moving the ravito delete action into its expanded details panel is presentation-only; product links and station deletion semantics are unchanged.
+
+## Funnel analytics touch (2026-11-22)
+
+The web runner funnel instrumentation (analytics events only) touched `RacePlannerPageContent.tsx`: the planner upgrade modal emits `premium checkout started` and `QuickRaceEstimate` remembers the source race. No data contract, RLS rule or business rule described here changed. Web runner funnel analytics (2026-11-22): see [analytics.md](../05-integrations/analytics.md#web-runner-funnel-2026-11-22).

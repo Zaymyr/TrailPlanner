@@ -9,10 +9,13 @@ export function trackPlanPersisted(input: {
   segmentCount: number;
   hasRaceLink: boolean;
   hasElevationProfile: boolean;
+  /** Public catalog race id the plan is linked to (funnel attribution). */
+  sourceRace?: string | null;
 }) {
   trackGoogleAnalyticsEvent(input.operation === "created" ? "plan created" : "plan saved", {
     event_category: "plan",
     source: input.source,
+    source_race: input.sourceRace ?? undefined,
     aid_station_count: input.aidStationCount,
     segment_count: input.segmentCount,
     has_race_link: input.hasRaceLink,
@@ -186,5 +189,133 @@ export function trackOrganizerPurchaseVerified(input: {
     billing_provider: "stripe",
     target_tier: input.targetTier,
     edition_year: input.editionYear,
+  });
+}
+
+/*
+ * Web runner funnel: race page -> estimate -> signup -> checkout -> purchase.
+ * Naming follows the existing runner product events (lowercase words with spaces,
+ * shared with mobile: "plan created", "quick estimate completed", "premium ...").
+ * `source_race` is a public catalog race id only: no email, name, plan text or price.
+ */
+export type RaceFunnelPageType = "format" | "event";
+export type RaceEstimatePlacement = "hero" | "sticky_bar" | "format_list" | "estimates_section" | "other";
+export type RunnerCheckoutPlacement = "premium_page" | "planner_modal" | "profile";
+export type SignUpMethod = "email" | "google" | "apple";
+
+export function trackRacePageViewed(input: {
+  pageType: RaceFunnelPageType;
+  slug: string;
+  raceId?: string | null;
+  eventId?: string | null;
+  hasGpx?: boolean | null;
+  isUpcoming?: boolean | null;
+  isDemo?: boolean | null;
+}) {
+  trackGoogleAnalyticsEvent("race page viewed", {
+    event_category: "race_funnel",
+    page_type: input.pageType,
+    slug: input.slug,
+    race_id: input.raceId ?? undefined,
+    event_id: input.eventId ?? undefined,
+    has_gpx: input.hasGpx ?? undefined,
+    is_upcoming: input.isUpcoming ?? undefined,
+    is_demo: input.isDemo ?? undefined,
+  });
+}
+
+export function trackRaceEstimateCtaClicked(input: {
+  placement: RaceEstimatePlacement;
+  pageType: RaceFunnelPageType;
+  raceId: string;
+  slug?: string | null;
+}) {
+  trackGoogleAnalyticsEvent("race estimate cta clicked", {
+    event_category: "race_funnel",
+    placement: input.placement,
+    page_type: input.pageType,
+    race_id: input.raceId,
+    source_race: input.raceId,
+    slug: input.slug ?? undefined,
+  });
+}
+
+export function trackQuickEstimateCompleted(input: {
+  input: "pace_and_utmb" | "pace" | "utmb";
+  sourceRace?: string | null;
+}) {
+  trackGoogleAnalyticsEvent("quick estimate completed", {
+    event_category: "plan",
+    source: "web_catalog",
+    input: input.input,
+    source_race: input.sourceRace ?? undefined,
+  });
+}
+
+export function trackSignUpStarted(input: { method: SignUpMethod; sourceRace?: string | null }) {
+  trackGoogleAnalyticsEvent("sign up started", {
+    event_category: "acquisition",
+    method: input.method,
+    source_race: input.sourceRace ?? undefined,
+  });
+}
+
+export function trackSignUpCompleted(input: {
+  method: SignUpMethod;
+  emailConfirmationPending: boolean;
+  sourceRace?: string | null;
+}) {
+  trackGoogleAnalyticsEvent("sign up completed", {
+    event_category: "acquisition",
+    method: input.method,
+    email_confirmation_pending: input.emailConfirmationPending,
+    source_race: input.sourceRace ?? undefined,
+  });
+}
+
+export function trackPremiumPaywallViewed(input: {
+  placement: RunnerCheckoutPlacement;
+  hasPlanContext: boolean;
+  sourceRace?: string | null;
+}) {
+  trackGoogleAnalyticsEvent("premium paywall viewed", {
+    event_category: "premium",
+    store: "web",
+    placement: input.placement,
+    has_plan_context: input.hasPlanContext,
+    source_race: input.sourceRace ?? undefined,
+  });
+}
+
+/** Annual keeps the mobile "premium checkout started"; the one-time course keeps "runner course checkout started". */
+export function trackRunnerCheckoutStarted(input: {
+  offer: "course" | "annual";
+  placement: RunnerCheckoutPlacement;
+  sourceRace?: string | null;
+}) {
+  trackGoogleAnalyticsEvent(input.offer === "course" ? "runner course checkout started" : "premium checkout started", {
+    event_category: "premium",
+    billing_provider: "stripe",
+    store: "web",
+    offer: input.offer,
+    purchase_type: input.offer === "course" ? "course" : "annual",
+    placement: input.placement,
+    source_race: input.sourceRace ?? undefined,
+  });
+}
+
+/** Emitted only after the server-side entitlement (webhook result) is visible to the returning runner. */
+export function trackRunnerPurchaseVerified(input: {
+  offer: "course" | "annual";
+  sourceRace?: string | null;
+}) {
+  trackGoogleAnalyticsEvent(input.offer === "course" ? "runner course purchase verified" : "premium purchase verified", {
+    event_category: "premium",
+    billing_provider: "stripe",
+    store: "web",
+    offer: input.offer,
+    purchase_type: input.offer === "course" ? "course" : "annual",
+    verification_source: "web_entitlement_check",
+    source_race: input.sourceRace ?? undefined,
   });
 }

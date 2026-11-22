@@ -10,6 +10,7 @@ import type { PublicRace } from "../../../lib/public-races";
 import { getPublicRaces, resolvePublicRaceSlug } from "../../../lib/public-races";
 import { isDemoRaceEventId } from "../../../lib/demo-race";
 import { getOtherEventFormats, getSimilarRaces } from "../../../lib/race-discovery";
+import { getIndexableRegionPages, getTodayInFrance } from "../../../lib/race-landing-pages";
 import { DEFAULT_SOCIAL_IMAGE, DEFAULT_SOCIAL_IMAGE_PATH, SITE_URL } from "../../seo";
 import { PublicElevationProfile } from "../_components/PublicElevationProfile";
 import { RaceLinksCarousel } from "../_components/RaceLinksCarousel";
@@ -186,6 +187,9 @@ export default async function RacePage({ params }: PageProps) {
   const canonicalUrl = new URL(`/courses/${race.slug}`, SITE_URL).toString();
   const otherFormats = getOtherEventFormats(race, races);
   const similarRaces = getSimilarRaces(race, races);
+  const regionPage = race.regionSlug
+    ? getIndexableRegionPages(races, getTodayInFrance()).find(({ region }) => region.slug === race.regionSlug) ?? null
+    : null;
   // The demo carries placeholder websites: no official link, registration action or offer.
   const officialUrls = isDemo ? [] : Array.from(
     new Set(
@@ -198,9 +202,12 @@ export default async function RacePage({ params }: PageProps) {
   // A demonstration race is not a real SportsEvent.
   const structuredData = isDemo ? null : buildRaceStructuredData(race, canonicalUrl, formatReferenceRange(referenceEstimates));
   const estimateHref = `/race-planner?catalogRaceId=${race.id}`;
-  const eventEditionUrl = race.eventEditionSlug
-    ? new URL(`/courses/evenements/${race.eventEditionSlug}`, SITE_URL).toString()
-    : null;
+  // The breadcrumb parent is the permanent event hub when it exists (edition
+  // pages canonicalize to it), otherwise the edition page.
+  const eventPath = race.eventSlug
+    ? `/courses/evenements/${race.eventSlug}`
+    : race.eventEditionSlug ? `/courses/evenements/${race.eventEditionSlug}` : null;
+  const eventEditionUrl = eventPath ? new URL(eventPath, SITE_URL).toString() : null;
   const breadcrumbData = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -267,9 +274,9 @@ export default async function RacePage({ params }: PageProps) {
         <span aria-hidden="true">/</span>
         <Link className="shrink-0 hover:text-brand hover:underline" href={"/courses" as Route}>Courses</Link>
         <span aria-hidden="true">/</span>
-        {race.eventEditionSlug && race.eventName ? (
+        {eventPath && race.eventName ? (
           <>
-            <Link className="truncate hover:text-brand hover:underline" href={`/courses/evenements/${race.eventEditionSlug}` as Route}>{race.eventName}</Link>
+            <Link className="truncate hover:text-brand hover:underline" href={eventPath as Route}>{race.eventName}</Link>
             <span aria-hidden="true">/</span>
           </>
         ) : null}
@@ -461,6 +468,16 @@ export default async function RacePage({ params }: PageProps) {
       <section className="space-y-2" aria-labelledby="race-overview-heading">
         <h2 id="race-overview-heading" className="text-xl font-bold text-foreground sm:text-2xl">À propos de {race.name}</h2>
         <p className="max-w-4xl text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">{buildRaceOverview(race, formattedDate)}</p>
+        {race.eventSlug && race.eventName ? (
+          <Link href={`/courses/evenements/${race.eventSlug}` as Route} className="inline-flex min-h-11 items-center text-sm font-semibold text-brand hover:underline">
+            Toutes les éditions et formats de {race.eventName}
+          </Link>
+        ) : null}
+        {regionPage ? (
+          <Link href={`/courses/regions/${regionPage.region.slug}` as Route} className="ml-4 inline-flex min-h-11 items-center text-sm font-semibold text-brand hover:underline">
+            Trails à venir {regionPage.region.inLabel}
+          </Link>
+        ) : null}
       </section>
 
       {otherFormats.length || similarRaces.length ? (

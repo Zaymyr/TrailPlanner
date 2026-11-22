@@ -2,15 +2,17 @@ import type { Metadata, Route } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 
-import { getFormatLabelWithinEvent } from "../../_components/catalog-display";
-import { DemoRaceBadge } from "../../_components/DemoRaceBadge";
-import { PublicHeroShell } from "../../_components/PublicHeroShell";
-import { RunnerAppBridge } from "../../_components/RunnerAppBridge";
 import { isDemoRaceEventId } from "../../../../lib/demo-race";
-import { resolvePublicRaceEventEditionSlug } from "../../../../lib/public-race-events";
-import { getPublicSupporterGuide, supporterFollowPath } from "../../../../lib/public-supporter-guide";
+import {
+  resolvePublicRaceEventEditionSlug,
+  resolvePublicRaceEventHubSlug,
+  type PublicRaceEventEdition,
+  type PublicRaceEventHub,
+} from "../../../../lib/public-race-events";
 import { DEFAULT_SOCIAL_IMAGE, DEFAULT_SOCIAL_IMAGE_PATH, SITE_URL } from "../../../seo";
 import { buildEventEditionMetadataTitle } from "../../[slug]/race-metadata";
+import { EventEditionSections, formatEditionDate, formatEditionDateRange } from "./EventEditionSections";
+import { buildEventHubDescription, buildEventHubMetadataTitle, getEventEditionCanonicalPath, getEventHubName } from "./event-hub";
 import { buildEventEditionDescription, buildEventEditionStructuredData } from "./event-structured-data";
 import { isEventEditionPast } from "./event-edition-status";
 
@@ -19,290 +21,239 @@ export const dynamicParams = true;
 
 type PageProps = { params: { slug: string } };
 
-const fullDateFormatter = new Intl.DateTimeFormat("fr-FR", {
-  day: "numeric",
-  month: "long",
-  year: "numeric",
-  timeZone: "UTC",
-});
-
-const shortDateFormatter = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", timeZone: "UTC" });
-
-const formatDate = (value: string) => fullDateFormatter.format(new Date(`${value}T12:00:00Z`));
-
-const formatDateRange = (startDate: string, endDate: string) => (
-  startDate === endDate ? formatDate(startDate) : `${formatDate(startDate)} – ${formatDate(endDate)}`
-);
-
-const hasText = (...values: Array<string | null | undefined>) => values.some((value) => Boolean(value?.trim()));
-
-const isHttpUrl = (value: string | null): value is string => Boolean(value && /^https?:\/\//i.test(value));
-
-const StopwatchIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true" className="h-5 w-5 shrink-0">
-    <circle cx="12" cy="13.5" r="7.5" />
-    <path d="M12 9.5v4l2.5 1.5M9.5 2.5h5M12 2.5V6" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
 export async function generateStaticParams() {
   return [];
 }
 
+const socialMetadata = (title: string, description: string, canonicalPath: string, imageUrl: string | null, imageAlt: string) => ({
+  openGraph: {
+    title,
+    description,
+    url: new URL(canonicalPath, SITE_URL),
+    type: "website" as const,
+    images: imageUrl ? [{ url: imageUrl, alt: imageAlt }] : [DEFAULT_SOCIAL_IMAGE],
+  },
+  twitter: {
+    card: "summary_large_image" as const,
+    title,
+    description,
+    images: imageUrl ? [imageUrl] : [DEFAULT_SOCIAL_IMAGE_PATH],
+  },
+});
+
+/**
+ * One namespace, two kinds of pages: `<edition-slug>` (a yearly edition, kept
+ * reachable and canonicalized to its hub) and `<event-slug>` (the permanent,
+ * indexable event hub). The database keeps both slug sets disjoint.
+ */
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const resolution = await resolvePublicRaceEventEditionSlug(params.slug);
-  if (!resolution) return { title: "Événement introuvable", robots: { index: false, follow: false } };
-  const { edition } = resolution;
-  const canonicalPath = `/courses/evenements/${edition.slug}`;
-  const title = buildEventEditionMetadataTitle(edition.eventName, edition.editionYear);
-  const description = buildEventEditionDescription(edition);
+  if (resolution) {
+    const { edition } = resolution;
+    const title = buildEventEditionMetadataTitle(edition.eventName, edition.editionYear);
+    const description = buildEventEditionDescription(edition);
+    const canonicalPath = getEventEditionCanonicalPath(edition);
+    return {
+      title,
+      description,
+      alternates: { canonical: canonicalPath },
+      // Trail TST demo: reachable from the printed QR codes, never indexed.
+      ...(isDemoRaceEventId(edition.eventId) ? { robots: { index: false, follow: true } } : {}),
+      ...socialMetadata(title, description, canonicalPath, edition.thumbnailUrl, edition.eventName),
+    };
+  }
+
+  const hub = await resolvePublicRaceEventHubSlug(params.slug);
+  if (!hub) return { title: "Événement introuvable", robots: { index: false, follow: false } };
+  const featuredIsPast = isEventEditionPast(hub.featured.endDate);
+  const title = buildEventHubMetadataTitle(hub, featuredIsPast ? null : hub.featured.editionYear);
+  const description = buildEventHubDescription(hub, featuredIsPast);
+  const canonicalPath = `/courses/evenements/${hub.slug}`;
   return {
     title,
     description,
     alternates: { canonical: canonicalPath },
-    // Trail TST demo: reachable from the printed QR codes, never indexed.
-    ...(isDemoRaceEventId(edition.eventId) ? { robots: { index: false, follow: true } } : {}),
-    openGraph: {
-      title,
-      description,
-      url: new URL(canonicalPath, SITE_URL),
-      type: "website",
-      images: edition.thumbnailUrl ? [{ url: edition.thumbnailUrl, alt: edition.eventName }] : [DEFAULT_SOCIAL_IMAGE],
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: edition.thumbnailUrl ? [edition.thumbnailUrl] : [DEFAULT_SOCIAL_IMAGE_PATH],
-    },
+    ...(isDemoRaceEventId(hub.eventId) ? { robots: { index: false, follow: true } } : {}),
+    ...socialMetadata(title, description, canonicalPath, hub.thumbnailUrl, hub.eventName),
   };
 }
 
-export default async function PublicEventEditionPage({ params }: PageProps) {
-  const resolution = await resolvePublicRaceEventEditionSlug(params.slug);
-  if (!resolution) notFound();
-  if (resolution.shouldRedirect) permanentRedirect(`/courses/evenements/${resolution.edition.slug}`);
+const JsonLd = ({ data }: { data: unknown }) => (
+  <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(data).replace(/</g, "\\u003c") }} />
+);
 
-  const { edition } = resolution;
-  const canonicalUrl = new URL(`/courses/evenements/${edition.slug}`, SITE_URL).toString();
+type Crumb = { name: string; href: string };
+
+function Breadcrumb({ crumbs, current }: { crumbs: Crumb[]; current: string }) {
+  return (
+    <nav aria-label="Fil d’Ariane" className="flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-xs text-muted-foreground sm:text-sm">
+      {crumbs.map((crumb) => (
+        <span key={crumb.href} className="contents">
+          <Link href={crumb.href as Route} className="shrink-0 hover:text-brand hover:underline">{crumb.name}</Link>
+          <span aria-hidden="true">/</span>
+        </span>
+      ))}
+      <span aria-current="page" className="truncate text-foreground">{current}</span>
+    </nav>
+  );
+}
+
+const breadcrumbStructuredData = (items: Array<{ name: string; url: string }>) => ({
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: items.map((item, index) => ({ "@type": "ListItem", position: index + 1, name: item.name, item: item.url })),
+});
+
+async function EventEditionPage({ edition }: { edition: PublicRaceEventEdition }) {
+  const editionUrl = new URL(`/courses/evenements/${edition.slug}`, SITE_URL).toString();
+  const hubPath = edition.eventSlug ? `/courses/evenements/${edition.eventSlug}` : null;
+  const hubName = getEventHubName(edition.eventName);
   const isDemo = isDemoRaceEventId(edition.eventId);
   // A demonstration event is not a real SportsEvent and its websites are placeholders.
-  const structuredData = isDemo ? null : buildEventEditionStructuredData(edition, canonicalUrl);
+  const structuredData = isDemo ? null : buildEventEditionStructuredData(edition, editionUrl);
   const editionIsPast = isEventEditionPast(edition.endDate);
   const editionTitle = `${edition.eventName} ${edition.editionYear}`;
-  const breadcrumbData = {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Accueil", item: SITE_URL },
-      { "@type": "ListItem", position: 2, name: "Courses", item: new URL("/courses", SITE_URL).toString() },
-      { "@type": "ListItem", position: 3, name: editionTitle, item: canonicalUrl },
-    ],
-  };
-  const practical = edition.commonPractical;
-  const bib = practical?.bibPickup;
-  const access = practical?.access;
-  const hasBib = Boolean(bib && (bib.locations.length || hasText(bib.schedule, bib.requiredDocuments, bib.thirdPartyPickupConditions, bib.note)));
-  const hasAccess = Boolean(access && hasText(
-    access.startAddress,
-    access.startLocation.label,
-    access.finishAddress,
-    access.finishLocation.label,
-    access.officialParkings,
-    access.shuttles,
-    access.shuttleSchedule,
-    access.roadRestrictions,
-    access.note,
-  ));
-
-  // Same order as the catalog: numeric distance, unknown distances last.
-  const formats = [...edition.formats].sort((left, right) => (left.distanceKm ?? Number.POSITIVE_INFINITY) - (right.distanceKm ?? Number.POSITIVE_INFINITY));
-  const distances = edition.formats
-    .map((format) => format.distanceKm)
-    .filter((value): value is number => value !== null)
-    .sort((left, right) => left - right);
-  const maxGain = edition.formats.reduce<number | null>(
-    (max, format) => (format.elevationGainM !== null && (max === null || format.elevationGainM > max) ? format.elevationGainM : max),
-    null,
-  );
-  const dayCount = Math.round((Date.parse(`${edition.endDate}T12:00:00Z`) - Date.parse(`${edition.startDate}T12:00:00Z`)) / 86_400_000) + 1;
-  const metrics = [
-    { label: "Formats", value: String(edition.formats.length) },
-    distances.length
-      ? {
-          label: "Distances",
-          value: distances.length > 1
-            ? `${distances[0].toLocaleString("fr-FR")}–${distances.at(-1)?.toLocaleString("fr-FR")} km`
-            : `${distances[0].toLocaleString("fr-FR")} km`,
-        }
-      : null,
-    maxGain !== null ? { label: "D+ max", value: `${Math.round(maxGain).toLocaleString("fr-FR")} m` } : null,
-    Number.isFinite(dayCount) && dayCount > 1 ? { label: "Jours", value: String(dayCount) } : null,
-  ].filter((metric): metric is { label: string; value: string } => Boolean(metric));
-  const registrationUrl = !isDemo && isHttpUrl(edition.websiteUrl) ? edition.websiteUrl : null;
-  const supporterGuide = editionIsPast ? null : await getPublicSupporterGuide(edition);
+  const crumbs: Crumb[] = [
+    { name: "Accueil", href: "/" },
+    { name: "Courses", href: "/courses" },
+    ...(hubPath ? [{ name: hubName, href: hubPath }] : []),
+  ];
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-5 pb-10 sm:space-y-8 sm:px-0 lg:px-2">
-      {structuredData ? (
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
-      ) : null}
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbData).replace(/</g, "\\u003c") }} />
+      {structuredData ? <JsonLd data={structuredData} /> : null}
+      <JsonLd data={breadcrumbStructuredData([
+        ...crumbs.map((crumb) => ({ name: crumb.name, url: new URL(crumb.href, SITE_URL).toString() })),
+        { name: editionTitle, url: editionUrl },
+      ])} />
 
-      <nav aria-label="Fil d’Ariane" className="flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-xs text-muted-foreground sm:text-sm">
-        <Link href="/" className="shrink-0 hover:text-brand hover:underline">Accueil</Link>
-        <span aria-hidden="true">/</span>
-        <Link href={"/courses" as Route} className="shrink-0 hover:text-brand hover:underline">Courses</Link>
-        <span aria-hidden="true">/</span>
-        <span aria-current="page" className="truncate text-foreground">{editionTitle}</span>
-      </nav>
+      <Breadcrumb crumbs={crumbs} current={hubPath ? `Édition ${edition.editionYear}` : editionTitle} />
 
       {editionIsPast ? (
         <aside className="flex flex-col gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950 sm:flex-row sm:items-center sm:justify-between" aria-labelledby="past-edition-heading">
           <div>
             <h2 id="past-edition-heading" className="font-semibold">Édition terminée</h2>
-            <p className="text-sm">Cette édition s’est terminée le {formatDate(edition.endDate)}.</p>
+            <p className="text-sm">Cette édition s’est terminée le {formatEditionDate(edition.endDate)}.</p>
           </div>
           {edition.nextEdition ? (
             <Link href={`/courses/evenements/${edition.nextEdition.slug}` as Route} className="inline-flex min-h-11 shrink-0 items-center font-semibold underline underline-offset-4">
               Voir l’édition {edition.nextEdition.editionYear}
             </Link>
+          ) : hubPath ? (
+            <Link href={hubPath as Route} className="inline-flex min-h-11 shrink-0 items-center font-semibold underline underline-offset-4">
+              Toutes les éditions
+            </Link>
           ) : null}
         </aside>
       ) : null}
 
-      <PublicHeroShell
-        imageUrl={edition.thumbnailUrl}
-        eyebrow={`Édition ${edition.editionYear}`}
+      <EventEditionSections
+        edition={edition}
         title={edition.eventName}
-        share={{ title: editionTitle, url: canonicalUrl }}
-        metrics={metrics}
-        meta={(
-          <>
-            {isDemo ? <DemoRaceBadge /> : null}
-            <span>{formatDateRange(edition.startDate, edition.endDate)}</span>
-            {edition.location ? <><span aria-hidden="true">·</span><span>{edition.location}</span></> : null}
-          </>
-        )}
-      >
-        <div className="grid gap-2 sm:flex sm:flex-wrap">
-          <a
-            href="#formats"
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-brand px-5 text-base font-semibold text-brand-foreground shadow-sm transition hover:bg-brand-light"
-          >
-            <StopwatchIcon />
-            Estimer mon temps
-          </a>
-          {registrationUrl ? (
-            <a href={registrationUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border px-5 text-sm font-semibold text-foreground transition hover:border-brand-border hover:bg-brand-surface">
-              S’inscrire sur le site officiel
-            </a>
-          ) : null}
-        </div>
-      </PublicHeroShell>
+        eyebrow={`Édition ${edition.editionYear}`}
+        shareUrl={editionUrl}
+        overviewTitle={editionTitle}
+        showNextEdition
+      />
 
-      {supporterGuide ? (
-        <aside className="flex flex-col gap-2 rounded-2xl border border-brand-border bg-brand-surface p-4 sm:flex-row sm:items-center sm:justify-between" aria-labelledby="supporter-guide-heading">
-          <div>
-            <h2 id="supporter-guide-heading" className="font-semibold text-foreground">Tu viens encourager un coureur ?</h2>
-            <p className="text-sm text-muted-foreground">Programme, points de suivi et accès dans le Livret supporter, sans compte.</p>
-          </div>
-          <Link href={supporterFollowPath(edition.slug) as Route} className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl bg-brand px-4 text-sm font-semibold text-brand-foreground transition hover:bg-brand-light">
-            Suivre la course
-          </Link>
-        </aside>
+      {hubPath ? (
+        <p className="text-sm text-muted-foreground">
+          <Link href={hubPath as Route} className="font-semibold text-brand hover:underline">Toutes les éditions de {hubName}</Link>
+        </p>
       ) : null}
-
-      {!editionIsPast && edition.nextEdition ? (
-        <aside className="flex flex-col gap-2 rounded-2xl border border-brand-border bg-brand-surface p-4 sm:flex-row sm:items-center sm:justify-between" aria-labelledby="next-edition-heading">
-          <div>
-            <h2 id="next-edition-heading" className="font-semibold text-foreground">Prochaine édition déjà publiée</h2>
-            <p className="text-sm text-muted-foreground">{formatDateRange(edition.nextEdition.startDate, edition.nextEdition.endDate)}</p>
-          </div>
-          <Link href={`/courses/evenements/${edition.nextEdition.slug}` as Route} className="inline-flex min-h-11 shrink-0 items-center font-semibold text-brand hover:underline">
-            Découvrir l’édition {edition.nextEdition.editionYear}
-          </Link>
-        </aside>
-      ) : null}
-
-      <section id="formats" className="scroll-mt-4 space-y-3" aria-labelledby="formats-heading">
-        <h2 id="formats-heading" className="text-xl font-bold text-foreground sm:text-2xl">Choisis ton format</h2>
-        <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
-          {formats.map((format) => {
-            const facts = [
-              format.elevationGainM !== null ? `${Math.round(format.elevationGainM).toLocaleString("fr-FR")} m D+` : null,
-              format.date ? shortDateFormatter.format(new Date(`${format.date.slice(0, 10)}T12:00:00Z`)) : null,
-              format.aidStationCount ? `${format.aidStationCount} ravito${format.aidStationCount > 1 ? "s" : ""}` : null,
-            ].filter(Boolean);
-            return (
-              <li key={format.id} className="flex items-stretch">
-                <Link href={`/courses/${format.slug}` as Route} className="group flex min-h-16 min-w-0 flex-1 items-center gap-3 px-4 py-3 transition hover:bg-brand-surface/60">
-                  <span className="flex h-12 min-w-[3.5rem] shrink-0 flex-col items-center justify-center rounded-xl bg-brand px-2 text-brand-foreground">
-                    <span className="text-base font-bold leading-none tabular-nums">{format.distanceKm !== null ? format.distanceKm.toLocaleString("fr-FR") : "?"}</span>
-                    <span className="text-[10px] font-semibold uppercase leading-none opacity-80">km</span>
-                  </span>
-                  <span className="min-w-0">
-                    <span className="line-clamp-2 font-semibold leading-snug text-foreground group-hover:text-brand" title={format.name}>{getFormatLabelWithinEvent(format.name, edition.eventName)}</span>
-                    <span className="block truncate text-sm text-muted-foreground">{facts.length ? facts.join(" · ") : "Détails à confirmer"}</span>
-                  </span>
-                </Link>
-                <Link
-                  href={`/race-planner?catalogRaceId=${format.id}` as Route}
-                  aria-label={`Estimer mon temps sur ${format.name}`}
-                  title="Estimer mon temps"
-                  className="flex w-14 shrink-0 items-center justify-center border-l border-border text-brand transition hover:bg-brand-surface"
-                >
-                  <StopwatchIcon />
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-        <p className="text-xs text-muted-foreground">Le chronomètre calcule gratuitement ton temps et tes passages aux ravitos sur le format choisi.</p>
-      </section>
-
-      {hasAccess || hasBib ? (
-        <section className="space-y-3" aria-labelledby="common-info-heading">
-          <h2 id="common-info-heading" className="text-xl font-bold text-foreground sm:text-2xl">Informations communes</h2>
-          <div className="grid gap-3 md:grid-cols-2">
-            {hasAccess && access ? (
-              <article className="rounded-2xl border border-border bg-card p-4">
-                <h3 className="font-semibold text-foreground">Accès</h3>
-                <div className="mt-2 space-y-1.5 text-sm text-muted-foreground">
-                  {access.startAddress || access.startLocation.label ? <p><strong className="text-foreground">Départ :</strong> {access.startAddress ?? access.startLocation.label}</p> : null}
-                  {access.finishAddress || access.finishLocation.label ? <p><strong className="text-foreground">Arrivée :</strong> {access.finishAddress ?? access.finishLocation.label}</p> : null}
-                  {access.officialParkings ? <p><strong className="text-foreground">Parkings :</strong> {access.officialParkings}</p> : null}
-                  {access.shuttles ? <p><strong className="text-foreground">Navettes :</strong> {access.shuttles}</p> : null}
-                  {access.roadRestrictions ? <p>{access.roadRestrictions}</p> : null}
-                </div>
-              </article>
-            ) : null}
-            {hasBib && bib ? (
-              <article className="rounded-2xl border border-border bg-card p-4">
-                <h3 className="font-semibold text-foreground">Retrait des dossards</h3>
-                <div className="mt-2 space-y-1.5 text-sm text-muted-foreground">
-                  {bib.locations.map((location, index) => <p key={`${location.label}-${index}`}>{location.label ?? "Lieu communiqué par l’organisation"}</p>)}
-                  {bib.schedule ? <p>{bib.schedule}</p> : null}
-                  {bib.requiredDocuments ? <p><strong className="text-foreground">Documents :</strong> {bib.requiredDocuments}</p> : null}
-                  {bib.note ? <p>{bib.note}</p> : null}
-                </div>
-              </article>
-            ) : null}
-          </div>
-        </section>
-      ) : null}
-
-      <RunnerAppBridge courseName={editionTitle} universalUrl={canonicalUrl} racebookAvailable={false} />
-
-      <section className="space-y-2" aria-labelledby="event-overview-heading">
-        <h2 id="event-overview-heading" className="text-xl font-bold text-foreground sm:text-2xl">À propos de {editionTitle}</h2>
-        <p className="max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">{buildEventEditionDescription(edition)}</p>
-        {registrationUrl ? (
-          <a href={registrationUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand hover:underline">
-            Site officiel de l’événement
-          </a>
-        ) : null}
-      </section>
     </div>
   );
+}
+
+function EditionHistory({ hub }: { hub: PublicRaceEventHub }) {
+  if (hub.editions.length < 2) return null;
+  return (
+    <section className="space-y-3" aria-labelledby="editions-heading">
+      <h2 id="editions-heading" className="text-xl font-bold text-foreground sm:text-2xl">Toutes les éditions</h2>
+      <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
+        {hub.editions.map((edition) => (
+          <li key={edition.id}>
+            <Link href={`/courses/evenements/${edition.slug}` as Route} className="group flex min-h-14 items-center justify-between gap-3 px-4 py-3 transition hover:bg-brand-surface/60">
+              <span className="min-w-0">
+                <span className="block font-semibold text-foreground group-hover:text-brand">Édition {edition.editionYear}</span>
+                <span className="block truncate text-sm text-muted-foreground">
+                  {formatEditionDateRange(edition.startDate, edition.endDate)} · {edition.formatCount} format{edition.formatCount > 1 ? "s" : ""}
+                </span>
+              </span>
+              <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${edition.isPast ? "bg-muted text-muted-foreground" : "bg-brand-surface text-brand"}`}>
+                {edition.id === hub.featured.id ? (edition.isPast ? "Dernière édition" : "Prochaine édition") : edition.isPast ? "Terminée" : "À venir"}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+async function EventHubPage({ hub }: { hub: PublicRaceEventHub }) {
+  const { featured } = hub;
+  const hubUrl = new URL(`/courses/evenements/${hub.slug}`, SITE_URL).toString();
+  const featuredUrl = new URL(`/courses/evenements/${featured.slug}`, SITE_URL).toString();
+  const hubName = getEventHubName(hub.eventName);
+  const isDemo = isDemoRaceEventId(hub.eventId);
+  const featuredIsPast = isEventEditionPast(featured.endDate);
+  // The hub publishes the featured edition's SportsEvent under the edition @id
+  // (the one the format pages reference) with the hub as its page. An
+  // EventSeries is deliberately not emitted: it is an Event subtype that Google
+  // validates for startDate/location like the partial nested Events removed on
+  // 2026-11-16.
+  const structuredData = isDemo ? null : buildEventEditionStructuredData(featured, featuredUrl, new Date(), hubUrl);
+
+  return (
+    <div className="mx-auto w-full max-w-6xl space-y-5 pb-10 sm:space-y-8 sm:px-0 lg:px-2">
+      {structuredData ? <JsonLd data={structuredData} /> : null}
+      <JsonLd data={breadcrumbStructuredData([
+        { name: "Accueil", url: SITE_URL },
+        { name: "Courses", url: new URL("/courses", SITE_URL).toString() },
+        { name: hubName, url: hubUrl },
+      ])} />
+
+      <Breadcrumb crumbs={[{ name: "Accueil", href: "/" }, { name: "Courses", href: "/courses" }]} current={hubName} />
+
+      {featuredIsPast ? (
+        <aside className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950" aria-labelledby="hub-past-heading">
+          <h2 id="hub-past-heading" className="font-semibold">Prochaine édition pas encore publiée</h2>
+          <p className="text-sm">La dernière édition s’est terminée le {formatEditionDate(featured.endDate)}. Les informations ci-dessous la concernent.</p>
+        </aside>
+      ) : null}
+
+      <EventEditionSections
+        edition={featured}
+        title={hubName}
+        eyebrow={featuredIsPast ? `Dernière édition · ${featured.editionYear}` : `Prochaine édition · ${featured.editionYear}`}
+        shareUrl={hubUrl}
+        overviewTitle={hubName}
+        racebookAvailable={!featuredIsPast && hub.featuredLivretCoureurAvailable}
+        afterFormats={(
+          <>
+            {!featuredIsPast && hub.featuredLivretCoureurAvailable ? (
+              <aside className="rounded-2xl border border-brand-border bg-brand-surface p-4" aria-labelledby="hub-livret-heading">
+                <h2 id="hub-livret-heading" className="font-semibold text-foreground">Livret coureur disponible</h2>
+                <p className="text-sm text-muted-foreground">L’organisation publie son Livret coureur {featured.editionYear} dans l’app Pace Yourself.</p>
+              </aside>
+            ) : null}
+            <EditionHistory hub={hub} />
+          </>
+        )}
+      />
+    </div>
+  );
+}
+
+export default async function PublicEventPage({ params }: PageProps) {
+  const resolution = await resolvePublicRaceEventEditionSlug(params.slug);
+  if (resolution) {
+    if (resolution.shouldRedirect) permanentRedirect(`/courses/evenements/${resolution.edition.slug}`);
+    return <EventEditionPage edition={resolution.edition} />;
+  }
+
+  const hub = await resolvePublicRaceEventHubSlug(params.slug);
+  if (!hub) notFound();
+  return <EventHubPage hub={hub} />;
 }

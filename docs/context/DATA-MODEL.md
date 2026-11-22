@@ -14,12 +14,12 @@ No generated Supabase types file (`Database` type) exists in the repo; code uses
 
 ### race_events — [doc](../02-database/tables/race-events.md)
 - Purpose: event identity (name, location, image, live state) grouping yearly editions and formats.
-- Key columns: `id`, `name`, `location`, `thumbnail_url`, `short_name`, `website_url`, `organizer_details` (JSONB), normalized geography `location_city…location_country_code`, `location_latitude/longitude`.
+- Key columns: `id`, `name`, `slug` (durable year-free hub slug, not null, unique, immutable, never equal to an edition slug — `20261122230000`), `location`, `thumbnail_url`, `short_name`, `website_url`, `organizer_details` (JSONB), normalized geography `location_city…location_country_code` (French `location_region_code` = INSEE code, backfilled from the region name by `20261122230000`; region landing pages trust only the code), `location_latitude/longitude`.
 - **The create-table migration is not in the repo**; only later `add column` migrations are. Verify against live schema before depending on base columns.
 
 ### race_event_editions — [doc](../02-database/tables/race-event-editions.md)
 - Purpose: one row per event year; canonical dates and edition-level visibility.
-- Key columns: `event_id` → `race_events` (cascade), `edition_year`, `start_date`, `end_date`, `is_current`, `is_visible`, `slug`, `module_setup_completed_at`. Unique `(event_id, edition_year)`.
+- Key columns: `event_id` → `race_events` (cascade), `edition_year`, `start_date`, `end_date`, `is_current`, `is_visible`, `slug` (edition page, canonicalized to the event hub; former slugs in `race_event_edition_slug_redirects`), `module_setup_completed_at`. Unique `(event_id, edition_year)`.
 - RLS: service-role only (public reads traverse `races`, not this table).
 
 ### races — [doc](../02-database/tables/races.md)
@@ -97,3 +97,4 @@ Livret content: `race_event_edition_sponsors`, `race_event_edition_branding`, `r
 - Catalog hierarchy is `race_events` → `race_event_editions` → `races`. `gpx_storage_path` and `gpx_sha256` are written only after a successful upload to the `race-gpx` bucket (the object is deleted if the row update fails). `gpx_path` / `gpx_hash` are legacy `race_catalog` columns, nullable since `20260909192254`, and are also written by seeds and the organizer import RPC.
 - Expo Go: the app scheme is `paceyourself://` (`apps/mobile/app.config.ts`), not `pace-yourself://`. Custom schemes do not work in Expo Go; `makeRedirectUri` then yields an `exp://` URL, which must be whitelisted in Supabase Auth redirect URLs (the whitelist itself is dashboard config, not verifiable in the repo).
 - `race_events` base table and `races.event_id` are not created in visible migrations.
+- `/courses/evenements/<slug>` serves both edition slugs and event hub slugs: the two sets are kept disjoint by triggers on both tables. Do not write `race_events.slug` (immutable, no redirect table).

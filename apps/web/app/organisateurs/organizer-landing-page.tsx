@@ -145,7 +145,7 @@ const organizerOffers = [
     name: "Signature",
     price: formatPriceEur(ORGANIZER_TIER_PRICE_EUR.signature),
     description: "L’expérience personnalisée",
-    features: ["Tout Complet", "Relais et produits officiels", "Partenaires et statistiques de clics", "Identité visuelle et import assisté"],
+    features: ["Tout Complet", "Relais et produits officiels", "Partenaires et statistiques de clics", "Rapport partenaires", "Identité visuelle et import assisté"],
     recommended: false,
     cta: { label: "Parler de Signature", kind: "talk" },
   },

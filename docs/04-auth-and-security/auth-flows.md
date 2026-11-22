@@ -227,3 +227,6 @@ Return paths (2026-11-16): `/organizers` and `/organizer` (with a validated even
 
 `signin` and `signup` still return `access_token` and `refresh_token` in the JSON body in addition to the httpOnly cookies: `apps/web/app/sign-in/page.tsx` and `apps/web/app/sign-up/page.tsx` persist them to browser storage through `persistSessionToStorage`. Do not remove them until that client storage is retired.
 
+## Sign-up attribution (2026-11-22)
+
+`/sign-up` emits `sign up started` (email submit, Google or Apple click) and `sign up completed` (account created, with `email_confirmation_pending`) carrying `source_race`, read from the `catalogRaceId` of the existing return path or the last remembered race. The return path, redirects, rate limiting and session handling are unchanged; no email or name is sent. Web runner funnel analytics (2026-11-22): see [analytics.md](../05-integrations/analytics.md#web-runner-funnel-2026-11-22).

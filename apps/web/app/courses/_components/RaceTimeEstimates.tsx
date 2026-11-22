@@ -41,6 +41,7 @@ export function RaceTimeEstimates({
           </p>
           <Link
             href={estimateHref as Route}
+            data-estimate-placement="estimates_section"
             className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl bg-brand px-5 text-sm font-semibold text-brand-foreground transition hover:bg-brand-light"
           >
             Calculer mon temps
