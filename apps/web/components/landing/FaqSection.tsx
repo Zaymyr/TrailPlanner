@@ -1,9 +1,9 @@
 import Link from "next/link";
 
-import type { LandingPageTranslations } from "../../locales/types";
+import type { HomeLandingCopy } from "./home-copy";
 
 type FaqSectionProps = {
-  faq: LandingPageTranslations["faq"];
+  faq: HomeLandingCopy["faq"];
 };
 
 export function FaqSection({ faq }: FaqSectionProps) {
@@ -26,7 +26,7 @@ export function FaqSection({ faq }: FaqSectionProps) {
       </div>
       <div className="flex flex-col items-start justify-between gap-4 rounded-2xl border border-brand-border bg-brand-surface p-5 sm:flex-row sm:items-center sm:p-6 dark:border-emerald-400/30 dark:bg-emerald-400/5">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand dark:text-emerald-200">{faq.title}</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand dark:text-emerald-200">{faq.ctaEyebrow}</p>
           <p className="text-lg font-semibold text-foreground">{faq.cta}</p>
         </div>
         <Link

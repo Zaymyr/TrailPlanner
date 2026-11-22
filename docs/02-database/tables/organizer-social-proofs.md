@@ -107,7 +107,7 @@ limit 3;
 - Do not call PostHog from the landing request. Refresh the persisted snapshot from the protected admin route and invalidate the landing cache only after the database write succeeds.
 - Do not expose drafts or audit ids through an anonymous Data API grant. Public presentation remains server-only and allowlisted.
 - The event favorite count is event-scoped current stock and is intentionally not stored in an edition proof.
-- The hero and highlighted section intentionally reuse the same first ordered snapshot; do not compute a separate or fresher metric in the client.
+- The hero and highlighted section intentionally reuse the same first ordered snapshot; do not compute a separate or fresher metric in the client. The home page (`HomeProofStrip`, 2026-11-22) also summarizes that first snapshot (logo, race name, the two metrics) from the same cached server read and links to `/organisateurs#preuve-sociale`; it renders nothing without a published proof. On `/organisateurs` the hero strip now follows the primary CTA instead of preceding it, a presentation-only move.
 - The admin header's separate 3D video-generator link neither reads nor mutates organizer proof snapshots. The same holds for the « Publications » link (`/admin/publications`, Instagram Reels, see [Instagram Reels Publishing](../../05-integrations/instagram-publishing.md)).
 - Changing the organizer logo or event image does not call `revalidateTag("organizer-social-proofs")`; the landing picks it up within the five-minute cache window (or immediately after any proof save). The race-events thumbnail can be a photo rather than a logo, so check the admin preview before publishing.
 

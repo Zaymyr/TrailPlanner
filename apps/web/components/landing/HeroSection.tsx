@@ -1,9 +1,8 @@
-import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
 import type { SVGProps } from "react";
 
-import type { LandingPageTranslations } from "../../locales/types";
+import { RaceBookPhoneMockup } from "./RaceBookPhoneMockup";
+import type { HomeLandingCopy } from "./home-copy";
 
 const IconArrowRight = (props: SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" aria-hidden focusable="false" {...props}>
@@ -40,14 +39,10 @@ const IconPlay = (props: SVGProps<SVGSVGElement>) => (
 );
 
 type HeroSectionProps = {
-  hero: LandingPageTranslations["hero"];
-  locale: "fr" | "en";
+  hero: HomeLandingCopy["hero"];
 };
 
-export function HeroSection({ hero, locale }: HeroSectionProps) {
-  const [heroSrc, setHeroSrc] = useState("/landing/hero.png");
-  const isFrench = locale === "fr";
-
+export function HeroSection({ hero }: HeroSectionProps) {
   return (
     <section className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-card via-card/90 to-muted p-4 shadow-[0_24px_70px_rgba(45,80,22,0.10)] sm:p-8 lg:p-12">
       <div className="absolute inset-x-8 top-8 h-40 rounded-full bg-brand-surface/80 blur-3xl dark:bg-emerald-500/10" aria-hidden />
@@ -57,32 +52,16 @@ export function HeroSection({ hero, locale }: HeroSectionProps) {
             {hero.eyebrow}
           </div>
           <div className="space-y-3">
-            <h1 className="text-[2rem] font-semibold leading-tight text-foreground sm:text-5xl">{hero.heading}</h1>
-            <p className="max-w-3xl text-lg leading-relaxed text-muted-foreground sm:text-xl">{hero.subheading}</p>
+            <h1 className="text-[1.9rem] font-semibold leading-tight text-foreground sm:text-4xl lg:text-[2.6rem]">{hero.heading}</h1>
+            <p className="max-w-3xl text-base leading-relaxed text-muted-foreground sm:text-xl">{hero.subheading}</p>
           </div>
-          <Link
-            href="/race-planner"
-            className="group inline-flex min-h-14 w-full items-center justify-between gap-3 rounded-lg bg-brand px-5 py-3 text-brand-foreground shadow-lg sm:hidden"
-          >
-            <span className="font-semibold">{hero.primaryCta}</span>
-            <IconArrowRight className="h-4 w-4" />
-          </Link>
-          <ul className="space-y-3 text-base text-muted-foreground">
-            {hero.bullets.map((item) => (
-              <li key={item} className="flex items-start gap-3">
-                <IconCheck className="mt-0.5 h-5 w-5 flex-shrink-0 text-brand dark:text-emerald-300" />
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="text-sm font-medium text-muted-foreground dark:text-emerald-200">{hero.socialProof}</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Link
               href="/race-planner"
-              className="group hidden min-h-16 items-center justify-between gap-3 rounded-lg bg-brand px-5 py-3 text-brand-foreground shadow-lg shadow-[rgba(45,80,22,0.18)] transition hover:-translate-y-[1px] hover:bg-brand-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:inline-flex dark:bg-emerald-400 dark:text-foreground dark:hover:bg-emerald-300 dark:focus-visible:outline-emerald-400"
+              className="group inline-flex min-h-16 items-center justify-between gap-3 rounded-lg bg-brand px-5 py-3 text-brand-foreground shadow-lg shadow-[rgba(45,80,22,0.18)] transition hover:-translate-y-[1px] hover:bg-brand-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:bg-emerald-400 dark:text-foreground dark:hover:bg-emerald-300 dark:focus-visible:outline-emerald-400"
             >
               <span className="flex flex-col">
-                <span className="text-xs font-medium opacity-80">{isFrench ? "Je suis coureur" : "I am a runner"}</span>
+                <span className="text-xs font-medium opacity-80">{hero.runnerLabel}</span>
                 <span className="text-sm font-semibold">{hero.primaryCta}</span>
               </span>
               <IconArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
@@ -92,8 +71,8 @@ export function HeroSection({ hero, locale }: HeroSectionProps) {
               className="group inline-flex min-h-16 items-center justify-between gap-3 rounded-lg border border-brand-border bg-brand-surface px-5 py-3 text-brand transition hover:-translate-y-[1px] hover:bg-card focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:border-emerald-400/50 dark:bg-emerald-400/10 dark:text-emerald-100 dark:hover:bg-emerald-400/15 dark:focus-visible:outline-emerald-300"
             >
               <span className="flex flex-col">
-                <span className="text-xs font-medium opacity-80">{isFrench ? "Je suis organisateur" : "I am an organizer"}</span>
-                <span className="text-sm font-semibold">{isFrench ? "Créer mon Livret coureur" : "Create my Race Book"}</span>
+                <span className="text-xs font-medium opacity-80">{hero.organizerLabel}</span>
+                <span className="text-sm font-semibold">{hero.organizerCta}</span>
               </span>
               <IconArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
             </Link>
@@ -105,26 +84,20 @@ export function HeroSection({ hero, locale }: HeroSectionProps) {
             <IconPlay className="h-4 w-4" />
             {hero.secondaryCta}
           </Link>
+          <ul className="space-y-3 text-base text-muted-foreground">
+            {hero.bullets.map((item) => (
+              <li key={item} className="flex items-start gap-3">
+                <IconCheck className="mt-0.5 h-5 w-5 flex-shrink-0 text-brand dark:text-emerald-300" />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-sm font-medium text-muted-foreground dark:text-emerald-200">{hero.socialProof}</p>
         </div>
 
         <div className="relative">
           <div className="pointer-events-none absolute -left-12 -top-12 h-40 w-40 rounded-full bg-brand-surface blur-3xl dark:bg-emerald-500/20" />
-          <div className="rounded-2xl border border-border/80 bg-card/80 p-3 shadow-2xl shadow-[rgba(45,80,22,0.10)] dark:shadow-emerald-500/10">
-            <Image
-              src={heroSrc}
-              alt={hero.heroImageAlt}
-              width={858}
-              height={172}
-              priority
-              sizes="(min-width: 1024px) 560px, 100vw"
-              className="w-full rounded-xl object-cover"
-              onError={() => {
-                if (heroSrc !== "/landing/hero.svg") {
-                  setHeroSrc("/landing/hero.svg");
-                }
-              }}
-            />
-          </div>
+          <RaceBookPhoneMockup className="mx-auto w-full max-w-[240px] sm:max-w-[270px]" />
         </div>
       </div>
     </section>

@@ -2,12 +2,16 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState, type SVGProps } from "react";
+import { useState, type SVGProps } from "react";
 import type { Route } from "next";
 
 import { trackGoogleAnalyticsEvent } from "../../lib/google-analytics";
 import type { OrganizerAttribution } from "../../lib/organizer-acquisition";
+import { ANDROID_APP_STORE_URL, PUBLIC_IOS_APP_STORE_URL } from "../../lib/app-store";
+import { ORGANIZER_TIER_PRICE_EUR } from "../../lib/organizer-modules";
 import type { OrganizerSocialProof } from "../../lib/organizer-social-proof";
+import { formatProofCount as formatCount, ProofLogo } from "../../components/landing/ProofLogo";
+import { RaceBookPhoneMockup } from "../../components/landing/RaceBookPhoneMockup";
 import { OrganizerDemoRequestForm } from "./organizer-demo-request-form";
 
 type OrganizerLandingPageProps = {
@@ -18,7 +22,9 @@ type OrganizerLandingPageProps = {
 
 type DemoKey = "course" | "dossards" | "materiel" | "acces";
 
-const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.paceyourself.app";
+const PLAY_STORE_URL = ANDROID_APP_STORE_URL;
+const APP_STORE_URL = PUBLIC_IOS_APP_STORE_URL;
+const formatPriceEur = (value: number) => `${value} €`;
 
 const demoViews: Array<{
   key: DemoKey;
@@ -81,12 +87,6 @@ const livretProducts = [
   },
 ] as const;
 
-const supporterPreviewRows = [
-  { tag: "Départ · Programme", title: "Départ de l’ultra" },
-  { tag: "Ravito · km 18", title: "Ravito du col" },
-  { tag: "Suivi · km 24", title: "Point de suivi" },
-] as const;
-
 const runnerInformation = [
   "Parcours et traces GPX",
   "Horaires de départ",
@@ -110,7 +110,7 @@ const tstDiscoverySteps = [
   {
     number: "01",
     title: "Téléchargez Pace Yourself",
-    description: "Installez gratuitement l’application depuis Google Play, puis ouvrez-la.",
+    description: "Installez gratuitement l’application depuis l’App Store ou Google Play, puis ouvrez-la.",
   },
   {
     number: "02",
@@ -125,9 +125,30 @@ const tstDiscoverySteps = [
 ] as const;
 
 const organizerOffers = [
-  { name: "Essentiel", price: "199 €", description: "Le Livret coureur simple", features: ["Livret coureur et Livret supporter", "Course et GPX", "Matériel et dossard", "Accès principal et ravitos simples"] },
-  { name: "Complet", price: "349 €", description: "La logistique avancée", features: ["Tout Essentiel", "SAS et barrières", "Services et navettes", "Podiums et notifications"] },
-  { name: "Signature", price: "499 €", description: "L'expérience personnalisée", features: ["Tout Complet", "Relais et produits officiels", "Sponsors et clics", "Identité visuelle et import assisté"] },
+  {
+    name: "Essentiel",
+    price: formatPriceEur(ORGANIZER_TIER_PRICE_EUR.essential),
+    description: "Livret coureur et Livret supporter, l’essentiel",
+    features: ["Livret coureur et Livret supporter", "Course et GPX", "Matériel et dossard", "Accès principal et ravitos simples"],
+    recommended: false,
+    cta: { label: "Créer mon Livret coureur", kind: "create" },
+  },
+  {
+    name: "Complet",
+    price: formatPriceEur(ORGANIZER_TIER_PRICE_EUR.complete),
+    description: "La logistique avancée",
+    features: ["Tout Essentiel", "Vagues de départ (SAS) et barrières horaires", "Services et navettes", "Podiums et notifications"],
+    recommended: true,
+    cta: { label: "Créer mon Livret coureur", kind: "create" },
+  },
+  {
+    name: "Signature",
+    price: formatPriceEur(ORGANIZER_TIER_PRICE_EUR.signature),
+    description: "L’expérience personnalisée",
+    features: ["Tout Complet", "Relais et produits officiels", "Partenaires et statistiques de clics", "Identité visuelle et import assisté"],
+    recommended: false,
+    cta: { label: "Parler de Signature", kind: "talk" },
+  },
 ] as const;
 
 const ArrowIcon = (props: SVGProps<SVGSVGElement>) => (
@@ -142,54 +163,12 @@ const CheckIcon = (props: SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-const formatCount = (value: number) => value.toLocaleString("fr-FR");
-
-const ProofLogo = ({ proof, className }: { proof: OrganizerSocialProof; className: string }) =>
-  proof.logoUrl ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={proof.logoUrl}
-      alt={`Logo ${proof.eventName}`}
-      loading="lazy"
-      className={`shrink-0 rounded-2xl border border-border bg-white ${proof.logoSource === "event" ? "object-cover" : "object-contain p-1"} ${className}`}
-    />
-  ) : (
-    <span aria-hidden className={`flex shrink-0 items-center justify-center rounded-2xl bg-brand text-lg font-semibold text-brand-foreground dark:bg-emerald-400 dark:text-slate-950 ${className}`}>
-      {proof.eventName.charAt(0)}
-    </span>
-  );
-
 export function OrganizerLandingPage({ attribution, creationHref, socialProofs }: OrganizerLandingPageProps) {
   const [activeDemo, setActiveDemo] = useState<DemoKey>("course");
-  const [isHeroVideoPlaying, setIsHeroVideoPlaying] = useState(true);
-  const heroVideoRef = useRef<HTMLVideoElement>(null);
   const selectedDemo = demoViews.find((view) => view.key === activeDemo) ?? demoViews[0];
   const featuredProof = socialProofs[0] ?? null;
 
-  useEffect(() => {
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const syncMotionPreference = () => {
-      if (reducedMotion.matches) {
-        heroVideoRef.current?.pause();
-        setIsHeroVideoPlaying(false);
-      }
-    };
-    syncMotionPreference();
-    reducedMotion.addEventListener("change", syncMotionPreference);
-    return () => reducedMotion.removeEventListener("change", syncMotionPreference);
-  }, []);
-
-  const toggleHeroVideo = () => {
-    const video = heroVideoRef.current;
-    if (!video) return;
-    if (video.paused) {
-      void video.play().catch(() => setIsHeroVideoPlaying(false));
-    } else {
-      video.pause();
-    }
-  };
-
-  const trackCta = (kind: "primary" | "secondary", placement: "hero" | "demo" | "final", destination: string) => {
+  const trackCta = (kind: "primary" | "secondary", placement: "hero" | "demo" | "final" | "pricing", destination: string) => {
     trackGoogleAnalyticsEvent("organizer_landing_cta_clicked", {
       event_category: "organizer_acquisition",
       cta_kind: kind,
@@ -199,11 +178,11 @@ export function OrganizerLandingPage({ attribution, creationHref, socialProofs }
     });
   };
 
-  const primaryCta = (placement: "hero" | "demo" | "final", label: string) => (
+  const primaryCta = (placement: "hero" | "demo" | "final" | "pricing", label: string, className = "") => (
     <Link
       href={creationHref as Route}
       onClick={() => trackCta("primary", placement, "/organizers")}
-      className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-brand px-5 py-3 text-center text-sm font-semibold text-brand-foreground shadow-lg shadow-[rgba(45,80,22,0.18)] transition hover:-translate-y-px hover:bg-brand-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:bg-emerald-400 dark:text-slate-950 dark:hover:bg-emerald-300"
+      className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-brand px-5 py-3 text-center text-sm font-semibold text-brand-foreground shadow-lg shadow-[rgba(45,80,22,0.18)] transition hover:-translate-y-px hover:bg-brand-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:bg-emerald-400 dark:text-slate-950 dark:hover:bg-emerald-300 ${className}`}
     >
       {label}
       <ArrowIcon className="h-4 w-4" />
@@ -211,15 +190,24 @@ export function OrganizerLandingPage({ attribution, creationHref, socialProofs }
   );
 
   const appCta = (placement: "hero" | "demo" | "final", label = "Télécharger l’app et voir TST") => (
-    <a
-      href={PLAY_STORE_URL}
-      target="_blank"
-      rel="noreferrer"
-      onClick={() => trackCta("secondary", placement, PLAY_STORE_URL)}
-      className="inline-flex min-h-12 items-center justify-center rounded-lg border border-border bg-card px-5 py-3 text-center text-sm font-semibold text-foreground transition hover:border-brand-border hover:bg-brand-surface hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:hover:border-emerald-300 dark:hover:text-emerald-100"
-    >
-      {label}
-    </a>
+    <div className="flex flex-col gap-2 sm:flex-row">
+      {[
+        { name: "App Store", url: APP_STORE_URL },
+        { name: "Google Play", url: PLAY_STORE_URL },
+      ].map((store) => (
+        <a
+          key={store.name}
+          href={store.url}
+          target="_blank"
+          rel="noreferrer"
+          onClick={() => trackCta("secondary", placement, store.url)}
+          aria-label={`${label} sur ${store.name}`}
+          className="inline-flex min-h-12 items-center justify-center rounded-lg border border-border bg-card px-5 py-3 text-center text-sm font-semibold text-foreground transition hover:border-brand-border hover:bg-brand-surface hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:hover:border-emerald-300 dark:hover:text-emerald-100"
+        >
+          Télécharger sur {store.name}
+        </a>
+      ))}
+    </div>
   );
 
   const demoCta = () => (
@@ -244,13 +232,30 @@ export function OrganizerLandingPage({ attribution, creationHref, socialProofs }
               Livret coureur + Livret supporter
             </p>
             <div className="space-y-4">
-              <h1 className="max-w-3xl text-[2rem] font-semibold leading-[1.06] tracking-[-0.035em] text-foreground sm:text-[2.65rem] lg:text-[clamp(2.65rem,4vw,3.4rem)]">
+              <h1 className="max-w-3xl text-[2rem] font-semibold leading-[1.06] tracking-[-0.035em] text-foreground sm:text-[2.25rem] lg:text-[clamp(2.1rem,3.2vw,2.75rem)]">
                 Une seule source d’information pour vos coureurs et leurs proches.
               </h1>
               <p className="max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
                 Publiez vos informations une fois : vos coureurs ont leur Livret coureur, leurs familles et amis le Livret supporter pour suivre la course.
               </p>
             </div>
+            <div className="flex flex-col gap-3 sm:flex-row md:flex-col md:items-start lg:flex-row">
+              {primaryCta("hero", "Créer mon Livret coureur")}
+              {demoCta()}
+            </div>
+            <a href="#demande-demo" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand underline-offset-4 hover:underline dark:text-emerald-200">
+              Besoin d’en parler ? Demander une démo
+            </a>
+            <ul className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-foreground/80" aria-label="Avantages de l’offre">
+              {[`Les deux livrets dès ${formatPriceEur(ORGANIZER_TIER_PRICE_EUR.essential)} HT par édition`, "Tous vos formats inclus", "Présence au catalogue gratuite"].map((benefit) => (
+                <li key={benefit} className="flex items-center gap-2">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand text-brand-foreground dark:bg-emerald-400 dark:text-slate-950">
+                    <CheckIcon className="h-3 w-3" />
+                  </span>
+                  {benefit}
+                </li>
+              ))}
+            </ul>
             {featuredProof ? (
               <a
                 href="#preuve-sociale"
@@ -292,94 +297,15 @@ export function OrganizerLandingPage({ attribution, creationHref, socialProofs }
                 </li>
               ))}
             </ul>
-            <div className="flex flex-col gap-3 sm:flex-row md:flex-col md:items-start lg:flex-row">
-              {primaryCta("hero", "Créer mon Livret coureur")}
-              {demoCta()}
-            </div>
-            <a href="#demande-demo" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand underline-offset-4 hover:underline dark:text-emerald-200">
-              Besoin d’en parler ? Demander une démo
-            </a>
-            <ul className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-foreground/80" aria-label="Avantages de l’offre">
-              {["Les deux livrets dès 199 € HT par édition", "Tous vos formats inclus", "Présence au catalogue gratuite"].map((benefit) => (
-                <li key={benefit} className="flex items-center gap-2">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand text-brand-foreground dark:bg-emerald-400 dark:text-slate-950">
-                    <CheckIcon className="h-3 w-3" />
-                  </span>
-                  {benefit}
-                </li>
-              ))}
-            </ul>
             {featuredProof ? null : (
               <p className="text-sm text-muted-foreground">Vos informations existent déjà. Pace Yourself les rend simplement plus faciles à retrouver.</p>
             )}
           </div>
 
-          <div className="relative mx-auto mb-6 w-full max-w-[260px] sm:max-w-[280px] md:mt-1 md:max-w-[260px] md:justify-self-end lg:max-w-[clamp(240px,calc(40svh-56px),290px)]">
-            <div className="relative overflow-hidden rounded-[2.2rem] border border-foreground/10 bg-foreground p-2.5 shadow-2xl shadow-[rgba(45,80,22,0.22)] dark:border-emerald-300/15 dark:bg-emerald-950">
-              <div className="flex items-center justify-between px-3 py-2 text-background dark:text-emerald-50">
-                <div>
-                  <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-background/60 dark:text-emerald-100/60">Aperçu réel</p>
-                  <p className="text-sm font-semibold">Trail TST</p>
-                </div>
-                <span className="flex items-center gap-1.5 rounded-full bg-background/10 px-2.5 py-1 text-[0.68rem] font-medium">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                  Livret coureur
-                </span>
-              </div>
-              <div className="relative aspect-[540/1212] overflow-hidden rounded-[1.55rem] bg-card">
-                <Image
-                  src="/landing/organisateurs/racebook-demo-poster.webp"
-                  alt="Aperçu du Livret coureur Trail TST affichant le tracé de l’Ultra des Cimes"
-                  fill
-                  priority
-                  sizes="(min-width: 1024px) 290px, (min-width: 768px) 260px, 280px"
-                  className="object-cover"
-                />
-                <video
-                  ref={heroVideoRef}
-                  className="absolute inset-0 h-full w-full object-cover"
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  preload="metadata"
-                  poster="/landing/organisateurs/racebook-demo-poster.webp"
-                  aria-label="Démonstration du Livret coureur Trail TST, du catalogue aux informations de course"
-                  onPlay={() => setIsHeroVideoPlaying(true)}
-                  onPause={() => setIsHeroVideoPlaying(false)}
-                >
-                  <source src="/landing/organisateurs/racebook-demo.mp4" type="video/mp4" />
-                </video>
-                <button
-                  type="button"
-                  onClick={toggleHeroVideo}
-                  className="absolute bottom-3 right-3 inline-flex min-h-9 items-center justify-center rounded-full border border-white/30 bg-slate-950/75 px-3 text-xs font-semibold text-white shadow-lg backdrop-blur transition hover:bg-slate-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-                  aria-label={isHeroVideoPlaying ? "Mettre en pause la démonstration" : "Lire la démonstration"}
-                >
-                  {isHeroVideoPlaying ? "Pause" : "Lire"}
-                </button>
-              </div>
-            </div>
-
-            <figure
-              className="absolute -bottom-6 -left-6 w-[64%] overflow-hidden rounded-2xl border border-border bg-card shadow-2xl shadow-[rgba(45,80,22,0.25)] sm:-left-12 md:-left-16"
-              aria-label="Illustration du Livret supporter : programme, ravitos et points de suivi"
-            >
-              <div className="bg-brand px-3 pb-2.5 pt-3 text-brand-foreground dark:bg-emerald-800 dark:text-emerald-50">
-                <p className="text-[0.55rem] font-semibold uppercase tracking-[0.16em] opacity-80">Livret supporter</p>
-                <p className="text-sm font-semibold leading-tight">Suivre la course</p>
-              </div>
-              <ol className="space-y-1.5 p-2.5">
-                {supporterPreviewRows.map((row) => (
-                  <li key={row.tag} className="rounded-lg border border-border bg-background/70 px-2 py-1.5">
-                    <span className="block text-[0.55rem] font-semibold uppercase tracking-wide text-brand dark:text-emerald-200">{row.tag}</span>
-                    <span className="block truncate text-xs font-semibold text-foreground">{row.title}</span>
-                  </li>
-                ))}
-              </ol>
-              <figcaption className="border-t border-border px-2.5 py-1.5 text-[0.6rem] font-medium text-muted-foreground">Partagé par lien ou QR code</figcaption>
-            </figure>
-          </div>
+          <RaceBookPhoneMockup
+            showSupporterCard
+            className="mx-auto mb-6 w-full max-w-[260px] sm:max-w-[280px] md:mt-1 md:max-w-[260px] md:justify-self-end lg:max-w-[clamp(240px,calc(40svh-56px),290px)]"
+          />
         </div>
       </section>
 
@@ -557,17 +483,38 @@ export function OrganizerLandingPage({ attribution, creationHref, socialProofs }
         <div className="max-w-3xl space-y-3">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand dark:text-emerald-200">Une offre adaptée à chaque course</p>
           <h2 id="offers-title" className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">Activez seulement les sections dont vous avez besoin</h2>
-          <p className="leading-7 text-muted-foreground">Tarifs HT par édition, quel que soit le nombre de formats ou de participants. La présence au catalogue reste gratuite.</p>
+          <p className="leading-7 text-muted-foreground">Prix HT par édition, sans abonnement, quel que soit le nombre de formats ou de participants. La présence au catalogue reste gratuite.</p>
         </div>
         <div className="grid gap-4 lg:grid-cols-3">
           {organizerOffers.map((offer) => (
-            <article key={offer.name} className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-              <p className="text-sm font-semibold text-brand dark:text-emerald-200">{offer.name}</p>
+            <article
+              key={offer.name}
+              className={`flex flex-col rounded-2xl border bg-card p-6 shadow-sm ${offer.recommended ? "border-brand shadow-[0_18px_45px_rgba(45,80,22,0.14)] dark:border-emerald-300" : "border-border"}`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-brand dark:text-emerald-200">{offer.name}</p>
+                {offer.recommended ? (
+                  <span className="rounded-full bg-brand px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-wide text-brand-foreground dark:bg-emerald-400 dark:text-slate-950">Recommandé</span>
+                ) : null}
+              </div>
               <p className="mt-2 text-3xl font-semibold text-foreground">{offer.price} <span className="text-sm font-normal text-muted-foreground">HT / édition</span></p>
               <p className="mt-2 text-sm text-muted-foreground">{offer.description}</p>
-              <ul className="mt-5 space-y-2 text-sm text-foreground">
+              <ul className="mt-5 flex-1 space-y-2 text-sm text-foreground">
                 {offer.features.map((feature) => <li key={feature} className="flex gap-2"><CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-brand" />{feature}</li>)}
               </ul>
+              <div className="mt-6 flex">
+                {offer.cta.kind === "create" ? (
+                  primaryCta("pricing", offer.cta.label, "w-full")
+                ) : (
+                  <a
+                    href="#demande-demo"
+                    onClick={() => trackCta("secondary", "pricing", "#demande-demo")}
+                    className="inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-brand-border bg-card px-5 py-3 text-center text-sm font-semibold text-brand transition hover:bg-brand-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:border-emerald-300/60 dark:text-emerald-100"
+                  >
+                    {offer.cta.label}
+                  </a>
+                )}
+              </div>
             </article>
           ))}
         </div>

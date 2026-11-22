@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { trackGoogleAnalyticsEvent } from "../../lib/google-analytics";
+import { ORGANIZER_TIER_PRICE_EUR } from "../../lib/organizer-modules";
 import { getDaysUntilDate } from "../../lib/product-analytics";
 import {
   buildAuthHref,
@@ -101,18 +102,21 @@ export default function OrganizersPage({ searchParams }: OrganizersPageProps) {
             Espace organisateurs
           </p>
           <h1 className="max-w-2xl text-3xl font-semibold tracking-tight text-foreground dark:text-slate-50 sm:text-4xl">
-            Crée ton événement et renseigne ses formats depuis ton dashboard.
+            Créez votre événement et renseignez ses formats depuis votre espace organisateur.
           </h1>
           <p className="max-w-xl text-sm leading-6 text-muted-foreground dark:text-slate-300">
-            La fiche est créée immédiatement en brouillon et rattachée à ton compte. Aucun claim ni validation admin
-            n&apos;est nécessaire pour commencer à la compléter.
+            Créez votre événement gratuitement. Vous ne payez qu&apos;à la publication du livret (dès{" "}
+            {ORGANIZER_TIER_PRICE_EUR.essential} € HT).
+          </p>
+          <p className="max-w-xl text-sm leading-6 text-muted-foreground dark:text-slate-300">
+            L&apos;événement est rattaché à votre compte dès sa création : vous pouvez le compléter tout de suite, à votre rythme.
           </p>
           <Link href={"/organisateurs#demande-demo" as Route} className="inline-flex min-h-11 items-center text-sm font-semibold text-brand underline-offset-4 hover:underline dark:text-emerald-300">
             Pas encore prêt ? Demander une démo
           </Link>
           {session ? (
             <Link href="/organizer">
-              <Button variant="outline">Ouvrir mon dashboard</Button>
+              <Button variant="outline">Ouvrir mon espace organisateur</Button>
             </Link>
           ) : null}
         </div>
@@ -121,7 +125,7 @@ export default function OrganizersPage({ searchParams }: OrganizersPageProps) {
           <CardHeader>
             <CardTitle>Créer mon événement</CardTitle>
             <CardDescription>
-              Crée la première édition avec sa plage de dates, puis complète ses formats dans le dashboard.
+              Créez la première édition avec sa plage de dates, puis complétez ses formats dans votre espace organisateur.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -129,13 +133,13 @@ export default function OrganizersPage({ searchParams }: OrganizersPageProps) {
               <p className="text-sm text-muted-foreground">Vérification de la session...</p>
             ) : !session ? (
               <div className="space-y-4 text-sm text-muted-foreground">
-                <p>Connecte-toi pour créer ton événement et obtenir immédiatement son accès organisateur.</p>
+                <p>Créez un compte ou connectez-vous pour créer votre événement et en gérer le Livret coureur.</p>
                 <div className="flex flex-wrap gap-2">
-                  <Link href={signInHref as Route}>
-                    <Button>Se connecter</Button>
-                  </Link>
                   <Link href={signUpHref as Route}>
-                    <Button variant="outline">Créer un compte</Button>
+                    <Button>Créer un compte</Button>
+                  </Link>
+                  <Link href={signInHref as Route}>
+                    <Button variant="outline">Se connecter</Button>
                   </Link>
                 </div>
               </div>
@@ -149,7 +153,7 @@ export default function OrganizersPage({ searchParams }: OrganizersPageProps) {
                     onChange={(changeEvent) =>
                       setEventForm((current) => ({ ...current, name: changeEvent.target.value }))
                     }
-                    placeholder="Trail du fort de Tamié"
+                    placeholder="Course du fort de Tamié"
                     required
                   />
                 </div>
@@ -198,8 +202,8 @@ export default function OrganizersPage({ searchParams }: OrganizersPageProps) {
                 </div>
 
                 <div className="rounded-md border border-border bg-muted/40 p-3 text-xs leading-5 text-muted-foreground">
-                  L&apos;événement et ses formats restent modifiables dans le dashboard. Une offre est choisie et payée avant
-                  la première publication du Livret coureur.
+                  L&apos;événement et ses formats restent modifiables à tout moment. Vous choisissez et réglez une offre
+                  (dès {ORGANIZER_TIER_PRICE_EUR.essential} € HT) uniquement avant la première publication du Livret coureur.
                 </div>
 
                 {error ? <p className="text-sm text-red-600 dark:text-red-300">{error}</p> : null}

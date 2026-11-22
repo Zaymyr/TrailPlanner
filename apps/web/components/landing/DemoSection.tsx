@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useState } from "react";
 import type { SVGProps } from "react";
 
-import type { LandingPageTranslations } from "../../locales/types";
+import type { HomeLandingCopy } from "./home-copy";
 
 const IconSparkles = (props: SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" aria-hidden focusable="false" {...props}>
@@ -26,15 +26,41 @@ const IconSparkles = (props: SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+/** Illustrative values for a 50K plan; not computed, labelled as an example. */
+const exampleGauges = [
+  { key: "carbs", label: "Glucides totaux", value: "380 g", target: "cible 70 g/h", position: 62 },
+  { key: "water", label: "Eau totale", value: "2 400 ml", target: "cible 450 ml/h", position: 58 },
+  { key: "sodium", label: "Sodium total", value: "2 000 mg", target: "cible 400 mg/h", position: 55 },
+] as const;
+
+function FuelGaugesPreview({ label, note }: { label: string; note: string }) {
+  return (
+    <div className="rounded-2xl border border-border/80 bg-card/80 p-4 shadow-lg shadow-[rgba(45,80,22,0.08)]">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
+      <ul className="mt-3 grid gap-3 sm:grid-cols-3">
+        {exampleGauges.map((gauge) => (
+          <li key={gauge.key} className="rounded-xl border border-border/60 bg-card p-3">
+            <p className="text-xs font-medium text-muted-foreground">{gauge.label}</p>
+            <p className="mt-1 text-xl font-semibold text-foreground">{gauge.value}</p>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted" role="presentation">
+              <div className="h-full rounded-full bg-emerald-500" style={{ width: `${gauge.position}%` }} />
+            </div>
+            <p className="mt-2 text-[0.7rem] text-muted-foreground">{gauge.target}</p>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-3 text-xs text-muted-foreground">{note}</p>
+    </div>
+  );
+}
+
 type DemoSectionProps = {
-  demo: LandingPageTranslations["demo"];
-  heroImageAlt: string;
+  demo: HomeLandingCopy["demo"];
   secondaryImageAlt: string;
   ctaLabel: string;
 };
 
-export function DemoSection({ demo, heroImageAlt, secondaryImageAlt, ctaLabel }: DemoSectionProps) {
-  const [primarySrc, setPrimarySrc] = useState("/landing/hero.png");
+export function DemoSection({ demo, secondaryImageAlt, ctaLabel }: DemoSectionProps) {
   const [secondarySrc, setSecondarySrc] = useState("/landing/secondary.png");
 
   return (
@@ -66,21 +92,7 @@ export function DemoSection({ demo, heroImageAlt, secondaryImageAlt, ctaLabel }:
           </div>
         </div>
         <div className="space-y-4">
-          <div className="overflow-hidden rounded-2xl border border-border/80 bg-card/80 shadow-lg shadow-[rgba(45,80,22,0.08)]">
-            <Image
-              src={primarySrc}
-              alt={heroImageAlt}
-              width={858}
-              height={172}
-              sizes="(min-width: 1024px) 560px, 100vw"
-              className="h-auto w-full object-cover"
-              onError={() => {
-                if (primarySrc !== "/landing/hero.svg") {
-                  setPrimarySrc("/landing/hero.svg");
-                }
-              }}
-            />
-          </div>
+          <FuelGaugesPreview label={demo.gaugesLabel} note={demo.gaugesNote} />
           <div className="overflow-hidden rounded-2xl border border-border/80 bg-card/80 shadow-lg shadow-[rgba(45,80,22,0.08)]">
             <Image
               src={secondarySrc}
