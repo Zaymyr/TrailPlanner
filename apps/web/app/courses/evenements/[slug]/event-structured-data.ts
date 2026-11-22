@@ -29,11 +29,18 @@ const buildEditionAddress = (edition: PublicRaceEventEdition) => {
   return Object.keys(address).length > 1 ? address : null;
 };
 
+/**
+ * `editionUrl` names the edition entity (`@id`, referenced by the formats'
+ * `superEvent`). `pageUrl` is the page publishing it: the edition page
+ * itself, or the permanent event hub that features this edition.
+ */
 export const buildEventEditionStructuredData = (
   edition: PublicRaceEventEdition,
-  canonicalUrl: string,
+  editionUrl: string,
   now: Date = new Date(),
+  pageUrl: string = editionUrl,
 ) => {
+  const canonicalUrl = editionUrl;
   // Same rule as the format pages: no "scheduled" status or registration offer once finished.
   const isPast = isEventEditionPast(edition.endDate, now);
   const siteOrigin = new URL(canonicalUrl).origin;
@@ -48,8 +55,8 @@ export const buildEventEditionStructuredData = (
     "@type": "SportsEvent",
     "@id": `${canonicalUrl}#event`,
     name: `${edition.eventName} ${edition.editionYear}`,
-    url: canonicalUrl,
-    mainEntityOfPage: canonicalUrl,
+    url: pageUrl,
+    mainEntityOfPage: pageUrl,
     startDate: edition.startDate,
     endDate: edition.endDate,
     ...(isPast ? {} : { eventStatus: "https://schema.org/EventScheduled" }),

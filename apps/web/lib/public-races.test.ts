@@ -145,15 +145,44 @@ describe("public race slug resolution", () => {
         id: eventRace.edition_id,
         slug: "festival-public-2026",
         updated_at: null,
-      }]));
+      }]))
+      .mockResolvedValueOnce(jsonResponse([{ id: eventRace.event_id, slug: "festival-public" }]));
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(resolvePublicRaceSlug(eventRace.slug)).resolves.toEqual({
-      race: expect.objectContaining({ slug: eventRace.slug, eventEditionSlug: "festival-public-2026" }),
+      race: expect.objectContaining({ slug: eventRace.slug, eventEditionSlug: "festival-public-2026", eventSlug: "festival-public" }),
       shouldRedirect: false,
     });
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(fetchMock.mock.calls[2]?.[0]).toContain("race_event_editions?");
+    expect(fetchMock.mock.calls[3]?.[0]).toContain("race_events?select=id,slug&");
+  });
+
+  it("keeps the catalog when the event slug column is not deployed yet", async () => {
+    const eventId = "22222222-2222-4222-8222-222222222222";
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("race_events?select=id,slug&")) return new Response("column race_events.slug does not exist", { status: 400 });
+      if (url.includes("race_events?")) {
+        return jsonResponse([{
+          id: eventId,
+          name: "Festival public",
+          location: "Rennes",
+          location_region: "Bretagne",
+          location_region_code: "53",
+          location_country: "France",
+          location_country_code: "FR",
+          race_date: "2026-09-12",
+          thumbnail_url: null,
+          website_url: null,
+        }]);
+      }
+      return jsonResponse([{ ...race, id: "66666666-6666-4666-8666-666666666666", event_id: eventId, slug: "trail-breton" }]);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getPublicRaces()).resolves.toEqual([
+      expect.objectContaining({ slug: "trail-breton", eventSlug: null, regionSlug: "bretagne" }),
+    ]);
   });
 
   it("keeps a canonical public slug without consulting redirects", async () => {

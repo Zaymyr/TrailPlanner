@@ -4,6 +4,14 @@
 
 Journal en ajout seul, la plus récente en haut. Format : `## AAAA-MM-JJ — Titre`, puis Contexte / Décision / Conséquence (2 à 4 lignes chacun). Les décisions d'architecture détaillées (ADR) vont dans [docs/08-decisions/](../08-decisions/README.md).
 
+## 2026-11-22 — Pages événement permanentes, pages région et mois
+
+**Contexte.** Chaque édition avait sa propre URL indexable (`…-2026`, puis `…-2027`) : l'autorité et les requêtes (« UTMB temps ») se dispersaient chaque année. Seules trois pages distance existaient, dont une de 1,35 Mo sans pagination.
+
+**Décision.** Chaque événement reçoit un slug permanent sans année (`race_events.slug`, immuable, jamais égal à un slug d'édition) et une page hub `/courses/evenements/<slug-événement>`, seule page événement indexable : prochaine édition (formats, Livrets), historique des éditions. Toutes les pages d'édition restent accessibles (200) mais canonicalisent vers le hub ; aucune redirection. Le hub publie le `SportsEvent` de l'édition mise en avant, sans `EventSeries`. Pages région (codes INSEE) et mois (`/courses/mois/mai-2027`) rejoignent les pages distance : courses à venir uniquement, 5 minimum, pagination `/page/<n>`, `ItemList`.
+
+**Conséquence.** Le sitemap liste les hubs au lieu des éditions, plus chaque page de sélection. Les URL de format gardent leur année (suite possible). Un événement ne peut pas changer de slug tant qu'aucune table de redirection d'événement n'existe. Détail : [Public Race Discovery](../03-business-rules/public-race-discovery.md#permanent-event-hubs-2026-11-22).
+
 ## 2026-11-22 — Démo Trail TST hors index, courses passées sans statut « programmé »
 
 **Contexte.** L'audit catalogue du 22/11 : la démo Trail TST (cible des QR codes imprimés) apparaissait comme une vraie course (inscription vers un site factice, sitemap, suggestions), les formats passés publiaient `EventScheduled`, et la démo aurait été bloquée au 31/12 (l'année d'édition doit suivre la date de début).

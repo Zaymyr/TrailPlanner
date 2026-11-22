@@ -1,7 +1,8 @@
 ---
 title: race_event_editions
 scope: database
-last_verified: 2026-11-03
+last_verified: 2026-11-22
+# Event hubs (2026-11-22): edition slugs must never equal an event hub slug (race_events.slug); edition pages canonicalize to the hub; the hub reads is_visible only for its Livret coureur promise.
 # Assisted legacy conversion (2026-11-15): requests name an edition belonging to the event and require its effective assisted-import capability; no edition row changes.
 ai_priority: high
 related_files:
@@ -45,6 +46,7 @@ related_files:
   - apps/web/lib/public-race-events.test.ts
   - supabase/migrations/20261113200326_add_race_event_edition_slugs.sql
   - supabase/tests/race_event_edition_slug_redirects_checks.sql
+  - supabase/migrations/20261122190000_add_race_event_slugs_and_region_codes.sql
   - supabase/migrations/20260930115641_add_organizer_social_proofs.sql
   - supabase/tests/organizer_social_proofs_checks.sql
 related_tables:
@@ -79,7 +81,8 @@ Organizer editor changes are autosaved with a debounced, revision-aware client q
 - One edition owns one inclusive start/end date range.
 - At most one edition is current per event; legacy event-date reads and the admin event-wide switch target it, while a format-specific publication request targets the requested race's own edition.
 - Each edition has an independent mobile catalog visibility state. Hiding one edition hides every attached mobile course format and Racebook without removing already published factual web pages.
-- Public web discovery uses `races.web_catalog_is_live` plus the parent event gate and does not consult `race_event_editions.is_visible`; the edition remains the canonical date-range source for web detail enrichment.
+- Public web discovery uses `races.web_catalog_is_live` plus the parent event gate and does not consult `race_event_editions.is_visible`; the edition remains the canonical date-range source for web detail enrichment. The event hub reads `is_visible` only to decide whether it may promise the Livret coureur in the app, like the course page bridge.
+- The event hub (`lib/public-race-events.ts`, `resolvePublicRaceEventHubSlug`) features the earliest edition with a web-public format whose inclusive `end_date` has not passed in Europe/Paris, otherwise the latest one, and lists every edition with a web-public format.
 - The lightweight public DTO may also read the parent event's canonical website through the same service-only, explicit-column event projection. Web catalog resolution does not query or expose edition rows to clients.
 - A format belongs to an edition through `races.edition_id`. Its `race_date` is only a format-specific start date and must remain inside the edition range.
 - `races.edition_group_id` still groups the same format series across years; it is independent from `edition_id`.
@@ -98,7 +101,7 @@ Organizer editor changes are autosaved with a debounced, revision-aware client q
 | `edition_year` | `smallint` | unique per event, 2000–2100 | Year of `start_date`. |
 | `start_date` | `date` | non-null | Canonical first day of the edition. |
 | `end_date` | `date` | non-null, not before start | Canonical last day of the edition. |
-| `slug` | `text` | non-null, unique, lowercase ASCII slug | Durable canonical identifier for `/courses/evenements/[slug]`. |
+| `slug` | `text` | non-null, unique, lowercase ASCII slug, never equal to a `race_events.slug` | Durable identifier of the edition page `/courses/evenements/[slug]`, which canonicalizes to the event hub since 2026-11-22. |
 | `is_current` | `boolean` | one true row per event at most | Edition mirrored to legacy event date fields and used by event-wide admin publication controls. |
 | `is_visible` | `boolean` | non-null, default `true` | Whether attached formats may remain visible in mobile course/RaceBook discovery. |
 | `module_setup_completed_at` | `timestamptz` | nullable | Completion or skip time for the module setup assistant. |
@@ -133,6 +136,7 @@ RLS is enabled and direct `anon` / `authenticated` privileges are revoked. Only 
 - `edition_year` equals the year of `start_date`.
 - `end_date >= start_date`.
 - The initial edition slug is derived deterministically from the event name and edition year. A rename stores the old value in `race_event_edition_slug_redirects`; canonical and historical slugs cannot be reused.
+- Edition and event hub slugs share `/courses/evenements/`: since `20261122190000` the edition trigger suffixes a generated slug and rejects an explicit one that equals a `race_events.slug` (23505), and the event trigger does the same against edition slugs and redirects.
 - A format date edited through organizer routes must lie inside its edition range.
 - Database triggers also reject edition range updates that exclude an attached format, event/edition mismatches, and out-of-range format writes from any service path.
 - A dated event format inserted without `edition_id` is assigned before validation to an atomically upserted `(event_id, edition_year)` row. A transaction advisory lock serializes first-edition creation per event, and the migration backfills existing orphaned formats.
