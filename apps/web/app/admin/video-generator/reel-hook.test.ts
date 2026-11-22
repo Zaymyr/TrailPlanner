@@ -28,7 +28,7 @@ import {
   getVideoFrameState,
   HIGHLIGHT_MAX_SECONDS,
   isHookIntroEnabled,
-  MIN_SEQUENCE_MS,
+  OVERVIEW_INTRO_MS,
   NARRATION_GAP_MS,
   videoCompositionSettingsSchema,
   type VideoCompositionSettings,
@@ -259,7 +259,8 @@ describe("full mode", () => {
     expect(off.timeline.totalMs).toBe(auto.timeline.totalMs);
     expect(off.timeline.cumulativeTimeFraction).toEqual(auto.timeline.cumulativeTimeFraction);
     const intro = auto.timeline.beats.find((beat) => beat.kind === "intro")!;
-    expect(auto.timeline.introMs).toBe(Math.max(MIN_SEQUENCE_MS, intro.narrationMs + NARRATION_GAP_MS * 2));
+    // A fixed 3 s opening: the race is announced on the overview, then the camera dives.
+    expect(auto.timeline.introMs).toBe(OVERVIEW_INTRO_MS);
     expect(intro.narrationStartMs).toBe(NARRATION_GAP_MS);
     // Frame 0 is still the north-up overview, held before gliding to the start.
     const raw = getRawVideoCameraPose(auto.path, auto.timeline, getVideoFrameState(auto.timeline, 0), "portrait");

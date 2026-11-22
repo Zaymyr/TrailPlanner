@@ -1,5 +1,10 @@
 "use client";
 
+// Mapbox positions its DOM markers (progress dot, aid bubbles, place labels) with this sheet. It was
+// only imported by the admin editor page, so on /survol and on the Cloud Run render page the markers
+// fell below the map, outside the frame (2026-11-22). Every page using the viewer gets it from here.
+import "mapbox-gl/dist/mapbox-gl.css";
+
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import mapboxgl, {
   type ExpressionSpecification,
@@ -88,6 +93,7 @@ import {
   withStoryMode,
   getGradeAtDistance,
   getLegPassages,
+  getOverviewRouteOpacity,
   getVideoCameraPose,
   getVideoFrameState,
   VIDEO_FPS,
@@ -140,6 +146,8 @@ const ROUTE_SOURCE_ID = "video-route";
 const ROUTE_LAYER_ID = "video-route-line";
 const ROUTE_REVEAL_LAYER_ID = "video-route-line-reveal";
 const ROUTE_GLOW_LAYER_ID = "video-route-line-glow";
+// The whole route in the route colour, shown on the opening overview only.
+const ROUTE_OVERVIEW_LAYER_ID = "video-route-line-overview";
 const ROUTE_CASING_LAYER_ID = "video-route-line-casing";
 const MARKER_SOURCE_ID = "video-route-markers";
 const MARKER_ICON_LAYER_ID = "video-route-marker-icons";
@@ -148,15 +156,15 @@ const TOLD_SLOPE_SOURCE_ID = "video-told-slope";
 const TOLD_SLOPE_LAYER_ID = "video-told-slope-line";
 const TOLD_SLOPE_CASING_LAYER_ID = "video-told-slope-casing";
 export const VIDEO_ROUTE_COLOR = DEFAULT_VIDEO_COMPOSITION_SETTINGS.routeColor;
-// The route still to run: visible enough to read the whole course in the opening overview.
-const FUTURE_ROUTE_ALPHA = 0.5;
+// The route still to run: an opaque grey under the coloured route that advances (2026-11-22).
+const FUTURE_ROUTE_COLOR = "#a7adb4";
 /**
  * Route lines are drawn as 3D geometry a few metres above the ground (`line-elevation-reference`
  * ground + `line-z-offset`) instead of being draped into the terrain texture, whose resolution made
  * them blocky at a distance and on high-density phone screens. Each layer sits slightly higher than
  * the one under it so they never z-fight.
  */
-const ROUTE_Z_OFFSET_M = { future: 3, glow: 3.5, casing: 4, reveal: 4.5, toldCasing: 5, told: 5.5 } as const;
+const ROUTE_Z_OFFSET_M = { future: 3, overview: 3.25, glow: 3.5, casing: 4, reveal: 4.5, toldCasing: 5, told: 5.5 } as const;
 const elevatedRoute = (layer: keyof typeof ROUTE_Z_OFFSET_M) => ({ "line-elevation-reference": "ground" as const, "line-z-offset": ROUTE_Z_OFFSET_M[layer] });
 const GLOW_ROUTE_ALPHA = 0x8c / 255;
 
@@ -172,6 +180,7 @@ export const withAlpha = (hex: string, alpha: number) => {
 };
 const OWN_LAYER_IDS = new Set([
   ROUTE_LAYER_ID,
+  ROUTE_OVERVIEW_LAYER_ID,
   ROUTE_GLOW_LAYER_ID,
   ROUTE_REVEAL_LAYER_ID,
   ROUTE_CASING_LAYER_ID,
@@ -576,10 +585,22 @@ const syncMapData = (
       slot: "top",
       layout: { "line-cap": "round", "line-join": "round", ...elevatedRoute("future") },
       paint: {
-        "line-color": withAlpha(routeColor, FUTURE_ROUTE_ALPHA),
+        "line-color": FUTURE_ROUTE_COLOR,
         "line-width": lineWidth,
         "line-emissive-strength": 1,
       },
+    });
+  }
+
+  if (!map.getLayer(ROUTE_OVERVIEW_LAYER_ID)) {
+    map.addLayer({
+      id: ROUTE_OVERVIEW_LAYER_ID,
+      type: "line",
+      source: ROUTE_SOURCE_ID,
+      slot: "top",
+      layout: { "line-cap": "round", "line-join": "round", ...elevatedRoute("overview") },
+      // Opaque at frame 0 (the opening overview); the animation frame fades it during the dive.
+      paint: { "line-color": routeColor, "line-width": lineWidth, "line-opacity": 1, "line-emissive-strength": 1 },
     });
   }
 
@@ -719,6 +740,8 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   // Told slope on the map: data changes once per beat, opacity only when its rounded value moves.
   const toldSlopeIdRef = useRef<string | null>(null);
   const toldSlopeOpacityRef = useRef(-1);
+  // Last opacity applied to the overview route, so the paint property only changes when it moves.
+  const overviewOpacityRef = useRef(1);
   const placeLabelsRef = useRef<PinnedLabel[]>([]);
   const narrationPlayerRef = useRef<NarrationPlayer | null>(null);
   // `map.isStyleLoaded()` is false whenever a tile is loading or a source was just updated, which is
@@ -936,6 +959,11 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     if (map.getLayer(ROUTE_REVEAL_LAYER_ID)) map.setPaintProperty(ROUTE_REVEAL_LAYER_ID, "line-trim-offset", trimOffset);
     if (map.getLayer(ROUTE_GLOW_LAYER_ID)) map.setPaintProperty(ROUTE_GLOW_LAYER_ID, "line-trim-offset", trimOffset);
     if (map.getLayer(ROUTE_CASING_LAYER_ID)) map.setPaintProperty(ROUTE_CASING_LAYER_ID, "line-trim-offset", trimOffset);
+    const overviewOpacity = Math.round(getOverviewRouteOpacity(timelineRef.current, frame) * 100) / 100;
+    if (overviewOpacity !== overviewOpacityRef.current && map.getLayer(ROUTE_OVERVIEW_LAYER_ID)) {
+      overviewOpacityRef.current = overviewOpacity;
+      map.setPaintProperty(ROUTE_OVERVIEW_LAYER_ID, "line-opacity", overviewOpacity);
+    }
     const routePoint = getRoutePointAtDistance(path, frame.distanceKm);
     progressMarkerRef.current?.setLngLat([routePoint.lon, routePoint.lat]);
     updateAidBubbles(aidBubblesRef.current, timelineRef.current, frame.phase === "flyover" && settingsRef.current.showAidBubbles ? frame.timeMs : null);
@@ -1017,8 +1045,12 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       map.setPaintProperty(ROUTE_REVEAL_LAYER_ID, "line-width", lineWidth);
     }
     if (map.getLayer(ROUTE_LAYER_ID)) {
-      map.setPaintProperty(ROUTE_LAYER_ID, "line-color", withAlpha(settings.routeColor, FUTURE_ROUTE_ALPHA));
+      map.setPaintProperty(ROUTE_LAYER_ID, "line-color", FUTURE_ROUTE_COLOR);
       map.setPaintProperty(ROUTE_LAYER_ID, "line-width", lineWidth);
+    }
+    if (map.getLayer(ROUTE_OVERVIEW_LAYER_ID)) {
+      map.setPaintProperty(ROUTE_OVERVIEW_LAYER_ID, "line-color", settings.routeColor);
+      map.setPaintProperty(ROUTE_OVERVIEW_LAYER_ID, "line-width", lineWidth);
     }
     if (map.getLayer(TOLD_SLOPE_LAYER_ID)) map.setPaintProperty(TOLD_SLOPE_LAYER_ID, "line-width", lineWidth);
     if (map.getLayer(TOLD_SLOPE_CASING_LAYER_ID)) map.setPaintProperty(TOLD_SLOPE_CASING_LAYER_ID, "line-width", ROUTE_CASING_WIDTHS[settings.routeWidth]);
@@ -1367,7 +1399,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     const current = settingsRef.current;
     const line = scaleZoomCurve(ROUTE_LINE_WIDTHS[current.routeWidth], scale);
     const casing = scaleZoomCurve(ROUTE_CASING_WIDTHS[current.routeWidth], scale);
-    for (const id of [ROUTE_LAYER_ID, ROUTE_REVEAL_LAYER_ID, TOLD_SLOPE_LAYER_ID]) if (map.getLayer(id)) map.setPaintProperty(id, "line-width", line);
+    for (const id of [ROUTE_LAYER_ID, ROUTE_OVERVIEW_LAYER_ID, ROUTE_REVEAL_LAYER_ID, TOLD_SLOPE_LAYER_ID]) if (map.getLayer(id)) map.setPaintProperty(id, "line-width", line);
     for (const id of [ROUTE_CASING_LAYER_ID, TOLD_SLOPE_CASING_LAYER_ID]) if (map.getLayer(id)) map.setPaintProperty(id, "line-width", casing);
     if (map.getLayer(ROUTE_GLOW_LAYER_ID)) {
       map.setPaintProperty(ROUTE_GLOW_LAYER_ID, "line-width", scaleZoomCurve(ROUTE_GLOW_WIDTH, scale));
@@ -1607,7 +1639,8 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     const resizeController = observeMapSize(map, containerRef.current);
     resizeRef.current = resizeController;
     const firstPoint = preparedPathRef.current.samples[0];
-    progressMarkerRef.current = new mapboxgl.Marker({ element: createProgressMarkerElement(settingsRef.current.routeColor) })
+    // occludedOpacity 1: the route lines are 3D geometry above the ground, Mapbox would dim the dot behind them.
+    progressMarkerRef.current = new mapboxgl.Marker({ element: createProgressMarkerElement(settingsRef.current.routeColor), occludedOpacity: 1 })
       .setLngLat(firstPoint ? [firstPoint.lon, firstPoint.lat] : [boundsRef.current.minLon, boundsRef.current.minLat])
       .addTo(map);
 
