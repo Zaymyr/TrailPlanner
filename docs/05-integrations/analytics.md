@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-11-18
+last_verified: 2026-11-22
 # Supporter onboarding (2026-11-18): the welcome chooser asks « Je cours » / « J’accompagne un coureur » and routes to the Livret coureur or the Livret supporter; a new `supporter` tour (status `user_profiles.supporter_onboarding_status`, migration 20261118200000) runs a spotlight tour on the Livret supporter.
 # Livret supporter private preview (2026-11-18): the catalog Livret supporter entry admits active organizers of a private event (preview only); runner badge, data and contracts unchanged.
 # Crew follow UX (2026-11-17): passed checkpoints collapse, confirmed passages can be corrected or undone, the crew handover is a device-local checklist, aid-station directions match supporter points by place name within 2 km, and phones without the app get an app-first gate on the public page; no column, RLS or crew_state shape change.

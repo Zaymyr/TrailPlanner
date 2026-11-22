@@ -1,7 +1,7 @@
 ---
 title: Stripe Integration
 scope: integration
-last_verified: 2026-11-13
+last_verified: 2026-11-22
 ai_priority: high
 related_files:
   - apps/web/lib/stripe.ts

@@ -1,7 +1,7 @@
 ---
 title: Organizer Commercial Offers
 scope: business-rule
-last_verified: 2026-11-16
+last_verified: 2026-11-22
 # Assisted legacy conversion (2026-11-15): conversion requires the effective assisted_import.request capability (Signature or its complimentary grant).
 # Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
 # Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.

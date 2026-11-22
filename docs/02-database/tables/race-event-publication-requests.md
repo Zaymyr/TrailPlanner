@@ -1,7 +1,7 @@
 ---
 title: race_event_publication_requests Table
 scope: database
-last_verified: 2026-11-16
+last_verified: 2026-11-22
 # Livret supporter note (2026-11-16): the public name of the supporter_guide surface is now "Livret supporter" (formerly "Livret accompagnateur"); aid-station access wording ("Accompagnateurs autorisés") is unchanged; no data, contract or offer change.
 # Assisted legacy conversion (2026-11-15): Apply updates only the local organizer form; publication rules evaluate the subsequently saved draft.
 # Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
