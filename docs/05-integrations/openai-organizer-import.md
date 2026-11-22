@@ -144,3 +144,5 @@ The assisted-import dialog now uses a shared multi-file field while preserving t
 The compact Organizer banner keeps assisted import in its existing Actions menu; the import request, documents, limits, and reconciliation contract are unchanged.
 
 Organizer finishing styles do not change assisted-import requests, files, or reconciliation.
+
+Partner report note (2026-11-22): the Organizer dashboard adds a « Rapport partenaires » card under the Sponsors editor and the /organisateurs Signature card lists « Rapport partenaires »; neither touches this document's domain, data or contracts.

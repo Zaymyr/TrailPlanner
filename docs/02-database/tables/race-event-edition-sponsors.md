@@ -2,7 +2,7 @@
 title: race_event_edition_sponsors Table
 scope: database
 
-last_verified: 2026-11-18
+last_verified: 2026-11-22
 # Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
 # Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
 # Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
@@ -36,6 +36,11 @@ related_files:
   - apps/mobile/lib/racebookSponsors.ts
   - apps/mobile/lib/racebookSponsorPresentation.ts
   - apps/web/lib/racebook-branding.ts
+  - apps/web/lib/organizer-sponsor-report.ts
+  - apps/web/lib/organizer-sponsor-report.test.ts
+  - apps/web/lib/organizer-sponsor-report-document.ts
+  - apps/web/app/api/organizer/editions/[id]/sponsor-report/route.ts
+  - apps/web/app/api/organizer/editions/[id]/sponsor-report/route.test.ts
 related_tables:
   - race_event_edition_sponsors
   - race_event_edition_branding
@@ -107,6 +112,10 @@ RLS is enabled and `anon` / `authenticated` receive no table privileges or polic
 The public presentation route returns only active rows after the normal public RaceBook gate, with an active organizer preview exception. A format explicitly masked through `racebook_preview_is_visible = false` receives no payload even for an organizer. It exposes hierarchy, category, contextual placement, and a server redirect URL instead of `website_url`; aggregate counters stay organizer-only. The redirect route validates the sponsor/race edition pair, rate-limits counting by sponsor plus a hashed network identifier, invokes `increment_racebook_sponsor_click` atomically, and redirects even when counting fails.
 
 `POST /api/racebook-sponsors/impression` accepts a race id, sponsor id, random view UUID, and exact `loading`, `hero`, `aid_stations`, `equipment`, `access`, or `services` placement. It verifies the active module and configured placement, applies ephemeral in-process sponsor/placement/view deduplication plus a global anti-abuse ceiling, then invokes the service-only `increment_racebook_sponsor_impression` RPC. The RPC repeats the sponsor/race-edition, explicit-preview, publication, and placement checks before incrementing. Only aggregate counters persist: no runner id, network identifier, view id, or individual click/impression history is stored. Counts are raw accepted presentations/openings, not unique visitors.
+
+### Partner report (2026-11-22)
+
+`GET /api/organizer/editions/:id/sponsor-report` reads `impression_count`, `click_count`, hierarchy, category, activation and placement flags through `service_role` after membership and the effective sponsors gate (Signature or `module.sponsors` grant). It exposes neither `website_url` nor `logo_url`, writes nothing, and keeps counts as raw cumulative totals rather than unique visitors. See [Organizer Commercial Offers](../../03-business-rules/organizer-commercial-offers.md#rapport-partenaires-2026-11-22).
 
 ## Storage
 

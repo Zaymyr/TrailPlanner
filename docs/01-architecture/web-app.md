@@ -351,6 +351,8 @@ related_files:
   - apps/web/app/api/organizer/editions/[id]/analytics/route.test.ts
   - apps/web/app/organizer/_components/dashboard/analytics-panel.tsx
   - apps/web/app/organizer/_components/dashboard/analytics-panel.test.ts
+  - apps/web/app/api/organizer/editions/[id]/sponsor-report/route.ts
+  - apps/web/app/organizer/_components/dashboard/sponsor-report-card.tsx
   - apps/web/lib/posthog-organizer-analytics.ts
   - apps/web/lib/posthog-organizer-analytics.test.ts
   - apps/web/app/api/admin/organizer-payments/route.ts
@@ -1015,3 +1017,7 @@ Presentation and copy only; no API, schema or analytics-event change. The home h
 Home copy that changed (heading, subheading, how-it-works including the Livret coureur, FAQ in "tu" with the 9,99 € / 29,99 € runner prices) lives in `components/landing/home-copy.ts`, layered over `t.landing`; fold it back into `locales/fr.ts` / `locales/en.ts` when convenient. `/organizers` addresses organizers with "vous", has its own noindex title and shows the free-until-publication reassurance using `ORGANIZER_TIER_PRICE_EUR.essential`; `/organisateurs` pricing cards get one CTA each and read prices from the same constant.
 
 - Gotcha: the runner prices in the FAQ copy are literal strings (no shared constant exists); update them with the commercial prices.
+
+## Organizer partner report (2026-11-22)
+
+`GET /api/organizer/editions/[id]/sponsor-report?format=json|csv|pdf` returns the aggregated Signature partner report as JSON or as a `Content-Disposition: attachment` CSV/PDF with `Cache-Control: private, no-store`. The client card (`dashboard/sponsor-report-card.tsx`, rendered under the Sponsors editor) downloads it with the bearer header through a temporary object URL, since a plain link cannot carry the token. Rules: [Organizer Commercial Offers](../03-business-rules/organizer-commercial-offers.md#rapport-partenaires-2026-11-22).

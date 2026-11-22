@@ -4,6 +4,14 @@
 
 Journal en ajout seul, la plus récente en haut. Format : `## AAAA-MM-JJ — Titre`, puis Contexte / Décision / Conséquence (2 à 4 lignes chacun). Les décisions d'architecture détaillées (ADR) vont dans [docs/08-decisions/](../08-decisions/README.md).
 
+## 2026-11-22 — Rapport partenaires inclus dans Signature
+
+**Contexte.** Les organisateurs Signature avaient des compteurs agrégés d'impressions et de clics par partenaire et des statistiques de lecture, mais rien à remettre à leurs sponsors après la course.
+
+**Décision.** Signature inclut un « Rapport partenaires » téléchargeable (PDF et CSV) par édition, agrégé et anonyme : lecteurs du Livret coureur, impressions, clics et meilleurs placements. Même verrou que le module Sponsors (Signature ou cadeau `module.sponsors`) ; les lecteurs n'y figurent que si les statistiques sont incluses. Aucun nouveau prix, droit ou table.
+
+**Conséquence.** Carte verrouillée sous l'éditeur Sponsors pour les offres inférieures (fenêtre d'offres existante) ; carte Signature de /organisateurs complétée. Détail : [Organizer Commercial Offers](../03-business-rules/organizer-commercial-offers.md#rapport-partenaires-2026-11-22).
+
 ## 2026-11-22 — Démo Trail TST hors index, courses passées sans statut « programmé »
 
 **Contexte.** L'audit catalogue du 22/11 : la démo Trail TST (cible des QR codes imprimés) apparaissait comme une vraie course (inscription vers un site factice, sitemap, suggestions), les formats passés publiaient `EventScheduled`, et la démo aurait été bloquée au 31/12 (l'année d'édition doit suivre la date de début).
