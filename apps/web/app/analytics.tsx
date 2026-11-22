@@ -5,6 +5,7 @@ import { inject } from "@vercel/analytics";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
 import { canLoadAnalytics, COOKIE_CONSENT_EVENT } from "../lib/cookies/consent";
+import { CheckoutReturnTracker } from "./checkout-return-tracker";
 
 let hasInjectedAnalytics = false;
 
@@ -37,7 +38,12 @@ export function Analytics() {
       return null;
     }
 
-    return <SpeedInsights />;
+    return (
+      <>
+        <SpeedInsights />
+        <CheckoutReturnTracker />
+      </>
+    );
   }, [isEnabled]);
 
   return speedInsights;

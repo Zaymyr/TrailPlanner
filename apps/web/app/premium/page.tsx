@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "../../components/ui/button";
+import { rememberPendingCheckout } from "../../lib/checkout-return";
+import { trackPremiumPaywallViewed, trackRunnerCheckoutStarted } from "../../lib/product-analytics";
+import { readFunnelSourceRace } from "../../lib/race-funnel-source";
 import { useVerifiedSession } from "../hooks/useVerifiedSession";
 import { type RunnerOffer, useRunnerPrice } from "../hooks/useRunnerPrice";
 import { useI18n } from "../i18n-provider";
@@ -59,6 +62,17 @@ export default function PremiumPage() {
     return () => controller.abort();
   }, [planId, session?.accessToken, session?.isAnonymous]);
 
+  const paywallTrackedRef = useRef(false);
+  useEffect(() => {
+    if (paywallTrackedRef.current) return;
+    paywallTrackedRef.current = true;
+    trackPremiumPaywallViewed({
+      placement: "premium_page",
+      hasPlanContext: new URLSearchParams(window.location.search).has("planId"),
+      sourceRace: readFunnelSourceRace(),
+    });
+  }, []);
+
   const offers = useMemo<RunnerOffer[]>(
     () => orderRunnerOffers(Boolean(planId)),
     [planId],
@@ -69,6 +83,7 @@ export default function PremiumPage() {
     setOpening(offer);
     setError(null);
     try {
+      const sourceRace = readFunnelSourceRace();
       const response = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: {
@@ -81,6 +96,8 @@ export default function PremiumPage() {
       if (!response.ok || !data.url) {
         throw new Error(data.message || (fr ? "Paiement indisponible." : "Checkout unavailable."));
       }
+      trackRunnerCheckoutStarted({ offer, placement: "premium_page", sourceRace });
+      rememberPendingCheckout({ offer, sourceRace, planId: offer === "course" ? planId : null });
       window.location.assign(data.url);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : (fr ? "Paiement indisponible." : "Checkout unavailable."));

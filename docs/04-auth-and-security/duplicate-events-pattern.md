@@ -1,7 +1,7 @@
 ---
 title: Duplicate Events Pattern
 scope: auth
-last_verified: 2026-11-18
+last_verified: 2026-11-22
 ai_priority: high
 related_files:
   - apps/web/app/onboarding/account/page.tsx
@@ -104,3 +104,7 @@ The native store-review check is likewise not an Auth-event mutation. The root s
 The development-client OTA guard is evaluated before each startup or foreground update request and performs no persistence or session side effect. It therefore adds no retryable business mutation and does not replace existing idempotency guards.
 
 Restoring a saved planner selection from `planId` is a read/navigation concern and does not add a retryable mutation or bypass existing plan ownership checks.
+
+## Funnel analytics touch (2026-11-22)
+
+`useRacePlan` only adds the `source_race` property to the existing `plan created` and `plan saved` analytics call; plan creation, idempotency guards and retry behaviour are unchanged. Web runner funnel analytics (2026-11-22): see [analytics.md](../05-integrations/analytics.md#web-runner-funnel-2026-11-22).

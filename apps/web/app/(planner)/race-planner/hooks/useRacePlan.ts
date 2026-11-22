@@ -481,6 +481,7 @@ export const useRacePlan = ({
           ),
           hasRaceLink: Boolean(parsedPlan.catalogRaceId),
           hasElevationProfile: elevationProfile.length > 0,
+          sourceRace: parsedPlan.catalogRaceId,
         });
       }
 
@@ -798,6 +799,7 @@ export const useRacePlan = ({
         ).reduce((count, segments) => count + segments.length, 0),
         hasRaceLink: Boolean(parsedPlan.catalogRaceId),
         hasElevationProfile: parsedPlan.elevationProfile.length > 0,
+        sourceRace: parsedPlan.catalogRaceId,
       });
       setIsRaceCatalogOpen(false);
     } catch (error) {

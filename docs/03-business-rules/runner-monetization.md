@@ -1,7 +1,7 @@
 ---
 title: Runner Monetization
 scope: business-rule
-last_verified: 2026-11-16
+last_verified: 2026-11-22
 ai_priority: high
 related_files:
   - apps/mobile/components/plan-workspace/LockedPlanContent.tsx
@@ -159,3 +159,7 @@ The RaceBook Course tab (Tracé, Ravitos, Où encourager) uses `TrailTabs` with 
 - [Stripe](../05-integrations/stripe.md)
 
 The standardized Livret/Plan segmented control and removal of the duplicate RaceBook plan CTA do not change entitlement or purchase gates. The existing workspace action remains responsible for opening or creating the owner plan under the same access rules.
+
+## Web funnel analytics (2026-11-22)
+
+`/premium` now emits `premium paywall viewed` and, after the checkout session is created, `premium checkout started` or `runner course checkout started` with `offer`; the planner modal and profile page emit the annual event. Purchase verification is emitted after the Stripe return once the entitlement is visible. Offers, prices, access rules and the checkout API are unchanged, and no price string is sent to analytics. Web runner funnel analytics (2026-11-22): see [analytics.md](../05-integrations/analytics.md#web-runner-funnel-2026-11-22).
