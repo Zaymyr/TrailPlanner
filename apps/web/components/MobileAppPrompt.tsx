@@ -8,10 +8,10 @@ import { COOKIE_CONSENT_EVENT, getCookieConsent } from "../lib/cookies/consent";
 import { trackGoogleAnalyticsEvent } from "../lib/google-analytics";
 import { isSpotlightOverlayOpen, SPOTLIGHT_OVERLAY_EVENT } from "../lib/spotlight-overlay";
 import { resolveAppStoreTarget, type AppStoreTarget } from "../lib/app-store";
+import { isMobileAppPromptHiddenPath } from "./mobile-app-prompt-paths";
 
 const DISMISS_KEY = "trailplanner.mobileAppPrompt.dismissedUntil";
 const DISMISS_DURATION_MS = 14 * 24 * 60 * 60 * 1000;
-const HIDDEN_PATH_PREFIXES = ["/admin", "/onboarding", "/links", "/en/links", "/courses", "/race-planner"];
 
 const getDismissedUntil = () => {
   try {
@@ -50,11 +50,11 @@ export function MobileAppPrompt() {
   const [isVisible, setIsVisible] = useState(false);
   const [storeTarget, setStoreTarget] = useState<AppStoreTarget | null>(null);
   const hasTrackedViewRef = useRef(false);
+  // The cookie banner owns the screen until answered: if it was pending when this page view
+  // started, stay hidden for the rest of the view instead of popping up right after the answer.
+  const consentPendingAtLoadRef = useRef<boolean | null>(null);
 
-  const shouldHideForPath = useMemo(
-    () => HIDDEN_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)),
-    [pathname],
-  );
+  const shouldHideForPath = useMemo(() => isMobileAppPromptHiddenPath(pathname), [pathname]);
 
   useEffect(() => {
     if (shouldHideForPath || typeof window === "undefined") {
@@ -63,9 +63,12 @@ export function MobileAppPrompt() {
     }
 
     hasTrackedViewRef.current = false;
+    if (consentPendingAtLoadRef.current === null) {
+      consentPendingAtLoadRef.current = !getCookieConsent();
+    }
 
     const updateVisibility = () => {
-      if (isSpotlightOverlayOpen() || !getCookieConsent() || !isMobileBrowser() || isStandaloneApp()) {
+      if (consentPendingAtLoadRef.current || isSpotlightOverlayOpen() || !getCookieConsent() || !isMobileBrowser() || isStandaloneApp()) {
         setIsVisible(false);
         return;
       }

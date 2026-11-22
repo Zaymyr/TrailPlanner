@@ -63,6 +63,11 @@ export const staticPathRedirects = [
   ['/blog/probl-mes-digestifs-ultra', '/blog/problemes-digestifs-ultra'],
 ];
 
+// Temporary redirects: the bare `/en` has no page (only /en/links and /en/partners exist).
+export const temporaryPathRedirects = [
+  ['/en', '/'],
+];
+
 /** @type {() => Promise<import('next').NextConfig>} */
 const createConfig = async () => {
   const { mdxEnabled, withMDX } = await loadMdxPlugin();
@@ -78,7 +83,10 @@ const createConfig = async () => {
     transpilePackages: ['@trailplanner/shared', '@pace-yourself/design-system'],
     pageExtensions: ['ts', 'tsx', ...(mdxEnabled ? ['mdx'] : [])],
     async redirects() {
-      return staticPathRedirects.map(([source, destination]) => ({ source, destination, permanent: true }));
+      return [
+        ...staticPathRedirects.map(([source, destination]) => ({ source, destination, permanent: true })),
+        ...temporaryPathRedirects.map(([source, destination]) => ({ source, destination, permanent: false })),
+      ];
     },
     async headers() {
       return [

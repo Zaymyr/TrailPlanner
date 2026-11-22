@@ -98,3 +98,12 @@ describe("redirect integrity", () => {
     expect(chainedRedirects).toEqual([]);
   });
 });
+
+describe("temporary path redirects", () => {
+  it("sends the bare /en to the home page without touching the real /en pages", async () => {
+    const { temporaryPathRedirects } = await import("../next.config.mjs");
+
+    expect(temporaryPathRedirects).toEqual([["/en", "/"]]);
+    expect(fs.existsSync(path.join(APP_DIRECTORY, "en", "page.tsx"))).toBe(false);
+  });
+});

@@ -178,7 +178,7 @@ export function HeaderMenu() {
               aria-label={locale === "fr" ? "Passer en anglais" : "Switch to French"}
               onClick={toggleLocale}
             >
-              <span className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Lang</span>
+              <span className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{locale === "fr" ? "Langue" : "Lang"}</span>
               <span className="rounded bg-background px-2 py-1 text-xs font-semibold text-[hsl(var(--success))] dark:text-emerald-200">
                 {locale.toUpperCase()}
               </span>
@@ -186,12 +186,20 @@ export function HeaderMenu() {
             <button
               type="button"
               className={menuActionClass}
-              aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+              aria-label={
+                locale === "fr"
+                  ? theme === "dark"
+                    ? "Passer au thème clair"
+                    : "Passer au thème sombre"
+                  : theme === "dark"
+                    ? "Switch to light theme"
+                    : "Switch to dark theme"
+              }
               onClick={handleThemeToggle}
             >
-              <span className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Theme</span>
+              <span className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{locale === "fr" ? "Thème" : "Theme"}</span>
               <span className="rounded bg-background px-2 py-1 text-xs font-semibold text-[hsl(var(--success))] dark:text-emerald-200">
-                {nextTheme}
+                {locale === "fr" ? (nextTheme === "dark" ? "Sombre" : "Clair") : nextTheme}
               </span>
             </button>
           </div>

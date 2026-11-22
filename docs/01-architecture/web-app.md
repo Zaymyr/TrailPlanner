@@ -435,6 +435,7 @@ related_files:
   - apps/web/app/organizer/_components/dashboard/onboarding.test.ts
   - apps/web/components/race-planner/OnboardingOverlay.tsx
   - apps/web/components/MobileAppPrompt.tsx
+  - apps/web/components/mobile-app-prompt-paths.ts
   - apps/web/lib/spotlight-overlay.ts
   - apps/web/lib/spotlight-overlay.test.ts
   - apps/web/app/admin/publications/CarouselAutomationSection.tsx
@@ -826,6 +827,9 @@ Organizer material, bib, access, services, sponsors, partner slots, products, an
 - Never render stale race content at a former slug. Resolve its stable race id, verify current public visibility, then issue the permanent redirect before loading discovery links.
 - Keep catalog, slug resolution, sitemap, detail visibility, and route ISR aligned to 15 minutes so a refreshed catalog cannot link to a longer-lived negative detail cache. Raw GPX bytes may use the durable one-year data cache only while upload/replacement paths remain immutable and versioned.
 - Keep every legacy/blog redirect target inside the route-or-canonical integrity test, and never introduce a redirect chain or a target without a real page.
+- The bare `/en` has no page (only `/en/links` and `/en/partners`), so `temporaryPathRedirects` in `next.config.mjs` sends it to `/` with a 307; keep it temporary so a future English home can replace it.
+- One overlay at a time on mobile: `MobileAppPrompt` stays hidden for the whole page view when the cookie banner was pending at load (no pop-up right after the answer) and on pages that already carry store buttons (`mobile-app-prompt-paths.ts`: `/livret-coureur`, `/livret-supporter`, `/courses/**`, `/carte-visite`, `/demo`, plus the internal paths). Analytics event names (`mobile_app_prompt_view/dismiss/download`) are unchanged.
+- Blog dates go through `formatBlogDate(iso, locale)` (fr-FR for French posts, UTC so the day never shifts); the cards and post header show reading time only (no word count, which stays in the JSON-LD `wordCount`). The mobile table of contents is a closed `<details>`.
 - Legacy/blog path redirects are served by `staticPathRedirects` in `next.config.mjs`, not middleware. Adding an entry to `lib/legacy-redirects.ts` or `lib/blog/redirects.ts` requires the same entry there; the integrity test fails otherwise.
 - `/sign-in` and `/sign-up` must stay statically prerendered: read `?next=` with `readCurrentReturnPath()` at action time, never through the `searchParams` page prop, which makes every visit and header `<Link>` prefetch a billed function run.
 - Do not call `headers()` from the root layout solely to localize `<html lang>`; that opts the complete public surface into dynamic rendering. A future server-correct English document language requires a deliberate multi-root-layout route structure.

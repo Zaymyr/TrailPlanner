@@ -241,6 +241,7 @@ related_files:
   - apps/web/app/organizer/_components/dashboard/onboarding.test.ts
   - apps/web/components/race-planner/OnboardingOverlay.tsx
   - apps/web/components/MobileAppPrompt.tsx
+  - apps/web/components/mobile-app-prompt-paths.ts
   - apps/web/lib/spotlight-overlay.ts
   - apps/web/lib/spotlight-overlay.test.ts
   - supabase/migrations/20260910204823_add_organizer_dashboard_onboarding.sql
@@ -595,6 +596,7 @@ Structured services, equipment items, aid stations, and sponsors use valid local
 - Organizer deletion prompts use accessible dialogs for destructive GPX/format actions; ordinary repeatable-row removal uses undo instead of browser confirmation.
 - Successful public-facing organizer writes invalidate the shared public-race cache after the durable mutation: format/event metadata and images, edition visibility or dates, Livret publication/restoration, ravitos, and deletions. Cache invalidation remains best effort and never changes API inputs or outputs.
 
+- The mobile app prompt also never shows after a cookie answer given in the same page view, nor on pages with their own store buttons (`mobile-app-prompt-paths.ts`).
 - Shared web prompt dismiss controls use a 44 px target. Planner breadcrumb and landmark cleanup is presentation-only and does not change organizer membership, publication, acquisition routing or Mobile App Prompt coordination.
 
 - The Courses visual-alignment pass keeps the same event/format rows, organizer preview exception, favorite scope and update panel. Opaque sticky chrome, protected date text and a lighter heart do not change organizer publication or visibility.
