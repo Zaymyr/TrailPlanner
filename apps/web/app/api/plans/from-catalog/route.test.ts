@@ -144,7 +144,7 @@ vi.mock("../../../../lib/gpx/parseGpx", () => ({
 }));
 
 vi.mock("../../../../lib/http", () => ({
-  checkRateLimit: () => ({ allowed: true, remaining: 10 }),
+  checkRateLimitAsync: async () => ({ allowed: true, remaining: 10 }),
   withSecurityHeaders: (response: Response) => response,
 }));
 

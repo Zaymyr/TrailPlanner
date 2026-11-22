@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "./route";
 
 const mocks = vi.hoisted(() => ({
+  enforceAuthRateLimit: vi.fn(),
   getSupabaseAnonConfig: vi.fn(),
   ensureTrialStatus: vi.fn(),
 }));
@@ -10,11 +11,25 @@ const mocks = vi.hoisted(() => ({
 describe("POST /api/auth/signup", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.enforceAuthRateLimit.mockResolvedValue(null);
     vi.unstubAllGlobals();
     mocks.getSupabaseAnonConfig.mockReturnValue({
       supabaseUrl: "https://supabase.example",
       supabaseAnonKey: "anon-key",
     });
+  });
+
+
+  it("returns the rate-limit response without contacting Supabase", async () => {
+    mocks.enforceAuthRateLimit.mockResolvedValue(Response.json({ code: "rate_limited" }, { status: 429 }));
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await POST(new Request("https://pace-yourself.test/api/auth/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: "runner@example.com", password: "password123" }) }));
+
+    expect(response.status).toBe(429);
+    expect(mocks.enforceAuthRateLimit).toHaveBeenCalledWith(expect.anything(), "signup", "runner@example.com");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("passes only a validated runner return path to the confirmation email", async () => {
@@ -76,4 +91,8 @@ vi.mock("../../../../lib/supabase", () => ({
 
 vi.mock("../../../../lib/trial-server", () => ({
   ensureTrialStatus: mocks.ensureTrialStatus,
+}));
+
+vi.mock("../../../../lib/auth-rate-limit", () => ({
+  enforceAuthRateLimit: mocks.enforceAuthRateLimit,
 }));

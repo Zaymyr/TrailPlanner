@@ -1,7 +1,7 @@
 ---
 title: Geocoding
 scope: integration
-last_verified: 2026-11-18
+last_verified: 2026-11-22
 # Livret supporter note (2026-11-16): the public name of the supporter_guide surface is now "Livret supporter" (formerly "Livret accompagnateur"); comment-only change, no data or contract change.
 # Assisted legacy conversion (2026-11-15): proposed locations enter structured objects as manual labels and never invent coordinates.
 # Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
@@ -151,6 +151,7 @@ The public `/courses` search reads only the normalized locality names alongside 
 
 ## Gotchas
 
+- The location-search route rate limits with the DB-backed `checkRateLimitAsync` (30 requests per minute per IP, in-memory fallback), since the in-memory map is ineffective across serverless instances.
 - RaceBook branding may recolor Maps buttons and location icons, but it must not alter stored coordinates, generated Google Maps URLs, deduplication, or location inheritance.
 - Layout changes to the format metric fields must leave the canonical location text and structured `raceLocation` update paths unchanged.
 - The adjacent GPX RaceBook display switches live in `organizer_details.gpxDisplay`; they must not alter `raceLocation`, access coordinates, or generated Maps URLs.

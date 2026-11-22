@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-import { checkRateLimit, withSecurityHeaders } from "../../../../../lib/http";
+import { checkRateLimitAsync, withSecurityHeaders } from "../../../../../lib/http";
 import { getSupabaseServiceConfig } from "../../../../../lib/supabase";
 
 const paramsSchema = z.object({ slug: z.string().trim().min(1) });
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest, { params }: { params: { slug: st
   }
 
   const rateLimitKey = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  const rateLimit = checkRateLimit(`affiliate-product:${rateLimitKey}`, 60, 60_000);
+  const rateLimit = await checkRateLimitAsync(`affiliate-product:${rateLimitKey}`, 60, 60_000);
 
   if (!rateLimit.allowed) {
     return withSecurityHeaders(

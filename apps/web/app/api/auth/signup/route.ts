@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getSupabaseAnonConfig } from "../../../../lib/supabase";
+import { enforceAuthRateLimit } from "../../../../lib/auth-rate-limit";
 import { ensureTrialStatus } from "../../../../lib/trial-server";
 import { buildAuthCallbackPath, normalizeInternalReturnPath } from "../../../../lib/organizer-acquisition";
 
@@ -21,6 +22,9 @@ export async function POST(request: Request) {
     const passwordError = parsedBody.error.flatten().fieldErrors.password?.[0];
     return NextResponse.json({ message: passwordError ?? "Invalid sign up request." }, { status: 400 });
   }
+
+  const rateLimited = await enforceAuthRateLimit(request, "signup", parsedBody.data.email);
+  if (rateLimited) return rateLimited;
 
   const supabaseConfig = getSupabaseAnonConfig();
 

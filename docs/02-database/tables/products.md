@@ -1,7 +1,7 @@
 ---
 title: products Table
 scope: database
-last_verified: 2026-11-03
+last_verified: 2026-11-22
 ai_priority: high
 related_files:
   - supabase/migrations/20241215030000_create_products_and_affiliate_offers.sql

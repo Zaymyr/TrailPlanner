@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { getSupabaseAnonConfig, getSupabaseServiceConfig } from "../../../../lib/supabase";
 import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from "../../../../lib/auth-cookies";
+import { enforceAuthRateLimit } from "../../../../lib/auth-rate-limit";
 import { normalizeSignInErrorCode, SIGN_IN_ERROR_CODES } from "../../../../lib/auth-errors";
 
 const signInSchema = z.object({
@@ -16,6 +17,9 @@ export async function POST(request: Request) {
   if (!parsedBody.success) {
     return NextResponse.json({ code: SIGN_IN_ERROR_CODES.signInFailed }, { status: 400 });
   }
+
+  const rateLimited = await enforceAuthRateLimit(request, "signin", parsedBody.data.email);
+  if (rateLimited) return rateLimited;
 
   const supabaseConfig = getSupabaseAnonConfig();
   const supabaseService = getSupabaseServiceConfig();

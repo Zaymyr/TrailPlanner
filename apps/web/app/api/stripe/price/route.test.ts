@@ -15,7 +15,7 @@ vi.mock("../../../../lib/http", async (importOriginal) => {
   const original = await importOriginal<typeof import("../../../../lib/http")>();
   return {
     ...original,
-    checkRateLimit: () => ({ allowed: true, remaining: 20 }),
+    checkRateLimitAsync: async () => ({ allowed: true, remaining: 20 }),
   };
 });
 

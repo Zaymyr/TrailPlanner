@@ -146,6 +146,7 @@ The `subscriptions` table stores billing status. Trial lifecycle for the app's f
 
 ## Gotchas
 
+- The price route rate limit (20 per minute per client IP) uses the DB-backed `checkRateLimitAsync` (2026-11-22).
 - `GET /api/stripe/price` returns HTTP 200 with `available: false` and `price: null` when the requested Price id is absent. Clients must render an unavailable state and must not invent or fall back to a display amount. Successful prices are cached independently per offer.
 
 - Organizer publication checkout scans persisted Supabase content before creating a Stripe Session. The branding probe must select its `edition_id` primary key; selecting a nonexistent generic `id` produces a Data API 400 and Stripe is never reached.
