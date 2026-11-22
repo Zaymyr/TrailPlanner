@@ -426,7 +426,6 @@ export function OrganizerDashboard({
   const startWaveSummaryRef = useRef<OrganizerStartWaveSummary | null>(null);
   const [pricingContext, setPricingContext] = useState<OrganizerPricingContext | null>(null);
   const [checkoutTarget, setCheckoutTarget] = useState<Exclude<OrganizerTier, "visibility"> | null>(null);
-  const [complimentaryGrantTarget, setComplimentaryGrantTarget] = useState<Exclude<OrganizerTier, "visibility"> | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [eventUpdateMessage, setEventUpdateMessage] = useState("");
   const [eventUpdateRaceId, setEventUpdateRaceId] = useState<string | null>(null);
@@ -2670,61 +2669,6 @@ export function OrganizerDashboard({
     }
   };
 
-  const grantComplimentaryOffer = async (targetTier: Exclude<OrganizerTier, "visibility">) => {
-    if (!isAdmin || complimentaryGrantTarget !== null || checkoutTarget !== null) return;
-    setComplimentaryGrantTarget(targetTier);
-    setCheckoutError(null);
-    setError(null);
-    try {
-      if (!accessToken) {
-        const message = "Ta session admin a expiré. Reconnecte-toi puis réessaie.";
-        setCheckoutError(message);
-        showToast("error", message);
-        return;
-      }
-      if (!pricingContext) {
-        const message = "Impossible d’identifier l’édition à laquelle offrir la publication.";
-        setCheckoutError(message);
-        showToast("error", message);
-        return;
-      }
-      if (!(await saveBeforeNavigation())) {
-        setCheckoutError("La publication offerte n’a pas été activée car les modifications en cours n’ont pas pu être enregistrées.");
-        return;
-      }
-
-      const response = await fetch("/api/admin/event-publication-requests", {
-        method: "PATCH",
-        headers: { ...authHeaders, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "setEditionTier",
-          editionId: pricingContext.editionId,
-          tier: targetTier,
-        }),
-      });
-      const data = (await response.json().catch(() => null)) as { message?: string } | null;
-      if (!response.ok) {
-        const message = data?.message ?? `Impossible d’offrir l’offre ${ORGANIZER_TIER_LABEL[targetTier]}.`;
-        setCheckoutError(message);
-        showToast("error", message);
-        return;
-      }
-
-      const grantedContext = pricingContext;
-      setPricingDialogOpen(false);
-      setPricingContext(null);
-      await loadEvent(grantedContext.eventId, activeTab, grantedContext.editionYear);
-      showToast("success", `Offre ${ORGANIZER_TIER_LABEL[targetTier]} offerte — valeur : ${ORGANIZER_TIER_PRICE_EUR[targetTier]} € HT.`);
-    } catch (caught) {
-      console.error("Unable to grant complimentary organizer offer", caught);
-      const message = "Impossible d’offrir la publication pour le moment. Vérifie ta connexion puis réessaie.";
-      setCheckoutError(message);
-      showToast("error", message);
-    } finally {
-      setComplimentaryGrantTarget(null);
-    }
-  };
-
   const setRacebookVisibility = async (raceId: string, visibility: RacebookVisibilityState) => {
     if (shouldSaveActiveRaceBeforeRacebookChange(activeRace?.id, raceId) && !(await saveBeforeNavigation())) return;
     if (!accessToken || !selectedEventId) return;
@@ -4337,7 +4281,7 @@ export function OrganizerDashboard({
                         {pricingIntent === "publication" && excludedCount > 0 ? (
                           <p className="text-xs text-muted-foreground">{excludedCount} section{excludedCount > 1 ? "s" : ""} restera{excludedCount > 1 ? "ont" : ""} en brouillon.</p>
                         ) : null}
-                        <Button type="button" variant={tier === requiredPublicationTier ? "default" : "outline"} className="mt-auto w-full" onClick={() => void startCheckout(tier)} disabled={checkoutTarget !== null || complimentaryGrantTarget !== null}>
+                        <Button type="button" variant={tier === requiredPublicationTier ? "default" : "outline"} className="mt-auto w-full" onClick={() => void startCheckout(tier)} disabled={checkoutTarget !== null}>
                           {checkoutTarget === tier
                             ? "Ouverture de Stripe…"
                             : pricingIntent === "publication" && publishesEverything
@@ -4363,37 +4307,19 @@ export function OrganizerDashboard({
               </Button>
             ) : null}
             {isAdmin && pricingContext ? (
-              <section className="space-y-4 rounded-xl border border-emerald-400 bg-emerald-50/50 p-4 sm:p-5 dark:bg-emerald-950/20">
+              <section className="flex flex-col gap-3 rounded-xl border border-border bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
                 <div className="space-y-1">
-                  <h3 className="font-semibold text-foreground">Offrir une offre partenaire</h3>
+                  <h3 className="font-semibold text-foreground">Administration</h3>
                   <p className="text-sm leading-5 text-muted-foreground">
-                    Ces activations ne passent pas par Stripe. Le bouton de publication indiquera ensuite clairement que l’offre a été offerte.
+                    Le pack, son origine (dont Offert) et les modules offerts de cette édition se gèrent depuis la console d’administration.
                   </p>
                 </div>
-                <div className="grid gap-3 md:grid-cols-3">
-                  {paidOrganizerTiers
-                    .filter((tier) =>
-                      ORGANIZER_TIER_RANK[tier] > ORGANIZER_TIER_RANK[pricingContext.tier] &&
-                      (pricingIntent !== "notification" || ORGANIZER_TIER_RANK[tier] >= ORGANIZER_TIER_RANK.complete)
-                    )
-                    .map((tier) => (
-                      <div key={tier} className="flex flex-col gap-3 rounded-lg border border-emerald-300 bg-background/80 p-4">
-                        <div className="space-y-1">
-                          <p className="font-semibold text-foreground">Offrir {ORGANIZER_TIER_LABEL[tier]}</p>
-                          <p className="text-sm leading-5 text-muted-foreground">{ORGANIZER_OFFER_DETAILS[tier].description}</p>
-                        </div>
-                        <Button
-                          type="button"
-                          variant={tier === "signature" ? "default" : "outline"}
-                          className="mt-auto w-full"
-                          onClick={() => void grantComplimentaryOffer(tier)}
-                          disabled={complimentaryGrantTarget !== null || checkoutTarget !== null}
-                        >
-                          {complimentaryGrantTarget === tier ? "Activation…" : `Offrir ${ORGANIZER_TIER_LABEL[tier]} — valeur ${ORGANIZER_TIER_PRICE_EUR[tier]} € HT`}
-                        </Button>
-                      </div>
-                    ))}
-                </div>
+                <a
+                  className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-md border border-border bg-card px-3 text-sm font-medium text-brand transition hover:border-brand-border hover:bg-brand-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                  href={`/admin/organizers?edition=${encodeURIComponent(pricingContext.editionId)}`}
+                >
+                  Gérer le pack dans l’admin
+                </a>
               </section>
             ) : null}
           </div>

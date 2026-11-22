@@ -1,7 +1,7 @@
 ---
 title: organizer_invoices
 scope: database
-last_verified: 2026-11-09
+last_verified: 2026-11-23
 ai_priority: high
 related_files:
   - supabase/migrations/20261109190500_separate_organizer_invoices_and_feature_grants.sql
@@ -50,3 +50,5 @@ Stores issued manual organizer invoices independently from payment attempts and 
 - [Organizer Commercial Offers](../../03-business-rules/organizer-commercial-offers.md)
 - [organizer_edition_payments](organizer-edition-payments.md)
 - [organizer_feature_catalog](organizer-feature-catalog.md)
+
+Admin console (2026-11-23, lot 4): the admin screen of these invoices is « Ventes & facturation » (`/admin/billing`, register `lib/admin-billing.ts`): status réglée / à régler (en retard after `due_date`) / offert (net 0) / remplacée, amounts HT = TTC = `net_total` with zero VAT, and the existing preview, issue, correction, settlement (date and reference), download and PDF routes. No contract change.

@@ -226,6 +226,7 @@ function PaymentActivityList({ payments, nowMs }: { payments: PaymentActivity; n
         </ul>
       ) : null}
       {payments.failedOrganizerPayments ? <p className="mt-2 text-xs text-orange-800 dark:text-orange-200">{payments.failedOrganizerPayments} paiement(s) organisateur en échec ou contesté(s) sur 7 jours.</p> : null}
+      <a href="/admin/billing" className="mt-2 inline-block text-xs font-semibold text-brand underline-offset-2 hover:underline">Registre des ventes →</a>
     </>
   );
 }

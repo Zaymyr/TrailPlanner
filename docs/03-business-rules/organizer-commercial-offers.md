@@ -1,7 +1,7 @@
 ---
 title: Organizer Commercial Offers
 scope: business-rule
-last_verified: 2026-11-22
+last_verified: 2026-11-23
 # Assisted legacy conversion (2026-11-15): conversion requires the effective assisted_import.request capability (Signature or its complimentary grant).
 # Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
 # Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
@@ -17,6 +17,10 @@ ai_priority: high
 # Organizer UX pass (2026-11-14): format sections nest under the selected format in the left nav, ravito type is Ravito / Base de vie, and equipment uses a top quick-add with per-row Obligatoire switch; no stored data or contract changes.
 # Course timeline note (2026-11-14): timeline filters, point markers and cutoff chips in the aid-station editor are presentation-only; stored data and contracts are unchanged.
 related_files:
+  - apps/web/app/admin/_components/billing/OrganizerInvoiceDialog.tsx
+  - apps/web/app/admin/_components/billing/BankTransferDialog.tsx
+  - apps/web/app/admin/_components/billing/HistoricalInvoiceDialog.tsx
+  - apps/web/lib/admin-billing.ts
   - apps/web/lib/organizer-entitlements.ts
   - apps/web/lib/organizer-modules.ts
   - apps/web/lib/organizer-module-settings.ts
@@ -130,7 +134,7 @@ The states are:
 
 Every higher-tier feature may be offered independently for one edition. The availability catalog contains eight Complet features and six Signature features, without standalone prices because these capabilities are not sold a la carte. An active `organizer_edition_capability_grants` row supplements the current pack with only its exact module, advanced group or operation. Revocation keeps its audit row, and later pack changes preserve redundant gifts until explicit revocation. Essentiel exposes every Complet and Signature feature, Complet exposes Signature features, and Signature has no higher-tier gift selector.
 
-The admin UI deliberately separates **Droits** from **Facturation**. Issuing, correcting or settling a manual invoice never grants a pack or feature, while an administrator may open rights with no invoice. Stripe remains the exception: its verified paid webhook continues to recalculate the purchased entitlement.
+The admin UI deliberately separates **Droits** (Organisateurs › « Gérer le pack et les accès ») from **Facturation** (« Ventes & facturation », `/admin/billing`, since 2026-11-23). Issuing, correcting or settling a manual invoice never grants a pack or feature, while an administrator may open rights with no invoice. Stripe remains the exception: its verified paid webhook continues to recalculate the purchased entitlement.
 
 The web section chooser separates edition-common modules from per-format modules before batching local switch drafts into one typed module-settings PATCH. On the event tab, format-scoped changes target all existing formats and mixed values are labelled; on a format tab they target only the active format. Until the PATCH succeeds, the active dashboard navigation and completion use the last persisted configuration; failures keep the draft available for retry, and closing a modified regular chooser requires explicit discard confirmation.
 
@@ -168,7 +172,7 @@ Publication is a versioned snapshot operation per format. Tier checks are repeat
 - Automatic Tax still requires the production Stripe account to have the appropriate tax registrations.
 - Old clients saving a full `organizer_details` object must not erase protected subtrees.
 - The dashboard keeps publication primary, groups rare actions in one menu, and starts detailed visibility collapsed. The guide may expand it temporarily to expose the real controls, then restores the collapsed state. Expansion is presentation-only; choosing a format state is a deliberate persisted action and must never grant an entitlement client-side.
-- The admin publication dialog identifies the active pack and origin, exposes Visibilité as an explicit downgrade, and uses full-row radio targets for pack selection. It lets a trusted admin switch paid packs between Admin, Paiement Stripe, Paiement par virement, and Offert. For a new virement, HT remains the canonical selected-pack price and TVA is fixed to zero under article 293 B CGI; client identity is mandatory, and preview uses the same PDF renderer as issuance. Stripe remains ledger-backed; a new bank transfer creates its own ledger row, immutable invoice record, and right in one action. Bank-transfer failures remain visible inside the dialog, while an already paid same-tier purchase remains a duplicate.
+- The admin publication dialog identifies the active pack and origin, exposes Visibilité as an explicit downgrade, and uses full-row radio targets for pack selection. It lets a trusted admin switch paid packs between Admin, Paiement Stripe, Paiement par virement, and Offert; it bills nothing. A new virement is recorded from « Ventes & facturation › Enregistrer un virement » (`BankTransferDialog`, 2026-11-23). For a new virement, HT remains the canonical selected-pack price and TVA is fixed to zero under article 293 B CGI; client identity is mandatory, and preview uses the same PDF renderer as issuance. Stripe remains ledger-backed; a new bank transfer creates its own ledger row, immutable invoice record, and right in one action. Bank-transfer failures remain visible inside the dialog, while an already paid same-tier purchase remains a duplicate.
 - Client identity means legal name and billing address. SIREN is optional; if supplied it must contain nine digits, and when absent the shared preview/final renderer omits the SIREN line instead of printing an empty value.
 - The generated PDF contains the required billing data, but a downloadable PDF is not itself transmission through a French approved e-invoicing platform. Do not describe this Storage flow as satisfying that separate delivery obligation.
 - A numbered invoice blocks payment-row deletion, including an edition cascade. Keep the edition as financial history instead of bypassing the protection trigger.
@@ -207,3 +211,5 @@ Organizer section-header and module-card finishing does not change offer availab
 Organizer demo requests (2026-11-16): `/organisateurs` offers a « Demander une démo » form (e-mail and race link required, phone optional) stored in the service-only `organizer_demo_requests` table and listed in the admin inbox tab « Demandes de course »; it creates no account, membership, entitlement or payment. See [organizer_demo_requests](../02-database/tables/organizer-demo-requests.md).
 
 Admin (2026-11-22): pending publication requests are counted in the Organisateurs badges of `/admin` (`GET /api/admin/inbox-counts`); no change to offers or pricing.
+
+Admin console (2026-11-23, lot 4): billing left the Organisateurs tab for « Ventes & facturation » (`/admin/billing`), a read-only register of organizer packs (Stripe and bank transfers), manual invoices, flyover orders and runner purchases, with the existing invoice actions in a side panel. The manual invoice, historical virement invoice and new virement dialogs moved there unchanged (same routes, same server-side pricing, VAT and numbering rules); the new virement dialog is the first screen of `POST /api/admin/organizer-payments`. On `/organizer`, the admin-only « Offrir une offre partenaire » buttons (second pack-grant path, PATCH `setEditionTier`) were removed: admins follow « Gérer le pack dans l’admin » to `/admin/organizers?edition=<id>`, where « Gérer le pack et les accès » (origin Offert included) is the single pack-grant action. The `setEditionTier` API action is kept for compatibility. No offer, price, entitlement or invoice rule changes.

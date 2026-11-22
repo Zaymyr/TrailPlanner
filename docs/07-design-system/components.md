@@ -1,7 +1,7 @@
 ---
 title: Design Components
 scope: design-system
-last_verified: 2026-11-22
+last_verified: 2026-11-23
 # Organizer headers (2026-11-13): `SectionHeader` receives a section-specific icon, supports two-line titles, and no longer supplies a generic arrow fallback.
 ai_priority: medium
 related_files:
@@ -166,7 +166,7 @@ Created for the admin console (ADR [2026-11-22 admin console](../08-decisions/20
 - `Select` — styled native `<select>` (forwardRef, all native props) with a chevron; keeps the browser's keyboard and mobile pickers. Prefer it to a custom listbox.
 - `Drawer` — side panel (`side="right"` by default, `left` for the mobile admin menu): portal, `role="dialog"` + `aria-modal`, title (`hideTitle` keeps it for screen readers only) and description wired by id, focus moved inside and trapped (`focus-trap.ts`), Échap and backdrop close, focus returned to the opener, page scroll locked while open. `actions` sit next to the close button; `className` sets the panel background and text colours (default `bg-card text-foreground`).
 - `EmptyState` — dashed card with title, description and an action slot (empty lists, placeholder pages).
-- `KpiTile` — dashboard figure: label, value in mono figures, change vs the previous period and an SVG sparkline. `formatKpiDelta(current, previous, { mode, higherIsBetter })` (`kpi-delta.ts`) gives « ▲ 12,4 % » / « ▼ 3 » / « = » / « nouveau » with a tone (`positive | negative | neutral`, inverted when `higherIsBetter: false`) and a spoken description; `sparklinePaths(values, width, height)` returns the line and area paths (null under two points).
+- `KpiTile` — dashboard figure: label, value in mono figures, optional `hint` line under the value (2026-11-23, « Ventes & facturation »), change vs the previous period and an SVG sparkline. `formatKpiDelta(current, previous, { mode, higherIsBetter })` (`kpi-delta.ts`) gives « ▲ 12,4 % » / « ▼ 3 » / « = » / « nouveau » with a tone (`positive | negative | neutral`, inverted when `higherIsBetter: false`) and a spoken description; `sparklinePaths(values, width, height)` returns the line and area paths (null under two points).
 - `Toast` — `ToastProvider` (mounted by `AdminShell`) and `useToast().show({ message, tone, actionLabel, onAction, durationMs })`: polite live region bottom right, four toasts at most, 5 s (8 s with an action) before closing; the action (« Annuler ») runs once then closes the toast. Use it for reversible actions; irreversible ones keep an explicit `Dialog`.
 - `CommandPalette` — ⌘K / Ctrl+K dialog (`useCommandPaletteShortcut(open)`): combobox input + grouped listbox (`aria-activedescendant`), ↑ ↓ (wrapping), Ctrl+Début/Fin, Entrée, Échap, Tab kept inside. The caller passes every item (`CommandItem`: `id`, `label`, `group`, `href`, `hint`, `keywords`, `prefiltered`); `filterCommandItems` matches every word of the query ignoring case and accents (label prefix, then word prefix, then contains, then keywords), keeps groups in their first-seen order and caps each group (`limitPerGroup`); `prefiltered` items (server search results) are kept for any non-empty query and hidden for an empty one. The admin wiring (destinations, runners, races) is `AdminCommandPalette` in `app/admin/_components/shell`.
 

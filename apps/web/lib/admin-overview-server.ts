@@ -320,7 +320,7 @@ export const loadAdminOverview = async (
       : [
         unknownHealth("crons", "Tâches planifiées (crons)", "/admin/system/automation"),
         unknownHealth("emails", "E-mails (Resend)", "/admin/system/integrations"),
-        unknownHealth("payments", "Paiements Stripe (webhook)", "/admin/system/integrations"),
+        unknownHealth("payments", "Paiements Stripe (webhook)", "/admin/billing"),
       ]),
   ];
 

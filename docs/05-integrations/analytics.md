@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-11-22
+last_verified: 2026-11-23
 # Supporter onboarding (2026-11-18): the welcome chooser asks « Je cours » / « J’accompagne un coureur » and routes to the Livret coureur or the Livret supporter; a new `supporter` tour (status `user_profiles.supporter_onboarding_status`, migration 20261118200000) runs a spotlight tour on the Livret supporter.
 # Livret supporter private preview (2026-11-18): the catalog Livret supporter entry admits active organizers of a private event (preview only); runner badge, data and contracts unchanged.
 # Crew follow UX (2026-11-17): passed checkpoints collapse, confirmed passages can be corrected or undone, the crew handover is a device-local checklist, aid-station directions match supporter points by place name within 2 km, and phones without the app get an app-first gate on the public page; no column, RLS or crew_state shape change.
@@ -531,3 +531,5 @@ Admin (2026-11-22): the « Croissance » tab (renamed from « Croissance & Utili
 Admin console (2026-11-22, lot 1): the Users tab is the page `/admin/runners`; `AdminUsersTab` accepts `initialSearch`, filled from `?recherche=` (the ⌘K palette sends a runner's e-mail there). The palette's user lookup reuses `GET /api/admin/users?search=`. No PostHog event is added by the console shell, its palette or its pages; the growth section is shown on `/admin` and `/admin/analytics` with the same `/api/admin/growth` query key.
 
 Admin console (2026-11-22, lot 2): the RPC call moved to `fetchGrowthMetrics` (`lib/admin-growth.ts`, with the « RaceBook » → « Livret coureur » rename of the funnel step), shared by `/api/admin/growth` (same contract, now only on `/admin/analytics`) and `/api/admin/overview`, which calls it for the selected period, the previous period of the same length and the last 30 days (reused when the period is 30 days) to feed the dashboard KPI tiles, the runner funnel (accounts, 24 h window over, first plan within 24 h) and the activity curve. `TimeSeriesLineChart` gained optional `framed` (no card nor title, legend kept), `interactive` (hover / touch tooltip with the values of the day) and `minWidthClassName`; existing callers are unchanged. Planner visitors (PostHog) are not part of the dashboard funnel yet.
+
+Admin console (2026-11-23, lot 4): `/admin/billing` (Ventes & facturation) and the `/organizer` « Gérer le pack dans l’admin » link emit no PostHog event; the removed « Offrir une offre partenaire » buttons emitted none either.

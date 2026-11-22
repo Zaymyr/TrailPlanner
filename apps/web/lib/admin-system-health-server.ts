@@ -21,6 +21,7 @@ import {
   type ScheduledTask,
   type SystemHealthResponse,
 } from "./admin-system-health";
+import { callServiceRpc, getServiceJson, settleSource } from "./admin-service-rest";
 import { getResendConfig } from "./resend";
 import type { SupabaseServiceConfig } from "./supabase";
 
@@ -31,37 +32,9 @@ import type { SupabaseServiceConfig } from "./supabase";
  * is settled on its own; one that fails turns its line into `unknown`.
  */
 
-const headers = (supabase: SupabaseServiceConfig, extra: Record<string, string> = {}) => ({
-  apikey: supabase.supabaseServiceRoleKey,
-  Authorization: `Bearer ${supabase.supabaseServiceRoleKey}`,
-  ...extra,
-});
-
-const getJson = async (supabase: SupabaseServiceConfig, path: string): Promise<unknown> => {
-  const response = await fetch(`${supabase.supabaseUrl}/rest/v1/${path}`, { headers: headers(supabase), cache: "no-store" });
-  if (!response.ok) throw new Error(`Read failed (${response.status}): ${path.split("?")[0]}`);
-  return response.json();
-};
-
-const rpc = async (supabase: SupabaseServiceConfig, name: string): Promise<unknown> => {
-  const response = await fetch(`${supabase.supabaseUrl}/rest/v1/rpc/${name}`, {
-    method: "POST",
-    headers: headers(supabase, { "Content-Type": "application/json" }),
-    body: "{}",
-    cache: "no-store",
-  });
-  if (!response.ok) throw new Error(`RPC ${name} failed (${response.status}).`);
-  return response.json();
-};
-
-const settle = async <T>(promise: Promise<T>): Promise<T | null> => {
-  try {
-    return await promise;
-  } catch (error) {
-    console.error("Admin system health source failed", error instanceof Error ? error.message : error);
-    return null;
-  }
-};
+const getJson = getServiceJson;
+const rpc = (supabase: SupabaseServiceConfig, name: string) => callServiceRpc(supabase, name);
+const settle = <T>(promise: Promise<T>) => settleSource(promise, "Admin system health source");
 
 export const loadScheduledTasks = async (supabase: SupabaseServiceConfig, now: Date): Promise<ScheduledTask[]> =>
   z.array(cronJobRowSchema).parse(await rpc(supabase, "admin_cron_job_status")).map((row) => classifyCronJob(row, now.getTime(), now));
@@ -140,7 +113,7 @@ export const loadSystemHealth = async (supabase: SupabaseServiceConfig, now = ne
   const vercelTasks = vercelScheduledTasks(now);
   const cronLine = tasks ? summarizeCronHealth([...tasks, ...vercelTasks], pgNet) : unknownHealth("crons", "Tâches planifiées (crons)", "/admin/system/automation");
   const emailLine = emails ? summarizeEmailHealth(emails) : unknownHealth("emails", "E-mails (Resend)", "/admin/system/integrations");
-  const paymentLine = payments ? summarizePaymentHealth(payments) : unknownHealth("payments", "Paiements Stripe (webhook)", "/admin/system/integrations");
+  const paymentLine = payments ? summarizePaymentHealth(payments) : unknownHealth("payments", "Paiements Stripe (webhook)", "/admin/billing");
   const lines = [cronLine, emailLine, paymentLine];
   return {
     generatedAt: now.toISOString(),

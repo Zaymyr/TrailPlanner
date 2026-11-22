@@ -487,7 +487,7 @@ export const paymentActivitySchema = z.object({
 export type PaymentActivity = z.infer<typeof paymentActivitySchema>;
 
 export const summarizePaymentHealth = (activity: PaymentActivity): HealthSystem => {
-  const base = { key: "payments", label: "Paiements Stripe (webhook)", meter: null, href: "/admin/system/integrations", lastAt: activity.lastEventAt } as const;
+  const base = { key: "payments", label: "Paiements Stripe (webhook)", meter: null, href: "/admin/billing", lastAt: activity.lastEventAt } as const;
   if (!activity.stripeConfigured || !activity.webhookSecretConfigured) {
     const missing = [!activity.stripeConfigured ? "clé secrète" : null, !activity.webhookSecretConfigured ? "secret du webhook" : null].filter(Boolean).join(" et ");
     return { ...base, status: "error", detail: `Stripe : ${missing} absent${missing.includes(" et ") ? "s" : ""}.` };
@@ -503,7 +503,7 @@ export const summarizePaymentHealth = (activity: PaymentActivity): HealthSystem 
 // ---------------------------------------------------------------------------------------------
 // « À traiter »: one « Système » item per system that is down
 
-export const SYSTEM_INBOX_HREF = { crons: "/admin/system/automation", emails: "/admin/system/integrations", payments: "/admin/system/integrations" } as const;
+export const SYSTEM_INBOX_HREF = { crons: "/admin/system/automation", emails: "/admin/system/integrations", payments: "/admin/billing" } as const;
 
 /**
  * Items of type « system » (counted in « À traiter »): one per pg_cron task failed or late, one for

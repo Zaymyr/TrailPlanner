@@ -1,7 +1,7 @@
 ---
 title: organizer_edition_payments
 scope: database
-last_verified: 2026-11-22
+last_verified: 2026-11-23
 ai_priority: high
 related_files:
   - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
@@ -134,3 +134,5 @@ order by created_at desc;
 - [organizer_edition_entitlements](organizer-edition-entitlements.md)
 - [Stripe](../../05-integrations/stripe.md)
 - [organizer_invoices](organizer-invoices.md)
+
+Admin console (2026-11-23, lot 4): « Ventes & facturation » (`/admin/billing`) lists these rows read-only (bank transfer when `payment_channel = bank_transfer`, or no Checkout Session on legacy rows; `expired` Stripe attempts left out) and is the first screen of `POST /api/admin/organizer-payments` (« Enregistrer un virement »). The routes, the RPC and the invariants above are unchanged.

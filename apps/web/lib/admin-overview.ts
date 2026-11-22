@@ -512,7 +512,7 @@ export const formatMinor = (minor: number, currency = "eur") => {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: currency.toUpperCase(), minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: 2 }).format(minor / 100);
 };
 
-export type FeedPayment = { id: string; paid_at: string; amount_total: number | null; currency: string | null; to_tier: string; payment_channel: string | null; eventName: string | null };
+export type FeedPayment = { id: string; edition_id?: string | null; paid_at: string; amount_total: number | null; currency: string | null; to_tier: string; payment_channel: string | null; eventName: string | null };
 export type FeedFlyoverOrder = { id: string; created_at: string; paid_at: string | null; race_name: string; offer: string; status: string };
 export type FeedRender = { id: string; kind: "reel" | "carousel"; title: string; status: "active" | "done" | "failed"; stage: string; finishedAt: string | null };
 export type FeedPublishedPost = { id: string; media_type: "reel" | "carousel"; published_at: string; dry_run: boolean; races?: { name: string } | null };
@@ -535,7 +535,7 @@ export const buildActivityFeed = ({ payments, flyoverOrders, renders, posts, acc
     title: `${TIER_LABELS[payment.to_tier] ?? payment.to_tier} payé${payment.payment_channel === "bank_transfer" ? " par virement" : ""}`,
     detail: [payment.eventName, payment.amount_total !== null ? formatMinor(payment.amount_total, payment.currency ?? "eur") : null].filter(Boolean).join(" · "),
     at: payment.paid_at,
-    href: "/admin/organizers",
+    href: payment.edition_id ? `/admin/billing?periode=tout&edition=${payment.edition_id}` : "/admin/billing",
   }));
   flyoverOrders.forEach((order) => {
     if (!order.paid_at) return;

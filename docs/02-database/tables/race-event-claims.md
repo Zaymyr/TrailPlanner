@@ -1,7 +1,7 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-11-22
+last_verified: 2026-11-23
 # Livret supporter note (2026-11-16): the public name of the supporter_guide surface is now "Livret supporter" (formerly "Livret accompagnateur"); aid-station access wording ("Accompagnateurs autorisés") is unchanged; no data, contract or offer change.
 # Assisted legacy conversion (2026-11-15): organizer membership is verified for the event before conversion; claim records and transitions are unchanged.
 # Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
@@ -244,3 +244,5 @@ Organizer finishing layouts do not change claims, memberships, or authorization.
 Organizer header (2026-11-16): the dashboard header no longer shows the « Aperçu coureur » and « Aperçu accompagnateur » web preview links (« Voir le Livret coureur » and « Télécharger le QR » remain), and its row wraps instead of letting the actions block overlap the edition selector. Presentation only; no data, contract or offer change.
 
 - The `/organizers` creation page addresses organizers with « vous » and no longer mentions claims or drafts to the user (2026-11-22); this is copy only and the direct-creation behavior described above is unchanged.
+
+Admin console (2026-11-23, lot 4): invoices and bank transfers are handled in « Ventes & facturation » (`/admin/billing`) instead of the Organisateurs edition cards, and the admin-only « Offrir une offre partenaire » action of `/organizer` became a link to `/admin/organizers?edition=<id>`. This table, its review workflow and its states are unchanged.

@@ -55,3 +55,5 @@ One row: `available` (false when `net._http_response` does not exist or cannot b
 - [transactional_email_log](tables/transactional-email-log.md)
 - [Web App Architecture](../01-architecture/web-app.md)
 - [Ops](../context/OPS.md)
+
+Refactor (2026-11-23, lot 4): `lib/admin-system-health-server.ts` reads through the shared helpers of `lib/admin-service-rest.ts` (same requests, same `settle` behaviour); the functions and their callers are unchanged. The payments health line now links to `/admin/billing`.

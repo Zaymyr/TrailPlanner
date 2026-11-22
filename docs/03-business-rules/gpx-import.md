@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-11-22
+last_verified: 2026-11-23
 # Video generator header (2026-11-20): the admin video generator page header now uses the shared generate/publish switch; GPX rules unchanged.
 # Assisted legacy conversion (2026-11-15): review controls do not alter GPX parsing, waypoint hydration or persistence.
 # Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
@@ -353,3 +353,5 @@ GPX route/profile visibility now uses the shared Organizer switch row without ch
 Terrain-style section headers do not change GPX import or publication behavior.
 
 The admin « GPX à traiter » list (« Qualité des données » of `/admin/catalog/races?vue=qualite` since lot 1 of the admin console) links each race to `/admin/catalog/races?course=<races.id>`, which opens its edit dialog in the catalog to upload the GPX.
+
+Admin console (2026-11-23, lot 4): the `/organizer` dashboard lost its admin-only « Offrir une offre partenaire » buttons (replaced by a link to `/admin/organizers?edition=<id>`); GPX import, course editing and their permissions are unchanged.

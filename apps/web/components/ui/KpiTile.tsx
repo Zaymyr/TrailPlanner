@@ -15,6 +15,8 @@ type KpiTileProps = {
   /** Series of the period, oldest first, for the sparkline. */
   series?: number[];
   unit?: string;
+  /** One short line under the value (« 3 lignes · 1 en retard »). */
+  hint?: string;
   className?: string;
 };
 
@@ -22,7 +24,7 @@ const TONE_TEXT = { positive: "text-emerald-700 dark:text-emerald-300", negative
 const TONE_STROKE = { positive: "#2d5016", negative: "#e05252", neutral: "#8a917e" } as const;
 
 /** KPI of the admin dashboard: label, value in mono figures, coloured change and a sparkline. */
-export function KpiTile({ label, value, current, previous, previousLabel, deltaMode, higherIsBetter, series, unit, className }: KpiTileProps) {
+export function KpiTile({ label, value, current, previous, previousLabel, deltaMode, higherIsBetter, series, unit, hint, className }: KpiTileProps) {
   const delta = typeof current === "number" ? formatKpiDelta(current, previous, { mode: deltaMode, higherIsBetter }) : null;
   const paths = series ? sparklinePaths(series) : null;
   const stroke = TONE_STROKE[delta?.tone ?? "positive"];
@@ -33,6 +35,7 @@ export function KpiTile({ label, value, current, previous, previousLabel, deltaM
         {unit ? <span className="font-mono">{unit}</span> : null}
       </p>
       <p className="font-mono text-[26px] font-bold leading-tight tracking-tight text-foreground tabular-nums">{value}</p>
+      {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
       {delta ? (
         <p className={cn("text-xs font-semibold", TONE_TEXT[delta.tone])}>
           <span aria-hidden="true">{delta.label}</span>

@@ -4,6 +4,8 @@ scope: integration
 last_verified: 2026-11-23
 ai_priority: high
 related_files:
+  - apps/web/lib/admin-billing-server.ts
+  - apps/web/lib/admin-service-rest.ts
   - apps/web/lib/stripe.ts
   - apps/web/app/api/stripe/portal/route.ts
   - apps/web/app/api/stripe/price/route.ts
@@ -154,6 +156,10 @@ The Checkout opens only from the last step of `/survol`, after the live preview;
 ## Admin webhook health (2026-11-23)
 
 Lot 3 of the admin console reads the webhook's health from what it already writes, without any Stripe API call (`loadPaymentActivity` in `lib/admin-system-health-server.ts`, thresholds in `lib/admin-system-health.ts`). Latest event: the newest of `runner_billing_events.received_at` (provider `stripe`), `organizer_edition_payments.updated_at` of rows with a Checkout Session (bank transfers left out) and `flyover_video_orders.paid_at`. Error: `STRIPE_SECRET_KEY` or `STRIPE_WEBHOOK_SECRET` missing, or a Stripe `runner_billing_events` row of the last 7 days still without `processed_at` 15 minutes after `received_at` (the webhook journals, processes, then marks; a throw in between leaves it unprocessed) or with `processing_error` (no code writes a non-null value today). Warning: Stripe organizer payments `failed` or `disputed` updated in the last 7 days. An error line becomes a « Système » item of the admin queue; `/admin/system/integrations` shows which Stripe variables are present (never their value) and the latest event per source. Only the runner ledger is journaled per event: organizer and flyover events are seen through the rows they update.
+
+## Admin sales register (2026-11-23)
+
+Lot 4 of the admin console lists Stripe transactions from the tables the webhook already writes, without any Stripe API call or secret: organizer packs (`organizer_edition_payments` with their stored HT / tax / TTC; abandoned `expired` Checkout attempts are not listed), flyover orders (`flyover_video_orders.amount_cents`, TTC; tax not stored) and runner purchases (`runner_plan_unlocks`, `runner_subscription_accounts`: no amount stored, shown « montant non suivi »). Dashboard links are built from the id prefix only (`pi_` / `ch_` / `py_` → payments, `in_` → invoices, `sub_` → subscriptions); Checkout Session ids get no link. The webhook health line now opens the register (`/admin/billing`), whose banner links back to Intégrations. Data API helpers of the health loader moved to `lib/admin-service-rest.ts` (no behaviour change).
 
 ## Trial vs Paid Distinction
 

@@ -79,3 +79,5 @@ group by category order by 2 desc;
 - [Resend Integration](../../05-integrations/resend.md)
 - [Admin system health functions](../admin-system-health-functions.md)
 - [Web App Architecture](../../01-architecture/web-app.md)
+
+Refactor (2026-11-23, admin console lot 4): `lib/admin-system-health-server.ts` now uses the shared Data API helpers of `lib/admin-service-rest.ts`; the journal reads, columns and masking are unchanged.
