@@ -28,6 +28,14 @@ Journal en ajout seul, la plus récente en haut. Format : `## AAAA-MM-JJ — Tit
 
 **Conséquence.** Carte verrouillée sous l'éditeur Sponsors pour les offres inférieures (fenêtre d'offres existante) ; carte Signature de /organisateurs complétée. Détail : [Organizer Commercial Offers](../03-business-rules/organizer-commercial-offers.md#rapport-partenaires-2026-11-22).
 
+## 2026-11-22 — Ouverture courte, tracé gris puis vert, sous-titres à 86 %
+
+**Contexte.** Premiers retours sur l'ouverture « vue d'ensemble » : 5 s trop longues, tracé peu visible, point de progression disparu, sous-titres encore trop hauts.
+
+**Décision.** Ouverture fixe de 3 s : la course est annoncée sur la vue d'ensemble (tracé entier en couleur opaque), puis la caméra plonge ; le tracé restant devient gris opaque et le tracé vert avance dessus. Sous-titres centrés à 86 %. La feuille CSS de Mapbox est chargée par le lecteur lui-même.
+
+**Conséquence.** Le point de progression, les bulles de ravitos et les noms de lieux réapparaissent sur /survol et dans les rendus Cloud Run (ils sortaient du cadre faute de CSS). Détail : [ADR reels, point 20](../08-decisions/2026-11-19-reel-highlights-and-figures.md).
+
 ## 2026-11-22 — Toutes les vidéos s'ouvrent sur la vue d'ensemble du tracé
 
 **Contexte.** En « Temps forts », la vidéo démarrait directement sur l'accroche (2,4 s sur la plus grosse montée), trop vite ; les sous-titres étaient jugés trop hauts et le tracé pixelisé ; les fonds de carte satellite de la vidéo de survol se ressemblaient trop.
