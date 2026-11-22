@@ -11,8 +11,9 @@ import { HeaderMenu } from "./header-menu";
 import { HeaderTabs } from "./header-tabs";
 import { useI18n } from "./i18n-provider";
 
-const STANDALONE_PATHS = new Set(["/links", "/en/links"]);
-const STANDALONE_PREFIXES = ["/share/plan/", "/render/"];
+// The admin console draws its own frame (AdminShell: sidebar + top bar), so the site header and footer stay out.
+const STANDALONE_PATHS = new Set(["/links", "/en/links", "/admin"]);
+const STANDALONE_PREFIXES = ["/share/plan/", "/render/", "/admin/"];
 
 type RootChromeProps = {
   children: ReactNode;

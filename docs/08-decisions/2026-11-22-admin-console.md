@@ -6,6 +6,9 @@ ai_priority: medium
 related_files:
   - apps/web/app/admin/layout.tsx
   - apps/web/app/admin/page.tsx
+  - apps/web/app/admin/admin-routes.ts
+  - apps/web/app/admin/admin-redirects.ts
+  - apps/web/app/admin/_components/shell/AdminShell.tsx
 ---
 
 # Console d'administration : audit et structure cible (2026-11-22)
@@ -175,10 +178,36 @@ Chaque lot = une PR, sans casser l'existant (anciennes URL redirigées).
 | Lot | État | Notes |
 |---|---|---|
 | 0 | fait | Onglets de `/admin` et sous-onglets Messagerie / Organisateurs pilotés par `?onglet=` / `?vue=` (`admin-tabs.ts`) ; `?onglet=courses&course=<id>` ouvre l'édition, lien « Corriger » dans GPX à traiter ; `inbox-counts` sépare demandes de course et démos et ajoute claims, publications et nouvelles éditions (badges sur Organisateurs et la Messagerie, nouvel onglet « Démos organisateurs ») ; onglet renommé « Croissance », courbe partagée (même clé react-query, Croissance s'ouvre sur 30 j). Écart : `t.admin.growth.*` partiellement inutilisé, non supprimé. |
-| 1 | à faire | |
+| 1 | fait | Coque `AdminShell` (`_components/shell/`) montée par `layout.tsx` après la vérification serveur inchangée : barre latérale (`ADMIN_NAV` de `admin-routes.ts`, groupes du §4, élément actif, compteurs « À traiter » = messages + organisateurs et Organisateurs), tiroir sous `lg`, barre du haut (fil d’Ariane, ⌘K, pastilles « Instagram : simulation » et « Droits : Gratuit/Premium », cloche vers `/admin/inbox`), polices Bricolage Grotesque / JetBrains Mono. `RootChrome` laisse `/admin` en autonome (plus de double en-tête ; le lien « Admin » du site est inchangé). Primitives `components/ui` : `StatusBadge`, `Switch`, `Select`, `Drawer`, `EmptyState`, `KpiTile` (+ `kpi-delta.ts`), `Toast`, `CommandPalette` (+ `command-palette-filter.ts`), `focus-trap.ts`. Page Publications découpée en `usePublicationsWorkspace` (mêmes clés de requête) + `PublicationViews.tsx` ; studio déplacé dans `VideoGeneratorStudio.tsx` (les modules de `video-generator/` ne bougent pas). Redirections `admin-redirects.ts` (testées) depuis `/admin?onglet=`, `/admin/publications?onglet=`, `/admin/video-generator`. Routes : voir le tableau ci-dessous. Écarts : `/admin` montre la section Croissance (dashboard au lot 2) ; « Qualité des données » est un onglet de `/admin/catalog/races` (pas une carte à côté de la liste) ; `/admin/messaging` est un renvoi vers Coureurs ; le Toast et les autres primitives ne sont encore utilisés que par la coque. |
 | 2 | à faire | |
 | 3 | à faire | |
 | 4 | à faire | |
 | 5 | à faire | |
 | 6 | à faire | |
 | 7 | à faire | |
+
+### Routes après le lot 1
+
+| Route | Contenu (composant existant) | Ancienne URL redirigée |
+|---|---|---|
+| `/admin` | Vue d’ensemble provisoire : `AdminGrowthSection` | — (`/admin?onglet=<inconnu>` → `/admin`) |
+| `/admin/inbox` (`?vue=feedback\|demandes\|demos`) | `AdminMessagingTab` sans Questionnaires + liens vers les demandes organisateurs | `/admin?onglet=messagerie[&vue=]` |
+| `/admin/analytics` | `AdminGrowthSection` | `/admin?onglet=croissance` |
+| `/admin/billing` | Attente lot 4 → Organisateurs | — |
+| `/admin/runners` (`?recherche=`) | `AdminUsersTab` | `/admin?onglet=utilisateurs` |
+| `/admin/organizers` (`?vue=acces`) | `AdminOrganizerClaimsTab` | `/admin?onglet=organisateurs[&vue=]` |
+| `/admin/organizers/social-proofs` | `AdminOrganizerSocialProofsTab` | `/admin?onglet=preuves` |
+| `/admin/catalog/races` (`?course=`, `?vue=qualite`) | `AdminRaceCatalogSection` / `RaceDataGapsCard` | `/admin?onglet=courses[&course=]`, `/admin/publications?onglet=gpx` |
+| `/admin/catalog/products` | `AdminProductsTab` | `/admin?onglet=produits` |
+| `/admin/catalog/partners` | `AdminPartnerLinksTab` | `/admin?onglet=partenaires` |
+| `/admin/content` | `PublicationsAgenda` (à surveiller + calendrier) | `/admin/publications`, `?onglet=agenda` |
+| `/admin/content/studio` | `VideoGeneratorStudio` | `/admin/video-generator` |
+| `/admin/content/posts` (`?onglet=carousels\|published\|templates`, `?post=`, `?element=`) | `ReelsPanel`, `CarouselsPanel`, `PublishedPanel`, `AdminSocialTemplatesSection` | `/admin/publications?onglet=reels\|carousels\|published`, `/admin?onglet=templates` |
+| `/admin/content/renders` | `RendersPanel` (2 × `RenderActivityCard`, provisoire → lot 6) | — |
+| `/admin/content/flyovers` | `FlyoverOrdersCard` | `/admin/publications?onglet=flyovers` |
+| `/admin/messaging` | Attente lot 5 → Coureurs | — |
+| `/admin/messaging/surveys` | `AdminSurveysTab` | `/admin?onglet=messagerie&vue=questionnaires` |
+| `/admin/system/automation` | `ReelAutomationSettings` + `CarouselSeriesSettings` | `/admin/publications?onglet=settings` |
+| `/admin/system/integrations` | `InstagramStatusCard` | — |
+| `/admin/system/maintenance`, `/admin/system/audit` | Attente lots 3 et 7 | — |
+| `/admin/catalog`, `/admin/system` | Redirigent vers leur première page | — |

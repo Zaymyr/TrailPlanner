@@ -16,9 +16,17 @@ type InboxTab = "bug" | "feedback" | "race-requests" | "demo-requests" | "survey
 const VIEW_FOR_TAB: Record<InboxTab, MessagingView> = { bug: "bugs", feedback: "feedback", "race-requests": "demandes", "demo-requests": "demos", surveys: "questionnaires" };
 const TAB_FOR_VIEW = Object.fromEntries(MESSAGING_VIEWS.map((view) => [view, (Object.keys(VIEW_FOR_TAB) as InboxTab[]).find((tab) => VIEW_FOR_TAB[tab] === view)])) as Record<MessagingView, InboxTab>;
 
-/** Admin inbox: bugs, feedback and race requests, each with its pending count, plus feedback surveys. */
-export function AdminMessagingTab({ accessToken }: { accessToken: string | null }) {
-  const [tab, setTabState] = useState<InboxTab>(() => TAB_FOR_VIEW[readMessagingView(typeof window === "undefined" ? "" : window.location.search)]);
+/**
+ * Admin inbox: bugs, feedback, race and demo requests, each with its pending count, plus feedback
+ * surveys. `views` limits the sub-tabs (the console « À traiter » page leaves the surveys out: they
+ * have their own page); `title` replaces the card title.
+ */
+export function AdminMessagingTab({ accessToken, views = MESSAGING_VIEWS, title = "Messagerie" }: { accessToken: string | null; views?: readonly MessagingView[]; title?: string }) {
+  const allowedTabs = views.map((view) => TAB_FOR_VIEW[view]);
+  const [tab, setTabState] = useState<InboxTab>(() => {
+    const requested = TAB_FOR_VIEW[readMessagingView(typeof window === "undefined" ? "" : window.location.search)];
+    return allowedTabs.includes(requested) ? requested : allowedTabs[0] ?? "bug";
+  });
   const setTab = (next: InboxTab) => {
     setTabState(next);
     replaceLocationSearch(searchForView(window.location.search, VIEW_FOR_TAB[next], "bugs"));
@@ -29,7 +37,7 @@ export function AdminMessagingTab({ accessToken }: { accessToken: string | null 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Messagerie</CardTitle>
+        <CardTitle>{title}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <TabsList
@@ -39,7 +47,7 @@ export function AdminMessagingTab({ accessToken }: { accessToken: string | null 
             { id: "race-requests", label: withCount("Demandes de course", counts.data?.raceRequests) },
             { id: "demo-requests", label: withCount("Démos organisateurs", counts.data?.demoRequests) },
             { id: "surveys", label: "Questionnaires" },
-          ]}
+          ].filter((entry) => allowedTabs.includes(entry.id as InboxTab))}
           activeTab={tab}
           onTabChange={(next) => setTab(next as InboxTab)}
         />

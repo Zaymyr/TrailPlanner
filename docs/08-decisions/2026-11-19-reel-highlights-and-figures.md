@@ -135,6 +135,8 @@ Second, a full-course flyover of an ultra lasts up to 2-3 minutes; a short "temp
 - The outro is about 2 s longer than before (voice plus a 2 s hold); the 50 s cap on highlights is unchanged and the flyover absorbs it when the total is clamped.
 - The pipeline steps of `reel-generation.ts` (`writeReelWork`, `synthesizeReelClips`, `launchReelRender`) are now shared with the organizer flyover video product (2026-11-22, [rules](../03-business-rules/flyover-video-orders.md)); the figures, highlights and automatic reel behavior decided here are unchanged. The viewer also gained a public `preview` mode for that product, and the future route and glow colors are now `rgba()` (Mapbox rejected the 8-digit hex values).
 
+Admin console (2026-11-22, lot 1): the « Publications » link shown by `ReelPipelinePanel` once the render is launched now points to `/admin/content/posts` (the former `/admin/publications` redirects there). The pipeline itself is unchanged.
+
 ## Related Docs
 
 - `../05-integrations/mapbox-3d.md`

@@ -103,3 +103,44 @@ export const writeDismissedAlerts = (dismissed: Set<string>, current: AttentionE
   }
   return new Set(kept);
 };
+
+/**
+ * Tabs of the console page « Publications » (`/admin/content/posts`, lot 1 of the admin console):
+ * Reels, Carrousels and Publiées come from the former Publications page, « Templates sociaux » is the
+ * manual carousel of the former /admin tab. `?onglet=` selects one (Reels when absent).
+ */
+export const POSTS_TABS = [
+  { id: "reels", label: "Reels" },
+  { id: "carousels", label: "Carrousels" },
+  { id: "published", label: "Publiées" },
+  { id: "templates", label: "Templates sociaux" },
+] as const;
+export type PostsTab = (typeof POSTS_TABS)[number]["id"];
+
+export const readPostsTab = (search: string): PostsTab => {
+  const value = new URLSearchParams(search).get("onglet");
+  return POSTS_TABS.find((tab) => tab.id === value)?.id ?? "reels";
+};
+
+/** The post (`?post=`) or plan item (`?element=`) to highlight when the page opens. */
+export const readPostsHighlight = (search: string) => {
+  const params = new URLSearchParams(search);
+  return { postId: params.get("post")?.trim() || null, itemId: params.get("element")?.trim() || null };
+};
+
+/** Console URL of an agenda or calendar target (« Voir »): the Publications tab plus the item to highlight. */
+export const publicationTargetHref = (target: { tab: PublicationTab; postId?: string; itemId?: string }): string => {
+  const params = new URLSearchParams();
+  if (target.tab === "carousels" || target.tab === "published") params.set("onglet", target.tab);
+  if (target.postId) params.set("post", target.postId);
+  else if (target.itemId) params.set("element", target.itemId);
+  const search = params.toString();
+  const base =
+    target.tab === "agenda" ? "/admin/content"
+    : target.tab === "flyovers" ? "/admin/content/flyovers"
+    : target.tab === "gpx" ? "/admin/catalog/races?vue=qualite"
+    : target.tab === "settings" ? "/admin/system/automation"
+    : "/admin/content/posts";
+  if (base !== "/admin/content/posts") return base;
+  return search ? `${base}?${search}` : base;
+};

@@ -1,6 +1,8 @@
 /**
- * URL state of the /admin tabs (pure): `?onglet=` selects the tab, `?vue=` the sub-tab of Messagerie and
- * Organisateurs, `?course=` the race the catalog opens for editing. Unknown values fall back to the default.
+ * URL state of the admin screens (pure). `ADMIN_TABS` lists the tab ids of the former single /admin page
+ * (lot 0): since lot 1 each tab is a console route and `admin-redirects.ts` maps `/admin?onglet=<id>` to
+ * it. `?vue=` still selects the sub-tab of Messagerie (/admin/inbox) and Organisateurs (/admin/organizers),
+ * `?course=` the race the catalog opens for editing. Unknown values fall back to the default.
  */
 
 export const ADMIN_TABS = [
@@ -25,24 +27,12 @@ export type OrganizerView = (typeof ORGANIZER_VIEWS)[number];
 const pick = <T extends string>(allowed: readonly T[], value: string | null, fallback: T): T =>
   allowed.find((candidate) => candidate === value) ?? fallback;
 
-export const readAdminTab = (search: string): AdminTabId =>
-  pick(ADMIN_TABS.map((tab) => tab.id), new URLSearchParams(search).get("onglet"), "produits");
-
 export const readMessagingView = (search: string): MessagingView => pick(MESSAGING_VIEWS, new URLSearchParams(search).get("vue"), "bugs");
 
 export const readOrganizerView = (search: string): OrganizerView => pick(ORGANIZER_VIEWS, new URLSearchParams(search).get("vue"), "publication");
 
 /** The race id of `?course=`, or null when absent or blank. */
 export const readRaceParam = (search: string): string | null => new URLSearchParams(search).get("course")?.trim() || null;
-
-/** Search string for a tab, dropping the sub-view and race of the previous tab. Other params are kept. */
-export const searchForTab = (search: string, tab: AdminTabId): string => {
-  const params = new URLSearchParams(search);
-  params.set("onglet", tab);
-  params.delete("vue");
-  params.delete("course");
-  return `?${params.toString()}`;
-};
 
 /** Search string with `?vue=` set (the default view is left out of the URL). */
 export const searchForView = (search: string, view: string, defaultView: string): string => {
@@ -53,8 +43,8 @@ export const searchForView = (search: string, view: string, defaultView: string)
   return next ? `?${next}` : "";
 };
 
-/** Link to the catalog editing one race (used by « GPX à traiter »). */
-export const raceEditHref = (raceId: string) => `/admin?${new URLSearchParams({ onglet: "courses", course: raceId }).toString()}`;
+/** Link to the catalog editing one race (used by « GPX à traiter » and the ⌘K palette). */
+export const raceEditHref = (raceId: string) => `/admin/catalog/races?${new URLSearchParams({ course: raceId }).toString()}`;
 
 /** Replaces the query string of the current URL without adding a history entry or reloading. */
 export const replaceLocationSearch = (search: string) => {

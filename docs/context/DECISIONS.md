@@ -4,6 +4,14 @@
 
 Journal en ajout seul, la plus récente en haut. Format : `## AAAA-MM-JJ — Titre`, puis Contexte / Décision / Conséquence (2 à 4 lignes chacun). Les décisions d'architecture détaillées (ADR) vont dans [docs/08-decisions/](../08-decisions/README.md).
 
+## 2026-11-22 — Console admin à barre latérale, une URL par écran
+
+**Contexte.** L’admin tenait en 3 pages et 16 onglets sans vue d’ensemble ni file de travail ; plusieurs onglets n’avaient pas d’URL.
+
+**Décision.** Console à barre latérale (Pilotage, Clients, Catalogue, Contenus, Communication, Système), une route par écran sous `/admin/*`, recherche ⌘K et pastilles de mode simulation en haut ; les écrans existants sont montés sans réécriture et les anciennes URL redirigées. Livraison par lots 0 à 7 sur une seule PR.
+
+**Conséquence.** Le header du site n’apparaît plus sur `/admin` (la console a sa propre coque) ; les primitives admin (`StatusBadge`, `Switch`, `Drawer`, `KpiTile`, `Toast`, `CommandPalette`…) sont dans `components/ui`. Détail : [ADR console admin](../08-decisions/2026-11-22-admin-console.md).
+
 ## 2026-11-22 — Ouverture courte, tracé gris puis vert, sous-titres à 86 %
 
 **Contexte.** Premiers retours sur l'ouverture « vue d'ensemble » : 5 s trop longues, tracé peu visible, point de progression disparu, sous-titres encore trop hauts.

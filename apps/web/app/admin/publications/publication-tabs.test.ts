@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { PublicSocialPost } from "../../../lib/social-posts";
-import { buildAttentionList, postTitle, readTabFromLocation, tabForPost } from "./publication-tabs";
+import { buildAttentionList, postTitle, publicationTargetHref, readPostsHighlight, readPostsTab, readTabFromLocation, tabForPost } from "./publication-tabs";
 import type { RenderActivityView } from "./publications-api";
 
 const NOW = Date.parse("2026-11-20T15:00:00Z");
@@ -61,5 +61,23 @@ describe("publication tabs", () => {
     expect(key({ status: "failed", error: "Vidéo refusée" })).toBe(key({ status: "failed", error: "Vidéo refusée" }));
     expect(key({ status: "failed", error: "Quota atteint" })).not.toBe(key({ status: "failed", error: "Vidéo refusée" }));
     expect(key({ status: "draft" })).not.toBe(key({ status: "failed", error: "Vidéo refusée" }));
+  });
+});
+
+describe("console Publications tabs", () => {
+  it("reads the tab and the item to highlight", () => {
+    expect(readPostsTab("")).toBe("reels");
+    expect(readPostsTab("?onglet=templates")).toBe("templates");
+    expect(readPostsTab("?onglet=agenda")).toBe("reels");
+    expect(readPostsHighlight("?post=p1&element=")).toEqual({ postId: "p1", itemId: null });
+  });
+
+  it("links an agenda target to its console page", () => {
+    expect(publicationTargetHref({ tab: "reels", postId: "p1" })).toBe("/admin/content/posts?post=p1");
+    expect(publicationTargetHref({ tab: "carousels", itemId: "i1" })).toBe("/admin/content/posts?onglet=carousels&element=i1");
+    expect(publicationTargetHref({ tab: "published", postId: "p2" })).toBe("/admin/content/posts?onglet=published&post=p2");
+    expect(publicationTargetHref({ tab: "reels" })).toBe("/admin/content/posts");
+    expect(publicationTargetHref({ tab: "gpx" })).toBe("/admin/catalog/races?vue=qualite");
+    expect(publicationTargetHref({ tab: "settings" })).toBe("/admin/system/automation");
   });
 });

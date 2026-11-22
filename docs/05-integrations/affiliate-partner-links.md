@@ -50,7 +50,7 @@ Chronological cutoff resolution, the Courses image placeholder and plan access g
 
 The race-workspace header toolbar/footer layout (lot 10) does not change partner-link resolution, placement, click tracking, or destinations.
 
-The separate admin link to `/admin/video-generator` does not share partner-link configuration, persistence, destinations, or analytics. Neither does the « Publications » link to `/admin/publications` (Instagram Reels publishing, [instagram-publishing.md](instagram-publishing.md)).
+The admin studio (`/admin/content/studio`, formerly `/admin/video-generator`) does not share partner-link configuration, persistence, destinations, or analytics. Neither do the Publications screens (`/admin/content/*`, formerly `/admin/publications`) (Instagram Reels publishing, [instagram-publishing.md](instagram-publishing.md)).
 
 Moving official timing into the shared RaceBook header and removing its duplicate Trace row does not change partner-link resolution, placement, click tracking, or destinations.
 
@@ -162,3 +162,5 @@ RaceBook polish (2026-11-09): the runner hero keeps the format/event thumbnail b
 The Decathlon (Matériel) and Booking (Services) cards are partner slots. The default remains the resolved affiliate link and its disclosure. When a published Signature RaceBook replaces a slot with an organizer partner, mobile renders the partner name, logo, headline and `Découvrir` action through the counted `/api/racebook-partner-slots/:slot/click` redirect, without the affiliate disclosure and without a `partner_*` RaceBook action; a hidden slot renders no card. The partner-links endpoint and affiliate destinations are unchanged.
 
 Runner copy and saved-plan layout changes do not modify affiliate labels, destinations or partner-slot behavior.
+
+Admin console (2026-11-22, lot 1): the « Liens partenaires » tab is the page `/admin/catalog/partners` (same `AdminPartnerLinksTab`, same API); `/admin?onglet=partenaires` redirects there.

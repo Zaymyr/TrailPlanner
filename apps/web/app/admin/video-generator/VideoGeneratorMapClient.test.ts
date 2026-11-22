@@ -376,7 +376,7 @@ describe("VideoGeneratorMapClient one-click reel", () => {
     expect(snapshot.settings.storyMode).toBe("highlights");
     expect(snapshot.narrationOverrides["hl-intro"]).toContain("Prêt pour la nuit ?");
     expect(snapshot.voiceClips.length).toBeGreaterThan(0);
-    expect(screen.getByRole("link", { name: "Publications" }).getAttribute("href")).toBe("/admin/publications");
+    expect(screen.getByRole("link", { name: "Publications" }).getAttribute("href")).toBe("/admin/content/posts");
     expect(screen.getByLabelText("Points à vérifier").textContent).toContain("Chiffre non fourni : 3 200 m");
   });
 

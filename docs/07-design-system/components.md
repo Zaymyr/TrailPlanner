@@ -1,7 +1,7 @@
 ---
 title: Design Components
 scope: design-system
-last_verified: 2026-11-13
+last_verified: 2026-11-22
 # Organizer headers (2026-11-13): `SectionHeader` receives a section-specific icon, supports two-line titles, and no longer supplies a generic arrow fallback.
 ai_priority: medium
 related_files:
@@ -11,6 +11,19 @@ related_files:
   - apps/web/components/ui/dialog.tsx
   - apps/web/app/organizer/_components/dashboard/form-kit/index.tsx
   - apps/web/components/ui/tabs.tsx
+  - apps/web/components/ui/StatusBadge.tsx
+  - apps/web/components/ui/Switch.tsx
+  - apps/web/components/ui/Select.tsx
+  - apps/web/components/ui/Drawer.tsx
+  - apps/web/components/ui/EmptyState.tsx
+  - apps/web/components/ui/KpiTile.tsx
+  - apps/web/components/ui/kpi-delta.ts
+  - apps/web/components/ui/kpi-delta.test.ts
+  - apps/web/components/ui/Toast.tsx
+  - apps/web/components/ui/CommandPalette.tsx
+  - apps/web/components/ui/command-palette-filter.ts
+  - apps/web/components/ui/command-palette-filter.test.ts
+  - apps/web/components/ui/focus-trap.ts
   - apps/web/components/utils.ts
   - apps/mobile/components/themed/Button.tsx
   - apps/mobile/components/themed/ActionButton.tsx
@@ -92,6 +105,8 @@ Current files include:
 - `tabs.tsx`
 - `MetricCard.tsx`
 - `SectionHeader.tsx`
+- `TimeSeriesLineChart.tsx`
+- admin console primitives (2026-11-22): `StatusBadge.tsx`, `Switch.tsx`, `Select.tsx`, `Drawer.tsx`, `EmptyState.tsx`, `KpiTile.tsx` (+ `kpi-delta.ts`), `Toast.tsx`, `CommandPalette.tsx` (+ `command-palette-filter.ts`), and the shared `focus-trap.ts` helper (see « Admin console primitives » below)
 
 The `cn` helper in `apps/web/components/utils.ts` filters falsey class values and joins strings.
 
@@ -141,6 +156,19 @@ Card subcomponents:
 - backdrop blur;
 - close-on-overlay-click behavior.
 - Escape dismissal, initial focus, Tab/Shift+Tab focus trap, and focus restoration to the trigger on close.
+
+## Admin console primitives (2026-11-22)
+
+Created for the admin console (ADR [2026-11-22 admin console](../08-decisions/2026-11-22-admin-console.md), lot 1) and meant to be reused by every admin screen instead of local badges, toggles and modals. French copy, keyboard and screen-reader support built in; pure logic is unit-tested (`vitest.config.ts` includes `components/**/*.test.ts`).
+
+- `StatusBadge` — one pill for every status: `tone` = `neutral | info | success | warning | danger`, optional dot (`dot`, default on) and `pulse` for something running. The text carries the meaning; the colour is a reinforcement.
+- `Switch` — on/off control: a native `<button role="switch" aria-checked>`, `checked` + `onCheckedChange`; with `label` (and optional `description`) it renders the labelled row, otherwise pass `aria-label`.
+- `Select` — styled native `<select>` (forwardRef, all native props) with a chevron; keeps the browser's keyboard and mobile pickers. Prefer it to a custom listbox.
+- `Drawer` — side panel (`side="right"` by default, `left` for the mobile admin menu): portal, `role="dialog"` + `aria-modal`, title (`hideTitle` keeps it for screen readers only) and description wired by id, focus moved inside and trapped (`focus-trap.ts`), Échap and backdrop close, focus returned to the opener, page scroll locked while open. `actions` sit next to the close button; `className` sets the panel background and text colours (default `bg-card text-foreground`).
+- `EmptyState` — dashed card with title, description and an action slot (empty lists, placeholder pages).
+- `KpiTile` — dashboard figure: label, value in mono figures, change vs the previous period and an SVG sparkline. `formatKpiDelta(current, previous, { mode, higherIsBetter })` (`kpi-delta.ts`) gives « ▲ 12,4 % » / « ▼ 3 » / « = » / « nouveau » with a tone (`positive | negative | neutral`, inverted when `higherIsBetter: false`) and a spoken description; `sparklinePaths(values, width, height)` returns the line and area paths (null under two points).
+- `Toast` — `ToastProvider` (mounted by `AdminShell`) and `useToast().show({ message, tone, actionLabel, onAction, durationMs })`: polite live region bottom right, four toasts at most, 5 s (8 s with an action) before closing; the action (« Annuler ») runs once then closes the toast. Use it for reversible actions; irreversible ones keep an explicit `Dialog`.
+- `CommandPalette` — ⌘K / Ctrl+K dialog (`useCommandPaletteShortcut(open)`): combobox input + grouped listbox (`aria-activedescendant`), ↑ ↓ (wrapping), Ctrl+Début/Fin, Entrée, Échap, Tab kept inside. The caller passes every item (`CommandItem`: `id`, `label`, `group`, `href`, `hint`, `keywords`, `prefiltered`); `filterCommandItems` matches every word of the query ignoring case and accents (label prefix, then word prefix, then contains, then keywords), keeps groups in their first-seen order and caps each group (`limitPerGroup`); `prefiltered` items (server search results) are kept for any non-empty query and hidden for an empty one. The admin wiring (destinations, runners, races) is `AdminCommandPalette` in `app/admin/_components/shell`.
 
 ## Organizer form kit
 
@@ -389,6 +417,8 @@ Supporter Guide and followed-plan screens reuse the same `TopoCard`, `ActionButt
 - The shared web `Button` primitive enforces a 44 px minimum height. Compact visual variants may reduce padding or font size, but must not override the minimum interactive target.
 
 - Web UI primitives are not currently exported from `@pace-yourself/design-system`.
+- `Drawer` and `CommandPalette` portal into `document.body` and lock nothing but the page scroll (Drawer); only one should be open at a time. Both reuse `focus-trap.ts`; `Dialog` still has its own copy of the same selector.
+- `cn` does not merge Tailwind conflicts: pass the background of a `Drawer` through `className` (which replaces the default `bg-card text-foreground`), not as an extra class on top of it.
 - If moving primitives into the design-system package, update package exports, web transpilation, and docs.
 - Keep primitive variants small and consistent with existing Tailwind/CSS variable names.
 - Avoid duplicating primitives or route-local components without first checking whether an existing component can be reused or extended.

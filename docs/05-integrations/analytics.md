@@ -527,3 +527,5 @@ The mobile survey form emits `feedback survey answered` (`notification_id`, `fou
 Organizer pricing (2026-11-22): the `/organisateurs` offer cards now show 199 / 349 / 499 € HT. No analytics event, property or consent rule changes; price strings stay out of telemetry.
 
 Admin (2026-11-22): the « Croissance » tab (renamed from « Croissance & Utilisateurs ») opens on 30 days and shares its `/api/admin/growth?range=last30` query with the user trend of the Utilisateurs tab (same react-query key, `staleTime` 60 s).
+
+Admin console (2026-11-22, lot 1): the Users tab is the page `/admin/runners`; `AdminUsersTab` accepts `initialSearch`, filled from `?recherche=` (the ⌘K palette sends a runner's e-mail there). The palette's user lookup reuses `GET /api/admin/users?search=`. No PostHog event is added by the console shell, its palette or its pages; the growth section is shown on `/admin` and `/admin/analytics` with the same `/api/admin/growth` query key.

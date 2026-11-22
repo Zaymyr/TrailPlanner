@@ -31,3 +31,10 @@ export function useInboxCounts(accessToken: string | null) {
 }
 
 export const withCount = (label: string, count: number | undefined) => (count ? `${label} (${count})` : label);
+
+/** Counts of the console: messages (bugs, feedback, race and demo requests), organizer requests, and their total (« À traiter », bell). */
+export const inboxTotals = (counts: InboxCounts | undefined) => {
+  if (!counts) return { messages: undefined, organizers: undefined, total: undefined };
+  const messages = counts.bug + counts.feedback + counts.raceRequests + counts.demoRequests;
+  return { messages, organizers: counts.organizerTotal, total: messages + counts.organizerTotal };
+};

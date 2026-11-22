@@ -121,7 +121,7 @@ export function ReelPipelinePanel({ canRun, pipeline, voiceLabel, mode, recommen
       {state.status === "done" ? (
         <p role="status" className="text-xs">
           Rendu lancé — le brouillon apparaîtra dans{" "}
-          <Link href="/admin/publications" className="font-semibold underline underline-offset-2">Publications</Link>{" "}
+          <Link href="/admin/content/posts" className="font-semibold underline underline-offset-2">Publications</Link>{" "}
           à la fin du rendu (≈ {REEL_RENDER_ETA_MINUTES} min).
         </p>
       ) : null}

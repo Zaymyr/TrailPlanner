@@ -182,3 +182,13 @@ button {
     @apply border-border dark:border-slate-800;
   }
 }
+
+/* Admin console (AdminShell): Bricolage Grotesque for text, JetBrains Mono for figures (next/font variables). */
+.admin-console {
+  font-family: var(--font-admin-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.admin-console .font-mono {
+  font-family: var(--font-admin-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-feature-settings: "tnum";
+}

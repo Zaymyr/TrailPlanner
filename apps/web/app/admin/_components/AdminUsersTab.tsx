@@ -80,7 +80,8 @@ const buildApiErrorMessage = (response: Response, payload: unknown, fallback: st
   return `${fallback} (HTTP ${response.status})`;
 };
 
-export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
+/** `initialSearch` pre-fills the search (console `/admin/runners?recherche=`, ⌘K palette). */
+export function AdminUsersTab({ accessToken, initialSearch = "" }: { accessToken: string | null; initialSearch?: string }) {
   const { t } = useI18n();
   const [userMessage, setUserMessage] = useState<string | null>(null);
   const [userError, setUserError] = useState<string | null>(null);
@@ -91,8 +92,8 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
   const [detailsDialogUser, setDetailsDialogUser] = useState<AdminUser | null>(null);
   const [notificationDialogUser, setNotificationDialogUser] = useState<AdminUser | null>(null);
   const [page, setPage] = useState(1);
-  const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState(initialSearch);
+  const [search, setSearch] = useState(initialSearch);
   const [emailFilterInput, setEmailFilterInput] = useState("");
   const [emailFilter, setEmailFilter] = useState("");
   const [roleFilter, setRoleFilter] = useState<"all" | UserRoleOption>("all");

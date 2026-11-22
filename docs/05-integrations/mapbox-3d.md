@@ -16,6 +16,8 @@ related_files:
   - apps/web/.env.example
   - apps/web/app/admin/page.tsx
   - apps/web/app/admin/video-generator/page.tsx
+  - apps/web/app/admin/video-generator/VideoGeneratorStudio.tsx
+  - apps/web/app/admin/content/studio/page.tsx
   - apps/web/app/admin/video-generator/VideoGeneratorMap.tsx
   - apps/web/app/admin/video-generator/VideoGeneratorMapClient.tsx
   - apps/web/app/admin/video-generator/VideoGeneratorMapClient.test.ts
@@ -114,11 +116,11 @@ The workspace dependency update for shared plan-tracking code does not change Ma
 
 The admin page now also has a messaging inbox (bugs, feedback, race requests). That tab and its user-notification delivery are independent from the lazy 3D video-generator route and do not load Mapbox, GPX, narration, or rendering dependencies.
 
-The admin header also links to `/admin/publications` (2026-11-19), which publishes finished background renders as Instagram Reels. It loads no Mapbox code: it only reads `video_render_jobs` and plays the stored MP4. Its server-only variables (`IG_SYSTEM_USER_TOKEN`, `IG_USER_ID`, `FB_PAGE_ID`, `INSTAGRAM_*`) are listed in `apps/web/.env.example` and documented in [Instagram Reels Publishing](instagram-publishing.md); none is a `NEXT_PUBLIC_` value.
+The admin also has the Publications screens (2026-11-19; `/admin/content/posts` since lot 1 of the admin console, formerly `/admin/publications`), which publish finished background renders as Instagram Reels. It loads no Mapbox code: it only reads `video_render_jobs` and plays the stored MP4. Its server-only variables (`IG_SYSTEM_USER_TOKEN`, `IG_USER_ID`, `FB_PAGE_ID`, `INSTAGRAM_*`) are listed in `apps/web/.env.example` and documented in [Instagram Reels Publishing](instagram-publishing.md); none is a `NEXT_PUBLIC_` value.
 
 ## Purpose
 
-The admin-only `/admin/video-generator` route renders existing race GPX files over satellite imagery and real 3D terrain. Phase 2 adds a deterministic automatic flyover and interactive timeline. Phase 3 priority 1 adds the full Reel composition preview (header, animated elevation profile, current kilometre, aid-station labels, branding, intro and outro) driven by one time function meant to be reused by the future MP4 export. It still does not capture frames, encode video, or install Remotion/FFmpeg.
+The admin-only studio route (`/admin/content/studio` since lot 1 of the admin console; `/admin/video-generator` now redirects there, and the client moved from `video-generator/page.tsx` to `video-generator/VideoGeneratorStudio.tsx`, every other module of that folder unchanged and still imported by the render pages and `lib/`) renders existing race GPX files over satellite imagery and real 3D terrain. Phase 2 adds a deterministic automatic flyover and interactive timeline. Phase 3 priority 1 adds the full Reel composition preview (header, animated elevation profile, current kilometre, aid-station labels, branding, intro and outro) driven by one time function meant to be reused by the future MP4 export. It still does not capture frames, encode video, or install Remotion/FFmpeg.
 
 ## Key Concepts
 

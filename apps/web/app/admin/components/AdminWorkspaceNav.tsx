@@ -2,11 +2,11 @@ import type { Route } from "next";
 import Link from "next/link";
 
 const STEPS = [
-  { key: "generate", href: "/admin/video-generator", label: "1 · Générer une vidéo" },
-  { key: "publish", href: "/admin/publications", label: "2 · Publier" },
+  { key: "generate", href: "/admin/content/studio", label: "1 · Générer une vidéo" },
+  { key: "publish", href: "/admin/content/posts", label: "2 · Publier" },
 ] as const;
 
-/** Switch between the two reel steps (video generator, Instagram publications), plus the way back. */
+/** Switch between the two reel steps (Studio vidéo, Publications); the console sidebar is the way back. */
 export function AdminWorkspaceNav({ current }: { current: (typeof STEPS)[number]["key"] }) {
   return (
     <nav aria-label="Étapes du reel" className="flex flex-wrap items-center gap-2">
@@ -24,9 +24,6 @@ export function AdminWorkspaceNav({ current }: { current: (typeof STEPS)[number]
           </Link>
         ))}
       </div>
-      <Link href={"/admin" as Route} className="text-sm font-medium text-brand underline-offset-4 hover:underline dark:text-emerald-200">
-        Administration
-      </Link>
     </nav>
   );
 }
