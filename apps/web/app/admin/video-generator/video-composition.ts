@@ -25,10 +25,11 @@ export const VIDEO_DURATION_PRESETS = [30, 45, 60, 90, 120] as const;
 export const VIDEO_FPS = 30;
 export const MIN_SEQUENCE_MS = 3_000;
 /**
- * Every reel opens on the whole route seen from above, held, then zooms onto the start (full) or
- * the first moment (highlights): the intro lasts at least this long (2026-11-22).
+ * Every reel opens on the whole route seen from above, announces the race, then dives onto the
+ * start (full) or the first moment (highlights): a fixed 3 s opening (2026-11-22; 5 s was too
+ * long). Its voice may run on over the first moment, which then gets that extra time.
  */
-export const MIN_INTRO_MS = 5_000;
+export const OVERVIEW_INTRO_MS = 3_000;
 /** The end screen: at least 2.5 s, else the opening gap, the CTA voice, then a 2 s hold of the card once it is told. */
 export const MIN_OUTRO_MS = 2_500;
 export const OUTRO_HOLD_MS = 2_000;
@@ -375,13 +376,13 @@ export const buildVideoTimeline = (
     .filter((beat) => beat.kind !== "intro" && beat.kind !== "outro" && beat.endKm > beat.startKm)
     .sort((left, right) => left.startKm - right.startKm);
 
-  const sequenceMs = (beat: StoryBeat | undefined, enabled: boolean) =>
-    enabled ? Math.max(MIN_SEQUENCE_MS, beat ? getNarrationMs(beat, durations) + NARRATION_GAP_MS * 2 : 0) : 0;
   // The hook replaces the intro by a fixed 2.4 s; its sentence may run on over the first moment,
   // which then gets that extra time so its own voice still fits its dwell.
   const hooked = isHookIntroEnabled(settings);
-  const introMs = hooked ? HOOK_INTRO_MS : settings.introEnabled ? Math.max(MIN_INTRO_MS, sequenceMs(introBeat, true)) : 0;
-  const hookVoiceEndMs = hooked && introBeat ? HOOK_NARRATION_START_MS + getNarrationMs(introBeat, durations) + NARRATION_GAP_MS : 0;
+  const introMs = hooked ? HOOK_INTRO_MS : settings.introEnabled ? OVERVIEW_INTRO_MS : 0;
+  // The opening voice (hook or overview) starts early and may run on over the first moment.
+  const openingVoiceStartMs = hooked ? HOOK_NARRATION_START_MS : NARRATION_GAP_MS;
+  const hookVoiceEndMs = introMs > 0 && introBeat ? openingVoiceStartMs + getNarrationMs(introBeat, durations) + NARRATION_GAP_MS : 0;
   const hookOverflowMs = Math.max(0, hookVoiceEndMs - introMs);
   const outroMs = settings.outroEnabled ? Math.max(MIN_OUTRO_MS, outroBeat ? NARRATION_GAP_MS + getNarrationMs(outroBeat, durations) + OUTRO_HOLD_MS : 0) : 0;
   // A pause (life base, aid station) holds the camera a moment longer around the point.
@@ -564,7 +565,7 @@ export const buildVideoTimeline = (
   const scheduled: ScheduledBeat[] = [];
   if (introBeat && introMs > 0) {
     const narrationMs = getNarrationMs(introBeat, durations);
-    const narrationStartMs = hooked ? HOOK_NARRATION_START_MS : NARRATION_GAP_MS;
+    const narrationStartMs = openingVoiceStartMs;
     scheduled.push({ ...introBeat, startMs: 0, endMs: introMs, narrationStartMs, narrationMs, subtitles: timeSubtitles(introBeat.narration, narrationStartMs, narrationMs, alignments[introBeat.id]) });
   }
   let voiceFreeAtMs = Math.max(introMs, hookVoiceEndMs);
@@ -847,8 +848,18 @@ export const getProfileTicks = ({ startKm, endKm }: ProfileWindow) => {
   return ticks;
 };
 
-// The overview is held for 40 % of the intro (2 s at least), then the camera glides down.
+// The overview is held for 40 % of the intro (1.2 s, the race is announced), then the camera dives.
 const INTRO_HOLD_RATIO = 0.4;
+
+/**
+ * Opacity of the whole route drawn in the route colour over the grey route still to run: fully
+ * visible on the opening overview, it fades out while the camera dives, so the flyover shows the
+ * coloured route advancing over an opaque grey one. Zero outside the intro and with the hook.
+ */
+export const getOverviewRouteOpacity = (timeline: Pick<VideoTimeline, "hook">, frame: Pick<VideoFrameState, "phase" | "phaseProgress">) => {
+  if (frame.phase !== "intro" || timeline.hook) return 0;
+  return 1 - easeInOut(clamp((frame.phaseProgress - INTRO_HOLD_RATIO) / (1 - INTRO_HOLD_RATIO), 0, 1));
+};
 const OUTRO_GLIDE_RATIO = 0.6;
 
 /** Intro holds the overview then glides to the start; the outro glides back and holds. */

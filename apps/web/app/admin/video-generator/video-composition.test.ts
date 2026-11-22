@@ -8,6 +8,7 @@ import {
   buildToldSlopeGeoJson,
   buildVideoTimeline,
   DEFAULT_VIDEO_COMPOSITION_SETTINGS,
+  getOverviewRouteOpacity,
   INITIAL_EDITOR_SETTINGS,
   withStoryMode,
   getDistanceAtFlyoverFraction,
@@ -120,15 +121,18 @@ describe("buildVideoTimeline", () => {
 
   it("sizes intro and outro to their narration and keeps a manual total", () => {
     const timeline = buildVideoTimeline(path, [beat("intro", "intro", 0, 0, "Court."), beat("outro", "outro", 20, 20, "")], manual(45));
-    // Every reel opens on the overview for 5 s at least.
-    expect(timeline.introMs).toBe(5_000);
+    // Every reel opens on a fixed 3 s overview.
+    expect(timeline.introMs).toBe(3_000);
     expect(timeline.outroMs).toBe(2_500);
     expect(timeline.totalMs).toBe(45_000);
     const noSequences = buildVideoTimeline(path, [], { ...manual(45), introEnabled: false, outroEnabled: false });
     expect(noSequences.flyoverMs).toBe(45_000);
 
-    const longIntro = buildVideoTimeline(path, [beat("intro", "intro", 0, 0, "x".repeat(120))], manual(45));
-    expect(longIntro.introMs).toBeGreaterThan(8_000);
+    // A long announcement keeps the 3 s opening: its voice runs on and the next voice waits for it.
+    const longIntro = buildVideoTimeline(path, [beat("intro", "intro", 0, 0, "x".repeat(120)), beat("climb", "climb", 2, 8, "Ça monte.")], manual(45));
+    expect(longIntro.introMs).toBe(3_000);
+    const [intro, climb] = longIntro.beats;
+    expect(climb.narrationStartMs).toBeGreaterThanOrEqual(intro.narrationStartMs + intro.narrationMs);
   });
 
   it("spends more time on the climb than on the flat half", () => {
@@ -462,5 +466,18 @@ describe("told slope highlight", () => {
     ]);
     expect(getProfileShades(25, 40, told)).toEqual([{ fromKm: 25, toKm: 40, opacity: 0.45 }]);
     expect(getProfileShades(40, 40, told)).toEqual([]);
+  });
+});
+
+describe("getOverviewRouteOpacity", () => {
+  it("shows the whole coloured route on the overview, fades it during the dive, hides it afterwards", () => {
+    const timeline = { hook: null };
+    expect(getOverviewRouteOpacity(timeline, { phase: "intro", phaseProgress: 0 })).toBe(1);
+    expect(getOverviewRouteOpacity(timeline, { phase: "intro", phaseProgress: 0.4 })).toBe(1);
+    const mid = getOverviewRouteOpacity(timeline, { phase: "intro", phaseProgress: 0.7 });
+    expect(mid).toBeGreaterThan(0);
+    expect(mid).toBeLessThan(1);
+    expect(getOverviewRouteOpacity(timeline, { phase: "intro", phaseProgress: 1 })).toBe(0);
+    expect(getOverviewRouteOpacity(timeline, { phase: "flyover", phaseProgress: 0.2 })).toBe(0);
   });
 });

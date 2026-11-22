@@ -177,17 +177,14 @@ describe("word timings", () => {
 });
 
 describe("subtitle layout", () => {
-  it("sits low (82 %), one line inside the feed crop, two lines at most 10 px past it, clear of the action column", () => {
+  it("sits low (86 %), well inside the frame, clear of the action column", () => {
     const box = getSubtitleBoxBounds(1080, 1920, SUBTITLE_MAX_LINES);
-    const oneLine = getSubtitleBoxBounds(1080, 1920, 1);
-    // Feed: the 4:5 crop shows y 285 to 1635.
-    expect(oneLine.bottom).toBeLessThanOrEqual(1635);
-    expect(box.bottom).toBeLessThanOrEqual(1645);
-    expect(box.top).toBeGreaterThanOrEqual(285);
-    // Low in the frame (2026-11-22: 77.5 % was judged too high).
+    // Low in the frame (2026-11-22: 77.5 % then 82 % were judged too high)...
     const centre = (box.top + box.bottom) / 2 / 1920;
-    expect(centre).toBeGreaterThanOrEqual(0.8);
-    expect(box.top / 1920).toBeLessThan(SUBTITLE_SAFE_BOTTOM_RATIO);
+    expect(centre).toBeGreaterThanOrEqual(0.85);
+    // ...but two lines still end 200 px above the bottom edge.
+    expect(box.bottom).toBeLessThanOrEqual(1720);
+    expect(box.top / 1920).toBeGreaterThan(SUBTITLE_SAFE_BOTTOM_RATIO);
     // Centred: the feed has no interface, so a box leaning left looked off-centre.
     expect((box.left + box.right) / 2).toBeCloseTo(540, 6);
     expect(box.right).toBeLessThanOrEqual(1080 * 0.87 + 1e-6);

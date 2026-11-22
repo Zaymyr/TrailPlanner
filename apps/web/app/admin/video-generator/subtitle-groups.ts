@@ -9,11 +9,11 @@ export type SubtitleGroup = { text: string; startMs: number; endMs: number };
 // Reels tab: Instagram covers the bottom (account, caption, sound, from about y = 1570 of 1920) and
 // the right edge (action column, about 13 % of the width). Feed: the reel is cropped to 4:5, so only
 // y = 285 to 1635 shows, without any interface. The subtitle box is centred horizontally (equal
-// margins, clear of the action column) so it does not lean left in the feed. Centred on 82 % of the
-// height since 2026-11-22 (was 77.5 %, judged too high): one line ends near y = 1613, inside the feed
-// crop; two lines end near y = 1643, a few pixels past it, and both reach into the Reels caption area
-// (the caption text is short and at the very bottom).
-export const SUBTITLE_CENTER_Y_RATIO = 0.82;
+// margins, clear of the action column) so it does not lean left in the feed. Centred on 86 % of the
+// height since 2026-11-22 (77.5 %, then 82 %, were judged too high): one line spans y = 1612-1690,
+// two lines y = 1583-1720. The box is below the 4:5 feed crop (y = 1635) and over the Reels caption
+// area: accepted by the maintainer, subtitles read lower is the priority.
+export const SUBTITLE_CENTER_Y_RATIO = 0.86;
 /** Instagram's unsafe bottom (Reels caption) starts here (share of the frame height; 1570 px on 1920). */
 export const SUBTITLE_SAFE_BOTTOM_RATIO = 1570 / 1920;
 /** Left and right edges of the box: symmetric, the right 13 % (action column) stays empty. */
