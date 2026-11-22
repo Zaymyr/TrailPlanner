@@ -21,9 +21,9 @@ type BlogCardProps = {
   locale?: Locale;
 };
 
-const readingTimeCopy: Record<Locale, { read: string; words: string }> = {
-  fr: { read: "min de lecture", words: "mots" },
-  en: { read: "min read", words: "words" },
+const readingTimeCopy: Record<Locale, { read: string }> = {
+  fr: { read: "min de lecture" },
+  en: { read: "min read" },
 };
 
 const buildDescription = (value?: string): string =>
@@ -70,7 +70,7 @@ export const BlogCard = ({
             {title}
           </h3>
           <span className="whitespace-nowrap text-xs text-muted-foreground">
-            {formatBlogDate(date)}
+            {formatBlogDate(date, locale)}
           </span>
         </div>
 
@@ -83,12 +83,6 @@ export const BlogCard = ({
             {readingTime ? (
               <>
                 <span>{readingTime.minutes} {reading.read}</span>
-                {readingTime.words ? (
-                  <>
-                    <span aria-hidden="true">•</span>
-                    <span>{readingTime.words} {reading.words}</span>
-                  </>
-                ) : null}
               </>
             ) : null}
           </div>

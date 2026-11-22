@@ -17,8 +17,8 @@ type BlogLayoutProps = {
   catalogRaceId?: string;
 };
 
-const formatUpdatedAt = (isoDate?: string): string | undefined =>
-  isoDate ? formatBlogDate(isoDate) : undefined;
+const formatUpdatedAt = (isoDate: string | undefined, locale: "fr" | "en"): string | undefined =>
+  isoDate ? formatBlogDate(isoDate, locale) : undefined;
 
 export const buildBlogPostingJsonLd = (post: CompiledPost, canonicalUrl: string) => ({
   "@context": "https://schema.org",
@@ -70,13 +70,13 @@ const readingCopy = {
     published: "Publié le",
     updated: "Mis à jour le",
     read: "min de lecture",
-    words: "mots",
+    toc: "Sur cette page",
   },
   en: {
     published: "Published",
     updated: "Last updated",
     read: "min read",
-    words: "words",
+    toc: "On this page",
   },
 };
 
@@ -108,7 +108,7 @@ const TagList = ({ tags, locale }: { tags: string[]; locale: "fr" | "en" }) => {
 
 export const BlogLayout = ({ post, canonicalUrl, catalogRaceId }: BlogLayoutProps) => {
   const locale = post.meta.locale;
-  const lastUpdated = formatUpdatedAt(post.meta.updatedAt);
+  const lastUpdated = formatUpdatedAt(post.meta.updatedAt, locale);
   const { cta, headerCta, reading } = getBlogLayoutCopy(locale);
 
   return (
@@ -131,7 +131,7 @@ export const BlogLayout = ({ post, canonicalUrl, catalogRaceId }: BlogLayoutProp
             </Link>
           </span>
           <span aria-hidden="true">•</span>
-          <span>{reading.published} {formatBlogDate(post.meta.date)}</span>
+          <span>{reading.published} {formatBlogDate(post.meta.date, locale)}</span>
           {lastUpdated && (
             <>
               <span aria-hidden="true">•</span>
@@ -140,8 +140,6 @@ export const BlogLayout = ({ post, canonicalUrl, catalogRaceId }: BlogLayoutProp
           )}
           <span aria-hidden="true">•</span>
           <span>{post.meta.readingTime.minutes} {reading.read}</span>
-          <span aria-hidden="true">•</span>
-          <span>{post.meta.readingTime.words} {reading.words}</span>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <TagList tags={post.meta.tags} locale={locale} />
@@ -173,7 +171,7 @@ export const BlogLayout = ({ post, canonicalUrl, catalogRaceId }: BlogLayoutProp
         <div className="space-y-8">
           {post.headings.length > 0 && (
             <div className="lg:hidden">
-              <TOC headings={post.headings} />
+              <TOC headings={post.headings} title={reading.toc} collapsible />
             </div>
           )}
 
@@ -192,7 +190,7 @@ export const BlogLayout = ({ post, canonicalUrl, catalogRaceId }: BlogLayoutProp
 
         {post.headings.length > 0 && (
           <div className="hidden lg:block lg:space-y-4">
-            <TOC headings={post.headings} />
+            <TOC headings={post.headings} title={reading.toc} />
           </div>
         )}
       </div>
