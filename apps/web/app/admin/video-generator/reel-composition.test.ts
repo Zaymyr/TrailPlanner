@@ -55,11 +55,11 @@ const druides = toDetail(ultraDesDruides, { eventName: "Bibracte Ultra-Trail", s
 const clipFor = (beatId: string, text: string) => ({ beatId, text, audioBase64: "AAAA", durationMs: 2_000, characterEndMs: Array.from(text, (_, index) => index * 50) });
 
 describe("server reel composition", () => {
-  it("uses the editor defaults with the mode's hook, light overlay and tilted camera", () => {
+  it("uses the editor defaults: overview opening, and the light overlay and tilted camera in highlights", () => {
     const highlights = buildReelSettings("highlights");
     const full = buildReelSettings("full");
     expect(highlights.storyMode).toBe("highlights");
-    expect([isHookIntroEnabled(highlights), isCompactOverlayEnabled(highlights), isTiltedCameraEnabled(highlights)]).toEqual([true, true, true]);
+    expect([isHookIntroEnabled(highlights), isCompactOverlayEnabled(highlights), isTiltedCameraEnabled(highlights)]).toEqual([false, true, true]);
     expect([isHookIntroEnabled(full), isCompactOverlayEnabled(full), isTiltedCameraEnabled(full)]).toEqual([false, false, false]);
     expect(getReelVideoSize(highlights)).toEqual({ width: 1080, height: 1920 });
   });

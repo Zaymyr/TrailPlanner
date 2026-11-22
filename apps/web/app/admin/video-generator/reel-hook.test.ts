@@ -148,7 +148,8 @@ describe("hook overlay timing and layout", () => {
   });
 });
 
-const highlightsSettings: VideoCompositionSettings = { ...DEFAULT_VIDEO_COMPOSITION_SETTINGS, storyMode: "highlights" };
+// The hook is opt-in since 2026-11-22 (reels open on the overview): these tests turn it on.
+const highlightsSettings: VideoCompositionSettings = { ...DEFAULT_VIDEO_COMPOSITION_SETTINGS, storyMode: "highlights", hookIntro: true };
 
 const buildReel = (fixture: typeof astragaleTrail, settings = highlightsSettings) => {
   const path = prepareAnimationPath(fixture.points);
@@ -163,8 +164,9 @@ const buildReel = (fixture: typeof astragaleTrail, settings = highlightsSettings
 const pitchAt = (pose: CameraPose) => getPitchBearing(pose).pitch;
 
 describe("hook in highlights mode", () => {
-  it("is on by default for highlights, off for the full flyover, and follows the explicit setting", () => {
+  it("is off unless set explicitly, in both modes", () => {
     expect(DEFAULT_VIDEO_COMPOSITION_SETTINGS.hookIntro).toBeNull();
+    expect(isHookIntroEnabled({ ...DEFAULT_VIDEO_COMPOSITION_SETTINGS, storyMode: "highlights" })).toBe(false);
     expect(isHookIntroEnabled(highlightsSettings)).toBe(true);
     expect(isHookIntroEnabled(DEFAULT_VIDEO_COMPOSITION_SETTINGS)).toBe(false);
     expect(isHookIntroEnabled({ ...DEFAULT_VIDEO_COMPOSITION_SETTINGS, hookIntro: true })).toBe(true);

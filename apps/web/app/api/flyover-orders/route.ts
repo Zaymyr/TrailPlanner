@@ -9,6 +9,7 @@ import {
   createFlyoverOrderToken,
   FLYOVER_MAX_GPX_BYTES,
   FLYOVER_OFFERS,
+  getFlyoverMode,
   getFlyoverGpxPath,
   prepareAidStations,
   readGpxAidStations,
@@ -112,6 +113,7 @@ export async function POST(request: NextRequest) {
       contact_email: form.email,
       instagram_handle: form.instagramHandle,
       map_preset: form.mapPreset,
+      story_mode: form.storyMode ?? getFlyoverMode(check.distanceKm),
       terrain_exaggeration: form.terrainExaggeration,
       publish_local: form.offer === "collab" ? form.publishLocal : null,
       // The form sends the stations shown to the organizer (GPX waypoints pre-filled, editable);

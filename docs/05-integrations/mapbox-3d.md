@@ -240,7 +240,7 @@ Tests: `highlights.test.ts` covers the selection on a fixed profile and on two f
 
 ## Reel Hook (first 2.4 s)
 
-`VideoCompositionSettings.hookIntro` (nullable, null = automatic: on in highlights mode, off in the full flyover; `isHookIntroEnabled`, also off when the intro is disabled) replaces the title card by a hook ([ADR](../08-decisions/2026-11-19-reel-highlights-and-figures.md), decision 7). Settings toggle « Accroche (2 premières secondes) » under Séquences. With the hook off, the full flyover keeps its overview intro unchanged (tested).
+`VideoCompositionSettings.hookIntro` (nullable; since 2026-11-22 only `true` enables it, null and false keep the overview opening in both modes, [ADR](../08-decisions/2026-11-19-reel-highlights-and-figures.md) decision 20; `isHookIntroEnabled`, also off when the intro is disabled) replaces the title card by a hook ([ADR](../08-decisions/2026-11-19-reel-highlights-and-figures.md), decision 7). Settings toggle « Accroche (2 premières secondes) » under Séquences. With the hook off, the full flyover keeps its overview intro unchanged (tested).
 
 - **Timeline** (`video-composition.ts`): the intro lasts `HOOK_INTRO_MS` = 2,400 ms whatever its narration; the hook sentence (`hl-intro`, or `intro` in full mode) starts at 250 ms and may run on over the first moment, whose time grows by that overflow so its own narration still fits, and whose voice waits for the hook voice. A hooked highlights reel skips the run-up from the start line: the flyover starts on the first moment (`timeline.flyoverStartKm`), which is also the frame distance during the hook. The first moment's caption appears at 2.4 s.
 - **Camera**: the subject (`timeline.hook`) is the hardest climb (`hl-hardestClimb-…` beat, or `findHardestClimb` in full mode), otherwise the first moment. `getHookCameraPose` (`route-animation.ts`) looks at a route point from 58° off the vertical (Mapbox pitch; the chase camera is at 36°, the overview at 40°) from 3 to 8 km (span × 900 m, a quarter more in portrait), stepping back along the same angle to clear the terrain; the pose is then shifted into the visible zone like the chase camera. It orbits 14° over the hook. When the subject is the first moment, the camera moves along the route towards it at the flyover speed and looks the way the chase camera will; otherwise it moves along the first 20 % of the climb in three-quarter view (35° off its direction). Over the last 45 % of the hook the pose glides into the chase pose of the flyover start. The flight is still the gaussian-smoothed track; a hooked timeline keeps σ 0.45 s over the hook and widens it back to its own σ over the 3 s after it, so a full flyover does not average the hook shot with the chase camera.
@@ -350,6 +350,12 @@ Limits of a server reel: the default composition (no admin browser preferences),
 - [Infrastructure](../01-architecture/infrastructure.md)
 - [GPX Import](../03-business-rules/gpx-import.md)
 - [OpenStreetMap and Leaflet](openstreetmap-leaflet.md)
+
+## Opening, subtitles and route lines (2026-11-22)
+
+- **Opening:** without the hook, the intro lasts at least `MIN_INTRO_MS` = 5 s (more when its narration is longer), holds the overview for 40 % of it (`INTRO_HOLD_RATIO`), then glides to the chase camera at the start (full) or at the first moment (highlights).
+- **Subtitles:** `SUBTITLE_CENTER_Y_RATIO` = 0.82 (`subtitle-groups.ts`, tested): one line ends near y = 1613 of 1920, two lines near y = 1643.
+- **Route lines:** the future route, glow, casing, revealed route and told slope layers use `line-elevation-reference: ground` and increasing `line-z-offset` (3 to 5.5 m, `ROUTE_Z_OFFSET_M`) so they render as crisp 3D lines above the terrain; the future route alpha is 0.5.
 
 ## Public preview mode (2026-11-22)
 

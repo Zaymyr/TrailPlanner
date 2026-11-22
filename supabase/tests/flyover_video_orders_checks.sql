@@ -1,5 +1,6 @@
 -- Organizer flyover video order checks.
--- Run in a privileged SQL session after 20261122100000_add_flyover_video_orders.sql.
+-- Run in a privileged SQL session after 20261122100000_add_flyover_video_orders.sql and
+-- 20261122200000_flyover_presets_and_story_mode.sql.
 
 begin;
 
@@ -23,6 +24,10 @@ begin
   end if;
   if not exists (select 1 from pg_constraint where conrelid = 'public.video_render_jobs'::regclass and conname = 'video_render_jobs_race_or_flyover') then
     raise exception 'video_render_jobs must require a race or a flyover order.';
+  end if;
+  -- 20261122200000: the chosen story mode (nullable for older orders).
+  if not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'flyover_video_orders' and column_name = 'story_mode' and is_nullable = 'YES') then
+    raise exception 'flyover_video_orders.story_mode must be a nullable column.';
   end if;
   if not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'social_posts' and column_name = 'collaborators' and is_nullable = 'NO') then
     raise exception 'social_posts.collaborators must be a non-null array.';

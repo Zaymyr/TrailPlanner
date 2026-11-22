@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import { buildReelSettings, getReelStoryInput, isReadyDetail } from "../admin/video-generator/reel-composition";
 import { VideoGeneratorMap } from "../admin/video-generator/VideoGeneratorMap";
 import { buildVideoRaceInfo } from "../admin/video-generator/video-race-info";
-import { applyFlyoverSettings, buildFlyoverDetail, getFlyoverMode, type FlyoverMapPreset } from "../../lib/flyover-shared";
+import { applyFlyoverSettings, buildFlyoverDetail, type FlyoverMapPreset, type FlyoverStoryMode } from "../../lib/flyover-shared";
 import type { ParsedGpx } from "../../lib/gpx/parseGpx";
 
 /** Stands for the race id in the preview (music pick, overlay): never stored. */
@@ -18,13 +18,14 @@ export type PreviewStation = { id: string; name: string; km: number };
  * reel settings, basemap and relief), played in the browser with the editor's viewer, without the
  * voice-over (written and recorded after the order).
  */
-export function FlyoverPreview({ gpx, raceName, raceDate, stations, preset, terrain }: {
+export function FlyoverPreview({ gpx, raceName, raceDate, stations, preset, terrain, storyMode }: {
   gpx: ParsedGpx;
   raceName: string;
   raceDate: string;
   stations: PreviewStation[];
   preset: FlyoverMapPreset;
   terrain: number;
+  storyMode: FlyoverStoryMode;
 }) {
   // The route (points, bounds) depends on the GPX only, so typing a name or editing a station never
   // restarts the 3D viewer; the stations and the title follow on their own.
@@ -41,8 +42,8 @@ export function FlyoverPreview({ gpx, raceName, raceDate, stations, preset, terr
   const race = useMemo(() => buildVideoRaceInfo(detail), [detail]);
 
   const settings = useMemo(
-    () => applyFlyoverSettings(buildReelSettings(getFlyoverMode(gpx.stats.distanceKm)), { map_preset: preset, terrain_exaggeration: terrain }),
-    [gpx, preset, terrain],
+    () => applyFlyoverSettings(buildReelSettings(storyMode), { map_preset: preset, terrain_exaggeration: terrain }),
+    [preset, terrain, storyMode],
   );
   const preview = useMemo(() => ({ settings }), [settings]);
 
