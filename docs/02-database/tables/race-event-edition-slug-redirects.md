@@ -13,7 +13,7 @@ related_files:
   - apps/web/app/courses/evenements/[slug]/page.tsx
   - apps/web/app/courses/evenements/[slug]/event-edition-status.ts
   - apps/web/app/courses/evenements/[slug]/event-edition-status.test.ts
-  - supabase/migrations/20261122190000_add_race_event_slugs_and_region_codes.sql
+  - supabase/migrations/20261122210000_add_race_event_slugs_and_region_codes.sql
 related_tables:
   - race_event_edition_slug_redirects
   - race_event_editions
@@ -46,7 +46,7 @@ RLS is enabled with no `anon` or `authenticated` policy or table privilege. Only
 - Do not update an edition slug from a browser or bypass the atomic rename function.
 - Event-edition resolution participates in the shared tagged public cache. Successful source, publication, visibility, image, and ravito writes invalidate that cache; the redirect table contract itself is unchanged.
 - The 2026-11-16 event-page redesign (shared hero, distance-sorted format list, `@id`-only `subEvent` references) is presentation and JSON-LD only: slug resolution, redirect-before-render and visibility rechecks are unchanged.
-- Event hubs (2026-11-22): `/courses/evenements/<event-slug>` (`race_events.slug`) shares this route. The route resolves the current edition slug, then a former edition slug (301 to the current edition slug, never to the hub), then the event hub. `20261122190000` replaced `record_race_event_edition_slug_redirect` with the same logic plus a check that an edition slug never equals an event slug (generated slugs get the id suffix, explicit renames fail with 23505). Edition pages now canonicalize to the hub when the event has one; they still return 200, so no existing URL breaks.
+- Event hubs (2026-11-22): `/courses/evenements/<event-slug>` (`race_events.slug`) shares this route. The route resolves the current edition slug, then a former edition slug (301 to the current edition slug, never to the hub), then the event hub. `20261122210000` replaced `record_race_event_edition_slug_redirect` with the same logic plus a check that an edition slug never equals an event slug (generated slugs get the id suffix, explicit renames fail with 23505). Edition pages now canonicalize to the hub when the event has one; they still return 200, so no existing URL breaks.
 - Past edition pages may link to the next public edition. Only the Trail TST demo editions are `noindex,follow` and absent from the sitemap (2026-11-22); they still resolve through the same slug and redirect rules. The current demo edition keeps its durable slug `trail-tst-2027` even though its `edition_year` follows today's date: renaming it would only add a redirect row. This navigation uses the current canonical slug of each edition and never creates a redirect chain.
 
 ## Related Docs

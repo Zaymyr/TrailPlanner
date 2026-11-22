@@ -81,7 +81,7 @@ related_files:
   - apps/web/app/courses/evenements/[slug]/EventEditionSections.tsx
   - apps/web/app/courses/evenements/[slug]/event-hub.ts
   - apps/web/app/courses/evenements/[slug]/event-hub.test.ts
-  - supabase/migrations/20261122190000_add_race_event_slugs_and_region_codes.sql
+  - supabase/migrations/20261122210000_add_race_event_slugs_and_region_codes.sql
   - supabase/tests/race_event_slugs_checks.sql
   - apps/web/app/courses/race-discovery.test.ts
   - apps/web/lib/public-races.test.ts
@@ -235,7 +235,7 @@ A page is generated and indexable only while at least five upcoming public races
 
 The 2027 extension publishes 15 organizer-verified formats across the Trail du Petit Ballon, Grand Trail des Cadourques, and Volvic Volcanic Experience. It reuses the existing Volvic event, corrects its parent anchor while preserving the 2026 XGTV route label, creates canonical visible 2027 editions, and keeps unpublished D+ values null.
 
-Regional landing pages are enabled for French regions (2026-11-22). A format belongs to a region only through its live parent event's `location_country_code = 'FR'` and `location_region_code` (INSEE); migration `20261122190000` backfilled the code from the exact normalized `location_region` name for the 87 French events that had the name but no code. The derived `PublicRace.regionSlug` is the only region value added to the catalog DTO. Departmental and city pages are still not enabled; they must follow the same rules. Free-text `location`/`location_text`, postal-code guesses and runtime city-to-region lookup remain unacceptable sources of truth.
+Regional landing pages are enabled for French regions (2026-11-22). A format belongs to a region only through its live parent event's `location_country_code = 'FR'` and `location_region_code` (INSEE); migration `20261122210000` backfilled the code from the exact normalized `location_region` name for the 87 French events that had the name but no code. The derived `PublicRace.regionSlug` is the only region value added to the catalog DTO. Departmental and city pages are still not enabled; they must follow the same rules. Free-text `location`/`location_text`, postal-code guesses and runtime city-to-region lookup remain unacceptable sources of truth.
 
 Nearby-city discovery may use the stored event anchor coordinates as an approximate straight-line prefilter. It must be labelled accordingly and must not imply route distance or that a multi-city trail lies wholly inside the anchor municipality.
 

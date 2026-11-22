@@ -90,7 +90,7 @@ related_files:
   - apps/web/app/courses/distances/[category]/[[...page]]/page.tsx
   - apps/web/app/courses/regions/[region]/[[...page]]/page.tsx
   - apps/web/lib/race-landing-pages.ts
-  - supabase/migrations/20261122190000_add_race_event_slugs_and_region_codes.sql
+  - supabase/migrations/20261122210000_add_race_event_slugs_and_region_codes.sql
   - supabase/tests/race_event_slugs_checks.sql
   - apps/web/app/courses/race-discovery.test.ts
   - apps/web/lib/race-discovery.ts
@@ -202,7 +202,7 @@ The mobile Livret may separately load an owner's linked plan for personal reflec
 | `location_region`, `location_region_code` | nullable `text` | paired curated values | Normalized French region or equivalent first-level area. |
 | `location_country`, `location_country_code` | nullable `text` | country code is checked as two uppercase letters | Normalized country identity. |
 | `location_latitude`, `location_longitude` | nullable `double precision` | valid ranges; both null or both present | Approximate event anchor used for nearby-city discovery. |
-| `slug` | `text` not null | unique `race_events_slug_key`; `race_events_slug_format_check` (lowercase ASCII words joined by single hyphens, 1-160 characters); added by `20261122190000_add_race_event_slugs_and_region_codes.sql` | Durable year-free public slug of the event hub `/courses/evenements/<slug>`. Generated on insert by `build_race_event_slug(name)` (accents folded, trailing edition year stripped), suffixed with the first 8 hex characters of the id on a collision; never changed afterwards. |
+| `slug` | `text` not null | unique `race_events_slug_key`; `race_events_slug_format_check` (lowercase ASCII words joined by single hyphens, 1-160 characters); added by `20261122210000_add_race_event_slugs_and_region_codes.sql` | Durable year-free public slug of the event hub `/courses/evenements/<slug>`. Generated on insert by `build_race_event_slug(name)` (accents folded, trailing edition year stripped), suffixed with the first 8 hex characters of the id on a collision; never changed afterwards. |
 | `short_name` | nullable `text` | `race_events_short_name_check`: null, or 1-40 characters once trimmed and no « … »; added by `20261119150000_add_race_events_short_name.sql` | Short event name shown by the admin reel hook (« Nom court (vidéo) »). Null: the reel derives one from `name` (`getReelShortName`). |
 
 <!-- TODO: verify with maintainer: confirm exact race_events column types, constraints, indexes, and RLS policies in the live Supabase project. -->
