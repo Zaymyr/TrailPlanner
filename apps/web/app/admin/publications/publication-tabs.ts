@@ -4,14 +4,15 @@ import type { RenderActivityView } from "./publications-api";
 
 /**
  * Tabs of the Publications admin (pure): Agenda (what needs a look + calendar), Reels and
- * Carrousels (prepare and control), GPX à traiter (missing race data), Publiées (history),
- * Paramètres (switches, Instagram account).
+ * Carrousels (prepare and control), Survols (organizer flyover orders), GPX à traiter (missing race
+ * data), Publiées (history), Paramètres (switches, Instagram account).
  */
 
 export const PUBLICATION_TABS = [
   { id: "agenda", label: "Agenda" },
   { id: "reels", label: "Reels" },
   { id: "carousels", label: "Carrousels" },
+  { id: "flyovers", label: "Survols" },
   { id: "gpx", label: "GPX à traiter" },
   { id: "published", label: "Publiées" },
   { id: "settings", label: "Paramètres" },

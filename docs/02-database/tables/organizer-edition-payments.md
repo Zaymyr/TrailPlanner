@@ -117,7 +117,7 @@ order by created_at desc;
 
 ## Gotchas
 
-- The webhook also routes `flyover_video` checkouts (organizer flyover video, `/survol`) to `flyover_video_orders`, before the organizer branch; those never create an `organizer_edition_payments` row and organizer behavior is unchanged. See [Organizer Flyover Video Orders](../../03-business-rules/flyover-video-orders.md).
+- The webhook also routes `flyover_video` checkouts (organizer flyover video, `/survol`) to `flyover_video_orders`, before the organizer branch; those never create an `organizer_edition_payments` row and organizer behavior is unchanged (the 2026-11-22 admin cancel status changes nothing here). See [Organizer Flyover Video Orders](../../03-business-rules/flyover-video-orders.md).
 - The shared Stripe webhook also receives runner billing events. Those must be persisted in the runner billing ledger and must not create or mutate an organizer payment row.
 
 - A Checkout redirect is not a paid transaction.

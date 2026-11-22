@@ -150,7 +150,7 @@ Recalculation requires a valid paid path and assigns `stripe` or `manual_payment
 
 ## Gotchas
 
-- The "Vidéo de survol" (29.99 EUR collab, 59.99 EUR MP4) sold on `/survol` is an independent product outside the offer catalog and the module contract: it grants no entitlement, writes no `organizer_edition_payments` row, and the Stripe webhook routes its `flyover_video` checkouts to their own table before the organizer branch (organizer behavior unchanged). See [Organizer Flyover Video Orders](flyover-video-orders.md).
+- The "Vidéo de survol" (29.99 EUR collab, 59.99 EUR MP4) sold on `/survol` is an independent product outside the offer catalog and the module contract: it grants no entitlement, writes no `organizer_edition_payments` row, and the Stripe webhook routes its `flyover_video` checkouts to their own table before the organizer branch (organizer behavior unchanged). Its orders are managed in Admin › Publications › Survols, not in the organizer payments admin. See [Organizer Flyover Video Orders](flyover-video-orders.md).
 - Compact Organizer header and section navigation changes do not alter offer tiers, checkout eligibility, or publication CTA authorization.
 
 Publication is a versioned snapshot operation per format. Tier checks are repeated before snapshot construction; bulk edition publication is all-or-none, a downgrade masks unavailable published modules immediately, and an upgrade requires explicit republication.

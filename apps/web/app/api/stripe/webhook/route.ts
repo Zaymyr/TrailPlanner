@@ -192,7 +192,7 @@ const handleFlyoverCheckout = async (
     }, "status=in.(pending_payment,expired)");
     const current = order ?? await orders.get(orderId);
     // The confirmation email never fails the webhook (Stripe would replay the payment).
-    if (current && current.status !== "pending_payment" && current.status !== "expired") {
+    if (current && ["paid", "scripted", "rendering", "ready"].includes(current.status)) {
       await sendFlyoverPaidEmail(serviceConfig, current).catch((error) => console.error("Flyover paid email failed", error instanceof Error ? error.message : error));
     }
     return;
@@ -208,7 +208,7 @@ const refundFlyoverOrdersByIntent = async (paymentIntentId: string) => {
   if (!serviceConfig) return;
   const orders = createFlyoverOrderRepository(serviceConfig);
   for (const order of await orders.findByPaymentIntent(paymentIntentId)) {
-    await orders.update(order.id, { status: "refunded", locked_until: null }, "status=in.(paid,scripted,rendering,ready,failed)");
+    await orders.update(order.id, { status: "refunded", locked_until: null }, "status=in.(paid,scripted,rendering,ready,failed,cancelled)");
   }
 };
 

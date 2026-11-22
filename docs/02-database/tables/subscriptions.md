@@ -96,7 +96,7 @@ set stripe_customer_id = excluded.stripe_customer_id,
 
 ## Gotchas
 
-- The Stripe webhook also routes `flyover_video` checkouts to `flyover_video_orders` (see [Organizer Flyover Video Orders](../../03-business-rules/flyover-video-orders.md)); they never touch `subscriptions` and subscription handling is unchanged.
+- The Stripe webhook also routes `flyover_video` checkouts to `flyover_video_orders` (see [Organizer Flyover Video Orders](../../03-business-rules/flyover-video-orders.md)); they never touch `subscriptions` and subscription handling is unchanged (including the flyover admin cancel status, 2026-11-22).
 - Do not write a voluntary support purchase into `subscriptions` or infer Premium from it. It has a separate verified ledger and no entitlement semantics.
 
 - Product ID and active Stripe price ID are not literal repo constants; they come from `STRIPE_PRICE_ID` and Stripe dashboard metadata.

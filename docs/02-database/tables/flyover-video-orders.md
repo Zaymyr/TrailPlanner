@@ -7,6 +7,8 @@ related_files:
   - supabase/migrations/20261122100000_add_flyover_video_orders.sql
   - supabase/tests/flyover_video_orders_checks.sql
   - supabase/migrations/20261122200000_flyover_presets_and_story_mode.sql
+  - supabase/migrations/20261122210000_flyover_orders_cancelled.sql
+  - apps/web/lib/flyover-admin.ts
   - apps/web/lib/flyover-orders.ts
   - apps/web/lib/flyover-generation.ts
 related_tables:
@@ -23,7 +25,7 @@ One row per organizer flyover video order (`/survol`), from the Stripe checkout 
 
 ## Key Concepts
 
-- Status flow: `pending_payment` → `paid` (webhook) → `scripted` (text written) → `rendering` → `ready`; side exits `expired` (unpaid), `failed` (3 failed attempts), `refunded`.
+- Status flow: `pending_payment` → `paid` (webhook) → `scripted` (text written) → `rendering` → `ready`; side exits `expired` (unpaid), `failed` (3 failed attempts), `refunded`, `cancelled` (admin, since `20261122210000`; resumable from the admin).
 - The GPX lives in the private `race-gpx` bucket at `gpx_storage_path` (`flyover/<id>.gpx`).
 
 ## Columns
@@ -82,7 +84,7 @@ order by paid_at;
 
 ## Gotchas
 
-- There is no admin screen yet: follow orders with the query above; a `failed` order also emails the team.
+- Admin › Publications › Survols lists and acts on orders (cancel, retry, rewrite, resend the ready email); a `failed` order also emails the team. The SQL above stays handy for a quick check.
 - Deleting a render job keeps the order `ready` but its download then fails.
 
 ## Related Docs

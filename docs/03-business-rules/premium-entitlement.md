@@ -126,7 +126,7 @@ RevenueCat writes a provider-scoped `runner_subscription_accounts` row first. It
 
 ## Gotchas
 
-- The Stripe webhook also routes `flyover_video` checkouts (organizer flyover video, [Organizer Flyover Video Orders](flyover-video-orders.md)) to their own table; they grant no Premium and entitlement resolution is unchanged.
+- The Stripe webhook also routes `flyover_video` checkouts (organizer flyover video, [Organizer Flyover Video Orders](flyover-video-orders.md)) to their own table; they grant no Premium and entitlement resolution is unchanged (their admin cancel status included).
 - The Premium sheet's top-right 44-point close action and shared button radius are presentation-only. Closing still cancels the modal; it never grants access, records purchase success or bypasses server verification.
 
 - A plan-scoped mobile paywall may prioritize the course purchase, but provider-returned pricing remains authoritative. The annual offer stays secondary there and primary when no plan scope exists; no CTA or modal state grants access.

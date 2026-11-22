@@ -50,6 +50,8 @@ export const FLYOVER_STORY_MODE_VALUES = ["highlights", "full"] as const;
 
 export const FLYOVER_TERRAIN = { min: 1, max: 3, default: 1.8 } as const;
 export const FLYOVER_MAX_DISTANCE_KM = 400;
+/** A pipeline step is retried this many times before the order fails (and the team is told). */
+export const FLYOVER_MAX_ATTEMPTS = 3;
 
 export type GpxCheck = { ok: true; distanceKm: number; gainM: number | null; lossM: number | null } | { ok: false; message: string };
 

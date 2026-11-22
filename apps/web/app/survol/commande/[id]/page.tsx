@@ -19,6 +19,7 @@ const STATUS_COPY: Record<FlyoverOrderRow["status"], { title: string; text: stri
   failed: { title: "Nous reprenons votre vidéo", text: "La fabrication automatique a rencontré un problème : notre équipe la termine et vous écrit très vite." },
   expired: { title: "Commande non payée", text: "Le paiement n’a pas abouti. Vous pouvez repasser commande depuis la page Vidéo de survol." },
   refunded: { title: "Commande remboursée", text: "Cette commande a été remboursée." },
+  cancelled: { title: "Commande annulée", text: "Cette commande a été annulée. Une question ? Répondez à l’e-mail de confirmation." },
 };
 
 const STEPS: Array<FlyoverOrderRow["status"]> = ["paid", "scripted", "rendering", "ready"];
