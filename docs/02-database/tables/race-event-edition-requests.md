@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_requests Table
 scope: database
-last_verified: 2026-11-16
+last_verified: 2026-11-22
 # Livret supporter note (2026-11-16): the public name of the supporter_guide surface is now "Livret supporter" (formerly "Livret accompagnateur"); aid-station access wording ("Accompagnateurs autorisés") is unchanged; no data, contract or offer change.
 # Assisted legacy conversion (2026-11-15): review targets an existing selected edition; edition-request behavior and persistence are unchanged.
 # Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
@@ -135,3 +135,5 @@ Repositioning the edition selector inside the compact Organizer banner does not 
 Organizer section-header finishing does not change edition-request state.
 
 Organizer header (2026-11-16): the dashboard header no longer shows the « Aperçu coureur » and « Aperçu accompagnateur » web preview links (« Voir le Livret coureur » and « Télécharger le QR » remain), and its row wraps instead of letting the actions block overlap the edition selector. Presentation only; no data, contract or offer change.
+
+Organizer pricing (2026-11-22): pack prices are now Essentiel 199 €, Complet 349 € and Signature 499 € HT, read from `ORGANIZER_TIER_PRICE_EUR` (see [Organizer Commercial Offers](../../03-business-rules/organizer-commercial-offers.md)). Copy and default amounts only; no table, contract or state change.

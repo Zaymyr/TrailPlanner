@@ -22,11 +22,12 @@ Le livret coureur est à la fois un canal d'acquisition (coureurs) et le produit
 
 ## Tarifs
 
-- **Coureurs** : achat unique d'environ 9,99 € par nouveau plan ; les plans existants restent gratuits. Bouton optionnel « Contribuer ».
-- **Organisateurs** (par édition, négociable) :
-  - Essentiel — 99 € HT
-  - Complet — 199 € TODO (HT ?)
-  - Signature — 350 € TODO (HT ?)
+- **Coureurs** : 9,99 € TTC la course (achat unique) ou 29,99 € TTC par an (toutes les courses) ; les plans existants restent gratuits. Bouton optionnel « Contribuer ».
+- **Organisateurs** (par édition, négociable, HT) :
+  - Essentiel — 199 € HT
+  - Complet — 349 € HT
+  - Signature — 499 € HT
+  - Montées en gamme = différence de prix : Essentiel→Complet 150 €, Essentiel→Signature 300 €, Complet→Signature 150 €.
 - Pilotes gratuits pour collecter des références.
 
 ## Jalons et objectif

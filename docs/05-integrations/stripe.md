@@ -1,7 +1,7 @@
 ---
 title: Stripe Integration
 scope: integration
-last_verified: 2026-11-13
+last_verified: 2026-11-22
 ai_priority: high
 related_files:
   - apps/web/lib/stripe.ts
@@ -126,7 +126,7 @@ Course Checkout first creates a durable server intent and carries its id in Stri
 
 ## Organizer Edition Checkout
 
-`/api/organizer/publication-checkout` accepts an event, edition, target tier, and optional publication intent. It verifies the authenticated non-anonymous user, active event membership, edition ownership, publication readiness, current entitlement, and absence of an incompatible active purchase. The server chooses and verifies one of six configured one-time EUR Prices: direct Essential/Complete/Signature at 99/199/349 € HT, Essential-to-Complete at 100 € HT, Essential-to-Signature at 250 € HT, or Complete-to-Signature at 150 € HT.
+`/api/organizer/publication-checkout` accepts an event, edition, target tier, and optional publication intent. It verifies the authenticated non-anonymous user, active event membership, edition ownership, publication readiness, current entitlement, and absence of an incompatible active purchase. The server chooses and verifies one of six configured one-time EUR Prices: direct Essential/Complete/Signature at 199/349/499 € HT, Essential-to-Complete at 150 € HT, Essential-to-Signature at 300 € HT, or Complete-to-Signature at 150 € HT. Expected amounts derive from `ORGANIZER_TIER_PRICE_EUR`; after a price change, new Stripe Prices must be created and the six price-id env vars updated in the same release, otherwise checkout fails closed with a configuration error.
 
 Checkout enables Stripe Tax, billing address and tax-id collection, and invoice creation. Metadata binds the payment row, edition, user, and transition. The webhook records subtotal, tax, total, currency, Customer, Session, PaymentIntent, and the Checkout Session Invoice before recalculating the effective edition entitlement. A browser success return never grants access by itself. When the checkout was opened from the publication action, the return marker only asks the dashboard to wait for that trusted entitlement and then call the normal protected edition publication route; URL parameters cannot publish directly.
 

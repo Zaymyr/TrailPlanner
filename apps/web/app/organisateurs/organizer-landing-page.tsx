@@ -125,9 +125,9 @@ const tstDiscoverySteps = [
 ] as const;
 
 const organizerOffers = [
-  { name: "Essentiel", price: "99 €", description: "Le Livret coureur simple", features: ["Livret coureur et Livret supporter", "Course et GPX", "Matériel et dossard", "Accès principal et ravitos simples"] },
-  { name: "Complet", price: "199 €", description: "La logistique avancée", features: ["Tout Essentiel", "SAS et barrières", "Services et navettes", "Podiums et notifications"] },
-  { name: "Signature", price: "349 €", description: "L'expérience personnalisée", features: ["Tout Complet", "Relais et produits officiels", "Sponsors et clics", "Identité visuelle et import assisté"] },
+  { name: "Essentiel", price: "199 €", description: "Le Livret coureur simple", features: ["Livret coureur et Livret supporter", "Course et GPX", "Matériel et dossard", "Accès principal et ravitos simples"] },
+  { name: "Complet", price: "349 €", description: "La logistique avancée", features: ["Tout Essentiel", "SAS et barrières", "Services et navettes", "Podiums et notifications"] },
+  { name: "Signature", price: "499 €", description: "L'expérience personnalisée", features: ["Tout Complet", "Relais et produits officiels", "Sponsors et clics", "Identité visuelle et import assisté"] },
 ] as const;
 
 const ArrowIcon = (props: SVGProps<SVGSVGElement>) => (
@@ -300,7 +300,7 @@ export function OrganizerLandingPage({ attribution, creationHref, socialProofs }
               Besoin d’en parler ? Demander une démo
             </a>
             <ul className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-foreground/80" aria-label="Avantages de l’offre">
-              {["Les deux livrets dès 99 € HT par édition", "Tous vos formats inclus", "Présence au catalogue gratuite"].map((benefit) => (
+              {["Les deux livrets dès 199 € HT par édition", "Tous vos formats inclus", "Présence au catalogue gratuite"].map((benefit) => (
                 <li key={benefit} className="flex items-center gap-2">
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand text-brand-foreground dark:bg-emerald-400 dark:text-slate-950">
                     <CheckIcon className="h-3 w-3" />

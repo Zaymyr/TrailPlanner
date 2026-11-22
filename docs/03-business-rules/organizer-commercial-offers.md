@@ -1,7 +1,7 @@
 ---
 title: Organizer Commercial Offers
 scope: business-rule
-last_verified: 2026-11-16
+last_verified: 2026-11-22
 # Assisted legacy conversion (2026-11-15): conversion requires the effective assisted_import.request capability (Signature or its complimentary grant).
 # Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
 # Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
@@ -106,11 +106,11 @@ Published organizer proof cards on the same page are independent editorial recor
 | Offer | HT per edition | Main rights |
 | --- | ---: | --- |
 | Visibilité | Free | Public catalog only. |
-| Essentiel | 99 € | RaceBook publication, basic equipment/bib/access, simple aid stations and supporter points. |
-| Complet | 199 € | Essential plus advanced fields and per-format overrides, SAS, detailed aid stations, services, awards, notifications and duplication. |
-| Signature | 349 € | Complete plus relay, official products, sponsors/clicks, branding, assisted import and RaceBook analytics. |
+| Essentiel | 199 € | RaceBook publication, basic equipment/bib/access, simple aid stations and supporter points. |
+| Complet | 349 € | Essential plus advanced fields and per-format overrides, SAS, detailed aid stations, services, awards, notifications and duplication. |
+| Signature | 499 € | Complete plus relay, official products, sponsors/clicks, branding, assisted import and RaceBook analytics. |
 
-Direct purchases are 99/199/349 €. Valid upgrades are Essential→Complete 100 €, Essential→Signature 250 € and Complete→Signature 150 €.
+Direct purchases are 199/349/499 €. Valid upgrades charge the price difference: Essential→Complete 150 €, Essential→Signature 300 € and Complete→Signature 150 €. The single source of truth is `ORGANIZER_TIER_PRICE_EUR` in `apps/web/lib/organizer-modules.ts`; checkout, admin bank-transfer invoices and dashboard copy derive from it. Payments and invoices recorded before the 2026-11-22 price change keep their stored amounts.
 
 ## Module Contract
 

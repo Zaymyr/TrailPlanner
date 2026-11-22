@@ -38,11 +38,11 @@ describe("POST /api/organizer/publication-checkout", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it.each([
-    ["visibility", "essential", "price_essential", 9_900, "essential_direct"],
-    ["visibility", "complete", "price_complete", 19_900, "complete_direct"],
-    ["visibility", "signature", "price_signature", 34_900, "signature_direct"],
-    ["essential", "complete", "price_essential_complete", 10_000, "essential_to_complete"],
-    ["essential", "signature", "price_essential_signature", 25_000, "essential_to_signature"],
+    ["visibility", "essential", "price_essential", 19_900, "essential_direct"],
+    ["visibility", "complete", "price_complete", 34_900, "complete_direct"],
+    ["visibility", "signature", "price_signature", 49_900, "signature_direct"],
+    ["essential", "complete", "price_essential_complete", 15_000, "essential_to_complete"],
+    ["essential", "signature", "price_essential_signature", 30_000, "essential_to_signature"],
     ["complete", "signature", "price_complete_signature", 15_000, "complete_to_signature"],
   ] as const)("charges the server-selected price for %s to %s", async (fromTier, targetTier, priceId, amount, purchaseKind) => {
     mocks.currentTier = fromTier;
@@ -85,7 +85,7 @@ describe("POST /api/organizer/publication-checkout", () => {
       id: "price_essential",
       active: true,
       currency: "eur",
-      unit_amount: 9_900,
+      unit_amount: 19_900,
       recurring: null,
       tax_behavior: "exclusive",
     });
