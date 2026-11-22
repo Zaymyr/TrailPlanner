@@ -42,6 +42,10 @@ related_files:
   - apps/web/app/livret-coureur/page.tsx
   - apps/web/app/livret-supporter/page.tsx
   - apps/web/components/landing/LivretProductPage.tsx
+  - apps/web/components/landing/RaceBookPhoneMockup.tsx
+  - apps/web/components/landing/HomeProofStrip.tsx
+  - apps/web/components/landing/ProofLogo.tsx
+  - apps/web/components/landing/home-copy.ts
   - apps/web/app/home-structured-data.ts
   - apps/web/components/SiteFooter.tsx
   - apps/web/app/admin/_components/AdminSurveysTab.tsx
@@ -999,3 +1003,11 @@ Automatic carousels (2026-11-20): the « Automatisation » card gains a « Carro
 `apps/web/app/error.tsx` and `apps/web/app/global-error.tsx` handle uncaught runtime errors (French copy, retry via `reset()`); `global-error.tsx` renders its own `<html>`/`<body>` with inline styles because it replaces the root layout. `app/organizer/error.tsx`, `app/admin/error.tsx` and `app/(planner)/error.tsx` reuse `components/ErrorFallback.tsx` so each segment keeps its layout chrome. Errors are reported through `lib/error-reporting.ts` into the consent-gated `trackGoogleAnalyticsEvent` (event `client error`, fields `source`, `error_name`, `digest` only; never the message or stack), so nothing is sent without cookie consent.
 
 Public routes (`location-search`, `affiliate/[offerId]`, `affiliate/products/[slug]`, `stripe/price`) and the authenticated `plans/from-catalog` and `products/[productId]/image` routes use the DB-backed `checkRateLimitAsync`; the in-memory `checkRateLimit` is only its fallback and remains in use by admin and trial routes.
+
+## Marketing pages CRO pass (2026-11-22)
+
+Presentation and copy only; no API, schema or analytics-event change. The home hero (`HeroSection`) replaces the static fuel-gauge image with `RaceBookPhoneMockup` (`apps/web/components/landing/RaceBookPhoneMockup.tsx`), the Trail TST phone and muted demo video also used by `/organisateurs` (with the optional supporter card). Both audience CTAs (runner, organizer) sit directly under the subtitle so the organizer route is visible without scrolling on mobile. `HomeProofStrip` renders the first published organizer social proof under the hero (`loadPublishedOrganizerSocialProofs(1)` in `app/page.tsx`, same five-minute cache as `/organisateurs`) and nothing when no proof is published. The "Démo : un plan 50K" gauges are an illustrative, labelled example instead of the zero-valued screenshot.
+
+Home copy that changed (heading, subheading, how-it-works including the Livret coureur, FAQ in "tu" with the 9,99 € / 29,99 € runner prices) lives in `components/landing/home-copy.ts`, layered over `t.landing`; fold it back into `locales/fr.ts` / `locales/en.ts` when convenient. `/organizers` addresses organizers with "vous", has its own noindex title and shows the free-until-publication reassurance using `ORGANIZER_TIER_PRICE_EUR.essential`; `/organisateurs` pricing cards get one CTA each and read prices from the same constant.
+
+- Gotcha: the runner prices in the FAQ copy are literal strings (no shared constant exists); update them with the commercial prices.

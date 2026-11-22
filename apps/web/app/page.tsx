@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { getAllPostMetadata } from "../lib/blog/posts";
+import { loadPublishedOrganizerSocialProofs } from "../lib/organizer-social-proof-server";
 import { LandingPage } from "./landing-page";
 import { buildHomeStructuredData } from "./home-structured-data";
 import { CANONICAL_PATH } from "./seo";
@@ -37,7 +38,10 @@ const selectFeaturedGuides = async (): Promise<FeaturedGuideCard[]> => {
 };
 
 export default async function HomePage() {
-  const featuredGuides = await selectFeaturedGuides();
+  const [featuredGuides, socialProofs] = await Promise.all([
+    selectFeaturedGuides(),
+    loadPublishedOrganizerSocialProofs(1),
+  ]);
 
   return (
     <>
@@ -47,7 +51,7 @@ export default async function HomePage() {
           __html: JSON.stringify(buildHomeStructuredData()).replace(/</g, "\\u003c"),
         }}
       />
-      <LandingPage featuredGuides={featuredGuides} />
+      <LandingPage featuredGuides={featuredGuides} socialProofs={socialProofs} />
     </>
   );
 }

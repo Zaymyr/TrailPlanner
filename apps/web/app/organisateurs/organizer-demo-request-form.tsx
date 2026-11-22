@@ -61,11 +61,11 @@ export function OrganizerDemoRequestForm({ attribution }: { attribution: Organiz
     <form onSubmit={submit} className="grid gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5" noValidate={false}>
       <div className="grid gap-1.5">
         <label htmlFor="demo-email" className="text-sm font-semibold text-foreground">Adresse e-mail</label>
-        <input id="demo-email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="vous@votre-trail.fr" className={inputClass} />
+        <input id="demo-email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="vous@votre-course.fr" className={inputClass} />
       </div>
       <div className="grid gap-1.5">
         <label htmlFor="demo-race-url" className="text-sm font-semibold text-foreground">Lien de votre course</label>
-        <input id="demo-race-url" type="text" inputMode="url" autoComplete="url" required value={raceUrl} onChange={(event) => setRaceUrl(event.target.value)} placeholder="www.votre-trail.fr" className={inputClass} />
+        <input id="demo-race-url" type="text" inputMode="url" autoComplete="url" required value={raceUrl} onChange={(event) => setRaceUrl(event.target.value)} placeholder="www.votre-course.fr" className={inputClass} />
       </div>
       <div className="grid gap-1.5">
         <label htmlFor="demo-phone" className="text-sm font-semibold text-foreground">
