@@ -353,9 +353,10 @@ Limits of a server reel: the default composition (no admin browser preferences),
 
 ## Opening, subtitles and route lines (2026-11-22)
 
-- **Opening:** without the hook, the intro lasts at least `MIN_INTRO_MS` = 5 s (more when its narration is longer), holds the overview for 40 % of it (`INTRO_HOLD_RATIO`), then glides to the chase camera at the start (full) or at the first moment (highlights).
-- **Subtitles:** `SUBTITLE_CENTER_Y_RATIO` = 0.82 (`subtitle-groups.ts`, tested): one line ends near y = 1613 of 1920, two lines near y = 1643.
-- **Route lines:** the future route, glow, casing, revealed route and told slope layers use `line-elevation-reference: ground` and increasing `line-z-offset` (3 to 5.5 m, `ROUTE_Z_OFFSET_M`) so they render as crisp 3D lines above the terrain; the future route alpha is 0.5.
+- **Opening:** without the hook, the intro lasts a fixed `OVERVIEW_INTRO_MS` = 3 s (5 s was too long: the race is announced, then the camera dives): the overview is held for 40 % of it (`INTRO_HOLD_RATIO`, 1.2 s), then the camera dives to the start (full) or the first moment (highlights). The intro voice starts at 0.5 s and may run on over the first moment, which gets that extra time (same mechanism as the hook overflow), and the next voice waits for it.
+- **Subtitles:** `SUBTITLE_CENTER_Y_RATIO` = 0.86 (`subtitle-groups.ts`, tested; 0.775 then 0.82 were judged too high): one line spans y = 1612-1690 of 1920, two lines y = 1583-1720, below the 4:5 feed crop and over the Reels caption area, accepted by the maintainer.
+- **Route lines:** the future route, glow, casing, revealed route and told slope layers use `line-elevation-reference: ground` and increasing `line-z-offset` (3 to 5.5 m, `ROUTE_Z_OFFSET_M`) so they render as crisp 3D lines above the terrain. The route still to run is an opaque grey (`FUTURE_ROUTE_COLOR` `#a7adb4`), with the coloured revealed route advancing over it; an overview layer (`video-route-line-overview`, z 3.25 m) draws the whole route in the route colour at full opacity on the opening overview and fades out during the dive (`getOverviewRouteOpacity`, tested).
+- **Marker CSS:** `mapbox-gl/dist/mapbox-gl.css` is imported by `VideoGeneratorMapClient.tsx` itself. It used to be imported by the admin editor page only, so on `/survol` and on the Cloud Run render page `/render/video/[id]` the DOM markers (progress dot, aid bubbles, place labels) had no positioning and fell below the map, outside the frame. The progress dot also uses `occludedOpacity: 1`, like the other markers, so the 3D route lines never dim it.
 
 ## Public preview mode (2026-11-22)
 
