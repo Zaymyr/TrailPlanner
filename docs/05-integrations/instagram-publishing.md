@@ -1,7 +1,7 @@
 ---
 title: Instagram Reels Publishing
 scope: integration
-last_verified: 2026-11-21
+last_verified: 2026-11-22
 # Reel caption voice (2026-11-20): drafts pre-filled from reel content now carry a livelier caption with a few emojis, distinct from the voice-over; the plain template (no content) is unchanged.
 # Admin publications workflow (2026-11-20): shared generate/publish switch, month calendar, list filters, « already published » marks on videos and races, and published posts can be removed from the admin list (never from Instagram).
 ai_priority: medium
@@ -94,6 +94,10 @@ All calls go to `https://graph.facebook.com/<INSTAGRAM_GRAPH_API_VERSION>` (defa
 - **Dry-run mode flip**: a post keeps the mode it was scheduled in. When `INSTAGRAM_PUBLISH_DRY_RUN` (or the presence of the credentials) changes, the tick promotes only due posts whose `dry_run` matches the current mode; the others become `failed` with « Programmée en simulation — reprogramme-la pour publier sur Instagram. » (or the reverse message for a post scheduled for real while simulation is active). « Publier maintenant » and « Réessayer » are explicit clicks and use the current mode, which the confirmation dialog states.
 - **Quota budget**: 50 posts per 24 h by default when Meta returns no `quota_total` (the docs mention both 50 and 100).
 
+## Collaborators (2026-11-22)
+
+`social_posts.collaborators` (at most 3 Instagram usernames) is sent by `createReelContainer` as the JSON `collaborators` parameter of the REELS container (`ReelContainerInput.collaborators`, capped at 3 in `graph.ts`; `publisher.ts` passes it only when the post has some). Today only the organizer flyover collab offer sets it: the cron route creates and schedules the post, then this publisher runs it like any other, in the current dry-run or live mode. See [Organizer Flyover Video Orders](../03-business-rules/flyover-video-orders.md).
+
 ## Carousels
 
 Carousel posts (`media_type = carousel`, [Automatic Instagram Carousels](instagram-carousels.md)) go through the same state machine. Step 3a replaces the REELS container: one item container per slide (`POST /{IG_USER_ID}/media` `image_url` = 2-hour signed GET URL of the JPEG, `is_carousel_item=true`), each id stored at once in `ig_child_container_ids` so a retry resumes after the last stored one, then the carousel container (`media_type=CAROUSEL`, `children` in slide order, `caption`) stored in `ig_container_id`. Poll, `media_publish`, permalink, dry run, leases, quota, deadlines and error classes are unchanged; a lost media id is looked up among `FEED` media (reels: `REELS`); dropping the container also clears the item containers (`DROPPED_CONTAINER`). The images live 30 days like the MP4: `getPostMedia` (`lib/social-post-media.ts`) gives the routes the reel's or the carousel's render, so « Programmer », « Publier maintenant » and « Réessayer » apply the same lifetime rule (messages speak of « images »). The post card shows a « Carrousel · série · N images » badge and the slides in order (`previewImages` of `GET /api/admin/social-posts/<id>`, loaded at once for a carousel draft); the calendar marks carousels with ▦ and planned carousel slots in violet. `readPublicationMarks` reads reels only.
@@ -159,6 +163,7 @@ The Meta side (app with Facebook Login, linked Page, System User and its token) 
 - `cover_text` is stored for a future generated cover; no `cover_url` is sent yet, so Instagram uses the first frame.
 - `content` (jsonb) holds the reel content JSON copied at draft creation; the publisher ignores it. `cover_text` comes from it too but, with no `cover_url`, Instagram still uses the first frame: the cover text is only stored.
 - Full reels have no stored content: the separate caption route (`/api/admin/video-generator/caption`) needs the narration legs computed by the editor, so copy its caption from the video generator's Instagram panel when needed.
+- The collaborator receives an invitation and must accept it in Instagram; the API cannot force it, and a private or misspelled account makes container creation fail at publication time (visible on the post). Unverified against the real Meta API, like the rest of this flow. The Publications "videos to publish" list and the admin posts route ignore flyover renders (no race): see [Organizer Flyover Video Orders](../03-business-rules/flyover-video-orders.md).
 
 ## Related Docs
 
@@ -167,3 +172,4 @@ The Meta side (app with Facebook Login, linked Page, System User and its token) 
 - [video_render_jobs](../02-database/tables/video-render-jobs.md)
 - [Infrastructure](../01-architecture/infrastructure.md)
 - [Automatic Reel Pipeline](reel-automation.md)
+- [Organizer Flyover Video Orders](../03-business-rules/flyover-video-orders.md)

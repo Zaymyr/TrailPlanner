@@ -1,7 +1,7 @@
 ---
 title: Reel figures and highlights mode
 scope: decision
-last_verified: 2026-11-21
+last_verified: 2026-11-22
 ai_priority: medium
 related_files:
   - apps/web/app/admin/video-generator/race-figures.ts
@@ -108,6 +108,8 @@ Second, a full-course flyover of an ultra lasts up to 2-3 minutes; a short "temp
 
 19. **Aid stations optional for reels (2026-11-21).** The automatic reel rule (15a) no longer asks for an aid station: a live solo format with a GPX, 30 km or more and a future date is eligible, and the server generation no longer skips a race without any. Both story modes already tell a race from its GPX alone (climbs, descents, night, finish); stations only add cuts and bubbles when present. « GPX à traiter » no longer lists missing aid stations as blocking a reel; they still block « Le brief », which is built from them. Alternative rejected: keeping the rule, which held back reels of races whose organizer has not entered stations yet.
 
+20. **Overview opening, lower subtitles, crisp route (2026-11-22).** After reviewing the organizer flyover previews: (a) every reel, editor, one-click, automatic and flyover alike, opens on the whole route seen from above for at least 5 s (`MIN_INTRO_MS`), held for 40 % of it, then glides down to the start (full) or the first moment (highlights); the hook (decision 7) is no longer automatic in highlights and only plays when `hookIntro` is set to true. (b) The subtitle box is centred at 82 % of the height (was 77.5 %, judged too high): one line stays inside the 4:5 feed crop, two lines end about 8 px below it, and both reach into the Reels caption area. (c) Route lines are 3D geometry a few metres above the ground (`line-elevation-reference: ground`, `line-z-offset`) instead of being draped into the terrain texture, which made them blocky; the route still to run is drawn at 50 % opacity so the opening overview shows the whole course. Alternatives rejected: keeping the hook with an overview before it (a longer opening and two camera moves in 7 s); keeping subtitles inside every Instagram safe zone (the maintainer asked for them lower).
+
 ## Consequences
 
 - Badge, counter, voice, captions, aid cards and AI inputs show the same numbers; the counter ends exactly on the badge total.
@@ -131,6 +133,7 @@ Second, a full-course flyover of an ultra lasts up to 2-3 minutes; a short "temp
 - Automatic reels use the default composition (forced to 1080p, since the reel goes to Instagram as is) and voice settings, never an admin's browser preferences; races whose GPX has no elevation stay manual. With « Publication automatique » on, a reel can reach Instagram without anyone reading it: the warning in Publications and the dry-run mode are the remaining guards.
 - Carousels take three weekdays from the reels when their series are on; the reel caps (3 a week) then fit in the four remaining days. The plan chiffré g/h depend on a tolerance mapping per runner level that is a calibration choice, not a published rule.
 - The outro is about 2 s longer than before (voice plus a 2 s hold); the 50 s cap on highlights is unchanged and the flyover absorbs it when the total is clamped.
+- The pipeline steps of `reel-generation.ts` (`writeReelWork`, `synthesizeReelClips`, `launchReelRender`) are now shared with the organizer flyover video product (2026-11-22, [rules](../03-business-rules/flyover-video-orders.md)); the figures, highlights and automatic reel behavior decided here are unchanged. The viewer also gained a public `preview` mode for that product, and the future route and glow colors are now `rgba()` (Mapbox rejected the 8-digit hex values).
 
 ## Related Docs
 

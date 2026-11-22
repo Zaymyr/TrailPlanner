@@ -28,6 +28,22 @@ Journal en ajout seul, la plus récente en haut. Format : `## AAAA-MM-JJ — Tit
 
 **Conséquence.** Carte verrouillée sous l'éditeur Sponsors pour les offres inférieures (fenêtre d'offres existante) ; carte Signature de /organisateurs complétée. Détail : [Organizer Commercial Offers](../03-business-rules/organizer-commercial-offers.md#rapport-partenaires-2026-11-22).
 
+## 2026-11-22 — Toutes les vidéos s'ouvrent sur la vue d'ensemble du tracé
+
+**Contexte.** En « Temps forts », la vidéo démarrait directement sur l'accroche (2,4 s sur la plus grosse montée), trop vite ; les sous-titres étaient jugés trop hauts et le tracé pixelisé ; les fonds de carte satellite de la vidéo de survol se ressemblaient trop.
+
+**Décision.** Toute vidéo (éditeur, reels automatiques, survol) commence par une vue large de tout le tracé, au moins 5 s, puis zoome sur le départ ou le premier temps fort ; l'accroche devient une option explicite. Sous-titres centrés à 82 % de la hauteur. Tracé dessiné en 3D au-dessus du sol. Survol : quatre fonds tranchés (Pace Yourself, Satellite, Carte rando, Nocturne) et choix Temps forts / Parcours complet par l'organisateur.
+
+**Conséquence.** Les deux lignes de sous-titres débordent un peu sous la légende Instagram et le recadrage 4:5 du fil. Détail : [ADR reels, point 20](../08-decisions/2026-11-19-reel-highlights-and-figures.md), [règles du survol](../03-business-rules/flyover-video-orders.md).
+
+## 2026-11-22 — Vidéo de survol organisateurs, produit indépendant
+
+**Contexte.** Les organisateurs demandent une vidéo 3D de leur parcours pour l'annoncer sur les réseaux ; le pipeline de reels automatiques (texte IA, voix, rendu Cloud Run) existe déjà côté admin.
+
+**Décision.** Produit vendu sur `/survol`, hors catalogue et hors offres Essentiel / Complet / Signature : 29,99 € (publication sur le compte Instagram Pace Yourself en collaboration avec le compte de l'événement) ou 59,99 € (MP4 téléchargeable 30 jours), paiement Stripe, livraison sous 24 h. Il réutilise le pipeline reel (`writeReelWork`, `synthesizeReelClips`, `launchReelRender`) via une tâche pg_cron toutes les 10 minutes ; pas d'écran admin pour l'instant (suivi par requête SQL, e-mail en cas d'échec).
+
+**Conséquence.** Nouvelle table `flyover_video_orders`, `video_render_jobs.race_id` nullable (+ `flyover_order_id`), `social_posts.collaborators`, deux Prix Stripe (`STRIPE_FLYOVER_COLLAB_PRICE_ID`, `STRIPE_FLYOVER_DOWNLOAD_PRICE_ID`) à créer, webhook routé sur `purchase_type = flyover_video`. Voir `docs/03-business-rules/flyover-video-orders.md`.
+
 ## 2026-11-22 — Démo Trail TST hors index, courses passées sans statut « programmé »
 
 **Contexte.** L'audit catalogue du 22/11 : la démo Trail TST (cible des QR codes imprimés) apparaissait comme une vraie course (inscription vers un site factice, sitemap, suggestions), les formats passés publiaient `EventScheduled`, et la démo aurait été bloquée au 31/12 (l'année d'édition doit suivre la date de début).

@@ -193,6 +193,13 @@ related_files:
   - apps/web/app/robots.ts
   - apps/web/app/sitemap.ts
   - apps/web/app/sitemap.test.ts
+  - apps/web/app/survol/page.tsx
+  - apps/web/app/survol/flyover-order-form.tsx
+  - apps/web/app/survol/flyover-preview.tsx
+  - apps/web/app/survol/commande/[id]/page.tsx
+  - apps/web/app/api/flyover-orders/route.ts
+  - apps/web/app/api/flyover-orders/[id]/download/route.ts
+  - apps/web/app/api/cron/flyover-orders/route.ts
   - apps/web/app/noindex-metadata.ts
   - apps/web/app/blog/page.tsx
   - apps/web/app/blog/[...slug]/page.tsx
@@ -1034,3 +1041,7 @@ Home copy that changed (heading, subheading, how-it-works including the Livret c
 ## Organizer partner report (2026-11-22)
 
 `GET /api/organizer/editions/[id]/sponsor-report?format=json|csv|pdf` returns the aggregated Signature partner report as JSON or as a `Content-Disposition: attachment` CSV/PDF with `Cache-Control: private, no-store`. The client card (`dashboard/sponsor-report-card.tsx`, rendered under the Sponsors editor) downloads it with the bearer header through a temporary object URL, since a plain link cannot carry the token. Rules: [Organizer Commercial Offers](../03-business-rules/organizer-commercial-offers.md#rapport-partenaires-2026-11-22).
+
+## Organizer flyover video orders (2026-11-22)
+
+`/survol` (indexable, in the sitemap) sells organizers a 3D flyover reel made from their GPX: a server page with a client form (`flyover-order-form.tsx`: GPX read in the browser with its waypoints pre-filled as aid stations, live 3D preview `flyover-preview.tsx` built on the admin `VideoGeneratorMap` in `preview` mode, offer and payment last; the organizer picks the story mode and one of four basemaps, applied live in the preview) posting multipart to `POST /api/flyover-orders` (public, rate-limited, honeypot, Stripe Checkout). `/survol/commande/[id]?t=<token>` (noindex) shows the order status and, for the MP4 offer, a download button backed by `GET /api/flyover-orders/[id]/download` (HMAC token, redirect to a short-lived signed GCS URL). A pg_cron job calls `POST /api/cron/flyover-orders` every 10 minutes to write, voice and render the reel. All routes use the service role; the table has no RLS policy. `/api/admin/social-posts` returns `racePublication: null` for a render with no race (flyover renders). Rules, setup and pitfalls: [Organizer Flyover Video Orders](../03-business-rules/flyover-video-orders.md).

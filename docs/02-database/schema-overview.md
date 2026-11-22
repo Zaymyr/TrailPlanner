@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-11-20
+last_verified: 2026-11-22
 # Supporter onboarding (2026-11-18): `user_profiles.supporter_onboarding_status` (migration 20261118200000) joins the Plan/RaceBook statuses; the mobile guided catalog gains a `supporter` mode over the same public event list, no other table or RLS change.
 # Inbox push badge (2026-11-18): apps/web/lib/push.ts adds an iOS badge only to admin inbox pushes (unread user_notifications count); race event update pushes, schema and RLS are unchanged.
 # Livret supporter private preview (2026-11-18): the catalog Livret supporter entry admits active organizers of a private event (preview only); runner badge, data and contracts unchanged.
@@ -10,6 +10,9 @@ related_files:
   - supabase/migrations/20261116150000_add_organizer_demo_requests.sql
   - supabase/migrations/20261119130000_add_social_posts.sql
   - supabase/migrations/20261119170000_add_render_job_auto_draft.sql
+  - supabase/migrations/20261122100000_add_flyover_video_orders.sql
+  - supabase/tests/flyover_video_orders_checks.sql
+  - supabase/migrations/20261122200000_flyover_presets_and_story_mode.sql
   - supabase/tests/social_posts_checks.sql
   - supabase/tests/organizer_demo_requests_checks.sql
   - supabase/migrations/20261116180000_add_feedback_surveys.sql
@@ -262,6 +265,7 @@ The November 2026 mobile plan-flow polish changes catalog search controls, image
 | `video_voices` | Service-only shared pool of ElevenLabs voices of the admin reel generator (unique ElevenLabs id, name, `active`); each new reel draws an active voice at random. See [video_voices](tables/video-voices.md). |
 | `reel_automation_settings` | Service-only single row of the automatic reel pipeline: generation and publication switches (off by default), caps, lead time, publication time. See [reel_automation_settings](tables/reel-automation-settings.md). |
 | `reel_automation_items` | Service-only planned automatic reels, one per race and edition (unique), with their status, step, lease and links to the render job and draft. See [reel_automation_items](tables/reel-automation-items.md). |
+| `flyover_video_orders` | Service-only organizer flyover video orders (`/survol`, independent of the catalog): offer, Stripe references, GPX path, status flow `pending_payment` to `ready`, retry lease, chosen `story_mode` and basemap preset (`20261122200000`), links to its `video_render_jobs` render (whose `race_id` is now nullable, with `flyover_order_id`) and collab `social_posts` row (new `collaborators` column). |
 | `social_posts` | Service-only Instagram Reels drafted from finished `video_render_jobs` (by an admin, or automatically when a one-click render finishes: `auto_generated`, one per render) and published by explicit admin action through a resumable state machine. See [social_posts](tables/social-posts.md). |
 | `races` | Current race catalog/private race table, renamed from `race_catalog`, with yearly organizer edition grouping on `edition_group_id` / `series_name`. |
 | `race_slug_redirects` | Former course slugs mapped to stable race ids for visibility-gated permanent redirects. |
@@ -350,6 +354,7 @@ erDiagram
 - [social_posts](tables/social-posts.md)
 - [reel_automation_settings](tables/reel-automation-settings.md)
 - [reel_automation_items](tables/reel-automation-items.md)
+- [flyover_video_orders](tables/flyover-video-orders.md)
 - [organizer_import_sessions](tables/organizer-import-sessions.md)
 - [race_events](tables/race-events.md)
 - [race_event_editions](tables/race-event-editions.md)

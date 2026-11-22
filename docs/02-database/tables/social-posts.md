@@ -1,7 +1,7 @@
 ---
 title: social_posts Table
 scope: database
-last_verified: 2026-11-21
+last_verified: 2026-11-22
 # Publication marks (2026-11-20): readPublicationMarks summarises non-failed rows per video and race for the admin; published rows can now be deleted from the admin list (DELETE accepts status published).
 ai_priority: medium
 related_files:
@@ -66,6 +66,7 @@ One Instagram Reel drafted from a finished background render, or one Instagram c
 | `carousel_job_id` | `uuid` | references `carousel_render_jobs(id)` on delete set null | Source slide render of a carousel. |
 | `image_paths` | `text[]` | null or 2-10 entries | Ordered Cloud Storage object paths of the slides (never signed URLs); required for a carousel. |
 | `ig_child_container_ids` | `text[]` | ≤ 10, default `{}` | Carousel item containers created so far, in slide order, stored one by one so a retry resumes them; cleared with the container. Always empty for a reel. |
+| `collaborators` | `text[]` | not null, default `{}`, at most 3 entries | Instagram usernames (without `@`) invited as collaborators of the reel; sent as the Graph `collaborators` parameter at container creation (`publisher.ts` passes it only when non-empty, `graph.ts` caps it at 3). Only the organizer flyover collab offer sets it ([Organizer Flyover Video Orders](../../03-business-rules/flyover-video-orders.md)); empty for every other post. |
 | `created_by` | `uuid` | references `auth.users(id)` on delete set null | Admin who created the draft (for an automatic draft, the admin who launched the render). |
 | `created_at`, `updated_at` | `timestamptz` | `updated_at` set by trigger `set_social_posts_updated_at` | Timing. |
 
@@ -116,6 +117,7 @@ from public.social_posts where status = 'publishing';
 - `video_url` is a path, not a URL; never store a signed URL (it expires in 2 hours).
 - Scheduling is refused past `finished_at + 30 days − 24 h` of the render (bucket lifecycle).
 - `dry_run` is set when the post is scheduled and never rewritten by the cron. « Publier maintenant » and « Réessayer » use the current mode; a retry after a mode change drops the stored container (with confirmation if a live publish was requested).
+- Flyover collab posts: the draft is created by the flyover cron (`auto_generated`, `video_job_id` of a render with no race, so `race_id` can be null) and scheduled by the same service as an admin schedule. The admin posts route returns `racePublication: null` for a job without a race, and the Publications "videos to publish" list hides flyover jobs (`flyover_order_id=is.null`). The collaborator must accept the invitation in Instagram. See [Organizer Flyover Video Orders](../../03-business-rules/flyover-video-orders.md).
 
 ## Related Docs
 
@@ -123,3 +125,4 @@ from public.social_posts where status = 'publishing';
 - [Instagram Reels Publishing](../../05-integrations/instagram-publishing.md)
 - [RLS Policies](../rls-policies.md)
 - [Automatic Reel Pipeline](../../05-integrations/reel-automation.md)
+- [Organizer Flyover Video Orders](../../03-business-rules/flyover-video-orders.md)

@@ -9,6 +9,7 @@ related_files:
   - apps/web/app/api/stripe/price/route.ts
   - apps/web/app/api/stripe/webhook/route.ts
   - apps/web/app/api/stripe/webhook/route.test.ts
+  - apps/web/app/api/flyover-orders/route.ts
   - apps/web/app/api/organizer/invoices/[paymentId]/download/route.ts
   - apps/web/app/api/organizer/invoices/[paymentId]/download/route.test.ts
   - apps/web/app/api/organizer/publication-checkout/route.ts
@@ -57,6 +58,7 @@ This document describes both runner web subscriptions and one-time organizer edi
 - `STRIPE_ORGANIZER_ESSENTIAL_TO_COMPLETE_PRICE_ID`
 - `STRIPE_ORGANIZER_ESSENTIAL_TO_SIGNATURE_PRICE_ID`
 - `STRIPE_ORGANIZER_COMPLETE_TO_SIGNATURE_PRICE_ID`
+- `STRIPE_FLYOVER_COLLAB_PRICE_ID` (organizer flyover video, collab offer, 29.99 EUR) and `STRIPE_FLYOVER_DOWNLOAD_PRICE_ID` (MP4 offer, 59.99 EUR), both optional in the schema and checked by the order route
 - legacy RaceBook/Pro Price IDs as temporary compatibility fallbacks
 - optional organizer checkout success/cancel URL overrides
 
@@ -111,6 +113,7 @@ Runner course checkout uses Checkout mode `payment` and requires a race or editi
 - handles `checkout.session.completed`.
 - handles `checkout.session.async_payment_succeeded` for runner and organizer fulfillment.
 - handles organizer async payment success/failure, Checkout expiry, charge refunds, and disputes.
+- routes `checkout.session.*` events whose `metadata.purchase_type` is `flyover_video` to `handleFlyoverCheckout` first (before the organizer and runner branches); `charge.refunded` and `charge.dispute.created` also mark matching flyover orders `refunded` (`refundFlyoverOrdersByIntent`). Organizer, runner and subscription handling is unchanged.
 
 Subscription events upsert:
 
@@ -140,6 +143,12 @@ Before creating the Checkout Session, the server recomputes the minimum publicat
 
 Any refund event, including partial, marks its organizer transaction refunded; a new dispute marks a paid transaction disputed. Both recalculate the edition and can hide modules or the complete RaceBook without hiding catalog formats. An upgrade is valid only while its paid base path remains valid. A dispute closed as won restores only a currently disputed transaction; a lost dispute remains invalid. Duplicate or out-of-order webhook delivery is safe because transitions are status-filtered and recalculation derives state from the complete valid ledger.
 
+## Organizer flyover video checkout (2026-11-22)
+
+The Checkout opens only from the last step of `/survol`, after the live preview; the order now also stores the chosen story mode (no Stripe change) (route behavior unchanged apart from the GPX waypoint fallback for aid stations).
+
+`POST /api/flyover-orders` opens a one-off Checkout for the `/survol` product (price from `STRIPE_FLYOVER_*_PRICE_ID`, active, EUR, one-off, exact amount; automatic tax, tax-id collection, invoice; `metadata.purchase_type = flyover_video`, `metadata.order_id`). The webhook only moves the `flyover_video_orders` row (`paid`, `expired`, `refunded`) and sends the confirmation email; it writes no `subscriptions`, runner or organizer ledger row. Rules and setup: [Organizer Flyover Video Orders](../03-business-rules/flyover-video-orders.md).
+
 ## Trial vs Paid Distinction
 
 The `subscriptions` table stores billing status. Trial lifecycle for the app's free premium trial is separate and stored in `user_profiles`. Stripe `trialing` status is treated as an active billing status by entitlement code, but it is not the same as the app profile trial.
@@ -156,7 +165,8 @@ The `subscriptions` table stores billing status. Trial lifecycle for the app's f
 - `checkout.session.completed` does not include all subscription details, so subscription update events are still important.
 - Organizer Price ids must be non-recurring EUR prices, use `tax_behavior=exclusive`, and carry the exact server-expected amounts; never accept a Price id or amount from the browser.
 - Automatic Tax requires the appropriate live Stripe tax registrations; code configuration alone is insufficient.
-- Organizer payments must not write `subscriptions` or runner Premium state.
+- Organizer payments must not write `subscriptions` or runner Premium state. The same holds for flyover video orders.
+- The two flyover prices exist in live mode (29.99 and 59.99 EUR, `tax_behavior = inclusive`, ids in the flyover business rule); unlike organizer prices, the order route checks the amount but not `tax_behavior`. The flyover Checkout allows promotion codes (internal 100 % test coupon restricted to the two flyover products).
 - Runner Checkout uses a bounded server idempotency key, and real Checkout is blocked while monetisation is disabled or an admin simulation is active.
 
 ## Related Docs
@@ -166,3 +176,4 @@ The `subscriptions` table stores billing status. Trial lifecycle for the app's f
 - [Infrastructure](../01-architecture/infrastructure.md)
 - [Session Management](../04-auth-and-security/session-management.md)
 - [Organizer Commercial Offers](../03-business-rules/organizer-commercial-offers.md)
+- [Organizer Flyover Video Orders](../03-business-rules/flyover-video-orders.md)

@@ -1,7 +1,7 @@
 ---
 title: Automatic Reel Pipeline
 scope: integration
-last_verified: 2026-11-21
+last_verified: 2026-11-22
 ai_priority: medium
 related_files:
   - apps/web/lib/reel-planner.ts
@@ -97,16 +97,19 @@ Turning generation off stops new work at the next tick; renders in flight finish
 
 - The public Mapbox token may be URL-restricted: server Tilequery calls are then refused, the reel has no summit or start/finish names, and the route logs `Mapbox Tilequery refused (<status>)`. Unrestricting the token for Tilequery (or a server token) restores the names.
 - A GPX without any elevation makes the editor fill the profile from the 3D terrain; the server cannot, so the item is skipped (« GPX sans altitudes ») and must be done by hand.
+- Since 2026-11-22 automatic reels open on the overview of the whole route, then zoom in (no automatic hook in highlights), with subtitles at 82 % of the height ([ADR](../08-decisions/2026-11-19-reel-highlights-and-figures.md), decision 20).
 - The render uses the default composition (`DEFAULT_VIDEO_COMPOSITION_SETTINGS` in the planned mode, forced to 1080p because the reel goes to Instagram as is; portrait, preview size 405 × 720), the default speech rate and a random writing style; nothing from the admin's browser (script notes, measured voice pace) applies.
 - The voice step overwrites the saved narration of that race and mode, like the one-click reel.
 - `created_by` of the automatic render and draft is `reel_automation_settings.updated_by` (null if never set by an admin).
 - Planned items move day to day until their generation starts: the plan is recomputed every hour.
 - pg_net calls with a 5-minute timeout; the route allows 300 s. One tick does at most one step: a full content step makes two AI calls.
 - A crash between the render job insert and its launch leaves an `uploading` job; the next duplicate check then skips the item (safe: never two reels).
+- `reel-generation.ts` was refactored on 2026-11-22 so the organizer flyover pipeline can reuse its steps: `writeReelWork` (place names and AI text), `synthesizeReelClips` (voice) and `launchReelRender` (snapshot, render job and launch) are exported, `readWork` too; `runContentStep`, `runVoiceStep` and `runRenderStep` behave as before and call them. See [Organizer Flyover Video Orders](../03-business-rules/flyover-video-orders.md).
 
 ## Related Docs
 
 - [Instagram Reels Publishing](instagram-publishing.md)
+- [Organizer Flyover Video Orders](../03-business-rules/flyover-video-orders.md)
 - [Google Cloud Background Reel Render](google-cloud-video-render.md)
 - [Mapbox 3D Admin Course Viewer](mapbox-3d.md)
 - [reel_automation_items](../02-database/tables/reel-automation-items.md)

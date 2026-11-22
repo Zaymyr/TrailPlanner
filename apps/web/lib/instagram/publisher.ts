@@ -246,6 +246,7 @@ export const advanceSocialPost = async (post: SocialPostRow, deps: PublisherDeps
         videoUrl,
         caption: buildFullCaption(post.caption, post.hashtags),
         shareToFeed: true,
+        ...(post.collaborators?.length ? { collaborators: post.collaborators } : {}),
       });
       return save({
         ig_container_id: containerId,

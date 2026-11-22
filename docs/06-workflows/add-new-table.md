@@ -1,7 +1,7 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-11-20
+last_verified: 2026-11-22
 # Supporter onboarding (2026-11-18): schema-overview lists the new `user_profiles.supporter_onboarding_status` column; no new table.
 # Inbox push badge (2026-11-18): schema-overview notes the admin inbox push badge; no table, column or RLS change.
 # Reel narration mode (2026-11-19): supabase/tests/video_narrations_checks.sql also checks the (race_id, mode) key; this workflow is unchanged.
@@ -30,6 +30,8 @@ related_files:
   - supabase/tests/video_narrations_checks.sql
   - supabase/migrations/20261119130000_add_social_posts.sql
   - supabase/tests/social_posts_checks.sql
+  - supabase/migrations/20261122100000_add_flyover_video_orders.sql
+  - supabase/tests/flyover_video_orders_checks.sql
   - supabase/migrations/20261120090000_add_video_voices.sql
   - supabase/tests/video_voices_checks.sql
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
@@ -210,6 +212,8 @@ Catalog end date (2026-11-14): no table added; the schema overview only records 
 `feedback_survey_campaigns` and `feedback_survey_responses` (2026-11-16) follow this workflow as a service-only + insert-own pair: the campaign table keeps RLS on with every client privilege revoked; the response table grants `authenticated` a column-scoped INSERT and a narrow SELECT under `auth.uid()` policies, while a `SECURITY DEFINER` `BEFORE INSERT` trigger validates notification ownership and kind and fills the server-managed `campaign_id`. Service-role-only RPCs resolve recipients from `auth.users` (trusted `app_metadata` role) and count campaign stats; `supabase/tests/feedback_survey_checks.sql` asserts the grants and trigger outcomes. A follow-up migration (`20261116200000_add_feedback_survey_single_user_audience.sql`) shows how to widen a check-constrained `audience_kind`: drop and re-add the named constraint in the same transaction, and add any new service-only RPC with explicit `revoke` / `grant`.
 
 `social_posts` (2026-11-19) follows the `video_render_jobs` service-only pattern (RLS on, no policy, client privileges revoked, service-role grants, one index per foreign key) with a per-table `updated_at` trigger whose function is revoked from client roles. Its scheduler lives in a separate migration whose pg_cron commands read Vault at run time, so adding the table never depends on secrets being present. Credentials that never expire belong in server env vars rather than in a table (no account table was added). `supabase/tests/social_posts_checks.sql` also asserts check constraints with `begin … exception when check_violation` blocks inside a rolled-back transaction.
+
+`flyover_video_orders` (2026-11-22) follows the same service-only pattern (RLS on, no policy, privileges revoked from `anon` and `authenticated`); its migration also relaxes `video_render_jobs.race_id` (nullable, with a `race_or_flyover` check) and adds `social_posts.collaborators`, checked by `supabase/tests/flyover_video_orders_checks.sql` (which also checks the `story_mode` column added by `20261122200000_flyover_presets_and_story_mode.sql`: a later change to a service-only table is its own additive migration, with the check script extended). The cron is a separate migration, like `social_posts`. See [flyover_video_orders](../02-database/tables/flyover-video-orders.md).
 
 `video_voices` (2026-11-20, the reel generator's shared voice pool) follows the same service-only pattern with its own `updated_at` trigger function (`set_video_voices_updated_at`, execute revoked from client roles), a unique ElevenLabs id and an index on its `created_by` foreign key; `supabase/tests/video_voices_checks.sql` checks the grants, trigger and checks. See [video_voices](../02-database/tables/video-voices.md).
 

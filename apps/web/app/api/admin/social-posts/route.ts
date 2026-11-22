@@ -64,7 +64,7 @@ export async function GET(request: Request) {
           hasContent: parseReelContent(job.content) !== null,
           // Already published, scheduled or drafted: the page warns before a second post of the same reel.
           publication: marks.byVideo[job.id] ?? null,
-          racePublication: marks.byRace[job.race_id] ?? null,
+          racePublication: job.race_id ? marks.byRace[job.race_id] ?? null : null,
         };
       }),
     });

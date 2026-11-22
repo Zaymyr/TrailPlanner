@@ -17,7 +17,9 @@ export type VideoRenderStatus = (typeof VIDEO_RENDER_STATUSES)[number];
 
 export const videoRenderJobRowSchema = z.object({
   id: z.string().uuid(),
-  race_id: z.string().uuid(),
+  // Null for an organizer flyover order (flyover_order_id), which has no catalog race.
+  race_id: z.string().uuid().nullable(),
+  flyover_order_id: z.string().uuid().nullable().optional().transform((value) => value ?? null),
   race_title: z.string(),
   status: z.enum(VIDEO_RENDER_STATUSES),
   progress: z.number(),
@@ -37,7 +39,7 @@ export const videoRenderJobRowSchema = z.object({
 });
 export type VideoRenderJobRow = z.infer<typeof videoRenderJobRowSchema>;
 
-export const VIDEO_RENDER_JOB_COLUMNS = "id,race_id,race_title,status,progress,message,width,height,output_size_bytes,created_at,updated_at,started_at,finished_at,content,created_by,auto_draft";
+export const VIDEO_RENDER_JOB_COLUMNS = "id,race_id,flyover_order_id,race_title,status,progress,message,width,height,output_size_bytes,created_at,updated_at,started_at,finished_at,content,created_by,auto_draft";
 
 /**
  * Upper bound on a render, end to end, for the page token, the upload URL and the stale rule. The

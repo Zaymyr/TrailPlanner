@@ -1,7 +1,7 @@
 ---
 title: video_narrations Table
 scope: database
-last_verified: 2026-11-21
+last_verified: 2026-11-22
 # Race stats publication mark (2026-11-20): race-stats adds each race's Instagram publication mark for the picker; video_narrations itself is unchanged.
 ai_priority: low
 related_files:
@@ -55,6 +55,7 @@ RLS is on with no policy; `anon` and `authenticated` have no privilege. Only the
 - Each mode saves only its own texts: highlight beats use `hl-…` ids (`hl-intro`, `hl-outro` included), full beats never do. The editor loads a mode's narration once per race, when the race opens or when the mode is first chosen, and merges its texts and clips with the other mode's ([ADR](../../08-decisions/2026-11-19-reel-highlights-and-figures.md)).
 - An automatic reel ([Automatic Reel Pipeline](../../05-integrations/reel-automation.md)) saves the narration of its race and mode like the one-click reel, overwriting an earlier save of that mode; a full automatic reel stores no `content` here (only on its render job).
 - `race-stats` reports a race as narrated (and voiced) when any of its modes is. It also returns the race's Instagram publication mark (`publication`, from `social_posts` through `readPublicationMarks`; null when none or when that read fails).
+- `reel-generation.ts` was refactored on 2026-11-22: `writeReelWork`, `synthesizeReelClips` and `launchReelRender` are now exported and shared with the organizer flyover pipeline. Organizer flyover orders do not use this table (no catalog race): their text is kept in `flyover_video_orders.work` and the voice clips go straight into the render snapshot, so nothing is saved here. See [Organizer Flyover Video Orders](../../03-business-rules/flyover-video-orders.md). The saved shape and the automatic reel behavior are unchanged.
 
 ## Gotchas
 
