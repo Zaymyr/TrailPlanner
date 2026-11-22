@@ -19,9 +19,10 @@ const TAB_FOR_VIEW = Object.fromEntries(MESSAGING_VIEWS.map((view) => [view, (Ob
 /**
  * Admin inbox: bugs, feedback, race and demo requests, each with its pending count, plus feedback
  * surveys. `views` limits the sub-tabs (the console « À traiter » page leaves the surveys out: they
- * have their own page); `title` replaces the card title.
+ * have their own page); `title` replaces the card title. `defaultView` is the sub-tab left out of the
+ * URL (`null`: `?vue=` is always written, so the « À traiter » page knows its « Traiter » tab is open).
  */
-export function AdminMessagingTab({ accessToken, views = MESSAGING_VIEWS, title = "Messagerie" }: { accessToken: string | null; views?: readonly MessagingView[]; title?: string }) {
+export function AdminMessagingTab({ accessToken, views = MESSAGING_VIEWS, title = "Messagerie", defaultView = "bugs" }: { accessToken: string | null; views?: readonly MessagingView[]; title?: string; defaultView?: MessagingView | null }) {
   const allowedTabs = views.map((view) => TAB_FOR_VIEW[view]);
   const [tab, setTabState] = useState<InboxTab>(() => {
     const requested = TAB_FOR_VIEW[readMessagingView(typeof window === "undefined" ? "" : window.location.search)];
@@ -29,7 +30,7 @@ export function AdminMessagingTab({ accessToken, views = MESSAGING_VIEWS, title 
   });
   const setTab = (next: InboxTab) => {
     setTabState(next);
-    replaceLocationSearch(searchForView(window.location.search, VIEW_FOR_TAB[next], "bugs"));
+    replaceLocationSearch(searchForView(window.location.search, VIEW_FOR_TAB[next], defaultView ?? ""));
   };
   const counts = useInboxCounts(accessToken);
   const refreshCounts = () => void counts.refetch();

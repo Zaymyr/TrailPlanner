@@ -17,7 +17,7 @@ describe("resolveLegacyAdminUrl", () => {
   it("maps every /admin tab of lot 0", () => {
     expect(resolve("/admin?onglet=produits")).toBe("/admin/catalog/products");
     expect(resolve("/admin?onglet=utilisateurs")).toBe("/admin/runners");
-    expect(resolve("/admin?onglet=messagerie")).toBe("/admin/inbox");
+    expect(resolve("/admin?onglet=messagerie")).toBe("/admin/inbox?vue=bugs");
     expect(resolve("/admin?onglet=templates")).toBe("/admin/content/posts?onglet=templates");
     expect(resolve("/admin?onglet=courses")).toBe("/admin/catalog/races");
     expect(resolve("/admin?onglet=organisateurs")).toBe("/admin/organizers");
@@ -29,9 +29,9 @@ describe("resolveLegacyAdminUrl", () => {
   it("keeps the sub-view and the race being edited", () => {
     expect(resolve("/admin?onglet=messagerie&vue=demandes")).toBe("/admin/inbox?vue=demandes");
     expect(resolve("/admin?onglet=messagerie&vue=demos")).toBe("/admin/inbox?vue=demos");
-    expect(resolve("/admin?onglet=messagerie&vue=bugs")).toBe("/admin/inbox");
+    expect(resolve("/admin?onglet=messagerie&vue=bugs")).toBe("/admin/inbox?vue=bugs");
     expect(resolve("/admin?onglet=messagerie&vue=questionnaires")).toBe("/admin/messaging/surveys");
-    expect(resolve("/admin?onglet=messagerie&vue=inconnu")).toBe("/admin/inbox");
+    expect(resolve("/admin?onglet=messagerie&vue=inconnu")).toBe("/admin/inbox?vue=bugs");
     expect(resolve("/admin?onglet=organisateurs&vue=acces")).toBe("/admin/organizers?vue=acces");
     expect(resolve("/admin?onglet=organisateurs&vue=publication")).toBe("/admin/organizers");
     expect(resolve("/admin?onglet=courses&course=11111111-1111-4111-8111-111111111111")).toBe(

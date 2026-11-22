@@ -39,8 +39,15 @@ describe("GET /api/admin/inbox-counts", () => {
       "race_event_claims?": 6,
       "race_event_publication_requests?": 7,
       "race_event_edition_requests?": 8,
+      "flyover_video_orders?status=eq.failed": 1,
+      "social_posts?status=eq.failed": 2,
+      "social_posts?status=eq.draft": 3,
     };
     fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes("/video_render_jobs?")) {
+        return Response.json([{ id: "r1", race_title: "Orchis", status: "failed", progress: 0, message: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), started_at: null, finished_at: new Date().toISOString() }]);
+      }
+      if (url.includes("/carousel_render_jobs?")) return Response.json([]);
       const key = Object.keys(counts).find((candidate) => url.includes(`/rest/v1/${candidate}`));
       return key ? countResponse(counts[key]) : new Response("", { status: 500 });
     });
@@ -57,8 +64,24 @@ describe("GET /api/admin/inbox-counts", () => {
       publicationRequests: 7,
       editionRequests: 8,
       organizerTotal: 21,
+      failedFlyovers: 1,
+      failedPosts: 2,
+      draftPosts: 3,
+      failedRenders: 1,
+      systemTotal: 7,
     });
-    expect(fetchMock.mock.calls.every(([url]) => String(url).includes("status=eq.pending"))).toBe(true);
+    const queueCalls = fetchMock.mock.calls.map(([url]) => String(url)).filter((url) => /app_feedback|race_requests|organizer_demo|race_event_/.test(url));
+    expect(queueCalls).toHaveLength(7);
+    expect(queueCalls.every((url) => url.includes("status=eq.pending"))).toBe(true);
+  });
+
+  it("leaves a system count out (null) instead of failing every badge", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    fetchMock.mockImplementation(async (url: string) =>
+      String(url).includes("social_posts") || String(url).includes("render_jobs") ? new Response("", { status: 500 }) : countResponse(1)
+    );
+    const body = await (await GET(request())).json();
+    expect(body).toMatchObject({ bug: 1, failedFlyovers: 1, failedPosts: null, draftPosts: null, failedRenders: null, systemTotal: 1 });
   });
 
   it("treats a missing demo table as zero but fails on other errors", async () => {

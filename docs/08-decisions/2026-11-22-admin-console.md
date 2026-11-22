@@ -9,6 +9,10 @@ related_files:
   - apps/web/app/admin/admin-routes.ts
   - apps/web/app/admin/admin-redirects.ts
   - apps/web/app/admin/_components/shell/AdminShell.tsx
+  - apps/web/app/admin/_components/pages/AdminOverviewPage.tsx
+  - apps/web/app/admin/inbox/page.tsx
+  - apps/web/lib/admin-overview.ts
+  - apps/web/lib/admin-inbox.ts
 ---
 
 # Console d'administration : audit et structure cible (2026-11-22)
@@ -179,7 +183,7 @@ Chaque lot = une PR, sans casser l'existant (anciennes URL redirigées).
 |---|---|---|
 | 0 | fait | Onglets de `/admin` et sous-onglets Messagerie / Organisateurs pilotés par `?onglet=` / `?vue=` (`admin-tabs.ts`) ; `?onglet=courses&course=<id>` ouvre l'édition, lien « Corriger » dans GPX à traiter ; `inbox-counts` sépare demandes de course et démos et ajoute claims, publications et nouvelles éditions (badges sur Organisateurs et la Messagerie, nouvel onglet « Démos organisateurs ») ; onglet renommé « Croissance », courbe partagée (même clé react-query, Croissance s'ouvre sur 30 j). Écart : `t.admin.growth.*` partiellement inutilisé, non supprimé. |
 | 1 | fait | Coque `AdminShell` (`_components/shell/`) montée par `layout.tsx` après la vérification serveur inchangée : barre latérale (`ADMIN_NAV` de `admin-routes.ts`, groupes du §4, élément actif, compteurs « À traiter » = messages + organisateurs et Organisateurs), tiroir sous `lg`, barre du haut (fil d’Ariane, ⌘K, pastilles « Instagram : simulation » et « Droits : Gratuit/Premium », cloche vers `/admin/inbox`), polices Bricolage Grotesque / JetBrains Mono. `RootChrome` laisse `/admin` en autonome (plus de double en-tête ; le lien « Admin » du site est inchangé). Primitives `components/ui` : `StatusBadge`, `Switch`, `Select`, `Drawer`, `EmptyState`, `KpiTile` (+ `kpi-delta.ts`), `Toast`, `CommandPalette` (+ `command-palette-filter.ts`), `focus-trap.ts`. Page Publications découpée en `usePublicationsWorkspace` (mêmes clés de requête) + `PublicationViews.tsx` ; studio déplacé dans `VideoGeneratorStudio.tsx` (les modules de `video-generator/` ne bougent pas). Redirections `admin-redirects.ts` (testées) depuis `/admin?onglet=`, `/admin/publications?onglet=`, `/admin/video-generator`. Routes : voir le tableau ci-dessous. Écarts : `/admin` montre la section Croissance (dashboard au lot 2) ; « Qualité des données » est un onglet de `/admin/catalog/races` (pas une carte à côté de la liste) ; `/admin/messaging` est un renvoi vers Coureurs ; le Toast et les autres primitives ne sont encore utilisés que par la coque. |
-| 2 | à faire | |
+| 2 | fait | `GET /api/admin/overview` (`lib/admin-overview.ts` pur + schéma Zod partagé, `lib/admin-overview-server.ts`) : KPI de la période et de la période précédente (mêmes durées, jours de Paris), courbe 30 j, funnel coureurs (comptes → fenêtre 24 h écoulée → premier plan en 24 h) et organisateurs (celui de la fonction growth), revenus par source (organisateurs = `netRevenueMinor` TTC, survols = commandes payées de la période, coureurs « non suivi » : aucun montant stocké), 7 prochains jours (posts programmés, créneaux reels/carrousels prévus, éditions des événements ayant un organisateur), santé (Instagram : identifiants, simulation, quota, échecs ; automatisations ; rendus 24 h ; survols en cours/échecs/retard > 24 h ; crons, e-mails et webhook Stripe affichés « suivi au lot 3 » sans valeur), activité récente (paiements organisateurs, commandes de survol, rendus terminés/échoués, posts publiés, comptes du jour). Chaque bloc est `ok`/`error` indépendamment. Appel RPC extrait dans `lib/admin-growth.ts` (contrat de `/api/admin/growth` inchangé). Page `/admin` fidèle à la maquette (période dans `?periode=`, squelettes, vides et erreurs par carte, infobulle au survol de la courbe via `TimeSeriesLineChart` `interactive`). File unique `GET /api/admin/inbox` (`lib/admin-inbox.ts` pur et testé : mapping, âge, seuils de retard par type, tri, filtres ; `lib/admin-inbox-server.ts`) et page `/admin/inbox` : onglet « File » (puces `?filtre=`, recherche `?recherche=`) et « Traiter les messages » (`?vue=`, Messagerie existante). `inbox-counts` + `inboxTotals` comptent aussi survols en échec, posts en échec, brouillons et rendus échoués 24 h (mêmes filtres que la file). Écarts : « Données de course » (reel encore possible, GPX manquant) est dans la file mais hors compteur (calcul trop lourd pour le badge) ; revenus en TTC (montants stockés), pas HT ; visiteurs du planner (PostHog) absents du funnel ; la salutation n’a pas de prénom (aucun nom en session) ; `/admin?onglet=messagerie` redirige vers `/admin/inbox?vue=bugs`. |
 | 3 | à faire | |
 | 4 | à faire | |
 | 5 | à faire | |
@@ -190,8 +194,8 @@ Chaque lot = une PR, sans casser l'existant (anciennes URL redirigées).
 
 | Route | Contenu (composant existant) | Ancienne URL redirigée |
 |---|---|---|
-| `/admin` | Vue d’ensemble provisoire : `AdminGrowthSection` | — (`/admin?onglet=<inconnu>` → `/admin`) |
-| `/admin/inbox` (`?vue=feedback\|demandes\|demos`) | `AdminMessagingTab` sans Questionnaires + liens vers les demandes organisateurs | `/admin?onglet=messagerie[&vue=]` |
+| `/admin` | Vue d’ensemble (lot 2 : tableau de bord, `?periode=`) | — (`/admin?onglet=<inconnu>` → `/admin`) |
+| `/admin/inbox` (`?filtre=`, `?recherche=` ; `?vue=bugs\|feedback\|demandes\|demos`) | Lot 2 : file unique `InboxQueue` + onglet « Traiter les messages » (`AdminMessagingTab` sans Questionnaires) | `/admin?onglet=messagerie[&vue=]` (→ `?vue=bugs` par défaut) |
 | `/admin/analytics` | `AdminGrowthSection` | `/admin?onglet=croissance` |
 | `/admin/billing` | Attente lot 4 → Organisateurs | — |
 | `/admin/runners` (`?recherche=`) | `AdminUsersTab` | `/admin?onglet=utilisateurs` |

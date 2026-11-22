@@ -42,7 +42,8 @@ const legacyAdminTab = (params: URLSearchParams): string | null => {
       return "/admin/runners";
     case "messagerie":
       if (view === "questionnaires") return "/admin/messaging/surveys";
-      return withQuery("/admin/inbox", { vue: view && INBOX_VIEWS.has(view) && view !== "bugs" ? view : null });
+      // The Messagerie sub-tabs live in the « Traiter » tab of À traiter (lot 2), which `?vue=` opens.
+      return withQuery("/admin/inbox", { vue: view && INBOX_VIEWS.has(view) ? view : "bugs" });
     case "templates":
       return "/admin/content/posts?onglet=templates";
     case "courses":

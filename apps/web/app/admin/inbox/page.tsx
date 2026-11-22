@@ -1,44 +1,59 @@
 "use client";
 
-import type { Route } from "next";
-import Link from "next/link";
+import { useEffect, useState } from "react";
 
-import { MESSAGING_VIEWS } from "../admin-tabs";
+import { TabsList } from "../../../components/ui/tabs";
+import { replaceLocationSearch } from "../admin-tabs";
 import { AdminMessagingTab } from "../_components/AdminMessagingTab";
+import { InboxQueue } from "../_components/inbox/InboxQueue";
+import { INBOX_PAGE_VIEWS, readInboxMode, searchForInboxMode, type InboxMode } from "../_components/inbox/inbox-mode";
+import { useAdminInbox } from "../_components/inbox/useAdminInbox";
 import { useAdminAccessToken } from "../_components/shell/AdminAccess";
 import { AdminPageHeader } from "../_components/shell/AdminPageHeader";
-import { useInboxCounts } from "../_components/useInboxCounts";
+import { inboxTotals, useInboxCounts, withCount } from "../_components/useInboxCounts";
 
-const INBOX_VIEWS = MESSAGING_VIEWS.filter((view) => view !== "questionnaires");
-
-const chipClass =
-  "inline-flex items-center gap-1.5 rounded-full bg-[#fdecec] px-2.5 py-1 text-xs font-semibold text-[#9b2c2c] hover:bg-[#fbd9d9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:bg-red-950/60 dark:text-red-100";
-
-/** « À traiter » (lot 1): the Messagerie sub-tabs plus links to the pending organizer requests. Lot 2 turns it into one queue. */
+/**
+ * « À traiter » (lot 2): « File » is the single queue of every pending item (oldest first, each row
+ * opens the screen where it is handled); « Traiter » keeps the Messagerie sub-tabs and their dialogs
+ * (bugs, feedback, race and demo requests). Organizer requests are handled in Organisateurs.
+ */
 export default function AdminInboxPage() {
   const accessToken = useAdminAccessToken();
-  const counts = useInboxCounts(accessToken).data;
-  const organizerLinks = counts
-    ? [
-        { href: "/admin/organizers", label: "Demandes de publication", count: counts.publicationRequests },
-        { href: "/admin/organizers", label: "Nouvelles éditions", count: counts.editionRequests },
-        { href: "/admin/organizers?vue=acces", label: "Demandes d’accès organisateur", count: counts.organizerClaims },
-      ].filter((link) => link.count > 0)
-    : [];
+  const [mode, setModeState] = useState<InboxMode>("file");
+  useEffect(() => setModeState(readInboxMode(window.location.search)), []);
+  const inbox = useAdminInbox(accessToken);
+  const counts = useInboxCounts(accessToken);
+  const messages = inboxTotals(counts.data).messages;
+  const setMode = (next: InboxMode) => {
+    replaceLocationSearch(searchForInboxMode(window.location.search, next));
+    if (next === "file" && mode !== "file") {
+      // Something may have been answered in « Traiter ».
+      inbox.refetch();
+      counts.refetch();
+    }
+    setModeState(next);
+  };
   return (
     <>
-      <AdminPageHeader title="À traiter" description="Bugs, feedback, demandes de course et de démo. Les demandes des organisateurs se traitent dans Organisateurs." />
-      {organizerLinks.length ? (
-        <div className="mb-4 flex flex-wrap items-center gap-2" aria-label="Demandes des organisateurs">
-          <span className="text-sm text-muted-foreground">Organisateurs :</span>
-          {organizerLinks.map((link) => (
-            <Link key={link.label} href={link.href as Route} className={chipClass}>
-              {link.label} <b className="font-mono">{link.count}</b>
-            </Link>
-          ))}
-        </div>
-      ) : null}
-      <AdminMessagingTab accessToken={accessToken} views={INBOX_VIEWS} title="Messages et demandes" />
+      <AdminPageHeader
+        title="À traiter"
+        description="Tout ce qui attend une action, du plus ancien au plus récent. Chaque ligne ouvre l’écran où l’élément se traite."
+      />
+      <div className="mb-4">
+        <TabsList
+          tabs={[
+            { id: "file", label: "File" },
+            { id: "traiter", label: withCount("Traiter les messages", messages) },
+          ]}
+          activeTab={mode}
+          onTabChange={(next) => setMode(next as InboxMode)}
+        />
+      </div>
+      {mode === "file" ? (
+        <InboxQueue accessToken={accessToken} />
+      ) : (
+        <AdminMessagingTab accessToken={accessToken} views={INBOX_PAGE_VIEWS} title="Bugs, feedback et demandes" defaultView={null} />
+      )}
     </>
   );
 }

@@ -10,6 +10,12 @@ export const inboxCountsSchema = z.object({
   publicationRequests: z.number().default(0),
   editionRequests: z.number().default(0),
   organizerTotal: z.number().default(0),
+  // System items of the « À traiter » queue (lot 2); null when the count could not be read.
+  failedFlyovers: z.number().nullable().default(null),
+  failedPosts: z.number().nullable().default(null),
+  draftPosts: z.number().nullable().default(null),
+  failedRenders: z.number().nullable().default(null),
+  systemTotal: z.number().default(0),
 });
 export type InboxCounts = z.infer<typeof inboxCountsSchema>;
 
@@ -32,9 +38,14 @@ export function useInboxCounts(accessToken: string | null) {
 
 export const withCount = (label: string, count: number | undefined) => (count ? `${label} (${count})` : label);
 
-/** Counts of the console: messages (bugs, feedback, race and demo requests), organizer requests, and their total (« À traiter », bell). */
+/**
+ * Counts of the console: messages (bugs, feedback, race and demo requests), organizer requests, system
+ * items (failed flyovers, posts and renders, drafts to review) and their total (« À traiter », bell).
+ * Same definition as the counted types of the queue (`lib/admin-inbox.ts`); « Données de course » is
+ * listed in the queue but not counted.
+ */
 export const inboxTotals = (counts: InboxCounts | undefined) => {
-  if (!counts) return { messages: undefined, organizers: undefined, total: undefined };
+  if (!counts) return { messages: undefined, organizers: undefined, system: undefined, total: undefined };
   const messages = counts.bug + counts.feedback + counts.raceRequests + counts.demoRequests;
-  return { messages, organizers: counts.organizerTotal, total: messages + counts.organizerTotal };
+  return { messages, organizers: counts.organizerTotal, system: counts.systemTotal, total: messages + counts.organizerTotal + counts.systemTotal };
 };

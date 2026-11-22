@@ -52,3 +52,5 @@ Submit and cancel actions use `ActionButton` (primary with a loading state, ghos
 Admin inbox (2026-11-16): the « Demandes de course » tab now also lists organizer demo requests (`organizer_demo_requests`) above runner race requests, and its badge adds their pending count; bug and feedback review is unchanged.
 
 `pending` rows are counted by `GET /api/admin/inbox-counts` (service role) for the Bugs and Feedback badges of the admin Messagerie.
+
+Admin console (2026-11-22, lot 2): pending bugs and feedback are also listed in the single « À traiter » queue (`GET /api/admin/inbox`, `id, created_at, kind, subject, source, screen`, service role, oldest first, late after 24 h for a bug and 72 h for feedback); each row opens `/admin/inbox?vue=bugs|feedback`, where they are answered as before. `inbox-counts` keeps the same pending counts and adds the system items of the queue (`failedFlyovers`, `failedPosts`, `draftPosts`, `failedRenders`, `systemTotal`). No change to the table.
