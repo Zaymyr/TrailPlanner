@@ -1,7 +1,7 @@
 ---
 title: Mode opératoire Livret coureur organisateur
 scope: workflow
-last_verified: 2026-11-16
+last_verified: 2026-11-22
 # Conversion assistée (2026-11-15) : « Appliquer » préremplit seulement le formulaire après une revue champ par champ ; « Ignorer » écarte la proposition.
 # Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
 # Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
@@ -139,3 +139,7 @@ Dans Départ, ravitos, suivi coureur & relais, la ligne de course affiche dépar
 Accès regroupe ses modules en cartes compactes, l’ajout d’un sponsor reste replié jusqu’à l’action dédiée, et Services signale uniquement le texte historique réellement présent à convertir.
 
 Mise à jour du 2026-11-16 : les liens « Aperçu coureur » et « Aperçu accompagnateur » ont été retirés de l’en-tête organisateur ; « Voir le Livret coureur » et « Télécharger le QR » restent disponibles.
+
+## Page de création d’événement (2026-11-22)
+
+La page `/organizers` s’adresse aux organisateurs avec « vous », propose « Créer un compte » comme action principale pour un visiteur non connecté et rappelle que la création est gratuite, le paiement n’intervenant qu’à la publication du livret (dès le prix de l’offre Essentiel). Texte uniquement : le flux de création, l’accès propriétaire et la publication ne changent pas.

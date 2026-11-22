@@ -1,7 +1,7 @@
 ---
 title: Architecture Overview
 scope: architecture
-last_verified: 2026-11-21
+last_verified: 2026-11-22
 ai_priority: high
 related_files:
   - package.json
@@ -176,6 +176,7 @@ When docs and code disagree, use this order:
 
 ## Gotchas
 
+- `apps/web/next.config.mjs` also exports `temporaryPathRedirects` (bare `/en` to `/`, 307).
 - `apps/web/next.config.mjs` also owns the static legacy/blog path redirects (`staticPathRedirects`); there is no `middleware.ts`. Keep that list identical to `lib/legacy-redirects.ts` and `lib/blog/redirects.ts`, which `redirect-integrity.test.ts` enforces.
 - `apps/web/next.config.mjs` owns browser security headers as well as package transpilation and route language. Keep the CSP in report-only mode until production reports confirm every required Stripe, Supabase, analytics and image origin.
 

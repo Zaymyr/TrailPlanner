@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 
 import { getAllPostMetadata } from "../lib/blog/posts";
+import { isDemoRaceEventId } from "../lib/demo-race";
 import { getPublicRaces, PUBLIC_RACES_REVALIDATE_SECONDS } from "../lib/public-races";
 import { getIndexableDistancePages } from "../lib/race-discovery";
 import { HOME_PATH, RACE_PLANNER_PATH, SITE_URL } from "./seo";
@@ -10,7 +11,9 @@ const toAbsoluteUrl = (path: string) => new URL(path, SITE_URL).toString();
 export const revalidate = PUBLIC_RACES_REVALIDATE_SECONDS;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [posts, races] = await Promise.all([getAllPostMetadata(), getPublicRaces()]);
+  const [posts, publicRaces] = await Promise.all([getAllPostMetadata(), getPublicRaces()]);
+  // The Trail TST demo stays reachable for the printed QR codes but is noindex: keep it out.
+  const races = publicRaces.filter((race) => !isDemoRaceEventId(race.eventId));
 
   const staticEntries: MetadataRoute.Sitemap = [
     { url: toAbsoluteUrl(HOME_PATH) },

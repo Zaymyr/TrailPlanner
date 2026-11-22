@@ -1,6 +1,6 @@
 import type { SVGProps } from "react";
 
-import type { LandingPageTranslations } from "../../locales/types";
+import type { HomeLandingCopy } from "./home-copy";
 
 const IconMap = (props: SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" aria-hidden focusable="false" {...props}>
@@ -52,7 +52,7 @@ const IconExport = (props: SVGProps<SVGSVGElement>) => (
 );
 
 type HowItWorksSectionProps = {
-  copy: LandingPageTranslations["howItWorks"];
+  copy: HomeLandingCopy["howItWorks"];
 };
 
 const icons = [IconMap, IconDroplet, IconExport];

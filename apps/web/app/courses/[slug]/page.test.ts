@@ -19,6 +19,7 @@ vi.mock("../../../lib/public-races", () => ({
 
 vi.mock("../../../lib/public-race-detail", () => ({ getPublicRaceDetail }));
 
+import { DEMO_EVENT_ID } from "../../../lib/demo-race";
 import RacePage, { generateMetadata, generateStaticParams } from "./page";
 import { buildEventEditionMetadataTitle, buildRaceMetadataDescription, buildRaceMetadataTitle } from "./race-metadata";
 
@@ -94,6 +95,21 @@ function hasHref(node: unknown, href: string): boolean {
   if (Array.isArray(node)) return node.some((child) => hasHref(child, href));
   const props = (node as { props?: { href?: unknown; children?: unknown } }).props;
   return props?.href === href || hasHref(props?.children, href);
+}
+
+function hasProp(node: unknown, key: string, value: unknown): boolean {
+  if (!node || typeof node !== "object") return false;
+  if (Array.isArray(node)) return node.some((child) => hasProp(child, key, value));
+  const props = (node as { props?: Record<string, unknown> }).props;
+  return props?.[key] === value || hasProp(props?.children, key, value);
+}
+
+function collectJsonLd(node: unknown): string[] {
+  if (!node || typeof node !== "object") return [];
+  if (Array.isArray(node)) return node.flatMap(collectJsonLd);
+  const props = (node as { props?: { children?: unknown; dangerouslySetInnerHTML?: { __html?: string } } }).props;
+  const own = props?.dangerouslySetInnerHTML?.__html;
+  return [...(own ? [own] : []), ...collectJsonLd(props?.children)];
 }
 
 describe("public race legacy slug page", () => {
@@ -282,5 +298,24 @@ describe("public race legacy slug page", () => {
     const page = await RacePage({ params: { slug: canonicalRace.slug } });
 
     expect(hasHref(page, canonicalRace.eventWebsiteUrl)).toBe(true);
+  });
+
+  it("keeps the Trail TST demo reachable but noindex, labelled and without official links", async () => {
+    const demoRace = { ...canonicalRace, eventId: DEMO_EVENT_ID, eventName: "Trail TST" };
+    resolvePublicRaceSlug.mockResolvedValue({ race: demoRace, shouldRedirect: false });
+    getPublicRaceDetail.mockResolvedValue({ ...detailedRace, ...demoRace });
+    getPublicRaces.mockResolvedValue([demoRace]);
+
+    const metadata = await generateMetadata({ params: { slug: canonicalRace.slug } });
+    const page = await RacePage({ params: { slug: canonicalRace.slug } });
+
+    expect(metadata.robots).toEqual({ index: false, follow: true });
+    expect(hasHref(page, canonicalRace.eventWebsiteUrl)).toBe(false);
+    expect(hasProp(page, "isDemo", true)).toBe(true);
+    expect(collectJsonLd(page).some((json) => json.includes("SportsEvent"))).toBe(false);
+  });
+
+  it("writes distances with a French decimal comma in the description", () => {
+    expect(buildRaceMetadataDescription({ ...canonicalRace, distanceKm: 158.68 })).toContain("158,68 km");
   });
 });

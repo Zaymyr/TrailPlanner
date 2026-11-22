@@ -1,7 +1,7 @@
 ---
 title: racebook_publications
 scope: database
-last_verified: 2026-11-17
+last_verified: 2026-11-22
 # Crew follow UX (2026-11-17): passed checkpoints collapse, confirmed passages can be corrected or undone, the crew handover is a device-local checklist, aid-station directions match supporter points by place name within 2 km, and phones without the app get an app-first gate on the public page; no column, RLS or crew_state shape change.
 ai_priority: high
 # Demo race refresh (2026-11-18, pg_cron hourly since 2026-11-21): the /api/cron/demo-race-refresh job moves Trail TST to today's Paris date and republishes its formats through publishRacebookSnapshot with a null actor (published_by null = automated), after the same blocking checks as organizer publication; visibility is unchanged.

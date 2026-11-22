@@ -56,6 +56,11 @@ related_files:
   - apps/web/app/courses/_components/RaceCatalogFilter.tsx
   - apps/web/app/courses/_components/RaceCatalogFilter.test.ts
   - apps/web/app/courses/_components/catalog-display.ts
+  - apps/web/app/courses/_components/catalog-display.test.ts
+  - apps/web/app/courses/_components/DemoRaceBadge.tsx
+  - apps/web/app/courses/_components/StickyEstimateBar.tsx
+  - apps/web/lib/demo-race.ts
+  - apps/web/app/sitemap.ts
   - apps/web/app/courses/_components/PublicRaceLinks.tsx
   - apps/web/app/courses/_components/PublicRaceShare.tsx
   - apps/web/app/courses/_components/PublicElevationProfile.tsx
@@ -103,7 +108,7 @@ Event JSON-LD references (2026-11-16): Search Console reported nested Events mis
 
 Catalog and event page layout (2026-11-16): `/courses` uses a compact header, horizontally scrolling distance-selection pills, a compact GET form (sticky only from `lg`) and a 1/2/3-column grid of event cards. Each card shows the veiled event image (or a brand header), edition year, format count, date and location, then up to three format rows (distance badge, label, D+, date when formats differ); further formats stay in the HTML behind a native `<details>`. Inside an event context the row label drops a leading copy of the event name (`getFormatLabelWithinEvent`, display only; the link `title` keeps the full name). `/courses/evenements/[slug]` reuses `PublicHeroShell` (formats, distance range, max D+, day count), lists formats sorted by distance with a stopwatch link to the account-free estimate for each, then common information, app bridge and the factual overview.
 
-Course page layout (2026-11-16): app-style hero (veiled photo carrying event/name/date/location, horizontally scrollable metric strip — distance, D+, D−, departure, cutoff, ravitos, max altitude — then the estimate CTA and the registration link), a sticky section tab bar (`RaceSectionTabs`), the reference times, route/profile, ravitos, practical information, app bridge, a compact carbohydrate-calculator link, « À propos » overview, discovery and official links. A fixed bottom estimate CTA is shown below `lg`. `RaceMetricsDetails` is removed: its D−/altitude values live in the hero strip. On mobile the page relies on the RootChrome horizontal padding only.
+Course page layout (2026-11-16, metric strip and sticky bar updated 2026-11-22): app-style hero (veiled photo carrying event/name/date/location, metric strip — distance, D+, D−, departure, cutoff, ravitos, max altitude — then the estimate CTA and the registration link), a sticky section tab bar (`RaceSectionTabs`), the reference times, route/profile, ravitos, practical information, app bridge, a compact carbohydrate-calculator link, « À propos » overview, discovery and official links. A fixed bottom estimate CTA (`StickyEstimateBar`) is used below `lg`; it stays hidden while the hero estimate button is on screen (IntersectionObserver on `HERO_ESTIMATE_CTA_ID`) and slides in once it has scrolled away. On phones the `PublicHeroShell` metric strip wraps into rows (3 + 2 for five metrics, 2 + 2 for four) instead of scrolling, so no label is cut at the screen edge; from `sm` it is a single scrollable row. `RaceMetricsDetails` is removed: its D−/altitude values live in the hero strip. On mobile the page relies on the RootChrome horizontal padding only.
 
 The web Supporter Guide programme is grouped by calendar day from the server `timeline`, with localized dates/distances and cutoffs labelled with their weekday when they fall after the race day.
 
@@ -120,7 +125,8 @@ This document defines which public race pages Pace Yourself may expose to search
 - Web-public race: a `races` row where both `web_catalog_is_live` and `is_public` are true, under a live optional parent event.
 - Mobile-visible edition: a `race_event_editions` row whose `is_visible` flag permits attached formats to participate in mobile course/RaceBook discovery; it does not remove an already published web page.
 - Event edition format: another public race attached to the same non-null `event_id + edition_id`; legacy rows without an edition fall back to `event_id`.
-- Similar race: a race from another event ordered by distance difference, then elevation difference when both elevations exist.
+- Similar race: an upcoming or undated race from another event ordered by distance difference, then elevation difference when both elevations exist.
+- Demo event: the fixed Trail TST event (`DEMO_EVENT_ID`, `isDemoRaceEventId` in `apps/web/lib/demo-race.ts`), the target of the printed brochure and business card QR codes.
 - Indexable selection: a deterministic landing page based only on structured fields and containing at least five public races.
 - Normalized geography: explicit country, region, department and city fields, not a region guessed from `location` or `location_text`.
 - Former slug: a durable `race_slug_redirects.old_slug` mapping to the stable race id.
@@ -148,12 +154,12 @@ Outside that summary exception, the loader exposes only available covered values
 
 When a private GPX object exists, the server downloads and parses it only after every visibility gate succeeds. The browser receives a bounded route/elevation preview of about 600 points, never the GPX file or Storage path. Invalid or absent GPX degrades to a detail page without map/profile, and the public page offers no GPX download action.
 
-The page always exposes `BreadcrumbList` structured data and exposes `SportsEvent` only when the format has a valid calendar `startDate` in strict `YYYY-MM-DD` form. Its `Place` may use the verified start label, start coordinates, start-address string, and normalized parent city/region/country; unavailable postal components are omitted and a place name is never inserted into `PostalAddress`. `eventStatus` is `EventScheduled` because the current schema has no cancellation/postponement status. The organizer is the known event identity (falling back to the format identity) with its official HTTP(S) website when available. The registration action becomes an `Offer` containing only its URL; price, currency, and availability remain absent because the catalog does not store them.
+The page always exposes `BreadcrumbList` structured data and exposes `SportsEvent` only when the format has a valid calendar `startDate` in strict `YYYY-MM-DD` form. Its `Place` may use the verified start label, start coordinates, start-address string, and normalized parent city/region/country; unavailable postal components are omitted and a place name is never inserted into `PostalAddress`. `eventStatus` is `EventScheduled` only while the format (its `endDate` when emitted, otherwise its `startDate`) has not passed in Europe/Paris, because the current schema has no cancellation/postponement status. schema.org has no "finished" `EventStatusType`, so a past format keeps its factual `SportsEvent` (the edition page references its `@id`) but omits `eventStatus` and the registration `Offer`, which both describe an event still to come. The edition `SportsEvent` applies the same rule to its inclusive `end_date`. The organizer is the known event identity (falling back to the format identity) with its official HTTP(S) website when available. The registration action becomes an `Offer` containing only its URL; price, currency, and availability remain absent because the catalog does not store them.
 
 `endDate` remains the same date for a single-day edition. A later canonical edition end is emitted only when unambiguous stored start and finish-cutoff clocks prove an overnight format by wrapping past midnight; prose or incomplete clocks cannot establish that fact. Formats attached to a slugged edition emit a `superEvent` reference to its canonical event page. Open Graph and Twitter use the format image first, the event image second, and the shared Pace Yourself social image last. SEO titles are capped at 60 characters, reserve a factual distance/year suffix, and truncate the middle of long names so both the event prefix and distinguishing format suffix survive; when the full name fits, a distance already present in the name is not repeated and a « · temps & ravitos » hook is appended if it still fits. A format name that does not contain its parent event name is prefixed as `Event — Format` in the title and description, so generic names (« 10 km ») stay unique across events. Event-edition titles keep `Event Year` within 60 characters by shortening the « formats, parcours et ravitos » suffix before truncating the name. Descriptions are capped at 160 characters and end with the reference time range (or a generic estimate invitation when no range can be computed). It links to:
 
 - other published formats sharing the same event edition, with the legacy event-only fallback when `edition_id` is absent;
-- up to three published races from other events with the nearest distance, using elevation only as a tie-breaker;
+- up to three published, upcoming or undated races from other events with the nearest distance, using elevation only as a tie-breaker (a finished format and the Trail TST demo are never suggested);
 - the planner at `/race-planner?catalogRaceId=<race-id>` (hero, reference-times block, desktop aside and mobile fixed bar) and the carbohydrate calculator;
 - distinct format/event official sources and available official event social profiles.
 
@@ -163,7 +169,7 @@ Sharing uses the native Web Share sheet when available, which lets installed mob
 
 Every public edition with at least one web-public format has one canonical `/courses/evenements/[slug]` page. It lists only that edition's public formats (sorted by distance), their factual distance, D+, date and ravito count, and sanitized practical information inherited from the event. It emits one parent `SportsEvent` whose `subEvent` entries are `@id` references to the format pages. Former edition slugs permanently redirect after the current event and format visibility gates are rechecked. The sitemap deduplicates event-edition URLs and uses the newest edition, event, or format timestamp available; station rows currently have no `updated_at`, so station-only changes cannot improve `<lastmod>` evidence.
 
-Historical edition pages remain indexable and canonical. After the inclusive `end_date` has passed in Europe/Paris, they show an “Édition terminée” banner; if the same event has a later edition with at least one web-public format, the banner links directly to it. An already-published later edition is also highlighted from a non-past page.
+Historical edition pages remain indexable and canonical (the Trail TST demo excepted, see below). After the inclusive `end_date` has passed in Europe/Paris, they show an “Édition terminée” banner; if the same event has a later edition with at least one web-public format, the banner links directly to it. An already-published later edition is also highlighted from a non-past page.
 
 Each event-edition header exposes one registration action (« S’inscrire sur le site officiel ») sourced from the shared event website, after the primary « Estimer mon temps » jump to the format list. Distance-selection cards use the same target, while standalone cards fall back to the format URL and retain a separate internal course-detail link.
 
@@ -174,6 +180,17 @@ The default temporal filter contains upcoming/current formats followed by undate
 Filtering happens before grouping, so an event-edition card disappears when none of its formats matches. Every visible format remains a normal HTML link to `/courses/[slug]`, including formats collapsed behind the card's « autres formats » disclosure. Event-edition cards use the shared event image and year/date where available; standalone formats use their own image. A format image remains the first detail-page image choice. Missing images reserve no empty visual area. The responsive card layout stacks at narrow widths, keeps controls at least 44 px high and avoids horizontal tables.
 
 The catalog paginates on the server at 12 event-edition groups per response and emits an `ItemList` only for the visible page, with positions continuing across pages. The full public race collection is never serialized into a client component. Unfiltered numbered pages have self-canonicals and crawlable previous/next links; out-of-range pages return not found. Search, distance, and period query combinations are `noindex,follow` and canonicalize to `/courses`, preventing a filter-index explosion while preserving discovery links.
+
+## Trail TST Demo And Catalogue Data Quality (2026-11-22)
+
+The Trail TST demo stays publicly reachable because the printed QR codes lead to it, but it is not a real race. Its format and edition pages show a « Course de démonstration » pill (`DemoRaceBadge`) in the hero, have no « S’inscrire sur le site officiel » action, no official-links block and no `SportsEvent` JSON-LD (its websites are placeholders), are `noindex,follow`, and the sitemap leaves out its formats, editions and their effect on distance-page dates. It is identified only by the fixed event id; there is no schema flag. Its current edition is moved to today every day by the demo refresh job, edition year included (see [Infrastructure](../01-architecture/infrastructure.md#demo-race-refresh)); the 2025 demo edition keeps its past dates.
+
+Course detail display rules:
+
+- D− in the hero: catalogue imports store `elevation_loss_m = 0` when the source gives no descent (649 of 826 web-public formats on 2026-11-22, only 5 of them with a GPX). A stored 0 is therefore hidden unless the GPX preview confirms it; the GPX descent replaces a missing or 0 value (`getDisplayedElevationLossM`). A positive stored value always wins.
+- Distances in the meta description and the overview use the French decimal comma (« 158,68 km »), like the title and the hero.
+- Aid-station timeline: an organizer row that already is the start (named Départ, or at km ≤ 0.1) or the finish (named Arrivée, or within 0.1 km of the format distance) is merged into that endpoint with its services instead of being listed twice (`buildAidStationTimelineEntries`).
+- « Autres formats » chips show the format label within the event plus the distance unless the label already carries it (`getSiblingFormatLabel`), so formats of equal length (solo / relais / marche) stay distinguishable.
 
 ## Prefiltered Landing Pages
 
@@ -223,6 +240,9 @@ Edition slugs follow the same no-chain rule through `race_event_edition_slug_red
 
 - Do not count races with missing distance toward a distance landing page.
 - Do not present another format from the same event as a similar independent race.
+- Do not suggest a finished format as a similar race, and never suggest, index or list the Trail TST demo in the sitemap; keep it reachable for the printed QR codes.
+- Do not show a D− of 0 that only comes from an import placeholder; trust a 0 only when the GPX gives it.
+- Do not emit `EventScheduled` or a registration `Offer` for a finished format or edition.
 - Do not group catalog rows by `eventName`, course name, or location; only stable `eventId + editionId`, with the documented legacy `eventId` fallback, may merge formats.
 - Do not serialize raw organizer JSON, emergency phone data, `lastMinuteMessage`, GPX Storage paths, or full GPX content into public client components.
 - Similarity is a navigation aid, not a statement that courses have comparable terrain or difficulty.

@@ -8,16 +8,18 @@ import { AccordionItem } from "../../../components/ui/accordion";
 import { getPublicRaceDetail } from "../../../lib/public-race-detail";
 import type { PublicRace } from "../../../lib/public-races";
 import { getPublicRaces, resolvePublicRaceSlug } from "../../../lib/public-races";
+import { isDemoRaceEventId } from "../../../lib/demo-race";
 import { getOtherEventFormats, getSimilarRaces } from "../../../lib/race-discovery";
 import { DEFAULT_SOCIAL_IMAGE, DEFAULT_SOCIAL_IMAGE_PATH, SITE_URL } from "../../seo";
 import { PublicElevationProfile } from "../_components/PublicElevationProfile";
 import { RaceLinksCarousel } from "../_components/RaceLinksCarousel";
 import { RaceAidStationsTimeline } from "../_components/RaceAidStationsTimeline";
-import { RaceHeroSummary } from "../_components/RaceHeroSummary";
+import { HERO_ESTIMATE_CTA_ID, RaceHeroSummary } from "../_components/RaceHeroSummary";
 import { RaceRouteExplorer } from "../_components/RaceRouteExplorer";
 import { RaceSectionTabs } from "../_components/RaceSectionTabs";
 import { RaceTimeEstimates } from "../_components/RaceTimeEstimates";
 import { RunnerAppBridge } from "../_components/RunnerAppBridge";
+import { StickyEstimateBar } from "../_components/StickyEstimateBar";
 import { buildRaceMetadataDescription, buildRaceMetadataTitle, formatPublicRaceDate } from "./race-metadata";
 import { buildRaceOverview, buildRaceStructuredData } from "./race-structured-data";
 import { buildReferenceEstimates, formatReferenceRange } from "./race-time-estimates";
@@ -151,6 +153,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title,
     description,
     alternates: { canonical: canonicalPath },
+    // Trail TST demo: reachable from the printed QR codes, never indexed.
+    ...(isDemoRaceEventId(race.eventId) ? { robots: { index: false, follow: true } } : {}),
     openGraph: {
       title,
       description,
@@ -176,12 +180,14 @@ export default async function RacePage({ params }: PageProps) {
   if (!detail) notFound();
 
   const race = detail;
+  const isDemo = isDemoRaceEventId(race.eventId);
   const formattedDate = formatDate(race.date);
   const formattedEndDate = race.eventEndDate && race.eventEndDate !== race.date ? formatDate(race.eventEndDate) : null;
   const canonicalUrl = new URL(`/courses/${race.slug}`, SITE_URL).toString();
   const otherFormats = getOtherEventFormats(race, races);
   const similarRaces = getSimilarRaces(race, races);
-  const officialUrls = Array.from(
+  // The demo carries placeholder websites: no official link, registration action or offer.
+  const officialUrls = isDemo ? [] : Array.from(
     new Set(
       [race.externalSiteUrl, race.eventWebsiteUrl, race.officialWebsiteUrl].filter(
         (value): value is string => Boolean(value),
@@ -189,7 +195,8 @@ export default async function RacePage({ params }: PageProps) {
     ),
   );
   const referenceEstimates = buildReferenceEstimates(race);
-  const structuredData = buildRaceStructuredData(race, canonicalUrl, formatReferenceRange(referenceEstimates));
+  // A demonstration race is not a real SportsEvent.
+  const structuredData = isDemo ? null : buildRaceStructuredData(race, canonicalUrl, formatReferenceRange(referenceEstimates));
   const estimateHref = `/race-planner?catalogRaceId=${race.id}`;
   const eventEditionUrl = race.eventEditionSlug
     ? new URL(`/courses/evenements/${race.eventEditionSlug}`, SITE_URL).toString()
@@ -276,6 +283,7 @@ export default async function RacePage({ params }: PageProps) {
         canonicalUrl={canonicalUrl}
         otherFormats={otherFormats}
         estimateHref={estimateHref}
+        isDemo={isDemo}
       />
 
       <RaceSectionTabs tabs={sectionTabs} />
@@ -488,14 +496,7 @@ export default async function RacePage({ params }: PageProps) {
         </section>
       ) : null}
 
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur lg:hidden">
-        <Link
-          href={estimateHref as Route}
-          className="flex min-h-12 w-full items-center justify-center rounded-xl bg-brand px-5 text-base font-semibold text-brand-foreground transition hover:bg-brand-light"
-        >
-          Estimer mon temps — gratuit
-        </Link>
-      </div>
+      <StickyEstimateBar href={estimateHref} targetId={HERO_ESTIMATE_CTA_ID} />
     </div>
   );
 }

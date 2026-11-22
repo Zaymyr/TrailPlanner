@@ -4,9 +4,14 @@ import { PublicRaceShare } from "./PublicRaceShare";
 
 export type PublicHeroMetric = { label: string; value: string };
 
+/** Phone row width: 3 per row for 3 or 5+ metrics, 2 per row for 2 or 4. */
+const mobileMetricBasis = (count: number) => (count >= 5 || count === 3 ? "basis-[30%]" : count === 1 ? "basis-full" : "basis-[45%]");
+
 /**
  * App-style hero shared by public course and event pages: veiled photo carrying
- * the identity, a horizontally scrollable metric strip, then page actions.
+ * the identity, a metric strip, then page actions. On phones the strip wraps
+ * into rows (3 + 2 for five metrics, 2 + 2 for four) so no label is cut at the
+ * screen edge; from `sm` it is a single scrollable row.
  */
 export function PublicHeroShell({
   imageUrl,
@@ -56,9 +61,9 @@ export function PublicHeroShell({
       </div>
 
       {metrics.length ? (
-        <dl className="flex snap-x gap-px overflow-x-auto border-b border-border bg-border [scrollbar-width:none]">
+        <dl className="flex flex-wrap gap-px border-b border-border bg-border sm:snap-x sm:flex-nowrap sm:overflow-x-auto [scrollbar-width:none]">
           {metrics.map((metric) => (
-            <div key={metric.label} className="shrink-0 grow basis-[5.5rem] snap-start bg-card px-3 py-2.5 text-center">
+            <div key={metric.label} className={`min-w-0 grow ${mobileMetricBasis(metrics.length)} bg-card px-2 py-2.5 text-center sm:shrink-0 sm:basis-[5.5rem] sm:snap-start sm:px-3`}>
               <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{metric.label}</dt>
               <dd className="mt-0.5 whitespace-nowrap text-base font-bold tabular-nums text-foreground sm:text-lg">{metric.value}</dd>
             </div>

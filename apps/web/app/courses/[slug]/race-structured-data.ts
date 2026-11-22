@@ -1,9 +1,15 @@
 import type { PublicRaceDetail } from "../../../lib/public-race-detail";
 
 import { DEFAULT_SOCIAL_IMAGE_PATH } from "../../seo";
+import { isEventEditionPast } from "../evenements/[slug]/event-edition-status";
 import { buildRaceMetadataDescription, formatPublicRaceDate } from "./race-metadata";
 
-export const buildRaceStructuredData = (race: PublicRaceDetail, canonicalUrl: string, estimateRange: string | null = null) => {
+export const buildRaceStructuredData = (
+  race: PublicRaceDetail,
+  canonicalUrl: string,
+  estimateRange: string | null = null,
+  now: Date = new Date(),
+) => {
   // Google requires a valid startDate for Event rich results. Omitting the
   // complete SportsEvent is safer than publishing an ineligible partial item.
   if (!race.date || !formatPublicRaceDate(race.date)) return null;
@@ -53,6 +59,10 @@ export const buildRaceStructuredData = (race: PublicRaceDetail, canonicalUrl: st
       && startMinutes !== null && finishMinutes !== null && finishMinutes <= startMinutes
       ? validEventEndDate
       : null;
+  // schema.org has no "finished" EventStatusType: a past edition keeps its factual SportsEvent
+  // (the edition page references its @id) but drops eventStatus and the registration offer,
+  // which both describe an event still to come.
+  const isPast = isEventEditionPast(endDate ?? race.date, now);
 
   return {
     "@context": "https://schema.org",
@@ -63,7 +73,7 @@ export const buildRaceStructuredData = (race: PublicRaceDetail, canonicalUrl: st
     mainEntityOfPage: canonicalUrl,
     startDate: race.date,
     ...(endDate ? { endDate } : {}),
-    eventStatus: "https://schema.org/EventScheduled",
+    ...(isPast ? {} : { eventStatus: "https://schema.org/EventScheduled" }),
     eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
     sport: "Course à pied",
     // Google recommends an image on every Event; fall back to the site preview.
@@ -94,7 +104,7 @@ export const buildRaceStructuredData = (race: PublicRaceDetail, canonicalUrl: st
         "@id": `${new URL(`/courses/evenements/${race.eventEditionSlug}`, canonicalUrl).toString()}#event`,
       },
     } : {}),
-    ...(registrationUrl ? {
+    ...(registrationUrl && !isPast ? {
       offers: {
         "@type": "Offer",
         url: registrationUrl,
@@ -113,7 +123,7 @@ export const buildRaceOverview = (race: PublicRaceDetail, formattedDate: string 
     .filter(Boolean)
     .join(" ");
   const metrics = [
-    race.distanceKm !== null ? `${race.distanceKm} km` : null,
+    race.distanceKm !== null ? `${race.distanceKm.toLocaleString("fr-FR")} km` : null,
     race.elevationGainM !== null ? `${Math.round(race.elevationGainM).toLocaleString("fr-FR")} m de dénivelé positif` : null,
   ].filter(Boolean);
 

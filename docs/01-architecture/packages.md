@@ -1,7 +1,7 @@
 ---
 title: Packages Architecture
 scope: architecture
-last_verified: 2026-11-17
+last_verified: 2026-11-22
 # Crew follow UX (2026-11-17): passed checkpoints collapse, confirmed passages can be corrected or undone, the crew handover is a device-local checklist, aid-station directions match supporter points by place name within 2 km, and phones without the app get an app-first gate on the public page; no column, RLS or crew_state shape change.
 ai_priority: medium
 related_files:
@@ -137,6 +137,7 @@ Keep logic inside an app when:
 - Keep color contrast derivation in this shared resolver; app surfaces must not independently darken bright organizer colors.
 - The package name `@trailplanner/shared` still uses the old TrailPlanner naming. Do not rename it casually; workspace package names affect imports.
 - Alert scheduling currently has a broader package implementation and a time-only mobile implementation. Preserve their explicit tests and reconcile their product contract before removing either copy.
+- `apps/web/next.config.mjs` also exports `temporaryPathRedirects` (bare `/en` to `/`, 307), separate from the permanent list.
 - `apps/web/next.config.mjs` also exports `staticPathRedirects` (served through `redirects()` instead of middleware). Edit it together with `lib/legacy-redirects.ts` / `lib/blog/redirects.ts`.
 - `apps/web/next.config.mjs` transpiles `@trailplanner/shared` and `@pace-yourself/design-system` and owns route-scoped response headers such as the English subtree's `Content-Language`. Preserve both responsibilities when editing the config; a new package that exports TS/TSX directly may need a matching transpile entry.
 - The local `@tanstack/react-query` package can mask assumptions about the upstream package. Inspect it before changing data-fetching code.

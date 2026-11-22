@@ -10,6 +10,7 @@ vi.mock('../lib/blog/posts', () => ({ getAllPostMetadata }));
 vi.mock('../lib/public-races', () => ({ getPublicRaces, PUBLIC_RACES_REVALIDATE_SECONDS: 900 }));
 vi.mock('../lib/race-discovery', () => ({ getIndexableDistancePages }));
 
+import { DEMO_EVENT_ID } from '../lib/demo-race';
 import sitemap, { revalidate } from './sitemap';
 
 describe('sitemap', () => {
@@ -93,5 +94,19 @@ describe('sitemap', () => {
         lastModified: '2026-09-09T12:00:00.000Z',
       },
     ]));
+  });
+
+  it('leaves the Trail TST demo event and its edition out', async () => {
+    getAllPostMetadata.mockResolvedValue([]);
+    getPublicRaces.mockResolvedValue([
+      { slug: 'trail-a', eventId: 'other-event', eventEditionSlug: 'festival-a-2026', updatedAt: null },
+      { slug: 'ultra-des-cimes', eventId: DEMO_EVENT_ID, eventEditionSlug: 'trail-tst-2027', updatedAt: null },
+    ]);
+
+    const urls = (await sitemap()).map((entry) => entry.url);
+
+    expect(urls).toContain('https://pace-yourself.com/courses/trail-a');
+    expect(urls.some((url) => url.includes('ultra-des-cimes') || url.includes('trail-tst'))).toBe(false);
+    expect(getIndexableDistancePages).toHaveBeenCalledWith([expect.objectContaining({ slug: 'trail-a' })]);
   });
 });
