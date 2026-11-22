@@ -15,6 +15,7 @@ const order = (patch: Partial<FlyoverOrderRow> = {}): FlyoverOrderRow => ({
   contact_email: "orga@example.fr",
   instagram_handle: null,
   map_preset: "signature",
+  story_mode: null,
   terrain_exaggeration: 1.8,
   publish_local: null,
   aid_stations: [],

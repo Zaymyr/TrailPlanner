@@ -24,6 +24,11 @@ export { AID_SERVICES, getAidStationServices, type AidService } from "./route-st
 export const VIDEO_DURATION_PRESETS = [30, 45, 60, 90, 120] as const;
 export const VIDEO_FPS = 30;
 export const MIN_SEQUENCE_MS = 3_000;
+/**
+ * Every reel opens on the whole route seen from above, held, then zooms onto the start (full) or
+ * the first moment (highlights): the intro lasts at least this long (2026-11-22).
+ */
+export const MIN_INTRO_MS = 5_000;
 /** The end screen: at least 2.5 s, else the opening gap, the CTA voice, then a 2 s hold of the card once it is told. */
 export const MIN_OUTRO_MS = 2_500;
 export const OUTRO_HOLD_MS = 2_000;
@@ -143,9 +148,13 @@ export const withStoryMode = (settings: VideoCompositionSettings, storyMode: Vid
     : {}),
 });
 
-/** Whether the reel opens on the hook: the explicit setting, otherwise on for highlights only. */
+/**
+ * Whether the reel opens on the hook (2.4 s on the hardest climb) instead of the overview intro:
+ * only when set explicitly. Since 2026-11-22 the automatic choice is the overview in both modes
+ * (every reel starts on the whole route, then zooms in), automatic reels included.
+ */
 export const isHookIntroEnabled = (settings: Pick<VideoCompositionSettings, "hookIntro" | "storyMode" | "introEnabled">) =>
-  settings.introEnabled && (settings.hookIntro ?? settings.storyMode === "highlights");
+  settings.introEnabled && settings.hookIntro === true;
 
 /** Whether the reel uses the light phone overlay: the explicit setting, otherwise on for highlights only. */
 export const isCompactOverlayEnabled = (settings: Pick<VideoCompositionSettings, "compactOverlay" | "storyMode">) =>
@@ -371,7 +380,7 @@ export const buildVideoTimeline = (
   // The hook replaces the intro by a fixed 2.4 s; its sentence may run on over the first moment,
   // which then gets that extra time so its own voice still fits its dwell.
   const hooked = isHookIntroEnabled(settings);
-  const introMs = hooked ? HOOK_INTRO_MS : sequenceMs(introBeat, settings.introEnabled);
+  const introMs = hooked ? HOOK_INTRO_MS : settings.introEnabled ? Math.max(MIN_INTRO_MS, sequenceMs(introBeat, true)) : 0;
   const hookVoiceEndMs = hooked && introBeat ? HOOK_NARRATION_START_MS + getNarrationMs(introBeat, durations) + NARRATION_GAP_MS : 0;
   const hookOverflowMs = Math.max(0, hookVoiceEndMs - introMs);
   const outroMs = settings.outroEnabled ? Math.max(MIN_OUTRO_MS, outroBeat ? NARRATION_GAP_MS + getNarrationMs(outroBeat, durations) + OUTRO_HOLD_MS : 0) : 0;
@@ -838,7 +847,8 @@ export const getProfileTicks = ({ startKm, endKm }: ProfileWindow) => {
   return ticks;
 };
 
-const INTRO_HOLD_RATIO = 0.35;
+// The overview is held for 40 % of the intro (2 s at least), then the camera glides down.
+const INTRO_HOLD_RATIO = 0.4;
 const OUTRO_GLIDE_RATIO = 0.6;
 
 /** Intro holds the overview then glides to the start; the outro glides back and holds. */

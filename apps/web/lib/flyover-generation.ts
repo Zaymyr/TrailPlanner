@@ -188,8 +188,9 @@ export const loadFlyoverDetail = async (supabase: SupabaseServiceConfig, order: 
   return detail;
 };
 
+/** The order's mode (its choice, else the distance rule for older orders), basemap and relief. */
 export const getFlyoverSettings = (order: FlyoverOrderRow) =>
-  applyFlyoverSettings(buildReelSettings(getFlyoverMode(order.distance_km)), order);
+  applyFlyoverSettings(buildReelSettings(order.story_mode ?? getFlyoverMode(order.distance_km)), order);
 
 export const createFlyoverDeps = (supabase: SupabaseServiceConfig, request: Request): FlyoverDeps => {
   const posts: SocialPostRepository = createSocialPostRepository(supabase);

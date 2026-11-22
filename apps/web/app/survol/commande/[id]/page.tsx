@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { createFlyoverOrderRepository, FLYOVER_DELIVERY_HOURS, FLYOVER_MAP_PRESETS, FLYOVER_OFFERS, verifyFlyoverOrderToken, type FlyoverOrderRow } from "../../../../lib/flyover-orders";
+import { createFlyoverOrderRepository, FLYOVER_DELIVERY_HOURS, FLYOVER_MAP_PRESETS, FLYOVER_OFFERS, FLYOVER_STORY_MODES, getFlyoverMode, verifyFlyoverOrderToken, type FlyoverOrderRow } from "../../../../lib/flyover-orders";
 import { formatParisDateTime, parisLocalToUtc } from "../../../../lib/social-posts";
 import { getSupabaseServiceConfig } from "../../../../lib/supabase";
 
@@ -82,6 +82,7 @@ export default async function FlyoverOrderStatusPage({ params, searchParams }: P
         <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
           <dt>Parcours</dt><dd className="text-foreground">{order.distance_km.toFixed(1).replace(".", ",")} km{order.elevation_gain_m ? ` · ${Math.round(order.elevation_gain_m)} m D+` : ""}</dd>
           <dt>Ravitos</dt><dd className="text-foreground">{order.aid_stations.length || "Aucun"}</dd>
+          <dt>Format</dt><dd className="text-foreground">{FLYOVER_STORY_MODES[order.story_mode ?? getFlyoverMode(order.distance_km)].label}</dd>
           <dt>Fond de carte</dt><dd className="text-foreground">{FLYOVER_MAP_PRESETS[order.map_preset].label}</dd>
           <dt>Relief</dt><dd className="text-foreground">× {order.terrain_exaggeration.toFixed(1).replace(".", ",")}</dd>
           {order.instagram_handle ? (<><dt>Instagram</dt><dd className="text-foreground">@{order.instagram_handle}</dd></>) : null}

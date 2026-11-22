@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_VIDEO_COMPOSITION_SETTINGS } from "../app/admin/video-generator/video-composition";
+import { DEFAULT_VIDEO_COMPOSITION_SETTINGS, videoCompositionSettingsSchema } from "../app/admin/video-generator/video-composition";
 import {
   applyFlyoverSettings,
   checkFlyoverGpx,
   createFlyoverOrderToken,
+  FLYOVER_OFFERED_PRESETS,
   getFlyoverMode,
   normalizeInstagramHandle,
   prepareAidStations,
@@ -79,6 +80,30 @@ describe("GPX check", () => {
   it("rejects a single point or an oversized course", () => {
     expect(checkFlyoverGpx(gpx([100])).ok).toBe(false);
     expect(checkFlyoverGpx(gpx([100, 200], 500)).ok).toBe(false);
+  });
+});
+
+describe("presets and story mode", () => {
+  it("offers four distinct basemaps and refuses the retired ones", () => {
+    expect(FLYOVER_OFFERED_PRESETS).toEqual(["signature", "satellite", "outdoors", "night"]);
+    expect(readFlyoverOrderFormData(form({ ...base, offer: "download", mapPreset: "relief" })).success).toBe(false);
+    expect(readFlyoverOrderFormData(form({ ...base, offer: "download", mapPreset: "night" })).success).toBe(true);
+  });
+
+  it("maps the hiking map on the Mapbox Outdoors style and the night preset on an orange route", () => {
+    const outdoors = applyFlyoverSettings(DEFAULT_VIDEO_COMPOSITION_SETTINGS, { map_preset: "outdoors", terrain_exaggeration: 2 });
+    expect([outdoors.mapStyle, outdoors.customStyleUrl]).toEqual(["custom", "mapbox://styles/mapbox/outdoors-v12"]);
+    expect(videoCompositionSettingsSchema.safeParse(outdoors).success).toBe(true);
+    const night = applyFlyoverSettings(DEFAULT_VIDEO_COMPOSITION_SETTINGS, { map_preset: "night", terrain_exaggeration: 2 });
+    expect([night.mapAmbiance, night.routeColor, night.customStyleUrl]).toEqual(["night", "#f0873a", null]);
+  });
+
+  it("reads the chosen story mode, absent by default", () => {
+    const chosen = readFlyoverOrderFormData(form({ ...base, offer: "download", storyMode: "highlights" }));
+    expect(chosen.success && chosen.data.storyMode).toBe("highlights");
+    const none = readFlyoverOrderFormData(form({ ...base, offer: "download" }));
+    expect(none.success && none.data.storyMode).toBeNull();
+    expect(readFlyoverOrderFormData(form({ ...base, offer: "download", storyMode: "long" })).success).toBe(false);
   });
 });
 

@@ -3,7 +3,7 @@ import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 
 import { supportEmail } from "../app/support/copy";
-import { FLYOVER_MAP_PRESET_VALUES, FLYOVER_MAX_DISTANCE_KM, FLYOVER_TERRAIN } from "./flyover-shared";
+import { FLYOVER_MAP_PRESET_VALUES, FLYOVER_MAX_DISTANCE_KM, FLYOVER_OFFERED_PRESETS, FLYOVER_STORY_MODE_VALUES, FLYOVER_TERRAIN } from "./flyover-shared";
 import { escapeEmailHtml } from "./resend";
 import { formatParisDateTime, parisLocalToUtc } from "./social-posts";
 import type { SupabaseServiceConfig } from "./supabase";
@@ -23,6 +23,10 @@ export {
   type GpxCheck,
   FLYOVER_MAP_PRESET_VALUES,
   FLYOVER_MAP_PRESETS,
+  FLYOVER_OFFERED_PRESETS,
+  FLYOVER_STORY_MODE_VALUES,
+  FLYOVER_STORY_MODES,
+  type FlyoverStoryMode,
   FLYOVER_TERRAIN,
   getFlyoverMode,
   type FlyoverMapPreset,
@@ -87,7 +91,9 @@ export const flyoverOrderFormSchema = z.object({
   raceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional().transform((value) => value || null),
   email: z.string().trim().toLowerCase().email("Adresse e-mail invalide.").max(320),
   instagramHandle: z.string().max(120).nullable().optional().transform((value) => normalizeInstagramHandle(value)),
-  mapPreset: z.enum(FLYOVER_MAP_PRESET_VALUES),
+  // Only the presets offered on the page can be ordered.
+  mapPreset: z.enum(FLYOVER_MAP_PRESET_VALUES).refine((value) => FLYOVER_OFFERED_PRESETS.includes(value), "Fond de carte indisponible."),
+  storyMode: z.enum(FLYOVER_STORY_MODE_VALUES).nullable().optional().transform((value) => value ?? null),
   terrainExaggeration: z.coerce.number().min(FLYOVER_TERRAIN.min).max(FLYOVER_TERRAIN.max),
   publishLocal: z.string().nullable().optional().transform((value) => value || null),
   aidStations: z.array(aidStationInputSchema).max(FLYOVER_MAX_AID_STATIONS).default([]),
@@ -125,6 +131,7 @@ export const readFlyoverOrderFormData = (formData: FormData) => {
     email: text("email"),
     instagramHandle: text("instagramHandle"),
     mapPreset: text("mapPreset"),
+    storyMode: text("storyMode") || null,
     terrainExaggeration: text("terrainExaggeration") ?? FLYOVER_TERRAIN.default,
     publishLocal: text("publishLocal"),
     aidStations,
@@ -156,6 +163,8 @@ export const flyoverOrderRowSchema = z.object({
   contact_email: z.string(),
   instagram_handle: z.string().nullable(),
   map_preset: z.enum(FLYOVER_MAP_PRESET_VALUES),
+  // Null for orders placed before the choice (2026-11-22): the distance rule applies.
+  story_mode: z.enum(FLYOVER_STORY_MODE_VALUES).nullable().optional().transform((value) => value ?? null),
   terrain_exaggeration: z.number(),
   publish_local: z.string().nullable(),
   aid_stations: z.array(flyoverAidStationSchema).catch([]),

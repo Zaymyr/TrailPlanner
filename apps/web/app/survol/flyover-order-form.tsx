@@ -2,7 +2,18 @@
 
 import { useMemo, useRef, useState, type FormEvent } from "react";
 
-import { checkFlyoverGpx, FLYOVER_MAP_PRESETS, FLYOVER_TERRAIN, readGpxAidStations, type FlyoverMapPreset } from "../../lib/flyover-shared";
+import {
+  checkFlyoverGpx,
+  FLYOVER_MAP_PRESETS,
+  FLYOVER_OFFERED_PRESETS,
+  FLYOVER_STORY_MODE_VALUES,
+  FLYOVER_STORY_MODES,
+  FLYOVER_TERRAIN,
+  getFlyoverMode,
+  readGpxAidStations,
+  type FlyoverMapPreset,
+  type FlyoverStoryMode,
+} from "../../lib/flyover-shared";
 import { trackGoogleAnalyticsEvent } from "../../lib/google-analytics";
 import { parseGpx, type ParsedGpx } from "../../lib/gpx/parseGpx";
 import { FlyoverPreview, type PreviewStation } from "./flyover-preview";
@@ -38,11 +49,13 @@ const OFFERS: Array<{ value: Offer; price: string; title: string; points: string
 
 const SWATCHES: Record<FlyoverMapPreset, string> = {
   signature: "linear-gradient(135deg,#ece8dc 0%,#c9d9b0 55%,#2d5016 100%)",
-  satellite: "linear-gradient(135deg,#4f6b3a 0%,#8b9a6b 50%,#d8d2bf 100%)",
+  satellite: "linear-gradient(135deg,#2f4a24 0%,#6b7f4e 50%,#c9c2a8 100%)",
+  outdoors: "linear-gradient(135deg,#f4f1e4 0%,#cfe3b8 45%,#8fbf6a 70%,#5aa0d8 100%)",
+  night: "radial-gradient(circle at 70% 30%,#f0873a 0 12%,transparent 13%),linear-gradient(135deg,#02040a 0%,#1e2a44 60%,#0b1020 100%)",
   relief: "linear-gradient(135deg,#1f5f8b 0%,#3b82f6 45%,#9bd36a 100%)",
   cinema: "linear-gradient(135deg,#1c1410 0%,#8a5a3c 55%,#f3d9b1 100%)",
 };
-const PRESET_KEYS = Object.keys(FLYOVER_MAP_PRESETS) as FlyoverMapPreset[];
+const PRESET_KEYS = FLYOVER_OFFERED_PRESETS;
 
 const pad = (value: number) => String(value).padStart(2, "0");
 const toLocalInput = (date: Date) =>
@@ -65,6 +78,8 @@ export function FlyoverOrderForm({ cancelled }: { cancelled: boolean }) {
   const [stationsEdited, setStationsEdited] = useState(false);
   const [preset, setPreset] = useState<FlyoverMapPreset>("signature");
   const [terrain, setTerrain] = useState<number>(FLYOVER_TERRAIN.default);
+  // Null until the GPX is read: then the distance rule picks the default, the organizer can switch.
+  const [storyMode, setStoryMode] = useState<FlyoverStoryMode | null>(null);
   const [offer, setOffer] = useState<Offer | null>(null);
   const [instagramHandle, setInstagramHandle] = useState("");
   const [publishLocal, setPublishLocal] = useState("");
@@ -102,6 +117,7 @@ export function FlyoverOrderForm({ cancelled }: { cancelled: boolean }) {
       setStationsEdited(false);
       if (!raceName.trim() && gpx.name?.trim()) setRaceName(gpx.name.trim().slice(0, 120));
       setGpxState({ kind: "ready", gpx, file, imported: fromGpx.length });
+      setStoryMode((current) => current ?? getFlyoverMode(check.distanceKm));
       trackGoogleAnalyticsEvent("flyover_gpx_previewed", { event_category: "organizer_acquisition", distance_km: Math.round(check.distanceKm), stations: fromGpx.length });
     } catch {
       setGpxState({ kind: "error", message: "Ce fichier n’est pas un GPX lisible." });
@@ -140,6 +156,7 @@ export function FlyoverOrderForm({ cancelled }: { cancelled: boolean }) {
     if (instagramHandle.trim()) body.set("instagramHandle", instagramHandle.trim());
     if (offer === "collab") body.set("publishLocal", publishLocal);
     body.set("mapPreset", preset);
+    if (storyMode) body.set("storyMode", storyMode);
     body.set("terrainExaggeration", String(terrain));
     body.set("email", email);
     if (website) body.set("website", website);
@@ -219,6 +236,18 @@ export function FlyoverOrderForm({ cancelled }: { cancelled: boolean }) {
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:items-start">
           <div className="order-2 grid gap-5 lg:order-1">
             <fieldset className="grid gap-2">
+              <legend className={`${labelClass} mb-2`}>Format</legend>
+              <div className="grid grid-cols-2 gap-2">
+                {FLYOVER_STORY_MODE_VALUES.map((key) => (
+                  <label key={key} className={`cursor-pointer rounded-xl border p-3 transition ${storyMode === key ? "border-brand bg-brand-surface ring-2 ring-brand/30 dark:border-emerald-400 dark:bg-emerald-400/10" : "border-border hover:border-brand-border"}`}>
+                    <input type="radio" name="storyMode" value={key} checked={storyMode === key} onChange={() => setStoryMode(key)} className="sr-only" />
+                    <span className="block text-sm font-semibold text-foreground">{FLYOVER_STORY_MODES[key].label}</span>
+                    <span className="block text-xs leading-5 text-muted-foreground">{FLYOVER_STORY_MODES[key].description}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <fieldset className="grid gap-2">
               <legend className={`${labelClass} mb-2`}>Fond de carte</legend>
               <div className="grid grid-cols-2 gap-2">
                 {PRESET_KEYS.map((key) => (
@@ -246,7 +275,7 @@ export function FlyoverOrderForm({ cancelled }: { cancelled: boolean }) {
           </div>
           <div className="order-1 flex justify-center lg:order-2">
             {ready ? (
-              <FlyoverPreview gpx={ready.gpx} raceName={raceName} raceDate={raceDate} stations={previewStations} preset={preset} terrain={terrain} />
+              <FlyoverPreview gpx={ready.gpx} raceName={raceName} raceDate={raceDate} stations={previewStations} preset={preset} terrain={terrain} storyMode={storyMode ?? getFlyoverMode(ready.gpx.stats.distanceKm)} />
             ) : (
               <label htmlFor="flyover-gpx" className="flex aspect-[9/16] w-full max-w-[17rem] cursor-pointer items-center justify-center rounded-[1.75rem] border-[6px] border-slate-900 bg-slate-950 p-6 text-center text-sm leading-6 text-white/80 shadow-2xl">
                 Ajoutez votre GPX : l’aperçu 3D de votre vidéo s’affiche ici.

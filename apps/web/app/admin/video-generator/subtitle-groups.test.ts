@@ -177,16 +177,17 @@ describe("word timings", () => {
 });
 
 describe("subtitle layout", () => {
-  it("keeps the box (two lines) above the Reels caption, inside the feed crop, centred and clear of the action column", () => {
+  it("sits low (82 %), one line inside the feed crop, two lines at most 10 px past it, clear of the action column", () => {
     const box = getSubtitleBoxBounds(1080, 1920, SUBTITLE_MAX_LINES);
-    // Reels tab: above the caption (y = 1570 of 1920). Feed: inside the 4:5 crop (y 285 to 1635).
-    expect(box.bottom).toBeLessThanOrEqual(1570);
-    expect(box.bottom / 1920).toBeLessThanOrEqual(SUBTITLE_SAFE_BOTTOM_RATIO);
+    const oneLine = getSubtitleBoxBounds(1080, 1920, 1);
+    // Feed: the 4:5 crop shows y 285 to 1635.
+    expect(oneLine.bottom).toBeLessThanOrEqual(1635);
+    expect(box.bottom).toBeLessThanOrEqual(1645);
     expect(box.top).toBeGreaterThanOrEqual(285);
-    expect(box.bottom).toBeLessThanOrEqual(1635);
-    // In the lower quarter (captions read there), not mid-screen.
+    // Low in the frame (2026-11-22: 77.5 % was judged too high).
     const centre = (box.top + box.bottom) / 2 / 1920;
-    expect(centre).toBeGreaterThanOrEqual(0.76);
+    expect(centre).toBeGreaterThanOrEqual(0.8);
+    expect(box.top / 1920).toBeLessThan(SUBTITLE_SAFE_BOTTOM_RATIO);
     // Centred: the feed has no interface, so a box leaning left looked off-centre.
     expect((box.left + box.right) / 2).toBeCloseTo(540, 6);
     expect(box.right).toBeLessThanOrEqual(1080 * 0.87 + 1e-6);

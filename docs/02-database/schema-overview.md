@@ -12,6 +12,7 @@ related_files:
   - supabase/migrations/20261119170000_add_render_job_auto_draft.sql
   - supabase/migrations/20261122100000_add_flyover_video_orders.sql
   - supabase/tests/flyover_video_orders_checks.sql
+  - supabase/migrations/20261122200000_flyover_presets_and_story_mode.sql
   - supabase/tests/social_posts_checks.sql
   - supabase/tests/organizer_demo_requests_checks.sql
   - supabase/migrations/20261116180000_add_feedback_surveys.sql
@@ -264,7 +265,7 @@ The November 2026 mobile plan-flow polish changes catalog search controls, image
 | `video_voices` | Service-only shared pool of ElevenLabs voices of the admin reel generator (unique ElevenLabs id, name, `active`); each new reel draws an active voice at random. See [video_voices](tables/video-voices.md). |
 | `reel_automation_settings` | Service-only single row of the automatic reel pipeline: generation and publication switches (off by default), caps, lead time, publication time. See [reel_automation_settings](tables/reel-automation-settings.md). |
 | `reel_automation_items` | Service-only planned automatic reels, one per race and edition (unique), with their status, step, lease and links to the render job and draft. See [reel_automation_items](tables/reel-automation-items.md). |
-| `flyover_video_orders` | Service-only organizer flyover video orders (`/survol`, independent of the catalog): offer, Stripe references, GPX path, status flow `pending_payment` to `ready`, retry lease, links to its `video_render_jobs` render (whose `race_id` is now nullable, with `flyover_order_id`) and collab `social_posts` row (new `collaborators` column). |
+| `flyover_video_orders` | Service-only organizer flyover video orders (`/survol`, independent of the catalog): offer, Stripe references, GPX path, status flow `pending_payment` to `ready`, retry lease, chosen `story_mode` and basemap preset (`20261122200000`), links to its `video_render_jobs` render (whose `race_id` is now nullable, with `flyover_order_id`) and collab `social_posts` row (new `collaborators` column). |
 | `social_posts` | Service-only Instagram Reels drafted from finished `video_render_jobs` (by an admin, or automatically when a one-click render finishes: `auto_generated`, one per render) and published by explicit admin action through a resumable state machine. See [social_posts](tables/social-posts.md). |
 | `races` | Current race catalog/private race table, renamed from `race_catalog`, with yearly organizer edition grouping on `edition_group_id` / `series_name`. |
 | `race_slug_redirects` | Former course slugs mapped to stable race ids for visibility-gated permanent redirects. |

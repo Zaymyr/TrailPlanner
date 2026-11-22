@@ -145,7 +145,7 @@ Any refund event, including partial, marks its organizer transaction refunded; a
 
 ## Organizer flyover video checkout (2026-11-22)
 
-The Checkout opens only from the last step of `/survol`, after the live preview (route behavior unchanged apart from the GPX waypoint fallback for aid stations).
+The Checkout opens only from the last step of `/survol`, after the live preview; the order now also stores the chosen story mode (no Stripe change) (route behavior unchanged apart from the GPX waypoint fallback for aid stations).
 
 `POST /api/flyover-orders` opens a one-off Checkout for the `/survol` product (price from `STRIPE_FLYOVER_*_PRICE_ID`, active, EUR, one-off, exact amount; automatic tax, tax-id collection, invoice; `metadata.purchase_type = flyover_video`, `metadata.order_id`). The webhook only moves the `flyover_video_orders` row (`paid`, `expired`, `refunded`) and sends the confirmation email; it writes no `subscriptions`, runner or organizer ledger row. Rules and setup: [Organizer Flyover Video Orders](../03-business-rules/flyover-video-orders.md).
 

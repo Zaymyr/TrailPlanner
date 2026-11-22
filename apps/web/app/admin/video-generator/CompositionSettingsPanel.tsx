@@ -379,7 +379,7 @@ export function CompositionSettingsPanel({
         </div>
         {settings.introEnabled ? (
           <>
-            <Toggle label="Accroche (2 premières secondes)" checked={isHookIntroEnabled(settings)} onChange={(checked) => update("hookIntro", checked)} />
+            <Toggle label="Accroche (2 premières secondes, au lieu de la vue d’ensemble)" checked={isHookIntroEnabled(settings)} onChange={(checked) => update("hookIntro", checked)} />
             <p className="text-xs text-muted-foreground">
               La caméra survole déjà la plus grosse montée, un chiffre choc et le nom court de la course à la place du carton titre. Par défaut en Temps forts.
             </p>

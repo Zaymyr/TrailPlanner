@@ -10,15 +10,43 @@ import type { VideoGeneratorDetail } from "./video-generator";
  * render use the very same composition. No Node or server import here.
  */
 
-/** The four basemaps offered to organizers, mapped onto the editor's style and ambiance. */
+type PresetSpec = {
+  label: string;
+  description: string;
+  mapStyle: VideoCompositionSettings["mapStyle"];
+  customStyleUrl?: string;
+  mapAmbiance: VideoCompositionSettings["mapAmbiance"];
+  /** Route colour when the brand green would not stand out (night). */
+  routeColor?: string;
+  /** Shown on /survol; older presets stay readable for existing orders. */
+  offered: boolean;
+};
+
+/**
+ * The basemaps offered to organizers (2026-11-22: four clearly different looks), mapped onto the
+ * editor's style, ambiance and route colour. "relief" and "cinema" are the first presets, kept for
+ * the orders that chose them.
+ */
 export const FLYOVER_MAP_PRESETS = {
-  signature: { label: "Pace Yourself", description: "Topographie crème et vert, la signature de la marque.", mapStyle: "paceyourself", mapAmbiance: "brand" },
-  satellite: { label: "Satellite", description: "Imagerie satellite naturelle, routes et lieux.", mapStyle: "classic", mapAmbiance: "natural" },
-  relief: { label: "Relief 3D", description: "Satellite 3D aux couleurs éclatantes.", mapStyle: "standard", mapAmbiance: "vivid" },
-  cinema: { label: "Cinéma", description: "Satellite contrasté et chaud, ambiance film.", mapStyle: "classic", mapAmbiance: "cinematic" },
-} as const satisfies Record<string, { label: string; description: string; mapStyle: VideoCompositionSettings["mapStyle"]; mapAmbiance: VideoCompositionSettings["mapAmbiance"] }>;
+  signature: { label: "Pace Yourself", description: "Topographie crème et vert, la signature de la marque.", mapStyle: "paceyourself", mapAmbiance: "brand", offered: true },
+  satellite: { label: "Satellite", description: "Imagerie satellite naturelle, en relief.", mapStyle: "classic", mapAmbiance: "natural", offered: true },
+  outdoors: { label: "Carte rando", description: "Carte topo colorée : sentiers, courbes, sommets.", mapStyle: "custom", customStyleUrl: "mapbox://styles/mapbox/outdoors-v12", mapAmbiance: "natural", offered: true },
+  night: { label: "Nocturne", description: "Satellite de nuit, tracé orange lumineux.", mapStyle: "classic", mapAmbiance: "night", routeColor: "#f0873a", offered: true },
+  relief: { label: "Relief 3D", description: "Satellite 3D aux couleurs éclatantes.", mapStyle: "standard", mapAmbiance: "vivid", offered: false },
+  cinema: { label: "Cinéma", description: "Satellite contrasté et chaud, ambiance film.", mapStyle: "classic", mapAmbiance: "cinematic", offered: false },
+} as const satisfies Record<string, PresetSpec>;
 export type FlyoverMapPreset = keyof typeof FLYOVER_MAP_PRESETS;
 export const FLYOVER_MAP_PRESET_VALUES = Object.keys(FLYOVER_MAP_PRESETS) as [FlyoverMapPreset, ...FlyoverMapPreset[]];
+/** The presets the order form offers. */
+export const FLYOVER_OFFERED_PRESETS = FLYOVER_MAP_PRESET_VALUES.filter((key) => FLYOVER_MAP_PRESETS[key].offered);
+
+/** Story modes the organizer chooses between (default from the distance, like the automatic reels). */
+export const FLYOVER_STORY_MODES = {
+  highlights: { label: "Temps forts", description: "Les montées clés et les ravitos, 30 à 50 s : le format reel." },
+  full: { label: "Parcours complet", description: "Tout le tracé du départ à l’arrivée, jusqu’à 2 min." },
+} as const;
+export type FlyoverStoryMode = keyof typeof FLYOVER_STORY_MODES;
+export const FLYOVER_STORY_MODE_VALUES = ["highlights", "full"] as const;
 
 export const FLYOVER_TERRAIN = { min: 1, max: 3, default: 1.8 } as const;
 export const FLYOVER_MAX_DISTANCE_KM = 400;
@@ -36,7 +64,7 @@ export const checkFlyoverGpx = (gpx: ParsedGpx): GpxCheck => {
   return { ok: true, distanceKm, gainM: gpx.stats.gainM ?? null, lossM: gpx.stats.lossM ?? null };
 };
 
-/** Same rule as the automatic reels: up to 60 km the whole course, beyond it the highlights. */
+/** Default mode, same rule as the automatic reels: up to 60 km the whole course, beyond it the highlights. */
 export const getFlyoverMode = (distanceKm: number) => getReelMode(distanceKm);
 
 /** The reel settings of an order: the given base (reel defaults of its mode), its basemap and relief. */
@@ -44,11 +72,13 @@ export const applyFlyoverSettings = (
   base: VideoCompositionSettings,
   order: { map_preset: FlyoverMapPreset; terrain_exaggeration: number },
 ): VideoCompositionSettings => {
-  const preset = FLYOVER_MAP_PRESETS[order.map_preset];
+  const preset: PresetSpec = FLYOVER_MAP_PRESETS[order.map_preset];
   return {
     ...base,
     mapStyle: preset.mapStyle,
+    customStyleUrl: preset.customStyleUrl ?? null,
     mapAmbiance: preset.mapAmbiance,
+    ...(preset.routeColor ? { routeColor: preset.routeColor } : {}),
     terrainExaggeration: Math.min(FLYOVER_TERRAIN.max, Math.max(FLYOVER_TERRAIN.min, order.terrain_exaggeration)),
   };
 };

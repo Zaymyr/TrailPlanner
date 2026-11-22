@@ -148,7 +148,16 @@ const TOLD_SLOPE_SOURCE_ID = "video-told-slope";
 const TOLD_SLOPE_LAYER_ID = "video-told-slope-line";
 const TOLD_SLOPE_CASING_LAYER_ID = "video-told-slope-casing";
 export const VIDEO_ROUTE_COLOR = DEFAULT_VIDEO_COMPOSITION_SETTINGS.routeColor;
-const FUTURE_ROUTE_ALPHA = 0x38 / 255;
+// The route still to run: visible enough to read the whole course in the opening overview.
+const FUTURE_ROUTE_ALPHA = 0.5;
+/**
+ * Route lines are drawn as 3D geometry a few metres above the ground (`line-elevation-reference`
+ * ground + `line-z-offset`) instead of being draped into the terrain texture, whose resolution made
+ * them blocky at a distance and on high-density phone screens. Each layer sits slightly higher than
+ * the one under it so they never z-fight.
+ */
+const ROUTE_Z_OFFSET_M = { future: 3, glow: 3.5, casing: 4, reveal: 4.5, toldCasing: 5, told: 5.5 } as const;
+const elevatedRoute = (layer: keyof typeof ROUTE_Z_OFFSET_M) => ({ "line-elevation-reference": "ground" as const, "line-z-offset": ROUTE_Z_OFFSET_M[layer] });
 const GLOW_ROUTE_ALPHA = 0x8c / 255;
 
 /**
@@ -565,7 +574,7 @@ const syncMapData = (
       type: "line",
       source: ROUTE_SOURCE_ID,
       slot: "top",
-      layout: { "line-cap": "round", "line-join": "round" },
+      layout: { "line-cap": "round", "line-join": "round", ...elevatedRoute("future") },
       paint: {
         "line-color": withAlpha(routeColor, FUTURE_ROUTE_ALPHA),
         "line-width": lineWidth,
@@ -580,7 +589,7 @@ const syncMapData = (
       type: "line",
       source: ROUTE_SOURCE_ID,
       slot: "top",
-      layout: { "line-cap": "round", "line-join": "round", visibility: settings.routeGlow ? "visible" : "none" },
+      layout: { "line-cap": "round", "line-join": "round", visibility: settings.routeGlow ? "visible" : "none", ...elevatedRoute("glow") },
       paint: {
         "line-color": withAlpha(routeColor, GLOW_ROUTE_ALPHA),
         "line-width": ROUTE_GLOW_WIDTH,
@@ -598,7 +607,7 @@ const syncMapData = (
       type: "line",
       source: ROUTE_SOURCE_ID,
       slot: "top",
-      layout: { "line-cap": "round", "line-join": "round", visibility: settings.routeCasing ? "visible" : "none" },
+      layout: { "line-cap": "round", "line-join": "round", visibility: settings.routeCasing ? "visible" : "none", ...elevatedRoute("casing") },
       paint: {
         "line-color": "#ffffff",
         "line-width": ROUTE_CASING_WIDTHS[settings.routeWidth],
@@ -614,7 +623,7 @@ const syncMapData = (
       type: "line",
       source: ROUTE_SOURCE_ID,
       slot: "top",
-      layout: { "line-cap": "round", "line-join": "round" },
+      layout: { "line-cap": "round", "line-join": "round", ...elevatedRoute("reveal") },
       paint: {
         "line-color": routeColor,
         "line-width": lineWidth,
@@ -636,7 +645,7 @@ const syncMapData = (
       type: "line",
       source: TOLD_SLOPE_SOURCE_ID,
       slot: "top",
-      layout: { "line-cap": "round", "line-join": "round" },
+      layout: { "line-cap": "round", "line-join": "round", ...elevatedRoute("toldCasing") },
       paint: { "line-color": "#ffffff", "line-width": ROUTE_CASING_WIDTHS[settings.routeWidth], "line-opacity": 0, "line-emissive-strength": 1 },
     }, beforeIcons);
   }
@@ -646,7 +655,7 @@ const syncMapData = (
       type: "line",
       source: TOLD_SLOPE_SOURCE_ID,
       slot: "top",
-      layout: { "line-cap": "round", "line-join": "round" },
+      layout: { "line-cap": "round", "line-join": "round", ...elevatedRoute("told") },
       paint: { "line-color": ["get", "color"], "line-width": lineWidth, "line-opacity": 0, "line-emissive-strength": 1 },
     }, beforeIcons);
   }

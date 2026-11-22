@@ -4,6 +4,14 @@
 
 Journal en ajout seul, la plus récente en haut. Format : `## AAAA-MM-JJ — Titre`, puis Contexte / Décision / Conséquence (2 à 4 lignes chacun). Les décisions d'architecture détaillées (ADR) vont dans [docs/08-decisions/](../08-decisions/README.md).
 
+## 2026-11-22 — Toutes les vidéos s'ouvrent sur la vue d'ensemble du tracé
+
+**Contexte.** En « Temps forts », la vidéo démarrait directement sur l'accroche (2,4 s sur la plus grosse montée), trop vite ; les sous-titres étaient jugés trop hauts et le tracé pixelisé ; les fonds de carte satellite de la vidéo de survol se ressemblaient trop.
+
+**Décision.** Toute vidéo (éditeur, reels automatiques, survol) commence par une vue large de tout le tracé, au moins 5 s, puis zoome sur le départ ou le premier temps fort ; l'accroche devient une option explicite. Sous-titres centrés à 82 % de la hauteur. Tracé dessiné en 3D au-dessus du sol. Survol : quatre fonds tranchés (Pace Yourself, Satellite, Carte rando, Nocturne) et choix Temps forts / Parcours complet par l'organisateur.
+
+**Conséquence.** Les deux lignes de sous-titres débordent un peu sous la légende Instagram et le recadrage 4:5 du fil. Détail : [ADR reels, point 20](../08-decisions/2026-11-19-reel-highlights-and-figures.md), [règles du survol](../03-business-rules/flyover-video-orders.md).
+
 ## 2026-11-22 — Vidéo de survol organisateurs, produit indépendant
 
 **Contexte.** Les organisateurs demandent une vidéo 3D de leur parcours pour l'annoncer sur les réseaux ; le pipeline de reels automatiques (texte IA, voix, rendu Cloud Run) existe déjà côté admin.

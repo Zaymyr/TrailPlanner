@@ -6,6 +6,7 @@ ai_priority: low
 related_files:
   - supabase/migrations/20261122100000_add_flyover_video_orders.sql
   - supabase/tests/flyover_video_orders_checks.sql
+  - supabase/migrations/20261122200000_flyover_presets_and_story_mode.sql
   - apps/web/lib/flyover-orders.ts
   - apps/web/lib/flyover-generation.ts
 related_tables:
@@ -37,7 +38,8 @@ One row per organizer flyover video order (`/survol`), from the Stripe checkout 
 | `race_date` | `date` | nullable | Optional race date (edition year in the title). |
 | `contact_email` | `text` | required | Organizer email (confirmation, ready email). |
 | `instagram_handle` | `text` | `^[A-Za-z0-9._]{1,30}$`, nullable | Event account without `@`; required for `collab`. |
-| `map_preset` | `text` | `signature`, `satellite`, `relief`, `cinema` | Basemap preset. |
+| `map_preset` | `text` | `signature`, `satellite`, `outdoors`, `night`, `relief`, `cinema` | Basemap preset; `relief` and `cinema` are no longer offered (kept for older orders). |
+| `story_mode` | `text` | `highlights` or `full`, nullable | Mode chosen on `/survol` (2026-11-22); null for older orders, which use the distance rule. |
 | `terrain_exaggeration` | `real` | 1–3, default 1.8 | Relief exaggeration. |
 | `publish_local` | `text` | `YYYY-MM-DDTHH:mm`, nullable | Collab slot, Paris wall time; required for `collab` (`flyover_video_orders_collab_fields`). |
 | `aid_stations` | `jsonb` | array, ≤ 40 | `[{ id, name, km }]`, ids fixed at order time; from the form, else from the GPX waypoints. |
