@@ -2,10 +2,10 @@
 -- PostgreSQL database dump
 --
 
-\restrict 24tvjvOIgzZSJ54RabMUplpfdn0asgJ88PDKp8f9K6cofdwz6ojDAGvOh2oHeh9
+\restrict BinScNAtFBxPfdhD2efeJ0cG9Ay5jlFBuVSwINgiuve1ibI4RhVImxfPrgSm2ym
 
 -- Dumped from database version 17.6
--- Dumped by pg_dump version 17.11
+-- Dumped by pg_dump version 17.12
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1748,6 +1748,53 @@ COMMENT ON FUNCTION public.assign_race_event_edition() IS 'Assigns a dated event
 
 
 --
+-- Name: build_race_event_edition_slug(text, smallint); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.build_race_event_edition_slug(p_event_name text, p_edition_year smallint) RETURNS text
+    LANGUAGE sql IMMUTABLE STRICT
+    SET search_path TO ''
+    AS $$
+  with normalized as (
+    select pg_catalog.btrim(
+      pg_catalog.regexp_replace(
+        pg_catalog.translate(
+          pg_catalog.lower(
+            pg_catalog.replace(
+              pg_catalog.replace(p_event_name, 'œ', 'oe'),
+              'æ',
+              'ae'
+            )
+          ),
+          'àáâäãåçèéêëìíîïñòóôöõùúûüýÿ',
+          'aaaaaaceeeeiiiinooooouuuuyy'
+        ),
+        '[^a-z0-9]+',
+        '-',
+        'g'
+      ),
+      '-'
+    ) as event_part
+  )
+  select pg_catalog.btrim(
+      pg_catalog.left(
+        case when event_part = '' then 'evenement' else event_part end,
+        146
+      ),
+      '-'
+    ) || '-' || p_edition_year::text
+  from normalized;
+$$;
+
+
+--
+-- Name: FUNCTION build_race_event_edition_slug(p_event_name text, p_edition_year smallint); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.build_race_event_edition_slug(p_event_name text, p_edition_year smallint) IS 'Builds the initial lowercase ASCII slug for one event edition. Existing slugs remain durable when event names change.';
+
+
+--
 -- Name: bump_aid_product_race_plan_source_revision(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -2392,6 +2439,132 @@ COMMENT ON FUNCTION public.clear_stale_race_event_geography() IS 'Clears curated
 
 
 --
+-- Name: configure_carousel_automation_cron(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.configure_carousel_automation_cron() RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $_$
+declare
+  v_job_id bigint;
+begin
+  for v_job_id in select job.jobid from cron.job as job where job.jobname = 'carousel-automation' loop
+    perform cron.unschedule(v_job_id);
+  end loop;
+
+  perform cron.schedule(
+    'carousel-automation',
+    '47 * * * *',
+    $job$
+      select net.http_post(
+        url := rtrim(secrets.app_url, '/') || '/api/cron/carousel-automation',
+        headers := jsonb_build_object(
+          'Content-Type', 'application/json',
+          'Authorization', 'Bearer ' || secrets.cron_secret
+        ),
+        body := '{}'::jsonb,
+        timeout_milliseconds := 300000
+      ) as request_id
+      from (
+        select
+          (select ds.decrypted_secret from vault.decrypted_secrets as ds
+            where ds.name = 'web_app_url' order by ds.created_at desc limit 1) as app_url,
+          (select ds.decrypted_secret from vault.decrypted_secrets as ds
+            where ds.name = 'cron_secret' order by ds.created_at desc limit 1) as cron_secret
+      ) as secrets
+      where secrets.app_url is not null and secrets.cron_secret is not null;
+    $job$
+  );
+end;
+$_$;
+
+
+--
+-- Name: configure_demo_race_refresh_cron(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.configure_demo_race_refresh_cron() RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $_$
+declare
+  v_job_id bigint;
+begin
+  for v_job_id in select job.jobid from cron.job as job where job.jobname = 'demo-race-refresh' loop
+    perform cron.unschedule(v_job_id);
+  end loop;
+
+  perform cron.schedule(
+    'demo-race-refresh',
+    '5 * * * *',
+    $job$
+      select net.http_post(
+        url := rtrim(secrets.app_url, '/') || '/api/cron/demo-race-refresh',
+        headers := jsonb_build_object(
+          'Content-Type', 'application/json',
+          'Authorization', 'Bearer ' || secrets.cron_secret
+        ),
+        body := '{}'::jsonb,
+        timeout_milliseconds := 120000
+      ) as request_id
+      from (
+        select
+          (select ds.decrypted_secret from vault.decrypted_secrets as ds
+            where ds.name = 'web_app_url' order by ds.created_at desc limit 1) as app_url,
+          (select ds.decrypted_secret from vault.decrypted_secrets as ds
+            where ds.name = 'cron_secret' order by ds.created_at desc limit 1) as cron_secret
+      ) as secrets
+      where secrets.app_url is not null and secrets.cron_secret is not null;
+    $job$
+  );
+end;
+$_$;
+
+
+--
+-- Name: configure_flyover_orders_cron(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.configure_flyover_orders_cron() RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $_$
+declare
+  v_job_id bigint;
+begin
+  for v_job_id in select job.jobid from cron.job as job where job.jobname = 'flyover-orders' loop
+    perform cron.unschedule(v_job_id);
+  end loop;
+
+  perform cron.schedule(
+    'flyover-orders',
+    '*/10 * * * *',
+    $job$
+      select net.http_post(
+        url := rtrim(secrets.app_url, '/') || '/api/cron/flyover-orders',
+        headers := jsonb_build_object(
+          'Content-Type', 'application/json',
+          'Authorization', 'Bearer ' || secrets.cron_secret
+        ),
+        body := '{}'::jsonb,
+        timeout_milliseconds := 300000
+      ) as request_id
+      from (
+        select
+          (select ds.decrypted_secret from vault.decrypted_secrets as ds
+            where ds.name = 'web_app_url' order by ds.created_at desc limit 1) as app_url,
+          (select ds.decrypted_secret from vault.decrypted_secrets as ds
+            where ds.name = 'cron_secret' order by ds.created_at desc limit 1) as cron_secret
+      ) as secrets
+      where secrets.app_url is not null and secrets.cron_secret is not null;
+    $job$
+  );
+end;
+$_$;
+
+
+--
 -- Name: configure_organizer_import_cleanup_cron(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -2529,6 +2702,101 @@ begin
       v_cron_secret
     )
   );
+end;
+$_$;
+
+
+--
+-- Name: configure_reel_automation_cron(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.configure_reel_automation_cron() RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $_$
+declare
+  v_job_id bigint;
+begin
+  for v_job_id in select job.jobid from cron.job as job where job.jobname = 'reel-automation' loop
+    perform cron.unschedule(v_job_id);
+  end loop;
+
+  perform cron.schedule(
+    'reel-automation',
+    '17 * * * *',
+    $job$
+      select net.http_post(
+        url := rtrim(secrets.app_url, '/') || '/api/cron/reel-automation',
+        headers := jsonb_build_object(
+          'Content-Type', 'application/json',
+          'Authorization', 'Bearer ' || secrets.cron_secret
+        ),
+        body := '{}'::jsonb,
+        timeout_milliseconds := 300000
+      ) as request_id
+      from (
+        select
+          (select ds.decrypted_secret from vault.decrypted_secrets as ds
+            where ds.name = 'web_app_url' order by ds.created_at desc limit 1) as app_url,
+          (select ds.decrypted_secret from vault.decrypted_secrets as ds
+            where ds.name = 'cron_secret' order by ds.created_at desc limit 1) as cron_secret
+      ) as secrets
+      where secrets.app_url is not null and secrets.cron_secret is not null;
+    $job$
+  );
+end;
+$_$;
+
+
+--
+-- Name: configure_social_publishing_cron(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.configure_social_publishing_cron() RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $_$
+declare
+  v_job record;
+  v_job_id bigint;
+begin
+  for v_job in
+    select *
+    from (values
+      ('social-posts-publish', '*/5 * * * *', '/api/cron/social-posts-publish')
+    ) as jobs(name, schedule, path)
+  loop
+    for v_job_id in select job.jobid from cron.job as job where job.jobname = v_job.name loop
+      perform cron.unschedule(v_job_id);
+    end loop;
+
+    perform cron.schedule(
+      v_job.name,
+      v_job.schedule,
+      format(
+        $job$
+          select net.http_post(
+            url := rtrim(secrets.app_url, '/') || %L,
+            headers := jsonb_build_object(
+              'Content-Type', 'application/json',
+              'Authorization', 'Bearer ' || secrets.cron_secret
+            ),
+            body := '{}'::jsonb,
+            timeout_milliseconds := 60000
+          ) as request_id
+          from (
+            select
+              (select ds.decrypted_secret from vault.decrypted_secrets as ds
+                where ds.name = 'web_app_url' order by ds.created_at desc limit 1) as app_url,
+              (select ds.decrypted_secret from vault.decrypted_secrets as ds
+                where ds.name = 'cron_secret' order by ds.created_at desc limit 1) as cron_secret
+          ) as secrets
+          where secrets.app_url is not null and secrets.cron_secret is not null;
+        $job$,
+        v_job.path
+      )
+    );
+  end loop;
 end;
 $_$;
 
@@ -3085,6 +3353,31 @@ begin
   end if;
   return new;
 end;
+$$;
+
+
+--
+-- Name: feedback_survey_campaign_stats(uuid[]); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.feedback_survey_campaign_stats(p_campaign_ids uuid[]) RETURNS TABLE(campaign_id uuid, recipients bigint, read_count bigint, push_sent bigint, responses bigint, useful bigint)
+    LANGUAGE sql STABLE
+    SET search_path TO ''
+    AS $$
+  select
+    campaign.id as campaign_id,
+    (select count(*) from public.user_notifications notification
+      where notification.survey_campaign_id = campaign.id) as recipients,
+    (select count(*) from public.user_notifications notification
+      where notification.survey_campaign_id = campaign.id and notification.read_at is not null) as read_count,
+    (select count(*) from public.user_notifications notification
+      where notification.survey_campaign_id = campaign.id and notification.push_status = 'sent') as push_sent,
+    (select count(*) from public.feedback_survey_responses response
+      where response.campaign_id = campaign.id) as responses,
+    (select count(*) from public.feedback_survey_responses response
+      where response.campaign_id = campaign.id and response.found_useful) as useful
+  from public.feedback_survey_campaigns campaign
+  where campaign.id = any(coalesce(p_campaign_ids, array[]::uuid[]));
 $$;
 
 
@@ -3821,7 +4114,8 @@ begin
   values
     (new.id, 'equipment', true),
     (new.id, 'bib_pickup', true),
-    (new.id, 'access', true)
+    (new.id, 'access', true),
+    (new.id, 'supporter_guide', true)
   on conflict do nothing;
   return new;
 end;
@@ -4240,6 +4534,61 @@ begin
   return initcap(cleaned);
 end;
 $_$;
+
+
+--
+-- Name: prepare_feedback_survey_response(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.prepare_feedback_survey_response() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+declare
+  notification_row public.user_notifications%rowtype;
+begin
+  select notification.*
+  into notification_row
+  from public.user_notifications notification
+  where notification.id = new.notification_id;
+
+  if not found
+    or notification_row.user_id <> new.user_id
+    or notification_row.kind <> 'feedback_survey' then
+    raise exception 'This survey cannot be answered by this user.'
+      using errcode = '42501';
+  end if;
+
+  new.campaign_id := notification_row.survey_campaign_id;
+  new.useful_text := nullif(btrim(new.useful_text), '');
+  new.missing_text := nullif(btrim(new.missing_text), '');
+  new.created_at := timezone('utc', now());
+  return new;
+end;
+$$;
+
+
+--
+-- Name: prevent_own_plan_share_follow(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.prevent_own_plan_share_follow() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+begin
+  if exists (
+    select 1
+    from public.plan_share_links
+    where id = new.share_link_id
+      and user_id = new.follower_user_id
+  ) then
+    raise exception 'A runner cannot follow their own plan-share link.'
+      using errcode = '23514';
+  end if;
+  return new;
+end;
+$$;
 
 
 --
@@ -4969,6 +5318,96 @@ COMMENT ON FUNCTION public.record_admin_organizer_bank_transfer_invoice(p_editio
 
 
 --
+-- Name: record_race_event_edition_slug_redirect(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.record_race_event_edition_slug_redirect() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $_$
+declare
+  candidate_slug text;
+  event_name text;
+begin
+  if new.slug is null then
+    select event_row.name
+    into event_name
+    from public.race_events as event_row
+    where event_row.id = new.event_id;
+
+    if event_name is null then
+      raise exception using
+        errcode = '23503',
+        message = 'Race event not found for edition slug generation.';
+    end if;
+
+    candidate_slug := public.build_race_event_edition_slug(event_name, new.edition_year);
+    perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(candidate_slug, 204771));
+
+    if exists (
+      select 1 from public.race_event_editions as edition_row where edition_row.slug = candidate_slug
+      union all
+      select 1 from public.race_event_edition_slug_redirects as redirect_row where redirect_row.old_slug = candidate_slug
+    ) then
+      candidate_slug := candidate_slug || '-' || pg_catalog.left(pg_catalog.replace(new.id::text, '-', ''), 8);
+      perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(candidate_slug, 204771));
+    end if;
+
+    new.slug := candidate_slug;
+  end if;
+
+  if new.slug <> pg_catalog.lower(pg_catalog.btrim(new.slug))
+    or pg_catalog.char_length(new.slug) > 160
+    or new.slug !~ '^[a-z0-9]+(-[a-z0-9]+)*$' then
+    raise exception using
+      errcode = '22023',
+      message = 'Event edition slug must contain only lowercase letters, digits, and single hyphen separators (160 characters maximum).';
+  end if;
+
+  if tg_op = 'UPDATE' then
+    if new.slug is not distinct from old.slug then
+      return new;
+    end if;
+
+    for candidate_slug in
+      select distinct slug_value
+      from pg_catalog.unnest(array[old.slug, new.slug]) as slug_values(slug_value)
+      order by slug_value
+    loop
+      perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(candidate_slug, 204771));
+    end loop;
+  else
+    perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(new.slug, 204771));
+  end if;
+
+  if exists (
+    select 1
+    from public.race_event_edition_slug_redirects as redirect_row
+    where redirect_row.old_slug = new.slug
+  ) then
+    raise exception using
+      errcode = '23505',
+      message = pg_catalog.format('Event edition slug "%s" is reserved by an existing redirect.', new.slug);
+  end if;
+
+  if tg_op = 'UPDATE' then
+    insert into public.race_event_edition_slug_redirects (old_slug, edition_id)
+    values (old.slug, old.id);
+  end if;
+
+  return new;
+end;
+$_$;
+
+
+--
+-- Name: FUNCTION record_race_event_edition_slug_redirect(); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.record_race_event_edition_slug_redirect() IS 'Invoker trigger: creates initial edition slugs and reserves former values during a rename.';
+
+
+--
 -- Name: record_race_slug_redirect(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -5152,6 +5591,60 @@ exception
     return false;
 end;
 $$;
+
+
+--
+-- Name: rename_race_event_edition_slug(uuid, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.rename_race_event_edition_slug(p_edition_id uuid, p_new_slug text) RETURNS TABLE(edition_id uuid, old_slug text, new_slug text)
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $_$
+declare
+  locked_edition public.race_event_editions;
+  normalized_slug text := pg_catalog.lower(pg_catalog.btrim(p_new_slug));
+begin
+  if p_new_slug is null
+    or normalized_slug = ''
+    or pg_catalog.char_length(normalized_slug) > 160
+    or normalized_slug !~ '^[a-z0-9]+(-[a-z0-9]+)*$' then
+    raise exception using
+      errcode = '22023',
+      message = 'Event edition slug must contain only lowercase letters, digits, and single hyphen separators (160 characters maximum).';
+  end if;
+
+  select edition_row.*
+  into locked_edition
+  from public.race_event_editions as edition_row
+  where edition_row.id = p_edition_id
+  for update;
+
+  if locked_edition.id is null then
+    raise exception using
+      errcode = 'P0002',
+      message = 'Race event edition not found.';
+  end if;
+
+  if locked_edition.slug = normalized_slug then
+    return query select locked_edition.id, locked_edition.slug, locked_edition.slug;
+    return;
+  end if;
+
+  update public.race_event_editions
+  set slug = normalized_slug
+  where id = locked_edition.id;
+
+  return query select locked_edition.id, locked_edition.slug, normalized_slug;
+end;
+$_$;
+
+
+--
+-- Name: FUNCTION rename_race_event_edition_slug(p_edition_id uuid, p_new_slug text); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.rename_race_event_edition_slug(p_edition_id uuid, p_new_slug text) IS 'Atomically renames an event edition and records its former slug. Service-role invocation only.';
 
 
 --
@@ -6236,6 +6729,53 @@ COMMENT ON FUNCTION public.replace_race_supporter_points(p_race_id uuid, p_items
 
 
 --
+-- Name: resolve_feedback_survey_recipients(uuid[]); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.resolve_feedback_survey_recipients(p_user_ids uuid[]) RETURNS TABLE(user_id uuid, has_email boolean, has_push boolean)
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  select
+    auth_user.id as user_id,
+    coalesce(btrim(auth_user.email), '') <> '' as has_email,
+    exists (
+      select 1
+      from public.push_devices device
+      where device.user_id = auth_user.id
+        and device.notifications_enabled
+    ) as has_push
+  from auth.users auth_user
+  where auth_user.id = any(coalesce(p_user_ids, array[]::uuid[]))
+    and auth_user.deleted_at is null
+    and coalesce(auth_user.raw_app_meta_data ->> 'role', '') <> 'admin';
+$$;
+
+
+--
+-- Name: resolve_feedback_survey_single_recipient(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.resolve_feedback_survey_single_recipient(p_user_id uuid) RETURNS TABLE(user_id uuid, has_email boolean, has_push boolean)
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  select
+    auth_user.id as user_id,
+    coalesce(btrim(auth_user.email), '') <> '' as has_email,
+    exists (
+      select 1
+      from public.push_devices device
+      where device.user_id = auth_user.id
+        and device.notifications_enabled
+    ) as has_push
+  from auth.users auth_user
+  where auth_user.id = p_user_id
+    and auth_user.deleted_at is null;
+$$;
+
+
+--
 -- Name: restore_racebook_publication(uuid, uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -6341,13 +6881,15 @@ CREATE TABLE public.user_notifications (
     updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
     feedback_id bigint,
     deleted_at timestamp with time zone,
+    survey_campaign_id uuid,
     CONSTRAINT user_notifications_body_check CHECK (((char_length(btrim(body)) >= 1) AND (char_length(btrim(body)) <= 4000))),
     CONSTRAINT user_notifications_email_request_consistency_check CHECK (((email_requested AND (email_status <> 'not_requested'::text)) OR ((NOT email_requested) AND (email_status = 'not_requested'::text)))),
     CONSTRAINT user_notifications_email_status_check CHECK ((email_status = ANY (ARRAY['not_requested'::text, 'pending'::text, 'sent'::text, 'failed'::text, 'unavailable'::text]))),
-    CONSTRAINT user_notifications_kind_check CHECK ((kind = ANY (ARRAY['admin_message'::text, 'race_request_status'::text]))),
+    CONSTRAINT user_notifications_kind_check CHECK ((kind = ANY (ARRAY['admin_message'::text, 'race_request_status'::text, 'feedback_survey'::text]))),
     CONSTRAINT user_notifications_push_request_consistency_check CHECK (((push_requested AND (push_status <> 'not_requested'::text)) OR ((NOT push_requested) AND (push_status = 'not_requested'::text)))),
     CONSTRAINT user_notifications_push_sent_count_check CHECK ((push_sent_count >= 0)),
     CONSTRAINT user_notifications_push_status_check CHECK ((push_status = ANY (ARRAY['not_requested'::text, 'pending'::text, 'sent'::text, 'failed'::text, 'unavailable'::text]))),
+    CONSTRAINT user_notifications_survey_campaign_check CHECK (((survey_campaign_id IS NULL) OR (kind = 'feedback_survey'::text))),
     CONSTRAINT user_notifications_title_check CHECK (((char_length(btrim(title)) >= 1) AND (char_length(btrim(title)) <= 160)))
 );
 
@@ -7107,6 +7649,21 @@ BEGIN new.updated_at = timezone('utc', now()); RETURN new; END; $$;
 
 
 --
+-- Name: set_flyover_video_orders_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.set_flyover_video_orders_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+begin
+  new.updated_at := timezone('utc', now());
+  return new;
+end;
+$$;
+
+
+--
 -- Name: set_organizer_import_sessions_updated_at(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -7199,6 +7756,21 @@ begin
   returning * into updated_race;
 
   return updated_race;
+end;
+$$;
+
+
+--
+-- Name: set_plan_share_follows_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.set_plan_share_follows_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+begin
+  new.updated_at = timezone('utc', now());
+  return new;
 end;
 $$;
 
@@ -7523,6 +8095,21 @@ BEGIN new.updated_at = timezone('utc', now()); RETURN new; END; $$;
 
 
 --
+-- Name: set_reel_automation_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.set_reel_automation_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+begin
+  new.updated_at := timezone('utc', now());
+  return new;
+end;
+$$;
+
+
+--
 -- Name: set_runner_plan_unlocks_updated_at(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -7532,6 +8119,21 @@ CREATE FUNCTION public.set_runner_plan_unlocks_updated_at() RETURNS trigger
     AS $$
 begin
   new.updated_at = timezone('utc', now());
+  return new;
+end;
+$$;
+
+
+--
+-- Name: set_social_publishing_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.set_social_publishing_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+begin
+  new.updated_at := timezone('utc', now());
   return new;
 end;
 $$;
@@ -7569,6 +8171,21 @@ CREATE FUNCTION public.set_user_profiles_updated_at() RETURNS trigger
     SET search_path TO 'public', 'pg_temp'
     AS $$
 BEGIN new.updated_at = timezone('utc', now()); RETURN new; END; $$;
+
+
+--
+-- Name: set_video_voices_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.set_video_voices_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+begin
+  new.updated_at := timezone('utc', now());
+  return new;
+end;
+$$;
 
 
 --
@@ -8288,12 +8905,15 @@ begin
             set_config('request.jwt.claim.role', role_name, true),
             set_config('request.headers', headers, true);
 
-    -- One lookup for every probe, by the full primary key.
-    visible_ids := array(
-      select m.id
-      from realtime.messages m
-      where m.inserted_at = probe_inserted_at
-        and m.id = any(probe_ids));
+    -- One lookup for every probe, by the full primary key. Skipped without probes, so the
+    -- SELECT policies are not planned for a write.
+    if cardinality(probe_ids) > 0 then
+      visible_ids := array(
+        select m.id
+        from realtime.messages m
+        where m.inserted_at = probe_inserted_at
+          and m.id = any(probe_ids));
+    end if;
 
     read_allowed := array(
       select p.id = any(visible_ids)
@@ -11421,6 +12041,7 @@ CREATE TABLE auth.one_time_tokens (
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
     expires_at timestamp with time zone,
+    link_token_hash text,
     CONSTRAINT one_time_tokens_token_hash_check CHECK ((char_length(token_hash) > 0))
 );
 
@@ -11482,6 +12103,7 @@ CREATE TABLE auth.saml_providers (
     created_at timestamp with time zone,
     updated_at timestamp with time zone,
     name_id_format text,
+    dedicated_scope boolean,
     CONSTRAINT "entity_id not empty" CHECK ((char_length(entity_id) > 0)),
     CONSTRAINT "metadata_url not empty" CHECK (((metadata_url = NULL::text) OR (char_length(metadata_url) > 0))),
     CONSTRAINT "metadata_xml not empty" CHECK ((char_length(metadata_xml) > 0))
@@ -11853,6 +12475,197 @@ ALTER TABLE public.app_feedback ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY
 
 
 --
+-- Name: carousel_automation_items; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.carousel_automation_items (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    series text NOT NULL,
+    planned_publish_date date NOT NULL,
+    race_id uuid,
+    edition_key text,
+    week_start date,
+    status text DEFAULT 'planned'::text NOT NULL,
+    step text,
+    attempts integer DEFAULT 0 NOT NULL,
+    error text,
+    reason text,
+    work jsonb,
+    carousel_job_id uuid,
+    social_post_id uuid,
+    locked_until timestamp with time zone,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    CONSTRAINT carousel_automation_items_attempts_check CHECK ((attempts >= 0)),
+    CONSTRAINT carousel_automation_items_edition_key_check CHECK (((edition_key IS NULL) OR ((char_length(edition_key) >= 1) AND (char_length(edition_key) <= 200)))),
+    CONSTRAINT carousel_automation_items_error_check CHECK (((error IS NULL) OR (char_length(error) <= 1000))),
+    CONSTRAINT carousel_automation_items_reason_check CHECK (((reason IS NULL) OR (reason = ANY (ARRAY['too_late'::text, 'no_candidate'::text, 'occupied'::text, 'duplicate'::text, 'excluded'::text, 'ineligible'::text])))),
+    CONSTRAINT carousel_automation_items_series_check CHECK ((series = ANY (ARRAY['plan'::text, 'brief'::text, 'week'::text]))),
+    CONSTRAINT carousel_automation_items_status_check CHECK ((status = ANY (ARRAY['planned'::text, 'generating'::text, 'rendering'::text, 'drafted'::text, 'scheduled'::text, 'skipped'::text, 'failed'::text]))),
+    CONSTRAINT carousel_automation_items_step_check CHECK (((step IS NULL) OR (step = ANY (ARRAY['content'::text, 'render'::text])))),
+    CONSTRAINT carousel_automation_items_work_check CHECK (((work IS NULL) OR (jsonb_typeof(work) = 'object'::text)))
+);
+
+
+--
+-- Name: TABLE carousel_automation_items; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.carousel_automation_items IS 'Weekly automatic Instagram carousel slots (plan chiffré, brief, semaine qui vient). Service-role only.';
+
+
+--
+-- Name: carousel_render_jobs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.carousel_render_jobs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    series text NOT NULL,
+    race_id uuid,
+    title text NOT NULL,
+    status text DEFAULT 'queued'::text NOT NULL,
+    snapshot jsonb NOT NULL,
+    content jsonb,
+    slide_count integer NOT NULL,
+    image_paths text[] DEFAULT '{}'::text[] NOT NULL,
+    message text,
+    cloud_run_execution text,
+    auto_draft boolean DEFAULT false NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    started_at timestamp with time zone,
+    finished_at timestamp with time zone,
+    CONSTRAINT carousel_render_jobs_cloud_run_execution_check CHECK (((cloud_run_execution IS NULL) OR (char_length(cloud_run_execution) <= 300))),
+    CONSTRAINT carousel_render_jobs_content_check CHECK (((content IS NULL) OR (jsonb_typeof(content) = 'object'::text))),
+    CONSTRAINT carousel_render_jobs_done_has_images CHECK (((status <> 'done'::text) OR (cardinality(image_paths) = slide_count))),
+    CONSTRAINT carousel_render_jobs_image_paths_check CHECK ((cardinality(image_paths) <= 10)),
+    CONSTRAINT carousel_render_jobs_message_check CHECK (((message IS NULL) OR (char_length(message) <= 500))),
+    CONSTRAINT carousel_render_jobs_series_check CHECK ((series = ANY (ARRAY['plan'::text, 'brief'::text, 'week'::text]))),
+    CONSTRAINT carousel_render_jobs_slide_count_check CHECK (((slide_count >= 2) AND (slide_count <= 10))),
+    CONSTRAINT carousel_render_jobs_snapshot_check CHECK ((jsonb_typeof(snapshot) = 'object'::text)),
+    CONSTRAINT carousel_render_jobs_status_check CHECK ((status = ANY (ARRAY['queued'::text, 'running'::text, 'done'::text, 'failed'::text]))),
+    CONSTRAINT carousel_render_jobs_title_check CHECK (((char_length(title) >= 1) AND (char_length(title) <= 200)))
+);
+
+
+--
+-- Name: TABLE carousel_render_jobs; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.carousel_render_jobs IS 'Instagram carousel slide renders (Cloud Run headless Chrome, JPEGs in Cloud Storage). Service-role only.';
+
+
+--
+-- Name: feedback_survey_campaigns; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.feedback_survey_campaigns (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    created_by uuid,
+    title text NOT NULL,
+    body text NOT NULL,
+    audience_kind text NOT NULL,
+    audience_event_id text,
+    audience_label text,
+    email_requested boolean DEFAULT false NOT NULL,
+    push_requested boolean DEFAULT false NOT NULL,
+    recipient_count integer DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    audience_user_id uuid,
+    CONSTRAINT feedback_survey_campaigns_audience_event_check CHECK (((audience_kind <> 'racebook_readers'::text) OR ((char_length(btrim(COALESCE(audience_event_id, ''::text))) >= 1) AND (char_length(btrim(COALESCE(audience_event_id, ''::text))) <= 80)))),
+    CONSTRAINT feedback_survey_campaigns_audience_kind_check CHECK ((audience_kind = ANY (ARRAY['racebook_readers'::text, 'single_user'::text]))),
+    CONSTRAINT feedback_survey_campaigns_audience_label_check CHECK (((audience_label IS NULL) OR (char_length(audience_label) <= 200))),
+    CONSTRAINT feedback_survey_campaigns_audience_user_check CHECK (((audience_kind = 'single_user'::text) OR (audience_user_id IS NULL))),
+    CONSTRAINT feedback_survey_campaigns_body_check CHECK (((char_length(btrim(body)) >= 1) AND (char_length(btrim(body)) <= 4000))),
+    CONSTRAINT feedback_survey_campaigns_recipient_count_check CHECK ((recipient_count >= 0)),
+    CONSTRAINT feedback_survey_campaigns_title_check CHECK (((char_length(btrim(title)) >= 1) AND (char_length(btrim(title)) <= 160)))
+);
+
+
+--
+-- Name: feedback_survey_responses; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.feedback_survey_responses (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    notification_id uuid,
+    campaign_id uuid,
+    user_id uuid NOT NULL,
+    found_useful boolean NOT NULL,
+    useful_text text,
+    missing_text text,
+    app_version text,
+    platform text,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    CONSTRAINT feedback_survey_responses_app_version_check CHECK (((app_version IS NULL) OR (char_length(app_version) <= 40))),
+    CONSTRAINT feedback_survey_responses_missing_text_check CHECK (((missing_text IS NULL) OR (char_length(missing_text) <= 2000))),
+    CONSTRAINT feedback_survey_responses_platform_check CHECK (((platform IS NULL) OR (platform = ANY (ARRAY['ios'::text, 'android'::text, 'web'::text])))),
+    CONSTRAINT feedback_survey_responses_useful_text_check CHECK (((useful_text IS NULL) OR (char_length(useful_text) <= 2000)))
+);
+
+
+--
+-- Name: flyover_video_orders; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.flyover_video_orders (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    offer text NOT NULL,
+    amount_cents integer NOT NULL,
+    currency text DEFAULT 'eur'::text NOT NULL,
+    status text DEFAULT 'pending_payment'::text NOT NULL,
+    race_name text NOT NULL,
+    race_date date,
+    contact_email text NOT NULL,
+    instagram_handle text,
+    map_preset text NOT NULL,
+    terrain_exaggeration real DEFAULT 1.8 NOT NULL,
+    publish_local text,
+    aid_stations jsonb DEFAULT '[]'::jsonb NOT NULL,
+    gpx_storage_path text NOT NULL,
+    distance_km real NOT NULL,
+    elevation_gain_m real,
+    elevation_loss_m real,
+    stripe_checkout_session_id text,
+    stripe_checkout_url text,
+    stripe_payment_intent_id text,
+    paid_at timestamp with time zone,
+    work jsonb,
+    attempts integer DEFAULT 0 NOT NULL,
+    error text,
+    locked_until timestamp with time zone,
+    render_job_id uuid,
+    social_post_id uuid,
+    ready_at timestamp with time zone,
+    paid_email_sent_at timestamp with time zone,
+    ready_email_sent_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    story_mode text,
+    CONSTRAINT flyover_video_orders_aid_stations_check CHECK (((jsonb_typeof(aid_stations) = 'array'::text) AND (jsonb_array_length(aid_stations) <= 40))),
+    CONSTRAINT flyover_video_orders_amount_cents_check CHECK ((amount_cents > 0)),
+    CONSTRAINT flyover_video_orders_attempts_check CHECK ((attempts >= 0)),
+    CONSTRAINT flyover_video_orders_collab_fields CHECK (((offer <> 'collab'::text) OR ((instagram_handle IS NOT NULL) AND (publish_local IS NOT NULL)))),
+    CONSTRAINT flyover_video_orders_contact_email_check CHECK ((((char_length(contact_email) >= 3) AND (char_length(contact_email) <= 320)) AND (contact_email ~~ '%@%'::text))),
+    CONSTRAINT flyover_video_orders_currency_check CHECK ((currency = 'eur'::text)),
+    CONSTRAINT flyover_video_orders_distance_km_check CHECK ((distance_km > (0)::double precision)),
+    CONSTRAINT flyover_video_orders_error_check CHECK (((error IS NULL) OR (char_length(error) <= 1000))),
+    CONSTRAINT flyover_video_orders_gpx_storage_path_check CHECK (((char_length(gpx_storage_path) >= 1) AND (char_length(gpx_storage_path) <= 300))),
+    CONSTRAINT flyover_video_orders_instagram_handle_check CHECK (((instagram_handle IS NULL) OR (instagram_handle ~ '^[A-Za-z0-9._]{1,30}$'::text))),
+    CONSTRAINT flyover_video_orders_map_preset_check CHECK ((map_preset = ANY (ARRAY['signature'::text, 'satellite'::text, 'outdoors'::text, 'night'::text, 'relief'::text, 'cinema'::text]))),
+    CONSTRAINT flyover_video_orders_offer_check CHECK ((offer = ANY (ARRAY['collab'::text, 'download'::text]))),
+    CONSTRAINT flyover_video_orders_publish_local_check CHECK (((publish_local IS NULL) OR (publish_local ~ '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$'::text))),
+    CONSTRAINT flyover_video_orders_race_name_check CHECK (((char_length(btrim(race_name)) >= 2) AND (char_length(btrim(race_name)) <= 120))),
+    CONSTRAINT flyover_video_orders_status_check CHECK ((status = ANY (ARRAY['pending_payment'::text, 'paid'::text, 'scripted'::text, 'rendering'::text, 'ready'::text, 'failed'::text, 'expired'::text, 'refunded'::text, 'cancelled'::text]))),
+    CONSTRAINT flyover_video_orders_story_mode_check CHECK (((story_mode IS NULL) OR (story_mode = ANY (ARRAY['highlights'::text, 'full'::text])))),
+    CONSTRAINT flyover_video_orders_terrain_exaggeration_check CHECK (((terrain_exaggeration >= (1)::double precision) AND (terrain_exaggeration <= (3)::double precision))),
+    CONSTRAINT flyover_video_orders_work_check CHECK (((work IS NULL) OR (jsonb_typeof(work) = 'object'::text)))
+);
+
+
+--
 -- Name: nutrition_plans; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -11872,6 +12685,40 @@ CREATE TABLE public.nutrition_plans (
     CONSTRAINT nutrition_plans_goal_check CHECK ((goal = ANY (ARRAY['comfort'::text, 'good_time'::text, 'performance'::text]))),
     CONSTRAINT nutrition_plans_sweat_level_check CHECK ((sweat_level = ANY (ARRAY['a_lot'::text, 'normal'::text, 'little'::text])))
 );
+
+
+--
+-- Name: organizer_demo_requests; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.organizer_demo_requests (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    email text NOT NULL,
+    race_url text NOT NULL,
+    phone text,
+    attribution jsonb DEFAULT '{}'::jsonb NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    is_pending boolean GENERATED ALWAYS AS ((status = 'pending'::text)) STORED,
+    reviewed_at timestamp with time zone,
+    reviewed_by uuid,
+    admin_email_status text,
+    confirmation_email_status text,
+    CONSTRAINT organizer_demo_requests_attribution_check CHECK ((jsonb_typeof(attribution) = 'object'::text)),
+    CONSTRAINT organizer_demo_requests_email_check CHECK ((((char_length(email) >= 3) AND (char_length(email) <= 320)) AND (email ~~ '%_@_%'::text))),
+    CONSTRAINT organizer_demo_requests_email_status_check CHECK ((((admin_email_status IS NULL) OR (admin_email_status = ANY (ARRAY['sent'::text, 'skipped'::text, 'failed'::text]))) AND ((confirmation_email_status IS NULL) OR (confirmation_email_status = ANY (ARRAY['sent'::text, 'skipped'::text, 'failed'::text]))))),
+    CONSTRAINT organizer_demo_requests_phone_check CHECK (((phone IS NULL) OR ((char_length(phone) >= 6) AND (char_length(phone) <= 40)))),
+    CONSTRAINT organizer_demo_requests_race_url_check CHECK (((char_length(race_url) <= 2048) AND (race_url ~* '^https?://'::text))),
+    CONSTRAINT organizer_demo_requests_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'completed'::text, 'rejected'::text])))
+);
+
+
+--
+-- Name: TABLE organizer_demo_requests; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.organizer_demo_requests IS 'Demo requests from the public organizer landing page. Service-role only; listed in the admin inbox under Demandes de course.';
 
 
 --
@@ -11934,7 +12781,7 @@ CREATE TABLE public.organizer_racebook_module_settings (
     module_key text NOT NULL,
     is_enabled boolean DEFAULT false NOT NULL,
     configured_by uuid,
-    CONSTRAINT organizer_racebook_module_settings_scope_check CHECK ((((race_id IS NULL) AND (module_key = ANY (ARRAY['equipment'::text, 'bib_pickup'::text, 'access'::text, 'services'::text, 'branding'::text, 'sponsors'::text]))) OR ((race_id IS NOT NULL) AND (module_key = ANY (ARRAY['aid_stations'::text, 'supporter_points'::text, 'start_waves'::text, 'awards'::text, 'relay'::text, 'official_products'::text])))))
+    CONSTRAINT organizer_racebook_module_settings_scope_check CHECK ((((race_id IS NULL) AND (module_key = ANY (ARRAY['equipment'::text, 'bib_pickup'::text, 'access'::text, 'services'::text, 'branding'::text, 'sponsors'::text, 'supporter_guide'::text]))) OR ((race_id IS NOT NULL) AND (module_key = ANY (ARRAY['aid_stations'::text, 'supporter_points'::text, 'start_waves'::text, 'awards'::text, 'relay'::text, 'official_products'::text])))))
 );
 
 
@@ -11943,6 +12790,13 @@ CREATE TABLE public.organizer_racebook_module_settings (
 --
 
 COMMENT ON TABLE public.organizer_racebook_module_settings IS 'Edition and format module activation without deleting organizer-authored RaceBook content.';
+
+
+--
+-- Name: CONSTRAINT organizer_racebook_module_settings_scope_check ON organizer_racebook_module_settings; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON CONSTRAINT organizer_racebook_module_settings_scope_check ON public.organizer_racebook_module_settings IS 'Edition and format module keys; supporter_guide is edition-scoped and does not widen its source modules.';
 
 
 --
@@ -12027,6 +12881,31 @@ CREATE TABLE public.plan_aid_stations (
     order_index integer DEFAULT 0 NOT NULL,
     race_aid_station_id uuid
 );
+
+
+--
+-- Name: plan_share_follows; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.plan_share_follows (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    share_link_id uuid NOT NULL,
+    follower_user_id uuid NOT NULL,
+    nickname text,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    removed_at timestamp with time zone,
+    archived_at timestamp with time zone,
+    auto_archive_dismissed_at timestamp with time zone,
+    CONSTRAINT plan_share_follows_nickname_check CHECK (((nickname IS NULL) OR (((char_length(btrim(nickname)) >= 1) AND (char_length(btrim(nickname)) <= 60)) AND (nickname = btrim(nickname)))))
+);
+
+
+--
+-- Name: COLUMN plan_share_follows.auto_archive_dismissed_at; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.plan_share_follows.auto_archive_dismissed_at IS 'Set when a follower explicitly restores a completed race so calculated auto-archive does not immediately reapply.';
 
 
 --
@@ -12283,6 +13162,32 @@ COMMENT ON COLUMN public.race_event_edition_requests.requested_start_date IS 'Re
 
 
 --
+-- Name: race_event_edition_slug_redirects; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.race_event_edition_slug_redirects (
+    old_slug text NOT NULL,
+    edition_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    CONSTRAINT race_event_edition_slug_redirects_old_slug_format_check CHECK (((old_slug = lower(btrim(old_slug))) AND ((char_length(old_slug) >= 1) AND (char_length(old_slug) <= 160)) AND (old_slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'::text)))
+);
+
+
+--
+-- Name: TABLE race_event_edition_slug_redirects; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.race_event_edition_slug_redirects IS 'Service-only durable mappings from former event-edition slugs to the canonical edition row.';
+
+
+--
+-- Name: COLUMN race_event_edition_slug_redirects.old_slug; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.race_event_edition_slug_redirects.old_slug IS 'Former canonical edition slug. Redirected slugs remain reserved and cannot become canonical again.';
+
+
+--
 -- Name: race_event_editions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -12297,7 +13202,9 @@ CREATE TABLE public.race_event_editions (
     is_current boolean DEFAULT false NOT NULL,
     is_visible boolean DEFAULT true NOT NULL,
     module_setup_completed_at timestamp with time zone,
+    slug text NOT NULL,
     CONSTRAINT race_event_editions_date_order_check CHECK ((end_date >= start_date)),
+    CONSTRAINT race_event_editions_slug_format_check CHECK (((slug = lower(btrim(slug))) AND ((char_length(slug) >= 1) AND (char_length(slug) <= 160)) AND (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'::text))),
     CONSTRAINT race_event_editions_start_year_check CHECK ((edition_year = (EXTRACT(year FROM start_date))::smallint)),
     CONSTRAINT race_event_editions_year_check CHECK (((edition_year >= 2000) AND (edition_year <= 2100)))
 );
@@ -12329,6 +13236,13 @@ COMMENT ON COLUMN public.race_event_editions.is_visible IS 'Whether formats in t
 --
 
 COMMENT ON COLUMN public.race_event_editions.module_setup_completed_at IS 'Set when the organizer completes or skips the module setup assistant.';
+
+
+--
+-- Name: COLUMN race_event_editions.slug; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.race_event_editions.slug IS 'Durable canonical public slug for this exact yearly event edition.';
 
 
 --
@@ -12410,10 +13324,12 @@ CREATE TABLE public.race_events (
     location_country_code text,
     location_latitude double precision,
     location_longitude double precision,
+    short_name text,
     CONSTRAINT race_events_location_coordinates_pair_check CHECK (((location_latitude IS NULL) = (location_longitude IS NULL))),
     CONSTRAINT race_events_location_country_code_check CHECK (((location_country_code IS NULL) OR (location_country_code ~ '^[A-Z]{2}$'::text))),
     CONSTRAINT race_events_location_latitude_check CHECK (((location_latitude IS NULL) OR ((location_latitude >= ('-90'::integer)::double precision) AND (location_latitude <= (90)::double precision)))),
-    CONSTRAINT race_events_location_longitude_check CHECK (((location_longitude IS NULL) OR ((location_longitude >= ('-180'::integer)::double precision) AND (location_longitude <= (180)::double precision))))
+    CONSTRAINT race_events_location_longitude_check CHECK (((location_longitude IS NULL) OR ((location_longitude >= ('-180'::integer)::double precision) AND (location_longitude <= (180)::double precision)))),
+    CONSTRAINT race_events_short_name_check CHECK (((short_name IS NULL) OR (((char_length(btrim(short_name)) >= 1) AND (char_length(btrim(short_name)) <= 40)) AND (POSITION(('…'::text) IN (short_name)) = 0))))
 );
 
 
@@ -12492,6 +13408,13 @@ COMMENT ON COLUMN public.race_events.location_latitude IS 'Latitude of the event
 --
 
 COMMENT ON COLUMN public.race_events.location_longitude IS 'Longitude of the event anchor city, used for approximate nearby-city discovery.';
+
+
+--
+-- Name: COLUMN race_events.short_name; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.race_events.short_name IS 'Optional short event name shown by the admin reel hook (1-40 characters once trimmed, never truncated with an ellipsis). Null: the reel derives it from name.';
 
 
 --
@@ -12720,6 +13643,63 @@ CREATE TABLE public.rate_limit_entries (
 
 
 --
+-- Name: reel_automation_items; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.reel_automation_items (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    race_id uuid NOT NULL,
+    edition_key text NOT NULL,
+    mode text NOT NULL,
+    planned_publish_date date NOT NULL,
+    status text DEFAULT 'planned'::text NOT NULL,
+    step text,
+    attempts integer DEFAULT 0 NOT NULL,
+    error text,
+    reason text,
+    work jsonb,
+    render_job_id uuid,
+    social_post_id uuid,
+    locked_until timestamp with time zone,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    CONSTRAINT reel_automation_items_attempts_check CHECK ((attempts >= 0)),
+    CONSTRAINT reel_automation_items_edition_key_check CHECK (((char_length(edition_key) >= 1) AND (char_length(edition_key) <= 200))),
+    CONSTRAINT reel_automation_items_error_check CHECK (((error IS NULL) OR (char_length(error) <= 1000))),
+    CONSTRAINT reel_automation_items_mode_check CHECK ((mode = ANY (ARRAY['full'::text, 'highlights'::text]))),
+    CONSTRAINT reel_automation_items_reason_check CHECK (((reason IS NULL) OR (reason = ANY (ARRAY['too_late'::text, 'duplicate'::text, 'excluded'::text, 'ineligible'::text])))),
+    CONSTRAINT reel_automation_items_status_check CHECK ((status = ANY (ARRAY['planned'::text, 'generating'::text, 'rendering'::text, 'drafted'::text, 'scheduled'::text, 'skipped'::text, 'failed'::text]))),
+    CONSTRAINT reel_automation_items_step_check CHECK (((step IS NULL) OR (step = ANY (ARRAY['content'::text, 'voice'::text, 'render'::text])))),
+    CONSTRAINT reel_automation_items_work_check CHECK (((work IS NULL) OR (jsonb_typeof(work) = 'object'::text)))
+);
+
+
+--
+-- Name: reel_automation_settings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.reel_automation_settings (
+    id boolean DEFAULT true NOT NULL,
+    generation_enabled boolean DEFAULT false NOT NULL,
+    auto_publish_enabled boolean DEFAULT false NOT NULL,
+    max_per_week integer DEFAULT 3 NOT NULL,
+    max_per_day integer DEFAULT 1 NOT NULL,
+    lead_days integer DEFAULT 3 NOT NULL,
+    publish_time time without time zone DEFAULT '18:00:00'::time without time zone NOT NULL,
+    updated_by uuid,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    plan_carousel_enabled boolean DEFAULT false NOT NULL,
+    brief_carousel_enabled boolean DEFAULT false NOT NULL,
+    week_carousel_enabled boolean DEFAULT false NOT NULL,
+    CONSTRAINT reel_automation_settings_id_check CHECK (id),
+    CONSTRAINT reel_automation_settings_lead_days_check CHECK (((lead_days >= 1) AND (lead_days <= 14))),
+    CONSTRAINT reel_automation_settings_max_per_day_check CHECK (((max_per_day >= 1) AND (max_per_day <= 3))),
+    CONSTRAINT reel_automation_settings_max_per_week_check CHECK (((max_per_week >= 1) AND (max_per_week <= 7))),
+    CONSTRAINT reel_automation_settings_publish_needs_generation CHECK (((NOT auto_publish_enabled) OR generation_enabled))
+);
+
+
+--
 -- Name: runner_admin_access_modes; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -12929,6 +13909,73 @@ CREATE TABLE public.runner_support_purchases (
 
 
 --
+-- Name: social_posts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.social_posts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    race_id uuid,
+    video_job_id uuid,
+    platform text DEFAULT 'instagram'::text NOT NULL,
+    status text DEFAULT 'draft'::text NOT NULL,
+    caption text DEFAULT ''::text NOT NULL,
+    hashtags text[] DEFAULT '{}'::text[] NOT NULL,
+    cover_text text,
+    video_url text,
+    scheduled_at timestamp with time zone,
+    published_at timestamp with time zone,
+    ig_container_id text,
+    ig_container_created_at timestamp with time zone,
+    publish_requested_at timestamp with time zone,
+    ig_media_id text,
+    ig_permalink text,
+    error text,
+    dry_run boolean DEFAULT true NOT NULL,
+    attempt_count integer DEFAULT 0 NOT NULL,
+    locked_until timestamp with time zone,
+    content jsonb,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    auto_generated boolean DEFAULT false NOT NULL,
+    media_type text DEFAULT 'reel'::text NOT NULL,
+    carousel_series text,
+    carousel_job_id uuid,
+    image_paths text[],
+    ig_child_container_ids text[] DEFAULT '{}'::text[] NOT NULL,
+    collaborators text[] DEFAULT '{}'::text[] NOT NULL,
+    CONSTRAINT social_posts_attempt_count_check CHECK ((attempt_count >= 0)),
+    CONSTRAINT social_posts_caption_check CHECK ((char_length(caption) <= 2200)),
+    CONSTRAINT social_posts_carousel_series_check CHECK (((carousel_series IS NULL) OR (carousel_series = ANY (ARRAY['plan'::text, 'brief'::text, 'week'::text])))),
+    CONSTRAINT social_posts_carousel_shape CHECK (((media_type = 'reel'::text) OR ((carousel_series IS NOT NULL) AND (image_paths IS NOT NULL) AND (video_job_id IS NULL) AND (video_url IS NULL)))),
+    CONSTRAINT social_posts_collaborators_max CHECK ((cardinality(collaborators) <= 3)),
+    CONSTRAINT social_posts_content_check CHECK (((content IS NULL) OR (jsonb_typeof(content) = 'object'::text))),
+    CONSTRAINT social_posts_cover_text_check CHECK (((cover_text IS NULL) OR (char_length(cover_text) <= 200))),
+    CONSTRAINT social_posts_error_check CHECK (((error IS NULL) OR (char_length(error) <= 1000))),
+    CONSTRAINT social_posts_hashtags_check CHECK ((cardinality(hashtags) <= 30)),
+    CONSTRAINT social_posts_ig_child_container_ids_check CHECK ((cardinality(ig_child_container_ids) <= 10)),
+    CONSTRAINT social_posts_ig_container_id_check CHECK (((ig_container_id IS NULL) OR (char_length(ig_container_id) <= 64))),
+    CONSTRAINT social_posts_ig_media_id_check CHECK (((ig_media_id IS NULL) OR (char_length(ig_media_id) <= 64))),
+    CONSTRAINT social_posts_ig_permalink_check CHECK (((ig_permalink IS NULL) OR (char_length(ig_permalink) <= 500))),
+    CONSTRAINT social_posts_image_paths_check CHECK (((image_paths IS NULL) OR ((cardinality(image_paths) >= 2) AND (cardinality(image_paths) <= 10)))),
+    CONSTRAINT social_posts_media_type_check CHECK ((media_type = ANY (ARRAY['reel'::text, 'carousel'::text]))),
+    CONSTRAINT social_posts_platform_check CHECK ((platform = 'instagram'::text)),
+    CONSTRAINT social_posts_published_has_date CHECK (((status <> 'published'::text) OR (published_at IS NOT NULL))),
+    CONSTRAINT social_posts_reel_shape CHECK (((media_type = 'carousel'::text) OR ((carousel_series IS NULL) AND (carousel_job_id IS NULL) AND (image_paths IS NULL) AND (cardinality(ig_child_container_ids) = 0)))),
+    CONSTRAINT social_posts_scheduled_has_date CHECK (((status <> 'scheduled'::text) OR (scheduled_at IS NOT NULL))),
+    CONSTRAINT social_posts_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'scheduled'::text, 'publishing'::text, 'published'::text, 'failed'::text]))),
+    CONSTRAINT social_posts_video_url_check CHECK (((video_url IS NULL) OR (char_length(video_url) <= 300)))
+);
+
+
+--
+-- Name: TABLE social_posts; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.social_posts IS 'Instagram Reels drafted from finished video_render_jobs and published by admin action only. Service-role only.';
+
+
+--
 -- Name: subscriptions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -13000,6 +14047,7 @@ CREATE TABLE public.user_profiles (
     onboarding_completed_at timestamp with time zone,
     plan_onboarding_status text DEFAULT 'pending'::text NOT NULL,
     racebook_onboarding_status text DEFAULT 'pending'::text NOT NULL,
+    supporter_onboarding_status text DEFAULT 'pending'::text NOT NULL,
     CONSTRAINT user_profiles_age_check CHECK (((age IS NULL) OR (age >= 0))),
     CONSTRAINT user_profiles_comfortable_flat_pace_check CHECK (((comfortable_flat_pace_min_per_km IS NULL) OR (comfortable_flat_pace_min_per_km > (0)::numeric))),
     CONSTRAINT user_profiles_default_carbs_g_per_hour_check CHECK (((default_carbs_g_per_hour IS NULL) OR (default_carbs_g_per_hour >= 0))),
@@ -13008,6 +14056,7 @@ CREATE TABLE public.user_profiles (
     CONSTRAINT user_profiles_height_cm_check CHECK (((height_cm IS NULL) OR ((height_cm >= 100) AND (height_cm <= 250)))),
     CONSTRAINT user_profiles_plan_onboarding_status_check CHECK ((plan_onboarding_status = ANY (ARRAY['pending'::text, 'in_progress'::text, 'skipped'::text, 'completed'::text]))),
     CONSTRAINT user_profiles_racebook_onboarding_status_check CHECK ((racebook_onboarding_status = ANY (ARRAY['pending'::text, 'in_progress'::text, 'skipped'::text, 'completed'::text]))),
+    CONSTRAINT user_profiles_supporter_onboarding_status_check CHECK ((supporter_onboarding_status = ANY (ARRAY['pending'::text, 'in_progress'::text, 'skipped'::text, 'completed'::text]))),
     CONSTRAINT user_profiles_utmb_index_check CHECK (((utmb_index IS NULL) OR ((utmb_index >= (0)::numeric) AND (utmb_index <= (2000)::numeric)))),
     CONSTRAINT user_profiles_water_bag_check CHECK (((water_bag_liters IS NULL) OR (water_bag_liters >= (0)::numeric))),
     CONSTRAINT user_profiles_weight_kg_check CHECK (((weight_kg IS NULL) OR ((weight_kg >= (20)::numeric) AND (weight_kg <= (250)::numeric))))
@@ -13036,6 +14085,13 @@ COMMENT ON COLUMN public.user_profiles.racebook_onboarding_status IS 'Runner-fac
 
 
 --
+-- Name: COLUMN user_profiles.supporter_onboarding_status; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.user_profiles.supporter_onboarding_status IS 'Supporter-facing mobile Livret supporter onboarding state: pending, in_progress, skipped, or completed.';
+
+
+--
 -- Name: video_narrations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -13047,7 +14103,11 @@ CREATE TABLE public.video_narrations (
     clip_count integer DEFAULT 0 NOT NULL,
     updated_by uuid,
     updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
-    CONSTRAINT video_narrations_clip_count_check CHECK ((clip_count >= 0))
+    mode text DEFAULT 'full'::text NOT NULL,
+    content jsonb,
+    CONSTRAINT video_narrations_clip_count_check CHECK ((clip_count >= 0)),
+    CONSTRAINT video_narrations_content_object CHECK (((content IS NULL) OR (jsonb_typeof(content) = 'object'::text))),
+    CONSTRAINT video_narrations_mode_check CHECK ((mode = ANY (ARRAY['full'::text, 'highlights'::text])))
 );
 
 
@@ -13057,7 +14117,7 @@ CREATE TABLE public.video_narrations (
 
 CREATE TABLE public.video_render_jobs (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    race_id uuid NOT NULL,
+    race_id uuid,
     race_title text NOT NULL,
     status text DEFAULT 'uploading'::text NOT NULL,
     progress real DEFAULT 0 NOT NULL,
@@ -13071,13 +14131,35 @@ CREATE TABLE public.video_render_jobs (
     updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
     started_at timestamp with time zone,
     finished_at timestamp with time zone,
+    content jsonb,
+    auto_draft boolean DEFAULT false NOT NULL,
+    flyover_order_id uuid,
+    CONSTRAINT video_render_jobs_content_object CHECK (((content IS NULL) OR (jsonb_typeof(content) = 'object'::text))),
     CONSTRAINT video_render_jobs_height_check CHECK (((height >= 160) AND (height <= 4096))),
     CONSTRAINT video_render_jobs_message_check CHECK (((message IS NULL) OR (char_length(message) <= 500))),
     CONSTRAINT video_render_jobs_output_size_bytes_check CHECK (((output_size_bytes IS NULL) OR (output_size_bytes >= 0))),
     CONSTRAINT video_render_jobs_progress_check CHECK (((progress >= (0)::double precision) AND (progress <= (1)::double precision))),
+    CONSTRAINT video_render_jobs_race_or_flyover CHECK (((race_id IS NOT NULL) OR (flyover_order_id IS NOT NULL))),
     CONSTRAINT video_render_jobs_race_title_check CHECK (((char_length(race_title) >= 1) AND (char_length(race_title) <= 200))),
     CONSTRAINT video_render_jobs_status_check CHECK ((status = ANY (ARRAY['uploading'::text, 'queued'::text, 'running'::text, 'done'::text, 'failed'::text]))),
     CONSTRAINT video_render_jobs_width_check CHECK (((width >= 160) AND (width <= 4096)))
+);
+
+
+--
+-- Name: video_voices; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.video_voices (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    elevenlabs_voice_id text NOT NULL,
+    name text NOT NULL,
+    active boolean DEFAULT true NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    CONSTRAINT video_voices_elevenlabs_voice_id_check CHECK ((elevenlabs_voice_id ~ '^[A-Za-z0-9]{8,64}$'::text)),
+    CONSTRAINT video_voices_name_check CHECK (((char_length(name) >= 1) AND (char_length(name) <= 40)))
 );
 
 
@@ -13715,11 +14797,67 @@ ALTER TABLE ONLY public.app_feedback
 
 
 --
+-- Name: carousel_automation_items carousel_automation_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.carousel_automation_items
+    ADD CONSTRAINT carousel_automation_items_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: carousel_automation_items carousel_automation_items_series_day; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.carousel_automation_items
+    ADD CONSTRAINT carousel_automation_items_series_day UNIQUE (series, planned_publish_date);
+
+
+--
+-- Name: carousel_render_jobs carousel_render_jobs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.carousel_render_jobs
+    ADD CONSTRAINT carousel_render_jobs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: feedback_survey_campaigns feedback_survey_campaigns_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.feedback_survey_campaigns
+    ADD CONSTRAINT feedback_survey_campaigns_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: feedback_survey_responses feedback_survey_responses_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.feedback_survey_responses
+    ADD CONSTRAINT feedback_survey_responses_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: flyover_video_orders flyover_video_orders_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.flyover_video_orders
+    ADD CONSTRAINT flyover_video_orders_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: nutrition_plans nutrition_plans_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.nutrition_plans
     ADD CONSTRAINT nutrition_plans_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: organizer_demo_requests organizer_demo_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizer_demo_requests
+    ADD CONSTRAINT organizer_demo_requests_pkey PRIMARY KEY (id);
 
 
 --
@@ -13848,6 +14986,22 @@ ALTER TABLE ONLY public.partner_link_settings
 
 ALTER TABLE ONLY public.plan_aid_stations
     ADD CONSTRAINT plan_aid_stations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: plan_share_follows plan_share_follows_link_follower_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.plan_share_follows
+    ADD CONSTRAINT plan_share_follows_link_follower_key UNIQUE (share_link_id, follower_user_id);
+
+
+--
+-- Name: plan_share_follows plan_share_follows_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.plan_share_follows
+    ADD CONSTRAINT plan_share_follows_pkey PRIMARY KEY (id);
 
 
 --
@@ -14003,6 +15157,14 @@ ALTER TABLE ONLY public.race_event_edition_requests
 
 
 --
+-- Name: race_event_edition_slug_redirects race_event_edition_slug_redirects_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.race_event_edition_slug_redirects
+    ADD CONSTRAINT race_event_edition_slug_redirects_pkey PRIMARY KEY (old_slug);
+
+
+--
 -- Name: race_event_edition_sponsors race_event_edition_sponsors_edition_id_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -14032,6 +15194,14 @@ ALTER TABLE ONLY public.race_event_editions
 
 ALTER TABLE ONLY public.race_event_editions
     ADD CONSTRAINT race_event_editions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: race_event_editions race_event_editions_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.race_event_editions
+    ADD CONSTRAINT race_event_editions_slug_key UNIQUE (slug);
 
 
 --
@@ -14211,6 +15381,30 @@ ALTER TABLE ONLY public.rate_limit_entries
 
 
 --
+-- Name: reel_automation_items reel_automation_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.reel_automation_items
+    ADD CONSTRAINT reel_automation_items_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: reel_automation_items reel_automation_items_race_edition_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.reel_automation_items
+    ADD CONSTRAINT reel_automation_items_race_edition_key UNIQUE (race_id, edition_key);
+
+
+--
+-- Name: reel_automation_settings reel_automation_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.reel_automation_settings
+    ADD CONSTRAINT reel_automation_settings_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: runner_admin_access_modes runner_admin_access_modes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -14355,6 +15549,14 @@ ALTER TABLE ONLY public.runner_support_purchases
 
 
 --
+-- Name: social_posts social_posts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.social_posts
+    ADD CONSTRAINT social_posts_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: subscriptions subscriptions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -14415,7 +15617,7 @@ ALTER TABLE ONLY public.user_profiles
 --
 
 ALTER TABLE ONLY public.video_narrations
-    ADD CONSTRAINT video_narrations_pkey PRIMARY KEY (race_id);
+    ADD CONSTRAINT video_narrations_pkey PRIMARY KEY (race_id, mode);
 
 
 --
@@ -14424,6 +15626,22 @@ ALTER TABLE ONLY public.video_narrations
 
 ALTER TABLE ONLY public.video_render_jobs
     ADD CONSTRAINT video_render_jobs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: video_voices video_voices_elevenlabs_voice_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.video_voices
+    ADD CONSTRAINT video_voices_elevenlabs_voice_id_key UNIQUE (elevenlabs_voice_id);
+
+
+--
+-- Name: video_voices video_voices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.video_voices
+    ADD CONSTRAINT video_voices_pkey PRIMARY KEY (id);
 
 
 --
@@ -14735,6 +15953,13 @@ CREATE INDEX oauth_consents_active_user_client_idx ON auth.oauth_consents USING 
 --
 
 CREATE INDEX oauth_consents_user_order_idx ON auth.oauth_consents USING btree (user_id, granted_at DESC);
+
+
+--
+-- Name: one_time_tokens_link_token_hash_hash_idx; Type: INDEX; Schema: auth; Owner: -
+--
+
+CREATE INDEX one_time_tokens_link_token_hash_hash_idx ON auth.one_time_tokens USING hash (link_token_hash);
 
 
 --
@@ -15102,6 +16327,125 @@ CREATE INDEX app_feedback_user_id_idx ON public.app_feedback USING btree (user_i
 
 
 --
+-- Name: carousel_automation_items_job_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX carousel_automation_items_job_idx ON public.carousel_automation_items USING btree (carousel_job_id);
+
+
+--
+-- Name: carousel_automation_items_race_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX carousel_automation_items_race_idx ON public.carousel_automation_items USING btree (race_id);
+
+
+--
+-- Name: carousel_automation_items_social_post_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX carousel_automation_items_social_post_idx ON public.carousel_automation_items USING btree (social_post_id);
+
+
+--
+-- Name: carousel_automation_items_status_date_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX carousel_automation_items_status_date_idx ON public.carousel_automation_items USING btree (status, planned_publish_date);
+
+
+--
+-- Name: carousel_render_jobs_created_by_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX carousel_render_jobs_created_by_idx ON public.carousel_render_jobs USING btree (created_by);
+
+
+--
+-- Name: carousel_render_jobs_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX carousel_render_jobs_created_idx ON public.carousel_render_jobs USING btree (created_at DESC);
+
+
+--
+-- Name: carousel_render_jobs_race_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX carousel_render_jobs_race_idx ON public.carousel_render_jobs USING btree (race_id);
+
+
+--
+-- Name: feedback_survey_campaigns_created_by_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX feedback_survey_campaigns_created_by_idx ON public.feedback_survey_campaigns USING btree (created_by) WHERE (created_by IS NOT NULL);
+
+
+--
+-- Name: feedback_survey_campaigns_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX feedback_survey_campaigns_created_idx ON public.feedback_survey_campaigns USING btree (created_at DESC);
+
+
+--
+-- Name: feedback_survey_responses_campaign_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX feedback_survey_responses_campaign_created_idx ON public.feedback_survey_responses USING btree (campaign_id, created_at DESC);
+
+
+--
+-- Name: feedback_survey_responses_notification_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX feedback_survey_responses_notification_idx ON public.feedback_survey_responses USING btree (notification_id) WHERE (notification_id IS NOT NULL);
+
+
+--
+-- Name: feedback_survey_responses_user_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX feedback_survey_responses_user_idx ON public.feedback_survey_responses USING btree (user_id);
+
+
+--
+-- Name: flyover_video_orders_checkout_session_uidx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX flyover_video_orders_checkout_session_uidx ON public.flyover_video_orders USING btree (stripe_checkout_session_id) WHERE (stripe_checkout_session_id IS NOT NULL);
+
+
+--
+-- Name: flyover_video_orders_payment_intent_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX flyover_video_orders_payment_intent_idx ON public.flyover_video_orders USING btree (stripe_payment_intent_id);
+
+
+--
+-- Name: flyover_video_orders_render_job_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX flyover_video_orders_render_job_idx ON public.flyover_video_orders USING btree (render_job_id);
+
+
+--
+-- Name: flyover_video_orders_social_post_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX flyover_video_orders_social_post_idx ON public.flyover_video_orders USING btree (social_post_id);
+
+
+--
+-- Name: flyover_video_orders_status_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX flyover_video_orders_status_idx ON public.flyover_video_orders USING btree (status, paid_at);
+
+
+--
 -- Name: idx_races_event_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -15113,6 +16457,20 @@ CREATE INDEX idx_races_event_id ON public.races USING btree (event_id);
 --
 
 CREATE INDEX nutrition_plans_user_id_idx ON public.nutrition_plans USING btree (user_id);
+
+
+--
+-- Name: organizer_demo_requests_pending_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX organizer_demo_requests_pending_created_idx ON public.organizer_demo_requests USING btree (is_pending DESC, created_at DESC);
+
+
+--
+-- Name: organizer_demo_requests_reviewed_by_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX organizer_demo_requests_reviewed_by_idx ON public.organizer_demo_requests USING btree (reviewed_by) WHERE (reviewed_by IS NOT NULL);
 
 
 --
@@ -15316,6 +16674,20 @@ CREATE INDEX organizer_social_proofs_published_order_idx ON public.organizer_soc
 --
 
 CREATE INDEX plan_aid_stations_plan_order_idx ON public.plan_aid_stations USING btree (plan_id, order_index);
+
+
+--
+-- Name: plan_share_follows_follower_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX plan_share_follows_follower_idx ON public.plan_share_follows USING btree (follower_user_id, archived_at, created_at DESC);
+
+
+--
+-- Name: plan_share_follows_link_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX plan_share_follows_link_idx ON public.plan_share_follows USING btree (share_link_id, removed_at, created_at DESC);
 
 
 --
@@ -15533,6 +16905,13 @@ CREATE UNIQUE INDEX race_event_edition_requests_open_event_date_idx ON public.ra
 --
 
 CREATE INDEX race_event_edition_requests_user_idx ON public.race_event_edition_requests USING btree (user_id, created_at DESC);
+
+
+--
+-- Name: race_event_edition_slug_redirects_edition_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX race_event_edition_slug_redirects_edition_id_idx ON public.race_event_edition_slug_redirects USING btree (edition_id);
 
 
 --
@@ -15872,6 +17251,34 @@ CREATE INDEX races_web_catalog_date_name_idx ON public.races USING btree (race_d
 
 
 --
+-- Name: reel_automation_items_render_job_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX reel_automation_items_render_job_idx ON public.reel_automation_items USING btree (render_job_id);
+
+
+--
+-- Name: reel_automation_items_social_post_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX reel_automation_items_social_post_idx ON public.reel_automation_items USING btree (social_post_id);
+
+
+--
+-- Name: reel_automation_items_status_date_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX reel_automation_items_status_date_idx ON public.reel_automation_items USING btree (status, planned_publish_date);
+
+
+--
+-- Name: reel_automation_settings_updated_by_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX reel_automation_settings_updated_by_idx ON public.reel_automation_settings USING btree (updated_by);
+
+
+--
 -- Name: runner_billing_events_transaction_state_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -15963,6 +17370,62 @@ CREATE UNIQUE INDEX runner_support_purchase_intents_provider_transaction ON publ
 
 
 --
+-- Name: social_posts_auto_generated_carousel_job_uidx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX social_posts_auto_generated_carousel_job_uidx ON public.social_posts USING btree (carousel_job_id) WHERE (auto_generated AND (carousel_job_id IS NOT NULL));
+
+
+--
+-- Name: social_posts_auto_generated_video_job_uidx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX social_posts_auto_generated_video_job_uidx ON public.social_posts USING btree (video_job_id) WHERE (auto_generated AND (video_job_id IS NOT NULL));
+
+
+--
+-- Name: social_posts_carousel_job_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX social_posts_carousel_job_idx ON public.social_posts USING btree (carousel_job_id);
+
+
+--
+-- Name: social_posts_created_by_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX social_posts_created_by_idx ON public.social_posts USING btree (created_by);
+
+
+--
+-- Name: social_posts_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX social_posts_created_idx ON public.social_posts USING btree (created_at DESC);
+
+
+--
+-- Name: social_posts_race_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX social_posts_race_idx ON public.social_posts USING btree (race_id);
+
+
+--
+-- Name: social_posts_status_scheduled_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX social_posts_status_scheduled_idx ON public.social_posts USING btree (status, scheduled_at);
+
+
+--
+-- Name: social_posts_video_job_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX social_posts_video_job_idx ON public.social_posts USING btree (video_job_id);
+
+
+--
 -- Name: subscriptions_stripe_subscription_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -16026,6 +17489,13 @@ CREATE INDEX user_notifications_race_request_idx ON public.user_notifications US
 
 
 --
+-- Name: user_notifications_survey_campaign_user_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX user_notifications_survey_campaign_user_idx ON public.user_notifications USING btree (survey_campaign_id, user_id) WHERE (survey_campaign_id IS NOT NULL);
+
+
+--
 -- Name: user_notifications_user_created_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -16061,10 +17531,24 @@ CREATE INDEX video_render_jobs_created_idx ON public.video_render_jobs USING btr
 
 
 --
+-- Name: video_render_jobs_flyover_order_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX video_render_jobs_flyover_order_idx ON public.video_render_jobs USING btree (flyover_order_id);
+
+
+--
 -- Name: video_render_jobs_race_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX video_render_jobs_race_idx ON public.video_render_jobs USING btree (race_id);
+
+
+--
+-- Name: video_voices_created_by_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX video_voices_created_by_idx ON public.video_voices USING btree (created_by);
 
 
 --
@@ -16418,6 +17902,20 @@ CREATE TRIGGER initialize_plan_source_review_revision_trigger BEFORE INSERT OR U
 
 
 --
+-- Name: feedback_survey_responses prepare_feedback_survey_response; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER prepare_feedback_survey_response BEFORE INSERT ON public.feedback_survey_responses FOR EACH ROW EXECUTE FUNCTION public.prepare_feedback_survey_response();
+
+
+--
+-- Name: plan_share_follows prevent_own_plan_share_follow; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER prevent_own_plan_share_follow BEFORE INSERT OR UPDATE OF share_link_id, follower_user_id ON public.plan_share_follows FOR EACH ROW EXECUTE FUNCTION public.prevent_own_plan_share_follow();
+
+
+--
 -- Name: organizer_edition_payments protect_issued_organizer_invoice_trigger; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -16443,6 +17941,13 @@ CREATE TRIGGER protect_server_managed_profile_fields_insert BEFORE INSERT ON pub
 --
 
 CREATE TRIGGER protect_server_managed_profile_fields_update BEFORE UPDATE OF role, trial_started_at, trial_ends_at, sign_in_count, first_sign_in_at, last_sign_in_at ON public.user_profiles FOR EACH ROW EXECUTE FUNCTION public.protect_server_managed_profile_fields();
+
+
+--
+-- Name: race_event_editions record_race_event_edition_slug_redirect; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER record_race_event_edition_slug_redirect BEFORE INSERT OR UPDATE OF slug ON public.race_event_editions FOR EACH ROW EXECUTE FUNCTION public.record_race_event_edition_slug_redirect();
 
 
 --
@@ -16481,10 +17986,52 @@ CREATE TRIGGER set_app_feedback_updated_at BEFORE UPDATE ON public.app_feedback 
 
 
 --
+-- Name: carousel_automation_items set_carousel_automation_items_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER set_carousel_automation_items_updated_at BEFORE UPDATE ON public.carousel_automation_items FOR EACH ROW EXECUTE FUNCTION public.set_reel_automation_updated_at();
+
+
+--
+-- Name: carousel_render_jobs set_carousel_render_jobs_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER set_carousel_render_jobs_updated_at BEFORE UPDATE ON public.carousel_render_jobs FOR EACH ROW EXECUTE FUNCTION public.set_social_publishing_updated_at();
+
+
+--
+-- Name: feedback_survey_campaigns set_feedback_survey_campaigns_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER set_feedback_survey_campaigns_updated_at BEFORE UPDATE ON public.feedback_survey_campaigns FOR EACH ROW EXECUTE FUNCTION public.set_admin_user_notification_updated_at();
+
+
+--
+-- Name: flyover_video_orders set_flyover_video_orders_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER set_flyover_video_orders_updated_at BEFORE UPDATE ON public.flyover_video_orders FOR EACH ROW EXECUTE FUNCTION public.set_flyover_video_orders_updated_at();
+
+
+--
+-- Name: organizer_demo_requests set_organizer_demo_requests_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER set_organizer_demo_requests_updated_at BEFORE UPDATE ON public.organizer_demo_requests FOR EACH ROW EXECUTE FUNCTION public.set_admin_user_notification_updated_at();
+
+
+--
 -- Name: organizer_import_sessions set_organizer_import_sessions_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER set_organizer_import_sessions_updated_at BEFORE UPDATE ON public.organizer_import_sessions FOR EACH ROW EXECUTE FUNCTION public.set_organizer_import_sessions_updated_at();
+
+
+--
+-- Name: plan_share_follows set_plan_share_follows_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER set_plan_share_follows_updated_at BEFORE UPDATE ON public.plan_share_follows FOR EACH ROW EXECUTE FUNCTION public.set_plan_share_follows_updated_at();
 
 
 --
@@ -16628,10 +18175,31 @@ CREATE TRIGGER set_races_updated_at BEFORE UPDATE ON public.races FOR EACH ROW E
 
 
 --
+-- Name: reel_automation_items set_reel_automation_items_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER set_reel_automation_items_updated_at BEFORE UPDATE ON public.reel_automation_items FOR EACH ROW EXECUTE FUNCTION public.set_reel_automation_updated_at();
+
+
+--
+-- Name: reel_automation_settings set_reel_automation_settings_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER set_reel_automation_settings_updated_at BEFORE UPDATE ON public.reel_automation_settings FOR EACH ROW EXECUTE FUNCTION public.set_reel_automation_updated_at();
+
+
+--
 -- Name: runner_plan_unlocks set_runner_plan_unlocks_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER set_runner_plan_unlocks_updated_at BEFORE UPDATE ON public.runner_plan_unlocks FOR EACH ROW EXECUTE FUNCTION public.set_runner_plan_unlocks_updated_at();
+
+
+--
+-- Name: social_posts set_social_posts_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER set_social_posts_updated_at BEFORE UPDATE ON public.social_posts FOR EACH ROW EXECUTE FUNCTION public.set_social_publishing_updated_at();
 
 
 --
@@ -16653,6 +18221,13 @@ CREATE TRIGGER set_user_notifications_updated_at BEFORE UPDATE ON public.user_no
 --
 
 CREATE TRIGGER set_user_profiles_updated_at BEFORE UPDATE ON public.user_profiles FOR EACH ROW EXECUTE FUNCTION public.set_user_profiles_updated_at();
+
+
+--
+-- Name: video_voices set_video_voices_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER set_video_voices_updated_at BEFORE UPDATE ON public.video_voices FOR EACH ROW EXECUTE FUNCTION public.set_video_voices_updated_at();
 
 
 --
@@ -17026,11 +18601,115 @@ ALTER TABLE ONLY public.app_feedback
 
 
 --
+-- Name: carousel_automation_items carousel_automation_items_carousel_job_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.carousel_automation_items
+    ADD CONSTRAINT carousel_automation_items_carousel_job_id_fkey FOREIGN KEY (carousel_job_id) REFERENCES public.carousel_render_jobs(id) ON DELETE SET NULL;
+
+
+--
+-- Name: carousel_automation_items carousel_automation_items_race_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.carousel_automation_items
+    ADD CONSTRAINT carousel_automation_items_race_id_fkey FOREIGN KEY (race_id) REFERENCES public.races(id) ON DELETE SET NULL;
+
+
+--
+-- Name: carousel_automation_items carousel_automation_items_social_post_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.carousel_automation_items
+    ADD CONSTRAINT carousel_automation_items_social_post_id_fkey FOREIGN KEY (social_post_id) REFERENCES public.social_posts(id) ON DELETE SET NULL;
+
+
+--
+-- Name: carousel_render_jobs carousel_render_jobs_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.carousel_render_jobs
+    ADD CONSTRAINT carousel_render_jobs_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: carousel_render_jobs carousel_render_jobs_race_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.carousel_render_jobs
+    ADD CONSTRAINT carousel_render_jobs_race_id_fkey FOREIGN KEY (race_id) REFERENCES public.races(id) ON DELETE SET NULL;
+
+
+--
+-- Name: feedback_survey_campaigns feedback_survey_campaigns_audience_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.feedback_survey_campaigns
+    ADD CONSTRAINT feedback_survey_campaigns_audience_user_id_fkey FOREIGN KEY (audience_user_id) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: feedback_survey_campaigns feedback_survey_campaigns_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.feedback_survey_campaigns
+    ADD CONSTRAINT feedback_survey_campaigns_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: feedback_survey_responses feedback_survey_responses_campaign_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.feedback_survey_responses
+    ADD CONSTRAINT feedback_survey_responses_campaign_id_fkey FOREIGN KEY (campaign_id) REFERENCES public.feedback_survey_campaigns(id) ON DELETE SET NULL;
+
+
+--
+-- Name: feedback_survey_responses feedback_survey_responses_notification_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.feedback_survey_responses
+    ADD CONSTRAINT feedback_survey_responses_notification_id_fkey FOREIGN KEY (notification_id) REFERENCES public.user_notifications(id) ON DELETE SET NULL;
+
+
+--
+-- Name: feedback_survey_responses feedback_survey_responses_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.feedback_survey_responses
+    ADD CONSTRAINT feedback_survey_responses_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: flyover_video_orders flyover_video_orders_render_job_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.flyover_video_orders
+    ADD CONSTRAINT flyover_video_orders_render_job_fkey FOREIGN KEY (render_job_id) REFERENCES public.video_render_jobs(id) ON DELETE SET NULL;
+
+
+--
+-- Name: flyover_video_orders flyover_video_orders_social_post_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.flyover_video_orders
+    ADD CONSTRAINT flyover_video_orders_social_post_id_fkey FOREIGN KEY (social_post_id) REFERENCES public.social_posts(id) ON DELETE SET NULL;
+
+
+--
 -- Name: nutrition_plans nutrition_plans_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.nutrition_plans
     ADD CONSTRAINT nutrition_plans_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: organizer_demo_requests organizer_demo_requests_reviewed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizer_demo_requests
+    ADD CONSTRAINT organizer_demo_requests_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES auth.users(id) ON DELETE SET NULL;
 
 
 --
@@ -17242,6 +18921,22 @@ ALTER TABLE ONLY public.plan_aid_stations
 
 
 --
+-- Name: plan_share_follows plan_share_follows_follower_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.plan_share_follows
+    ADD CONSTRAINT plan_share_follows_follower_user_id_fkey FOREIGN KEY (follower_user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: plan_share_follows plan_share_follows_share_link_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.plan_share_follows
+    ADD CONSTRAINT plan_share_follows_share_link_id_fkey FOREIGN KEY (share_link_id) REFERENCES public.plan_share_links(id) ON DELETE CASCADE;
+
+
+--
 -- Name: plan_share_links plan_share_links_plan_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -17423,6 +19118,14 @@ ALTER TABLE ONLY public.race_event_edition_requests
 
 ALTER TABLE ONLY public.race_event_edition_requests
     ADD CONSTRAINT race_event_edition_requests_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: race_event_edition_slug_redirects race_event_edition_slug_redirects_edition_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.race_event_edition_slug_redirects
+    ADD CONSTRAINT race_event_edition_slug_redirects_edition_id_fkey FOREIGN KEY (edition_id) REFERENCES public.race_event_editions(id) ON DELETE CASCADE;
 
 
 --
@@ -17746,6 +19449,38 @@ ALTER TABLE ONLY public.races
 
 
 --
+-- Name: reel_automation_items reel_automation_items_race_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.reel_automation_items
+    ADD CONSTRAINT reel_automation_items_race_id_fkey FOREIGN KEY (race_id) REFERENCES public.races(id) ON DELETE CASCADE;
+
+
+--
+-- Name: reel_automation_items reel_automation_items_render_job_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.reel_automation_items
+    ADD CONSTRAINT reel_automation_items_render_job_id_fkey FOREIGN KEY (render_job_id) REFERENCES public.video_render_jobs(id) ON DELETE SET NULL;
+
+
+--
+-- Name: reel_automation_items reel_automation_items_social_post_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.reel_automation_items
+    ADD CONSTRAINT reel_automation_items_social_post_id_fkey FOREIGN KEY (social_post_id) REFERENCES public.social_posts(id) ON DELETE SET NULL;
+
+
+--
+-- Name: reel_automation_settings reel_automation_settings_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.reel_automation_settings
+    ADD CONSTRAINT reel_automation_settings_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
 -- Name: runner_admin_access_modes runner_admin_access_modes_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -17858,6 +19593,38 @@ ALTER TABLE ONLY public.runner_support_purchases
 
 
 --
+-- Name: social_posts social_posts_carousel_job_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.social_posts
+    ADD CONSTRAINT social_posts_carousel_job_id_fkey FOREIGN KEY (carousel_job_id) REFERENCES public.carousel_render_jobs(id) ON DELETE SET NULL;
+
+
+--
+-- Name: social_posts social_posts_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.social_posts
+    ADD CONSTRAINT social_posts_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: social_posts social_posts_race_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.social_posts
+    ADD CONSTRAINT social_posts_race_id_fkey FOREIGN KEY (race_id) REFERENCES public.races(id) ON DELETE SET NULL;
+
+
+--
+-- Name: social_posts social_posts_video_job_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.social_posts
+    ADD CONSTRAINT social_posts_video_job_id_fkey FOREIGN KEY (video_job_id) REFERENCES public.video_render_jobs(id) ON DELETE SET NULL;
+
+
+--
 -- Name: subscriptions subscriptions_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -17922,6 +19689,14 @@ ALTER TABLE ONLY public.user_notifications
 
 
 --
+-- Name: user_notifications user_notifications_survey_campaign_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_notifications
+    ADD CONSTRAINT user_notifications_survey_campaign_id_fkey FOREIGN KEY (survey_campaign_id) REFERENCES public.feedback_survey_campaigns(id) ON DELETE SET NULL;
+
+
+--
 -- Name: user_notifications user_notifications_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -17962,11 +19737,27 @@ ALTER TABLE ONLY public.video_render_jobs
 
 
 --
+-- Name: video_render_jobs video_render_jobs_flyover_order_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.video_render_jobs
+    ADD CONSTRAINT video_render_jobs_flyover_order_id_fkey FOREIGN KEY (flyover_order_id) REFERENCES public.flyover_video_orders(id) ON DELETE SET NULL;
+
+
+--
 -- Name: video_render_jobs video_render_jobs_race_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.video_render_jobs
     ADD CONSTRAINT video_render_jobs_race_id_fkey FOREIGN KEY (race_id) REFERENCES public.races(id) ON DELETE CASCADE;
+
+
+--
+-- Name: video_voices video_voices_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.video_voices
+    ADD CONSTRAINT video_voices_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
 
 
 --
@@ -18169,6 +19960,13 @@ CREATE POLICY "Authenticated users can insert app feedback" ON public.app_feedba
 --
 
 CREATE POLICY "Authenticated users can view app changelog" ON public.app_changelog FOR SELECT TO authenticated USING ((is_published = true));
+
+
+--
+-- Name: plan_share_follows Followers can view own plan follows; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Followers can view own plan follows" ON public.plan_share_follows FOR SELECT TO authenticated USING (((follower_user_id = ( SELECT auth.uid() AS uid)) AND (removed_at IS NULL)));
 
 
 --
@@ -18388,6 +20186,15 @@ CREATE POLICY "Service role or admins can manage premium grants" ON public.premi
 
 
 --
+-- Name: plan_share_follows Share owners can view link followers; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Share owners can view link followers" ON public.plan_share_follows FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
+   FROM public.plan_share_links
+  WHERE ((plan_share_links.id = plan_share_follows.share_link_id) AND (plan_share_links.user_id = ( SELECT auth.uid() AS uid))))));
+
+
+--
 -- Name: racebook_gear_checks Users can add own RaceBook gear checks; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -18399,6 +20206,13 @@ CREATE POLICY "Users can add own RaceBook gear checks" ON public.racebook_gear_c
 --
 
 CREATE POLICY "Users can add own favorite race events" ON public.user_favorite_race_events FOR INSERT TO authenticated WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
+
+
+--
+-- Name: feedback_survey_responses Users can answer own surveys; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can answer own surveys" ON public.feedback_survey_responses FOR INSERT TO authenticated WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
 
 
 --
@@ -18687,6 +20501,13 @@ CREATE POLICY "Users can view own race event update reads" ON public.race_event_
 
 
 --
+-- Name: feedback_survey_responses Users can view own survey responses; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can view own survey responses" ON public.feedback_survey_responses FOR SELECT TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id));
+
+
+--
 -- Name: user_favorite_products Users can view their favorite products; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -18786,10 +20607,46 @@ ALTER TABLE public.app_changelog ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.app_feedback ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: carousel_automation_items; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.carousel_automation_items ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: carousel_render_jobs; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.carousel_render_jobs ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: feedback_survey_campaigns; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.feedback_survey_campaigns ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: feedback_survey_responses; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.feedback_survey_responses ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: flyover_video_orders; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.flyover_video_orders ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: nutrition_plans; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.nutrition_plans ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: organizer_demo_requests; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.organizer_demo_requests ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: organizer_edition_capability_grants; Type: ROW SECURITY; Schema: public; Owner: -
@@ -18850,6 +20707,12 @@ ALTER TABLE public.partner_link_settings ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.plan_aid_stations ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: plan_share_follows; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.plan_share_follows ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: plan_share_links; Type: ROW SECURITY; Schema: public; Owner: -
@@ -18968,6 +20831,12 @@ ALTER TABLE public.race_event_edition_partner_slots ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.race_event_edition_requests ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: race_event_edition_slug_redirects; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.race_event_edition_slug_redirects ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: race_event_edition_sponsors; Type: ROW SECURITY; Schema: public; Owner: -
@@ -19120,6 +20989,18 @@ CREATE POLICY races_update ON public.races FOR UPDATE TO authenticated USING (((
 ALTER TABLE public.rate_limit_entries ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: reel_automation_items; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.reel_automation_items ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: reel_automation_settings; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.reel_automation_settings ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: runner_admin_access_modes; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -19192,6 +21073,12 @@ ALTER TABLE public.runner_support_purchase_intents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.runner_support_purchases ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: social_posts; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.social_posts ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: subscriptions; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -19232,6 +21119,12 @@ ALTER TABLE public.video_narrations ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.video_render_jobs ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: video_voices; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.video_voices ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: messages; Type: ROW SECURITY; Schema: realtime; Owner: -
@@ -20517,6 +22410,14 @@ GRANT ALL ON FUNCTION public.assign_race_event_edition() TO service_role;
 
 
 --
+-- Name: FUNCTION build_race_event_edition_slug(p_event_name text, p_edition_year smallint); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.build_race_event_edition_slug(p_event_name text, p_edition_year smallint) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.build_race_event_edition_slug(p_event_name text, p_edition_year smallint) TO service_role;
+
+
+--
 -- Name: FUNCTION bump_aid_product_race_plan_source_revision(); Type: ACL; Schema: public; Owner: -
 --
 
@@ -20661,6 +22562,30 @@ GRANT ALL ON FUNCTION public.clear_stale_race_event_geography() TO service_role;
 
 
 --
+-- Name: FUNCTION configure_carousel_automation_cron(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.configure_carousel_automation_cron() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.configure_carousel_automation_cron() TO service_role;
+
+
+--
+-- Name: FUNCTION configure_demo_race_refresh_cron(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.configure_demo_race_refresh_cron() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.configure_demo_race_refresh_cron() TO service_role;
+
+
+--
+-- Name: FUNCTION configure_flyover_orders_cron(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.configure_flyover_orders_cron() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.configure_flyover_orders_cron() TO service_role;
+
+
+--
 -- Name: FUNCTION configure_organizer_import_cleanup_cron(); Type: ACL; Schema: public; Owner: -
 --
 
@@ -20674,6 +22599,22 @@ GRANT ALL ON FUNCTION public.configure_organizer_import_cleanup_cron() TO servic
 
 REVOKE ALL ON FUNCTION public.configure_push_reminders_cron() FROM PUBLIC;
 GRANT ALL ON FUNCTION public.configure_push_reminders_cron() TO service_role;
+
+
+--
+-- Name: FUNCTION configure_reel_automation_cron(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.configure_reel_automation_cron() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.configure_reel_automation_cron() TO service_role;
+
+
+--
+-- Name: FUNCTION configure_social_publishing_cron(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.configure_social_publishing_cron() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.configure_social_publishing_cron() TO service_role;
 
 
 --
@@ -20739,6 +22680,14 @@ GRANT ALL ON FUNCTION public.ensure_organizer_edition_entitlement() TO service_r
 
 REVOKE ALL ON FUNCTION public.ensure_racebook_publication_state() FROM PUBLIC;
 GRANT ALL ON FUNCTION public.ensure_racebook_publication_state() TO service_role;
+
+
+--
+-- Name: FUNCTION feedback_survey_campaign_stats(p_campaign_ids uuid[]); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.feedback_survey_campaign_stats(p_campaign_ids uuid[]) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.feedback_survey_campaign_stats(p_campaign_ids uuid[]) TO service_role;
 
 
 --
@@ -20927,6 +22876,21 @@ GRANT ALL ON FUNCTION public.normalize_product_brand(raw_brand text) TO service_
 
 
 --
+-- Name: FUNCTION prepare_feedback_survey_response(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.prepare_feedback_survey_response() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.prepare_feedback_survey_response() TO service_role;
+
+
+--
+-- Name: FUNCTION prevent_own_plan_share_follow(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.prevent_own_plan_share_follow() TO service_role;
+
+
+--
 -- Name: FUNCTION protect_server_managed_profile_fields(); Type: ACL; Schema: public; Owner: -
 --
 
@@ -21022,6 +22986,14 @@ GRANT ALL ON FUNCTION public.record_admin_organizer_bank_transfer_invoice(p_edit
 
 
 --
+-- Name: FUNCTION record_race_event_edition_slug_redirect(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.record_race_event_edition_slug_redirect() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.record_race_event_edition_slug_redirect() TO service_role;
+
+
+--
 -- Name: FUNCTION record_race_slug_redirect(); Type: ACL; Schema: public; Owner: -
 --
 
@@ -21043,6 +23015,14 @@ GRANT ALL ON FUNCTION public.record_runner_plan_history() TO service_role;
 
 REVOKE ALL ON FUNCTION public.record_runner_support_event(p_user_id uuid, p_provider text, p_product_id text, p_transaction_id text, p_status text, p_purchased_at timestamp with time zone, p_event_at timestamp with time zone, p_event_id text) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.record_runner_support_event(p_user_id uuid, p_provider text, p_product_id text, p_transaction_id text, p_status text, p_purchased_at timestamp with time zone, p_event_at timestamp with time zone, p_event_id text) TO service_role;
+
+
+--
+-- Name: FUNCTION rename_race_event_edition_slug(p_edition_id uuid, p_new_slug text); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.rename_race_event_edition_slug(p_edition_id uuid, p_new_slug text) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.rename_race_event_edition_slug(p_edition_id uuid, p_new_slug text) TO service_role;
 
 
 --
@@ -21185,6 +23165,22 @@ GRANT SELECT ON TABLE public.race_supporter_points TO authenticated;
 
 REVOKE ALL ON FUNCTION public.replace_race_supporter_points(p_race_id uuid, p_items jsonb) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.replace_race_supporter_points(p_race_id uuid, p_items jsonb) TO service_role;
+
+
+--
+-- Name: FUNCTION resolve_feedback_survey_recipients(p_user_ids uuid[]); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.resolve_feedback_survey_recipients(p_user_ids uuid[]) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.resolve_feedback_survey_recipients(p_user_ids uuid[]) TO service_role;
+
+
+--
+-- Name: FUNCTION resolve_feedback_survey_single_recipient(p_user_id uuid); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.resolve_feedback_survey_single_recipient(p_user_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.resolve_feedback_survey_single_recipient(p_user_id uuid) TO service_role;
 
 
 --
@@ -21413,6 +23409,14 @@ GRANT ALL ON FUNCTION public.set_affiliate_offers_updated_at() TO service_role;
 
 
 --
+-- Name: FUNCTION set_flyover_video_orders_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.set_flyover_video_orders_updated_at() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.set_flyover_video_orders_updated_at() TO service_role;
+
+
+--
 -- Name: FUNCTION set_organizer_import_sessions_updated_at(); Type: ACL; Schema: public; Owner: -
 --
 
@@ -21426,6 +23430,13 @@ GRANT ALL ON FUNCTION public.set_organizer_import_sessions_updated_at() TO servi
 
 REVOKE ALL ON FUNCTION public.set_organizer_racebook_visibility(p_user_id uuid, p_race_id uuid, p_is_live boolean) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.set_organizer_racebook_visibility(p_user_id uuid, p_race_id uuid, p_is_live boolean) TO service_role;
+
+
+--
+-- Name: FUNCTION set_plan_share_follows_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.set_plan_share_follows_updated_at() TO service_role;
 
 
 --
@@ -21589,11 +23600,27 @@ GRANT ALL ON FUNCTION public.set_races_updated_at() TO service_role;
 
 
 --
+-- Name: FUNCTION set_reel_automation_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.set_reel_automation_updated_at() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.set_reel_automation_updated_at() TO service_role;
+
+
+--
 -- Name: FUNCTION set_runner_plan_unlocks_updated_at(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.set_runner_plan_unlocks_updated_at() FROM PUBLIC;
 GRANT ALL ON FUNCTION public.set_runner_plan_unlocks_updated_at() TO service_role;
+
+
+--
+-- Name: FUNCTION set_social_publishing_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.set_social_publishing_updated_at() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.set_social_publishing_updated_at() TO service_role;
 
 
 --
@@ -21621,6 +23648,14 @@ GRANT ALL ON FUNCTION public.set_subscriptions_updated_at() TO service_role;
 GRANT ALL ON FUNCTION public.set_user_profiles_updated_at() TO anon;
 GRANT ALL ON FUNCTION public.set_user_profiles_updated_at() TO authenticated;
 GRANT ALL ON FUNCTION public.set_user_profiles_updated_at() TO service_role;
+
+
+--
+-- Name: FUNCTION set_video_voices_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.set_video_voices_updated_at() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.set_video_voices_updated_at() TO service_role;
 
 
 --
@@ -21908,7 +23943,6 @@ GRANT ALL ON FUNCTION realtime.wal2json_escape_identifier(name text) TO dashboar
 --
 
 REVOKE ALL ON FUNCTION storage.delete_lifecycle_objects(object_ids uuid[]) FROM PUBLIC;
-GRANT ALL ON FUNCTION storage.delete_lifecycle_objects(object_ids uuid[]) TO postgres;
 GRANT ALL ON FUNCTION storage.delete_lifecycle_objects(object_ids uuid[]) TO service_role;
 
 
@@ -21924,7 +23958,6 @@ REVOKE ALL ON FUNCTION storage.protect_active_lifecycle_states() FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION storage.reconcile_lifecycle_state(target_bucket_id text, policy_changed boolean) FROM PUBLIC;
-GRANT ALL ON FUNCTION storage.reconcile_lifecycle_state(target_bucket_id text, policy_changed boolean) TO postgres;
 GRANT ALL ON FUNCTION storage.reconcile_lifecycle_state(target_bucket_id text, policy_changed boolean) TO service_role;
 
 
@@ -22208,7 +24241,7 @@ GRANT SELECT ON TABLE cron.job TO postgres WITH GRANT OPTION;
 -- Name: TABLE job_run_details; Type: ACL; Schema: cron; Owner: -
 --
 
-GRANT ALL ON TABLE cron.job_run_details TO postgres WITH GRANT OPTION;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRUNCATE,MAINTAIN,UPDATE ON TABLE cron.job_run_details TO postgres WITH GRANT OPTION;
 
 
 --
@@ -22328,12 +24361,117 @@ GRANT USAGE ON SEQUENCE public.app_feedback_id_seq TO authenticated;
 
 
 --
+-- Name: TABLE carousel_automation_items; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.carousel_automation_items TO service_role;
+
+
+--
+-- Name: TABLE carousel_render_jobs; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.carousel_render_jobs TO service_role;
+
+
+--
+-- Name: TABLE feedback_survey_campaigns; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.feedback_survey_campaigns TO service_role;
+
+
+--
+-- Name: TABLE feedback_survey_responses; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.feedback_survey_responses TO service_role;
+
+
+--
+-- Name: COLUMN feedback_survey_responses.id; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT(id) ON TABLE public.feedback_survey_responses TO authenticated;
+
+
+--
+-- Name: COLUMN feedback_survey_responses.notification_id; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT(notification_id),INSERT(notification_id) ON TABLE public.feedback_survey_responses TO authenticated;
+
+
+--
+-- Name: COLUMN feedback_survey_responses.user_id; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT INSERT(user_id) ON TABLE public.feedback_survey_responses TO authenticated;
+
+
+--
+-- Name: COLUMN feedback_survey_responses.found_useful; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT(found_useful),INSERT(found_useful) ON TABLE public.feedback_survey_responses TO authenticated;
+
+
+--
+-- Name: COLUMN feedback_survey_responses.useful_text; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT INSERT(useful_text) ON TABLE public.feedback_survey_responses TO authenticated;
+
+
+--
+-- Name: COLUMN feedback_survey_responses.missing_text; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT INSERT(missing_text) ON TABLE public.feedback_survey_responses TO authenticated;
+
+
+--
+-- Name: COLUMN feedback_survey_responses.app_version; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT INSERT(app_version) ON TABLE public.feedback_survey_responses TO authenticated;
+
+
+--
+-- Name: COLUMN feedback_survey_responses.platform; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT INSERT(platform) ON TABLE public.feedback_survey_responses TO authenticated;
+
+
+--
+-- Name: COLUMN feedback_survey_responses.created_at; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT(created_at) ON TABLE public.feedback_survey_responses TO authenticated;
+
+
+--
+-- Name: TABLE flyover_video_orders; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.flyover_video_orders TO service_role;
+
+
+--
 -- Name: TABLE nutrition_plans; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT ALL ON TABLE public.nutrition_plans TO anon;
 GRANT ALL ON TABLE public.nutrition_plans TO authenticated;
 GRANT ALL ON TABLE public.nutrition_plans TO service_role;
+
+
+--
+-- Name: TABLE organizer_demo_requests; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.organizer_demo_requests TO service_role;
 
 
 --
@@ -22371,6 +24509,14 @@ GRANT ALL ON TABLE public.partner_link_settings TO service_role;
 GRANT ALL ON TABLE public.plan_aid_stations TO anon;
 GRANT ALL ON TABLE public.plan_aid_stations TO authenticated;
 GRANT ALL ON TABLE public.plan_aid_stations TO service_role;
+
+
+--
+-- Name: TABLE plan_share_follows; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.plan_share_follows TO service_role;
+GRANT SELECT ON TABLE public.plan_share_follows TO authenticated;
 
 
 --
@@ -22450,6 +24596,13 @@ GRANT ALL ON TABLE public.race_event_edition_partner_slots TO service_role;
 GRANT ALL ON TABLE public.race_event_edition_requests TO anon;
 GRANT SELECT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.race_event_edition_requests TO authenticated;
 GRANT ALL ON TABLE public.race_event_edition_requests TO service_role;
+
+
+--
+-- Name: TABLE race_event_edition_slug_redirects; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.race_event_edition_slug_redirects TO service_role;
 
 
 --
@@ -22575,6 +24728,20 @@ GRANT ALL ON TABLE public.rate_limit_entries TO service_role;
 
 
 --
+-- Name: TABLE reel_automation_items; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.reel_automation_items TO service_role;
+
+
+--
+-- Name: TABLE reel_automation_settings; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.reel_automation_settings TO service_role;
+
+
+--
 -- Name: TABLE runner_admin_access_modes; Type: ACL; Schema: public; Owner: -
 --
 
@@ -22662,6 +24829,13 @@ GRANT ALL ON TABLE public.runner_support_purchases TO service_role;
 
 
 --
+-- Name: TABLE social_posts; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.social_posts TO service_role;
+
+
+--
 -- Name: TABLE subscriptions; Type: ACL; Schema: public; Owner: -
 --
 
@@ -22712,6 +24886,13 @@ GRANT ALL ON TABLE public.video_render_jobs TO service_role;
 
 
 --
+-- Name: TABLE video_voices; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.video_voices TO service_role;
+
+
+--
 -- Name: TABLE messages; Type: ACL; Schema: realtime; Owner: -
 --
 
@@ -22749,8 +24930,8 @@ GRANT USAGE ON SEQUENCE realtime.subscription_id_seq TO service_role;
 -- Name: TABLE bucket_lifecycle_states; Type: ACL; Schema: storage; Owner: -
 --
 
-GRANT ALL ON TABLE storage.bucket_lifecycle_states TO postgres;
 GRANT ALL ON TABLE storage.bucket_lifecycle_states TO service_role;
+GRANT SELECT ON TABLE storage.bucket_lifecycle_states TO postgres;
 
 
 --
@@ -22787,8 +24968,8 @@ GRANT SELECT ON TABLE storage.buckets_vectors TO authenticated;
 -- Name: TABLE lifecycle_abandoned_artifacts; Type: ACL; Schema: storage; Owner: -
 --
 
-GRANT ALL ON TABLE storage.lifecycle_abandoned_artifacts TO postgres;
 GRANT ALL ON TABLE storage.lifecycle_abandoned_artifacts TO service_role;
+GRANT SELECT ON TABLE storage.lifecycle_abandoned_artifacts TO postgres;
 
 
 --
@@ -23155,5 +25336,5 @@ CREATE EVENT TRIGGER pgrst_drop_watch ON sql_drop
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 24tvjvOIgzZSJ54RabMUplpfdn0asgJ88PDKp8f9K6cofdwz6ojDAGvOh2oHeh9
+\unrestrict BinScNAtFBxPfdhD2efeJ0cG9Ay5jlFBuVSwINgiuve1ibI4RhVImxfPrgSm2ym
 
