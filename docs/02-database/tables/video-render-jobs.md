@@ -1,7 +1,7 @@
 ---
 title: video_render_jobs Table
 scope: database
-last_verified: 2026-11-21
+last_verified: 2026-11-22
 ai_priority: low
 related_files:
   - supabase/migrations/20261104140000_add_video_render_jobs.sql
@@ -14,6 +14,7 @@ related_files:
   - apps/web/app/api/video-render/jobs/[id]/route.ts
   - apps/web/lib/social-post-auto-draft.ts
   - apps/web/lib/reel-generation.ts
+  - supabase/migrations/20261122100000_add_flyover_video_orders.sql
 related_tables:
   - video_render_jobs
   - races
@@ -30,7 +31,8 @@ Tracks background renders of the admin 3D reel. The render runs in a Google Clou
 | Column | Type | Constraints/default | Purpose |
 | --- | --- | --- | --- |
 | `id` | `uuid` | primary key, `gen_random_uuid()` | Job id, also the Storage folder and the token subject. |
-| `race_id` | `uuid` | not null, references `races(id)` on delete cascade | Rendered race. |
+| `race_id` | `uuid` | nullable since 2026-11-22, references `races(id)` on delete cascade | Rendered race. Null only for an organizer flyover render (see `flyover_order_id`). |
+| `flyover_order_id` | `uuid` | nullable, references `flyover_video_orders(id)` on delete set null | Organizer flyover order this render belongs to; `race_id` is null then. Check `video_render_jobs_race_or_flyover`: a job has a race or an order. |
 | `race_title` | `text` | 1-200 characters | Title shown in the list and used for the download file name. |
 | `status` | `text` | `uploading`, `queued`, `running`, `done`, `failed`; default `uploading` | Lifecycle. |
 | `progress` | `real` | 0-1, default 0 | Share of frames rendered. |
@@ -46,6 +48,10 @@ Tracks background renders of the admin 3D reel. The render runs in a Google Clou
 ## Automatic draft
 
 Migration `20261119170000_add_render_job_auto_draft.sql` adds `auto_draft` (additive, not null with a default: existing rows and older clients are unaffected; RLS and grants unchanged). When `POST /api/video-render/jobs/<id>` marks a job `done` and the row has `auto_draft = true` and a non-null `content`, it creates one draft in [`social_posts`](social-posts.md) owned by the job's `created_by`; a failure to do so is logged and never fails the completion. See [Google Cloud Background Reel Render](../../05-integrations/google-cloud-video-render.md).
+
+## Flyover renders
+
+Migration `20261122100000_add_flyover_video_orders.sql` drops `NOT NULL` on `race_id`, adds `flyover_order_id` and the check `video_render_jobs_race_or_flyover`. `videoRenderJobRowSchema.race_id` is nullable, `flyover_order_id` is in `VIDEO_RENDER_JOB_COLUMNS`, and `launchReelRender` (`apps/web/lib/reel-generation.ts`, shared with the automatic reels) creates these jobs with `auto_draft = false`. They are excluded from the Publications "videos to publish" list. See [Organizer Flyover Video Orders](../../03-business-rules/flyover-video-orders.md).
 
 ## Access
 

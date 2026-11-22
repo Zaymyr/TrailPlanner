@@ -28,6 +28,7 @@ Le livret coureur est à la fois un canal d'acquisition (coureurs) et le produit
   - Complet — 349 € HT
   - Signature — 499 € HT
   - Montées en gamme = différence de prix : Essentiel→Complet 150 €, Essentiel→Signature 300 €, Complet→Signature 150 €.
+- **Vidéo de survol** (organisateurs, par parcours, produit indépendant vendu sur `/survol`, hors catalogue) : 29,99 € TTC (collab Instagram) ou 59,99 € TTC (MP4 téléchargeable) ; voix et récit inclus.
 - Pilotes gratuits pour collecter des références.
 
 ## Jalons et objectif

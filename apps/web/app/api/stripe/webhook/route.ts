@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { sendFlyoverPaidEmail } from "../../../../lib/flyover-generation";
+import { createFlyoverOrderRepository } from "../../../../lib/flyover-orders";
 import { withSecurityHeaders } from "../../../../lib/http";
 import {
   getStripeConfig,
@@ -165,6 +167,49 @@ const resolveDisputePaymentIntent = async (payload: StripeChargeEventData, secre
   if (typeof payload.charge !== "string") return null;
   const charge = await getStripeJson<{ payment_intent?: string }>(`/v1/charges/${encodeURIComponent(payload.charge)}`, secretKey);
   return typeof charge.payment_intent === "string" ? charge.payment_intent : null;
+};
+
+/**
+ * Organizer flyover video (/survol): paid → the cron route starts the video; expired or failed →
+ * the order stays unpaid. Status-guarded, so a replayed event changes nothing.
+ */
+const handleFlyoverCheckout = async (
+  payload: StripeCheckoutSessionEventData,
+  eventType: "completed" | "async_succeeded" | "async_failed" | "expired"
+) => {
+  const orderId = typeof payload.metadata?.order_id === "string" ? payload.metadata.order_id : null;
+  const serviceConfig = getSupabaseServiceConfig();
+  if (!orderId || !serviceConfig) return;
+  const orders = createFlyoverOrderRepository(serviceConfig);
+  const paid = eventType === "async_succeeded" || (eventType === "completed" && (payload.payment_status === "paid" || payload.payment_status === "no_payment_required"));
+  if (paid) {
+    const order = await orders.update(orderId, {
+      status: "paid",
+      paid_at: new Date().toISOString(),
+      stripe_checkout_session_id: payload.id,
+      stripe_payment_intent_id: payload.payment_intent ?? null,
+      error: null,
+    }, "status=in.(pending_payment,expired)");
+    const current = order ?? await orders.get(orderId);
+    // The confirmation email never fails the webhook (Stripe would replay the payment).
+    if (current && current.status !== "pending_payment" && current.status !== "expired") {
+      await sendFlyoverPaidEmail(serviceConfig, current).catch((error) => console.error("Flyover paid email failed", error instanceof Error ? error.message : error));
+    }
+    return;
+  }
+  if (eventType === "expired" || eventType === "async_failed") {
+    await orders.update(orderId, { status: "expired" }, "status=eq.pending_payment");
+  }
+};
+
+/** A refunded or disputed flyover order stops its pipeline (a finished video stays as is). */
+const refundFlyoverOrdersByIntent = async (paymentIntentId: string) => {
+  const serviceConfig = getSupabaseServiceConfig();
+  if (!serviceConfig) return;
+  const orders = createFlyoverOrderRepository(serviceConfig);
+  for (const order of await orders.findByPaymentIntent(paymentIntentId)) {
+    await orders.update(order.id, { status: "refunded", locked_until: null }, "status=in.(paid,scripted,rendering,ready,failed)");
+  }
 };
 
 const handleOrganizerCheckout = async (
@@ -438,7 +483,18 @@ export async function POST(request: NextRequest) {
       event.type === "checkout.session.expired"
     ) {
       const checkout = event.data.object as StripeCheckoutSessionEventData;
-      if (isOrganizerCheckout(checkout)) {
+      if (checkout.metadata?.purchase_type === "flyover_video") {
+        await handleFlyoverCheckout(
+          checkout,
+          event.type === "checkout.session.async_payment_succeeded"
+            ? "async_succeeded"
+            : event.type === "checkout.session.async_payment_failed"
+              ? "async_failed"
+              : event.type === "checkout.session.expired"
+                ? "expired"
+                : "completed"
+        );
+      } else if (isOrganizerCheckout(checkout)) {
         const checkoutEventType =
           event.type === "checkout.session.async_payment_succeeded"
             ? "async_succeeded"
@@ -472,6 +528,7 @@ export async function POST(request: NextRequest) {
       const charge = event.data.object as StripeChargeEventData;
       const paymentIntentId = event.type === "charge.refunded" ? charge.payment_intent ?? null : await resolveDisputePaymentIntent(charge, stripeConfig.secretKey);
       if (typeof paymentIntentId === "string") {
+        await refundFlyoverOrdersByIntent(paymentIntentId);
         await updateOrganizerPaymentByIntent(
           paymentIntentId,
           event.type === "charge.refunded" ? "refunded" : "disputed",

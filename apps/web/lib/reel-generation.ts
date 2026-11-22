@@ -27,7 +27,7 @@ import {
   type ReadyDetail,
 } from "../app/admin/video-generator/reel-composition";
 import type { StoryLandmarks } from "../app/admin/video-generator/route-story";
-import { videoCompositionSettingsSchema } from "../app/admin/video-generator/video-composition";
+import { videoCompositionSettingsSchema, type VideoCompositionSettings } from "../app/admin/video-generator/video-composition";
 import { pickPoolVoice } from "../app/admin/video-generator/voice-pool";
 import { isInstagramPublishDryRun } from "./instagram/config";
 import {
@@ -84,7 +84,7 @@ export const reelWorkSchema = z.object({
 });
 export type ReelGenerationWork = z.infer<typeof reelWorkSchema>;
 
-const readWork = (work: ReelWork) => {
+export const readWork = (work: ReelWork) => {
   const parsed = reelWorkSchema.safeParse(work);
   if (!parsed.success) throw new Error("Données de génération illisibles : relance depuis le texte.");
   return { ...parsed.data, settings: videoCompositionSettingsSchema.parse(parsed.data.settings) };
@@ -143,11 +143,13 @@ const requireEnv = (name: string, message: string) => {
   return value;
 };
 
-/** Step 1: the reel text (one call in Temps forts; script then caption in Parcours complet). */
-export const runContentStep = async (supabase: SupabaseServiceConfig, item: ReelAutomationItem): Promise<ReelGenerationWork> => {
+/**
+ * The reel text of a ready course with these settings (their `storyMode` decides: one call in
+ * Temps forts; script then caption in Parcours complet). Shared by the automatic reels and the
+ * organizer flyover orders (lib/flyover-generation.ts), which have no catalog race.
+ */
+export const writeReelWork = async (detail: ReadyDetail, settings: VideoCompositionSettings): Promise<ReelGenerationWork> => {
   requireEnv("ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY absent : la rédaction par IA n’est pas configurée.");
-  const detail = await loadReadyDetail(supabase, item.race_id);
-  const settings = buildReelSettings(item.mode);
   const { landmarks, placeNames } = await lookupPlaceData(detail, process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN?.trim());
   const story = prepareReelStory(getReelStoryInput(detail), settings, landmarks);
   if (story.beats.length === 0) throw new ReelAutomationSkip("Le parcours est trop court pour un récit.");
@@ -155,7 +157,7 @@ export const runContentStep = async (supabase: SupabaseServiceConfig, item: Reel
   let content: ReelContent;
   let overrides: Record<string, string>;
   let warnings: string[] = [];
-  if (item.mode === "highlights") {
+  if (settings.storyMode === "highlights") {
     const result = await writeReelContent(buildReelContentRequest(story));
     if (!result.ok) throw new Error(result.message);
     content = result.value.content;
@@ -173,6 +175,41 @@ export const runContentStep = async (supabase: SupabaseServiceConfig, item: Reel
   return { settings, landmarks, placeNames, overrides, content, warnings };
 };
 
+/** Step 1: the reel text. */
+export const runContentStep = async (supabase: SupabaseServiceConfig, item: ReelAutomationItem): Promise<ReelGenerationWork> => {
+  requireEnv("ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY absent : la rédaction par IA n’est pas configurée.");
+  const detail = await loadReadyDetail(supabase, item.race_id);
+  return writeReelWork(detail, buildReelSettings(item.mode));
+};
+
+/**
+ * The narration of a written reel with one voice (ElevenLabs, reel defaults): the beats as told
+ * and their clips keyed by beat id.
+ */
+export const synthesizeReelClips = async ({ detail, work, voiceId, apiKey }: {
+  detail: ReadyDetail;
+  work: ReturnType<typeof readWork>;
+  voiceId: string | null;
+  apiKey: string;
+}) => {
+  const story = prepareReelStory(getReelStoryInput(detail), work.settings, work.landmarks);
+  const written = applyNarrationOverrides(story.beats, work.overrides);
+  const items = written.filter((beat) => beat.narration.trim()).map((beat) => ({ id: beat.id, text: beat.narration.trim() }));
+  if (!items.length) throw new Error("Aucun texte à dire : relance depuis le texte.");
+  const result = await synthesizeNarration({ voiceId, items, ...REEL_DEFAULT_VOICE_OPTIONS }, apiKey);
+  if (!result.ok) throw new Error(result.message);
+  const textById = new Map(written.map((beat) => [beat.id, beat.narration]));
+  const clips: Record<string, NarrationClip> = Object.fromEntries(result.clips.map((clip) => [clip.id, {
+    beatId: clip.id,
+    text: textById.get(clip.id) ?? clip.text,
+    audioBase64: clip.audioBase64,
+    durationMs: clip.durationMs,
+    ...(clip.characterEndMs ? { characterEndMs: clip.characterEndMs } : {}),
+    ...(clip.characterStartMs ? { characterStartMs: clip.characterStartMs } : {}),
+  }]));
+  return { written, clips };
+};
+
 /** Step 2: a random active pool voice (not the previous one of this race), then the narration saved with its clips. */
 export const runVoiceStep = async (
   supabase: SupabaseServiceConfig,
@@ -183,10 +220,6 @@ export const runVoiceStep = async (
   const apiKey = requireEnv("ELEVENLABS_API_KEY", "ELEVENLABS_API_KEY absent : la voix off n’est pas configurée.");
   const work = readWork(rawWork);
   const detail = await loadReadyDetail(supabase, item.race_id);
-  const story = prepareReelStory(getReelStoryInput(detail), work.settings, work.landmarks);
-  const written = applyNarrationOverrides(story.beats, work.overrides);
-  const items = written.filter((beat) => beat.narration.trim()).map((beat) => ({ id: beat.id, text: beat.narration.trim() }));
-  if (!items.length) throw new Error("Aucun texte à dire : relance depuis le texte.");
 
   const [pool, previous] = await Promise.all([
     listPoolVoices(supabase),
@@ -194,18 +227,8 @@ export const runVoiceStep = async (
   ]);
   const picked = pickPoolVoice(pool.filter((voice) => voice.active), previous?.voice.voiceId ?? null);
   const voice = { voiceId: picked?.voiceId ?? null, name: picked?.name ?? null };
-  const result = await synthesizeNarration({ voiceId: voice.voiceId, items, ...REEL_DEFAULT_VOICE_OPTIONS }, apiKey);
-  if (!result.ok) throw new Error(result.message);
+  const { written, clips } = await synthesizeReelClips({ detail, work, voiceId: voice.voiceId, apiKey });
 
-  const textById = new Map(written.map((beat) => [beat.id, beat.narration]));
-  const clips: Record<string, NarrationClip> = Object.fromEntries(result.clips.map((clip) => [clip.id, {
-    beatId: clip.id,
-    text: textById.get(clip.id) ?? clip.text,
-    audioBase64: clip.audioBase64,
-    durationMs: clip.durationMs,
-    ...(clip.characterEndMs ? { characterEndMs: clip.characterEndMs } : {}),
-    ...(clip.characterStartMs ? { characterStartMs: clip.characterStartMs } : {}),
-  }]));
   const highlights = item.mode === "highlights";
   await saveNarration(supabase, item.race_id, userId, {
     settings: work.settings,
@@ -219,26 +242,20 @@ export const runVoiceStep = async (
 };
 
 /**
- * Step 3: the composition replayed by the render page, the render job (content + automatic
- * draft), the snapshot upload and the Cloud Run start, as `launchBackgroundRender` does.
+ * The composition replayed by the render page, the render job, the snapshot upload and the Cloud
+ * Run start, as `launchBackgroundRender` does. `job` carries the row's own fields (race or
+ * flyover order, title, content, automatic draft, author). A failed launch marks the job failed.
  */
-export const runRenderStep = async (
-  supabase: SupabaseServiceConfig,
-  request: Request,
-  item: ReelAutomationItem,
-  rawWork: ReelWork,
-  userId: string | null,
-): Promise<string> => {
+export const launchReelRender = async ({ supabase, request, detail, work, clips, job: jobFields }: {
+  supabase: SupabaseServiceConfig;
+  request: Request;
+  detail: ReadyDetail;
+  work: ReturnType<typeof readWork>;
+  clips: NarrationClip[];
+  job: { race_id?: string | null; flyover_order_id?: string | null; race_title: string; created_by: string | null; content: ReelContent | null; auto_draft: boolean };
+}): Promise<string> => {
   const config = getVideoRenderConfig();
   if (!config) throw new Error("Rendu en arrière-plan non configuré (variables Google Cloud absentes).");
-  const work = readWork(rawWork);
-  const detail = await loadReadyDetail(supabase, item.race_id);
-  const story = prepareReelStory(getReelStoryInput(detail), work.settings, work.landmarks);
-  const written = applyNarrationOverrides(story.beats, work.overrides);
-  const narration = await readNarration(supabase, item.race_id, item.mode);
-  const clips = freshClipsFor(written, Object.fromEntries((narration?.clips ?? []).map((clip) => [clip.beatId, clip])));
-  if (!clips.length) throw new Error("La voix off enregistrée ne correspond plus au texte : relance la voix.");
-
   const snapshot = buildReelRenderSnapshot({
     detail,
     settings: work.settings,
@@ -249,14 +266,11 @@ export const runRenderStep = async (
   });
   const size = getReelVideoSize(work.settings);
   const job = await insertRenderJob(supabase, {
-    race_id: item.race_id,
-    race_title: story.race.title.slice(0, 200),
+    ...jobFields,
+    race_title: jobFields.race_title.slice(0, 200),
     width: size.width,
     height: size.height,
     status: "uploading",
-    created_by: userId,
-    content: work.content,
-    auto_draft: true,
   });
   try {
     const accessToken = await getGoogleAccessToken(config, request);
@@ -272,6 +286,32 @@ export const runRenderStep = async (
     await updateRenderJob(supabase, job.id, { status: "failed", message, finished_at: new Date().toISOString() }, ["uploading"]).catch(() => null);
     throw error;
   }
+};
+
+/** Step 3: the render of the saved narration, with its automatic draft. */
+export const runRenderStep = async (
+  supabase: SupabaseServiceConfig,
+  request: Request,
+  item: ReelAutomationItem,
+  rawWork: ReelWork,
+  userId: string | null,
+): Promise<string> => {
+  if (!getVideoRenderConfig()) throw new Error("Rendu en arrière-plan non configuré (variables Google Cloud absentes).");
+  const work = readWork(rawWork);
+  const detail = await loadReadyDetail(supabase, item.race_id);
+  const story = prepareReelStory(getReelStoryInput(detail), work.settings, work.landmarks);
+  const written = applyNarrationOverrides(story.beats, work.overrides);
+  const narration = await readNarration(supabase, item.race_id, item.mode);
+  const clips = freshClipsFor(written, Object.fromEntries((narration?.clips ?? []).map((clip) => [clip.beatId, clip])));
+  if (!clips.length) throw new Error("La voix off enregistrée ne correspond plus au texte : relance la voix.");
+  return launchReelRender({
+    supabase,
+    request,
+    detail,
+    work,
+    clips,
+    job: { race_id: item.race_id, race_title: story.race.title, created_by: userId, content: work.content, auto_draft: true },
+  });
 };
 
 const renderJobStateSchema = videoRenderJobRowSchema.pick({ id: true, status: true, message: true, created_at: true, updated_at: true, finished_at: true });

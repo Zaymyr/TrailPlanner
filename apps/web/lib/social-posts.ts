@@ -263,6 +263,8 @@ export const socialPostRowSchema = z.object({
   carousel_job_id: z.string().uuid().nullable().default(null),
   image_paths: z.array(z.string()).nullable().default(null),
   ig_child_container_ids: z.array(z.string()).default([]),
+  // Instagram usernames invited as collaborators of the reel (organizer flyover orders).
+  collaborators: z.array(z.string()).default([]),
   created_by: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
@@ -370,7 +372,7 @@ export type SocialPostRepository = {
 /** Render jobs behind posts (read-only use of video_render_jobs), keyed by id. */
 const videoJobSummarySchema = z.object({
   id: z.string().uuid(),
-  race_id: z.string().uuid(),
+  race_id: z.string().uuid().nullable(),
   race_title: z.string(),
   status: z.string(),
   width: z.number().int(),
@@ -388,7 +390,7 @@ export const listVideoJobsForPublishing = async (
 ) => {
   const filters = ids
     ? `id=in.(${ids.join(",")})`
-    : `status=eq.done&finished_at=gte.${encodeURIComponent((finishedSince ?? new Date(0)).toISOString())}&order=finished_at.desc&limit=30`;
+    : `status=eq.done&flyover_order_id=is.null&finished_at=gte.${encodeURIComponent((finishedSince ?? new Date(0)).toISOString())}&order=finished_at.desc&limit=30`;
   if (ids && ids.length === 0) return new Map<string, VideoJobSummary>();
   const response = await fetcher(`${supabase.supabaseUrl}/rest/v1/video_render_jobs?${filters}&select=id,race_id,race_title,status,width,height,finished_at,content`, {
     headers: headers(supabase),

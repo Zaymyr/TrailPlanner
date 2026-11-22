@@ -1,7 +1,7 @@
 ---
 title: Automatic Reel Pipeline
 scope: integration
-last_verified: 2026-11-21
+last_verified: 2026-11-22
 ai_priority: medium
 related_files:
   - apps/web/lib/reel-planner.ts
@@ -103,10 +103,12 @@ Turning generation off stops new work at the next tick; renders in flight finish
 - Planned items move day to day until their generation starts: the plan is recomputed every hour.
 - pg_net calls with a 5-minute timeout; the route allows 300 s. One tick does at most one step: a full content step makes two AI calls.
 - A crash between the render job insert and its launch leaves an `uploading` job; the next duplicate check then skips the item (safe: never two reels).
+- `reel-generation.ts` was refactored on 2026-11-22 so the organizer flyover pipeline can reuse its steps: `writeReelWork` (place names and AI text), `synthesizeReelClips` (voice) and `launchReelRender` (snapshot, render job and launch) are exported, `readWork` too; `runContentStep`, `runVoiceStep` and `runRenderStep` behave as before and call them. See [Organizer Flyover Video Orders](../03-business-rules/flyover-video-orders.md).
 
 ## Related Docs
 
 - [Instagram Reels Publishing](instagram-publishing.md)
+- [Organizer Flyover Video Orders](../03-business-rules/flyover-video-orders.md)
 - [Google Cloud Background Reel Render](google-cloud-video-render.md)
 - [Mapbox 3D Admin Course Viewer](mapbox-3d.md)
 - [reel_automation_items](../02-database/tables/reel-automation-items.md)

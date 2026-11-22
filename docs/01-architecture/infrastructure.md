@@ -11,6 +11,8 @@ related_files:
   - apps/web/lib/demo-race.ts
   - apps/web/.env.example
   - supabase/migrations/20261119130100_schedule_social_posts_cron.sql
+  - supabase/migrations/20261122100100_schedule_flyover_orders_cron.sql
+  - apps/web/app/api/cron/flyover-orders/route.ts
   - apps/web/app/api/cron/social-posts-publish/route.ts
   - apps/web/lib/posthog-organizer-analytics.ts
   - apps/web/app/api/organizer/editions/[id]/analytics/route.ts
@@ -214,6 +216,10 @@ The internal service verifies every uploaded object by downloading it from the p
 
 `20261119130100_schedule_social_posts_cron.sql` schedules one pg_cron job because Vercel Hobby runs its own crons once a day only: `social-posts-publish` every 5 minutes (`POST /api/cron/social-posts-publish`, due posts and container polling). The Instagram System User token never expires, so there is no token job. It reuses the Vault values `web_app_url` and `cron_secret` of the organizer import cleanup, read when the job runs (never copied into `cron.job`); while either is missing the job sends nothing and the migration still succeeds. The route checks `CRON_SECRET` like the other web crons. See [Instagram Reels Publishing](../05-integrations/instagram-publishing.md).
 
+## Organizer Flyover Orders
+
+`20261122100100_schedule_flyover_orders_cron.sql` schedules the pg_cron job `flyover-orders` every 10 minutes (`POST /api/cron/flyover-orders`, the paid organizer flyover video orders pipeline), with the Vault secrets `web_app_url` and `cron_secret` like the other pg_cron jobs. See [Organizer Flyover Video Orders](../03-business-rules/flyover-video-orders.md).
+
 ## Demo Race Refresh
 
 `20261121090000_schedule_demo_race_refresh_cron.sql` schedules `demo-race-refresh` with pg_cron every hour at minute 5 (`POST /api/cron/demo-race-refresh`), with the same Vault values `web_app_url` and `cron_secret` as the Instagram publishing job. It replaced the `5 23 * * *` Vercel Cron of `vercel.json`, which never fired in production: no call was recorded from 2026-11-17 to 2026-11-21 and the demo stayed on 2026-11-18. The route writes nothing once the demo is on today, so the hourly cadence costs a few reads and retries a failed run by itself. The RevenueCat reconciliation and Trace de Trail enrichment crons below are still declared in `vercel.json` and showed no Vercel Cron call over the same window either.
@@ -260,6 +266,7 @@ For local setup, copy `apps/web/.env.example` to the ignored `apps/web/.env.loca
 - `STRIPE_ORGANIZER_ESSENTIAL_TO_COMPLETE_PRICE_ID`
 - `STRIPE_ORGANIZER_ESSENTIAL_TO_SIGNATURE_PRICE_ID`
 - `STRIPE_ORGANIZER_COMPLETE_TO_SIGNATURE_PRICE_ID`
+- `STRIPE_FLYOVER_COLLAB_PRICE_ID` and `STRIPE_FLYOVER_DOWNLOAD_PRICE_ID` (organizer flyover video, 29.99 / 59.99 EUR one-off prices; optional `FLYOVER_ORDER_TOKEN_SECRET`, `FLYOVER_NOTIFY_EMAIL`, see the flyover business rule)
 - `STRIPE_ORGANIZER_CHECKOUT_SUCCESS_URL` (optional)
 - `STRIPE_ORGANIZER_CHECKOUT_CANCEL_URL` (optional)
 - `NEXT_PUBLIC_POSTHOG_KEY`

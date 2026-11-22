@@ -1,7 +1,7 @@
 ---
 title: Google Cloud Background Reel Render
 scope: integration
-last_verified: 2026-11-21
+last_verified: 2026-11-22
 ai_priority: medium
 related_files:
   - apps/web/app/api/admin/video-generator/render-jobs/[id]/route.test.ts
@@ -104,6 +104,10 @@ Each finished or failed render in the panel has a "Supprimer" action (with a con
 ## Automatic reels
 
 The automatic reel pipeline ([Automatic Reel Pipeline](reel-automation.md)) launches renders without a browser: the cron route builds the snapshot on the server (`buildReelRenderSnapshot` in `reel-composition.ts`, same pure modules as the editor, checked by `parseRenderSnapshot`, `previewSize` 405 × 720), inserts the job with `content` and `auto_draft`, signs the PUT URL and uploads the snapshot itself, then starts the execution like the start route. The render URL is built by `buildRenderUrl` (`apps/web/lib/video-render.ts`, moved from the start route, unchanged: `VIDEO_RENDER_APP_ORIGIN` or the request origin, optional Vercel bypass, token in the fragment). Google access uses the Vercel OIDC token of the incoming cron request, as the social publishing cron already does.
+
+## Organizer flyover videos (2026-11-22)
+
+The organizer flyover orders ([Organizer Flyover Video Orders](../03-business-rules/flyover-video-orders.md)) use this same Cloud Run job through `launchReelRender` (`apps/web/lib/reel-generation.ts`, extracted from the automatic reel render step and shared). Their `video_render_jobs` rows have a null `race_id` and a `flyover_order_id` (`videoRenderJobRowSchema` accepts both), `auto_draft = false` (no automatic draft), and the MP4 is delivered from the same bucket by a 10-minute signed URL (30-day lifecycle). The render itself is unchanged.
 
 ## Carousel slides
 

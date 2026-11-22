@@ -120,6 +120,8 @@ export type ReelContainerInput = {
   caption: string;
   coverUrl?: string | null;
   shareToFeed?: boolean;
+  /** Instagram usernames invited as collaborators (at most 3); they accept the invitation in the app. */
+  collaborators?: string[];
 };
 
 /** One slide of a carousel: a JPEG reachable by Meta (signed GCS URL). */
@@ -203,13 +205,14 @@ export const createInstagramGraphClient = ({
     }, schema);
 
   return {
-    createReelContainer: async ({ igUserId, accessToken, videoUrl, caption, coverUrl, shareToFeed = true }) => {
+    createReelContainer: async ({ igUserId, accessToken, videoUrl, caption, coverUrl, shareToFeed = true, collaborators }) => {
       const result = await post(`${encodeURIComponent(igUserId)}/media`, {
         media_type: "REELS",
         video_url: videoUrl,
         caption,
         cover_url: coverUrl ?? undefined,
         share_to_feed: shareToFeed ? "true" : "false",
+        collaborators: collaborators?.length ? JSON.stringify(collaborators.slice(0, 3)) : undefined,
         access_token: accessToken,
       }, idSchema);
       return result.id;
