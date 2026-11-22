@@ -1,5 +1,6 @@
 import { serviceHeaders } from "./organizer";
 import type { SupabaseServiceConfig } from "./supabase";
+import { DEMO_EDITION_ID, DEMO_EVENT_ID } from "./demo-race";
 
 /**
  * Keeps the Trail TST demonstration event on today's date so its Supporter
@@ -7,8 +8,7 @@ import type { SupabaseServiceConfig } from "./supabase";
  * QR code, /organisateurs demo, in-app search). Only this fixed test event is
  * ever touched.
  */
-export const DEMO_EVENT_ID = "7a110000-0000-4000-8000-000000000001";
-export const DEMO_EDITION_ID = "41b2143c-cd5c-4e84-9106-398ef9e8ebf0";
+export { DEMO_EDITION_ID, DEMO_EVENT_ID, isDemoRaceEventId } from "./demo-race";
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -29,7 +29,7 @@ export function shiftProgrammeDates(programme: unknown, day: string): unknown {
 
 export type DemoRaceRefreshResult = { day: string; raceIds: string[]; moved: boolean };
 
-type EditionRow = { id: string; event_id: string; start_date: string; end_date: string };
+type EditionRow = { id: string; event_id: string; edition_year: number; start_date: string; end_date: string };
 type RaceRow = { id: string; race_date: string | null };
 type EventRow = { organizer_details: Record<string, unknown> | null };
 
@@ -55,7 +55,7 @@ export async function moveDemoRaceToDay(
   fetchImpl: typeof fetch = fetch,
 ): Promise<DemoRaceRefreshResult> {
   if (!ISO_DAY.test(day)) throw new Error(`Invalid demo day: ${day}`);
-  const [edition] = await rest<EditionRow[]>(config, fetchImpl, `race_event_editions?id=eq.${DEMO_EDITION_ID}&select=id,event_id,start_date,end_date&limit=1`);
+  const [edition] = await rest<EditionRow[]>(config, fetchImpl, `race_event_editions?id=eq.${DEMO_EDITION_ID}&select=id,event_id,edition_year,start_date,end_date&limit=1`);
   if (!edition || edition.event_id !== DEMO_EVENT_ID) throw new Error("Demo edition not found for the demo event.");
   const races = await rest<RaceRow[]>(config, fetchImpl, `races?edition_id=eq.${DEMO_EDITION_ID}&event_id=eq.${DEMO_EVENT_ID}&select=id,race_date`);
   const raceIds = races.map((race) => race.id);
@@ -63,7 +63,10 @@ export async function moveDemoRaceToDay(
   const details = event?.organizer_details ?? {};
   const programme = shiftProgrammeDates(details.programme, day);
 
-  const alreadyToday = edition.start_date === day && edition.end_date === day
+  // The edition year must follow its start date (race_event_editions_start_year_check), otherwise
+  // the narrowing write fails on 1 January and the demo stays on 31 December.
+  const year = Number(day.slice(0, 4));
+  const alreadyToday = edition.start_date === day && edition.end_date === day && edition.edition_year === year
     && races.every((race) => race.race_date === day)
     && JSON.stringify(programme) === JSON.stringify(details.programme);
   if (alreadyToday) return { day, raceIds, moved: false };
@@ -75,7 +78,7 @@ export async function moveDemoRaceToDay(
     body: { start_date: edition.start_date < day ? edition.start_date : day, end_date: edition.end_date > day ? edition.end_date : day },
   });
   await rest(config, fetchImpl, `races?edition_id=eq.${DEMO_EDITION_ID}&event_id=eq.${DEMO_EVENT_ID}`, { method: "PATCH", body: { race_date: day } });
-  await rest(config, fetchImpl, editionPath, { method: "PATCH", body: { start_date: day, end_date: day } });
+  await rest(config, fetchImpl, editionPath, { method: "PATCH", body: { edition_year: year, start_date: day, end_date: day } });
 
   // Re-read after the edition trigger mirrored its dates into the event before writing the programme.
   const [mirrored] = await rest<EventRow[]>(config, fetchImpl, `race_events?id=eq.${DEMO_EVENT_ID}&select=organizer_details&limit=1`);

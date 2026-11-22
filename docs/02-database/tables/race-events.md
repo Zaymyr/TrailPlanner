@@ -89,6 +89,7 @@ related_files:
   - apps/web/app/courses/distances/[category]/page.tsx
   - apps/web/app/courses/race-discovery.test.ts
   - apps/web/lib/race-discovery.ts
+  - apps/web/lib/demo-race.ts
   - apps/web/app/api/organizer/claims/route.ts
   - apps/web/app/api/admin/organizer-claims/route.ts
   - apps/mobile/app/(app)/catalog.tsx
@@ -470,3 +471,5 @@ Catalog scroll performance (2026-11-09): the Courses list renders memoized `Cata
 Catalog end date (2026-11-14): `race_events.race_date` is the event start date. Mobile catalog visibility/sorting and `Mes courses` use the latest of this date and the formats' `races.race_date` (`getCatalogEventEndDate`), so a multi-day event stays visible and ongoing until its last format day ends.
 
 Public course metadata prefixes a format name that does not contain the parent event name (`races` → `race_events.name`) as `Event — Format`, so generic format names stay unique in search titles; event-edition titles stay within 60 characters by shortening their suffix. No schema change.
+
+Public web catalogue data quality (2026-11-22): web presentation only, no column or read change. Similar-race suggestions (`getSimilarRaces` in `apps/web/lib/race-discovery.ts`) keep only upcoming or undated formats and never the Trail TST demo event (`isDemoRaceEventId` in `apps/web/lib/demo-race.ts`, matched on this table's fixed id). The demo event's pages are `noindex` and stay out of the sitemap, and its placeholder `website_url` is never shown as a registration or official link. See [Public Race Discovery](../../03-business-rules/public-race-discovery.md#trail-tst-demo-and-catalogue-data-quality-2026-11-22).

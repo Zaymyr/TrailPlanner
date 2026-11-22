@@ -1,3 +1,4 @@
+import { isDemoRaceEventId } from "./demo-race";
 import type { PublicRace } from "./public-races";
 
 export const MIN_INDEXABLE_RACES = 5;
@@ -171,7 +172,17 @@ export function getOtherEventFormats(race: PublicRace, races: PublicRace[], limi
     .slice(0, limit);
 }
 
-export function getSimilarRaces(race: PublicRace, races: PublicRace[], limit = 3): PublicRace[] {
+/**
+ * Cross-race suggestions by distance. Only upcoming (or undated) formats are
+ * suggested: a finished edition is not a race to compare against. The Trail TST
+ * demo is never suggested.
+ */
+export function getSimilarRaces(
+  race: PublicRace,
+  races: PublicRace[],
+  limit = 3,
+  todayIso: string = new Date().toISOString().slice(0, 10),
+): PublicRace[] {
   if (race.distanceKm === null) return [];
   const sourceDistanceKm = race.distanceKm;
 
@@ -180,6 +191,8 @@ export function getSimilarRaces(race: PublicRace, races: PublicRace[], limit = 3
       (candidate) =>
         candidate.id !== race.id &&
         (!race.eventId || candidate.eventId !== race.eventId) &&
+        !isDemoRaceEventId(candidate.eventId) &&
+        getRaceTemporalStatus(candidate, todayIso) !== "past" &&
         candidate.distanceKm !== null,
     )
     .map((candidate) => ({

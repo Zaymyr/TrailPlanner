@@ -157,4 +157,16 @@ describe("race SEO content", () => {
       "Cette course fait partie de l’événement Trail Glazig. Trail Glazig — 5 km est une course prévue le 6 février 2027 à Plourhan, Côtes-d'Armor sur 5 km et 47 m de dénivelé positif.",
     );
   });
+
+  it("keeps a finished format factual but drops the scheduled status and registration offer", () => {
+    const url = "https://pace-yourself.com/courses/trail-glazig-5-km-2027";
+    const upcoming = buildRaceStructuredData(race, url, null, new Date("2027-02-01T10:00:00Z"));
+    const past = buildRaceStructuredData(race, url, null, new Date("2027-02-08T10:00:00Z"));
+
+    expect(upcoming?.eventStatus).toBe("https://schema.org/EventScheduled");
+    expect(upcoming?.offers).toEqual({ "@type": "Offer", url: race.eventWebsiteUrl });
+    expect(past).toEqual(expect.objectContaining({ "@type": "SportsEvent", startDate: "2027-02-06" }));
+    expect(past).not.toHaveProperty("eventStatus");
+    expect(past).not.toHaveProperty("offers");
+  });
 });
