@@ -17,6 +17,7 @@ import {
   type InboxResponse,
   type InboxSourceState,
 } from "./admin-inbox";
+import { loadSystemHealth } from "./admin-system-health-server";
 import { createFlyoverOrderRepository } from "./flyover-orders";
 import { buildRaceDataGaps, loadGapFormats } from "./race-data-gaps";
 import {
@@ -157,6 +158,11 @@ export const loadAdminInbox = async (supabase: SupabaseServiceConfig, now = new 
       key: "renders",
       label: "Rendus",
       load: async () => (await loadRecentRenderFailures(supabase, nowMs)).map(failedRenderToItem),
+    },
+    {
+      key: "system",
+      label: "Santé des systèmes",
+      load: async () => (await loadSystemHealth(supabase, now)).incidents,
     },
     {
       key: "race_data",

@@ -1,7 +1,7 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-11-22
+last_verified: 2026-11-23
 # Supporter onboarding (2026-11-18): schema-overview lists the new `user_profiles.supporter_onboarding_status` column; no new table.
 # Inbox push badge (2026-11-18): schema-overview notes the admin inbox push badge; no table, column or RLS change.
 # Reel narration mode (2026-11-19): supabase/tests/video_narrations_checks.sql also checks the (race_id, mode) key; this workflow is unchanged.
@@ -218,3 +218,5 @@ Catalog end date (2026-11-14): no table added; the schema overview only records 
 `video_voices` (2026-11-20, the reel generator's shared voice pool) follows the same service-only pattern with its own `updated_at` trigger function (`set_video_voices_updated_at`, execute revoked from client roles), a unique ElevenLabs id and an index on its `created_by` foreign key; `supabase/tests/video_voices_checks.sql` checks the grants, trigger and checks. See [video_voices](../02-database/tables/video-voices.md).
 
 `reel_automation_settings` and `reel_automation_items` (2026-11-20, automatic reels) follow the same service-only pattern. The settings table is the single-row example: a `boolean` primary key defaulting to `true` with `check (id)`, the row inserted by the migration, and cross-column rules as table checks (publication only with generation). The items table shows a natural uniqueness rule enforced in the database (`unique (race_id, edition_key)`, inserts use `on_conflict … ignore-duplicates`) and a lease column for a cron state machine. The scheduler is again a separate migration reading Vault at run time. `supabase/tests/reel_automation_checks.sql` checks grants, defaults, the single row, the unique key and the checks. See [Automatic Reel Pipeline](../05-integrations/reel-automation.md).
+
+`transactional_email_log` (2026-11-23, admin console lot 3) is the append-only journal example: service-only (RLS on, no policy, client privileges revoked, `service_role` limited to `select, insert, delete`, no update), bounded text columns as checks, no foreign key, and its retention as a `SECURITY DEFINER` purge function scheduled by pg_cron in the same migration (plain SQL, no pg_net, so no Vault secret is needed). The same migration shows how to expose `cron.*` / `net.*` data to the server only: `SECURITY DEFINER` functions with `search_path = ''`, fully qualified names, dynamic SQL for an optional extension, execute revoked from client roles. `supabase/tests/admin_system_health_checks.sql` checks grants, checks and the purge window. See [transactional_email_log](../02-database/tables/transactional-email-log.md).

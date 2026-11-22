@@ -15,6 +15,8 @@ export const inboxCountsSchema = z.object({
   failedPosts: z.number().nullable().default(null),
   draftPosts: z.number().nullable().default(null),
   failedRenders: z.number().nullable().default(null),
+  // Systems that are down (lot 3: scheduled tasks, e-mails, Stripe webhook).
+  systemIncidents: z.number().nullable().default(null),
   systemTotal: z.number().default(0),
 });
 export type InboxCounts = z.infer<typeof inboxCountsSchema>;
@@ -40,7 +42,7 @@ export const withCount = (label: string, count: number | undefined) => (count ? 
 
 /**
  * Counts of the console: messages (bugs, feedback, race and demo requests), organizer requests, system
- * items (failed flyovers, posts and renders, drafts to review) and their total (« À traiter », bell).
+ * items (failed flyovers, posts and renders, drafts to review, systems that are down) and their total (« À traiter », bell).
  * Same definition as the counted types of the queue (`lib/admin-inbox.ts`); « Données de course » is
  * listed in the queue but not counted.
  */

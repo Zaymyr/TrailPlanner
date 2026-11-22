@@ -1,7 +1,7 @@
 ---
 title: organizer_demo_requests Table
 scope: database
-last_verified: 2026-11-22
+last_verified: 2026-11-23
 ai_priority: medium
 related_files:
   - supabase/migrations/20261116150000_add_organizer_demo_requests.sql
@@ -45,4 +45,4 @@ Service-role only: RLS is enabled with no client policy and every client privile
 
 Admin console (2026-11-22, lot 1): the « Démos organisateurs » list is reached at `/admin/inbox?vue=demos` (« À traiter »); `AdminMessagingTab` takes a `views` prop and that page leaves out the Questionnaires sub-tab, now at `/admin/messaging/surveys`. Old `/admin?onglet=messagerie&vue=demos` links redirect there. No change to the table, its route or its counts.
 
-Admin console (2026-11-22, lot 2): `/admin/inbox` opens on the single « À traiter » queue; pending demo requests appear there (type « Démos organisateurs », late after 24 h) through `GET /api/admin/inbox` (`id, created_at, email, race_url`, service role, a missing table gives no item), and the row opens `/admin/inbox?vue=demos`, the « Traiter les messages » tab where `AdminMessagingTab` now keeps `?vue=` in the URL (`defaultView={null}`). `inbox-counts` still counts `demoRequests` the same way and adds system counts (failed flyovers, posts, renders, drafts). No change to the table.
+Admin console (2026-11-22, lot 2): `/admin/inbox` opens on the single « À traiter » queue; pending demo requests appear there (type « Démos organisateurs », late after 24 h) through `GET /api/admin/inbox` (`id, created_at, email, race_url`, service role, a missing table gives no item), and the row opens `/admin/inbox?vue=demos`, the « Traiter les messages » tab where `AdminMessagingTab` now keeps `?vue=` in the URL (`defaultView={null}`). `inbox-counts` still counts `demoRequests` the same way and adds system counts (failed flyovers, posts, renders, drafts, and since lot 3 the systems that are down). No change to the table.

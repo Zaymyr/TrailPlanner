@@ -53,6 +53,13 @@ const routes: Array<[string, (url: string, init?: RequestInit) => Response]> = [
   ["video_render_jobs?select=", () => Response.json([])],
   ["carousel_render_jobs?select=", () => Response.json([])],
   ["organizer_edition_payments", () => Response.json([])],
+  ["rpc/admin_cron_job_status", () => Response.json([
+    { job_name: "reel-automation", schedule: "17 * * * *", active: true, last_start: inHours(-3.5), last_end: inHours(-3.5), last_status: "succeeded", last_message: "1 row", runs_24h: 20, failures_24h: 0 },
+    { job_name: "social-posts-publish", schedule: "*/5 * * * *", active: true, last_start: inHours(-0.05), last_end: inHours(-0.05), last_status: "succeeded", last_message: "1 row", runs_24h: 288, failures_24h: 0 },
+  ])],
+  ["rpc/admin_pg_net_response_summary", () => Response.json([{ available: true, responses: 12, errors: 0, oldest_at: inHours(-6), last_error_at: null, last_error_status: null, last_error_message: null }])],
+  ["transactional_email_log", () => Response.json([])],
+  ["runner_billing_events", () => Response.json([])],
 ];
 
 describe("GET /api/admin/overview", () => {
@@ -98,7 +105,11 @@ describe("GET /api/admin/overview", () => {
     const systems = body.health.data.systems as Array<{ key: string; status: string }>;
     expect(systems.find((system) => system.key === "renders")?.status).toBe("warning");
     expect(systems.find((system) => system.key === "instagram")).toMatchObject({ status: "error" });
-    expect(systems.filter((system) => system.status === "untracked").map((system) => system.key)).toEqual(["crons", "emails", "payments"]);
+    // Lot 3: scheduled tasks, e-mails and payments are measured (no line is « untracked » any more).
+    expect(systems.filter((system) => system.status === "untracked")).toEqual([]);
+    expect(systems.find((system) => system.key === "crons")).toMatchObject({ status: "error", href: "/admin/system/automation" });
+    expect(systems.find((system) => system.key === "emails")).toMatchObject({ status: "error" });
+    expect(systems.find((system) => system.key === "payments")).toMatchObject({ status: "error" });
     expect(body.feed.status).toBe("ok");
   });
 

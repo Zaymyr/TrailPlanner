@@ -40,9 +40,11 @@ describe("overview cards", () => {
     expect((html.match(/<li /g) ?? []).length).toBe(5);
   });
 
-  it("marks untracked systems and the simulation mode, never with a value", () => {
+  it("lists the scheduled tasks, e-mails and payments lines and the simulation mode", () => {
     const html = render(createElement(HealthCard, { block: overview.health, nowMs }));
-    expect(html).toContain("Dernier passage : suivi au lot 3");
+    expect(html).toContain("Tâches planifiées (crons)");
+    expect(html).toContain("14 envoyés en 24 h · 1 échec");
+    expect(html).not.toContain("lot 3");
     expect(html).toContain("Instagram en simulation");
     expect(html).toContain("aria-valuenow=\"3\"");
   });

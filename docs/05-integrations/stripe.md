@@ -1,7 +1,7 @@
 ---
 title: Stripe Integration
 scope: integration
-last_verified: 2026-11-22
+last_verified: 2026-11-23
 ai_priority: high
 related_files:
   - apps/web/lib/stripe.ts
@@ -18,6 +18,8 @@ related_files:
   - apps/web/lib/organizer-publication-tier.test.ts
   - apps/web/lib/entitlements.ts
   - apps/web/app/api/stripe/checkout/route.ts
+  - apps/web/lib/admin-system-health-server.ts
+  - apps/web/lib/admin-integrations.ts
 related_tables:
   - subscriptions
   - organizer_edition_payments
@@ -148,6 +150,10 @@ Any refund event, including partial, marks its organizer transaction refunded; a
 The Checkout opens only from the last step of `/survol`, after the live preview; the order now also stores the chosen story mode (no Stripe change) (route behavior unchanged apart from the GPX waypoint fallback for aid stations).
 
 `POST /api/flyover-orders` opens a one-off Checkout for the `/survol` product (price from `STRIPE_FLYOVER_*_PRICE_ID`, active, EUR, one-off, exact amount; automatic tax, tax-id collection, invoice; `metadata.purchase_type = flyover_video`, `metadata.order_id`). The webhook only moves the `flyover_video_orders` row (`paid`, `expired`, `refunded`) and sends the confirmation email; it writes no `subscriptions`, runner or organizer ledger row. Rules and setup: [Organizer Flyover Video Orders](../03-business-rules/flyover-video-orders.md).
+
+## Admin webhook health (2026-11-23)
+
+Lot 3 of the admin console reads the webhook's health from what it already writes, without any Stripe API call (`loadPaymentActivity` in `lib/admin-system-health-server.ts`, thresholds in `lib/admin-system-health.ts`). Latest event: the newest of `runner_billing_events.received_at` (provider `stripe`), `organizer_edition_payments.updated_at` of rows with a Checkout Session (bank transfers left out) and `flyover_video_orders.paid_at`. Error: `STRIPE_SECRET_KEY` or `STRIPE_WEBHOOK_SECRET` missing, or a Stripe `runner_billing_events` row of the last 7 days still without `processed_at` 15 minutes after `received_at` (the webhook journals, processes, then marks; a throw in between leaves it unprocessed) or with `processing_error` (no code writes a non-null value today). Warning: Stripe organizer payments `failed` or `disputed` updated in the last 7 days. An error line becomes a « Système » item of the admin queue; `/admin/system/integrations` shows which Stripe variables are present (never their value) and the latest event per source. Only the runner ledger is journaled per event: organizer and flyover events are seen through the rows they update.
 
 ## Trial vs Paid Distinction
 

@@ -392,7 +392,7 @@ export const buildAgenda = ({ today, posts, planned, publishTime, races }: {
 };
 
 // ---------------------------------------------------------------------------------------------
-// Health (lot 2: what is measurable without a new table)
+// Health (lot 2; the scheduled tasks, e-mails and payments lines are built in `lib/admin-system-health.ts`)
 
 export type HealthRenderRow = { status: string; created_at: string };
 
@@ -490,13 +490,6 @@ export const summarizeAutomationHealth = (input: HealthAutomationInput): HealthS
   const detail = [switches.join(" · "), next.join(" · "), input.failedItems ? `${plural(input.failedItems, "élément")} en échec` : null].filter(Boolean).join(" · ");
   return { key: "automation", label: "Reels et carrousels automatiques", status, detail, lastAt: input.updatedAt, meter: null, href: "/admin/system/automation" };
 };
-
-/** Systems whose tracking arrives with lot 3 (cron runs, e-mails, Stripe webhook): shown, never guessed. */
-export const UNTRACKED_SYSTEMS: HealthSystem[] = [
-  { key: "crons", label: "Tâches planifiées (crons)", status: "untracked", detail: "Dernier passage : suivi au lot 3", lastAt: null, meter: null, href: null },
-  { key: "emails", label: "E-mails (Resend)", status: "untracked", detail: "Envois et échecs : suivi au lot 3", lastAt: null, meter: null, href: null },
-  { key: "payments", label: "Paiements Stripe (webhook)", status: "untracked", detail: "Derniers événements : suivi au lot 3", lastAt: null, meter: null, href: null },
-];
 
 export const unknownHealth = (key: string, label: string, href: string | null): HealthSystem => ({ key, label, status: "unknown", detail: "Lecture impossible pour le moment.", lastAt: null, meter: null, href });
 

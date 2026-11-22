@@ -28,6 +28,7 @@ const TYPE_ICONS: Record<InboxType, AdminNavIconName> = {
   post_failed: "posts",
   post_draft: "posts",
   render_failed: "renders",
+  system: "automation",
   race_data: "races",
 };
 

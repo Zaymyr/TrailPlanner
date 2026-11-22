@@ -6,7 +6,8 @@ import { addDays, REEL_SPACING_DAYS } from "./reel-planner";
  * « À traiter » of the admin console (pure, shared by `GET /api/admin/inbox`, the dashboard card and
  * the `/admin/inbox` queue): every pending item of the human queues (bugs, feedback, race and demo
  * requests, organizer requests) and of the systems (failed flyovers, posts and renders, drafts to
- * review, missing race data), mapped to one row with its type, title, context, age and the console
+ * review, missing race data, and since lot 3 the systems that are down: a scheduled task failed or late,
+ * e-mails or Stripe webhook in error, see `lib/admin-system-health.ts`), mapped to one row with its type, title, context, age and the console
  * URL where it is handled. The queue only points the way: each item is processed in its own screen.
  *
  * Counted types (`counted: true`) make the « À traiter » total of the sidebar and the bell
@@ -26,6 +27,7 @@ export const INBOX_TYPES = [
   "post_failed",
   "post_draft",
   "render_failed",
+  "system",
   "race_data",
 ] as const;
 export type InboxType = (typeof INBOX_TYPES)[number];
@@ -60,6 +62,7 @@ export const INBOX_TYPE_CONFIG: Record<InboxType, InboxTypeConfig> = {
   post_failed: { label: "Publications en échec", slug: "publications", action: "Corriger", tone: "red", lateAfterHours: 12, counted: true, group: "system" },
   post_draft: { label: "Brouillons à relire", slug: "brouillons", action: "Relire", tone: "lime", lateAfterHours: 48, counted: true, group: "system" },
   render_failed: { label: "Rendus échoués (24 h)", slug: "rendus", action: "Voir", tone: "red", lateAfterHours: 12, counted: true, group: "system" },
+  system: { label: "Système", slug: "systeme", action: "Voir", tone: "red", lateAfterHours: 2, counted: true, group: "system" },
   race_data: { label: "Données de course", slug: "donnees", action: "Corriger", tone: "lime", lateAfterHours: 0, counted: false, group: "data" },
 };
 

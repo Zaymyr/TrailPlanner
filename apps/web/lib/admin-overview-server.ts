@@ -18,7 +18,6 @@ import {
   summarizeInstagramHealth,
   summarizeRenderHealth,
   unknownHealth,
-  UNTRACKED_SYSTEMS,
   type AdminOverviewResponse,
   type AgendaPlannedItem,
   type FlyoverRevenue,
@@ -26,6 +25,7 @@ import {
   type OverviewBlock,
   type OverviewGrowth,
 } from "./admin-overview";
+import { loadSystemHealth } from "./admin-system-health-server";
 import { createCarouselItemRepository, type CarouselItem } from "./carousels/carousel-automation";
 import { createFlyoverOrderRepository } from "./flyover-orders";
 import { getInstagramCredentials, isInstagramPublishDryRun } from "./instagram/config";
@@ -45,7 +45,8 @@ import type { SupabaseServiceConfig } from "./supabase";
  * Loaders of `GET /api/admin/overview` (service role, read-only). Every block is settled on its own:
  * a failing source turns its block (or its health line) into an error and the rest of the response
  * still loads. Sources are the existing ones: growth RPC (`lib/admin-growth.ts`), flyover orders,
- * social posts, render activity, reel and carousel automations, Instagram config and quota.
+ * social posts, render activity, reel and carousel automations, Instagram config and quota, and since
+ * lot 3 the scheduled tasks, e-mails and payments (`lib/admin-system-health-server.ts`).
  */
 
 const SERIES = { plan: "Le plan chiffré", brief: "Le brief", week: "La semaine qui vient" } as const;
@@ -172,6 +173,7 @@ export const loadAdminOverview = async (
   const dayAgo = encodeURIComponent(new Date(nowMs - 24 * 3_600_000).toISOString());
 
   const currentGrowthPromise = loadGrowth(supabase, range.start, range.end);
+  const systemHealthPromise = settle(loadSystemHealth(supabase, now));
   const [
     currentGrowth,
     previousGrowth,
@@ -307,13 +309,19 @@ export const loadAdminOverview = async (
       });
     })()
     : unknownHealth("automation", "Reels et carrousels automatiques", "/admin/system/automation");
-  const instagram = await settle(loadInstagramHealth(supabase, lastPublishedAt));
+  const [instagram, systemHealth] = await Promise.all([settle(loadInstagramHealth(supabase, lastPublishedAt)), systemHealthPromise]);
   const systems: HealthSystem[] = [
     instagram.ok ? instagram.value : unknownHealth("instagram", "Publication Instagram", "/admin/system/integrations"),
     automation,
     renderRows.ok ? summarizeRenderHealth(renderRows.value) : unknownHealth("renders", "Rendus (reels et carrousels)", "/admin/content/renders"),
     flyoverQueue.ok ? summarizeFlyoverHealth(flyoverQueue.value, nowMs) : unknownHealth("flyovers", "Vidéos de survol", "/admin/content/flyovers"),
-    ...UNTRACKED_SYSTEMS,
+    ...(systemHealth.ok
+      ? systemHealth.value.lines
+      : [
+        unknownHealth("crons", "Tâches planifiées (crons)", "/admin/system/automation"),
+        unknownHealth("emails", "E-mails (Resend)", "/admin/system/integrations"),
+        unknownHealth("payments", "Paiements Stripe (webhook)", "/admin/system/integrations"),
+      ]),
   ];
 
   // Feed: latest timestamps of the existing tables.

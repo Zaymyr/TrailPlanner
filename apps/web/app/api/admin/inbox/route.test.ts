@@ -10,6 +10,10 @@ vi.mock("../../../../lib/video-render-api", async () => {
   return { ...actual, authorizeVideoAdmin: mocks.gate };
 });
 
+const healthMocks = vi.hoisted(() => ({ loadSystemHealth: vi.fn() }));
+vi.mock("../../../../lib/admin-system-health-server", () => ({ loadSystemHealth: healthMocks.loadSystemHealth }));
+const systemIncident = { id: "system:cron:reel-automation", type: "system", title: "Tâche planifiée en retard · Reels automatiques", context: "Système · en retard", since: new Date(Date.now() - 2.5 * 3_600_000).toISOString(), dueDate: null, href: "/admin/system/automation" };
+
 const supabase = { supabaseUrl: "https://db.example", supabaseServiceRoleKey: "service-key" };
 const request = () => new Request("http://localhost/api/admin/inbox", { headers: { authorization: "Bearer admin" } });
 const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000).toISOString();
@@ -28,6 +32,7 @@ let failing: string | null = null;
 describe("GET /api/admin/inbox", () => {
   beforeEach(() => {
     failing = null;
+    healthMocks.loadSystemHealth.mockResolvedValue({ incidents: [systemIncident] });
     mocks.gate.mockResolvedValue({ ok: true, value: { userId: "admin-user", supabase } });
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
@@ -64,7 +69,8 @@ describe("GET /api/admin/inbox", () => {
 
   it("returns every pending item oldest first with the screen that handles it", async () => {
     const body = await (await GET(request())).json();
-    expect(body.items.map((item: { type: string }) => item.type)).toEqual(["organizer_claim", "bug", "post_draft", "render_failed", "flyover_failed"]);
+    expect(body.items.map((item: { type: string }) => item.type)).toEqual(["organizer_claim", "bug", "post_draft", "render_failed", "system", "flyover_failed"]);
+    expect(body.items.find((item: { type: string }) => item.type === "system").href).toBe("/admin/system/automation");
     expect(body.items.find((item: { type: string }) => item.type === "flyover_failed").href).toBe("/admin/content/flyovers");
     expect(body.sources.every((source: { ok: boolean }) => source.ok)).toBe(true);
   });

@@ -1,7 +1,7 @@
 ---
 title: app_feedback Table
 scope: database
-last_verified: 2026-11-22
+last_verified: 2026-11-23
 ai_priority: medium
 related_files:
   - supabase/migrations/20261105180000_add_app_feedback_review.sql
@@ -53,4 +53,4 @@ Admin inbox (2026-11-16): the « Demandes de course » tab now also lists organi
 
 `pending` rows are counted by `GET /api/admin/inbox-counts` (service role) for the Bugs and Feedback badges of the admin Messagerie.
 
-Admin console (2026-11-22, lot 2): pending bugs and feedback are also listed in the single « À traiter » queue (`GET /api/admin/inbox`, `id, created_at, kind, subject, source, screen`, service role, oldest first, late after 24 h for a bug and 72 h for feedback); each row opens `/admin/inbox?vue=bugs|feedback`, where they are answered as before. `inbox-counts` keeps the same pending counts and adds the system items of the queue (`failedFlyovers`, `failedPosts`, `draftPosts`, `failedRenders`, `systemTotal`). No change to the table.
+Admin console (2026-11-22, lot 2): pending bugs and feedback are also listed in the single « À traiter » queue (`GET /api/admin/inbox`, `id, created_at, kind, subject, source, screen`, service role, oldest first, late after 24 h for a bug and 72 h for feedback); each row opens `/admin/inbox?vue=bugs|feedback`, where they are answered as before. `inbox-counts` keeps the same pending counts and adds the system items of the queue (`failedFlyovers`, `failedPosts`, `draftPosts`, `failedRenders`, since lot 3 `systemIncidents` for the systems that are down, `systemTotal`). No change to the table.

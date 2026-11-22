@@ -13,7 +13,6 @@ import {
   summarizeHealthLine,
   summarizeInstagramHealth,
   summarizeRenderHealth,
-  UNTRACKED_SYSTEMS,
   type OverviewGrowth,
 } from "./admin-overview";
 
@@ -145,10 +144,10 @@ describe("health", () => {
     expect(on.detail).toContain("1 élément en échec");
   });
 
-  it("leaves untracked systems out of the summary line and never gives them a value", () => {
-    expect(UNTRACKED_SYSTEMS.every((system) => system.status === "untracked" && system.lastAt === null && system.detail.includes("lot 3"))).toBe(true);
-    expect(summarizeHealthLine(UNTRACKED_SYSTEMS)).toBe("tous les systèmes suivis répondent");
-    expect(summarizeHealthLine([summarizeRenderHealth([{ status: "failed", created_at: "x" }, { status: "done", created_at: "y" }]), ...UNTRACKED_SYSTEMS])).toBe("1 avertissement");
+  it("leaves untracked systems out of the summary line", () => {
+    const untracked = { key: "x", label: "X", status: "untracked" as const, detail: "", lastAt: null, meter: null, href: null };
+    expect(summarizeHealthLine([untracked])).toBe("tous les systèmes suivis répondent");
+    expect(summarizeHealthLine([summarizeRenderHealth([{ status: "failed", created_at: "x" }, { status: "done", created_at: "y" }]), untracked])).toBe("1 avertissement");
   });
 });
 

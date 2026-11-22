@@ -82,7 +82,7 @@ const SkeletonLines = ({ lines = 4 }: { lines?: number }) => (
   </div>
 );
 
-const Loading = ({ label, lines }: { label: string; lines?: number }) => (
+export const Loading = ({ label, lines }: { label: string; lines?: number }) => (
   <div role="status" aria-live="polite">
     <span className="sr-only">{label}</span>
     <SkeletonLines lines={lines} />

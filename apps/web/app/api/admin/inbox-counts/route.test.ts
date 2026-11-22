@@ -9,6 +9,10 @@ vi.mock("../../../../lib/organizer", async () => {
   return { ...actual, requireAdminAuth: authMock.requireAdminAuth };
 });
 
+const healthMocks = vi.hoisted(() => ({ loadSystemHealth: vi.fn() }));
+vi.mock("../../../../lib/admin-system-health-server", () => ({ loadSystemHealth: healthMocks.loadSystemHealth }));
+const systemIncident = { id: "system:cron:reel-automation", type: "system", title: "Tâche planifiée en retard · Reels automatiques", context: "Système · en retard", since: new Date(Date.now() - 3 * 3_600_000).toISOString(), dueDate: null, href: "/admin/system/automation" };
+
 const request = () => new NextRequest("http://localhost/api/admin/inbox-counts", { headers: { authorization: "Bearer admin" } });
 const countResponse = (count: number) => new Response("[]", { status: 200, headers: { "content-range": `0-0/${count}` } });
 
@@ -18,6 +22,7 @@ describe("GET /api/admin/inbox-counts", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubGlobal("fetch", fetchMock);
+    healthMocks.loadSystemHealth.mockResolvedValue({ incidents: [systemIncident] });
     authMock.requireAdminAuth.mockResolvedValue({
       user: { id: "admin" },
       serviceConfig: { supabaseUrl: "https://example.supabase.co", supabaseServiceRoleKey: "service" },
@@ -68,7 +73,8 @@ describe("GET /api/admin/inbox-counts", () => {
       failedPosts: 2,
       draftPosts: 3,
       failedRenders: 1,
-      systemTotal: 7,
+      systemIncidents: 1,
+      systemTotal: 8,
     });
     const queueCalls = fetchMock.mock.calls.map(([url]) => String(url)).filter((url) => /app_feedback|race_requests|organizer_demo|race_event_/.test(url));
     expect(queueCalls).toHaveLength(7);
@@ -80,8 +86,9 @@ describe("GET /api/admin/inbox-counts", () => {
     fetchMock.mockImplementation(async (url: string) =>
       String(url).includes("social_posts") || String(url).includes("render_jobs") ? new Response("", { status: 500 }) : countResponse(1)
     );
+    healthMocks.loadSystemHealth.mockRejectedValue(new Error("rpc down"));
     const body = await (await GET(request())).json();
-    expect(body).toMatchObject({ bug: 1, failedFlyovers: 1, failedPosts: null, draftPosts: null, failedRenders: null, systemTotal: 1 });
+    expect(body).toMatchObject({ bug: 1, failedFlyovers: 1, failedPosts: null, draftPosts: null, failedRenders: null, systemIncidents: null, systemTotal: 1 });
   });
 
   it("treats a missing demo table as zero but fails on other errors", async () => {

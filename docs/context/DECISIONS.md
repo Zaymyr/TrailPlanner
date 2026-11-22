@@ -4,6 +4,14 @@
 
 Journal en ajout seul, la plus récente en haut. Format : `## AAAA-MM-JJ — Titre`, puis Contexte / Décision / Conséquence (2 à 4 lignes chacun). Les décisions d'architecture détaillées (ADR) vont dans [docs/08-decisions/](../08-decisions/README.md).
 
+## 2026-11-23 — Santé des systèmes : journal des e-mails, crons lus dans pg_cron
+
+**Contexte.** Aucun écran ne disait si les tâches planifiées, les e-mails ou le webhook Stripe fonctionnaient ; aucun envoi d’e-mail ne laissait de trace.
+
+**Décision.** La console lit `cron.job_run_details` et `net._http_response` par deux fonctions réservées au service role, et chaque e-mail transactionnel est journalisé dans `transactional_email_log` (catégorie, statut, code, destinataire masqué, jamais le contenu), en best-effort et purgé après 90 jours. Les paiements se lisent dans les journaux que le webhook écrit déjà, sans appel Stripe. Une tâche en échec ou en retard (dernier passage au-delà de 2 périodes), des e-mails ou un webhook en erreur deviennent un élément « Système » de la file « À traiter ».
+
+**Conséquence.** pg_net ne garde ni l’URL ni la tâche d’une réponse : les erreurs HTTP sont affichées pour toutes les tâches ensemble. Les crons Vercel restent affichés « jamais appelés ». Une tâche pg_net peut être relancée depuis Maintenance (appel côté serveur avec `CRON_SECRET`).
+
 ## 2026-11-22 — Console admin à barre latérale, une URL par écran
 
 **Contexte.** L’admin tenait en 3 pages et 16 onglets sans vue d’ensemble ni file de travail ; plusieurs onglets n’avaient pas d’URL.

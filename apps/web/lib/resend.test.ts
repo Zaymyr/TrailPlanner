@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { sendAdminUserNotificationEmail, sendOrganizerAssignmentEmail } from "./resend";
+import { sendAdminUserNotificationEmail, sendOrganizerAssignmentEmail, sendTransactionalEmail } from "./resend";
 
 describe("sendOrganizerAssignmentEmail", () => {
   const originalApiKey = process.env.RESEND_API_KEY;
@@ -89,5 +89,61 @@ describe("sendAdminUserNotificationEmail", () => {
     expect(body.text).toContain("Deuxième ligne");
     expect(body.text).toContain("l'onglet Notifications de l'application Pace Yourself");
     expect(body.text).not.toContain("pace-yourself.com/profile");
+  });
+});
+
+describe("transactional e-mail journal", () => {
+  const env = { ...process.env };
+
+  beforeEach(() => {
+    process.env.RESEND_API_KEY = "re_test";
+    process.env.SUPABASE_URL = "https://db.example";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-key";
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    process.env = { ...env };
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  const journalBodies = () =>
+    vi.mocked(fetch).mock.calls
+      .filter(([url]) => String(url).includes("/rest/v1/transactional_email_log"))
+      .map(([, init]) => JSON.parse(String(init?.body)) as Record<string, unknown>);
+
+  it("journals a sent e-mail under the category of its idempotency key, address masked, no content", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: RequestInfo | URL) =>
+      String(url).startsWith("https://api.resend.com") ? Response.json({ id: "email-9" }) : new Response(null, { status: 201 })));
+    const result = await sendTransactionalEmail({ to: "Orga@Trail.fr", subject: "Votre vidéo", html: "<p>Secret</p>", text: "Secret", idempotencyKey: "flyover/paid/order-1" });
+    expect(result).toEqual({ status: "sent", id: "email-9" });
+    const [row] = journalBodies();
+    expect(row).toEqual({ category: "flyover/paid", status: "sent", status_code: null, message: null, recipient_masked: "or***@trail.fr", provider_message_id: "email-9" });
+    expect(JSON.stringify(journalBodies())).not.toMatch(/Secret|Votre vidéo|orga@trail\.fr/i);
+  });
+
+  it("journals a failure with its code and still returns it", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: RequestInfo | URL) =>
+      String(url).startsWith("https://api.resend.com") ? Response.json({ message: "Invalid `to` field" }, { status: 422 }) : new Response(null, { status: 201 })));
+    const result = await sendTransactionalEmail({ to: "orga@trail.fr", subject: "S", html: "h", text: "t", category: "organizer-demo/admin" });
+    expect(result).toMatchObject({ status: "failed", statusCode: 422 });
+    expect(journalBodies()[0]).toMatchObject({ category: "organizer-demo/admin", status: "failed", status_code: 422, message: "Invalid `to` field" });
+  });
+
+  it("never fails the send when the journal is down", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: RequestInfo | URL) => {
+      if (String(url).startsWith("https://api.resend.com")) return Response.json({ id: "email-10" });
+      throw new Error("journal offline");
+    }));
+    await expect(sendOrganizerAssignmentEmail({ to: "orga@trail.fr", eventName: "Trail", organizerUrl: "https://pace-yourself.com/organizer" })).resolves.toEqual({ status: "sent", id: "email-10" });
+  });
+
+  it("journals a skipped e-mail when Resend is not configured", async () => {
+    delete process.env.RESEND_API_KEY;
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 201 })));
+    await expect(sendAdminUserNotificationEmail({ to: "runner@example.com", notificationId: "n1", title: "T", body: "B" })).resolves.toEqual({ status: "skipped", reason: "missing-config" });
+    expect(journalBodies()[0]).toMatchObject({ category: "admin-user-notification", status: "skipped", recipient_masked: "ru***@example.com" });
   });
 });

@@ -84,6 +84,8 @@ Sharing: `plan_share_links`, `plan_share_follows` — see their docs.
 
 Flyover video (independent product, `/survol`) : `flyover_video_orders` ([doc](../02-database/tables/flyover-video-orders.md)) — organizer order paid through Stripe (29,99 € collab / 59,99 € MP4; story mode and basemap chosen on the page, `story_mode` since 2026-11-22), service role only, linked to its `video_render_jobs` render (`race_id` now nullable, new `flyover_order_id`) and to its collab `social_posts` row (new `collaborators text[]`, ≤ 3).
 
+Admin console journal (lot 3, 2026-11-23): `transactional_email_log` ([doc](../02-database/tables/transactional-email-log.md)) — one row per transactional Resend e-mail (category, `sent`/`skipped`/`failed`, code, masked recipient, no content), service role only, purged after 90 days by pg_cron; the functions `admin_cron_job_status()` / `admin_pg_net_response_summary()` expose pg_cron runs and pg_net HTTP errors to the service role ([doc](../02-database/admin-system-health-functions.md)).
+
 Livret content: `race_event_edition_sponsors`, `race_event_edition_branding`, `race_event_edition_partner_slots`, `race_edition_services`, `race_start_waves`, `race_awards`, `race_event_updates`, versioned snapshots in `racebook_publications` / `racebook_publication_states`. See schema-overview.
 
 ## Known pitfalls

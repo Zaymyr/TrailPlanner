@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { INBOX_FILTERS, loadRecentRenderFailures } from "../../../../lib/admin-inbox-server";
+import { loadSystemHealth } from "../../../../lib/admin-system-health-server";
 import { withSecurityHeaders } from "../../../../lib/http";
 import { jsonError, requireAdminAuth, serviceHeaders } from "../../../../lib/organizer";
 
@@ -9,7 +10,9 @@ import { jsonError, requireAdminAuth, serviceHeaders } from "../../../../lib/org
  * feedback, race requests, organizer demo requests, the organizer queues (access claims, publication
  * requests, new-edition requests) and, since lot 2 of the console, the system items of the « À
  * traiter » queue (failed flyovers, failed posts, drafts to review, renders failed in the last 24 h),
- * read with the same filters as `GET /api/admin/inbox` (`lib/admin-inbox-server.ts`).
+ * read with the same filters as `GET /api/admin/inbox` (`lib/admin-inbox-server.ts`), and since lot 3
+ * the systems that are down (`systemIncidents`: failed or late scheduled tasks, e-mails or Stripe
+ * webhook in error, the « Système » items of the queue, `lib/admin-system-health.ts`).
  * `raceRequests` counts only the runners' race requests; `raceRequestsAndDemos` keeps the former merged total.
  * A system count that cannot be read is `null` (the badge leaves it out) instead of failing every badge.
  */
@@ -34,7 +37,7 @@ export async function GET(request: NextRequest) {
   try {
     const [
       [bug, feedback, raceRequests, demoRequests, organizerClaims, publicationRequests, editionRequests],
-      [failedFlyovers, failedPosts, draftPosts, failedRenders],
+      [failedFlyovers, failedPosts, draftPosts, failedRenders, systemIncidents],
     ] = await Promise.all([
       Promise.all([
         countPending("app_feedback?kind=eq.bug"),
@@ -51,6 +54,7 @@ export async function GET(request: NextRequest) {
         optional(count(INBOX_FILTERS.failedPosts)),
         optional(count(INBOX_FILTERS.draftPosts)),
         optional(loadRecentRenderFailures(auth.serviceConfig, Date.now()).then((renders) => renders.length)),
+        optional(loadSystemHealth(auth.serviceConfig).then((health) => health.incidents.length)),
       ]),
     ]);
     return withSecurityHeaders(
@@ -68,7 +72,8 @@ export async function GET(request: NextRequest) {
         failedPosts,
         draftPosts,
         failedRenders,
-        systemTotal: (failedFlyovers ?? 0) + (failedPosts ?? 0) + (draftPosts ?? 0) + (failedRenders ?? 0),
+        systemIncidents,
+        systemTotal: (failedFlyovers ?? 0) + (failedPosts ?? 0) + (draftPosts ?? 0) + (failedRenders ?? 0) + (systemIncidents ?? 0),
       })
     );
   } catch (error) {

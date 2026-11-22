@@ -1,5 +1,5 @@
 import type { InboxResponse } from "../../../../lib/admin-inbox";
-import { UNTRACKED_SYSTEMS, type AdminOverviewResponse } from "../../../../lib/admin-overview";
+import type { AdminOverviewResponse } from "../../../../lib/admin-overview";
 
 /**
  * Simulated data of the « Vue d'ensemble » and of the « À traiter » queue (values of the ADR mock-up),
@@ -87,7 +87,9 @@ export const buildOverviewFixture = (now = Date.parse("2026-11-22T11:00:00.000Z"
           { key: "automation", label: "Reels et carrousels automatiques", status: "ok", detail: "Reels : génération, publication après relecture · Carrousels : 2 séries sur 3 · prochain reel mar. 24 nov. 18:00", lastAt: at(now, 0.7), meter: null, href: "/admin/system/automation" },
           { key: "renders", label: "Rendus (reels et carrousels)", status: "warning", detail: "1 échec sur 7 rendus en 24 h", lastAt: at(now, 0.3), meter: null, href: "/admin/content/renders" },
           { key: "flyovers", label: "Vidéos de survol", status: "ok", detail: "0 en cours", lastAt: at(now, 0.1), meter: null, href: "/admin/content/flyovers" },
-          ...UNTRACKED_SYSTEMS,
+          { key: "crons", label: "Tâches planifiées (crons)", status: "ok", detail: "8 tâches actives · 2 crons Vercel jamais appelés", lastAt: at(now, 0.07), meter: null, href: "/admin/system/automation" },
+          { key: "emails", label: "E-mails (Resend)", status: "warning", detail: "14 envoyés en 24 h · 1 échec", lastAt: at(now, 1.5), meter: null, href: "/admin/system/integrations" },
+          { key: "payments", label: "Paiements Stripe (webhook)", status: "ok", detail: "Webhook reçu", lastAt: at(now, 0.2), meter: null, href: "/admin/system/integrations" },
         ],
       },
     },
