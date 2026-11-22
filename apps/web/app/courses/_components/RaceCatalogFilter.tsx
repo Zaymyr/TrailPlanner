@@ -46,7 +46,7 @@ function FormatRow({ race, showDate, eventName = null }: { race: PublicRace; sho
   );
 }
 
-function EventRaceGroup({ group }: { group: PublicRaceGroup }) {
+export function EventRaceGroup({ group }: { group: PublicRaceGroup }) {
   const { races, eventName } = group;
   const dateLabel = getEventDateLabel(races);
   const locationLabel = getEventLocationLabel(races);
@@ -54,7 +54,9 @@ function EventRaceGroup({ group }: { group: PublicRaceGroup }) {
   const headingId = `event-${group.key.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
   const imageUrl = races.find((race) => isHttpUrl(race.eventThumbnailUrl))?.eventThumbnailUrl ?? null;
   const registrationUrl = races.map(getPublicRaceRegistrationUrl).find(Boolean) ?? null;
-  const eventHref = races[0]?.eventEditionSlug ? (`/courses/evenements/${races[0].eventEditionSlug}` as Route) : null;
+  // Link the permanent event hub when it exists; edition pages canonicalize to it.
+  const eventSlug = races.find((race) => race.eventSlug)?.eventSlug ?? races[0]?.eventEditionSlug ?? null;
+  const eventHref = eventSlug ? (`/courses/evenements/${eventSlug}` as Route) : null;
   const showFormatDates = new Set(races.map((race) => race.date)).size > 1;
   const visible = races.slice(0, VISIBLE_FORMATS);
   const hidden = races.slice(VISIBLE_FORMATS);
@@ -111,7 +113,7 @@ function EventRaceGroup({ group }: { group: PublicRaceGroup }) {
   );
 }
 
-function StandaloneRaceCard({ race }: { race: PublicRace }) {
+export function StandaloneRaceCard({ race }: { race: PublicRace }) {
   const imageUrl = isHttpUrl(race.raceThumbnailUrl) ? race.raceThumbnailUrl : null;
   const registrationUrl = getPublicRaceRegistrationUrl(race);
   return (

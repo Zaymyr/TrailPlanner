@@ -28,6 +28,8 @@ Public course details can now show additive third-party bib-pickup conditions. C
 
 Catalogue data quality (2026-11-22): after canonical resolution the page marks the Trail TST demo `noindex,follow` (metadata `robots`) without official links or `SportsEvent`, drops `eventStatus`/`Offer` for finished formats, hides placeholder D− values and writes description distances with a French decimal comma. A former slug of a demo format still redirects the same way; slug identity, reservations and visibility rechecks are unchanged.
 
+Event hubs (2026-11-22): `lib/public-races.ts` adds the parent event's hub slug (`eventSlug`, separate lenient `race_events?select=id,slug` read) and the derived `regionSlug` to the catalog DTO; the course breadcrumb links the hub. Format slug resolution, former-slug redirects and visibility rechecks are unchanged.
+
 ## Purpose
 
 `race_slug_redirects` preserves every former public course slug so indexed URLs and inbound links can permanently redirect to the current `races.slug`.

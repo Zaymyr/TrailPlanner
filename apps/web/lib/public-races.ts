@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { getSupabaseServiceConfig } from "./supabase";
 import { PUBLIC_RACES_CACHE_TAG } from "./public-race-cache";
+import { getFrenchRegionByCode } from "./race-landing-pages";
 
 const raceSchema = z.object({
   id: z.string().uuid(),
@@ -28,11 +29,18 @@ const eventSchema = z.object({
   location_city: z.string().nullable().optional(),
   location_department: z.string().nullable().optional(),
   location_region: z.string().nullable().optional(),
+  location_region_code: z.string().nullable().optional(),
   location_country: z.string().nullable().optional(),
+  location_country_code: z.string().nullable().optional(),
   race_date: z.string().nullable(),
   thumbnail_url: z.string().nullable(),
   website_url: z.string().nullable(),
   updated_at: z.string().nullable().optional(),
+});
+
+const eventSlugSchema = z.object({
+  id: z.string().uuid(),
+  slug: z.string().min(1),
 });
 
 const raceSlugRedirectSchema = z.object({
@@ -50,6 +58,8 @@ export type PublicRace = {
   eventId: string | null;
   editionId: string | null;
   eventEditionSlug: string | null;
+  /** Durable year-free event hub slug (`race_events.slug`), null when unavailable. */
+  eventSlug?: string | null;
   slug: string;
   name: string;
   eventName: string | null;
@@ -59,6 +69,8 @@ export type PublicRace = {
   locationDepartment: string | null;
   locationRegion: string | null;
   locationCountry: string | null;
+  /** French region landing-page slug, derived from the normalized INSEE region code only. */
+  regionSlug?: string | null;
   searchTerms: string[];
   distanceKm: number | null;
   elevationGainM: number | null;
@@ -100,7 +112,9 @@ const eventSelect = [
   "location_city",
   "location_department",
   "location_region",
+  "location_region_code",
   "location_country",
+  "location_country_code",
   "race_date",
   "thumbnail_url",
   "website_url",
@@ -157,15 +171,43 @@ const fetchPublicEditionRows = async (path: string): Promise<z.infer<typeof edit
   }
 };
 
+/**
+ * Event hub slugs are read separately and leniently: a missing column (web
+ * deployed before its migration) only disables hub links instead of emptying
+ * the catalog.
+ */
+const fetchEventSlugs = async (filter: string): Promise<Map<string, string>> => {
+  const config = getSupabaseServiceConfig();
+  if (!config) return new Map();
+  try {
+    const response = await fetch(`${config.supabaseUrl}/rest/v1/race_events?select=id,slug&${filter}`, {
+      headers: {
+        apikey: config.supabaseServiceRoleKey,
+        Authorization: `Bearer ${config.supabaseServiceRoleKey}`,
+      },
+      next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS, tags: [PUBLIC_RACES_CACHE_TAG] },
+    });
+    if (!response.ok) return new Map();
+    const parsed = z.array(eventSlugSchema).safeParse(await response.json());
+    return parsed.success ? new Map(parsed.data.map((row) => [row.id, row.slug])) : new Map();
+  } catch {
+    return new Map();
+  }
+};
+
 const toPublicRace = (
   race: z.infer<typeof raceSchema>,
   event: z.infer<typeof eventSchema> | undefined,
   edition: z.infer<typeof editionSchema> | undefined,
+  eventSlug: string | null = null,
 ): PublicRace => ({
   id: race.id,
   eventId: race.event_id,
   editionId: race.edition_id ?? null,
   eventEditionSlug: edition?.slug ?? null,
+  // A hub only exists through edition-attached formats: a legacy format
+  // without an edition must not link to a hub that would not resolve.
+  eventSlug: event && race.edition_id ? eventSlug : null,
   slug: race.slug,
   name: race.name,
   eventName: event?.name ?? null,
@@ -175,6 +217,7 @@ const toPublicRace = (
   locationDepartment: event?.location_department ?? null,
   locationRegion: event?.location_region ?? null,
   locationCountry: event?.location_country ?? null,
+  regionSlug: event?.location_country_code === "FR" ? getFrenchRegionByCode(event.location_region_code)?.slug ?? null : null,
   searchTerms: Array.from(
     new Set(
       [
@@ -207,12 +250,13 @@ export const getPublicRaceRegistrationUrl = (race: PublicRace) => {
 };
 
 export async function getPublicRaces(): Promise<PublicRace[]> {
-  const [races, events] = await Promise.all([
+  const [races, events, eventSlugs] = await Promise.all([
     fetchPublicRows(
       `races?select=${raceSelect}&web_catalog_is_live=eq.true&is_public=eq.true&order=race_date.asc.nullslast,name.asc`,
       raceSchema,
     ),
     fetchPublicRows(`race_events?select=${eventSelect}&is_live=eq.true`, eventSchema),
+    fetchEventSlugs("is_live=eq.true"),
   ]);
   const eventsById = new Map(events.map((event) => [event.id, event]));
   const editionIds = Array.from(new Set(races.map((race) => race.edition_id).filter((id): id is string => Boolean(id))));
@@ -227,6 +271,7 @@ export async function getPublicRaces(): Promise<PublicRace[]> {
       race,
       race.event_id ? eventsById.get(race.event_id) : undefined,
       race.edition_id ? editionsById.get(race.edition_id) : undefined,
+      race.event_id ? eventSlugs.get(race.event_id) ?? null : null,
     ));
 }
 
@@ -259,8 +304,11 @@ const loadPublicRace = async (
   // A format attached to an unpublished event must not become public merely
   // because its own flags are still live.
   if (race.event_id && !events[0]) return null;
+  const eventSlugs = race.event_id
+    ? await fetchEventSlugs(`id=eq.${encodeURIComponent(race.event_id)}&is_live=eq.true&limit=1`)
+    : new Map<string, string>();
 
-  return toPublicRace(race, events[0], editions[0]);
+  return toPublicRace(race, events[0], editions[0], race.event_id ? eventSlugs.get(race.event_id) ?? null : null);
 };
 
 export async function resolvePublicRaceSlug(slug: string): Promise<PublicRaceSlugResolution | null> {
