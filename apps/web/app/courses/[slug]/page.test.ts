@@ -20,7 +20,7 @@ vi.mock("../../../lib/public-races", () => ({
 vi.mock("../../../lib/public-race-detail", () => ({ getPublicRaceDetail }));
 
 import RacePage, { generateMetadata, generateStaticParams } from "./page";
-import { buildRaceMetadataDescription, buildRaceMetadataTitle } from "./race-metadata";
+import { buildEventEditionMetadataTitle, buildRaceMetadataDescription, buildRaceMetadataTitle } from "./race-metadata";
 
 const canonicalRace = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -215,6 +215,26 @@ describe("public race legacy slug page", () => {
     const title = buildRaceMetadataTitle({ ...canonicalRace, name: "SaintéLyon — 80 km", distanceKm: 80, date: "2026-11-28" });
 
     expect(title).toBe("SaintéLyon — 80 km | 2026 · temps & ravitos");
+  });
+
+  it("prefixes a generic format name with its event so titles stay unique", () => {
+    const lyon = buildRaceMetadataTitle({ ...canonicalRace, name: "10 km", eventName: "Run In Lyon", distanceKm: 10, date: "2026-10-04" });
+    const night = buildRaceMetadataTitle({ ...canonicalRace, name: "10 km", eventName: "LUT by Night", distanceKm: 10, date: "2026-10-04" });
+
+    expect(lyon).toBe("Run In Lyon — 10 km | 2026 · temps & ravitos");
+    expect(night).not.toBe(lyon);
+    expect(buildRaceMetadataDescription({ ...canonicalRace, name: "10 km", eventName: "Run In Lyon" })).toMatch(/^Run In Lyon — 10 km :/);
+    expect(buildRaceMetadataTitle({ ...canonicalRace, name: "SaintéLyon — 80 km", eventName: "SaintéLyon", distanceKm: 80, date: "2026-11-28" }))
+      .toBe("SaintéLyon — 80 km | 2026 · temps & ravitos");
+  });
+
+  it("keeps event-edition titles within 60 characters with the year", () => {
+    expect(buildEventEditionMetadataTitle("Trail TST", 2026)).toBe("Trail TST 2026 : formats, parcours et ravitos");
+    expect(buildEventEditionMetadataTitle("Run In Lyon by Harmonie Mutuelle", 2026)).toBe("Run In Lyon by Harmonie Mutuelle 2026 : parcours et ravitos");
+    const long = buildEventEditionMetadataTitle("JD Ultra-Trail Great Wall by UTMB® avec un nom vraiment très très long", 2026);
+    expect(long.length).toBeLessThanOrEqual(60);
+    expect(long.endsWith(" 2026")).toBe(true);
+    expect(buildEventEditionMetadataTitle("Trail 2026", 2026)).toBe("Trail 2026 : formats, parcours et ravitos");
   });
 
   it("puts the reference finishing-time range in the search snippet", async () => {

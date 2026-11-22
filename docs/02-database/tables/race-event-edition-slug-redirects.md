@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_slug_redirects
 scope: database
-last_verified: 2026-11-16
+last_verified: 2026-11-22
 # Livret supporter note (2026-11-16): the public name of the supporter_guide surface is now "Livret supporter" (formerly "Livret accompagnateur"); aid-station access wording ("Accompagnateurs autorisés") is unchanged; no data, contract or offer change.
 ai_priority: high
 related_files:
@@ -54,3 +54,5 @@ RLS is enabled with no `anon` or `authenticated` policy or table privilege. Only
 - [RLS Checklist](../../04-auth-and-security/rls-checklist.md)
 
 Follow-page loading (2026-11-16): the event page now reads the public Livret supporter through the cached public endpoint (see public-race-discovery); slug resolution and redirects are unchanged.
+
+The canonical event-edition page title is built by `buildEventEditionMetadataTitle` (`Event Year` plus the longest suffix fitting 60 characters). Redirect resolution is unchanged.

@@ -2,7 +2,7 @@
 title: race_events Table
 scope: database
 
-last_verified: 2026-11-20
+last_verified: 2026-11-22
 # Supporter onboarding (2026-11-18): the mobile guided catalog gains a `supporter` mode over the same public event list; no read, table or RLS change here (the only schema change is `user_profiles.supporter_onboarding_status`).
 # Inbox push badge (2026-11-18): apps/web/lib/push.ts adds an iOS badge only to admin inbox pushes (unread user_notifications count); race event update pushes, schema and RLS are unchanged.
 # Reel hook short name (2026-11-19): nullable `short_name` (1-40 characters once trimmed, no ellipsis) edited by admins and read only by admin service-role routes; RLS, grants and public reads unchanged.
@@ -468,3 +468,5 @@ Publication checks and partner slots (2026-11-09): pre-publication checks and th
 Catalog scroll performance (2026-11-09): the Courses list renders memoized `CatalogEventRow` rows (stable callbacks through a handler ref) over a memoized `RaceEventSummaryCard`, tunes FlatList virtualization (`initialNumToRender` 6, `maxToRenderPerBatch` 4, `windowSize` 9, `removeClippedSubviews` on Android), downsamples rail images (`resizeMethod="resize"`) and reads reduce-motion on favorite press instead of subscribing one accessibility listener per card. Presentation only: no query, payload, analytics event or favorite/update-read behavior changes.
 
 Catalog end date (2026-11-14): `race_events.race_date` is the event start date. Mobile catalog visibility/sorting and `Mes courses` use the latest of this date and the formats' `races.race_date` (`getCatalogEventEndDate`), so a multi-day event stays visible and ongoing until its last format day ends.
+
+Public course metadata prefixes a format name that does not contain the parent event name (`races` → `race_events.name`) as `Event — Format`, so generic format names stay unique in search titles; event-edition titles stay within 60 characters by shortening their suffix. No schema change.

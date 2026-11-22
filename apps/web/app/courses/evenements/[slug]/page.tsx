@@ -8,6 +8,7 @@ import { RunnerAppBridge } from "../../_components/RunnerAppBridge";
 import { resolvePublicRaceEventEditionSlug } from "../../../../lib/public-race-events";
 import { getPublicSupporterGuide, supporterFollowPath } from "../../../../lib/public-supporter-guide";
 import { DEFAULT_SOCIAL_IMAGE, DEFAULT_SOCIAL_IMAGE_PATH, SITE_URL } from "../../../seo";
+import { buildEventEditionMetadataTitle } from "../../[slug]/race-metadata";
 import { buildEventEditionDescription, buildEventEditionStructuredData } from "./event-structured-data";
 import { isEventEditionPast } from "./event-edition-status";
 
@@ -51,7 +52,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!resolution) return { title: "Événement introuvable", robots: { index: false, follow: false } };
   const { edition } = resolution;
   const canonicalPath = `/courses/evenements/${edition.slug}`;
-  const title = `${edition.eventName} ${edition.editionYear} : formats, parcours et ravitos`;
+  const title = buildEventEditionMetadataTitle(edition.eventName, edition.editionYear);
   const description = buildEventEditionDescription(edition);
   return {
     title,
