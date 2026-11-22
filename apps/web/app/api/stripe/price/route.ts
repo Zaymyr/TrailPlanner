@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-import { checkRateLimit, withSecurityHeaders } from "../../../../lib/http";
+import { checkRateLimitAsync, withSecurityHeaders } from "../../../../lib/http";
 import { getStripeConfig } from "../../../../lib/stripe";
 
 type StripeInterval = "day" | "week" | "month" | "year";
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const rateLimit = checkRateLimit(
+  const rateLimit = await checkRateLimitAsync(
     `stripe:price:${request.headers.get("x-forwarded-for") ?? request.ip ?? "global"}`,
     20,
     60_000

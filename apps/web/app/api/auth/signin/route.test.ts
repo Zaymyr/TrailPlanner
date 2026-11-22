@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "./route";
 
 const mocks = vi.hoisted(() => ({
+  enforceAuthRateLimit: vi.fn(),
   getSupabaseAnonConfig: vi.fn(),
   getSupabaseServiceConfig: vi.fn(),
 }));
@@ -17,6 +18,7 @@ const signInRequest = (body: unknown) =>
 describe("POST /api/auth/signin", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.enforceAuthRateLimit.mockResolvedValue(null);
     vi.unstubAllGlobals();
     mocks.getSupabaseAnonConfig.mockReturnValue({
       supabaseUrl: "https://supabase.example",
@@ -26,6 +28,19 @@ describe("POST /api/auth/signin", () => {
       supabaseUrl: "https://supabase.example",
       supabaseServiceRoleKey: "service-key",
     });
+  });
+
+
+  it("returns the rate-limit response without contacting Supabase", async () => {
+    mocks.enforceAuthRateLimit.mockResolvedValue(Response.json({ code: "rate_limited" }, { status: 429 }));
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await POST(signInRequest({ email: "runner@example.com", password: "password123" }));
+
+    expect(response.status).toBe(429);
+    expect(mocks.enforceAuthRateLimit).toHaveBeenCalledWith(expect.anything(), "signin", "runner@example.com");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("rejects malformed credentials without contacting Supabase", async () => {
@@ -124,4 +139,8 @@ describe("POST /api/auth/signin", () => {
 vi.mock("../../../../lib/supabase", () => ({
   getSupabaseAnonConfig: mocks.getSupabaseAnonConfig,
   getSupabaseServiceConfig: mocks.getSupabaseServiceConfig,
+}));
+
+vi.mock("../../../../lib/auth-rate-limit", () => ({
+  enforceAuthRateLimit: mocks.enforceAuthRateLimit,
 }));

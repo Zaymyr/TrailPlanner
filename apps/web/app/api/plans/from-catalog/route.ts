@@ -6,7 +6,7 @@ import { getUserEntitlements } from "../../../../lib/entitlements";
 import { getRunnerMonetizationEnabled } from "../../../../lib/runner-access";
 import { parseGpx } from "../../../../lib/gpx/parseGpx";
 import { normalizeImportedWaypoints } from "../../../../lib/gpx/normalizeImportedWaypoints";
-import { checkRateLimit, withSecurityHeaders } from "../../../../lib/http";
+import { checkRateLimitAsync, withSecurityHeaders } from "../../../../lib/http";
 import { loadOrganizerAidStationProductsForStations } from "../../../../lib/organizer-aid-station-products";
 import { parseOrganizerAidStationDetails } from "../../../../lib/organizer-dashboard-details";
 import {
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
     return withSecurityHeaders(NextResponse.json({ message: "Create an account before creating a plan." }, { status: 403 }));
   }
 
-  const rateLimit = checkRateLimit(`plans-from-catalog:${supabaseUser.id}`, 10, 60_000);
+  const rateLimit = await checkRateLimitAsync(`plans-from-catalog:${supabaseUser.id}`, 10, 60_000);
   if (!rateLimit.allowed) {
     return withSecurityHeaders(
       NextResponse.json(

@@ -1,7 +1,7 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-11-18
+last_verified: 2026-11-22
 # Supporter onboarding (2026-11-18): the welcome chooser asks « Je cours » / « J’accompagne un coureur » and routes to the Livret coureur or the Livret supporter; a new `supporter` tour (status `user_profiles.supporter_onboarding_status`, migration 20261118200000) runs a spotlight tour on the Livret supporter.
 # Welcome onboarding cleanup (2026-11-18): the onboarding route drops the intro plan offer and the Officiel badge copy; presentation only, no auth, session or callback change.
 ai_priority: high
@@ -220,3 +220,10 @@ The root layout skips unsupported Expo OTA checks only for the development Andro
 Livret-first navigation (2026-11-09): the onboarding tour choice now presents the RaceBook tour as the default and the plan tour as optional below it, and its copy/notification promises changed. Account choice, guest handling, session gates and redirects are unchanged; skipping the plan tour at the products step now returns to Mes courses because Nutrition is no longer a root tab.
 
 Return paths (2026-11-16): `/organizers` and `/organizer` (with a validated event UUID) are now remembered for seven days like the runner catalog and premium returns. `/organizers` remembers its creation path for signed-out visitors, and `AuthCallbackHandler` (tokens in the URL hash, typically when Supabase falls back to the site URL) resumes the remembered destination before defaulting to `/race-planner`. Normalization and the open-redirect allow-list are unchanged.
+
+## Web Auth Rate Limiting (2026-11-22)
+
+`POST /api/auth/signin` and `POST /api/auth/signup` proxy Supabase Auth from Vercel, so Supabase's own per-IP limits only see Vercel egress addresses. After body validation, both routes call `enforceAuthRateLimit` (`apps/web/lib/auth-rate-limit.ts`), which applies the DB-backed `checkRateLimitAsync` twice: once per client IP (first `x-forwarded-for` entry) and once per SHA-256-hashed, lower-cased e-mail (no address is stored in the rate-limit table). A breach returns `429` with `Retry-After` and `{ code: "rate_limited", message }` (French message) before Supabase is contacted. Limits: sign-in 30 per IP and 10 per e-mail per 15 minutes; sign-up 10 per IP and 5 per e-mail per hour. They are deliberately conservative for shared networks.
+
+`signin` and `signup` still return `access_token` and `refresh_token` in the JSON body in addition to the httpOnly cookies: `apps/web/app/sign-in/page.tsx` and `apps/web/app/sign-up/page.tsx` persist them to browser storage through `persistSessionToStorage`. Do not remove them until that client storage is retired.
+

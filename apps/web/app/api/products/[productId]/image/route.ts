@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-import { checkRateLimit, withSecurityHeaders } from "../../../../../lib/http";
+import { checkRateLimitAsync, withSecurityHeaders } from "../../../../../lib/http";
 import {
   IMAGE_UPLOAD_CACHE_CONTROL,
   InvalidImageError,
@@ -67,7 +67,7 @@ export async function PUT(request: NextRequest, context: { params: { productId?:
     return withSecurityHeaders(NextResponse.json({ message: "Invalid session." }, { status: 401 }));
   }
 
-  const rateLimit = checkRateLimit(`product-image-update:${supabaseUser.id}`, 12, 60_000);
+  const rateLimit = await checkRateLimitAsync(`product-image-update:${supabaseUser.id}`, 12, 60_000);
   if (!rateLimit.allowed) {
     return withSecurityHeaders(
       NextResponse.json(

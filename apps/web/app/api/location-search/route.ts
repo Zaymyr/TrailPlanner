@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-import { checkRateLimit, withSecurityHeaders } from "../../../lib/http";
+import { checkRateLimitAsync, withSecurityHeaders } from "../../../lib/http";
 import { buildGoogleMapsUrl } from "../../../lib/location-utils";
 
 const searchParamsSchema = z.object({
@@ -255,7 +255,7 @@ export async function GET(request: NextRequest) {
     return withSecurityHeaders(NextResponse.json({ suggestions: [] }, { status: 400 }));
   }
 
-  const rateLimit = checkRateLimit(`location-search:${getRateLimitKey(request)}`, 30, 60_000);
+  const rateLimit = await checkRateLimitAsync(`location-search:${getRateLimitKey(request)}`, 30, 60_000);
   if (!rateLimit.allowed) {
     return withSecurityHeaders(
       NextResponse.json(

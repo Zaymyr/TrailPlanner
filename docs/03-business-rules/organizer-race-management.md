@@ -589,6 +589,7 @@ Structured services, equipment items, aid stations, and sponsors use valid local
 
 ## Gotchas
 
+- Address autocomplete (`/api/location-search`) and catalog plan creation (`/api/plans/from-catalog`) rate limit through the DB-backed `checkRateLimitAsync`; the in-memory limiter is not relied on across serverless instances (2026-11-22).
 - Organizer-facing French consistently uses informal address, correct accents, and explicit singular/plural labels; technical analytics vocabulary stays out of helper copy.
 
 - Organizer deletion prompts use accessible dialogs for destructive GPX/format actions; ordinary repeatable-row removal uses undo instead of browser confirmation.
