@@ -11,6 +11,7 @@ import {
   FLYOVER_OFFERS,
   getFlyoverGpxPath,
   prepareAidStations,
+  readGpxAidStations,
   readFlyoverOrderFormData,
   validatePublishLocal,
 } from "../../../lib/flyover-orders";
@@ -63,8 +64,11 @@ export async function POST(request: NextRequest) {
   if (file.size > FLYOVER_MAX_GPX_BYTES) return json({ message: "Le GPX dépasse 10 Mo." }, 400);
   const gpxText = await file.text();
   let check: ReturnType<typeof checkFlyoverGpx>;
+  let gpxStations: Array<{ name: string; km: number }> = [];
   try {
-    check = checkFlyoverGpx(parseGpx(gpxText));
+    const parsedGpx = parseGpx(gpxText);
+    check = checkFlyoverGpx(parsedGpx);
+    gpxStations = readGpxAidStations(parsedGpx);
   } catch (error) {
     if (error instanceof GpxParseError) return json({ message: "Ce fichier n’est pas un GPX lisible." }, 422);
     throw error;
@@ -110,7 +114,9 @@ export async function POST(request: NextRequest) {
       map_preset: form.mapPreset,
       terrain_exaggeration: form.terrainExaggeration,
       publish_local: form.offer === "collab" ? form.publishLocal : null,
-      aid_stations: prepareAidStations(form.aidStations, check.distanceKm),
+      // The form sends the stations shown to the organizer (GPX waypoints pre-filled, editable);
+      // the GPX ones are only a fallback when the form sent none and the field was never touched.
+      aid_stations: prepareAidStations(form.aidStations.length || form.aidStationsEdited ? form.aidStations : gpxStations, check.distanceKm),
       gpx_storage_path: gpxPath,
       distance_km: check.distanceKm,
       elevation_gain_m: check.gainM,

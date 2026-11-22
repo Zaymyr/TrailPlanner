@@ -6,6 +6,8 @@ ai_priority: medium
 related_files:
   - apps/web/lib/flyover-orders.ts
   - apps/web/lib/flyover-orders.test.ts
+  - apps/web/lib/flyover-shared.ts
+  - apps/web/app/survol/flyover-preview.tsx
   - apps/web/lib/flyover-generation.ts
   - apps/web/lib/flyover-generation.test.ts
   - apps/web/app/survol/page.tsx
@@ -38,12 +40,21 @@ A standalone paid product for race organizers, independent of the livret coureur
 - **Basemap presets** (`FLYOVER_MAP_PRESETS`), mapped on the editor's `mapStyle` + `mapAmbiance`: `signature` (Pace Yourself topo + brand), `satellite` (satellite-streets + natural), `relief` (Standard 3D satellite + vivid), `cinema` (satellite-streets + cinematic).
 - **Relief**: `terrain_exaggeration` 1–3 (default 1.8), copied into `terrainExaggeration`.
 - **Mode**: same rule as the automatic reels (`getReelMode`): up to 60 km « Parcours complet », beyond « Temps forts ».
+- **Shared composition** (`apps/web/lib/flyover-shared.ts`, no server import): presets, relief bounds, `getFlyoverMode`, `applyFlyoverSettings`, `buildFlyoverDetail`, `checkFlyoverGpx`, `readGpxAidStations`. The browser preview and the paid render read the same functions, so what the organizer sees is what is rendered (minus the voice).
 - **No catalog race**: the order id stands for the race id inside the in-memory `VideoGeneratorDetail` (`buildFlyoverDetail`); render jobs carry `flyover_order_id` and a null `race_id`.
+
+## Page flow (`/survol`, 2026-11-22)
+
+The price comes last, after the organizer has seen the video:
+
+1. **Votre parcours**: the GPX is read in the browser (`parseGpx`, `checkFlyoverGpx`); its waypoints become editable aid stations (`readGpxAidStations`: `normalizeImportedWaypoints`, start and finish excluded, at most 40) and its `<name>` pre-fills the race name when empty.
+2. **Votre vidéo**: basemap and relief, next to the live 3D preview (`FlyoverPreview`: the editor viewer `VideoGeneratorMap` in `preview` mode, with the reel settings of the course mode, the preset and the relief; play, restart and seek; no voice, the default story subtitles play). Route points depend on the GPX only, so typing the name or editing a station never restarts the viewer. On a phone the preview comes first and is sized by the page width.
+3. **Votre formule**: the two offers, then the Instagram account, the collab slot and the email appear once an offer is chosen; the pay button is disabled until a GPX is ready.
 
 ## Order form (`POST /api/flyover-orders`, multipart)
 
 1. Per-IP rate limit 8/hour; hidden `website` honeypot.
-2. Fields (`flyoverOrderFormSchema`): offer, race name (2–120), optional race date, email, Instagram account (required for `collab`; `@` and profile URLs accepted, stored without `@`), preset, relief, collab slot (Paris wall time `YYYY-MM-DDTHH:mm`), up to 40 aid stations `{ name, km }`.
+2. Fields (`flyoverOrderFormSchema`): offer, race name (2–120), optional race date, email, Instagram account (required for `collab`; `@` and profile URLs accepted, stored without `@`), preset, relief, collab slot (Paris wall time `YYYY-MM-DDTHH:mm`), up to 40 aid stations `{ name, km }`, `aidStationsEdited` (`1` when the organizer changed the list). When the form sends no station and the list was never edited, the server falls back to the GPX waypoints (`readGpxAidStations`).
 3. Collab slot (`validatePublishLocal`): at least 48 h ahead (24 h production + margin) and at most 21 days ahead (the MP4 expires 30 days after the render).
 4. GPX (`checkFlyoverGpx`): ≤ 10 MB, parseable, ≥ 2 points, altitudes on at least half the points (the server cannot query the 3D terrain), 0.5–400 km.
 5. Stripe price (env `STRIPE_FLYOVER_COLLAB_PRICE_ID` / `STRIPE_FLYOVER_DOWNLOAD_PRICE_ID`): must be active, EUR, one-off, `unit_amount` 2999 / 5999. The GPX is stored in the private `race-gpx` bucket at `flyover/<order id>.gpx`, the order is inserted `pending_payment` (stations sorted, ids fixed), then a Checkout session opens (`metadata.purchase_type = flyover_video`, `metadata.order_id`, automatic tax, invoice, promotion codes allowed, idempotency key `flyover-order-<id>`). Success URL: the order page; cancel URL: `/survol?paiement=annule`. A failure marks the order `expired`.
@@ -77,6 +88,9 @@ One tick (`runFlyoverTick`):
 - The cron reuses the Vault secrets `web_app_url` and `cron_secret`; the steps reuse the reel env vars (`ANTHROPIC_API_KEY`, `ELEVENLABS_API_KEY`, Google Cloud render variables, `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`, Resend).
 
 ## Gotchas
+
+- The preview uses the public Mapbox token in the browser, like the admin editor: each preview loads Mapbox terrain and tiles (map loads count on the Mapbox bill).
+- The preview has no voice: the story texts shown are the default beat narrations; the paid video gets AI-written texts and a voice-over.
 
 - The collab reel goes out only if publishing is live (`INSTAGRAM_PUBLISH_DRY_RUN=false`); in dry run the post is "published" in simulation and the organizer sees no reel.
 - The collaborator must accept Instagram's invitation; the API cannot force it. A private or misspelled account makes the container creation fail at publication time (visible in Publications).

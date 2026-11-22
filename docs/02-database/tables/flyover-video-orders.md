@@ -40,7 +40,7 @@ One row per organizer flyover video order (`/survol`), from the Stripe checkout 
 | `map_preset` | `text` | `signature`, `satellite`, `relief`, `cinema` | Basemap preset. |
 | `terrain_exaggeration` | `real` | 1–3, default 1.8 | Relief exaggeration. |
 | `publish_local` | `text` | `YYYY-MM-DDTHH:mm`, nullable | Collab slot, Paris wall time; required for `collab` (`flyover_video_orders_collab_fields`). |
-| `aid_stations` | `jsonb` | array, ≤ 40 | `[{ id, name, km }]`, ids fixed at order time. |
+| `aid_stations` | `jsonb` | array, ≤ 40 | `[{ id, name, km }]`, ids fixed at order time; from the form, else from the GPX waypoints. |
 | `gpx_storage_path` | `text` | required | GPX object path. |
 | `distance_km`, `elevation_gain_m`, `elevation_loss_m` | `real` | distance > 0 | GPX stats at order time. |
 | `stripe_checkout_session_id`, `stripe_checkout_url`, `stripe_payment_intent_id`, `paid_at` | | session id unique when set | Stripe references. |

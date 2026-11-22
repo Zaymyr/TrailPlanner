@@ -194,6 +194,7 @@ related_files:
   - apps/web/app/sitemap.test.ts
   - apps/web/app/survol/page.tsx
   - apps/web/app/survol/flyover-order-form.tsx
+  - apps/web/app/survol/flyover-preview.tsx
   - apps/web/app/survol/commande/[id]/page.tsx
   - apps/web/app/api/flyover-orders/route.ts
   - apps/web/app/api/flyover-orders/[id]/download/route.ts
@@ -1024,4 +1025,4 @@ Home copy that changed (heading, subheading, how-it-works including the Livret c
 
 ## Organizer flyover video orders (2026-11-22)
 
-`/survol` (indexable, in the sitemap) sells organizers a 3D flyover reel made from their GPX: a server page with a client form (`flyover-order-form.tsx`) posting multipart to `POST /api/flyover-orders` (public, rate-limited, honeypot, Stripe Checkout). `/survol/commande/[id]?t=<token>` (noindex) shows the order status and, for the MP4 offer, a download button backed by `GET /api/flyover-orders/[id]/download` (HMAC token, redirect to a short-lived signed GCS URL). A pg_cron job calls `POST /api/cron/flyover-orders` every 10 minutes to write, voice and render the reel. All routes use the service role; the table has no RLS policy. `/api/admin/social-posts` returns `racePublication: null` for a render with no race (flyover renders). Rules, setup and pitfalls: [Organizer Flyover Video Orders](../03-business-rules/flyover-video-orders.md).
+`/survol` (indexable, in the sitemap) sells organizers a 3D flyover reel made from their GPX: a server page with a client form (`flyover-order-form.tsx`: GPX read in the browser with its waypoints pre-filled as aid stations, live 3D preview `flyover-preview.tsx` built on the admin `VideoGeneratorMap` in `preview` mode, offer and payment last) posting multipart to `POST /api/flyover-orders` (public, rate-limited, honeypot, Stripe Checkout). `/survol/commande/[id]?t=<token>` (noindex) shows the order status and, for the MP4 offer, a download button backed by `GET /api/flyover-orders/[id]/download` (HMAC token, redirect to a short-lived signed GCS URL). A pg_cron job calls `POST /api/cron/flyover-orders` every 10 minutes to write, voice and render the reel. All routes use the service role; the table has no RLS policy. `/api/admin/social-posts` returns `racePublication: null` for a render with no race (flyover renders). Rules, setup and pitfalls: [Organizer Flyover Video Orders](../03-business-rules/flyover-video-orders.md).

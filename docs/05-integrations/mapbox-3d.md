@@ -351,6 +351,12 @@ Limits of a server reel: the default composition (no admin browser preferences),
 - [GPX Import](../03-business-rules/gpx-import.md)
 - [OpenStreetMap and Leaflet](openstreetmap-leaflet.md)
 
+## Public preview mode (2026-11-22)
+
+`VideoGeneratorMap` also takes a `preview` prop (`{ settings }`), used by the organizer flyover page `/survol` ([rules](../03-business-rules/flyover-video-orders.md)): the editor panels are hidden (as in a background render), the voice pool and narration routes are never called (empty session token), the transport bar stays, the frame is sized by the page width (at most 22 rem and the viewport height) instead of the viewport height, and a change of `preview.settings` is applied live through the same path as the composition panel (`updateSettings`: a new style URL reloads the map style).
+
+The future route and its glow are painted with `withAlpha` (`rgba(...)`) since 2026-11-22: Mapbox GL rejected the former 8-digit hex colors (`#2d501638`, "color expected"), so these two layers were not drawn.
+
 ## Background render and voice library
 
 "Générer en arrière-plan" (under the MP4 export) saves the composition and renders it on Google Cloud Run in headless Chrome, so the tab can be closed; the finished MP4 is listed in the same panel. `VideoGeneratorMapClient` accepts a `render` prop (`VideoRenderHooks`): it seeds settings, narration overrides, summit names and voice clips from the snapshot, skips the Tilequery lookup, hides every panel, exports at scale 1 as soon as the map is ready and hands the blob over instead of offering a download. See [Google Cloud Background Reel Render](google-cloud-video-render.md). When the browser has no native AAC encoder (Linux Chrome, Firefox), the export registers `@mediabunny/aac-encoder` (pinned to the `mediabunny` version). `VideoRaceInfo` carries the catalog race `id` to file renders.

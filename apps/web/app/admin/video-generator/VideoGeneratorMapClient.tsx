@@ -148,8 +148,19 @@ const TOLD_SLOPE_SOURCE_ID = "video-told-slope";
 const TOLD_SLOPE_LAYER_ID = "video-told-slope-line";
 const TOLD_SLOPE_CASING_LAYER_ID = "video-told-slope-casing";
 export const VIDEO_ROUTE_COLOR = DEFAULT_VIDEO_COMPOSITION_SETTINGS.routeColor;
-const FUTURE_ROUTE_ALPHA_HEX = "38";
-const GLOW_ROUTE_ALPHA_HEX = "8c";
+const FUTURE_ROUTE_ALPHA = 0x38 / 255;
+const GLOW_ROUTE_ALPHA = 0x8c / 255;
+
+/**
+ * "#2d5016" + alpha as rgba(): Mapbox GL rejects 8-digit hex colors ("color expected"), which left the
+ * future route and its glow undrawn. Non-hex input is returned as is.
+ */
+export const withAlpha = (hex: string, alpha: number) => {
+  const match = /^#([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!match) return hex;
+  const value = Number.parseInt(match[1], 16);
+  return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}, ${Math.round(alpha * 1000) / 1000})`;
+};
 const OWN_LAYER_IDS = new Set([
   ROUTE_LAYER_ID,
   ROUTE_GLOW_LAYER_ID,
@@ -556,7 +567,7 @@ const syncMapData = (
       slot: "top",
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
-        "line-color": `${routeColor}${FUTURE_ROUTE_ALPHA_HEX}`,
+        "line-color": withAlpha(routeColor, FUTURE_ROUTE_ALPHA),
         "line-width": lineWidth,
         "line-emissive-strength": 1,
       },
@@ -571,7 +582,7 @@ const syncMapData = (
       slot: "top",
       layout: { "line-cap": "round", "line-join": "round", visibility: settings.routeGlow ? "visible" : "none" },
       paint: {
-        "line-color": `${routeColor}${GLOW_ROUTE_ALPHA_HEX}`,
+        "line-color": withAlpha(routeColor, GLOW_ROUTE_ALPHA),
         "line-width": ROUTE_GLOW_WIDTH,
         "line-blur": ROUTE_GLOW_BLUR,
         "line-emissive-strength": 1,
@@ -672,7 +683,9 @@ const setMapInteractionsEnabled = (map: MapboxMap, enabled: boolean) => {
   });
 };
 
-export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations, bounds, points, race, render }: VideoGeneratorMapProps) {
+export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations, bounds, points, race, render, preview }: VideoGeneratorMapProps) {
+  // The editor panels are hidden in a background render and in the public preview.
+  const panelsHidden = Boolean(render || preview);
   const renderSnapshot = render?.snapshot;
   const accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN?.trim() ?? "";
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -709,7 +722,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   const boundsRef = useRef(bounds);
   const pointsRef = useRef(points);
 
-  const [settings, setSettings] = useState<VideoCompositionSettings>(renderSnapshot?.settings ?? INITIAL_EDITOR_SETTINGS);
+  const [settings, setSettings] = useState<VideoCompositionSettings>(renderSnapshot?.settings ?? preview?.settings ?? INITIAL_EDITOR_SETTINGS);
   const [preparedPath, setPreparedPath] = useState<PreparedAnimationPath>(() => prepareAnimationPath(points));
   const [mapError, setMapError] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
@@ -812,7 +825,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   // The voice the narration has (saved, or generated in this session). Never taken from the browser's last used voice.
   const [currentVoice, setCurrentVoice] = useState<ChosenVoice | null>(null);
   const [changeVoiceRequested, setChangeVoiceRequested] = useState(false);
-  const voicePool = useVoicePool(sessionToken, !render);
+  const voicePool = useVoicePool(sessionToken, !panelsHidden);
   // Storytelling: a random style by default so reels vary, and the admin's instructions for this race.
   const [scriptStyle, setScriptStyle] = useState<ScriptStyleChoice>("auto");
   const [scriptNotes, setScriptNotes] = useState("");
@@ -995,13 +1008,13 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
       map.setPaintProperty(ROUTE_REVEAL_LAYER_ID, "line-width", lineWidth);
     }
     if (map.getLayer(ROUTE_LAYER_ID)) {
-      map.setPaintProperty(ROUTE_LAYER_ID, "line-color", `${settings.routeColor}${FUTURE_ROUTE_ALPHA_HEX}`);
+      map.setPaintProperty(ROUTE_LAYER_ID, "line-color", withAlpha(settings.routeColor, FUTURE_ROUTE_ALPHA));
       map.setPaintProperty(ROUTE_LAYER_ID, "line-width", lineWidth);
     }
     if (map.getLayer(TOLD_SLOPE_LAYER_ID)) map.setPaintProperty(TOLD_SLOPE_LAYER_ID, "line-width", lineWidth);
     if (map.getLayer(TOLD_SLOPE_CASING_LAYER_ID)) map.setPaintProperty(TOLD_SLOPE_CASING_LAYER_ID, "line-width", ROUTE_CASING_WIDTHS[settings.routeWidth]);
     if (map.getLayer(ROUTE_GLOW_LAYER_ID)) {
-      map.setPaintProperty(ROUTE_GLOW_LAYER_ID, "line-color", `${settings.routeColor}${GLOW_ROUTE_ALPHA_HEX}`);
+      map.setPaintProperty(ROUTE_GLOW_LAYER_ID, "line-color", withAlpha(settings.routeColor, GLOW_ROUTE_ALPHA));
       map.setLayoutProperty(ROUTE_GLOW_LAYER_ID, "visibility", settings.routeGlow ? "visible" : "none");
     }
     if (map.getLayer(ROUTE_CASING_LAYER_ID)) {
@@ -1663,6 +1676,12 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
     }
     setSettings(nextSettings);
   };
+  // Public preview: the page owns the settings (basemap, relief) and they apply live.
+  const previewSettings = preview?.settings;
+  useEffect(() => {
+    if (previewSettings) updateSettings(previewSettings);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewSettings]);
 
   // One-click reel: the steps of the manual flow (AI text, voice, save, background render) chained
   // on the same functions as the individual buttons. Each step hands its result to the next one
@@ -1786,7 +1805,10 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
           ref={frameRef}
           className={exportLayout
             ? "relative overflow-hidden bg-transparent [container-type:size]"
-            : portrait
+            : preview
+              // Public preview: sized by the page width (phones), never by the viewport height.
+              ? "relative aspect-[9/16] w-[min(100%,22rem,calc((100dvh-9rem)*0.5625))] overflow-hidden rounded-[1.75rem] border-[6px] border-slate-900 bg-slate-950 shadow-2xl [container-type:size]"
+              : portrait
               ? "relative aspect-[9/16] h-[calc(100dvh-14rem)] max-h-[60rem] min-h-[26rem] max-w-full overflow-hidden rounded-[1.75rem] border-[6px] border-slate-900 bg-slate-950 shadow-2xl [container-type:size]"
               : "relative aspect-video h-[calc((100dvh-14rem)*0.6)] min-h-[16rem] max-w-[calc(100vw-48rem)] overflow-hidden rounded-xl border-[6px] border-slate-900 bg-slate-950 shadow-2xl [container-type:size]"}
           style={exportLayout ? { width: exportLayout.width, height: exportLayout.height } : undefined}
@@ -1812,7 +1834,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
         </div>
         </div>
         {render ? null : (
-        <div className={portrait ? "w-full max-w-md" : "w-full"}>
+        <div className={preview ? "w-full max-w-[22rem]" : portrait ? "w-full max-w-md" : "w-full"}>
           <AnimationControls
             canAnimate={preparedPath.canAnimate}
             currentDistanceKm={toAnnouncedKm(figures, currentFrame.distanceKm)}
@@ -1834,7 +1856,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
         )}
       </section>
 
-      {render ? null : (
+      {panelsHidden ? null : (
       <div className="h-fit space-y-4 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto">
       <Card>
         <CardHeader className="pb-3">

@@ -25,9 +25,9 @@ export const metadata: Metadata = {
 };
 
 const STEPS = [
-  { title: "Votre GPX", text: "Le tracé, le nom de la course et, si vous le souhaitez, vos ravitaillements." },
-  { title: "Votre style", text: "Quatre fonds de carte et un relief plus ou moins accentué." },
-  { title: "Sous 24 h", text: "Survol 3D, voix off et récit écrits pour votre parcours, au format reel vertical." },
+  { title: "Votre GPX", text: "Le tracé et vos ravitos, importés directement depuis le fichier." },
+  { title: "L’aperçu", text: "Le survol 3D se joue dans la page : fond de carte et relief au choix." },
+  { title: "Sous 24 h", text: "La vidéo finale avec voix off et récit, en reel vertical." },
 ];
 
 type PageProps = { searchParams?: Record<string, string | string[] | undefined> };
@@ -36,18 +36,18 @@ type PageProps = { searchParams?: Record<string, string | string[] | undefined> 
 export default function FlyoverOrderPage({ searchParams }: PageProps) {
   const cancelled = searchParams?.paiement === "annule";
   return (
-    <div className="mx-auto max-w-4xl space-y-10 pb-12">
-      <section className="relative overflow-hidden rounded-3xl border border-brand-border bg-gradient-to-br from-brand-surface via-card to-muted p-5 shadow-[0_28px_80px_rgba(45,80,22,0.14)] sm:p-8 dark:border-emerald-400/25 dark:from-emerald-400/10 dark:via-card dark:to-card">
+    <div className="mx-auto max-w-5xl space-y-6 pb-12 sm:space-y-10">
+      <section className="relative overflow-hidden rounded-3xl border border-brand-border bg-gradient-to-br from-brand-surface via-card to-muted p-4 shadow-[0_28px_80px_rgba(45,80,22,0.14)] sm:p-8 dark:border-emerald-400/25 dark:from-emerald-400/10 dark:via-card dark:to-card">
         <p className="inline-flex rounded-full border border-brand-border bg-card/85 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-brand shadow-sm dark:border-emerald-400/30 dark:bg-emerald-950/50 dark:text-emerald-100">
           Organisateurs · Vidéo de survol
         </p>
-        <h1 className="mt-4 max-w-3xl text-[2rem] font-semibold leading-[1.06] tracking-[-0.035em] text-foreground sm:text-[2.5rem]">
+        <h1 className="mt-3 max-w-3xl text-[1.75rem] font-semibold leading-[1.08] tracking-[-0.035em] text-foreground sm:mt-4 sm:text-[2.5rem]">
           Faites survoler votre parcours en 3D à vos futurs coureurs.
         </h1>
-        <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-          Une vidéo verticale prête pour Instagram : le tracé qui se dessine sur le relief, les montées clés, vos ravitos, une voix off et un récit écrits pour votre course.
+        <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground sm:mt-4 sm:text-lg">
+          Déposez votre GPX : l’aperçu 3D se joue tout de suite. Choisissez le fond de carte et le relief, la voix off et le récit sont écrits pour votre course.
         </p>
-        <ol className="mt-6 grid gap-3 sm:grid-cols-3">
+        <ol className="mt-6 hidden gap-3 sm:grid sm:grid-cols-3">
           {STEPS.map((step, index) => (
             <li key={step.title} className="rounded-2xl border border-border bg-card/85 p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand dark:text-emerald-300">Étape {index + 1}</p>
@@ -58,10 +58,7 @@ export default function FlyoverOrderPage({ searchParams }: PageProps) {
         </ol>
       </section>
 
-      <section aria-labelledby="flyover-order-title" className="space-y-4">
-        <h2 id="flyover-order-title" className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">Commander la vidéo</h2>
-        <FlyoverOrderForm cancelled={cancelled} />
-      </section>
+      <FlyoverOrderForm cancelled={cancelled} />
 
       <section aria-labelledby="flyover-faq-title" className="space-y-3 text-sm leading-6 text-muted-foreground">
         <h2 id="flyover-faq-title" className="text-xl font-semibold text-foreground">Bon à savoir</h2>
