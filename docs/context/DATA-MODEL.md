@@ -14,7 +14,7 @@ No generated Supabase types file (`Database` type) exists in the repo; code uses
 
 ### race_events — [doc](../02-database/tables/race-events.md)
 - Purpose: event identity (name, location, image, live state) grouping yearly editions and formats.
-- Key columns: `id`, `name`, `slug` (durable year-free hub slug, not null, unique, immutable, never equal to an edition slug — `20261122210000`), `location`, `thumbnail_url`, `short_name`, `website_url`, `organizer_details` (JSONB), normalized geography `location_city…location_country_code` (French `location_region_code` = INSEE code, backfilled from the region name by `20261122210000`; region landing pages trust only the code), `location_latitude/longitude`.
+- Key columns: `id`, `name`, `slug` (durable year-free hub slug, not null, unique, immutable, never equal to an edition slug — `20261122230000`), `location`, `thumbnail_url`, `short_name`, `website_url`, `organizer_details` (JSONB), normalized geography `location_city…location_country_code` (French `location_region_code` = INSEE code, backfilled from the region name by `20261122230000`; region landing pages trust only the code), `location_latitude/longitude`.
 - **The create-table migration is not in the repo**; only later `add column` migrations are. Verify against live schema before depending on base columns.
 
 ### race_event_editions — [doc](../02-database/tables/race-event-editions.md)
