@@ -15,6 +15,7 @@ import { ReelAutomationSettings, ReelPlanList } from "./AutomationCard";
 import { toPlannedCalendarEntries, toPlannedCarouselEntries } from "./automation-labels";
 import { CaptionForm, toCaptionFormValues, type CaptionPayload } from "./CaptionForm";
 import { CarouselGenerateNow, CarouselPlanList, CarouselSeriesSettings } from "./CarouselAutomationSection";
+import { FlyoverOrdersCard } from "./FlyoverOrdersCard";
 import { InstagramStatusCard } from "./InstagramStatusCard";
 import { PostCard } from "./PostCard";
 import { PublicationCalendar } from "./PublicationCalendar";
@@ -450,6 +451,8 @@ function PublicationsContent() {
           />
         </div>
       ) : null}
+
+      {tab === "flyovers" ? <FlyoverOrdersCard accessToken={accessToken} /> : null}
 
       {tab === "gpx" ? (
         <RaceDataGapsCard

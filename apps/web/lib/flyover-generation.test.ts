@@ -60,6 +60,7 @@ const memoryRepository = (rows: FlyoverOrderRow[]) => {
     },
     listByStatus: async (statuses) => [...store.values()].filter((row) => statuses.includes(row.status)),
     findByPaymentIntent: async () => [],
+    listRecent: async () => [...store.values()],
     listReadyWithoutEmail: async () => [...store.values()].filter((row) => row.status === "ready" && !row.ready_email_sent_at),
   };
   return { store, repository };
@@ -116,7 +117,7 @@ describe("runFlyoverTick", () => {
     expect(store.get(order().id)).toMatchObject({ status: "ready", ready_email_sent_at: NOW.toISOString() });
     expect(d.publishCollab).not.toHaveBeenCalled();
     expect(d.sendEmail).toHaveBeenCalledTimes(1);
-    expect(d.sendEmail).toHaveBeenCalledWith(expect.objectContaining({ to: "orga@example.fr", idempotencyKey: `flyover/ready/${order().id}` }));
+    expect(d.sendEmail).toHaveBeenCalledWith(expect.objectContaining({ to: "orga@example.fr", idempotencyKey: `flyover/ready/${order().id}/${order().updated_at}` }));
   });
 
   it("schedules a finished collab order, and flags it when Instagram scheduling is refused", async () => {
