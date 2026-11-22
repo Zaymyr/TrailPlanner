@@ -4,6 +4,14 @@
 
 Journal en ajout seul, la plus récente en haut. Format : `## AAAA-MM-JJ — Titre`, puis Contexte / Décision / Conséquence (2 à 4 lignes chacun). Les décisions d'architecture détaillées (ADR) vont dans [docs/08-decisions/](../08-decisions/README.md).
 
+## 2026-11-22 — Nouvelle grille tarifaire
+
+**Contexte.** La grille organisateurs 99 / 199 / 349 € HT sous-valorisait le livret coureur, et l'offre coureur était décrite de façon incohérente (achat unique seul, abonnement annuel).
+
+**Décision.** Organisateurs : Essentiel 199 €, Complet 349 €, Signature 499 € HT par édition ; les montées en gamme facturent la différence (150 / 300 / 150 €). Coureurs : 9,99 € la course ou 29,99 € par an.
+
+**Conséquence.** `ORGANIZER_TIER_PRICE_EUR` reste l'unique source des montants organisateurs (checkout, factures virement, dashboard, page /organisateurs). Six nouveaux Prix Stripe organisateurs et les variables Vercel associées doivent être en place au moment du merge ; les paiements et factures déjà émis gardent leur montant.
+
 ## 2026-11-21 — Tâches planifiées web via pg_cron, pas Vercel Cron
 
 **Contexte.** Les crons déclarés dans `vercel.json` ne reçoivent aucun appel de Vercel en production (17–21/11) ; la démo Trail TST est restée figée au 18/11 alors que toutes les tâches pg_cron tournent.

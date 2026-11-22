@@ -42,7 +42,7 @@ const issuedSnapshot = {
     category: "Prestations de services",
     serviceDate: "2026-09-10",
   },
-  amounts: { subtotalCents: 19900, taxCents: 0, totalCents: 19900, currency: "EUR" },
+  amounts: { subtotalCents: 34900, taxCents: 0, totalCents: 34900, currency: "EUR" },
   payment: { channel: "Virement bancaire", paidDate: "2026-09-10" },
 };
 
@@ -66,7 +66,7 @@ describe("POST /api/admin/organizer-payments", () => {
 
     expect(response.status).toBe(201);
     expect(JSON.parse(String(vi.mocked(fetch).mock.calls[1]?.[1]?.body))).toMatchObject({
-      p_amount_subtotal: 19900,
+      p_amount_subtotal: 34900,
       p_invoice_legal_snapshot: { customer: { siren: "123456789" } },
     });
     expect(uploadOrganizerInvoice).toHaveBeenCalledOnce();

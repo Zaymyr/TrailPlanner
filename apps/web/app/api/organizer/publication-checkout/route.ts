@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { checkRateLimitAsync, withSecurityHeaders } from "../../../../lib/http";
 import { loadOrganizerEditionEntitlement, type OrganizerTier } from "../../../../lib/organizer-entitlements";
-import { ORGANIZER_TIER_RANK } from "../../../../lib/organizer-modules";
+import { ORGANIZER_TIER_PRICE_EUR, ORGANIZER_TIER_RANK } from "../../../../lib/organizer-modules";
 import { jsonError, requireEventOrganizer, requireOrganizerAuth, serviceHeaders } from "../../../../lib/organizer";
 import { validateOrganizerEditionPublication } from "../../../../lib/organizer-publication";
 import { loadOrganizerPublicationRequirement } from "../../../../lib/organizer-publication-tier";
@@ -33,13 +33,17 @@ const paymentRowSchema = z.object({
   stripe_checkout_url: z.string().url().nullable().optional(),
 });
 
+// Amounts derive from the catalog price so checkout, invoices and UI share one source of truth.
+// Upgrades charge the difference between the target and current pack prices.
+const priceCents = (tier: keyof typeof ORGANIZER_TIER_PRICE_EUR) => ORGANIZER_TIER_PRICE_EUR[tier] * 100;
+
 const OFFER_CONFIG = {
-  essential_direct: { purchaseKind: "essential_direct", fromTier: "visibility", amount: 9_900 },
-  complete_direct: { purchaseKind: "complete_direct", fromTier: "visibility", amount: 19_900 },
-  signature_direct: { purchaseKind: "signature_direct", fromTier: "visibility", amount: 34_900 },
-  essential_to_complete: { purchaseKind: "essential_to_complete", fromTier: "essential", amount: 10_000 },
-  essential_to_signature: { purchaseKind: "essential_to_signature", fromTier: "essential", amount: 25_000 },
-  complete_to_signature: { purchaseKind: "complete_to_signature", fromTier: "complete", amount: 15_000 },
+  essential_direct: { purchaseKind: "essential_direct", fromTier: "visibility", amount: priceCents("essential") },
+  complete_direct: { purchaseKind: "complete_direct", fromTier: "visibility", amount: priceCents("complete") },
+  signature_direct: { purchaseKind: "signature_direct", fromTier: "visibility", amount: priceCents("signature") },
+  essential_to_complete: { purchaseKind: "essential_to_complete", fromTier: "essential", amount: priceCents("complete") - priceCents("essential") },
+  essential_to_signature: { purchaseKind: "essential_to_signature", fromTier: "essential", amount: priceCents("signature") - priceCents("essential") },
+  complete_to_signature: { purchaseKind: "complete_to_signature", fromTier: "complete", amount: priceCents("signature") - priceCents("complete") },
 } as const;
 
 type PaidTier = Exclude<OrganizerTier, "visibility">;

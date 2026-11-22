@@ -523,3 +523,5 @@ Organizer demo request (2026-11-16): a successful « Demander une démo » submi
 ## Feedback surveys
 
 The mobile survey form emits `feedback survey answered` (`notification_id`, `found_useful`, `has_useful_text`, `has_missing_text`; never the free text) after the answer is stored, and `feedback survey review clicked` (`notification_id`) when the runner taps "Laisser un avis". The answers themselves live in `feedback_survey_responses`. The admin audience reads PostHog `racebook opened` (`event_id`, `event_name`) through the HogQL query API, excluding `$internal_or_test_user` and `role = admin` persons, and keeps only distinct ids that are Supabase Auth UUID v4. A single-user test send (one chosen account) does not query PostHog.
+
+Organizer pricing (2026-11-22): the `/organisateurs` offer cards now show 199 / 349 / 499 € HT. No analytics event, property or consent rule changes; price strings stay out of telemetry.

@@ -345,7 +345,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
   const [manualInvoiceEvent, setManualInvoiceEvent] = useState<RacebookPublicationEvent | null>(null);
   const [correctedInvoiceId, setCorrectedInvoiceId] = useState<string | null>(null);
   const [manualInvoiceTier, setManualInvoiceTier] = useState<"essential" | "complete" | "signature">("essential");
-  const [manualInvoiceNet, setManualInvoiceNet] = useState("99");
+  const [manualInvoiceNet, setManualInvoiceNet] = useState(String(ORGANIZER_TIER_PRICE_EUR.essential));
   const [manualInvoiceServiceDate, setManualInvoiceServiceDate] = useState(currentParisDate);
   const [manualInvoiceDueDate, setManualInvoiceDueDate] = useState(() => datePlusDays(currentParisDate(), 30));
   const [manualInvoiceFeatures, setManualInvoiceFeatures] = useState<OrganizerFeatureKey[]>([]);

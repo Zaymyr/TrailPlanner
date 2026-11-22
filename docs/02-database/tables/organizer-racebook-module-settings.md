@@ -70,3 +70,5 @@ New editions enable equipment, bib and access; new formats enable aid stations. 
 
 - [Organizer Commercial Offers](../../03-business-rules/organizer-commercial-offers.md)
 - [race_event_editions](race-event-editions.md)
+
+Organizer pricing (2026-11-22): pack prices are now Essentiel 199 €, Complet 349 € and Signature 499 € HT, read from `ORGANIZER_TIER_PRICE_EUR` (see [Organizer Commercial Offers](../../03-business-rules/organizer-commercial-offers.md)). Copy and default amounts only; no table, contract or state change.

@@ -131,7 +131,7 @@ export function LivretProductPage(props: LivretProductPageProps) {
         <div className="max-w-2xl space-y-1">
           <h2 className="text-xl font-semibold sm:text-2xl">Vous organisez un trail ?</h2>
           <p className="text-sm leading-6 text-background/75 dark:text-emerald-100/80">
-            Le Livret coureur et le Livret supporter sont publiés à partir des mêmes informations, dès 99 € HT par édition.
+            Le Livret coureur et le Livret supporter sont publiés à partir des mêmes informations, dès 199 € HT par édition.
           </p>
         </div>
         <Link href={"/organisateurs" as Route} className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-xl bg-brand px-5 text-sm font-semibold text-brand-foreground transition hover:bg-brand-light dark:bg-emerald-400 dark:text-slate-950">

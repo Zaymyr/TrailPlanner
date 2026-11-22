@@ -752,7 +752,7 @@ Stripe routes live under `apps/web/app/api/stripe`:
 - `portal/route.ts`: creates billing portal sessions.
 - `price/route.ts`: fetches the configured Stripe price and caches it for 5 minutes.
 - `webhook/route.ts`: verifies Stripe signatures and updates `subscriptions`.
-- `organizer/publication-checkout/route.ts`: creates one-time 99/199/349 € HT edition checkouts, plus 100/250/150 € HT upgrades, selected entirely by the server.
+- `organizer/publication-checkout/route.ts`: creates one-time 199/349/499 € HT edition checkouts, plus 150/300/150 € HT upgrades, selected entirely by the server.
 
 The Stripe webhook also updates `organizer_edition_payments` for immediate/deferred payment outcomes, expiry, refunds, disputes, and the generated Invoice reference, then recalculates the separate edition entitlement. Organizer success redirects poll the normal event detail until the webhook-confirmed tier appears. The same ledger stores admin-recorded EUR bank transfers plus generated invoice number and legal snapshot. Missing invoices on eligible historical virements are issued on demand through the service-only numbering function, without another payment insert. Organizer event/bootstrap DTOs expose only a sanitized purchase summary; the Factures action loads event-wide edition history, shows the invoice number, and obtains private-Storage or Stripe PDF URLs from membership-checked server routes. Supabase may return a signed path rooted at `/object/sign/...`; the server resolves that path against the Storage API base so the browser receives `/storage/v1/object/sign/...`.
 
@@ -879,7 +879,7 @@ Organizer material, bib, access, services, sponsors, partner slots, products, an
 - On the current Free project, public Storage responses may still expose `Cache-Control: no-cache` even when object metadata contains `max-age=31536000`. Treat smaller versioned assets as the guaranteed egress reduction, and recheck response headers after a plan or CDN change before relying on browser TTL.
 - Keep organizer dashboard French labels UTF-8 clean end-to-end, especially in `event-format-editors.tsx`; mojibake such as `Ã©` is a real regression on the event tab because those strings are rendered directly.
 - Do not auto-send runner notifications on organizer save or publish. The manual event-update route is the only intended push trigger for this v1.
-- The manual notification route additionally requires the selected edition's Pro capability; RaceBook UI must offer the 100 € HT upgrade instead of attempting the send.
+- The manual notification route additionally requires the selected edition's Pro capability; RaceBook UI must offer the Essential→Complete upgrade (150 € HT) instead of attempting the send.
 - Organizer update deletion must stay on the authenticated server route. Do not grant broad client delete access to `race_event_updates`, and do not treat deletion as a recall of already delivered pushes.
 - Public plan share pages are unauthenticated by design, but they must display only the bounded snapshot in `plan_share_links`, not live editable plan data.
 - Public plan share pages are standalone in `RootChrome` and force light theme variables so a visitor's saved dark preference does not affect crew readability.

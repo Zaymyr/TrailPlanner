@@ -53,9 +53,9 @@ export const ORGANIZER_TIER_LABEL: Record<OrganizerTier, string> = {
 };
 
 export const ORGANIZER_TIER_PRICE_EUR: Record<Exclude<OrganizerTier, "visibility">, number> = {
-  essential: 99,
-  complete: 199,
-  signature: 349,
+  essential: 199,
+  complete: 349,
+  signature: 499,
 };
 
 export const ORGANIZER_MODULES: readonly OrganizerModuleDefinition[] = [

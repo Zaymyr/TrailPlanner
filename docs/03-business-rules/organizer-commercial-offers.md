@@ -106,11 +106,11 @@ Published organizer proof cards on the same page are independent editorial recor
 | Offer | HT per edition | Main rights |
 | --- | ---: | --- |
 | Visibilité | Free | Public catalog only. |
-| Essentiel | 99 € | RaceBook publication, basic equipment/bib/access, simple aid stations and supporter points. |
-| Complet | 199 € | Essential plus advanced fields and per-format overrides, SAS, detailed aid stations, services, awards, notifications and duplication. |
-| Signature | 349 € | Complete plus relay, official products, sponsors/clicks, branding, assisted import and RaceBook analytics. |
+| Essentiel | 199 € | RaceBook publication, basic equipment/bib/access, simple aid stations and supporter points. |
+| Complet | 349 € | Essential plus advanced fields and per-format overrides, SAS, detailed aid stations, services, awards, notifications and duplication. |
+| Signature | 499 € | Complete plus relay, official products, sponsors/clicks, branding, assisted import and RaceBook analytics. |
 
-Direct purchases are 99/199/349 €. Valid upgrades are Essential→Complete 100 €, Essential→Signature 250 € and Complete→Signature 150 €.
+Direct purchases are 199/349/499 €. Valid upgrades charge the price difference: Essential→Complete 150 €, Essential→Signature 300 € and Complete→Signature 150 €. The single source of truth is `ORGANIZER_TIER_PRICE_EUR` in `apps/web/lib/organizer-modules.ts`; checkout, admin bank-transfer invoices and dashboard copy derive from it. Payments and invoices recorded before the 2026-11-22 price change keep their stored amounts.
 
 ## Module Contract
 
