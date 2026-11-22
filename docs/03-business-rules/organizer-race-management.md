@@ -818,3 +818,5 @@ Organizer finishing presentation adds compact Access module cards, collapsed spo
 Organizer header (2026-11-16): the dashboard header no longer shows the « Aperçu coureur » and « Aperçu accompagnateur » web preview links (« Voir le Livret coureur » and « Télécharger le QR » remain), and its row wraps instead of letting the actions block overlap the edition selector. Presentation only; no data, contract or offer change.
 
 The `/organisateurs` acquisition page metadata now targets « organisateurs » (title within 60 characters, description within 160) without changing the page content or the `/organizers` creation flow.
+
+Admin (2026-11-22): `/admin?onglet=organisateurs&vue=publication|acces` is a shareable URL, and the pending claims, publication requests and new-edition requests are counted as badges (`GET /api/admin/inbox-counts`).

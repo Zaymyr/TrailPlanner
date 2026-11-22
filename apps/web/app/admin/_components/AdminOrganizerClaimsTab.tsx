@@ -16,6 +16,8 @@ import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { TabsList } from "../../../components/ui/tabs";
 import { cn } from "../../../components/utils";
+import { readOrganizerView, replaceLocationSearch, searchForView } from "../admin-tabs";
+import { useInboxCounts, withCount } from "./useInboxCounts";
 import { ORGANIZER_TIER_PRICE_EUR } from "../../../lib/organizer-modules";
 import { ORGANIZER_FEATURES, giftableOrganizerFeatures, type OrganizerFeatureKey } from "../../../lib/organizer-features";
 
@@ -329,7 +331,14 @@ const publicationOriginLabel: Record<NonNullable<RacebookPublicationEvent["entit
 };
 
 export function AdminOrganizerClaimsTab({ accessToken }: Props) {
-  const [organizerAdminTab, setOrganizerAdminTab] = useState<"publication" | "access">("publication");
+  const [organizerAdminTab, setOrganizerAdminTabState] = useState<"publication" | "access">(() =>
+    readOrganizerView(typeof window === "undefined" ? "" : window.location.search) === "acces" ? "access" : "publication"
+  );
+  const setOrganizerAdminTab = (tab: "publication" | "access") => {
+    setOrganizerAdminTabState(tab);
+    replaceLocationSearch(searchForView(window.location.search, tab === "access" ? "acces" : "publication", "publication"));
+  };
+  const inboxCounts = useInboxCounts(accessToken);
   const [claims, setClaims] = useState<OrganizerClaim[]>([]);
   const [editionRequests, setEditionRequests] = useState<OrganizerEditionRequest[]>([]);
   const [publicationRequests, setPublicationRequests] = useState<OrganizerPublicationRequest[]>([]);
@@ -1047,8 +1056,8 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
     <div className="space-y-5">
       <TabsList
         tabs={[
-          { id: "publication", label: "Publier le Livret coureur" },
-          { id: "access", label: "Accès organisateurs" },
+          { id: "publication", label: withCount("Publier le Livret coureur", inboxCounts.data ? inboxCounts.data.publicationRequests + inboxCounts.data.editionRequests : undefined) },
+          { id: "access", label: withCount("Accès organisateurs", inboxCounts.data?.organizerClaims) },
         ]}
         activeTab={organizerAdminTab}
         onTabChange={(tab) => setOrganizerAdminTab(tab as typeof organizerAdminTab)}

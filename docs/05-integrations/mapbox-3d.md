@@ -1,7 +1,7 @@
 ---
 title: Mapbox 3D Admin Course Viewer
 scope: integration
-last_verified: 2026-11-20
+last_verified: 2026-11-22
 # Generator header and publication marks (2026-11-20): the generator header uses the shared « Générer une vidéo / Publier » switch and the race picker labels a format already published on Instagram (« publiée le … »).
 ai_priority: high
 related_files:

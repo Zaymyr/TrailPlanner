@@ -1,7 +1,7 @@
 ---
 title: app_feedback Table
 scope: database
-last_verified: 2026-11-16
+last_verified: 2026-11-22
 ai_priority: medium
 related_files:
   - supabase/migrations/20261105180000_add_app_feedback_review.sql
@@ -50,3 +50,5 @@ Forms and headers use the themed trail components: inputs are road-notebook `Fie
 Submit and cancel actions use `ActionButton` (primary with a loading state, ghost cancel); payloads and writes are unchanged.
 
 Admin inbox (2026-11-16): the « Demandes de course » tab now also lists organizer demo requests (`organizer_demo_requests`) above runner race requests, and its badge adds their pending count; bug and feedback review is unchanged.
+
+`pending` rows are counted by `GET /api/admin/inbox-counts` (service role) for the Bugs and Feedback badges of the admin Messagerie.

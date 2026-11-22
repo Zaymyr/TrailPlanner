@@ -1,7 +1,7 @@
 "use client";
 
 import type { Route } from "next";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
 import { Button } from "../../components/ui/button";
@@ -17,14 +17,25 @@ import { AdminPartnerLinksTab } from "./_components/AdminPartnerLinksTab";
 import { AdminProductsTab } from "./_components/AdminProductsTab";
 import { AdminMessagingTab } from "./_components/AdminMessagingTab";
 import { AdminUsersTab } from "./_components/AdminUsersTab";
+import { useInboxCounts, withCount } from "./_components/useInboxCounts";
+import { ADMIN_TABS, readAdminTab, readRaceParam, replaceLocationSearch, searchForTab, type AdminTabId } from "./admin-tabs";
 
 export default function AdminPage() {
   const { t } = useI18n();
   const { session, isLoading: sessionLoading } = useVerifiedSession();
-  const [activeTab, setActiveTab] = useState("products");
+  const [activeTab, setActiveTabState] = useState<AdminTabId>("produits");
+  useEffect(() => {
+    setActiveTabState(readAdminTab(window.location.search));
+  }, []);
+  const setActiveTab = useCallback((next: string) => {
+    const tab = readAdminTab(`?onglet=${next}`);
+    setActiveTabState(tab);
+    replaceLocationSearch(searchForTab(window.location.search, tab));
+  }, []);
 
   const accessToken = session?.accessToken ?? null;
   const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
+  const inboxCounts = useInboxCounts(isAdmin ? accessToken : null);
 
   if (sessionLoading) {
     return (
@@ -87,32 +98,34 @@ export default function AdminPage() {
       </div>
 
       <TabsList
-        tabs={[
-          { id: "products", label: t.admin.products.title },
-          { id: "users", label: t.admin.users.title },
-          { id: "messaging", label: "Messagerie" },
-          { id: "social-templates", label: t.admin.socialTemplates.title },
-          { id: "races", label: t.admin.raceCatalog.title },
-          { id: "organizers", label: "Organisateurs" },
-          { id: "social-proofs", label: "Preuves sociales" },
-          { id: "partner-links", label: t.admin.partnerLinks.title },
-          { id: "growth", label: t.admin.growth.title },
-        ]}
+        tabs={ADMIN_TABS.map((tab) => ({
+          id: tab.id,
+          label:
+            tab.id === "produits" ? t.admin.products.title
+            : tab.id === "utilisateurs" ? t.admin.users.title
+            : tab.id === "templates" ? t.admin.socialTemplates.title
+            : tab.id === "courses" ? t.admin.raceCatalog.title
+            : tab.id === "partenaires" ? t.admin.partnerLinks.title
+            : tab.id === "croissance" ? t.admin.growth.title
+            : tab.id === "organisateurs" ? withCount(tab.label, inboxCounts.data?.organizerTotal)
+            : tab.id === "messagerie" ? withCount(tab.label, inboxCounts.data ? inboxCounts.data.bug + inboxCounts.data.feedback + inboxCounts.data.raceRequests + inboxCounts.data.demoRequests : undefined)
+            : tab.label,
+        }))}
         activeTab={activeTab}
         onTabChange={setActiveTab}
       />
 
-      {activeTab === "products" && <AdminProductsTab accessToken={accessToken} />}
-      {activeTab === "users" && <AdminUsersTab accessToken={accessToken} />}
-      {activeTab === "messaging" && <AdminMessagingTab accessToken={accessToken} />}
-      {activeTab === "social-templates" && (
+      {activeTab === "produits" && <AdminProductsTab accessToken={accessToken} />}
+      {activeTab === "utilisateurs" && <AdminUsersTab accessToken={accessToken} />}
+      {activeTab === "messagerie" && <AdminMessagingTab accessToken={accessToken} />}
+      {activeTab === "templates" && (
         <AdminSocialTemplatesSection accessToken={accessToken} t={t.admin.socialTemplates} />
       )}
-      {activeTab === "races" && <AdminRaceCatalogSection accessToken={accessToken ?? undefined} t={t.admin.raceCatalog} />}
-      {activeTab === "organizers" && <AdminOrganizerClaimsTab accessToken={accessToken} />}
-      {activeTab === "social-proofs" && <AdminOrganizerSocialProofsTab accessToken={accessToken} />}
-      {activeTab === "partner-links" && <AdminPartnerLinksTab accessToken={accessToken} />}
-      {activeTab === "growth" && <AdminGrowthSection accessToken={accessToken ?? undefined} t={t.admin.growth} />}
+      {activeTab === "courses" && <AdminRaceCatalogSection accessToken={accessToken ?? undefined} t={t.admin.raceCatalog} initialRaceId={readRaceParam(typeof window === "undefined" ? "" : window.location.search)} />}
+      {activeTab === "organisateurs" && <AdminOrganizerClaimsTab accessToken={accessToken} />}
+      {activeTab === "preuves" && <AdminOrganizerSocialProofsTab accessToken={accessToken} />}
+      {activeTab === "partenaires" && <AdminPartnerLinksTab accessToken={accessToken} />}
+      {activeTab === "croissance" && <AdminGrowthSection accessToken={accessToken ?? undefined} t={t.admin.growth} />}
     </div>
   );
 }

@@ -148,6 +148,8 @@ type RaceGroup = {
 };
 
 type Props = {
+  /** `?course=<raceId>`: opens that race's « Modifier » dialog once the catalog is loaded and filters the list on it. */
+  initialRaceId?: string | null;
   accessToken?: string;
   t: AdminTranslations["raceCatalog"];
 };
@@ -176,7 +178,7 @@ const aidStationRowsToDrafts = (stations: AidStationRow[]): AidStationDraft[] =>
       waterRefill: station.water_available,
     }));
 
-export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
+export default function AdminRaceCatalogSection({ accessToken, t, initialRaceId }: Props) {
   const queryClient = useQueryClient();
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -648,6 +650,17 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
     setMessage(null);
     setError(null);
   };
+
+  const [openedInitialRaceId, setOpenedInitialRaceId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!initialRaceId || openedInitialRaceId === initialRaceId || !racesQuery.data) return;
+    setOpenedInitialRaceId(initialRaceId);
+    const race = racesQuery.data.races.find((row) => row.id === initialRaceId);
+    if (!race) return;
+    setSearch(race.name);
+    handleOpenEdit(race);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialRaceId, openedInitialRaceId, racesQuery.data]);
 
   const handleCloseEdit = () => {
     setEditRace(null);

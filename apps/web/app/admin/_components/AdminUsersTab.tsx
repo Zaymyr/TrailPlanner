@@ -217,6 +217,7 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
   });
   const userTrendsQuery = useQuery({
     queryKey: ["admin", "growth", accessToken, "last30", "", ""],
+    staleTime: 60_000,
     enabled: Boolean(accessToken),
     queryFn: async () => {
       if (!accessToken) throw new Error(t.admin.users.loadError);

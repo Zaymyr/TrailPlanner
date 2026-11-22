@@ -174,7 +174,7 @@ Chaque lot = une PR, sans casser l'existant (anciennes URL redirigées).
 
 | Lot | État | Notes |
 |---|---|---|
-| 0 | à faire | |
+| 0 | fait | Onglets de `/admin` et sous-onglets Messagerie / Organisateurs pilotés par `?onglet=` / `?vue=` (`admin-tabs.ts`) ; `?onglet=courses&course=<id>` ouvre l'édition, lien « Corriger » dans GPX à traiter ; `inbox-counts` sépare demandes de course et démos et ajoute claims, publications et nouvelles éditions (badges sur Organisateurs et la Messagerie, nouvel onglet « Démos organisateurs ») ; onglet renommé « Croissance », courbe partagée (même clé react-query, Croissance s'ouvre sur 30 j). Écart : `t.admin.growth.*` partiellement inutilisé, non supprimé. |
 | 1 | à faire | |
 | 2 | à faire | |
 | 3 | à faire | |

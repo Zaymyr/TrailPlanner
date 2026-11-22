@@ -205,3 +205,5 @@ The Organizer three-column shell repositions offer-aware section states and publ
 Organizer section-header and module-card finishing does not change offer availability, sponsor access, pricing, or publication entitlements.
 
 Organizer demo requests (2026-11-16): `/organisateurs` offers a « Demander une démo » form (e-mail and race link required, phone optional) stored in the service-only `organizer_demo_requests` table and listed in the admin inbox tab « Demandes de course »; it creates no account, membership, entitlement or payment. See [organizer_demo_requests](../02-database/tables/organizer-demo-requests.md).
+
+Admin (2026-11-22): pending publication requests are counted in the Organisateurs badges of `/admin` (`GET /api/admin/inbox-counts`); no change to offers or pricing.

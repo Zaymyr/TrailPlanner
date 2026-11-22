@@ -123,3 +123,5 @@ Organizer header (2026-11-16): the dashboard header no longer shows the « Aper�
 The `/organisateurs` metadata title is « Livret coureur et livret supporter pour organisateurs » and its description stays under 160 characters; proof cards and their data are unchanged.
 
 Organizer pricing (2026-11-22): pack prices are now Essentiel 199 €, Complet 349 € and Signature 499 € HT, read from `ORGANIZER_TIER_PRICE_EUR` (see [Organizer Commercial Offers](../../03-business-rules/organizer-commercial-offers.md)). Copy and default amounts only; no table, contract or state change.
+
+Admin (2026-11-22): the « Preuves sociales » tab of `/admin` is addressable as `?onglet=preuves`.

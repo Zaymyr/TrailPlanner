@@ -173,3 +173,5 @@ The Meta side (app with Facebook Login, linked Page, System User and its token) 
 - [Infrastructure](../01-architecture/infrastructure.md)
 - [Automatic Reel Pipeline](reel-automation.md)
 - [Organizer Flyover Video Orders](../03-business-rules/flyover-video-orders.md)
+
+Admin (2026-11-22): each row of Publications › « GPX à traiter » has a « Corriger » link to `/admin?onglet=courses&course=<races.id>` (catalog edit dialog).

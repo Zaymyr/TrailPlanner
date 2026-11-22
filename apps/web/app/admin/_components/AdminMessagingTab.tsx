@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { z } from "zod";
 
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { TabsList } from "../../../components/ui/tabs";
@@ -10,27 +8,22 @@ import { AdminFeedbackTab } from "./AdminFeedbackTab";
 import { AdminDemoRequestsSection } from "./AdminDemoRequestsSection";
 import { AdminRaceRequestsTab } from "./AdminRaceRequestsTab";
 import { AdminSurveysTab } from "./AdminSurveysTab";
+import { MESSAGING_VIEWS, readMessagingView, replaceLocationSearch, searchForView, type MessagingView } from "../admin-tabs";
+import { useInboxCounts, withCount } from "./useInboxCounts";
 
-const countsSchema = z.object({ bug: z.number(), feedback: z.number(), raceRequests: z.number() });
-type InboxTab = "bug" | "feedback" | "race-requests" | "surveys";
+type InboxTab = "bug" | "feedback" | "race-requests" | "demo-requests" | "surveys";
 
-const withCount = (label: string, count: number | undefined) => (count ? `${label} (${count})` : label);
+const VIEW_FOR_TAB: Record<InboxTab, MessagingView> = { bug: "bugs", feedback: "feedback", "race-requests": "demandes", "demo-requests": "demos", surveys: "questionnaires" };
+const TAB_FOR_VIEW = Object.fromEntries(MESSAGING_VIEWS.map((view) => [view, (Object.keys(VIEW_FOR_TAB) as InboxTab[]).find((tab) => VIEW_FOR_TAB[tab] === view)])) as Record<MessagingView, InboxTab>;
 
 /** Admin inbox: bugs, feedback and race requests, each with its pending count, plus feedback surveys. */
 export function AdminMessagingTab({ accessToken }: { accessToken: string | null }) {
-  const [tab, setTab] = useState<InboxTab>("bug");
-  const counts = useQuery({
-    queryKey: ["admin", "inbox-counts", accessToken],
-    enabled: Boolean(accessToken),
-    queryFn: async () => {
-      const response = await fetch("/api/admin/inbox-counts", {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        cache: "no-store",
-      });
-      if (!response.ok) throw new Error("Impossible de compter les messages.");
-      return countsSchema.parse(await response.json());
-    },
-  });
+  const [tab, setTabState] = useState<InboxTab>(() => TAB_FOR_VIEW[readMessagingView(typeof window === "undefined" ? "" : window.location.search)]);
+  const setTab = (next: InboxTab) => {
+    setTabState(next);
+    replaceLocationSearch(searchForView(window.location.search, VIEW_FOR_TAB[next], "bugs"));
+  };
+  const counts = useInboxCounts(accessToken);
   const refreshCounts = () => void counts.refetch();
 
   return (
@@ -44,6 +37,7 @@ export function AdminMessagingTab({ accessToken }: { accessToken: string | null 
             { id: "bug", label: withCount("Bugs", counts.data?.bug) },
             { id: "feedback", label: withCount("Feedback", counts.data?.feedback) },
             { id: "race-requests", label: withCount("Demandes de course", counts.data?.raceRequests) },
+            { id: "demo-requests", label: withCount("Démos organisateurs", counts.data?.demoRequests) },
             { id: "surveys", label: "Questionnaires" },
           ]}
           activeTab={tab}
@@ -52,14 +46,12 @@ export function AdminMessagingTab({ accessToken }: { accessToken: string | null 
         {tab === "bug" ? <AdminFeedbackTab key="bug" accessToken={accessToken} kind="bug" onChanged={refreshCounts} /> : null}
         {tab === "feedback" ? <AdminFeedbackTab key="feedback" accessToken={accessToken} kind="feedback" onChanged={refreshCounts} /> : null}
         {tab === "race-requests" ? (
-          <div className="space-y-6">
-            <AdminDemoRequestsSection accessToken={accessToken} onChanged={refreshCounts} />
-            <section aria-labelledby="admin-race-requests-heading" className="space-y-3">
-              <h3 id="admin-race-requests-heading" className="text-base font-semibold text-foreground">Demandes de course des coureurs</h3>
-              <AdminRaceRequestsTab accessToken={accessToken} onChanged={refreshCounts} />
-            </section>
-          </div>
+          <section aria-labelledby="admin-race-requests-heading" className="space-y-3">
+            <h3 id="admin-race-requests-heading" className="text-base font-semibold text-foreground">Demandes de course des coureurs</h3>
+            <AdminRaceRequestsTab accessToken={accessToken} onChanged={refreshCounts} />
+          </section>
         ) : null}
+        {tab === "demo-requests" ? <AdminDemoRequestsSection accessToken={accessToken} onChanged={refreshCounts} /> : null}
         {tab === "surveys" ? <AdminSurveysTab accessToken={accessToken} /> : null}
       </CardContent>
     </Card>

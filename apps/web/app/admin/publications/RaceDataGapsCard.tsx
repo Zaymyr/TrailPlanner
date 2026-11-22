@@ -1,8 +1,11 @@
 "use client";
 
+import type { Route } from "next";
+import Link from "next/link";
 import { useState } from "react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
+import { raceEditHref } from "../admin-tabs";
 import { formatAutomationDay } from "./automation-labels";
 import type { RaceDataGapView } from "./publications-api";
 
@@ -68,6 +71,9 @@ export function RaceDataGapsCard({ gaps, leadDays, isLoading, error }: {
                   <p className="text-xs text-muted-foreground">{formatAutomationDay(gap.date)} · {formatKm(gap.distanceKm)}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                  <Link href={raceEditHref(gap.raceId) as Route} className="rounded-full border border-brand px-2.5 py-0.5 font-medium text-brand hover:bg-brand/10 dark:border-emerald-400 dark:text-emerald-200" aria-label={`Corriger ${gap.name}`}>
+                    Corriger
+                  </Link>
                   {gap.missing.map((item) => (
                     <span key={item} className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 font-medium text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
                       {MISSING_LABELS[item]} manquant{item === "aid_stations" ? "s" : ""}

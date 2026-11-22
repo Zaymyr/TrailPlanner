@@ -350,3 +350,5 @@ Course/GPX now groups the compact route map, altitude profile, GPX file, display
 GPX route/profile visibility now uses the shared Organizer switch row without changing the stored `gpxDisplay` flags.
 
 Terrain-style section headers do not change GPX import or publication behavior.
+
+The admin « GPX à traiter » list links each race to `/admin?onglet=courses&course=<races.id>`, which opens its edit dialog in the catalog to upload the GPX.

@@ -40,7 +40,7 @@ function Funnel({ rows, labels }: {
 export default function AdminGrowthSection({ accessToken, t }: Props) {
   const isFrench = t.title.toLowerCase().includes("croissance");
   const copy = isFrench ? {
-    title: "Croissance & activation",
+    title: "Croissance",
     description: "Suivre les comptes, l’activation et les contenus à partir des données Supabase.",
     today: "Aujourd’hui", yesterday: "Hier", last7: "7 jours", last30: "30 jours", custom: "Personnalisé",
     overview: "Trajectoire", trajectoryDescription: "Les volumes quotidiens permettent de distinguer une tendance d’un pic isolé.", productTrend: "Usage et création", newAccounts: "Nouveaux comptes", activated: "Activés en 24 h", activePlanUsers: "Utilisateurs actifs sur un plan", newPlans: "Nouveaux plans", premium: "Premium actifs",
@@ -52,7 +52,7 @@ export default function AdminGrowthSection({ accessToken, t }: Props) {
     noFormat: "Aucun format", incomplete: "Format incomplet", ready: "Prêt à publier", publishedStatus: "Publié",
     projection: "Au rythme de la période : {value} sur 30 j", activationRate: "{value}% des nouveaux comptes", racebookStock: "Stock actuel par édition, hors comptes admin", sources: "Tous les chiffres de ce dashboard proviennent de Supabase et excluent les comptes admin. L’activité organisateur repose sur les connexions réelles, pas sur updated_at. Les parcours Web et App s’analysent directement dans PostHog.",
   } : {
-    title: "Growth & activation",
+    title: "Growth",
     description: "Track accounts, activation, and content from Supabase data.",
     today: "Today", yesterday: "Yesterday", last7: "7 days", last30: "30 days", custom: "Custom",
     overview: "Trajectory", trajectoryDescription: "Daily volumes make sustained trends distinguishable from isolated spikes.", productTrend: "Usage and creation", newAccounts: "New accounts", activated: "Activated in 24h", activePlanUsers: "Active plan users", newPlans: "New plans", premium: "Active Premium",
@@ -64,11 +64,13 @@ export default function AdminGrowthSection({ accessToken, t }: Props) {
     noFormat: "No format", incomplete: "Incomplete format", ready: "Ready to publish", publishedStatus: "Published",
     projection: "At this period’s pace: {value} over 30d", activationRate: "{value}% of new accounts", racebookStock: "Current stock by edition, excluding admin accounts", sources: "Every metric in this dashboard comes from Supabase and excludes admin accounts. Organizer activity uses actual sign-ins, not updated_at. Web and App journeys are analyzed directly in PostHog.",
   };
-  const [range, setRange] = useState("last7");
+  const [range, setRange] = useState("last30");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const growthQuery = useQuery({
     queryKey: ["admin", "growth", accessToken, range, start, end],
+    // Same key and fetch as the user trend of the Utilisateurs tab (last30): switching tabs reuses the cached response.
+    staleTime: 60_000,
     enabled: Boolean(accessToken) && (range !== "custom" || Boolean(start && end)),
     queryFn: async () => {
       const params = new URLSearchParams({ range });

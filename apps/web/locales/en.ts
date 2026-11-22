@@ -1306,7 +1306,7 @@ export const en: Translations = {
       },
     },
     growth: {
-      title: "Growth & Users",
+      title: "Growth",
       description: "Track signups, activation, recent activity, and Premium access.",
       loadError: "Unable to load growth data.",
       totals: {

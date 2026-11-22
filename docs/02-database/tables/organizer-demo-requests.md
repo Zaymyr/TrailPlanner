@@ -40,3 +40,5 @@ Service-role only: RLS is enabled with no client policy and every client privile
 - The admin inbox also has a separate « Questionnaires » tab (feedback surveys); demo requests stay in « Demandes de course ».
 
 - The form placeholders (`vous@votre-course.fr`, `www.votre-course.fr`) deliberately avoid the word "trail" because the landing targets running events in general (2026-11-22); this is copy only and changes no column or validation.
+
+`pending` rows are counted separately (`demoRequests`) by `GET /api/admin/inbox-counts` for the « Démos organisateurs » badge; a missing table counts as 0.
