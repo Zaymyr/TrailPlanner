@@ -3,6 +3,8 @@ import Link from "next/link";
 
 import type { PublicRaceDetail } from "../../../lib/public-race-detail";
 import { getPublicRaceRegistrationUrl, type PublicRace } from "../../../lib/public-races";
+import { getDisplayedElevationLossM, getSiblingFormatLabel } from "./catalog-display";
+import { DemoRaceBadge } from "./DemoRaceBadge";
 import { PublicHeroShell } from "./PublicHeroShell";
 
 const formatMeters = (value: number | null) =>
@@ -15,6 +17,9 @@ const StopwatchIcon = () => (
   </svg>
 );
 
+/** Observed by the mobile sticky estimate bar, which stays hidden while this button is visible. */
+export const HERO_ESTIMATE_CTA_ID = "hero-estimate-cta";
+
 /**
  * App-style course hero: veiled photo carrying the identity, a compact metric
  * strip (same facts as the mobile RaceBook header) and the estimate CTA.
@@ -26,6 +31,7 @@ export function RaceHeroSummary({
   canonicalUrl,
   otherFormats,
   estimateHref,
+  isDemo = false,
 }: {
   race: PublicRaceDetail;
   formattedDate: string | null;
@@ -33,9 +39,12 @@ export function RaceHeroSummary({
   canonicalUrl: string;
   otherFormats: PublicRace[];
   estimateHref: string;
+  /** Trail TST demo: labelled as such and without a registration action. */
+  isDemo?: boolean;
 }) {
   const heroImage = race.raceThumbnailUrl ?? race.eventThumbnailUrl;
-  const registrationUrl = getPublicRaceRegistrationUrl(race);
+  const registrationUrl = isDemo ? null : getPublicRaceRegistrationUrl(race);
+  const elevationLossM = getDisplayedElevationLossM(race);
   const dateLabel = formattedDate && formattedEndDate ? `Du ${formattedDate} au ${formattedEndDate}` : formattedDate;
   const participation = race.participationMode === "solo"
     ? "Solo"
@@ -47,7 +56,7 @@ export function RaceHeroSummary({
   const metrics = [
     { label: "Distance", value: race.distanceKm === null ? "À confirmer" : `${race.distanceKm.toLocaleString("fr-FR")} km` },
     { label: "D+", value: formatMeters(race.elevationGainM) ?? "À confirmer" },
-    race.elevationLossM !== null ? { label: "D−", value: formatMeters(race.elevationLossM) as string } : null,
+    elevationLossM !== null ? { label: "D−", value: formatMeters(elevationLossM) as string } : null,
     race.practical.schedule.startTime ? { label: "Départ", value: race.practical.schedule.startTime } : null,
     race.practical.schedule.finishCutoffTime ? { label: "Barrière", value: race.practical.schedule.finishCutoffTime } : null,
     race.aidStations.length ? { label: "Ravitos", value: String(race.aidStations.length) } : null,
@@ -63,6 +72,7 @@ export function RaceHeroSummary({
       metrics={metrics}
       meta={(
         <>
+          {isDemo ? <DemoRaceBadge /> : null}
           {dateLabel ? <span>{dateLabel}</span> : <span>Date à confirmer</span>}
           {race.location ? <><span aria-hidden="true">·</span><span>{race.location}</span></> : null}
           {participation ? (
@@ -73,6 +83,7 @@ export function RaceHeroSummary({
     >
         <div className="grid gap-2 sm:flex sm:flex-wrap">
           <Link
+            id={HERO_ESTIMATE_CTA_ID}
             href={estimateHref as Route}
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-brand px-5 text-base font-semibold text-brand-foreground shadow-sm transition hover:bg-brand-light"
           >
@@ -101,7 +112,7 @@ export function RaceHeroSummary({
                     href={`/courses/${format.slug}` as Route}
                     className="inline-flex min-h-10 items-center rounded-full border border-border px-3 text-sm font-medium text-foreground transition hover:border-brand-border hover:bg-brand-surface"
                   >
-                    {format.distanceKm !== null ? `${format.distanceKm.toLocaleString("fr-FR")} km` : format.name}
+                    {getSiblingFormatLabel(format)}
                   </Link>
                 </li>
               ))}

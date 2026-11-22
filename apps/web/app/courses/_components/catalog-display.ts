@@ -1,3 +1,4 @@
+import type { PublicRaceAidStationSummary, PublicRaceDetail } from "../../../lib/public-race-detail";
 import type { PublicRace } from "../../../lib/public-races";
 
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
@@ -70,4 +71,65 @@ export const getFormatLabelWithinEvent = (name: string, eventName: string | null
   if (!normalizedEvent || !normalizedName.startsWith(normalizedEvent)) return name;
   const remainder = name.slice(eventName.trim().length).replace(/^[\s\-–—:|·,]+/, "").trim();
   return remainder.length >= 2 ? remainder : name;
+};
+
+/**
+ * Sibling-format chip label: the format name within its event, followed by the
+ * distance unless the name already carries it. A distance alone is ambiguous when
+ * an edition has several formats of the same length (solo / relais / marche).
+ */
+export const getSiblingFormatLabel = (format: Pick<PublicRace, "name" | "eventName" | "distanceKm">) => {
+  const label = getFormatLabelWithinEvent(format.name, format.eventName);
+  if (format.distanceKm === null) return label;
+  const distance = `${format.distanceKm.toLocaleString("fr-FR")} km`;
+  const compact = (value: string) => normalizeLabel(value).replace(/s+/g, "");
+  return compact(label).includes(compact(distance)) ? label : `${label} · ${distance}`;
+};
+
+/**
+ * D− shown in the course hero. Catalogue imports store 0 when the source has no
+ * descent figure, so a stored 0 is only trusted when the GPX confirms it; the GPX
+ * descent replaces a missing or placeholder value. Null hides the metric.
+ */
+export const getDisplayedElevationLossM = (race: Pick<PublicRaceDetail, "elevationLossM" | "routePreview">) => {
+  if (race.elevationLossM !== null && race.elevationLossM > 0) return race.elevationLossM;
+  const gpxLossM = race.routePreview?.stats.lossM;
+  return typeof gpxLossM === "number" && Number.isFinite(gpxLossM) ? gpxLossM : null;
+};
+
+export type AidStationTimelineEntry =
+  | { kind: "start"; station: PublicRaceAidStationSummary | null }
+  | { kind: "finish"; distanceKm: number | null; station: PublicRaceAidStationSummary | null }
+  | { kind: "station"; station: PublicRaceAidStationSummary };
+
+const START_NAMES = new Set(["depart", "start"]);
+const FINISH_NAMES = new Set(["arrivee", "finish", "arrival"]);
+const ENDPOINT_TOLERANCE_KM = 0.1;
+
+/**
+ * Start, aid stations, finish. An organizer row that already is the start or the
+ * finish (same name, or same kilometre) is merged into that endpoint instead of
+ * being listed twice (« Arrivée — 15 km » once, with the station services).
+ */
+export const buildAidStationTimelineEntries = (
+  aidStations: PublicRaceAidStationSummary[],
+  totalDistanceKm: number | null,
+): AidStationTimelineEntry[] => {
+  const stations = [...aidStations];
+  const nameOf = (station: PublicRaceAidStationSummary) => normalizeLabel(station.name).trim();
+  const first = stations[0];
+  const startStation = first && (START_NAMES.has(nameOf(first)) || first.distanceKm <= ENDPOINT_TOLERANCE_KM)
+    ? stations.shift() ?? null
+    : null;
+  const last = stations.at(-1);
+  const isFinishStation = Boolean(last && (
+    FINISH_NAMES.has(nameOf(last))
+    || (totalDistanceKm !== null && Math.abs(last.distanceKm - totalDistanceKm) <= ENDPOINT_TOLERANCE_KM)
+  ));
+  const finishStation = isFinishStation ? stations.pop() ?? null : null;
+  return [
+    { kind: "start", station: startStation },
+    ...stations.map((station): AidStationTimelineEntry => ({ kind: "station", station })),
+    { kind: "finish", distanceKm: totalDistanceKm ?? finishStation?.distanceKm ?? null, station: finishStation },
+  ];
 };

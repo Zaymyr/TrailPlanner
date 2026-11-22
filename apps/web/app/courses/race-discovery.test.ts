@@ -11,6 +11,7 @@ import {
   getSimilarRaces,
   MIN_INDEXABLE_RACES,
 } from "../../lib/race-discovery";
+import { DEMO_EVENT_ID } from "../../lib/demo-race";
 
 const makeRace = (overrides: Partial<PublicRace> & Pick<PublicRace, "id" | "slug" | "name">): PublicRace => {
   const { id, slug, name, ...optionalOverrides } = overrides;
@@ -282,5 +283,18 @@ describe("race discovery", () => {
     const candidate = makeRace({ id: "candidate", slug: "candidate", name: "Candidate", distanceKm: 52 });
 
     expect(getSimilarRaces(source, [source, candidate]).map((race) => race.id)).toEqual(["candidate"]);
+  });
+
+  it("never suggests a past edition or the Trail TST demo", () => {
+    const source = makeRace({ id: "source", slug: "source", name: "Source", distanceKm: 50 });
+    const past = makeRace({ id: "past", slug: "past", name: "Past", distanceKm: 50, date: "2026-05-01" });
+    const demo = makeRace({ id: "demo", slug: "demo", name: "Demo", distanceKm: 50, date: "2026-12-01", eventId: DEMO_EVENT_ID });
+    const upcoming = makeRace({ id: "upcoming", slug: "upcoming", name: "Upcoming", distanceKm: 60, date: "2026-12-01" });
+    const today = makeRace({ id: "today", slug: "today", name: "Today", distanceKm: 70, date: "2026-11-22" });
+
+    expect(getSimilarRaces(source, [source, past, demo, upcoming, today], 3, "2026-11-22").map((race) => race.id)).toEqual([
+      "upcoming",
+      "today",
+    ]);
   });
 });

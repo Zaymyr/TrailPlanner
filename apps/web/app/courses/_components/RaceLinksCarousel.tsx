@@ -37,7 +37,7 @@ export function RaceLinksCarousel({ races }: { races: PublicRace[] }) {
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             <p>
-              {race.distanceKm !== null ? `${race.distanceKm} km` : "Distance à confirmer"}
+              {race.distanceKm !== null ? `${race.distanceKm.toLocaleString("fr-FR")} km` : "Distance à confirmer"}
               {race.elevationGainM !== null ? ` · ${Math.round(race.elevationGainM)} m D+` : ""}
             </p>
             <p>{formatDate(race.date)}</p>

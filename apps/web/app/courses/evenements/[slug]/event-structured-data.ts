@@ -1,5 +1,6 @@
 import type { PublicRaceEventEdition } from "../../../../lib/public-race-events";
 import { DEFAULT_SOCIAL_IMAGE_PATH } from "../../../seo";
+import { isEventEditionPast } from "./event-edition-status";
 
 export const buildEventEditionDescription = (edition: PublicRaceEventEdition) => {
   const formatCount = edition.formats.length;
@@ -31,7 +32,10 @@ const buildEditionAddress = (edition: PublicRaceEventEdition) => {
 export const buildEventEditionStructuredData = (
   edition: PublicRaceEventEdition,
   canonicalUrl: string,
+  now: Date = new Date(),
 ) => {
+  // Same rule as the format pages: no "scheduled" status or registration offer once finished.
+  const isPast = isEventEditionPast(edition.endDate, now);
   const siteOrigin = new URL(canonicalUrl).origin;
   const address = buildEditionAddress(edition);
   const placeName = edition.location ?? address?.addressLocality ?? null;
@@ -48,7 +52,7 @@ export const buildEventEditionStructuredData = (
     mainEntityOfPage: canonicalUrl,
     startDate: edition.startDate,
     endDate: edition.endDate,
-    eventStatus: "https://schema.org/EventScheduled",
+    ...(isPast ? {} : { eventStatus: "https://schema.org/EventScheduled" }),
     eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
     sport: "Course à pied",
     image: [image],
@@ -64,7 +68,7 @@ export const buildEventEditionStructuredData = (
       name: edition.eventName,
       ...(isHttpUrl(edition.websiteUrl) ? { url: edition.websiteUrl } : {}),
     },
-    ...(isHttpUrl(edition.websiteUrl) ? {
+    ...(isHttpUrl(edition.websiteUrl) && !isPast ? {
       offers: { "@type": "Offer", url: edition.websiteUrl },
     } : {}),
     description: buildEventEditionDescription(edition),

@@ -8,6 +8,7 @@ related_files:
   - apps/web/app/api/cron/demo-race-refresh/route.ts
   - apps/web/lib/demo-race-refresh.ts
   - apps/web/lib/demo-race-refresh.test.ts
+  - apps/web/lib/demo-race.ts
   - apps/web/.env.example
   - supabase/migrations/20261119130100_schedule_social_posts_cron.sql
   - apps/web/app/api/cron/social-posts-publish/route.ts
@@ -69,7 +70,7 @@ This document records the infrastructure visible from the repository: Vercel, EA
 - Organizer import cleanup: hourly pg_cron GET to the protected web route so Storage cleanup precedes row deletion.
 - RevenueCat reconciliation: daily Vercel Cron GET to the protected web route so missed provider events are repaired from server-verified subscriber state.
 - Trace de Trail catalog enrichment: daily Vercel Cron GET to a protected orchestrator that calls the separately authenticated internal enrichment POST route for a reviewed format allowlist.
-- Demo race refresh: hourly pg_cron POST (`5 * * * *` UTC, `20261121090000_schedule_demo_race_refresh_cron.sql`) to a protected route that moves the Trail TST demo edition, its formats and its programme to today's Paris date, then republishes its formats with a null actor after the usual blocking checks. It touches only the fixed demo event/edition ids and writes nothing when the demo is already on today.
+- Demo race refresh: hourly pg_cron POST (`5 * * * *` UTC, `20261121090000_schedule_demo_race_refresh_cron.sql`) to a protected route that moves the Trail TST demo edition (dates and `edition_year`), its formats and its programme to today's Paris date, then republishes its formats with a null actor after the usual blocking checks. It touches only the fixed demo event/edition ids and writes nothing when the demo is already on today.
 - Service role: server-only key used by trusted routes/functions.
 - Organizer import documents are currently selected in the browser and identified in the preview only; no document bucket or OCR provider is configured yet.
 - Organizer roadbooks use the private `organizer-imports` bucket. Browser uploads are restricted to the authenticated user's folder and to 25 MB PDF/JPEG/PNG/WebP files; the organizer website-import API removes them after analysis, including failures.
@@ -216,6 +217,8 @@ The internal service verifies every uploaded object by downloading it from the p
 ## Demo Race Refresh
 
 `20261121090000_schedule_demo_race_refresh_cron.sql` schedules `demo-race-refresh` with pg_cron every hour at minute 5 (`POST /api/cron/demo-race-refresh`), with the same Vault values `web_app_url` and `cron_secret` as the Instagram publishing job. It replaced the `5 23 * * *` Vercel Cron of `vercel.json`, which never fired in production: no call was recorded from 2026-11-17 to 2026-11-21 and the demo stayed on 2026-11-18. The route writes nothing once the demo is on today, so the hourly cadence costs a few reads and retries a failed run by itself. The RevenueCat reconciliation and Trace de Trail enrichment crons below are still declared in `vercel.json` and showed no Vercel Cron call over the same window either.
+
+The narrowing write sets `edition_year` together with `start_date` and `end_date` (2026-11-22): `race_event_editions_start_year_check` requires the year to match the start date, so without it the 1 January run would fail on every retry and leave the demo on 31 December. The demo ids and `isDemoRaceEventId` live in the dependency-free `apps/web/lib/demo-race.ts`, also used by the public course pages, the sitemap and the similar-race suggestions. Only the current edition (`DEMO_EDITION_ID`) is moved: the older 2025 demo edition and its three formats keep their September 2025 dates, which is why a raw query on the Trail TST event shows `races.race_date` rows in 2025 while the event date is today.
 
 ## Rate Limiting
 

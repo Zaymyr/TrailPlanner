@@ -95,7 +95,8 @@ export const buildEventEditionMetadataTitle = (eventName: string, editionYear: n
 export const buildRaceMetadataDescription = (race: PublicRace | null, estimateRange: string | null = null) => {
   if (!race) return "Fiche d’une course de trail sur Pace Yourself.";
   const details = [
-    race.distanceKm !== null ? `${race.distanceKm} km` : null,
+    // French decimal comma, like the title (« 158,68 km », never « 158.68 km »).
+    race.distanceKm !== null ? `${race.distanceKm.toLocaleString("fr-FR")} km` : null,
     race.elevationGainM !== null ? `${Math.round(race.elevationGainM)} m D+` : null,
     race.location,
     formatPublicRaceDate(race.date),

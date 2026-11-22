@@ -44,7 +44,7 @@ RLS is enabled with no `anon` or `authenticated` policy or table privilege. Only
 - Do not update an edition slug from a browser or bypass the atomic rename function.
 - Event-edition resolution participates in the shared tagged public cache. Successful source, publication, visibility, image, and ravito writes invalidate that cache; the redirect table contract itself is unchanged.
 - The 2026-11-16 event-page redesign (shared hero, distance-sorted format list, `@id`-only `subEvent` references) is presentation and JSON-LD only: slug resolution, redirect-before-render and visibility rechecks are unchanged.
-- Past canonical pages remain indexable and may link to the next public edition. This navigation uses the current canonical slug of each edition and never creates a redirect chain.
+- Past canonical pages remain indexable and may link to the next public edition. Only the Trail TST demo editions are `noindex,follow` and absent from the sitemap (2026-11-22); they still resolve through the same slug and redirect rules. The current demo edition keeps its durable slug `trail-tst-2027` even though its `edition_year` follows today's date: renaming it would only add a redirect row. This navigation uses the current canonical slug of each edition and never creates a redirect chain.
 
 ## Related Docs
 

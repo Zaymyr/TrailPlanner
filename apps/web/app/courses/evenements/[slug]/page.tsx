@@ -3,8 +3,10 @@ import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 
 import { getFormatLabelWithinEvent } from "../../_components/catalog-display";
+import { DemoRaceBadge } from "../../_components/DemoRaceBadge";
 import { PublicHeroShell } from "../../_components/PublicHeroShell";
 import { RunnerAppBridge } from "../../_components/RunnerAppBridge";
+import { isDemoRaceEventId } from "../../../../lib/demo-race";
 import { resolvePublicRaceEventEditionSlug } from "../../../../lib/public-race-events";
 import { getPublicSupporterGuide, supporterFollowPath } from "../../../../lib/public-supporter-guide";
 import { DEFAULT_SOCIAL_IMAGE, DEFAULT_SOCIAL_IMAGE_PATH, SITE_URL } from "../../../seo";
@@ -58,6 +60,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title,
     description,
     alternates: { canonical: canonicalPath },
+    // Trail TST demo: reachable from the printed QR codes, never indexed.
+    ...(isDemoRaceEventId(edition.eventId) ? { robots: { index: false, follow: true } } : {}),
     openGraph: {
       title,
       description,
@@ -81,7 +85,9 @@ export default async function PublicEventEditionPage({ params }: PageProps) {
 
   const { edition } = resolution;
   const canonicalUrl = new URL(`/courses/evenements/${edition.slug}`, SITE_URL).toString();
-  const structuredData = buildEventEditionStructuredData(edition, canonicalUrl);
+  const isDemo = isDemoRaceEventId(edition.eventId);
+  // A demonstration event is not a real SportsEvent and its websites are placeholders.
+  const structuredData = isDemo ? null : buildEventEditionStructuredData(edition, canonicalUrl);
   const editionIsPast = isEventEditionPast(edition.endDate);
   const editionTitle = `${edition.eventName} ${edition.editionYear}`;
   const breadcrumbData = {
@@ -133,12 +139,14 @@ export default async function PublicEventEditionPage({ params }: PageProps) {
     maxGain !== null ? { label: "D+ max", value: `${Math.round(maxGain).toLocaleString("fr-FR")} m` } : null,
     Number.isFinite(dayCount) && dayCount > 1 ? { label: "Jours", value: String(dayCount) } : null,
   ].filter((metric): metric is { label: string; value: string } => Boolean(metric));
-  const registrationUrl = isHttpUrl(edition.websiteUrl) ? edition.websiteUrl : null;
+  const registrationUrl = !isDemo && isHttpUrl(edition.websiteUrl) ? edition.websiteUrl : null;
   const supporterGuide = editionIsPast ? null : await getPublicSupporterGuide(edition);
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-5 pb-10 sm:space-y-8 sm:px-0 lg:px-2">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
+      {structuredData ? (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
+      ) : null}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbData).replace(/</g, "\\u003c") }} />
 
       <nav aria-label="Fil d’Ariane" className="flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-xs text-muted-foreground sm:text-sm">
@@ -171,6 +179,7 @@ export default async function PublicEventEditionPage({ params }: PageProps) {
         metrics={metrics}
         meta={(
           <>
+            {isDemo ? <DemoRaceBadge /> : null}
             <span>{formatDateRange(edition.startDate, edition.endDate)}</span>
             {edition.location ? <><span aria-hidden="true">·</span><span>{edition.location}</span></> : null}
           </>

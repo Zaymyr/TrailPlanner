@@ -57,4 +57,15 @@ describe("event edition structured data", () => {
     expect(serialized).not.toMatch(/price|priceCurrency|availability|postalCode/);
     expect(data.subEvent[0]["@id"]).toBe("https://localhost:3000/courses/trail-20-km#event");
   });
+
+  it("drops the scheduled status and registration offer once the edition is over", () => {
+    const url = "https://pace-yourself.com/courses/evenements/festival-des-cimes-2026";
+    const upcoming = buildEventEditionStructuredData(edition, url, new Date("2026-09-13T20:00:00Z"));
+    const past = buildEventEditionStructuredData(edition, url, new Date("2026-09-14T08:00:00Z"));
+
+    expect(upcoming.eventStatus).toBe("https://schema.org/EventScheduled");
+    expect(upcoming.offers).toEqual({ "@type": "Offer", url: "https://festival.example/" });
+    expect(past).not.toHaveProperty("eventStatus");
+    expect(past).not.toHaveProperty("offers");
+  });
 });
