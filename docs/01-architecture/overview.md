@@ -115,7 +115,7 @@ The web app is configured for Vercel in `vercel.json`. It declares:
 - `regions: ["cdg1"]`, so functions run in Paris next to the Supabase `eu-west-3` database (see `infrastructure.md` for the Fluid compute budget rationale)
 - a Git deployment filter that disables Git deployments of `main` and of `dependabot/**` branches, backed by an ignored-build fallback; other Preview deployments are skipped when `apps/web`, shared packages, workspace manifests, the lockfile, Turbo configuration, and Vercel configuration are unchanged. Production is deployed by `.github/workflows/release.yml` after the merged migrations (see [Release Flow](../06-workflows/release-flow.md))
 - permanent redirects from `www.pace-yourself.com`, `trailplanner.app`, and `trail-planner.vercel.app` to `https://pace-yourself.com/:path*`
-- daily authenticated RevenueCat reconciliation and reviewed Trace de Trail catalog-enrichment crons (no Vercel Cron call was observed in production from 2026-11-17 to 2026-11-21; the Trail TST demo refresh therefore moved to pg_cron, see `infrastructure.md`); the latter calls the separately authenticated internal import service and allowlists ten reviewed 2027 formats (Trace des Maquisards and Trail de la Galinette)
+- no crons: no Vercel Cron call was observed in production from 2026-11-17 to 2026-11-21, so every scheduled web task runs on pg_cron + pg_net (demo refresh since 2026-11-21; daily RevenueCat reconciliation and reviewed Trace de Trail catalog enrichment since 2026-11-23, see `infrastructure.md`). The Trace de Trail job calls the separately authenticated internal import service and allowlists ten reviewed 2027 formats (Trace des Maquisards and Trail de la Galinette)
 
 The mobile app is configured for EAS in `apps/mobile/eas.json`:
 

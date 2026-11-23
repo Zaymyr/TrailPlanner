@@ -37,6 +37,7 @@ export const buildSystemHealthFixture = (now = SYSTEM_FIXTURE_NOW): SystemHealth
     job({ job_name: "demo-race-refresh", schedule: "5 * * * *", last_start: ago(55, now), last_end: ago(54.9, now) }, now),
     job({ job_name: "organizer-import-cleanup-hourly", schedule: "17 * * * *", last_start: ago(43, now), last_end: ago(43, now) }, now),
     job({ job_name: "push-reminders-daily", schedule: "0 9 * * *", last_start: ago(60, now), last_end: ago(60, now), runs_24h: 1 }, now),
+    job({ job_name: "revenuecat-reconciliation", schedule: "17 3 * * *", last_start: ago(400, now), last_end: ago(399, now), runs_24h: 1 }, now),
     job({ job_name: "transactional-email-log-purge", schedule: "23 4 * * *", last_start: ago(337, now), last_end: ago(337, now), runs_24h: 1 }, now),
   ];
   const date = new Date(now);

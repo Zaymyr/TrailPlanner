@@ -4,6 +4,14 @@
 
 Journal en ajout seul, la plus récente en haut. Format : `## AAAA-MM-JJ — Titre`, puis Contexte / Décision / Conséquence (2 à 4 lignes chacun). Les décisions d'architecture détaillées (ADR) vont dans [docs/08-decisions/](../08-decisions/README.md).
 
+## 2026-11-23 — Plus aucun cron Vercel, chaque tâche en échec dit quoi faire
+
+**Contexte.** La console affichait des tâches en erreur sans piste d’action : deux tâches créées à la main dans Supabase (`trial-reminder-j0` / `trial-reminder-j3`, appel à `extensions.http_post` inexistant, essais arrêtés le 30/10) et les deux crons Vercel jamais appelés (réconciliation RevenueCat, enrichissement Trace de Trail).
+
+**Décision.** Les deux tâches d’essai sont supprimées. RevenueCat (03:17 UTC) et Trace de Trail (03:47 UTC) passent sur pg_cron + pg_net via `public.configure_daily_web_cron` ; `vercel.json` ne déclare plus de crons. Chaque tâche en échec, en retard ou jamais lancée affiche un « Que faire ? » (remède propre à la tâche, sinon générique ; une tâche inconnue = créée à la main, à supprimer ou à versionner dans une migration).
+
+**Conséquence.** Les deux tâches sont relançables depuis Maintenance. Une tâche ajoutée à la main dans Supabase reste visible mais signalée comme à régulariser.
+
 ## 2026-11-23 — Planificateur web : trois vues Ravitos / Allures / Chronologie alignées sur le mobile, bandeau de course, jauges position/fenêtre
 
 **Contexte.** Le plan web n'avait qu'une frise unique et un « ticket d'arrivée » sombre ; les jauges en « bande cible » se lisaient mal (la zone cible ressemblait à la barre).

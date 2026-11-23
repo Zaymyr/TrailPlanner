@@ -13,7 +13,7 @@ import { buildIntegrationsFixture, buildSystemHealthFixture, SYSTEM_FIXTURE_NOW 
 const render = (element: ReturnType<typeof createElement>) => renderToStaticMarkup(element);
 
 describe("ScheduledTasksCard", () => {
-  it("lists pg_cron tasks with schedule, last run, status and failures, then the Vercel crons", () => {
+  it("lists pg_cron tasks with schedule, last run, status, failures and what to do", () => {
     const html = render(createElement(ScheduledTasksCard, { health: buildSystemHealthFixture(), loading: false, error: null, onRetry: () => undefined, nowMs: SYSTEM_FIXTURE_NOW }));
     expect(html).toContain("Vidéos de survol");
     expect(html).toContain("Toutes les 10 minutes");
@@ -21,7 +21,8 @@ describe("ScheduledTasksCard", () => {
     expect(html).toContain("Échec");
     expect(html).toContain("ERROR: canceling statement due to statement timeout");
     expect(html).toContain("Voir le message d’erreur");
-    expect(html).toContain("Jamais appelée par Vercel");
+    expect(html).toContain("Que faire ?");
+    expect(html).not.toContain("Jamais appelée par Vercel");
     expect(html).toContain("Réconciliation RevenueCat");
     expect(html).toContain("pg_net ne garde ni l’URL ni la tâche");
     expect(html).toContain("<caption");

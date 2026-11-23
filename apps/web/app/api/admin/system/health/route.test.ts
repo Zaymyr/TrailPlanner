@@ -60,7 +60,7 @@ describe("GET /api/admin/system/health", () => {
   it("returns the scheduled tasks, the Vercel crons and the three health lines", async () => {
     const body = await (await GET(request())).json();
     expect(body.tasks.map((task: { key: string; status: string }) => [task.key, task.status])).toEqual([["flyover-orders", "failed"], ["demo-race-refresh", "ok"]]);
-    expect(body.vercelTasks.map((task: { status: string }) => task.status)).toEqual(["never_called", "never_called"]);
+    expect(body.vercelTasks.map((task: { status: string }) => task.status)).toEqual([]);
     expect(body.systems.map((system: { key: string; status: string }) => [system.key, system.status])).toEqual([["crons", "error"], ["emails", "ok"], ["payments", "ok"]]);
     expect(body.payments).toMatchObject({ lastEventSource: "commande de survol", unprocessed: [] });
     expect(body.emails.recent[0].recipient_masked).toBe("or***@trail.fr");

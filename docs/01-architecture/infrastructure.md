@@ -70,8 +70,8 @@ This document records the infrastructure visible from the repository: Vercel, EA
 - Supabase project: Auth, Postgres, Storage, Edge Functions, and cron.
 - Vault-backed cron secret: secret used by pg_cron to call push reminder functions.
 - Organizer import cleanup: hourly pg_cron GET to the protected web route so Storage cleanup precedes row deletion.
-- RevenueCat reconciliation: daily Vercel Cron GET to the protected web route so missed provider events are repaired from server-verified subscriber state.
-- Trace de Trail catalog enrichment: daily Vercel Cron GET to a protected orchestrator that calls the separately authenticated internal enrichment POST route for a reviewed format allowlist.
+- RevenueCat reconciliation: daily pg_cron + pg_net POST to the protected web route so missed provider events are repaired from server-verified subscriber state.
+- Trace de Trail catalog enrichment: daily pg_cron + pg_net POST to a protected orchestrator that calls the separately authenticated internal enrichment POST route for a reviewed format allowlist.
 - Demo race refresh: hourly pg_cron POST (`5 * * * *` UTC, `20261121090000_schedule_demo_race_refresh_cron.sql`) to a protected route that moves the Trail TST demo edition (dates and `edition_year`), its formats and its programme to today's Paris date, then republishes its formats with a null actor after the usual blocking checks. It touches only the fixed demo event/edition ids and writes nothing when the demo is already on today.
 - Service role: server-only key used by trusted routes/functions.
 - Organizer import documents are currently selected in the browser and identified in the preview only; no document bucket or OCR provider is configured yet.
@@ -97,16 +97,6 @@ Vercel Production serves `main`, but Vercel no longer deploys it from the Git in
   "installCommand": "npm install --workspace @trailplanner/web --legacy-peer-deps --prefer-offline --no-audit --no-fund",
   "outputDirectory": ".next",
   "regions": ["cdg1"],
-  "crons": [
-    {
-      "path": "/api/cron/revenuecat-reconciliation",
-      "schedule": "17 3 * * *"
-    },
-    {
-      "path": "/api/cron/tracedetrail-catalog-enrichment",
-      "schedule": "47 3 * * *"
-    }
-  ],
   "ignoreCommand": "node -e \"process.exit(process.env.VERCEL_GIT_COMMIT_REF?.startsWith('dependabot/') ? 0 : 1)\" || git diff --quiet HEAD^ HEAD -- . ../../packages ../../package.json ../../package-lock.json ../../turbo.json ../../vercel.json"
 }
 ```
@@ -202,13 +192,13 @@ The route selects expired service-only sessions, deletes each temporary object n
 
 ## RevenueCat Reconciliation
 
-Vercel invokes `/api/cron/revenuecat-reconciliation` daily at 03:17 UTC and sends the deployment's `CRON_SECRET` as bearer authorization. The route enumerates Supabase Auth UUIDs with the server-only service role, checks each RevenueCat subscriber in bounded batches, and reuses the idempotent subscription persistence path. It repairs missed webhook/client-sync writes but does not expire verified access when RevenueCat is unavailable or misconfigured.
+pg_cron job `revenuecat-reconciliation` calls `/api/cron/revenuecat-reconciliation` through pg_net daily at 03:17 UTC with the Vault `cron_secret` as bearer authorization (it must equal the deployment's `CRON_SECRET`). The route enumerates Supabase Auth UUIDs with the server-only service role, checks each RevenueCat subscriber in bounded batches, and reuses the idempotent subscription persistence path. It repairs missed webhook/client-sync writes but does not expire verified access when RevenueCat is unavailable or misconfigured.
 
 RevenueCat's primary delivery path remains `/api/revenuecat/webhook`. Production configuration stores public app API keys for subscriber lookup, the exact entitlement/product identifiers, and either the legacy webhook Authorization value or `REVENUECAT_WEBHOOK_SIGNING_SECRET`. The signing secret is server-only; validation covers the raw request body and rejects stale signatures.
 
 ## Trace de Trail Catalog Enrichment
 
-Vercel invokes `/api/cron/tracedetrail-catalog-enrichment` daily at 03:47 UTC with `CRON_SECRET`. The route keeps `TRACEDETRAIL_ENRICHMENT_SECRET` server-side and uses it to call `POST /api/internal/race-catalog/tracedetrail/enrich`; the scheduler therefore reuses, rather than bypasses, the internal authentication boundary. The reviewed batch is the six 2027 Trace des Maquisards formats plus the four 2027 Trail de la Galinette formats (Trace de Trail 361918, 361914, 361754, 361671), whose pages offer the public GPX download. The two 2027 Trail Hivernal des Coursières traces (343460, 343461) stay out because their organizer disables the GPX download. The response reports `imported`, `unchanged`, or `error` for each named format. The bounded allowlist prevents catalog rows from being attempted merely because they carry a Trace de Trail id; add a format only after confirming that its organizer permits the official GPX download.
+pg_cron job `tracedetrail-catalog-enrichment` calls `/api/cron/tracedetrail-catalog-enrichment` through pg_net daily at 03:47 UTC with `CRON_SECRET`. The route keeps `TRACEDETRAIL_ENRICHMENT_SECRET` server-side and uses it to call `POST /api/internal/race-catalog/tracedetrail/enrich`; the scheduler therefore reuses, rather than bypasses, the internal authentication boundary. The reviewed batch is the six 2027 Trace des Maquisards formats plus the four 2027 Trail de la Galinette formats (Trace de Trail 361918, 361914, 361754, 361671), whose pages offer the public GPX download. The two 2027 Trail Hivernal des Coursières traces (343460, 343461) stay out because their organizer disables the GPX download. The response reports `imported`, `unchanged`, or `error` for each named format. The bounded allowlist prevents catalog rows from being attempted merely because they carry a Trace de Trail id; add a format only after confirming that its organizer permits the official GPX download.
 
 The internal service verifies every uploaded object by downloading it from the private `race-gpx` bucket and comparing its SHA-256 both before and after the selective race update. An unchanged result also requires a successful Storage read and matching hash. Embedded page geometry, including a trace whose official download is forbidden, is rejected before any write.
 
@@ -222,7 +212,7 @@ The internal service verifies every uploaded object by downloading it from the p
 
 ## Demo Race Refresh
 
-`20261121090000_schedule_demo_race_refresh_cron.sql` schedules `demo-race-refresh` with pg_cron every hour at minute 5 (`POST /api/cron/demo-race-refresh`), with the same Vault values `web_app_url` and `cron_secret` as the Instagram publishing job. It replaced the `5 23 * * *` Vercel Cron of `vercel.json`, which never fired in production: no call was recorded from 2026-11-17 to 2026-11-21 and the demo stayed on 2026-11-18. The route writes nothing once the demo is on today, so the hourly cadence costs a few reads and retries a failed run by itself. The RevenueCat reconciliation and Trace de Trail enrichment crons below are still declared in `vercel.json` and showed no Vercel Cron call over the same window either.
+`20261121090000_schedule_demo_race_refresh_cron.sql` schedules `demo-race-refresh` with pg_cron every hour at minute 5 (`POST /api/cron/demo-race-refresh`), with the same Vault values `web_app_url` and `cron_secret` as the Instagram publishing job. It replaced the `5 23 * * *` Vercel Cron of `vercel.json`, which never fired in production: no call was recorded from 2026-11-17 to 2026-11-21 and the demo stayed on 2026-11-18. The route writes nothing once the demo is on today, so the hourly cadence costs a few reads and retries a failed run by itself. The RevenueCat reconciliation and Trace de Trail enrichment crons, which showed no Vercel Cron call over the same window either, moved to pg_cron in `20261123220000_move_vercel_crons_to_pg_cron.sql`: `public.configure_daily_web_cron(job, schedule, path)` (`SECURITY DEFINER`, service role only) schedules a daily `net.http_post` to `web_app_url` + path with the Vault `cron_secret` and a 300 s timeout. The same migration unschedules the hand-made `trial-reminder-j0` / `trial-reminder-j3` jobs, which called the nonexistent `extensions.http_post`. `vercel.json` declares no crons any more.
 
 The narrowing write sets `edition_year` together with `start_date` and `end_date` (2026-11-22): `race_event_editions_start_year_check` requires the year to match the start date, so without it the 1 January run would fail on every retry and leave the demo on 31 December. The demo ids and `isDemoRaceEventId` live in the dependency-free `apps/web/lib/demo-race.ts`, also used by the public course pages, the sitemap and the similar-race suggestions. Only the current edition (`DEMO_EDITION_ID`) is moved: the older 2025 demo edition and its three formats keep their September 2025 dates, which is why a raw query on the Trail TST event shows `races.race_date` rows in 2025 while the event date is today.
 
