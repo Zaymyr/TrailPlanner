@@ -2,9 +2,9 @@
 
 import type React from "react";
 import type { UseFormRegister } from "react-hook-form";
+import { GpxImportIcon, SummitIcon, TrailIcon } from "@pace-yourself/design-system/icons";
 import type { RacePlannerTranslations } from "../../../../locales/types";
 import type { AidStation, ElevationPoint, FormValues, Segment } from "../types";
-import { Card, CardContent, CardHeader } from "../../../../components/ui/card";
 import { Input } from "../../../../components/ui/input";
 import { Label } from "../../../../components/ui/label";
 import { Button } from "../../../../components/ui/button";
@@ -15,16 +15,31 @@ type CardTitleWithTooltipProps = {
   title: string;
   description: string;
   headingLevel?: "h2" | "h3";
+  visuallyHidden?: boolean;
 };
 
-const CardTitleWithTooltip = ({ title, description, headingLevel = "h2" }: CardTitleWithTooltipProps) => {
+const CardTitleWithTooltip = ({
+  title,
+  description,
+  headingLevel = "h2",
+  visuallyHidden = false,
+}: CardTitleWithTooltipProps) => {
   const HeadingTag = headingLevel;
 
+  if (visuallyHidden) {
+    // Embedded in a setup step whose header already shows the same title.
+    return (
+      <HeadingTag className="sr-only">
+        {title}. {description}
+      </HeadingTag>
+    );
+  }
+
   return (
-    <HeadingTag className="flex items-center gap-2 text-lg font-semibold leading-none text-card-foreground">
+    <HeadingTag className="flex items-center gap-2 font-[family-name:var(--font-plan-display)] text-lg font-semibold leading-none tracking-[-0.01em] text-[#1F2410]">
       <span>{title}</span>
       <span
-        className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border bg-card text-xs font-semibold text-foreground dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+        className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[#E5E2D8] bg-white text-[11px] font-semibold text-[#5C6450]"
         title={description}
         aria-label={description}
       >
@@ -56,6 +71,13 @@ type CourseProfileSectionProps = {
   showCollapseToggle?: boolean;
 };
 
+const fieldLabelClass = "flex items-center gap-1.5 text-[13px] font-medium text-[#5C6450]";
+const numberInputClass =
+  "h-11 rounded-[10px] border-[#C9C5B8] font-[family-name:var(--font-plan-mono)] text-base font-semibold tabular-nums text-[#1F2410] shadow-none focus-visible:outline-[#2D5016]";
+const compactNumberInputClass =
+  "!h-9 w-[110px] rounded-[10px] border-[#C9C5B8] font-[family-name:var(--font-plan-mono)] text-sm font-semibold tabular-nums text-[#1F2410] shadow-none focus-visible:outline-[#2D5016]";
+const actionButtonClass = "w-full px-3.5 text-[13px] sm:w-auto";
+
 export const CourseProfileSection = ({
   sectionId,
   copy,
@@ -76,180 +98,166 @@ export const CourseProfileSection = ({
   baseMinutesPerKm,
   headingLevel = "h2",
   showCollapseToggle = true,
-}: CourseProfileSectionProps) => (
-  <Card
-    id={sectionId}
-    className="relative overflow-hidden border-border/50 bg-muted/30 shadow-sm dark:border-slate-800/50 dark:bg-slate-950/40 dark:shadow-none"
-  >
-    <input
-      ref={fileInputRef}
-      type="file"
-      accept=".gpx,application/gpx+xml"
-      className="hidden"
-      onChange={onImportGpx}
-    />
-    <CardHeader className="space-y-0 pb-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <CardTitleWithTooltip
-          title={copy.sections.courseProfile.title}
-          description={copy.sections.courseProfile.description}
-          headingLevel={headingLevel}
-        />
-        {isCollapsed ? (
-          <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
-            <div id="onboarding-course-btns" className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              type="button"
-              className="h-9 px-3 text-xs"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {copy.buttons.importGpx}
-            </Button>
-            <Button variant="outline" type="button" className="h-9 px-3 text-xs" onClick={onOpenRaceCatalog}>
-              {copy.buttons.chooseRace}
-            </Button>
-            </div>
-            <Button
-              type="button"
-              className={!allowExport ? "relative h-9 px-3 text-xs premium-glow" : "relative h-9 px-3 text-xs"}
-              onClick={allowExport ? onExportGpx : onRequestExportUpgrade}
-              variant={allowExport ? "default" : "outline"}
-            >
-              {copy.buttons.exportGpx}
-            </Button>
-            {importError ? <p className="w-full text-xs text-red-400">{importError}</p> : null}
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="raceDistanceKm" className="text-[11px] text-muted-foreground dark:text-slate-300">
-                  {copy.sections.raceInputs.fields.raceDistance}
-                </Label>
-                <Input
-                  id="raceDistanceKm"
-                  type="number"
-                  step="0.5"
-                  className="h-8 w-[110px] border-border bg-background text-xs text-foreground placeholder:text-muted-foreground dark:border-slate-800/70 dark:bg-slate-950/80 dark:text-slate-50"
-                  {...register("raceDistanceKm", { valueAsNumber: true })}
-                />
+}: CourseProfileSectionProps) => {
+  const isEmbedded = !showCollapseToggle;
+
+  const sourceButtons = (
+    <div id="onboarding-course-btns" className="grid gap-2 sm:flex sm:flex-wrap sm:items-center">
+      <Button variant="outline" type="button" className={actionButtonClass} onClick={() => fileInputRef.current?.click()}>
+        <GpxImportIcon size={16} strokeWidth={1.8} />
+        {copy.buttons.importGpx}
+      </Button>
+      <Button variant="outline" type="button" className={actionButtonClass} onClick={onOpenRaceCatalog}>
+        <TrailIcon size={16} strokeWidth={1.8} />
+        {copy.buttons.chooseRace}
+      </Button>
+    </div>
+  );
+
+  const exportButton = (
+    <Button
+      type="button"
+      className={!allowExport ? `relative ${actionButtonClass} premium-glow` : `relative ${actionButtonClass}`}
+      onClick={allowExport ? onExportGpx : onRequestExportUpgrade}
+      variant={allowExport ? "default" : "outline"}
+    >
+      {copy.buttons.exportGpx}
+    </Button>
+  );
+
+  const importErrorMessage = importError ? (
+    <p className="w-full rounded-[10px] border border-[#C0392B]/30 bg-[#FDECEA] px-3 py-2 text-[13px] text-[#C0392B]">
+      {importError}
+    </p>
+  ) : null;
+
+  return (
+    <div
+      id={sectionId}
+      className={
+        isEmbedded
+          ? "relative"
+          : "relative overflow-hidden rounded-2xl border border-[#E5E2D8] bg-[#FAF8F2]"
+      }
+    >
+      <input ref={fileInputRef} type="file" accept=".gpx,application/gpx+xml" className="hidden" onChange={onImportGpx} />
+      <div className={isEmbedded ? "" : "px-4 pb-3 pt-4 sm:px-6"}>
+        <div className={isEmbedded && !isCollapsed ? "" : "flex flex-wrap items-center justify-between gap-3"}>
+          <CardTitleWithTooltip
+            title={copy.sections.courseProfile.title}
+            description={copy.sections.courseProfile.description}
+            headingLevel={headingLevel}
+            visuallyHidden={isEmbedded}
+          />
+          {isCollapsed ? (
+            <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+              {sourceButtons}
+              {exportButton}
+              {importErrorMessage}
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="raceDistanceKm" className={fieldLabelClass}>
+                    {copy.sections.raceInputs.fields.raceDistance}
+                  </Label>
+                  <Input
+                    id="raceDistanceKm"
+                    type="number"
+                    step="0.5"
+                    className={compactNumberInputClass}
+                    {...register("raceDistanceKm", { valueAsNumber: true })}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="elevationGain" className={fieldLabelClass}>
+                    <SummitIcon size={14} strokeWidth={1.8} color="#3F6B1F" />
+                    {copy.sections.raceInputs.fields.elevationGain}
+                  </Label>
+                  <Input
+                    id="elevationGain"
+                    type="number"
+                    min="0"
+                    step="50"
+                    className={compactNumberInputClass}
+                    {...register("elevationGain", { valueAsNumber: true })}
+                  />
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Label htmlFor="elevationGain" className="text-[11px] text-muted-foreground dark:text-slate-300">
-                  {copy.sections.raceInputs.fields.elevationGain}
-                </Label>
-                <Input
-                  id="elevationGain"
-                  type="number"
-                  min="0"
-                  step="50"
-                  className="h-8 w-[110px] border-border bg-background text-xs text-foreground placeholder:text-muted-foreground dark:border-slate-800/70 dark:bg-slate-950/80 dark:text-slate-50"
-                  {...register("elevationGain", { valueAsNumber: true })}
-                />
-              </div>
             </div>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </div>
-    </CardHeader>
-    <CardContent className={showCollapseToggle ? "px-4 pb-10 sm:px-6" : "px-4 pb-4 sm:px-6"}>
-      {(() => {
-        const courseControls = (
-          <div className="w-full max-w-xl space-y-4 rounded-lg border border-border/50 bg-background/70 p-4 dark:border-slate-800/60 dark:bg-slate-950/50 lg:ml-auto">
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-foreground dark:text-slate-50">{copy.sections.raceInputs.courseTitle}</p>
-              <p className="text-xs text-muted-foreground dark:text-slate-400">
-                {copy.sections.raceInputs.description}
-              </p>
-            </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <div id="onboarding-course-btns" className="flex flex-wrap items-center gap-2">
-                <Button
-                  variant="outline"
-                  type="button"
-                  className="h-9 px-3 text-xs"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  {copy.buttons.importGpx}
-                </Button>
-                <Button variant="outline" type="button" className="h-9 px-3 text-xs" onClick={onOpenRaceCatalog}>
-                  {copy.buttons.chooseRace}
-                </Button>
-              </div>
-              <Button
-                type="button"
-                className={!allowExport ? "relative h-9 px-3 text-xs premium-glow" : "relative h-9 px-3 text-xs"}
-                onClick={allowExport ? onExportGpx : onRequestExportUpgrade}
-                variant={allowExport ? "default" : "outline"}
-              >
-                {copy.buttons.exportGpx}
-              </Button>
-            </div>
-            {importError ? <p className="text-xs text-red-400">{importError}</p> : null}
+      {isCollapsed ? null : (
+        <div className={isEmbedded ? "space-y-5" : `space-y-5 px-4 sm:px-6 ${showCollapseToggle ? "pb-14" : "pb-5"}`}>
+          {/* The profile is the strong surface of this step: a clean topo strip. */}
+          <div className="min-h-[200px] w-full rounded-[10px] border border-[#E5E2D8] bg-white px-2 pb-2 pt-3 sm:px-4 sm:pt-4">
+            <ElevationProfileChart
+              profile={elevationProfile}
+              aidStations={aidStations}
+              segments={segments}
+              totalDistanceKm={totalDistanceKm}
+              copy={copy}
+              baseMinutesPerKm={baseMinutesPerKm}
+            />
+          </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="raceDistanceKm" className="text-xs text-muted-foreground dark:text-slate-200">
-                  {copy.sections.raceInputs.fields.raceDistance}
-                </Label>
-                <Input
-                  id="raceDistanceKm"
-                  type="number"
-                  step="0.5"
-                  className="border-border bg-background text-sm text-foreground placeholder:text-muted-foreground dark:border-slate-800/70 dark:bg-slate-950/80 dark:text-slate-50"
-                  {...register("raceDistanceKm", { valueAsNumber: true })}
-                />
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+            <fieldset className="min-w-0 space-y-2">
+              <legend className="mb-2 font-[family-name:var(--font-plan-display)] text-[14px] font-semibold text-[#1F2410]">
+                {copy.sections.raceInputs.courseTitle}
+              </legend>
+              <div className="grid max-w-md grid-cols-2 gap-3">
+                <div className="min-w-0 space-y-1.5">
+                  <Label htmlFor="raceDistanceKm" className={fieldLabelClass}>
+                    {copy.sections.raceInputs.fields.raceDistance}
+                  </Label>
+                  <Input
+                    id="raceDistanceKm"
+                    type="number"
+                    step="0.5"
+                    className={numberInputClass}
+                    {...register("raceDistanceKm", { valueAsNumber: true })}
+                  />
+                </div>
+                <div className="min-w-0 space-y-1.5">
+                  <Label htmlFor="elevationGain" className={fieldLabelClass}>
+                    <SummitIcon size={14} strokeWidth={1.8} color="#3F6B1F" />
+                    {copy.sections.raceInputs.fields.elevationGain}
+                  </Label>
+                  <Input
+                    id="elevationGain"
+                    type="number"
+                    min="0"
+                    step="50"
+                    className={numberInputClass}
+                    {...register("elevationGain", { valueAsNumber: true })}
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="elevationGain" className="text-xs text-muted-foreground dark:text-slate-200">
-                  {copy.sections.raceInputs.fields.elevationGain}
-                </Label>
-                <Input
-                  id="elevationGain"
-                  type="number"
-                  min="0"
-                  step="50"
-                  className="border-border bg-background text-sm text-foreground placeholder:text-muted-foreground dark:border-slate-800/70 dark:bg-slate-950/80 dark:text-slate-50"
-                  {...register("elevationGain", { valueAsNumber: true })}
-                />
-              </div>
+            </fieldset>
+
+            <div className="grid gap-2 sm:flex sm:flex-wrap sm:items-center lg:justify-end">
+              {sourceButtons}
+              {exportButton}
             </div>
           </div>
-        );
+          {importErrorMessage}
+        </div>
+      )}
 
-        if (isCollapsed) {
-          return null;
-        }
-
-        return (
-          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px] xl:gap-8">
-            <div className="min-h-[240px] w-full rounded-lg border border-border/50 bg-background/70 p-4 dark:border-slate-800/60 dark:bg-slate-950/40">
-              <ElevationProfileChart
-                profile={elevationProfile}
-                aidStations={aidStations}
-                segments={segments}
-                totalDistanceKm={totalDistanceKm}
-                copy={copy}
-                baseMinutesPerKm={baseMinutesPerKm}
-              />
-            </div>
-
-            {courseControls}
-          </div>
-        );
-      })()}
-    </CardContent>
-    {showCollapseToggle && onToggleCollapsed ? (
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center pb-2">
-        <Button
-          type="button"
-          variant="ghost"
-          className="pointer-events-auto h-10 w-10 rounded-full border border-border bg-card text-foreground shadow-md hover:bg-muted dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-100 dark:hover:bg-slate-900/60"
-          aria-label={isCollapsed ? "Expand course profile" : "Collapse course profile"}
-          onClick={onToggleCollapsed}
-        >
-          {isCollapsed ? <ChevronUpIcon className="h-5 w-5" /> : <ChevronDownIcon className="h-5 w-5" />}
-        </Button>
-      </div>
-    ) : null}
-  </Card>
-);
+      {showCollapseToggle && onToggleCollapsed ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center pb-2">
+          <Button
+            type="button"
+            variant="ghost"
+            className="pointer-events-auto h-10 w-10 rounded-full border border-[#E5E2D8] bg-white text-[#1F2410] shadow-sm hover:bg-[#F4F2EC]"
+            aria-label={isCollapsed ? "Expand course profile" : "Collapse course profile"}
+            onClick={onToggleCollapsed}
+          >
+            {isCollapsed ? <ChevronUpIcon className="h-5 w-5" /> : <ChevronDownIcon className="h-5 w-5" />}
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+};

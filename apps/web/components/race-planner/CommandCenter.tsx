@@ -6,7 +6,7 @@ import type { UseFormRegister } from "react-hook-form";
 import type { RacePlannerTranslations } from "../../locales/types";
 import type { FormValues } from "../../app/(planner)/race-planner/types";
 import { estimateEffortDurationMinutes } from "../../app/(planner)/race-planner/utils/pacing";
-import { Card, CardContent, CardHeader } from "../ui/card";
+import { withMonoNumbers } from "../../app/(planner)/race-planner/components/PlannerSetupSteps";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 
@@ -44,6 +44,12 @@ const formatPace = (minutesPerKm: number) => {
   return `${adjustedMinutes}:${String(seconds).padStart(2, "0")}/km`;
 };
 
+// Shared field language of the plan settings: sentence-case labels, mono figures.
+const fieldLabelClass = "text-[13px] font-medium leading-snug text-[#5C6450]";
+const numberInputClass =
+  "h-12 rounded-[10px] border-[#C9C5B8] font-[family-name:var(--font-plan-mono)] text-lg font-semibold tabular-nums text-[#1F2410] shadow-none focus-visible:outline-[#2D5016]";
+const quietSurfaceClass = "rounded-2xl border border-[#E5E2D8] bg-white";
+
 export function CommandCenter({
   copy,
   sectionIds,
@@ -59,6 +65,11 @@ export function CommandCenter({
   const showPacing = sections.includes("pacing");
   const showIntake = sections.includes("intake");
   const showBothSections = showPacing && showIntake;
+  // Embedded in a setup step: the step header already carries the title.
+  const headingClass = showBothSections
+    ? "font-[family-name:var(--font-plan-display)] text-[15px] font-semibold text-[#1F2410]"
+    : "sr-only";
+  const sectionSurfaceClass = showBothSections ? `${quietSurfaceClass} p-4 sm:p-5` : "";
   const HeadingTag = headingLevel;
   const basePaceMinutesPerKm = useMemo(() => {
     if (pacingMode === "speed") {
@@ -90,6 +101,12 @@ export function CommandCenter({
     pacing.durationMinutes,
     pacing.fatigueLevel,
   ]);
+  const fatigueLabel =
+    pacing.fatigueLevel <= 0.33
+      ? copy.sections.raceInputs.fields.fatigueLow
+      : pacing.fatigueLevel >= 0.67
+        ? copy.sections.raceInputs.fields.fatigueHigh
+        : copy.sections.raceInputs.fields.fatigueMedium;
 
   useEffect(() => {
     setPacingMode(pacing.paceType);
@@ -102,28 +119,17 @@ export function CommandCenter({
         className={showBothSections ? "grid gap-3 md:grid-cols-5" : "grid gap-3"}
       >
         {showPacing ? (
-          <Card
-            id={sectionIds.pacing}
-            className={`border-border/50 bg-muted/30 shadow-sm dark:border-slate-800/50 dark:bg-slate-950/50 dark:shadow-none ${
-              showBothSections ? "md:col-span-2" : ""
-            }`}
-          >
-            <CardHeader className="space-y-3 pb-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <HeadingTag className="text-sm font-semibold text-foreground dark:text-slate-100">
-                  {copy.sections.raceInputs.pacingTitle}
-                </HeadingTag>
-                {pacing.durationMinutes ? (
-                  <span className="rounded-md border border-emerald-200 bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100">
-                    {formatDuration(pacing.durationMinutes)}
-                  </span>
-                ) : null}
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-foreground dark:text-slate-400">
-                  {copy.sections.raceInputs.fields.paceType}
-                </p>
-                <div className="flex items-center gap-2 rounded-md border border-border bg-background p-1 dark:border-slate-800/80 dark:bg-slate-900/80">
+          <div id={sectionIds.pacing} className={`${sectionSurfaceClass} space-y-5 ${showBothSections ? "md:col-span-2" : ""}`}>
+            <HeadingTag className={headingClass}>{copy.sections.raceInputs.pacingTitle}</HeadingTag>
+
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div className="space-y-1.5">
+                <p className={fieldLabelClass}>{copy.sections.raceInputs.fields.paceType}</p>
+                <div
+                  role="group"
+                  aria-label={copy.sections.raceInputs.fields.paceType}
+                  className="inline-flex max-w-full rounded-full border border-[#E5E2D8] bg-[#F4F2EC] p-0.5"
+                >
                   {(
                     [
                       { key: "pace", label: copy.sections.raceInputs.paceOptions.pace as string },
@@ -135,10 +141,11 @@ export function CommandCenter({
                       <button
                         key={option.key}
                         type="button"
-                        className={`rounded px-3 py-1 text-xs font-semibold transition ${
+                        aria-pressed={isActive}
+                        className={`min-h-9 rounded-full px-3.5 text-[13px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2D5016] ${
                           isActive
-                            ? "bg-emerald-100 text-emerald-900 shadow-[0_0_0_1px_rgba(16,185,129,0.2)] dark:bg-emerald-500/20 dark:text-emerald-100 dark:shadow-[0_0_0_1px_rgba(16,185,129,0.4)]"
-                            : "text-foreground hover:text-foreground dark:text-slate-300 dark:hover:text-emerald-100"
+                            ? "bg-[#2D5016] text-[#FAF8F2] shadow-sm"
+                            : "text-[#5C6450] hover:text-[#1F2410]"
                         }`}
                         onClick={() => setPacingMode(option.key)}
                       >
@@ -148,16 +155,18 @@ export function CommandCenter({
                   })}
                 </div>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex flex-wrap items-end gap-3">
+              {pacing.durationMinutes ? (
+                <span className="inline-flex items-center rounded-full border border-[#B5CC9A] bg-[#E8F0E0] px-3 py-1 font-[family-name:var(--font-plan-mono)] text-[13px] font-semibold tabular-nums text-[#2D5016]">
+                  {formatDuration(pacing.durationMinutes)}
+                </span>
+              ) : null}
+            </div>
+
+            <div className="flex flex-wrap items-end gap-3">
               {pacingMode === "pace" ? (
-                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                  <div className="w-full space-y-1 sm:w-[120px]">
-                    <Label
-                      htmlFor="paceMinutes"
-                      className="text-[11px] font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
-                    >
+                <div className="grid w-full max-w-[280px] grid-cols-[1fr_auto_1fr] items-end gap-2">
+                  <div className="min-w-0 space-y-1.5">
+                    <Label htmlFor="paceMinutes" className={fieldLabelClass}>
                       {copy.sections.raceInputs.fields.paceMinutes}
                     </Label>
                     <Input
@@ -165,7 +174,7 @@ export function CommandCenter({
                       type="number"
                       min="0"
                       step="1"
-                      className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
+                      className={numberInputClass}
                       {...register("paceMinutes", {
                         valueAsNumber: true,
                         onChange: (event) => {
@@ -176,11 +185,14 @@ export function CommandCenter({
                       })}
                     />
                   </div>
-                  <div className="w-full space-y-1 sm:w-[120px]">
-                    <Label
-                      htmlFor="paceSeconds"
-                      className="text-[11px] font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
-                    >
+                  <span
+                    aria-hidden="true"
+                    className="pb-3 font-[family-name:var(--font-plan-mono)] text-lg font-semibold text-[#8A917E]"
+                  >
+                    :
+                  </span>
+                  <div className="min-w-0 space-y-1.5">
+                    <Label htmlFor="paceSeconds" className={fieldLabelClass}>
                       {copy.sections.raceInputs.fields.paceSeconds}
                     </Label>
                     <Input
@@ -189,7 +201,7 @@ export function CommandCenter({
                       min="0"
                       max="59"
                       step="1"
-                      className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
+                      className={numberInputClass}
                       {...register("paceSeconds", {
                         valueAsNumber: true,
                         onChange: (event) => {
@@ -204,11 +216,8 @@ export function CommandCenter({
               ) : null}
 
               {pacingMode === "speed" ? (
-                <div className="w-full space-y-1 sm:w-[140px]">
-                  <Label
-                    htmlFor="speedKph"
-                    className="text-[11px] font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
-                  >
+                <div className="w-full max-w-[160px] space-y-1.5">
+                  <Label htmlFor="speedKph" className={fieldLabelClass}>
                     {copy.sections.raceInputs.fields.speedKph}
                   </Label>
                   <Input
@@ -216,7 +225,7 @@ export function CommandCenter({
                     type="number"
                     min="0"
                     step="0.1"
-                    className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
+                    className={numberInputClass}
                     {...register("speedKph", {
                       valueAsNumber: true,
                       onChange: (event) => {
@@ -229,136 +238,76 @@ export function CommandCenter({
                 </div>
               ) : null}
             </div>
-            <div className="space-y-2 border-t border-border pt-3 dark:border-slate-800/80">
-              <div className="flex items-center justify-between gap-2">
-                <Label
-                  htmlFor="fatigueLevel"
-                  className="text-[11px] font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
-                >
+
+            <div className="space-y-2.5 border-t border-[#E5E2D8] pt-4">
+              <div className="flex items-baseline justify-between gap-2">
+                <Label htmlFor="fatigueLevel" className="text-[14px] font-semibold text-[#1F2410]">
                   {copy.sections.raceInputs.fields.fatigueLevel}
                 </Label>
-                <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-200">
-                  {pacing.fatigueLevel <= 0.33
-                    ? copy.sections.raceInputs.fields.fatigueLow
-                    : pacing.fatigueLevel >= 0.67
-                      ? copy.sections.raceInputs.fields.fatigueHigh
-                      : copy.sections.raceInputs.fields.fatigueMedium}
-                </span>
+                <span className="text-[13px] font-semibold text-[#2D5016]">{fatigueLabel}</span>
               </div>
-              <Input
+              <input
                 id="fatigueLevel"
                 type="range"
-                aria-valuetext={
-                  pacing.fatigueLevel <= 0.33
-                    ? copy.sections.raceInputs.fields.fatigueLow
-                    : pacing.fatigueLevel >= 0.67
-                      ? copy.sections.raceInputs.fields.fatigueHigh
-                      : copy.sections.raceInputs.fields.fatigueMedium
-                }
+                aria-valuetext={fatigueLabel}
                 min="0"
                 max="1"
                 step="0.01"
-                className="h-3 cursor-pointer border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+                className="block h-6 w-full cursor-pointer accent-[#2D5016] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2D5016]"
                 {...register("fatigueLevel", { valueAsNumber: true })}
               />
-              <div className="flex items-center justify-between gap-3 text-[11px] font-medium text-muted-foreground dark:text-slate-400">
+              <div className="flex items-center justify-between gap-3 text-[12px] text-[#8A917E]">
                 <span>{copy.sections.raceInputs.fields.fatigueLow}</span>
                 <span>{copy.sections.raceInputs.fields.fatigueMedium}</span>
                 <span>{copy.sections.raceInputs.fields.fatigueHigh}</span>
               </div>
-              <p className="text-xs text-muted-foreground dark:text-slate-400">
-                {copy.sections.raceInputs.fields.fatigueHelper}
-              </p>
+              <p className="text-[13px] leading-5 text-[#5C6450]">{copy.sections.raceInputs.fields.fatigueHelper}</p>
               {fatigueImpact ? (
-                <p className="rounded-md border border-emerald-200/80 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100">
-                  {fatigueImpact}
+                <p className="rounded-[10px] border-l-2 border-[#2D5016] bg-[#E8F0E0]/70 px-3 py-2 text-[13px] leading-5 text-[#1F2410]">
+                  {withMonoNumbers(fatigueImpact)}
                 </p>
               ) : null}
-              </div>
-              <input type="hidden" {...register("paceType")} />
-            </CardContent>
-          </Card>
+            </div>
+            <input type="hidden" {...register("paceType")} />
+          </div>
         ) : null}
 
         {showIntake ? (
-          <Card
-            id={sectionIds.intake}
-            className={`border-border/50 bg-muted/30 shadow-sm dark:border-slate-800/50 dark:bg-slate-950/50 dark:shadow-none ${
-              showBothSections ? "md:col-span-3" : ""
-            }`}
-          >
-            <CardHeader className="pb-3">
-              <HeadingTag className="text-sm font-semibold text-foreground dark:text-slate-100">
-                {copy.sections.raceInputs.nutritionTitle}
-              </HeadingTag>
-              <p className="text-xs text-foreground dark:text-slate-400">{copy.sections.raceInputs.description}</p>
-            </CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div id={sectionIds.intake} className={`${sectionSurfaceClass} space-y-4 ${showBothSections ? "md:col-span-3" : ""}`}>
             <div className="space-y-1">
-              <Label
-                htmlFor="targetIntakePerHour"
-                className="text-[11px] font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
-              >
-                {copy.sections.raceInputs.fields.targetIntakePerHour}
-              </Label>
-              <Input
-                id="targetIntakePerHour"
-                type="number"
-                step="1"
-                className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
-                {...register("targetIntakePerHour", { valueAsNumber: true })}
-              />
+              <HeadingTag className={headingClass}>{copy.sections.raceInputs.nutritionTitle}</HeadingTag>
+              <p className="text-[13px] leading-5 text-[#5C6450]">{copy.sections.raceInputs.description}</p>
             </div>
-            <div className="space-y-1">
-              <Label
-                htmlFor="waterIntakePerHour"
-                className="text-[11px] font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
-              >
-                {copy.sections.raceInputs.fields.waterIntakePerHour}
-              </Label>
-              <Input
-                id="waterIntakePerHour"
-                type="number"
-                step="50"
-                min="0"
-                className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
-                {...register("waterIntakePerHour", { valueAsNumber: true })}
-              />
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              {(
+                [
+                  { id: "targetIntakePerHour", label: copy.sections.raceInputs.fields.targetIntakePerHour, step: "1" },
+                  { id: "waterIntakePerHour", label: copy.sections.raceInputs.fields.waterIntakePerHour, step: "50", min: "0" },
+                  { id: "sodiumIntakePerHour", label: copy.sections.raceInputs.fields.sodiumIntakePerHour, step: "50", min: "0" },
+                  { id: "waterBagLiters", label: copy.sections.raceInputs.fields.waterBagLiters, step: "0.1", min: "0" },
+                ] satisfies {
+                  id: "targetIntakePerHour" | "waterIntakePerHour" | "sodiumIntakePerHour" | "waterBagLiters";
+                  label: string;
+                  step: string;
+                  min?: string;
+                }[]
+              ).map((field) => (
+                <div key={field.id} className="flex min-w-0 flex-col justify-end gap-1.5">
+                  <Label htmlFor={field.id} className={fieldLabelClass}>
+                    {field.label}
+                  </Label>
+                  <Input
+                    id={field.id}
+                    type="number"
+                    step={field.step}
+                    min={"min" in field ? field.min : undefined}
+                    className={numberInputClass}
+                    {...register(field.id, { valueAsNumber: true })}
+                  />
+                </div>
+              ))}
             </div>
-            <div className="space-y-1">
-              <Label
-                htmlFor="sodiumIntakePerHour"
-                className="text-[11px] font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
-              >
-                {copy.sections.raceInputs.fields.sodiumIntakePerHour}
-              </Label>
-              <Input
-                id="sodiumIntakePerHour"
-                type="number"
-                step="50"
-                min="0"
-                className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
-                {...register("sodiumIntakePerHour", { valueAsNumber: true })}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label
-                htmlFor="waterBagLiters"
-                className="text-[11px] font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
-              >
-                {copy.sections.raceInputs.fields.waterBagLiters}
-              </Label>
-              <Input
-                id="waterBagLiters"
-                type="number"
-                step="0.1"
-                min="0"
-                className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
-                {...register("waterBagLiters", { valueAsNumber: true })}
-              />
-            </div>
-            </CardContent>
-          </Card>
+          </div>
         ) : null}
       </div>
     </div>

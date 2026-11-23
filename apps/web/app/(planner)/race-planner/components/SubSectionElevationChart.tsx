@@ -24,7 +24,7 @@ export function SubSectionElevationChart({
   const totalDistanceKm = Math.max(0, Math.abs(endDistanceKm - startDistanceKm));
 
   if (x.length < 2 || totalDistanceKm <= 0) {
-    return <p className="text-sm text-muted-foreground dark:text-slate-400">{copy.sections.courseProfile.sectionEmpty}</p>;
+    return <p className="text-sm text-[#5C6450]">{copy.sections.courseProfile.sectionEmpty}</p>;
   }
 
   const profile = x.map((distanceKm, index) => ({
