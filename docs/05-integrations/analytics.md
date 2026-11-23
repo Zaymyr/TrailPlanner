@@ -408,6 +408,7 @@ Selecting a source ravito, deriving a same-course GPX access coordinate, and hid
 
 ## Gotchas
 
+- The Courses quick-return header (`apps/mobile/hooks/useQuickReturnHeader.ts`) is presentation-only: it hides and reveals the header and sticky search card on scroll and does not change the catalog reads, favorites, unread updates or analytics described here.
 - Organizer analytics selectors and reader helper copy changed presentation only; event names and aggregation semantics are unchanged.
 
 - Header collapse, shared gutters/control geometry, plan-card action layout, protected event dates and modal close styling add no analytics event or property. Existing presses must continue through their established handlers and bounded event names.

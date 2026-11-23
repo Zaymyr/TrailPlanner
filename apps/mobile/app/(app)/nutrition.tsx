@@ -13,6 +13,7 @@ import {
 } from '../../components/navigation/RootCollapsibleHeader';
 import { Colors } from '../../constants/colors';
 import { useNutritionScreen } from '../../hooks/useNutritionScreen';
+import { useQuickReturnHeader } from '../../hooks/useQuickReturnHeader';
 import { useI18n } from '../../lib/i18n';
 import { OnboardingGuideCard } from '../../components/onboarding/OnboardingGuideCard';
 import {
@@ -28,6 +29,12 @@ export default function NutritionScreen() {
   const insets = useSafeAreaInsets();
   const scrollY = useRef(new Animated.Value(0)).current;
   const { locale } = useI18n();
+  // The header stays put during the guided plan onboarding (its help menu is the guide's anchor).
+  const quickReturn = useQuickReturnHeader({
+    scrollY,
+    threshold: ROOT_HEADER_EXPANDED_BODY_HEIGHT,
+    enabled: onboarding !== 'plan',
+  });
   const {
     t,
     loading,
@@ -208,7 +215,7 @@ export default function NutritionScreen() {
         onPickNewImage={() => void pickNewImage()}
         onRemoveNewImage={clearNewImage}
         onRefresh={handleRefresh}
-        onScroll={(event) => scrollY.setValue(event.nativeEvent.contentOffset.y)}
+        onScroll={quickReturn.onScroll}
         onCloseProductDetail={closeProductDetail}
         onDeleteSelectedProduct={handleDeleteSelectedProduct}
         onOpenProductDetail={openProductDetail}
@@ -231,6 +238,7 @@ export default function NutritionScreen() {
           onPress: () => setShowCreateModal(true),
         }}
         helpAction={rootHelpAction}
+        hideProgress={quickReturn.hideProgress}
         icon="nutrition-outline"
         scrollY={scrollY}
         title="Nutrition"

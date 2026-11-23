@@ -72,6 +72,8 @@ related_files:
   - apps/mobile/components/themed/EmptyState.tsx
   - apps/mobile/components/themed/BriefToast.tsx
   - apps/mobile/components/navigation/RootCollapsibleHeader.tsx
+  - apps/mobile/hooks/useQuickReturnHeader.ts
+  - apps/mobile/lib/quickReturnHeader.ts
   - packages/design-system/src/tokens/mobile-components.ts
 related_tables: []
 ---
@@ -397,7 +399,10 @@ horizontal row: a 44-point leading target at the 16-point gutter, a title whose
 left edge does not move during collapse, and an optional matching trailing target.
 The large title shrinks to fit one line, both lower corners share the same
 radius, icon actions use the 12-point control radius, and scrolling content begins
-below the expanded height.
+below the expanded height. An optional `hideProgress` value from
+`useQuickReturnHeader` slides the compact bar fully off screen on long lists and
+fades in a brand strip over the status bar; screens without it keep the sticky
+compact bar.
 
 Shared React Native geometry comes from `mobileComponents`. Filter chips use the
 same selected/unselected structure across Courses and Nutrition; Profile, RaceBook Course
@@ -430,6 +435,9 @@ Supporter Guide and followed-plan screens reuse the same `TopoCard`, `ActionButt
 - Use `DataText` only for comparable numeric values. Counts or statuses containing words use the normal themed `Text` component.
 - Do not use `StatusPill` for an action or `ChoiceChip` for passive information;
   their interaction semantics must remain visually distinct.
+- Wire a quick-return header through `useQuickReturnHeader().onScroll` only: it
+  also feeds `scrollY`, and a second handler writing `scrollY` would desynchronise
+  the collapse from the hide decision.
 - Keep contour artwork low-contrast and decorative. It must not sit behind
   dense body copy or communicate elevation/status information.
 - Do not restore the former horizontal mark at the lower-right of cards or the

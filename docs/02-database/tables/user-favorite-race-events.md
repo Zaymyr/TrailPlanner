@@ -119,6 +119,7 @@ where event_id = '<event-id>';
 
 ## Gotchas
 
+- The Courses quick-return header (`apps/mobile/hooks/useQuickReturnHeader.ts`) is presentation-only: it hides and reveals the header and sticky search card on scroll and does not change the catalog reads, favorites, unread updates or analytics described here.
 - Rendering the event heart as a transparent secondary 44-point action changes visual weight only. Optimistic state, guest prompting, server confirmation, pinning and mutation analytics remain unchanged.
 
 - Sticky search/filter presentation and native date entry filter the already-loaded catalog only; they do not create, delete, reorder, or rescope favorite rows.

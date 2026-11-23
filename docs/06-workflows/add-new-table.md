@@ -186,6 +186,8 @@ Decorative previews derived from a new table (such as profile strips) are normal
 
 Screens listing a new table's rows in a guided onboarding must not auto-focus inputs that hide the list.
 
+A long mobile list of a new table's rows may use the quick-return root header (`useQuickReturnHeader`); scroll behaviour stays client-side and adds nothing to the schema.
+
 ## Related Docs
 
 The `race_supporter_points` addition follows this workflow: cascade ownership by `races`, explicit client/service grants, a completeness-filtered SELECT policy, a service-only atomic collection RPC, static SQL checks, and a dedicated table reference document.

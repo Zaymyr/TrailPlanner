@@ -21,6 +21,7 @@ import { mobileComponents } from '@pace-yourself/design-system';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OnboardingGuideCard } from '../../components/onboarding/OnboardingGuideCard';
 import { useGuestAccountPrompt } from '../../hooks/useGuestAccountPrompt';
+import { useQuickReturnHeader } from '../../hooks/useQuickReturnHeader';
 import { RaceEventSummaryCard } from '../../components/race/RaceEventSummaryCard';
 import {
   ROOT_HEADER_COMPACT_BODY_HEIGHT,
@@ -433,6 +434,21 @@ export default function CatalogScreen() {
   const isGuidedLivretMode = onboardingMode === 'racebook' || onboardingMode === 'supporter';
   const insets = useSafeAreaInsets();
   const scrollY = useRef(new Animated.Value(0)).current;
+  // Quick return: the header and the sticky search card leave together while the
+  // runner browses down and come back on the first upward scroll. Guided
+  // onboarding keeps them put (the guide points at the search).
+  const quickReturn = useQuickReturnHeader({
+    scrollY,
+    threshold: ROOT_HEADER_EXPANDED_BODY_HEIGHT,
+    enabled: !onboardingMode,
+  });
+  const [stickyHeaderHeight, setStickyHeaderHeight] = useState(0);
+  const stickyHeaderTranslateY = quickReturn.hideProgress.interpolate({
+    inputRange: [0, 1],
+    // Slides the whole card under the status bar strip.
+    outputRange: [0, -Math.max(0, stickyHeaderHeight - insets.top)],
+    extrapolate: 'clamp',
+  });
   const { locale, t } = useI18n();
   const rootHelpAction = onboardingMode ? undefined : (
     <RootScreenActionMenu
@@ -1237,7 +1253,7 @@ export default function CatalogScreen() {
         data={visibleEventGroups}
         keyExtractor={(item) => item.id}
         contentContainerStyle={listContentStyle}
-        onScroll={(event) => scrollY.setValue(event.nativeEvent.contentOffset.y)}
+        onScroll={quickReturn.onScroll}
         scrollEventThrottle={16}
         stickyHeaderIndices={[0]}
         refreshControl={
@@ -1252,10 +1268,15 @@ export default function CatalogScreen() {
           />
         }
         ListHeaderComponent={
-          <View
+          <Animated.View
+            onLayout={(event) => {
+              const height = event.nativeEvent.layout.height;
+              setStickyHeaderHeight((current) => (Math.abs(current - height) < 1 ? current : height));
+            }}
             style={[
               styles.listHeader,
               { paddingTop: insets.top + ROOT_HEADER_COMPACT_BODY_HEIGHT },
+              { transform: [{ translateY: stickyHeaderTranslateY }] },
             ]}
           >
             <View style={styles.filtersCard}>
@@ -1312,7 +1333,7 @@ export default function CatalogScreen() {
               </View> : null}
             </View>
 
-          </View>
+          </Animated.View>
         }
         ListEmptyComponent={
           <EmptyState
@@ -1372,6 +1393,7 @@ export default function CatalogScreen() {
 
       <RootCollapsibleHeader
         helpAction={rootHelpAction}
+        hideProgress={quickReturn.hideProgress}
         icon="trail-sign-outline"
         scrollY={scrollY}
         title={locale === 'fr' ? 'Courses' : 'Races'}

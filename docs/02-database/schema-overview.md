@@ -397,6 +397,7 @@ erDiagram
 
 ## Gotchas
 
+- The Courses quick-return header (`apps/mobile/hooks/useQuickReturnHeader.ts`) is presentation-only: it hides and reveals the header and sticky search card on scroll and does not change the catalog reads, favorites, unread updates or analytics described here.
 - The public `GET /api/race-catalog` (planner race picker, anon key, `is_live=eq.true`) also returns `event_id`, `race_date` and the embedded parent event `race_events(id,name,location,race_date,thumbnail_url)` (null when the race has no event or the anon key cannot read it). The change is additive: existing fields and the `search` parameter are unchanged, and the write handlers are untouched. The picker groups formats by that event and keeps only the latest edition of a format name repeated in the same event.
 - Admin catalog writes continue to use the existing race/event/station relationships. Their new post-write public-cache invalidation changes freshness only; it adds no table, foreign key, RLS policy, or API payload field.
 

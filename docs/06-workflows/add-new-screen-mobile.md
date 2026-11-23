@@ -1,7 +1,7 @@
 ---
 title: Add New Mobile Screen
 scope: workflow
-last_verified: 2026-11-18
+last_verified: 2026-11-23
 # Supporter onboarding (2026-11-18): new copy blocks `onboarding.audience`, `onboarding.supporterIntro`, `onboarding.supporterTour` and tours keys `supporterTitle`, `pickSupporterRace*` (fr/en/types); `HelpTutorialScreenKey` gains `supporter-guide`.
 # Welcome onboarding cleanup (2026-11-18): onboarding steps render full page in OnboardingShell (no floating card, no pastel top glow); unused intro copy keys (officialBadge, planCta, tours.planChoice*/planOptionalLabel) removed from fr/en/types.
 # Profile attention trail (2026-11-18): a tab-bar attention dot must be repeated on the Profile sub-tab and the row that resolves it; the app icon badge counts unread inbox messages only (`lib/appIconBadge.ts`); `profileDotLabel` reads « Parcours guidé à terminer ».
@@ -20,6 +20,8 @@ related_files:
   - apps/mobile/app/(app)/_layout.tsx
   - apps/mobile/components/navigation/AppHeaderTitle.tsx
   - apps/mobile/components/navigation/RootCollapsibleHeader.tsx
+  - apps/mobile/hooks/useQuickReturnHeader.ts
+  - apps/mobile/lib/quickReturnHeader.ts
   - apps/mobile/components/navigation/RootScreenActionMenu.tsx
   - apps/mobile/components/inputs/DatePickerField.tsx
   - apps/mobile/components/race/RaceRequestHeaderButton.tsx
@@ -207,7 +209,7 @@ The expanded identity hero displays the formatted course date beneath the race n
 11. Track analytics with helpers in `apps/mobile/lib/posthog.ts` when consistent with nearby screens. Emit outcome events only after the server confirms the mutation; for notification responses, keep properties bounded and never attach hrefs or message content.
     The app shell owns analytics identity and marks the configured owner email plus trusted Supabase admins as PostHog internal/test users; screens must not reimplement that classification.
     The RaceBook Material checklist follows the same outcome rule for toggles: emit only after persistence succeeds. Its organizer reporting snapshot may emit one bounded event per published item after a non-empty load or settled successful interaction, but must keep persistence keys, notes, aggregate checked totals, and untouched empty checklists private.
-12. For a new root tab, use `RootCollapsibleHeader`; place at most one essential persistent action in it. Put additional genuine contextual actions in `RootScreenActionMenu`, and omit that menu when it would contain only static help copy or duplicate another primary journey.
+12. For a new root tab, use `RootCollapsibleHeader`; place at most one essential persistent action in it. On a long browsing list, pass `hideProgress` from `useQuickReturnHeader` and its `onScroll` to the list so the header leaves while scrolling down and returns on the first upward scroll; keep it disabled during guided onboarding. An element pinned below the header (such as the Mes courses tabs) follows its height from `scrollY` and extends behind its rounded corners instead of sitting at the fixed expanded height. Put additional genuine contextual actions in `RootScreenActionMenu`, and omit that menu when it would contain only static help copy or duplicate another primary journey.
 13. For a new hidden child screen under an existing stack, register the explicit child route in `apps/mobile/app/(app)/_layout.tsx` and give it a localized title in the stack layout for that feature area.
 14. When the screen belongs to a critical user journey, add stable, semantic `testID` hooks to the smallest actionable elements and extend `apps/mobile/.maestro/flows/authenticated-shell.yaml` or add a focused flow. Do not target translated copy when a stable id is available.
 
