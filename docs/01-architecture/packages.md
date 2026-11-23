@@ -12,6 +12,7 @@ related_files:
   - packages/shared/src/index.ts
   - packages/shared/src/plan-share-tracking.ts
   - packages/shared/src/plan-timeline/index.ts
+  - packages/shared/src/course-weather/index.ts
   - apps/web/package.json
   - apps/mobile/package.json
   - packages/design-system/package.json
@@ -77,6 +78,10 @@ This package contains runtime-neutral logic. The web app imports it by package n
 - Web imports it from `@trailplanner/shared` (adapter `apps/web/lib/plan-chronology.ts`).
 - Mobile does **not** import the package by name (the Mobile Pre-Check workflow `.github/workflows/main.yml` rejects `@trailplanner/shared` under `apps/mobile/app` and `apps/mobile/lib`). Its former modules — `lib/continuousNutrition.ts`, `lib/planTimelinePresentation.ts`, `components/plan-form/profile-utils.ts`, `section-summary.ts`, and parts of `contracts.ts` / `helpers.ts` — re-export the source files through relative paths (`../../../packages/shared/src/plan-timeline/...`). Metro bundles them because `apps/mobile/metro.config.js` watches the workspace root (as for `packages/design-system`); `tsc` and vitest follow the relative imports.
 - Mobile-only pieces stay in the app: the fallback `buildSectionIntakeTimelineV2` and gauges (`components/plan-form/metrics.ts`), carryover and auto-fill, and all rendering.
+
+### Course-weather module (2026-11-23)
+
+`packages/shared/src/course-weather/` (re-exported by `src/index.ts`) holds the `GET /api/race-weather` contract (`types.ts`: `CourseWeatherResponse`, `COURSE_WEATHER_HORIZON_DAYS`) and pure display helpers (`presentation.ts`: nearest forecast hour, feels-like, alerts and thresholds, summaries, weather at planned passages). Runtime-neutral, no network. The MET Norway client and point selection stay server-side in `apps/web/lib/course-weather/`. Rules: [MET Norway Course Weather](../05-integrations/met-norway-weather.md).
 
 ### `@pace-yourself/design-system`
 

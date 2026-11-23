@@ -146,6 +146,7 @@ Docs conventions are in [_conventions.md](_conventions.md).
 - [Automatic Instagram Carousels](05-integrations/instagram-carousels.md)
 - [Mapbox 3D Admin Course Viewer](05-integrations/mapbox-3d.md)
 - [Geocoding](05-integrations/geocoding.md)
+- [MET Norway Course Weather](05-integrations/met-norway-weather.md)
 - [Supabase Edge Functions](05-integrations/supabase-edge-functions.md)
 - [Analytics](05-integrations/analytics.md)
 - [OpenAI Organizer Import Reconciliation](05-integrations/openai-organizer-import.md)
