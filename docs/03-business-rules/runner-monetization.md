@@ -159,3 +159,7 @@ The RaceBook Course tab (Tracé, Ravitos, Où encourager) uses `TrailTabs` with 
 - [Stripe](../05-integrations/stripe.md)
 
 The standardized Livret/Plan segmented control and removal of the duplicate RaceBook plan CTA do not change entitlement or purchase gates. The existing workspace action remains responsible for opening or creating the owner plan under the same access rules.
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/runner-access-mode/route.ts` now exports its write handler through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`simulation.runner-mode`) to the admin action journal ([`admin_audit_log`](../02-database/tables/admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

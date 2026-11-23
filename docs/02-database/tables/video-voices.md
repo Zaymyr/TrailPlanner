@@ -51,3 +51,7 @@ RLS is on with no policy; every privilege is revoked from `public`, `anon` and `
 - The picked voice is saved in `video_narrations.voice` (`voiceId` and `voiceName`, no schema change: the column is `jsonb`). Generating the voice of an existing narration keeps that voice unless the admin clicks « Changer de voix ».
 - Deleting a voice never breaks a saved narration: it keeps its `voiceId` and name and its clips are already stored.
 - The voice route still validates the id with `ELEVENLABS_VOICE_ID_PATTERN` (10-40 characters), narrower than the table check; real ElevenLabs ids are 20 characters.
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/video-generator/voices/[id]/route.ts`, `app/api/admin/video-generator/voices/route.ts` now export their write handlers through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`render.voice-update`, `render.voice-delete`, `render.voice-create`) to the admin action journal ([`admin_audit_log`](./admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

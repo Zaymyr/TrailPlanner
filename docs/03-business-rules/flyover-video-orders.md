@@ -130,3 +130,7 @@ One tick (`runFlyoverTick`):
 ## Admin console links (lot 6)
 
 The order's render shows in the admin render queue as type « Survol » (`/admin/content/renders`), its origin linking to `/admin/content/flyovers?commande=<id>` (the order card is highlighted and every order is listed). A paid « collab » order with a publication slot whose post is not scheduled yet appears in the Calendrier (`◈`) and opens that card; once its post is scheduled or published the post is the calendar entry.
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/flyover-orders/[id]/route.ts` now exports its write handler through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`flyover.order`) to the admin action journal ([`admin_audit_log`](../02-database/tables/admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

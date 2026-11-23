@@ -4,6 +4,22 @@
 
 Journal en ajout seul, la plus récente en haut. Format : `## AAAA-MM-JJ — Titre`, puis Contexte / Décision / Conséquence (2 à 4 lignes chacun). Les décisions d'architecture détaillées (ADR) vont dans [docs/08-decisions/](../08-decisions/README.md).
 
+## 2026-11-23 — Journal des actions admin
+
+**Contexte.** Aucune trace de qui avait modifié un rôle, accordé du Premium, envoyé un message, changé un pack ou publié un post ; seuls les champs `created_by` / `reviewed_by` de quelques tables gardaient un acteur, sans avant/après.
+
+**Décision.** Table `admin_audit_log` (service role seulement, ajout seul, purge à 365 jours), alimentée en best-effort par un wrapper `withAdminAudit` que chaque route admin d’écriture exporte (une ligne par action réussie ou en échec serveur ; les refus 4xx, les aperçus, les générations IA et les lectures ne sont pas journalisés). Les valeurs avant/après sont assainies avant stockage : jamais de secret, de contenu de message, de fichier ni d’adresse e-mail complète. Lecture par `GET /api/admin/audit` et la page `/admin/system/audit` (filtres dans l’URL, fiche avec diff, export CSV) ; les actions importantes alimentent « Activité récente » de la vue d’ensemble.
+
+**Conséquence.** Toute nouvelle route admin d’écriture doit passer par `withAdminAudit` et déclarer son action dans `AUDIT_ACTIONS` (un test l’impose). Un incident du journal ne fait jamais échouer une requête. L’état « avant » n’est enregistré que là où la route le connaît. La migration ne part qu’au merge, avec celle du lot 3.
+
+## 2026-11-23 — Console admin : bilan des lots 0 à 7
+
+**Contexte.** La console à barre latérale décidée le 2026-11-22 est livrée sur `dev/admin-console` (une PR) : coque et primitives, vue d’ensemble et file « À traiter », santé des systèmes, ventes et facturation, fiches coureur et organisateur, file de rendus unique, journal des actions.
+
+**Décision.** Aucun changement de cap par rapport à l’ADR : les écarts restants (liste dans la section « Avancement » de l’ADR) sont des suites à planifier, pas des blocages. Deux migrations partent avec le merge : `20261123090000_admin_system_health.sql` (lot 3) et `20261123120000_admin_audit_log.sql` (lot 7), avec leurs scripts SQL de contrôle.
+
+**Conséquence.** Détail et table des routes finale : [ADR console admin](../08-decisions/2026-11-22-admin-console.md).
+
 ## 2026-11-23 — Santé des systèmes : journal des e-mails, crons lus dans pg_cron
 
 **Contexte.** Aucun écran ne disait si les tâches planifiées, les e-mails ou le webhook Stripe fonctionnaient ; aucun envoi d’e-mail ne laissait de trace.

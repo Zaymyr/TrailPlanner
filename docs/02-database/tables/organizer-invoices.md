@@ -52,3 +52,7 @@ Stores issued manual organizer invoices independently from payment attempts and 
 - [organizer_feature_catalog](organizer-feature-catalog.md)
 
 Admin console (2026-11-23, lot 4): the admin screen of these invoices is « Ventes & facturation » (`/admin/billing`, register `lib/admin-billing.ts`): status réglée / à régler (en retard after `due_date`) / offert (net 0) / remplacée, amounts HT = TTC = `net_total` with zero VAT, and the existing preview, issue, correction, settlement (date and reference), download and PDF routes. No contract change.
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/organizer-invoices/[invoiceId]/pdf/route.ts`, `app/api/admin/organizer-invoices/[invoiceId]/settlement/route.ts`, `app/api/admin/organizer-invoices/route.ts` now export their write handlers through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`billing.invoice-pdf`, `billing.invoice-settle`, `billing.invoice-create`) to the admin action journal ([`admin_audit_log`](./admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

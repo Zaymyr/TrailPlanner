@@ -191,3 +191,7 @@ The Meta side (app with Facebook Login, linked Page, System User and its token) 
 - [Organizer Flyover Video Orders](../03-business-rules/flyover-video-orders.md)
 
 Admin (2026-11-22): each row of « GPX à traiter » has a « Corriger » link to the catalog edit dialog. Since lot 1 the list is the « Qualité des données » view of `/admin/catalog/races?vue=qualite` and the link is `/admin/catalog/races?course=<races.id>` (`raceEditHref`).
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/social-posts/[id]/route.ts`, `app/api/admin/social-posts/route.ts` now export their write handlers through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`content.post-update`, `content.post-schedule`, `content.post-publish`, `content.post-delete`, `content.post-create`) to the admin action journal ([`admin_audit_log`](../02-database/tables/admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

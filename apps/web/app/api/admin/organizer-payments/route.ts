@@ -1,3 +1,4 @@
+import { withAdminAudit, auditResponse, pickAuditFields, shortAuditId } from "../../../../lib/admin-audit-log";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -30,7 +31,7 @@ const currentParisDate = () => new Intl.DateTimeFormat("en-CA", {
   timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit",
 }).format(new Date());
 
-export async function POST(request: NextRequest) {
+async function postRoute(request: NextRequest) {
   const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
   const formData = await request.formData().catch(() => null);
@@ -120,3 +121,14 @@ export async function POST(request: NextRequest) {
     return jsonError("Impossible d'enregistrer cet achat.", 502);
   }
 }
+
+export const POST = withAdminAudit(postRoute, {
+  action: "billing.payment-create",
+  targetType: "payment",
+  targetId: (c) => {
+    const id = (auditResponse(c).payment as { id?: string } | null)?.id;
+    return id ? `organizer_pack:${id}` : undefined;
+  },
+  summary: (c) => `Virement enregistré pour l’édition ${shortAuditId((auditResponse(c).payment as { edition_id?: string } | null)?.edition_id)}`,
+  after: (c) => pickAuditFields(auditResponse(c).payment, ["edition_id", "to_tier", "amount_subtotal", "amount_total", "currency", "paid_at", "payment_channel"]),
+});

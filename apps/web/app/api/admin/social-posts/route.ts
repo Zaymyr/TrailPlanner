@@ -1,3 +1,4 @@
+import { withAdminAudit, auditResponse, pickAuditFields } from "../../../../lib/admin-audit-log";
 import { buildDraftPrefill, parseReelContent } from "../../../../lib/reel-content";
 import {
   canPublishNow,
@@ -75,7 +76,7 @@ export async function GET(request: Request) {
 }
 
 /** New draft from a finished render. Nothing is published until an explicit action. */
-export async function POST(request: Request) {
+async function postRoute(request: Request) {
   const gate = await authorizeVideoAdmin(request);
   if (!gate.ok) return gate.response;
   const { supabase, userId } = gate.value;
@@ -107,3 +108,11 @@ export async function POST(request: Request) {
     return renderJsonError("Le brouillon n’a pas pu être créé.", 502);
   }
 }
+
+export const POST = withAdminAudit(postRoute, {
+  action: "content.post-create",
+  targetType: "post",
+  targetId: (c) => (auditResponse(c).post as { id?: string } | null)?.id,
+  summary: "Brouillon Instagram créé à partir d’un rendu",
+  after: (c) => pickAuditFields(c.body, ["videoJobId"]),
+});

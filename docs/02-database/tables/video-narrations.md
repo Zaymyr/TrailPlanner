@@ -60,3 +60,7 @@ RLS is on with no policy; `anon` and `authenticated` have no privilege. Only the
 ## Gotchas
 
 - The `(race_id)` to `(race_id, mode)` key change makes an upsert with `on_conflict=race_id` fail (no matching unique constraint). Between the migration and the web deploy of the same release, a save from the previous web version fails with an error message; reads keep working.
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/video-generator/narrations/[raceId]/route.ts` now exports its write handler through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`render.narration`) to the admin action journal ([`admin_audit_log`](./admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

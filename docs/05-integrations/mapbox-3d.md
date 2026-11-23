@@ -408,3 +408,7 @@ The logo and the "Télécharge l'appli" CTA in the bottom-left corner are off by
 ## Studio links to renders and drafts (lot 6)
 
 In `/admin/content/studio`, the finished message of « Générer le reel » links to the render in the queue (`/admin/content/renders?rendu=<job id>`), `BackgroundRenderPanel` adds « Voir tous les rendus → », « Voir dans la file » and « Voir le brouillon », and the Instagram panel has « Créer un brouillon avec ce texte » (`studio-draft.ts`: the latest finished render of the race among the panel's 8 latest, same `POST /api/admin/social-posts` as Publications) next to « Copier ».
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/video-generator/voices/[id]/route.ts`, `app/api/admin/video-generator/voices/route.ts` now export their write handlers through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`render.voice-update`, `render.voice-delete`, `render.voice-create`) to the admin action journal ([`admin_audit_log`](../02-database/tables/admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

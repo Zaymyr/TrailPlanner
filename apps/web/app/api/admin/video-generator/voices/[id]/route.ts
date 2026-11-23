@@ -1,3 +1,4 @@
+import { withAdminAudit } from "../../../../../../lib/admin-audit-log";
 import { z } from "zod";
 
 import { authorizeVideoAdmin, renderJson, renderJsonError } from "../../../../../../lib/video-render-api";
@@ -5,7 +6,7 @@ import { deletePoolVoice, updatePoolVoice, updateVoiceRequestSchema } from "../.
 
 const paramsSchema = z.object({ id: z.string().uuid() });
 
-export async function PATCH(request: Request, context: { params: { id?: string } }) {
+async function patchRoute(request: Request, context: { params: { id?: string } }) {
   const params = paramsSchema.safeParse(context.params);
   if (!params.success) return renderJsonError("Voix invalide.", 400);
   const gate = await authorizeVideoAdmin(request);
@@ -26,7 +27,7 @@ export async function PATCH(request: Request, context: { params: { id?: string }
   }
 }
 
-export async function DELETE(request: Request, context: { params: { id?: string } }) {
+async function deleteRoute(request: Request, context: { params: { id?: string } }) {
   const params = paramsSchema.safeParse(context.params);
   if (!params.success) return renderJsonError("Voix invalide.", 400);
   const gate = await authorizeVideoAdmin(request);
@@ -40,3 +41,18 @@ export async function DELETE(request: Request, context: { params: { id?: string 
     return renderJsonError("La voix n’a pas pu être supprimée.", 502);
   }
 }
+
+export const PATCH = withAdminAudit(patchRoute, {
+  action: "render.voice-update",
+  targetType: "voice",
+  targetId: (c) => c.params.id,
+  summary: "Voix du pool modifiée",
+});
+
+export const DELETE = withAdminAudit(deleteRoute, {
+  action: "render.voice-delete",
+  targetType: "voice",
+  targetId: (c) => c.params.id,
+  summary: "Voix retirée du pool",
+  after: () => null,
+});

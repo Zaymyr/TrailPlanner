@@ -126,3 +126,7 @@ from public.social_posts where status = 'publishing';
 - [RLS Policies](../rls-policies.md)
 - [Automatic Reel Pipeline](../../05-integrations/reel-automation.md)
 - [Organizer Flyover Video Orders](../../03-business-rules/flyover-video-orders.md)
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/social-posts/[id]/route.ts`, `app/api/admin/social-posts/route.ts` now export their write handlers through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`content.post-update`, `content.post-schedule`, `content.post-publish`, `content.post-delete`, `content.post-create`) to the admin action journal ([`admin_audit_log`](./admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

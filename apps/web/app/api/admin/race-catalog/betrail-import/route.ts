@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody, auditResponse, pickAuditFields } from "../../../../../lib/admin-audit-log";
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -195,7 +196,7 @@ async function findExistingFormatRace(
   return rows[0] ?? null;
 }
 
-export async function POST(request: NextRequest) {
+async function postRoute(request: NextRequest) {
   const admin = await requireAdmin(request);
   if ("error" in admin) return admin.error;
   const context: SupabaseServiceContext = { serviceConfig: admin.serviceConfig };
@@ -330,3 +331,15 @@ export async function POST(request: NextRequest) {
 
   return withSecurityHeaders(NextResponse.json({ eventId, createdRaces, skippedFormats }));
 }
+
+export const POST = withAdminAudit(postRoute, {
+  action: "catalog.race-import",
+  targetType: "event",
+  targetId: (c) => auditResponse(c).eventId as string | undefined,
+  skip: (c) => auditBody(c).action !== "import",
+  summary: (c) => `Événement ${typeof auditBody(c).raceName === "string" ? `« ${auditBody(c).raceName} » ` : ""}importé depuis Betrail`,
+  after: (c) => ({
+    ...(pickAuditFields(c.body, ["raceUrl", "raceName", "date"]) ?? {}),
+    created: Array.isArray(auditResponse(c).createdRaces) ? (auditResponse(c).createdRaces as unknown[]).length : auditResponse(c).createdRaces,
+  }),
+});

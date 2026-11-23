@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody, pickAuditFields, shortAuditId } from "../../../../lib/admin-audit-log";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -758,7 +759,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function PATCH(request: NextRequest) {
+async function patchRoute(request: NextRequest) {
   const auth = await authorizeAdmin(request);
   if ("error" in auth) return auth.error;
 
@@ -807,3 +808,11 @@ export async function PATCH(request: NextRequest) {
     return withSecurityHeaders(NextResponse.json({ message: "Unable to update user role." }, { status: 500 }));
   }
 }
+
+export const PATCH = withAdminAudit(patchRoute, {
+  action: "user.role",
+  targetType: "user",
+  targetId: (c) => auditBody(c).id as string | undefined,
+  summary: (c) => `Rôles du compte ${shortAuditId(auditBody(c).id)} : ${Array.isArray(auditBody(c).roles) ? (auditBody(c).roles as unknown[]).join(", ") : "?"}`,
+  after: (c) => pickAuditFields(c.body, ["roles"]),
+});

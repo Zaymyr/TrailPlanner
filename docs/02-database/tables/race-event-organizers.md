@@ -220,3 +220,7 @@ Publication history, publish, restore, and private-publication reads repeat the 
 - [Organizer Race Management](../../03-business-rules/organizer-race-management.md)
 
 Admin console (2026-11-23, lot 5): `GET /api/admin/event-publication-requests` also selects `race_event_editions.slug` (returned as `editionSlug`) for the public-page link of the admin edition panel; the member organizers shown there come from the existing `/api/admin/organizer-claims` memberships. Membership rules are unchanged.
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/event-publication-requests/route.ts`, `app/api/admin/organizer-claims/route.ts` now export their write handlers through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`edition.publication`, `edition.pack`, `organizer.claim`) to the admin action journal ([`admin_audit_log`](./admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

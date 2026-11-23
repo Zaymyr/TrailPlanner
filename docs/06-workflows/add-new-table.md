@@ -55,9 +55,12 @@ related_files:
   - supabase/tests/partner_link_settings_checks.sql
   - supabase/migrations/20261105115106_admin_user_notifications.sql
   - supabase/tests/admin_user_notifications_checks.sql
+  - supabase/migrations/20261123120000_admin_audit_log.sql
+  - supabase/tests/admin_audit_log_checks.sql
   - supabase/migrations/20261116180000_add_feedback_surveys.sql
   - supabase/tests/feedback_survey_checks.sql
 related_tables:
+  - admin_audit_log
   - race_slug_redirects
   - race_event_edition_branding
   - organizer_edition_capability_grants
@@ -220,3 +223,5 @@ Catalog end date (2026-11-14): no table added; the schema overview only records 
 `reel_automation_settings` and `reel_automation_items` (2026-11-20, automatic reels) follow the same service-only pattern. The settings table is the single-row example: a `boolean` primary key defaulting to `true` with `check (id)`, the row inserted by the migration, and cross-column rules as table checks (publication only with generation). The items table shows a natural uniqueness rule enforced in the database (`unique (race_id, edition_key)`, inserts use `on_conflict … ignore-duplicates`) and a lease column for a cron state machine. The scheduler is again a separate migration reading Vault at run time. `supabase/tests/reel_automation_checks.sql` checks grants, defaults, the single row, the unique key and the checks. See [Automatic Reel Pipeline](../05-integrations/reel-automation.md).
 
 `transactional_email_log` (2026-11-23, admin console lot 3) is the append-only journal example: service-only (RLS on, no policy, client privileges revoked, `service_role` limited to `select, insert, delete`, no update), bounded text columns as checks, no foreign key, and its retention as a `SECURITY DEFINER` purge function scheduled by pg_cron in the same migration (plain SQL, no pg_net, so no Vault secret is needed). The same migration shows how to expose `cron.*` / `net.*` data to the server only: `SECURITY DEFINER` functions with `search_path = ''`, fully qualified names, dynamic SQL for an optional extension, execute revoked from client roles. `supabase/tests/admin_system_health_checks.sql` checks grants, checks and the purge window. See [transactional_email_log](../02-database/tables/transactional-email-log.md).
+
+`admin_audit_log` (2026-11-23, admin console lot 7) follows the same append-only journal pattern with a few additions worth copying: `before` / `after` `jsonb` columns bounded by a `pg_column_size` check, slug checks on the machine-readable columns (`action`, `target_type`), no foreign key on the actor so the journal outlives the account, an index per read path (time, actor + time, target + time, action + time), a 365-day purge function scheduled in the same migration, and a writer that sanitizes what it stores (secrets, message content and full e-mail addresses never reach the table). `supabase/tests/admin_audit_log_checks.sql` checks the grants (no `update`), the checks, the indexes, the purge window and the job. See [admin_audit_log](../02-database/tables/admin-audit-log.md).

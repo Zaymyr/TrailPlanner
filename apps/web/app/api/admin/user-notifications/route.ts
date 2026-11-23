@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody, shortAuditId } from "../../../../lib/admin-audit-log";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function postRoute(request: NextRequest) {
   const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
   const rateLimit = await checkRateLimitAsync(`admin-user-notification:${auth.user.id}`, 30, 60_000);
@@ -63,3 +64,11 @@ export async function POST(request: NextRequest) {
     return jsonError(error instanceof Error ? error.message : "Unable to create notification.", 502);
   }
 }
+
+export const POST = withAdminAudit(postRoute, {
+  action: "message.send",
+  targetType: "user",
+  targetId: (c) => auditBody(c).userId as string | undefined,
+  summary: (c) => `Message envoyé au coureur ${shortAuditId(auditBody(c).userId)}${auditBody(c).sendEmail ? " (e-mail)" : ""}${auditBody(c).sendPush ? " (push)" : ""}`,
+  after: (c) => ({ notificationId: auditBody(c).notificationId, email: Boolean(auditBody(c).sendEmail), push: Boolean(auditBody(c).sendPush) }),
+});

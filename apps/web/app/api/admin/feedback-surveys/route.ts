@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody } from "../../../../lib/admin-audit-log";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -63,7 +64,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function postRoute(request: NextRequest) {
   const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
   const rateLimit = await checkRateLimitAsync(`admin-feedback-survey:${auth.user.id}`, 5, 60_000);
@@ -85,3 +86,17 @@ export async function POST(request: NextRequest) {
     return jsonError(error instanceof Error ? error.message : "Unable to send survey.", 502);
   }
 }
+
+export const POST = withAdminAudit(postRoute, {
+  action: "survey.send",
+  targetType: "survey",
+  targetId: (c) => auditBody(c).campaignId as string | undefined,
+  summary: (c) => `Questionnaire envoyé ${auditBody(c).userId ? "à un coureur" : "aux coureurs d’une édition"}`,
+  after: (c) => ({
+    campaignId: auditBody(c).campaignId,
+    eventId: auditBody(c).eventId ?? null,
+    scope: auditBody(c).userId ? "coureur" : "édition",
+    email: Boolean(auditBody(c).sendEmail),
+    push: auditBody(c).sendPush !== false,
+  }),
+});

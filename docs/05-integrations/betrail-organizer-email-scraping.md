@@ -355,3 +355,7 @@ The one-minute trigger is a polling cadence, not an exact delivery guarantee. Ap
 
 - [Integration index](../README.md)
 - [Mulebar Product Scraping](mulebar-scraping.md)
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/race-catalog/betrail-import/route.ts` now exports its write handler through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`catalog.race-import`) to the admin action journal ([`admin_audit_log`](../02-database/tables/admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

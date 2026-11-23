@@ -427,6 +427,8 @@ const FEED_ICON: Record<FeedEvent["kind"], { glyph: string; className: string }>
   render_failed: { glyph: "✕", className: "bg-[#fdecec] text-[#e05252]" },
   post_published: { glyph: "✓", className: "bg-[#eef3e6] text-[#2d5016]" },
   accounts: { glyph: "+", className: "bg-[#eaf1fe] text-[#3b82f6]" },
+  admin_action: { glyph: "✎", className: "bg-[#f1efe8] text-[#4a5140]" },
+  admin_action_failed: { glyph: "✕", className: "bg-[#fdecec] text-[#e05252]" },
 };
 
 export function FeedCard({ block, nowMs }: { block: OverviewBlock<OverviewFeed> | undefined; nowMs: number }) {

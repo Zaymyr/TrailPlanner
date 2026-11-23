@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody, shortAuditId } from "../../../../lib/admin-audit-log";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -64,7 +65,7 @@ const raceRowSchema = z.object({
   slug: z.string(),
 });
 
-export async function PATCH(request: NextRequest, context: { params: { id?: string } }) {
+async function patchRoute(request: NextRequest, context: { params: { id?: string } }) {
   const supabaseAnon = getSupabaseAnonConfig();
 
   if (!supabaseAnon) {
@@ -158,7 +159,7 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   return withSecurityHeaders(NextResponse.json({ race: updated }));
 }
 
-export async function DELETE(request: NextRequest, context: { params: { id?: string } }) {
+async function deleteRoute(request: NextRequest, context: { params: { id?: string } }) {
   const supabaseAnon = getSupabaseAnonConfig();
   const supabaseService = getSupabaseServiceConfig();
 
@@ -273,3 +274,18 @@ export async function DELETE(request: NextRequest, context: { params: { id?: str
   invalidatePublicRaceCache({ raceId: parsedParams.data.id });
   return withSecurityHeaders(NextResponse.json({ success: true }));
 }
+
+export const PATCH = withAdminAudit(patchRoute, {
+  action: "catalog.race-update",
+  targetType: "race",
+  targetId: (c) => c.params.id,
+  summary: (c) => `Course ${typeof auditBody(c).name === "string" ? `« ${auditBody(c).name} »` : shortAuditId(c.params.id)} modifiée`,
+});
+
+export const DELETE = withAdminAudit(deleteRoute, {
+  action: "catalog.race-delete",
+  targetType: "race",
+  targetId: (c) => c.params.id,
+  summary: (c) => `Course ${shortAuditId(c.params.id)} supprimée du catalogue`,
+  after: () => null,
+});

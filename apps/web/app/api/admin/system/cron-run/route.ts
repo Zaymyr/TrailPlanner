@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody, auditResponse } from "../../../../../lib/admin-audit-log";
 import { z } from "zod";
 
 import { CRON_RUN_KEYS, CRON_RUN_PATHS, type CronRunKey } from "../../../../../lib/admin-system-health";
@@ -34,7 +35,7 @@ const FORWARDED_HEADERS = ["x-vercel-oidc-token", "x-forwarded-for"];
  * leaves the server and no URL is built from the request host. Only the allow-listed pg_net jobs can
  * run (not the push reminders, an Edge Function); 2 runs per job and per minute at most.
  */
-export async function POST(request: Request) {
+async function postRoute(request: Request) {
   const gate = await authorizeVideoAdmin(request);
   if (!gate.ok) return gate.response;
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
@@ -62,3 +63,12 @@ export async function POST(request: Request) {
     return renderJsonError("La tâche a échoué avant de répondre.", 502);
   }
 }
+
+export const POST = withAdminAudit(postRoute, {
+  action: "maintenance.cron-run",
+  targetType: "system",
+  targetId: (c) => auditBody(c).job as string | undefined,
+  summary: (c) => `Tâche planifiée « ${auditBody(c).job ?? "?"} » relancée à la main`,
+  failed: (c) => (auditResponse(c).ok === false ? `La tâche a répondu ${auditResponse(c).status ?? "en erreur"}.` : null),
+  after: (c) => ({ job: auditBody(c).job, status: auditResponse(c).status, durationMs: auditResponse(c).durationMs }),
+});

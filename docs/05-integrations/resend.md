@@ -192,3 +192,7 @@ A one-click close ("Clôturer") of a bug, feedback or race request changes only 
 `sendTransactionalEmail` (2026-11-16) sends a prebuilt HTML/text e-mail with optional `reply_to` and idempotency key, returning `sent` / `skipped` (missing configuration) / `failed`. It is used by organizer demo requests: a team notification (`ORGANIZER_DEMO_NOTIFY_EMAIL`, default the support mailbox) and a receipt to the organizer; visitor input is HTML-escaped.
 
 Admin console (2026-11-23, lot 5): `GET /api/admin/user-notifications` lists the history of the admin messages (Communication › Messages & notifications, runner profile) with the requested channels and their delivery state (`email_status`, `push_status`); it never returns `email_error`, `push_error` nor the Resend id, and sends nothing. All sends still go through POST of the same route, now from one helper (`sendAdminUserNotification`) and the one dialog `AdminNotificationDialog`.
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/race-requests/route.ts`, `app/api/admin/resend/sync/route.ts`, `app/api/admin/user-notifications/route.ts` now export their write handlers through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`race-request.status`, `maintenance.resend-sync`, `message.send`) to the admin action journal ([`admin_audit_log`](../02-database/tables/admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

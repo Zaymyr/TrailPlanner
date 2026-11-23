@@ -1,3 +1,4 @@
+import { withAdminAudit, shortAuditId } from "../../../../../lib/admin-audit-log";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -24,7 +25,7 @@ const paramsSchema = z.object({
 const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/avif"];
 const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
-export async function PUT(request: NextRequest, context: { params: { id?: string } }) {
+async function putRoute(request: NextRequest, context: { params: { id?: string } }) {
   const supabaseAnon = getSupabaseAnonConfig();
   const supabaseService = getSupabaseServiceConfig();
 
@@ -148,3 +149,11 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
   invalidatePublicRaceCache({ raceId: parsedParams.data.id });
   return withSecurityHeaders(NextResponse.json({ thumbnail_url: publicUrl }));
 }
+
+export const PUT = withAdminAudit(putRoute, {
+  action: "catalog.image",
+  targetType: "race",
+  targetId: (c) => c.params.id,
+  summary: (c) => `Image de la course ${shortAuditId(c.params.id)} remplacée`,
+  after: () => null,
+});

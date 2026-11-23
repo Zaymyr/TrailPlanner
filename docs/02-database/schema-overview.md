@@ -14,6 +14,8 @@ related_files:
   - supabase/tests/flyover_video_orders_checks.sql
   - supabase/migrations/20261123090000_admin_system_health.sql
   - supabase/tests/admin_system_health_checks.sql
+  - supabase/migrations/20261123120000_admin_audit_log.sql
+  - supabase/tests/admin_audit_log_checks.sql
   - supabase/migrations/20261122200000_flyover_presets_and_story_mode.sql
   - supabase/tests/social_posts_checks.sql
   - supabase/tests/organizer_demo_requests_checks.sql
@@ -265,6 +267,7 @@ The November 2026 mobile plan-flow polish changes catalog search controls, image
 | `race_requests` | Authenticated user requests for races to add. |
 | `organizer_demo_requests` | Service-only demo requests from the public organizer page (e-mail, race link, optional phone), reviewed in the admin inbox. See [organizer_demo_requests](tables/organizer-demo-requests.md). |
 | `transactional_email_log` | Service-only journal of transactional Resend e-mails (date, category, `sent`/`skipped`/`failed`, code, short message, masked recipient; no content), written best-effort by `lib/resend.ts`, purged after 90 days by the pg_cron job `transactional-email-log-purge`. The same migration adds the service-only functions `admin_cron_job_status()` and `admin_pg_net_response_summary()` read by the admin console. See [transactional_email_log](tables/transactional-email-log.md) and [Admin system health functions](admin-system-health-functions.md). |
+| `admin_audit_log` | Service-only journal of the admin console actions (who, action `domain.verb`, target, French summary, sanitized `before`/`after`, `ok`/`error`; no secret, message content or full e-mail), written best-effort by `lib/admin-audit-log.ts` (`withAdminAudit` on every admin write route), append-only, purged after 365 days by the pg_cron job `admin-audit-log-purge`. See [admin_audit_log](tables/admin-audit-log.md). |
 | `video_voices` | Service-only shared pool of ElevenLabs voices of the admin reel generator (unique ElevenLabs id, name, `active`); each new reel draws an active voice at random. See [video_voices](tables/video-voices.md). |
 | `reel_automation_settings` | Service-only single row of the automatic reel pipeline: generation and publication switches (off by default), caps, lead time, publication time. See [reel_automation_settings](tables/reel-automation-settings.md). |
 | `reel_automation_items` | Service-only planned automatic reels, one per race and edition (unique), with their status, step, lease and links to the render job and draft. See [reel_automation_items](tables/reel-automation-items.md). |
@@ -359,6 +362,7 @@ erDiagram
 - [reel_automation_items](tables/reel-automation-items.md)
 - [flyover_video_orders](tables/flyover-video-orders.md)
 - [transactional_email_log](tables/transactional-email-log.md)
+- [admin_audit_log](tables/admin-audit-log.md)
 - [Admin system health functions](admin-system-health-functions.md)
 - [organizer_import_sessions](tables/organizer-import-sessions.md)
 - [race_events](tables/race-events.md)

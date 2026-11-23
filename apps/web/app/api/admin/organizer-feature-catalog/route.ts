@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody, pickAuditFields } from "../../../../lib/admin-audit-log";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function PATCH(request: NextRequest) {
+async function patchRoute(request: NextRequest) {
   const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
   const body = updateSchema.safeParse(await request.json().catch(() => null));
@@ -36,3 +37,11 @@ export async function PATCH(request: NextRequest) {
   if (!response.ok) return jsonError("Impossible de modifier cette fonctionnalité.", 502);
   return withSecurityHeaders(NextResponse.json({ feature: organizerFeatureCatalogRowSchema.parse(await response.json()) }));
 }
+
+export const PATCH = withAdminAudit(patchRoute, {
+  action: "edition.module-catalog",
+  targetType: "module",
+  targetId: (c) => auditBody(c).featureKey as string | undefined,
+  summary: (c) => `Module « ${auditBody(c).featureKey ?? "?"} » ${auditBody(c).isActive ? "proposé" : "retiré"} dans le catalogue`,
+  after: (c) => pickAuditFields(c.body, ["featureKey", "isActive"]),
+});

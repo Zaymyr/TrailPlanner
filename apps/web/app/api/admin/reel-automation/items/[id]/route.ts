@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody, pickAuditFields } from "../../../../../../lib/admin-audit-log";
 import { z } from "zod";
 
 import { createReelAutomationRepository } from "../../../../../../lib/reel-automation";
@@ -13,7 +14,7 @@ const EXCLUDABLE = "or=(status.in.(planned,failed),and(status.eq.skipped,reason.
  * « Exclure »: the item is skipped for good (reason `excluded`), the plan keeps it out and frees its
  * day. « Rétablir »: it is planned again and the next plan gives it a day (or « trop tard »).
  */
-export async function PATCH(request: Request, context: { params: { id: string } }) {
+async function patchRoute(request: Request, context: { params: { id: string } }) {
   const params = paramsSchema.safeParse(context.params);
   if (!params.success) return renderJsonError("Élément invalide.", 400);
   const gate = await authorizeVideoAdmin(request);
@@ -33,3 +34,11 @@ export async function PATCH(request: Request, context: { params: { id: string } 
     return renderJsonError("L’élément n’a pas pu être modifié.", 502);
   }
 }
+
+export const PATCH = withAdminAudit(patchRoute, {
+  action: "automation.reel-item",
+  targetType: "automation",
+  targetId: (c) => c.params.id,
+  summary: (c) => (auditBody(c).action === "exclude" ? "Élément du plan des reels exclu" : "Élément du plan des reels rétabli"),
+  after: (c) => pickAuditFields(c.body, ["action"]),
+});

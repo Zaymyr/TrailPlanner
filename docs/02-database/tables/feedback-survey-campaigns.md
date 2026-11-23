@@ -72,3 +72,7 @@ RLS is enabled with no client policy: `anon` and `authenticated` have no privile
 - [user_notifications](user-notifications.md)
 - [Analytics](../../05-integrations/analytics.md)
 - [Web App](../../01-architecture/web-app.md)
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/feedback-surveys/route.ts` now exports its write handler through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`survey.send`) to the admin action journal ([`admin_audit_log`](./admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

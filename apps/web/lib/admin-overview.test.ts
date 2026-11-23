@@ -151,6 +151,31 @@ describe("health", () => {
   });
 });
 
+describe("buildActivityFeed with admin actions", () => {
+  const adminAction = (id: string, at: string, status: "ok" | "error" = "ok") => ({ id, actionLabel: "Premium accordé", summary: "Premium accordé au coureur 1234abcd pour 30 jours", actorName: "fa***@gmail.com", at, status });
+
+  it("adds the latest admin actions without replacing the business events", () => {
+    const events = buildActivityFeed({
+      today: "2026-11-22",
+      payments: [{ id: "pay", paid_at: "2026-11-22T11:48:00Z", amount_total: 9_900, currency: "eur", to_tier: "essential", payment_channel: "stripe", eventName: "Trail des Aiguilles" }],
+      flyoverOrders: [],
+      renders: [],
+      posts: [],
+      accountsToday: null,
+      adminActions: [
+        adminAction("a1", "2026-11-22T11:50:00Z"),
+        adminAction("a2", "2026-11-22T11:40:00Z", "error"),
+        adminAction("a3", "2026-11-22T11:30:00Z"),
+        adminAction("a4", "2026-11-22T11:20:00Z"),
+      ],
+    });
+    expect(events.map((event) => event.kind)).toEqual(["admin_action", "payment", "admin_action_failed", "admin_action"]);
+    expect(events[0]).toMatchObject({ title: "Premium accordé", detail: "fa***@gmail.com · Premium accordé au coureur 1234abcd pour 30 jours", href: "/admin/system/audit?entree=a1" });
+    expect(events[2].title).toBe("Premium accordé : échec");
+    expect(events.filter((event) => event.kind.startsWith("admin_action"))).toHaveLength(3);
+  });
+});
+
 describe("buildActivityFeed", () => {
   it("merges the latest events newest first", () => {
     const events = buildActivityFeed({

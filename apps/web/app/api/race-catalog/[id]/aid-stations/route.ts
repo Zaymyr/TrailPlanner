@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody, shortAuditId } from "../../../../../lib/admin-audit-log";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -74,7 +75,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+async function putRoute(request: NextRequest, { params }: { params: { id: string } }) {
   const supabaseAnon = getSupabaseAnonConfig();
   const supabaseService = getSupabaseServiceConfig();
 
@@ -193,3 +194,11 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   invalidatePublicRaceCache({ raceId: parsedParams.data.id });
   return withSecurityHeaders(NextResponse.json({ aidStations: rows }));
 }
+
+export const PUT = withAdminAudit(putRoute, {
+  action: "catalog.aid-stations",
+  targetType: "race",
+  targetId: (c) => c.params.id,
+  summary: (c) => `Ravitaillements de la course ${shortAuditId(c.params.id)} remplacés (${Array.isArray(auditBody(c).aidStations) ? (auditBody(c).aidStations as unknown[]).length : "?"})`,
+  after: (c) => ({ count: Array.isArray(auditBody(c).aidStations) ? (auditBody(c).aidStations as unknown[]).length : null }),
+});

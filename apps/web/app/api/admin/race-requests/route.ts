@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody } from "../../../../lib/admin-audit-log";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -99,7 +100,7 @@ export async function GET(request: NextRequest) {
   }));
 }
 
-export async function PATCH(request: NextRequest) {
+async function patchRoute(request: NextRequest) {
   const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
   const rateLimit = await checkRateLimitAsync(`admin-race-request-review:${auth.user.id}`, 30, 60_000);
@@ -140,3 +141,11 @@ export async function PATCH(request: NextRequest) {
     return jsonError(error instanceof Error ? error.message : "Unable to review race request.", 502);
   }
 }
+
+export const PATCH = withAdminAudit(patchRoute, {
+  action: "race-request.status",
+  targetType: "race-request",
+  targetId: (c) => auditBody(c).requestId as number | undefined,
+  summary: (c) => `Demande de course n° ${auditBody(c).requestId ?? "?"} marquée « ${({ pending: "à traiter", completed: "traitée", rejected: "refusée" } as Record<string, string>)[String(auditBody(c).status)] ?? "?"} »${auditBody(c).silent ? " sans message" : " avec réponse"}`,
+  after: (c) => ({ status: auditBody(c).status, replied: !auditBody(c).silent }),
+});

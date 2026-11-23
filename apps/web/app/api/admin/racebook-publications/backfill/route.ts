@@ -1,3 +1,4 @@
+import { withAdminAudit, auditResponse } from "../../../../../lib/admin-audit-log";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -12,7 +13,7 @@ const raceSchema = z.object({ id: z.string().uuid() });
  * and before switching public/mobile reads to the versioned endpoints. It is
  * intentionally idempotent and restricted to a verified app-metadata admin.
  */
-export async function POST(request: NextRequest) {
+async function postRoute(request: NextRequest) {
   const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
 
@@ -43,3 +44,16 @@ export async function POST(request: NextRequest) {
     complete: failures.length === 0,
   }, { status: failures.length === 0 ? 200 : 207 }));
 }
+
+export const POST = withAdminAudit(postRoute, {
+  action: "maintenance.livret-backfill",
+  targetType: "system",
+  targetId: () => "livrets",
+  summary: (c) => `Rattrapage des livrets : ${Array.isArray(auditResponse(c).publishedRaceIds) ? (auditResponse(c).publishedRaceIds as unknown[]).length : "?"} publiés sur ${auditResponse(c).candidateCount ?? "?"}`,
+  failed: (c) => (auditResponse(c).complete === false ? "Certains livrets n’ont pas pu être publiés." : null),
+  after: (c) => ({
+    candidates: auditResponse(c).candidateCount,
+    published: Array.isArray(auditResponse(c).publishedRaceIds) ? (auditResponse(c).publishedRaceIds as unknown[]).length : null,
+    failures: Array.isArray(auditResponse(c).failures) ? (auditResponse(c).failures as unknown[]).length : null,
+  }),
+});

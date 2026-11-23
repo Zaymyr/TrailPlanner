@@ -1,12 +1,10 @@
-import { AdminPlaceholderPage } from "../../_components/shell/AdminPageHeader";
+"use client";
 
+import { AuditLog } from "../../_components/audit/AuditLog";
+import { useAdminAccessToken } from "../../_components/shell/AdminAccess";
+
+/** Système › Journal (lot 7): the admin action log, `?du&au&action&statut&acteur&cible&recherche&page&entree`. */
 export default function AdminSystemAuditPage() {
-  return (
-    <AdminPlaceholderPage
-      title="Journal"
-      lot={7}
-      description="Le journal des actions admin (qui, quoi, quand, avant / après) arrive au lot 7."
-      links={[{ href: "/admin", label: "Vue d’ensemble" }]}
-    />
-  );
+  const accessToken = useAdminAccessToken();
+  return <AuditLog accessToken={accessToken} />;
 }

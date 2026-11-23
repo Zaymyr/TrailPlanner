@@ -1,3 +1,5 @@
+import { withAdminAudit, auditBody, pickAuditFields } from "../../../../lib/admin-audit-log";
+import { maskAuditEmail } from "../../../../lib/admin-audit";
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -699,7 +701,7 @@ export async function GET(request: NextRequest) {
   );
 }
 
-export async function PATCH(request: NextRequest) {
+async function patchRoute(request: NextRequest) {
   const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
 
@@ -1092,3 +1094,19 @@ export async function PATCH(request: NextRequest) {
 
   return withSecurityHeaders(NextResponse.json({ claim: updatedClaim, membership }));
 }
+
+export const PATCH = withAdminAudit(patchRoute, {
+  action: "organizer.claim",
+  targetType: "organizer",
+  targetId: (c) => (auditBody(c).claimId ?? auditBody(c).membershipId ?? auditBody(c).eventId ?? auditBody(c).editionRequestId) as string | undefined,
+  summary: (c) =>
+    ({
+      approve: "Demande d’accès organisateur approuvée",
+      reject: "Demande d’accès organisateur refusée",
+      revoke: "Accès organisateur révoqué",
+      assign: `Accès organisateur associé à ${typeof auditBody(c).email === "string" ? maskAuditEmail(auditBody(c).email as string) : "un compte"}`,
+      approveEditionRequest: "Nouvelle édition approuvée",
+      rejectEditionRequest: "Nouvelle édition refusée",
+    } as Record<string, string>)[String(auditBody(c).action)] ?? "Accès organisateur modifié",
+  after: (c) => pickAuditFields(c.body, ["action", "reviewerNotes", "revokeReason", "createAccount", "email"]),
+});

@@ -181,7 +181,7 @@ export const overviewHealthSchema = z.object({
 });
 export type OverviewHealth = z.infer<typeof overviewHealthSchema>;
 
-export const FEED_KINDS = ["payment", "flyover_order", "render_done", "render_failed", "post_published", "accounts"] as const;
+export const FEED_KINDS = ["payment", "flyover_order", "render_done", "render_failed", "post_published", "accounts", "admin_action", "admin_action_failed"] as const;
 export const feedEventSchema = z.object({
   kind: z.enum(FEED_KINDS),
   title: z.string(),
@@ -515,17 +515,23 @@ export const formatMinor = (minor: number, currency = "eur") => {
 export type FeedPayment = { id: string; edition_id?: string | null; paid_at: string; amount_total: number | null; currency: string | null; to_tier: string; payment_channel: string | null; eventName: string | null };
 export type FeedFlyoverOrder = { id: string; created_at: string; paid_at: string | null; race_name: string; offer: string; status: string };
 export type FeedRender = { id: string; kind: "reel" | "carousel"; title: string; status: "active" | "done" | "failed"; stage: string; finishedAt: string | null };
+/** An important admin action of the audit journal (lot 7), already named and linked by `mapAuditRow`. */
+export type FeedAdminAction = { id: string; actionLabel: string; summary: string; actorName: string; at: string; status: "ok" | "error" };
 export type FeedPublishedPost = { id: string; media_type: "reel" | "carousel"; published_at: string; dry_run: boolean; races?: { name: string } | null };
 
 const TIER_LABELS: Record<string, string> = { racebook: "Livret", pro: "Pro", essential: "Essentiel", complete: "Complet", signature: "Signature", visibility: "Visibilité" };
 
+export const MAX_FEED_ADMIN_ACTIONS = 3;
+
 /** Latest events of the existing tables, newest first: payments, flyover orders, finished renders, published posts, accounts today. */
-export const buildActivityFeed = ({ payments, flyoverOrders, renders, posts, accountsToday, today, limit = 8 }: {
+export const buildActivityFeed = ({ payments, flyoverOrders, renders, posts, accountsToday, adminActions = [], today, limit = 8 }: {
   payments: FeedPayment[];
   flyoverOrders: FeedFlyoverOrder[];
   renders: FeedRender[];
   posts: FeedPublishedPost[];
   accountsToday: { count: number; at: string } | null;
+  /** Latest important admin actions; at most `MAX_FEED_ADMIN_ACTIONS` are shown so they never replace the business events. */
+  adminActions?: FeedAdminAction[];
   today: string;
   limit?: number;
 }): FeedEvent[] => {
@@ -557,6 +563,13 @@ export const buildActivityFeed = ({ payments, flyoverOrders, renders, posts, acc
     detail: [post.races?.name, post.dry_run ? "simulation" : null].filter(Boolean).join(" · ") || "Instagram",
     at: post.published_at,
     href: `/admin/content/posts?onglet=published`,
+  }));
+  [...adminActions].sort((left, right) => right.at.localeCompare(left.at)).slice(0, MAX_FEED_ADMIN_ACTIONS).forEach((action) => events.push({
+    kind: action.status === "error" ? "admin_action_failed" : "admin_action",
+    title: action.status === "error" ? `${action.actionLabel} : échec` : action.actionLabel,
+    detail: `${action.actorName} · ${action.summary}`,
+    at: action.at,
+    href: `/admin/system/audit?entree=${encodeURIComponent(action.id)}`,
   }));
   if (accountsToday && accountsToday.count > 0) {
     events.push({ kind: "accounts", title: `${accountsToday.count} nouveau${accountsToday.count > 1 ? "x" : ""} compte${accountsToday.count > 1 ? "s" : ""}`, detail: `aujourd’hui · ${formatAgendaDay(today)}`, at: accountsToday.at, href: "/admin/runners" });

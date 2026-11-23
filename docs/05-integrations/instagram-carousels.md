@@ -195,3 +195,7 @@ All routes use `authorizeVideoAdmin`; the render page routes use the carousel-sc
 - [carousel_render_jobs](../02-database/tables/carousel-render-jobs.md)
 - [carousel_automation_items](../02-database/tables/carousel-automation-items.md)
 - [social_posts](../02-database/tables/social-posts.md)
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/carousel-automation/items/[id]/route.ts`, `app/api/admin/carousel-automation/route.ts` now export their write handlers through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`automation.carousel-item`, `automation.carousel-settings`, `automation.carousel-run`) to the admin action journal ([`admin_audit_log`](../02-database/tables/admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

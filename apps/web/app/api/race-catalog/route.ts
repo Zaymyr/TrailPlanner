@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody, auditResponse } from "../../../lib/admin-audit-log";
 import { createHash, randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -295,7 +296,7 @@ const deleteRaceEvent = async (
   }).catch(() => null);
 };
 
-export async function POST(request: NextRequest) {
+async function postRoute(request: NextRequest) {
   const supabaseAnon = getSupabaseAnonConfig();
   const supabaseService = getSupabaseServiceConfig();
 
@@ -541,3 +542,10 @@ export async function POST(request: NextRequest) {
   invalidatePublicRaceCache({ raceId, eventId });
   return withSecurityHeaders(NextResponse.json({ race: inserted }));
 }
+
+export const POST = withAdminAudit(postRoute, {
+  action: "catalog.race-create",
+  targetType: "race",
+  targetId: (c) => (auditResponse(c).race as { id?: string } | null)?.id,
+  summary: (c) => `Course ${typeof auditBody(c).name === "string" ? `« ${auditBody(c).name} » ` : ""}créée dans le catalogue`,
+});

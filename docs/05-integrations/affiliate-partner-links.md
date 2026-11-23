@@ -164,3 +164,7 @@ The Decathlon (Matériel) and Booking (Services) cards are partner slots. The de
 Runner copy and saved-plan layout changes do not modify affiliate labels, destinations or partner-slot behavior.
 
 Admin console (2026-11-22, lot 1): the « Liens partenaires » tab is the page `/admin/catalog/partners` (same `AdminPartnerLinksTab`, same API); `/admin?onglet=partenaires` redirects there.
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/partner-links/route.ts` now exports its write handler through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`partner.links`) to the admin action journal ([`admin_audit_log`](../02-database/tables/admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

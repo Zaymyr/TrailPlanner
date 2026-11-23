@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody, auditResponse, shortAuditId } from "../../../../lib/admin-audit-log";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -269,7 +270,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function postRoute(request: NextRequest) {
   const auth = await authorizeAdmin(request);
   if ("error" in auth) return auth.error;
 
@@ -415,7 +416,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function PATCH(request: NextRequest) {
+async function patchRoute(request: NextRequest) {
   const auth = await authorizeAdmin(request);
   if ("error" in auth) return auth.error;
 
@@ -487,3 +488,22 @@ export async function PATCH(request: NextRequest) {
     return withSecurityHeaders(NextResponse.json({ message: "Unable to update product." }, { status: 500 }));
   }
 }
+
+export const POST = withAdminAudit(postRoute, {
+  action: "product.import",
+  targetType: "product",
+  targetId: () => "catalogue",
+  summary: (c) => `Catalogue de produits importé (${Array.isArray(auditBody(c).products) ? (auditBody(c).products as unknown[]).length : "?"} produits)`,
+  after: (c) => ({
+    archiveSharedCatalog: auditBody(c).archiveSharedCatalog,
+    products: Array.isArray(auditBody(c).products) ? (auditBody(c).products as unknown[]).length : null,
+    importedCount: auditResponse(c).importedCount,
+  }),
+});
+
+export const PATCH = withAdminAudit(patchRoute, {
+  action: "product.update",
+  targetType: "product",
+  targetId: (c) => auditBody(c).id as string | undefined,
+  summary: (c) => `Produit ${typeof auditBody(c).name === "string" ? `« ${auditBody(c).name} »` : shortAuditId(auditBody(c).id)} modifié`,
+});

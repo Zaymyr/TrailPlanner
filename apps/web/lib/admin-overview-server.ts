@@ -10,6 +10,7 @@ import {
   buildOverviewFunnel,
   buildOverviewKpis,
   buildOverviewRevenue,
+  MAX_FEED_ADMIN_ACTIONS,
   overviewGrowthSchema,
   resolveOverviewRange,
   sumFlyoverRevenue,
@@ -26,6 +27,8 @@ import {
   type OverviewGrowth,
 } from "./admin-overview";
 import { getServiceJson, getServiceResponse } from "./admin-service-rest";
+import { loadRecentAdminActions } from "./admin-audit-server";
+import { IMPORTANT_AUDIT_ACTIONS } from "./admin-audit";
 import { loadSystemHealth } from "./admin-system-health-server";
 import { createCarouselItemRepository, type CarouselItem } from "./carousels/carousel-automation";
 import { createFlyoverOrderRepository } from "./flyover-orders";
@@ -167,6 +170,7 @@ export const loadAdminOverview = async (
 
   const currentGrowthPromise = loadGrowth(supabase, range.start, range.end);
   const systemHealthPromise = settle(loadSystemHealth(supabase, now));
+  const adminActionsPromise = settle(loadRecentAdminActions(supabase, IMPORTANT_AUDIT_ACTIONS, MAX_FEED_ADMIN_ACTIONS));
   const [
     currentGrowth,
     previousGrowth,
@@ -317,15 +321,17 @@ export const loadAdminOverview = async (
       ]),
   ];
 
-  // Feed: latest timestamps of the existing tables.
-  const feedErrors = [
+  // Feed: latest timestamps of the existing tables, plus the latest important admin actions (journal).
+  const adminActions = await adminActionsPromise;
+  const businessFeedErrors = [
     payments.ok ? null : "paiements organisateurs",
     recentFlyovers.ok ? null : "commandes de survol",
     recentRenders.ok ? null : "rendus",
     publishedPosts.ok ? null : "publications",
   ].filter((value): value is string => value !== null);
+  const feedErrors = adminActions.ok ? businessFeedErrors : [...businessFeedErrors, "journal des actions"];
   const todayPoint = activityGrowth.ok ? activityGrowth.value.trend.find((point) => point.date === today) ?? null : null;
-  const feed: AdminOverviewResponse["feed"] = feedErrors.length === 4
+  const feed: AdminOverviewResponse["feed"] = businessFeedErrors.length === 4
     ? { status: "error", message: "L’activité récente n’a pas pu être lue." }
     : {
       status: "ok",
@@ -336,6 +342,7 @@ export const loadAdminOverview = async (
           renders: recentRenders.ok ? recentRenders.value : [],
           posts: publishedPosts.ok ? publishedPosts.value : [],
           accountsToday: todayPoint ? { count: todayPoint.newAccounts, at: now.toISOString() } : null,
+          adminActions: adminActions.ok ? adminActions.value.map((entry) => ({ id: entry.id, actionLabel: entry.actionLabel, summary: entry.summary, actorName: entry.actorName, at: entry.createdAt, status: entry.status })) : [],
           today,
         }),
         errors: feedErrors,

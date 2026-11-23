@@ -80,3 +80,7 @@ The admin route reads both rows ordered by `partner_key` and upserts both rows t
 - [Affiliate Partner Links](../../05-integrations/affiliate-partner-links.md)
 - [Schema Overview](../schema-overview.md)
 - [RLS Policies](../rls-policies.md)
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/partner-links/route.ts` now exports its write handler through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`partner.links`) to the admin action journal ([`admin_audit_log`](./admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

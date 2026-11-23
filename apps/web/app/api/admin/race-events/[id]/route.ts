@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody, shortAuditId } from "../../../../../lib/admin-audit-log";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -57,7 +58,7 @@ const raceEventRowSchema = z.object({
   short_name: z.string().nullable().optional(),
 });
 
-export async function PATCH(request: NextRequest, context: { params: { id?: string } }) {
+async function patchRoute(request: NextRequest, context: { params: { id?: string } }) {
   const supabaseAnon = getSupabaseAnonConfig();
   const supabaseService = getSupabaseServiceConfig();
 
@@ -147,3 +148,10 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   invalidatePublicRaceCache({ eventId: updated.id });
   return withSecurityHeaders(NextResponse.json({ event: updated }));
 }
+
+export const PATCH = withAdminAudit(patchRoute, {
+  action: "catalog.event-update",
+  targetType: "event",
+  targetId: (c) => c.params.id,
+  summary: (c) => `Événement ${typeof auditBody(c).name === "string" ? `« ${auditBody(c).name} »` : shortAuditId(c.params.id)} modifié`,
+});

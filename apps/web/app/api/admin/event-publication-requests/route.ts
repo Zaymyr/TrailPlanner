@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody, pickAuditFields, shortAuditId } from "../../../../lib/admin-audit-log";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -181,7 +182,7 @@ export async function GET(request: NextRequest) {
   return withSecurityHeaders(NextResponse.json({ publicationRequests, events }));
 }
 
-export async function PATCH(request: NextRequest) {
+async function patchRoute(request: NextRequest) {
   const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
   const body = await request.json().catch(() => null);
@@ -298,3 +299,18 @@ export async function PATCH(request: NextRequest) {
 
   return withSecurityHeaders(NextResponse.json({ publicationRequest: await response.json() }));
 }
+
+export const PATCH = withAdminAudit(patchRoute, {
+  action: (c) => (auditBody(c).requestId ? "edition.publication" : "edition.pack"),
+  targetType: (c) => (auditBody(c).requestId ? "publication" : "edition"),
+  targetId: (c) => (auditBody(c).requestId ?? auditBody(c).editionId) as string | undefined,
+  summary: (c) => {
+    const body = auditBody(c);
+    if (body.requestId) return `Demande de publication ${body.status === "approved" ? "approuvée" : "refusée"}`;
+    if (body.action === "setEditionTier") return `Pack de l’édition ${shortAuditId(body.editionId)} fixé sur « ${body.tier} »`;
+    if (body.action === "setEditionGrant") return `Droit de l’édition ${shortAuditId(body.editionId)} : « ${body.tier} » (${body.origin})`;
+    if (body.action === "setEditionCapabilityGrant") return `Module « ${body.capabilityKey} » ${body.enabled ? "offert" : "retiré"} pour l’édition ${shortAuditId(body.editionId)}`;
+    return "Édition modifiée";
+  },
+  after: (c) => pickAuditFields(c.body, ["action", "tier", "origin", "capabilityKey", "enabled", "status", "reviewerNotes"]),
+});

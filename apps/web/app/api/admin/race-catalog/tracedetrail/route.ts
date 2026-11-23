@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody, auditResponse, pickAuditFields } from "../../../../../lib/admin-audit-log";
 import { createHash, randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -269,7 +270,7 @@ async function ensureRaceEventId(
   return created?.id ?? null;
 }
 
-export async function POST(request: NextRequest) {
+async function postRoute(request: NextRequest) {
   const admin = await requireAdmin(request);
   if ("error" in admin) return admin.error;
 
@@ -528,3 +529,12 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = withAdminAudit(postRoute, {
+  action: (c) => (auditBody(c).action === "enrich" ? "catalog.gpx" : "catalog.race-import"),
+  targetType: "race",
+  targetId: (c) => (auditBody(c).action === "enrich" ? (auditBody(c).raceId as string | undefined) : (auditResponse(c).race as { id?: string } | null)?.id),
+  skip: (c) => auditBody(c).action !== "import" && auditBody(c).action !== "enrich",
+  summary: (c) => (auditBody(c).action === "enrich" ? "GPX de la course complété depuis Trace de Trail" : "Course importée depuis Trace de Trail"),
+  after: (c) => pickAuditFields(c.body, ["url", "action", "raceId", "isLive"]),
+});

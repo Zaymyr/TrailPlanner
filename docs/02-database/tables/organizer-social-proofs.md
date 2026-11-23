@@ -125,3 +125,7 @@ The `/organisateurs` metadata title is « Livret coureur et livret supporter pou
 Organizer pricing (2026-11-22): pack prices are now Essentiel 199 €, Complet 349 € and Signature 499 € HT, read from `ORGANIZER_TIER_PRICE_EUR` (see [Organizer Commercial Offers](../../03-business-rules/organizer-commercial-offers.md)). Copy and default amounts only; no table, contract or state change.
 
 Admin (2026-11-22): the « Preuves sociales » tab of `/admin` is addressable as `?onglet=preuves`. Since lot 1 of the admin console it is the page `/admin/organizers/social-proofs` (same `AdminOrganizerSocialProofsTab`, same routes); the old URL redirects there.
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/organizer-social-proofs/route.ts` now exports its write handler through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`organizer.social-proof`) to the admin action journal ([`admin_audit_log`](./admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

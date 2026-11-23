@@ -147,3 +147,7 @@ Admin console (2026-11-22, lot 1): the « Publications » link shown by `ReelPip
 - `../02-database/tables/video-voices.md`
 - `../05-integrations/reel-automation.md`
 - `../02-database/tables/race-events.md`
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/video-generator/narrations/[raceId]/route.ts`, `app/api/admin/video-generator/voices/[id]/route.ts`, `app/api/admin/video-generator/voices/route.ts` now export their write handlers through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`render.narration`, `render.voice-update`, `render.voice-delete`, `render.voice-create`) to the admin action journal ([`admin_audit_log`](../02-database/tables/admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

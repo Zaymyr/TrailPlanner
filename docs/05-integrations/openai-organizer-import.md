@@ -146,3 +146,7 @@ The compact Organizer banner keeps assisted import in its existing Actions menu;
 Organizer finishing styles do not change assisted-import requests, files, or reconciliation.
 
 Admin console (2026-11-23, lot 4): the `/organizer` dashboard changed only its admin pack section (link to `/admin/organizers?edition=<id>` instead of « Offrir une offre partenaire »); the assisted import flow, its authorization and its OpenAI calls are unchanged.
+
+## Admin audit journal (lot 7)
+
+`app/api/organizer/events/[id]/website-import/route.ts` now exports its write handler through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`catalog.event-import`) to the admin action journal ([`admin_audit_log`](../02-database/tables/admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

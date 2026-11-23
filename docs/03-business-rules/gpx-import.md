@@ -362,3 +362,7 @@ The admin « GPX à traiter » list (« Qualité des données » of `/admin/cata
 Admin console (2026-11-23, lot 4): the `/organizer` dashboard lost its admin-only « Offrir une offre partenaire » buttons (replaced by a link to `/admin/organizers?edition=<id>`); GPX import, course editing and their permissions are unchanged.
 
 Admin console (2026-11-23, lot 5): `AdminRaceCatalogSection` was split without behaviour change: list grouped by event (`RaceCatalogList`), manual creation with GPX parsing (`AddRaceDialog`), UTMB and Trace de Trail imports (`UtmbImportDialog`, `TraceDeTrailImportDialog` with the shared session of `useTraceDeTrailCredentials`, also used by the « Importer » GPX re-import of the race edit dialog), race edit with GPX, aid stations and image (`EditRaceDialog`), event edit (`EditEventDialog`), pure helpers in `race-catalog-model.ts` (tested). Same routes, payloads, messages; `?course=<races.id>` still opens the race edit dialog.
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/race-catalog/tracedetrail/route.ts`, `app/api/admin/race-catalog/utmb/route.ts`, `app/api/race-catalog/route.ts` now export their write handlers through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`catalog.gpx`, `catalog.race-import`, `catalog.race-create`) to the admin action journal ([`admin_audit_log`](../02-database/tables/admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

@@ -42,3 +42,7 @@ RLS is enabled with no client policy. `anon` and `authenticated` have no privile
 
 - [organizer_invoices](organizer-invoices.md)
 - [organizer_edition_capability_grants](organizer-edition-capability-grants.md)
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/organizer-feature-catalog/route.ts` now exports its write handler through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`edition.module-catalog`) to the admin action journal ([`admin_audit_log`](./admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

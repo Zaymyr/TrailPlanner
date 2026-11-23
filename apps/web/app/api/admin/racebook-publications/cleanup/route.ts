@@ -1,3 +1,4 @@
+import { withAdminAudit, auditResponse, pickAuditFields } from "../../../../../lib/admin-audit-log";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -11,7 +12,7 @@ const cleanupRowSchema = z.object({
   attempt_count: z.coerce.number().int().nonnegative(),
 });
 
-export async function POST(request: NextRequest) {
+async function postRoute(request: NextRequest) {
   const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
   const now = new Date();
@@ -67,3 +68,12 @@ export async function POST(request: NextRequest) {
 
   return withSecurityHeaders(NextResponse.json({ processed: jobs.length, deleted, retained, failed }));
 }
+
+export const POST = withAdminAudit(postRoute, {
+  action: "maintenance.livret-cleanup",
+  targetType: "system",
+  targetId: () => "livrets",
+  summary: (c) => `Nettoyage des livrets : ${auditResponse(c).deleted ?? "?"} fichiers supprimés sur ${auditResponse(c).processed ?? "?"} traités`,
+  failed: (c) => (Number(auditResponse(c).failed) > 0 ? `${auditResponse(c).failed} suppressions en échec` : null),
+  after: (c) => pickAuditFields(c.response, ["processed", "deleted", "retained", "failed"]),
+});

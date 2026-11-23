@@ -86,6 +86,8 @@ Flyover video (independent product, `/survol`) : `flyover_video_orders` ([doc](.
 
 Admin console journal (lot 3, 2026-11-23): `transactional_email_log` ([doc](../02-database/tables/transactional-email-log.md)) — one row per transactional Resend e-mail (category, `sent`/`skipped`/`failed`, code, masked recipient, no content), service role only, purged after 90 days by pg_cron; the functions `admin_cron_job_status()` / `admin_pg_net_response_summary()` expose pg_cron runs and pg_net HTTP errors to the service role ([doc](../02-database/admin-system-health-functions.md)).
 
+Admin console journal (lot 7, 2026-11-23): `admin_audit_log` ([doc](../02-database/tables/admin-audit-log.md)) — one row per admin write action (actor, `domain.verb` action, target, French summary, sanitized `before`/`after` without secrets, message content or full e-mail, `ok`/`error`), service role only (append-only, no update), written best-effort by `lib/admin-audit-log.ts` and purged after 365 days by the pg_cron job `admin-audit-log-purge`.
+
 Livret content: `race_event_edition_sponsors`, `race_event_edition_branding`, `race_event_edition_partner_slots`, `race_edition_services`, `race_start_waves`, `race_awards`, `race_event_updates`, versioned snapshots in `racebook_publications` / `racebook_publication_states`. See schema-overview.
 
 ## Known pitfalls

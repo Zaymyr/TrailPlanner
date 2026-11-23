@@ -1,3 +1,4 @@
+import { withAdminAudit, pickAuditFields, shortAuditId } from "../../../../../../lib/admin-audit-log";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -7,7 +8,7 @@ import { jsonError, requireAdminAuth, serviceHeaders } from "../../../../../../l
 
 const bodySchema = z.object({ paidAt: z.string().datetime(), paymentReference: z.string().trim().max(120).nullable().optional() });
 
-export async function POST(request: NextRequest, context: { params: { invoiceId?: string } }) {
+async function postRoute(request: NextRequest, context: { params: { invoiceId?: string } }) {
   const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
   const invoiceId = z.string().uuid().safeParse(context.params.invoiceId);
@@ -26,3 +27,11 @@ export async function POST(request: NextRequest, context: { params: { invoiceId?
   }
   return withSecurityHeaders(NextResponse.json({ invoice: organizerInvoiceRowSchema.parse(await response.json()) }));
 }
+
+export const POST = withAdminAudit(postRoute, {
+  action: "billing.invoice-settle",
+  targetType: "invoice",
+  targetId: (c) => (c.params.invoiceId ? `organizer_invoice:${c.params.invoiceId}` : undefined),
+  summary: (c) => `Facture ${shortAuditId(c.params.invoiceId)} marquée réglée`,
+  after: (c) => pickAuditFields(c.body, ["paidAt", "paymentReference"]),
+});

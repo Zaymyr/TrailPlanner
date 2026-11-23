@@ -125,3 +125,7 @@ The same Cloud Run job renders Instagram carousels ([Automatic Instagram Carouse
 ## Instagram publishing
 
 Finished renders can be published as Instagram Reels from `/admin/publications` (see [Instagram Reels Publishing](instagram-publishing.md)). That feature only reads this integration: it calls `getRenderJob`, `getGoogleAccessToken` and `signStorageUrl` to sign a 2-hour GET URL of `jobs/<id>/reel.mp4` for Meta when the Instagram container is created, and refuses to publish a render within 24 h of the bucket's 30-day lifecycle deletion. Deleting a render sets `social_posts.video_job_id` to null; nothing in the render routes changed.
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/video-generator/render-jobs/[id]/route.ts`, `app/api/admin/video-generator/render-jobs/[id]/start/route.ts`, `app/api/admin/video-generator/render-jobs/route.ts` now export their write handlers through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`render.delete`, `render.start`, `render.create`) to the admin action journal ([`admin_audit_log`](../02-database/tables/admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody, auditResponse, pickAuditFields } from "../../../../../lib/admin-audit-log";
 import { z } from "zod";
 
 import { postLinkSchema } from "../../../../../lib/admin-renders";
@@ -86,7 +87,7 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+async function postRoute(request: Request) {
   const gate = await authorizeRenderAdmin(request);
   if (!gate.ok) return gate.response;
   const { userId, supabase, config } = gate.value;
@@ -118,3 +119,11 @@ export async function POST(request: Request) {
     return renderJsonError(describeRenderError(error, "Le rendu n’a pas pu être créé."), 502);
   }
 }
+
+export const POST = withAdminAudit(postRoute, {
+  action: "render.create",
+  targetType: "render",
+  targetId: (c) => (auditResponse(c).job as { id?: string } | null)?.id,
+  summary: (c) => `Rendu lancé pour ${typeof auditBody(c).raceTitle === "string" ? `« ${auditBody(c).raceTitle} »` : "une course"}`,
+  after: (c) => pickAuditFields(c.body, ["raceId", "raceTitle", "width", "height", "autoDraft"]),
+});

@@ -537,3 +537,7 @@ Admin console (2026-11-22, lot 2): the RPC call moved to `fetchGrowthMetrics` (`
 Admin console (2026-11-23, lot 4): `/admin/billing` (Ventes & facturation) and the `/organizer` « Gérer le pack dans l’admin » link emit no PostHog event; the removed « Offrir une offre partenaire » buttons emitted none either.
 
 Admin console (2026-11-23, lot 5): `AdminUsersTab` reads and writes its own URL (`?recherche=` of the ⌘K palette, filters, sort, page, `?coureur=` profile) and no longer takes `initialSearch`; the runner profile drawer (`GET /api/admin/users/[id]`), the message history (`GET /api/admin/user-notifications`) and the organizer edition panel emit no PostHog event. The edition panel's « Activité » tab shows the reader statistics already stored by Preuves sociales; it runs no PostHog query.
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/organizer-social-proofs/route.ts`, `app/api/admin/user-notifications/route.ts`, `app/api/admin/users/route.ts` now export their write handlers through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`organizer.social-proof`, `message.send`, `user.role`) to the admin action journal ([`admin_audit_log`](../02-database/tables/admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

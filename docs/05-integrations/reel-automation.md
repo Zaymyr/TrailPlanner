@@ -119,3 +119,7 @@ Turning generation off stops new work at the next tick; renders in flight finish
 ## Render queue (lot 6)
 
 A render linked to an item by `reel_automation_items.render_job_id` is typed « Reel automatique » in the admin render queue (`/admin/content/renders`) with its origin linking to `/admin/content/posts?element=<item id>`; a render without that link is « Reel manuel » even when it carries `auto_draft` (the studio's « Générer le reel » sets it too).
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/reel-automation/items/[id]/route.ts`, `app/api/admin/reel-automation/route.ts` now export their write handlers through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`automation.reel-item`, `automation.reel-settings`, `automation.reel-run`) to the admin action journal ([`admin_audit_log`](../02-database/tables/admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

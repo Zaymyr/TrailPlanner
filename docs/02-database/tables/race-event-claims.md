@@ -246,3 +246,7 @@ Organizer header (2026-11-16): the dashboard header no longer shows the « Aper�
 - The `/organizers` creation page addresses organizers with « vous » and no longer mentions claims or drafts to the user (2026-11-22); this is copy only and the direct-creation behavior described above is unchanged.
 
 Admin console (2026-11-23, lot 4): invoices and bank transfers are handled in « Ventes & facturation » (`/admin/billing`) instead of the Organisateurs edition cards, and the admin-only « Offrir une offre partenaire » action of `/organizer` became a link to `/admin/organizers?edition=<id>`. This table, its review workflow and its states are unchanged.
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/organizer-claims/route.ts` now exports its write handler through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`organizer.claim`) to the admin action journal ([`admin_audit_log`](./admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

@@ -1,3 +1,4 @@
+import { withAdminAudit, auditResponse, pickAuditFields } from "../../../../../lib/admin-audit-log";
 import { authorizeVideoAdmin, renderJson, renderJsonError } from "../../../../../lib/video-render-api";
 import { addVoiceRequestSchema, checkElevenLabsVoice, insertPoolVoice, listPoolVoices } from "../../../../../lib/video-voices";
 
@@ -13,7 +14,7 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+async function postRoute(request: Request) {
   const gate = await authorizeVideoAdmin(request);
   if (!gate.ok) return gate.response;
   const parsed = addVoiceRequestSchema.safeParse(await request.json().catch(() => null));
@@ -40,3 +41,11 @@ export async function POST(request: Request) {
     return renderJsonError("La voix n’a pas pu être ajoutée.", 502);
   }
 }
+
+export const POST = withAdminAudit(postRoute, {
+  action: "render.voice-create",
+  targetType: "voice",
+  targetId: (c) => (auditResponse(c).voice as { id?: string } | null)?.id,
+  summary: (c) => `Voix ${typeof (auditResponse(c).voice as { name?: string } | null)?.name === "string" ? `« ${(auditResponse(c).voice as { name?: string }).name} » ` : ""}ajoutée au pool`,
+  after: (c) => pickAuditFields(c.body, ["voiceId", "name"]),
+});

@@ -187,3 +187,7 @@ Per-format GPX route/profile visibility is stored beside other race details and 
 - [race_aid_station_products](race-aid-station-products.md)
 - [GPX Import](../../03-business-rules/gpx-import.md)
 - [Relationships](../relationships.md)
+
+## Admin audit journal (lot 7)
+
+`app/api/race-catalog/route.ts` now exports its write handler through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`catalog.race-create`) to the admin action journal ([`admin_audit_log`](./admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

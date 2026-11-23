@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody, shortAuditId } from "../../../../lib/admin-audit-log";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -208,7 +209,7 @@ export async function GET(request: NextRequest, context: { params: { productId?:
   }
 }
 
-export async function PATCH(request: NextRequest, context: { params: { productId?: string } }) {
+async function patchRoute(request: NextRequest, context: { params: { productId?: string } }) {
   const parsedParams = paramsSchema.safeParse(context.params);
   if (!parsedParams.success) {
     return withSecurityHeaders(NextResponse.json({ message: "Invalid product id." }, { status: 400 }));
@@ -289,7 +290,7 @@ export async function PATCH(request: NextRequest, context: { params: { productId
   }
 }
 
-export async function DELETE(request: NextRequest, context: { params: { productId?: string } }) {
+async function deleteRoute(request: NextRequest, context: { params: { productId?: string } }) {
   const parsedParams = paramsSchema.safeParse(context.params);
   if (!parsedParams.success) {
     return withSecurityHeaders(NextResponse.json({ message: "Invalid product id." }, { status: 400 }));
@@ -344,3 +345,18 @@ export async function DELETE(request: NextRequest, context: { params: { productI
     return withSecurityHeaders(NextResponse.json({ message: "Unable to delete product." }, { status: 500 }));
   }
 }
+
+export const PATCH = withAdminAudit(patchRoute, {
+  action: "product.update",
+  targetType: "product",
+  targetId: (c) => c.params.productId,
+  summary: (c) => `Produit ${typeof auditBody(c).name === "string" ? `« ${auditBody(c).name} »` : shortAuditId(c.params.productId)} modifié`,
+});
+
+export const DELETE = withAdminAudit(deleteRoute, {
+  action: "product.delete",
+  targetType: "product",
+  targetId: (c) => c.params.productId,
+  summary: (c) => `Produit ${shortAuditId(c.params.productId)} supprimé`,
+  after: () => null,
+});

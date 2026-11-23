@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody, pickAuditFields } from "../../../../../lib/admin-audit-log";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -231,7 +232,7 @@ const fetchProfileNames = async (
 const isAnonymousSupabaseUser = (user: SupabaseAdminUser): boolean =>
   user.is_anonymous === true || user.app_metadata?.provider === "anonymous";
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
+async function postRoute(request: NextRequest): Promise<NextResponse> {
   const auth = await authorizeAdmin(request);
   if ("error" in auth) return auth.error;
 
@@ -384,3 +385,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return withSecurityHeaders(NextResponse.json({ message: "Unable to sync Resend contacts." }, { status: 500 }));
   }
 }
+
+export const POST = withAdminAudit(postRoute, {
+  action: "maintenance.resend-sync",
+  targetType: "system",
+  targetId: () => "resend",
+  skip: (c) => auditBody(c).dryRun === true,
+  summary: (c) => `Synchronisation des contacts Resend (page ${auditBody(c).startPage ?? 1})`,
+  after: (c) => pickAuditFields(c.body, ["startPage", "pageSize", "maxPages", "includeAnonymous", "defaultUnsubscribed"]),
+});

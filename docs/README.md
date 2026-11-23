@@ -64,6 +64,7 @@ Docs conventions are in [_conventions.md](_conventions.md).
 - [reel_automation_items](02-database/tables/reel-automation-items.md)
 - [flyover_video_orders](02-database/tables/flyover-video-orders.md)
 - [transactional_email_log](02-database/tables/transactional-email-log.md)
+- [admin_audit_log](02-database/tables/admin-audit-log.md)
 - [Admin system health functions](02-database/admin-system-health-functions.md)
 - [carousel_render_jobs](02-database/tables/carousel-render-jobs.md)
 - [carousel_automation_items](02-database/tables/carousel-automation-items.md)

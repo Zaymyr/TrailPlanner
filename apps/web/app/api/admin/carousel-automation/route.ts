@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody, pickAuditFields } from "../../../../lib/admin-audit-log";
 import { z } from "zod";
 
 import { createCarouselItemRepository, refreshCarouselPlan, toPublicCarouselItems, weekMondaysFrom } from "../../../../lib/carousels/carousel-automation";
@@ -42,7 +43,7 @@ export async function GET(request: Request) {
 const seriesSchema = z.object({ plan: z.boolean().optional(), brief: z.boolean().optional(), week: z.boolean().optional() }).strict();
 
 /** The three series switches (stored with the reel automation settings). */
-export async function PATCH(request: Request) {
+async function patchRoute(request: Request) {
   const gate = await authorizeVideoAdmin(request);
   if (!gate.ok) return gate.response;
   const parsed = seriesSchema.safeParse(await request.json().catch(() => null));
@@ -68,7 +69,7 @@ const actionSchema = z.union([
 ]);
 
 /** « Recalculer » (never generates), or « Générer maintenant » for a chosen race or week (manual, outside the slots). */
-export async function POST(request: Request) {
+async function postRoute(request: Request) {
   const gate = await authorizeVideoAdmin(request);
   if (!gate.ok) return gate.response;
   const parsed = actionSchema.safeParse(await request.json().catch(() => null));
@@ -96,3 +97,18 @@ export async function POST(request: Request) {
     return renderJsonError(describeRenderError(error, "Le carrousel n’a pas pu être généré."), 502);
   }
 }
+
+export const PATCH = withAdminAudit(patchRoute, {
+  action: "automation.carousel-settings",
+  targetType: "automation",
+  targetId: () => "carrousels",
+  summary: "Réglages de l’automatisation des carrousels modifiés",
+});
+
+export const POST = withAdminAudit(postRoute, {
+  action: "automation.carousel-run",
+  targetType: "automation",
+  targetId: () => "carrousels",
+  summary: (c) => (auditBody(c).action === "generate" ? `Carrousel « ${auditBody(c).series} » lancé manuellement` : "Calendrier des carrousels recalculé"),
+  after: (c) => pickAuditFields(c.body, ["action", "series", "raceId", "weekStart"]),
+});

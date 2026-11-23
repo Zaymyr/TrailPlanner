@@ -72,3 +72,7 @@ The admin can delete a finished or failed job (`DELETE /api/admin/video-generato
 ## Admin reads
 
 The admin render queue (`GET /api/admin/renders`) reads the light columns of this table (no `content`), joins in memory the rows that point to it (`reel_automation_items.render_job_id`, `social_posts.video_job_id`, `flyover_video_orders`) and deduces the render type from `flyover_order_id` and the automation link. No schema change.
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/video-generator/render-jobs/[id]/start/route.ts`, `app/api/admin/video-generator/render-jobs/route.ts` now export their write handlers through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`render.start`, `render.create`) to the admin action journal ([`admin_audit_log`](./admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

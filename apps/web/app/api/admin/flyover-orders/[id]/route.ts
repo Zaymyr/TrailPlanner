@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody, pickAuditFields } from "../../../../../lib/admin-audit-log";
 import { z } from "zod";
 
 import { flyoverAdminActionSchema, planFlyoverAdminAction } from "../../../../../lib/flyover-admin";
@@ -14,7 +15,7 @@ const paramsSchema = z.object({ id: z.string().uuid() });
  * draft), retry from the last step done, rewrite the text, or send the ready email again. Rules:
  * `planFlyoverAdminAction` (lib/flyover-admin.ts). The refund stays a Stripe dashboard action.
  */
-export async function PATCH(request: Request, context: { params: { id: string } }) {
+async function patchRoute(request: Request, context: { params: { id: string } }) {
   const gate = await authorizeVideoAdmin(request);
   if (!gate.ok) return gate.response;
   const params = paramsSchema.safeParse(context.params);
@@ -46,3 +47,11 @@ export async function PATCH(request: Request, context: { params: { id: string } 
     return renderJsonError("L’action n’a pas pu être appliquée.", 502);
   }
 }
+
+export const PATCH = withAdminAudit(patchRoute, {
+  action: "flyover.order",
+  targetType: "flyover",
+  targetId: (c) => c.params.id,
+  summary: (c) => `Commande de survol : action « ${auditBody(c).action ?? "?"} »`,
+  after: (c) => pickAuditFields(c.body, ["action"]),
+});

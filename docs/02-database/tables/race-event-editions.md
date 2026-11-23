@@ -197,3 +197,7 @@ where ree.event_id = :event_id
 - [Database Relationships](../relationships.md)
 - [Organizer Race Management](../../03-business-rules/organizer-race-management.md)
 - [RLS Policies](../rls-policies.md)
+
+## Admin audit journal (lot 7)
+
+`app/api/organizer/events/[id]/website-import/route.ts` now exports its write handler through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`catalog.event-import`) to the admin action journal ([`admin_audit_log`](./admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

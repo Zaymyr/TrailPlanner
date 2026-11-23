@@ -1,3 +1,4 @@
+import { withAdminAudit, shortAuditId } from "../../../../../../lib/admin-audit-log";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -5,7 +6,7 @@ import { withSecurityHeaders } from "../../../../../../lib/http";
 import { organizerInvoiceRowSchema, renderAndStoreManualOrganizerInvoice } from "../../../../../../lib/organizer-manual-invoices";
 import { jsonError, requireAdminAuth, serviceHeaders } from "../../../../../../lib/organizer";
 
-export async function POST(request: NextRequest, context: { params: { invoiceId?: string } }) {
+async function postRoute(request: NextRequest, context: { params: { invoiceId?: string } }) {
   const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
   const invoiceId = z.string().uuid().safeParse(context.params.invoiceId);
@@ -22,3 +23,11 @@ export async function POST(request: NextRequest, context: { params: { invoiceId?
     return jsonError("Impossible de régénérer le PDF.", 502);
   }
 }
+
+export const POST = withAdminAudit(postRoute, {
+  action: "billing.invoice-pdf",
+  targetType: "invoice",
+  targetId: (c) => (c.params.invoiceId ? `organizer_invoice:${c.params.invoiceId}` : undefined),
+  summary: (c) => `PDF de la facture ${shortAuditId(c.params.invoiceId)} régénéré`,
+  after: () => null,
+});
