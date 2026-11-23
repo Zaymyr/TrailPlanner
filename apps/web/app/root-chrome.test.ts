@@ -16,3 +16,12 @@ describe("RootChrome skip link", () => {
     expect(source).toContain("skipLinkRef.current?.blur()");
   });
 });
+
+describe("RootChrome standalone pages", () => {
+  it("leaves the admin console frame to AdminShell (no site header or footer)", () => {
+    const source = readFileSync(resolve(process.cwd(), "app/root-chrome.tsx"), "utf8");
+
+    expect(source).toContain(`const STANDALONE_PATHS = new Set(["/links", "/en/links", "/admin"]);`);
+    expect(source).toContain(`const STANDALONE_PREFIXES = ["/share/plan/", "/render/", "/admin/"];`);
+  });
+});

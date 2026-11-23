@@ -1319,7 +1319,7 @@ export const fr: Translations = {
       },
     },
     growth: {
-      title: "Croissance & Utilisateurs",
+      title: "Croissance",
       description: "Suivez les inscriptions, l'activation, l'activité récente et les accès Premium.",
       loadError: "Impossible de charger les données de croissance.",
       totals: {

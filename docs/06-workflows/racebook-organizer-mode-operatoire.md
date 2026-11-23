@@ -1,7 +1,7 @@
 ---
 title: Mode opératoire Livret coureur organisateur
 scope: workflow
-last_verified: 2026-11-22
+last_verified: 2026-11-23
 # Conversion assistée (2026-11-15) : « Appliquer » préremplit seulement le formulaire après une revue champ par champ ; « Ignorer » écarte la proposition.
 # Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
 # Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
@@ -144,3 +144,7 @@ Mise à jour du 2026-11-16 : les liens « Aperçu coureur » et « Aperçu accom
 ## Page de création d’événement (2026-11-22)
 
 La page `/organizers` s’adresse aux organisateurs avec « vous », propose « Créer un compte » comme action principale pour un visiteur non connecté et rappelle que la création est gratuite, le paiement n’intervenant qu’à la publication du livret (dès le prix de l’offre Essentiel). Texte uniquement : le flux de création, l’accès propriétaire et la publication ne changent pas.
+
+## Administration : facturation (2026-11-23)
+
+Les factures, virements et règlements se font dans **Ventes & facturation** (`/admin/billing`) : registre de toutes les ventes, « Nouvelle facture », « Enregistrer un virement », et pour chaque ligne télécharger, régénérer, marquer réglée ou rectifier. Dans Organisateurs, chaque édition affiche un résumé et le lien « Voir dans Ventes & facturation ». Sur `/organizer`, l’admin n’a plus de bouton « Offrir une offre partenaire » : le lien « Gérer le pack dans l’admin » ouvre l’édition dans Organisateurs, où « Gérer le pack et les accès » (origine Offert comprise) reste la seule façon d’attribuer un pack. Depuis le lot 5 de la console (2026-11-23), ce bouton ouvre la fiche de l’édition (panneau latéral, `?edition=<id>`) sur l’onglet « Pack & modules », avec les mêmes champs ; la fiche regroupe aussi le résumé, la facturation, les demandes et l’activité de l’édition.

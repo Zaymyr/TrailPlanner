@@ -1,10 +1,11 @@
+import { withAdminAudit, auditBody, pickAuditFields } from "../../../../lib/admin-audit-log";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { extractBearerToken, fetchSupabaseUser, getSupabaseAnonConfig, getSupabaseServiceConfig, isAdminUser } from "../../../../lib/supabase";
 import { getRunnerAdminMode, getRunnerSessionId } from "../../../../lib/runner-access";
 
 export async function GET(request: Request) { return handle(request, false); }
-export async function PUT(request: Request) { return handle(request, true); }
+async function putRoute(request: Request) { return handle(request, true); }
 async function handle(request: Request, write: boolean) {
   const anon = getSupabaseAnonConfig();
   const service = getSupabaseServiceConfig();
@@ -27,3 +28,11 @@ async function handle(request: Request, write: boolean) {
     return NextResponse.json({ mode: await getRunnerAdminMode(user, token) }, { headers: { "Cache-Control": "no-store" } });
   } catch { return NextResponse.json({ message: "Admin simulation unavailable." }, { status: 503 }); }
 }
+
+export const PUT = withAdminAudit(putRoute, {
+  action: "simulation.runner-mode",
+  targetType: "simulation",
+  targetId: (c) => auditBody(c).mode as string | undefined,
+  summary: (c) => `Mode de simulation des droits : ${({ real: "réel", free: "gratuit", premium: "Premium" } as Record<string, string>)[String(auditBody(c).mode)] ?? "?"}`,
+  after: (c) => pickAuditFields(c.body, ["mode"]),
+});

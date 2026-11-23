@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { recordTransactionalEmail, resolveEmailCategory } from "./transactional-email-log";
+
 export type ResendConfig = {
   apiKey: string;
   from: string;
@@ -220,6 +222,44 @@ const requestResend = async (
   throw new Error("Unable to complete Resend request.");
 };
 
+/**
+ * Sends one e-mail through `POST /emails` and journals the attempt (`transactional_email_log`,
+ * best-effort: a journal failure never changes the result). A network error is journaled as failed
+ * and rethrown, as before the journal existed.
+ */
+const sendLoggedEmail = async (
+  config: ResendConfig,
+  input: { category: string; to: string; body: Record<string, unknown>; options?: ResendContactSyncOptions; fallback: string }
+): Promise<OrganizerAssignmentEmailResult> => {
+  let result: OrganizerAssignmentEmailResult;
+  try {
+    const { response, payload } = await requestResend(config, "/emails", { method: "POST", body: JSON.stringify(input.body) }, input.options);
+    if (response.ok) {
+      const parsed = resendContactResponseSchema.safeParse(payload);
+      result = { status: "sent", id: parsed.success ? parsed.data.id : undefined };
+    } else {
+      result = { status: "failed", statusCode: response.status, message: extractErrorMessage(payload, input.fallback) };
+    }
+  } catch (error) {
+    await recordTransactionalEmail({ category: input.category, status: "failed", to: input.to, message: error instanceof Error ? error.message : input.fallback });
+    throw error;
+  }
+  await recordTransactionalEmail({
+    category: input.category,
+    status: result.status,
+    to: input.to,
+    statusCode: result.status === "failed" ? result.statusCode ?? null : null,
+    message: result.status === "failed" ? result.message : null,
+    providerMessageId: result.status === "sent" ? result.id ?? null : null,
+  });
+  return result;
+};
+
+const recordSkippedEmail = async (category: string, to: string): Promise<{ status: "skipped"; reason: "missing-config" }> => {
+  await recordTransactionalEmail({ category, status: "skipped", to, message: "Resend configuration is missing." });
+  return { status: "skipped", reason: "missing-config" };
+};
+
 const escapeHtml = (value: string): string =>
   value.replace(/[&<>"']/g, (character) => {
     const entities: Record<string, string> = {
@@ -365,33 +405,25 @@ export const sendOrganizerAssignmentEmail = async (input: {
   eventName: string;
   organizerUrl: string;
 }): Promise<OrganizerAssignmentEmailResult> => {
+  const category = "organizer-assignment";
   const config = getResendConfig();
-  if (!config) return { status: "skipped", reason: "missing-config" };
+  if (!config) return recordSkippedEmail(category, input.to);
 
   const eventName = input.eventName.trim();
   const escapedEventName = escapeHtml(eventName);
   const escapedOrganizerUrl = escapeHtml(input.organizerUrl);
-  const { response, payload } = await requestResend(config, "/emails", {
-    method: "POST",
-    body: JSON.stringify({
+  return sendLoggedEmail(config, {
+    category,
+    to: input.to,
+    fallback: "Unable to send organizer assignment email.",
+    body: {
       from: config.from,
       to: [input.to.trim().toLowerCase()],
       subject: `Vous gérez maintenant ${eventName} sur Pace Yourself`,
       html: buildOrganizerAssignmentHtml(escapedEventName, escapedOrganizerUrl),
       text: `Bonjour,\n\nVous avez été rattaché à ${eventName} en tant qu’organisateur sur Pace Yourself.\n\nGérer cette course : ${input.organizerUrl}\n\nÀ bientôt,\nL’équipe Pace Yourself`,
-    }),
+    },
   });
-
-  if (response.ok) {
-    const parsed = resendContactResponseSchema.safeParse(payload);
-    return { status: "sent", id: parsed.success ? parsed.data.id : undefined };
-  }
-
-  return {
-    status: "failed",
-    statusCode: response.status,
-    message: extractErrorMessage(payload, "Unable to send organizer assignment email."),
-  };
 };
 
 export const sendAdminUserNotificationEmail = async (input: {
@@ -400,40 +432,28 @@ export const sendAdminUserNotificationEmail = async (input: {
   title: string;
   body: string;
 }): Promise<AdminUserEmailResult> => {
+  const category = "admin-user-notification";
   const config = getResendConfig();
-  if (!config) return { status: "skipped", reason: "missing-config" };
+  if (!config) return recordSkippedEmail(category, input.to);
 
   const title = input.title.trim();
   const body = input.body.trim();
-  const { response, payload } = await requestResend(
-    config,
-    "/emails",
-    {
-      method: "POST",
-      body: JSON.stringify({
-        from: config.from,
-        to: [input.to.trim().toLowerCase()],
-        subject: title,
-        html: buildAdminUserNotificationHtml(escapeHtml(title), escapeHtml(body)),
-        text: `${title}\n\n${body}\n\nRetrouve ce message dans l'onglet Notifications de l'application Pace Yourself.\n\nL'équipe Pace Yourself`,
-      }),
+  return sendLoggedEmail(config, {
+    category,
+    to: input.to,
+    fallback: "Unable to send admin user notification email.",
+    body: {
+      from: config.from,
+      to: [input.to.trim().toLowerCase()],
+      subject: title,
+      html: buildAdminUserNotificationHtml(escapeHtml(title), escapeHtml(body)),
+      text: `${title}\n\n${body}\n\nRetrouve ce message dans l'onglet Notifications de l'application Pace Yourself.\n\nL'équipe Pace Yourself`,
     },
-    {
+    options: {
       maxRetries: 2,
       idempotencyKey: `admin-user-notification/${input.notificationId}`,
-    }
-  );
-
-  if (response.ok) {
-    const parsed = resendContactResponseSchema.safeParse(payload);
-    return { status: "sent", id: parsed.success ? parsed.data.id : undefined };
-  }
-
-  return {
-    status: "failed",
-    statusCode: response.status,
-    message: extractErrorMessage(payload, "Unable to send admin user notification email."),
-  };
+    },
+  });
 };
 
 export const createResendContact = async (
@@ -538,7 +558,9 @@ export const syncIdentifiedUserToResendContact = async (
 /**
  * Generic transactional e-mail (already-built HTML and text). Returns the same
  * result shape as the other senders; a missing configuration is reported as
- * skipped so callers can keep their primary write.
+ * skipped so callers can keep their primary write. Every attempt is journaled
+ * (`transactional_email_log`) under `category`, or the category derived from the
+ * idempotency key (`flyover/paid/<id>` → `flyover/paid`).
  */
 export const sendTransactionalEmail = async (input: {
   to: string;
@@ -547,37 +569,26 @@ export const sendTransactionalEmail = async (input: {
   text: string;
   replyTo?: string;
   idempotencyKey?: string;
+  category?: string;
 }): Promise<OrganizerAssignmentEmailResult> => {
+  const category = resolveEmailCategory(input.category, input.idempotencyKey);
   const config = getResendConfig();
-  if (!config) return { status: "skipped", reason: "missing-config" };
+  if (!config) return recordSkippedEmail(category, input.to);
 
-  const { response, payload } = await requestResend(
-    config,
-    "/emails",
-    {
-      method: "POST",
-      body: JSON.stringify({
-        from: config.from,
-        to: [input.to.trim().toLowerCase()],
-        subject: input.subject,
-        html: input.html,
-        text: input.text,
-        ...(input.replyTo ? { reply_to: input.replyTo } : {}),
-      }),
+  return sendLoggedEmail(config, {
+    category,
+    to: input.to,
+    fallback: "Unable to send transactional email.",
+    body: {
+      from: config.from,
+      to: [input.to.trim().toLowerCase()],
+      subject: input.subject,
+      html: input.html,
+      text: input.text,
+      ...(input.replyTo ? { reply_to: input.replyTo } : {}),
     },
-    { maxRetries: 2, idempotencyKey: input.idempotencyKey },
-  );
-
-  if (response.ok) {
-    const parsed = resendContactResponseSchema.safeParse(payload);
-    return { status: "sent", id: parsed.success ? parsed.data.id : undefined };
-  }
-
-  return {
-    status: "failed",
-    statusCode: response.status,
-    message: extractErrorMessage(payload, "Unable to send transactional email."),
-  };
+    options: { maxRetries: 2, idempotencyKey: input.idempotencyKey },
+  });
 };
 
 export const escapeEmailHtml = (value: string): string => escapeHtml(value);

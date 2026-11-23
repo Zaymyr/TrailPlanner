@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_requests Table
 scope: database
-last_verified: 2026-11-22
+last_verified: 2026-11-23
 # Livret supporter note (2026-11-16): the public name of the supporter_guide surface is now "Livret supporter" (formerly "Livret accompagnateur"); aid-station access wording ("Accompagnateurs autorisés") is unchanged; no data, contract or offer change.
 # Assisted legacy conversion (2026-11-15): review targets an existing selected edition; edition-request behavior and persistence are unchanged.
 # Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
@@ -18,6 +18,11 @@ ai_priority: medium
 # Organizer UX pass (2026-11-14): format sections nest under the selected format in the left nav, ravito type is Ravito / Base de vie, and equipment uses a top quick-add with per-row Obligatoire switch; no stored data or contract changes.
 # Course timeline note (2026-11-14): timeline filters, point markers and cutoff chips in the aid-station editor are presentation-only; stored data and contracts are unchanged.
 related_files:
+  - apps/web/app/admin/_components/organizers/organizer-admin-model.ts
+  - apps/web/app/admin/_components/organizers/useOrganizerAdminData.ts
+  - apps/web/app/admin/_components/organizers/EditionDrawer.tsx
+  - apps/web/app/admin/_components/organizers/EditionPackForm.tsx
+  - apps/web/app/admin/_components/organizers/OrganizerRequestItems.tsx
   - supabase/migrations/20260721110000_add_race_event_edition_requests.sql
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
   - apps/web/app/api/organizer/claims/route.ts
@@ -138,4 +143,13 @@ Organizer header (2026-11-16): the dashboard header no longer shows the « Aper�
 
 Organizer pricing (2026-11-22): pack prices are now Essentiel 199 €, Complet 349 € and Signature 499 € HT, read from `ORGANIZER_TIER_PRICE_EUR` (see [Organizer Commercial Offers](../../03-business-rules/organizer-commercial-offers.md)). Copy and default amounts only; no table, contract or state change.
 
+`pending` rows are counted by `GET /api/admin/inbox-counts` (`editionRequests`) for the Organisateurs badges of `/admin`.
+
+Admin console (2026-11-23, lot 4): invoices and bank transfers are handled in « Ventes & facturation » (`/admin/billing`) instead of the Organisateurs edition cards, and the admin-only « Offrir une offre partenaire » action of `/organizer` became a link to `/admin/organizers?edition=<id>`. This table, its review workflow and its states are unchanged.
+
+Admin console (2026-11-23, lot 5): Organisateurs is split into domain components (`app/admin/_components/organizers/`: giftable module catalog, pending requests, rights per edition, organizer assignment, active accesses; data and review actions in `useOrganizerAdminData`, same requests). An edition opens a side panel (`?edition=<id>&fiche=resume|pack|facturation|demandes|activite`; a `?edition=` link from Ventes & facturation or `/organizer` still narrows the list to that edition): Résumé (event, edition, member organizers, Racebook state per format, links to `/organizer?eventId=` and to `/courses/evenements/<slug>`), Pack & modules (the former « Gérer le pack et les accès » dialog, same fields and same PATCH `setEditionGrant` then `setEditionCapabilityGrant` calls), Facturation (summary, filtered register, invoice and bank-transfer dialogs), Demandes (this edition's publication requests, claims and new-edition requests with the same review actions) and Activité (the stored social-proof reader statistics). `GET /api/admin/event-publication-requests` also returns `editionSlug` per edition (read from `race_event_editions.slug`). No rule, state or attribution route changes.
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/organizer-claims/route.ts` now exports its write handler through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`organizer.claim`) to the admin action journal ([`admin_audit_log`](./admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.
 Partner report note (2026-11-22): the Organizer dashboard adds a « Rapport partenaires » card under the Sponsors editor and the /organisateurs Signature card lists « Rapport partenaires »; neither touches this document's domain, data or contracts.

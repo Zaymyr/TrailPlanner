@@ -2,7 +2,7 @@
 title: race_events Table
 scope: database
 
-last_verified: 2026-11-22
+last_verified: 2026-11-23
 # Event hub slug (2026-11-22): `slug` (not null, unique, immutable, year-free, disjoint from edition slugs) generated on insert by `assign_race_event_slug`; French `location_region_code` backfilled from the exact normalized region name.
 # Supporter onboarding (2026-11-18): the mobile guided catalog gains a `supporter` mode over the same public event list; no read, table or RLS change here (the only schema change is `user_profiles.supporter_onboarding_status`).
 # Inbox push badge (2026-11-18): apps/web/lib/push.ts adds an iOS badge only to admin inbox pushes (unread user_notifications count); race event update pushes, schema and RLS are unchanged.
@@ -484,3 +484,9 @@ Catalog end date (2026-11-14): `race_events.race_date` is the event start date. 
 Public course metadata prefixes a format name that does not contain the parent event name (`races` → `race_events.name`) as `Event — Format`, so generic format names stay unique in search titles; event-edition titles stay within 60 characters by shortening their suffix. No schema change.
 
 Public web catalogue data quality (2026-11-22): web presentation only, no column or read change. Similar-race suggestions (`getSimilarRaces` in `apps/web/lib/race-discovery.ts`) keep only upcoming or undated formats and never the Trail TST demo event (`isDemoRaceEventId` in `apps/web/lib/demo-race.ts`, matched on this table's fixed id). The demo event's pages are `noindex` and stay out of the sitemap, and its placeholder `website_url` is never shown as a registration or official link. See [Public Race Discovery](../../03-business-rules/public-race-discovery.md#trail-tst-demo-and-catalogue-data-quality-2026-11-22).
+
+Admin console (2026-11-23, lot 5): `GET /api/admin/event-publication-requests` also selects `race_event_editions.slug` (`editionSlug`) to link the admin edition panel to `/courses/evenements/<slug>`. Read-only addition; no column or rule changes.
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/event-publication-requests/route.ts`, `app/api/admin/organizer-claims/route.ts`, `app/api/admin/race-events/[id]/route.ts`, `app/api/admin/race-events/[id]/thumbnail/route.ts`, `app/api/organizer/events/[id]/website-import/route.ts`, `app/api/race-catalog/route.ts` now export their write handlers through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`edition.publication`, `edition.pack`, `organizer.claim`, `catalog.event-update`, `catalog.image`, `catalog.event-import`, `catalog.race-create`) to the admin action journal ([`admin_audit_log`](./admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

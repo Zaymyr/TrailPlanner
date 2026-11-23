@@ -68,3 +68,7 @@ order by available_at, created_at;
 
 - [racebook_publication_assets](racebook-publication-assets.md)
 - [RLS Policies](../rls-policies.md)
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/racebook-publications/cleanup/route.ts` now exports its write handler through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`maintenance.livret-cleanup`) to the admin action journal ([`admin_audit_log`](./admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

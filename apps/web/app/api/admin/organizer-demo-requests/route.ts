@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody, pickAuditFields } from "../../../../lib/admin-audit-log";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -55,7 +56,7 @@ export async function GET(request: NextRequest) {
   }));
 }
 
-export async function PATCH(request: NextRequest) {
+async function patchRoute(request: NextRequest) {
   const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
 
@@ -75,3 +76,11 @@ export async function PATCH(request: NextRequest) {
   if (!response.ok) return jsonError("Unable to update demo request.", 502);
   return withSecurityHeaders(NextResponse.json({ ok: true }));
 }
+
+export const PATCH = withAdminAudit(patchRoute, {
+  action: "organizer.demo",
+  targetType: "demo",
+  targetId: (c) => auditBody(c).id as string | undefined,
+  summary: (c) => `Démo organisateur passée en « ${auditBody(c).status ?? "?"} »`,
+  after: (c) => pickAuditFields(c.body, ["status"]),
+});

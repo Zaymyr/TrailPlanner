@@ -1,6 +1,7 @@
 import { isCarouselRenderStale, updateCarouselRenderJob } from "../../../../lib/carousels/carousel-render";
 import {
   listCarouselRenderActivityRows,
+  RENDER_LOST_MESSAGE,
   listReelRenderActivityRows,
   selectRenderActivity,
   toCarouselRenderActivity,
@@ -10,8 +11,6 @@ import { isRenderJobStale, updateRenderJob } from "../../../../lib/video-render"
 import { authorizeVideoAdmin, renderJson, renderJsonError } from "../../../../lib/video-render-api";
 
 export const dynamic = "force-dynamic";
-
-const LOST_MESSAGE = "Le rendu n’a plus donné de nouvelles : relance-le.";
 
 /**
  * Recent reel and carousel renders with their stage (Publications admin, polled while one is
@@ -27,13 +26,13 @@ export async function GET(request: Request) {
     const finishedAt = new Date(now).toISOString();
     const reelRows = await Promise.all(reels.map(async (row) => {
       if (!isRenderJobStale(row, now)) return row;
-      const updated = await updateRenderJob(supabase, row.id, { status: "failed", message: LOST_MESSAGE, finished_at: finishedAt }, ["uploading", "queued", "running"]);
-      return updated ? { ...row, status: "failed" as const, message: LOST_MESSAGE, finished_at: finishedAt } : row;
+      const updated = await updateRenderJob(supabase, row.id, { status: "failed", message: RENDER_LOST_MESSAGE, finished_at: finishedAt }, ["uploading", "queued", "running"]);
+      return updated ? { ...row, status: "failed" as const, message: RENDER_LOST_MESSAGE, finished_at: finishedAt } : row;
     }));
     const carouselRows = await Promise.all(carousels.map(async (row) => {
       if (!isCarouselRenderStale(row, now)) return row;
-      const updated = await updateCarouselRenderJob(supabase, row.id, { status: "failed", message: LOST_MESSAGE, finished_at: finishedAt }, ["queued", "running"]);
-      return updated ? { ...row, status: "failed" as const, message: LOST_MESSAGE, finished_at: finishedAt } : row;
+      const updated = await updateCarouselRenderJob(supabase, row.id, { status: "failed", message: RENDER_LOST_MESSAGE, finished_at: finishedAt }, ["queued", "running"]);
+      return updated ? { ...row, status: "failed" as const, message: RENDER_LOST_MESSAGE, finished_at: finishedAt } : row;
     }));
     return renderJson({
       jobs: selectRenderActivity([...reelRows.map(toReelRenderActivity), ...carouselRows.map(toCarouselRenderActivity)], now),

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { ACCESS_TOKEN_COOKIE } from "../../lib/auth-cookies";
 import { fetchSupabaseUser, getSupabaseAnonConfig, isAdminUser } from "../../lib/supabase";
 import { noIndexMetadata } from "../noindex-metadata";
+import { AdminShell } from "./_components/shell/AdminShell";
 
 export const metadata = noIndexMetadata;
 
@@ -22,5 +23,5 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     redirect("/");
   }
 
-  return <>{children}</>;
+  return <AdminShell>{children}</AdminShell>;
 }

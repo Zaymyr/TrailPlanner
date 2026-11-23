@@ -53,3 +53,7 @@ Constraint `carousel_automation_items_series_day unique (series, planned_publish
 ## Access
 
 RLS on, no policy, privileges revoked from client roles, granted to `service_role`. Written by the cron route (`CRON_SECRET`) and the admin routes (`authorizeVideoAdmin`).
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/carousel-automation/items/[id]/route.ts` now exports its write handler through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`automation.carousel-item`) to the admin action journal ([`admin_audit_log`](./admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

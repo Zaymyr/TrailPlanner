@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody, pickAuditFields, shortAuditId } from "../../../../lib/admin-audit-log";
 import { revalidateTag } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -140,7 +141,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function PUT(request: NextRequest) {
+async function putRoute(request: NextRequest) {
   const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
 
@@ -277,3 +278,10 @@ export async function PUT(request: NextRequest) {
   }
 }
 
+export const PUT = withAdminAudit(putRoute, {
+  action: "organizer.social-proof",
+  targetType: "proof",
+  targetId: (c) => auditBody(c).editionId as string | undefined,
+  summary: (c) => `Preuve sociale de l’édition ${shortAuditId(auditBody(c).editionId)} ${auditBody(c).status === "published" ? "publiée" : "enregistrée en brouillon"}`,
+  after: (c) => pickAuditFields(c.body, ["status", "displayOrder", "refreshStats", "consentConfirmed"]),
+});

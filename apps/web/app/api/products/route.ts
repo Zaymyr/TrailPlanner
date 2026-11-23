@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody } from "../../../lib/admin-audit-log";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -168,7 +169,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function postRoute(request: NextRequest) {
   const supabaseService = getSupabaseServiceConfig();
   const supabaseAnon = getSupabaseAnonConfig();
 
@@ -265,3 +266,9 @@ export async function POST(request: NextRequest) {
     return withSecurityHeaders(NextResponse.json({ message: "Unable to create product." }, { status: 500 }));
   }
 }
+
+export const POST = withAdminAudit(postRoute, {
+  action: "product.create",
+  targetType: "product",
+  summary: (c) => `Produit ${typeof auditBody(c).name === "string" ? `« ${auditBody(c).name} » ` : ""}créé`,
+});

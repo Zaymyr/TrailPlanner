@@ -1,3 +1,4 @@
+import { renderQueueHref } from "../../../lib/admin-renders";
 import { formatParisDateTime, type PublicSocialPost } from "../../../lib/social-posts";
 import { CAROUSEL_MARK, CAROUSEL_SERIES_NAMES } from "./automation-labels";
 import type { RenderActivityView } from "./publications-api";
@@ -40,7 +41,8 @@ export type AttentionEntry = {
   tone: "active" | "error" | "todo" | "scheduled";
   title: string;
   detail: string;
-  target: { tab: PublicationTab; postId?: string };
+  /** Where « Voir » goes: a render (`renderId`), a flyover order (`orderId`), a post or the tab itself. */
+  target: { tab: PublicationTab; postId?: string; renderId?: string; orderId?: string };
 };
 
 const UPCOMING_MS = 7 * 24 * 60 * 60 * 1_000;
@@ -60,7 +62,7 @@ export const buildAttentionList = ({ posts, renders, nowMs }: { posts: PublicSoc
       tone: render.status === "active" ? "active" : "error",
       title: render.kind === "carousel" ? `${CAROUSEL_MARK} ${render.title}` : `Rendu · ${render.title}`,
       detail: render.stage,
-      target: { tab: render.kind === "carousel" ? "carousels" : "reels" },
+      target: { tab: render.kind === "carousel" ? "carousels" : "reels", renderId: render.id },
       sortAt: Date.parse(render.createdAt),
     });
   });
@@ -103,3 +105,58 @@ export const writeDismissedAlerts = (dismissed: Set<string>, current: AttentionE
   }
   return new Set(kept);
 };
+
+/**
+ * Tabs of the console page « Publications » (`/admin/content/posts`, lot 1 of the admin console):
+ * Reels, Carrousels and Publiées come from the former Publications page; the `templates` tab, formerly
+ * « Templates sociaux » of /admin, is the « Carrousel manuel » (4 PNG exported from one of your plans), placed
+ * next to the automatic carousels. The id stays `templates` so old links keep working. `?onglet=` selects
+ * one (Reels when absent).
+ */
+export const POSTS_TABS = [
+  { id: "reels", label: "Reels" },
+  { id: "carousels", label: "Carrousels automatiques" },
+  { id: "templates", label: "Carrousel manuel" },
+  { id: "published", label: "Publiées" },
+] as const;
+export type PostsTab = (typeof POSTS_TABS)[number]["id"];
+
+export const readPostsTab = (search: string): PostsTab => {
+  const value = new URLSearchParams(search).get("onglet");
+  return POSTS_TABS.find((tab) => tab.id === value)?.id ?? "reels";
+};
+
+/** The post (`?post=`) or plan item (`?element=`) to highlight when the page opens. */
+export const readPostsHighlight = (search: string) => {
+  const params = new URLSearchParams(search);
+  return { postId: params.get("post")?.trim() || null, itemId: params.get("element")?.trim() || null };
+};
+
+/** Console URL of an agenda or calendar target (« Voir »): the Publications tab plus the item to highlight. */
+export const publicationTargetHref = (target: { tab: PublicationTab; postId?: string; itemId?: string; renderId?: string; orderId?: string }): string => {
+  if (target.renderId) return renderQueueHref(target.renderId);
+  if (target.orderId) return `/admin/content/flyovers?commande=${encodeURIComponent(target.orderId)}`;
+  const params = new URLSearchParams();
+  if (target.tab === "carousels" || target.tab === "published") params.set("onglet", target.tab);
+  if (target.postId) params.set("post", target.postId);
+  else if (target.itemId) params.set("element", target.itemId);
+  const search = params.toString();
+  const base =
+    target.tab === "agenda" ? "/admin/content"
+    : target.tab === "flyovers" ? "/admin/content/flyovers"
+    : target.tab === "gpx" ? "/admin/catalog/races?vue=qualite"
+    : target.tab === "settings" ? "/admin/system/automation"
+    : "/admin/content/posts";
+  if (base !== "/admin/content/posts") return base;
+  return search ? `${base}?${search}` : base;
+};
+
+/**
+ * Summary of the renders of the last 24 h for the Reels and Carrousels tabs: the ones running now, then the
+ * failures (the window of the source already is 24 h), and how many finished fine. The full list is the
+ * render queue.
+ */
+export const summarizeRenderActivity = (jobs: RenderActivityView[]) => ({
+  shown: [...jobs.filter((job) => job.status === "active"), ...jobs.filter((job) => job.status === "failed")],
+  doneCount: jobs.filter((job) => job.status === "done").length,
+});

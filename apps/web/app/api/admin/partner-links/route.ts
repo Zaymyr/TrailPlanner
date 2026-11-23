@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody, pickAuditFields } from "../../../../lib/admin-audit-log";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function PUT(request: NextRequest) {
+async function putRoute(request: NextRequest) {
   const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
 
@@ -105,3 +106,15 @@ export async function PUT(request: NextRequest) {
     return withSecurityHeaders(NextResponse.json({ message: "Unable to save partner links." }, { status: 500 }));
   }
 }
+
+export const PUT = withAdminAudit(putRoute, {
+  action: "partner.links",
+  targetType: "partner",
+  targetId: () => "booking,decathlon",
+  summary: "Liens partenaires mis à jour",
+  after: (c) => ({
+    settings: Array.isArray(auditBody(c).settings)
+      ? (auditBody(c).settings as unknown[]).map((setting) => pickAuditFields(setting, ["partnerKey", "isEnabled", "affiliateEnabled"]))
+      : null,
+  }),
+});

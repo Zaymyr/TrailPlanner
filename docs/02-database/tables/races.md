@@ -324,3 +324,7 @@ Responsive label/control grouping changes only Organizer presentation; race fiel
 The compact Trace rail and explicit inheritance actions preserve race columns, organizer details, GPX paths, and effective date/location values.
 
 Switch-row presentation preserves the existing race and organizer-details boolean fields.
+
+## Admin audit journal (lot 7)
+
+`app/api/organizer/events/[id]/website-import/route.ts`, `app/api/race-catalog/[id]/thumbnail/route.ts` now export their write handlers through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`catalog.event-import`, `catalog.image`) to the admin action journal ([`admin_audit_log`](./admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

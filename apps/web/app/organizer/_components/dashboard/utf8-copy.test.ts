@@ -133,15 +133,15 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(dashboardSource).toContain("seriesName: newRaceForm.name");
   });
 
-  it("keeps both admin complimentary offers explicit", () => {
+  it("sends admins to the console instead of a second pack grant, and keeps the offered label", () => {
     const dashboardSource = readFileSync(resolve(process.cwd(), "app/organizer/_components/OrganizerDashboard.tsx"), "utf8");
     const shellSource = readFileSync(resolve(process.cwd(), "app/organizer/_components/dashboard/shell.tsx"), "utf8");
     const controlsSource = readFileSync(resolve(process.cwd(), "app/organizer/_components/dashboard/controls.tsx"), "utf8");
 
-    expect(dashboardSource).toContain('action: "setEditionTier"');
+    expect(dashboardSource).not.toContain('action: "setEditionTier"');
+    expect(dashboardSource).not.toContain("grantComplimentaryOffer");
+    expect(dashboardSource).toContain("/admin/organizers?edition=${encodeURIComponent(pricingContext.editionId)}");
     expect(dashboardSource).toContain("paidOrganizerTiers");
-    expect(dashboardSource).toContain("complimentaryGrantTarget === tier");
-    expect(dashboardSource).toContain("grantComplimentaryOffer(tier)");
     expect(dashboardSource).toContain("ORGANIZER_TIER_PRICE_EUR[tier]");
     expect(shellSource).toContain("ORGANIZER_TIER_PRICE_EUR[editionTier]");
     expect(shellSource).toContain("Offre ${ORGANIZER_TIER_LABEL[editionTier]} offerte");

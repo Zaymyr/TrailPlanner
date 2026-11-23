@@ -1,9 +1,11 @@
 ---
 title: Resend Integration
 scope: integration
-last_verified: 2026-11-18
+last_verified: 2026-11-23
 ai_priority: medium
 related_files:
+  - apps/web/lib/admin-messages.ts
+  - apps/web/lib/admin-messages-server.ts
   - apps/web/lib/feedback-surveys.ts
   - package.json
   - apps/web/package.json
@@ -27,8 +29,13 @@ related_files:
   - apps/mobile/lib/resendContactSync.ts
   - apps/mobile/lib/resendContactSync.test.ts
   - apps/web/app/api/auth/session/route.ts
+  - apps/web/lib/transactional-email-log.ts
+  - apps/web/lib/transactional-email-log.test.ts
+  - apps/web/app/admin/_components/system/MaintenancePanel.tsx
+  - apps/web/app/admin/_components/system/maintenance-plan.ts
 related_tables:
   - user_profiles
+  - transactional_email_log
 ---
 
 # Resend Integration
@@ -68,6 +75,8 @@ The repo has one checked-in Broadcast template and two server-side Resend Contac
 - The Testing Library and jsdom packages added for the admin 3D animation UI are development-only; they do not enter Resend routes, provider payloads, or the deployed e-mail integration.
 - The root npm version is pinned for reliable Turbo/CI workspace discovery. Its `docs:check` and `verify` quality gates do not add a Resend SDK or change the REST contract.
 - `apps/web/app/api/resend/contact/route.ts` exposes `POST /api/resend/contact` for the current authenticated user.
+- Since lot 3 of the admin console (2026-11-23), every transactional send (`sendTransactionalEmail`, `sendOrganizerAssignmentEmail`, `sendAdminUserNotificationEmail`) is journaled in [`transactional_email_log`](../02-database/tables/transactional-email-log.md) by `recordTransactionalEmail` (`lib/transactional-email-log.ts`): date, category, `sent` / `skipped` (no configuration) / `failed`, HTTP code, a 300-character message and the masked recipient (`fa***@gmail.com`), never the subject, body or full address. The category is the new optional `category` argument of `sendTransactionalEmail`, else the idempotency key without its ids (`flyover/paid/<id>` → `flyover/paid`, `organizer-demo/admin/<id>` → `organizer-demo/admin`; a key without `/` → `transactional`); the two dedicated senders use `organizer-assignment` and `admin-user-notification`. The write is best-effort (2.5 s timeout, errors logged and swallowed): it never changes the send result; a network error of Resend is journaled as `failed` and rethrown as before. Rows are purged after 90 days (pg_cron `transactional-email-log-purge`). The journal feeds the « E-mails (Resend) » health line of the admin dashboard and the Resend card of `/admin/system/integrations`.
+- `/admin/system/maintenance` gives the admin bulk sync a screen: a dry run by 10 pages of 100 users, then, after a confirmation that states the number of contacts and the unsubscribed default, the real sync page by page (`maxPages: 1`), waiting out the route's `429` (4 calls per minute) before retrying the same page. The route contract is unchanged.
 - `apps/web/app/api/resend/contact/route.test.ts` covers anonymous-user skipping, identified-user syncing, and Resend failure handling.
 - `apps/web/app/api/admin/resend/sync/route.ts` exposes `POST /api/admin/resend/sync`.
 - `apps/web/app/api/admin/resend/sync/route.test.ts` covers dry-run, create, and duplicate-update behavior.
@@ -161,6 +170,7 @@ For future Broadcast creation and dashboard draft updates, use [Resend Broadcast
 - Keep browser-component test dependencies out of `apps/web/lib/resend.ts` and its route tests; the Resend integration remains testable in the default Node environment.
 - Do not reuse the Organizer TUS upload client for email assets or contacts; Resend payloads continue through the bounded server-side REST helpers.
 - Supabase Auth invitation e-mail behavior remains separate from Resend Contact syncing and the existing-account assignment notice. Never send both invitation variants for the same direct assignment.
+- The e-mail journal must never store content or a full address: keep `maskEmailAddress` and `truncateLogMessage` (which also masks addresses quoted in a provider message) on every write path, and never make a send wait on or fail because of the journal.
 - The organizer assignment notice is best-effort after membership persistence. Log a missing configuration or delivery failure without rolling back access that was already granted.
 
 ## Related Docs
@@ -180,3 +190,9 @@ Replies to bugs and feedback (`PATCH /api/admin/feedback` with a notification) f
 A one-click close ("Clôturer") of a bug, feedback or race request changes only the status: no in-app notification, e-mail or push is created.
 
 `sendTransactionalEmail` (2026-11-16) sends a prebuilt HTML/text e-mail with optional `reply_to` and idempotency key, returning `sent` / `skipped` (missing configuration) / `failed`. It is used by organizer demo requests: a team notification (`ORGANIZER_DEMO_NOTIFY_EMAIL`, default the support mailbox) and a receipt to the organizer; visitor input is HTML-escaped.
+
+Admin console (2026-11-23, lot 5): `GET /api/admin/user-notifications` lists the history of the admin messages (Communication › Messages & notifications, runner profile) with the requested channels and their delivery state (`email_status`, `push_status`); it never returns `email_error`, `push_error` nor the Resend id, and sends nothing. All sends still go through POST of the same route, now from one helper (`sendAdminUserNotification`) and the one dialog `AdminNotificationDialog`.
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/race-requests/route.ts`, `app/api/admin/resend/sync/route.ts`, `app/api/admin/user-notifications/route.ts` now export their write handlers through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`race-request.status`, `maintenance.resend-sync`, `message.send`) to the admin action journal ([`admin_audit_log`](../02-database/tables/admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

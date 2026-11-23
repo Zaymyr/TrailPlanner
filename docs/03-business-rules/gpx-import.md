@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-11-22
+last_verified: 2026-11-23
 # Video generator header (2026-11-20): the admin video generator page header now uses the shared generate/publish switch; GPX rules unchanged.
 # Assisted legacy conversion (2026-11-15): review controls do not alter GPX parsing, waypoint hydration or persistence.
 # Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
@@ -17,6 +17,11 @@ ai_priority: high
 # Desktop fix (2026-11-13): GPX controls are visible again in the Course rail on desktop; below 900px they open from “Tracé et médias”. Import contract unchanged.
 # Fill-flow note (2026-11-13): organizer form ergonomics (ravito services, Enter-to-add, slot undo, sponsor ordering) do not alter stored data or contracts.
 related_files:
+  - apps/web/app/admin/_components/catalog/race-catalog-model.ts
+  - apps/web/app/admin/_components/catalog/AddRaceDialog.tsx
+  - apps/web/app/admin/_components/catalog/EditRaceDialog.tsx
+  - apps/web/app/admin/_components/catalog/TraceDeTrailImportDialog.tsx
+  - apps/web/app/admin/_components/catalog/UtmbImportDialog.tsx
   - apps/web/lib/gpx/parseGpx.ts
   - apps/mobile/lib/gpx.ts
   - apps/web/lib/gpx/normalizeImportedWaypoints.ts
@@ -29,6 +34,7 @@ related_files:
   - apps/web/app/courses/_components/PublicElevationProfile.tsx
   - apps/web/app/admin/components/AdminRaceCatalogSection.tsx
   - apps/web/app/admin/video-generator/page.tsx
+  - apps/web/app/admin/video-generator/VideoGeneratorStudio.tsx
   - apps/web/app/admin/video-generator/route-animation.ts
   - apps/web/app/api/admin/video-generator/races/[id]/route.ts
   - apps/web/lib/video-generator-race.ts
@@ -230,7 +236,7 @@ Published RaceBook branding may recolor the mobile route and elevation-profile s
 
 ## Admin 3D Course Viewer
 
-The admin-only `/admin/video-generator` surface reads both draft and published formats after trusted `app_metadata` authorization. Its detail route (loader `loadVideoGeneratorDetail` in `apps/web/lib/video-generator-race.ts`, also used server-side by the automatic reel pipeline, which never sends the GPX anywhere) downloads the private source object server-side, reuses `parseGpx`, and sends the browser only ordered point/elevation/distance DTOs and bounds. It never returns the Storage path, raw XML or a signed object URL. The DTO also carries the edition year parsed from `races.race_date` (null when absent or invalid) for the video title. Browser-side pacing and the elevation profile are derived from the same sampled GPX distances and elevations; aid stations stay positioned by `race_aid_stations.km` only, and their services (water, food, assistance, life base, drop bag, cutoff) come from the station row and its parsed organizer details, never from GPX waypoints. The page also hands the admin session token to the viewer so its narration routes (script and voice) authenticate like the detail route; climbs and descents for the narration are detected from the same sampled elevations. The start place shown and narrated is the first part of the organizer address ("Musée de Bibracte" rather than the full postal address), at most 48 characters. The race date and start time also feed an approximate race clock (classic pace from the sampled GPX distance and elevation, adjusted to station cutoffs) used only for the video day/night look; the chase camera distance follows the flyover speed along the same sampled path, and a told climb is framed whole from the sampled points between its foot and its top; the camera looks down at 54° from 4.5 to 20 km back so whole sections remain visible, and aid station icons sit on the interpolated route point at their kilometre; the camera aims at the mean of the sampled route points the runner covers within ±6 s. A told climb is framed from high above at about 1.5 times its length. The page lays the race column, the preview and a wider settings column side by side.
+The admin-only studio (`/admin/content/studio`, client `VideoGeneratorStudio.tsx`; the former `/admin/video-generator` URL redirects there) reads both draft and published formats after trusted `app_metadata` authorization. Its detail route (loader `loadVideoGeneratorDetail` in `apps/web/lib/video-generator-race.ts`, also used server-side by the automatic reel pipeline, which never sends the GPX anywhere) downloads the private source object server-side, reuses `parseGpx`, and sends the browser only ordered point/elevation/distance DTOs and bounds. It never returns the Storage path, raw XML or a signed object URL. The DTO also carries the edition year parsed from `races.race_date` (null when absent or invalid) for the video title. Browser-side pacing and the elevation profile are derived from the same sampled GPX distances and elevations; aid stations stay positioned by `race_aid_stations.km` only, and their services (water, food, assistance, life base, drop bag, cutoff) come from the station row and its parsed organizer details, never from GPX waypoints. The page also hands the admin session token to the viewer so its narration routes (script and voice) authenticate like the detail route; climbs and descents for the narration are detected from the same sampled elevations. The start place shown and narrated is the first part of the organizer address ("Musée de Bibracte" rather than the full postal address), at most 48 characters. The race date and start time also feed an approximate race clock (classic pace from the sampled GPX distance and elevation, adjusted to station cutoffs) used only for the video day/night look; the chase camera distance follows the flyover speed along the same sampled path, and a told climb is framed whole from the sampled points between its foot and its top; the camera looks down at 54° from 4.5 to 20 km back so whole sections remain visible, and aid station icons sit on the interpolated route point at their kilometre; the camera aims at the mean of the sampled route points the runner covers within ±6 s. A told climb is framed from high above at about 1.5 times its length. The page lays the race column, the preview and a wider settings column side by side.
 
 Unlike the public bounded preview and Organizer's sampled elevation payload, this internal viewer preserves every parsed point for a future camera path. The Mapbox GeoJSON source owns render-time optimization. Aid stations continue to be source kilometer facts: the viewer projects each one to the nearest cumulative-distance GPX point without persisting inferred coordinates.
 
@@ -351,4 +357,13 @@ GPX route/profile visibility now uses the shared Organizer switch row without ch
 
 Terrain-style section headers do not change GPX import or publication behavior.
 
+The admin « GPX à traiter » list (« Qualité des données » of `/admin/catalog/races?vue=qualite` since lot 1 of the admin console) links each race to `/admin/catalog/races?course=<races.id>`, which opens its edit dialog in the catalog to upload the GPX.
+
+Admin console (2026-11-23, lot 4): the `/organizer` dashboard lost its admin-only « Offrir une offre partenaire » buttons (replaced by a link to `/admin/organizers?edition=<id>`); GPX import, course editing and their permissions are unchanged.
+
+Admin console (2026-11-23, lot 5): `AdminRaceCatalogSection` was split without behaviour change: list grouped by event (`RaceCatalogList`), manual creation with GPX parsing (`AddRaceDialog`), UTMB and Trace de Trail imports (`UtmbImportDialog`, `TraceDeTrailImportDialog` with the shared session of `useTraceDeTrailCredentials`, also used by the « Importer » GPX re-import of the race edit dialog), race edit with GPX, aid stations and image (`EditRaceDialog`), event edit (`EditEventDialog`), pure helpers in `race-catalog-model.ts` (tested). Same routes, payloads, messages; `?course=<races.id>` still opens the race edit dialog.
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/race-catalog/tracedetrail/route.ts`, `app/api/admin/race-catalog/utmb/route.ts`, `app/api/race-catalog/route.ts` now export their write handlers through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`catalog.gpx`, `catalog.race-import`, `catalog.race-create`) to the admin action journal ([`admin_audit_log`](../02-database/tables/admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.
 Partner report note (2026-11-22): the Organizer dashboard adds a « Rapport partenaires » card under the Sponsors editor and the /organisateurs Signature card lists « Rapport partenaires »; neither touches this document's domain, data or contracts.

@@ -1,3 +1,4 @@
+import { withAdminAudit, shortAuditId } from "../../../../../../lib/admin-audit-log";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -116,7 +117,7 @@ async function renderAndAttachGeneratedInvoice(input: {
   }
 }
 
-export async function PUT(request: NextRequest, context: { params: { paymentId?: string } }) {
+async function putRoute(request: NextRequest, context: { params: { paymentId?: string } }) {
   const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
   const paymentId = z.string().uuid().safeParse(context.params.paymentId);
@@ -163,7 +164,7 @@ export async function PUT(request: NextRequest, context: { params: { paymentId?:
   }
 }
 
-export async function POST(request: NextRequest, context: { params: { paymentId?: string } }) {
+async function postRoute(request: NextRequest, context: { params: { paymentId?: string } }) {
   const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
   const paymentId = z.string().uuid().safeParse(context.params.paymentId);
@@ -245,3 +246,19 @@ export async function POST(request: NextRequest, context: { params: { paymentId?
     }, { status: 202 }));
   }
 }
+
+export const PUT = withAdminAudit(putRoute, {
+  action: "billing.payment-invoice",
+  targetType: "payment",
+  targetId: (c) => (c.params.paymentId ? `organizer_pack:${c.params.paymentId}` : undefined),
+  summary: (c) => `Facture PDF téléversée pour le virement ${shortAuditId(c.params.paymentId)}`,
+  after: () => null,
+});
+
+export const POST = withAdminAudit(postRoute, {
+  action: "billing.payment-invoice",
+  targetType: "payment",
+  targetId: (c) => (c.params.paymentId ? `organizer_pack:${c.params.paymentId}` : undefined),
+  summary: (c) => `Facture générée pour le virement ${shortAuditId(c.params.paymentId)}`,
+  after: () => null,
+});

@@ -264,7 +264,7 @@ describe("/api/admin/event-publication-requests PATCH", () => {
     expect(payload.events[1].races[0].name).toBe("Ancienne édition");
     expect(payload.publicationRequests[0].requested_race.name).toBe("42 km");
     expect(String(vi.mocked(fetch).mock.calls[0]?.[0])).toContain("requested_race:races");
-    expect(String(vi.mocked(fetch).mock.calls[1]?.[0])).toContain("race_event_editions(id,is_current,edition_year,start_date)");
+    expect(String(vi.mocked(fetch).mock.calls[1]?.[0])).toContain("race_event_editions(id,is_current,edition_year,start_date,slug)");
   });
 });
 

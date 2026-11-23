@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody, pickAuditFields } from "../../../../../lib/admin-audit-log";
 import { z } from "zod";
 
 import { isInstagramPublishDryRun } from "../../../../../lib/instagram/config";
@@ -80,7 +81,7 @@ export async function GET(request: Request, context: { params: { id: string } })
 }
 
 /** Edits the caption of a draft (or of a failed post, whose container is then dropped). */
-export async function PATCH(request: Request, context: { params: { id: string } }) {
+async function patchRoute(request: Request, context: { params: { id: string } }) {
   const params = paramsSchema.safeParse(context.params);
   if (!params.success) return renderJsonError("Publication invalide.", 400);
   const gate = await authorizeVideoAdmin(request);
@@ -114,7 +115,7 @@ export async function PATCH(request: Request, context: { params: { id: string } 
 }
 
 /** publish_now | schedule | unschedule | retry | advance (one step of an in-flight publication). */
-export async function POST(request: Request, context: { params: { id: string } }) {
+async function postRoute(request: Request, context: { params: { id: string } }) {
   const params = paramsSchema.safeParse(context.params);
   if (!params.success) return renderJsonError("Publication invalide.", 400);
   const gate = await authorizeVideoAdmin(request);
@@ -198,7 +199,7 @@ export async function POST(request: Request, context: { params: { id: string } }
 }
 
 /** Deletes a draft or a failed post; published history is kept. */
-export async function DELETE(request: Request, context: { params: { id: string } }) {
+async function deleteRoute(request: Request, context: { params: { id: string } }) {
   const params = paramsSchema.safeParse(context.params);
   if (!params.success) return renderJsonError("Publication invalide.", 400);
   const gate = await authorizeVideoAdmin(request);
@@ -218,3 +219,33 @@ export async function DELETE(request: Request, context: { params: { id: string }
     return renderJsonError("La publication n’a pas pu être supprimée.", 502);
   }
 }
+
+export const PATCH = withAdminAudit(patchRoute, {
+  action: "content.post-update",
+  targetType: "post",
+  targetId: (c) => c.params.id,
+  summary: "Publication modifiée",
+});
+
+export const POST = withAdminAudit(postRoute, {
+  action: (c) => (auditBody(c).action === "schedule" || auditBody(c).action === "unschedule" ? "content.post-schedule" : "content.post-publish"),
+  targetType: "post",
+  targetId: (c) => c.params.id,
+  skip: (c) => auditBody(c).action === "advance",
+  summary: (c) =>
+    ({
+      publish_now: "Publication immédiate lancée",
+      schedule: `Publication programmée (${auditBody(c).scheduledAtLocal ?? "?"})`,
+      unschedule: "Programmation annulée",
+      retry: "Publication relancée après un échec",
+    } as Record<string, string>)[String(auditBody(c).action)] ?? "Publication modifiée",
+  after: (c) => pickAuditFields(c.body, ["action", "scheduledAtLocal", "confirmRestart"]),
+});
+
+export const DELETE = withAdminAudit(deleteRoute, {
+  action: "content.post-delete",
+  targetType: "post",
+  targetId: (c) => c.params.id,
+  summary: "Publication supprimée",
+  after: () => null,
+});

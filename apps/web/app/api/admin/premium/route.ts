@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody, auditResponse, pickAuditFields, shortAuditId } from "../../../../lib/admin-audit-log";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -206,7 +207,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function postRoute(request: NextRequest) {
   const auth = await authorizeAdmin(request);
   if ("error" in auth) return auth.error;
 
@@ -274,7 +275,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function PATCH(request: NextRequest) {
+async function patchRoute(request: NextRequest) {
   const auth = await authorizeAdmin(request);
   if ("error" in auth) return auth.error;
 
@@ -344,7 +345,7 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-export async function DELETE(request: NextRequest) {
+async function deleteRoute(request: NextRequest) {
   const auth = await authorizeAdmin(request);
   if ("error" in auth) return auth.error;
 
@@ -410,3 +411,27 @@ export async function DELETE(request: NextRequest) {
     return withSecurityHeaders(NextResponse.json({ message: "Unable to revoke premium grant." }, { status: 500 }));
   }
 }
+
+export const POST = withAdminAudit(postRoute, {
+  action: "premium.grant",
+  targetType: "user",
+  targetId: (c) => auditBody(c).userId as string | undefined,
+  summary: (c) => `Premium accordé au coureur ${shortAuditId(auditBody(c).userId)} pour ${auditBody(c).initialDurationDays ?? "?"} jours`,
+  after: (c) => pickAuditFields(c.body, ["startsAt", "initialDurationDays", "reason"]),
+});
+
+export const PATCH = withAdminAudit(patchRoute, {
+  action: "premium.update",
+  targetType: "user",
+  targetId: (c) => auditBody(c).userId as string | undefined,
+  summary: (c) => `Attribution Premium du coureur ${shortAuditId(auditBody(c).userId)} modifiée (${auditBody(c).initialDurationDays ?? "?"} jours)`,
+  after: (c) => pickAuditFields(c.body, ["id", "startsAt", "initialDurationDays", "reason"]),
+});
+
+export const DELETE = withAdminAudit(deleteRoute, {
+  action: "premium.revoke",
+  targetType: (c) => ((auditResponse(c).premiumGrant as { userId?: string } | null)?.userId ? "user" : "premium-grant"),
+  targetId: (c) => (auditResponse(c).premiumGrant as { userId?: string } | null)?.userId ?? (auditBody(c).id as string | undefined),
+  summary: "Attribution Premium révoquée",
+  after: (c) => pickAuditFields(c.body, ["id"]),
+});

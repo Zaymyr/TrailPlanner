@@ -11,6 +11,9 @@ import type { SupabaseServiceConfig } from "./supabase";
 export const RENDER_ACTIVITY_WINDOW_MS = 24 * 60 * 60 * 1_000;
 const LIST_LIMIT = 12;
 
+/** Message of a render marked failed because it stopped reporting. */
+export const RENDER_LOST_MESSAGE = "Le rendu n’a plus donné de nouvelles : relance-le.";
+
 export type RenderActivityStatus = "active" | "done" | "failed";
 export type RenderActivity = {
   id: string;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { PublicSocialPost } from "../../../lib/social-posts";
-import { buildAttentionList, postTitle, readTabFromLocation, tabForPost } from "./publication-tabs";
+import { buildAttentionList, POSTS_TABS, postTitle, publicationTargetHref, readPostsHighlight, readPostsTab, readTabFromLocation, summarizeRenderActivity, tabForPost } from "./publication-tabs";
 import type { RenderActivityView } from "./publications-api";
 
 const NOW = Date.parse("2026-11-20T15:00:00Z");
@@ -51,7 +51,7 @@ describe("publication tabs", () => {
       ],
     });
     expect(list.map((entry) => entry.key)).toEqual(["render-running", "render-broken", "post-failed", "post-draft", "post-soon", "post-later"]);
-    expect(list.find((entry) => entry.key === "render-broken")?.target.tab).toBe("carousels");
+    expect(list.find((entry) => entry.key === "render-broken")?.target).toEqual({ tab: "carousels", renderId: "broken" });
     expect(list.find((entry) => entry.key === "post-draft")?.detail).toBe("Brouillon automatique à relire");
     expect(list.find((entry) => entry.key === "post-failed")).toMatchObject({ tone: "error", target: { tab: "reels", postId: "failed" } });
   });
@@ -61,5 +61,46 @@ describe("publication tabs", () => {
     expect(key({ status: "failed", error: "Vidéo refusée" })).toBe(key({ status: "failed", error: "Vidéo refusée" }));
     expect(key({ status: "failed", error: "Quota atteint" })).not.toBe(key({ status: "failed", error: "Vidéo refusée" }));
     expect(key({ status: "draft" })).not.toBe(key({ status: "failed", error: "Vidéo refusée" }));
+  });
+});
+
+describe("console Publications tabs", () => {
+  it("reads the tab and the item to highlight", () => {
+    expect(readPostsTab("")).toBe("reels");
+    expect(readPostsTab("?onglet=templates")).toBe("templates");
+    expect(readPostsTab("?onglet=agenda")).toBe("reels");
+    expect(readPostsHighlight("?post=p1&element=")).toEqual({ postId: "p1", itemId: null });
+  });
+
+  it("links an agenda target to its console page", () => {
+    expect(publicationTargetHref({ tab: "reels", postId: "p1" })).toBe("/admin/content/posts?post=p1");
+    expect(publicationTargetHref({ tab: "carousels", itemId: "i1" })).toBe("/admin/content/posts?onglet=carousels&element=i1");
+    expect(publicationTargetHref({ tab: "published", postId: "p2" })).toBe("/admin/content/posts?onglet=published&post=p2");
+    expect(publicationTargetHref({ tab: "reels" })).toBe("/admin/content/posts");
+    expect(publicationTargetHref({ tab: "gpx" })).toBe("/admin/catalog/races?vue=qualite");
+    expect(publicationTargetHref({ tab: "settings" })).toBe("/admin/system/automation");
+  });
+
+  it("links a render to the render queue and a flyover order to its card", () => {
+    expect(publicationTargetHref({ tab: "reels", renderId: "r1" })).toBe("/admin/content/renders?rendu=r1");
+    expect(publicationTargetHref({ tab: "flyovers", orderId: "o1" })).toBe("/admin/content/flyovers?commande=o1");
+    expect(publicationTargetHref({ tab: "flyovers" })).toBe("/admin/content/flyovers");
+  });
+
+  it("names the manual carousel next to the automatic ones and keeps its old URL", () => {
+    expect(POSTS_TABS.map((tab) => tab.label)).toEqual(["Reels", "Carrousels automatiques", "Carrousel manuel", "Publiées"]);
+    expect(readPostsTab("?onglet=templates")).toBe("templates");
+  });
+
+  it("summarises the last 24 h of renders: running first, then failures, finished ones counted", () => {
+    const base = { kind: "reel" as const, title: "T", progress: null, stage: "", createdAt: "2026-11-20T14:50:00Z", startedAt: null, finishedAt: null };
+    const summary = summarizeRenderActivity([
+      { ...base, id: "done", status: "done" },
+      { ...base, id: "failed", status: "failed" },
+      { ...base, id: "running", status: "active" },
+      { ...base, id: "done2", status: "done" },
+    ]);
+    expect(summary.shown.map((job) => job.id)).toEqual(["running", "failed"]);
+    expect(summary.doneCount).toBe(2);
   });
 });

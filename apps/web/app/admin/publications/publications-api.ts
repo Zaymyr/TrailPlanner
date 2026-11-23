@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { FLYOVER_ADMIN_ACTIONS } from "../../../lib/flyover-admin";
 import { publicationMarkSchema, publicSocialPostSchema, type SocialPostAction } from "../../../lib/social-posts";
 
 /** Client contracts of the admin publications routes (every response is parsed). */
@@ -177,3 +178,35 @@ export const raceDataGapSchema = z.object({
 });
 export type RaceDataGapView = z.infer<typeof raceDataGapSchema>;
 export const raceDataGapsResponseSchema = z.object({ today: z.string(), leadDays: z.number(), gaps: z.array(raceDataGapSchema) });
+
+/** Organizer flyover orders (`/api/admin/flyover-orders`): the Vidéos de survol page and the calendar. */
+export const flyoverOrderViewSchema = z.object({
+  id: z.string(),
+  raceName: z.string(),
+  offer: z.enum(["collab", "download"]),
+  status: z.string(),
+  statusLabel: z.string(),
+  contactEmail: z.string(),
+  instagramHandle: z.string().nullable(),
+  publishLocal: z.string().nullable(),
+  mapPreset: z.string(),
+  storyMode: z.string().nullable(),
+  distanceKm: z.number(),
+  aidStationCount: z.number(),
+  attempts: z.number(),
+  maxAttempts: z.number(),
+  error: z.string().nullable(),
+  paidAt: z.string().nullable(),
+  readyAt: z.string().nullable(),
+  createdAt: z.string(),
+  readyEmailSent: z.boolean(),
+  renderJobId: z.string().nullable(),
+  renderStatus: z.string().nullable(),
+  renderProgress: z.number().nullable(),
+  socialPostId: z.string().nullable(),
+  orderUrl: z.string().nullable(),
+  downloadUrl: z.string().nullable(),
+  actions: z.array(z.enum(FLYOVER_ADMIN_ACTIONS)),
+});
+export type FlyoverOrderView = z.infer<typeof flyoverOrderViewSchema>;
+export const flyoverOrdersResponseSchema = z.object({ orders: z.array(flyoverOrderViewSchema) });

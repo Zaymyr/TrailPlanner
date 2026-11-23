@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody, auditResponse, pickAuditFields, shortAuditId } from "../../../../lib/admin-audit-log";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -31,7 +32,7 @@ async function loadContext(config: Parameters<typeof buildManualOrganizerInvoice
   return { edition, replacement };
 }
 
-export async function POST(request: NextRequest) {
+async function postRoute(request: NextRequest) {
   const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
   const input = organizerManualInvoiceInputSchema.safeParse(await request.json().catch(() => null));
@@ -89,3 +90,17 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export const POST = withAdminAudit(postRoute, {
+  action: "billing.invoice-create",
+  targetType: "invoice",
+  targetId: (c) => {
+    const id = (auditResponse(c).invoice as { id?: string } | null)?.id;
+    return id ? `organizer_invoice:${id}` : undefined;
+  },
+  summary: (c) => {
+    const invoice = auditResponse(c).invoice as { invoice_number?: string; invoiceNumber?: string } | null;
+    const number = invoice?.invoice_number ?? invoice?.invoiceNumber;
+    return `Facture${number ? ` ${number}` : ""} créée pour l’édition ${shortAuditId(auditBody(c).editionId)}`;
+  },
+  after: (c) => pickAuditFields(c.body, ["editionId", "tier", "serviceDate", "dueDate", "replacesInvoiceId"]),
+});

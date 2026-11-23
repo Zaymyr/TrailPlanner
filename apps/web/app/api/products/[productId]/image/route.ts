@@ -1,3 +1,4 @@
+import { withAdminAudit, shortAuditId } from "../../../../../lib/admin-audit-log";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -42,7 +43,7 @@ function extractStoragePathFromPublicUrl(imageUrl: string | null | undefined): s
   return imageUrl.slice(markerIndex + marker.length);
 }
 
-export async function PUT(request: NextRequest, context: { params: { productId?: string } }) {
+async function putRoute(request: NextRequest, context: { params: { productId?: string } }) {
   const supabaseAnon = getSupabaseAnonConfig();
   const supabaseService = getSupabaseServiceConfig();
 
@@ -203,3 +204,11 @@ export async function PUT(request: NextRequest, context: { params: { productId?:
 
   return withSecurityHeaders(NextResponse.json({ imageUrl: publicUrl }));
 }
+
+export const PUT = withAdminAudit(putRoute, {
+  action: "product.image",
+  targetType: "product",
+  targetId: (c) => c.params.productId,
+  summary: (c) => `Image du produit ${shortAuditId(c.params.productId)} remplacée`,
+  after: () => null,
+});

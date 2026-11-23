@@ -1,7 +1,7 @@
 ---
 title: OpenAI Organizer Import Reconciliation
 scope: integration
-last_verified: 2026-11-15
+last_verified: 2026-11-23
 # Assisted legacy conversion (2026-11-15): bounded historical text uses strict block-specific JSON schemas and returns proposals only; full website import remains admin-only.
 # Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
 # Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
@@ -145,4 +145,9 @@ The compact Organizer banner keeps assisted import in its existing Actions menu;
 
 Organizer finishing styles do not change assisted-import requests, files, or reconciliation.
 
+Admin console (2026-11-23, lot 4): the `/organizer` dashboard changed only its admin pack section (link to `/admin/organizers?edition=<id>` instead of « Offrir une offre partenaire »); the assisted import flow, its authorization and its OpenAI calls are unchanged.
+
+## Admin audit journal (lot 7)
+
+`app/api/organizer/events/[id]/website-import/route.ts` now exports its write handler through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`catalog.event-import`) to the admin action journal ([`admin_audit_log`](../02-database/tables/admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.
 Partner report note (2026-11-22): the Organizer dashboard adds a « Rapport partenaires » card under the Sponsors editor and the /organisateurs Signature card lists « Rapport partenaires »; neither touches this document's domain, data or contracts.

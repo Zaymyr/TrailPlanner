@@ -1,3 +1,4 @@
+import { withAdminAudit, shortAuditId } from "../../../../../lib/admin-audit-log";
 import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -87,7 +88,7 @@ export async function GET(_request: NextRequest, context: { params: { id?: strin
   );
 }
 
-export async function PUT(request: NextRequest, context: { params: { id?: string } }) {
+async function putRoute(request: NextRequest, context: { params: { id?: string } }) {
   const supabaseAnon = getSupabaseAnonConfig();
   const supabaseService = getSupabaseServiceConfig();
 
@@ -260,3 +261,11 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
 
   return withSecurityHeaders(NextResponse.json({ race: updated?.[0] ?? null }));
 }
+
+export const PUT = withAdminAudit(putRoute, {
+  action: "catalog.gpx",
+  targetType: "race",
+  targetId: (c) => c.params.id,
+  summary: (c) => `GPX de la course ${shortAuditId(c.params.id)} remplacé`,
+  after: () => null,
+});

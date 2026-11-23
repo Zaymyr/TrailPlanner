@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody } from "../../../../lib/admin-audit-log";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -109,7 +110,7 @@ export async function GET(request: NextRequest) {
   }));
 }
 
-export async function PATCH(request: NextRequest) {
+async function patchRoute(request: NextRequest) {
   const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
   const rateLimit = await checkRateLimitAsync(`admin-feedback-review:${auth.user.id}`, 30, 60_000);
@@ -150,3 +151,11 @@ export async function PATCH(request: NextRequest) {
     return jsonError(error instanceof Error ? error.message : "Unable to review feedback.", 502);
   }
 }
+
+export const PATCH = withAdminAudit(patchRoute, {
+  action: "feedback.status",
+  targetType: "feedback",
+  targetId: (c) => auditBody(c).feedbackId as number | undefined,
+  summary: (c) => `Bug ou retour n° ${auditBody(c).feedbackId ?? "?"} marqué « ${({ pending: "à traiter", completed: "traité", rejected: "refusé" } as Record<string, string>)[String(auditBody(c).status)] ?? "?"} »${auditBody(c).notification ? " avec réponse" : ""}`,
+  after: (c) => ({ status: auditBody(c).status, replied: Boolean(auditBody(c).notification) }),
+});

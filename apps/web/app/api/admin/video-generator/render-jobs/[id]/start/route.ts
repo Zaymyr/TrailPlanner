@@ -1,3 +1,4 @@
+import { withAdminAudit, shortAuditId } from "../../../../../../../lib/admin-audit-log";
 import { z } from "zod";
 
 import {
@@ -14,7 +15,7 @@ import { authorizeRenderAdmin, describeRenderError, renderJson, renderJsonError 
 
 const paramsSchema = z.object({ id: z.string().uuid() });
 
-export async function POST(request: Request, context: { params: { id?: string } }) {
+async function postRoute(request: Request, context: { params: { id?: string } }) {
   const params = paramsSchema.safeParse(context.params);
   if (!params.success) return renderJsonError("Invalid render job id.", 400);
   const gate = await authorizeRenderAdmin(request);
@@ -40,3 +41,11 @@ export async function POST(request: Request, context: { params: { id?: string } 
     return renderJsonError(message, 502);
   }
 }
+
+export const POST = withAdminAudit(postRoute, {
+  action: "render.start",
+  targetType: "render",
+  targetId: (c) => c.params.id,
+  summary: (c) => `Rendu ${shortAuditId(c.params.id)} démarré`,
+  after: () => null,
+});

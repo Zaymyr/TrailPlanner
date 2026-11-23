@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody, pickAuditFields } from "../../../../../../lib/admin-audit-log";
 import { z } from "zod";
 
 import { createCarouselItemRepository } from "../../../../../../lib/carousels/carousel-automation";
@@ -10,7 +11,7 @@ const actionSchema = z.object({ action: z.enum(["exclude", "include"]) });
 const EXCLUDABLE = "or=(status.in.(planned,failed),and(status.eq.skipped,reason.in.(too_late,no_candidate,occupied,duplicate,ineligible)),and(status.eq.generating,locked_until.is.null))";
 
 /** « Exclure » skips the slot for good (reason `excluded`); « Rétablir » plans it again. */
-export async function PATCH(request: Request, context: { params: { id: string } }) {
+async function patchRoute(request: Request, context: { params: { id: string } }) {
   const params = paramsSchema.safeParse(context.params);
   if (!params.success) return renderJsonError("Élément invalide.", 400);
   const gate = await authorizeVideoAdmin(request);
@@ -29,3 +30,11 @@ export async function PATCH(request: Request, context: { params: { id: string } 
     return renderJsonError("Le créneau n’a pas pu être modifié.", 502);
   }
 }
+
+export const PATCH = withAdminAudit(patchRoute, {
+  action: "automation.carousel-item",
+  targetType: "automation",
+  targetId: (c) => c.params.id,
+  summary: (c) => (auditBody(c).action === "exclude" ? "Élément du plan des carrousels exclu" : "Élément du plan des carrousels rétabli"),
+  after: (c) => pickAuditFields(c.body, ["action"]),
+});

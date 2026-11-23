@@ -2,7 +2,7 @@
 title: Organizer Race Management
 scope: business-rule
 
-last_verified: 2026-11-22
+last_verified: 2026-11-23
 # Supporter onboarding (2026-11-18): the mobile guided catalog gains a `supporter` mode over the same public event list; no read, table or RLS change here (the only schema change is `user_profiles.supporter_onboarding_status`).
 # Inbox push badge (2026-11-18): apps/web/lib/push.ts adds an iOS badge only to admin inbox pushes (unread user_notifications count); race event update pushes, schema and RLS are unchanged.
 # Livret supporter private preview (2026-11-18): an active organizer opens the private Livret supporter (catalog entry, app screen and web page send the session token); runners still need a public format.
@@ -28,6 +28,11 @@ ai_priority: high
 # UX pass (2026-11-14): ravito type is exposed again as Ravito / Base de vie; equipment items added from the quick-add bar are prepended; status is a per-row switch. Persisted fields unchanged.
 # Course timeline pass (2026-11-14): the Départ/ravitos editor shows one timeline filtered by Tout / Ravitos / Suivi / SAS / Relais; SAS sit right after Départ, each point kind has its own marker (ravito green dot, base de vie larger dot + badge, suivi blue ring + “Suivi” tag, relais violet diamond), aid/relay/finish rows show a clock cutoff chip or “Sans barrière”, the right panel follows the clicked point, the timeline is height-capped with its own scroll, and “Horaires et consignes” sits below the grid so the sticky timeline no longer overlaps it.
 related_files:
+  - apps/web/app/admin/_components/organizers/organizer-admin-model.ts
+  - apps/web/app/admin/_components/organizers/useOrganizerAdminData.ts
+  - apps/web/app/admin/_components/organizers/EditionDrawer.tsx
+  - apps/web/app/admin/_components/organizers/EditionPackForm.tsx
+  - apps/web/app/admin/_components/organizers/OrganizerRequestItems.tsx
   - apps/web/lib/racebook-publication-checks.ts
   - apps/web/lib/racebook-publication-checks.test.ts
   - apps/web/app/organizer/_components/dashboard/publication-review.tsx
@@ -820,6 +825,14 @@ Organizer header (2026-11-16): the dashboard header no longer shows the « Aper�
 
 The `/organisateurs` acquisition page metadata now targets « organisateurs » (title within 60 characters, description within 160) without changing the page content or the `/organizers` creation flow.
 
-## Funnel analytics touch (2026-11-22)
+Admin (2026-11-22): `/admin?onglet=organisateurs&vue=publication|acces` is a shareable URL, and the pending claims, publication requests and new-edition requests are counted as badges (`GET /api/admin/inbox-counts`).
 
+Admin console (2026-11-23, lot 4): the admin-only « Offrir une offre partenaire » section of the `/organizer` pricing dialog is replaced by a « Gérer le pack dans l’admin » link to `/admin/organizers?edition=<id>`; packs (origin Offert included) are granted only from « Gérer le pack et les accès ». Invoices and bank transfers are handled in « Ventes & facturation » (`/admin/billing`); the Organisateurs publication list shows a compact billing summary per edition. Organizer ownership, membership, publication and edit permissions are unchanged.
+
+Admin console (2026-11-23, lot 5): Organisateurs is split into domain components (`app/admin/_components/organizers/`: giftable module catalog, pending requests, rights per edition, organizer assignment, active accesses; data and review actions in `useOrganizerAdminData`, same requests). An edition opens a side panel (`?edition=<id>&fiche=resume|pack|facturation|demandes|activite`; a `?edition=` link from Ventes & facturation or `/organizer` still narrows the list to that edition): Résumé (event, edition, member organizers, Racebook state per format, links to `/organizer?eventId=` and to `/courses/evenements/<slug>`), Pack & modules (the former « Gérer le pack et les accès » dialog, same fields and same PATCH `setEditionGrant` then `setEditionCapabilityGrant` calls), Facturation (summary, filtered register, invoice and bank-transfer dialogs), Demandes (this edition's publication requests, claims and new-edition requests with the same review actions) and Activité (the stored social-proof reader statistics). `GET /api/admin/event-publication-requests` also returns `editionSlug` per edition (read from `race_event_editions.slug`). No rule, state or attribution route changes.
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/event-publication-requests/route.ts`, `app/api/admin/organizer-claims/route.ts`, `app/api/admin/organizer-payments/[paymentId]/invoice/route.ts`, `app/api/admin/organizer-payments/route.ts`, `app/api/admin/organizer-social-proofs/route.ts`, `app/api/organizer/events/[id]/website-import/route.ts` now export their write handlers through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`edition.publication`, `edition.pack`, `organizer.claim`, `billing.payment-invoice`, `billing.payment-create`, `organizer.social-proof`, `catalog.event-import`) to the admin action journal ([`admin_audit_log`](../02-database/tables/admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.
+## Funnel analytics touch (2026-11-22)
 The web runner funnel instrumentation (analytics events only) touched `RacePlannerPageContent.tsx`: the planner upgrade modal emits `premium checkout started` and `QuickRaceEstimate` remembers the source race. No data contract, RLS rule or business rule described here changed. Web runner funnel analytics (2026-11-22): see [analytics.md](../05-integrations/analytics.md#web-runner-funnel-2026-11-22).

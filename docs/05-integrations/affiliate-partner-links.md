@@ -2,7 +2,7 @@
 title: Affiliate Partner Links
 scope: integration
 
-last_verified: 2026-11-18
+last_verified: 2026-11-22
 # Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
 # Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
 # Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
@@ -50,7 +50,7 @@ Chronological cutoff resolution, the Courses image placeholder and plan access g
 
 The race-workspace header toolbar/footer layout (lot 10) does not change partner-link resolution, placement, click tracking, or destinations.
 
-The separate admin link to `/admin/video-generator` does not share partner-link configuration, persistence, destinations, or analytics. Neither does the « Publications » link to `/admin/publications` (Instagram Reels publishing, [instagram-publishing.md](instagram-publishing.md)).
+The admin studio (`/admin/content/studio`, formerly `/admin/video-generator`) does not share partner-link configuration, persistence, destinations, or analytics. Neither do the Publications screens (`/admin/content/*`, formerly `/admin/publications`) (Instagram Reels publishing, [instagram-publishing.md](instagram-publishing.md)).
 
 Moving official timing into the shared RaceBook header and removing its duplicate Trace row does not change partner-link resolution, placement, click tracking, or destinations.
 
@@ -162,3 +162,9 @@ RaceBook polish (2026-11-09): the runner hero keeps the format/event thumbnail b
 The Decathlon (Matériel) and Booking (Services) cards are partner slots. The default remains the resolved affiliate link and its disclosure. When a published Signature RaceBook replaces a slot with an organizer partner, mobile renders the partner name, logo, headline and `Découvrir` action through the counted `/api/racebook-partner-slots/:slot/click` redirect, without the affiliate disclosure and without a `partner_*` RaceBook action; a hidden slot renders no card. The partner-links endpoint and affiliate destinations are unchanged.
 
 Runner copy and saved-plan layout changes do not modify affiliate labels, destinations or partner-slot behavior.
+
+Admin console (2026-11-22, lot 1): the « Liens partenaires » tab is the page `/admin/catalog/partners` (same `AdminPartnerLinksTab`, same API); `/admin?onglet=partenaires` redirects there.
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/partner-links/route.ts` now exports its write handler through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`partner.links`) to the admin action journal ([`admin_audit_log`](../02-database/tables/admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

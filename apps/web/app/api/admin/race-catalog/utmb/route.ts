@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody, auditResponse, pickAuditFields } from "../../../../../lib/admin-audit-log";
 import { createHash, randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -211,7 +212,7 @@ async function ensureRaceEventId(serviceConfig: SupabaseServiceConfig, payload: 
   return created?.id ?? null;
 }
 
-export async function POST(request: NextRequest) {
+async function postRoute(request: NextRequest) {
   const admin = await requireAdmin(request);
   if ("error" in admin) return admin.error;
 
@@ -427,3 +428,12 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = withAdminAudit(postRoute, {
+  action: "catalog.race-import",
+  targetType: "race",
+  targetId: (c) => (auditResponse(c).race as { id?: string } | null)?.id,
+  skip: (c) => auditBody(c).action !== "import",
+  summary: "Course importée depuis UTMB",
+  after: (c) => pickAuditFields(c.body, ["url", "action", "isLive"]),
+});

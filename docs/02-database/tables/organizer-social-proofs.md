@@ -108,7 +108,7 @@ limit 3;
 - Do not expose drafts or audit ids through an anonymous Data API grant. Public presentation remains server-only and allowlisted.
 - The event favorite count is event-scoped current stock and is intentionally not stored in an edition proof.
 - The hero and highlighted section intentionally reuse the same first ordered snapshot; do not compute a separate or fresher metric in the client. The home page (`HomeProofStrip`, 2026-11-22) also summarizes that first snapshot (logo, race name, the two metrics) from the same cached server read and links to `/organisateurs#preuve-sociale`; it renders nothing without a published proof. On `/organisateurs` the hero strip now follows the primary CTA instead of preceding it, a presentation-only move.
-- The admin header's separate 3D video-generator link neither reads nor mutates organizer proof snapshots. The same holds for the « Publications » link (`/admin/publications`, Instagram Reels, see [Instagram Reels Publishing](../../05-integrations/instagram-publishing.md)).
+- The admin header's separate 3D video-generator link neither reads nor mutates organizer proof snapshots. The same holds for the Publications screens (`/admin/content/posts` since lot 1 of the admin console, Instagram Reels, see [Instagram Reels Publishing](../../05-integrations/instagram-publishing.md)).
 - Changing the organizer logo or event image does not call `revalidateTag("organizer-social-proofs")`; the landing picks it up within the five-minute cache window (or immediately after any proof save). The race-events thumbnail can be a photo rather than a logo, so check the admin preview before publishing.
 
 ## Related Docs
@@ -124,4 +124,9 @@ The `/organisateurs` metadata title is « Livret coureur et livret supporter pou
 
 Organizer pricing (2026-11-22): pack prices are now Essentiel 199 €, Complet 349 € and Signature 499 € HT, read from `ORGANIZER_TIER_PRICE_EUR` (see [Organizer Commercial Offers](../../03-business-rules/organizer-commercial-offers.md)). Copy and default amounts only; no table, contract or state change.
 
+Admin (2026-11-22): the « Preuves sociales » tab of `/admin` is addressable as `?onglet=preuves`. Since lot 1 of the admin console it is the page `/admin/organizers/social-proofs` (same `AdminOrganizerSocialProofsTab`, same routes); the old URL redirects there.
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/organizer-social-proofs/route.ts` now exports its write handler through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`organizer.social-proof`) to the admin action journal ([`admin_audit_log`](./admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.
 Partner report note (2026-11-22): the Organizer dashboard adds a « Rapport partenaires » card under the Sponsors editor and the /organisateurs Signature card lists « Rapport partenaires »; neither touches this document's domain, data or contracts.

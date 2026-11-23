@@ -1,10 +1,13 @@
 ---
 title: Mapbox 3D Admin Course Viewer
 scope: integration
-last_verified: 2026-11-20
+last_verified: 2026-11-22
 # Generator header and publication marks (2026-11-20): the generator header uses the shared « Générer une vidéo / Publier » switch and the race picker labels a format already published on Instagram (« publiée le … »).
 ai_priority: high
 related_files:
+  - apps/web/app/admin/video-generator/studio-draft.ts
+  - apps/web/app/admin/video-generator/ReelPipelinePanel.tsx
+  - apps/web/app/admin/video-generator/VideoGeneratorMapClient.tsx
   - apps/web/app/admin/video-generator/export-frame.test.ts
   - apps/web/app/admin/video-generator/export-frame.ts
   - apps/web/app/admin/video-generator/reel-composition.ts
@@ -16,6 +19,8 @@ related_files:
   - apps/web/.env.example
   - apps/web/app/admin/page.tsx
   - apps/web/app/admin/video-generator/page.tsx
+  - apps/web/app/admin/video-generator/VideoGeneratorStudio.tsx
+  - apps/web/app/admin/content/studio/page.tsx
   - apps/web/app/admin/video-generator/VideoGeneratorMap.tsx
   - apps/web/app/admin/video-generator/VideoGeneratorMapClient.tsx
   - apps/web/app/admin/video-generator/VideoGeneratorMapClient.test.ts
@@ -114,11 +119,11 @@ The workspace dependency update for shared plan-tracking code does not change Ma
 
 The admin page now also has a messaging inbox (bugs, feedback, race requests). That tab and its user-notification delivery are independent from the lazy 3D video-generator route and do not load Mapbox, GPX, narration, or rendering dependencies.
 
-The admin header also links to `/admin/publications` (2026-11-19), which publishes finished background renders as Instagram Reels. It loads no Mapbox code: it only reads `video_render_jobs` and plays the stored MP4. Its server-only variables (`IG_SYSTEM_USER_TOKEN`, `IG_USER_ID`, `FB_PAGE_ID`, `INSTAGRAM_*`) are listed in `apps/web/.env.example` and documented in [Instagram Reels Publishing](instagram-publishing.md); none is a `NEXT_PUBLIC_` value.
+The admin also has the Publications screens (2026-11-19; `/admin/content/posts` since lot 1 of the admin console, formerly `/admin/publications`), which publish finished background renders as Instagram Reels. It loads no Mapbox code: it only reads `video_render_jobs` and plays the stored MP4. Its server-only variables (`IG_SYSTEM_USER_TOKEN`, `IG_USER_ID`, `FB_PAGE_ID`, `INSTAGRAM_*`) are listed in `apps/web/.env.example` and documented in [Instagram Reels Publishing](instagram-publishing.md); none is a `NEXT_PUBLIC_` value.
 
 ## Purpose
 
-The admin-only `/admin/video-generator` route renders existing race GPX files over satellite imagery and real 3D terrain. Phase 2 adds a deterministic automatic flyover and interactive timeline. Phase 3 priority 1 adds the full Reel composition preview (header, animated elevation profile, current kilometre, aid-station labels, branding, intro and outro) driven by one time function meant to be reused by the future MP4 export. It still does not capture frames, encode video, or install Remotion/FFmpeg.
+The admin-only studio route (`/admin/content/studio` since lot 1 of the admin console; `/admin/video-generator` now redirects there, and the client moved from `video-generator/page.tsx` to `video-generator/VideoGeneratorStudio.tsx`, every other module of that folder unchanged and still imported by the render pages and `lib/`) renders existing race GPX files over satellite imagery and real 3D terrain. Phase 2 adds a deterministic automatic flyover and interactive timeline. Phase 3 priority 1 adds the full Reel composition preview (header, animated elevation profile, current kilometre, aid-station labels, branding, intro and outro) driven by one time function meant to be reused by the future MP4 export. It still does not capture frames, encode video, or install Remotion/FFmpeg.
 
 ## Key Concepts
 
@@ -399,3 +404,11 @@ The aid bubbles and place labels are zero-size Mapbox markers (`createPinnedMark
 While the caption of a climb or descent leg is on screen, that leg (`startKm` to `endKm`, the "km 12,4 → 15,1" of the caption) is lit (`getToldSlope`, 0.4 s fades). Its beat starts when the runner reaches the foot of the leg, so the whole slope ahead lights up as the voice starts telling it; the former highlight used the whole detected climb, which could start before the leg, and showed up with the runner already halfway. On the map the leg is drawn above the revealed route (`video-told-slope-line` over a white `video-told-slope-casing`, under the station icons) in the elevation-profile slope colours (`buildToldSlopeGeoJson`, one line per run of the same slope class), so the map and the profile speak the same colour code instead of the former off-brand orange border. The source data changes once per beat and the line opacity only when its rounded value changes. On the profile, the leg gets a light band and is left undimmed ahead of the cursor (`getProfileShades`). Flat, aid and finish legs are never lit.
 
 The logo and the "Télécharge l'appli" CTA in the bottom-left corner are off by default (setting "Logo et CTA en bas", `showFooterBrand`): Instagram overlays its own follow button there on reels. "Logo Pace Yourself" and "CTA final" still drive the outro card.
+
+## Studio links to renders and drafts (lot 6)
+
+In `/admin/content/studio`, the finished message of « Générer le reel » links to the render in the queue (`/admin/content/renders?rendu=<job id>`), `BackgroundRenderPanel` adds « Voir tous les rendus → », « Voir dans la file » and « Voir le brouillon », and the Instagram panel has « Créer un brouillon avec ce texte » (`studio-draft.ts`: the latest finished render of the race among the panel's 8 latest, same `POST /api/admin/social-posts` as Publications) next to « Copier ».
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/video-generator/voices/[id]/route.ts`, `app/api/admin/video-generator/voices/route.ts` now export their write handlers through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`render.voice-update`, `render.voice-delete`, `render.voice-create`) to the admin action journal ([`admin_audit_log`](../02-database/tables/admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

@@ -147,6 +147,23 @@ class QueryClient {
     return promise;
   }
 
+  /**
+   * Same as `fetchQuery` but never rejects (as in TanStack Query): the error stays in the query
+   * state (`error`, `status: "error"`) and in `onError`. Used by `useQuery`, `refetch` and
+   * `invalidateQueries`, which fire and forget, so a failing `queryFn` is not an unhandled rejection.
+   */
+  prefetchQuery<TData>(options: {
+    queryKey: QueryKey;
+    queryFn: QueryFunction<TData>;
+    onSuccess?: (data: TData) => void;
+    onError?: (error: unknown) => void;
+  }): Promise<void> {
+    return this.fetchQuery(options).then(
+      () => undefined,
+      () => undefined,
+    );
+  }
+
   setQueryData<TData>(key: QueryKey, updater: TData | ((data?: TData) => TData)) {
     const { record } = this.getRecord<TData>(key);
     const nextData = typeof updater === "function" ? (updater as (data?: TData) => TData)(record.state.data as TData) : updater;
@@ -158,7 +175,7 @@ class QueryClient {
   invalidateQueries({ queryKey }: { queryKey: QueryKey }) {
     const { record } = this.getRecord<unknown>(queryKey);
     if (record.state.queryFn) {
-      void this.fetchQuery({
+      void this.prefetchQuery({
         queryKey,
         queryFn: record.state.queryFn as QueryFunction<unknown>,
         onSuccess: record.state.onSuccess,
@@ -216,7 +233,7 @@ export function useQuery<TData>(options: QueryOptions<TData>) {
   }, [options.onError]);
 
   const runQuery = useCallback(() => {
-    void client.fetchQuery<TData>({
+    void client.prefetchQuery<TData>({
       queryKey: key,
       queryFn: queryFnRef.current,
       onSuccess: onSuccessRef.current,
@@ -293,8 +310,9 @@ export function useMutation<TData, TVariables = void>(options: MutationOptions<T
     isPending: status === "pending",
     isError: status === "error",
     isSuccess: status === "success",
+    // `mutate` never rejects (as in TanStack Query): the error is in `error` and the `onError` callbacks.
     mutate: (variables: TVariables, mutateOptions?: MutateOptions<TData, TVariables>) => {
-      void mutateAsync(variables, mutateOptions);
+      mutateAsync(variables, mutateOptions).catch(() => undefined);
     },
     mutateAsync,
   };

@@ -1,7 +1,7 @@
 ---
 title: Reel figures and highlights mode
 scope: decision
-last_verified: 2026-11-22
+last_verified: 2026-11-23
 ai_priority: medium
 related_files:
   - apps/web/app/admin/video-generator/race-figures.ts
@@ -135,6 +135,10 @@ Second, a full-course flyover of an ultra lasts up to 2-3 minutes; a short "temp
 - The outro is about 2 s longer than before (voice plus a 2 s hold); the 50 s cap on highlights is unchanged and the flyover absorbs it when the total is clamped.
 - The pipeline steps of `reel-generation.ts` (`writeReelWork`, `synthesizeReelClips`, `launchReelRender`) are now shared with the organizer flyover video product (2026-11-22, [rules](../03-business-rules/flyover-video-orders.md)); the figures, highlights and automatic reel behavior decided here are unchanged. The viewer also gained a public `preview` mode for that product, and the future route and glow colors are now `rgba()` (Mapbox rejected the 8-digit hex values).
 
+Admin console (2026-11-22, lot 1): the « Publications » link shown by `ReelPipelinePanel` once the render is launched now points to `/admin/content/posts` (the former `/admin/publications` redirects there). The pipeline itself is unchanged.
+
+- Admin console lot 6 (2026-11-23): the finished message of « Générer le reel » links to the render in the admin render queue (`/admin/content/renders?rendu=<id>`); the one-click flow itself is unchanged, and a render it launches stays a « Reel manuel » in the queue (`auto_draft` is also set by the cron).
+
 ## Related Docs
 
 - `../05-integrations/mapbox-3d.md`
@@ -143,3 +147,7 @@ Second, a full-course flyover of an ultra lasts up to 2-3 minutes; a short "temp
 - `../02-database/tables/video-voices.md`
 - `../05-integrations/reel-automation.md`
 - `../02-database/tables/race-events.md`
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/video-generator/narrations/[raceId]/route.ts`, `app/api/admin/video-generator/voices/[id]/route.ts`, `app/api/admin/video-generator/voices/route.ts` now export their write handlers through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`render.narration`, `render.voice-update`, `render.voice-delete`, `render.voice-create`) to the admin action journal ([`admin_audit_log`](../02-database/tables/admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

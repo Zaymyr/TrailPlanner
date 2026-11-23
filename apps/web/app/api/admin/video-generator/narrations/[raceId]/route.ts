@@ -1,3 +1,4 @@
+import { withAdminAudit, shortAuditId } from "../../../../../../lib/admin-audit-log";
 import { z } from "zod";
 
 import { authorizeVideoAdmin, renderJson, renderJsonError } from "../../../../../../lib/video-render-api";
@@ -25,7 +26,7 @@ export async function GET(request: Request, context: { params: { raceId: string 
   }
 }
 
-export async function PUT(request: Request, context: { params: { raceId: string } }) {
+async function putRoute(request: Request, context: { params: { raceId: string } }) {
   const params = paramsSchema.safeParse(context.params);
   if (!params.success) return renderJsonError("Course invalide.", 400);
   const mode = readMode(request);
@@ -46,3 +47,11 @@ export async function PUT(request: Request, context: { params: { raceId: string 
     return renderJsonError("Le récit n’a pas pu être enregistré.", 502);
   }
 }
+
+export const PUT = withAdminAudit(putRoute, {
+  action: "render.narration",
+  targetType: "race",
+  targetId: (c) => c.params.raceId,
+  summary: (c) => `Narration du reel enregistrée pour la course ${shortAuditId(c.params.raceId)}`,
+  after: () => null,
+});

@@ -4,28 +4,48 @@
 
 Journal en ajout seul, la plus récente en haut. Format : `## AAAA-MM-JJ — Titre`, puis Contexte / Décision / Conséquence (2 à 4 lignes chacun). Les décisions d'architecture détaillées (ADR) vont dans [docs/08-decisions/](../08-decisions/README.md).
 
+## 2026-11-23 — Journal des actions admin
+
+**Contexte.** Aucune trace de qui avait modifié un rôle, accordé du Premium, envoyé un message, changé un pack ou publié un post ; seuls les champs `created_by` / `reviewed_by` de quelques tables gardaient un acteur, sans avant/après.
+
+**Décision.** Table `admin_audit_log` (service role seulement, ajout seul, purge à 365 jours), alimentée en best-effort par un wrapper `withAdminAudit` que chaque route admin d’écriture exporte (une ligne par action réussie ou en échec serveur ; les refus 4xx, les aperçus, les générations IA et les lectures ne sont pas journalisés). Les valeurs avant/après sont assainies avant stockage : jamais de secret, de contenu de message, de fichier ni d’adresse e-mail complète. Lecture par `GET /api/admin/audit` et la page `/admin/system/audit` (filtres dans l’URL, fiche avec diff, export CSV) ; les actions importantes alimentent « Activité récente » de la vue d’ensemble.
+
+**Conséquence.** Toute nouvelle route admin d’écriture doit passer par `withAdminAudit` et déclarer son action dans `AUDIT_ACTIONS` (un test l’impose). Un incident du journal ne fait jamais échouer une requête. L’état « avant » n’est enregistré que là où la route le connaît. La migration ne part qu’au merge, avec celle du lot 3.
+
+## 2026-11-23 — Console admin : bilan des lots 0 à 7
+
+**Contexte.** La console à barre latérale décidée le 2026-11-22 est livrée sur `dev/admin-console` (une PR) : coque et primitives, vue d’ensemble et file « À traiter », santé des systèmes, ventes et facturation, fiches coureur et organisateur, file de rendus unique, journal des actions.
+
+**Décision.** Aucun changement de cap par rapport à l’ADR : les écarts restants (liste dans la section « Avancement » de l’ADR) sont des suites à planifier, pas des blocages. Deux migrations partent avec le merge : `20261123090000_admin_system_health.sql` (lot 3) et `20261123120000_admin_audit_log.sql` (lot 7), avec leurs scripts SQL de contrôle.
+
+**Conséquence.** Détail et table des routes finale : [ADR console admin](../08-decisions/2026-11-22-admin-console.md).
+
+## 2026-11-23 — Santé des systèmes : journal des e-mails, crons lus dans pg_cron
+
+**Contexte.** Aucun écran ne disait si les tâches planifiées, les e-mails ou le webhook Stripe fonctionnaient ; aucun envoi d’e-mail ne laissait de trace.
+
+**Décision.** La console lit `cron.job_run_details` et `net._http_response` par deux fonctions réservées au service role, et chaque e-mail transactionnel est journalisé dans `transactional_email_log` (catégorie, statut, code, destinataire masqué, jamais le contenu), en best-effort et purgé après 90 jours. Les paiements se lisent dans les journaux que le webhook écrit déjà, sans appel Stripe. Une tâche en échec ou en retard (dernier passage au-delà de 2 périodes), des e-mails ou un webhook en erreur deviennent un élément « Système » de la file « À traiter ».
+
+**Conséquence.** pg_net ne garde ni l’URL ni la tâche d’une réponse : les erreurs HTTP sont affichées pour toutes les tâches ensemble. Les crons Vercel restent affichés « jamais appelés ». Une tâche pg_net peut être relancée depuis Maintenance (appel côté serveur avec `CRON_SECRET`).
+
+## 2026-11-22 — Console admin à barre latérale, une URL par écran
+
+**Contexte.** L’admin tenait en 3 pages et 16 onglets sans vue d’ensemble ni file de travail ; plusieurs onglets n’avaient pas d’URL.
+
+**Décision.** Console à barre latérale (Pilotage, Clients, Catalogue, Contenus, Communication, Système), une route par écran sous `/admin/*`, recherche ⌘K et pastilles de mode simulation en haut ; les écrans existants sont montés sans réécriture et les anciennes URL redirigées. Livraison par lots 0 à 7 sur une seule PR.
+
+**Conséquence.** Le header du site n’apparaît plus sur `/admin` (la console a sa propre coque) ; les primitives admin (`StatusBadge`, `Switch`, `Drawer`, `KpiTile`, `Toast`, `CommandPalette`…) sont dans `components/ui`. Détail : [ADR console admin](../08-decisions/2026-11-22-admin-console.md).
 ## 2026-11-22 — Pas d’offre « l’organisateur paie le plan de ses coureurs »
-
 **Contexte.** L’audit du 2026-11-22 proposait une offre B2B2C où l’organisateur Signature offrirait le plan de course payant à ses coureurs.
-
 **Décision.** Écartée par le fondateur. Le plan coureur reste vendu au coureur (9,99 € la course, 29,99 € par an) ; les offres organisateurs restent Essentiel / Complet / Signature.
-
 **Conséquence.** Aucun code de déblocage organisateur ni droit coureur offert par édition. À ne pas reproposer sans nouveau contexte.
-
 ## 2026-11-22 — Pages événement permanentes, pages région et mois
-
 **Contexte.** Chaque édition avait sa propre URL indexable (`…-2026`, puis `…-2027`) : l'autorité et les requêtes (« UTMB temps ») se dispersaient chaque année. Seules trois pages distance existaient, dont une de 1,35 Mo sans pagination.
-
 **Décision.** Chaque événement reçoit un slug permanent sans année (`race_events.slug`, immuable, jamais égal à un slug d'édition) et une page hub `/courses/evenements/<slug-événement>`, seule page événement indexable : prochaine édition (formats, Livrets), historique des éditions. Toutes les pages d'édition restent accessibles (200) mais canonicalisent vers le hub ; aucune redirection. Le hub publie le `SportsEvent` de l'édition mise en avant, sans `EventSeries`. Pages région (codes INSEE) et mois (`/courses/mois/mai-2027`) rejoignent les pages distance : courses à venir uniquement, 5 minimum, pagination `/page/<n>`, `ItemList`.
-
 **Conséquence.** Le sitemap liste les hubs au lieu des éditions, plus chaque page de sélection. Les URL de format gardent leur année (suite possible). Un événement ne peut pas changer de slug tant qu'aucune table de redirection d'événement n'existe. Détail : [Public Race Discovery](../03-business-rules/public-race-discovery.md#permanent-event-hubs-2026-11-22).
-
 ## 2026-11-22 — Rapport partenaires inclus dans Signature
-
 **Contexte.** Les organisateurs Signature avaient des compteurs agrégés d'impressions et de clics par partenaire et des statistiques de lecture, mais rien à remettre à leurs sponsors après la course.
-
 **Décision.** Signature inclut un « Rapport partenaires » téléchargeable (PDF et CSV) par édition, agrégé et anonyme : lecteurs du Livret coureur, impressions, clics et meilleurs placements. Même verrou que le module Sponsors (Signature ou cadeau `module.sponsors`) ; les lecteurs n'y figurent que si les statistiques sont incluses. Aucun nouveau prix, droit ou table.
-
 **Conséquence.** Carte verrouillée sous l'éditeur Sponsors pour les offres inférieures (fenêtre d'offres existante) ; carte Signature de /organisateurs complétée. Détail : [Organizer Commercial Offers](../03-business-rules/organizer-commercial-offers.md#rapport-partenaires-2026-11-22).
 
 ## 2026-11-22 — Ouverture courte, tracé gris puis vert, sous-titres à 86 %

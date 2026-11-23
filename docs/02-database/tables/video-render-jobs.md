@@ -4,6 +4,8 @@ scope: database
 last_verified: 2026-11-22
 ai_priority: low
 related_files:
+  - apps/web/lib/admin-renders.ts
+  - apps/web/lib/admin-renders-server.ts
   - supabase/migrations/20261104140000_add_video_render_jobs.sql
   - supabase/migrations/20261119160000_add_reel_content.sql
   - supabase/migrations/20261119170000_add_render_job_auto_draft.sql
@@ -66,3 +68,11 @@ Carousel renders use their own table, [`carousel_render_jobs`](carousel-render-j
 The admin can delete a finished or failed job (`DELETE /api/admin/video-generator/render-jobs/<id>`, service role, guarded by `status=in.(done,failed)`); its Cloud Storage objects are deleted best-effort and otherwise expire with the 30-day lifecycle.
 
 `social_posts.video_job_id` references this table **on delete set null** (2026-11-19): deleting a render never fails because of a post, and an unpublished post whose render is gone fails with an explicit message. See [social_posts](social-posts.md).
+
+## Admin reads
+
+The admin render queue (`GET /api/admin/renders`) reads the light columns of this table (no `content`), joins in memory the rows that point to it (`reel_automation_items.render_job_id`, `social_posts.video_job_id`, `flyover_video_orders`) and deduces the render type from `flyover_order_id` and the automation link. No schema change.
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/video-generator/render-jobs/[id]/start/route.ts`, `app/api/admin/video-generator/render-jobs/route.ts` now export their write handlers through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`render.start`, `render.create`) to the admin action journal ([`admin_audit_log`](./admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

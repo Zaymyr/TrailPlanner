@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-11-22
+last_verified: 2026-11-23
 # Supporter onboarding (2026-11-18): the welcome chooser asks « Je cours » / « J’accompagne un coureur » and routes to the Livret coureur or the Livret supporter; a new `supporter` tour (status `user_profiles.supporter_onboarding_status`, migration 20261118200000) runs a spotlight tour on the Livret supporter.
 # Livret supporter private preview (2026-11-18): the catalog Livret supporter entry admits active organizers of a private event (preview only); runner badge, data and contracts unchanged.
 # Crew follow UX (2026-11-17): passed checkpoints collapse, confirmed passages can be corrected or undone, the crew handover is a device-local checklist, aid-station directions match supporter points by place name within 2 km, and phones without the app get an app-first gate on the public page; no column, RLS or crew_state shape change.
@@ -21,6 +21,8 @@ ai_priority: medium
 # Layout polish note (2026-11-13): organizer presentation changes (aid-station detail, format metrics row, media rail visibility, equipment status action) do not alter stored data or contracts.
 # Fill-flow note (2026-11-13): organizer form ergonomics (ravito services, Enter-to-add, slot undo, sponsor ordering) do not alter stored data or contracts.
 related_files:
+  - apps/web/app/admin/_components/runners/RunnerProfileDrawer.tsx
+  - apps/web/app/admin/_components/messaging/MessagesHistory.tsx
   - apps/web/lib/race-funnel-source.ts
   - apps/web/lib/race-funnel-source.test.ts
   - apps/web/lib/checkout-return.ts
@@ -535,12 +537,22 @@ The mobile survey form emits `feedback survey answered` (`notification_id`, `fou
 
 Organizer pricing (2026-11-22): the `/organisateurs` offer cards now show 199 / 349 / 499 € HT. No analytics event, property or consent rule changes; price strings stay out of telemetry.
 
+Admin (2026-11-22): the « Croissance » tab (renamed from « Croissance & Utilisateurs ») opens on 30 days and shares its `/api/admin/growth?range=last30` query with the user trend of the Utilisateurs tab (same react-query key, `staleTime` 60 s).
+
+Admin console (2026-11-22, lot 1): the Users tab is the page `/admin/runners`; `AdminUsersTab` accepts `initialSearch`, filled from `?recherche=` (the ⌘K palette sends a runner's e-mail there). The palette's user lookup reuses `GET /api/admin/users?search=`. No PostHog event is added by the console shell, its palette or its pages; the growth section is shown on `/admin` and `/admin/analytics` with the same `/api/admin/growth` query key.
+
+Admin console (2026-11-22, lot 2): the RPC call moved to `fetchGrowthMetrics` (`lib/admin-growth.ts`, with the « RaceBook » → « Livret coureur » rename of the funnel step), shared by `/api/admin/growth` (same contract, now only on `/admin/analytics`) and `/api/admin/overview`, which calls it for the selected period, the previous period of the same length and the last 30 days (reused when the period is 30 days) to feed the dashboard KPI tiles, the runner funnel (accounts, 24 h window over, first plan within 24 h) and the activity curve. `TimeSeriesLineChart` gained optional `framed` (no card nor title, legend kept), `interactive` (hover / touch tooltip with the values of the day) and `minWidthClassName`; existing callers are unchanged. Planner visitors (PostHog) are not part of the dashboard funnel yet.
+
+Admin console (2026-11-23, lot 4): `/admin/billing` (Ventes & facturation) and the `/organizer` « Gérer le pack dans l’admin » link emit no PostHog event; the removed « Offrir une offre partenaire » buttons emitted none either.
+
+Admin console (2026-11-23, lot 5): `AdminUsersTab` reads and writes its own URL (`?recherche=` of the ⌘K palette, filters, sort, page, `?coureur=` profile) and no longer takes `initialSearch`; the runner profile drawer (`GET /api/admin/users/[id]`), the message history (`GET /api/admin/user-notifications`) and the organizer edition panel emit no PostHog event. The edition panel's « Activité » tab shows the reader statistics already stored by Preuves sociales; it runs no PostHog query.
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/organizer-social-proofs/route.ts`, `app/api/admin/user-notifications/route.ts`, `app/api/admin/users/route.ts` now export their write handlers through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`organizer.social-proof`, `message.send`, `user.role`) to the admin action journal ([`admin_audit_log`](../02-database/tables/admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.
 ## Web runner funnel (2026-11-22)
-
 Product events for the organic runner path: race page, estimate, signup, checkout, purchase. All go through `trackGoogleAnalyticsEvent` (consent-gated PostHog + GA, `$internal_or_test_user` identification unchanged). The helpers live in `apps/web/lib/product-analytics.ts`.
-
 **Naming.** The runner events already emitted by web and mobile use lowercase words with spaces (`plan created`, `quick estimate completed`, `premium checkout started`); the funnel stays in that style instead of the snake_case used by the organizer acquisition events (`organizer_landing_cta_clicked`). Existing events are reused, with added properties, where one already fired at the step; the new web-only events are `race page viewed`, `race estimate cta clicked`, `sign up started` and `sign up completed`. Web now also emits the mobile names `premium paywall viewed`, `premium checkout started`, `runner course checkout started`, `premium purchase verified` and `runner course purchase verified`, with `store: web` and `billing_provider: stripe` to separate them from RevenueCat data.
-
 | Order | Event | Where | Properties |
 |---|---|---|---|
 | 1 | `race page viewed` | `RaceFunnelTracker` mounted by `PublicHeroShell` (format and event pages) | `page_type` (format or event), `slug`, `race_id`, `event_id`, `has_gpx` (route preview present), `is_upcoming`, `is_demo` |
@@ -551,11 +563,7 @@ Product events for the organic runner path: race page, estimate, signup, checkou
 | 5a | `premium paywall viewed` | `/premium` | `placement: premium_page`, `has_plan_context`, `source_race` |
 | 5b | `premium checkout started` (annual) / `runner course checkout started` (course) | `/premium`, planner upgrade modal, profile | `offer` (annual or course), `purchase_type`, `placement`, `billing_provider: stripe`, `store: web`, `source_race` |
 | 5c | `premium purchase verified` / `runner course purchase verified` | `CheckoutReturnTracker` (mounted in `Analytics`) | same as 5b plus `verification_source: web_entitlement_check` |
-
 Attribution (`source_race`) is a public catalog race id only. At signup it is read from the `catalogRaceId` of the existing return path (`readCurrentReturnPath`), else from the last race remembered in `localStorage` (`runner.funnelSourceRace`, 7 days, written only after analytics consent, by `lib/race-funnel-source.ts`). `/premium` and the planner modal read the same value. No return-path normalisation, API route or Supabase column changed.
-
 Purchase verification: starting a checkout stores the offer, source race and plan id in `localStorage` (`runner.pendingCheckout`, 2 hours, consent-gated, `lib/checkout-return.ts`). On the Stripe success return (`?billing=success`) `CheckoutReturnTracker` polls up to 6 times, 2.5 s apart, because the webhook can land after the redirect: annual requires `/api/entitlements` to report premium with an active or trialing subscription, course requires `/api/plans/:id/access` to report `source: plan_unlock`. The event is never emitted from the URL alone and the pending record is cleared after emission.
-
 Funnel reading: `race page viewed` -> `race estimate cta clicked` -> `quick estimate completed` / `plan created` -> `sign up completed` -> `premium paywall viewed` -> checkout started -> purchase verified. Break down by `source_race` or `page_type`. Admin and internal users are excluded with the usual `$internal_or_test_user` and `role = admin` filters.
-
 The event and hub pages pass `page_type: event`, the featured edition `slug`, `event_id`, `is_upcoming` and `is_demo` (no `race_id` or `has_gpx`, which are format-level). Known gaps: CTAs outside the hero, sticky bar, estimates section and event format list report `placement: other`; OAuth sign-up completion happens on `/auth/callback` and is not tracked; the verified-purchase return only works when Stripe returns to a page where `Analytics` is mounted with `?billing=success` (the default `/settings?billing=success`; `STRIPE_CHECKOUT_SUCCESS_URL` overrides it); the planner modal opens Stripe in a new tab, which shares the same `localStorage`.

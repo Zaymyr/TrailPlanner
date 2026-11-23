@@ -4,6 +4,11 @@ scope: integration
 last_verified: 2026-11-22
 ai_priority: medium
 related_files:
+  - apps/web/lib/admin-renders.ts
+  - apps/web/lib/admin-renders.test.ts
+  - apps/web/lib/admin-renders-server.ts
+  - apps/web/app/api/admin/renders/route.ts
+  - apps/web/app/admin/video-generator/studio-draft.ts
   - apps/web/app/api/admin/video-generator/render-jobs/[id]/route.test.ts
   - apps/web/app/api/admin/video-generator/render-jobs/[id]/route.ts
   - apps/web/app/admin/video-generator/export-frame.test.ts
@@ -93,6 +98,10 @@ The job requests one NVIDIA L4 (`--gpu 1 --gpu-type nvidia-l4 --no-gpu-zonal-red
 
 Whether Chrome can drive the L4 depends on the graphics libraries in the mounted driver: check the "WebGL backend:" line of the first execution's logs. A fallback to `swiftshader` keeps rendering on the CPU, only slower (a 1080p reel took over 3 hours on 4 vCPU).
 
+## Render queue (lot 6, 2026-11-23)
+
+`/admin/content/renders` lists every render in one queue (`GET /api/admin/renders`, `authorizeVideoAdmin`, `lib/admin-renders-server.ts`): `video_render_jobs` and `carousel_render_jobs`, with the type deduced from `flyover_order_id`, the `reel_automation_items.render_job_id` link and the carousel table, the same silent-render rule as `render-activity` (marked failed in the base) and, for the finished reels of the page, a 1-hour signed MP4 URL built like `GET render-jobs`; without the Google configuration the list still answers, without links. Deleting stays `DELETE render-jobs/<id>` (same guards). `GET render-jobs` (studio panel, 8 latest) now also returns `raceId` and `post` (the draft or post of each render) for the studio links.
+
 ## Deleting a video
 
 Each finished or failed render in the panel has a "Supprimer" action (with a confirmation): `DELETE /api/admin/video-generator/render-jobs/<id>` deletes `jobs/<id>/reel.mp4` and `jobs/<id>/input.json` with the Google access token (`deleteStorageObject`, a 404 counts as deleted), then the row (`deleteRenderJob`, limited to `done`/`failed`). A render still `uploading`, `queued` or `running` answers 409. When the bucket refuses the object deletion (the `vercel-trigger` account may lack `storage.objects.delete`), the row is still deleted and the response says `filesDeleted: false`: the 30-day lifecycle removes the files. Dropping the row also lowers the race's video count in the race picker.
@@ -116,3 +125,7 @@ The same Cloud Run job renders Instagram carousels ([Automatic Instagram Carouse
 ## Instagram publishing
 
 Finished renders can be published as Instagram Reels from `/admin/publications` (see [Instagram Reels Publishing](instagram-publishing.md)). That feature only reads this integration: it calls `getRenderJob`, `getGoogleAccessToken` and `signStorageUrl` to sign a 2-hour GET URL of `jobs/<id>/reel.mp4` for Meta when the Instagram container is created, and refuses to publish a render within 24 h of the bucket's 30-day lifecycle deletion. Deleting a render sets `social_posts.video_job_id` to null; nothing in the render routes changed.
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/video-generator/render-jobs/[id]/route.ts`, `app/api/admin/video-generator/render-jobs/[id]/start/route.ts`, `app/api/admin/video-generator/render-jobs/route.ts` now export their write handlers through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`render.delete`, `render.start`, `render.create`) to the admin action journal ([`admin_audit_log`](../02-database/tables/admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

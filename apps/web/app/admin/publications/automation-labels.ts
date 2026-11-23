@@ -1,4 +1,5 @@
-import type { CarouselItemView, CarouselSeriesKey, ReelAutomationItemView } from "./publications-api";
+import type { PublicSocialPost } from "../../../lib/social-posts";
+import type { CarouselItemView, CarouselSeriesKey, FlyoverOrderView, ReelAutomationItemView } from "./publications-api";
 import { PLANNED_CALENDAR_STATUSES, type PlannedCalendarEntry } from "./publication-calendar";
 
 const STEP_LABELS: Record<NonNullable<ReelAutomationItemView["step"]>, string> = { content: "texte", voice: "voix", render: "rendu" };
@@ -39,6 +40,26 @@ export const toPlannedCalendarEntries = (items: ReelAutomationItemView[], publis
   items
     .filter((item) => (PLANNED_CALENDAR_STATUSES as readonly string[]).includes(item.status))
     .map((item) => ({ id: item.id, day: item.plannedPublishDate, label: item.raceName ?? "Course", time: publishTime }));
+
+/** Mark of a flyover order in the calendar. */
+export const FLYOVER_MARK = "◈";
+
+/** Statuses of a paid collaboration order whose reel is not published yet (a refund, cancel or expiry leaves the calendar). */
+const FLYOVER_SLOT_STATUSES = ["paid", "scripted", "rendering", "ready", "failed"];
+/** Statuses of a post that already sits on the calendar by itself. */
+const CALENDAR_POST_STATUSES = ["scheduled", "publishing", "published"];
+
+/**
+ * Calendar entries of the paid collaboration flyovers (offer « collab », publication slot chosen by the
+ * organizer, Paris wall time `YYYY-MM-DDTHH:mm`) whose Instagram post is not scheduled or published yet:
+ * once it is, the post itself is the calendar entry. A click opens the order (`?commande=`).
+ */
+export const toPlannedFlyoverEntries = (orders: FlyoverOrderView[], posts: Array<Pick<PublicSocialPost, "id" | "status">>): PlannedCalendarEntry[] => {
+  const onCalendar = new Set(posts.filter((post) => CALENDAR_POST_STATUSES.includes(post.status)).map((post) => post.id));
+  return orders
+    .filter((order) => order.offer === "collab" && order.publishLocal && FLYOVER_SLOT_STATUSES.includes(order.status) && !(order.socialPostId && onCalendar.has(order.socialPostId)))
+    .map((order) => ({ id: order.id, day: (order.publishLocal as string).slice(0, 10), label: order.raceName, time: (order.publishLocal as string).slice(11, 16), kind: "flyover" as const }));
+};
 
 export const CAROUSEL_SERIES_NAMES: Record<CarouselSeriesKey, string> = {
   plan: "Le plan chiffré",

@@ -1,45 +1,19 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { Route } from "next";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
-import { FLYOVER_ADMIN_ACTIONS, type FlyoverAdminAction } from "../../../lib/flyover-admin";
+import type { FlyoverAdminAction } from "../../../lib/flyover-admin";
+import { renderQueueHref } from "../../../lib/admin-renders";
 import { formatParisDateTime, parisLocalToUtc } from "../../../lib/social-posts";
-import { adminFetch } from "./publications-api";
+import { adminFetch, flyoverOrdersResponseSchema, type FlyoverOrderView } from "./publications-api";
 
-const orderViewSchema = z.object({
-  id: z.string(),
-  raceName: z.string(),
-  offer: z.enum(["collab", "download"]),
-  status: z.string(),
-  statusLabel: z.string(),
-  contactEmail: z.string(),
-  instagramHandle: z.string().nullable(),
-  publishLocal: z.string().nullable(),
-  mapPreset: z.string(),
-  storyMode: z.string().nullable(),
-  distanceKm: z.number(),
-  aidStationCount: z.number(),
-  attempts: z.number(),
-  maxAttempts: z.number(),
-  error: z.string().nullable(),
-  paidAt: z.string().nullable(),
-  readyAt: z.string().nullable(),
-  createdAt: z.string(),
-  readyEmailSent: z.boolean(),
-  renderJobId: z.string().nullable(),
-  renderStatus: z.string().nullable(),
-  renderProgress: z.number().nullable(),
-  socialPostId: z.string().nullable(),
-  orderUrl: z.string().nullable(),
-  downloadUrl: z.string().nullable(),
-  actions: z.array(z.enum(FLYOVER_ADMIN_ACTIONS)),
-});
-type OrderView = z.infer<typeof orderViewSchema>;
-const listSchema = z.object({ orders: z.array(orderViewSchema) });
+type OrderView = FlyoverOrderView;
 const actionResponseSchema = z.object({ ok: z.boolean(), status: z.string(), postNote: z.string().nullable() });
 
 const ACTION_LABELS: Record<FlyoverAdminAction, { label: string; confirm: string | null }> = {
@@ -80,9 +54,17 @@ export function FlyoverOrdersCard({ accessToken }: { accessToken: string }) {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["id"]>("open");
   const [notice, setNotice] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  // `?commande=<id>` (calendar, render queue): show every order and highlight that one.
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("commande")?.trim();
+    if (!id) return;
+    setHighlightId(id);
+    setFilter("all");
+  }, []);
   const query = useQuery({
     queryKey: ["admin", "flyover-orders", accessToken],
-    queryFn: () => adminFetch(accessToken, "/api/admin/flyover-orders", listSchema, {}, "Les commandes de survol n’ont pas pu être chargées."),
+    queryFn: () => adminFetch(accessToken, "/api/admin/flyover-orders", flyoverOrdersResponseSchema, {}, "Les commandes de survol n’ont pas pu être chargées."),
   });
   // Poll every 15 s while an order is being written, voiced or rendered.
   const hasActive = query.data?.orders.some((order) => ACTIVE.has(order.status)) ?? false;
@@ -101,6 +83,12 @@ export function FlyoverOrdersCard({ accessToken }: { accessToken: string }) {
     },
     onError: (error) => setNotice({ tone: "error", text: error instanceof Error ? error.message : "L’action a échoué." }),
   });
+
+  const hasOrders = Boolean(query.data);
+  useEffect(() => {
+    if (!highlightId || !hasOrders) return;
+    window.setTimeout(() => document.getElementById(`commande-${highlightId}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 80);
+  }, [highlightId, hasOrders]);
 
   const run = (order: OrderView, action: FlyoverAdminAction) => {
     const confirmText = ACTION_LABELS[action].confirm;
@@ -142,7 +130,7 @@ export function FlyoverOrdersCard({ accessToken }: { accessToken: string }) {
           {orders.map((order) => {
             const publishAt = publishLabel(order.publishLocal);
             return (
-              <li key={order.id} className="flex flex-col gap-2 rounded-lg border border-border p-3">
+              <li key={order.id} id={`commande-${order.id}`} className={`flex flex-col gap-2 rounded-lg border border-border p-3 ${highlightId === order.id ? "ring-2 ring-brand" : ""}`}>
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <p className="min-w-0 font-semibold text-foreground">{order.raceName}</p>
                   <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_TONE[order.status] ?? "bg-muted"}`}>{order.statusLabel}</span>
@@ -168,6 +156,7 @@ export function FlyoverOrdersCard({ accessToken }: { accessToken: string }) {
                       {ACTION_LABELS[action].label}
                     </Button>
                   ))}
+                  {order.renderJobId ? <Link className="text-xs font-medium text-brand underline-offset-4 hover:underline dark:text-emerald-300" href={renderQueueHref(order.renderJobId) as Route}>Voir le rendu</Link> : null}
                   {order.downloadUrl ? <a className="text-xs font-medium text-brand underline-offset-4 hover:underline dark:text-emerald-300" href={order.downloadUrl}>Télécharger le MP4</a> : null}
                   {order.orderUrl ? <a className="text-xs font-medium text-brand underline-offset-4 hover:underline dark:text-emerald-300" href={order.orderUrl} target="_blank" rel="noreferrer">Page client</a> : null}
                 </div>

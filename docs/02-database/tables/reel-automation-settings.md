@@ -40,3 +40,7 @@ The caps, lead time and publication time have no UI yet: change them in SQL if n
 ## Access
 
 RLS on, no policy, every privilege revoked from `public`, `anon` and `authenticated`, granted to `service_role`. Read and written by `/api/admin/reel-automation` and `/api/admin/carousel-automation` (series switches) (`authorizeVideoAdmin`), and read by both cron routes.
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/carousel-automation/route.ts`, `app/api/admin/reel-automation/route.ts` now export their write handlers through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`automation.carousel-settings`, `automation.carousel-run`, `automation.reel-settings`, `automation.reel-run`) to the admin action journal ([`admin_audit_log`](./admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

@@ -1,3 +1,4 @@
+import { withAdminAudit } from "../../../../lib/admin-audit-log";
 import { z } from "zod";
 
 import {
@@ -38,7 +39,7 @@ const settingsSchema = z.object({
 }).strict();
 
 /** The two switches. Publication auto needs generation and an explicit confirmation; turning generation off turns it off too. */
-export async function PATCH(request: Request) {
+async function patchRoute(request: Request) {
   const gate = await authorizeVideoAdmin(request);
   if (!gate.ok) return gate.response;
   const parsed = settingsSchema.safeParse(await request.json().catch(() => null));
@@ -65,7 +66,7 @@ export async function PATCH(request: Request) {
 }
 
 /** Recomputes the plan now (otherwise done by the hourly tick). Never generates anything. */
-export async function POST(request: Request) {
+async function postRoute(request: Request) {
   const gate = await authorizeVideoAdmin(request);
   if (!gate.ok) return gate.response;
   const parsed = z.object({ action: z.literal("refresh") }).safeParse(await request.json().catch(() => null));
@@ -80,3 +81,18 @@ export async function POST(request: Request) {
     return renderJsonError("Le calendrier n’a pas pu être recalculé.", 502);
   }
 }
+
+export const PATCH = withAdminAudit(patchRoute, {
+  action: "automation.reel-settings",
+  targetType: "automation",
+  targetId: () => "reels",
+  summary: "Réglages de l’automatisation des reels modifiés",
+});
+
+export const POST = withAdminAudit(postRoute, {
+  action: "automation.reel-run",
+  targetType: "automation",
+  targetId: () => "reels",
+  summary: "Calendrier des reels recalculé",
+  after: () => null,
+});

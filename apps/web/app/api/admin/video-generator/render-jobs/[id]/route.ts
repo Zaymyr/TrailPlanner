@@ -1,3 +1,4 @@
+import { withAdminAudit, auditResponse, shortAuditId } from "../../../../../../lib/admin-audit-log";
 import { z } from "zod";
 
 import {
@@ -16,7 +17,7 @@ const paramsSchema = z.object({ id: z.string().uuid() });
  * Deletes a finished or failed render: its row (so the list and the per-race video counts drop
  * it) and, when the bucket allows it, its MP4 and composition. A render still in progress is kept.
  */
-export async function DELETE(request: Request, context: { params: { id?: string } }) {
+async function deleteRoute(request: Request, context: { params: { id?: string } }) {
   const params = paramsSchema.safeParse(context.params);
   if (!params.success) return renderJsonError("Invalid render job id.", 400);
   const gate = await authorizeRenderAdmin(request);
@@ -43,3 +44,11 @@ export async function DELETE(request: Request, context: { params: { id?: string 
     return renderJsonError(describeRenderError(error, "Le rendu n’a pas pu être supprimé."), 502);
   }
 }
+
+export const DELETE = withAdminAudit(deleteRoute, {
+  action: "render.delete",
+  targetType: "render",
+  targetId: (c) => c.params.id,
+  summary: (c) => `Rendu ${shortAuditId(c.params.id)} supprimé`,
+  after: (c) => ({ filesDeleted: auditResponse(c).filesDeleted }),
+});

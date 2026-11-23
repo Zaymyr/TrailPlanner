@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody, pickAuditFields, shortAuditId } from "../../../../lib/admin-audit-log";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -34,6 +35,7 @@ const publicationEventSchema = z.object({
     is_current: z.boolean(),
     edition_year: z.number().int(),
     start_date: z.string(),
+    slug: z.string().nullable().optional(),
   })).nullable().optional(),
   races: z.array(z.object({
     id: z.string().uuid(),
@@ -121,7 +123,7 @@ export async function GET(request: NextRequest) {
       { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
     ),
     fetch(
-      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_events?select=id,name,location,race_date,race_event_editions(id,is_current,edition_year,start_date),races(id,edition_id,name,race_date,racebook_is_live,racebook_publication_approved_at,data_status,missing_required_fields)&order=name.asc`,
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_events?select=id,name,location,race_date,race_event_editions(id,is_current,edition_year,start_date,slug),races(id,edition_id,name,race_date,racebook_is_live,racebook_publication_approved_at,data_status,missing_required_fields)&order=name.asc`,
       { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
     ),
     fetch(
@@ -165,6 +167,7 @@ export async function GET(request: NextRequest) {
         race_date: event.race_date ?? null,
         editionId,
         editionYear: edition?.edition_year ?? null,
+        editionSlug: edition?.slug ?? null,
         isCurrentEdition: edition?.is_current ?? false,
         entitlement: entitlements.find((item) => item.edition_id === editionId) ?? null,
         payments: payments.filter((item) => item.edition_id === editionId),
@@ -179,7 +182,7 @@ export async function GET(request: NextRequest) {
   return withSecurityHeaders(NextResponse.json({ publicationRequests, events }));
 }
 
-export async function PATCH(request: NextRequest) {
+async function patchRoute(request: NextRequest) {
   const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
   const body = await request.json().catch(() => null);
@@ -296,3 +299,18 @@ export async function PATCH(request: NextRequest) {
 
   return withSecurityHeaders(NextResponse.json({ publicationRequest: await response.json() }));
 }
+
+export const PATCH = withAdminAudit(patchRoute, {
+  action: (c) => (auditBody(c).requestId ? "edition.publication" : "edition.pack"),
+  targetType: (c) => (auditBody(c).requestId ? "publication" : "edition"),
+  targetId: (c) => (auditBody(c).requestId ?? auditBody(c).editionId) as string | undefined,
+  summary: (c) => {
+    const body = auditBody(c);
+    if (body.requestId) return `Demande de publication ${body.status === "approved" ? "approuvée" : "refusée"}`;
+    if (body.action === "setEditionTier") return `Pack de l’édition ${shortAuditId(body.editionId)} fixé sur « ${body.tier} »`;
+    if (body.action === "setEditionGrant") return `Droit de l’édition ${shortAuditId(body.editionId)} : « ${body.tier} » (${body.origin})`;
+    if (body.action === "setEditionCapabilityGrant") return `Module « ${body.capabilityKey} » ${body.enabled ? "offert" : "retiré"} pour l’édition ${shortAuditId(body.editionId)}`;
+    return "Édition modifiée";
+  },
+  after: (c) => pickAuditFields(c.body, ["action", "tier", "origin", "capabilityKey", "enabled", "status", "reviewerNotes"]),
+});

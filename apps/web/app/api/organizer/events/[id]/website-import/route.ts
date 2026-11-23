@@ -1,3 +1,4 @@
+import { withAdminAudit, auditBody, pickAuditFields, shortAuditId } from "../../../../../../lib/admin-audit-log";
 import { createHmac, randomUUID, timingSafeEqual } from "crypto";
 
 import { NextRequest, NextResponse } from "next/server";
@@ -2577,7 +2578,7 @@ const handleOrganizerImportWorkflow = async (
   }
 };
 
-export async function POST(request: NextRequest, context: { params: { id?: string } }) {
+async function postRoute(request: NextRequest, context: { params: { id?: string } }) {
   const parsedParams = uuidParamSchema.safeParse(context.params);
   if (!parsedParams.success) return jsonError("Invalid event id.", 400);
 
@@ -2961,3 +2962,12 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
     await deleteTemporaryOrganizerImportDocuments(auth.serviceConfig, auth.user.id, temporaryDocumentReferences);
   }
 }
+
+export const POST = withAdminAudit(postRoute, {
+  action: "catalog.event-import",
+  targetType: "event",
+  targetId: (c) => c.params.id,
+  skip: (c) => auditBody(c).action !== "apply" && auditBody(c).action !== "apply-fields",
+  summary: (c) => `Données de l’événement ${shortAuditId(c.params.id)} importées depuis le site de l’organisateur`,
+  after: (c) => pickAuditFields(c.body, ["action", "sessionId"]),
+});

@@ -1,7 +1,7 @@
 ---
 title: race_event_organizers Table
 scope: database
-last_verified: 2026-11-16
+last_verified: 2026-11-23
 # Livret supporter note (2026-11-16): the public name of the supporter_guide surface is now "Livret supporter" (formerly "Livret accompagnateur"); comment-only change, no data or contract change.
 # Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
 # Structured bib phase (2026-11-15): required and third-party document kinds are optional JSON lists rendered as runner-facing guidance; historical free text remains visible as conversion source and no persisted runner checklist is introduced.
@@ -218,3 +218,9 @@ Publication history, publish, restore, and private-publication reads repeat the 
 - [race_events](race-events.md)
 - [Relationships](../relationships.md)
 - [Organizer Race Management](../../03-business-rules/organizer-race-management.md)
+
+Admin console (2026-11-23, lot 5): `GET /api/admin/event-publication-requests` also selects `race_event_editions.slug` (returned as `editionSlug`) for the public-page link of the admin edition panel; the member organizers shown there come from the existing `/api/admin/organizer-claims` memberships. Membership rules are unchanged.
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/event-publication-requests/route.ts`, `app/api/admin/organizer-claims/route.ts` now export their write handlers through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`edition.publication`, `edition.pack`, `organizer.claim`) to the admin action journal ([`admin_audit_log`](./admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

@@ -53,3 +53,7 @@ RLS on, no policy, every privilege revoked from `public`, `anon` and `authentica
 - The plan never puts an item on the weekday of an enabled carousel series nor on the day of a carousel slot still waiting (one post a day across reels and carousels).
 - Status changes are guarded by the expected status in the update filter; a step runs only under a free lease.
 - `supabase/tests/reel_automation_checks.sql` checks RLS, grants, the unique key and the status, mode and `work` checks.
+
+## Admin audit journal (lot 7)
+
+`app/api/admin/reel-automation/items/[id]/route.ts` now exports its write handler through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`automation.reel-item`) to the admin action journal ([`admin_audit_log`](./admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.
