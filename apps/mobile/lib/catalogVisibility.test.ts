@@ -43,6 +43,17 @@ describe('sortCatalogEvents', () => {
     expect(isCatalogEventVisible(getCatalogEventEndDate(ongoing), false, now)).toBe(true);
   });
 
+  it('orders an event by its displayed formats when the event date is a stale past edition', () => {
+    const stale = {
+      id: 'stale',
+      name: 'stale',
+      race_date: '2026-05-16',
+      races: [{ race_date: '2027-05-29' }, { race_date: '2027-05-30' }],
+    };
+    const sorted = sortCatalogEvents([stale, event('soon', '2026-10-01'), event('next-year', '2027-03-01')], [], now);
+    expect(sorted.map((item) => item.id)).toEqual(['soon', 'next-year', 'stale']);
+  });
+
   it('flags only strictly past dates as past', () => {
     expect(isCatalogEventPast('2026-09-27', now)).toBe(true);
     expect(isCatalogEventPast('2026-09-28', now)).toBe(false);

@@ -147,6 +147,15 @@ export function sortCatalogEvents<TEvent extends SortableCatalogEvent>(
     return parsed ? parsed.getTime() : Number.MAX_SAFE_INTEGER;
   };
   const favoriteIds = new Set(favoriteEventIds);
+  // Order by the first displayed format rather than the event row date: a stale
+  // event date (previous edition still current) must not pull an event whose
+  // retained formats belong to a later edition to the top of the list.
+  const getStartTimestamp = (event: TEvent) => {
+    const formatTimestamps = (event.races ?? [])
+      .map((race) => getTimestamp(race.race_date ?? null))
+      .filter((timestamp) => timestamp !== Number.MAX_SAFE_INTEGER);
+    return formatTimestamps.length > 0 ? Math.min(...formatTimestamps) : getTimestamp(event.race_date);
+  };
 
   return [...events].sort((left, right) => {
     const leftPast = isCatalogEventPast(getCatalogEventEndDate(left), now);
@@ -158,8 +167,8 @@ export function sortCatalogEvents<TEvent extends SortableCatalogEvent>(
     if (leftFavorite !== rightFavorite) return leftFavorite ? -1 : 1;
 
     const timestampDiff = leftPast
-      ? getTimestamp(right.race_date) - getTimestamp(left.race_date)
-      : getTimestamp(left.race_date) - getTimestamp(right.race_date);
+      ? getStartTimestamp(right) - getStartTimestamp(left)
+      : getStartTimestamp(left) - getStartTimestamp(right);
     if (timestampDiff !== 0) return timestampDiff;
     return left.name.localeCompare(right.name);
   });

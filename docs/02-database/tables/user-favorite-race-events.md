@@ -1,7 +1,7 @@
 ---
 title: user_favorite_race_events Table
 scope: database
-last_verified: 2026-11-18
+last_verified: 2026-11-23
 # Supporter onboarding (2026-11-18): the mobile guided catalog gains a `supporter` mode over the same public event list; no read, table or RLS change here (the only schema change is `user_profiles.supporter_onboarding_status`).
 # Livret supporter private preview (2026-11-18): the catalog Livret supporter entry admits active organizers of a private event (preview only); runner badge, data and contracts unchanged.
 ai_priority: high
@@ -52,7 +52,7 @@ The Courses card image placeholder does not change the favorite action, its posi
 
 - Event favorite: one runner follows one `race_events` row.
 - Owner row: favorites are readable and mutable only by the owning user.
-- Catalog pinning and retention: mobile uses these rows to pin favorite events above the normal catalog sort and keep a past favorite visible through the fourteenth calendar day after its event date.
+- Catalog pinning and retention: mobile uses these rows to pin favorite events above the normal catalog sort (first displayed format date, event date as fallback) and keep a past favorite visible through the fourteenth calendar day after its event date.
 - Edition rollover is independent from favorite ownership: when a newer visible edition is online, formats from the older edition remain through day 14 after that edition's latest visible format date, then the card retains only the newest dated edition.
 - Catalog feedback: for identified runners, mobile updates a card-local heart state in the same interaction frame with a reduced-motion-aware pulse, then resynchronizes it with the parent/server result while preserving the current list order and viewport. Guest hearts do not flip before the account prompt.
 - The shared event card preserves favorite behavior when a format has no published D+; it labels the metric as unavailable instead of rendering a false zero.
