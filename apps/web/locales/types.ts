@@ -1436,8 +1436,18 @@ export type ProductSettingsTranslations = {
   selectionCount: string;
   empty: string;
   loading: string;
+  eyebrow: string;
+  /** `{count}` = number of favorites. */
+  favoritesCount: string;
+  /** `{count}` = products not shown yet. */
+  showMore: string;
+  namePlaceholder: string;
+  urlPlaceholder: string;
+  formSignInHint: string;
   filters: {
     searchPlaceholder: string;
+    all: string;
+    mine: string;
   };
   errors: {
     loadFailed: string;

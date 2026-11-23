@@ -1421,8 +1421,16 @@ export const fr: Translations = {
     selectionCount: "{count} sélectionné(s)",
     empty: "Aucun produit trouvé. Ajoutez-en un ci-dessous pour commencer.",
     loading: "Chargement des produits...",
+    eyebrow: "Nutrition",
+    favoritesCount: "{count} favori(s)",
+    showMore: "Afficher plus ({count} restants)",
+    namePlaceholder: "Gel, boisson, barre…",
+    urlPlaceholder: "https://exemple.com/produit",
+    formSignInHint: "Connecte-toi pour ajouter un produit au catalogue partagé.",
     filters: {
       searchPlaceholder: "Filtrer les produits...",
+      all: "Tous",
+      mine: "Mes produits",
     },
     errors: {
       loadFailed: "Impossible de charger les produits. Réessayez.",

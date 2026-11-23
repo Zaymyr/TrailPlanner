@@ -1408,8 +1408,16 @@ export const en: Translations = {
     selectionCount: "{count} selected",
     empty: "No products found. Add one below to get started.",
     loading: "Loading products...",
+    eyebrow: "Nutrition",
+    favoritesCount: "{count} favorite(s)",
+    showMore: "Show more ({count} left)",
+    namePlaceholder: "Gel, drink, bar…",
+    urlPlaceholder: "https://example.com/product",
+    formSignInHint: "Sign in to add a product to the shared catalog.",
     filters: {
       searchPlaceholder: "Filter products...",
+      all: "All",
+      mine: "My products",
     },
     errors: {
       loadFailed: "Unable to load products. Please try again.",
