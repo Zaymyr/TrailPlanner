@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { groupCatalogRaces } from "./RaceCatalogModal";
+import { getCatalogToday, groupCatalogRaces } from "./RaceCatalogModal";
 
 type Race = Parameters<typeof groupCatalogRaces>[0][number];
 
@@ -32,40 +32,38 @@ describe("groupCatalogRaces", () => {
     expect(groups[0].races.map((item) => item.distance_km)).toEqual([44, 78, 23]);
   });
 
-  it("puts events with a GPX first, then upcoming by date, then past, and keeps orphan formats as their own card", () => {
-    const past = event("Passée", "2026-05-01");
-    const later = event("Plus tard", "2027-03-01");
+  it("hides past events, keeps today, orders by date within GPX-ready then trace-less events, undated last", () => {
+    const past = event("Passée", "2026-11-20");
+    const today = event("Trail TST", "2026-11-23");
+    const later = event("Plus tard", "2027-06-01");
     const soon = event("Bientôt", "2026-12-01");
-    const noGpx = event("Sans GPX", "2026-11-30");
+    const noGpxSoon = event("Sans GPX proche", "2026-11-24");
+    const undated = event("Sans date", null);
     const groups = groupCatalogRaces(
       [
         race("A", 10, past),
         race("B", 10, later),
         race("C", 10, soon),
-        race("D", 10, noGpx, false),
+        race("D", 10, noGpxSoon, false),
+        race("E", 10, today),
+        race("F", 10, undated),
         race("Orpheline", 12, null),
       ],
       "2026-11-23"
     );
 
     expect(groups.map((group) => group.eventName ?? group.races[0].name)).toEqual([
+      "Trail TST",
       "Bientôt",
       "Plus tard",
-      "Passée",
       "Orpheline",
-      "Sans GPX",
+      "Sans date",
+      "Sans GPX proche",
     ]);
   });
-});
 
-describe("groupCatalogRaces editions", () => {
-  it("keeps only the latest edition of a format repeated in the same event", () => {
-    const tst = event("Trail TST", "2026-11-23");
-    const old = { ...race("Balcon", 18, tst, false), race_date: "2025-09-27" };
-    const current = { ...race("Balcon", 18, tst), race_date: "2026-11-23" };
-    const groups = groupCatalogRaces([old, current], "2026-11-01");
-
-    expect(groups[0].races).toEqual([current]);
-    expect(groups[0].hasGpx).toBe(true);
+  it("computes today as the Europe/Paris calendar day", () => {
+    expect(getCatalogToday(new Date("2026-11-22T23:30:00Z"))).toBe("2026-11-23");
+    expect(getCatalogToday(new Date("2026-11-23T12:00:00Z"))).toBe("2026-11-23");
   });
 });
