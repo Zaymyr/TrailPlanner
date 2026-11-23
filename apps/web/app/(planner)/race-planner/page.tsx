@@ -12,7 +12,7 @@ import {
 import { RacePlannerPageContent } from "./RacePlannerPageContent";
 import { PLANNER_META_DESCRIPTION, plannerFallback, plannerStructuredData } from "./planner-seo";
 
-const title = "Planificateur de nutrition trail gratuit | Pace Yourself";
+const title = "Plan de course trail : temps, ravitos et nutrition | Pace Yourself";
 const description = PLANNER_META_DESCRIPTION;
 
 export const metadata: Metadata = {

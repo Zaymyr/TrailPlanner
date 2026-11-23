@@ -45,6 +45,7 @@ export function PlanSampleLockedCta({
   remainingAidStations,
   coursePrice,
   annualPrice,
+  onUnlock,
   onCreateAccount,
   unlockHref,
 }: {
@@ -52,7 +53,9 @@ export function PlanSampleLockedCta({
   remainingAidStations: number;
   coursePrice: string | null;
   annualPrice: string | null;
-  /** Visitor: saves the preview locally and opens sign-up. */
+  /** Visitor, primary: keeps the preview, creates the account, then opens the course offer of the new plan. */
+  onUnlock?: () => void;
+  /** Visitor, secondary: keeps the free preview only (account without purchase). */
   onCreateAccount?: () => void;
   /** Free account: course unlock page for this plan. */
   unlockHref?: string;
@@ -90,9 +93,18 @@ export function PlanSampleLockedCta({
       </ul>
       <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
         {audience === "visitor" ? (
-          <button type="button" onClick={onCreateAccount} className={primaryClassName}>
-            Enregistrer mon plan gratuitement
-          </button>
+          <>
+            <button type="button" onClick={onUnlock} className={primaryClassName}>
+              {coursePrice ? `Débloquer mon plan complet · ${coursePrice}` : "Débloquer mon plan complet"}
+            </button>
+            <button
+              type="button"
+              onClick={onCreateAccount}
+              className="inline-flex min-h-11 items-center justify-center px-2 text-sm font-semibold text-brand underline-offset-4 hover:underline"
+            >
+              ou garder l’aperçu gratuitement
+            </button>
+          </>
         ) : (
           <Link href={(unlockHref ?? "/premium") as Route} className={primaryClassName}>
             {coursePrice ? `Débloquer cette course · ${coursePrice}` : "Débloquer cette course"}
@@ -106,23 +118,24 @@ export function PlanSampleLockedCta({
       </div>
       <p className="mt-3 text-xs text-muted-foreground">
         {audience === "visitor"
-          ? `Compte gratuit : ton temps, ta course et ton 1er ravito sont gardés. Le plan complet se débloque ensuite${coursePrice ? ` pour ${coursePrice} la course` : ""}.`
+          ? "Paiement unique pour cette course, sans abonnement. Étape 1 : ton compte (ton aperçu est gardé), étape 2 : le paiement."
           : "Paiement unique pour cette course, sans abonnement. Tes réglages du 1er ravito sont conservés."}
       </p>
     </section>
   );
 }
 
-/** Banner above the preview: what is free, what is not, and the next step. */
+/**
+ * Banner above the preview: what is ready and what to do with it. The visitor has a single save action
+ * (sticky bar + locked-plan card), so the banner carries no button for them.
+ */
 export function PlanSampleBanner({
   audience,
   raceName,
-  onCreateAccount,
   unlockHref,
 }: {
   audience: SampleAudience;
   raceName: string | null;
-  onCreateAccount?: () => void;
   unlockHref?: string;
 }) {
   return (
@@ -132,43 +145,99 @@ export function PlanSampleBanner({
           {audience === "visitor" ? "Ton plan · aperçu gratuit" : "Aperçu gratuit de ton plan"}
         </p>
         <p className="text-base font-bold text-foreground">
-          {raceName ? `${raceName} : prépare ton départ et ton 1er ravito` : "Prépare ton départ et ton 1er ravito"}
+          {raceName ? `${raceName} : ton départ et ton 1er ravito sont prêts` : "Ton départ et ton 1er ravito sont prêts"}
         </p>
         <p className="text-sm text-muted-foreground">
-          Ajoute tes gels, barres et boissons, ajuste ton allure : tout se recalcule en direct.
+          On a choisi des produits pour ton allure. Change-les ou ajuste les quantités : tout se recalcule en direct.
           {audience === "free" ? " Tes réglages du 1er ravito restent sur cet appareil jusqu’au déblocage." : ""}
         </p>
       </div>
-      {audience === "visitor" ? (
-        <button type="button" onClick={onCreateAccount} className={`${secondaryClassName} shrink-0`}>
-          Enregistrer mon plan
-        </button>
-      ) : (
+      {audience === "free" ? (
         <Link href={(unlockHref ?? "/premium") as Route} className={`${secondaryClassName} shrink-0`}>
           Débloquer tout le plan
         </Link>
-      )}
+      ) : null}
     </div>
   );
 }
 
-/** Sticky bottom bar of the visitor preview: the plan only lives in this browser until an account exists. */
-export function VisitorPlanSaveBar({ onCreateAccount }: { onCreateAccount: () => void }) {
+/** Sticky bottom bar of the visitor preview: what is still locked and the unlock action. */
+export function VisitorPlanUnlockBar({
+  remainingAidStations,
+  coursePrice,
+  onUnlock,
+}: {
+  remainingAidStations: number;
+  coursePrice: string | null;
+  onUnlock: () => void;
+}) {
+  const lockedLabel =
+    remainingAidStations > 1
+      ? `Tes ${remainingAidStations} autres ravitos t’attendent.`
+      : remainingAidStations === 1
+        ? "Ton prochain ravito t’attend."
+        : "La suite de ta course t’attend.";
   return (
     <div className="fixed inset-x-0 bottom-0 z-30 border-t border-brand-border bg-card/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-6px_20px_rgba(0,0,0,0.08)] backdrop-blur print:hidden">
       <div className="mx-auto flex max-w-5xl items-center gap-3">
         <p className="min-w-0 flex-1 text-sm leading-snug text-foreground">
-          <span className="font-semibold">Ton plan n’est pas encore enregistré.</span>{" "}
-          <span className="hidden text-muted-foreground sm:inline">Crée ton compte gratuit pour le retrouver sur le web et dans l’app.</span>
+          <span className="font-semibold">{lockedLabel}</span>{" "}
+          <span className="hidden text-muted-foreground sm:inline">Quantités, heures de passage et fiche à imprimer jusqu’à l’arrivée.</span>
         </p>
         <button
           type="button"
-          onClick={onCreateAccount}
+          onClick={onUnlock}
           className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl bg-brand px-4 text-sm font-semibold text-brand-foreground transition hover:bg-brand-light"
         >
-          Enregistrer
+          {coursePrice ? `Débloquer · ${coursePrice}` : "Débloquer"}
         </button>
       </div>
+    </div>
+  );
+}
+
+/** Desktop side panel of the visitor preview: the race recap and a way out, no competing save button. */
+export function VisitorPlanRecap({
+  raceName,
+  distanceLabel,
+  elevationLabel,
+  durationLabel,
+  aidStationCount,
+  onChooseAnotherRace,
+}: {
+  raceName: string | null;
+  distanceLabel: string;
+  elevationLabel: string;
+  durationLabel: string;
+  aidStationCount: number;
+  onChooseAnotherRace: () => void;
+}) {
+  const rows: Array<[string, string]> = [
+    ["Distance", distanceLabel],
+    ["Dénivelé", elevationLabel],
+    ["Temps estimé", durationLabel],
+    ["Ravitos", aidStationCount > 0 ? String(aidStationCount) : "—"],
+  ];
+  return (
+    <div className="space-y-4 rounded-2xl border border-border bg-card p-5">
+      <div className="space-y-1">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand">Ta course</p>
+        {raceName ? <p className="text-base font-bold text-foreground">{raceName}</p> : null}
+      </div>
+      <dl className="grid grid-cols-2 gap-2">
+        {rows.map(([label, value]) => (
+          <div key={label} className="rounded-xl bg-muted/50 px-3 py-2">
+            <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
+            <dd className="text-sm font-bold tabular-nums text-foreground">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="text-sm text-muted-foreground">
+        Ton aperçu vit dans ce navigateur pour l’instant. Il est gardé quand tu crées ton compte, gratuit ou pour débloquer le plan.
+      </p>
+      <button type="button" onClick={onChooseAnotherRace} className={`${secondaryClassName} sm:w-full`}>
+        Choisir une autre course
+      </button>
     </div>
   );
 }

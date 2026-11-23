@@ -236,3 +236,7 @@ Return paths (2026-11-16): `/organizers` and `/organizer` (with a validated even
 ## Sign-up attribution (2026-11-22)
 
 `/sign-up` emits `sign up started` (email submit, Google or Apple click) and `sign up completed` (account created, with `email_confirmation_pending`) carrying `source_race`, read from the `catalogRaceId` of the existing return path or the last remembered race. The return path, redirects, rate limiting and session handling are unchanged; no email or name is sent. Web runner funnel analytics (2026-11-22): see [analytics.md](../05-integrations/analytics.md#web-runner-funnel-2026-11-22).
+
+## Sign-up unlock step (2026-11-23)
+
+`/sign-up?next=…&intent=unlock` is opened by the planner's visitor preview when the runner clicks « Débloquer mon plan complet ». `apps/web/app/sign-up/page.tsx` reads `intent` after mount (the page stays prerendered) and only changes the `AuthCard` copy: title « Étape 1/2 : ton compte », description « Ton aperçu est gardé. Juste après : paiement unique pour débloquer tous tes ravitos, sans abonnement. » (English equivalents for the `en` locale). The parameter is presentation only: it grants nothing, is not forwarded to the auth endpoints and changes no endpoint, return-path normalization, rate limit or session handling. The unlock intent itself is stored in the local guest draft, so it survives a switch to sign-in or OAuth; the redirect to `/premium?planId=…` after the plan exists is described in [runner-monetization.md](../03-business-rules/runner-monetization.md#web-free-plan-preview-2026-11-23).

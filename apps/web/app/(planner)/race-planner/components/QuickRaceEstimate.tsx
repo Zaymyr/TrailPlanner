@@ -31,6 +31,12 @@ export function readStoredQuickEstimateInputs(): StoredQuickEstimateInputs | nul
 const FLAT_REFERENCE_KM = 10;
 
 type InputMode = "pace" | "flatTime";
+
+/** Real starting values (not placeholders) so the first « Calculer » click works without typing. */
+const MODE_DEFAULTS: Record<InputMode, { first: string; second: string }> = {
+  pace: { first: "6", second: "30" },
+  flatTime: { first: "55", second: "00" },
+};
 type RaceSummary = { id: string; name: string; slug: string; distanceKm: number | null; elevationGainM: number | null; date: string | null };
 type EstimateResponse = {
   fromPace: QuickEstimateResult | null;
@@ -68,8 +74,8 @@ export function QuickRaceEstimate({
   isOpeningPlan?: boolean;
 }) {
   const [mode, setMode] = useState<InputMode>("pace");
-  const [firstValue, setFirstValue] = useState("");
-  const [secondValue, setSecondValue] = useState("");
+  const [firstValue, setFirstValue] = useState(MODE_DEFAULTS.pace.first);
+  const [secondValue, setSecondValue] = useState(MODE_DEFAULTS.pace.second);
   const [utmbIndex, setUtmbIndex] = useState("");
   const [showUtmb, setShowUtmb] = useState(false);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
@@ -99,8 +105,8 @@ export function QuickRaceEstimate({
   const switchMode = (next: InputMode) => {
     if (next === mode) return;
     setMode(next);
-    setFirstValue("");
-    setSecondValue("");
+    setFirstValue(MODE_DEFAULTS[next].first);
+    setSecondValue(MODE_DEFAULTS[next].second);
     setError(null);
   };
 
@@ -187,7 +193,7 @@ export function QuickRaceEstimate({
           </h2>
           {race ? (
             <div className="flex flex-wrap gap-2 text-sm font-semibold">
-              {race.distanceKm !== null ? <span className="rounded-full bg-white/15 px-3 py-1">{race.distanceKm} km</span> : null}
+              {race.distanceKm !== null ? <span className="rounded-full bg-white/15 px-3 py-1">{race.distanceKm.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} km</span> : null}
               {race.elevationGainM !== null ? <span className="rounded-full bg-white/15 px-3 py-1">{Math.round(race.elevationGainM).toLocaleString("fr-FR")} m D+</span> : null}
               {race.date ? (
                 <span className="rounded-full bg-white/15 px-3 py-1">
@@ -228,7 +234,6 @@ export function QuickRaceEstimate({
               <input
                 aria-label={mode === "pace" ? "Minutes par kilomètre" : "Minutes"}
                 inputMode="numeric"
-                placeholder={mode === "pace" ? "6" : "55"}
                 value={firstValue}
                 onChange={(event) => setFirstValue(digits(event.target.value, mode === "pace" ? 2 : 3))}
                 className={`${inputClassName} max-w-[5.5rem]`}
@@ -237,7 +242,6 @@ export function QuickRaceEstimate({
               <input
                 aria-label="Secondes"
                 inputMode="numeric"
-                placeholder={mode === "pace" ? "30" : "00"}
                 value={secondValue}
                 onChange={(event) => setSecondValue(digits(event.target.value, 2))}
                 className={`${inputClassName} max-w-[5rem]`}
@@ -309,12 +313,19 @@ export function QuickRaceEstimate({
               <li className="flex gap-2"><span aria-hidden className="font-bold text-brand">✓</span>Tes gels, barres et boissons placés au bon moment</li>
               <li className="flex gap-2">
                 <span aria-hidden className="font-bold text-brand">✓</span>
-                {aidStationCount > 0 ? `Tes ${aidStationCount} ravitos et tes heures de passage` : "Tes heures de passage jusqu’à l’arrivée"}
+                {aidStationCount > 1
+                  ? `Tes ${aidStationCount} ravitos et tes heures de passage`
+                  : aidStationCount === 1
+                    ? "Ton ravito et ton heure de passage"
+                    : "Tes heures de passage jusqu’à l’arrivée"}
               </li>
             </ul>
             <button type="button" onClick={openPlan} className={primaryButtonClassName} disabled={isOpeningPlan}>
               {isOpeningPlan ? "Ouverture du plan…" : "Voir mon plan de course →"}
             </button>
+            <p className="text-center text-xs text-muted-foreground">
+              Gratuit : ton départ et ton premier ravito. Le plan complet (tous les ravitos, fiche à imprimer, assistance) se débloque ensuite.
+            </p>
             <p className="text-center text-xs text-muted-foreground">Sans compte, sans carte bancaire.</p>
           </div>
 

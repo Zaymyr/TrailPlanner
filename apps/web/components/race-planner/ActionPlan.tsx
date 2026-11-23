@@ -2340,13 +2340,13 @@ export function ActionPlan({
                       </div>
                     </div>
                   ) : typeof item.aidStationIndex === "number" && !isCollapsed ? (
-                    <div className="flex w-full flex-1 items-center justify-between gap-2 rounded-2xl border border-dashed border-border bg-muted/40 p-3 text-xs font-medium text-muted-foreground dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300">
-                      <span>
+                    <div className="flex w-full min-w-0 flex-1 flex-wrap items-center justify-between gap-2 rounded-2xl border border-dashed border-border bg-muted/40 p-3 text-xs font-medium text-muted-foreground dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300">
+                      <span className="min-w-0">
                         {locale === "fr"
-                          ? "Pas d'assistance : les produits perso sont a porter depuis le point assistance precedent."
+                          ? "Pas d’assistance : tes produits perso sont à porter depuis le point d’assistance précédent."
                           : "No crew access: personal products must be carried from the previous crew point."}
                       </span>
-                      <div className="flex shrink-0 items-center gap-2">
+                      <div className="flex min-w-0 flex-wrap items-center gap-2">
                         {waterRefillToggle}
                         {solidRefillToggle}
                         {assistanceAllowedToggle}

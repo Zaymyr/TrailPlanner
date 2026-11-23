@@ -13,6 +13,8 @@ related_files:
   - apps/web/lib/public-supporter-guide.ts
   - apps/web/lib/public-supporter-guide.test.ts
   - apps/web/app/livret-coureur/page.tsx
+  - scripts/demo-gpx/generate-trail-tst-gpx.mjs
+  - scripts/demo-gpx/upload-trail-tst-gpx.mjs
   - apps/web/app/livret-supporter/page.tsx
   - apps/web/components/landing/LivretProductPage.tsx
   - apps/web/app/courses/supporter-guide/[raceId]/page.tsx
@@ -209,6 +211,10 @@ The catalog paginates on the server at 12 event-edition groups per response and 
 ## Trail TST Demo And Catalogue Data Quality (2026-11-22)
 
 The Trail TST demo stays publicly reachable because the printed QR codes lead to it, but it is not a real race. Its format and edition pages show a « Course de démonstration » pill (`DemoRaceBadge`) in the hero, have no « S’inscrire sur le site officiel » action, no official-links block and no `SportsEvent` JSON-LD (its websites are placeholders), are `noindex,follow`, and the sitemap leaves out its formats, editions and their effect on distance-page dates. It is identified only by the fixed event id; there is no schema flag. Its current edition is moved to today every day by the demo refresh job, edition year included (see [Infrastructure](../01-architecture/infrastructure.md#demo-race-refresh)); the 2025 demo edition keeps its past dates.
+
+Demo GPX realism (2026-11-23): the original seed GPX files were 13-point tracks that measured about 24 km for the 42 km demo race, so the planner preview contradicted the catalog row (an estimate for 42,6 km, then a plan of 23,8 km / 4h20). `scripts/demo-gpx/generate-trail-tst-gpx.mjs` regenerates `supabase/demo-assets/trail-tst-{18,42,82}.gpx` as dense closed loops (one point every 50 m) starting and finishing at Samoëns, scaled so the haversine length equals the catalog distance (18,4 / 42,6 / 82,3 km), with an altitude profile that passes through every seeded aid-station altitude and sums to the catalog D+ (860 / 2450 / 5120 m). `node scripts/demo-gpx/generate-trail-tst-gpx.mjs` rewrites the three files and prints their stats; keep its constants in sync with the seed migration `20260827093348_seed_trail_tst_demo_event.sql`. The repository files are only the source: production reads the objects under `race-gpx/trail-tst/2026/` and the organizer copies made by the demo refresh. `scripts/demo-gpx/upload-trail-tst-gpx.mjs` replaces them (`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` required, `--backup-dir <dir>` required, `--dry-run` available): it selects the `races` rows whose `gpx_sha256` is still one of the old 13-point files, downloads each current object into the backup directory, uploads the new file (`x-upsert`), then updates `races.gpx_sha256` and `gpx_hash`.
+
+The upload ran in production on 2026-11-23 with the maintainer's go: six `races` rows were updated (the three 2025 seed formats under `race-gpx/trail-tst/2026/` and the three organizer copies of the current demo edition), and `GET /api/race-catalog/[id]/gpx` now serves the dense tracks (853 points for the 42 km). Because the script matches on the old hashes only, running it again is a no-op. To restore the previous files, upload the backed-up objects to the same paths and set `gpx_sha256` / `gpx_hash` back to the old values listed in the script.
 
 Course detail display rules:
 

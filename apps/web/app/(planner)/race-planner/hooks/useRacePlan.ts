@@ -20,6 +20,7 @@ import {
   sanitizeSegmentPlan,
 } from "../utils/plan-sanitizers";
 import { parseGpx as parseGpxLocal } from "../utils/gpx";
+import { mapCatalogAidStations, resolvePreviewElevationGain, type CatalogAidStationRow } from "../utils/catalog-preview";
 import { trackPlanPersisted } from "../../../../lib/product-analytics";
 
 const productListSchema = z.object({ products: z.array(fuelProductSchema) });
@@ -706,33 +707,54 @@ export const useRacePlan = ({
    * Loads a catalog race into the local form only (no plan row is created). Used by visitors (free plan
    * preview opened from the quick estimate) and by the legacy guest planner. Resolves to `true` on success.
    */
-  const loadCatalogRaceLocally = useCallback(async (raceId: string): Promise<boolean> => {
+  const loadCatalogRaceLocally = useCallback(async (
+    raceId: string,
+    options?: { elevationGainM?: number | null },
+  ): Promise<boolean> => {
     setAccountError(null);
     setAccountMessage(null);
     setCatalogSubmissionId(raceId);
     try {
-      const gpxResponse = await fetch(`/api/race-catalog/${raceId}/gpx`);
+      // The catalog aid stations live in `race_aid_stations`, not in the GPX: load them like
+      // `POST /api/plans/from-catalog` does for an account, so the preview shows the same ravitos as the estimate.
+      const [gpxResponse, aidStationsResponse] = await Promise.all([
+        fetch(`/api/race-catalog/${raceId}/gpx`),
+        fetch(`/api/race-catalog/${raceId}/aid-stations`).catch(() => null),
+      ]);
       if (!gpxResponse.ok) {
         setAccountError(racePlannerCopy.raceCatalog.errors.createFailed);
         return false;
       }
       const gpxContent = await gpxResponse.text();
       const parsedGpx = parseGpxLocal(gpxContent, racePlannerCopy);
+      const catalogAidStationRows: CatalogAidStationRow[] = aidStationsResponse?.ok
+        ? (((await aidStationsResponse.json().catch(() => null)) as { aidStations?: CatalogAidStationRow[] } | null)?.aidStations ?? [])
+        : [];
 
       const fallbackDistance = parsedGpx.distanceKm || defaultValues.raceDistanceKm;
+      const catalogStations = mapCatalogAidStations(catalogAidStationRows, fallbackDistance);
       const fallbackStations =
-        parsedGpx.aidStations.length > 0
-          ? parsedGpx.aidStations
-          : [{ name: racePlannerCopy.defaults.finish, distanceKm: Number(fallbackDistance.toFixed(1)) }];
+        catalogStations.length > 0
+          ? catalogStations
+          : parsedGpx.aidStations.length > 0
+            ? parsedGpx.aidStations
+            : [{ name: racePlannerCopy.defaults.finish, distanceKm: Number(fallbackDistance.toFixed(1)) }];
+      const elevationGain = resolvePreviewElevationGain(
+        options?.elevationGainM,
+        parsedGpx.elevationProfile,
+        defaultValues.elevationGain,
+      );
 
       if (parsedGpx.plannerValues) {
         const plannerAidStations = sanitizeAidStations(parsedGpx.plannerValues.aidStations);
-        const mergedAidStations = plannerAidStations.length > 0 ? plannerAidStations : fallbackStations;
+        const mergedAidStations =
+          catalogStations.length > 0 ? catalogStations : plannerAidStations.length > 0 ? plannerAidStations : fallbackStations;
         form.reset(
           {
             ...defaultValues,
             ...parsedGpx.plannerValues,
             raceDistanceKm: parsedGpx.plannerValues.raceDistanceKm ?? fallbackDistance,
+            elevationGain: parsedGpx.plannerValues.elevationGain ?? elevationGain,
             aidStations: mergedAidStations,
             finishPlan: parsedGpx.plannerValues.finishPlan ?? defaultValues.finishPlan,
           },
@@ -740,6 +762,7 @@ export const useRacePlan = ({
         );
       } else {
         form.setValue("raceDistanceKm", Number(fallbackDistance.toFixed(1)));
+        form.setValue("elevationGain", elevationGain);
         form.setValue("aidStations", fallbackStations);
       }
 

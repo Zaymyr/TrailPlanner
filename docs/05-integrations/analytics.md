@@ -228,6 +228,23 @@ Supporter-point replacement uses the aggregate `supporter_points` changed-field 
 
 Opening, replaying, stepping through, or closing the Organizer spotlight guide emits no organizer content event. The guide waits for a cookie decision before presentation and suppresses the mobile-app prompt while active; this UI coordination must not be interpreted as analytics consent or as a saved organizer action.
 
+## Web Runner Purchase Funnel (PostHog)
+
+Every Web product event, including the whole runner funnel, goes through `trackGoogleAnalyticsEvent`, which sends the same event name and properties to Google Analytics and to PostHog (project `176628`), where the product dashboards and internal/test-user exclusion live. PostHog capture and the lazy browser init happen only after cookie consent (`canLoadAnalytics()`); without consent, without a PostHog browser key, or on the server, nothing is captured. Web events carry the registered `surface: web` super property (mobile uses `surface: app`). PostHog failures are swallowed and never break the UI. The PostHog client is initialised lazily at the first consented event, because tracker effects run before the `PostHogProvider` init effect and the earliest events (such as `race page viewed`) would otherwise reach GA only. Organizer analytics reads PostHog server-side only (`posthog-organizer-analytics.ts` never captures), so there is no double capture.
+
+Ordered runner funnel, all in PostHog:
+
+1. `race page viewed`
+2. `quick estimate completed`
+3. `quick estimate open plan` / `visitor plan opened`
+4. `visitor plan unlock` (primary CTA) / `visitor plan save` (secondary link) / `sign up started`
+5. `sign up completed`
+6. `visitor unlock redirected` (only after a `visitor plan unlock`: the new, still locked plan is sent to `/premium?planId=…`) / `premium paywall viewed`
+7. `premium checkout started` (annual) / `runner course checkout started` (one-time course)
+8. `premium purchase verified` / `runner course purchase verified`
+
+Side events: `race estimate cta clicked`, `plan sample locked action`, `plan exported`, `quick estimate app click`, `plan created`, `plan saved`. Keep annual and course funnels separate, and exclude `$internal_or_test_user = true` persons.
+
 ## Web Plan Value Events
 
 `apps/web/lib/product-analytics.ts` centralizes consent-gated Web product events and keeps core plan names aligned with mobile:

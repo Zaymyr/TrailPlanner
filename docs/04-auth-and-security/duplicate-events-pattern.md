@@ -63,7 +63,7 @@ After a successful save it sets:
 
 `apps/web/app/(planner)/race-planner/hooks/useRacePlan.ts` later removes `trailplanner.pendingPlanId` and both onboarding save flags after loading the pending plan.
 
-`useRacePlan.ts` also exposes `loadCatalogRaceLocally` (2026-11-23) for the visitor plan preview: it only fills the local form from the catalog GPX and never saves, so it adds no write that needs this pattern; the plan is still created once by `POST /api/plans/from-catalog` after authentication.
+`useRacePlan.ts` also exposes `loadCatalogRaceLocally` (2026-11-23) for the visitor plan preview: it only fills the local form from the catalog GPX, the public catalog aid-station route and the catalog D+ (three read-only GETs, no auth event involved) and never saves, so it adds no write that needs this pattern; the plan is still created once by `POST /api/plans/from-catalog` after authentication.
 
 ## Server-Side Backstop
 

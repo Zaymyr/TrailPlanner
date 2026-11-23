@@ -52,16 +52,21 @@ const resolveSourceRace = (returnPath: string) => parseSourceRaceFromPath(return
 
 export default function SignUpPage() {
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [formError, setFormError] = useState<string | null>(null);
   const [formMessage, setFormMessage] = useState<string | null>(null);
   const [oauthError, setOauthError] = useState<string | null>(null);
   // Keep an explicit `?next=` when switching between sign-in and sign-up (read after mount: the page is prerendered).
   const [alternateAuthHref, setAlternateAuthHref] = useState("/sign-in");
+  // `intent=unlock`: the runner clicked « Débloquer mon plan complet » in the planner preview; the account is
+  // step 1 of 2, the course offer of the new plan follows (see RacePlannerPageContent).
+  const [isUnlockStep, setIsUnlockStep] = useState(false);
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).has("next")) {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("next")) {
       setAlternateAuthHref(buildAuthHref("/sign-in", readCurrentReturnPath()));
     }
+    setIsUnlockStep(params.get("intent") === "unlock");
   }, []);
 
   const signUpSchema = useMemo(() => createSignUpSchema(t.auth), [t]);
@@ -176,8 +181,14 @@ export default function SignUpPage() {
 
   return (
     <AuthCard
-      title={t.auth.signUp.title}
-      description={t.auth.signUp.description}
+      title={isUnlockStep ? (locale === "fr" ? "Étape 1/2 : ton compte" : "Step 1/2: your account") : t.auth.signUp.title}
+      description={
+        isUnlockStep
+          ? locale === "fr"
+            ? "Ton aperçu est gardé. Juste après : paiement unique pour débloquer tous tes ravitos, sans abonnement."
+            : "Your preview is kept. Right after: a one-off payment to unlock every aid station, no subscription."
+          : t.auth.signUp.description
+      }
       footer={
         <>
           {t.auth.shared.hasAccount} <AuthTextLink href={alternateAuthHref}>{t.auth.shared.signInLink}</AuthTextLink>

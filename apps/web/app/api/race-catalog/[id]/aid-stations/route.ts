@@ -19,6 +19,8 @@ const aidStationRowSchema = z.object({
   name: z.string(),
   km: z.number(),
   water_available: z.boolean(),
+  solid_available: z.boolean().nullable().optional(),
+  assistance_allowed: z.boolean().nullable().optional(),
   notes: z.string().nullable().optional(),
   order_index: z.number(),
 });
@@ -50,7 +52,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
   try {
     const response = await fetch(
-      `${supabaseConfig.supabaseUrl}/rest/v1/race_aid_stations?race_id=eq.${parsedParams.data.id}&select=id,name,km,water_available,notes,order_index&order=order_index.asc`,
+      `${supabaseConfig.supabaseUrl}/rest/v1/race_aid_stations?race_id=eq.${parsedParams.data.id}&select=id,name,km,water_available,solid_available,assistance_allowed,notes,order_index&order=order_index.asc`,
       {
         headers: {
           apikey: supabaseConfig.supabaseAnonKey,

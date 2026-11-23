@@ -91,11 +91,16 @@ const formatEventDate = (value: string | null) => {
 
 const hasGpx = (race: CatalogRace) => Boolean(race.gpx_storage_path);
 
+/** Today's calendar day (YYYY-MM-DD) in Europe/Paris, the timezone of the races, so "today" is the same for every visitor. */
+export const getCatalogToday = (now = new Date()) =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+
 /**
- * Groups formats under their event and orders the cards: events with at least one usable GPX first, then
- * upcoming events by date, then past events (most recent first), then undated ones by name.
+ * Groups formats under their event and orders the cards: events with at least one usable GPX first, then events
+ * without a trace, each block by next date ascending (a race dated today is still upcoming), undated events last.
+ * Events dated before `today` are hidden: a picker of finished races is a dead end.
  */
-export function groupCatalogRaces(races: CatalogRace[], today = new Date().toISOString().slice(0, 10)): CatalogEventGroup[] {
+export function groupCatalogRaces(races: CatalogRace[], today = getCatalogToday()): CatalogEventGroup[] {
   const groups = new Map<string, CatalogEventGroup>();
   for (const race of races) {
     const event = race.race_events ?? null;
@@ -116,10 +121,6 @@ export function groupCatalogRaces(races: CatalogRace[], today = new Date().toISO
     group.races.push(race);
   }
 
-  const dateRank = (group: CatalogEventGroup) => {
-    if (!group.date) return 2;
-    return group.date.slice(0, 10) >= today ? 0 : 1;
-  };
   const label = (group: CatalogEventGroup) => group.eventName ?? group.races[0]?.name ?? "";
 
   // A format repeated across yearly editions of the same event (same name) keeps only its latest edition,
@@ -135,6 +136,7 @@ export function groupCatalogRaces(races: CatalogRace[], today = new Date().toISO
   };
 
   return Array.from(groups.values())
+    .filter((group) => !group.date || group.date.slice(0, 10) >= today)
     .map((group) => {
       const races = latestEditionOnly(group.races).sort(
         (a, b) => Number(hasGpx(b)) - Number(hasGpx(a)) || a.distance_km - b.distance_km
@@ -143,10 +145,11 @@ export function groupCatalogRaces(races: CatalogRace[], today = new Date().toISO
     })
     .sort((a, b) => {
       if (a.hasGpx !== b.hasGpx) return a.hasGpx ? -1 : 1;
-      const rankDiff = dateRank(a) - dateRank(b);
-      if (rankDiff !== 0) return rankDiff;
-      if (a.date && b.date && a.date !== b.date) {
-        return dateRank(a) === 0 ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date);
+      if (a.date && b.date) {
+        const dateDiff = a.date.slice(0, 10).localeCompare(b.date.slice(0, 10));
+        if (dateDiff !== 0) return dateDiff;
+      } else if (a.date || b.date) {
+        return a.date ? -1 : 1;
       }
       return label(a).localeCompare(label(b));
     });
@@ -165,7 +168,13 @@ const CloseIcon = (props: SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-const MountainIcon = (props: SVGProps<SVGSVGElement>) => (
+const ChevronIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
+    <path d="m9 6 6 6-6 6" />
+  </svg>
+);
+
+const MountainIcon =(props: SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
     <path d="m3 20 6.5-11 4 6.5 2.5-3.5L21 20H3Z" />
   </svg>
@@ -495,7 +504,7 @@ function EventCard({
   return (
     <article
       aria-labelledby={headingId}
-      className={`overflow-hidden rounded-2xl border border-border bg-card shadow-sm ${group.hasGpx ? "" : "opacity-75"}`}
+      className={`overflow-hidden rounded-2xl border border-border bg-card shadow-sm ${group.hasGpx ? "" : "opacity-80"}`}
     >
       <div className="flex items-center gap-3 border-b border-border bg-brand-surface/60 p-3 sm:px-4">
         {group.thumbnailUrl ? (
@@ -518,6 +527,7 @@ function EventCard({
           <li key={race.id}>
             <FormatRow
               race={race}
+              eventName={group.eventName}
               label={group.eventName ? getFormatLabelWithinEvent(race.name, group.eventName) : race.name}
               copy={copy}
               isAdmin={isAdmin}
@@ -536,6 +546,7 @@ function EventCard({
 function FormatRow({
   race,
   label,
+  eventName,
   copy,
   isAdmin,
   isSubmittingId,
@@ -545,6 +556,7 @@ function FormatRow({
 }: {
   race: CatalogRace;
   label: string;
+  eventName: string | null;
   copy: RaceCatalogModalProps["copy"];
   isAdmin: boolean;
   isSubmittingId: string | null;
@@ -556,46 +568,31 @@ function FormatRow({
   const usable = hasGpx(race);
   const isSubmitting = isSubmittingId === race.id;
 
-  return (
-    <div className="p-3 sm:px-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <p className="min-w-0 text-[15px] font-bold leading-snug text-foreground">{label}</p>
-        <div className="flex items-baseline gap-3">
-          <span className="text-sm font-bold tabular-nums text-foreground">
-            {formatNumber(race.distance_km, 1)}
-            <span className="ml-0.5 text-xs font-semibold text-muted-foreground">{copy.units.kilometer}</span>
-          </span>
-          {race.elevation_gain_m !== null ? (
-            <span className="text-sm font-bold tabular-nums text-foreground">
-              <span className="mr-0.5 text-xs font-semibold text-muted-foreground">D+</span>
-              {formatNumber(race.elevation_gain_m)}
-              <span className="ml-0.5 text-xs font-semibold text-muted-foreground">{copy.units.meter}</span>
-            </span>
-          ) : null}
-        </div>
-      </div>
+  const stats = (
+    <span className="flex shrink-0 items-baseline gap-3">
+      <span className="text-sm font-bold tabular-nums text-foreground">
+        {formatNumber(race.distance_km, 1)}
+        <span className="ml-0.5 text-xs font-semibold text-muted-foreground">{copy.units.kilometer}</span>
+      </span>
+      {race.elevation_gain_m !== null ? (
+        <span className="text-sm font-bold tabular-nums text-foreground">
+          <span className="mr-0.5 text-xs font-semibold text-muted-foreground">D+</span>
+          {formatNumber(race.elevation_gain_m)}
+          <span className="ml-0.5 text-xs font-semibold text-muted-foreground">{copy.units.meter}</span>
+        </span>
+      ) : null}
+    </span>
+  );
 
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        {usable ? (
-          <Button
-            type="button"
-            className="h-11 min-w-[10rem] flex-1 rounded-xl text-sm font-semibold"
-            onClick={() => onUseRace(race.id)}
-            disabled={Boolean(isSubmittingId)}
-          >
-            {isSubmitting ? copy.using : copy.useAction}
-          </Button>
-        ) : (
-          <span className="inline-flex h-8 items-center rounded-full bg-muted px-3 text-xs font-semibold text-muted-foreground">
-            {copy.table.noGpx}
-          </span>
-        )}
+  const extras =
+    race.trace_id || isAdmin ? (
+      <div className="flex flex-wrap items-center gap-2 px-3 pb-2 sm:px-4">
         {race.trace_id ? (
           <a
             href={`https://tracedetrail.fr/fr/trace/${race.trace_id}`}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex h-11 items-center rounded-xl px-3 text-sm font-semibold text-brand hover:bg-brand-surface"
+            className="inline-flex h-9 items-center rounded-xl px-2 text-sm font-semibold text-brand hover:bg-brand-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {copy.table.openTrace}
           </a>
@@ -617,7 +614,7 @@ function FormatRow({
             <Button
               type="button"
               variant="outline"
-              className="h-11 rounded-xl px-3 text-sm"
+              className="h-9 rounded-xl px-3 text-sm"
               onClick={() => fileInputRef.current?.click()}
               disabled={isUpdating}
             >
@@ -626,6 +623,33 @@ function FormatRow({
           </>
         ) : null}
       </div>
+    ) : null;
+
+  return (
+    <div>
+      {usable ? (
+        <button
+          type="button"
+          onClick={() => onUseRace(race.id)}
+          disabled={Boolean(isSubmittingId)}
+          aria-label={`${copy.useAction} : ${eventName ? `${eventName} ` : ""}${label}`}
+          className="flex min-h-12 w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-brand-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:opacity-60 sm:px-4"
+        >
+          <span className="min-w-0 flex-1 break-words text-[15px] font-bold leading-snug text-foreground">{label}</span>
+          {stats}
+          <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-brand">
+            {isSubmitting ? copy.using : null}
+            <ChevronIcon className="h-4 w-4" />
+          </span>
+        </button>
+      ) : (
+        <div className="flex min-h-10 items-center gap-3 px-3 py-2 opacity-70 sm:px-4">
+          <span className="min-w-0 flex-1 break-words text-sm font-medium leading-snug text-muted-foreground">{label}</span>
+          {stats}
+          <span className="shrink-0 text-xs text-muted-foreground">{copy.table.noGpx}</span>
+        </div>
+      )}
+      {extras}
     </div>
   );
 }
