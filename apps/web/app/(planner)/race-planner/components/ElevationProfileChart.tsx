@@ -151,6 +151,8 @@ export function ElevationProfileChart({
   totalDistanceKm,
   copy,
   baseMinutesPerKm,
+  startLabel = copy.sections.courseProfile.startLabel,
+  finishLabel = copy.sections.courseProfile.finishLabel,
 }: {
   profile: ElevationPoint[];
   aidStations: AidStation[];
@@ -158,6 +160,10 @@ export function ElevationProfileChart({
   totalDistanceKm: number;
   copy: RacePlannerTranslations;
   baseMinutesPerKm: number | null;
+  /** Label of the first point (« Départ » by default; a section chart passes its aid station). */
+  startLabel?: string;
+  /** Label of the last point (« Arrivée » by default; a section chart passes the next aid station). */
+  finishLabel?: string;
 }) {
   const gradientId = `elevation-fill-${useId().replace(/:/g, "")}`;
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
@@ -587,7 +593,7 @@ export function ElevationProfileChart({
                 style={displayText}
                   {...halo}
               >
-                {copy.sections.courseProfile.startLabel}
+                {startLabel}
               </text>
             </g>
           );
@@ -611,7 +617,7 @@ export function ElevationProfileChart({
                     style={displayText}
                     {...halo}
                   >
-                    {copy.sections.courseProfile.finishLabel}
+                    {finishLabel}
                   </text>
                 </g>
               );
@@ -677,7 +683,7 @@ export function ElevationProfileChart({
                   style={displayText}
                   {...halo}
                 >
-                  {copy.sections.courseProfile.finishLabel}
+                  {finishLabel}
                 </text>
               ) : showLabel ? (
                 <text

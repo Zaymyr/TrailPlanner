@@ -11,6 +11,9 @@ type SubSectionElevationChartProps = {
   endDistanceKm: number;
   copy: RacePlannerTranslations;
   baseMinutesPerKm: number | null;
+  /** Names of the section ends (the aid stations), instead of « Départ » / « Arrivée ». */
+  startLabel?: string;
+  finishLabel?: string;
 };
 
 export function SubSectionElevationChart({
@@ -19,6 +22,8 @@ export function SubSectionElevationChart({
   endDistanceKm,
   copy,
   baseMinutesPerKm,
+  startLabel,
+  finishLabel,
 }: SubSectionElevationChartProps) {
   const { x, y } = getElevationSliceXY(elevationProfile, startDistanceKm, endDistanceKm);
   const totalDistanceKm = Math.max(0, Math.abs(endDistanceKm - startDistanceKm));
@@ -40,6 +45,8 @@ export function SubSectionElevationChart({
       totalDistanceKm={totalDistanceKm}
       copy={copy}
       baseMinutesPerKm={baseMinutesPerKm}
+      startLabel={startLabel}
+      finishLabel={finishLabel}
     />
   );
 }

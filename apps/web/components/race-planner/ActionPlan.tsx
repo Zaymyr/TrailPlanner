@@ -701,6 +701,8 @@ function SubSectionRow({
             endDistanceKm={endDistanceKm}
             copy={copy}
             baseMinutesPerKm={baseMinutesPerKm}
+            startLabel={formatDistance(startDistanceKm)}
+            finishLabel={formatDistance(endDistanceKm)}
           />
         </div>
       </CardContent>
@@ -2640,6 +2642,8 @@ export function ActionPlan({
                           endDistanceKm={sectionSegment.distanceKm}
                           copy={copy}
                           baseMinutesPerKm={baseMinutesPerKm}
+                          startLabel={item.title}
+                          finishLabel={nextTitle}
                         />
                       </div>
                       {segmentListItems.length > 0 ? (
