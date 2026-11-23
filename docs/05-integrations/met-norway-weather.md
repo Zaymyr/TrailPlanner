@@ -116,14 +116,14 @@ From `COURSE_WEATHER_THRESHOLDS` in `packages/shared/src/course-weather/presenta
 |---|---|
 | `heat` | feels-like ≥ 27 °C (heat index when T ≥ 27 °C with humidity) |
 | `cold` | feels-like ≤ 0 °C (wind chill when T ≤ 10 °C and wind > 4.8 km/h) |
-| `wind` | gust ≥ 60 km/h |
+| `wind` | gust ≥ 60 km/h, or sustained wind ≥ 40 km/h when the source has no gusts |
 | `rain` | precipitation ≥ 1 mm/h or a `rain` symbol |
 | `storm` | `thunder` symbol |
 | `snow` | `snow` or `sleet` symbol (replaces `rain`) |
 
 ## Gotchas
 
-- Outside MET's Nordic high-resolution model (i.e. France and most race locations) the `complete` product has **no `wind_speed_of_gust` and no `probability_of_precipitation`**: these fields are `null`, and `summarizeCourseWeatherHours` falls back to wind speed for `maxWindGustKph`. The `wind` alert can therefore only fire where gusts exist.
+- Outside MET's Nordic high-resolution model (i.e. France and most race locations) the `complete` product has **no `wind_speed_of_gust` and no `probability_of_precipitation`**: these fields are `null`, and `summarizeCourseWeatherHours` falls back to wind speed for `maxWindGustKph`. The `wind` alert then falls back to sustained wind ≥ 40 km/h.
 - The last MET step carries only instant values: its hour has `symbol` and `precipitationMm` `null`.
 - Forecast cache key is the point URL: changing rounding or the altitude source invalidates every cached point.
 - Aid-station km are official kms projected on the GPX length; when the GPX is shorter than the official distance, late stations clamp to the GPX end. `distanceKm` stays the official km so planned passages match.

@@ -21,6 +21,8 @@ export const COURSE_WEATHER_THRESHOLDS = {
   coldFeelsLikeC: 0,
   /** Gust (km/h) at or above which wind is flagged. */
   windGustKph: 60,
+  /** Sustained wind (km/h) used instead when the source has no gusts (MET outside the Nordics). */
+  windSpeedKph: 40,
   /** Hourly precipitation (mm) at or above which rain is flagged. */
   rainMmPerHour: 1,
 } as const;
@@ -108,7 +110,13 @@ export function courseWeatherHourAlerts(hour: CourseWeatherHour | null): CourseW
   const feelsLike = courseWeatherFeelsLikeC(hour);
   if (isNumber(feelsLike) && feelsLike >= COURSE_WEATHER_THRESHOLDS.heatFeelsLikeC) alerts.push('heat');
   if (isNumber(feelsLike) && feelsLike <= COURSE_WEATHER_THRESHOLDS.coldFeelsLikeC) alerts.push('cold');
-  if (isNumber(hour.windGustKph) && hour.windGustKph >= COURSE_WEATHER_THRESHOLDS.windGustKph) alerts.push('wind');
+  if (
+    isNumber(hour.windGustKph)
+      ? hour.windGustKph >= COURSE_WEATHER_THRESHOLDS.windGustKph
+      : isNumber(hour.windSpeedKph) && hour.windSpeedKph >= COURSE_WEATHER_THRESHOLDS.windSpeedKph
+  ) {
+    alerts.push('wind');
+  }
   const symbol = hour.symbol ?? '';
   if (symbol.includes('thunder')) alerts.push('storm');
   if (symbol.includes('snow') || symbol.includes('sleet')) alerts.push('snow');

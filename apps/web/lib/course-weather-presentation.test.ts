@@ -52,6 +52,8 @@ describe('course weather presentation', () => {
   it('raises alerts', () => {
     expect(courseWeatherHourAlerts(hour('x', { temperatureC: 33, relativeHumidity: 60 }))).toContain('heat');
     expect(courseWeatherHourAlerts(hour('x', { windGustKph: 75 }))).toContain('wind');
+    expect(courseWeatherHourAlerts(hour('x', { windGustKph: null, windSpeedKph: 45 }))).toContain('wind');
+    expect(courseWeatherHourAlerts(hour('x', { windGustKph: 50, windSpeedKph: 45 }))).not.toContain('wind');
     expect(courseWeatherHourAlerts(hour('x', { symbol: 'heavyrainandthunder' }))).toEqual(['storm', 'rain']);
     expect(courseWeatherHourAlerts(hour('x', { symbol: 'lightsnow', temperatureC: -2 }))).toEqual(['cold', 'snow']);
   });
