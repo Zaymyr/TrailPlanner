@@ -166,6 +166,8 @@ Runner copy and saved-plan layout changes do not modify affiliate labels, destin
 
 Admin console (2026-11-22, lot 1): the « Liens partenaires » tab is the page `/admin/catalog/partners` (same `AdminPartnerLinksTab`, same API); `/admin?onglet=partenaires` redirects there.
 
+Locale verification (2026-11-23): the `apps/web/locales/fr.ts` / `en.ts` change of this date only rewrites the planner premium-modal copy (title, description, price fallback, features, subscribe label, pop-up message) and the catalog results count (`{count} événement(s) à venir`). No partner label, Booking/Decathlon string, disclosure or destination is touched, `locales/types.ts` keeps the same shape, and the affiliate contract above is unchanged.
+
 ## Admin audit journal (lot 7)
 
 `app/api/admin/partner-links/route.ts` now exports its write handler through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`partner.links`) to the admin action journal ([`admin_audit_log`](../02-database/tables/admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.

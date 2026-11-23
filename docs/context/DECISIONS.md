@@ -4,6 +4,14 @@
 
 Journal en ajout seul, la plus récente en haut. Format : `## AAAA-MM-JJ — Titre`, puis Contexte / Décision / Conséquence (2 à 4 lignes chacun). Les décisions d'architecture détaillées (ADR) vont dans [docs/08-decisions/](../08-decisions/README.md).
 
+## 2026-11-23 — Planificateur web : aperçu résultat d'abord, paywall course d'abord, landing
+
+**Contexte.** L'audit de conversion du planificateur web : l'aperçu gratuit montrait d'abord les étapes de réglage, perdait les ravitos du catalogue et le D+ réel (valeur par défaut de 2200 m), proposait trois boutons d'enregistrement, et la modale premium vendait seulement l'abonnement avec un prix de repli faux (« 7,99 $/mois »). La démo Trail TST avait des GPX de 13 points (≈ 24 km pour la course de 42 km).
+
+**Décision.** Le visiteur voit d'abord le résultat : frise du plan avec départ et 1er ravito déjà remplis (remplissage automatique une seule fois à l'ouverture), réglages repliés après, une seule action « Garder mon plan ». L'aperçu lit les ravitos et le D+ du catalogue. La modale premium met « Débloquer cette course » (prix course) en premier quand un plan est ouvert, l'annuel en second ; prix de repli « 9,99 € la course ou 29,99 €/an ». L'état vide devient une landing (`PlannerLanding`). GPX de démo régénérés (script) ; l'envoi en production attend le go du mainteneur.
+
+**Conséquence.** Aucune migration ni changement de droits ; la route publique des ravitos du catalogue renvoie aussi `solid_available` et `assistance_allowed`. Les produits organisateurs restent réservés aux comptes. Les événements analytics checkout portent l'offre réellement choisie. Voir `docs/03-business-rules/runner-monetization.md` et `plan-storage.md`.
+
 ## 2026-11-23 — Fusion des deux événements Marathon du Mont-Blanc
 
 **Contexte.** Le Marathon du Mont-Blanc existait en double en base : l’édition 2026 sous un événement (import catalogue de mars), l’édition 2027 sous un autre (import de novembre). La page événement permanente était donc coupée en deux URL suffixées.

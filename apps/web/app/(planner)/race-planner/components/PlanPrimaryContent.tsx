@@ -71,6 +71,8 @@ type PlanPrimaryContentProps = {
   sampleMode?: ComponentProps<typeof ActionPlan>["sampleMode"];
   /** Shown above the plan setup (free preview banner). */
   topContent?: ReactNode;
+  /** Free preview: show the timeline (the result) first and the setup steps after it. */
+  setupAfterPlan?: boolean;
 };
 
 export const PlanPrimaryContent = memo(function PlanPrimaryContent({
@@ -113,12 +115,13 @@ export const PlanPrimaryContent = memo(function PlanPrimaryContent({
   upgradeStatus,
   sampleMode,
   topContent,
+  setupAfterPlan = false,
 }: PlanPrimaryContentProps) {
   return (
     <div className="space-y-6">
       {showProfileError && profileError ? <p className="text-sm text-amber-200">{profileError}</p> : null}
       {topContent}
-      {setupContent}
+      {setupAfterPlan ? null : setupContent}
 
       <ActionPlan
         copy={copy}
@@ -157,6 +160,7 @@ export const PlanPrimaryContent = memo(function PlanPrimaryContent({
         upgradeStatus={upgradeStatus}
         sampleMode={sampleMode}
       />
+      {setupAfterPlan ? setupContent : null}
     </div>
   );
 });

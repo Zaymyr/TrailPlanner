@@ -10,6 +10,9 @@ related_files:
   - apps/web/app/onboarding/account/page.tsx
   - apps/web/app/api/onboarding/save-plan/route.ts
   - apps/web/app/(planner)/race-planner/hooks/useRacePlan.ts
+  - apps/web/app/(planner)/race-planner/utils/catalog-preview.ts
+  - apps/web/app/(planner)/race-planner/utils/__tests__/catalog-preview.test.ts
+  - apps/web/app/api/race-catalog/[id]/aid-stations/route.ts
   - apps/web/app/(planner)/race-planner/utils/plan-sanitizers.ts
   - apps/web/app/(planner)/race-planner/utils/__tests__/plan-sanitizers.test.ts
   - apps/web/app/api/plans/route.ts
@@ -120,7 +123,9 @@ Idempotency behavior:
 
 ## Visitor plan preview draft (2026-11-23)
 
-The web free plan preview (see [runner-monetization.md](./runner-monetization.md#web-free-plan-preview-2026-11-23)) is never written to `race_plans` before an account exists. « Enregistrer mon plan » stores it in `localStorage` under `runner.guestPlanDraft` (`catalogRaceId`, sanitized planner values, elevation profile, plan name). When the authenticated planner loads a plan whose `catalogRaceId` matches, it moves that payload to the plan draft key (`getRacePlannerDraftKey(planId)`, `updatedAt` newer than the plan row) and removes the guest key; the existing draft restore then applies it. For a free plan the save keeps that draft (the free row is sanitized server-side), so the first aid station survives until the course is unlocked; a paid save clears it as before. `loadCatalogRaceLocally` (useRacePlan) is the only loader of the preview and creates no row.
+The web free plan preview (see [runner-monetization.md](./runner-monetization.md#web-free-plan-preview-2026-11-23)) is never written to `race_plans` before an account exists. « Garder mon plan » (sticky bar, and « Garder mon plan gratuitement » on the locked-plan card) stores it in `localStorage` under `runner.guestPlanDraft` (`catalogRaceId`, sanitized planner values, elevation profile, plan name). When the authenticated planner loads a plan whose `catalogRaceId` matches, it moves that payload to the plan draft key (`getRacePlannerDraftKey(planId)`, `updatedAt` newer than the plan row) and removes the guest key; the existing draft restore then applies it. For a free plan the save keeps that draft (the free row is sanitized server-side), so the first aid station survives until the course is unlocked; a paid save clears it as before. `loadCatalogRaceLocally` (useRacePlan) is the only loader of the preview and creates no row.
+
+`loadCatalogRaceLocally(raceId, { elevationGainM })` builds the preview from three public sources: the catalog GPX (`GET /api/race-catalog/[id]/gpx`), the catalog aid stations (`GET /api/race-catalog/[id]/aid-stations`, public, reading `race_aid_stations`: `name`, `km`, `water_available`, `solid_available`, `assistance_allowed`, `order_index`; the two requests run in parallel) and the D+ passed by the page from the race summary (the value the quick estimate used). Aid stations come from the catalog first, mapped by the pure `mapCatalogAidStations` (`utils/catalog-preview.ts`) like `POST /api/plans/from-catalog` does for an account: ordered by `order_index` then km, finish excluded (`km` strictly inside the course distance), `sourceAidStationId` kept, and `waterRefill` / `solidRefill` / `assistanceAllowed` enabled unless the source says `false`. They win over stations embedded in the GPX planner values; only when the catalog has none does the preview fall back to the GPX stations, then to a single finish entry. `elevationGain` is resolved by `resolvePreviewElevationGain`: catalog D+, else the positive gain of the GPX elevation profile, else the planner default (which the preview used to keep, losing the real D+). A failed or empty aid-station request is non-blocking. Organizer ravito products (`race_aid_station_products`) are not loaded for a visitor; the preview is filled by the automatic fill from the visitor's own product list (see [nutrition-algorithm.md](./nutrition-algorithm.md)).
 
 ## Post-Signup Storage
 
@@ -213,6 +218,7 @@ It:
 
 ## Gotchas
 
+- The visitor preview must show the catalog aid stations, not only GPX waypoints (a GPX may carry none). Keep `mapCatalogAidStations` aligned with the `from-catalog` mapping, and keep the public aid-station GET additive: it also selects `solid_available` and `assistance_allowed` (nullable; missing means enabled).
 - Refresh organizer aid-station product overlays only for Pro source editions; entitlement changes must not mutate durable `planner_values`.
 
 - Do not save twice on Supabase email confirmation or duplicate session events.

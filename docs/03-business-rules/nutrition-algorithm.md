@@ -178,7 +178,7 @@ Mobile has no organizer-specific UI in v1.
 
 ## Free plan preview (2026-11-23)
 
-The planner free preview reuses the same computation for every section; it only makes the points after the first aid station inert. Needs, carryover and auto-fill results are unchanged (auto-fill is not offered in the preview). The floating feedback bubble of the planner (bottom left, the only entry to its feedback form) was removed on the same day.
+The planner free preview reuses the same computation for every section; it only makes the points after the first aid station inert. Needs, carryover and auto-fill results are unchanged. The auto-fill button is still not an action in the preview (it scrolls to the unlock CTA), but since the conversion audit (2026-11-23) the planner runs the automatic fill once, by itself, when the visitor preview opens: a `RacePlannerPageContent` effect waits until the course segments and the product list exist, then calls `handleAutomaticFill()` with no options, and only when no supply exists yet (departure and every aid station empty), so a draft the visitor already filled is never overwritten. It is the same carryover-based fill as everywhere else, with the default candidate pool: organizer ravito products stay out (the opt-in `useOrganizerProducts` is not set) and no organizer products are loaded for a visitor. Result: the departure and the first aid station arrive pre-filled for the visitor's pace, the rest of the timeline is blurred behind the locked CTA, and the setup steps are folded after the plan (`PlanPrimaryContent` `setupAfterPlan`). The same effect never runs outside the visitor preview. The floating feedback bubble of the planner (bottom left, the only entry to its feedback form) was removed on the same day.
 
 ## Planner Carryover Rule
 
@@ -342,6 +342,7 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 
 ## Gotchas
 
+- The visitor-preview automatic fill is one-shot (`visitorAutoFillPendingRef`, armed when the preview opens): do not turn it into a reactive effect, or it would overwrite what the visitor edits. Locale changes in the premium modal copy (2026-11-23) touch no allocation rule.
 - Web carbohydrate-calculator sliders expose explicit accessible names and unit-bearing value text. The planner fatigue range keeps its existing calculation and adds only a spoken qualitative value; these accessibility attributes must not alter estimate inputs or allocation math.
 
 - Nutrition filter chips now reuse the shared mobile filter geometry, brand rows vertically center their text block, missing brand images use an initial, and text-bearing product counts use the sans font. None of these presentation choices changes grouping, favorites, nutrients or allocation.
