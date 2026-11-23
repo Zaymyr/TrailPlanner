@@ -78,6 +78,8 @@ type PlanPrimaryContentProps = {
   renderChronology?: ComponentProps<typeof ActionPlan>["renderChronology"];
   /** Race name shown in the race band above the views. */
   raceName?: string | null;
+  /** Forecast weather at each planned passage, shown under the plan views (display-only). */
+  weatherContent?: ReactNode;
 };
 
 export const PlanPrimaryContent = memo(function PlanPrimaryContent({
@@ -123,6 +125,7 @@ export const PlanPrimaryContent = memo(function PlanPrimaryContent({
   setupAfterPlan = false,
   renderChronology,
   raceName = null,
+  weatherContent = null,
 }: PlanPrimaryContentProps) {
   return (
     <div className={`space-y-6 ${planFontVariables}`}>
@@ -169,6 +172,7 @@ export const PlanPrimaryContent = memo(function PlanPrimaryContent({
         renderChronology={renderChronology}
         raceName={raceName}
       />
+      {weatherContent}
       {setupAfterPlan ? setupContent : null}
     </div>
   );

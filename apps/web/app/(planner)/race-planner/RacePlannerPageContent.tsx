@@ -21,6 +21,7 @@ import { fetchUserProfile } from "../../../lib/profile-client";
 import { isUserProfileReady, type UserProfile } from "../../../lib/profile-types";
 import { mapProductToSelection } from "../../../lib/product-preferences";
 import { RacePlannerLayout } from "../../../components/race-planner/RacePlannerLayout";
+import { CoursePlanWeather } from "../../../components/course-weather/CoursePlanWeather";
 import { RaceCatalogModal } from "./components/RaceCatalogModal";
 import { RaceSelector } from "../../../components/race-planner/RaceSelector";
 import { PlanSaveBar } from "../../../components/race-planner/PlanSaveBar";
@@ -2039,6 +2040,13 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       setupAfterPlan={sampleAudience === "visitor"}
       raceName={contextualRaceNameForSample ?? (planName.trim() || null)}
       renderChronology={renderChronology}
+      weatherContent={
+        <CoursePlanWeather
+          raceId={activePlan?.catalogRaceId ?? pendingCatalogRace?.id ?? null}
+          segments={segments}
+          locale={locale === "fr" ? "fr" : "en"}
+        />
+      }
       topContent={
         sampleAudience ? (
           <PlanSampleBanner
