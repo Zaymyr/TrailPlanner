@@ -105,7 +105,8 @@ const ARTICLE_EVENT_LINKS: Record<string, Array<{ href: string; label: string }>
 };
 
 const CATALOG_RACE_MAP: Record<string, string> = {
-  "marathon-mont-blanc-preparation": "0037b73c-b638-4fd9-80a9-34fdb3a4e97d",
+  // 42 km 2027 format (the undated legacy 42K was unpublished on 2026-11-23).
+  "marathon-mont-blanc-preparation": "39b772c3-56fa-43e4-bb83-bd22cfd2ab14",
 };
 
 export default async function BlogPostPage({ params }: PageProps) {

@@ -216,3 +216,5 @@ The web server now explicitly serves `/.well-known/apple-app-site-association` a
 Blog runtime bundling (2026-11-23): `next.config.mjs` now traces `content/blog/**` into every web function (see web-app.md « Blog content bundling »). No architecture change.
 
 Catalogue slug redirects (2026-11-23): `next.config.mjs` gained `catalogSlugRedirects` (permanent, dynamic catalogue targets); see web-app.md.
+
+Catalogue slug redirects (2026-11-23, follow-up): two retired format slugs added to `catalogSlugRedirects`; no architecture change.

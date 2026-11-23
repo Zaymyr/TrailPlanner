@@ -158,3 +158,5 @@ The runner follow-up keeps plan selection, renaming and URL restoration inside t
 Blog runtime bundling (2026-11-23): `next.config.mjs` gained `experimental.outputFileTracingIncludes` for `content/blog/**`; package boundaries are unchanged.
 
 Catalogue slug redirects (2026-11-23): `next.config.mjs` exports `catalogSlugRedirects`; package boundaries are unchanged.
+
+Catalogue slug redirects (2026-11-23, follow-up): `catalogSlugRedirects` gained two format entries; package boundaries are unchanged.

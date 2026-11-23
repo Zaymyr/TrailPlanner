@@ -69,6 +69,9 @@ export const catalogSlugRedirects = [
   // Duplicate Marathon du Mont-Blanc events merged on 2026-11-23 (migration 20261123200000).
   ['/courses/evenements/marathon-du-mont-blanc-08a81d9c', '/courses/evenements/marathon-du-mont-blanc'],
   ['/courses/evenements/marathon-du-mont-blanc-d1472716', '/courses/evenements/marathon-du-mont-blanc'],
+  // Undated legacy Marathon du Mont-Blanc formats unpublished on 2026-11-23 (migration 20261123210000).
+  ['/courses/marathon-du-mont-blanc-90k-lunr', '/courses/marathon-mont-blanc-90km-2027'],
+  ['/courses/marathon-du-mont-blanc-qonc', '/courses/marathon-mont-blanc-42km-2027'],
 ];
 
 // Temporary redirects: the bare `/en` has no page (only /en/links and /en/partners exist).
