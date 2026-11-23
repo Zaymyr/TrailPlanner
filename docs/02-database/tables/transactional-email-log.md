@@ -51,7 +51,7 @@ None: a row points to no user, order or notification (the category tells the kin
 
 ## RLS Policies
 
-RLS is on with no policy; every privilege is revoked from `public`, `anon` and `authenticated`; `service_role` has `select`, `insert`, `delete`. The web server writes with the service role; the admin routes (`authorizeVideoAdmin`) read it through `lib/admin-system-health-server.ts`. `purge_transactional_email_log()` is `SECURITY DEFINER`, `search_path = ''`, executable by `service_role` only.
+RLS is on with no policy; every privilege is revoked from `public`, `anon` and `authenticated`; `service_role` has `select`, `insert`, `delete` only (no update or truncate: Supabase's default privileges are revoked by `20261123150000_admin_logs_service_privileges.sql`). The web server writes with the service role; the admin routes (`authorizeVideoAdmin`) read it through `lib/admin-system-health-server.ts`. `purge_transactional_email_log()` is `SECURITY DEFINER`, `search_path = ''`, executable by `service_role` only.
 
 ## Business Invariants
 

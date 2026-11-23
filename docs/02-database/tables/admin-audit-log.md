@@ -67,7 +67,7 @@ None.
 
 ## RLS Policies
 
-RLS is on with no policy; every privilege is revoked from `public`, `anon` and `authenticated`; `service_role` has `select`, `insert`, `delete` only (append-only: no update). The web server writes with the service role; `GET /api/admin/audit` (`authorizeVideoAdmin`) and the overview loader read it. `purge_admin_audit_log()` is `SECURITY DEFINER`, `search_path = ''`, executable by `service_role` only. Check script: `supabase/tests/admin_audit_log_checks.sql`.
+RLS is on with no policy; every privilege is revoked from `public`, `anon` and `authenticated`; `service_role` has `select`, `insert`, `delete` only (append-only: no update). Supabase's default privileges had given it every privilege; `20261123150000_admin_logs_service_privileges.sql` revokes them and grants these three again. The web server writes with the service role; `GET /api/admin/audit` (`authorizeVideoAdmin`) and the overview loader read it. `purge_admin_audit_log()` is `SECURITY DEFINER`, `search_path = ''`, executable by `service_role` only. Check script: `supabase/tests/admin_audit_log_checks.sql`.
 
 ## Business Invariants
 

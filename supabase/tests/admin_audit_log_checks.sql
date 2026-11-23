@@ -1,5 +1,6 @@
 -- Admin console audit journal checks (lot 7).
--- Run in a privileged SQL session after 20261123120000_admin_audit_log.sql.
+-- Run in a privileged SQL session after 20261123120000_admin_audit_log.sql and
+-- 20261123150000_admin_logs_service_privileges.sql.
 -- Every data mutation is rolled back.
 
 begin;

@@ -1,5 +1,6 @@
 -- Admin console system health checks (lot 3).
--- Run in a privileged SQL session after 20261123090000_admin_system_health.sql.
+-- Run in a privileged SQL session after 20261123090000_admin_system_health.sql and
+-- 20261123150000_admin_logs_service_privileges.sql.
 -- Every data mutation is rolled back.
 
 begin;
@@ -74,6 +75,11 @@ begin
   end if;
   if not has_table_privilege('service_role', 'public.transactional_email_log', 'SELECT,INSERT,DELETE') then
     raise exception 'The service role must manage transactional_email_log.';
+  end if;
+  -- 20261123150000: no update or truncate for the service role either (Supabase default privileges).
+  if has_table_privilege('service_role', 'public.transactional_email_log', 'UPDATE')
+    or has_table_privilege('service_role', 'public.transactional_email_log', 'TRUNCATE') then
+    raise exception 'The service role must not update or truncate transactional_email_log.';
   end if;
 
   -- Constraints: known statuses, slug-like categories, bounded message.

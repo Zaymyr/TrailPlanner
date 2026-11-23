@@ -11,6 +11,7 @@ related_files:
   - supabase/tests/admin_system_health_checks.sql
   - supabase/migrations/20261123120000_admin_audit_log.sql
   - supabase/tests/admin_audit_log_checks.sql
+  - supabase/migrations/20261123150000_admin_logs_service_privileges.sql
   - supabase/migrations/20261029155052_fix_supporter_point_replacement_ordinality.sql
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
   - supabase/migrations/20260930104930_remove_personal_race_creation.sql
@@ -254,7 +255,7 @@ Use:
 - `race_event_edition_branding` is intentionally service-only. Its organizer route requires active parent-event membership plus Pro; public/mobile presentation must expose only the published snapshot and keep downgrade behavior read-only rather than destructive.
 - `organizer_edition_capability_grants` is intentionally service-only. Resolve it in authorized server routes and never expose its admin audit fields through a generic client table query.
 - `20261123090000_admin_system_health.sql` (admin console, system health): `transactional_email_log` is service-only (RLS on, no policy, client privileges revoked; masked recipient, no content). `admin_cron_job_status()`, `admin_pg_net_response_summary()`, `purge_transactional_email_log()` and `purge_cron_job_run_details()` are `SECURITY DEFINER` with `search_path = ''`, revoked from `public`/`anon`/`authenticated` and granted to `service_role` only; `admin_cron_job_status()` never selects `cron.job.command` (some commands embed secrets) and truncates run messages to 300 characters. Checked by `supabase/tests/admin_system_health_checks.sql`.
-- `admin_audit_log` is intentionally service-only and append-only: RLS on, no policy, every client privilege revoked, `service_role` limited to `select, insert, delete` (no `update`), and a `SECURITY DEFINER` purge function with an empty search path executable by `service_role` only. The route that reads it authorizes with trusted `app_metadata` (`authorizeVideoAdmin`); the writer takes the actor from the access-token claims only after the route's own guard accepted the request, and never stores secrets, message content or full e-mail addresses.
+- `admin_audit_log` is intentionally service-only and append-only: RLS on, no policy, every client privilege revoked, `service_role` limited to `select, insert, delete` (no `update`; Supabase's default privileges had granted it everything on the new table, revoked by `20261123150000_admin_logs_service_privileges.sql` after the production check failed — a new service-only table must `revoke all … from service_role` before granting what it needs), and a `SECURITY DEFINER` purge function with an empty search path executable by `service_role` only. The route that reads it authorizes with trusted `app_metadata` (`authorizeVideoAdmin`); the writer takes the actor from the access-token claims only after the route's own guard accepted the request, and never stores secrets, message content or full e-mail addresses.
 - `organizer_social_proofs` is intentionally service-only. Its public use is a sanitized server-rendered projection; never expose drafts, consent timestamps, actor ids, or direct client table access.
 
 ## Related Docs
