@@ -1,4 +1,4 @@
-import { getPostHogBrowserClient, isPostHogBrowserReady } from "./posthog-browser";
+import { ensurePostHogBrowserInit, getPostHogBrowserClient, isPostHogBrowserReady } from "./posthog-browser";
 import { canLoadAnalytics } from "./cookies/consent";
 
 type AnalyticsValue = string | number | boolean | null | undefined;
@@ -19,6 +19,24 @@ function removeUndefinedParams(params: AnalyticsParams): Record<string, string |
   ) as Record<string, string | number | boolean | null>;
 }
 
+/**
+ * Mirrors a consented event to PostHog with the same name and properties.
+ * Child trackers run their effects before PostHogProvider's init effect, so the
+ * client is initialised lazily here (consent was already checked by the caller);
+ * otherwise the first funnel events of a page view would only reach GA.
+ * Never throws: analytics must not break the UI.
+ */
+function forwardToPostHog(eventName: string, payload: Record<string, string | number | boolean | null>) {
+  try {
+    if (!isPostHogBrowserReady() && !ensurePostHogBrowserInit(true)) {
+      return;
+    }
+    getPostHogBrowserClient().capture(eventName, payload);
+  } catch {
+    // Ignore PostHog failures.
+  }
+}
+
 export function trackGoogleAnalyticsEvent(eventName: string, params: AnalyticsParams = {}) {
   if (typeof window === "undefined" || !canLoadAnalytics()) {
     return;
@@ -26,9 +44,7 @@ export function trackGoogleAnalyticsEvent(eventName: string, params: AnalyticsPa
 
   const payload = removeUndefinedParams(params);
 
-  if (isPostHogBrowserReady()) {
-    getPostHogBrowserClient().capture(eventName, payload);
-  }
+  forwardToPostHog(eventName, payload);
 
   if (typeof window.gtag === "function") {
     window.gtag("event", eventName, payload);
