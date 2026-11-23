@@ -25,6 +25,12 @@ related_files:
   - apps/web/components/ui/command-palette-filter.test.ts
   - apps/web/components/ui/focus-trap.ts
   - apps/web/components/utils.ts
+  - apps/web/components/race-planner/ActionPlan.tsx
+  - apps/web/components/race-planner/AidStationBadge.tsx
+  - apps/web/components/race-planner/TimelineIcons.tsx
+  - apps/web/components/race-planner/plan-fonts.ts
+  - apps/web/app/(planner)/race-planner/components/PlanPrimaryContent.tsx
+  - apps/web/app/(planner)/race-planner/components/ElevationProfileChart.tsx
   - apps/mobile/components/themed/Button.tsx
   - apps/mobile/components/themed/ActionButton.tsx
   - apps/mobile/components/themed/ChoiceChip.tsx
@@ -171,6 +177,20 @@ Created for the admin console (ADR [2026-11-22 admin console](../08-decisions/20
 - `KpiTile` — dashboard figure: label, value in mono figures, optional `hint` line under the value (2026-11-23, « Ventes & facturation »), change vs the previous period and an SVG sparkline. `formatKpiDelta(current, previous, { mode, higherIsBetter })` (`kpi-delta.ts`) gives « ▲ 12,4 % » / « ▼ 3 » / « = » / « nouveau » with a tone (`positive | negative | neutral`, inverted when `higherIsBetter: false`) and a spoken description; `sparklinePaths(values, width, height)` returns the line and area paths (null under two points).
 - `Toast` — `ToastProvider` (mounted by `AdminShell`) and `useToast().show({ message, tone, actionLabel, onAction, durationMs })`: polite live region bottom right, four toasts at most, 5 s (8 s with an action) before closing; the action (« Annuler ») runs once then closes the toast. Use it for reversible actions; irreversible ones keep an explicit `Dialog`.
 - `CommandPalette` — ⌘K / Ctrl+K dialog (`useCommandPaletteShortcut(open)`): combobox input + grouped listbox (`aria-activedescendant`), ↑ ↓ (wrapping), Ctrl+Début/Fin, Entrée, Échap, Tab kept inside. The caller passes every item (`CommandItem`: `id`, `label`, `group`, `href`, `hint`, `keywords`, `prefiltered`); `filterCommandItems` matches every word of the query ignoring case and accents (label prefix, then word prefix, then contains, then keywords), keeps groups in their first-seen order and caps each group (`limitPerGroup`); `prefiltered` items (server search results) are kept for any non-empty query and hidden for an empty one. The admin wiring (destinations, runners, races) is `AdminCommandPalette` in `app/admin/_components/shell`.
+
+## Race plan (web) (2026-11-23)
+
+Visual language of the web race planner (« carte de course »), redesigned without any logic or data change. It uses the signature icons and brand tokens written as Tailwind arbitrary values (forest `#2D5016` / dark `#1F3810`, olive `#C8D44E`, cream `#FAF8F2`, alpine blue `#3F6F8F`), with no raw emerald / rose / slate.
+
+- Rail: timeline points sit on a dotted trail rail (`RailItem` in `ActionPlan.tsx`: marker column + content). Setup steps (`PlannerSetupSteps.tsx`) are one cream sheet with numbered posts on the same kind of rail.
+- Markers: `AidStationBadge` draws round trail posts: start = forest post with a start-arch glyph, ravito = cream post ringed in forest with the signature `AidStationIcon`, finish = dark forest post with an olive tab; a small mono tab carries the point number. It is also used by the organizer aid-stations editor.
+- Station card: white, light ring (no coloured border). Meta line = forest mono post chip (« km 11,0 »), « Passage 1h 28min », pause (only when > 0), service pill with Hydration / Nutrition icons, crew pill. Products are pills with a forest quantity badge, service toggles are pill checkboxes, remove is a trash icon.
+- Bande cible gauge (`NutritionCard`): sand track, target zone in olive, fill bar forest / amber / danger up to the planned amount, black tick on the exact target, mono value (« 180 g / 129 g ») and a written status pill (« Au-dessus de la cible · +51 g »). The tone still comes from `getPlanStatus` / `buildGaugeRanges`; a water capacity shortfall is flagged by `helperIsWarning`.
+- Section strip (`SegmentCard`, `section` variant): distance, time, D+ (`SummitIcon`) / D- (`DescentIcon`) and the pace stepper (`PaceIcon`).
+- Finish ticket: dark forest « ticket d'arrivée » with a perforated edge and large mono figures (`PaceIcon`, `NutritionIcon`, `HydrationIcon`).
+- Elevation profile (`ElevationProfileChart.tsx`): subtle forest area, climb forest / descent alpine blue, mono axes, station posts with haloed labels, discreet legend. The farthest aid station is treated as the finish only within max(0.3 km, 2 %) of the course end; otherwise the finish is drawn at the course end (catalog aid stations stop before the finish).
+- Plan-scoped fonts: `plan-fonts.ts` loads Bricolage Grotesque (`--font-plan-display`) and JetBrains Mono (`--font-plan-mono`) with `next/font` and exposes `planFontVariables`, applied on the `PlanPrimaryContent` root and the timeline card and used as `font-[family-name:var(--font-plan-display)]` / `font-[family-name:var(--font-plan-mono)]`. The rest of the site keeps its stack (same approach as the admin console fonts in [Tokens](tokens.md)).
+- Numbers are locale-formatted (« 11,0 km », « 3,0 L », « 24,8 km » via `formatDistanceWithUnit`).
 
 ## Organizer form kit
 
@@ -431,6 +451,8 @@ Supporter Guide and followed-plan screens reuse the same `TopoCard`, `ActionButt
 - Avoid duplicating primitives or route-local components without first checking whether an existing component can be reused or extended.
 - Use the Organizer form kit inside the Organizer route rather than adding a competing route-local form control pattern.
 - Do not introduce a new class merge library without a real collision problem; current `cn` only joins classes.
+- Race plan buttons that override the shared `Button` (which sets `min-h-11` and its own height, padding and colours) need `!` utilities (for example `!h-8 !min-h-0`) because `cn` does not merge conflicting Tailwind classes; keep a 44 px target on touch-first controls and only lower it for compact secondary actions.
+- The plan fonts only exist inside elements that carry `planFontVariables`; `var(--font-plan-...)` elsewhere falls back to the default stack.
 - Since `cn` does not merge conflicting Tailwind utilities, route-specific dialogs that replace the primitive's default `grid` layout must use an explicit priority modifier such as `!flex`; otherwise constrained inner scroll regions can be clipped.
 - Do not create a local loading, error, or empty state when a themed state can
   express the screen; pass localized labels and preserve the shared retry CTA.

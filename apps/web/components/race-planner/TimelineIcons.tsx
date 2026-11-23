@@ -67,6 +67,17 @@ export function DropletIcon(props: IconProps) {
   );
 }
 
+/** Salt crystal (sodium): a cube in perspective, drawn on the signature 24-grid with the same stroke. */
+export function SaltIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" {...baseProps} strokeWidth={1.9} {...props}>
+      <path d="M12 3.8 19 7.6v8.8L12 20.2 5 16.4V7.6L12 3.8Z" />
+      <path d="M5 7.6 12 11.4l7-3.8" opacity={0.55} />
+      <path d="M12 11.4v8.8" opacity={0.55} />
+    </svg>
+  );
+}
+
 export function ChevronDownIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" {...baseProps} {...props}>

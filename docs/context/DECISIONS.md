@@ -4,6 +4,14 @@
 
 Journal en ajout seul, la plus récente en haut. Format : `## AAAA-MM-JJ — Titre`, puis Contexte / Décision / Conséquence (2 à 4 lignes chacun). Les décisions d'architecture détaillées (ADR) vont dans [docs/08-decisions/](../08-decisions/README.md).
 
+## 2026-11-23 — Planificateur web : refonte visuelle carte de course
+
+**Contexte.** Le plan web (frise, jauges, résumé) gardait un style générique (bordures vertes épaisses, émeraude/rose/ardoise bruts, icônes PNG) éloigné de la signature de l'app.
+
+**Décision.** Concept « carte de course » : points sur un rail pointillé, bornes rondes (départ, ravito, arrivée), jauges en « bande cible » avec statut écrit, bandeau de section, « ticket d'arrivée », icônes signature, polices Bricolage Grotesque et JetBrains Mono limitées au plan. Deux corrections d'affichage : nombres formatés selon la langue (« 24,8 km ») et arrivée tracée en fin de parcours quand le dernier ravito en est éloigné.
+
+**Conséquence.** Aucune logique, donnée ni migration modifiée ; les statuts restent calculés par `getPlanStatus` / `buildGaugeRanges`. `AidStationBadge` change aussi l'éditeur de ravitos organisateur. Voir `docs/07-design-system/components.md` (« Race plan (web) »).
+
 ## 2026-11-23 — Aperçu visiteur : « Débloquer » en action principale
 
 **Contexte.** L'aperçu promet la suite du plan ; « Garder mon plan » capturait un compte mais ne vendait pas le déblocage.

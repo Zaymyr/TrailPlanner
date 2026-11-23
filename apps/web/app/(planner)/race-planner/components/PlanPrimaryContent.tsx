@@ -7,6 +7,7 @@ import type { RacePlannerTranslations } from "../../../../locales/types";
 import type { FuelProduct } from "../../../../lib/product-types";
 import type { StoredProductPreference } from "../../../../lib/product-preferences";
 import { ActionPlan } from "../../../../components/race-planner/ActionPlan";
+import { planFontVariables } from "../../../../components/race-planner/plan-fonts";
 import type {
   ElevationPoint,
   FormValues,
@@ -118,7 +119,7 @@ export const PlanPrimaryContent = memo(function PlanPrimaryContent({
   setupAfterPlan = false,
 }: PlanPrimaryContentProps) {
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${planFontVariables}`}>
       {showProfileError && profileError ? <p className="text-sm text-amber-200">{profileError}</p> : null}
       {topContent}
       {setupAfterPlan ? null : setupContent}

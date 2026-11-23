@@ -1,9 +1,11 @@
 ---
 title: Design Icons
 scope: design-system
-last_verified: 2026-05-17
+last_verified: 2026-11-23
 ai_priority: medium
 related_files:
+  - apps/web/components/race-planner/TimelineIcons.tsx
+  - apps/web/components/race-planner/AidStationBadge.tsx
   - packages/design-system/ICONS.md
   - packages/design-system/src/icons/index.ts
   - packages/design-system/src/icons/_base/IconBase.tsx
@@ -53,6 +55,10 @@ This document summarizes the Pace Yourself signature icon set. The archived sour
 - `GpxImportIcon`: GPX import and route ingestion.
 - `EmptyPlanIcon`: empty states before a plan/race/timeline exists.
 
+## Web race plan usage (2026-11-23)
+
+The web race planner now uses the signature icons through `@pace-yourself/design-system/icons` instead of PNG metric icons: `AidStationIcon` (ravito post), `SummitIcon` / `DescentIcon` (D+ / D-), `PaceIcon`, `NutritionIcon`, `HydrationIcon`, `GpxImportIcon`. Two glyph families stay web-only and are not exported by the package: `SaltIcon` (sodium, a cube drawn on the 24-grid with the signature stroke) in `apps/web/components/race-planner/TimelineIcons.tsx`, and the start-arch and finish-flag glyphs inside `AidStationBadge.tsx`. Promote them to the package (and `ICONS.md`) only if mobile needs them.
+
 ## Usage
 
 Web:
@@ -77,6 +83,7 @@ import { TrailIcon, colors } from "@pace-yourself/design-system";
 - Prefer exported icons over ad hoc SVGs for core domain concepts.
 - Web and native base icon implementations differ; verify both if changing base props.
 - Keep `packages/design-system/ICONS.md` and this doc aligned when adding an icon.
+- Web-only glyphs (`SaltIcon`, start-arch, finish flag) must follow the signature grid (24 viewBox, round caps, about 1.9 stroke) so they sit next to package icons.
 
 ## Related Docs
 

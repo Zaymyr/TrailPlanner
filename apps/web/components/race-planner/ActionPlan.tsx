@@ -41,13 +41,19 @@ import { FuelTypeBadge, getFuelTypeLabel } from "../products/FuelTypeBadge";
 import { isVerifiedProduct, VerifiedProductBadge } from "../products/VerifiedProductBadge";
 import { useActionPlanDerivedData } from "./useActionPlanDerivedData";
 import {
-  BoltIcon,
   ChevronDownIcon,
   ChevronUpIcon,
-  DropletIcon,
-  GaugeIcon,
+  SaltIcon,
   SparklesIcon,
 } from "./TimelineIcons";
+import {
+  DescentIcon,
+  HydrationIcon,
+  NutritionIcon,
+  PaceIcon,
+  SummitIcon,
+} from "@pace-yourself/design-system/icons";
+import { planFontVariables } from "./plan-fonts";
 
 const statusToneStyles = {
   success: "border-emerald-400/40 bg-emerald-500/20 text-emerald-50",
@@ -187,6 +193,13 @@ type ActionPlanProps = {
   };
 };
 
+/** « 11,0 » in French, « 11.0 » in English: kilometre posts always show one decimal. */
+const formatKmPost = (value: number, locale: string) =>
+  (Number.isFinite(value) ? value : 0).toLocaleString(locale === "fr" ? "fr-FR" : "en-US", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
+
 const parseOptionalNumber = (value: string | number) => {
   if (value === "" || value === null || typeof value === "undefined") return undefined;
   const parsed = Number(value);
@@ -232,31 +245,25 @@ type FinishSummaryCardProps = {
 
 function SummaryGroup({ title, icon, primary, secondary }: FinishSummaryGroup) {
   return (
-    <div className="rounded-2xl bg-muted/40 p-3 shadow-sm dark:bg-slate-900/60">
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-400">
-        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-background text-foreground shadow-sm dark:bg-slate-950/70">
-          {icon}
-        </span>
+    <div className="min-w-0 py-3 sm:px-5 sm:py-1 sm:first:pl-0">
+      <div className="flex items-center gap-2 text-[13px] font-medium text-[#C8D44E]">
+        <span className="shrink-0" aria-hidden>{icon}</span>
         <span>{title}</span>
       </div>
-      <div className="mt-3">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-400">
-          {primary.label}
-        </p>
-        <p className="text-lg font-semibold text-foreground dark:text-slate-50">{primary.value}</p>
-        {primary.helper ? (
-          <p className="text-[11px] text-muted-foreground dark:text-slate-400">{primary.helper}</p>
-        ) : null}
-      </div>
+      <p className="mt-2 text-[12px] text-[#FAF8F2]/60">{primary.label}</p>
+      <p className="font-[family-name:var(--font-plan-mono)] text-[28px] font-bold leading-tight tracking-tight tabular-nums text-[#FAF8F2]">
+        {primary.value}
+      </p>
+      {primary.helper ? <p className="text-[12px] text-[#FAF8F2]/60">{primary.helper}</p> : null}
       {secondary?.length ? (
-        <div className="mt-2 space-y-1 text-xs text-foreground dark:text-slate-50">
+        <dl className="mt-3 space-y-1 text-[12.5px]">
           {secondary.map((item) => (
             <div key={item.key} className="flex items-center justify-between gap-2">
-              <span className="text-muted-foreground dark:text-slate-400">{item.label}</span>
-              <span className="font-semibold">{item.value}</span>
+              <dt className="text-[#FAF8F2]/60">{item.label}</dt>
+              <dd className="font-[family-name:var(--font-plan-mono)] font-semibold tabular-nums text-[#FAF8F2]">{item.value}</dd>
             </div>
           ))}
-        </div>
+        </dl>
       ) : null}
     </div>
   );
@@ -277,31 +284,27 @@ function FinishSummaryCard({
   onToggleDetails,
 }: FinishSummaryCardProps) {
   return (
-    <div className="rounded-2xl border border-border-strong bg-card p-4 shadow-md dark:bg-slate-950/85 dark:shadow-[0_4px_30px_rgba(15,23,42,0.45)]">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex min-w-[220px] items-start gap-3">
-          {badge ?? (
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/25 text-sm font-semibold text-emerald-100">
-              {pointIndex}
-            </span>
-          )}
-          <div className="space-y-1">
-            <div className="text-base font-semibold text-foreground dark:text-slate-50">{title}</div>
-            <div className="text-xs font-normal text-muted-foreground dark:text-slate-300">{distanceText}</div>
-          </div>
-        </div>
+    <div className="relative overflow-hidden rounded-2xl bg-[#1F3810] p-5 text-[#FAF8F2] shadow-[0_18px_40px_-22px_rgba(31,56,16,0.9)] sm:p-6">
+      {/* Perforated edge of a race bib / finisher ticket. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-2 bg-[radial-gradient(circle_at_8px_0,#FAF8F2_4px,transparent_4.5px)] bg-[length:16px_8px] bg-repeat-x opacity-90"
+      />
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <p className="font-[family-name:var(--font-plan-display)] text-2xl font-semibold tracking-tight">{title}</p>
+        <p className="font-[family-name:var(--font-plan-mono)] text-sm font-semibold tabular-nums text-[#C8D44E]">{distanceText}</p>
       </div>
 
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
+      <div className="mt-4 grid divide-y divide-dashed divide-[#FAF8F2]/15 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
         <SummaryGroup {...performanceGroup} />
         <SummaryGroup {...energyGroup} />
         <SummaryGroup {...hydrationGroup} />
       </div>
 
-      <div className="mt-4 border-t border-border/70 pt-3">
+      <div className="mt-4 border-t border-dashed border-[#FAF8F2]/15 pt-3">
         <button
           type="button"
-          className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1 text-xs font-semibold text-foreground hover:bg-muted dark:bg-slate-900/60 dark:text-slate-100 dark:hover:bg-slate-800/60"
+          className="inline-flex min-h-9 items-center gap-1.5 rounded-full px-2 text-[13px] font-semibold text-[#FAF8F2]/80 hover:text-[#FAF8F2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C8D44E]"
           aria-expanded={isExpanded}
           aria-controls={detailsId}
           onClick={onToggleDetails}
@@ -311,14 +314,14 @@ function FinishSummaryCard({
         </button>
 
         {isExpanded ? (
-          <div id={detailsId} className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <dl id={detailsId} className="mt-2 grid gap-x-6 gap-y-1.5 px-2 sm:grid-cols-2 lg:grid-cols-3">
             {details.map((detail) => (
-              <div key={detail.key} className="flex items-center justify-between gap-2 text-xs text-foreground dark:text-slate-50">
-                <span className="text-muted-foreground dark:text-slate-400">{detail.label}</span>
-                <span className="font-semibold text-foreground dark:text-slate-50">{detail.value}</span>
+              <div key={detail.key} className="flex items-center justify-between gap-2 text-[12.5px]">
+                <dt className="text-[#FAF8F2]/60">{detail.label}</dt>
+                <dd className="font-[family-name:var(--font-plan-mono)] font-semibold tabular-nums">{detail.value}</dd>
               </div>
             ))}
-          </div>
+          </dl>
         ) : null}
       </div>
     </div>
@@ -358,7 +361,7 @@ const PremiumSparklesIcon = (props: React.SVGProps<SVGSVGElement>) => (
   />
 );
 
-type SegmentCardVariant = "default" | "compact" | "compactChip";
+type SegmentCardVariant = "default" | "compact" | "compactChip" | "section";
 
 type SegmentCardProps = {
   distanceText: string;
@@ -377,43 +380,44 @@ function SegmentCard({
   paceControl,
   variant = "default",
 }: SegmentCardProps) {
-  const isCompact = variant === "compact";
   const isCompactChip = variant === "compactChip";
+  const isSection = variant === "section";
+  // « 184 D+ » / « D+ 184 » → « 184 m »: the climb/descent icons carry the meaning.
+  const elevationNumber = (text: string) => `${text.replace(/D[+-]/g, "").trim()} m`;
   return (
     <div
-      className={
-        isCompactChip
-          ? "flex w-[170px] flex-col gap-1.5 rounded-xl border border-border bg-card px-2 py-1.5 text-foreground shadow-sm dark:bg-slate-950/90 dark:text-slate-200"
-          : isCompact
-            ? "flex flex-col gap-2 rounded-xl border border-border bg-card px-3 py-2 text-foreground shadow-sm dark:bg-slate-950/50 dark:text-slate-200"
-            : "flex flex-col gap-3 rounded-2xl border border-border-strong bg-card px-4 py-3 text-foreground shadow-sm dark:bg-slate-950/80 dark:text-slate-100"
-      }
+      className={`flex min-w-0 flex-col gap-2.5 rounded-[10px] bg-white ring-1 ring-[#E5E2D8] ${
+        isCompactChip ? "w-[180px] px-3 py-2" : "px-3.5 py-3"
+      } ${
+        isSection
+          ? "sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 xl:h-full xl:flex-col xl:flex-nowrap xl:items-stretch xl:justify-between xl:gap-2.5 sm:[&>*:nth-child(3)]:ml-auto sm:[&>*:nth-child(3)]:border-0 sm:[&>*:nth-child(3)]:pt-0 xl:[&>*:nth-child(3)]:ml-0 xl:[&>*:nth-child(3)]:border-t xl:[&>*:nth-child(3)]:pt-2"
+          : ""
+      }`}
     >
-      <div
-        className={
-          isCompactChip
-            ? "flex items-center justify-between gap-3 text-xs font-semibold"
-            : isCompact
-              ? "flex items-center justify-between gap-3 text-xs font-semibold"
-              : "flex items-center justify-between gap-3 text-sm font-semibold"
-        }
-      >
-        <span className="flex-1 tabular-nums">{distanceText}</span>
-        <span className="tabular-nums text-red-600 dark:text-red-400">{elevationGainText}</span>
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="font-[family-name:var(--font-plan-mono)] text-lg font-bold leading-none tabular-nums text-[#1F2410]">
+          {distanceText}
+        </span>
+        <span className="font-[family-name:var(--font-plan-mono)] text-[12px] font-semibold tabular-nums text-[#5C6450]">
+          {timeText}
+        </span>
       </div>
-      {paceControl ? <div className="flex items-center justify-center">{paceControl}</div> : null}
-      <div
-        className={
-          isCompactChip
-            ? "flex items-center justify-between gap-3 text-[11px] font-semibold"
-            : isCompact
-              ? "flex items-center justify-between gap-3 text-[11px] font-semibold"
-              : "flex items-center justify-between gap-3 text-xs font-semibold"
-        }
-      >
-        <span className="flex-1 tabular-nums text-muted-foreground dark:text-slate-400">{timeText}</span>
-        <span className="text-blue-600 dark:text-blue-400">{elevationLossText}</span>
+      <div className="flex items-center gap-3 font-[family-name:var(--font-plan-mono)] text-[12px] font-semibold tabular-nums">
+        <span className="inline-flex items-center gap-1 text-[#2D5016]" title="D+">
+          <SummitIcon size={15} strokeWidth={2} />
+          {elevationNumber(elevationGainText)}
+        </span>
+        <span className="inline-flex items-center gap-1 text-[#3F6F8F]" title="D-">
+          <DescentIcon size={15} strokeWidth={2} />
+          {elevationNumber(elevationLossText)}
+        </span>
       </div>
+      {paceControl ? (
+        <div className="flex items-center justify-between gap-2 border-t border-dashed border-[#E5E2D8] pt-2">
+          <PaceIcon size={16} strokeWidth={2} className="shrink-0 text-[#8A917E]" />
+          {paceControl}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -428,6 +432,8 @@ type NutritionMetric = {
   plannedValue: number;
   targetValue: number;
   helper: string | null;
+  /** The helper is a shortfall warning (e.g. the water bag is too small), not a neutral note. */
+  helperIsWarning?: boolean;
   statusLabel: string;
   statusTone: StatusTone;
   icon: ReactNode;
@@ -441,10 +447,24 @@ type NutritionCardProps = {
   targetLabel: string;
 };
 
+/** Plan palette (design-system tokens) for the « bande cible » gauges and the course rail. */
+const planTone = {
+  success: { text: "text-[#2D5016]", fill: "#2D5016", pill: "bg-[#E8F0E0] text-[#2D5016]" },
+  warning: { text: "text-[#B45309]", fill: "#F0873A", pill: "bg-[#FEF3C7] text-[#B45309]" },
+  danger: { text: "text-[#C0392B]", fill: "#C0392B", pill: "bg-[#FDECEA] text-[#C0392B]" },
+  neutral: { text: "text-[#1F2410]", fill: "#5C6450", pill: "bg-[#EAE8E1] text-[#5C6450]" },
+} as const;
+
+/** « 180 g de glucides » → « 180 g »: the gauge already names the nutrient. */
+const stripNutrientSuffix = (value: string) => value.split(" de ")[0].split(" d'")[0].split(" of ")[0];
+
+/**
+ * « Bande cible » gauge: a quiet sand track, the target zone in olive, a fill bar up to the planned amount
+ * (forest when on target, amber/red when off) and a tick on the exact target. The status is written out
+ * (« Il manque 77 g ») instead of being encoded in a traffic-light gradient.
+ */
 function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLabel }: NutritionCardProps) {
   const isCompact = variant === "compact";
-  const compactValue = metric.value.split(" de ")[0].split(" d'")[0];
-  const compactTarget = metric.format(metric.targetValue).split(" de ")[0].split(" d'")[0];
   const targetValue = Math.max(metric.targetValue, 0);
   const maxValueCandidate =
     metric.key === "water" && typeof waterCapacityMl === "number" && waterCapacityMl > 0
@@ -452,135 +472,68 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
       : targetValue;
   const maxValue = Math.max(maxValueCandidate, targetValue * 1.2 || 1);
   const ranges = buildGaugeRanges(targetValue, maxValue);
-  const scaleMax = ranges.gaugeMax;
-  const cursorPercent = clampNumber((metric.plannedValue / scaleMax) * 100, 0, 100);
+  const scaleMax = Math.max(ranges.gaugeMax, metric.plannedValue * 1.05, 1);
+  const fillPercent = clampNumber((metric.plannedValue / scaleMax) * 100, 0, 100);
   const targetPercent = clampNumber((targetValue / scaleMax) * 100, 0, 100);
-  const lowerWarningPercent = clampNumber((ranges.lowerWarning / scaleMax) * 100, 0, 100);
-  const greenStartPercent = clampNumber((ranges.greenStart / scaleMax) * 100, 0, 100);
-  const greenEndPercent = clampNumber((ranges.greenEnd / scaleMax) * 100, 0, 100);
-  const upperDangerPercent = clampNumber((ranges.upperDanger / scaleMax) * 100, 0, 100);
-  const valueToneClass =
-    metric.statusTone === "success"
-      ? "text-emerald-600 dark:text-emerald-300"
-      : metric.statusTone === "warning"
-        ? "text-amber-600 dark:text-amber-300"
-        : metric.statusTone === "danger"
-          ? "text-rose-600 dark:text-rose-300"
-          : "text-foreground dark:text-slate-50";
-  const valueMarkerToneClass =
-    metric.statusTone === "success"
-      ? "border-t-emerald-500 dark:border-t-emerald-300"
-      : metric.statusTone === "warning"
-        ? "border-t-amber-500 dark:border-t-amber-300"
-        : metric.statusTone === "danger"
-          ? "border-t-rose-500 dark:border-t-rose-300"
-          : "border-t-slate-500 dark:border-t-slate-300";
+  const zoneStartPercent = clampNumber((ranges.greenStart / scaleMax) * 100, 0, 100);
+  const zoneEndPercent = clampNumber((ranges.greenEnd / scaleMax) * 100, 0, 100);
+  const tone = planTone[metric.statusTone];
+  const delta = metric.plannedValue - targetValue;
+  const deltaText = stripNutrientSuffix(metric.format(Math.abs(delta)));
+  const statusText =
+    metric.statusTone === "success" || metric.statusTone === "neutral" || targetValue <= 0
+      ? metric.statusLabel
+      : delta < 0
+        ? `${metric.statusLabel} · −${deltaText}`
+        : `${metric.statusLabel} · +${deltaText}`;
+  const isCapacityWarning = metric.helperIsWarning === true;
 
   return (
-    <div
-      className={`rounded-xl border bg-card shadow-sm dark:bg-slate-950/70 ${
-        isCompact ? "p-2" : "p-4"
-      } ${
-        metric.statusTone === "success"
-          ? "border-emerald-500/40"
-          : metric.statusTone === "warning"
-            ? "border-amber-500/40"
-            : metric.statusTone === "danger"
-              ? "border-rose-500/40"
-              : "border-border"
-      }`}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span
-            className={`inline-flex items-center justify-center rounded-full bg-white ${
-              isCompact ? "h-7 w-7" : "h-9 w-9"
-            }`}
-          >
-            {metric.icon}
-          </span>
-          <div className="flex flex-col">
-            {isCompact ? (
-              <p className="text-[11px] font-semibold text-foreground dark:text-slate-200">{metric.name}</p>
-            ) : (
-              <>
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-400">
-                  {metric.label}
-                </p>
-                <p className="text-sm font-semibold text-foreground dark:text-slate-50">{metric.name}</p>
-              </>
-            )}
-          </div>
-        </div>
+    <div className={`flex min-w-0 flex-col rounded-[10px] bg-[#FAF8F2] ring-1 ring-[#E5E2D8] ${isCompact ? "gap-2 p-3" : "gap-3 p-4"}`}>
+      <span className="inline-flex min-w-0 items-center gap-1.5 text-[13px] font-semibold text-[#1F2410]">
+        <span className="shrink-0 text-[#2D5016]">{metric.icon}</span>
+        <span className="truncate">{metric.name}</span>
+      </span>
+      <p className="flex items-baseline gap-1.5 font-[family-name:var(--font-plan-mono)] tabular-nums">
+        <span className={`${isCompact ? "text-[22px]" : "text-3xl"} font-bold leading-none tracking-tight ${tone.text}`}>
+          {stripNutrientSuffix(metric.value)}
+        </span>
+        <span className="text-[11px] font-medium text-[#8A917E]">
+          / {stripNutrientSuffix(metric.format(targetValue))}
+        </span>
+      </p>
+      <div
+        className="relative h-2 w-full rounded-full bg-[#EAE8E1]"
+        role="meter"
+        aria-label={`${metric.name} : ${stripNutrientSuffix(metric.value)}, ${targetLabel.toLowerCase()} ${stripNutrientSuffix(metric.format(targetValue))}`}
+        aria-valuemin={0}
+        aria-valuemax={Math.round(scaleMax)}
+        aria-valuenow={Math.round(metric.plannedValue)}
+      >
+        <span
+          className="absolute inset-y-0 rounded-full bg-[#C8D44E]/70"
+          style={{ left: `${zoneStartPercent}%`, width: `${Math.max(zoneEndPercent - zoneStartPercent, 2)}%` }}
+          aria-hidden
+        />
+        <span
+          className="absolute inset-y-[2px] left-[2px] rounded-full transition-[width] duration-300 motion-reduce:transition-none"
+          style={{ width: `max(calc(${fillPercent}% - 4px), 0px)`, backgroundColor: tone.fill }}
+          aria-hidden
+        />
+        <span
+          className="absolute -inset-y-1 w-[2px] -translate-x-1/2 rounded-full bg-[#1F2410]"
+          style={{ left: `${targetPercent}%` }}
+          aria-hidden
+        />
       </div>
-      <div className={isCompact ? "mt-1.5 flex flex-col gap-1" : "mt-3 flex flex-col gap-3"}>
-        <p className={`${isCompact ? "text-xl" : "text-3xl"} font-extrabold leading-tight ${valueToneClass}`}>
-          {isCompact ? compactValue : metric.value}
+      <p className={`inline-flex w-fit max-w-full rounded-full px-2 py-0.5 text-[11px] font-semibold leading-snug ${tone.pill}`}>
+        {statusText}
+      </p>
+      {metric.helper ? (
+        <p className={`text-[11px] leading-snug ${isCapacityWarning ? "font-semibold text-[#B45309]" : "text-[#8A917E]"}`}>
+          {metric.helper}
         </p>
-        <div className={isCompact ? "space-y-1" : "space-y-2"}>
-          <div className="relative w-full">
-            <div
-              className={`relative w-full overflow-hidden rounded-full border border-border bg-background dark:bg-slate-900 ${
-                isCompact ? "h-2" : "h-4"
-              }`}
-            >
-                <div
-                  className="absolute inset-0"
-                  style={{
-                    background: `linear-gradient(to right,
-                      rgba(248,113,113,0.75) 0%,
-                      rgba(248,113,113,0.75) ${lowerWarningPercent}%,
-                      rgba(251,146,60,0.75) ${lowerWarningPercent}%,
-                      rgba(251,146,60,0.75) ${greenStartPercent}%,
-                      rgba(16,185,129,0.8) ${greenStartPercent}%,
-                      rgba(16,185,129,0.8) ${greenEndPercent}%,
-                      rgba(251,146,60,0.75) ${greenEndPercent}%,
-                      rgba(251,146,60,0.75) ${upperDangerPercent}%,
-                      rgba(248,113,113,0.75) ${upperDangerPercent}%,
-                      rgba(248,113,113,0.75) 100%)`,
-                  }}
-                  aria-hidden
-                />
-            </div>
-            <span
-              className={`absolute left-0 top-full mt-0.5 h-0 w-0 -translate-x-1/2 border-x-[5px] border-t-0 border-x-transparent border-b-[6px] border-b-slate-500/70 dark:border-b-slate-200/70 ${
-                isCompact ? "border-x-[4px] border-b-[5px]" : ""
-              }`}
-              style={{ left: `${targetPercent}%` }}
-              aria-label={targetLabel}
-            />
-            <span
-              className={`absolute left-0 bottom-full mb-0.5 h-0 w-0 -translate-x-1/2 border-x-[5px] border-b-0 border-x-transparent border-t-[6px] ${
-                isCompact ? "border-x-[4px] border-t-[5px]" : ""
-              } ${valueMarkerToneClass}`}
-              style={{ left: `${cursorPercent}%` }}
-              aria-label={metric.name}
-            />
-          </div>
-          {isCompact ? (
-            <div className="relative h-2.5">
-              <span
-                className="absolute top-0 -translate-x-1/2 text-[9px] font-semibold text-muted-foreground dark:text-slate-400"
-                style={{ left: `${targetPercent}%` }}
-              >
-                {compactTarget}
-              </span>
-            </div>
-          ) : null}
-          {isCompact ? (
-            metric.helper ? (
-              <p className="text-[9px] font-semibold text-amber-700 dark:text-amber-200/80">{metric.helper}</p>
-            ) : null
-          ) : (
-            <div className="flex items-center justify-between text-xs text-muted-foreground dark:text-slate-200">
-              <span className="font-semibold">
-                {targetLabel}: {metric.format(targetValue)}
-              </span>
-              {metric.helper ? <span className="font-semibold text-amber-700 dark:text-amber-100">{metric.helper}</span> : null}
-            </div>
-          )}
-        </div>
-      </div>
+      ) : null}
     </div>
   );
 }
@@ -605,10 +558,25 @@ type AidStationHeaderProps = {
   onTitleClick?: () => void;
 };
 
-function AidStationHeader({ pointIndex, badge, title, meta, onTitleClick }: AidStationHeaderProps) {
+/**
+ * One point of the course on the dotted trail rail: the marker sits on the rail (left column), the station
+ * card and the section that follows it sit in the content column.
+ */
+function RailItem({ marker, children }: { marker?: ReactNode; children: ReactNode }) {
+  return (
+    <div className="relative grid grid-cols-[44px_minmax(0,1fr)] gap-x-2.5 sm:grid-cols-[48px_minmax(0,1fr)] sm:gap-x-4">
+      <div className="relative z-10 flex items-start justify-center pt-3">
+        {marker ? <div className="origin-top scale-[0.9] sm:scale-100">{marker}</div> : null}
+      </div>
+      <div className="min-w-0">{children}</div>
+    </div>
+  );
+}
+
+function AidStationHeader({ title, meta, onTitleClick }: AidStationHeaderProps) {
   return (
     <div
-      className={`flex min-w-[220px] items-start gap-3 ${onTitleClick ? "cursor-pointer" : ""}`}
+      className={`flex min-w-0 items-start gap-3 sm:min-w-[220px] ${onTitleClick ? "cursor-pointer" : ""}`}
       onClick={onTitleClick}
       role={onTitleClick ? "button" : undefined}
       tabIndex={onTitleClick ? 0 : undefined}
@@ -623,16 +591,11 @@ function AidStationHeader({ pointIndex, badge, title, meta, onTitleClick }: AidS
           : undefined
       }
     >
-      {badge ?? (
-        <span className="flex h-9 w-9 items-center justify-center rounded-full border border-brand-border bg-brand-surface text-sm font-semibold text-brand dark:border-transparent dark:bg-emerald-500/25 dark:text-emerald-100">
-          {pointIndex}
-        </span>
-      )}
-      <div className="min-w-0 space-y-1">
-        <div className="flex items-center gap-2 text-base font-semibold text-foreground dark:text-slate-50">
-          <span>{title}</span>
+      <div className="min-w-0 space-y-1.5">
+        <div className="font-[family-name:var(--font-plan-display)] text-lg font-semibold leading-tight tracking-tight text-[#1F2410] sm:text-xl">
+          <span className={onTitleClick ? "decoration-[#B5CC9A] decoration-2 underline-offset-4 hover:underline" : undefined}>{title}</span>
         </div>
-        {meta ? <div className="text-xs font-normal text-muted-foreground dark:text-slate-300">{meta}</div> : null}
+        {meta ? <div className="text-xs font-normal text-[#5C6450]">{meta}</div> : null}
       </div>
     </div>
   );
@@ -650,8 +613,8 @@ function AidStationHeaderRow({
   onTitleClick,
 }: AidStationHeaderRowProps) {
   return (
-    <div className="relative z-20 rounded-2xl border-2 border-brand-border bg-card/95 px-5 py-4 shadow-md shadow-[rgba(45,80,22,0.10)] dark:border-emerald-400/70 dark:bg-slate-950/95 dark:shadow-[0_10px_36px_rgba(15,23,42,0.4)]">
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,240px)_1fr_auto] lg:items-center">
+    <div className="relative z-20 rounded-2xl bg-white px-4 py-4 ring-1 ring-[#E5E2D8] shadow-[0_1px_0_rgba(31,36,16,0.04),0_12px_28px_-18px_rgba(45,80,22,0.35)] sm:px-5">
+      <div className="flex items-start justify-between gap-3">
         <AidStationHeader
           pointIndex={pointIndex}
           badge={badge}
@@ -659,13 +622,11 @@ function AidStationHeaderRow({
           meta={meta}
           onTitleClick={onTitleClick}
         />
-        {headerMiddle ? (
-          <div className="flex w-full min-w-0 flex-1 justify-center sm:min-w-[240px]">{headerMiddle}</div>
-        ) : null}
-        {headerActions ? <div className="flex items-center justify-end gap-3">{headerActions}</div> : null}
+        {headerActions ? <div className="flex shrink-0 items-center justify-end gap-1.5">{headerActions}</div> : null}
       </div>
+      {headerMiddle ? <div className="mt-3 flex w-full min-w-0">{headerMiddle}</div> : null}
       {isFinish ? (
-        <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm text-muted-foreground dark:bg-slate-900/60 dark:text-slate-300">
+        <div className="mt-3 inline-flex items-center gap-2 rounded-[10px] bg-[#F4F2EC] px-3 py-2 text-sm text-[#5C6450]">
           <span>{finishLabel ?? "Arrivée"}</span>
         </div>
       ) : null}
@@ -800,15 +761,15 @@ type EmbarkedSummaryBoxProps = {
 
 function EmbarkedSummaryBox({ items }: EmbarkedSummaryBoxProps) {
   return (
-    <div className="w-full rounded-xl border border-dashed border-brand-border bg-brand-surface/50 px-4 py-2.5 dark:border-emerald-400/70 dark:bg-emerald-500/5 md:max-w-[300px]">
-      <div className="space-y-1.5">
+    <div className="w-full rounded-[10px] bg-[#F4F2EC] px-3 py-2 md:max-w-[280px]">
+      <div className="space-y-1">
         {items.map((item) => (
-          <div key={item.key} className="flex items-center justify-between gap-2 text-xs text-foreground dark:text-slate-50">
+          <div key={item.key} className="flex items-center justify-between gap-2 text-xs text-[#1F2410]">
             <span className="flex items-center gap-2">
-              <span className={`h-2 w-2 rounded-full ${item.dotClassName}`} />
-              <span className="font-medium">{item.label}</span>
+              <span className={`h-1.5 w-1.5 rounded-full ${item.dotClassName}`} />
+              <span className="text-[#5C6450]">{item.label}</span>
             </span>
-            <span className="font-semibold">{item.value}</span>
+            <span className="font-[family-name:var(--font-plan-mono)] font-semibold tabular-nums">{item.value}</span>
           </div>
         ))}
       </div>
@@ -891,18 +852,18 @@ function BetweenAidStationSection({
   showSubSections,
 }: BetweenAidStationSectionProps) {
   return (
-    <div className="relative">
-      <div className="rounded-t-none rounded-b-2xl border-l border-r border-b border-t-0 border-dashed border-brand-border bg-card/85 p-4 shadow-sm dark:border-emerald-400/60 dark:bg-slate-950/55">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start">
-          <div className="w-full max-w-[260px]">{sectionSummary}</div>
+    <div className="relative mt-2">
+      <div className="rounded-2xl bg-[#F4F2EC] p-3 ring-1 ring-inset ring-[#E5E2D8]/70 sm:p-4">
+        <div className="grid gap-2.5 xl:grid-cols-[200px_minmax(0,1fr)] xl:items-stretch">
+          <div className="min-w-0">{sectionSummary}</div>
           {nutritionCards.length > 0 ? (
-            <div className="grid flex-1 gap-3 md:grid-cols-3">{nutritionCards}</div>
+            <div className="grid min-w-0 gap-2.5 sm:grid-cols-3">{nutritionCards}</div>
           ) : null}
         </div>
-        {toggleButton ? <div className="mt-4 flex flex-wrap items-center gap-2">{toggleButton}</div> : null}
+        {toggleButton ? <div className="mt-3 flex flex-wrap items-center gap-2">{toggleButton}</div> : null}
         {showSubSections ? (
-          <div className="mt-4 space-y-3">
-            <div className="relative space-y-2 pl-8 before:absolute before:left-2 before:top-0 before:bottom-0 before:border-l before:border-border/30">
+          <div className="mt-3 space-y-3">
+            <div className="relative space-y-2 pl-6 before:absolute before:left-2 before:top-0 before:bottom-0 before:border-l-2 before:border-dotted before:border-[#B5CC9A]">
               {subSections}
             </div>
             {subSectionActions}
@@ -925,30 +886,12 @@ function AidStationCollapsedRow({
   actions,
 }: AidStationCollapsedRowProps) {
   return (
-    <div className="rounded-2xl border-2 border-brand-border bg-card/95 px-4 py-3 shadow-md shadow-[rgba(45,80,22,0.10)] dark:border-emerald-400/70 dark:bg-slate-950/90 dark:shadow-[0_6px_26px_rgba(15,23,42,0.4)]">
+    <div className="rounded-2xl bg-white px-4 py-3 ring-1 ring-[#E5E2D8] shadow-[0_1px_0_rgba(31,36,16,0.04)]">
       <div className="flex flex-wrap items-center gap-3 md:gap-4">
-        <div className="relative flex shrink-0 flex-col items-center gap-2">
-          {badge ? (
-            badge
-          ) : (
-            <>
-              <span className="absolute -left-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-brand-surface text-[11px] font-semibold text-brand dark:bg-emerald-500/25 dark:text-emerald-100">
-                {pointIndex}
-              </span>
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-border bg-background text-foreground dark:bg-slate-900/70 dark:text-slate-50">
-                {leftIcon}
-              </div>
-            </>
-          )}
-          <div className="hidden flex-col items-center md:flex">
-            <span className="h-8 w-[2px] bg-brand-border dark:bg-emerald-400/80" />
-            <span className="h-0 w-0 border-x-[6px] border-t-[8px] border-x-transparent border-t-brand-border dark:border-t-emerald-400/80" />
-          </div>
-        </div>
-        <div className="min-w-0 flex-1 space-y-1 md:order-1">
-          <div className="truncate text-sm font-semibold text-foreground dark:text-slate-50">{title}</div>
-          <div className="truncate text-xs text-muted-foreground dark:text-slate-300">{metaLine}</div>
-          <div className="truncate text-[11px] text-muted-foreground dark:text-slate-400">{pauseLine}</div>
+        <div className="min-w-0 flex-1 space-y-0.5 md:order-1">
+          <div className="truncate font-[family-name:var(--font-plan-display)] text-base font-semibold text-[#1F2410]">{title}</div>
+          <div className="truncate font-[family-name:var(--font-plan-mono)] text-[12px] tabular-nums text-[#5C6450]">{metaLine}</div>
+          {pauseLine ? <div className="truncate text-[11px] text-[#8A917E]">{pauseLine}</div> : null}
         </div>
         <div className="order-3 flex w-full justify-start md:order-2 md:w-[190px] md:justify-center lg:order-2">
           {segmentCard}
@@ -1321,7 +1264,7 @@ export function ActionPlan({
       };
       return (
         <div
-          className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 dark:bg-slate-950/50"
+          className="inline-flex items-center gap-0.5 rounded-full bg-[#F4F2EC] p-0.5 ring-1 ring-[#E5E2D8]"
           title={tooltip}
         >
           <input
@@ -1331,20 +1274,18 @@ export function ActionPlan({
             })}
           />
           <PaceStepButton
-            className="h-6 w-6 rounded-full border border-border px-0 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-200 dark:hover:text-white"
+            className="!min-h-0 h-7 w-7 rounded-full px-0 text-base !text-[#5C6450] hover:!bg-white hover:!text-[#2D5016] disabled:cursor-not-allowed disabled:opacity-50"
             onClick={() => adjust(-adjustmentStep)}
             disabled={isDisabled}
             title={tooltip}
           >
             –
           </PaceStepButton>
-          <div className="flex items-baseline gap-1 px-1">
-            <span className="text-[13px] font-semibold text-foreground tabular-nums dark:text-slate-50">
-              {formatPaceValue(paceMinutesPerKm)}
-            </span>
-          </div>
+          <span className="min-w-[4.5rem] px-1 text-center font-[family-name:var(--font-plan-mono)] text-[13px] font-bold tabular-nums text-[#1F2410]">
+            {formatPaceValue(paceMinutesPerKm)}/km
+          </span>
           <PaceStepButton
-            className="h-6 w-6 rounded-full border border-border px-0 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-200 dark:hover:text-white"
+            className="!min-h-0 h-7 w-7 rounded-full px-0 text-base !text-[#5C6450] hover:!bg-white hover:!text-[#2D5016] disabled:cursor-not-allowed disabled:opacity-50"
             onClick={() => adjust(adjustmentStep)}
             disabled={isDisabled}
             title={tooltip}
@@ -1712,36 +1653,9 @@ export function ActionPlan({
     paceModel,
   });
   const metricIcons = {
-    carbs: (
-      <Image
-        src="/race-planner/icons/glucide.png"
-        alt=""
-        aria-hidden
-        width={16}
-        height={16}
-        className="h-4 w-4 object-contain"
-      />
-    ),
-    water: (
-      <Image
-        src="/race-planner/icons/water.png"
-        alt=""
-        aria-hidden
-        width={16}
-        height={16}
-        className="h-4 w-4 object-contain"
-      />
-    ),
-    sodium: (
-      <Image
-        src="/race-planner/icons/sodium.png"
-        alt=""
-        aria-hidden
-        width={16}
-        height={16}
-        className="h-4 w-4 object-contain"
-      />
-    ),
+    carbs: <NutritionIcon size={17} strokeWidth={1.9} />,
+    water: <HydrationIcon size={17} strokeWidth={1.9} color="#3F6F8F" />,
+    sodium: <SaltIcon className="h-[17px] w-[17px]" />,
   };
   const autoFillLocked = !allowAutoFill;
   const exportLocked = !allowExport;
@@ -1923,7 +1837,7 @@ export function ActionPlan({
     <>
       <Card
         id={sectionId}
-        className="border-brand-border bg-brand-surface/45 shadow-xl shadow-[rgba(45,80,22,0.12)] dark:border-emerald-400/60 dark:bg-emerald-950/20 dark:shadow-emerald-950/30"
+        className={`${planFontVariables} rounded-3xl border-0 bg-[#FAF8F2] shadow-none ring-1 ring-[#E5E2D8]`}
       >
         <CardHeader className="space-y-3">
           <SectionHeader
@@ -2005,7 +1919,7 @@ export function ActionPlan({
       </CardHeader>
       <CardContent className="space-y-4">
         {segments.length > 0 ? (
-          <div className="relative space-y-8">
+          <div className="relative space-y-6 before:pointer-events-none before:absolute before:bottom-10 before:left-[21px] before:top-8 before:border-l-[3px] before:border-dotted before:border-[#B5CC9A] sm:before:left-[23px]">
             {(() => {
               const renderedItems = renderItems.map((item, itemIndex) => {
                 const pointNumber = itemIndex + 1;
@@ -2149,21 +2063,40 @@ export function ActionPlan({
                     </div>
                   ) : null;
                 const metaContent = (
-                  <div className="space-y-1">
-                    <div>{metaText}</div>
-                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground dark:text-slate-400">
-                      <span>{timelineCopy.pauseLabel}: {pauseMinutesValue}</span>
-                      {!item.isFinish ? (
-                        <span className="rounded-full border border-border bg-background px-2 py-0.5 font-semibold text-foreground dark:bg-slate-900/60 dark:text-slate-100">
-                          {serviceLabel}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12.5px] text-[#5C6450]">
+                    <span className="rounded-[6px] bg-[#2D5016] px-1.5 py-0.5 font-[family-name:var(--font-plan-mono)] text-[11.5px] font-bold tabular-nums text-[#FAF8F2]">
+                      km {formatKmPost(item.distanceKm, locale)}
+                    </span>
+                    {!item.isStart ? (
+                      <span>
+                        {locale === "fr" ? "Passage" : "Arrival"}{" "}
+                        <span className="font-[family-name:var(--font-plan-mono)] font-semibold tabular-nums text-[#1F2410]">
+                          {formatMinutes(item.etaMinutes)}
                         </span>
-                      ) : null}
-                      {!item.isFinish ? (
-                        <span className="rounded-full border border-border bg-background px-2 py-0.5 font-semibold text-foreground dark:bg-slate-900/60 dark:text-slate-100">
-                          {assistanceLabel}
-                        </span>
-                      ) : null}
-                    </div>
+                      </span>
+                    ) : null}
+                    {pauseMinutesValue > 0 ? (
+                      <span>
+                        {locale === "fr" ? "Pause" : "Stop"}{" "}
+                        <span className="font-[family-name:var(--font-plan-mono)] font-semibold tabular-nums text-[#1F2410]">{pauseMinutesValue} min</span>
+                      </span>
+                    ) : null}
+                    {!item.isFinish ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[#F4F2EC] px-2 py-0.5 text-[11.5px] font-medium text-[#1F2410]">
+                        {waterRefillAvailable && !item.isStart ? <HydrationIcon size={13} strokeWidth={2} color="#3F6F8F" /> : null}
+                        {solidRefillAvailable && !item.isStart ? <NutritionIcon size={13} strokeWidth={2} /> : null}
+                        {serviceLabel}
+                      </span>
+                    ) : null}
+                    {!item.isFinish && !item.isStart ? (
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11.5px] font-medium ${
+                          assistanceAvailable ? "bg-[#E8F0E0] text-[#2D5016]" : "bg-[#F4F2EC] text-[#8A917E]"
+                        }`}
+                      >
+                        {assistanceLabel}
+                      </span>
+                    ) : null}
                   </div>
                 );
                 const toggleButton =
@@ -2171,7 +2104,7 @@ export function ActionPlan({
                     <Button
                       type="button"
                       variant="ghost"
-                      className="h-8 rounded-full border border-border bg-background px-3 text-xs font-semibold text-foreground hover:bg-muted dark:bg-slate-900/60 dark:text-slate-100 dark:hover:bg-slate-800/60"
+                      className="!min-h-0 h-9 w-9 rounded-full px-0 !text-[#5C6450] hover:!bg-[#F4F2EC] hover:!text-[#1F2410]"
                       onClick={() => toggleAidStationCollapse(collapseKey)}
                       aria-label={toggleLabel}
                       title={toggleLabel}
@@ -2186,10 +2119,10 @@ export function ActionPlan({
 
                 const waterRefillToggle =
                   distanceFieldName && !isCollapsed && waterRefillFieldName ? (
-                    <label className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-2 py-1 text-[11px] text-muted-foreground dark:bg-slate-900/60 dark:text-slate-200">
+                    <label className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-full bg-white px-2.5 text-[11.5px] font-medium text-[#5C6450] ring-1 ring-[#E5E2D8] has-[:checked]:bg-[#E8F0E0] has-[:checked]:text-[#2D5016] has-[:checked]:ring-[#B5CC9A]">
                       <input
                         type="checkbox"
-                        className="h-4 w-4 rounded border-border bg-background text-emerald-500 focus:ring-ring dark:bg-slate-900"
+                        className="h-3.5 w-3.5 rounded accent-[#2D5016]"
                         {...register(waterRefillFieldName)}
                       />
                       <span>{aidStationsCopy.labels.waterRefill}</span>
@@ -2197,10 +2130,10 @@ export function ActionPlan({
                   ) : null;
                 const solidRefillToggle =
                   distanceFieldName && !isCollapsed && solidRefillFieldName ? (
-                    <label className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-2 py-1 text-[11px] text-muted-foreground dark:bg-slate-900/60 dark:text-slate-200">
+                    <label className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-full bg-white px-2.5 text-[11.5px] font-medium text-[#5C6450] ring-1 ring-[#E5E2D8] has-[:checked]:bg-[#E8F0E0] has-[:checked]:text-[#2D5016] has-[:checked]:ring-[#B5CC9A]">
                       <input
                         type="checkbox"
-                        className="h-4 w-4 rounded border-border bg-background text-emerald-500 focus:ring-ring dark:bg-slate-900"
+                        className="h-3.5 w-3.5 rounded accent-[#2D5016]"
                         {...register(solidRefillFieldName)}
                       />
                       <span>{aidStationsCopy.labels.solidRefill}</span>
@@ -2208,10 +2141,10 @@ export function ActionPlan({
                   ) : null;
                 const assistanceAllowedToggle =
                   distanceFieldName && !isCollapsed && assistanceAllowedFieldName ? (
-                    <label className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-2 py-1 text-[11px] text-muted-foreground dark:bg-slate-900/60 dark:text-slate-200">
+                    <label className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-full bg-white px-2.5 text-[11.5px] font-medium text-[#5C6450] ring-1 ring-[#E5E2D8] has-[:checked]:bg-[#E8F0E0] has-[:checked]:text-[#2D5016] has-[:checked]:ring-[#B5CC9A]">
                       <input
                         type="checkbox"
-                        className="h-4 w-4 rounded border-border bg-background text-emerald-500 focus:ring-ring dark:bg-slate-900"
+                        className="h-3.5 w-3.5 rounded accent-[#2D5016]"
                         {...register(assistanceAllowedFieldName, {
                           onChange: (event) => {
                             if (!event.target.checked && typeof item.aidStationIndex === "number") {
@@ -2230,7 +2163,7 @@ export function ActionPlan({
                   (item.isStart || (typeof item.aidStationIndex === "number" && assistanceAvailable)) && !isCollapsed ? (
                     <div
                       id={item.isStart ? "onboarding-start-supply-zone" : undefined}
-                      className="flex w-full flex-1 flex-col gap-2 rounded-2xl border border-dashed border-brand-border bg-brand-surface/50 p-2 shadow-inner shadow-[rgba(45,80,22,0.08)] dark:border-emerald-400/50 dark:bg-emerald-500/5 dark:shadow-emerald-500/10"
+                      className="flex w-full flex-1 flex-col gap-2 rounded-xl border border-dashed border-[#C9C5B8] bg-[#FAF8F2] p-2.5"
                       onDragOver={(event) => event.preventDefault()}
                       onDrop={(event) => {
                         event.preventDefault();
@@ -2244,8 +2177,13 @@ export function ActionPlan({
                         }
                       }}
                     >
+                      <p className="px-0.5 text-[12px] font-medium text-[#5C6450]">
+                        {item.isStart
+                          ? locale === "fr" ? "Dans ton sac au départ" : "In your pack at the start"
+                          : locale === "fr" ? "À récupérer à ce ravito" : "To pick up at this aid station"}
+                      </p>
                       <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div className="flex flex-1 flex-wrap gap-2">
+                        <div className="flex min-w-0 flex-1 flex-wrap gap-2">
                           {summarized?.items?.length
                             ? summarized.items.map(({ product, quantity }) => {
                                 const supplySource =
@@ -2256,21 +2194,24 @@ export function ActionPlan({
                                 return (
                                 <div
                                   key={product.id}
-                                  className="inline-flex items-center gap-2 rounded-full border border-brand-border bg-card px-3 py-1 text-sm text-foreground dark:border-emerald-400/40 dark:bg-slate-950/70 dark:text-slate-50"
+                                  className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full bg-white py-1 pl-1 pr-1 text-sm text-[#1F2410] ring-1 ring-[#E5E2D8]"
                                 >
+                                  <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-[#2D5016] px-1.5 font-[family-name:var(--font-plan-mono)] text-[11px] font-bold tabular-nums text-[#FAF8F2]">
+                                    {quantity}
+                                  </span>
                                   <button
                                     type="button"
-                                    className="text-left font-semibold underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400"
+                                    className="min-w-0 max-w-[14rem] truncate text-left font-medium underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2D5016]"
                                     onClick={() => setProductDetail(product)}
-                                    aria-label={`${productDetailCopy[locale].title}: ${product.name}`}
+                                    aria-label={`${productDetailCopy[locale].title}: ${product.name} ×${quantity}`}
                                   >
-                                    {`${product.name} x${quantity}`}
+                                    {product.name}
                                   </button>
-                                  <div className="flex items-center gap-1">
+                                  <div className="flex items-center">
                                     <Button
                                       type="button"
                                       variant="ghost"
-                                      className="h-6 w-6 rounded-full border border-border bg-background text-muted-foreground hover:text-foreground dark:bg-slate-900/80 dark:text-slate-200 dark:hover:text-white"
+                                      className="!min-h-0 h-6 w-6 rounded-full px-0 !text-[#8A917E] hover:!bg-[#F4F2EC] hover:!text-[#1F2410]"
                                       onClick={() => {
                                         if (quantity <= 1) {
                                           if (item.isStart) {
@@ -2299,7 +2240,7 @@ export function ActionPlan({
                                     <Button
                                       type="button"
                                       variant="ghost"
-                                      className="h-6 w-6 rounded-full border border-border bg-background text-muted-foreground hover:text-foreground dark:bg-slate-900/80 dark:text-slate-200 dark:hover:text-white"
+                                      className="!min-h-0 h-6 w-6 rounded-full px-0 !text-[#8A917E] hover:!bg-[#F4F2EC] hover:!text-[#1F2410]"
                                       onClick={() => {
                                         if (item.isStart) {
                                           onStartSupplyDrop(product.id, 1);
@@ -2324,7 +2265,7 @@ export function ActionPlan({
                             id={item.isStart ? "onboarding-open-products-btn" : undefined}
                             type="button"
                             variant="outline"
-                            className="h-9 w-9 shrink-0 rounded-full border-brand-border bg-card p-0 text-brand hover:bg-brand-surface dark:border-emerald-400/50 dark:bg-slate-950/60 dark:text-emerald-50"
+                            className="!min-h-0 h-9 w-9 shrink-0 rounded-full !border-0 !bg-[#2D5016] p-0 text-lg !text-[#FAF8F2] hover:!bg-[#3F6B1F]"
                             onClick={() =>
                               setSupplyPicker({
                                 type: item.isStart ? "start" : "aid",
@@ -2340,7 +2281,7 @@ export function ActionPlan({
                       </div>
                     </div>
                   ) : typeof item.aidStationIndex === "number" && !isCollapsed ? (
-                    <div className="flex w-full min-w-0 flex-1 flex-wrap items-center justify-between gap-2 rounded-2xl border border-dashed border-border bg-muted/40 p-3 text-xs font-medium text-muted-foreground dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300">
+                    <div className="flex w-full min-w-0 flex-1 flex-wrap items-center justify-between gap-2 rounded-xl bg-[#F4F2EC] p-3 text-[12px] font-medium text-[#5C6450]">
                       <span className="min-w-0">
                         {locale === "fr"
                           ? "Pas d’assistance : tes produits perso sont à porter depuis le point d’assistance précédent."
@@ -2354,7 +2295,7 @@ export function ActionPlan({
                           <Button
                             type="button"
                             variant="outline"
-                            className="h-9 w-9 shrink-0 rounded-full border-brand-border bg-card p-0 text-brand hover:bg-brand-surface dark:border-emerald-400/50 dark:bg-slate-950/60 dark:text-emerald-50"
+                            className="!min-h-0 h-9 w-9 shrink-0 rounded-full !border-0 !bg-[#2D5016] p-0 text-lg !text-[#FAF8F2] hover:!bg-[#3F6B1F]"
                             onClick={() =>
                               setSupplyPicker({
                                 type: "aid",
@@ -2485,6 +2426,7 @@ export function ActionPlan({
                     format: metric.format,
                     targetValue: metric.target,
                     helper: capacityWarning ?? capacityLabel ?? null,
+                    helperIsWarning: Boolean(capacityWarning),
                     statusLabel: status.label,
                     statusTone: status.tone,
                     icon: metricIcons[metric.key],
@@ -2499,13 +2441,13 @@ export function ActionPlan({
                 const segmentCard =
                   sectionSegment ? (
                     <SegmentCard
-                      variant="compact"
-                      distanceText={`${sectionSummaryDistanceKm.toFixed(1)} km`}
+                      variant={isCollapsed ? "compact" : "section"}
+                      distanceText={`${formatKmPost(sectionSummaryDistanceKm, locale)} km`}
                       timeText={formatMinutes(sectionSummaryMinutes)}
                       elevationGainText={`${Math.round(sectionSummaryGain)} D+`}
                       elevationLossText={`${Math.round(sectionSummaryLoss)} D-`}
                       paceControl={
-                        <span className="text-[15px] font-bold tabular-nums text-foreground dark:text-slate-50">
+                        <span className="font-[family-name:var(--font-plan-mono)] text-[13px] font-bold tabular-nums text-[#1F2410]">
                           {formatPaceValue(sectionAvgPace)}/km
                         </span>
                       }
@@ -2602,7 +2544,7 @@ export function ActionPlan({
                     <Button
                       type="button"
                       variant="ghost"
-                      className="h-8 rounded-full border border-border bg-background px-3 text-xs font-semibold text-foreground hover:bg-muted dark:bg-slate-900/60 dark:text-slate-100 dark:hover:bg-slate-800/60"
+                      className="!min-h-0 h-8 rounded-full !bg-white px-3 text-xs font-semibold !text-[#2D5016] ring-1 ring-[#E5E2D8] hover:!bg-[#E8F0E0]"
                       onClick={() =>
                         startUiTransition(() => {
                           setExpandedSegments((prev) => ({
@@ -2721,10 +2663,11 @@ export function ActionPlan({
                     <Button
                       type="button"
                       variant="ghost"
-                      className="h-9 w-9 rounded-full border border-red-200 bg-red-100 px-0 text-lg font-bold text-red-950 hover:bg-red-200 dark:border-red-500/50 dark:bg-red-500/10 dark:text-white dark:hover:bg-red-500/20"
+                      className="!min-h-0 h-9 w-9 rounded-full px-0 !text-[#8A917E] hover:!bg-[#FDECEA] hover:!text-[#C0392B]"
                       onClick={() => onRemoveAidStation(item.aidStationIndex as number)}
+                      title={`${aidStationsCopy.remove} ${item.title}`}
                     >
-                      <span aria-hidden>×</span>
+                      <Trash2 className="h-[18px] w-[18px]" />
                       <span className="sr-only">
                         {aidStationsCopy.remove} {item.title}
                       </span>
@@ -2756,7 +2699,10 @@ export function ActionPlan({
                     if (!Number.isFinite(value) || value <= 0) return "—";
                     if (value >= 1000) {
                       const liters = value / 1000;
-                      return `${liters.toFixed(liters < 10 ? 1 : 0)} L`;
+                      return `${liters.toLocaleString(locale === "fr" ? "fr-FR" : "en-US", {
+                        minimumFractionDigits: liters < 10 ? 1 : 0,
+                        maximumFractionDigits: liters < 10 ? 1 : 0,
+                      })} L`;
                     }
                     return `${Math.round(value)} ${copy.units.milliliters}`;
                   };
@@ -2775,7 +2721,10 @@ export function ActionPlan({
                     Number.isFinite(finishSummary.totalGels) && finishSummary.totalGels > 0
                       ? Number.isInteger(finishSummary.totalGels)
                         ? finishSummary.totalGels.toFixed(0)
-                        : finishSummary.totalGels.toFixed(1)
+                        : finishSummary.totalGels.toLocaleString(locale === "fr" ? "fr-FR" : "en-US", {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })
                       : "—";
                   const formattedCalories =
                     Number.isFinite(finishSummary.totalCalories) && finishSummary.totalCalories > 0
@@ -2791,7 +2740,7 @@ export function ActionPlan({
                       : "—";
                   const performanceGroup: FinishSummaryGroup = {
                     title: timelineCopy.finishSummary.groups.performance,
-                    icon: <GaugeIcon className="h-4 w-4" aria-hidden />,
+                    icon: <PaceIcon size={18} strokeWidth={2} />,
                     primary: {
                       key: "total-time",
                       label: timelineCopy.finishSummary.totalTimeLabel,
@@ -2814,7 +2763,7 @@ export function ActionPlan({
 
                   const energyGroup: FinishSummaryGroup = {
                     title: timelineCopy.finishSummary.groups.energy,
-                    icon: <BoltIcon className="h-4 w-4" aria-hidden />,
+                    icon: <NutritionIcon size={18} strokeWidth={2} />,
                     primary: {
                       key: "total-carbs",
                       label: timelineCopy.finishSummary.totalCarbsLabel,
@@ -2840,7 +2789,7 @@ export function ActionPlan({
 
                   const hydrationGroup: FinishSummaryGroup = {
                     title: timelineCopy.finishSummary.groups.hydration,
-                    icon: <DropletIcon className="h-4 w-4" aria-hidden />,
+                    icon: <HydrationIcon size={18} strokeWidth={2} />,
                     primary: {
                       key: "total-fluids",
                       label: timelineCopy.finishSummary.totalFluidsLabel,
@@ -2869,7 +2818,7 @@ export function ActionPlan({
                   ];
 
                   return (
-                    <div key={item.id} className="relative pl-8">
+                    <RailItem key={item.id} marker={aidStationBadge}>
                       <FinishSummaryCard
                         pointIndex={pointNumber}
                         badge={aidStationBadge ?? undefined}
@@ -2884,7 +2833,7 @@ export function ActionPlan({
                         isExpanded={isFinishDetailsOpen}
                         onToggleDetails={() => setIsFinishDetailsOpen((prev) => !prev)}
                       />
-                    </div>
+                    </RailItem>
                   );
                 }
 
@@ -2904,30 +2853,34 @@ export function ActionPlan({
                       key: "carbs",
                       label: copy.sections.summary.items.carbs,
                       value: formatItemCount(glucideCount, "gel", "gels"),
-                      dotClassName: "bg-rose-400",
+                      dotClassName: "bg-[#2D5016]",
                     },
                     {
                       key: "water",
                       label: copy.sections.summary.items.water,
                       value: formatItemCount(waterCount, "flask", "flasks"),
-                      dotClassName: "bg-sky-400",
+                      dotClassName: "bg-[#3F6F8F]",
                     },
                     {
                       key: "sodium",
                       label: copy.sections.summary.items.sodium,
                       value: formatItemCount(sodiumCount, "cap", "caps"),
-                      dotClassName: "bg-amber-400",
+                      dotClassName: "bg-[#F0873A]",
                     },
                   ];
                   return (
-                    <div key={item.id} className="relative pl-8">
+                    <RailItem key={item.id} marker={aidStationBadge}>
                       <AidStationCollapsedRow
                         pointIndex={pointNumber}
                         badge={aidStationBadge ?? undefined}
                         title={item.title}
                         leftIcon={isAidStation ? undefined : pointIconLarge}
-                        metaLine={`${formatDistanceWithUnit(item.distanceKm)} · ${timelineCopy.etaLabel}: ${formatMinutes(item.etaMinutes)}`}
-                        pauseLine={`${timelineCopy.pauseLabel}: ${pauseMinutesValue}`}
+                        metaLine={
+                          item.isStart
+                            ? `km ${formatKmPost(item.distanceKm, locale)}`
+                            : `km ${formatKmPost(item.distanceKm, locale)}   ${locale === "fr" ? "passage" : "arrival"} ${formatMinutes(item.etaMinutes)}`
+                        }
+                        pauseLine={pauseMinutesValue > 0 ? `${locale === "fr" ? "Pause" : "Stop"} ${pauseMinutesValue} min` : ""}
                         segmentCard={segmentCard}
                         embarkedItems={embarkedItems}
                         actions={
@@ -2937,12 +2890,12 @@ export function ActionPlan({
                           </div>
                         }
                       />
-                    </div>
+                    </RailItem>
                   );
                 }
 
                 return (
-                  <div key={item.id} className="relative pl-8">
+                  <RailItem key={item.id} marker={aidStationBadge}>
                     <div className="flex flex-col">
                       <AidStationHeaderRow
                         pointIndex={pointNumber}
@@ -2983,13 +2936,9 @@ export function ActionPlan({
                         }
                       />
                       {organizerSuggestionsBlock}
-                      {sectionBlock ? (
-                        <div className="relative -mt-px">
-                          {sectionBlock}
-                        </div>
-                      ) : null}
+                      {sectionBlock}
                     </div>
-                  </div>
+                  </RailItem>
                 );
               });
               if (!sampleMode || renderedItems.length <= sampleMode.editableItemCount) return renderedItems;
@@ -3008,7 +2957,7 @@ export function ActionPlan({
                     className="pointer-events-none relative max-h-[42rem] select-none space-y-8 overflow-hidden opacity-60 blur-[2px]"
                   >
                     {renderedItems.slice(sampleMode.editableItemCount)}
-                    <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-card to-transparent" />
+                    <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#FAF8F2] to-transparent" />
                   </div>
                 </>
               );

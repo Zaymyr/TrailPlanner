@@ -144,3 +144,7 @@ The visitor preview of the web planner (no account, no `race_plans` row) now loa
 ## Visitor unlock CTA touch (2026-11-23)
 
 The visitor preview's primary action is now « Débloquer mon plan complet » (secondary: keep the free preview). `RacePlannerPageContent.tsx` stores an `intent` in the local guest draft and, after sign-up, may redirect a still-locked new plan to `/premium?planId=…`. No column, index, RLS rule or read of this table changed; the visitor still reads the catalog ravitos only through the public aid-stations route, and the organizer products still reach the planner only through an account plan.
+
+## Race plan visual redesign touch (2026-11-23)
+
+The web plan timeline (`ActionPlan.tsx`) is redrawn as a « carte de course »: each organizer product suggestion at a ravito is still a pill (now with a forest quantity badge), selecting one still stores a station supply with `source: "organizer"`, and the manual product picker still lists only that ravito's official products. `RacePlannerPageContent.tsx` only changed `formatDistanceWithUnit` (locale-aware number format, « 24,8 km »). No column, index, RLS rule, read or write of this table changed; see [Design Components](../../07-design-system/components.md#race-plan-web-2026-11-23).

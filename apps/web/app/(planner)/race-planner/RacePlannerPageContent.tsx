@@ -1138,7 +1138,10 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   );
 
   const formatDistanceWithUnit = (value: number) =>
-    `${value.toFixed(1)} ${racePlannerCopy.sections.timeline.distanceWithUnit}`;
+    `${(Number.isFinite(value) ? value : 0).toLocaleString(locale === "fr" ? "fr-FR" : "en-US", {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    })} ${racePlannerCopy.sections.timeline.distanceWithUnit}`;
 
   const formatFuelAmount = (value: number) =>
     racePlannerCopy.sections.timeline.fuelLabel.replace("{amount}", value.toFixed(0));

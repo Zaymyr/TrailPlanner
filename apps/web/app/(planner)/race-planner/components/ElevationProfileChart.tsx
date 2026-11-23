@@ -230,6 +230,8 @@ export function ElevationProfileChart({
     return ticks;
   }, [paddingLeft, paddingX, trackDistanceKm, width]);
 
+  // The farthest aid station is the finish only when it actually sits at the end of the course (GPX imports
+  // list the finish as a station). Catalog aid stations stop before the finish, which is drawn on its own.
   const finishStationIndex = useMemo(() => {
     if (aidStations.length === 0) return -1;
     let maxDist = -Infinity;
@@ -240,8 +242,9 @@ export function ElevationProfileChart({
         maxIdx = i;
       }
     });
-    return maxIdx;
-  }, [aidStations]);
+    const tolerance = Math.max(0.3, trackDistanceKm * 0.02);
+    return trackDistanceKm > 0 && trackDistanceKm - maxDist <= tolerance ? maxIdx : -1;
+  }, [aidStations, trackDistanceKm]);
 
   const aidStationLabelLayout = useMemo(() => {
     const layout = buildWaypointLabelLayout(
@@ -589,6 +592,31 @@ export function ElevationProfileChart({
             </g>
           );
         })()}
+
+        {finishStationIndex === -1 && trackDistanceKm > 0
+          ? (() => {
+              const finishX = xScale(trackDistanceKm);
+              const finishY = yScale(getElevationAtDistance(trackDistanceKm));
+              return (
+                <g>
+                  <line x1={finishX} x2={finishX} y1={finishY} y2={elevationBottom} stroke={CHART.forest} strokeWidth={1.5} />
+                  <circle cx={finishX} cy={finishY} r={5} fill={CHART.forest} stroke={CHART.surface} strokeWidth={2} />
+                  <text
+                    x={finishX + 2}
+                    y={Math.max(finishY - 10, paddingY + 4)}
+                    fontSize={10}
+                    fontWeight={600}
+                    fill={CHART.ink}
+                    textAnchor="end"
+                    style={displayText}
+                    {...halo}
+                  >
+                    {copy.sections.courseProfile.finishLabel}
+                  </text>
+                </g>
+              );
+            })()
+          : null}
 
         {aidStations.map((station, index) => {
           const isFinish = index === finishStationIndex;

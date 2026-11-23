@@ -390,6 +390,7 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 - Sodium from electrolytes and carb products is subtracted before capsule allocation.
 - If product routes omit sodium in a select, sodium allocation can undercount. Check route selects when changing nutrition behavior.
 - Do not document `water_ml` as a product schema field.
+- Web plan gauges (« bande cible ») must keep deriving tone and range from `getPlanStatus` / `buildGaugeRanges`; do not re-derive status from colours or add a second threshold in the presentation, and flag water capacity shortfalls through `helperIsWarning`.
 
 ## Lot 8 presentation
 
@@ -436,3 +437,7 @@ The web runner funnel instrumentation (analytics events only) touched `RacePlann
 ## Visitor unlock CTA touch (2026-11-23)
 
 `RacePlannerPageContent.tsx` now offers « Débloquer mon plan complet » as the visitor preview's primary action (free save kept as a secondary link) and may redirect the new, still-locked plan to `/premium?planId=…` after sign-up. Needs, carryover, candidate pool and the one-shot visitor automatic fill are unchanged; the locked section stays inert and the unlock CTA does not trigger a fill.
+
+## Race plan visual redesign touch (2026-11-23)
+
+The web plan timeline (`ActionPlan.tsx`, `PlanPrimaryContent.tsx`) and `RacePlannerPageContent.tsx` are restyled; no allocation, carryover, target or status rule changed. Gauge semantics are the same: `getPlanStatus` and `buildGaugeRanges` still decide the tone and the target range from the cumulative carbs, sodium and water. They are now displayed as a « bande cible » (sand track, olive target zone, fill bar forest / amber / danger up to the planned amount, black tick on the exact target, value « 180 g / 129 g ») with a written status pill (« Au-dessus de la cible · +51 g »). A water capacity shortfall is flagged by an explicit `helperIsWarning` field rather than by guessing from the colour. Distances, litres and gel counts use locale number formatting (« 11,0 km », « 3,0 L », « 9,6 »). Presentation language: [Design Components](../07-design-system/components.md#race-plan-web-2026-11-23).

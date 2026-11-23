@@ -1,23 +1,23 @@
 import type { ComponentPropsWithoutRef } from "react";
+import { AidStationIcon } from "@pace-yourself/design-system/icons";
 
+/**
+ * Course marker of the race plan (and of the organizer aid-station editor): a round trail post on the
+ * dotted rail. Departure and finish are solid forest posts, aid stations are cream posts ringed in forest.
+ * The small mono tab carries the point number.
+ */
 const variantStyleMap = {
   start: {
-    shell:
-      "border-emerald-200 bg-emerald-50 text-emerald-700 shadow-sm dark:border-emerald-500/30 dark:bg-emerald-950/30 dark:text-emerald-100",
-    step:
-      "border-emerald-200 bg-white text-emerald-800 dark:border-emerald-400/40 dark:bg-slate-950 dark:text-emerald-100",
+    post: "bg-[#2D5016] text-[#FAF8F2] ring-[#2D5016]",
+    tab: "bg-[#FAF8F2] text-[#2D5016] ring-[#2D5016]/30",
   },
   ravito: {
-    shell:
-      "border-border bg-muted/60 text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100",
-    step:
-      "border-border bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100",
+    post: "bg-[#FAF8F2] text-[#2D5016] ring-[#2D5016]",
+    tab: "bg-[#2D5016] text-[#FAF8F2] ring-[#FAF8F2]",
   },
   finish: {
-    shell:
-      "border-emerald-400 bg-emerald-100 text-emerald-800 shadow-sm dark:border-emerald-400/60 dark:bg-emerald-500/15 dark:text-emerald-100",
-    step:
-      "border-emerald-300 bg-white text-emerald-800 dark:border-emerald-400/40 dark:bg-slate-950 dark:text-emerald-100",
+    post: "bg-[#1F3810] text-[#C8D44E] ring-[#1F3810]",
+    tab: "bg-[#C8D44E] text-[#1F3810] ring-[#FAF8F2]",
   },
 } as const;
 
@@ -26,155 +26,49 @@ type AidStationBadgeProps = ComponentPropsWithoutRef<"div"> & {
   variant: keyof typeof variantStyleMap;
 };
 
-type GlyphProps = {
-  className?: string;
-};
-
-function StartSignGlyph({ className }: GlyphProps) {
+/** Start arch: two posts and the banner runners pass under. */
+function StartArchGlyph({ className }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 32 32"
-      fill="none"
-      aria-hidden="true"
-      className={className}
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M7 27V5M25 27V5"
-        stroke="currentColor"
-        strokeWidth={2.4}
-        strokeLinecap="round"
-      />
-      <path
-        d="M4.5 6.5h23v10h-23z"
-        stroke="currentColor"
-        strokeWidth={2.4}
-        strokeLinejoin="round"
-      />
-      <text x="16" y="13.8" fill="currentColor" textAnchor="middle" fontSize="5.7" fontWeight="900">
-        START
-      </text>
-      <path
-        d="M4 27h24"
-        stroke="currentColor"
-        strokeWidth={2.4}
-        strokeLinecap="round"
-      />
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className} xmlns="http://www.w3.org/2000/svg">
+      <path d="M5.5 20.5V6.5M18.5 20.5V6.5" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+      <rect x="4" y="4.5" width="16" height="5.5" rx="1.4" stroke="currentColor" strokeWidth={1.7} />
+      <path d="M8.5 7.25h7" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeDasharray="1.6 1.8" />
     </svg>
   );
 }
 
-function RavitoPumpGlyph({ className }: GlyphProps) {
+function FinishFlagGlyph({ className }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 32 32"
-      fill="none"
-      aria-hidden="true"
-      className={className}
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M8 27V7.5A2.5 2.5 0 0 1 10.5 5h9A2.5 2.5 0 0 1 22 7.5V27"
-        stroke="currentColor"
-        strokeWidth={2.4}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M11.5 8.5h7v6.5h-7z"
-        stroke="currentColor"
-        strokeWidth={2.1}
-        strokeLinejoin="round"
-      />
-      <path
-        d="M22 10h2.4l2.6 3v9.2c0 2.2-1.2 3.8-3.2 3.8s-3.2-1.6-3.2-3.8v-3"
-        stroke="currentColor"
-        strokeWidth={2.2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M25 13v4"
-        stroke="currentColor"
-        strokeWidth={2.2}
-        strokeLinecap="round"
-      />
-      <path
-        d="M6 27h18"
-        stroke="currentColor"
-        strokeWidth={2.4}
-        strokeLinecap="round"
-      />
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className} xmlns="http://www.w3.org/2000/svg">
+      <path d="M6 21V4" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+      <path d="M6.8 4.5h11.4v8.6H6.8z" stroke="currentColor" strokeWidth={1.6} strokeLinejoin="round" />
+      <path d="M6.8 4.5h3.8v2.9H6.8zM14.4 4.5h3.8v2.9h-3.8zM10.6 7.4h3.8v2.9h-3.8zM6.8 10.3h3.8v2.8H6.8zM14.4 10.3h3.8v2.8h-3.8z" fill="currentColor" />
     </svg>
   );
 }
-
-function FinishFlagGlyph({ className }: GlyphProps) {
-  return (
-    <svg
-      viewBox="0 0 32 32"
-      fill="none"
-      aria-hidden="true"
-      className={className}
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M8 27V5"
-        stroke="currentColor"
-        strokeWidth={2.4}
-        strokeLinecap="round"
-      />
-      <path
-        d="M9 6h15v13H9z"
-        stroke="currentColor"
-        strokeWidth={2.2}
-        strokeLinejoin="round"
-      />
-      <path d="M10 7h4.7v4.2H10zM19.3 7H24v4.2h-4.7zM14.7 11.2h4.6v4.2h-4.6zM10 15.4h4.7V18H10zM19.3 15.4H24V18h-4.7z" fill="currentColor" />
-      <path
-        d="M6 27h6"
-        stroke="currentColor"
-        strokeWidth={2.4}
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-const variantGlyphMap = {
-  start: StartSignGlyph,
-  ravito: RavitoPumpGlyph,
-  finish: FinishFlagGlyph,
-} as const;
 
 export function AidStationBadge({ step, variant, className, ...props }: AidStationBadgeProps) {
   const styles = variantStyleMap[variant];
-  const Glyph = variantGlyphMap[variant];
 
   return (
     <div
-      className={[
-        "relative inline-flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border p-1 sm:h-14 sm:w-14 md:h-16 md:w-16",
-        styles.shell,
-        className,
-      ]
-        .filter(Boolean)
-        .join(" ")}
+      className={["relative inline-flex h-12 w-12 shrink-0 items-center justify-center", className].filter(Boolean).join(" ")}
       {...props}
     >
       <span
-        className="relative flex h-12 w-12 items-center justify-center sm:h-11 sm:w-11 md:h-12 md:w-12"
+        className={`flex h-11 w-11 items-center justify-center rounded-full ring-2 shadow-[0_2px_0_rgba(31,36,16,0.12)] ${styles.post}`}
         aria-hidden="true"
       >
-        <Glyph className="h-11 w-11 sm:h-10 sm:w-10 md:h-11 md:w-11" />
+        {variant === "ravito" ? (
+          <AidStationIcon size={24} strokeWidth={1.9} />
+        ) : variant === "start" ? (
+          <StartArchGlyph className="h-[22px] w-[22px]" />
+        ) : (
+          <FinishFlagGlyph className="h-[22px] w-[22px]" />
+        )}
       </span>
       <span
-        className={[
-          "absolute -bottom-1 -right-1 flex h-6 min-w-6 items-center justify-center rounded-full border px-1.5 text-[11px] font-bold leading-none shadow-sm",
-          styles.step,
-        ]
-          .filter(Boolean)
-          .join(" ")}
+        className={`absolute -bottom-1 -right-1.5 flex h-5 min-w-5 items-center justify-center rounded-full px-1 font-[family-name:var(--font-plan-mono)] text-[10px] font-bold leading-none tabular-nums ring-2 ${styles.tab}`}
       >
         {step}
       </span>

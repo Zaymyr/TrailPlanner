@@ -850,3 +850,7 @@ The web runner funnel instrumentation (analytics events only) touched `RacePlann
 ## Visitor unlock CTA touch (2026-11-23)
 
 The visitor preview's primary action is now « Débloquer mon plan complet · <course price> » (secondary: « ou garder l’aperçu gratuitement »), with an `intent` kept in the local guest draft; the sticky bar counts the catalog aid stations the organizer published, minus the unlocked first one. Organizer authoring, publication gates, products and Pro overlay rules are unchanged; see [runner-monetization.md](runner-monetization.md#web-free-plan-preview-2026-11-23).
+
+## Race plan visual redesign touch (2026-11-23)
+
+The runner plan timeline (`ActionPlan.tsx`) and `RacePlannerPageContent.tsx` changed look and number formatting only: organizer product suggestions at a ravito are shown as pills with a forest quantity badge, with the same selection, `source: "organizer"` supplies, auto-fill opt-in and Pro overlay rules as above. `AidStationBadge` (round trail-post markers: start, ravito, finish) is shared with the organizer aid-stations editor (`aid-stations-editor.tsx`), whose ravito cards therefore get the new post look; its props and the editor's behaviour are unchanged. No organizer authoring, publication or data contract changed. See [Design Components](../07-design-system/components.md#race-plan-web-2026-11-23).
