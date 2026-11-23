@@ -3,7 +3,10 @@
 import Link from "next/link";
 import React from "react";
 
+import type { Route } from "next";
+
 import { Button } from "../../../components/ui/button";
+import { renderQueueHref } from "../../../lib/admin-renders";
 import {
   REEL_PIPELINE_STEPS,
   REEL_RENDER_ETA_MINUTES,
@@ -32,6 +35,8 @@ type ReelPipelinePanelProps = {
   onModeChange: (mode: ReelPipelineMode) => void;
   /** Name of the voice of the narration (« Voix : … »), when one is known. */
   voiceLabel?: string | null;
+  /** Render launched by the last run: the finished message links to it in the render queue. */
+  renderJobId?: string | null;
   pipeline: {
     state: ReelPipelineState;
     cancelRequested: boolean;
@@ -46,7 +51,7 @@ type ReelPipelinePanelProps = {
  * « Générer le reel »: the whole flow of a reel in one click, Temps forts or Parcours complet. The
  * individual buttons below stay available to retouch the text, the voice or the settings afterwards.
  */
-export function ReelPipelinePanel({ canRun, pipeline, voiceLabel, mode, recommendedMode, onModeChange }: ReelPipelinePanelProps) {
+export function ReelPipelinePanel({ canRun, pipeline, voiceLabel, renderJobId, mode, recommendedMode, onModeChange }: ReelPipelinePanelProps) {
   const { state, running, cancelRequested } = pipeline;
   const started = state.status !== "idle";
   const renderStarted = state.steps.render === "running" || state.steps.render === "done";
@@ -120,7 +125,9 @@ export function ReelPipelinePanel({ canRun, pipeline, voiceLabel, mode, recommen
 
       {state.status === "done" ? (
         <p role="status" className="text-xs">
-          Rendu lancé — le brouillon apparaîtra dans{" "}
+          Rendu lancé — suis-le dans{" "}
+          <Link href={renderQueueHref(renderJobId ?? undefined) as Route} className="font-semibold underline underline-offset-2">la file des rendus</Link>
+          . Le brouillon apparaîtra dans{" "}
           <Link href="/admin/content/posts" className="font-semibold underline underline-offset-2">Publications</Link>{" "}
           à la fin du rendu (≈ {REEL_RENDER_ETA_MINUTES} min).
         </p>

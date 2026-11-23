@@ -113,7 +113,7 @@ export const inboxHref = {
   flyovers: () => "/admin/content/flyovers",
   post: (postId: string, mediaType: "reel" | "carousel") =>
     withParams("/admin/content/posts", mediaType === "carousel" ? { onglet: "carousels", post: postId } : { post: postId }),
-  renders: () => "/admin/content/renders",
+  renders: (renderId?: string) => (renderId ? `/admin/content/renders?rendu=${encodeURIComponent(renderId)}` : "/admin/content/renders"),
   race: (raceId: string) => withParams("/admin/catalog/races", { course: raceId }),
 };
 
@@ -250,7 +250,7 @@ export const failedRenderToItem = (render: FailedRenderSource): InboxItem => ({
   context: join(render.kind === "carousel" ? "Rendu de carrousel" : "Rendu de reel", render.stage.replace(/^Échec : /, "")),
   since: render.finishedAt ?? render.createdAt,
   dueDate: null,
-  href: inboxHref.renders(),
+  href: inboxHref.renders(render.id),
 });
 
 /** Same window as the Rendus page and « À surveiller » (failures of the last 24 h). */

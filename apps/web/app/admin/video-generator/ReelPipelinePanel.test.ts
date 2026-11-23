@@ -40,4 +40,17 @@ describe("ReelPipelinePanel", () => {
     panel("full");
     expect(screen.getByTestId("reel-pipeline").textContent).toContain("tronçon par tronçon puis la légende Instagram");
   });
+
+  it("links the launched render in the render queue and the drafts in Publications once the render started", () => {
+    render(React.createElement(ReelPipelinePanel, {
+      canRun: true,
+      mode: "full",
+      recommendedMode: "full",
+      onModeChange: vi.fn(),
+      renderJobId: "job-1",
+      pipeline: { ...pipeline(), state: { ...createReelPipelineState(), status: "done" } },
+    }));
+    expect(screen.getByRole("link", { name: "la file des rendus" }).getAttribute("href")).toBe("/admin/content/renders?rendu=job-1");
+    expect(screen.getByRole("link", { name: "Publications" }).getAttribute("href")).toBe("/admin/content/posts");
+  });
 });

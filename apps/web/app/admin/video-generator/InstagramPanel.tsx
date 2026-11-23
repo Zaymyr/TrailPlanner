@@ -1,10 +1,14 @@
 "use client";
 
+import type { Route } from "next";
+import Link from "next/link";
 import React, { useState } from "react";
 
 import { Button } from "../../../components/ui/button";
+import { renderPostHref } from "../../../lib/admin-renders";
 import { REEL_COVER_TEXT_MAX_WORDS } from "../../../lib/reel-content";
 import { INSTAGRAM_CAPTION_MAX_CHARS, INSTAGRAM_MAX_HASHTAGS } from "../../../lib/video-narration";
+import { buildStudioDraftRequest, type StudioDraftSource } from "./studio-draft";
 import type { AsyncActionState } from "./StoryEditor";
 
 type InstagramPanelProps = {
@@ -20,14 +24,20 @@ type InstagramPanelProps = {
   onCoverTextChange?: (coverText: string) => void;
   /** Limits and figures to check in the text written by the AI. */
   warnings?: string[];
+  /** Finished render of the race the draft is made from; without one the draft button is replaced by a hint. */
+  draftSource?: StudioDraftSource | null;
+  accessToken?: string;
+  /** After a draft is created: the render list reloads to show its link. */
+  onDraftCreated?: () => void;
 };
 
 const parseHashtags = (value: string) =>
   value.split(/[\s,]+/).map((tag) => tag.replace(/^#/, "").trim()).filter(Boolean);
 
 /** Reel description and hashtags, written by Claude from the story, editable and copied in one click. */
-export function InstagramPanel({ caption, coverText, hashtags, onCaptionChange, onCoverTextChange, onGenerate, onHashtagsChange, state, warnings = [] }: InstagramPanelProps) {
+export function InstagramPanel({ caption, coverText, hashtags, onCaptionChange, onCoverTextChange, onGenerate, onHashtagsChange, state, warnings = [], draftSource = null, accessToken = "", onDraftCreated }: InstagramPanelProps) {
   const [copied, setCopied] = useState(false);
+  const [draft, setDraft] = useState<{ status: "idle" | "loading" | "done" | "error"; message: string | null; postId: string | null }>({ status: "idle", message: null, postId: null });
   const hashtagText = hashtags.map((tag) => `#${tag}`).join(" ");
   const fullText = [caption.trim(), hashtagText].filter(Boolean).join("\n\n");
   const tooLong = fullText.length > INSTAGRAM_CAPTION_MAX_CHARS;
@@ -40,6 +50,31 @@ export function InstagramPanel({ caption, coverText, hashtags, onCaptionChange, 
       window.setTimeout(() => setCopied(false), 1_500);
     } catch {
       setCopied(false);
+    }
+  };
+
+  // Same request as « Nouveau brouillon » of Publications: one path from the text to a draft.
+  const createDraft = async () => {
+    if (!draftSource) return;
+    if (draftSource.post && !window.confirm("Ce rendu a déjà un brouillon ou une publication. Créer quand même un nouveau brouillon ?")) return;
+    const request = buildStudioDraftRequest({ jobId: draftSource.jobId, caption, hashtags, coverText });
+    if (!request.ok) {
+      setDraft({ status: "error", message: request.message, postId: null });
+      return;
+    }
+    setDraft({ status: "loading", message: null, postId: null });
+    try {
+      const response = await fetch("/api/admin/social-posts", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify(request.body),
+      });
+      const payload = (await response.json().catch(() => null)) as { message?: string; post?: { id?: string } } | null;
+      if (!response.ok || !payload?.post?.id) throw new Error(payload?.message ?? "Le brouillon n’a pas pu être créé.");
+      setDraft({ status: "done", message: "Brouillon créé : rien n’est publié tant que tu ne cliques pas sur « Publier maintenant » ou « Programmer » dans Publications.", postId: payload.post.id });
+      onDraftCreated?.();
+    } catch (error) {
+      setDraft({ status: "error", message: error instanceof Error ? error.message : "Le brouillon n’a pas pu être créé.", postId: null });
     }
   };
 
@@ -104,6 +139,33 @@ export function InstagramPanel({ caption, coverText, hashtags, onCaptionChange, 
       <Button type="button" variant="outline" className="h-8 w-full px-2 text-xs" disabled={!fullText} onClick={() => void copy()}>
         {copied ? "Copié !" : "Copier description + hashtags"}
       </Button>
+      <div className="space-y-1.5 border-t border-border pt-3">
+        {draftSource ? (
+          <>
+            <Button type="button" className="h-8 w-full px-2 text-xs" disabled={!fullText || draft.status === "loading" || !accessToken} onClick={() => void createDraft()}>
+              {draft.status === "loading" ? "Création du brouillon…" : "Créer un brouillon avec ce texte"}
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Utilise le dernier rendu terminé de cette course{draftSource.post ? (
+                <>
+                  {" "}— il a déjà{" "}
+                  <Link href={renderPostHref({ ...draftSource.post, media_type: "reel" }) as Route} className="font-semibold text-brand underline underline-offset-2">
+                    {draftSource.post.status === "draft" ? "un brouillon" : "une publication"}
+                  </Link>
+                </>
+              ) : null}.
+            </p>
+          </>
+        ) : (
+          <p className="text-xs text-muted-foreground">Le bouton « Créer un brouillon » apparaît dès qu’un rendu terminé de cette course existe (« Générer en arrière-plan » ci-dessus).</p>
+        )}
+        {draft.message ? (
+          <p role={draft.status === "error" ? "alert" : "status"} className={`text-xs ${draft.status === "error" ? "text-red-700" : "text-muted-foreground"}`}>
+            {draft.message}{" "}
+            {draft.postId ? <Link href={renderPostHref({ id: draft.postId, status: "draft", media_type: "reel" }) as Route} className="font-semibold text-brand underline underline-offset-2">Voir le brouillon →</Link> : null}
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 }

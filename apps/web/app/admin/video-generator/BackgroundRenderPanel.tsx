@@ -1,14 +1,23 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import type { Route } from "next";
+import Link from "next/link";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "../../../components/ui/button";
+import { formatRenderDuration, renderPostHref, renderQueueHref } from "../../../lib/admin-renders";
 import type { ReelContent } from "../../../lib/reel-content";
 import { launchBackgroundRender, readRenderMessage as readMessage } from "./background-render";
 import type { VideoRenderSnapshot } from "./render-snapshot";
 
+export { formatRenderDuration };
+
 export type BackgroundRenderJob = {
   id: string;
+  /** Catalog race of the render (null for a flyover order). */
+  raceId?: string | null;
+  /** The Instagram draft or post made from this render, when there is one. */
+  post?: { id: string; status: string } | null;
   raceTitle: string;
   status: "uploading" | "queued" | "running" | "done" | "failed";
   progress: number;
@@ -31,17 +40,6 @@ const STATUS_LABELS: Record<BackgroundRenderJob["status"], string> = {
 };
 
 const POLL_MS = 10_000;
-
-/** "6 min 12 s" between two timestamps, or null when one is missing. */
-export const formatRenderDuration = (from: string | null | undefined, to: string | null | undefined) => {
-  const ms = from && to ? Date.parse(to) - Date.parse(from) : Number.NaN;
-  if (!Number.isFinite(ms) || ms < 0) return null;
-  const seconds = Math.round(ms / 1_000);
-  const hours = Math.floor(seconds / 3_600);
-  const minutes = Math.floor((seconds % 3_600) / 60);
-  if (hours) return `${hours} h ${String(minutes).padStart(2, "0")} min`;
-  return minutes ? `${minutes} min ${String(seconds % 60).padStart(2, "0")} s` : `${seconds % 60} s`;
-};
 
 // Done: computing time (and the wait before the job started); running: time so far.
 const renderTiming = (job: BackgroundRenderJob) => {
@@ -70,17 +68,22 @@ type BackgroundRenderPanelProps = {
   resolutionLabel: string;
   /** Bumped by the one-click reel when it launches a render, to list it right away. */
   refreshSignal?: number;
+  /** Called with the listed renders after each load (the studio offers a draft from the last finished one). */
+  onJobsChange?: (jobs: BackgroundRenderJob[]) => void;
 };
 
 /**
  * Background render on Google Cloud: the composition is saved, rendered by a headless browser in
  * Cloud Run and listed here when ready, so the admin can close the tab meanwhile.
  */
-export function BackgroundRenderPanel({ accessToken, canRender, createSnapshot, hasVoice, raceId, raceTitle, reelContent, resolutionLabel, refreshSignal = 0 }: BackgroundRenderPanelProps) {
+export function BackgroundRenderPanel({ accessToken, canRender, createSnapshot, hasVoice, raceId, raceTitle, reelContent, resolutionLabel, refreshSignal = 0, onJobsChange }: BackgroundRenderPanelProps) {
   const [jobs, setJobs] = useState<BackgroundRenderJob[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [available, setAvailable] = useState(true);
+
+  const onJobsChangeRef = useRef(onJobsChange);
+  onJobsChangeRef.current = onJobsChange;
 
   const loadJobs = useCallback(async (signal?: AbortSignal) => {
     const response = await fetch("/api/admin/video-generator/render-jobs", {
@@ -95,7 +98,9 @@ export function BackgroundRenderPanel({ accessToken, canRender, createSnapshot, 
     if (!response.ok) throw new Error(await readMessage(response, "Impossible de lister les rendus."));
     const payload = (await response.json().catch(() => null)) as { jobs?: BackgroundRenderJob[] } | null;
     setAvailable(true);
-    setJobs(Array.isArray(payload?.jobs) ? payload.jobs : []);
+    const next = Array.isArray(payload?.jobs) ? payload.jobs : [];
+    setJobs(next);
+    onJobsChangeRef.current?.(next);
   }, [accessToken]);
 
   const hasActiveJob = jobs.some((job) => job.status === "queued" || job.status === "running" || job.status === "uploading");
@@ -110,6 +115,17 @@ export function BackgroundRenderPanel({ accessToken, canRender, createSnapshot, 
       window.clearInterval(timer);
     };
   }, [accessToken, hasActiveJob, loadJobs, refreshSignal]);
+
+  // A render that just finished: read the list once more so its automatic draft shows up.
+  const wasActive = useRef(false);
+  useEffect(() => {
+    if (!accessToken) return;
+    const finished = wasActive.current && !hasActiveJob;
+    wasActive.current = hasActiveJob;
+    if (!finished) return;
+    const timer = window.setTimeout(() => void loadJobs().catch(() => undefined), 3_000);
+    return () => window.clearTimeout(timer);
+  }, [accessToken, hasActiveJob, loadJobs]);
 
   const submit = async () => {
     if (!raceId) return;
@@ -159,6 +175,9 @@ export function BackgroundRenderPanel({ accessToken, canRender, createSnapshot, 
         Rendu sur Google Cloud {hasVoice ? "avec la voix off" : "sans voix off"} : tu peux fermer l’onglet, la vidéo apparaît ici une fois prête.
       </p>
       {error ? <p className="text-xs text-red-700">{error}</p> : null}
+      <p className="text-xs">
+        <Link href={renderQueueHref() as Route} className="font-semibold text-brand underline underline-offset-2">Voir tous les rendus →</Link>
+      </p>
       {jobs.length > 0 ? (
         <ul className="space-y-1.5" aria-label="Rendus en arrière-plan">
           {jobs.map((job) => (
@@ -175,12 +194,20 @@ export function BackgroundRenderPanel({ accessToken, canRender, createSnapshot, 
                 {renderTiming(job)}
               </p>
               {job.status === "failed" && job.message ? <p className="text-[11px] text-red-700">{job.message}</p> : null}
-              <div className="mt-1 flex items-center justify-between gap-2">
-                {job.downloadUrl ? (
-                  <a className="font-semibold text-foreground underline underline-offset-2" href={job.downloadUrl}>
-                    Télécharger le MP4
-                  </a>
-                ) : <span />}
+              <div className="mt-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  {job.downloadUrl ? (
+                    <a className="font-semibold text-foreground underline underline-offset-2" href={job.downloadUrl}>
+                      Télécharger le MP4
+                    </a>
+                  ) : null}
+                  <Link className="text-[11px] font-semibold text-brand underline underline-offset-2" href={renderQueueHref(job.id) as Route}>Voir dans la file</Link>
+                  {job.post ? (
+                    <Link className="text-[11px] font-semibold text-brand underline underline-offset-2" href={renderPostHref({ ...job.post, media_type: "reel" }) as Route}>
+                      {job.post.status === "draft" ? "Voir le brouillon" : "Voir la publication"}
+                    </Link>
+                  ) : null}
+                </span>
                 {job.status === "done" || job.status === "failed" ? (
                   <button
                     type="button"

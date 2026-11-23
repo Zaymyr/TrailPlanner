@@ -548,7 +548,7 @@ export const buildActivityFeed = ({ payments, flyoverOrders, renders, posts, acc
       title: render.status === "failed" ? "Rendu échoué" : "Rendu terminé",
       detail: render.title,
       at: render.finishedAt,
-      href: "/admin/content/renders",
+      href: `/admin/content/renders?rendu=${encodeURIComponent(render.id)}`,
     });
   });
   posts.forEach((post) => events.push({

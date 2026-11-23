@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import type { PublicSocialPost } from "../../../lib/social-posts";
-import { CAROUSEL_MARK } from "./automation-labels";
+import { CAROUSEL_MARK, FLYOVER_MARK } from "./automation-labels";
 import { buildMonthGrid, currentParisMonth, formatMonthTitle, getCalendarTime, groupPlannedByDay, shiftMonth, toParisDay, type PlannedCalendarEntry } from "./publication-calendar";
 
 const WEEKDAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
@@ -26,13 +26,14 @@ const timeOf = (post: PublicSocialPost) => {
 
 /**
  * Month view of what was published (green, amber in simulation), what is scheduled (blue) and the
- * automatic reels (grey) and carousels (violet) planned but not yet scheduled; carousels carry ▦.
+ * automatic reels (grey) and carousels (violet) planned but not yet scheduled, and the paid collaboration
+ * flyovers waiting for their slot (orange); carousels carry ▦, flyovers ◈.
  */
 export function PublicationCalendar({ posts, planned = [], onSelect, onSelectPlanned }: {
   posts: PublicSocialPost[];
   planned?: PlannedCalendarEntry[];
   onSelect: (postId: string) => void;
-  onSelectPlanned?: (itemId: string) => void;
+  onSelectPlanned?: (entry: PlannedCalendarEntry) => void;
 }) {
   const [month, setMonth] = useState(() => currentParisMonth());
   const weeks = useMemo(() => buildMonthGrid(month.year, month.month, posts), [month, posts]);
@@ -76,11 +77,11 @@ export function PublicationCalendar({ posts, planned = [], onSelect, onSelectPla
                 <button
                   key={entry.id}
                   type="button"
-                  onClick={() => onSelectPlanned?.(entry.id)}
-                  title={`Prévu automatiquement${entry.kind === "carousel" ? " (carrousel)" : ""} : ${entry.label} · ${entry.time}`}
-                  className={`truncate rounded border border-dashed px-1 py-0.5 text-left text-[11px] leading-tight dark:bg-slate-800/60 dark:text-slate-300 ${entry.kind === "carousel" ? "border-violet-300 bg-violet-50 text-violet-800 dark:border-violet-700" : "border-slate-300 bg-slate-100 text-slate-600 dark:border-slate-600"}`}
+                  onClick={() => onSelectPlanned?.(entry)}
+                  title={entry.kind === "flyover" ? `Vidéo de survol commandée, publication prévue : ${entry.label} · ${entry.time}` : `Prévu automatiquement${entry.kind === "carousel" ? " (carrousel)" : ""} : ${entry.label} · ${entry.time}`}
+                  className={`truncate rounded border border-dashed px-1 py-0.5 text-left text-[11px] leading-tight dark:bg-slate-800/60 dark:text-slate-300 ${entry.kind === "carousel" ? "border-violet-300 bg-violet-50 text-violet-800 dark:border-violet-700" : entry.kind === "flyover" ? "border-orange-300 bg-orange-50 text-orange-800 dark:border-orange-700 dark:bg-orange-950/40 dark:text-orange-100" : "border-slate-300 bg-slate-100 text-slate-600 dark:border-slate-600"}`}
                 >
-                  {entry.kind === "carousel" ? `${CAROUSEL_MARK} ` : ""}{entry.time} {entry.label}
+                  {entry.kind === "carousel" ? `${CAROUSEL_MARK} ` : entry.kind === "flyover" ? `${FLYOVER_MARK} ` : ""}{entry.time} {entry.label}
                 </button>
               ))}
             </div>
@@ -92,6 +93,7 @@ export function PublicationCalendar({ posts, planned = [], onSelect, onSelectPla
           <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-sky-400" /> Programmée</span>
           <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-slate-300" /> Prévue (auto)</span>
           <span className="flex items-center gap-1"><span aria-hidden="true">{CAROUSEL_MARK}</span> Carrousel</span>
+          <span className="flex items-center gap-1"><span aria-hidden="true">{FLYOVER_MARK}</span> Survol commandé</span>
           <span className="ml-auto">{inMonthCount === 0 ? "Rien ce mois-ci" : `${inMonthCount} ce mois-ci`}</span>
         </div>
       </CardContent>

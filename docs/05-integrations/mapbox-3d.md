@@ -5,6 +5,9 @@ last_verified: 2026-11-22
 # Generator header and publication marks (2026-11-20): the generator header uses the shared « Générer une vidéo / Publier » switch and the race picker labels a format already published on Instagram (« publiée le … »).
 ai_priority: high
 related_files:
+  - apps/web/app/admin/video-generator/studio-draft.ts
+  - apps/web/app/admin/video-generator/ReelPipelinePanel.tsx
+  - apps/web/app/admin/video-generator/VideoGeneratorMapClient.tsx
   - apps/web/app/admin/video-generator/export-frame.test.ts
   - apps/web/app/admin/video-generator/export-frame.ts
   - apps/web/app/admin/video-generator/reel-composition.ts
@@ -401,3 +404,7 @@ The aid bubbles and place labels are zero-size Mapbox markers (`createPinnedMark
 While the caption of a climb or descent leg is on screen, that leg (`startKm` to `endKm`, the "km 12,4 → 15,1" of the caption) is lit (`getToldSlope`, 0.4 s fades). Its beat starts when the runner reaches the foot of the leg, so the whole slope ahead lights up as the voice starts telling it; the former highlight used the whole detected climb, which could start before the leg, and showed up with the runner already halfway. On the map the leg is drawn above the revealed route (`video-told-slope-line` over a white `video-told-slope-casing`, under the station icons) in the elevation-profile slope colours (`buildToldSlopeGeoJson`, one line per run of the same slope class), so the map and the profile speak the same colour code instead of the former off-brand orange border. The source data changes once per beat and the line opacity only when its rounded value changes. On the profile, the leg gets a light band and is left undimmed ahead of the cursor (`getProfileShades`). Flat, aid and finish legs are never lit.
 
 The logo and the "Télécharge l'appli" CTA in the bottom-left corner are off by default (setting "Logo et CTA en bas", `showFooterBrand`): Instagram overlays its own follow button there on reels. "Logo Pace Yourself" and "CTA final" still drive the outro card.
+
+## Studio links to renders and drafts (lot 6)
+
+In `/admin/content/studio`, the finished message of « Générer le reel » links to the render in the queue (`/admin/content/renders?rendu=<job id>`), `BackgroundRenderPanel` adds « Voir tous les rendus → », « Voir dans la file » and « Voir le brouillon », and the Instagram panel has « Créer un brouillon avec ce texte » (`studio-draft.ts`: the latest finished render of the race among the panel's 8 latest, same `POST /api/admin/social-posts` as Publications) next to « Copier ».

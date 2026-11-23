@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { describeAutomationItem, describeCarouselItem, toPlannedCalendarEntries, toPlannedCarouselEntries } from "./automation-labels";
+import { describeAutomationItem, describeCarouselItem, toPlannedCalendarEntries, toPlannedCarouselEntries, toPlannedFlyoverEntries } from "./automation-labels";
 import { groupPlannedByDay } from "./publication-calendar";
-import type { ReelAutomationItemView } from "./publications-api";
+import type { FlyoverOrderView, ReelAutomationItemView } from "./publications-api";
 
 const item = (overrides: Partial<ReelAutomationItemView> = {}): ReelAutomationItemView => ({
   id: "i1",
@@ -60,5 +60,36 @@ describe("carousel labels", () => {
     const [entry] = toPlannedCarouselEntries([carousel()], "18:00");
     expect(entry).toMatchObject({ day: "2026-11-29", kind: "carousel", time: "18:00" });
     expect(entry.label).toContain("La semaine qui vient");
+  });
+});
+
+describe("flyover calendar entries", () => {
+  const order = (overrides: Partial<FlyoverOrderView> = {}): FlyoverOrderView => ({
+    id: "o1", raceName: "Trail du Mont", offer: "collab", status: "scripted", statusLabel: "Texte prêt", contactEmail: "orga@example.com", instagramHandle: "traildumont",
+    publishLocal: "2026-12-05T18:30", mapPreset: "signature", storyMode: null, distanceKm: 42, aidStationCount: 3, attempts: 0, maxAttempts: 3, error: null, paidAt: null, readyAt: null,
+    createdAt: "2026-11-20T10:00:00Z", readyEmailSent: false, renderJobId: null, renderStatus: null, renderProgress: null, socialPostId: null, orderUrl: null, downloadUrl: null, actions: [],
+    ...overrides,
+  });
+
+  it("puts a paid collaboration on the day and time chosen by the organizer", () => {
+    expect(toPlannedFlyoverEntries([order()], [])).toEqual([{ id: "o1", day: "2026-12-05", label: "Trail du Mont", time: "18:30", kind: "flyover" }]);
+  });
+
+  it("leaves out downloads, unpaid, refunded or cancelled orders and those without a slot", () => {
+    const entries = toPlannedFlyoverEntries([
+      order({ id: "download", offer: "download", publishLocal: null }),
+      order({ id: "unpaid", status: "pending_payment" }),
+      order({ id: "refunded", status: "refunded" }),
+      order({ id: "expired", status: "expired" }),
+      order({ id: "no-slot", publishLocal: null }),
+      order({ id: "rendering", status: "rendering" }),
+    ], []);
+    expect(entries.map((entry) => entry.id)).toEqual(["rendering"]);
+  });
+
+  it("lets the post stand in once it is scheduled or published, not while it is a draft", () => {
+    const orders = [order({ id: "scheduled", socialPostId: "p1" }), order({ id: "draft", socialPostId: "p2" })];
+    const entries = toPlannedFlyoverEntries(orders, [{ id: "p1", status: "scheduled" }, { id: "p2", status: "draft" }]);
+    expect(entries.map((entry) => entry.id)).toEqual(["draft"]);
   });
 });

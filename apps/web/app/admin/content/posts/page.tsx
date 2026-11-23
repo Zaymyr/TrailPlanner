@@ -7,11 +7,15 @@ import { Suspense, useEffect, useRef } from "react";
 import { TabsList } from "../../../../components/ui/tabs";
 import { useI18n } from "../../../i18n-provider";
 import AdminSocialTemplatesSection from "../../components/AdminSocialTemplatesSection";
-import { CarouselsPanel, publicationCounts, PublishedPanel, ReelsPanel } from "../../publications/PublicationViews";
+import { CarouselKindsNote, CarouselsPanel, publicationCounts, PublishedPanel, ReelsPanel } from "../../publications/PublicationViews";
 import { POSTS_TABS, readPostsHighlight, readPostsTab, type PostsTab } from "../../publications/publication-tabs";
 import { usePublicationsWorkspace } from "../../publications/usePublicationsWorkspace";
 import { useAdminAccessToken } from "../../_components/shell/AdminAccess";
 import { AdminPageHeader } from "../../_components/shell/AdminPageHeader";
+
+// The tab was « Templates sociaux »; the console admin is French-only, so the new name lives here, not in the locales.
+const MANUAL_CAROUSEL_TITLE = "Carrousel manuel";
+const MANUAL_CAROUSEL_DESCRIPTION = "Choisis un plan existant, génère son carrousel HTML puis exporte les 4 slides en PNG, à publier toi-même.";
 
 const countLabel = (label: string, count: number) => (count ? `${label} · ${count}` : label);
 
@@ -55,13 +59,18 @@ function PostsContent() {
         {tab === "reels" ? <ReelsPanel workspace={workspace} highlight={highlight} /> : null}
         {tab === "carousels" ? <CarouselsPanel workspace={workspace} highlight={highlight} /> : null}
         {tab === "published" ? <PublishedPanel workspace={workspace} highlight={highlight} /> : null}
-        {tab === "templates" ? <AdminSocialTemplatesSection accessToken={accessToken} t={t.admin.socialTemplates} /> : null}
+        {tab === "templates" ? (
+          <div className="flex flex-col gap-6">
+            <CarouselKindsNote current="manual" />
+            <AdminSocialTemplatesSection accessToken={accessToken} t={{ ...t.admin.socialTemplates, title: MANUAL_CAROUSEL_TITLE, description: MANUAL_CAROUSEL_DESCRIPTION }} />
+          </div>
+        ) : null}
       </div>
     </>
   );
 }
 
-/** Publications: reels, carrousels, publiées (former Publications tabs) and the manual carousel (« Templates sociaux »). */
+/** Publications: reels, automatic carousels, publiées (former Publications tabs) and the manual carousel (former « Templates sociaux »). */
 export default function AdminContentPostsPage() {
   return (
     <>

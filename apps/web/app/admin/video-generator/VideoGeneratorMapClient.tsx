@@ -27,6 +27,7 @@ import { getReelMode } from "../../../lib/reel-planner";
 import { instagramCaptionResponseSchema, NARRATION_STYLE_LABELS, narrationScriptResponseSchema, narrationVoiceResponseSchema } from "../../../lib/video-narration";
 import { assembleFullReelContent } from "./reel-composition";
 import { InstagramPanel } from "./InstagramPanel";
+import { pickStudioDraftSource } from "./studio-draft";
 import { ExportPanel, type ExportState } from "./ExportPanel";
 import { getExportFrame, overrideDevicePixelRatio } from "./export-frame";
 import { loadReelMusicManifest, resolveMusicTrack, EMPTY_REEL_MUSIC_MANIFEST, type ReelMusicManifest } from "./reel-music";
@@ -109,7 +110,7 @@ import {
 import { createVideoFrameStore, VideoCompositionOverlay } from "./VideoCompositionOverlay";
 import type { VideoGeneratorMapProps } from "./VideoGeneratorMap";
 import type { VideoRenderSnapshot } from "./render-snapshot";
-import { BackgroundRenderPanel } from "./BackgroundRenderPanel";
+import { BackgroundRenderPanel, type BackgroundRenderJob } from "./BackgroundRenderPanel";
 import { launchBackgroundRender } from "./background-render";
 import { ReelPipelinePanel } from "./ReelPipelinePanel";
 import { waitUntil, type ReelPipelineRunners } from "./reel-pipeline";
@@ -1729,6 +1730,9 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
   // on the same functions as the individual buttons. Each step hands its result to the next one
   // explicitly, so the chain never depends on React having re-rendered in between.
   const [renderRefresh, setRenderRefresh] = useState(0);
+  // Renders listed by the background panel: the Instagram panel offers a draft from the last finished one of this race.
+  const [listedRenders, setListedRenders] = useState<BackgroundRenderJob[]>([]);
+  const [lastRenderJobId, setLastRenderJobId] = useState<string | null>(null);
   // The button generates the editor's story mode (chosen in the panel); its saved narration is loaded first.
   const pipelineNarrationLoaded = loadedNarrationsRef.current.has(`${race.id}:${settings.storyMode}`) || savedNarration.status === "error";
   const pipelineReadyRef = useRef(false);
@@ -1814,6 +1818,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
         autoDraft: true,
       });
       setRenderRefresh((version) => version + 1);
+      setLastRenderJobId(jobId);
       return { jobId };
     },
   };
@@ -1914,6 +1919,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
             canRun={preparedPath.canAnimate && Boolean(race.id) && scriptState.status !== "loading" && voiceState.status !== "loading" && exportState.status !== "running"}
             pipeline={reelPipeline}
             voiceLabel={activeVoice.voiceId ? activeVoice.name ?? activeVoice.voiceId : null}
+            renderJobId={lastRenderJobId}
           />
           <StoryEditor
             beats={timeline.beats}
@@ -1986,6 +1992,7 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
             raceTitle={race.title}
             resolutionLabel={settings.resolution}
             refreshSignal={renderRefresh}
+            onJobsChange={setListedRenders}
           />
         </CardContent>
       </Card>
@@ -2005,6 +2012,9 @@ export function VideoGeneratorMapClient({ accessToken: sessionToken, aidStations
             onGenerate={isHighlights ? undefined : () => void writeInstagramCaption()}
             onHashtagsChange={setInstagramHashtags}
             state={instagramState}
+            accessToken={sessionToken}
+            draftSource={pickStudioDraftSource(listedRenders, race.id)}
+            onDraftCreated={() => setRenderRefresh((version) => version + 1)}
           />
         </CardContent>
       </Card>

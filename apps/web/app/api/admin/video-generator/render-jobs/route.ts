@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { postLinkSchema } from "../../../../../lib/admin-renders";
+import { getServiceJson, settleSource } from "../../../../../lib/admin-service-rest";
 import { reelContentSchema } from "../../../../../lib/reel-content";
 import {
   getGoogleAccessToken,
@@ -33,6 +35,14 @@ export async function GET(request: Request) {
   try {
     const rows = await listRenderJobs(supabase, 8);
     const now = Date.now();
+    // The Instagram draft of each render (studio link « Brouillon »); a failed lookup only hides the links.
+    const posts = rows.length
+      ? await settleSource(
+        getServiceJson(supabase, `social_posts?video_job_id=in.(${rows.map((row) => row.id).join(",")})&select=id,video_job_id,carousel_job_id,status,media_type,created_at&order=created_at.desc`)
+          .then((json) => z.array(postLinkSchema).parse(json)),
+        "Render draft links",
+      )
+      : null;
     const jobs = await Promise.all(rows.map(async (row) => {
       let current = row;
       if (isRenderJobStale(row, now)) {
@@ -52,8 +62,11 @@ export async function GET(request: Request) {
           responseDisposition: `attachment; filename="${getReelFileName(current.race_title)}"`,
         })
         : null;
+      const post = posts?.find((candidate) => candidate.video_job_id === current.id) ?? null;
       return {
         id: current.id,
+        raceId: current.race_id,
+        post: post ? { id: post.id, status: post.status } : null,
         raceTitle: current.race_title,
         status: current.status,
         progress: current.progress,

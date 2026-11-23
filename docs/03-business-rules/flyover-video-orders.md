@@ -4,6 +4,7 @@ scope: business-rule
 last_verified: 2026-11-22
 ai_priority: medium
 related_files:
+  - apps/web/lib/admin-renders.ts
   - apps/web/lib/flyover-orders.ts
   - apps/web/lib/flyover-orders.test.ts
   - apps/web/lib/flyover-shared.ts
@@ -125,3 +126,7 @@ One tick (`runFlyoverTick`):
 - [Google Cloud Background Reel Render](../05-integrations/google-cloud-video-render.md)
 - [Instagram Reels Publishing](../05-integrations/instagram-publishing.md)
 - [Stripe](../05-integrations/stripe.md)
+
+## Admin console links (lot 6)
+
+The order's render shows in the admin render queue as type « Survol » (`/admin/content/renders`), its origin linking to `/admin/content/flyovers?commande=<id>` (the order card is highlighted and every order is listed). A paid « collab » order with a publication slot whose post is not scheduled yet appears in the Calendrier (`◈`) and opens that card; once its post is scheduled or published the post is the calendar entry.

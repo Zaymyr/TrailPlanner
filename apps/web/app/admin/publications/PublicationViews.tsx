@@ -1,7 +1,9 @@
 "use client";
 
 import type { Route } from "next";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "../../../components/ui/button";
@@ -13,6 +15,8 @@ import { CaptionForm } from "./CaptionForm";
 import { CarouselGenerateNow, CarouselPlanList, CarouselSeriesSettings } from "./CarouselAutomationSection";
 import { InstagramStatusCard } from "./InstagramStatusCard";
 import { PostCard } from "./PostCard";
+import { adminFetch, flyoverOrdersResponseSchema } from "./publications-api";
+import { toPlannedFlyoverEntries } from "./automation-labels";
 import { PublicationCalendar } from "./PublicationCalendar";
 import { buildAttentionList, publicationTargetHref, readDismissedAlerts, tabForPost, writeDismissedAlerts, type AttentionEntry } from "./publication-tabs";
 import { RenderActivityCard } from "./RenderActivityCard";
@@ -20,7 +24,7 @@ import { useNewReelDraft, type PublicationsWorkspace } from "./usePublicationsWo
 
 /**
  * Sections of the former `/admin/publications` page, mounted by the console pages (Calendrier,
- * Publications, Rendus, Automatisations, Intégrations). Same markup and actions as before; only the
+ * Publications, Automatisations, Intégrations); the render lists are summaries linking to the render queue. Same markup and actions as before; only the
  * cross-tab « Voir » became a link to the console page.
  */
 
@@ -71,7 +75,17 @@ export function PublicationsAgenda({ workspace }: { workspace: PublicationsWorks
   const attention = alerts.allAlerts.filter((entry) => showDismissed || !alerts.dismissed.has(entry.dismissKey));
   const hiddenCount = alerts.allAlerts.filter((entry) => alerts.dismissed.has(entry.dismissKey)).length;
   const goTo = (target: AttentionEntry["target"] & { itemId?: string }) => router.push(publicationTargetHref(target) as Route);
-  const { posts, carouselQuery } = workspace;
+  const { posts } = workspace;
+  // The same cache entry as the « Vidéos de survol » page: paid collaborations waiting for their slot.
+  const flyoverQuery = useQuery({
+    queryKey: ["admin", "flyover-orders", workspace.accessToken],
+    enabled: Boolean(workspace.accessToken),
+    queryFn: () => adminFetch(workspace.accessToken, "/api/admin/flyover-orders", flyoverOrdersResponseSchema, {}, "Les commandes de survol n’ont pas pu être chargées."),
+  });
+  const planned = useMemo(
+    () => [...workspace.plannedEntries, ...toPlannedFlyoverEntries(flyoverQuery.data?.orders ?? [], posts)],
+    [workspace.plannedEntries, flyoverQuery.data, posts],
+  );
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
@@ -123,10 +137,10 @@ export function PublicationsAgenda({ workspace }: { workspace: PublicationsWorks
       </Card>
       <PublicationCalendar
         posts={posts}
-        planned={workspace.plannedEntries}
-        onSelectPlanned={(itemId) => {
-          const isCarousel = carouselQuery.data?.items.some((item) => item.id === itemId);
-          goTo({ tab: isCarousel ? "carousels" : "reels", itemId });
+        planned={planned}
+        onSelectPlanned={(entry) => {
+          if (entry.kind === "flyover") goTo({ tab: "flyovers", orderId: entry.id });
+          else goTo({ tab: entry.kind === "carousel" ? "carousels" : "reels", itemId: entry.id });
         }}
         onSelect={(postId) => {
           const post = posts.find((item) => item.id === postId);
@@ -197,7 +211,7 @@ export function ReelsPanel({ workspace, highlight }: { workspace: PublicationsWo
             {draft.createMessage ? <p className="text-muted-foreground">{draft.createMessage}</p> : null}
           </CardContent>
         </Card>
-        <RenderActivityCard jobs={reelRenders} title="Rendus vidéo" emptyText="Aucun rendu de reel ces dernières 24 h." error={workspace.activityError} nowMs={Date.now()} />
+        <RenderActivityCard jobs={reelRenders} title="Rendus vidéo" emptyText="Aucun rendu de reel ces dernières 24 h." error={workspace.activityError} nowMs={Date.now()} queueHref="/admin/content/renders?type=manuel,auto,survol" />
       </div>
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold text-foreground">Reels à publier</h2>
@@ -220,6 +234,33 @@ export function ReelsPanel({ workspace, highlight }: { workspace: PublicationsWo
   );
 }
 
+/**
+ * Explains the two ways to make a carousel, shown on both tabs: the automatic series (written, rendered on
+ * Google Cloud and dropped as a draft on the calendar) and the manual carousel (4 PNG exported from one of
+ * your plans, published by hand). Each side links to the other tab.
+ */
+export function CarouselKindsNote({ current }: { current: "automatic" | "manual" }) {
+  const linkClass = "font-semibold text-brand underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+  return (
+    <section aria-label="Carrousel automatique ou manuel" className="grid gap-3 rounded-lg border border-border bg-muted/30 p-4 text-sm sm:grid-cols-2">
+      <div className="space-y-1">
+        <h2 className="font-semibold text-foreground">Carrousel automatique{current === "automatic" ? " (cet onglet)" : ""}</h2>
+        <p className="text-muted-foreground">
+          Les séries « Le plan chiffré », « Le brief » et « La semaine qui vient » sont écrites par l’IA, rendues en images sur Google Cloud et déposées en brouillon Instagram selon le calendrier. Tu relis, puis tu publies ou tu programmes.
+        </p>
+        {current === "manual" ? <Link href="/admin/content/posts?onglet=carousels" className={linkClass}>Ouvrir les carrousels automatiques →</Link> : null}
+      </div>
+      <div className="space-y-1">
+        <h2 className="font-semibold text-foreground">Carrousel manuel{current === "manual" ? " (cet onglet)" : ""}</h2>
+        <p className="text-muted-foreground">
+          À partir d’un de tes plans enregistrés, tu génères 4 slides et tu les exportes en PNG dans ton navigateur. Rien n’est rendu sur Google Cloud, rien n’est créé dans Publications : tu publies les images toi-même.
+        </p>
+        {current === "automatic" ? <Link href="/admin/content/posts?onglet=templates" className={linkClass}>Ouvrir le carrousel manuel →</Link> : null}
+      </div>
+    </section>
+  );
+}
+
 /** Carrousels: generate now, image renders, carousels to publish, automatic plan. */
 export function CarouselsPanel({ workspace, highlight }: { workspace: PublicationsWorkspace; highlight: Highlight }) {
   const { postsQuery, carouselQuery, carouselMutation, carouselMessage, renders, renderById, posts, publishTime } = workspace;
@@ -227,6 +268,7 @@ export function CarouselsPanel({ workspace, highlight }: { workspace: Publicatio
   const carouselRenders = renders.filter((job) => job.kind === "carousel");
   return (
     <div className="flex flex-col gap-6">
+      <CarouselKindsNote current="automatic" />
       <div className="grid gap-4 lg:grid-cols-2">
         <CarouselGenerateNow
           data={carouselQuery.data}
@@ -234,7 +276,7 @@ export function CarouselsPanel({ workspace, highlight }: { workspace: Publicatio
           message={carouselMessage ?? (carouselQuery.error instanceof Error ? carouselQuery.error.message : null)}
           onGenerate={(request) => carouselMutation.mutate({ url: "/api/admin/carousel-automation", method: "POST", body: { action: "generate", ...request } })}
         />
-        <RenderActivityCard jobs={carouselRenders} title="Rendus des images" emptyText="Aucun rendu de carrousel ces dernières 24 h." error={workspace.activityError} nowMs={Date.now()} />
+        <RenderActivityCard jobs={carouselRenders} title="Rendus des images" emptyText="Aucun rendu de carrousel ces dernières 24 h." error={workspace.activityError} nowMs={Date.now()} queueHref="/admin/content/renders?type=carrousel" />
       </div>
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold text-foreground">Carrousels à publier</h2>
@@ -323,15 +365,4 @@ export function PublicationAutomationSettings({ workspace }: { workspace: Public
 export function InstagramIntegration({ workspace }: { workspace: Pick<PublicationsWorkspace, "statusQuery"> }) {
   const { statusQuery } = workspace;
   return <InstagramStatusCard status={statusQuery.data} isLoading={statusQuery.isLoading} error={statusQuery.error instanceof Error ? statusQuery.error.message : null} />;
-}
-
-/** Rendus: the two render lists of the Reels and Carrousels tabs side by side (merged in lot 6). */
-export function RendersPanel({ workspace }: { workspace: PublicationsWorkspace }) {
-  const nowMs = Date.now();
-  return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <RenderActivityCard jobs={workspace.renders.filter((job) => job.kind === "reel")} title="Rendus vidéo" emptyText="Aucun rendu de reel ces dernières 24 h." error={workspace.activityError} nowMs={nowMs} />
-      <RenderActivityCard jobs={workspace.renders.filter((job) => job.kind === "carousel")} title="Rendus des images" emptyText="Aucun rendu de carrousel ces dernières 24 h." error={workspace.activityError} nowMs={nowMs} />
-    </div>
-  );
 }

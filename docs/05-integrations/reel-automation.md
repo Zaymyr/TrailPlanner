@@ -4,6 +4,7 @@ scope: integration
 last_verified: 2026-11-22
 ai_priority: medium
 related_files:
+  - apps/web/lib/admin-renders.ts
   - apps/web/lib/reel-planner.ts
   - apps/web/lib/reel-planner.test.ts
   - apps/web/lib/reel-automation.ts
@@ -114,3 +115,7 @@ Turning generation off stops new work at the next tick; renders in flight finish
 - [Mapbox 3D Admin Course Viewer](mapbox-3d.md)
 - [reel_automation_items](../02-database/tables/reel-automation-items.md)
 - [reel_automation_settings](../02-database/tables/reel-automation-settings.md)
+
+## Render queue (lot 6)
+
+A render linked to an item by `reel_automation_items.render_job_id` is typed « Reel automatique » in the admin render queue (`/admin/content/renders`) with its origin linking to `/admin/content/posts?element=<item id>`; a render without that link is « Reel manuel » even when it carries `auto_draft` (the studio's « Générer le reel » sets it too).
