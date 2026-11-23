@@ -80,6 +80,7 @@ import { TapeAlertBanner } from '../../../../components/racebook/TapeAlertBanner
 import { buildMapsSearchUrl } from '../../../../lib/racebookTextLinks';
 import { RacebookStructuredCourseSections } from '../../../../components/racebook/RacebookStructuredCourseSections';
 import { RacebookTabBar } from '../../../../components/racebook/RacebookTabBar';
+import { CourseWeatherSection } from '../../../../components/course-weather/CourseWeatherSection';
 import { RacebookElevationProfile } from '../../../../components/racebook/RacebookElevationProfile';
 import { Colors } from '../../../../constants/colors';
 import type { MobileGpxPreviewPoint } from '../../../../lib/gpx';
@@ -2532,6 +2533,8 @@ export default function RaceRacebookScreen() {
                     </SectionCard>
                   )
                 ) : null}
+
+                {activeCourseTab === 'route' ? <CourseWeatherSection raceId={id} /> : null}
 
                 <RacebookStructuredCourseSections
                   activeTab={activeCourseTab}

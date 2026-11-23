@@ -1214,4 +1214,41 @@ export type MobileTranslations = {
     sendFailed: string;
     sessionExpired: string;
   };
+  /** Weather along the course (MET Norway forecast, display-only). */
+  courseWeather: {
+    title: string;
+    /** {date} = first local day of availability. */
+    tooEarly: string;
+    /** {date} = forecast fetch time. */
+    fetchedAt: string;
+    staleCopy: string;
+    estimatedStart: string;
+    /** {start} / {end} = local clocks of the race window. */
+    raceWindow: string;
+    deviceTimeNote: string;
+    start: string;
+    finish: string;
+    summit: string;
+    aidStation: string;
+    /** {value} = feels-like temperature (with °). */
+    feelsLike: string;
+    /** {value} = km/h (sustained wind; gusts are often missing). */
+    wind: string;
+    /** {value} = km/h. */
+    windGust: string;
+    /** {value} = mm. */
+    precipitation: string;
+    /** {value} = percent. */
+    precipitationProbability: string;
+    outOfForecast: string;
+    planOutOfRange: string;
+    alerts: {
+      heat: string;
+      cold: string;
+      wind: string;
+      rain: string;
+      storm: string;
+      snow: string;
+    };
+  };
 };

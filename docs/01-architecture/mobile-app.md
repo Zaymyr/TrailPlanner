@@ -40,6 +40,13 @@ related_files:
   - apps/mobile/locales/fr.ts
   - apps/mobile/locales/en.ts
   - apps/mobile/locales/types.ts
+  - apps/mobile/lib/courseWeather.ts
+  - apps/mobile/lib/courseWeather.test.ts
+  - apps/mobile/lib/courseWeatherShared.ts
+  - apps/mobile/components/course-weather/useCourseWeather.ts
+  - apps/mobile/components/course-weather/CourseWeatherSection.tsx
+  - apps/mobile/components/course-weather/CourseWeatherPassage.tsx
+  - apps/mobile/components/course-weather/CourseWeatherParts.tsx
   - apps/mobile/package.json
   - apps/mobile/vitest.config.ts
   - apps/mobile/lib/shared.ts
@@ -655,6 +662,16 @@ The guided catalog records `racebook onboarding search performed`, `racebook onb
 Confirmed favorite mutations emit `race favorite updated` with the public event id, bounded add/remove action, and resulting favorite count. Notification responses emit `push notification opened` with only a bounded kind/action and optional snooze duration; notification hrefs and message content are never analytics properties.
 
 Do not copy actual keys into docs. Use environment variable names only.
+
+## Course weather (lot 1)
+
+Display-only MET Norway forecast along the course (source and thresholds: the shared contract in `packages/shared/src/course-weather/`, re-exported to mobile by `apps/mobile/lib/courseWeatherShared.ts` because the pre-check forbids importing `@trailplanner/shared` by name). `apps/mobile/lib/courseWeather.ts` fetches `GET /api/race-weather?raceId=` on the web API (`WEB_API_BASE_URL`), classifies the answer (`ok` / authoritative 4xx `gone` / `unreachable`), decides freshness and builds the rows; `components/course-weather/useCourseWeather.ts` serves memory → device copy (`course-weather` kind) → network and never requests again before the forecast `expiresAt` (15 min floor; a `too_early` answer is re-asked after 6 h or when its availability day starts, an `unavailable` one after 1 h).
+
+- **Livret coureur**: `CourseWeatherSection` card in the Course › route sub-tab of `racebook.tsx` — one row per course point (Départ, ravitos, Point culminant, Arrivée + km) summarizing the race window: MET symbol mapped to an existing Ionicons glyph, temperature min/max, feels-like, max sustained wind plus max gust when the source has gusts (MET Norway often has none, e.g. in France), precipitation (probability hidden when missing), alert wristbands (`StatusPill`). No runner ETA.
+- **Livret supporter**: the same card under the supporter points of the "Suivre" section, for the selected format.
+- **Plan recap** (`PlanRecapContent.tsx`, plan linked to a catalog race): weather at each planned passage through `courseWeatherAtPassages`, from the runner's departure (manual or official start) plus the planned elapsed minutes. The recap tab is only rendered when the runner may see plan details, so the free/paid preview boundary is unchanged.
+- `too_early` shows "Prévisions disponibles à partir du {date}"; `unavailable` shows nothing. Every forecast display shows "Prévision du {fetchedAt}" and the `source.attribution` text (CC BY 4.0 requirement); the Livret card adds a note when `startTimeIsEstimated`. Local hours use `response.timeZone`; when Hermes Intl rejects the zone, device time is used and a note says so.
+- Weather never changes pacing, nutrition or the organizer `weatherPlan` (the existing heat/cold alert banner of the Livret stays as is). No analytics event is emitted for these displays.
 
 ## Offline device copies
 

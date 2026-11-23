@@ -1,7 +1,7 @@
 ---
 title: plan_share_links Table
 scope: database
-last_verified: 2026-11-18
+last_verified: 2026-11-23
 # Crew follow UX (2026-11-17): passed checkpoints collapse, confirmed passages can be corrected or undone, the crew handover is a device-local checklist, aid-station directions match supporter points by place name within 2 km, and phones without the app get an app-first gate on the public page; no column, RLS or crew_state shape change.
 ai_priority: high
 related_files:
@@ -112,6 +112,7 @@ Summary:
 
 ## Gotchas
 
+- Course weather (2026-11-23, lot 1): the plan recap (`components/plan-workspace/PlanRecapContent.tsx`) also shows the forecast at each planned passage of a plan linked to a catalog race (`components/course-weather/`, display-only, from the runner's departure). The stored plan, its share snapshot and every calculation are unchanged; the `plan-race-start` device copy now also keeps the linked `raceId`.
 - A free runner preview must not create or refresh a detailed crew share snapshot. The share route verifies the owned plan's `canViewDetails` access before materializing private pacing/nutrition data.
 
 - Service role bypasses RLS, so `/api/plan-shares` must verify the bearer token and parent plan ownership before inserting.

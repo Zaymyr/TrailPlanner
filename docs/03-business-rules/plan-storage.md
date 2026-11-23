@@ -218,6 +218,7 @@ It:
 
 ## Gotchas
 
+- Course weather (2026-11-23, lot 1): the plan recap (`components/plan-workspace/PlanRecapContent.tsx`) also shows the forecast at each planned passage of a plan linked to a catalog race (`components/course-weather/`, display-only, from the runner's departure). The stored plan, its share snapshot and every calculation are unchanged; the `plan-race-start` device copy now also keeps the linked `raceId`.
 - The visitor preview must show the catalog aid stations, not only GPX waypoints (a GPX may carry none). Keep `mapCatalogAidStations` aligned with the `from-catalog` mapping, and keep the public aid-station GET additive: it also selects `solid_available` and `assistance_allowed` (nullable; missing means enabled).
 - Refresh organizer aid-station product overlays only for Pro source editions; entitlement changes must not mutate durable `planner_values`.
 
