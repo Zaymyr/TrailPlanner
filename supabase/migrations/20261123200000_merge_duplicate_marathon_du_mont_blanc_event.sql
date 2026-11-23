@@ -42,6 +42,9 @@ begin
 
   -- Re-point every reference to the merged event (all on delete cascade or set null,
   -- so nothing may be left behind before the delete).
+  -- One current edition per event (race_event_editions_current_event_idx): the kept event's
+  -- 2027 edition stays current, the merged 2026 edition (already run) becomes historical.
+  update public.race_event_editions set is_current = false where event_id = merged_id and is_current;
   update public.race_event_editions set event_id = kept_id where event_id = merged_id;
   update public.races set event_id = kept_id where event_id = merged_id;
   update public.race_event_claims set event_id = kept_id where event_id = merged_id;
