@@ -66,8 +66,8 @@ describe("PlanHeroStats", () => {
   });
 
   it("shows the lock hint only when locked", () => {
-    expect(renderToStaticMarkup(createElement(PlanHeroStats, base))).not.toContain("Débloquez");
-    expect(renderToStaticMarkup(createElement(PlanHeroStats, { ...base, locked: true }))).toContain("Débloquez");
+    expect(renderToStaticMarkup(createElement(PlanHeroStats, base))).not.toContain("Débloque le plan complet");
+    expect(renderToStaticMarkup(createElement(PlanHeroStats, { ...base, locked: true }))).toContain("Débloque le plan complet");
   });
 });
 

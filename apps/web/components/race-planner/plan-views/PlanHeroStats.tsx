@@ -1,5 +1,6 @@
 import React, { type ReactNode } from "react";
-import { HydrationIcon, NutritionIcon, PaceIcon, SummitIcon, TrailIcon } from "@pace-yourself/design-system/icons";
+import { HydrationIcon, NutritionIcon, PaceIcon, TrailIcon } from "@pace-yourself/design-system/icons";
+import { SaltIcon } from "../TimelineIcons";
 
 import { formatDecimal, formatDurationMinutes, formatInteger, type PlanLocale } from "./format";
 
@@ -41,11 +42,11 @@ const copy = {
     carbs: "Glucides",
     water: "Eau",
     sodium: "Sodium",
-    fallbackTitle: "Votre plan",
-    gels: (n: number) => `${n} gel${n > 1 ? "s" : ""}`,
+    fallbackTitle: "Ton plan",
+    gels: (n: number, text: string) => `${text} gel${n > 1 ? "s" : ""}`,
     ready: (a: number, b: number) => `Plan prêt : ${a} tronçon${a > 1 ? "s" : ""} sur ${b} dans la cible`,
-    none: "Ajoutez des ravitos pour évaluer le plan",
-    lock: "Débloquez le plan complet pour voir chaque tronçon",
+    none: "Ajoute des ravitos pour évaluer le plan",
+    lock: "Débloque le plan complet pour régler chaque tronçon",
     profile: "Profil altimétrique de la course",
   },
   en: {
@@ -55,7 +56,7 @@ const copy = {
     water: "Water",
     sodium: "Sodium",
     fallbackTitle: "Your plan",
-    gels: (n: number) => `${n} gel${n > 1 ? "s" : ""}`,
+    gels: (n: number, text: string) => `${text} gel${n > 1 ? "s" : ""}`,
     ready: (a: number, b: number) => `Plan ready: ${a} of ${b} section${b > 1 ? "s" : ""} on target`,
     none: "Add aid stations to assess the plan",
     lock: "Unlock the full plan to see every section",
@@ -74,7 +75,7 @@ function Stat({ icon, label, value, helper }: { icon: ReactNode; label: string; 
         </span>
         <span className="truncate">{label}</span>
       </div>
-      <p className={`${mono} mt-1 text-[24px] font-bold leading-tight tracking-tight tabular-nums text-[#FAF8F2] sm:text-[26px]`}>{value}</p>
+      <p className={`${mono} mt-1 whitespace-nowrap text-[22px] font-bold leading-tight tracking-tight tabular-nums text-[#FAF8F2] sm:text-[24px]`}>{value}</p>
       {helper ? <p className={`${mono} text-[12px] tabular-nums text-[#FAF8F2]/65`}>{helper}</p> : null}
     </div>
   );
@@ -139,7 +140,7 @@ export function PlanHeroStats({
   const barCount = Math.min(sectionsTotal, 24);
   const filled = sectionsTotal > 24 ? Math.round((sectionsOnTarget / sectionsTotal) * 24) : sectionsOnTarget;
   const carbsHelper =
-    [carbsPerHour === null ? null : `${formatInteger(carbsPerHour, locale)} g/h`, gelsCount === null ? null : t.gels(gelsCount)]
+    [carbsPerHour === null ? null : `${formatInteger(carbsPerHour, locale)} g/h`, gelsCount === null ? null : t.gels(gelsCount, Number.isInteger(gelsCount) ? formatInteger(gelsCount, locale) : formatDecimal(gelsCount, locale, 1))]
       .filter(Boolean)
       .join(" · ") || null;
 
@@ -186,29 +187,28 @@ export function PlanHeroStats({
               {t.lock}
             </p>
           ) : null}
-
-          <div className="mt-5 grid grid-cols-2 gap-x-4 gap-y-5 border-t border-dashed border-[#FAF8F2]/15 pt-4 sm:grid-cols-3 xl:grid-cols-5">
-            <Stat
-              icon={<PaceIcon size={15} strokeWidth={2} />}
-              label={t.time}
-              value={totalMinutes === null ? "—" : formatDurationMinutes(totalMinutes, locale)}
-            />
-            <Stat
-              icon={<TrailIcon size={15} strokeWidth={2} />}
-              label={t.distance}
-              value={`${formatDecimal(distanceKm, locale, 1)} km`}
-              helper={`D+ ${formatInteger(elevationGainM, locale)} m · D− ${formatInteger(elevationLossM, locale)} m`}
-            />
-            <Stat icon={<NutritionIcon size={15} strokeWidth={2} />} label={t.carbs} value={`${formatInteger(carbsG, locale)} g`} helper={carbsHelper} />
-            <Stat icon={<HydrationIcon size={15} strokeWidth={2} />} label={t.water} value={waterText} />
-            <Stat icon={<SummitIcon size={15} strokeWidth={2} />} label={t.sodium} value={`${formatInteger(sodiumMg, locale)} mg`} />
-          </div>
         </div>
         {profile.length >= 2 ? (
           <div className="min-w-0 rounded-xl bg-[#FAF8F2]/5 px-2 py-2 print:hidden">
             <Sparkline profile={profile} aidStationKms={aidStationKms} label={t.profile} />
           </div>
         ) : null}
+      </div>
+      <div className="mt-5 grid grid-cols-2 gap-x-5 gap-y-5 border-t border-dashed border-[#FAF8F2]/15 pt-4 sm:grid-cols-3 lg:grid-cols-5">
+        <Stat
+          icon={<PaceIcon size={15} strokeWidth={2} />}
+          label={t.time}
+          value={totalMinutes === null ? "—" : formatDurationMinutes(totalMinutes, locale)}
+        />
+        <Stat
+          icon={<TrailIcon size={15} strokeWidth={2} />}
+          label={t.distance}
+          value={`${formatDecimal(distanceKm, locale, 1)} km`}
+          helper={`D+ ${formatInteger(elevationGainM, locale)} m · D− ${formatInteger(elevationLossM, locale)} m`}
+        />
+        <Stat icon={<NutritionIcon size={15} strokeWidth={2} />} label={t.carbs} value={`${formatInteger(carbsG, locale)} g`} helper={carbsHelper} />
+        <Stat icon={<HydrationIcon size={15} strokeWidth={2} />} label={t.water} value={waterText} />
+        <Stat icon={<SaltIcon className="h-[15px] w-[15px]" />} label={t.sodium} value={`${formatInteger(sodiumMg, locale)} mg`} />
       </div>
     </section>
   );

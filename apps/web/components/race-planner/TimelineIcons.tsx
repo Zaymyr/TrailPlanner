@@ -1,6 +1,7 @@
 "use client";
 
-import type { SVGProps } from "react";
+// React in scope: Vitest renders these icons with the classic JSX runtime (plan-views tests).
+import React, { type SVGProps } from "react";
 
 type IconProps = SVGProps<SVGSVGElement>;
 

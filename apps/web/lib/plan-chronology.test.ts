@@ -8,6 +8,7 @@ import {
 
 import type { ElevationPoint, FormValues } from "../app/(planner)/race-planner/types";
 import {
+  alignChronologyToSections,
   buildPlanChronology,
   getChronologyEventKind,
   toPlanTimelineProductMap,
@@ -158,5 +159,37 @@ describe("getChronologyEventKind", () => {
     expect(getChronologyEventKind({ minute: 0, label: "Eau", detail: "", waterMl: 150 })).toBe("water");
     expect(getChronologyEventKind({ minute: 0, label: "Sel", detail: "", sodiumMg: 200, waterMl: 0 })).toBe("sodium");
     expect(getChronologyEventKind({ minute: 0, label: "Elec", detail: "", sodiumMg: 200, waterMl: 150 })).toBe("mixed");
+  });
+});
+
+describe("alignChronologyToSections", () => {
+  it("scales events into the web section window and takes its names", () => {
+    const [aligned] = alignChronologyToSections(
+      [
+        {
+          key: "s0",
+          fromName: "A",
+          toName: "B",
+          startMinute: 10,
+          durationMin: 60,
+          distanceKm: 10,
+          dPlus: 0,
+          dMinus: 0,
+          events: [
+            { minute: 10, label: "Gel", detail: "", kind: "carbs" },
+            { minute: 40, label: "Eau", detail: "", kind: "water" },
+          ],
+        },
+      ],
+      [{ startMinute: 20, durationMin: 120, fromName: "Départ", toName: "Chaponost" }],
+    );
+    expect(aligned.fromName).toBe("Départ");
+    expect(aligned.toName).toBe("Chaponost");
+    expect(aligned.events.map((event) => event.minute)).toEqual([20, 80]);
+  });
+
+  it("leaves sections without a window untouched", () => {
+    const section = { key: "s", fromName: "A", toName: "B", startMinute: 0, durationMin: 30, distanceKm: 5, dPlus: 0, dMinus: 0, events: [] };
+    expect(alignChronologyToSections([section], [])).toEqual([section]);
   });
 });

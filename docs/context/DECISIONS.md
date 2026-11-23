@@ -4,6 +4,14 @@
 
 Journal en ajout seul, la plus récente en haut. Format : `## AAAA-MM-JJ — Titre`, puis Contexte / Décision / Conséquence (2 à 4 lignes chacun). Les décisions d'architecture détaillées (ADR) vont dans [docs/08-decisions/](../08-decisions/README.md).
 
+## 2026-11-23 — Planificateur web : trois vues Ravitos / Allures / Chronologie alignées sur le mobile, bandeau de course, jauges position/fenêtre
+
+**Contexte.** Le plan web n'avait qu'une frise unique et un « ticket d'arrivée » sombre ; les jauges en « bande cible » se lisaient mal (la zone cible ressemblait à la barre).
+
+**Décision.** Trois vues comme le mobile (Ravitos, Allures, Chronologie) sous un bandeau de course persistant (« Plan prêt : N tronçons sur M dans la cible », temps, distance, glucides, eau, sodium, profil). Jauges : seule la quantité prévue est une barre pleine, la fenêtre cible est un contour pointillé, un repère marque la cible exacte. La chronologie du moteur partagé est recalée sur les tronçons web (`alignChronologyToSections`).
+
+**Conséquence.** Aucune règle de calcul ni donnée modifiée. Aperçu gratuit : départ + 1er ravito, 1er tronçon, chronologie floutée dès le tronçon 2. Voir `docs/07-design-system/components.md` et `docs/03-business-rules/nutrition-algorithm.md`.
+
 ## 2026-11-23 — Chronologie : un seul moteur partagé web + mobile
 
 **Contexte.** Le planificateur web doit afficher l'onglet « Chronologie » (quoi prendre et quand, section par section) déjà présent sur mobile, calculé dans `apps/mobile/lib/continuousNutrition.ts`. Une deuxième implémentation web aurait divergé.

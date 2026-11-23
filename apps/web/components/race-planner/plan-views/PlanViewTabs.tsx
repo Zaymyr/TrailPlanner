@@ -78,7 +78,7 @@ export function PlanViewTabs({ value, onChange, locale, counts }: PlanViewTabsPr
             <span className="truncate">{labels[locale][view]}</span>
             {typeof count === "number" ? (
               <span
-                className={`font-[family-name:var(--font-plan-mono)] text-[11px] font-bold tabular-nums ${
+                className={`hidden font-[family-name:var(--font-plan-mono)] text-[11px] font-bold tabular-nums sm:inline ${
                   selected ? "text-[#C8D44E]" : "text-[#8A917E]"
                 }`}
               >

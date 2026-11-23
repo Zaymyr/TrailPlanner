@@ -57,7 +57,7 @@ This document summarizes the Pace Yourself signature icon set. The archived sour
 
 ## Web race plan usage (2026-11-23)
 
-The web race planner now uses the signature icons through `@pace-yourself/design-system/icons` instead of PNG metric icons: `AidStationIcon` (ravito post), `SummitIcon` / `DescentIcon` (D+ / D-), `PaceIcon`, `NutritionIcon`, `HydrationIcon`, `GpxImportIcon`. Two glyph families stay web-only and are not exported by the package: `SaltIcon` (sodium, a cube drawn on the 24-grid with the signature stroke) in `apps/web/components/race-planner/TimelineIcons.tsx`, and the start-arch and finish-flag glyphs inside `AidStationBadge.tsx`. Promote them to the package (and `ICONS.md`) only if mobile needs them.
+The web race planner now uses the signature icons through `@pace-yourself/design-system/icons` instead of PNG metric icons: `AidStationIcon` (ravito post), `SummitIcon` / `DescentIcon` (D+ / D-), `PaceIcon`, `NutritionIcon`, `HydrationIcon`, `GpxImportIcon`. Two glyph families stay web-only and are not exported by the package: `SaltIcon` (sodium, a cube drawn on the 24-grid with the signature stroke) in `apps/web/components/race-planner/TimelineIcons.tsx` (also used for sodium in the `PlanHeroStats` band; the file imports `React` explicitly for Vitest's classic JSX runtime), and the start-arch and finish-flag glyphs inside `AidStationBadge.tsx`. Promote them to the package (and `ICONS.md`) only if mobile needs them.
 
 ## Usage
 

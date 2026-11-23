@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode, SVGProps } from "react";
@@ -54,6 +54,15 @@ import {
   SummitIcon,
 } from "@pace-yourself/design-system/icons";
 import { planFontVariables } from "./plan-fonts";
+import {
+  PlanHeroStats,
+  PlanViewTabs,
+  computeCompleteness,
+  planViewPanelId,
+  planViewTabId,
+  type PlanView,
+  type Tone,
+} from "./plan-views";
 
 const statusToneStyles = {
   success: "border-emerald-400/40 bg-emerald-500/20 text-emerald-50",
@@ -191,6 +200,13 @@ type ActionPlanProps = {
     lockedCta: (lockedAidStationCount: number) => ReactNode;
     onLockedAction: () => void;
   };
+  /**
+   * Chronology view (what is consumed and when), computed by the page with the engine shared with the
+   * mobile app. Receives the free-preview lock so the view can blur what follows the first section.
+   */
+  renderChronology?: (options: { lockedFromIndex?: number }) => ReactNode;
+  /** Race name shown in the race band above the views. */
+  raceName?: string | null;
 };
 
 /** « 11,0 » in French, « 11.0 » in English: kilometre posts always show one decimal. */
@@ -213,120 +229,6 @@ const formatPaceValue = (minutesPerKm: number) => {
   const seconds = totalSeconds % 60;
   return `${minutes}'${seconds.toString().padStart(2, "0")}"`;
 };
-
-type FinishSummaryMetric = {
-  key: string;
-  label: string;
-  value: string;
-  helper?: string | null;
-};
-
-type FinishSummaryGroup = {
-  title: string;
-  icon: ReactNode;
-  primary: FinishSummaryMetric;
-  secondary?: FinishSummaryMetric[];
-};
-
-type FinishSummaryCardProps = {
-  pointIndex: number;
-  badge?: ReactNode;
-  title: string;
-  distanceText: string;
-  performanceGroup: FinishSummaryGroup;
-  energyGroup: FinishSummaryGroup;
-  hydrationGroup: FinishSummaryGroup;
-  details: FinishSummaryMetric[];
-  detailsLabel: string;
-  detailsId: string;
-  isExpanded: boolean;
-  onToggleDetails: () => void;
-};
-
-function SummaryGroup({ title, icon, primary, secondary }: FinishSummaryGroup) {
-  return (
-    <div className="min-w-0 py-3 sm:px-5 sm:py-1 sm:first:pl-0">
-      <div className="flex items-center gap-2 text-[13px] font-medium text-[#C8D44E]">
-        <span className="shrink-0" aria-hidden>{icon}</span>
-        <span>{title}</span>
-      </div>
-      <p className="mt-2 text-[12px] text-[#FAF8F2]/60">{primary.label}</p>
-      <p className="font-[family-name:var(--font-plan-mono)] text-[28px] font-bold leading-tight tracking-tight tabular-nums text-[#FAF8F2]">
-        {primary.value}
-      </p>
-      {primary.helper ? <p className="text-[12px] text-[#FAF8F2]/60">{primary.helper}</p> : null}
-      {secondary?.length ? (
-        <dl className="mt-3 space-y-1 text-[12.5px]">
-          {secondary.map((item) => (
-            <div key={item.key} className="flex items-center justify-between gap-2">
-              <dt className="text-[#FAF8F2]/60">{item.label}</dt>
-              <dd className="font-[family-name:var(--font-plan-mono)] font-semibold tabular-nums text-[#FAF8F2]">{item.value}</dd>
-            </div>
-          ))}
-        </dl>
-      ) : null}
-    </div>
-  );
-}
-
-function FinishSummaryCard({
-  pointIndex,
-  badge,
-  title,
-  distanceText,
-  performanceGroup,
-  energyGroup,
-  hydrationGroup,
-  details,
-  detailsLabel,
-  detailsId,
-  isExpanded,
-  onToggleDetails,
-}: FinishSummaryCardProps) {
-  return (
-    <div className="relative overflow-hidden rounded-2xl bg-[#1F3810] p-5 text-[#FAF8F2] shadow-[0_18px_40px_-22px_rgba(31,56,16,0.9)] sm:p-6">
-      {/* Perforated edge of a race bib / finisher ticket. */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-2 bg-[radial-gradient(circle_at_8px_0,#FAF8F2_4px,transparent_4.5px)] bg-[length:16px_8px] bg-repeat-x opacity-90"
-      />
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <p className="font-[family-name:var(--font-plan-display)] text-2xl font-semibold tracking-tight">{title}</p>
-        <p className="font-[family-name:var(--font-plan-mono)] text-sm font-semibold tabular-nums text-[#C8D44E]">{distanceText}</p>
-      </div>
-
-      <div className="mt-4 grid divide-y divide-dashed divide-[#FAF8F2]/15 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-        <SummaryGroup {...performanceGroup} />
-        <SummaryGroup {...energyGroup} />
-        <SummaryGroup {...hydrationGroup} />
-      </div>
-
-      <div className="mt-4 border-t border-dashed border-[#FAF8F2]/15 pt-3">
-        <button
-          type="button"
-          className="inline-flex min-h-9 items-center gap-1.5 rounded-full px-2 text-[13px] font-semibold text-[#FAF8F2]/80 hover:text-[#FAF8F2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C8D44E]"
-          aria-expanded={isExpanded}
-          aria-controls={detailsId}
-          onClick={onToggleDetails}
-        >
-          {detailsLabel}
-          {isExpanded ? <ChevronUpIcon className="h-4 w-4" aria-hidden /> : <ChevronDownIcon className="h-4 w-4" aria-hidden />}
-        </button>
-
-        {isExpanded ? (
-          <dl id={detailsId} className="mt-2 grid gap-x-6 gap-y-1.5 px-2 sm:grid-cols-2 lg:grid-cols-3">
-            {details.map((detail) => (
-              <div key={detail.key} className="flex items-center justify-between gap-2 text-[12.5px]">
-                <dt className="text-[#FAF8F2]/60">{detail.label}</dt>
-                <dd className="font-[family-name:var(--font-plan-mono)] font-semibold tabular-nums">{detail.value}</dd>
-              </div>
-            ))}
-          </dl>
-        ) : null}
-      </div>
-    </div>
-  );
-}
 
 const getSegmentFieldName = (segment: Segment, field: keyof SegmentPlan) => {
   if (segment.isFinish) return `finishPlan.${field}` as const;
@@ -422,6 +324,54 @@ function SegmentCard({
   );
 }
 
+/**
+ * One-line section header: « Départ → Chaponost · 11,0 km · ↗ 184 m ↘ 215 m · 1 h 28 · 8'01/km ».
+ * Replaces the stacked section card: the whole section reads in one glance, left to right.
+ */
+function SectionHeaderLine({
+  fromName,
+  toName,
+  distanceText,
+  gainM,
+  lossM,
+  timeText,
+  paceText,
+  action,
+}: {
+  fromName: string;
+  toName: string;
+  distanceText: string;
+  gainM: number;
+  lossM: number;
+  timeText: string;
+  paceText?: ReactNode;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      <div className="min-w-0 space-y-1">
+        <p className="truncate font-[family-name:var(--font-plan-display)] text-[15px] font-semibold text-[#1F2410]">
+          {fromName} <span className="text-[#8A917E]">→</span> {toName}
+        </p>
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 font-[family-name:var(--font-plan-mono)] text-[12.5px] font-semibold tabular-nums text-[#5C6450]">
+          <span className="text-[#1F2410]">{distanceText}</span>
+          <span className="inline-flex items-center gap-1 text-[#2D5016]">
+            <SummitIcon size={14} strokeWidth={2} />
+            {Math.round(gainM)} m
+          </span>
+          <span className="inline-flex items-center gap-1 text-[#3F6F8F]">
+            <DescentIcon size={14} strokeWidth={2} />
+            {Math.round(lossM)} m
+          </span>
+          <span>{timeText}</span>
+          {paceText ? <span>{paceText}</span> : null}
+        </p>
+      </div>
+      {action ? <div className="shrink-0">{action}</div> : null}
+    </div>
+  );
+}
+
 type NutritionCardVariant = "default" | "compact";
 
 type NutritionMetric = {
@@ -487,53 +437,56 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
         ? `${metric.statusLabel} · −${deltaText}`
         : `${metric.statusLabel} · +${deltaText}`;
   const isCapacityWarning = metric.helperIsWarning === true;
+  const isOnTarget = metric.statusTone === "success" || metric.statusTone === "neutral";
+  const shortStatus = isOnTarget || targetValue <= 0 ? metric.statusLabel : `${delta < 0 ? "−" : "+"}${deltaText}`;
 
   return (
-    <div className={`flex min-w-0 flex-col rounded-[10px] bg-[#FAF8F2] ring-1 ring-[#E5E2D8] ${isCompact ? "gap-2 p-3" : "gap-3 p-4"}`}>
-      <span className="inline-flex min-w-0 items-center gap-1.5 text-[13px] font-semibold text-[#1F2410]">
-        <span className="shrink-0 text-[#2D5016]">{metric.icon}</span>
-        <span className="truncate">{metric.name}</span>
-      </span>
-      <p className="flex items-baseline gap-1.5 font-[family-name:var(--font-plan-mono)] tabular-nums">
-        <span className={`${isCompact ? "text-[22px]" : "text-3xl"} font-bold leading-none tracking-tight ${tone.text}`}>
-          {stripNutrientSuffix(metric.value)}
+    <div className={`flex min-w-0 flex-col rounded-[10px] bg-white ring-1 ring-[#E5E2D8] ${isCompact ? "gap-1.5 px-3 py-2.5" : "gap-2 p-3.5"}`}>
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="inline-flex min-w-0 items-center gap-1.5 text-[12.5px] font-semibold text-[#1F2410]">
+          <span className="shrink-0 text-[#2D5016]">{metric.icon}</span>
+          {/* « Glucides totaux » → « Glucides »: the gauge is already about this section. */}
+          <span className="truncate">{metric.name.replace(/\s+(totaux|totales?|total)$/i, "")}</span>
         </span>
-        <span className="text-[11px] font-medium text-[#8A917E]">
-          / {stripNutrientSuffix(metric.format(targetValue))}
+        <span className="shrink-0 font-[family-name:var(--font-plan-mono)] tabular-nums">
+          <span className={`text-[15px] font-bold ${tone.text}`}>{stripNutrientSuffix(metric.value)}</span>
+          <span className="text-[11px] text-[#8A917E]"> / {stripNutrientSuffix(metric.format(targetValue))}</span>
         </span>
-      </p>
+      </div>
+      {/*
+        Position vs. window: the only solid bar is where the plan really is (forest inside the target window,
+        amber/red outside). The target window is an outline, never a fill, so it cannot be read as « the bar ».
+      */}
       <div
-        className="relative h-2 w-full rounded-full bg-[#EAE8E1]"
+        className="relative my-1 h-2 w-full rounded-full bg-[#EAE8E1]"
         role="meter"
-        aria-label={`${metric.name} : ${stripNutrientSuffix(metric.value)}, ${targetLabel.toLowerCase()} ${stripNutrientSuffix(metric.format(targetValue))}`}
+        aria-label={`${metric.name} : ${stripNutrientSuffix(metric.value)}, ${targetLabel.toLowerCase()} ${stripNutrientSuffix(metric.format(targetValue))}, ${statusText}`}
         aria-valuemin={0}
         aria-valuemax={Math.round(scaleMax)}
         aria-valuenow={Math.round(metric.plannedValue)}
       >
         <span
-          className="absolute inset-y-0 rounded-full bg-[#C8D44E]/70"
+          className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-300 motion-reduce:transition-none"
+          style={{ width: `${fillPercent}%`, backgroundColor: tone.fill }}
+          aria-hidden
+        />
+        <span
+          className="absolute -inset-y-[3px] rounded-[5px] border-[1.5px] border-dashed border-[#1F2410]/55"
           style={{ left: `${zoneStartPercent}%`, width: `${Math.max(zoneEndPercent - zoneStartPercent, 2)}%` }}
           aria-hidden
         />
         <span
-          className="absolute inset-y-[2px] left-[2px] rounded-full transition-[width] duration-300 motion-reduce:transition-none"
-          style={{ width: `max(calc(${fillPercent}% - 4px), 0px)`, backgroundColor: tone.fill }}
-          aria-hidden
-        />
-        <span
-          className="absolute -inset-y-1 w-[2px] -translate-x-1/2 rounded-full bg-[#1F2410]"
+          className="absolute -inset-y-[3px] w-[2px] -translate-x-1/2 bg-[#1F2410]/70"
           style={{ left: `${targetPercent}%` }}
           aria-hidden
         />
       </div>
-      <p className={`inline-flex w-fit max-w-full rounded-full px-2 py-0.5 text-[11px] font-semibold leading-snug ${tone.pill}`}>
-        {statusText}
-      </p>
-      {metric.helper ? (
-        <p className={`text-[11px] leading-snug ${isCapacityWarning ? "font-semibold text-[#B45309]" : "text-[#8A917E]"}`}>
-          {metric.helper}
-        </p>
-      ) : null}
+      <div className="flex items-center justify-between gap-2 text-[11px] leading-snug">
+        <span className={`font-semibold ${tone.text}`}>{shortStatus}</span>
+        <span className={`truncate text-right ${isCapacityWarning ? "font-semibold text-[#B45309]" : "text-[#8A917E]"}`}>
+          {metric.helper ?? `${targetLabel} ${stripNutrientSuffix(metric.format(targetValue))}`}
+        </span>
+      </div>
     </div>
   );
 }
@@ -834,46 +787,6 @@ function PaceStepButton({
   );
 }
 
-type BetweenAidStationSectionProps = {
-  sectionSummary: ReactNode;
-  nutritionCards: ReactNode[];
-  toggleButton?: ReactNode;
-  subSections?: ReactNode;
-  subSectionActions?: ReactNode;
-  showSubSections?: boolean;
-};
-
-function BetweenAidStationSection({
-  sectionSummary,
-  nutritionCards,
-  toggleButton,
-  subSections,
-  subSectionActions,
-  showSubSections,
-}: BetweenAidStationSectionProps) {
-  return (
-    <div className="relative mt-2">
-      <div className="rounded-2xl bg-[#F4F2EC] p-3 ring-1 ring-inset ring-[#E5E2D8]/70 sm:p-4">
-        <div className="grid gap-2.5 xl:grid-cols-[200px_minmax(0,1fr)] xl:items-stretch">
-          <div className="min-w-0">{sectionSummary}</div>
-          {nutritionCards.length > 0 ? (
-            <div className="grid min-w-0 gap-2.5 sm:grid-cols-3">{nutritionCards}</div>
-          ) : null}
-        </div>
-        {toggleButton ? <div className="mt-3 flex flex-wrap items-center gap-2">{toggleButton}</div> : null}
-        {showSubSections ? (
-          <div className="mt-3 space-y-3">
-            <div className="relative space-y-2 pl-6 before:absolute before:left-2 before:top-0 before:bottom-0 before:border-l-2 before:border-dotted before:border-[#B5CC9A]">
-              {subSections}
-            </div>
-            {subSectionActions}
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
 function AidStationCollapsedRow({
   pointIndex,
   badge,
@@ -1131,12 +1044,27 @@ export function ActionPlan({
   onUpgrade,
   upgradeStatus,
   sampleMode,
+  renderChronology,
+  raceName = null,
 }: ActionPlanProps) {
   const { locale } = useI18n();
   const [collapsedAidStations, setCollapsedAidStations] = useState<Record<string, boolean>>({});
-  const [expandedSegments, setExpandedSegments] = useState<Record<string, boolean>>({});
-  const [isFinishDetailsOpen, setIsFinishDetailsOpen] = useState(false);
-  const finishDetailsId = useId();
+  const [expandedSegments] = useState<Record<string, boolean>>({});
+  /** Same three views as the mobile plan: aid stations (nutrition), pace (split + pace) and chronology. */
+  const [planView, setPlanView] = useState<PlanView>("stations");
+  /** Section opened from « Découper » in the aid-stations view: scrolled into view in the pace view. */
+  const [focusedPaceItemId, setFocusedPaceItemId] = useState<string | null>(null);
+  useEffect(() => {
+    if (planView !== "pace" || !focusedPaceItemId) return;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(`pace-section-${focusedPaceItemId}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusedPaceItemId, planView]);
+  const openPaceForSection = useCallback((itemId: string) => {
+    setFocusedPaceItemId(itemId);
+    setPlanView("pace");
+  }, []);
   const [segmentModalState, setSegmentModalState] = useState<
     | null
     | {
@@ -1680,6 +1608,30 @@ export function ActionPlan({
     }
     return { label: timelineCopy.status.aboveTarget, tone: "danger" as const };
   };
+  // « Plan prêt : 3 tronçons sur 4 dans la cible »: the same planned amounts and statuses as the gauges.
+  const planCompleteness = computeCompleteness(
+    renderItems.flatMap((item): Array<{ carbs: Tone; water: Tone; sodium: Tone }> => {
+      if (item.isFinish) return [];
+      const sectionSegment = sectionComputationByItemId.get(item.id)?.sectionSegment;
+      if (!sectionSegment) return [];
+      const summarized = summarizedSuppliesByItemId.get(item.id) ?? null;
+      const carryover = carryoverCoverageByItemId.get(item.id) ?? null;
+      const plannedCarbs = carryover?.currentCarbs ?? summarized?.totals.carbs ?? 0;
+      const plannedSodium = carryover?.currentSodium ?? summarized?.totals.sodium ?? 0;
+      const waterTarget = Math.max(sectionSegment.targetWaterMl, 0);
+      const waterUpperBound =
+        typeof sectionSegment.waterCapacityMl === "number" && sectionSegment.waterCapacityMl > 0
+          ? sectionSegment.waterCapacityMl
+          : waterTarget * 1.2;
+      return [
+        {
+          carbs: getPlanStatus(plannedCarbs, Math.max(sectionSegment.targetFuelGrams, 0)).tone,
+          sodium: getPlanStatus(plannedSodium, Math.max(sectionSegment.targetSodiumMg, 0)).tone,
+          water: getPlanStatus(sectionSegment.plannedWaterMl ?? 0, waterTarget, Math.max(waterUpperBound, waterTarget || 1)).tone,
+        },
+      ];
+    })
+  );
   const toggleAidStationCollapse = (collapseKey: string) => {
     startUiTransition(() => {
       setCollapsedAidStations((current) => ({
@@ -1846,7 +1798,7 @@ export function ActionPlan({
             descriptionAsTooltip
           action={
             <div className="flex flex-wrap items-center gap-2">
-              {hasCollapsibleAidStations ? (
+              {hasCollapsibleAidStations && planView === "stations" ? (
                 <Button
                   type="button"
                   variant="outline"
@@ -1919,7 +1871,53 @@ export function ActionPlan({
       </CardHeader>
       <CardContent className="space-y-4">
         {segments.length > 0 ? (
-          <div className="relative space-y-6 before:pointer-events-none before:absolute before:bottom-10 before:left-[21px] before:top-8 before:border-l-[3px] before:border-dotted before:border-[#B5CC9A] sm:before:left-[23px]">
+          <PlanHeroStats
+            locale={locale === "fr" ? "fr" : "en"}
+            raceName={raceName}
+            distanceKm={finishSummary?.finishDistanceKm ?? renderItems.at(-1)?.distanceKm ?? 0}
+            elevationGainM={finishSummary?.totalElevationGain ?? 0}
+            elevationLossM={finishSummary?.totalElevationLoss ?? 0}
+            totalMinutes={finishSummary && finishSummary.totalTimeMinutes > 0 ? finishSummary.totalTimeMinutes : null}
+            carbsG={raceTotals?.fuelGrams ?? 0}
+            carbsPerHour={
+              raceTotals && finishSummary && finishSummary.totalTimeMinutes > 0
+                ? raceTotals.fuelGrams / (finishSummary.totalTimeMinutes / 60)
+                : null
+            }
+            gelsCount={finishSummary && Number.isFinite(finishSummary.totalGels) ? finishSummary.totalGels : null}
+            waterMl={raceTotals?.waterMl ?? 0}
+            sodiumMg={raceTotals?.sodiumMg ?? 0}
+            profile={sortedElevationProfile}
+            aidStationKms={renderItems.filter((point) => !point.isStart && !point.isFinish).map((point) => point.distanceKm)}
+            sectionsOnTarget={planCompleteness.onTarget}
+            sectionsTotal={planCompleteness.total}
+            locked={Boolean(sampleMode)}
+          />
+        ) : null}
+        {segments.length > 0 ? (
+          <div className="sticky top-16 z-30 -mx-1 rounded-full bg-[#FAF8F2]/95 px-1 py-1 backdrop-blur print:hidden">
+            <PlanViewTabs
+              value={planView}
+              onChange={setPlanView}
+              locale={locale === "fr" ? "fr" : "en"}
+              counts={{
+                stations: renderItems.filter((point) => !point.isStart && !point.isFinish).length,
+                sections: Math.max(renderItems.length - 1, 0),
+              }}
+            />
+          </div>
+        ) : null}
+        {segments.length > 0 && planView === "chronology" ? (
+          <div id={planViewPanelId("chronology")} role="tabpanel" aria-labelledby={planViewTabId("chronology")}>
+            {renderChronology?.({ lockedFromIndex: sampleMode ? 1 : undefined }) ?? null}
+          </div>
+        ) : null}
+        {segments.length > 0 && planView !== "chronology" ? (
+          <div
+            id={planViewPanelId(planView)}
+            role="tabpanel"
+            aria-labelledby={planViewTabId(planView)}
+            className="relative space-y-6 before:pointer-events-none before:absolute before:bottom-10 before:left-[21px] before:top-8 before:border-l-[3px] before:border-dotted before:border-[#B5CC9A] sm:before:left-[23px]">
             {(() => {
               const renderedItems = renderItems.map((item, itemIndex) => {
                 const pointNumber = itemIndex + 1;
@@ -1941,7 +1939,6 @@ export function ActionPlan({
                     : null;
                 const pauseMinutesValue =
                   typeof item.checkpointSegment?.pauseMinutes === "number" ? item.checkpointSegment.pauseMinutes : 0;
-                const metaText = `${formatDistanceWithUnit(item.distanceKm)} · ${timelineCopy.etaLabel}: ${formatMinutes(item.etaMinutes)}`;
 
                 const nextSegment = item.upcomingSegment;
                 const summarized = summarizedSuppliesByItemId.get(item.id) ?? null;
@@ -2312,7 +2309,10 @@ export function ActionPlan({
                     </div>
                   ) : null;
 
-                const sectionComputation = isCollapsed ? null : sectionComputationByItemId.get(item.id);
+                // Folding an aid station only hides its section in the aid-stations view.
+                const sectionComputation =
+                  isCollapsed && planView === "stations" ? null : sectionComputationByItemId.get(item.id);
+                const nextTitle = renderItems[itemIndex + 1]?.title ?? copy.defaults.finish;
                 const sectionSegment = sectionComputation?.sectionSegment;
                 const upcomingSegmentIndex = sectionComputation?.upcomingSegmentIndex ?? null;
                 const sectionKey = sectionComputation?.sectionKey ?? null;
@@ -2489,7 +2489,7 @@ export function ActionPlan({
                               : rawLabel ||
                                 timelineCopy.segmentLabel.replace(
                                   "{distance}",
-                                  (stats?.distKm ?? segment.segmentKm).toFixed(1)
+                                  formatKmPost(stats?.distKm ?? segment.segmentKm, locale)
                                 );
                           const startDistanceKm = runningStartKm;
                           const endDistanceKm = Number((startDistanceKm + segment.segmentKm).toFixed(3));
@@ -2534,29 +2534,13 @@ export function ActionPlan({
                       })()
                     : [];
                 const segmentToggleKey = item.isStart ? "start" : isAidStation ? String(item.aidStationIndex) : null;
+                // The pace view always shows the split of each section; the aid-stations view no longer does.
                 const isSegmentsExpanded =
-                  segmentToggleKey && segmentListItems.length > 0 ? Boolean(expandedSegments[segmentToggleKey]) : false;
-                const segmentToggleLabel = isSegmentsExpanded ? segmentCopy.toggle.hide : segmentCopy.toggle.show;
+                  segmentToggleKey && segmentListItems.length > 0
+                    ? planView === "pace" || Boolean(expandedSegments[segmentToggleKey])
+                    : false;
                 const markerTitlePrefix = segmentCopy.actions.addMarker.replace(/^\+\s*/, "");
                 const autoSegmentTitlePrefix = segmentCopy.actions.autoSegment;
-                const segmentToggleButton =
-                  segmentToggleKey && segmentListItems.length > 0 ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="!min-h-0 h-8 rounded-full !bg-white px-3 text-xs font-semibold !text-[#2D5016] ring-1 ring-[#E5E2D8] hover:!bg-[#E8F0E0]"
-                      onClick={() =>
-                        startUiTransition(() => {
-                          setExpandedSegments((prev) => ({
-                            ...prev,
-                            [segmentToggleKey]: !isSegmentsExpanded,
-                          }));
-                        })
-                      }
-                    >
-                      {segmentToggleLabel}
-                    </Button>
-                  ) : null;
                 const segmentActions =
                   isSegmentsExpanded && segmentListItems.length > 0 ? (
                     <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -2596,16 +2580,84 @@ export function ActionPlan({
                       </Button>
                     </div>
                   ) : null;
+                const sectionDistanceText = `${formatKmPost(sectionSummaryDistanceKm, locale)} km`;
+                const sectionPaceText = sectionAvgPace > 0 ? `${formatPaceValue(sectionAvgPace)}/km` : undefined;
+                const splitAction = sectionSegment ? (
+                  <button
+                    type="button"
+                    onClick={() => openPaceForSection(item.id)}
+                    className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-white px-3 text-[12px] font-semibold text-[#2D5016] ring-1 ring-[#E5E2D8] transition hover:bg-[#E8F0E0] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2D5016]"
+                  >
+                    <PaceIcon size={15} strokeWidth={2} />
+                    {locale === "fr" ? "Découper · allure" : "Split · pace"}
+                  </button>
+                ) : null;
+                // Aid-stations view: the section that follows this point, in one line, then its three gauges.
                 const sectionBlock =
                   sectionSegment && segmentCard ? (
-                    <BetweenAidStationSection
-                      sectionSummary={segmentCard}
-                      nutritionCards={nutritionCards}
-                      toggleButton={segmentToggleButton}
-                      showSubSections={isSegmentsExpanded && segmentListItems.length > 0}
-                      subSections={
-                        isSegmentsExpanded && segmentListItems.length > 0 ? (
-                          <>
+                    <div className="relative mt-2 rounded-2xl bg-[#F4F2EC] p-3 ring-1 ring-inset ring-[#E5E2D8]/70 sm:p-4">
+                      <SectionHeaderLine
+                        fromName={item.title}
+                        toName={nextTitle}
+                        distanceText={sectionDistanceText}
+                        gainM={sectionSummaryGain}
+                        lossM={sectionSummaryLoss}
+                        timeText={formatMinutes(sectionSummaryMinutes)}
+                        paceText={sectionPaceText}
+                        action={splitAction}
+                      />
+                      {nutritionCards.length > 0 ? (
+                        <div className="mt-3 grid min-w-0 gap-2 sm:grid-cols-3">{nutritionCards}</div>
+                      ) : null}
+                    </div>
+                  ) : null;
+                // Pace view: the same section with its profile, its split and the pace of each part.
+                const paceBlock =
+                  sectionSegment ? (
+                    <div
+                      id={`pace-section-${item.id}`}
+                      className="scroll-mt-28 rounded-2xl bg-white p-4 ring-1 ring-[#E5E2D8] shadow-[0_1px_0_rgba(31,36,16,0.04),0_12px_28px_-18px_rgba(45,80,22,0.35)] sm:p-5"
+                    >
+                      <SectionHeaderLine
+                        fromName={item.title}
+                        toName={nextTitle}
+                        distanceText={sectionDistanceText}
+                        gainM={sectionSummaryGain}
+                        lossM={sectionSummaryLoss}
+                        timeText={formatMinutes(sectionSummaryMinutes)}
+                        action={
+                          paceAdjustmentControl ?? (
+                            <span className="font-[family-name:var(--font-plan-mono)] text-[13px] font-bold tabular-nums text-[#1F2410]">
+                              {sectionPaceText}
+                            </span>
+                          )
+                        }
+                      />
+                      <div className="mt-3 rounded-[10px] bg-[#FAF8F2] p-2 ring-1 ring-[#E5E2D8]">
+                        <SubSectionElevationChart
+                          elevationProfile={sortedElevationProfile}
+                          startDistanceKm={sectionSegment.startDistanceKm}
+                          endDistanceKm={sectionSegment.distanceKm}
+                          copy={copy}
+                          baseMinutesPerKm={baseMinutesPerKm}
+                        />
+                      </div>
+                      {segmentListItems.length > 0 ? (
+                        <div className="mt-3 space-y-2">
+                          <p className="text-[12px] font-medium text-[#5C6450]">
+                            {hasStoredSubSections
+                              ? locale === "fr" ? "Découpage du tronçon" : "Section split"
+                              : locale === "fr"
+                                ? "Découpe ce tronçon (montée, descente…) pour régler l’allure de chaque partie."
+                                : "Split this section (climb, descent…) to set the pace of each part."}
+                          </p>
+                          <div
+                            className={
+                              hasStoredSubSections || segmentListItems.length > 1
+                                ? "relative space-y-2 pl-6 before:absolute before:bottom-0 before:left-2 before:top-0 before:border-l-2 before:border-dotted before:border-[#B5CC9A]"
+                                : "hidden"
+                            }
+                          >
                             {segmentListItems.map((segment) => (
                               <SubSectionRow
                                 key={segment.id}
@@ -2651,11 +2703,11 @@ export function ActionPlan({
                                 }
                               />
                             ))}
-                          </>
-                        ) : null
-                      }
-                      subSectionActions={isSegmentsExpanded && segmentListItems.length > 0 ? segmentActions : null}
-                    />
+                          </div>
+                          {segmentActions}
+                        </div>
+                      ) : null}
+                    </div>
                   ) : null;
 
                 const removeButton =
@@ -2674,165 +2726,45 @@ export function ActionPlan({
                     </Button>
                   ) : null;
 
-                if (item.isFinish && finishSummary) {
-                  const totalTimeValue =
-                    finishSummary.totalTimeMinutes > 0 ? formatMinutes(finishSummary.totalTimeMinutes) : "—";
-                  const totalPauseNote =
-                    finishSummary.totalPauseMinutes > 0
-                      ? timelineCopy.finishSummary.pauseNote.replace(
-                          "{pause}",
-                          formatMinutes(finishSummary.totalPauseMinutes)
-                        )
-                      : null;
-                  const totalCarbs = raceTotals?.fuelGrams ?? 0;
-                  const totalWater = raceTotals?.waterMl ?? 0;
-                  const totalSodium = raceTotals?.sodiumMg ?? 0;
-                  const carbsPerHour =
-                    totalCarbs > 0 && finishSummary.totalTimeMinutes > 0
-                      ? totalCarbs / (finishSummary.totalTimeMinutes / 60)
-                      : null;
-                  const formatOptionalValue = (value: number | null, formatter: (value: number) => string) =>
-                    Number.isFinite(value) && (value ?? 0) > 0 ? formatter(value as number) : "—";
-                  const formatCarbs = (value: number) => `${Math.round(value)} ${copy.units.grams}`;
-                  const formatSodium = (value: number) => `${Math.round(value)} ${copy.units.milligrams}`;
-                  const formatWater = (value: number) => {
-                    if (!Number.isFinite(value) || value <= 0) return "—";
-                    if (value >= 1000) {
-                      const liters = value / 1000;
-                      return `${liters.toLocaleString(locale === "fr" ? "fr-FR" : "en-US", {
-                        minimumFractionDigits: liters < 10 ? 1 : 0,
-                        maximumFractionDigits: liters < 10 ? 1 : 0,
-                      })} L`;
-                    }
-                    return `${Math.round(value)} ${copy.units.milliliters}`;
-                  };
-                  const formatPace = (value: number | null) => {
-                    if (!Number.isFinite(value) || (value ?? 0) <= 0) return "—";
-                    const totalSeconds = Math.round((value as number) * 60);
-                    const minutes = Math.floor(totalSeconds / 60);
-                    const seconds = totalSeconds % 60;
-                    return `${minutes}:${seconds.toString().padStart(2, "0")} /${copy.units.kilometer}`;
-                  };
-                  const formatSpeed = (value: number | null) =>
-                    formatOptionalValue(value, (speed) =>
-                      `${speed.toFixed(1)} ${copy.units.kilometer}/${copy.units.hourShort}`
+                const finishCard = item.isFinish ? (
+                  <div className="rounded-2xl bg-white px-4 py-3.5 ring-1 ring-[#E5E2D8] shadow-[0_1px_0_rgba(31,36,16,0.04)] sm:px-5">
+                    <p className="font-[family-name:var(--font-plan-display)] text-lg font-semibold text-[#1F2410]">
+                      {item.title}
+                    </p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12.5px] text-[#5C6450]">
+                      <span className="rounded-[6px] bg-[#1F3810] px-1.5 py-0.5 font-[family-name:var(--font-plan-mono)] text-[11.5px] font-bold tabular-nums text-[#C8D44E]">
+                        km {formatKmPost(item.distanceKm, locale)}
+                      </span>
+                      <span>
+                        {locale === "fr" ? "Arrivée estimée" : "Estimated finish"}{" "}
+                        <span className="font-[family-name:var(--font-plan-mono)] font-semibold tabular-nums text-[#1F2410]">
+                          {formatMinutes(finishSummary?.totalTimeMinutes && finishSummary.totalTimeMinutes > 0 ? finishSummary.totalTimeMinutes : item.etaMinutes)}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                ) : null;
+
+                if (planView === "pace") {
+                  if (item.isFinish) {
+                    return (
+                      <RailItem key={item.id} marker={aidStationBadge}>
+                        {finishCard}
+                      </RailItem>
                     );
-                  const formattedGels =
-                    Number.isFinite(finishSummary.totalGels) && finishSummary.totalGels > 0
-                      ? Number.isInteger(finishSummary.totalGels)
-                        ? finishSummary.totalGels.toFixed(0)
-                        : finishSummary.totalGels.toLocaleString(locale === "fr" ? "fr-FR" : "en-US", {
-                            minimumFractionDigits: 1,
-                            maximumFractionDigits: 1,
-                          })
-                      : "—";
-                  const formattedCalories =
-                    Number.isFinite(finishSummary.totalCalories) && finishSummary.totalCalories > 0
-                      ? `${Math.round(finishSummary.totalCalories)} kcal`
-                      : "—";
-                  const formattedElevationGain =
-                    Number.isFinite(finishSummary.totalElevationGain) && finishSummary.totalElevationGain > 0
-                      ? `${Math.round(finishSummary.totalElevationGain)} ${copy.units.meter}`
-                      : "—";
-                  const formattedElevationLoss =
-                    Number.isFinite(finishSummary.totalElevationLoss) && finishSummary.totalElevationLoss > 0
-                      ? `${Math.round(finishSummary.totalElevationLoss)} ${copy.units.meter}`
-                      : "—";
-                  const performanceGroup: FinishSummaryGroup = {
-                    title: timelineCopy.finishSummary.groups.performance,
-                    icon: <PaceIcon size={18} strokeWidth={2} />,
-                    primary: {
-                      key: "total-time",
-                      label: timelineCopy.finishSummary.totalTimeLabel,
-                      value: totalTimeValue,
-                      helper: totalPauseNote,
-                    },
-                    secondary: [
-                      {
-                        key: "avg-pace",
-                        label: timelineCopy.finishSummary.avgPaceLabel,
-                        value: formatPace(finishSummary.averagePaceMinPerKm),
-                      },
-                      {
-                        key: "avg-speed",
-                        label: timelineCopy.finishSummary.avgSpeedLabel,
-                        value: formatSpeed(finishSummary.averageSpeedKph),
-                      },
-                    ],
-                  };
-
-                  const energyGroup: FinishSummaryGroup = {
-                    title: timelineCopy.finishSummary.groups.energy,
-                    icon: <NutritionIcon size={18} strokeWidth={2} />,
-                    primary: {
-                      key: "total-carbs",
-                      label: timelineCopy.finishSummary.totalCarbsLabel,
-                      value: formatOptionalValue(totalCarbs, formatCarbs),
-                      helper:
-                        carbsPerHour && Number.isFinite(carbsPerHour)
-                          ? `${Math.round(carbsPerHour)} ${copy.units.grams}/${copy.units.hourShort}`
-                          : null,
-                    },
-                    secondary: [
-                      {
-                        key: "total-gels",
-                        label: timelineCopy.finishSummary.totalGelsLabel,
-                        value: formattedGels,
-                      },
-                      {
-                        key: "total-calories",
-                        label: timelineCopy.finishSummary.totalCaloriesLabel,
-                        value: formattedCalories,
-                      },
-                    ],
-                  };
-
-                  const hydrationGroup: FinishSummaryGroup = {
-                    title: timelineCopy.finishSummary.groups.hydration,
-                    icon: <HydrationIcon size={18} strokeWidth={2} />,
-                    primary: {
-                      key: "total-fluids",
-                      label: timelineCopy.finishSummary.totalFluidsLabel,
-                      value: formatWater(totalWater),
-                    },
-                    secondary: [
-                      {
-                        key: "total-sodium",
-                        label: timelineCopy.finishSummary.totalSodiumLabel,
-                        value: formatOptionalValue(totalSodium, formatSodium),
-                      },
-                    ],
-                  };
-
-                  const details: FinishSummaryMetric[] = [
-                    {
-                      key: "elevation-gain",
-                      label: timelineCopy.finishSummary.elevationGainLabel,
-                      value: formattedElevationGain,
-                    },
-                    {
-                      key: "elevation-loss",
-                      label: timelineCopy.finishSummary.elevationLossLabel,
-                      value: formattedElevationLoss,
-                    },
-                  ];
-
+                  }
+                  if (!paceBlock) return null;
                   return (
                     <RailItem key={item.id} marker={aidStationBadge}>
-                      <FinishSummaryCard
-                        pointIndex={pointNumber}
-                        badge={aidStationBadge ?? undefined}
-                        title={timelineCopy.finishSummary.title}
-                        distanceText={formatDistanceWithUnit(finishSummary.finishDistanceKm)}
-                        performanceGroup={performanceGroup}
-                        energyGroup={energyGroup}
-                        hydrationGroup={hydrationGroup}
-                        details={details}
-                        detailsLabel={timelineCopy.finishSummary.detailsLabel}
-                        detailsId={finishDetailsId}
-                        isExpanded={isFinishDetailsOpen}
-                        onToggleDetails={() => setIsFinishDetailsOpen((prev) => !prev)}
-                      />
+                      {paceBlock}
+                    </RailItem>
+                  );
+                }
+
+                if (item.isFinish) {
+                  return (
+                    <RailItem key={item.id} marker={aidStationBadge}>
+                      {finishCard}
                     </RailItem>
                   );
                 }
@@ -2940,11 +2872,14 @@ export function ActionPlan({
                     </div>
                   </RailItem>
                 );
-              });
-              if (!sampleMode || renderedItems.length <= sampleMode.editableItemCount) return renderedItems;
+              }).filter(Boolean);
+              // Free preview: the aid-stations view keeps the departure and the first aid station usable, the
+              // pace view keeps the first section; the rest is shown blurred behind the locked-plan CTA.
+              const editableCount = sampleMode ? (planView === "pace" ? 1 : sampleMode.editableItemCount) : 0;
+              if (!sampleMode || renderedItems.length <= editableCount) return renderedItems;
               return (
                 <>
-                  {renderedItems.slice(0, sampleMode.editableItemCount)}
+                  {renderedItems.slice(0, editableCount)}
                   <div className="relative z-10">
                     {sampleMode.lockedCta(
                       renderItems.slice(sampleMode.editableItemCount).filter((item) => !item.isFinish && !item.isStart).length,
@@ -2954,9 +2889,9 @@ export function ActionPlan({
                   <div
                     aria-hidden="true"
                     ref={(node) => node?.setAttribute("inert", "")}
-                    className="pointer-events-none relative max-h-[42rem] select-none space-y-8 overflow-hidden opacity-60 blur-[2px]"
+                    className="pointer-events-none relative max-h-[42rem] select-none space-y-6 overflow-hidden opacity-60 blur-[2px]"
                   >
-                    {renderedItems.slice(sampleMode.editableItemCount)}
+                    {renderedItems.slice(editableCount)}
                     <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#FAF8F2] to-transparent" />
                   </div>
                 </>

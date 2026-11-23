@@ -74,6 +74,10 @@ type PlanPrimaryContentProps = {
   topContent?: ReactNode;
   /** Free preview: show the timeline (the result) first and the setup steps after it. */
   setupAfterPlan?: boolean;
+  /** Chronology view of the plan (engine shared with the mobile app). */
+  renderChronology?: ComponentProps<typeof ActionPlan>["renderChronology"];
+  /** Race name shown in the race band above the views. */
+  raceName?: string | null;
 };
 
 export const PlanPrimaryContent = memo(function PlanPrimaryContent({
@@ -117,6 +121,8 @@ export const PlanPrimaryContent = memo(function PlanPrimaryContent({
   sampleMode,
   topContent,
   setupAfterPlan = false,
+  renderChronology,
+  raceName = null,
 }: PlanPrimaryContentProps) {
   return (
     <div className={`space-y-6 ${planFontVariables}`}>
@@ -160,6 +166,8 @@ export const PlanPrimaryContent = memo(function PlanPrimaryContent({
         onUpgrade={onUpgrade}
         upgradeStatus={upgradeStatus}
         sampleMode={sampleMode}
+        renderChronology={renderChronology}
+        raceName={raceName}
       />
       {setupAfterPlan ? setupContent : null}
     </div>

@@ -155,3 +155,33 @@ export function buildPlanChronology(input: PlanChronologyInput): ChronologySecti
     };
   });
 }
+
+/** Time window of one web planner section (from the timeline segments, pauses and pace overrides included). */
+export type ChronologySectionWindow = { startMinute: number; durationMin: number; fromName: string; toName: string };
+
+/**
+ * Re-times the shared engine's sections onto the web timeline: the engine does not know the web per-section
+ * pace adjustments, so each section's events keep their relative position inside the section and are scaled
+ * to the web section window. The three views then never disagree on passage times or names.
+ */
+export function alignChronologyToSections(
+  sections: ChronologySection[],
+  windows: ChronologySectionWindow[],
+): ChronologySection[] {
+  return sections.map((section, index) => {
+    const window = windows[index];
+    if (!window) return section;
+    const ratio = section.durationMin > 0 ? window.durationMin / section.durationMin : 1;
+    return {
+      ...section,
+      fromName: window.fromName,
+      toName: window.toName,
+      startMinute: window.startMinute,
+      durationMin: window.durationMin,
+      events: section.events.map((event) => ({
+        ...event,
+        minute: Math.round(window.startMinute + Math.max(0, event.minute - section.startMinute) * ratio),
+      })),
+    };
+  });
+}
