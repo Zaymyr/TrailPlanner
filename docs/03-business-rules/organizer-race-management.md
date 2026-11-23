@@ -329,6 +329,10 @@ Structured mobile reads are additive and deployment-tolerant: an unavailable ser
 
 Published mobile RaceBooks are immutable per-format snapshots selected explicitly by the organizer. Autosaved race, edition, event, GPX, module, services, sponsor, and branding changes update only the draft revision and do not invalidate the current public snapshot. Publication or restoration invalidates the corresponding race, edition and event tags; the `/api/racebook-data`, sponsor, and published GPX responses resolve one same publication. An organizer may read the last snapshot of a private format; no mobile route falls back to draft tables. If invalidation is unavailable, the previous publication remains safe and the bounded CDN TTL is the consistency fallback. That TTL is one hour (one-day stale-while-revalidate): tag purges, not expiry, are the normal delivery path for organizer changes. Organizer password, sign-up, and OAuth returns to `/organizers` or `/organizer` keep the same `next` validation; the auth pages now read it from the URL at submission time.
 
+## Runner plan preview (2026-11-23)
+
+The web runner planner now shows a free sample of the plan (departure and first aid station editable, the rest locked); organizer data (aid stations, services, product suggestions) is displayed unchanged in both parts, and no organizer field, visibility or publication rule changes. The floating feedback bubble of the planner (bottom left, the only entry to its feedback form) was removed on the same day. See [runner-monetization.md](./runner-monetization.md#web-free-plan-preview-2026-11-23).
+
 ## Module activation
 
 Information and Course/GPX are permanent. Other edition or format tiles are `active`, `inactive`, or editable `draftOnly` from the shared module catalog. The section chooser uses normal switches for every tier and only one discreet minimum-offer label for draft-only sections. Switches remain local until one explicit save; disabled modules disappear from navigation and completion only after the confirmed response, while their data remains stored.

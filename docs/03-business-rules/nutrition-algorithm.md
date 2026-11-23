@@ -176,6 +176,10 @@ They are not part of the auto-fill candidate pool by default. Web auto-fill expo
 
 Mobile has no organizer-specific UI in v1.
 
+## Free plan preview (2026-11-23)
+
+The planner free preview reuses the same computation for every section; it only makes the points after the first aid station inert. Needs, carryover and auto-fill results are unchanged (auto-fill is not offered in the preview). The floating feedback bubble of the planner (bottom left, the only entry to its feedback form) was removed on the same day.
+
 ## Planner Carryover Rule
 
 The current planner rule is cumulative across the race, not reset per aid station.

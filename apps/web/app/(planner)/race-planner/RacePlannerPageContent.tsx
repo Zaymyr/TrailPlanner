@@ -4,6 +4,7 @@ import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import type { Route } from "next";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Button } from "../../../components/ui/button";
@@ -59,8 +60,16 @@ import { trackPlanExported, trackRunnerCheckoutStarted } from "../../../lib/prod
 import type { RunnerPlanAccess } from "../../../lib/runner-access";
 import { RunnerProfileStep } from "./components/RunnerProfileStep";
 import { QuickRaceEstimate } from "./components/QuickRaceEstimate";
-import { RunnerPlanPreview } from "./components/RunnerPlanPreview";
-import { rememberRunnerReturnPath } from "../../../lib/organizer-acquisition";
+import {
+  PLAN_SAMPLE_EDITABLE_ITEM_COUNT,
+  PlanSampleBanner,
+  PlanSampleLockedCta,
+  VisitorPlanSaveBar,
+  focusPlanSampleCta,
+} from "./components/PlanSample";
+import { useRunnerPrice } from "../../hooks/useRunnerPrice";
+import { trackGoogleAnalyticsEvent } from "../../../lib/google-analytics";
+import { buildAuthHref, rememberRunnerReturnPath } from "../../../lib/organizer-acquisition";
 import { RunnerAppBridge } from "../../courses/_components/RunnerAppBridge";
 
 type CatalogRaceSummary = {
@@ -71,23 +80,6 @@ type CatalogRaceSummary = {
   elevationGainM: number | null;
   date: string | null;
 };
-
-const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width={24}
-    height={24}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth={2}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    {...props}
-  >
-    <path d="M21 11.5a8.38 8.38 0 0 1-1.9 5.4 8.5 8.5 0 0 1-6.6 3.1 8.38 8.38 0 0 1-5.4-1.9L3 21l1.9-4.1a8.38 8.38 0 0 1-1.9-5.4 8.5 8.5 0 0 1 3.1-6.6 8.38 8.38 0 0 1 5.4-1.9h.5a8.48 8.48 0 0 1 8 8v.5Z" />
-  </svg>
-);
 
 type StripeInterval = "day" | "week" | "month" | "year";
 
@@ -152,6 +144,9 @@ const buildDefaultValues = (copy: RacePlannerTranslations): FormValues => ({
   ],
   finishPlan: {},
 });
+
+/** Visitor plan preview kept in this browser across sign-up (adopted by the plan created afterwards). */
+const GUEST_PLAN_DRAFT_KEY = "runner.guestPlanDraft";
 
 const buildPacingDefaultsFromFlatPace = (comfortableFlatPaceMinPerKm: number) => {
   const totalSeconds = Math.round(comfortableFlatPaceMinPerKm * 60);
@@ -406,12 +401,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const {
     state: {
       importError,
-      feedbackOpen,
-      feedbackSubject,
-      feedbackDetail,
-      feedbackStatus,
-      feedbackError,
-      isDesktopApp,
       mobileView,
       isSettingsCollapsed,
       isRaceCatalogOpen,
@@ -423,12 +412,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     },
     actions: {
       setImportError,
-      setFeedbackOpen,
-      setFeedbackSubject,
-      setFeedbackDetail,
-      setFeedbackStatus,
-      setFeedbackError,
-      setIsDesktopApp,
       setMobileView,
       setIsSettingsCollapsed,
       setIsRaceCatalogOpen,
@@ -445,11 +428,10 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [hasImportedCourse, setHasImportedCourse] = useState(false);
 
   useEffect(() => {
-    if (!feedbackOpen && !upgradeDialogOpen) return;
+    if (!upgradeDialogOpen) return;
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      setFeedbackOpen(false);
       setUpgradeDialogOpen(false);
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -457,7 +439,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       document.removeEventListener("keydown", handleKeyDown);
       previousFocus?.focus();
     };
-  }, [feedbackOpen, setFeedbackOpen, setUpgradeDialogOpen, upgradeDialogOpen]);
+  }, [setUpgradeDialogOpen, upgradeDialogOpen]);
 
   useEffect(() => {
     if (initializedQueryRef.current) return;
@@ -500,14 +482,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     return () => controller.abort();
   }, [pendingCatalogRaceId]);
 
-  useEffect(() => {
-    const userAgent = typeof navigator !== "undefined" ? navigator.userAgent.toLowerCase() : "";
-    const isElectron = userAgent.includes("electron");
-    const isStandalone = typeof window !== "undefined" && window.matchMedia?.("(display-mode: standalone)").matches;
-
-    setIsDesktopApp(isElectron || Boolean(isStandalone));
-  }, [setIsDesktopApp]);
-
   // Keep the plan tab active throughout the tutorial.
   // Step 5 targets the site header sign-in button which is always visible.
   /* Tutorial removed: the runner now enters through the course context directly. */
@@ -539,6 +513,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     handleRenamePlan,
     handleRefreshPlans,
     handleUseCatalogRace,
+    loadCatalogRaceLocally,
     handleCreateRace,
     handleDeleteRace,
   } = useRacePlan({
@@ -601,6 +576,80 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const currentRunnerAccess = runnerAccess?.planId === activePlanId && runnerAccess?.userId === session?.id ? runnerAccess.access : null;
   const runnerCanEdit = runnerEnabled === false || currentRunnerAccess?.canEdit === true;
   const runnerCanViewDetails = runnerEnabled === false || currentRunnerAccess?.canViewDetails === true;
+
+  // Free plan preview (2026-11-23): a visitor opens the plan of a catalog race from the quick estimate and a
+  // free account opens its saved plan; both prepare the departure and the first aid station, the rest of the
+  // timeline is locked behind the account (visitor) or the course unlock (free account).
+  const [visitorPlanOpen, setVisitorPlanOpen] = useState(false);
+  const [isOpeningVisitorPlan, setIsOpeningVisitorPlan] = useState(false);
+  const courseOfferPrice = useRunnerPrice("course", locale);
+  const annualOfferPrice = useRunnerPrice("annual", locale);
+  const isVisitor = runnerEnabled === true && (!session || session.isAnonymous === true);
+  const isFreeSample = runnerEnabled === true && Boolean(session) && session?.isAnonymous !== true && Boolean(activePlanId) && !runnerCanViewDetails;
+  const sampleAudience: "visitor" | "free" | null = isVisitor && visitorPlanOpen ? "visitor" : isFreeSample ? "free" : null;
+
+  const handleOpenVisitorPlan = useCallback(async (flatPaceMinPerKm: number) => {
+    if (!pendingCatalogRaceId) return;
+    setIsOpeningVisitorPlan(true);
+    const loaded = await loadCatalogRaceLocally(pendingCatalogRaceId);
+    setIsOpeningVisitorPlan(false);
+    if (!loaded) return;
+    const pacing = buildPacingDefaultsFromFlatPace(flatPaceMinPerKm);
+    form.setValue("paceType", pacing.paceType);
+    form.setValue("paceMinutes", pacing.paceMinutes);
+    form.setValue("paceSeconds", pacing.paceSeconds);
+    form.setValue("speedKph", pacing.speedKph);
+    setVisitorPlanOpen(true);
+    trackGoogleAnalyticsEvent("visitor plan opened", { event_category: "plan", race_id: pendingCatalogRaceId });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [form, loadCatalogRaceLocally, pendingCatalogRaceId]);
+
+  /** Catalog pick: a visitor goes to the account-free estimate of that race, an account creates its plan. */
+  const handlePickCatalogRace = useCallback((raceId: string) => {
+    if (!isVisitor) {
+      void handleUseCatalogRace(raceId);
+      return;
+    }
+    const returnPath = `/race-planner?catalogRaceId=${encodeURIComponent(raceId)}`;
+    setVisitorPlanOpen(false);
+    setPendingCatalogRaceId(raceId);
+    setIsRaceCatalogOpen(false);
+    try {
+      window.sessionStorage.setItem("runner.pendingCatalogRaceId", raceId);
+    } catch {
+      // Session storage only keeps the race across reloads.
+    }
+    rememberRunnerReturnPath(returnPath);
+    router.replace(returnPath as Route, { scroll: false });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [handleUseCatalogRace, isVisitor, router, setIsRaceCatalogOpen]);
+
+  /** Visitor « save »: keep the preview in this browser, then create the account (the plan is created after). */
+  const handleVisitorSave = useCallback(() => {
+    if (!pendingCatalogRaceId) return;
+    const values = sanitizePlannerValues(form.getValues());
+    try {
+      window.localStorage.setItem(
+        GUEST_PLAN_DRAFT_KEY,
+        JSON.stringify({
+          catalogRaceId: pendingCatalogRaceId,
+          values,
+          elevationProfile: sanitizeElevationProfile(elevationProfile),
+          planName: planName.trim() || undefined,
+          savedAt: new Date().toISOString(),
+        }),
+      );
+    } catch {
+      // Without storage the account still saves the race and the pace.
+    }
+    trackGoogleAnalyticsEvent("visitor plan save", { event_category: "plan", race_id: pendingCatalogRaceId });
+    router.push(buildAuthHref("/sign-up", `/race-planner?catalogRaceId=${encodeURIComponent(pendingCatalogRaceId)}`) as Route);
+  }, [elevationProfile, form, pendingCatalogRaceId, planName, router]);
+
+  const handleSampleLockedAction = useCallback(() => {
+    trackGoogleAnalyticsEvent("plan sample locked action", { event_category: "plan", audience: sampleAudience ?? "none" });
+    focusPlanSampleCta();
+  }, [sampleAudience]);
 
   useEffect(() => {
     if (!queryPlanIdRef.current) return;
@@ -728,6 +777,31 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
     return () => window.clearTimeout(timeout);
   }, [plannerToast]);
+
+  // After sign-up, the plan created for the race the visitor prepared adopts the preview kept in this
+  // browser as its local draft (restored just below). A free account keeps it locally until the unlock.
+  useEffect(() => {
+    if (!activePlanId || !activePlan?.catalogRaceId) return;
+    let stored: { catalogRaceId?: string; values?: unknown; elevationProfile?: unknown; planName?: string } | null = null;
+    try {
+      stored = JSON.parse(window.localStorage.getItem(GUEST_PLAN_DRAFT_KEY) ?? "null");
+    } catch {
+      stored = null;
+    }
+    if (!stored || stored.catalogRaceId !== activePlan.catalogRaceId) return;
+    window.localStorage.removeItem(GUEST_PLAN_DRAFT_KEY);
+    const values = sanitizePlannerValues(stored.values as PlannerStorageValues);
+    if (!values) return;
+    const planUpdatedAt = Date.parse(activePlan.updatedAt ?? "");
+    writeRacePlannerDraft<PlannerStorageValues, ElevationPoint[]>(activePlanId, {
+      version: 1,
+      values,
+      elevationProfile: sanitizeElevationProfile(stored.elevationProfile as ElevationPoint[]),
+      // Newer than the plan row so the restore below wins, even with a small client/server clock skew.
+      updatedAt: new Date(Math.max(Date.now(), Number.isFinite(planUpdatedAt) ? planUpdatedAt + 1_000 : 0)).toISOString(),
+      planName: stored.planName,
+    });
+  }, [activePlan, activePlanId]);
 
   useEffect(() => {
     if (queryPlanIdRef.current) return;
@@ -1336,63 +1410,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     });
   };
 
-  const handleSubmitFeedback = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const subject = feedbackSubject.trim();
-    const detail = feedbackDetail.trim();
-
-    if (!subject || !detail) {
-      setFeedbackStatus("error");
-      setFeedbackError(racePlannerCopy.sections.summary.feedback.required);
-      return;
-    }
-
-    try {
-      setFeedbackStatus("submitting");
-      setFeedbackError(null);
-
-      const response = await fetch("/api/feedback", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : {}),
-        },
-        body: JSON.stringify({ kind: "feedback", screen: "race-planner", subject, detail }),
-      });
-
-      const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-
-      if (!response.ok) {
-        setFeedbackStatus("error");
-        setFeedbackError(payload?.message ?? racePlannerCopy.sections.summary.feedback.error);
-        return;
-      }
-
-      setFeedbackStatus("success");
-      setFeedbackSubject("");
-      setFeedbackDetail("");
-    } catch (error) {
-      console.error("Unable to send feedback", error);
-      setFeedbackStatus("error");
-      setFeedbackError(racePlannerCopy.sections.summary.feedback.error);
-    }
-  };
-
-  const openFeedbackForm = () => {
-    setFeedbackOpen(true);
-    setFeedbackStatus("idle");
-    setFeedbackError(null);
-  };
-
-  const closeFeedbackForm = () => {
-    setFeedbackOpen(false);
-    setFeedbackError(null);
-    setFeedbackStatus("idle");
-  };
-
   const pagePaddingClass = enableMobileNav ? "pb-40 xl:pb-6" : "pb-6 xl:pb-6";
-  const feedbackButtonOffsetClass = enableMobileNav ? "bottom-32" : "bottom-6";
   const handleAddAidStation = useCallback(
     (station?: { name: string; distanceKm: number; waterRefill?: boolean; solidRefill?: boolean; assistanceAllowed?: boolean }) => {
       append({
@@ -1854,6 +1872,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       ]}
     />
   );
+  const contextualRaceNameForSample = pendingCatalogRace?.name ?? activePlan?.raceName ?? null;
   const planPrimaryContent = (
     <PlanPrimaryContent
       profileError={profileError}
@@ -1900,6 +1919,34 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       premiumCopy={premiumCopy}
       onUpgrade={handlePremiumFeature}
       upgradeStatus={upgradeStatus}
+      sampleMode={
+        sampleAudience
+          ? {
+              editableItemCount: PLAN_SAMPLE_EDITABLE_ITEM_COUNT,
+              onLockedAction: handleSampleLockedAction,
+              lockedCta: (lockedAidStationCount: number) => (
+                <PlanSampleLockedCta
+                  audience={sampleAudience}
+                  remainingAidStations={lockedAidStationCount}
+                  coursePrice={courseOfferPrice.formatted}
+                  annualPrice={annualOfferPrice.formatted}
+                  onCreateAccount={handleVisitorSave}
+                  unlockHref={activePlanId ? `/premium?planId=${encodeURIComponent(activePlanId)}` : "/premium"}
+                />
+              ),
+            }
+          : undefined
+      }
+      topContent={
+        sampleAudience ? (
+          <PlanSampleBanner
+            audience={sampleAudience}
+            raceName={contextualRaceNameForSample}
+            onCreateAccount={handleVisitorSave}
+            unlockHref={activePlanId ? `/premium?planId=${encodeURIComponent(activePlanId)}` : "/premium"}
+          />
+        ) : null
+      }
     />
   );
 
@@ -1936,7 +1983,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         isOpen={isRaceSelectorOpen}
         onClose={() => setIsRaceSelectorOpen(false)}
         onRaceSelected={(raceId) => {
-          void handleUseCatalogRace(raceId);
+          handlePickCatalogRace(raceId);
           setIsRaceSelectorOpen(false);
         }}
         onCreateRace={async (values) => {
@@ -1960,9 +2007,13 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     const savedPlan = await handleSavePlan();
     if (!savedPlan) return;
 
-    clearRacePlannerDraft(activePlanId);
-    if (savedPlan.id !== activePlanId) {
-      clearRacePlannerDraft(savedPlan.id);
+    // A free plan row drops the aid-station preparation (sanitize_runner_free_plan): keep the local draft so
+    // the first aid station survives until the course is unlocked.
+    if (!isFreeSample) {
+      clearRacePlannerDraft(activePlanId);
+      if (savedPlan.id !== activePlanId) {
+        clearRacePlannerDraft(savedPlan.id);
+      }
     }
 
     const savedTime = new Date().toLocaleTimeString(locale === "fr" ? "fr-FR" : "en-US", {
@@ -1974,7 +2025,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       message: racePlannerCopy.page.savedAt.replace("{time}", savedTime),
       durationMs: 4_000,
     });
-  }, [activePlanId, handleSavePlan, locale, racePlannerCopy.page.savedAt, showPlannerToast]);
+  }, [activePlanId, handleSavePlan, isFreeSample, locale, racePlannerCopy.page.savedAt, showPlannerToast]);
 
   if (isLoading) return <PageLoadingSkeleton />;
 
@@ -1989,13 +2040,15 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   // account-free estimate instead of an account wall. The legacy guest planner
   // (runner mode off) keeps loading the course directly.
   const isQuickEstimateEntry = Boolean(runnerEnabled === true && (!session || session.isAnonymous) && pendingCatalogRaceId && !hasImportedCourse);
+  // The planner mobile bar (Importer / Timeline / …) has no use on the estimate and would sit on the visitor save bar.
+  const hideMobileNav = sampleAudience === "visitor" || isQuickEstimateEntry;
   const raceReturnPath = pendingCatalogRaceId
     ? `/race-planner?catalogRaceId=${encodeURIComponent(pendingCatalogRaceId)}`
     : "/race-planner";
   const appBridgeUrl = `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://pace-yourself.com"}/race-planner${activePlanId ? `?planId=${encodeURIComponent(activePlanId)}` : ""}`;
   const saveBarContextLabel = `${raceNameForSaveBar} — ${planNameForSaveBar}`;
   const hasBlockingOverlayOpen =
-    isRaceSelectorOpen || isRaceCatalogOpen || feedbackOpen || upgradeDialogOpen;
+    isRaceSelectorOpen || isRaceCatalogOpen || upgradeDialogOpen;
   const shouldShowSaveBar = hasUnsavedChanges && !hasBlockingOverlayOpen;
   const saveBarDisabled = authStatus === "checking" || !canSavePlan;
   const saveBarContent = (
@@ -2064,8 +2117,41 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           </h1>
         </div>
         {runnerEnabled === false ? <GuestSaveBanner isAuthed={isAuthed} /> : null}
-        {runnerEnabled === null ? <p role="status">{locale === "fr" ? "Chargement des accès…" : "Loading access…"}</p> : isQuickEstimateEntry ? (
-          <QuickRaceEstimate race={pendingCatalogRace} returnPath={raceReturnPath} />
+        {runnerEnabled === null ? <p role="status">{locale === "fr" ? "Chargement des accès…" : "Loading access…"}</p> : sampleAudience === "visitor" ? (
+          <RacePlannerLayout
+            className="space-y-6 pb-24"
+            planContent={planPrimaryContent}
+            settingsContent={
+              <div className="space-y-4 rounded-2xl border border-border bg-card p-5">
+                <p className="text-base font-bold text-foreground">Garde ton plan</p>
+                <p className="text-sm text-muted-foreground">
+                  Ton plan vit dans ce navigateur pour l’instant. Crée ton compte gratuit pour le retrouver sur le web et dans l’app.
+                </p>
+                <Button type="button" className="h-11 w-full rounded-xl" onClick={handleVisitorSave}>
+                  Enregistrer mon plan
+                </Button>
+                <Button type="button" variant="outline" className="h-11 w-full rounded-xl" onClick={() => setIsRaceCatalogOpen(true)}>
+                  Choisir une autre course
+                </Button>
+              </div>
+            }
+            floatingFooter={<VisitorPlanSaveBar onCreateAccount={handleVisitorSave} />}
+            mobileView={mobileView}
+            onMobileViewChange={setMobileView}
+            planLabel={racePlannerCopy.sections.summary.title}
+            settingsLabel={locale === "fr" ? "Enregistrer" : "Save"}
+            isSettingsCollapsed={isSettingsCollapsed}
+            onSettingsToggle={() => setIsSettingsCollapsed((collapsed) => !collapsed)}
+            settingsCount={0}
+            collapseSettingsLabel={racePlannerCopy.sections.layout.collapsePanel}
+            expandSettingsLabel={racePlannerCopy.sections.layout.expandPanel}
+          />
+        ) : isQuickEstimateEntry ? (
+          <QuickRaceEstimate
+            race={pendingCatalogRace}
+            onOpenPlan={(flatPaceMinPerKm) => void handleOpenVisitorPlan(flatPaceMinPerKm)}
+            isOpeningPlan={isOpeningVisitorPlan}
+          />
         ) : runnerEnabled && (!session || session.isAnonymous) && Boolean(contextualRaceName || pendingCatalogRaceId || hasImportedCourse) ? (
           <section className="space-y-4 rounded-2xl border border-border bg-card p-6">
             <h2 className="text-xl font-semibold">
@@ -2134,15 +2220,27 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           </section>
         ) : runnerEnabled && !runnerCanViewDetails ? (
           <div className="space-y-6">
-            <RunnerPlanPreview locale={locale} planId={activePlanId} duration={pacingOverviewDuration} distanceKm={distanceForDuration} segments={segments} onSave={() => { void handleSaveWithToast(); }} />
+            <RacePlannerLayout
+              className="space-y-6"
+              planContent={planPrimaryContent}
+              settingsContent={settingsContent}
+              floatingFooter={saveBarContent}
+              mobileView={mobileView}
+              onMobileViewChange={setMobileView}
+              planLabel={racePlannerCopy.sections.summary.title}
+              settingsLabel={racePlannerCopy.account.plans.title}
+              isSettingsCollapsed={isSettingsCollapsed}
+              onSettingsToggle={() => setIsSettingsCollapsed((collapsed) => !collapsed)}
+              settingsCount={visibleSavedPlans.length}
+              collapseSettingsLabel={racePlannerCopy.sections.layout.collapsePanel}
+              expandSettingsLabel={racePlannerCopy.sections.layout.expandPanel}
+            />
             <RunnerAppBridge
               context="estimate"
               courseName={contextualRaceName ?? planNameForSaveBar}
               universalUrl={appBridgeUrl}
               racebookAvailable={false}
             />
-            <Button type="button" variant="outline" onClick={() => setIsRaceCatalogOpen(true)}>{locale === "fr" ? "Choisir une autre course" : "Choose another race"}</Button>
-            {settingsContent}
           </div>
         ) : <fieldset disabled={runnerEnabled && !runnerCanEdit} className="min-w-0">
         {runnerEnabled && !runnerCanEdit ? <p role="status" className="mb-4">{locale === "fr" ? "Ton plan reste consultable. Débloque cette course ou réabonne-toi pour le modifier." : "Your plan remains readable. Unlock this race or subscribe to edit."} <Link href={`/premium?planId=${activePlanId}`} className="underline">{locale === "fr" ? "Voir les offres" : "View offers"}</Link></p> : null}
@@ -2163,7 +2261,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         />
         </fieldset>}
 
-        {enableMobileNav ? (
+        {enableMobileNav && !hideMobileNav ? (
           <div className="fixed bottom-4 left-4 right-4 z-30 xl:hidden">
             <div className="rounded-full border border-border bg-card/95 px-2 py-2 shadow-lg shadow-emerald-500/20 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
               <div className="grid grid-cols-4 gap-2 text-xs font-semibold text-foreground dark:text-slate-100">
@@ -2189,79 +2287,9 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           isAdmin={Boolean(isAdmin)}
           copy={{ ...racePlannerCopy.raceCatalog, units: racePlannerCopy.units }}
           onClose={() => setIsRaceCatalogOpen(false)}
-          onUseRace={handleUseCatalogRace}
+          onUseRace={handlePickCatalogRace}
         />
 
-        {!isDesktopApp && (
-          <Button
-            type="button"
-            className={`fixed ${feedbackButtonOffsetClass} left-6 z-20 inline-flex h-12 w-12 rounded-full shadow-lg`}
-            aria-label={racePlannerCopy.sections.summary.feedback.open}
-            onClick={openFeedbackForm}
-          >
-            <MessageCircleIcon className="h-5 w-5" />
-          </Button>
-        )}
-
-        {feedbackOpen && (
-          <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/70 px-4">
-            <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-lg border border-border bg-card p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900/90">
-              <Button
-                type="button"
-                variant="ghost"
-                className="absolute right-2 top-2 h-8 w-8 p-0 text-lg text-foreground dark:text-slate-200"
-                aria-label="Close feedback form"
-                onClick={closeFeedbackForm}
-              >
-                ×
-              </Button>
-              <div className="mb-4 pr-8">
-                <p className="text-lg font-semibold text-foreground dark:text-slate-50">
-                  {racePlannerCopy.sections.summary.feedback.title}
-                </p>
-              </div>
-
-              <form id="feedback-form" className="space-y-3" onSubmit={handleSubmitFeedback}>
-                <div className="space-y-1">
-                  <Label htmlFor="feedback-subject">{racePlannerCopy.sections.summary.feedback.subject}</Label>
-                  <Input
-                    id="feedback-subject"
-                    value={feedbackSubject}
-                    onChange={(event) => {
-                      setFeedbackSubject(event.target.value);
-                      setFeedbackStatus("idle");
-                      setFeedbackError(null);
-                    }}
-                    required
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="feedback-detail">{racePlannerCopy.sections.summary.feedback.detail}</Label>
-                  <textarea
-                    id="feedback-detail"
-                    value={feedbackDetail}
-                    onChange={(event) => {
-                      setFeedbackDetail(event.target.value);
-                      setFeedbackStatus("idle");
-                      setFeedbackError(null);
-                    }}
-                    required
-                    className="min-h-[120px] w-full rounded-md border border-border bg-background p-3 text-sm text-foreground shadow-sm transition placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400 dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-50 dark:placeholder:text-slate-500"
-                  />
-                </div>
-                {feedbackError && <p className="text-sm text-red-400">{feedbackError}</p>}
-                {feedbackStatus === "success" && !feedbackError && (
-                  <p className="text-sm text-emerald-400">{racePlannerCopy.sections.summary.feedback.success}</p>
-                )}
-                <div className="flex justify-end">
-                  <Button type="submit" className="w-full sm:w-auto" disabled={feedbackStatus === "submitting"}>
-                    {racePlannerCopy.sections.summary.feedback.submit}
-                  </Button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
 
         {upgradeDialogOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 py-8 backdrop-blur">

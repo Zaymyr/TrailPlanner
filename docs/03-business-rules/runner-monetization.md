@@ -1,7 +1,7 @@
 ---
 title: Runner Monetization
 scope: business-rule
-last_verified: 2026-11-22
+last_verified: 2026-11-23
 ai_priority: high
 related_files:
   - apps/mobile/components/plan-workspace/LockedPlanContent.tsx
@@ -21,7 +21,8 @@ related_files:
   - apps/web/components/RunnerAdminAccessMode.tsx
   - apps/web/app/onboarding/layout.tsx
   - apps/web/app/(planner)/race-planner/components/RunnerProfileStep.tsx
-  - apps/web/app/(planner)/race-planner/components/RunnerPlanPreview.tsx
+  - apps/web/app/(planner)/race-planner/components/PlanSample.tsx
+  - apps/web/app/(planner)/race-planner/components/QuickRaceEstimate.tsx
   - apps/web/lib/profile-types.ts
   - packages/shared/src/runnerProfile.ts
   - apps/web/app/hooks/useRunnerPrice.ts
@@ -69,11 +70,11 @@ New plans require an identified account. Course selection survives authenticatio
 
 Favorite nutrition products are unlimited for every runner. The backward-compatible `favoriteLimit` entitlement remains nullable/unbounded for older clients, but no client may enforce or advertise a favorite quota.
 
-The algorithm uses its actual pace/capacity/target inputs; it must not claim that optional identity/body fields change the chrono without an implemented algorithm. The free view renders genuine calculated total duration, average pace and section needs. Contextual CTAs lead to pace adjustment or station-by-station nutrition preparation. Editable controls must not be mounted in a free preview.
+The algorithm uses its actual pace/capacity/target inputs; it must not claim that optional identity/body fields change the chrono without an implemented algorithm. The free view renders genuine calculated total duration, average pace and section needs. Contextual CTAs lead to pace adjustment or station-by-station nutrition preparation. Since 2026-11-23 the web free preview is the real planner with a sample (see « Web free plan preview » below): only the departure and the first aid station are editable, every other point is mounted inert behind the unlock CTA. The mobile preview is unchanged.
 
 The legacy web onboarding routes defer to the new planner while monetization is enabled. The authenticated profile API includes `birthDate`, `heightCm`, `weightKg` and `defaultCarbsGPerHour` alongside existing fields.
 
-The web course arrival keeps a validated `catalogRaceId` across sign-up, sign-in, OAuth and e-mail confirmation. Anonymous runners arriving with a catalog race see one course-context screen before authentication: the account-free `QuickRaceEstimate` (flat pace and/or UTMB Index → total time and ravito passages, no plan created, no paid detail unlocked), followed by app download or web sign-up/sign-in that keeps the course return path. Values typed there only prefill an empty `RunnerProfileStep`. Anonymous GPX imports keep the account screen. The blocking tutorial and guest-save warning are not part of this runner journey. Price presentation comes from the provider through the shared web price hook; an unconfigured offer is explicitly unavailable and never replaced by a legacy price.
+The web course arrival keeps a validated `catalogRaceId` across sign-up, sign-in, OAuth and e-mail confirmation. Anonymous runners arriving with a catalog race see one course-context screen before authentication: the account-free `QuickRaceEstimate` (flat pace and/or UTMB Index → total time and ravito passages, no plan created, no paid detail unlocked), followed (since 2026-11-23) by « Voir mon plan de course », which opens the free plan preview without an account (see below); the app download stays a secondary link. The estimate accepts a flat pace or a flat 10 km time (converted to pace = time / 10) and an optional UTMB Index. Values typed there only prefill an empty `RunnerProfileStep`. Anonymous GPX imports keep the account screen. The blocking tutorial and guest-save warning are not part of this runner journey. Price presentation comes from the provider through the shared web price hook; an unconfigured offer is explicitly unavailable and never replaced by a legacy price.
 
 The mobile Livret coureur shows the shared `Livret officiel | Mon plan` switch below the collapsing heroes only when the runner owns a plan for the format. Without one, plan creation is offered only by the discreet `RacebookPlanInviteCard` at the end of the Course tab; it routes to the same creation flow and purchase gates. In a locked preview, the real departure and its first following section are clear; remaining real course cards/sections remain scrollable but non-interactive and accessibility-hidden behind the implemented light veil. There is no cutoff or automatic paywall. One full CTA card (title, description and button) remains vertically centered in the usable area below headers/tabs and above the scroll bottom while scrolling, then returns inline at the top; measured geometry is clamped on small screens. Exactly one CTA is visible and accessibility-active. Visible first-sample edit/add/split actions and auto-fill open that same central paywall without mutation. A plan-specific paywall leads with the EUR 9.99 course purchase (provider price is authoritative) and offers EUR 29.99 annual access second; without a plan, annual remains primary.
 
@@ -163,5 +164,14 @@ The standardized Livret/Plan segmented control and removal of the duplicate Race
 ## Admin audit journal (lot 7)
 
 `app/api/admin/runner-access-mode/route.ts` now exports its write handler through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`simulation.runner-mode`) to the admin action journal ([`admin_audit_log`](../02-database/tables/admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.
+## Web free plan preview (2026-11-23)
+
+Goal: let the visitor feel the plan before asking for anything. A visitor (no session or an anonymous one) who picks a race in the planner catalog no longer gets a silent local load: the pick sets `?catalogRaceId=` and opens `QuickRaceEstimate`. « Voir mon plan de course » loads the catalog GPX into the local form only (`loadCatalogRaceLocally`, no `race_plans` row), applies the estimate flat pace and shows the real planner with `sampleMode` (`PlanSample.tsx`): the departure and the first aid station (`PLAN_SAMPLE_EDITABLE_ITEM_COUNT = 2`) are fully editable (supplies, pauses, services, pace), the rest of the timeline is blurred, inert and `aria-hidden` behind one CTA card; « Ajouter un ravito », auto-fill and print scroll to that card instead of acting.
+
+- Visitor: the CTA, the banner and a sticky bar offer « Enregistrer mon plan ». It stores the preview in `localStorage` (`runner.guestPlanDraft`: race id, planner values, elevation, name) and opens sign-up with `next=/race-planner?catalogRaceId=…`. After the account and the profile step, the plan created from the catalog adopts that preview as its local draft (restored by the existing draft logic).
+- Free account: the same sample replaces the former read-only `RunnerPlanPreview` (removed). The CTA leads to `/premium?planId=…` with the provider course price first and the annual price second. Saving keeps the local draft because `sanitize_runner_free_plan` drops aid-station preparation from a free row: the first-aid-station work stays on this device and is saved for real once the course is unlocked.
+- No database, RLS or API change: free rows are still sanitized server-side and nothing in the preview grants a paid capability. A course with one aid station or fewer has nothing to lock and shows no CTA card (the banner still offers the next step).
+- Analytics (Google Analytics): `quick estimate open plan`, `visitor plan opened`, `visitor plan save`, `plan sample locked action`.
+
 ## Web funnel analytics (2026-11-22)
 `/premium` now emits `premium paywall viewed` and, after the checkout session is created, `premium checkout started` or `runner course checkout started` with `offer`; the planner modal and profile page emit the annual event. Purchase verification is emitted after the Stripe return once the entitlement is visible. Offers, prices, access rules and the checkout API are unchanged, and no price string is sent to analytics. Web runner funnel analytics (2026-11-22): see [analytics.md](../05-integrations/analytics.md#web-runner-funnel-2026-11-22).

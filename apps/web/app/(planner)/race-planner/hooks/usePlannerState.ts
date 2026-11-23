@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState, type SetStateAction } from "react";
 
-type FeedbackStatus = "idle" | "submitting" | "success" | "error";
 export type PlannerMobileView = "plan" | "settings";
 export type PlannerUpgradeReason = "autoFill" | "print" | "plans" | null;
 
@@ -10,12 +9,6 @@ const PLANS_PANEL_STORAGE_KEY = "pace-yourself:ui:plans-panel";
 
 export const usePlannerState = () => {
   const [importError, setImportError] = useState<string | null>(null);
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const [feedbackSubject, setFeedbackSubject] = useState("");
-  const [feedbackDetail, setFeedbackDetail] = useState("");
-  const [feedbackStatus, setFeedbackStatus] = useState<FeedbackStatus>("idle");
-  const [feedbackError, setFeedbackError] = useState<string | null>(null);
-  const [isDesktopApp, setIsDesktopApp] = useState(false);
   const [mobileView, setMobileView] = useState<PlannerMobileView>("plan");
   const [isSettingsCollapsed, setIsSettingsCollapsedState] = useState(false);
   const [isRaceCatalogOpen, setIsRaceCatalogOpen] = useState(false);
@@ -48,12 +41,6 @@ export const usePlannerState = () => {
   return {
     state: {
       importError,
-      feedbackOpen,
-      feedbackSubject,
-      feedbackDetail,
-      feedbackStatus,
-      feedbackError,
-      isDesktopApp,
       mobileView,
       isSettingsCollapsed,
       isRaceCatalogOpen,
@@ -67,12 +54,6 @@ export const usePlannerState = () => {
     },
     actions: {
       setImportError,
-      setFeedbackOpen,
-      setFeedbackSubject,
-      setFeedbackDetail,
-      setFeedbackStatus,
-      setFeedbackError,
-      setIsDesktopApp,
       setMobileView,
       setIsSettingsCollapsed,
       setIsRaceCatalogOpen,
