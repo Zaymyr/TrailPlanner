@@ -138,6 +138,7 @@ where edition_id = :edition_id;
 
 ## Gotchas
 
+- The Livret quick-return header (`apps/mobile/hooks/useQuickReturnHeader.ts`) is presentation-only: the compact hero and Livret/plan switch hide and reappear on scroll, and nothing about the data, publication, partner, offline or analytics contracts described here changes.
 - The light preview veil and sticky CTA are app-owned presentation and do not expose or modify edition branding.
 
 - The restored RaceBook/Mon plan workspace switch uses app-owned contextual navigation styling and does not read, write, or expose edition branding beyond the existing RaceBook contract.

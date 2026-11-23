@@ -7,7 +7,11 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native';
 
-import { INITIAL_QUICK_RETURN_STATE, nextQuickReturnState } from '../lib/quickReturnHeader';
+import {
+  INITIAL_QUICK_RETURN_STATE,
+  REVEALED_QUICK_RETURN_STATE,
+  nextQuickReturnState,
+} from '../lib/quickReturnHeader';
 import { useReduceMotion } from './useReduceMotion';
 
 const ANIMATION_MS = 180;
@@ -27,7 +31,7 @@ type Options = {
  * `lib/quickReturnHeader.ts`).
  *
  * `hideProgress` goes 0 (shown) → 1 (hidden). Each consumer maps it to its own
- * travel (the header, and the catalog's sticky search card that leaves with it).
+ * travel (the header, the catalog's sticky search card, the Livret/plan switch).
  * The header always stays shown near the top, while the keyboard is open, and
  * when reduce motion or a screen reader is on.
  */
@@ -92,5 +96,12 @@ export function useQuickReturnHeader({ scrollY, threshold, enabled = true }: Opt
     if (next.hidden !== previous.hidden) animateTo(next.hidden);
   }, [active, animateTo, scrollY, threshold]);
 
-  return { hideProgress, onScroll };
+  /** Brings the header back now (tab or section change) and re-bases the next scroll event. */
+  const reveal = useCallback(() => {
+    const wasHidden = stateRef.current.hidden;
+    stateRef.current = REVEALED_QUICK_RETURN_STATE;
+    if (wasHidden) animateTo(false);
+  }, [animateTo]);
+
+  return { hideProgress, onScroll, reveal };
 }

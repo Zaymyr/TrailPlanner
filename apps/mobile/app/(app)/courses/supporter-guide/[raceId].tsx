@@ -72,6 +72,7 @@ import { formatOfflineSavedAt, isServerUnavailableStatus } from '../../../../lib
 import { TapeAlertBanner } from '../../../../components/racebook/TapeAlertBanner';
 import { OnboardingGuideCard } from '../../../../components/onboarding/OnboardingGuideCard';
 import { SpotlightTutorial } from '../../../../components/help/SpotlightTutorial';
+import { useQuickReturnHeader } from '../../../../hooks/useQuickReturnHeader';
 import { useRacebookOnboardingTour } from '../../../../hooks/useRacebookOnboardingTour';
 import type { SpotlightRect, TutorialStep } from '../../../../lib/helpTutorial';
 import { completeOnboarding, skipOnboardingKind } from '../../../../lib/onboardingStatus';
@@ -320,17 +321,6 @@ export default function SupporterGuideScreen() {
     : raceChoices[0]?.raceId ?? null;
   const currentFormat = guide?.formats.find((format) => format.raceId === currentRaceId) ?? null;
 
-  const handleScroll = useMemo(() => Animated.event(
-    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-    { useNativeDriver: false },
-  ), [scrollY]);
-
-  const selectSection = useCallback((section: SupporterGuideSection) => {
-    setActiveSection(section);
-    scrollRef.current?.scrollTo({ y: 0, animated: false });
-    scrollY.setValue(0);
-  }, [scrollY]);
-
   const openUrl = useCallback((url: string) => {
     void Linking.openURL(url).catch(() => undefined);
   }, []);
@@ -350,6 +340,23 @@ export default function SupporterGuideScreen() {
     && Boolean(guide)
     && tabBarHeight > 0;
   const compactHeaderBottom = insets.top + RACEBOOK_HERO_COMPACT_BODY_HEIGHT;
+  // Quick return: the compact hero leaves while the supporter reads down a long
+  // programme and comes back on the first upward scroll. The guided tour keeps it
+  // pinned (its spotlight measures the compact header).
+  const quickReturn = useQuickReturnHeader({
+    scrollY,
+    threshold: resolvedHeroBodyHeight,
+    enabled: !tourActive,
+  });
+  const handleScroll = quickReturn.onScroll;
+  const { reveal: revealHeader } = quickReturn;
+
+  const selectSection = useCallback((section: SupporterGuideSection) => {
+    setActiveSection(section);
+    revealHeader();
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+    scrollY.setValue(0);
+  }, [revealHeader, scrollY]);
   const tourViewportHeightRef = useRef(0);
 
   const resolveTourScrollOffset = useCallback((step: SupporterTourStepSpec) => {
@@ -574,6 +581,7 @@ export default function SupporterGuideScreen() {
         emergencyTargetRef={tour.registerTarget('emergency')}
         onCallEmergency={emergencyUrl ? () => openUrl(emergencyUrl) : undefined}
         onOpenSocial={(url) => openUrl(url)}
+        hideProgress={quickReturn.hideProgress}
         onExpandedBodyHeightChange={(height) => {
           if (!Number.isFinite(height) || height <= 0) return;
           setHeroBodyHeight((current) => (current !== null && Math.abs(current - height) < 1 ? current : height));

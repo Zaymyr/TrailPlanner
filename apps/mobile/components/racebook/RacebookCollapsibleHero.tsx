@@ -21,6 +21,8 @@ import {
 /** Initial expanded height before the content is measured. */
 export const RACEBOOK_HERO_BODY_HEIGHT = 268;
 export const RACEBOOK_HERO_COMPACT_BODY_HEIGHT = RACE_WORKSPACE_COMPACT_BODY_HEIGHT;
+/** Extra travel so the compact hero's shadow also leaves the screen when it hides. */
+const HIDDEN_SHADOW_CLEARANCE = 24;
 
 type SocialLink = {
   accessibilityLabel: string;
@@ -85,6 +87,12 @@ type Props = {
    * figures, e.g. the Supporter Guide's races / distances / days.
    */
   metricsOverride?: { label: string; value: string }[];
+  /**
+   * Quick-return progress from `useQuickReturnHeader` (0 shown → 1 hidden): the
+   * compact hero slides off screen and a strip in the organizer primary keeps the
+   * status bar covered. Omitted, the compact hero stays pinned.
+   */
+  hideProgress?: Animated.Value;
 };
 
 export function RacebookCollapsibleHero({
@@ -128,6 +136,7 @@ export function RacebookCollapsibleHero({
   emergencyTargetRef,
   linksTargetRef,
   metricsOverride,
+  hideProgress,
 }: Props) {
   const [isCompact, setIsCompact] = useState(false);
   const [linksVisible, setLinksVisible] = useState(false);
@@ -158,6 +167,16 @@ export function RacebookCollapsibleHero({
     outputRange: [0, -collapseDistance],
     extrapolate: 'clamp',
   });
+  const hiddenTranslateY = hideProgress?.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -(compactHeight + HIDDEN_SHADOW_CLEARANCE)],
+    extrapolate: 'clamp',
+  });
+  const statusStripOpacity = hideProgress?.interpolate({
+    inputRange: [0, 0.2],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
   // White watch dome: organizer primary when it is dark enough for white text, else ink.
   const watchIconColor = theme.onPrimaryColor === '#FFFFFF' ? theme.primaryColor : Colors.textPrimary;
   const compactActionCount = (socialLinks.length > 0 ? 1 : 0) + (isCompact && emergency && onCallEmergency ? 1 : 0);
@@ -176,179 +195,188 @@ export function RacebookCollapsibleHero({
   }, [onExpandedBodyHeightChange]);
 
   return (
-    <Animated.View
-      style={[
-        styles.hero,
-        attachedBelow && styles.heroAttached,
-        {
-          height: heroHeight,
-          backgroundColor: theme.primaryColor,
-        },
-      ]}
-    >
-      <StatusBar style={theme.onPrimaryColor === '#FFFFFF' ? 'light' : 'dark'} />
-      {imageUrl ? (
-        <Animated.View style={[styles.heroImage, { top: topInset, opacity: expandedOpacity }]}>
-          <Animated.Image source={{ uri: imageUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" blurRadius={24} accessible={false} />
-        </Animated.View>
-      ) : null}
-      {imageUrl ? <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.primaryColor, opacity: HERO_PHOTO_VEIL_OPACITY }]} /> : null}
-
-      {/* Blade in the on-primary color: same contrast pair as the header text. */}
-      <IconAction
-        accessibilityLabel={backLabel}
-        bladeColor={theme.onPrimaryColor}
-        onPress={onBack}
-        style={[styles.backButton, { top: topInset + RACE_WORKSPACE_ACTION_TOP_OFFSET - 1 }]}
-        testID="racebook-back-to-catalog"
-        variant="back"
-      />
-
+    <>
       <Animated.View
-        pointerEvents="none"
         style={[
-          styles.compactContent,
+          styles.hero,
+          attachedBelow && styles.heroAttached,
           {
-            top: topInset,
-            right: 16 + compactActionCount * 52,
-            height: RACEBOOK_HERO_COMPACT_BODY_HEIGHT,
-            opacity: compactOpacity,
+            height: heroHeight,
+            backgroundColor: theme.primaryColor,
           },
+          hiddenTranslateY ? { transform: [{ translateY: hiddenTranslateY }] } : undefined,
         ]}
       >
-        <RaceWorkspaceCompactIdentity title={raceName} courseName={eventName} startLabel={startTimeLabel} startTime={startTimeValue} color={theme.onPrimaryColor} />
-      </Animated.View>
+        <StatusBar style={theme.onPrimaryColor === '#FFFFFF' ? 'light' : 'dark'} />
+        {imageUrl ? (
+          <Animated.View style={[styles.heroImage, { top: topInset, opacity: expandedOpacity }]}>
+            <Animated.Image source={{ uri: imageUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" blurRadius={24} accessible={false} />
+          </Animated.View>
+        ) : null}
+        {imageUrl ? <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.primaryColor, opacity: HERO_PHOTO_VEIL_OPACITY }]} /> : null}
 
-      {socialLinks.length > 0 ? (
-        <View style={[styles.persistentSocialActions, { top: topInset + RACE_WORKSPACE_ACTION_TOP_OFFSET }]}>
-          {isCompact && emergency && onCallEmergency ? (
+        {/* Blade in the on-primary color: same contrast pair as the header text. */}
+        <IconAction
+          accessibilityLabel={backLabel}
+          bladeColor={theme.onPrimaryColor}
+          onPress={onBack}
+          style={[styles.backButton, { top: topInset + RACE_WORKSPACE_ACTION_TOP_OFFSET - 1 }]}
+          testID="racebook-back-to-catalog"
+          variant="back"
+        />
+
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.compactContent,
+            {
+              top: topInset,
+              right: 16 + compactActionCount * 52,
+              height: RACEBOOK_HERO_COMPACT_BODY_HEIGHT,
+              opacity: compactOpacity,
+            },
+          ]}
+        >
+          <RaceWorkspaceCompactIdentity title={raceName} courseName={eventName} startLabel={startTimeLabel} startTime={startTimeValue} color={theme.onPrimaryColor} />
+        </Animated.View>
+
+        {socialLinks.length > 0 ? (
+          <View style={[styles.persistentSocialActions, { top: topInset + RACE_WORKSPACE_ACTION_TOP_OFFSET }]}>
+            {isCompact && emergency && onCallEmergency ? (
+              <IconAction
+                accessibilityLabel={emergency.accessibilityLabel}
+                icon={<Ionicons name="call" size={17} color={Colors.textOnBrand} />}
+                onPress={onCallEmergency}
+                tone="danger"
+              />
+            ) : null}
+            <View collapsable={false} ref={linksTargetRef}>
+              <IconAction
+                accessibilityLabel={linksLabel}
+                icon={<Ionicons name="link-outline" size={18} color={watchIconColor} />}
+                onPress={() => setLinksVisible(true)}
+              />
+            </View>
+          </View>
+        ) : isCompact && emergency && onCallEmergency ? (
+          <View style={[styles.persistentSocialActions, { top: topInset + RACE_WORKSPACE_ACTION_TOP_OFFSET }]}>
             <IconAction
               accessibilityLabel={emergency.accessibilityLabel}
               icon={<Ionicons name="call" size={17} color={Colors.textOnBrand} />}
               onPress={onCallEmergency}
               tone="danger"
             />
-          ) : null}
-          <View collapsable={false} ref={linksTargetRef}>
-            <IconAction
-              accessibilityLabel={linksLabel}
-              icon={<Ionicons name="link-outline" size={18} color={watchIconColor} />}
-              onPress={() => setLinksVisible(true)}
-            />
           </View>
-        </View>
-      ) : isCompact && emergency && onCallEmergency ? (
-        <View style={[styles.persistentSocialActions, { top: topInset + RACE_WORKSPACE_ACTION_TOP_OFFSET }]}>
-          <IconAction
-            accessibilityLabel={emergency.accessibilityLabel}
-            icon={<Ionicons name="call" size={17} color={Colors.textOnBrand} />}
-            onPress={onCallEmergency}
-            tone="danger"
-          />
-        </View>
-      ) : null}
+        ) : null}
 
-      {/* Clipped below the toolbar so the rising block never slides under the back/link buttons. */}
-      <View pointerEvents="box-none" style={[styles.expandedClip, { top: topInset + RACE_WORKSPACE_TOOLBAR_HEIGHT }]}>
-      <Animated.View
-        onLayout={handleExpandedLayout}
-        style={[styles.expandedContent, { opacity: expandedOpacity, transform: [{ translateY: expandedTranslateY }] }]}
-      >
-        <RaceWorkspaceCommonBlock
-          title={raceName}
-          courseName={eventName}
-          dateLabel={dateLabel}
-          locationLabel={locationLabel}
-          startLabel={startTimeLabel}
-          startTime={startTimeValue}
-          maxTimeLabel={maxTimeLabel}
-          maxTime={maxTimeValue}
-          color={theme.onPrimaryColor}
-          metrics={metricsOverride ?? [
-            { label: distanceCaption, value: distanceLabel },
-            { label: elevationCaption, value: elevationGainLabel },
-            { label: descentCaption, value: elevationLossLabel ?? '—' },
-            ...(showPlanMetrics ? [
-              { label: planDurationCaption, value: planDurationLabel ?? '—' },
-              { label: planPaceCaption, value: planPaceLabel ?? '—' },
-            ] : []),
-          ]}
-          footer={participationLabel || logoUrl || (emergency && onCallEmergency) ? (
-            <View style={styles.footerRow}>
-              {logoUrl ? (
-                <View style={styles.logoSurface}>
-                  <RacebookBrandLogo uri={logoUrl} style={styles.logo} accessibilityLabel={eventName ?? raceName} />
+        {/* Clipped below the toolbar so the rising block never slides under the back/link buttons. */}
+        <View pointerEvents="box-none" style={[styles.expandedClip, { top: topInset + RACE_WORKSPACE_TOOLBAR_HEIGHT }]}>
+        <Animated.View
+          onLayout={handleExpandedLayout}
+          style={[styles.expandedContent, { opacity: expandedOpacity, transform: [{ translateY: expandedTranslateY }] }]}
+        >
+          <RaceWorkspaceCommonBlock
+            title={raceName}
+            courseName={eventName}
+            dateLabel={dateLabel}
+            locationLabel={locationLabel}
+            startLabel={startTimeLabel}
+            startTime={startTimeValue}
+            maxTimeLabel={maxTimeLabel}
+            maxTime={maxTimeValue}
+            color={theme.onPrimaryColor}
+            metrics={metricsOverride ?? [
+              { label: distanceCaption, value: distanceLabel },
+              { label: elevationCaption, value: elevationGainLabel },
+              { label: descentCaption, value: elevationLossLabel ?? '—' },
+              ...(showPlanMetrics ? [
+                { label: planDurationCaption, value: planDurationLabel ?? '—' },
+                { label: planPaceCaption, value: planPaceLabel ?? '—' },
+              ] : []),
+            ]}
+            footer={participationLabel || logoUrl || (emergency && onCallEmergency) ? (
+              <View style={styles.footerRow}>
+                {logoUrl ? (
+                  <View style={styles.logoSurface}>
+                    <RacebookBrandLogo uri={logoUrl} style={styles.logo} accessibilityLabel={eventName ?? raceName} />
+                  </View>
+                ) : null}
+                <View style={styles.footerCopy}>
+                  {participationLabel ? (
+                    <>
+                      <Ionicons name={participationIcon} size={16} color={theme.onPrimaryColor} />
+                      <Text numberOfLines={1} style={[styles.footerText, { color: theme.onPrimaryColor }]}>{participationLabel}</Text>
+                    </>
+                  ) : null}
+                  {participationLabel && emergency && onCallEmergency ? (
+                    <Text style={[styles.footerText, { color: theme.onPrimaryColor }]}>·</Text>
+                  ) : null}
+                  {emergency && onCallEmergency ? (
+                    <>
+                      <Ionicons name="medical" size={14} color={theme.onPrimaryColor} />
+                      <Text numberOfLines={1} style={[styles.footerText, styles.footerEmergencyLabel, { color: theme.onPrimaryColor }]}>{emergency.label}</Text>
+                      <DataText numberOfLines={1} style={[styles.emergencyPhone, { color: theme.onPrimaryColor }]}>{emergency.phone}</DataText>
+                    </>
+                  ) : null}
                 </View>
-              ) : null}
-              <View style={styles.footerCopy}>
-                {participationLabel ? (
-                  <>
-                    <Ionicons name={participationIcon} size={16} color={theme.onPrimaryColor} />
-                    <Text numberOfLines={1} style={[styles.footerText, { color: theme.onPrimaryColor }]}>{participationLabel}</Text>
-                  </>
-                ) : null}
-                {participationLabel && emergency && onCallEmergency ? (
-                  <Text style={[styles.footerText, { color: theme.onPrimaryColor }]}>·</Text>
-                ) : null}
                 {emergency && onCallEmergency ? (
-                  <>
-                    <Ionicons name="medical" size={14} color={theme.onPrimaryColor} />
-                    <Text numberOfLines={1} style={[styles.footerText, styles.footerEmergencyLabel, { color: theme.onPrimaryColor }]}>{emergency.label}</Text>
-                    <DataText numberOfLines={1} style={[styles.emergencyPhone, { color: theme.onPrimaryColor }]}>{emergency.phone}</DataText>
-                  </>
+                  <View collapsable={false} ref={emergencyTargetRef}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={emergency.accessibilityLabel}
+                      onPress={onCallEmergency}
+                      style={({ pressed }) => [styles.emergencyCallButton, pressed && styles.pressed]}
+                    >
+                      <Ionicons name="call" size={16} color={theme.onPrimaryColor} />
+                      <Text style={[styles.emergencyCallLabel, { color: theme.onPrimaryColor }]}>{emergency.callLabel}</Text>
+                    </Pressable>
+                  </View>
                 ) : null}
               </View>
-              {emergency && onCallEmergency ? (
-                <View collapsable={false} ref={emergencyTargetRef}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={emergency.accessibilityLabel}
-                    onPress={onCallEmergency}
-                    style={({ pressed }) => [styles.emergencyCallButton, pressed && styles.pressed]}
-                  >
-                    <Ionicons name="call" size={16} color={theme.onPrimaryColor} />
-                    <Text style={[styles.emergencyCallLabel, { color: theme.onPrimaryColor }]}>{emergency.callLabel}</Text>
-                  </Pressable>
-                </View>
-              ) : null}
-            </View>
-          ) : null}
-        />
-      </Animated.View>
-      </View>
-      <Modal
-        animationType="fade"
-        onRequestClose={() => setLinksVisible(false)}
-        transparent
-        visible={linksVisible}
-      >
-        <Pressable accessibilityRole="button" onPress={() => setLinksVisible(false)} style={styles.linksBackdrop}>
-          <Pressable accessibilityRole="none" onPress={(event) => event.stopPropagation()} style={styles.linksSheet}>
-            <SheetHeader
-              closeLabel={closeLabel}
-              onClose={() => setLinksVisible(false)}
-              showHandle={false}
-              title={linksLabel}
-            />
-            {socialLinks.map((link) => (
-              <Pressable
-                key={link.action}
-                accessibilityRole="link"
-                onPress={() => {
-                  setLinksVisible(false);
-                  onOpenSocial(link.url, link.action);
-                }}
-                style={({ pressed }) => [styles.linkRow, pressed && styles.pressed]}
-              >
-                <Ionicons name={link.icon} size={20} color={Colors.brandPrimary} />
-                <Text style={styles.linkLabel}>{link.accessibilityLabel}</Text>
-                <Ionicons name="open-outline" size={18} color={Colors.textSecondary} />
-              </Pressable>
-            ))}
+            ) : null}
+          />
+        </Animated.View>
+        </View>
+        <Modal
+          animationType="fade"
+          onRequestClose={() => setLinksVisible(false)}
+          transparent
+          visible={linksVisible}
+        >
+          <Pressable accessibilityRole="button" onPress={() => setLinksVisible(false)} style={styles.linksBackdrop}>
+            <Pressable accessibilityRole="none" onPress={(event) => event.stopPropagation()} style={styles.linksSheet}>
+              <SheetHeader
+                closeLabel={closeLabel}
+                onClose={() => setLinksVisible(false)}
+                showHandle={false}
+                title={linksLabel}
+              />
+              {socialLinks.map((link) => (
+                <Pressable
+                  key={link.action}
+                  accessibilityRole="link"
+                  onPress={() => {
+                    setLinksVisible(false);
+                    onOpenSocial(link.url, link.action);
+                  }}
+                  style={({ pressed }) => [styles.linkRow, pressed && styles.pressed]}
+                >
+                  <Ionicons name={link.icon} size={20} color={Colors.brandPrimary} />
+                  <Text style={styles.linkLabel}>{link.accessibilityLabel}</Text>
+                  <Ionicons name="open-outline" size={18} color={Colors.textSecondary} />
+                </Pressable>
+              ))}
+            </Pressable>
           </Pressable>
-        </Pressable>
-      </Modal>
-    </Animated.View>
+        </Modal>
+      </Animated.View>
+      {statusStripOpacity && topInset > 0 ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.statusStrip, { height: topInset, backgroundColor: theme.primaryColor, opacity: statusStripOpacity }]}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -357,6 +385,8 @@ const HERO_PHOTO_VEIL_OPACITY = 0.9;
 const styles = StyleSheet.create({
   heroImage: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   hero: { position: 'absolute', zIndex: 20, top: 0, left: 0, right: 0, overflow: 'hidden', borderBottomLeftRadius: 24, borderBottomRightRadius: 24, shadowColor: '#1A1A1A', shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 7 }, elevation: 8 },
+  // Above the hero (20) and the attached Livret/plan switch (29).
+  statusStrip: { position: 'absolute', zIndex: 31, top: 0, left: 0, right: 0 },
   heroAttached: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, shadowOpacity: 0, elevation: 0 },
   backButton: { position: 'absolute', zIndex: 4, left: 10 },
   pressed: { opacity: 0.64 },

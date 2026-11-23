@@ -133,3 +133,5 @@ RaceBook onboarding guide cards now float above the RaceBook tab bar, and the po
 
 The RaceBook onboarding tour only switches tabs, scrolls and highlights zones; it changes no data or visibility. Onboarding refers to the Trail TST seed ids, so they must stay stable.
 The services-only conversion-banner presentation change shares the structured editor file but does not change award rows or autosave.
+
+The Livret quick-return header (`apps/mobile/hooks/useQuickReturnHeader.ts`) is presentation-only: the compact hero and Livret/plan switch hide and reappear on scroll, and nothing about the data, publication, partner, offline or analytics contracts described here changes.

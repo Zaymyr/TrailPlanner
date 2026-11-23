@@ -137,6 +137,7 @@ The two-line clamp for bib-pickup address links is independent from sponsor layo
 
 ## Gotchas
 
+- The Livret quick-return header (`apps/mobile/hooks/useQuickReturnHeader.ts`) is presentation-only: the compact hero and Livret/plan switch hide and reappear on scroll, and nothing about the data, publication, partner, offline or analytics contracts described here changes.
 - Preview/paywall interactions do not create sponsor impressions, clicks, or mutations.
 
 - Catalog create/refine actions and the workspace switch are outside sponsor presentation and do not count an impression, redirect, or click.

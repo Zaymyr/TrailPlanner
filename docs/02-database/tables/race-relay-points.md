@@ -110,6 +110,7 @@ Selecting the conditional `Relais` sub-tab is recorded as RaceBook product engag
 
 ## Gotchas
 
+- The Livret quick-return header (`apps/mobile/hooks/useQuickReturnHeader.ts`) is presentation-only: the compact hero and Livret/plan switch hide and reappear on scroll, and nothing about the data, publication, partner, offline or analytics contracts described here changes.
 - The scrollable preview veil is unrelated to relay-point boundaries and does not change legs or publication.
 
 - The plan preview boundary counts only intermediate ravitos; it is not a relay-point boundary and does not alter relay publication or legs.
