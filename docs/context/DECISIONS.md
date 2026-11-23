@@ -4,6 +4,14 @@
 
 Journal en ajout seul, la plus récente en haut. Format : `## AAAA-MM-JJ — Titre`, puis Contexte / Décision / Conséquence (2 à 4 lignes chacun). Les décisions d'architecture détaillées (ADR) vont dans [docs/08-decisions/](../08-decisions/README.md).
 
+## 2026-11-23 — Fusion des deux événements Marathon du Mont-Blanc
+
+**Contexte.** Le Marathon du Mont-Blanc existait en double en base : l’édition 2026 sous un événement (import catalogue de mars), l’édition 2027 sous un autre (import de novembre). La page événement permanente était donc coupée en deux URL suffixées.
+
+**Décision.** Le fondateur confirme qu’il s’agit du même événement : fusion dans l’événement de l’édition 2027, sous le slug `marathon-du-mont-blanc`.
+
+**Conséquence.** Migration `20261123200000` ; les deux anciennes URL redirigent en 301 vers `/courses/evenements/marathon-du-mont-blanc`. Les futurs doublons suivent la même procédure (voir `docs/02-database/tables/race-events.md`).
+
 ## 2026-11-23 — Aperçu gratuit du plan sur le web (invité et compte gratuit)
 
 **Contexte.** Sur le planificateur web, un invité qui choisissait une course ne voyait rien se passer ; l’estimation finissait sur un mur de compte et le compte gratuit ne voyait qu’un aperçu figé. Rien ne donnait envie d’aller jusqu’à l’achat.

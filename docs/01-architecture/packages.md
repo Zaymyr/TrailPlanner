@@ -156,3 +156,5 @@ Keep logic inside an app when:
 The runner follow-up keeps plan selection, renaming and URL restoration inside the existing web workspace; it adds no shared-package contract or dependency.
 
 Blog runtime bundling (2026-11-23): `next.config.mjs` gained `experimental.outputFileTracingIncludes` for `content/blog/**`; package boundaries are unchanged.
+
+Catalogue slug redirects (2026-11-23): `next.config.mjs` exports `catalogSlugRedirects`; package boundaries are unchanged.

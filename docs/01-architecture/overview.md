@@ -214,3 +214,5 @@ Background reel renders run outside Vercel, in a Google Cloud Run job (`apps/vid
 The web server now explicitly serves `/.well-known/apple-app-site-association` as `application/json`; the checked-in association placeholders still require production identifiers before universal links can be enabled.
 
 Blog runtime bundling (2026-11-23): `next.config.mjs` now traces `content/blog/**` into every web function (see web-app.md « Blog content bundling »). No architecture change.
+
+Catalogue slug redirects (2026-11-23): `next.config.mjs` gained `catalogSlugRedirects` (permanent, dynamic catalogue targets); see web-app.md.
