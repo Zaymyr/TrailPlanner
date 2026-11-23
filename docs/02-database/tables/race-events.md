@@ -499,3 +499,7 @@ Format pages (2026-11-23) also render distance-matched blog guides; no `race_eve
 ## Duplicate event merges (2026-11-23)
 
 Event slugs are immutable (`assign_race_event_slug`), so merging two rows that describe the same event is a one-off migration: move editions, formats and every `event_id` reference to the kept event, fill its missing fields from the merged one, delete the merged row, then rename the kept slug to the clean base slug with the trigger disabled for that statement only, and add the retired hub slugs to `catalogSlugRedirects` in `apps/web/next.config.mjs`. First case: migration `20261123200000_merge_duplicate_marathon_du_mont_blanc_event.sql` kept `d1472716…` (2027 edition, 12 formats) and merged `08a81d9c…` (2026 edition, 2 formats) into `marathon-du-mont-blanc`. Do not dry-run such merges through the Supabase connector: write statements open a confirmation dialog that some clients cannot display.
+
+## Course weather touch (2026-11-23)
+
+The public race page mounts `CourseRaceDayWeather` (client component, fetched from `GET /api/race-weather`, so the ISR page output is unchanged) before « Informations pratiques ». It shows nothing for past races or when the forecast is unavailable. No data model change. See [Design Components](../../07-design-system/components.md) "Course weather".

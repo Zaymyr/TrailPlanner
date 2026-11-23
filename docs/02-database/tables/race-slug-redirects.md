@@ -115,3 +115,7 @@ from public.rename_race_slug(:race_id, :new_slug);
 The canonical page reached after a slug redirect keeps the same metadata rules; course titles now prefix generic format names with their event name (`Event — Format`). Redirect resolution is unchanged.
 
 Format pages (2026-11-23) gained a related-guides block; slug resolution and redirects are unchanged.
+
+## Course weather touch (2026-11-23)
+
+The public race page mounts `CourseRaceDayWeather` (client component, fetched from `GET /api/race-weather`, so the ISR page output is unchanged) before « Informations pratiques ». It shows nothing for past races or when the forecast is unavailable. No data model change. See [Design Components](../../07-design-system/components.md) "Course weather".

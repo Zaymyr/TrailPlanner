@@ -473,3 +473,7 @@ The web runner funnel instrumentation (analytics events only) touched `RacePlann
 ## Race plan visual redesign touch (2026-11-23)
 
 The web plan timeline (`ActionPlan.tsx`, `PlanPrimaryContent.tsx`) and `RacePlannerPageContent.tsx` are restyled; no allocation, carryover, target or status rule changed. Gauge semantics are the same: `getPlanStatus` and `buildGaugeRanges` still decide the tone and the target range from the cumulative carbs, sodium and water. They were first displayed as a « bande cible » (olive target zone, fill bar, written status pill); that look was superseded the same day by the position / window gauge described in [Web chronology re-timing](#web-chronology-re-timing-2026-11-23) (dashed target outline, one solid planned-amount bar, « +77 g » / « Cible 103 g »). A water capacity shortfall is flagged by an explicit `helperIsWarning` field rather than by guessing from the colour. Distances, litres and gel counts use locale number formatting (« 11,0 km », « 3,0 L », « 9,6 »). Presentation language: [Design Components](../07-design-system/components.md#race-plan-web-2026-11-23).
+
+## Course weather touch (2026-11-23)
+
+The race planner mounts `CoursePlanWeather` (display-only forecast weather at each planned passage, read from the plan segments, never written back) through a `weatherContent` slot of `PlanPrimaryContent`. It adds no plan, nutrition or pacing logic and no data model change. See [Design Components](../07-design-system/components.md) "Course weather".
