@@ -1,12 +1,12 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { AuthCard, AuthError, authInputClassName, AuthNotice, authSubmitClassName, AuthSuccess, AuthTextLink } from "../../components/auth/AuthCard";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
@@ -150,27 +150,23 @@ export default function ResetPasswordPage() {
   });
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6 rounded-lg border border-border-strong bg-card p-6 text-foreground shadow-lg dark:bg-slate-950/60">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold text-foreground">{t.auth.passwordReset.title}</h1>
-        <p className="text-muted-foreground">{t.auth.passwordReset.description}</p>
-      </div>
-
+    <AuthCard
+      title={t.auth.passwordReset.title}
+      description={t.auth.passwordReset.description}
+      footer={<AuthTextLink href="/sign-in">{t.auth.passwordReset.backToSignIn}</AuthTextLink>}
+    >
       {linkError ? (
-        <div className="flex flex-col gap-4 rounded-lg border border-amber-400/50 bg-amber-400/10 p-4">
-          <p className="text-sm font-medium text-amber-300">{linkError}</p>
+        <AuthNotice>
+          <p className="font-semibold">{linkError}</p>
           <Button
             type="button"
-            className="h-12 w-full justify-center text-base"
+            className={authSubmitClassName}
             data-testid="request-new-password-link"
             onClick={() => router.push("/forgot-password")}
           >
             {t.auth.passwordResetRequest.title}
           </Button>
-          <Link href="/sign-in" className="text-sm text-emerald-300 hover:text-emerald-200">
-            {t.auth.passwordReset.backToSignIn}
-          </Link>
-        </div>
+        </AuthNotice>
       ) : (
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
@@ -180,9 +176,10 @@ export default function ResetPasswordPage() {
               type="password"
               autoComplete="new-password"
               placeholder={t.auth.shared.passwordPlaceholder}
+              className={authInputClassName}
               {...register("password")}
             />
-            {errors.password && <p className="text-sm text-amber-400">{errors.password.message}</p>}
+            {errors.password && <AuthError>{errors.password.message}</AuthError>}
           </div>
 
           <div className="flex flex-col gap-2">
@@ -192,21 +189,20 @@ export default function ResetPasswordPage() {
               type="password"
               autoComplete="new-password"
               placeholder={t.auth.passwordReset.confirmPasswordPlaceholder}
+              className={authInputClassName}
               {...register("confirmPassword")}
             />
-            {errors.confirmPassword && (
-              <p className="text-sm text-amber-400">{errors.confirmPassword.message}</p>
-            )}
+            {errors.confirmPassword && <AuthError>{errors.confirmPassword.message}</AuthError>}
           </div>
 
-          {formError && <p className="text-sm text-amber-400">{formError}</p>}
-          {formMessage && <p className="text-sm text-emerald-300">{formMessage}</p>}
+          {formError && <AuthError>{formError}</AuthError>}
+          {formMessage && <AuthSuccess>{formMessage}</AuthSuccess>}
 
-          <Button type="submit" disabled={isSubmitting} className="justify-center">
+          <Button type="submit" disabled={isSubmitting} className={authSubmitClassName}>
             {isSubmitting ? t.auth.passwordReset.submitting : t.auth.passwordReset.submit}
           </Button>
         </form>
       )}
-    </div>
+    </AuthCard>
   );
 }

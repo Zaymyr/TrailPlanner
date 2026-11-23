@@ -273,6 +273,11 @@ export const en: Translations = {
       passwordRequirement: "Password must be at least 8 characters and include a letter and a number",
       emailInvalid: "Enter a valid email",
       genericError: "Something went wrong. Please try again.",
+      noAccount: "No account yet?",
+      createAccountLink: "Create an account",
+      hasAccount: "Already have an account?",
+      signInLink: "Sign in",
+      oauthStartError: "Unable to start sign-in. Please try again.",
     },
     signUp: {
       title: "Sign up",
@@ -323,6 +328,14 @@ export const en: Translations = {
       confirmPasswordPlaceholder: "••••••••",
       mismatchError: "Passwords must match",
       invalidLink: "This reset link is invalid or has expired.",
+      backToSignIn: "Back to sign in",
+    },
+    callback: {
+      title: "Signing in",
+      signingIn: "Signing you in…",
+      error: "Sign-in could not be completed.",
+      missingToken: "Sign-in did not return a session.",
+      retryHint: "Please try again, or use your email and password instead.",
       backToSignIn: "Back to sign in",
     },
     sessionExpired: {

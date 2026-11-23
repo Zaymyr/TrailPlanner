@@ -17,6 +17,20 @@ export type AuthSharedTranslations = {
   passwordRequirement: string;
   emailInvalid: string;
   genericError: string;
+  noAccount: string;
+  createAccountLink: string;
+  hasAccount: string;
+  signInLink: string;
+  oauthStartError: string;
+};
+
+export type AuthCallbackTranslations = {
+  title: string;
+  signingIn: string;
+  error: string;
+  missingToken: string;
+  retryHint: string;
+  backToSignIn: string;
 };
 
 export type SignUpTranslations = {
@@ -86,6 +100,7 @@ export type AuthTranslations = {
   passwordResetRequest: PasswordResetRequestTranslations;
   passwordReset: PasswordResetTranslations;
   sessionExpired: SessionExpiredTranslations;
+  callback: AuthCallbackTranslations;
 };
 
 export type HomeHeroTranslations = {

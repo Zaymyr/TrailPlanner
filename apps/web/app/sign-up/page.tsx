@@ -3,10 +3,11 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { AuthCard, AuthDivider, AuthError, authInputClassName, authSubmitClassName, AuthSuccess, AuthTextLink, OAuthButtons } from "../../components/auth/AuthCard";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
@@ -16,6 +17,7 @@ import { parseSourceRaceFromPath, readFunnelSourceRace } from "../../lib/race-fu
 import { redirectToAppleOAuth, redirectToGoogleOAuth } from "../../lib/oauth";
 import {
   buildAuthCallbackPath,
+  buildAuthHref,
   clearRememberedRunnerReturnPath,
   readCurrentReturnPath,
 } from "../../lib/organizer-acquisition";
@@ -54,6 +56,13 @@ export default function SignUpPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [formMessage, setFormMessage] = useState<string | null>(null);
   const [oauthError, setOauthError] = useState<string | null>(null);
+  // Keep an explicit `?next=` when switching between sign-in and sign-up (read after mount: the page is prerendered).
+  const [alternateAuthHref, setAlternateAuthHref] = useState("/sign-in");
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has("next")) {
+      setAlternateAuthHref(buildAuthHref("/sign-in", readCurrentReturnPath()));
+    }
+  }, []);
 
   const signUpSchema = useMemo(() => createSignUpSchema(t.auth), [t]);
 
@@ -148,7 +157,7 @@ export default function SignUpPage() {
       redirectToGoogleOAuth(buildAuthCallbackPath(returnPath));
     } catch (error) {
       console.error("Unable to start Google sign up", error);
-      setOauthError(error instanceof Error ? error.message : "Unable to start Google sign up.");
+      setOauthError(t.auth.shared.oauthStartError);
     }
   };
 
@@ -161,41 +170,29 @@ export default function SignUpPage() {
       redirectToAppleOAuth(buildAuthCallbackPath(returnPath));
     } catch (error) {
       console.error("Unable to start Apple sign up", error);
-      setOauthError(error instanceof Error ? error.message : "Unable to start Apple sign up.");
+      setOauthError(t.auth.shared.oauthStartError);
     }
   };
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6 rounded-lg border border-border-strong bg-card p-6 text-foreground shadow-lg dark:bg-slate-950/60">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold text-foreground">{t.auth.signUp.title}</h1>
-        <p className="text-muted-foreground">{t.auth.signUp.description}</p>
-      </div>
+    <AuthCard
+      title={t.auth.signUp.title}
+      description={t.auth.signUp.description}
+      footer={
+        <>
+          {t.auth.shared.hasAccount} <AuthTextLink href={alternateAuthHref}>{t.auth.shared.signInLink}</AuthTextLink>
+        </>
+      }
+    >
+      <OAuthButtons
+        googleLabel={t.auth.signIn.continueWithGoogle}
+        appleLabel={t.auth.signIn.continueWithApple}
+        onGoogle={handleGoogleSignUp}
+        onApple={handleAppleSignUp}
+        error={oauthError}
+      />
 
-      <div className="flex flex-col gap-3">
-        <Button
-          type="button"
-          variant="outline"
-          className="justify-center border-border bg-background text-foreground hover:bg-muted dark:bg-slate-900/60 dark:text-slate-50 dark:hover:bg-slate-800"
-          onClick={handleGoogleSignUp}
-        >
-          Continue with Google
-        </Button>
-        <Button
-          type="button"
-          className="justify-center bg-foreground text-background hover:bg-foreground/90 dark:bg-slate-50 dark:text-slate-950 dark:hover:bg-slate-200"
-          onClick={handleAppleSignUp}
-        >
-          Continue with Apple
-        </Button>
-        {oauthError && <p className="text-sm text-amber-400">{oauthError}</p>}
-      </div>
-
-      <div className="flex items-center gap-3 text-sm text-muted-foreground">
-        <div className="h-px flex-1 bg-border" />
-        <span>Or continue with email</span>
-        <div className="h-px flex-1 bg-border" />
-      </div>
+      <AuthDivider label={t.auth.signIn.continueWithEmail} />
 
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
@@ -205,9 +202,10 @@ export default function SignUpPage() {
             type="text"
             autoComplete="name"
             placeholder={t.auth.signUp.fullNamePlaceholder}
+            className={authInputClassName}
             {...register("fullName")}
           />
-          {errors.fullName && <p className="text-sm text-amber-400">{errors.fullName.message}</p>}
+          {errors.fullName && <AuthError>{errors.fullName.message}</AuthError>}
         </div>
 
         <div className="flex flex-col gap-2">
@@ -217,9 +215,10 @@ export default function SignUpPage() {
             type="email"
             autoComplete="email"
             placeholder={t.auth.shared.emailPlaceholder}
+            className={authInputClassName}
             {...register("email")}
           />
-          {errors.email && <p className="text-sm text-amber-400">{errors.email.message}</p>}
+          {errors.email && <AuthError>{errors.email.message}</AuthError>}
         </div>
 
         <div className="flex flex-col gap-2">
@@ -228,11 +227,12 @@ export default function SignUpPage() {
             id="password"
             type="password"
             autoComplete="new-password"
-            minLength={8}
+        minLength={8}
             placeholder={t.auth.shared.passwordPlaceholder}
+            className={authInputClassName}
             {...register("password")}
           />
-          {errors.password && <p className="text-sm text-amber-400">{errors.password.message}</p>}
+          {errors.password && <AuthError>{errors.password.message}</AuthError>}
         </div>
 
         <div className="flex flex-col gap-2">
@@ -241,20 +241,21 @@ export default function SignUpPage() {
             id="confirmPassword"
             type="password"
             autoComplete="new-password"
-            minLength={8}
+        minLength={8}
             placeholder={t.auth.signUp.confirmPasswordPlaceholder}
+            className={authInputClassName}
             {...register("confirmPassword")}
           />
-          {errors.confirmPassword && <p className="text-sm text-amber-400">{errors.confirmPassword.message}</p>}
+          {errors.confirmPassword && <AuthError>{errors.confirmPassword.message}</AuthError>}
         </div>
 
-        {formError && <p className="text-sm text-amber-400">{formError}</p>}
-        {formMessage && <p className="text-sm text-emerald-300">{formMessage}</p>}
+        {formError && <AuthError>{formError}</AuthError>}
+        {formMessage && <AuthSuccess>{formMessage}</AuthSuccess>}
 
-        <Button type="submit" disabled={isSubmitting} className="justify-center">
+        <Button type="submit" disabled={isSubmitting} className={authSubmitClassName}>
           {isSubmitting ? t.auth.signUp.submitting : t.auth.signUp.submit}
         </Button>
       </form>
-    </div>
+    </AuthCard>
   );
 }

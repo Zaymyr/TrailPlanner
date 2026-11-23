@@ -285,6 +285,11 @@ export const fr: Translations = {
       passwordRequirement: "Le mot de passe doit contenir au moins 8 caractères, une lettre et un chiffre",
       emailInvalid: "Saisis un email valide",
       genericError: "Un problème est survenu. Réessaie.",
+      noAccount: "Pas encore de compte ?",
+      createAccountLink: "Créer un compte",
+      hasAccount: "Déjà un compte ?",
+      signInLink: "Se connecter",
+      oauthStartError: "Impossible d’ouvrir la connexion. Réessaie.",
     },
     signUp: {
       title: "Créer un compte",
@@ -334,6 +339,14 @@ export const fr: Translations = {
       confirmPasswordPlaceholder: "••••••••",
       mismatchError: "Les mots de passe doivent être identiques",
       invalidLink: "Ce lien de réinitialisation est invalide ou expiré.",
+      backToSignIn: "Retour à la connexion",
+    },
+    callback: {
+      title: "Connexion en cours",
+      signingIn: "Connexion à ton compte…",
+      error: "La connexion n’a pas pu aboutir.",
+      missingToken: "La connexion n’a pas renvoyé de session.",
+      retryHint: "Réessaie, ou connecte-toi avec ton email et ton mot de passe.",
       backToSignIn: "Retour à la connexion",
     },
     sessionExpired: {

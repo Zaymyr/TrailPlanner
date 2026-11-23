@@ -99,7 +99,7 @@ Standard links are not described as affiliate links. Each mobile surface disclos
 
 ## Gotchas
 
-- Shared web locale types now also carry the planner race-picker copy (`raceCatalog.clearSearch`, `resultsCount`, `quickFilters`) and navigation and not-found accessibility copy. That extension is unrelated to partner-link resolution and must not change allowlisting, attribution, or outbound click behavior.
+- Shared web locale types also carry the account pages copy (`auth.shared` cross links, `auth.callback`, 2026-11-23). They now also carry the planner race-picker copy (`raceCatalog.clearSearch`, `resultsCount`, `quickFilters`) and navigation and not-found accessibility copy. That extension is unrelated to partner-link resolution and must not change allowlisting, attribution, or outbound click behavior.
 
 - Central plan paywall CTAs are not partner-link surfaces and must not resolve or track affiliate destinations.
 
