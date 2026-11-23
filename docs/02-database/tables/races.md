@@ -245,6 +245,7 @@ where web_catalog_is_live = true
 
 ## Gotchas
 
+- The Livret quick-return header (`apps/mobile/hooks/useQuickReturnHeader.ts`) is presentation-only: the compact hero and Livret/plan switch hide and reappear on scroll, and nothing about the data, publication, partner, offline or analytics contracts described here changes.
 - An existing-plan refine CTA and preview veil do not change race visibility, source fields, or plan association.
 
 - An existing owned plan changes the runner-facing catalog/RaceBook action to refine; it does not change the race's visibility, source facts, or `race_id` association.

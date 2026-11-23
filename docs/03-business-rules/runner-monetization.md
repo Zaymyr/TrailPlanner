@@ -152,6 +152,8 @@ The Livret / plan switch (`RaceWorkspaceSwitch`) is now drawn as a pinned bib (a
 
 The RaceBook Course tab (Tracé, Ravitos, Où encourager) uses `TrailTabs` with `stretch` + `scrollable`: tabs share the full width, the active one on a raised painted wooden plank and the others on flat bare-wood planks. The Livret / plan bib switch is 56 points high (`RACE_WORKSPACE_SWITCH_HEIGHT`).
 
+The Livret quick-return header (`apps/mobile/hooks/useQuickReturnHeader.ts`) is presentation-only: the compact hero and Livret/plan switch hide and reappear on scroll, and nothing about the data, publication, partner, offline or analytics contracts described here changes.
+
 ## Related Docs
 
 - [Runner Billing Tables](../02-database/tables/runner-billing.md)

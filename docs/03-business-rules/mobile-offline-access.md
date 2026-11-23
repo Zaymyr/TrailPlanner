@@ -67,6 +67,7 @@ A plan copy stores the raw `race_plans` row, the best elevation profile and only
 
 ## Gotchas
 
+- The Livret quick-return header (`apps/mobile/hooks/useQuickReturnHeader.ts`) is presentation-only: the compact hero and Livret/plan switch hide and reappear on scroll, and nothing about the data, publication, partner, offline or analytics contracts described here changes.
 - The Mes courses tab selector now follows the collapsing root header on scroll; this is presentation-only and does not change the offline banner, device copies or offline launch described here.
 - `fetchRaceRacebookData` still returns `null` for both "not published" and "offline"; screens that need the difference use `fetchRaceRacebookDataOutcome`.
 - RaceBook images (logos, sponsor visuals) are not copied: they rely on the platform image cache populated by `Image.prefetch` and may be missing offline. Map tiles need the network.

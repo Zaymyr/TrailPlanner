@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   INITIAL_QUICK_RETURN_STATE,
+  REVEALED_QUICK_RETURN_STATE,
   nextQuickReturnState,
   type QuickReturnState,
 } from './quickReturnHeader';
@@ -42,6 +43,13 @@ describe('nextQuickReturnState', () => {
     expect(atBottom.hidden).toBe(true);
     // Overscroll then bounce back to the real end: no upward travel.
     expect(scrollThrough([2260, 2230, 2200], {}, atBottom).hidden).toBe(true);
+  });
+
+  it('treats the first event after a reveal as a baseline, not a scroll', () => {
+    // A tab change restores a deep offset programmatically.
+    const restored = scrollThrough([1500], {}, REVEALED_QUICK_RETURN_STATE);
+    expect(restored.hidden).toBe(false);
+    expect(scrollThrough([1530], {}, restored).hidden).toBe(true);
   });
 
   it('never hides when inactive', () => {

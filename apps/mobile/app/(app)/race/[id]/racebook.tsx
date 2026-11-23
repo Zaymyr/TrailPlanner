@@ -39,6 +39,7 @@ import { TopoCard } from '../../../../components/themed/TopoCard';
 import { TrailTabs } from '../../../../components/themed/TrailTabs';
 import { OnboardingGuideCard } from '../../../../components/onboarding/OnboardingGuideCard';
 import { SpotlightTutorial } from '../../../../components/help/SpotlightTutorial';
+import { useQuickReturnHeader } from '../../../../hooks/useQuickReturnHeader';
 import { useRacebookOnboardingTour } from '../../../../hooks/useRacebookOnboardingTour';
 import type { SpotlightRect, TutorialStep } from '../../../../lib/helpTutorial';
 import {
@@ -759,19 +760,6 @@ export default function RaceRacebookScreen() {
       });
     });
   }, [scrollY]);
-
-  const handleScroll = useMemo(
-    () => Animated.event(
-      [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-      {
-        useNativeDriver: false,
-        listener: (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-          currentScrollOffsetRef.current = Math.max(0, event.nativeEvent.contentOffset.y);
-        },
-      },
-    ),
-    [scrollY],
-  );
 
   useEffect(() => {
     setActiveTab(normalizeRacebookTab(tab));
@@ -1613,6 +1601,19 @@ export default function RaceRacebookScreen() {
   const [measuredHeroBodyHeight, setMeasuredHeroBodyHeight] = useState<number | null>(null);
   const heroBodyHeight = measuredHeroBodyHeight ?? initialHeroBodyHeight;
   const heroExpandedHeight = insets.top + heroBodyHeight;
+  // Quick return: the compact hero (and the attached Livret/plan switch) leaves
+  // while the runner reads down a long tab and comes back on the first upward
+  // scroll. The guided tour keeps it pinned: its spotlight measures the header.
+  const quickReturn = useQuickReturnHeader({
+    scrollY,
+    threshold: heroBodyHeight,
+    enabled: !(onboarding === 'racebook' && onboardingStage === 'tour'),
+  });
+  const { onScroll: onQuickReturnScroll, reveal: revealHeader } = quickReturn;
+  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    currentScrollOffsetRef.current = Math.max(0, event.nativeEvent.contentOffset.y);
+    onQuickReturnScroll(event);
+  }, [onQuickReturnScroll]);
 
   useEffect(() => {
     setMeasuredHeroBodyHeight(null);
@@ -1962,6 +1963,7 @@ export default function RaceRacebookScreen() {
 
   useFocusEffect(useCallback(() => {
     exitingToCatalogRef.current = false;
+    revealHeader();
     restoreCurrentScrollPosition();
     const tabsNavigation = navigation.getParent();
     tabsNavigation?.setOptions({ tabBarStyle: { display: 'none' } });
@@ -1984,12 +1986,14 @@ export default function RaceRacebookScreen() {
       unsubscribeBeforeRemove();
       tabsNavigation?.setOptions({ tabBarStyle: undefined });
     };
-  }, [exitRacebookToCatalog, navigation, persistCurrentScrollPosition, restoreCurrentScrollPosition]));
+  }, [exitRacebookToCatalog, navigation, persistCurrentScrollPosition, restoreCurrentScrollPosition, revealHeader]));
 
   useEffect(() => {
     if (showLoading || unavailable || loadedRaceId !== id) return;
+    // A tab change brings the header back; the restored offset is a new baseline.
+    revealHeader();
     restoreCurrentScrollPosition();
-  }, [activeCourseTab, activeTab, id, loadedRaceId, restoreCurrentScrollPosition, showLoading, unavailable]);
+  }, [activeCourseTab, activeTab, id, loadedRaceId, restoreCurrentScrollPosition, revealHeader, showLoading, unavailable]);
 
   // Skipped tour only: offer the plan after the runner opened 2 other tabs (all
   // of them when the RaceBook has fewer), never right after skipping. A
@@ -2191,6 +2195,7 @@ export default function RaceRacebookScreen() {
           attachedBelow={showPlanWorkspace && !showLoading && !unavailable && Boolean(data)}
           emergencyTargetRef={tour.registerTarget('emergency')}
           linksTargetRef={tour.registerTarget('links')}
+          hideProgress={quickReturn.hideProgress}
         />
       ) : null}
       {showPlanWorkspace && !showLoading && !unavailable && data ? (
@@ -2200,6 +2205,7 @@ export default function RaceRacebookScreen() {
           foregroundColor={brandTheme.onPrimaryColor}
           compactHeaderHeight={RACEBOOK_HERO_COMPACT_BODY_HEIGHT}
           expandedHeaderHeight={heroBodyHeight}
+          hideProgress={quickReturn.hideProgress}
           onOpenPlan={openLinkedPlan}
           onOpenRacebook={() => undefined}
           planExists

@@ -22,6 +22,11 @@ type Props = {
   foregroundColor: string;
   compactHeaderHeight: number;
   expandedHeaderHeight: number;
+  /**
+   * Quick-return progress shared with the header (0 shown → 1 hidden): the
+   * switch leaves with the compact header instead of staying pinned alone.
+   */
+  hideProgress?: Animated.Value;
   onOpenPlan: () => void;
   onOpenRacebook: () => void;
   planExists?: boolean;
@@ -45,6 +50,7 @@ export function RaceWorkspaceSwitch({
   backgroundColor,
   compactHeaderHeight,
   expandedHeaderHeight,
+  hideProgress,
   onOpenPlan,
   onOpenRacebook,
   planExists = true,
@@ -64,6 +70,12 @@ export function RaceWorkspaceSwitch({
     outputRange: [topInset + expandedHeaderHeight, topInset + compactHeaderHeight],
     extrapolate: 'clamp',
   });
+  // Clears the compact header, the switch itself and its shadow.
+  const hiddenTranslateY = hideProgress?.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -(topInset + compactHeaderHeight + RACE_WORKSPACE_SWITCH_HEIGHT + 24)],
+    extrapolate: 'clamp',
+  });
 
   const { bib } = mobileComponents.trailVariation;
   const renderBib = (key: 'racebook' | 'plan', label: string, random: typeof planRandom) => (
@@ -73,7 +85,13 @@ export function RaceWorkspaceSwitch({
   );
 
   return (
-    <Animated.View style={[styles.shell, { top, backgroundColor }]}>
+    <Animated.View
+      style={[
+        styles.shell,
+        { top, backgroundColor },
+        hiddenTranslateY ? { transform: [{ translateY: hiddenTranslateY }] } : undefined,
+      ]}
+    >
       <View accessibilityRole="tablist" style={styles.row}>
         <Pressable
           accessibilityLabel={racebookLabel}

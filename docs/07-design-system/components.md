@@ -402,7 +402,9 @@ radius, icon actions use the 12-point control radius, and scrolling content begi
 below the expanded height. An optional `hideProgress` value from
 `useQuickReturnHeader` slides the compact bar fully off screen on long lists and
 fades in a brand strip over the status bar; screens without it keep the sticky
-compact bar.
+compact bar. `RacebookCollapsibleHero` and `RaceWorkspaceSwitch` take the same
+optional `hideProgress`; the hero's strip uses the organizer primary and sits
+above the switch so both can slide under it.
 
 Shared React Native geometry comes from `mobileComponents`. Filter chips use the
 same selected/unselected structure across Courses and Nutrition; Profile, RaceBook Course

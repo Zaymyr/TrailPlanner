@@ -600,6 +600,7 @@ Structured services, equipment items, aid stations, and sponsors use valid local
 
 ## Gotchas
 
+- The Livret quick-return header (`apps/mobile/hooks/useQuickReturnHeader.ts`) is presentation-only: the compact hero and Livret/plan switch hide and reappear on scroll, and nothing about the data, publication, partner, offline or analytics contracts described here changes.
 - The Courses quick-return header (`apps/mobile/hooks/useQuickReturnHeader.ts`) is presentation-only: it hides and reveals the header and sticky search card on scroll and does not change the catalog reads, favorites, unread updates or analytics described here.
 - Address autocomplete (`/api/location-search`) and catalog plan creation (`/api/plans/from-catalog`) rate limit through the DB-backed `checkRateLimitAsync`; the in-memory limiter is not relied on across serverless instances (2026-11-22).
 - Organizer-facing French consistently uses informal address, correct accents, and explicit singular/plural labels; technical analytics vocabulary stays out of helper copy.
