@@ -3,6 +3,7 @@ title: races Table
 scope: database
 
 last_verified: 2026-11-23
+# Salon import fix (2026-11-23): the SaintéLyon-salon migration drops five empty GPX-only updates that failed the first release; its data and visibility contract are unchanged.
 # Event hubs (2026-11-22): the hub reads `racebook_is_live` of its featured formats (service role, explicit columns) for the Livret coureur promise; landing pages list only dated upcoming formats; no format column or visibility rule changes.
 # Assisted legacy conversion (2026-11-15): legacy format text can become a review-only proposal; normal organizer save remains the only persistence step.
 # Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
