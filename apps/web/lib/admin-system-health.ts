@@ -162,6 +162,7 @@ export const SCHEDULED_TASKS: Record<string, TaskInfo> = {
   "organizer-import-cleanup-hourly": { label: "Nettoyage des imports organisateurs", description: "Supprime les sessions d’import organisateur expirées.", target: "GET /api/cron/organizer-import-cleanup", manualRun: "organizer-import-cleanup-hourly", docHref: `${DOCS}/02-database/tables/organizer-import-sessions.md` },
   "push-reminders-daily": { label: "Rappels push", description: "Envoie les rappels push du jour (Edge Function Supabase).", target: "Edge Function push-reminders", manualRun: null, docHref: null },
   "transactional-email-log-purge": { label: "Purge du journal des e-mails", description: "Supprime les lignes du journal des e-mails de plus de 90 jours.", target: "SQL : purge_transactional_email_log()", manualRun: null, docHref: `${DOCS}/02-database/tables/transactional-email-log.md` },
+  "cron-job-run-details-purge": { label: "Purge de l’historique des tâches", description: "Supprime l’historique des passages pg_cron de plus de 7 jours (lu par la santé des systèmes).", target: "SQL : purge_cron_job_run_details()", manualRun: null, docHref: `${DOCS}/02-database/admin-system-health-functions.md` },
 };
 
 /** Route path of each manual run (the cron route is invoked in-process with `CRON_SECRET`). */

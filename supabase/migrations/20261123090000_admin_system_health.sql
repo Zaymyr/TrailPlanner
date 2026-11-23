@@ -12,6 +12,9 @@
 --    sent/skipped/failed, code, short message, masked recipient), written best-effort by
 --    apps/web/lib/resend.ts. No content and no full address. Purged after 90 days by the pg_cron job
 --    `transactional-email-log-purge` (daily 04:23 UTC, SQL only, no pg_net).
+-- 4. cron.job_run_details is never purged by Supabase: admin_cron_job_status() reads it on every
+--    badge refresh, so runs older than 7 days are deleted daily by the pg_cron job
+--    `cron-job-run-details-purge` (04:41 UTC, SQL only).
 
 create extension if not exists pg_cron;
 
@@ -179,6 +182,44 @@ begin
     'transactional-email-log-purge',
     '23 4 * * *',
     'select public.purge_transactional_email_log();'
+  );
+end;
+$$;
+
+-- -------------------------------------------------------------------------------------------------
+-- 4. Keep cron.job_run_details small (read by admin_cron_job_status on every badge refresh)
+
+create or replace function public.purge_cron_job_run_details()
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_deleted integer;
+begin
+  delete from cron.job_run_details
+  where coalesce(end_time, start_time) < now() - interval '7 days';
+  get diagnostics v_deleted = row_count;
+  return v_deleted;
+end;
+$$;
+
+revoke all on function public.purge_cron_job_run_details() from public, anon, authenticated;
+grant execute on function public.purge_cron_job_run_details() to service_role;
+
+do $$
+declare
+  v_job_id bigint;
+begin
+  for v_job_id in select job.jobid from cron.job as job where job.jobname = 'cron-job-run-details-purge' loop
+    perform cron.unschedule(v_job_id);
+  end loop;
+
+  perform cron.schedule(
+    'cron-job-run-details-purge',
+    '41 4 * * *',
+    'select public.purge_cron_job_run_details();'
   );
 end;
 $$;

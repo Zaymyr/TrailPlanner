@@ -22,6 +22,7 @@ Les crons déclarés dans `vercel.json` ne sont jamais appelés par Vercel en pr
 | `carousel-automation` | toutes les heures à :47 | Carrousels automatiques |
 | `push-reminders-daily` | 09:00 | Rappels push (Edge Function) |
 | `transactional-email-log-purge` | 04:23 | Purge du journal des e-mails (> 90 j, SQL seul) |
+| `cron-job-run-details-purge` | 04:41 | Purge de l’historique pg_cron (`cron.job_run_details` > 7 j, SQL seul) |
 
 Non exécutées (Vercel) : `revenuecat-reconciliation` (03:17), `tracedetrail-catalog-enrichment` (03:47).
 

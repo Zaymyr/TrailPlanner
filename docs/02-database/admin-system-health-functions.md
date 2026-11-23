@@ -37,6 +37,8 @@ One row per `cron.job`, ordered by name:
 
 The job `command` is never returned: `push-reminders-daily` and `organizer-import-cleanup-hourly` embed a secret in it (the later jobs read Vault at run time).
 
+`purge_cron_job_run_details()` (same migration, `SECURITY DEFINER`, empty search path, service role only) deletes `cron.job_run_details` rows older than 7 days; the pg_cron job `cron-job-run-details-purge` (`41 4 * * *`) runs it daily, because Supabase never purges that table and `admin_cron_job_status()` reads it on every badge refresh.
+
 Jobs created by the migrations (names are the console's catalog, `SCHEDULED_TASKS` in `lib/admin-system-health.ts`): `push-reminders-daily` (`0 9 * * *`, Edge Function), `organizer-import-cleanup-hourly` (`17 * * * *`), `social-posts-publish` (`*/5 * * * *`), `reel-automation` (`17 * * * *`), `carousel-automation` (`47 * * * *`), `demo-race-refresh` (`5 * * * *`), `flyover-orders` (`*/10 * * * *`), `transactional-email-log-purge` (`23 4 * * *`). Schedules are UTC.
 
 ## `public.admin_pg_net_response_summary()`

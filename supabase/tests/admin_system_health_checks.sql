@@ -108,4 +108,17 @@ begin
 end;
 $$;
 
+-- cron.job_run_details purge (reviewer finding): service role only, scheduled daily.
+do $$
+begin
+  if has_function_privilege('authenticated', 'public.purge_cron_job_run_details()', 'EXECUTE')
+    or has_function_privilege('anon', 'public.purge_cron_job_run_details()', 'EXECUTE') then
+    raise exception 'Client roles must not purge cron.job_run_details.';
+  end if;
+  if not exists (select 1 from cron.job where jobname = 'cron-job-run-details-purge') then
+    raise exception 'The cron.job_run_details purge job must be scheduled.';
+  end if;
+end;
+$$;
+
 rollback;

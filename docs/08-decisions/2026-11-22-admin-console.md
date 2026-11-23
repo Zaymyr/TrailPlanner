@@ -265,6 +265,6 @@ Le merge dans `main` déclenche `release.yml` (migrations, web de production, OT
    - `20261123120000_admin_audit_log.sql` (lot 7) : table `admin_audit_log`, fonction `purge_admin_audit_log()`, job pg_cron `admin-audit-log-purge` (04:37 UTC).
    Les deux ne contiennent que des objets nouveaux (pas de réécriture de table existante). Tant qu’elles ne sont pas appliquées, la console fonctionne : les lignes d’e-mails et d’actions ne sont pas écrites, Santé affiche « journal illisible » et le Journal « n’est pas encore activé ».
 2. **Scripts SQL de contrôle**, à lancer dans une session SQL privilégiée après le merge : `supabase/tests/admin_system_health_checks.sql` (lot 3) et `supabase/tests/admin_audit_log_checks.sql` (lot 7) ; chacun annule ses écritures (`rollback`).
-3. **Vérifier les jobs** : `select jobname, schedule, active from cron.job where jobname in ('transactional-email-log-purge', 'admin-audit-log-purge');` doit renvoyer deux lignes actives.
+3. **Vérifier les jobs** : `select jobname, schedule, active from cron.job where jobname in ('transactional-email-log-purge', 'cron-job-run-details-purge', 'admin-audit-log-purge');` doit renvoyer trois lignes actives (la purge de `cron.job_run_details` à 7 jours a été ajoutée après la revue).
 4. **Premier passage** : faire une modification sans risque (par exemple le mode de simulation des droits) et la retrouver dans `/admin/system/audit`.
 5. **Variables** : aucune nouvelle ; `ADMIN_AUDIT_LOG_DISABLED` ne doit pas être définie en production.
