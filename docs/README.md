@@ -114,6 +114,7 @@ Docs conventions are in [_conventions.md](_conventions.md).
 - [Nutrition Algorithm](03-business-rules/nutrition-algorithm.md)
 - [Pacing Algorithm](03-business-rules/pacing-algorithm.md)
 - [GPX Import](03-business-rules/gpx-import.md)
+- [Course Terrain from OpenStreetMap (prototype study)](03-business-rules/course-terrain.md)
 - [Organizer Race Management](03-business-rules/organizer-race-management.md)
 - [Organizer Commercial Offers](03-business-rules/organizer-commercial-offers.md)
 - [Public Race Discovery](03-business-rules/public-race-discovery.md)
