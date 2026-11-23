@@ -23,6 +23,8 @@ import {
   buildBillingCsv,
   formatBillingAmount,
   formatBillingDate,
+  NET_ESTIMATE_HINT,
+  NET_ESTIMATE_LABEL,
   readBillingQuery,
   UNTRACKED_AMOUNT_LABEL,
   writeBillingQuery,
@@ -53,6 +55,7 @@ function AmountCell({ entry }: { entry: BillingEntry }) {
     <span className="block text-right font-mono tabular-nums">
       <span className="block font-semibold text-foreground">{formatBillingAmount(ttc, entry.currency)}</span>
       {ht !== null ? <span className="block text-[11px] text-muted-foreground">HT {formatBillingAmount(ht, entry.currency)}{tva !== null ? ` · TVA ${formatBillingAmount(tva, entry.currency)}` : ""}</span> : <span className="block text-[11px] text-muted-foreground">TTC</span>}
+      {entry.netEstimateMinor !== null ? <span className="block text-[11px] text-muted-foreground" title={NET_ESTIMATE_HINT}>{NET_ESTIMATE_LABEL} ≈ {formatBillingAmount(entry.netEstimateMinor, entry.currency)}</span> : null}
     </span>
   );
 }
@@ -177,7 +180,12 @@ export function BillingRegister({ accessToken }: { accessToken: string }) {
           label="Encaissé net"
           unit="TTC"
           value={summary ? formatBillingAmount(summary.collectedMinor, summary.currency) : "…"}
-          hint={summary ? `${plural(summary.collectedCount, "ligne")} payée${summary.collectedCount > 1 ? "s" : ""} ou réglée${summary.collectedCount > 1 ? "s" : ""}` : undefined}
+          hint={summary ? [
+            `${plural(summary.collectedCount, "ligne")} payée${summary.collectedCount > 1 ? "s" : ""} ou réglée${summary.collectedCount > 1 ? "s" : ""}`,
+            summary.storeCollectedCount
+              ? `dont stores ${formatBillingAmount(summary.storeCollectedMinor, summary.currency)}${summary.storeCollectedCount > summary.storeNetUnknownCount ? ` (${NET_ESTIMATE_LABEL.toLowerCase()} ≈ ${formatBillingAmount(summary.storeNetEstimateMinor, summary.currency)}${summary.storeNetUnknownCount ? `, ${summary.storeNetUnknownCount} sans taux` : ""})` : ""}`
+              : null,
+          ].filter(Boolean).join(" · ") : undefined}
         />
         <KpiTile
           label="Remboursé"
@@ -194,7 +202,12 @@ export function BillingRegister({ accessToken }: { accessToken: string }) {
         <KpiTile
           label="Transactions"
           value={summary ? String(summary.transactionCount) : "…"}
-          hint={summary?.untrackedCount ? `dont ${summary.untrackedCount} sans montant suivi (coureurs)` : "sur la période et les sources choisies"}
+          hint={summary && (summary.untrackedCount || summary.otherCurrencyCount)
+            ? [
+              summary.untrackedCount ? `dont ${summary.untrackedCount} sans montant suivi (coureurs)` : null,
+              summary.otherCurrencyCount ? `${summary.otherCurrencyCount} dans une autre devise (non additionnée${summary.otherCurrencyCount > 1 ? "s" : ""})` : null,
+            ].filter(Boolean).join(" · ")
+            : "sur la période et les sources choisies"}
         />
       </section>
 
