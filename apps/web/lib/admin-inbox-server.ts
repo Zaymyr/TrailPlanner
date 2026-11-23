@@ -17,6 +17,7 @@ import {
   type InboxResponse,
   type InboxSourceState,
 } from "./admin-inbox";
+import { getServiceJson } from "./admin-service-rest";
 import { loadSystemHealth } from "./admin-system-health-server";
 import { createFlyoverOrderRepository } from "./flyover-orders";
 import { buildRaceDataGaps, loadGapFormats } from "./race-data-gaps";
@@ -47,18 +48,8 @@ export const INBOX_FILTERS = {
   draftPosts: "social_posts?status=eq.draft",
 } as const;
 
-const get = async (supabase: SupabaseServiceConfig, path: string) => {
-  const response = await fetch(`${supabase.supabaseUrl}/rest/v1/${path}`, {
-    headers: { apikey: supabase.supabaseServiceRoleKey, Authorization: `Bearer ${supabase.supabaseServiceRoleKey}` },
-    cache: "no-store",
-  });
-  if (!response.ok) {
-    const error = new Error(`Read failed (${response.status}).`) as Error & { status?: number };
-    error.status = response.status;
-    throw error;
-  }
-  return response.json() as Promise<unknown>;
-};
+/** Throws an error carrying the HTTP `status` (a missing demo table answers 404). */
+const get = getServiceJson;
 
 const eventRef = z.object({ name: z.string() }).nullable().optional();
 

@@ -1,9 +1,12 @@
 ---
 title: user_notifications Table
 scope: database
-last_verified: 2026-11-16
+last_verified: 2026-11-23
 ai_priority: high
 related_files:
+  - apps/web/lib/admin-messages.ts
+  - apps/web/lib/admin-messages-server.ts
+  - apps/web/app/api/admin/user-notifications/route.ts
   - supabase/migrations/20261116180000_add_feedback_surveys.sql
   - supabase/tests/feedback_survey_checks.sql
   - supabase/migrations/20261105180000_add_app_feedback_review.sql
@@ -107,3 +110,7 @@ The mobile inbox explicitly selects `id,user_id,race_request_id,feedback_id,kind
 The admin inbox lists (`/api/admin/feedback`, `/api/admin/race-requests`) return, per item, the latest notification linked by `feedback_id` or `race_request_id` with its `read_at` and `deleted_at`, shown as "Lue le …", "Non lue" or "Supprimée par l'utilisateur".
 
 The mobile query depends on `feedback_id` and `deleted_at`: apply `20261105180000_add_app_feedback_review.sql` before publishing the mobile update that reads them.
+
+## Admin message history (2026-11-23, lot 5)
+
+Every row is written by the service role after an admin action (`created_by` = the admin): the table holds no automatic notification. The `kind` gives the origin (`admin_message` written in the console — a bug / feedback reply carries `feedback_id` —, `race_request_status` sent with a race-request decision, `feedback_survey`). `GET /api/admin/user-notifications` (admin guard of the route) pages the history newest first, 30 per page, with `?recherche=` (case-insensitive on `title` and `body`; `*`, `,`, parentheses and quotes are stripped so the text cannot change the PostgREST `or` filter), `?type=message,demande,questionnaire`, `?destinataire=<userId>`; it selects the explicit admin columns (never `email_error`, `push_error`, `email_provider_id`) and resolves the recipient name and e-mail of the page only. The runner profile (`GET /api/admin/users/[id]`) reads the latest 50 rows of one runner the same way.

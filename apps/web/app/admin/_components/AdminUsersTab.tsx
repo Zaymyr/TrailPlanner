@@ -1,43 +1,43 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { useSearchParams } from "next/navigation";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "../../../components/ui/dialog";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
+import { StatusBadge } from "../../../components/ui/StatusBadge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table";
 import { useI18n } from "../../i18n-provider";
 import { adminGrowthResponseSchema } from "../../api/admin/growth/schema";
+import { replaceLocationSearch } from "../admin-tabs";
 import AdminTrendChart from "../components/AdminTrendChart";
 import { adminMessageBody } from "./admin-message-template";
+import { NOTIFICATION_SENT_MESSAGE, sendAdminUserNotification } from "./admin-notification-api";
 import { AdminNotificationDialog, type AdminNotificationFormValue } from "./AdminNotificationDialog";
 import {
-  AdminUser,
   adminUserSchema,
   adminUsersSchema,
   formatDate,
-  formatDateTimeLocal,
-  formatDuration,
-  formatStatus,
-  premiumGrantFormSchema,
-  PremiumGrantFormValues,
   premiumGrantResponseSchema,
   userRoleOptions,
   UserRoleOption,
 } from "./admin-types";
+import { PremiumGrantDialog, type PremiumGrantDraft, type PremiumGrantSubmit } from "./runners/PremiumGrantDialog";
+import { RunnerProfileDrawer, runnerProfileQueryKey } from "./runners/RunnerProfileDrawer";
+import {
+  DEFAULT_RUNNERS_STATE,
+  nextSort,
+  readRunnersUrl,
+  runnersApiQuery,
+  writeRunnersUrl,
+  type RunnerProfileTab,
+  type RunnerSort,
+  type RunnersUrlState,
+} from "./runners/runner-url";
 
 const readResponsePayload = async (response: Response): Promise<unknown> => {
   const text = await response.text().catch(() => "");
@@ -80,40 +80,68 @@ const buildApiErrorMessage = (response: Response, payload: unknown, fallback: st
   return `${fallback} (HTTP ${response.status})`;
 };
 
-/** `initialSearch` pre-fills the search (console `/admin/runners?recherche=`, ⌘K palette). */
-export function AdminUsersTab({ accessToken, initialSearch = "" }: { accessToken: string | null; initialSearch?: string }) {
+type PremiumDialogTarget = { userId: string; grant: PremiumGrantDraft | null };
+type MessageTarget = { userId: string; label: string };
+
+const currentSearch = () => (typeof window === "undefined" ? "" : window.location.search);
+
+/** Clicks on the role checkboxes and buttons of a row must not open the profile. */
+const isInteractive = (event: MouseEvent<HTMLElement>) => Boolean((event.target as HTMLElement).closest("input,label,button,a,select"));
+
+/**
+ * Coureurs (`/admin/runners`): the list of accounts (search, column filters, sort and page, all in
+ * the URL — `?recherche=` of the ⌘K palette included) and, on a row, the runner profile drawer
+ * (`?coureur=<userId>&fiche=`, lot 5) with the Premium and message actions. Roles stay editable in the
+ * table. The former « Voir détails » and « Accorder Premium » dialogs are now in the profile.
+ */
+export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
   const { t } = useI18n();
+  const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
+  const [state, setState] = useState<RunnersUrlState | null>(null);
+  const [searchInput, setSearchInput] = useState("");
+  const [emailFilterInput, setEmailFilterInput] = useState("");
+  const lastWrittenSearch = useRef<string | null>(null);
   const [userMessage, setUserMessage] = useState<string | null>(null);
   const [userError, setUserError] = useState<string | null>(null);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [revokingGrantId, setRevokingGrantId] = useState<string | null>(null);
-  const [premiumDialogOpen, setPremiumDialogOpen] = useState(false);
-  const [premiumDialogUser, setPremiumDialogUser] = useState<AdminUser | null>(null);
-  const [detailsDialogUser, setDetailsDialogUser] = useState<AdminUser | null>(null);
-  const [notificationDialogUser, setNotificationDialogUser] = useState<AdminUser | null>(null);
-  const [page, setPage] = useState(1);
-  const [searchInput, setSearchInput] = useState(initialSearch);
-  const [search, setSearch] = useState(initialSearch);
-  const [emailFilterInput, setEmailFilterInput] = useState("");
-  const [emailFilter, setEmailFilter] = useState("");
-  const [roleFilter, setRoleFilter] = useState<"all" | UserRoleOption>("all");
-  const [createdFrom, setCreatedFrom] = useState("");
-  const [createdTo, setCreatedTo] = useState("");
-  const [lastSignInFrom, setLastSignInFrom] = useState("");
-  const [lastSignInTo, setLastSignInTo] = useState("");
-  const [sort, setSort] = useState<"email" | "role" | "createdAt" | "lastSignInAt">("createdAt");
-  const [order, setOrder] = useState<"asc" | "desc">("desc");
+  const [premiumTarget, setPremiumTarget] = useState<PremiumDialogTarget | null>(null);
+  const [messageTarget, setMessageTarget] = useState<MessageTarget | null>(null);
 
-  const premiumReasonOptions = useMemo(
-    () => [
-      { value: "trial_extension", label: t.admin.users.premium.reasons.trialExtension },
-      { value: "support", label: t.admin.users.premium.reasons.support },
-      { value: "marketing", label: t.admin.users.premium.reasons.marketing },
-      { value: "partner", label: t.admin.users.premium.reasons.partner },
-      { value: "other", label: t.admin.users.premium.reasons.other },
-    ],
-    [t.admin.users.premium.reasons]
-  );
+  // The URL is the state: read on load and whenever it changes from outside (⌘K palette → `?recherche=`).
+  const urlSearch = searchParams?.toString() ? `?${searchParams.toString()}` : currentSearch();
+  useEffect(() => {
+    if (urlSearch === lastWrittenSearch.current) return;
+    const next = readRunnersUrl(urlSearch);
+    lastWrittenSearch.current = writeRunnersUrl(next);
+    setState(next);
+    setSearchInput(next.search);
+    setEmailFilterInput(next.email);
+  }, [urlSearch]);
+
+  const update = (patch: Partial<RunnersUrlState> | ((current: RunnersUrlState) => Partial<RunnersUrlState>)) => {
+    setState((current) => (current ? { ...current, ...(typeof patch === "function" ? patch(current) : patch) } : current));
+  };
+  // Every change of the view is written to the URL (no history entry), so it can be shared.
+  useEffect(() => {
+    if (!state) return;
+    const search = writeRunnersUrl(state);
+    if (search === currentSearch()) return;
+    lastWrittenSearch.current = search;
+    replaceLocationSearch(search);
+  }, [state]);
+  const updateFilters = (patch: Partial<RunnersUrlState>) => update({ ...patch, page: 1 });
+
+  useEffect(() => {
+    if (!state) return;
+    const search = searchInput.trim();
+    const email = emailFilterInput.trim();
+    if (search === state.search && email === state.email) return;
+    const timeout = window.setTimeout(() => updateFilters({ search, email }), 300);
+    return () => window.clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [emailFilterInput, searchInput]);
 
   const roleLabels = useMemo(
     () => ({
@@ -123,77 +151,13 @@ export function AdminUsersTab({ accessToken, initialSearch = "" }: { accessToken
     [t.admin.users.roles]
   );
 
-  const premiumForm = useForm<PremiumGrantFormValues>({
-    resolver: zodResolver(premiumGrantFormSchema),
-    defaultValues: {
-      startsAt: formatDateTimeLocal(new Date()),
-      initialDurationDays: 30,
-      reason: premiumReasonOptions[0]?.value ?? "",
-    },
-  });
-
-  useEffect(() => {
-    if (!premiumDialogOpen) {
-      premiumForm.reset({
-        startsAt: formatDateTimeLocal(new Date()),
-        initialDurationDays: 30,
-        reason: premiumReasonOptions[0]?.value ?? "",
-      });
-      return;
-    }
-
-    if (premiumDialogUser) {
-      premiumForm.reset({
-        startsAt: formatDateTimeLocal(new Date()),
-        initialDurationDays: 30,
-        reason: premiumReasonOptions[0]?.value ?? "",
-      });
-    }
-  }, [premiumDialogOpen, premiumDialogUser, premiumForm, premiumReasonOptions]);
-
-  useEffect(() => {
-    const timeout = window.setTimeout(() => {
-      setPage(1);
-      setSearch(searchInput.trim());
-      setEmailFilter(emailFilterInput.trim());
-    }, 300);
-
-    return () => window.clearTimeout(timeout);
-  }, [emailFilterInput, searchInput]);
-
+  const apiQuery = state ? runnersApiQuery(state) : "";
   const usersQuery = useQuery({
-    queryKey: [
-      "admin",
-      "users",
-      accessToken,
-      page,
-      search,
-      emailFilter,
-      roleFilter,
-      createdFrom,
-      createdTo,
-      lastSignInFrom,
-      lastSignInTo,
-      sort,
-      order,
-    ],
-    enabled: Boolean(accessToken),
+    queryKey: ["admin", "users", accessToken, apiQuery],
+    enabled: Boolean(accessToken && state),
     queryFn: async () => {
       if (!accessToken) throw new Error(t.admin.users.loadError);
-
-      const params = new URLSearchParams({
-        page: String(page),
-        search,
-        email: emailFilter,
-        role: roleFilter,
-        createdFrom,
-        createdTo,
-        lastSignInFrom,
-        lastSignInTo,
-        sort,
-        order,
-      });
-      const response = await fetch(`/api/admin/users?${params.toString()}`, {
+      const response = await fetch(`/api/admin/users?${apiQuery}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
         cache: "no-store",
       });
@@ -213,7 +177,8 @@ export function AdminUsersTab({ accessToken, initialSearch = "" }: { accessToken
       return parsed.data;
     },
     onSuccess: (data) => {
-      if (data.pagination.page !== page) setPage(data.pagination.page);
+      // The route clamps a page past the end: follow it in the URL.
+      update((current) => (data.pagination.page !== current.page ? { page: data.pagination.page } : {}));
     },
   });
   const userTrendsQuery = useQuery({
@@ -233,6 +198,8 @@ export function AdminUsersTab({ accessToken, initialSearch = "" }: { accessToken
       return parsed.data;
     },
   });
+
+  const refreshProfile = (userId: string) => queryClient.invalidateQueries({ queryKey: runnerProfileQueryKey(accessToken, userId) });
 
   const updateUserRoleMutation = useMutation({
     mutationFn: async (payload: { id: string; roles: UserRoleOption[] }) => {
@@ -261,11 +228,12 @@ export function AdminUsersTab({ accessToken, initialSearch = "" }: { accessToken
 
       return parsed.data.user;
     },
-    onSuccess: () => {
+    onSuccess: (user) => {
       setUserError(null);
       setUserMessage(t.admin.users.messages.updated);
       setUpdatingUserId(null);
       void usersQuery.refetch();
+      refreshProfile(user.id);
     },
     onError: (error) => {
       const message = error instanceof Error ? error.message : t.admin.users.messages.error;
@@ -275,12 +243,13 @@ export function AdminUsersTab({ accessToken, initialSearch = "" }: { accessToken
     },
   });
 
-  const createPremiumGrantMutation = useMutation({
-    mutationFn: async (payload: { userId: string; startsAt: string; initialDurationDays: number; reason: string }) => {
+  /** POST (new grant) or PATCH (`id`: change start, duration, reason) of `/api/admin/premium`. */
+  const savePremiumGrantMutation = useMutation({
+    mutationFn: async (payload: { id?: string; userId: string; startsAt: string; initialDurationDays: number; reason: string }) => {
       if (!accessToken) throw new Error(t.admin.users.premium.messages.error);
 
       const response = await fetch("/api/admin/premium", {
-        method: "POST",
+        method: payload.id ? "PATCH" : "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
@@ -297,17 +266,17 @@ export function AdminUsersTab({ accessToken, initialSearch = "" }: { accessToken
       const parsed = premiumGrantResponseSchema.safeParse(data);
 
       if (!parsed.success) {
-        throw new Error(`Invalid POST /api/admin/premium response. ${summarizeZodError(parsed.error)}`);
+        throw new Error(`Invalid ${payload.id ? "PATCH" : "POST"} /api/admin/premium response. ${summarizeZodError(parsed.error)}`);
       }
 
       return parsed.data.premiumGrant;
     },
-    onSuccess: () => {
+    onSuccess: (_grant, payload) => {
       setUserError(null);
-      setUserMessage(t.admin.users.premium.messages.created);
-      setPremiumDialogOpen(false);
-      setPremiumDialogUser(null);
+      setUserMessage(payload.id ? "L’attribution Premium a été modifiée." : t.admin.users.premium.messages.created);
+      setPremiumTarget(null);
       void usersQuery.refetch();
+      refreshProfile(payload.userId);
     },
     onError: (error) => {
       const message = error instanceof Error ? error.message : t.admin.users.premium.messages.error;
@@ -316,7 +285,7 @@ export function AdminUsersTab({ accessToken, initialSearch = "" }: { accessToken
   });
 
   const revokePremiumGrantMutation = useMutation({
-    mutationFn: async (payload: { id: string }) => {
+    mutationFn: async (payload: { id: string; userId: string }) => {
       if (!accessToken) throw new Error(t.admin.users.premium.messages.error);
 
       const response = await fetch("/api/admin/premium", {
@@ -325,7 +294,7 @@ export function AdminUsersTab({ accessToken, initialSearch = "" }: { accessToken
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ id: payload.id }),
       });
 
       const data = await readResponsePayload(response);
@@ -342,11 +311,12 @@ export function AdminUsersTab({ accessToken, initialSearch = "" }: { accessToken
 
       return parsed.data.premiumGrant;
     },
-    onSuccess: () => {
+    onSuccess: (_grant, payload) => {
       setUserError(null);
       setUserMessage(t.admin.users.premium.messages.revoked);
       setRevokingGrantId(null);
       void usersQuery.refetch();
+      refreshProfile(payload.userId);
     },
     onError: (error) => {
       const message = error instanceof Error ? error.message : t.admin.users.premium.messages.error;
@@ -360,6 +330,8 @@ export function AdminUsersTab({ accessToken, initialSearch = "" }: { accessToken
   const pagination = usersQuery.data?.pagination;
   const isFrench = t.admin.users.title.toLocaleLowerCase().includes("utilisateur");
   const userTrend = userTrendsQuery.data;
+  const view = state ?? DEFAULT_RUNNERS_STATE;
+  const openRow = userRows.find((user) => user.id === view.runnerId);
 
   const pageNumbers = useMemo(() => {
     if (!pagination || pagination.totalPages <= 1) return [];
@@ -370,63 +342,40 @@ export function AdminUsersTab({ accessToken, initialSearch = "" }: { accessToken
       .sort((left, right) => left - right);
   }, [pagination]);
 
-  const handleSort = (column: "email" | "role" | "createdAt" | "lastSignInAt") => {
-    setPage(1);
-    if (sort === column) {
-      setOrder((current) => (current === "asc" ? "desc" : "asc"));
-      return;
-    }
-    setSort(column);
-    setOrder(column === "createdAt" || column === "lastSignInAt" ? "desc" : "asc");
-  };
-
-  const updateFilter = (setter: (value: string) => void, value: string) => {
-    setPage(1);
-    setter(value);
-  };
+  const handleSort = (column: RunnerSort) => updateFilters(nextSort(view, column));
 
   const clearColumnFilters = () => {
-    setPage(1);
     setEmailFilterInput("");
-    setEmailFilter("");
-    setRoleFilter("all");
-    setCreatedFrom("");
-    setCreatedTo("");
-    setLastSignInFrom("");
-    setLastSignInTo("");
+    updateFilters({
+      email: "",
+      role: "all",
+      createdFrom: "",
+      createdTo: "",
+      lastSignInFrom: "",
+      lastSignInTo: "",
+    });
   };
+
+  const openRunner = (userId: string) => update({ runnerId: userId, tab: "resume" });
 
   const sendUserNotification = async (value: AdminNotificationFormValue) => {
-    if (!accessToken || !notificationDialogUser) throw new Error("Session admin manquante.");
-    const response = await fetch("/api/admin/user-notifications", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({
-        notificationId: value.notificationId,
-        userId: notificationDialogUser.id,
-        title: value.title,
-        body: value.body,
-        sendEmail: value.sendEmail,
-        sendPush: value.sendPush,
-      }),
-    });
-    const payload = await readResponsePayload(response);
-    if (!response.ok) throw new Error(buildApiErrorMessage(response, payload, "Impossible d’envoyer le message."));
+    if (!messageTarget) throw new Error("Session admin manquante.");
+    await sendAdminUserNotification(accessToken, messageTarget.userId, value);
     setUserError(null);
-    setUserMessage("Le message a été enregistré et les canaux sélectionnés ont été traités.");
-    setNotificationDialogUser(null);
+    setUserMessage(NOTIFICATION_SENT_MESSAGE);
+    refreshProfile(messageTarget.userId);
+    setMessageTarget(null);
   };
 
-  const renderSortableHeader = (
-    column: "email" | "role" | "createdAt" | "lastSignInAt",
-    label: string
-  ) => (
+  const submitPremium = (value: PremiumGrantSubmit) => {
+    if (!premiumTarget) return;
+    savePremiumGrantMutation.mutate({ id: premiumTarget.grant?.id, userId: premiumTarget.userId, ...value });
+  };
+
+  const renderSortableHeader = (column: RunnerSort, label: string) => (
     <TableHead
       className="text-slate-600 dark:text-slate-300"
-      aria-sort={sort === column ? (order === "asc" ? "ascending" : "descending") : "none"}
+      aria-sort={view.sort === column ? (view.order === "asc" ? "ascending" : "descending") : "none"}
     >
       <button
         type="button"
@@ -434,12 +383,12 @@ export function AdminUsersTab({ accessToken, initialSearch = "" }: { accessToken
         onClick={() => handleSort(column)}
       >
         {label}
-        <span aria-hidden className={sort === column ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400"}>
-          {sort === column ? (order === "asc" ? "↑" : "↓") : "↕"}
+        <span aria-hidden className={view.sort === column ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400"}>
+          {view.sort === column ? (view.order === "asc" ? "↑" : "↓") : "↕"}
         </span>
         <span className="sr-only">
-          {sort === column
-            ? order === "asc"
+          {view.sort === column
+            ? view.order === "asc"
               ? t.admin.users.sort.descending
               : t.admin.users.sort.ascending
             : t.admin.users.sort.ascending}
@@ -453,23 +402,12 @@ export function AdminUsersTab({ accessToken, initialSearch = "" }: { accessToken
     return roles.length > 0 ? roles : ["user"];
   };
 
-  const handlePremiumSubmit = premiumForm.handleSubmit((values) => {
-    if (!premiumDialogUser) return;
-
-    const startsAt = new Date(values.startsAt);
-
-    if (Number.isNaN(startsAt.getTime())) {
-      premiumForm.setError("startsAt", { message: t.admin.users.premium.form.errors.invalidDate });
-      return;
-    }
-
-    createPremiumGrantMutation.mutate({
-      userId: premiumDialogUser.id,
-      startsAt: startsAt.toISOString(),
-      initialDurationDays: values.initialDurationDays,
-      reason: values.reason,
-    });
-  });
+  const premiumSummary = (user: z.infer<typeof adminUserSchema>) => {
+    if (user.subscription) return <StatusBadge tone="success">Abonnement</StatusBadge>;
+    if (user.premiumGrant) return <StatusBadge tone="success" title={`${user.premiumGrant.remainingDurationDays} j restants`}>Attribution</StatusBadge>;
+    if (user.trial) return <StatusBadge tone="info" title={`${user.trial.remainingDays} j restants`}>Essai</StatusBadge>;
+    return <span className="text-xs text-slate-500 dark:text-slate-400">{t.admin.users.premium.empty}</span>;
+  };
 
   return (
     <>
@@ -513,8 +451,8 @@ export function AdminUsersTab({ accessToken, initialSearch = "" }: { accessToken
               </p>
             ) : null}
           </div>
-          {userMessage ? <p className="text-sm text-emerald-700 dark:text-emerald-200">{userMessage}</p> : null}
-          {userError ? <p className="text-sm text-red-600 dark:text-red-300">{userError}</p> : null}
+          {userMessage ? <p role="status" className="text-sm text-emerald-700 dark:text-emerald-200">{userMessage}</p> : null}
+          {userError ? <p role="alert" className="text-sm text-red-600 dark:text-red-300">{userError}</p> : null}
           {usersQuery.error ? (
             <p className="text-sm text-red-600 dark:text-red-300">
               {usersQuery.error instanceof Error ? usersQuery.error.message : t.admin.users.loadError}
@@ -530,6 +468,31 @@ export function AdminUsersTab({ accessToken, initialSearch = "" }: { accessToken
           ) : null}
 
           {userRows.length > 0 ? (
+            <ul className="space-y-2 md:hidden" aria-label="Comptes">
+              {userRows.map((user) => (
+                <li key={user.id}>
+                  <button
+                    type="button"
+                    onClick={() => openRunner(user.id)}
+                    aria-label={`Ouvrir la fiche de ${user.email ?? user.id}`}
+                    className={`flex w-full flex-col gap-1 rounded-lg border p-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring ${view.runnerId === user.id ? "border-brand bg-brand/5" : "border-border bg-card"}`}
+                  >
+                    <span className="flex w-full items-center justify-between gap-2">
+                      <span className="min-w-0 truncate font-semibold text-foreground">{user.email ?? "—"}</span>
+                      {premiumSummary(user)}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {getUserRoles(user).map((role) => roleLabels[role]).join(", ")} · créé le {formatDate(user.createdAt)}
+                    </span>
+                    <span className="text-xs text-muted-foreground">Dernière activité : {formatDate(user.lastSignInAt)}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
+          {userRows.length > 0 ? (
+            <div className="hidden md:block">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -563,11 +526,8 @@ export function AdminUsersTab({ accessToken, initialSearch = "" }: { accessToken
                     <select
                       id="admin-users-role-filter"
                       className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm font-normal"
-                      value={roleFilter}
-                      onChange={(event) => {
-                        setPage(1);
-                        setRoleFilter(event.target.value as typeof roleFilter);
-                      }}
+                      value={view.role}
+                      onChange={(event) => updateFilters({ role: event.target.value as RunnersUrlState["role"] })}
                     >
                       <option value="all">{isFrench ? "Tous les rôles" : "All roles"}</option>
                       <option value="user">{roleLabels.user}</option>
@@ -583,9 +543,9 @@ export function AdminUsersTab({ accessToken, initialSearch = "" }: { accessToken
                         id="admin-users-created-from"
                         type="date"
                         className="h-9 font-normal"
-                        value={createdFrom}
-                        max={createdTo || undefined}
-                        onChange={(event) => updateFilter(setCreatedFrom, event.target.value)}
+                        value={view.createdFrom}
+                        max={view.createdTo || undefined}
+                        onChange={(event) => updateFilters({ createdFrom: event.target.value })}
                         title={isFrench ? "Créé à partir du" : "Created from"}
                       />
                       <Label htmlFor="admin-users-created-to" className="block text-[10px] font-normal text-muted-foreground">
@@ -595,9 +555,9 @@ export function AdminUsersTab({ accessToken, initialSearch = "" }: { accessToken
                         id="admin-users-created-to"
                         type="date"
                         className="h-9 font-normal"
-                        value={createdTo}
-                        min={createdFrom || undefined}
-                        onChange={(event) => updateFilter(setCreatedTo, event.target.value)}
+                        value={view.createdTo}
+                        min={view.createdFrom || undefined}
+                        onChange={(event) => updateFilters({ createdTo: event.target.value })}
                         title={isFrench ? "Créé jusqu’au" : "Created to"}
                       />
                     </div>
@@ -611,9 +571,9 @@ export function AdminUsersTab({ accessToken, initialSearch = "" }: { accessToken
                         id="admin-users-active-from"
                         type="date"
                         className="h-9 font-normal"
-                        value={lastSignInFrom}
-                        max={lastSignInTo || undefined}
-                        onChange={(event) => updateFilter(setLastSignInFrom, event.target.value)}
+                        value={view.lastSignInFrom}
+                        max={view.lastSignInTo || undefined}
+                        onChange={(event) => updateFilters({ lastSignInFrom: event.target.value })}
                         title={isFrench ? "Actif à partir du" : "Active from"}
                       />
                       <Label htmlFor="admin-users-active-to" className="block text-[10px] font-normal text-muted-foreground">
@@ -623,9 +583,9 @@ export function AdminUsersTab({ accessToken, initialSearch = "" }: { accessToken
                         id="admin-users-active-to"
                         type="date"
                         className="h-9 font-normal"
-                        value={lastSignInTo}
-                        min={lastSignInFrom || undefined}
-                        onChange={(event) => updateFilter(setLastSignInTo, event.target.value)}
+                        value={view.lastSignInTo}
+                        min={view.lastSignInFrom || undefined}
+                        onChange={(event) => updateFilters({ lastSignInTo: event.target.value })}
                         title={isFrench ? "Actif jusqu’au" : "Active to"}
                       />
                     </div>
@@ -640,9 +600,22 @@ export function AdminUsersTab({ accessToken, initialSearch = "" }: { accessToken
               </TableHeader>
               <TableBody>
                 {userRows.map((user) => (
-                  <TableRow key={user.id}>
+                  <TableRow
+                    key={user.id}
+                    className={view.runnerId === user.id ? "cursor-pointer bg-brand/5" : "cursor-pointer"}
+                    onClick={(event) => {
+                      if (!isInteractive(event)) openRunner(user.id);
+                    }}
+                  >
                     <TableCell className="font-semibold text-slate-900 dark:text-slate-100">
-                      {user.email ?? "—"}
+                      <button
+                        type="button"
+                        className="rounded-sm text-left underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                        onClick={() => openRunner(user.id)}
+                        aria-label={`Ouvrir la fiche de ${user.email ?? user.id}`}
+                      >
+                        {user.email ?? "—"}
+                      </button>
                     </TableCell>
                     <TableCell className="text-slate-700 dark:text-slate-200">
                       <div className="flex flex-wrap items-center gap-3">
@@ -687,96 +660,13 @@ export function AdminUsersTab({ accessToken, initialSearch = "" }: { accessToken
                     <TableCell className="text-slate-700 dark:text-slate-200">
                       {formatDate(user.lastSignInAt)}
                     </TableCell>
-                    <TableCell className="text-slate-700 dark:text-slate-200">
-                      <div className="space-y-2">
-                        {user.subscription ? (
-                          <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
-                            <div>
-                              <span className="font-semibold">{t.admin.users.premium.subscription.label}</span>{" "}
-                              {formatStatus(user.subscription.status)}
-                            </div>
-                            {user.subscription.currentPeriodEnd ? (
-                              <div>
-                                <span className="font-semibold">{t.admin.users.premium.subscription.ends}</span>{" "}
-                                {formatDate(user.subscription.currentPeriodEnd)}
-                              </div>
-                            ) : null}
-                          </div>
-                        ) : null}
-                        {user.trial ? (
-                          <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
-                            <div>
-                              <span className="font-semibold">{t.admin.users.premium.trial.label}</span>{" "}
-                              {formatDate(user.trial.endsAt)}
-                            </div>
-                            <div>
-                              <span className="font-semibold">{t.admin.users.premium.trial.remaining}</span>{" "}
-                              {formatDuration(user.trial.remainingDays)}
-                            </div>
-                          </div>
-                        ) : null}
-                        {user.premiumGrant ? (
-                          <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
-                            <div>
-                              <span className="font-semibold">{t.admin.users.premium.starts}</span>{" "}
-                              {formatDate(user.premiumGrant.startsAt)}
-                            </div>
-                            <div>
-                              <span className="font-semibold">{t.admin.users.premium.duration}</span>{" "}
-                              {formatDuration(user.premiumGrant.initialDurationDays)}
-                            </div>
-                            <div>
-                              <span className="font-semibold">{t.admin.users.premium.remaining}</span>{" "}
-                              {formatDuration(user.premiumGrant.remainingDurationDays)}
-                            </div>
-                            <div>
-                              <span className="font-semibold">{t.admin.users.premium.reason}</span>{" "}
-                              {user.premiumGrant.reason}
-                            </div>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              className="h-8 px-2 text-xs text-red-600 hover:text-red-600"
-                              onClick={() => {
-                                if (!user.premiumGrant) return;
-                                setRevokingGrantId(user.premiumGrant.id);
-                                revokePremiumGrantMutation.mutate({ id: user.premiumGrant.id });
-                              }}
-                              disabled={
-                                revokePremiumGrantMutation.isPending && revokingGrantId === user.premiumGrant.id
-                              }
-                            >
-                              {revokePremiumGrantMutation.isPending && revokingGrantId === user.premiumGrant.id
-                                ? t.admin.users.premium.revoke.loading
-                                : t.admin.users.premium.revoke.action}
-                            </Button>
-                          </div>
-                        ) : null}
-                        {!user.premiumGrant && !user.trial && !user.subscription ? (
-                          <p className="text-xs text-slate-500 dark:text-slate-400">
-                            {t.admin.users.premium.empty}
-                          </p>
-                        ) : null}
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="h-8 px-3 text-xs"
-                          onClick={() => {
-                            setPremiumDialogUser(user);
-                            setPremiumDialogOpen(true);
-                          }}
-                          disabled={createPremiumGrantMutation.isPending}
-                        >
-                          {t.admin.users.premium.action}
-                        </Button>
-                      </div>
-                    </TableCell>
+                    <TableCell className="text-slate-700 dark:text-slate-200">{premiumSummary(user)}</TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
-                        <Button type="button" variant="ghost" className="h-8 px-2 text-xs" onClick={() => setDetailsDialogUser(user)}>
-                          {t.admin.users.details.open}
+                        <Button type="button" variant="ghost" className="h-8 px-2 text-xs" onClick={() => openRunner(user.id)}>
+                          Ouvrir la fiche
                         </Button>
-                        <Button type="button" variant="outline" className="h-8 px-2 text-xs" onClick={() => setNotificationDialogUser(user)}>
+                        <Button type="button" variant="outline" className="h-8 px-2 text-xs" onClick={() => setMessageTarget({ userId: user.id, label: user.email ?? user.id })}>
                           Envoyer un message
                         </Button>
                       </div>
@@ -785,6 +675,7 @@ export function AdminUsersTab({ accessToken, initialSearch = "" }: { accessToken
                 ))}
               </TableBody>
             </Table>
+            </div>
           ) : null}
 
           {pagination && pagination.totalPages > 1 ? (
@@ -799,7 +690,7 @@ export function AdminUsersTab({ accessToken, initialSearch = "" }: { accessToken
                   type="button"
                   variant="outline"
                   className="h-9"
-                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  onClick={() => update({ page: Math.max(1, view.page - 1) })}
                   disabled={pagination.page <= 1 || isLoading}
                 >
                   {t.admin.users.pagination.previous}
@@ -819,7 +710,7 @@ export function AdminUsersTab({ accessToken, initialSearch = "" }: { accessToken
                         className="h-9 min-w-9 px-2"
                         aria-current={pageNumber === pagination.page ? "page" : undefined}
                         aria-label={t.admin.users.pagination.goToPage.replace("{page}", String(pageNumber))}
-                        onClick={() => setPage(pageNumber)}
+                        onClick={() => update({ page: pageNumber })}
                         disabled={isLoading}
                       >
                         {pageNumber}
@@ -831,7 +722,7 @@ export function AdminUsersTab({ accessToken, initialSearch = "" }: { accessToken
                   type="button"
                   variant="outline"
                   className="h-9"
-                  onClick={() => setPage((current) => Math.min(pagination.totalPages, current + 1))}
+                  onClick={() => update({ page: Math.min(pagination.totalPages, view.page + 1) })}
                   disabled={pagination.page >= pagination.totalPages || isLoading}
                 >
                   {t.admin.users.pagination.next}
@@ -842,121 +733,39 @@ export function AdminUsersTab({ accessToken, initialSearch = "" }: { accessToken
         </CardContent>
       </Card>
 
-      <Dialog
-        open={premiumDialogOpen}
-        onOpenChange={(open) => {
-          setPremiumDialogOpen(open);
-          if (!open) {
-            setPremiumDialogUser(null);
-            premiumForm.reset({
-              startsAt: formatDateTimeLocal(new Date()),
-              initialDurationDays: 30,
-              reason: premiumReasonOptions[0]?.value ?? "",
-            });
-          }
+      <RunnerProfileDrawer
+        accessToken={accessToken}
+        runnerId={state?.runnerId ?? null}
+        listInsights={openRow?.insights ? { favoriteProducts: openRow.insights.favoriteProducts, activityWindowDays: openRow.insights.activityWindowDays } : null}
+        tab={view.tab}
+        revokingGrantId={revokingGrantId}
+        onTabChange={(tab: RunnerProfileTab) => update({ tab })}
+        onClose={() => update({ runnerId: null, tab: "resume" })}
+        onGrant={(profile) => setPremiumTarget({ userId: profile.id, grant: null })}
+        onEditGrant={(profile, grant) => setPremiumTarget({ userId: profile.id, grant })}
+        onRevokeGrant={(profile, grant) => {
+          if (!window.confirm("Révoquer cette attribution Premium dès maintenant ?")) return;
+          setRevokingGrantId(grant.id);
+          revokePremiumGrantMutation.mutate({ id: grant.id, userId: profile.id });
         }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t.admin.users.premium.form.title}</DialogTitle>
-            <DialogDescription>{t.admin.users.premium.form.description}</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handlePremiumSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="premium-starts-at">{t.admin.users.premium.form.startsAtLabel}</Label>
-              <Input
-                id="premium-starts-at"
-                type="datetime-local"
-                {...premiumForm.register("startsAt")}
-              />
-              {premiumForm.formState.errors.startsAt ? (
-                <p className="text-xs text-red-600 dark:text-red-300">
-                  {premiumForm.formState.errors.startsAt.message}
-                </p>
-              ) : null}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="premium-duration">{t.admin.users.premium.form.durationLabel}</Label>
-              <Input
-                id="premium-duration"
-                type="number"
-                min="1"
-                {...premiumForm.register("initialDurationDays", { valueAsNumber: true })}
-              />
-              {premiumForm.formState.errors.initialDurationDays ? (
-                <p className="text-xs text-red-600 dark:text-red-300">
-                  {premiumForm.formState.errors.initialDurationDays.message}
-                </p>
-              ) : null}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="premium-reason">{t.admin.users.premium.form.reasonLabel}</Label>
-              <select
-                id="premium-reason"
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                {...premiumForm.register("reason")}
-              >
-                {premiumReasonOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              {premiumForm.formState.errors.reason ? (
-                <p className="text-xs text-red-600 dark:text-red-300">
-                  {premiumForm.formState.errors.reason.message}
-                </p>
-              ) : null}
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setPremiumDialogOpen(false);
-                  setPremiumDialogUser(null);
-                }}
-              >
-                {t.admin.users.premium.form.cancel}
-              </Button>
-              <Button type="submit" disabled={createPremiumGrantMutation.isPending}>
-                {createPremiumGrantMutation.isPending
-                  ? t.admin.users.premium.form.submitting
-                  : t.admin.users.premium.form.submit}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <AdminNotificationDialog
-        open={Boolean(notificationDialogUser)}
-        recipient={notificationDialogUser?.email ?? notificationDialogUser?.id ?? ""}
-        initialBody={adminMessageBody()}
-        onOpenChange={(open) => !open && setNotificationDialogUser(null)}
-        onSubmit={sendUserNotification}
+        onMessage={(profile) => setMessageTarget({ userId: profile.id, label: profile.email ?? profile.fullName ?? profile.id })}
       />
 
-      <Dialog open={Boolean(detailsDialogUser)} onOpenChange={(open) => !open && setDetailsDialogUser(null)}>
-        <DialogContent className="max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{t.admin.users.details.title}</DialogTitle>
-            <DialogDescription>{detailsDialogUser?.email ?? "—"}</DialogDescription>
-          </DialogHeader>
-          {detailsDialogUser ? (
-            <div className="space-y-2 text-sm text-slate-700 dark:text-slate-200">
-              <p><span className="font-semibold">{t.admin.users.details.createdAt}</span> {formatDate(detailsDialogUser.createdAt)}</p>
-              <p><span className="font-semibold">{t.admin.users.details.lastSignInAt}</span> {formatDate(detailsDialogUser.lastSignInAt)}</p>
-              <p><span className="font-semibold">{t.admin.users.details.signInCount}</span> {detailsDialogUser.insights?.signInCount ?? t.admin.users.details.unavailable}</p>
-              <p><span className="font-semibold">{t.admin.users.details.activityWindow}</span> {detailsDialogUser.insights?.activityWindowDays !== null && detailsDialogUser.insights?.activityWindowDays !== undefined ? `${detailsDialogUser.insights.activityWindowDays}j` : t.admin.users.details.unavailable}</p>
-              <p><span className="font-semibold">{t.admin.users.details.planCount}</span> {detailsDialogUser.insights?.planCount ?? 0}</p>
-              <p><span className="font-semibold">{t.admin.users.details.latestPlan}</span> {detailsDialogUser.insights?.latestPlanName ?? "—"}</p>
-              <p><span className="font-semibold">{t.admin.users.details.favoriteProducts}</span> {(detailsDialogUser.insights?.favoriteProducts ?? []).join(", ") || "—"}</p>
-              <p><span className="font-semibold">{t.admin.users.details.onboarding}</span> {detailsDialogUser.insights?.onboardingCompleted ? t.admin.users.details.completed : t.admin.users.details.notCompleted}</p>
-            </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
+      <PremiumGrantDialog
+        open={Boolean(premiumTarget)}
+        grant={premiumTarget?.grant ?? null}
+        pending={savePremiumGrantMutation.isPending}
+        onOpenChange={(open) => { if (!open) setPremiumTarget(null); }}
+        onSubmit={submitPremium}
+      />
+
+      <AdminNotificationDialog
+        open={Boolean(messageTarget)}
+        recipient={messageTarget?.label ?? ""}
+        initialBody={adminMessageBody()}
+        onOpenChange={(open) => !open && setMessageTarget(null)}
+        onSubmit={sendUserNotification}
+      />
     </>
   );
 }

@@ -1,15 +1,27 @@
-import { AdminPlaceholderPage } from "../_components/shell/AdminPageHeader";
+"use client";
 
+import type { Route } from "next";
+import Link from "next/link";
+
+import { MessagesHistory } from "../_components/messaging/MessagesHistory";
+import { useAdminAccessToken } from "../_components/shell/AdminAccess";
+import { AdminPageHeader } from "../_components/shell/AdminPageHeader";
+
+/** Communication › Messages & notifications (lot 5): history of the admin messages and « Nouveau message ». */
 export default function AdminMessagingPage() {
+  const accessToken = useAdminAccessToken();
   return (
-    <AdminPlaceholderPage
-      title="Messages & notifications"
-      lot={5}
-      description="L’historique des messages envoyés arrive avec les fiches clients (lot 5). Pour écrire à un coureur aujourd’hui : Coureurs › ouvre la ligne › « Envoyer un message »."
-      links={[
-        { href: "/admin/runners", label: "Écrire depuis Coureurs" },
-        { href: "/admin/messaging/surveys", label: "Questionnaires" },
-      ]}
-    />
+    <>
+      <AdminPageHeader
+        title="Messages & notifications"
+        description="Historique des messages envoyés aux coureurs : messages de l’admin, réponses aux demandes de course, questionnaires."
+        actions={
+          <Link href={"/admin/messaging/surveys" as Route} className="text-sm font-semibold text-brand underline-offset-4 hover:underline">
+            Questionnaires →
+          </Link>
+        }
+      />
+      <MessagesHistory accessToken={accessToken} />
+    </>
   );
 }

@@ -1,11 +1,20 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+/** Organisateurs since lot 5: the orchestrator plus its domain components of `organizers/`. */
+const readOrganizerSources = () => {
+  const directory = resolve(process.cwd(), "app/admin/_components/organizers");
+  return [
+    readFileSync(resolve(process.cwd(), "app/admin/_components/AdminOrganizerClaimsTab.tsx"), "utf8"),
+    ...readdirSync(directory).filter((name) => name.endsWith(".tsx") || (name.endsWith(".ts") && !name.endsWith(".test.ts"))).map((name) => readFileSync(resolve(directory, name), "utf8")),
+  ].join("\n");
+};
+
 describe("Admin Organizer publication grants", () => {
   it("lets admins select the grant origin and the offered modules, without billing in the dialog", () => {
-    const source = readFileSync(resolve(process.cwd(), "app/admin/_components/AdminOrganizerClaimsTab.tsx"), "utf8");
+    const source = readOrganizerSources();
     expect(source).toContain("Gérer le pack et les accès");
     expect(source).toContain("Paiement Stripe");
     expect(source).toContain("Paiement par virement");
@@ -34,7 +43,7 @@ describe("Admin Organizer publication grants", () => {
   });
 
   it("hands billing over to Ventes & facturation (lot 4)", () => {
-    const source = readFileSync(resolve(process.cwd(), "app/admin/_components/AdminOrganizerClaimsTab.tsx"), "utf8");
+    const source = readOrganizerSources();
     expect(source).toContain("<EditionBillingSummary event={event} />");
     expect(source).toContain("/admin/billing?edition=");
     expect(source).toContain('get("edition")');
@@ -45,7 +54,7 @@ describe("Admin Organizer publication grants", () => {
   });
 
   it("lets admins search and paginate the organizer publication events", () => {
-    const source = readFileSync(resolve(process.cwd(), "app/admin/_components/AdminOrganizerClaimsTab.tsx"), "utf8");
+    const source = readOrganizerSources();
     expect(source).toContain("PUBLICATION_EVENTS_PER_PAGE = 10");
     expect(source).toContain('type="search"');
     expect(source).toContain("Rechercher une course, un lieu ou un format");
@@ -58,7 +67,7 @@ describe("Admin Organizer publication grants", () => {
   });
 
   it("uses searchable autocomplete fields for direct organizer assignment", () => {
-    const source = readFileSync(resolve(process.cwd(), "app/admin/_components/AdminOrganizerClaimsTab.tsx"), "utf8");
+    const source = readOrganizerSources();
     expect(source).toContain("function AssignmentAutocomplete");
     expect(source).toContain('aria-autocomplete="list"');
     expect(source).toContain("emailSearch=");

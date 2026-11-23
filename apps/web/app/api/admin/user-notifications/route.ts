@@ -6,6 +6,8 @@ import {
   fetchAdminAuthUser,
   insertAdminUserNotification,
 } from "../../../../lib/admin-user-notifications";
+import { adminMessagesResponseSchema, readAdminMessagesQuery } from "../../../../lib/admin-messages";
+import { loadAdminMessages } from "../../../../lib/admin-messages-server";
 import { checkRateLimitAsync, withSecurityHeaders } from "../../../../lib/http";
 import { jsonError, requireAdminAuth } from "../../../../lib/organizer";
 
@@ -17,6 +19,22 @@ const createSchema = z.object({
   sendEmail: z.boolean().optional().default(false),
   sendPush: z.boolean().optional().default(false),
 });
+
+/**
+ * History of the admin messages (Communication › Messages & notifications): `?recherche=` (title and
+ * body), `?type=message,demande,questionnaire`, `?destinataire=<userId>`, `?page=`. Read-only.
+ */
+export async function GET(request: NextRequest) {
+  const auth = await requireAdminAuth(request);
+  if ("error" in auth) return auth.error;
+  try {
+    const result = await loadAdminMessages(auth.serviceConfig, readAdminMessagesQuery(request.nextUrl.searchParams));
+    return withSecurityHeaders(NextResponse.json(adminMessagesResponseSchema.parse(result)));
+  } catch (error) {
+    console.error("Unable to load admin message history", error instanceof Error ? error.message : "unknown error");
+    return jsonError("L’historique des messages n’a pas pu être chargé.", 502);
+  }
+}
 
 export async function POST(request: NextRequest) {
   const auth = await requireAdminAuth(request);

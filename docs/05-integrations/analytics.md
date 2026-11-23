@@ -21,6 +21,8 @@ ai_priority: medium
 # Layout polish note (2026-11-13): organizer presentation changes (aid-station detail, format metrics row, media rail visibility, equipment status action) do not alter stored data or contracts.
 # Fill-flow note (2026-11-13): organizer form ergonomics (ravito services, Enter-to-add, slot undo, sponsor ordering) do not alter stored data or contracts.
 related_files:
+  - apps/web/app/admin/_components/runners/RunnerProfileDrawer.tsx
+  - apps/web/app/admin/_components/messaging/MessagesHistory.tsx
   - apps/mobile/components/feedback/FeedbackSurveyForm.tsx
   - apps/web/lib/feedback-surveys.ts
   - apps/web/lib/posthog-organizer-analytics.ts
@@ -533,3 +535,5 @@ Admin console (2026-11-22, lot 1): the Users tab is the page `/admin/runners`; `
 Admin console (2026-11-22, lot 2): the RPC call moved to `fetchGrowthMetrics` (`lib/admin-growth.ts`, with the « RaceBook » → « Livret coureur » rename of the funnel step), shared by `/api/admin/growth` (same contract, now only on `/admin/analytics`) and `/api/admin/overview`, which calls it for the selected period, the previous period of the same length and the last 30 days (reused when the period is 30 days) to feed the dashboard KPI tiles, the runner funnel (accounts, 24 h window over, first plan within 24 h) and the activity curve. `TimeSeriesLineChart` gained optional `framed` (no card nor title, legend kept), `interactive` (hover / touch tooltip with the values of the day) and `minWidthClassName`; existing callers are unchanged. Planner visitors (PostHog) are not part of the dashboard funnel yet.
 
 Admin console (2026-11-23, lot 4): `/admin/billing` (Ventes & facturation) and the `/organizer` « Gérer le pack dans l’admin » link emit no PostHog event; the removed « Offrir une offre partenaire » buttons emitted none either.
+
+Admin console (2026-11-23, lot 5): `AdminUsersTab` reads and writes its own URL (`?recherche=` of the ⌘K palette, filters, sort, page, `?coureur=` profile) and no longer takes `initialSearch`; the runner profile drawer (`GET /api/admin/users/[id]`), the message history (`GET /api/admin/user-notifications`) and the organizer edition panel emit no PostHog event. The edition panel's « Activité » tab shows the reader statistics already stored by Preuves sociales; it runs no PostHog query.

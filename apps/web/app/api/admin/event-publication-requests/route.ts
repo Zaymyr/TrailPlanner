@@ -34,6 +34,7 @@ const publicationEventSchema = z.object({
     is_current: z.boolean(),
     edition_year: z.number().int(),
     start_date: z.string(),
+    slug: z.string().nullable().optional(),
   })).nullable().optional(),
   races: z.array(z.object({
     id: z.string().uuid(),
@@ -121,7 +122,7 @@ export async function GET(request: NextRequest) {
       { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
     ),
     fetch(
-      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_events?select=id,name,location,race_date,race_event_editions(id,is_current,edition_year,start_date),races(id,edition_id,name,race_date,racebook_is_live,racebook_publication_approved_at,data_status,missing_required_fields)&order=name.asc`,
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_events?select=id,name,location,race_date,race_event_editions(id,is_current,edition_year,start_date,slug),races(id,edition_id,name,race_date,racebook_is_live,racebook_publication_approved_at,data_status,missing_required_fields)&order=name.asc`,
       { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
     ),
     fetch(
@@ -165,6 +166,7 @@ export async function GET(request: NextRequest) {
         race_date: event.race_date ?? null,
         editionId,
         editionYear: edition?.edition_year ?? null,
+        editionSlug: edition?.slug ?? null,
         isCurrentEdition: edition?.is_current ?? false,
         entitlement: entitlements.find((item) => item.edition_id === editionId) ?? null,
         payments: payments.filter((item) => item.edition_id === editionId),

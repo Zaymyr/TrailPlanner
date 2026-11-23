@@ -17,6 +17,11 @@ ai_priority: high
 # Desktop fix (2026-11-13): GPX controls are visible again in the Course rail on desktop; below 900px they open from “Tracé et médias”. Import contract unchanged.
 # Fill-flow note (2026-11-13): organizer form ergonomics (ravito services, Enter-to-add, slot undo, sponsor ordering) do not alter stored data or contracts.
 related_files:
+  - apps/web/app/admin/_components/catalog/race-catalog-model.ts
+  - apps/web/app/admin/_components/catalog/AddRaceDialog.tsx
+  - apps/web/app/admin/_components/catalog/EditRaceDialog.tsx
+  - apps/web/app/admin/_components/catalog/TraceDeTrailImportDialog.tsx
+  - apps/web/app/admin/_components/catalog/UtmbImportDialog.tsx
   - apps/web/lib/gpx/parseGpx.ts
   - apps/mobile/lib/gpx.ts
   - apps/web/lib/gpx/normalizeImportedWaypoints.ts
@@ -355,3 +360,5 @@ Terrain-style section headers do not change GPX import or publication behavior.
 The admin « GPX à traiter » list (« Qualité des données » of `/admin/catalog/races?vue=qualite` since lot 1 of the admin console) links each race to `/admin/catalog/races?course=<races.id>`, which opens its edit dialog in the catalog to upload the GPX.
 
 Admin console (2026-11-23, lot 4): the `/organizer` dashboard lost its admin-only « Offrir une offre partenaire » buttons (replaced by a link to `/admin/organizers?edition=<id>`); GPX import, course editing and their permissions are unchanged.
+
+Admin console (2026-11-23, lot 5): `AdminRaceCatalogSection` was split without behaviour change: list grouped by event (`RaceCatalogList`), manual creation with GPX parsing (`AddRaceDialog`), UTMB and Trace de Trail imports (`UtmbImportDialog`, `TraceDeTrailImportDialog` with the shared session of `useTraceDeTrailCredentials`, also used by the « Importer » GPX re-import of the race edit dialog), race edit with GPX, aid stations and image (`EditRaceDialog`), event edit (`EditEventDialog`), pure helpers in `race-catalog-model.ts` (tested). Same routes, payloads, messages; `?course=<races.id>` still opens the race edit dialog.

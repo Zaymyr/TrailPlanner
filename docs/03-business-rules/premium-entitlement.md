@@ -1,9 +1,10 @@
 ---
 title: Premium Entitlement
 scope: business-rule
-last_verified: 2026-11-22
+last_verified: 2026-11-23
 ai_priority: high
 related_files:
+  - apps/web/lib/admin-runner-profile.ts
   - apps/web/lib/entitlements.ts
   - apps/mobile/hooks/usePremium.ts
   - apps/mobile/hooks/useRevenueCatBilling.ts
@@ -155,3 +156,7 @@ RevenueCat writes a provider-scoped `runner_subscription_accounts` row first. It
 - [Stripe](../05-integrations/stripe.md)
 
 Mobile course-purchase analytics are informational only: `runner course checkout started` records store initiation, while `runner course purchase verified` is emitted solely after the authenticated server confirms the plan unlock. Neither creates access or substitutes for the database entitlement ledger. Public race context can accompany these events, but no personal plan contents or transaction identifiers are tracked.
+
+## Admin runner profile (2026-11-23)
+
+The Accès tab of the admin runner profile (`GET /api/admin/users/[id]`, `lib/admin-runner-profile.ts`, pure and tested) shows the resolution order above read-only: subscription (`active` / `trialing` with a future or missing period end), legacy trial, then grants. Every `premium_grants` row is listed (active, scheduled or ended: explicit `ends_at`, else start + `initial_duration_days`). « Accorder Premium » (POST), « Modifier » (PATCH: start, duration, reason of a running or scheduled grant) and « Révoquer » (DELETE = `ends_at` now) call the unchanged `/api/admin/premium`. Course unlocks and support purchases are listed as purchases and never shown as Premium.

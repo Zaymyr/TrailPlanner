@@ -4,6 +4,7 @@ scope: integration
 last_verified: 2026-11-23
 ai_priority: high
 related_files:
+  - apps/web/lib/admin-runner-profile.ts
   - apps/web/lib/admin-billing-server.ts
   - apps/web/lib/admin-service-rest.ts
   - apps/web/lib/stripe.ts
@@ -189,3 +190,5 @@ The `subscriptions` table stores billing status. Trial lifecycle for the app's f
 - [Session Management](../04-auth-and-security/session-management.md)
 - [Organizer Commercial Offers](../03-business-rules/organizer-commercial-offers.md)
 - [Organizer Flyover Video Orders](../03-business-rules/flyover-video-orders.md)
+
+Lot 5 of the admin console: `lib/admin-service-rest.ts` gained `getServiceResponse` (raw response, extra headers such as `Prefer: count=exact`, HTTP status on the thrown error), now also used by the overview and inbox loaders (no behaviour change). The runner profile (`GET /api/admin/users/[id]`) lists the runner's Stripe and store purchases with the billing register's normalisation (`normalizeRunner*`, Stripe dashboard link from the id prefix, no amount); no Stripe API call.

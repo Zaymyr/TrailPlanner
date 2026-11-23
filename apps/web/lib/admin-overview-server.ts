@@ -25,6 +25,7 @@ import {
   type OverviewBlock,
   type OverviewGrowth,
 } from "./admin-overview";
+import { getServiceJson, getServiceResponse } from "./admin-service-rest";
 import { loadSystemHealth } from "./admin-system-health-server";
 import { createCarouselItemRepository, type CarouselItem } from "./carousels/carousel-automation";
 import { createFlyoverOrderRepository } from "./flyover-orders";
@@ -53,17 +54,9 @@ const SERIES = { plan: "Le plan chiffré", brief: "Le brief", week: "La semaine 
 /** Planned slots not yet scheduled, as on the publication calendar (`PLANNED_CALENDAR_STATUSES`). */
 const PLANNED_STATUSES = new Set(["planned", "generating", "rendering", "drafted"]);
 
-const get = async (supabase: SupabaseServiceConfig, path: string, extraHeaders: Record<string, string> = {}) => {
-  const response = await fetch(`${supabase.supabaseUrl}/rest/v1/${path}`, {
-    headers: { apikey: supabase.supabaseServiceRoleKey, Authorization: `Bearer ${supabase.supabaseServiceRoleKey}`, ...extraHeaders },
-    cache: "no-store",
-  });
-  if (!response.ok) throw new Error(`Read failed (${response.status}): ${path.split("?")[0]}`);
-  return response;
-};
-const getJson = async (supabase: SupabaseServiceConfig, path: string) => (await get(supabase, path)).json() as Promise<unknown>;
+const getJson = getServiceJson;
 const countRows = async (supabase: SupabaseServiceConfig, path: string) => {
-  const response = await get(supabase, `${path}&select=id&limit=1`, { Prefer: "count=exact" });
+  const response = await getServiceResponse(supabase, `${path}&select=id&limit=1`, { Prefer: "count=exact" });
   return Number(response.headers.get("content-range")?.split("/")[1] ?? 0) || 0;
 };
 
