@@ -686,6 +686,14 @@ export const fr: Translations = {
       empty: "Aucune course ne correspond à votre recherche.",
       useAction: "Utiliser le GPX",
       using: "Chargement...",
+      clearSearch: "Effacer la recherche",
+      resultsCount: "{count} événement(s)",
+      quickFilters: {
+        all: "Toutes",
+        short: "< 30 km",
+        trail: "30–60 km",
+        ultra: "60+ km",
+      },
       table: {
         image: "Image",
         name: "Course",

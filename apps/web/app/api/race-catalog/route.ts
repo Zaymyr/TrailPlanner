@@ -38,6 +38,20 @@ const raceRowSchema = z.object({
   external_site_url: z.string().nullable().optional(),
   thumbnail_url: z.string().nullable().optional(),
   gpx_storage_path: z.string().nullable().optional(),
+  event_id: z.string().uuid().nullable().optional(),
+  race_date: z.string().nullable().optional(),
+  // Parent event, embedded so the planner picker can group formats like the app catalog.
+  // Null when the race has no event or the event is not readable with the anon key.
+  race_events: z
+    .object({
+      id: z.string().uuid(),
+      name: z.string(),
+      location: z.string().nullable().optional(),
+      race_date: z.string().nullable().optional(),
+      thumbnail_url: z.string().nullable().optional(),
+    })
+    .nullable()
+    .optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -67,7 +81,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const response = await fetch(
-      `${supabaseConfig.supabaseUrl}/rest/v1/races?select=id,name,location_text,location,distance_km,elevation_gain_m,elevation_loss_m,trace_provider,trace_id,external_site_url,thumbnail_url,gpx_storage_path&is_live=eq.true&order=name.asc${filter}`,
+      `${supabaseConfig.supabaseUrl}/rest/v1/races?select=id,name,location_text,location,distance_km,elevation_gain_m,elevation_loss_m,trace_provider,trace_id,external_site_url,thumbnail_url,gpx_storage_path,event_id,race_date,race_events(id,name,location,race_date,thumbnail_url)&is_live=eq.true&order=name.asc${filter}`,
       {
         headers: {
           apikey: supabaseConfig.supabaseAnonKey,

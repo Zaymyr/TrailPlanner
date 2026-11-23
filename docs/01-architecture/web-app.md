@@ -400,6 +400,8 @@ related_files:
   - apps/web/app/(planner)/race-planner/page.tsx
   - apps/web/app/(planner)/race-planner/page.test.ts
   - apps/web/app/(planner)/race-planner/planner-seo.tsx
+  - apps/web/app/(planner)/race-planner/components/RaceCatalogModal.tsx
+  - apps/web/app/(planner)/race-planner/components/RaceCatalogModal.test.ts
   - apps/web/app/legal/metadata.ts
   - apps/web/app/legal/metadata.test.ts
   - apps/web/app/legal/mentions-legales/page.tsx
@@ -829,6 +831,8 @@ An event-edition page stays indexable after its final day (the Trail TST demo pa
 `/calculateur-glucides-trail` is a public server-rendered landing page with an interactive client calculator. Duration, distance, elevation gain, and digestive-tolerance sliders keep their visible values, but the nutrition result remains hidden until the runner starts an explicit calculation. A short client-only loading state reveals the estimate and one intentionally unfair elite pace comparison. The comparison is deliberately compact: one projected time-gap headline followed by one larger randomized trail mishap. Changing any slider invalidates the displayed result. Distance and elevation provide comparison context only; they do not alter the carbohydrate estimate.
 
 `/race-planner` keeps the interactive planner behind its existing Suspense boundary but renders a useful French H1, summary and capability list as the server fallback. Its `SoftwareApplication` JSON-LD is emitted server-side so crawlers receive both the structured data and useful page content in the initial HTML.
+
+The planner race picker (`RaceCatalogModal`, opened by « Parcourir les courses » / « Choisir une autre course ») mirrors the mobile app catalog instead of a table: a full-screen sheet on phones (`100dvh`, safe-area padding) and a centered panel from `sm`, a search field (16 px text so iOS does not zoom) with a clear button, the app distance quick filters (`< 30 km`, `30–60 km`, `60+ km`, filtered client-side), and one card per event like the app (thumbnail, event name, date · location) listing its formats (label without the event prefix via `getFormatLabelWithinEvent`, distance and D+ cotes, full-width « Utiliser le GPX »). The live catalog is loaded once and searched client-side across format name, event name and locations; the count shows events. `groupCatalogRaces` (tested) keeps only the latest edition of a format name repeated in one event, sorts formats GPX first then by distance, and events with a usable GPX first, then upcoming by date, past, undated. Formats without a GPX show a muted « Pas de GPX » badge. Escape, the backdrop and the close button dismiss it; focus is trapped and page scroll locked while open. `GET /api/race-catalog` additively embeds the parent event (`race_events(id,name,location,race_date,thumbnail_url)`) plus `event_id` and `race_date`. The public `/courses` catalog is a separate component (`RaceCatalogFilter`) and is not affected.
 
 The calculator's bounded duration/tolerance interpolation lives in `apps/web/lib/carb-calculator.ts` and is documented separately from the full planner allocation rule. Its share links are stateless: `duration`, `tolerance`, `distance`, `elevation`, and stable `comparison` / `joke` ids reproduce the same estimate and copy. The client accepts only in-range, step-aligned values and known ids; invalid or incomplete query strings fall back to the untouched calculator. Sharing uses the browser Web Share API when available and clipboard copy otherwise, without a database write.
 
