@@ -4,6 +4,14 @@
 
 Journal en ajout seul, la plus récente en haut. Format : `## AAAA-MM-JJ — Titre`, puis Contexte / Décision / Conséquence (2 à 4 lignes chacun). Les décisions d'architecture détaillées (ADR) vont dans [docs/08-decisions/](../08-decisions/README.md).
 
+## 2026-11-23 — Ventes coureurs : on enregistre le montant réel (App Store, Google Play, Stripe)
+
+**Contexte.** Le registre admin « Ventes & facturation » n'affichait aucun prix pour les ventes Apple et Google : les tables coureurs ne stockaient pas de montant (écart « aucun montant stocké » de la console admin, sans raison métier), alors que RevenueCat envoie le prix payé, la devise, la part de taxe et la part reversée dans chaque webhook d'achat.
+
+**Décision.** Chaque vente coureur garde son montant TTC réel en unités mineures et sa devise : achat à la course, abonnement annuel (dernière période prélevée, chaque renouvellement journalisé), soutien ; plus les taux RevenueCat pour un « net estimé » store (TTC × (1 − taxe) × reversement, affiché comme estimation). Le montant n'est jamais déduit d'un prix public ; Stripe enregistre `amount_total` / `invoice.paid`. Rattrapage depuis les payloads déjà journalisés.
+
+**Conséquence.** Migration `20261123220100_record_runner_sale_amounts.sql` au merge ; les 5 achats à la course existants (9,99 EUR) récupèrent leur montant, les 6 abonnements et soutiens antérieurs restent « montant non suivi » jusqu'au prochain prélèvement. `invoice.paid` doit être ajouté à l'endpoint Stripe pour suivre les renouvellements Stripe. Montants purement informatifs, aucun effet sur les droits. Voir `docs/02-database/tables/runner-billing.md`.
+
 ## 2026-11-23 — Planificateur web : trois vues Ravitos / Allures / Chronologie alignées sur le mobile, bandeau de course, jauges position/fenêtre
 
 **Contexte.** Le plan web n'avait qu'une frise unique et un « ticket d'arrivée » sombre ; les jauges en « bande cible » se lisaient mal (la zone cible ressemblait à la barre).

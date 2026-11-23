@@ -23,8 +23,13 @@ related_files:
   - apps/web/app/api/stripe/checkout/route.ts
   - apps/web/lib/admin-system-health-server.ts
   - apps/web/lib/admin-integrations.ts
+  - apps/web/lib/runner-payments.ts
+  - supabase/migrations/20261123220100_record_runner_sale_amounts.sql
 related_tables:
   - subscriptions
+  - runner_billing_events
+  - runner_plan_unlocks
+  - runner_subscription_accounts
   - organizer_edition_payments
   - organizer_edition_entitlements
   - organizer_invoices
@@ -117,6 +122,7 @@ Runner course checkout uses Checkout mode `payment` and requires a race or editi
 - handles `customer.subscription.deleted`;
 - handles `checkout.session.completed`.
 - handles `checkout.session.async_payment_succeeded` for runner and organizer fulfillment.
+- handles `invoice.paid` (since 2026-11-23) to record each charged period of a runner annual subscription (see « Runner sale amounts » below). **The production endpoint does not subscribe to `invoice.paid` yet**: until it is added in the Stripe dashboard (Developers › Webhooks), only the first charge of a Stripe subscription (from `checkout.session.completed`) is recorded.
 - handles organizer async payment success/failure, Checkout expiry, charge refunds, and disputes.
 - routes `checkout.session.*` events whose `metadata.purchase_type` is `flyover_video` to `handleFlyoverCheckout` first (before the organizer and runner branches); `charge.refunded` and `charge.dispute.created` also mark matching flyover orders `refunded` (`refundFlyoverOrdersByIntent`, also from `cancelled`); the flyover confirmation email is only sent for an order in progress, never for a cancelled one paid late. Organizer, runner and subscription handling is unchanged.
 
@@ -131,6 +137,14 @@ Subscription events upsert:
 
 Runner course events are journaled before the atomic claim RPC. A rejected claim returns HTTP 500 so Stripe retries; refund events create a terminal transaction tombstone before revocation, making out-of-order delivery safe.
 Course Checkout first creates a durable server intent and carries its id in Stripe metadata, so deleting the plan before settlement does not orphan a valid charge. Runner disputes are journaled too: opening or losing one revokes access, while a won dispute restores only the same provider transaction.
+
+### Runner sale amounts (2026-11-23)
+
+Migration `20261123220100_record_runner_sale_amounts.sql` gives the runner ledgers the real charge, as for organizer packs. The webhook stores it, in minor units and upper-case currency (`lib/runner-payments.ts`: `stripeCharge`, `chargeColumns`):
+
+- **Course unlock**: the `runner_billing_events` row journaled before the claim carries `amount_minor = amount_total` (TTC, zero allowed for a 100 % coupon) and `currency`; `claim_runner_plan_unlock` copies the journaled charge onto `runner_plan_unlocks` (same signature, same rules). HT and tax are not stored for runners.
+- **Annual subscription**: `checkout.session.completed` with a `subscription` (first charge, `amount_total`) and `invoice.paid` (`amount_paid`, subscription read from `invoice.subscription` or, on API versions 2025-03+, `invoice.parent.subscription_details.subscription`) journal the charge with the subscription id as `transaction_id` and **no `transaction_status`** (so it never takes part in the course refund/claim state), then write it as the account's latest period (`last_amount_minor`, `last_currency`, `last_charged_at`) only if it is not older than the one stored. A zero invoice (trial) records nothing. When `customer.subscription.*` creates the account after the charge, `upsertRunnerSubscriptionAccount` picks the latest journaled charge up. The event is then marked processed, so the payments health line is unchanged.
+- No Stripe runner purchase existed in production when this shipped; nothing is backfilled from Stripe other than journaled Checkout payloads (none).
 
 ## Organizer Edition Checkout
 
@@ -160,7 +174,7 @@ Lot 3 of the admin console reads the webhook's health from what it already write
 
 ## Admin sales register (2026-11-23)
 
-Lot 4 of the admin console lists Stripe transactions from the tables the webhook already writes, without any Stripe API call or secret: organizer packs (`organizer_edition_payments` with their stored HT / tax / TTC; abandoned `expired` Checkout attempts are not listed), flyover orders (`flyover_video_orders.amount_cents`, TTC; tax not stored) and runner purchases (`runner_plan_unlocks`, `runner_subscription_accounts`: no amount stored, shown « montant non suivi »). Dashboard links are built from the id prefix only (`pi_` / `ch_` / `py_` → payments, `in_` → invoices, `sub_` → subscriptions); Checkout Session ids get no link. The webhook health line now opens the register (`/admin/billing`), whose banner links back to Intégrations. Data API helpers of the health loader moved to `lib/admin-service-rest.ts` (no behaviour change).
+Lot 4 of the admin console lists Stripe transactions from the tables the webhook already writes, without any Stripe API call or secret: organizer packs (`organizer_edition_payments` with their stored HT / tax / TTC; abandoned `expired` Checkout attempts are not listed), flyover orders (`flyover_video_orders.amount_cents`, TTC; tax not stored) and runner purchases (`runner_plan_unlocks`, `runner_subscription_accounts`: since 2026-11-23 their recorded TTC charge, see « Runner sale amounts »; older rows without one stay « montant non suivi »). Dashboard links are built from the id prefix only (`pi_` / `ch_` / `py_` → payments, `in_` → invoices, `sub_` → subscriptions); Checkout Session ids get no link. The webhook health line now opens the register (`/admin/billing`), whose banner links back to Intégrations. Data API helpers of the health loader moved to `lib/admin-service-rest.ts` (no behaviour change).
 
 ## Trial vs Paid Distinction
 
@@ -191,4 +205,4 @@ The `subscriptions` table stores billing status. Trial lifecycle for the app's f
 - [Organizer Commercial Offers](../03-business-rules/organizer-commercial-offers.md)
 - [Organizer Flyover Video Orders](../03-business-rules/flyover-video-orders.md)
 
-Lot 5 of the admin console: `lib/admin-service-rest.ts` gained `getServiceResponse` (raw response, extra headers such as `Prefer: count=exact`, HTTP status on the thrown error), now also used by the overview and inbox loaders (no behaviour change). The runner profile (`GET /api/admin/users/[id]`) lists the runner's Stripe and store purchases with the billing register's normalisation (`normalizeRunner*`, Stripe dashboard link from the id prefix, no amount); no Stripe API call.
+Lot 5 of the admin console: `lib/admin-service-rest.ts` gained `getServiceResponse` (raw response, extra headers such as `Prefer: count=exact`, HTTP status on the thrown error), now also used by the overview and inbox loaders (no behaviour change). The runner profile (`GET /api/admin/users/[id]`) lists the runner's Stripe and store purchases with the billing register's normalisation (`normalizeRunner*`, Stripe dashboard link from the id prefix); no Stripe API call. Its loader (`lib/admin-runner-profile-server.ts`) does not select the amount columns added on 2026-11-23 yet, so the profile still shows those purchases without amount.

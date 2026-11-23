@@ -1,7 +1,7 @@
 ---
 title: subscriptions Table
 scope: database
-last_verified: 2026-11-22
+last_verified: 2026-11-23
 ai_priority: high
 related_files:
   - supabase/migrations/20250701100000_add_subscriptions_table.sql
@@ -98,6 +98,7 @@ set stripe_customer_id = excluded.stripe_customer_id,
 
 - The Stripe webhook also routes `flyover_video` checkouts to `flyover_video_orders` (see [Organizer Flyover Video Orders](../../03-business-rules/flyover-video-orders.md)); they never touch `subscriptions` and subscription handling is unchanged (including the flyover admin cancel status, 2026-11-22).
 - Do not write a voluntary support purchase into `subscriptions` or infer Premium from it. It has a separate verified ledger and no entitlement semantics.
+- Sale amounts (2026-11-23) are never written here: the Stripe webhook (`invoice.paid`, subscription Checkout) and the RevenueCat webhook / reconciliation record the charged period on `runner_subscription_accounts.last_*` and in `runner_billing_events` only (see [Runner Billing Tables](runner-billing.md) « Sale amounts »). This table's columns, writers and entitlement role are unchanged.
 
 - Product ID and active Stripe price ID are not literal repo constants; they come from `STRIPE_PRICE_ID` and Stripe dashboard metadata.
 - Do not write mobile purchases into a separate entitlement table. Sync them here.

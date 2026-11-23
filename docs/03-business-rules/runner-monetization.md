@@ -124,6 +124,8 @@ The live RevenueCat identifiers re-read on 2026-11-01 are entitlement `Pace Your
 
 Pushing `dev/runner-course-purchases` triggers the development OTA workflow, not a production OTA. It does not apply SQL migrations or configure provider environment variables. The Dev binary uses `com.paceyourself.app.dev`; real store sandbox tests for these products require a test-distributed binary with the matching `com.paceyourself.app` identifier. Production monetisation is active; use an isolated migrated test database and the corresponding test backend for destructive entitlement scenarios.
 
+Revenue tracking (2026-11-23): every runner sale keeps the price the customer actually paid — TTC in minor units of the purchase currency (EU buyers pay EUR 9.99 / 29.99; CH and US buyers pay in CHF / USD) — as sent by RevenueCat (`price_in_purchased_currency`, `currency`, plus `tax_percentage` and `takehome_percentage` for the admin « net estimé ») or by Stripe (`amount_total`, `invoice.paid`). The reference prices above are never written as an amount: a sale with no provider price stays « montant non suivi ». Amounts are informational (admin sales register) and never take part in access decisions. Schema and writers: [Runner Billing Tables](../02-database/tables/runner-billing.md) « Sale amounts ».
+
 Rollback: turn the canonical switch off to return to compatible editing behavior; suspend new checkouts without deleting transactions, history or plan JSON. Do not roll back by deleting historical trial dates or paid rows.
 
 ## Validation and gotchas

@@ -6,6 +6,7 @@ import {
   buildBillingCsv,
   buildBillingRegister,
   csvCell,
+  formatBillingAmount,
   normalizeFlyoverOrder,
   normalizeOrganizerInvoice,
   normalizeOrganizerPayment,
@@ -14,6 +15,7 @@ import {
   normalizeRunnerUnlock,
   raceIdOfPlanKey,
   readBillingQuery,
+  storeNetEstimate,
   stripeDashboardUrl,
   summarizeBilling,
   writeBillingQuery,
@@ -177,6 +179,26 @@ describe("runner purchases", () => {
     expect(normalizeRunnerSubscription({ ...base, status: "weird", current_period_end: null }, lookups).entry).toMatchObject({ status: "pending", statusNote: "Statut fournisseur : weird" });
     expect(normalizeRunnerSupport({ id: "t1", user_id: "user-1", provider: "google", status: "refunded", purchased_at: "2026-11-04T08:00:00.000Z" }, lookups).entry).toMatchObject({ status: "refunded", methodDetail: "Google Play", object: "Soutien volontaire" });
   });
+  it("shows the recorded charge (TTC) and a store net estimate", () => {
+    const apple = normalizeRunnerUnlock({ id: "u4", user_id: "user-1", plan_key: "race:race-9", provider: "apple", provider_transaction_id: "200001", status: "active", purchased_at: "2026-11-04T08:00:00.000Z", amount_minor: 999, currency: "EUR", store_takehome_rate: 0.74, store_tax_rate: "0.1667" }, lookups).entry;
+    expect(apple).toMatchObject({ amounts: { ht: null, tva: null, ttc: 999 }, currency: "EUR", netEstimateMinor: 616 });
+    // No tax rate: RevenueCat's take-home applies after tax, so no estimate rather than a VAT-inclusive one.
+    expect(normalizeRunnerUnlock({ id: "u5", user_id: "user-1", plan_key: "race:race-9", provider: "google", status: "active", purchased_at: "2026-11-04T08:00:00.000Z", amount_minor: 999, currency: "eur", store_takehome_rate: 0.85 }).entry)
+      .toMatchObject({ amounts: { ttc: 999 }, currency: "EUR", netEstimateMinor: null });
+    // Stripe: TTC only, never a store estimate.
+    expect(normalizeRunnerUnlock({ id: "u6", user_id: "user-1", plan_key: "race:race-9", provider: "stripe", provider_transaction_id: "pi_x", status: "active", purchased_at: "2026-11-04T08:00:00.000Z", amount_minor: 999, currency: "EUR", store_takehome_rate: 0.9, store_tax_rate: 0.2 }).entry)
+      .toMatchObject({ amounts: { ttc: 999 }, method: "stripe", netEstimateMinor: null });
+    expect(normalizeRunnerSupport({ id: "t2", user_id: "user-1", provider: "google", status: "active", purchased_at: "2026-11-04T08:00:00.000Z", amount_minor: 999, currency: "EUR", store_takehome_rate: 0.85, store_tax_rate: 0.1662 }).entry)
+      .toMatchObject({ amounts: { ttc: 999 }, netEstimateMinor: 708 });
+    const subscription = normalizeRunnerSubscription({ id: "s2", user_id: "user-1", provider: "google", provider_subscription_id: "revenuecat:user-1", status: "active", current_period_end: "2027-11-01T00:00:00.000Z", created_at: "2026-11-01T00:00:00.000Z", last_amount_minor: 2999, last_currency: "EUR", last_charged_at: "2026-11-01T00:00:00.000Z", last_store_takehome_rate: 0.85, last_store_tax_rate: 0.1662 }).entry;
+    expect(subscription).toMatchObject({ amounts: { ttc: 2999 }, netEstimateMinor: Math.round(2999 * (1 - 0.1662) * 0.85), statusNote: "Période jusqu’au 01/11/2027 · Dernier prélèvement le 01/11/2026" });
+  });
+  it("estimates a store net only from valid rates", () => {
+    expect(storeNetEstimate(1000, 0.85, 0.2)).toBe(680);
+    expect(storeNetEstimate(1000, null, 0.2)).toBeNull();
+    expect(storeNetEstimate(1000, 1.2, 0.2)).toBeNull();
+    expect(storeNetEstimate(1000, 0.85, 1)).toBeNull();
+  });
   it("reads the race id of a plan key", () => {
     expect(raceIdOfPlanKey("race:abc:edition:def")).toBe("abc");
     expect(raceIdOfPlanKey("race:abc")).toBe("abc");
@@ -230,7 +252,29 @@ describe("register", () => {
 
   it("sums the collected, refunded and to-collect amounts and never the untracked ones", () => {
     const summary = summarizeBilling(items.map(({ entry }) => entry));
-    expect(summary).toMatchObject({ collectedMinor: 23880 + 30000 + 2999, collectedCount: 3, refundedMinor: 23880, refundedCount: 1, toCollectMinor: 19900 + 30000, toCollectCount: 2, transactionCount: 7, untrackedCount: 1 });
+    expect(summary).toMatchObject({ collectedMinor: 23880 + 30000 + 2999, collectedCount: 3, refundedMinor: 23880, refundedCount: 1, toCollectMinor: 19900 + 30000, toCollectCount: 2, transactionCount: 7, untrackedCount: 1, otherCurrencyCount: 0, storeCollectedCount: 0 });
+  });
+
+  it("sums tracked store sales with their net estimate, never another currency", () => {
+    const sales = [
+      normalizeRunnerUnlock({ id: "u1", user_id: "user-1", plan_key: "race:r", provider: "apple", status: "active", purchased_at: "2026-11-08T08:00:00.000Z", amount_minor: 999, currency: "EUR", store_takehome_rate: 0.74, store_tax_rate: 0.1667 }),
+      normalizeRunnerUnlock({ id: "u2", user_id: "user-1", plan_key: "race:r", provider: "google", status: "active", purchased_at: "2026-11-08T08:00:00.000Z", amount_minor: 999, currency: "EUR", store_takehome_rate: 0.85 }),
+      normalizeRunnerUnlock({ id: "u3", user_id: "user-1", plan_key: "race:r", provider: "apple", status: "refunded", purchased_at: "2026-11-08T08:00:00.000Z", amount_minor: 999, currency: "EUR" }),
+      normalizeRunnerUnlock({ id: "u4", user_id: "user-1", plan_key: "race:r", provider: "apple", status: "active", purchased_at: "2026-11-08T08:00:00.000Z", amount_minor: 1099, currency: "USD", store_takehome_rate: 0.7, store_tax_rate: 0 }),
+      normalizeRunnerSupport({ id: "t1", user_id: "user-1", provider: "apple", status: "active", purchased_at: "2026-11-08T08:00:00.000Z" }),
+    ].map(({ entry }) => entry);
+    expect(summarizeBilling(sales)).toMatchObject({
+      collectedMinor: 1998,
+      collectedCount: 2,
+      refundedMinor: 999,
+      storeCollectedMinor: 1998,
+      storeCollectedCount: 2,
+      storeNetEstimateMinor: 616,
+      storeNetUnknownCount: 1,
+      otherCurrencyCount: 1,
+      untrackedCount: 1,
+      transactionCount: 5,
+    });
   });
 
   it("filters by period, status, source, edition and search, newest first, KPI without the status filter", () => {
@@ -260,11 +304,19 @@ describe("CSV", () => {
     const csv = buildBillingCsv([
       normalizeOrganizerPayment(payment())!.entry,
       normalizeRunnerSupport({ id: "t1", user_id: "user-1", provider: "apple", status: "active", purchased_at: "2026-11-08T08:00:00.000Z" }).entry,
+      normalizeRunnerUnlock({ id: "u1", user_id: "user-1", plan_key: "race:r", provider: "apple", status: "active", purchased_at: "2026-11-08T08:00:00.000Z", amount_minor: 999, currency: "EUR", store_takehome_rate: 0.74, store_tax_rate: 0.1667 }).entry,
+      normalizeRunnerUnlock({ id: "u2", user_id: "user-1", plan_key: "race:r", provider: "apple", status: "active", purchased_at: "2026-11-08T08:00:00.000Z", amount_minor: 1500, currency: "JPY" }).entry,
     ]);
     const lines = csv.replace("﻿", "").trim().split("\r\n");
-    expect(lines[0]).toBe("Date;Source;Client;Détail client;Objet;Référence;Montant HT;TVA;Montant TTC;Devise;Statut;Précision;Moyen");
-    expect(lines[1]).toBe("02/11/2026 10:05;Pack organisateur;Trail TST · édition 2026;;Pack Essentiel;;199,00;39,80;238,80;EUR;Payé;;Stripe");
-    expect(lines[2]).toBe("08/11/2026 09:00;Achat coureur;Compte coureur;;Soutien volontaire;;;;;;Payé;montant non suivi;Store · App Store");
+    expect(lines[0]).toBe("Date;Source;Client;Détail client;Objet;Référence;Montant HT;TVA;Montant TTC;Devise;Net estimé (store);Statut;Précision;Moyen");
+    expect(lines[1]).toBe("02/11/2026 10:05;Pack organisateur;Trail TST · édition 2026;;Pack Essentiel;;199,00;39,80;238,80;EUR;;Payé;;Stripe");
+    expect(lines[2]).toBe("08/11/2026 09:00;Achat coureur;Compte coureur;;Soutien volontaire;;;;;;;Payé;montant non suivi;Store · App Store");
+    expect(lines[3]).toBe("08/11/2026 09:00;Achat coureur;Compte coureur;;Plan (achat à la course);;;;9,99;EUR;6,16;Payé;;Store · App Store");
+    expect(lines[4]).toBe("08/11/2026 09:00;Achat coureur;Compte coureur;;Plan (achat à la course);;;;1 500;JPY;;Payé;;Store · App Store");
+  });
+  it("formats amounts in the currency's own minor unit", () => {
+    expect(formatBillingAmount(1500, "JPY")).toMatch(/^1\s500\s(JPY|¥)$/);
+    expect(formatBillingAmount(999, "EUR")).toContain("9,99");
   });
   it("quotes and neutralises dangerous cells", () => {
     expect(csvCell("a;b")).toBe("\"a;b\"");
