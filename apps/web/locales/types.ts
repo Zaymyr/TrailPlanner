@@ -17,6 +17,20 @@ export type AuthSharedTranslations = {
   passwordRequirement: string;
   emailInvalid: string;
   genericError: string;
+  noAccount: string;
+  createAccountLink: string;
+  hasAccount: string;
+  signInLink: string;
+  oauthStartError: string;
+};
+
+export type AuthCallbackTranslations = {
+  title: string;
+  signingIn: string;
+  error: string;
+  missingToken: string;
+  retryHint: string;
+  backToSignIn: string;
 };
 
 export type SignUpTranslations = {
@@ -86,6 +100,7 @@ export type AuthTranslations = {
   passwordResetRequest: PasswordResetRequestTranslations;
   passwordReset: PasswordResetTranslations;
   sessionExpired: SessionExpiredTranslations;
+  callback: AuthCallbackTranslations;
 };
 
 export type HomeHeroTranslations = {
@@ -1284,6 +1299,7 @@ export type AdminTranslations = {
 };
 
 export type ProfileTranslations = {
+  eyebrow: string;
   title: string;
   description: string;
   authRequired: string;
@@ -1363,6 +1379,8 @@ export type ProfileTranslations = {
     };
   };
   premiumModal: {
+    /** Shown when the annual Stripe price is not configured. */
+    unavailable: string;
     title: string;
     description: string;
     priceLabel: string;
@@ -1421,8 +1439,18 @@ export type ProductSettingsTranslations = {
   selectionCount: string;
   empty: string;
   loading: string;
+  eyebrow: string;
+  /** `{count}` = number of favorites. */
+  favoritesCount: string;
+  /** `{count}` = products not shown yet. */
+  showMore: string;
+  namePlaceholder: string;
+  urlPlaceholder: string;
+  formSignInHint: string;
   filters: {
     searchPlaceholder: string;
+    all: string;
+    mine: string;
   };
   errors: {
     loadFailed: string;

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
 
+import { AuthCard, AuthNotice, authSubmitClassName } from "../../../components/auth/AuthCard";
 import { Button } from "../../../components/ui/button";
 import { persistSessionToStorage } from "../../../lib/auth-storage";
 import {
@@ -12,6 +13,7 @@ import {
   normalizeInternalReturnPath,
   readRememberedRunnerReturnPath,
 } from "../../../lib/organizer-acquisition";
+import { useI18n } from "../../i18n-provider";
 
 type SessionResponse = {
   user?: {
@@ -21,8 +23,11 @@ type SessionResponse = {
   refresh_token?: string;
 };
 
+/** `kind` is resolved to localized copy at render time. */
 type Status = {
-  message: string;
+  kind: "signingIn" | "error" | "missingToken";
+  /** Provider error description, shown as-is when present. */
+  detail?: string | null;
   isError?: boolean;
 };
 
@@ -32,15 +37,14 @@ type AuthCallbackPageProps = {
 
 export default function AuthCallbackPage({ searchParams: routeSearchParams }: AuthCallbackPageProps) {
   const router = useRouter();
+  const { t } = useI18n();
   const returnPath = useMemo(
     () => routeSearchParams?.next
       ? normalizeInternalReturnPath(routeSearchParams.next)
       : readRememberedRunnerReturnPath() ?? "/race-planner",
     [routeSearchParams?.next],
   );
-  const [status, setStatus] = useState<Status>({
-    message: "Signing you in...",
-  });
+  const [status, setStatus] = useState<Status>({ kind: "signingIn" });
 
   const searchParams = useMemo(() => {
     if (typeof window === "undefined") return null;
@@ -59,10 +63,7 @@ export default function AuthCallbackPage({ searchParams: routeSearchParams }: Au
     const errorDescription = searchParams.get("error_description");
 
     if (error) {
-      setStatus({
-        message: errorDescription ?? "Unable to complete social sign-in.",
-        isError: true,
-      });
+      setStatus({ kind: "error", detail: errorDescription, isError: true });
       return;
     }
 
@@ -70,10 +71,7 @@ export default function AuthCallbackPage({ searchParams: routeSearchParams }: Au
     const refreshToken = searchParams.get("refresh_token") ?? undefined;
 
     if (!accessToken) {
-      setStatus({
-        message: "Missing access token from social sign-in.",
-        isError: true,
-      });
+      setStatus({ kind: "missingToken", isError: true });
       return;
     }
 
@@ -114,23 +112,28 @@ export default function AuthCallbackPage({ searchParams: routeSearchParams }: Au
     router.push(buildAuthHref("/sign-in", returnPath) as Route);
   };
 
-  return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6 rounded-lg border border-slate-800 bg-slate-950/60 p-6 shadow-lg">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold text-slate-50">Social sign-in</h1>
-        <p className="text-slate-300">{status.message}</p>
-      </div>
+  const message =
+    status.kind === "error"
+      ? status.detail || t.auth.callback.error
+      : status.kind === "missingToken"
+        ? t.auth.callback.missingToken
+        : t.auth.callback.signingIn;
 
+  return (
+    <AuthCard title={status.isError ? t.auth.signIn.title : t.auth.callback.title} description={status.isError ? undefined : message}>
       {status.isError ? (
-        <div className="flex flex-col gap-4">
-          <p className="text-sm text-amber-400">
-            Please try again or use your email and password instead.
-          </p>
-          <Button onClick={handleBackToSignIn} variant="outline" className="w-fit">
-            Back to sign in
+        <AuthNotice>
+          <p className="font-semibold">{message}</p>
+          <p>{t.auth.callback.retryHint}</p>
+          <Button onClick={handleBackToSignIn} className={authSubmitClassName}>
+            {t.auth.callback.backToSignIn}
           </Button>
+        </AuthNotice>
+      ) : (
+        <div aria-hidden className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+          <div className="h-full w-1/3 animate-pulse rounded-full bg-brand" />
         </div>
-      ) : null}
-    </div>
+      )}
+    </AuthCard>
   );
 }

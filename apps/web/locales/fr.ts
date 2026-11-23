@@ -285,6 +285,11 @@ export const fr: Translations = {
       passwordRequirement: "Le mot de passe doit contenir au moins 8 caractères, une lettre et un chiffre",
       emailInvalid: "Saisis un email valide",
       genericError: "Un problème est survenu. Réessaie.",
+      noAccount: "Pas encore de compte ?",
+      createAccountLink: "Créer un compte",
+      hasAccount: "Déjà un compte ?",
+      signInLink: "Se connecter",
+      oauthStartError: "Impossible d’ouvrir la connexion. Réessaie.",
     },
     signUp: {
       title: "Créer un compte",
@@ -334,6 +339,14 @@ export const fr: Translations = {
       confirmPasswordPlaceholder: "••••••••",
       mismatchError: "Les mots de passe doivent être identiques",
       invalidLink: "Ce lien de réinitialisation est invalide ou expiré.",
+      backToSignIn: "Retour à la connexion",
+    },
+    callback: {
+      title: "Connexion en cours",
+      signingIn: "Connexion à ton compte…",
+      error: "La connexion n’a pas pu aboutir.",
+      missingToken: "La connexion n’a pas renvoyé de session.",
+      retryHint: "Réessaie, ou connecte-toi avec ton email et ton mot de passe.",
       backToSignIn: "Retour à la connexion",
     },
     sessionExpired: {
@@ -1408,8 +1421,16 @@ export const fr: Translations = {
     selectionCount: "{count} sélectionné(s)",
     empty: "Aucun produit trouvé. Ajoutez-en un ci-dessous pour commencer.",
     loading: "Chargement des produits...",
+    eyebrow: "Nutrition",
+    favoritesCount: "{count} favori(s)",
+    showMore: "Afficher plus ({count} restants)",
+    namePlaceholder: "Gel, boisson, barre…",
+    urlPlaceholder: "https://exemple.com/produit",
+    formSignInHint: "Connecte-toi pour ajouter un produit au catalogue partagé.",
     filters: {
       searchPlaceholder: "Filtrer les produits...",
+      all: "Tous",
+      mine: "Mes produits",
     },
     errors: {
       loadFailed: "Impossible de charger les produits. Réessayez.",
@@ -1451,6 +1472,7 @@ export const fr: Translations = {
     },
   },
   profile: {
+    eyebrow: "Mon compte",
     title: "Profil",
     description: "Mets à jour tes informations et tes favoris nutrition pour le planificateur.",
     authRequired: "Connecte-toi pour modifier ton profil.",
@@ -1530,6 +1552,7 @@ export const fr: Translations = {
       },
     },
     premiumModal: {
+    unavailable: "L’offre annuelle n’est pas configurée pour le moment.",
     title: "Passer en Premium",
     description: "Débloquez les plans illimités, les exports et le remplissage automatique.",
     priceLabel: "Prix",

@@ -8,7 +8,6 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { Button } from "../../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
@@ -27,10 +26,13 @@ import { useI18n } from "../i18n-provider";
 const productListSchema = z.object({ products: z.array(fuelProductSchema) });
 const productDetailSchema = z.object({ product: fuelProductSchema });
 const baseButtonClass =
-  "inline-flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:focus-visible:outline-emerald-300";
-const outlineButtonClass =
-  "border border-border text-brand hover:border-brand-border hover:bg-brand-surface hover:text-brand dark:border-emerald-300 dark:text-emerald-100 dark:hover:bg-emerald-950/60";
-const primaryButtonClass = "bg-brand text-brand-foreground hover:bg-brand-light dark:bg-emerald-400 dark:text-slate-950 dark:hover:bg-emerald-300";
+  "inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+const outlineButtonClass = "border border-border bg-card text-brand hover:border-brand-border hover:bg-brand-surface";
+const primaryButtonClass = "bg-brand text-brand-foreground hover:bg-brand-light";
+/** 16 px text on phones (no iOS zoom), 44 px touch height. */
+const fieldClassName = "h-11 rounded-xl text-base sm:text-sm";
+/** Products rendered per step; the shared catalog holds hundreds of entries. */
+const PRODUCT_PAGE_SIZE = 24;
 const createLocalProductId = () => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
@@ -65,6 +67,7 @@ export default function SettingsPage() {
   const [showMyProducts, setShowMyProducts] = useState(false);
   const [sortKey, setSortKey] = useState<keyof FuelProduct>("name");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [visibleCount, setVisibleCount] = useState(PRODUCT_PAGE_SIZE);
   const [warningDraft, setWarningDraft] = useState<{ values: ProductFormValues; zeroFields: string[] } | null>(null);
   const queryClient = useQueryClient();
 
@@ -375,6 +378,11 @@ export default function SettingsPage() {
     return sortDirection === "asc" ? sorted : sorted.reverse();
   }, [filteredProducts, sortDirection, sortKey]);
 
+  // Back to the first page whenever the list itself changes (search, ownership filter, sort).
+  useEffect(() => {
+    setVisibleCount(PRODUCT_PAGE_SIZE);
+  }, [filterQuery, showMyProducts, sortKey, sortDirection]);
+
   const handleSort = (key: keyof FuelProduct) => {
     if (sortKey === key) {
       setSortDirection((direction) => (direction === "asc" ? "desc" : "asc"));
@@ -384,17 +392,34 @@ export default function SettingsPage() {
     setSortDirection("asc");
   };
 
+  const visibleProducts = sortedProducts.slice(0, visibleCount);
+  const remainingCount = sortedProducts.length - visibleProducts.length;
+
+  const sortHeader = (key: keyof FuelProduct, label: string) => (
+    <button type="button" className="flex items-center gap-1 font-semibold" onClick={() => handleSort(key)}>
+      {label}
+      {sortKey === key ? <span aria-hidden>{sortDirection === "asc" ? "↑" : "↓"}</span> : null}
+    </button>
+  );
+
+  const numberField = (id: "carbsGrams" | "sodiumMg" | "caloriesKcal" | "proteinGrams" | "fatGrams", label: string, step: string) => (
+    <div className="space-y-2">
+      <Label htmlFor={id}>{label}</Label>
+      <Input id={id} type="number" inputMode="decimal" step={step} min="0" className={fieldClassName} {...register(id)} disabled={authMissing} />
+      {errors[id] && <FieldError>{errors[id]?.message}</FieldError>}
+    </div>
+  );
+
   return (
-    <div className="mx-auto flex w-full flex-col gap-6 rounded-2xl border border-border bg-card p-3 text-foreground shadow-md shadow-[rgba(45,80,22,0.08)] sm:p-6 dark:border-border-strong dark:bg-slate-950/60 dark:shadow-emerald-900/20">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">{t.productSettings.title}</h1>
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="max-w-2xl space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand">{t.productSettings.eyebrow}</p>
+          <h1 className="text-3xl font-bold leading-tight text-foreground">{t.productSettings.title}</h1>
+          <p className="text-sm leading-relaxed text-muted-foreground">{t.productSettings.description}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href="/race-planner"
-            className={`${baseButtonClass} ${outlineButtonClass} border-emerald-300/50 dark:text-emerald-50 dark:hover:border-emerald-200`}
-          >
+        <div className="flex flex-wrap gap-2">
+          <Link href="/race-planner" className={`${baseButtonClass} ${outlineButtonClass}`}>
             {t.productSettings.actions.openPlanner}
           </Link>
           {authMissing && (
@@ -403,412 +428,260 @@ export default function SettingsPage() {
             </Link>
           )}
         </div>
-      </div>
+      </header>
 
-      <div className="grid gap-6 lg:grid-cols-5">
-        <Card className="lg:col-span-3">
-          <CardHeader className="flex flex-col gap-3">
-            <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <CardTitle className="text-lg">{t.productSettings.listTitle}</CardTitle>
-              </div>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <Label htmlFor="product-filter" className="sr-only">
-                  {t.productSettings.filters.searchPlaceholder}
-                </Label>
-                <Input
-                  id="product-filter"
-                  value={filterQuery}
-                  onChange={(event) => setFilterQuery(event.target.value)}
-                  placeholder={t.productSettings.filters.searchPlaceholder}
-                  className="w-full sm:w-64"
-                />
-                <Button
-                  variant="outline"
-                  onClick={() => productsQuery.refetch()}
-                  disabled={productsQuery.status === "pending"}
-                >
-                  {t.productSettings.actions.refresh}
-                </Button>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center overflow-hidden rounded-md border border-border text-xs font-medium">
-                <button
-                  type="button"
-                  onClick={() => setShowMyProducts(false)}
-                  className={`min-h-11 px-3 py-1.5 transition-colors ${!showMyProducts ? "bg-primary text-primary-foreground" : "bg-background text-foreground hover:bg-muted dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"}`}
-                >
-                  Tous
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowMyProducts(true)}
-                  className={`min-h-11 px-3 py-1.5 transition-colors ${showMyProducts ? "bg-primary text-primary-foreground" : "bg-background text-foreground hover:bg-muted dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"}`}
-                >
-                  Mes produits
-                </button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {selectedProducts.length} favoris sélectionnés
+      {authMissing && (
+        <p className="rounded-xl border border-pace-semantic-warning/40 bg-pace-semantic-warningSurface px-4 py-3 text-sm text-foreground">
+          {t.productSettings.localNotice}
+        </p>
+      )}
+
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <section aria-labelledby="product-list-title" className="flex min-w-0 flex-col gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-6">
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-3">
+              <h2 id="product-list-title" className="text-lg font-bold text-foreground">{t.productSettings.listTitle}</h2>
+              <p className="text-xs font-medium text-muted-foreground">
+                {t.productSettings.favoritesCount.replace("{count}", String(selectedProducts.length))}
               </p>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {authMissing && (
-              <p className="rounded-md border border-amber-400/40 bg-amber-400/10 p-3 text-sm text-amber-700 dark:text-amber-200">
-                {t.productSettings.localNotice}
-              </p>
-            )}
+            <div className="flex gap-2">
+              <Label htmlFor="product-filter" className="sr-only">
+                {t.productSettings.filters.searchPlaceholder}
+              </Label>
+              <Input
+                id="product-filter"
+                type="search"
+                value={filterQuery}
+                onChange={(event) => setFilterQuery(event.target.value)}
+                placeholder={t.productSettings.filters.searchPlaceholder}
+                className={`${fieldClassName} flex-1`}
+              />
+              <Button
+                variant="outline"
+                className="h-11 shrink-0 rounded-xl"
+                onClick={() => productsQuery.refetch()}
+                disabled={productsQuery.status === "pending"}
+              >
+                {t.productSettings.actions.refresh}
+              </Button>
+            </div>
+            <div className="flex gap-2" role="group" aria-label={t.productSettings.listTitle}>
+              {([false, true] as const).map((mine) => {
+                const active = showMyProducts === mine;
+                return (
+                  <button
+                    key={String(mine)}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setShowMyProducts(mine)}
+                    className={`inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                      active
+                        ? "border-brand bg-brand text-brand-foreground"
+                        : "border-border bg-background text-foreground hover:border-brand hover:text-brand"
+                    }`}
+                  >
+                    {mine ? t.productSettings.filters.mine : t.productSettings.filters.all}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-            {selectionError && <p className="text-sm text-red-600 dark:text-red-300">{selectionError}</p>}
+          {selectionError && <FieldError>{selectionError}</FieldError>}
+          {favoritesLoadError && <FieldError>{favoritesLoadError}</FieldError>}
+          {productLoadError && <FieldError>{productLoadError}</FieldError>}
+          {productsQuery.isLoading && <p className="text-sm text-muted-foreground">{t.productSettings.loading}</p>}
+          {!productsQuery.isLoading && sortedProducts.length === 0 && (
+            <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+              {t.productSettings.empty}
+            </p>
+          )}
 
-            {favoritesLoadError && <p className="text-sm text-red-600 dark:text-red-300">{favoritesLoadError}</p>}
+          {visibleProducts.length > 0 && (
+            <ul className="divide-y divide-border sm:hidden">
+              {visibleProducts.map((product) => {
+                const isSelected = selectedProducts.some((item) => item.id === product.id);
+                return (
+                  <li key={product.id} className="flex items-center gap-3 py-3">
+                    <ProductThumb product={product} locale={locale} />
+                    <div className="min-w-0 flex-1">
+                      <p className="break-words text-sm font-semibold leading-snug text-foreground">{product.name}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                        <FuelTypeBadge fuelType={product.fuelType} locale={locale} />
+                        <span className="tabular-nums">
+                          {product.carbsGrams} g · {product.sodiumMg} mg Na · {product.caloriesKcal} kcal
+                        </span>
+                      </div>
+                    </div>
+                    <FavoriteButton
+                      selected={isSelected}
+                      label={isSelected ? t.productSettings.actions.deselect : t.productSettings.actions.select}
+                      onClick={() => handleToggle(product)}
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          )}
 
-            {productsQuery.isLoading && <p className="text-sm text-muted-foreground">{t.productSettings.loading}</p>}
-
-            {productLoadError && <p className="text-sm text-red-600 dark:text-red-300">{productLoadError}</p>}
-
-            {!productsQuery.isLoading && sortedProducts.length === 0 && (
-              <p className="text-sm text-muted-foreground">{t.productSettings.empty}</p>
-            )}
-
-            {sortedProducts.length > 0 && (
-              <div className="space-y-3 sm:hidden">
-                {sortedProducts.map((product) => {
+          {visibleProducts.length > 0 && (
+            <Table containerClassName="hidden rounded-xl sm:block">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-14 text-center">{t.productSettings.actions.favoriteColumn}</TableHead>
+                  <TableHead>{sortHeader("name", t.productSettings.fields.name)}</TableHead>
+                  <TableHead>{sortHeader("carbsGrams", t.productSettings.fields.carbs)}</TableHead>
+                  <TableHead>{sortHeader("sodiumMg", t.productSettings.fields.sodium)}</TableHead>
+                  <TableHead>{sortHeader("caloriesKcal", t.productSettings.fields.calories)}</TableHead>
+                  <TableHead>{sortHeader("proteinGrams", t.productSettings.fields.protein)}</TableHead>
+                  <TableHead>{sortHeader("fatGrams", t.productSettings.fields.fat)}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visibleProducts.map((product) => {
                   const isSelected = selectedProducts.some((item) => item.id === product.id);
                   return (
-                    <article key={product.id} className="min-w-0 space-y-3 rounded-lg border border-border bg-background p-3">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-background">
-                          {product.imageUrl ? (
-                            <img src={product.imageUrl} alt="" width={48} height={48} loading="lazy" className="h-full w-full object-contain p-1.5" />
-                          ) : (
-                            <span className="text-xs font-semibold uppercase text-muted-foreground">{product.name.slice(0, 1)}</span>
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="break-words font-semibold text-foreground">{product.name}</p>
-                          <FuelTypeBadge fuelType={product.fuelType} locale={locale} />
-                        </div>
-                        <button
-                          type="button"
+                    <TableRow key={product.id}>
+                      <TableCell className="text-center">
+                        <FavoriteButton
+                          selected={isSelected}
+                          label={isSelected ? t.productSettings.actions.deselect : t.productSettings.actions.select}
                           onClick={() => handleToggle(product)}
-                          aria-pressed={isSelected}
-                          aria-label={isSelected ? t.productSettings.actions.deselect : t.productSettings.actions.select}
-                          className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-amber-400/70 ${isSelected ? "bg-amber-300/30 text-amber-600" : "text-amber-600"}`}
-                        >
-                          <StarIcon filled={isSelected} className="h-4 w-4" />
-                        </button>
-                      </div>
-                      <dl className="grid grid-cols-2 gap-2 text-sm">
-                        <div><dt className="text-muted-foreground">{t.productSettings.fields.carbs}</dt><dd>{product.carbsGrams} g</dd></div>
-                        <div><dt className="text-muted-foreground">{t.productSettings.fields.sodium}</dt><dd>{product.sodiumMg} mg</dd></div>
-                        <div><dt className="text-muted-foreground">{t.productSettings.fields.calories}</dt><dd>{product.caloriesKcal}</dd></div>
-                        <div><dt className="text-muted-foreground">{t.productSettings.fields.protein} / {t.productSettings.fields.fat}</dt><dd>{product.proteinGrams} g / {product.fatGrams} g</dd></div>
-                      </dl>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-
-            {sortedProducts.length > 0 && (
-              <Table containerClassName="hidden max-h-[520px] overflow-auto sm:block">
-                <TableHeader className="sticky top-0 z-10">
-                  <TableRow>
-                    <TableHead className="text-center">{t.productSettings.actions.favoriteColumn}</TableHead>
-                    <TableHead>
-                      <button
-                        type="button"
-                        className="flex items-center gap-2"
-                        onClick={() => handleSort("name")}
-                      >
-                        {t.productSettings.fields.name}
-                        {sortKey === "name" ? (sortDirection === "asc" ? "↑" : "↓") : null}
-                      </button>
-                    </TableHead>
-                    <TableHead>{t.productSettings.fields.fuelType}</TableHead>
-                    <TableHead>
-                      <button
-                        type="button"
-                        className="flex items-center gap-2"
-                        onClick={() => handleSort("carbsGrams")}
-                      >
-                        {t.productSettings.fields.carbs}
-                        {sortKey === "carbsGrams" ? (sortDirection === "asc" ? "↑" : "↓") : null}
-                      </button>
-                    </TableHead>
-                    <TableHead>
-                      <button
-                        type="button"
-                        className="flex items-center gap-2"
-                        onClick={() => handleSort("sodiumMg")}
-                      >
-                        {t.productSettings.fields.sodium}
-                        {sortKey === "sodiumMg" ? (sortDirection === "asc" ? "↑" : "↓") : null}
-                      </button>
-                    </TableHead>
-                    <TableHead>
-                      <button
-                        type="button"
-                        className="flex items-center gap-2"
-                        onClick={() => handleSort("caloriesKcal")}
-                      >
-                        {t.productSettings.fields.calories}
-                        {sortKey === "caloriesKcal" ? (sortDirection === "asc" ? "↑" : "↓") : null}
-                      </button>
-                    </TableHead>
-                    <TableHead>
-                      <button
-                        type="button"
-                        className="flex items-center gap-2"
-                        onClick={() => handleSort("proteinGrams")}
-                      >
-                        {t.productSettings.fields.protein}
-                        {sortKey === "proteinGrams" ? (sortDirection === "asc" ? "↑" : "↓") : null}
-                      </button>
-                    </TableHead>
-                    <TableHead>
-                      <button
-                        type="button"
-                        className="flex items-center gap-2"
-                        onClick={() => handleSort("fatGrams")}
-                      >
-                        {t.productSettings.fields.fat}
-                        {sortKey === "fatGrams" ? (sortDirection === "asc" ? "↑" : "↓") : null}
-                      </button>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sortedProducts.map((product) => {
-                    const isSelected = selectedProducts.some((item) => item.id === product.id);
-                    return (
-                      <TableRow key={product.id}>
-                        <TableCell className="text-center">
-                          <button
-                            type="button"
-                            onClick={() => handleToggle(product)}
-                            aria-pressed={isSelected}
-                            aria-label={
-                              isSelected ? t.productSettings.actions.deselect : t.productSettings.actions.select
-                            }
-                            className={`inline-flex h-9 w-9 items-center justify-center rounded-full border border-amber-400/70 transition ${
-                              isSelected
-                                ? "bg-amber-300/30 text-amber-600 hover:bg-amber-300/40 dark:text-amber-300"
-                                : "bg-transparent text-amber-600 hover:bg-amber-200/40 dark:text-amber-200 dark:hover:bg-amber-300/10"
-                            } disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300`}
-                          >
-                            <StarIcon filled={isSelected} className="h-4 w-4" />
-                            <span className="sr-only">
-                              {isSelected ? t.productSettings.actions.deselect : t.productSettings.actions.select}
-                            </span>
-                          </button>
-                        </TableCell>
-                        <TableCell className="font-semibold text-foreground">
-                          <div className="flex min-w-[220px] items-center gap-3">
-                            <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-background dark:bg-slate-900">
-                              {isVerifiedProduct(product) ? (
-                                <VerifiedProductBadge
-                                  locale={locale}
-                                  className="absolute right-0.5 top-0.5 h-5 w-5"
-                                />
-                              ) : null}
-                              {product.imageUrl ? (
-                                <img src={product.imageUrl} alt="" width={44} height={44} loading="lazy" className="h-full w-full object-contain p-1.5" />
-                              ) : (
-                                <span className="text-xs font-semibold uppercase text-muted-foreground">
-                                  {product.name.slice(0, 1)}
-                                </span>
-                              )}
-                            </div>
+                        />
+                      </TableCell>
+                      <TableCell className="font-semibold text-foreground">
+                        <div className="flex min-w-[180px] items-center gap-3">
+                          <ProductThumb product={product} locale={locale} />
+                          <div className="min-w-0 space-y-1">
                             {product.productUrl ? (
-                              <a
-                                href={product.productUrl}
-                                target="_blank"
-                                rel="noreferrer noopener"
-                                className="min-w-0 hover:underline text-[hsl(var(--success))]"
-                              >
+                              <a href={product.productUrl} target="_blank" rel="noreferrer noopener" className="block text-brand hover:underline">
                                 {product.name}
                               </a>
                             ) : (
-                              <span className="min-w-0">{product.name}</span>
+                              <span className="block">{product.name}</span>
                             )}
+                            <FuelTypeBadge fuelType={product.fuelType} locale={locale} />
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <FuelTypeBadge fuelType={product.fuelType} locale={locale} />
-                        </TableCell>
-                        <TableCell>{product.carbsGrams} g</TableCell>
-                        <TableCell>{product.sodiumMg} mg</TableCell>
-                        <TableCell>{product.caloriesKcal}</TableCell>
-                        <TableCell>{product.proteinGrams} g</TableCell>
-                        <TableCell>{product.fatGrams} g</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+                        </div>
+                      </TableCell>
+                      <TableCell className="tabular-nums">{product.carbsGrams} g</TableCell>
+                      <TableCell className="tabular-nums">{product.sodiumMg} mg</TableCell>
+                      <TableCell className="tabular-nums">{product.caloriesKcal}</TableCell>
+                      <TableCell className="tabular-nums">{product.proteinGrams} g</TableCell>
+                      <TableCell className="tabular-nums">{product.fatGrams} g</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
 
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-lg">{t.productSettings.formTitle}</CardTitle>
+          {remainingCount > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 w-full rounded-xl"
+              onClick={() => setVisibleCount((count) => count + PRODUCT_PAGE_SIZE)}
+            >
+              {t.productSettings.showMore.replace("{count}", String(remainingCount))}
+            </Button>
+          )}
+        </section>
+
+        <section aria-labelledby="product-form-title" className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-6 lg:sticky lg:top-6">
+          <div className="space-y-1">
+            <h2 id="product-form-title" className="text-lg font-bold text-foreground">{t.productSettings.formTitle}</h2>
             <p className="text-sm text-muted-foreground">{t.productSettings.formDescription}</p>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={onSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">{t.productSettings.fields.name}</Label>
-                <Input id="name" placeholder="Gel, boisson, barre..." {...register("name")} disabled={authMissing} />
-                {errors.name && <p className="text-sm text-red-600 dark:text-red-300">{errors.name.message}</p>}
-              </div>
+          </div>
+          {authMissing && (
+            <p className="text-sm text-muted-foreground">
+              {t.productSettings.formSignInHint}{" "}
+              <Link href="/sign-in" className="font-semibold text-brand underline-offset-4 hover:underline">
+                {t.productSettings.signInCta}
+              </Link>
+            </p>
+          )}
+          <form onSubmit={onSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">{t.productSettings.fields.name}</Label>
+              <Input id="name" placeholder={t.productSettings.namePlaceholder} className={fieldClassName} {...register("name")} disabled={authMissing} />
+              {errors.name && <FieldError>{errors.name.message}</FieldError>}
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="fuelType">{t.productSettings.fields.fuelType}</Label>
-                <select
-                  id="fuelType"
-                  className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
-                  {...register("fuelType")}
-                  disabled={authMissing}
-                >
-                  {fuelTypeOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                {errors.fuelType && (
-                  <p className="text-sm text-red-600 dark:text-red-300">{errors.fuelType.message}</p>
-                )}
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="carbsGrams">{t.productSettings.fields.carbs}</Label>
-                  <Input
-                    id="carbsGrams"
-                    type="number"
-                    step="1"
-                    min="0"
-                    {...register("carbsGrams")}
-                    disabled={authMissing}
-                  />
-                  {errors.carbsGrams && (
-                    <p className="text-sm text-red-600 dark:text-red-300">{errors.carbsGrams.message}</p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="sodiumMg">{t.productSettings.fields.sodium}</Label>
-                  <Input
-                    id="sodiumMg"
-                    type="number"
-                    step="1"
-                    min="0"
-                    {...register("sodiumMg")}
-                    disabled={authMissing}
-                  />
-                  {errors.sodiumMg && (
-                    <p className="text-sm text-red-600 dark:text-red-300">{errors.sodiumMg.message}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="caloriesKcal">{t.productSettings.fields.calories}</Label>
-                  <Input
-                    id="caloriesKcal"
-                    type="number"
-                    step="1"
-                    min="0"
-                    {...register("caloriesKcal")}
-                    disabled={authMissing}
-                  />
-                  {errors.caloriesKcal && (
-                    <p className="text-sm text-red-600 dark:text-red-300">{errors.caloriesKcal.message}</p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="proteinGrams">{t.productSettings.fields.protein}</Label>
-                  <Input
-                    id="proteinGrams"
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    {...register("proteinGrams")}
-                    disabled={authMissing}
-                  />
-                  {errors.proteinGrams && (
-                    <p className="text-sm text-red-600 dark:text-red-300">{errors.proteinGrams.message}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="fatGrams">{t.productSettings.fields.fat}</Label>
-                  <Input
-                    id="fatGrams"
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    {...register("fatGrams")}
-                    disabled={authMissing}
-                  />
-                  {errors.fatGrams && (
-                    <p className="text-sm text-red-600 dark:text-red-300">{errors.fatGrams.message}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="productUrl">{t.productSettings.fields.productUrl}</Label>
-                <Input
-                  id="productUrl"
-                  placeholder="https://example.com/produit"
-                  {...register("productUrl")}
-                  disabled={authMissing}
-                  inputMode="url"
-                />
-                {errors.productUrl && (
-                  <p className="text-sm text-red-600 dark:text-red-300">{errors.productUrl.message}</p>
-                )}
-              </div>
-
-              {formError && <p className="text-sm text-red-600 dark:text-red-300">{formError}</p>}
-              {formMessage && <p className="text-sm text-[hsl(var(--success))]">{formMessage}</p>}
-
-              <Button
-                type="submit"
-                className="w-full justify-center"
-                disabled={authMissing || createProductMutation.isPending}
+            <div className="space-y-2">
+              <Label htmlFor="fuelType">{t.productSettings.fields.fuelType}</Label>
+              <select
+                id="fuelType"
+                className={`w-full border border-border bg-card px-3 text-foreground shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring ${fieldClassName}`}
+                {...register("fuelType")}
+                disabled={authMissing}
               >
-                {createProductMutation.isPending ? t.productSettings.submitting : t.productSettings.submit}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+                {fuelTypeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {errors.fuelType && <FieldError>{errors.fuelType.message}</FieldError>}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              {numberField("carbsGrams", t.productSettings.fields.carbs, "1")}
+              {numberField("sodiumMg", t.productSettings.fields.sodium, "1")}
+              {numberField("caloriesKcal", t.productSettings.fields.calories, "1")}
+              {numberField("proteinGrams", t.productSettings.fields.protein, "0.1")}
+              {numberField("fatGrams", t.productSettings.fields.fat, "0.1")}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="productUrl">{t.productSettings.fields.productUrl}</Label>
+              <Input
+                id="productUrl"
+                placeholder={t.productSettings.urlPlaceholder}
+                className={fieldClassName}
+                {...register("productUrl")}
+                disabled={authMissing}
+                inputMode="url"
+              />
+              {errors.productUrl && <FieldError>{errors.productUrl.message}</FieldError>}
+            </div>
+
+            {formError && <FieldError>{formError}</FieldError>}
+            {formMessage && <p role="status" className="text-sm font-medium text-brand">{formMessage}</p>}
+
+            <Button
+              type="submit"
+              className="h-12 w-full rounded-xl text-base font-semibold"
+              disabled={authMissing || createProductMutation.isPending}
+            >
+              {createProductMutation.isPending ? t.productSettings.submitting : t.productSettings.submit}
+            </Button>
+          </form>
+        </section>
       </div>
 
       {warningDraft && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur">
-          <div className="w-full max-w-lg space-y-4 rounded-xl border border-amber-500/40 bg-card p-6 text-foreground shadow-2xl dark:bg-slate-900">
-            <h2 className="text-lg font-semibold text-foreground">{t.productSettings.warning.title}</h2>
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 p-4 sm:items-center">
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="zero-values-title"
+            className="w-full max-w-lg space-y-4 rounded-2xl border border-border bg-card p-6 text-foreground shadow-2xl"
+          >
+            <h2 id="zero-values-title" className="text-lg font-bold text-foreground">{t.productSettings.warning.title}</h2>
             <p className="text-sm text-muted-foreground">{t.productSettings.warning.description}</p>
-            <ul className="list-disc space-y-1 pl-5 text-sm text-amber-700 dark:text-amber-200">
+            <ul className="list-disc space-y-1 pl-5 text-sm font-medium text-foreground">
               {warningDraft.zeroFields.map((field) => (
                 <li key={field}>{field}</li>
               ))}
             </ul>
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <Button variant="outline" onClick={() => setWarningDraft(null)}>
+              <Button variant="outline" className="h-11 rounded-xl" onClick={() => setWarningDraft(null)}>
                 {t.productSettings.warning.back}
               </Button>
               <Button
+                className="h-11 rounded-xl"
                 onClick={() => {
                   if (warningDraft) {
                     createProductMutation.mutate(warningDraft.values);
@@ -822,6 +695,47 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+function FieldError({ children }: { children: React.ReactNode }) {
+  return (
+    <p role="alert" className="text-sm font-medium text-pace-semantic-danger">
+      {children}
+    </p>
+  );
+}
+
+function FavoriteButton({ selected, label, onClick }: { selected: boolean; label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      aria-label={label}
+      title={label}
+      className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+        selected
+          ? "border-pace-semantic-warning bg-pace-semantic-warningSurface text-pace-semantic-warning"
+          : "border-border text-muted-foreground hover:border-pace-semantic-warning hover:text-pace-semantic-warning"
+      }`}
+    >
+      <StarIcon filled={selected} className="h-4 w-4" />
+    </button>
+  );
+}
+
+function ProductThumb({ product, locale }: { product: FuelProduct; locale: "fr" | "en" }) {
+  return (
+    <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-background">
+      {isVerifiedProduct(product) ? <VerifiedProductBadge locale={locale} className="absolute right-0.5 top-0.5 h-5 w-5" /> : null}
+      {product.imageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element -- remote product images, not optimized by Next.
+        <img src={product.imageUrl} alt="" width={44} height={44} loading="lazy" className="h-full w-full object-contain p-1.5" />
+      ) : (
+        <span className="text-xs font-semibold uppercase text-muted-foreground">{product.name.slice(0, 1)}</span>
       )}
     </div>
   );

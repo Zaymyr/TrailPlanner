@@ -273,6 +273,11 @@ export const en: Translations = {
       passwordRequirement: "Password must be at least 8 characters and include a letter and a number",
       emailInvalid: "Enter a valid email",
       genericError: "Something went wrong. Please try again.",
+      noAccount: "No account yet?",
+      createAccountLink: "Create an account",
+      hasAccount: "Already have an account?",
+      signInLink: "Sign in",
+      oauthStartError: "Unable to start sign-in. Please try again.",
     },
     signUp: {
       title: "Sign up",
@@ -323,6 +328,14 @@ export const en: Translations = {
       confirmPasswordPlaceholder: "••••••••",
       mismatchError: "Passwords must match",
       invalidLink: "This reset link is invalid or has expired.",
+      backToSignIn: "Back to sign in",
+    },
+    callback: {
+      title: "Signing in",
+      signingIn: "Signing you in…",
+      error: "Sign-in could not be completed.",
+      missingToken: "Sign-in did not return a session.",
+      retryHint: "Please try again, or use your email and password instead.",
       backToSignIn: "Back to sign in",
     },
     sessionExpired: {
@@ -1395,8 +1408,16 @@ export const en: Translations = {
     selectionCount: "{count} selected",
     empty: "No products found. Add one below to get started.",
     loading: "Loading products...",
+    eyebrow: "Nutrition",
+    favoritesCount: "{count} favorite(s)",
+    showMore: "Show more ({count} left)",
+    namePlaceholder: "Gel, drink, bar…",
+    urlPlaceholder: "https://example.com/product",
+    formSignInHint: "Sign in to add a product to the shared catalog.",
     filters: {
       searchPlaceholder: "Filter products...",
+      all: "All",
+      mine: "My products",
     },
     errors: {
       loadFailed: "Unable to load products. Please try again.",
@@ -1438,6 +1459,7 @@ export const en: Translations = {
     },
   },
   profile: {
+    eyebrow: "My account",
     title: "Profile",
     description: "Update your details, hydration, and favorite nutrition for the planner.",
     authRequired: "Sign in to edit your profile.",
@@ -1518,6 +1540,7 @@ export const en: Translations = {
       },
     },
     premiumModal: {
+      unavailable: "The annual offer is not configured yet.",
       title: "Upgrade to Premium",
       description: "Unlock unlimited plans, exports, and automatic fill.",
       priceLabel: "Price",

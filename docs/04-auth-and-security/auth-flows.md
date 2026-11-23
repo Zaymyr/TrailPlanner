@@ -1,11 +1,13 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-11-22
+last_verified: 2026-11-23
 # Supporter onboarding (2026-11-18): the welcome chooser asks « Je cours » / « J’accompagne un coureur » and routes to the Livret coureur or the Livret supporter; a new `supporter` tour (status `user_profiles.supporter_onboarding_status`, migration 20261118200000) runs a spotlight tour on the Livret supporter.
 # Welcome onboarding cleanup (2026-11-18): the onboarding route drops the intro plan offer and the Officiel badge copy; presentation only, no auth, session or callback change.
 ai_priority: high
 related_files:
+  - apps/web/components/auth/AuthCard.tsx
+  - apps/web/app/forgot-password/page.tsx
   - apps/web/app/sign-in/page.tsx
   - apps/web/app/sign-up/page.tsx
   - apps/web/app/auth/callback/page.tsx
@@ -97,6 +99,10 @@ A session-update event raised while a previous verification is still running que
 
 `apps/web/app/api/auth/signin/route.ts` converts Supabase password-sign-in failures into a small, stable error-code contract instead of forwarding provider messages. `apps/web/app/sign-in/page.tsx` maps `invalid_credentials` to the active locale and uses the localized generic sign-in error for every other failure. The invalid-credentials wording must stay generic about whether the email address exists.
 
+## Web Auth Pages Presentation (2026-11-23)
+
+`/sign-in`, `/sign-up`, `/forgot-password`, `/reset-password` and `/auth/callback` share `components/auth/AuthCard.tsx`: a `max-w-md` card on light tokens, `OAuthButtons`, `AuthDivider`, readable `AuthError` (semantic danger) / `AuthSuccess` (brand) messages, `AuthNotice` for a blocking state (invalid reset link, failed OAuth return) and `AuthTextLink`. Every string comes from `t.auth` (the former English OAuth labels of `/sign-up`, the OAuth start errors and the whole callback copy, now `t.auth.callback`). Sign-in links to sign-up and back; the link carries `?next=` only when the current URL has an explicit one, read after mount so both pages stay prerendered. Behaviour, endpoints, return-path validation and analytics are unchanged; the callback still shows a provider `error_description` as-is when present.
+
 ## Web Return Destinations
 
 The organizer acquisition flow may send `next=/organizers` (event creation) or `next=/organizer` (the authenticated dashboard) through password sign-in, immediate sign-up, or the OAuth callback. `apps/web/lib/organizer-acquisition.ts` accepts only these exact internal pathnames. It retains only the five supported UTM parameters for `/organizers`; for `/organizer`, it retains only one syntactically valid UUID `eventId` so an existing-account assignment e-mail can authenticate first and return to the selected event. It falls back to `/race-planner` for missing, external, protocol-relative, backslash-based, malformed, or unsupported destinations. OAuth providers receive the validated destination nested in the existing `/auth/callback` URL; the callback validates it again before navigation. The `/sign-in` and `/sign-up` pages read `next` from the current URL at action time through `readCurrentReturnPath()` (same validation), so both pages stay statically prerendered.
@@ -175,7 +181,7 @@ Mobile Profile admin/debug presentation follows the same boundary: it accepts on
 - Token storage exists in browser localStorage, but session verification is server-backed.
 - Session readiness does not imply that premium entitlements have finished loading; consumers that require the resolved rights must also observe `isEntitlementsLoading`.
 - Do not render Supabase Auth `msg` values directly; provider messages are not localized and can expose technical details.
-- Never pass an unvalidated `next` value to `router.push`, `router.replace`, or an OAuth callback URL.
+- Never pass an unvalidated `next` value to `router.push`, `router.replace`, or an OAuth callback URL. The sign-in ↔ sign-up cross links rebuild it with `buildAuthHref(readCurrentReturnPath())`, never from the raw query string.
 - Only `/organizer` and `/organizers` are valid organizer return destinations; do not expand this allowlist without a dedicated redirect-security review.
 - Keep the Supabase invitation redirect allowlist configured for the deployed `/reset-password` URL, and pass that URL as the invite endpoint's `redirect_to` query parameter rather than a JSON-body field. If either condition is missed, Supabase falls back to the project Site URL and the invited organizer cannot reach the password-creation screen directly.
 - The password-recovery `/auth/v1/recover` call also requires `redirect_to` in the query string. Putting it in the JSON body is ignored and makes `{{ .ConfirmationURL }}` return to the Site URL.

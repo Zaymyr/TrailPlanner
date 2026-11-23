@@ -1,13 +1,13 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import Link from "next/link";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { AuthCard, AuthDivider, AuthError, authInputClassName, authSubmitClassName, AuthSuccess, AuthTextLink, OAuthButtons } from "../../components/auth/AuthCard";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
@@ -16,6 +16,7 @@ import { SIGN_IN_ERROR_CODES } from "../../lib/auth-errors";
 import { redirectToAppleOAuth, redirectToGoogleOAuth } from "../../lib/oauth";
 import {
   buildAuthCallbackPath,
+  buildAuthHref,
   clearRememberedRunnerReturnPath,
   readCurrentReturnPath,
 } from "../../lib/organizer-acquisition";
@@ -36,6 +37,13 @@ export default function SignInPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [formMessage, setFormMessage] = useState<string | null>(null);
   const [oauthError, setOauthError] = useState<string | null>(null);
+  // Keep an explicit `?next=` when switching between sign-in and sign-up (read after mount: the page is prerendered).
+  const [alternateAuthHref, setAlternateAuthHref] = useState("/sign-up");
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has("next")) {
+      setAlternateAuthHref(buildAuthHref("/sign-up", readCurrentReturnPath()));
+    }
+  }, []);
 
   const signInSchema = useMemo(() => createSignInSchema(t.auth), [t]);
 
@@ -102,7 +110,7 @@ export default function SignInPage() {
     } catch (error) {
       console.error("Unable to start Google sign-in", error);
       setOauthError(
-        error instanceof Error ? error.message : "Unable to start Google sign-in."
+        t.auth.shared.oauthStartError
       );
     }
   };
@@ -115,42 +123,30 @@ export default function SignInPage() {
     } catch (error) {
       console.error("Unable to start Apple sign-in", error);
       setOauthError(
-        error instanceof Error ? error.message : "Unable to start Apple sign-in."
+        t.auth.shared.oauthStartError
       );
     }
   };
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6 rounded-lg border border-border-strong bg-card p-6 text-foreground shadow-lg dark:bg-slate-950/60">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold text-foreground">{t.auth.signIn.title}</h1>
-        <p className="text-muted-foreground">{t.auth.signIn.description}</p>
-      </div>
+    <AuthCard
+      title={t.auth.signIn.title}
+      description={t.auth.signIn.description}
+      footer={
+        <>
+          {t.auth.shared.noAccount} <AuthTextLink href={alternateAuthHref}>{t.auth.shared.createAccountLink}</AuthTextLink>
+        </>
+      }
+    >
+      <OAuthButtons
+        googleLabel={t.auth.signIn.continueWithGoogle}
+        appleLabel={t.auth.signIn.continueWithApple}
+        onGoogle={handleGoogleSignIn}
+        onApple={handleAppleSignIn}
+        error={oauthError}
+      />
 
-      <div className="flex flex-col gap-3">
-        <Button
-          type="button"
-          variant="outline"
-          className="justify-center border-border bg-background text-foreground hover:bg-muted dark:bg-slate-900/60 dark:text-slate-50 dark:hover:bg-slate-800"
-          onClick={handleGoogleSignIn}
-        >
-          {t.auth.signIn.continueWithGoogle}
-        </Button>
-        <Button
-          type="button"
-          className="justify-center bg-foreground text-background hover:bg-foreground/90 dark:bg-slate-50 dark:text-slate-950 dark:hover:bg-slate-200"
-          onClick={handleAppleSignIn}
-        >
-          {t.auth.signIn.continueWithApple}
-        </Button>
-        {oauthError && <p className="text-sm text-amber-400">{oauthError}</p>}
-      </div>
-
-      <div className="flex items-center gap-3 text-sm text-muted-foreground">
-        <div className="h-px flex-1 bg-border" />
-        <span>{t.auth.signIn.continueWithEmail}</span>
-        <div className="h-px flex-1 bg-border" />
-      </div>
+      <AuthDivider label={t.auth.signIn.continueWithEmail} />
 
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
@@ -160,33 +156,35 @@ export default function SignInPage() {
             type="email"
             autoComplete="email"
             placeholder={t.auth.shared.emailPlaceholder}
+            className={authInputClassName}
             {...register("email")}
           />
-          {errors.email && <p className="text-sm text-amber-400">{errors.email.message}</p>}
+          {errors.email && <AuthError>{errors.email.message}</AuthError>}
         </div>
 
         <div className="flex flex-col gap-2">
-          <Label htmlFor="password">{t.auth.shared.passwordLabel}</Label>
+          <div className="flex items-baseline justify-between gap-3">
+            <Label htmlFor="password">{t.auth.shared.passwordLabel}</Label>
+            <AuthTextLink href="/forgot-password">{t.auth.signIn.forgotPassword}</AuthTextLink>
+          </div>
           <Input
             id="password"
             type="password"
             autoComplete="current-password"
             placeholder={t.auth.shared.passwordPlaceholder}
+            className={authInputClassName}
             {...register("password")}
           />
-          {errors.password && <p className="text-sm text-amber-400">{errors.password.message}</p>}
-          <Link href="/forgot-password" className="text-sm text-emerald-300 hover:text-emerald-200">
-            {t.auth.signIn.forgotPassword}
-          </Link>
+          {errors.password && <AuthError>{errors.password.message}</AuthError>}
         </div>
 
-        {formError && <p className="text-sm text-amber-400">{formError}</p>}
-        {formMessage && <p className="text-sm text-emerald-300">{formMessage}</p>}
+        {formError && <AuthError>{formError}</AuthError>}
+        {formMessage && <AuthSuccess>{formMessage}</AuthSuccess>}
 
-        <Button type="submit" disabled={isSubmitting} className="justify-center">
+        <Button type="submit" disabled={isSubmitting} className={authSubmitClassName}>
           {isSubmitting ? t.auth.signIn.submitting : t.auth.signIn.submit}
         </Button>
       </form>
-    </div>
+    </AuthCard>
   );
 }
