@@ -1299,6 +1299,7 @@ export type AdminTranslations = {
 };
 
 export type ProfileTranslations = {
+  eyebrow: string;
   title: string;
   description: string;
   authRequired: string;
@@ -1378,6 +1379,8 @@ export type ProfileTranslations = {
     };
   };
   premiumModal: {
+    /** Shown when the annual Stripe price is not configured. */
+    unavailable: string;
     title: string;
     description: string;
     priceLabel: string;

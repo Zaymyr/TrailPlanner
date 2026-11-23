@@ -1459,6 +1459,7 @@ export const en: Translations = {
     },
   },
   profile: {
+    eyebrow: "My account",
     title: "Profile",
     description: "Update your details, hydration, and favorite nutrition for the planner.",
     authRequired: "Sign in to edit your profile.",
@@ -1539,6 +1540,7 @@ export const en: Translations = {
       },
     },
     premiumModal: {
+      unavailable: "The annual offer is not configured yet.",
       title: "Upgrade to Premium",
       description: "Unlock unlimited plans, exports, and automatic fill.",
       priceLabel: "Price",

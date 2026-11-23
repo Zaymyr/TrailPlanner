@@ -401,6 +401,8 @@ related_files:
   - apps/web/app/(planner)/race-planner/page.test.ts
   - apps/web/app/(planner)/race-planner/planner-seo.tsx
   - apps/web/app/settings/page.tsx
+  - apps/web/app/profile/page.tsx
+  - apps/web/app/profile/_components/ProfileLayout.tsx
   - apps/web/app/(planner)/race-planner/components/RaceCatalogModal.tsx
   - apps/web/app/(planner)/race-planner/components/RaceCatalogModal.test.ts
   - apps/web/app/legal/metadata.ts
@@ -999,6 +1001,7 @@ Organizer material, bib, access, services, sponsors, partner slots, products, an
 - Keep the hero phone constrained by viewport height as well as width. A fixed desktop width recreates a roughly 900 px frame that hides the CTA or video controls on common 768 px-high laptop screens.
 - Keep touch indicators synchronized in the compressed media itself; a separate DOM overlay would drift after pause, buffering, looping, or browser playback-rate changes.
 - `/settings` is the runner nutrition list (« Liste nutrition », 2026-11-23 rework): page header on the `/support` model, a product list section and a 20rem « Ajouter un produit » section side by side from `lg` (stacked below, no nested cards). The list renders 24 products at a time with « Afficher plus » (back to the first page when the search, the Tous / Mes produits filter or the sort changes): compact rows with type badge and carbs · sodium · kcal on phones, a sortable table with the type badge under the name from `sm`. Favorites, local mode, product creation, the zero-value confirmation and their API calls are unchanged; the route keeps its name.
+- `/profile` (2026-11-23 rework) shows a sign-in invitation (`AuthCard`) to signed-out visitors instead of a disabled form. Signed in, it is a `max-w-3xl` column with the page header, then `ProfileSection` blocks (subscription, personal details, favorites) from `app/profile/_components/ProfileLayout.tsx`; the favorites picker, Premium and unsubscribe dialogs share `ProfileDialog` (full-screen sheet on phones, centered from `sm`, Escape still handled by the page). A Premium account sees « Résilier » instead of a disabled « S’abonner ». Profile save, favorites, checkout, billing portal and their API calls are unchanged.
 - The web app is light-only since 2026-11-23: `ThemeToggle`, `lib/theme.ts` and the theme entry of `header-menu.tsx` are gone, `globals.css` no longer defines `.dark` variables, and nothing adds the `dark` class (a stored `theme` value in `localStorage` is ignored). `tailwind.config.ts` keeps `darkMode: "class"` so the remaining `dark:` utilities stay inert instead of following the OS setting; remove them when a page is reworked rather than in bulk.
 - Never render stale race content at a former slug. Resolve its stable race id, verify current public visibility, then issue the permanent redirect before loading discovery links.
 - Keep catalog, slug resolution, sitemap, detail visibility, and route ISR aligned to 15 minutes so a refreshed catalog cannot link to a longer-lived negative detail cache. Raw GPX bytes may use the durable one-year data cache only while upload/replacement paths remain immutable and versioned.

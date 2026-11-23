@@ -1472,6 +1472,7 @@ export const fr: Translations = {
     },
   },
   profile: {
+    eyebrow: "Mon compte",
     title: "Profil",
     description: "Mets à jour tes informations et tes favoris nutrition pour le planificateur.",
     authRequired: "Connecte-toi pour modifier ton profil.",
@@ -1551,6 +1552,7 @@ export const fr: Translations = {
       },
     },
     premiumModal: {
+    unavailable: "L’offre annuelle n’est pas configurée pour le moment.",
     title: "Passer en Premium",
     description: "Débloquez les plans illimités, les exports et le remplissage automatique.",
     priceLabel: "Prix",
