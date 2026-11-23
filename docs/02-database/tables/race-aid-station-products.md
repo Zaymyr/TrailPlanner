@@ -30,7 +30,7 @@ Anonymous course entry (2026-11-16): in runner mode, `RacePlannerPageContent` re
 
 ## Runner monetisation boundary
 
-Official catalog products remain readable race facts. A free runner preview may show needs, but choosing runner inventory/product quantities for a plan is a paid detail capability enforced through the owned plan, not by altering organizer catalog visibility. Since 2026-11-23 the web preview lets the runner pick products for the departure and the first aid station only, locally (the free row stays sanitized); organizer suggestions keep the same source and visibility.
+Official catalog products remain readable race facts. A free runner preview may show needs, but choosing runner inventory/product quantities for a plan is a paid detail capability enforced through the owned plan, not by altering organizer catalog visibility. Since 2026-11-23 the web preview lets the runner pick products for the departure and the first aid station only, locally (the free row stays sanitized); organizer suggestions keep the same source and visibility. The floating feedback bubble of the planner (bottom left, the only entry to its feedback form) was removed on the same day.
 
 ## Purpose
 

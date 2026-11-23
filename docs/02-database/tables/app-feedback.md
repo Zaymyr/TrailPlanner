@@ -19,7 +19,7 @@ related_tables:
 
 ## Purpose
 
-Bug reports (`kind = 'bug'`) and feedback (`kind = 'feedback'`) sent from the app or the web. The admin "Messagerie" tab reviews them and replies in the author's notification inbox.
+Bug reports (`kind = 'bug'`) and feedback (`kind = 'feedback'`) sent from the app or the web. Since 2026-11-23 the web planner no longer has its floating feedback form (`screen = 'race-planner'`); `POST /api/feedback` and its other callers are unchanged. The admin "Messagerie" tab reviews them and replies in the author's notification inbox.
 
 ## Columns
 

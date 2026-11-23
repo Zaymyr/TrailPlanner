@@ -331,7 +331,7 @@ Published mobile RaceBooks are immutable per-format snapshots selected explicitl
 
 ## Runner plan preview (2026-11-23)
 
-The web runner planner now shows a free sample of the plan (departure and first aid station editable, the rest locked); organizer data (aid stations, services, product suggestions) is displayed unchanged in both parts, and no organizer field, visibility or publication rule changes. See [runner-monetization.md](./runner-monetization.md#web-free-plan-preview-2026-11-23).
+The web runner planner now shows a free sample of the plan (departure and first aid station editable, the rest locked); organizer data (aid stations, services, product suggestions) is displayed unchanged in both parts, and no organizer field, visibility or publication rule changes. The floating feedback bubble of the planner (bottom left, the only entry to its feedback form) was removed on the same day. See [runner-monetization.md](./runner-monetization.md#web-free-plan-preview-2026-11-23).
 
 ## Module activation
 

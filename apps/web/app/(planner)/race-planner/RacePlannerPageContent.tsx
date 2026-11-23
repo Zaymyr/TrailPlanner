@@ -81,23 +81,6 @@ type CatalogRaceSummary = {
   date: string | null;
 };
 
-const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width={24}
-    height={24}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth={2}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    {...props}
-  >
-    <path d="M21 11.5a8.38 8.38 0 0 1-1.9 5.4 8.5 8.5 0 0 1-6.6 3.1 8.38 8.38 0 0 1-5.4-1.9L3 21l1.9-4.1a8.38 8.38 0 0 1-1.9-5.4 8.5 8.5 0 0 1 3.1-6.6 8.38 8.38 0 0 1 5.4-1.9h.5a8.48 8.48 0 0 1 8 8v.5Z" />
-  </svg>
-);
-
 type StripeInterval = "day" | "week" | "month" | "year";
 
 const stripePriceResponseSchema = z.object({
@@ -418,12 +401,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const {
     state: {
       importError,
-      feedbackOpen,
-      feedbackSubject,
-      feedbackDetail,
-      feedbackStatus,
-      feedbackError,
-      isDesktopApp,
       mobileView,
       isSettingsCollapsed,
       isRaceCatalogOpen,
@@ -435,12 +412,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     },
     actions: {
       setImportError,
-      setFeedbackOpen,
-      setFeedbackSubject,
-      setFeedbackDetail,
-      setFeedbackStatus,
-      setFeedbackError,
-      setIsDesktopApp,
       setMobileView,
       setIsSettingsCollapsed,
       setIsRaceCatalogOpen,
@@ -457,11 +428,10 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [hasImportedCourse, setHasImportedCourse] = useState(false);
 
   useEffect(() => {
-    if (!feedbackOpen && !upgradeDialogOpen) return;
+    if (!upgradeDialogOpen) return;
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      setFeedbackOpen(false);
       setUpgradeDialogOpen(false);
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -469,7 +439,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       document.removeEventListener("keydown", handleKeyDown);
       previousFocus?.focus();
     };
-  }, [feedbackOpen, setFeedbackOpen, setUpgradeDialogOpen, upgradeDialogOpen]);
+  }, [setUpgradeDialogOpen, upgradeDialogOpen]);
 
   useEffect(() => {
     if (initializedQueryRef.current) return;
@@ -511,14 +481,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       });
     return () => controller.abort();
   }, [pendingCatalogRaceId]);
-
-  useEffect(() => {
-    const userAgent = typeof navigator !== "undefined" ? navigator.userAgent.toLowerCase() : "";
-    const isElectron = userAgent.includes("electron");
-    const isStandalone = typeof window !== "undefined" && window.matchMedia?.("(display-mode: standalone)").matches;
-
-    setIsDesktopApp(isElectron || Boolean(isStandalone));
-  }, [setIsDesktopApp]);
 
   // Keep the plan tab active throughout the tutorial.
   // Step 5 targets the site header sign-in button which is always visible.
@@ -1448,63 +1410,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     });
   };
 
-  const handleSubmitFeedback = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const subject = feedbackSubject.trim();
-    const detail = feedbackDetail.trim();
-
-    if (!subject || !detail) {
-      setFeedbackStatus("error");
-      setFeedbackError(racePlannerCopy.sections.summary.feedback.required);
-      return;
-    }
-
-    try {
-      setFeedbackStatus("submitting");
-      setFeedbackError(null);
-
-      const response = await fetch("/api/feedback", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : {}),
-        },
-        body: JSON.stringify({ kind: "feedback", screen: "race-planner", subject, detail }),
-      });
-
-      const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-
-      if (!response.ok) {
-        setFeedbackStatus("error");
-        setFeedbackError(payload?.message ?? racePlannerCopy.sections.summary.feedback.error);
-        return;
-      }
-
-      setFeedbackStatus("success");
-      setFeedbackSubject("");
-      setFeedbackDetail("");
-    } catch (error) {
-      console.error("Unable to send feedback", error);
-      setFeedbackStatus("error");
-      setFeedbackError(racePlannerCopy.sections.summary.feedback.error);
-    }
-  };
-
-  const openFeedbackForm = () => {
-    setFeedbackOpen(true);
-    setFeedbackStatus("idle");
-    setFeedbackError(null);
-  };
-
-  const closeFeedbackForm = () => {
-    setFeedbackOpen(false);
-    setFeedbackError(null);
-    setFeedbackStatus("idle");
-  };
-
   const pagePaddingClass = enableMobileNav ? "pb-40 xl:pb-6" : "pb-6 xl:pb-6";
-  const feedbackButtonOffsetClass = enableMobileNav ? "bottom-32" : "bottom-6";
   const handleAddAidStation = useCallback(
     (station?: { name: string; distanceKm: number; waterRefill?: boolean; solidRefill?: boolean; assistanceAllowed?: boolean }) => {
       append({
@@ -2142,7 +2048,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const appBridgeUrl = `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://pace-yourself.com"}/race-planner${activePlanId ? `?planId=${encodeURIComponent(activePlanId)}` : ""}`;
   const saveBarContextLabel = `${raceNameForSaveBar} — ${planNameForSaveBar}`;
   const hasBlockingOverlayOpen =
-    isRaceSelectorOpen || isRaceCatalogOpen || feedbackOpen || upgradeDialogOpen;
+    isRaceSelectorOpen || isRaceCatalogOpen || upgradeDialogOpen;
   const shouldShowSaveBar = hasUnsavedChanges && !hasBlockingOverlayOpen;
   const saveBarDisabled = authStatus === "checking" || !canSavePlan;
   const saveBarContent = (
@@ -2384,76 +2290,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           onUseRace={handlePickCatalogRace}
         />
 
-        {!isDesktopApp && (
-          <Button
-            type="button"
-            className={`fixed ${sampleAudience === "visitor" ? "bottom-24" : hideMobileNav ? "bottom-6" : feedbackButtonOffsetClass} left-6 z-20 inline-flex h-12 w-12 rounded-full shadow-lg`}
-            aria-label={racePlannerCopy.sections.summary.feedback.open}
-            onClick={openFeedbackForm}
-          >
-            <MessageCircleIcon className="h-5 w-5" />
-          </Button>
-        )}
-
-        {feedbackOpen && (
-          <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/70 px-4">
-            <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-lg border border-border bg-card p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900/90">
-              <Button
-                type="button"
-                variant="ghost"
-                className="absolute right-2 top-2 h-8 w-8 p-0 text-lg text-foreground dark:text-slate-200"
-                aria-label="Close feedback form"
-                onClick={closeFeedbackForm}
-              >
-                ×
-              </Button>
-              <div className="mb-4 pr-8">
-                <p className="text-lg font-semibold text-foreground dark:text-slate-50">
-                  {racePlannerCopy.sections.summary.feedback.title}
-                </p>
-              </div>
-
-              <form id="feedback-form" className="space-y-3" onSubmit={handleSubmitFeedback}>
-                <div className="space-y-1">
-                  <Label htmlFor="feedback-subject">{racePlannerCopy.sections.summary.feedback.subject}</Label>
-                  <Input
-                    id="feedback-subject"
-                    value={feedbackSubject}
-                    onChange={(event) => {
-                      setFeedbackSubject(event.target.value);
-                      setFeedbackStatus("idle");
-                      setFeedbackError(null);
-                    }}
-                    required
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="feedback-detail">{racePlannerCopy.sections.summary.feedback.detail}</Label>
-                  <textarea
-                    id="feedback-detail"
-                    value={feedbackDetail}
-                    onChange={(event) => {
-                      setFeedbackDetail(event.target.value);
-                      setFeedbackStatus("idle");
-                      setFeedbackError(null);
-                    }}
-                    required
-                    className="min-h-[120px] w-full rounded-md border border-border bg-background p-3 text-sm text-foreground shadow-sm transition placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400 dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-50 dark:placeholder:text-slate-500"
-                  />
-                </div>
-                {feedbackError && <p className="text-sm text-red-400">{feedbackError}</p>}
-                {feedbackStatus === "success" && !feedbackError && (
-                  <p className="text-sm text-emerald-400">{racePlannerCopy.sections.summary.feedback.success}</p>
-                )}
-                <div className="flex justify-end">
-                  <Button type="submit" className="w-full sm:w-auto" disabled={feedbackStatus === "submitting"}>
-                    {racePlannerCopy.sections.summary.feedback.submit}
-                  </Button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
 
         {upgradeDialogOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 py-8 backdrop-blur">
