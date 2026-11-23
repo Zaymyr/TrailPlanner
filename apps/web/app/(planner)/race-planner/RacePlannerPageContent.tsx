@@ -66,7 +66,7 @@ import {
   PlanSampleBanner,
   PlanSampleLockedCta,
   VisitorPlanRecap,
-  VisitorPlanSaveBar,
+  VisitorPlanUnlockBar,
   focusPlanSampleCta,
 } from "./components/PlanSample";
 import { useRunnerPrice } from "../../hooks/useRunnerPrice";
@@ -585,6 +585,8 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [visitorPlanOpen, setVisitorPlanOpen] = useState(false);
   /** Set when the visitor preview opens: the first render with segments and products runs the automatic fill. */
   const visitorAutoFillPendingRef = useRef(false);
+  /** Plan created after a visitor chose « Débloquer »: sent to its course offer once its access is known. */
+  const [pendingUnlockPlanId, setPendingUnlockPlanId] = useState<string | null>(null);
   const [isOpeningVisitorPlan, setIsOpeningVisitorPlan] = useState(false);
   const courseOfferPrice = useRunnerPrice("course", locale);
   const annualOfferPrice = useRunnerPrice("annual", locale);
@@ -633,8 +635,12 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [handleUseCatalogRace, isVisitor, router, setIsRaceCatalogOpen]);
 
-  /** Visitor « save »: keep the preview in this browser, then create the account (the plan is created after). */
-  const handleVisitorSave = useCallback(() => {
+  /**
+   * Visitor next step: keep the preview in this browser, then create the account (the plan is created after).
+   * `unlock` (primary CTA) also records the intent so that, once the plan exists and is still locked, the
+   * runner lands on the course offer of that plan; `save` (secondary) keeps the free preview only.
+   */
+  const handleVisitorContinue = useCallback((intent: "unlock" | "save") => {
     if (!pendingCatalogRaceId) return;
     const values = sanitizePlannerValues(form.getValues());
     try {
@@ -645,15 +651,23 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           values,
           elevationProfile: sanitizeElevationProfile(elevationProfile),
           planName: planName.trim() || undefined,
+          intent,
           savedAt: new Date().toISOString(),
         }),
       );
     } catch {
       // Without storage the account still saves the race and the pace.
     }
-    trackGoogleAnalyticsEvent("visitor plan save", { event_category: "plan", race_id: pendingCatalogRaceId });
-    router.push(buildAuthHref("/sign-up", `/race-planner?catalogRaceId=${encodeURIComponent(pendingCatalogRaceId)}`) as Route);
+    trackGoogleAnalyticsEvent(intent === "unlock" ? "visitor plan unlock" : "visitor plan save", {
+      event_category: "plan",
+      race_id: pendingCatalogRaceId,
+    });
+    const returnPath = `/race-planner?catalogRaceId=${encodeURIComponent(pendingCatalogRaceId)}`;
+    const signUpHref = buildAuthHref("/sign-up", returnPath);
+    router.push((intent === "unlock" ? `${signUpHref}&intent=unlock` : signUpHref) as Route);
   }, [elevationProfile, form, pendingCatalogRaceId, planName, router]);
+  const handleVisitorUnlock = useCallback(() => handleVisitorContinue("unlock"), [handleVisitorContinue]);
+  const handleVisitorSave = useCallback(() => handleVisitorContinue("save"), [handleVisitorContinue]);
 
   const handleSampleLockedAction = useCallback(() => {
     trackGoogleAnalyticsEvent("plan sample locked action", { event_category: "plan", audience: sampleAudience ?? "none" });
@@ -791,7 +805,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   // browser as its local draft (restored just below). A free account keeps it locally until the unlock.
   useEffect(() => {
     if (!activePlanId || !activePlan?.catalogRaceId) return;
-    let stored: { catalogRaceId?: string; values?: unknown; elevationProfile?: unknown; planName?: string } | null = null;
+    let stored: { catalogRaceId?: string; values?: unknown; elevationProfile?: unknown; planName?: string; intent?: string } | null = null;
     try {
       stored = JSON.parse(window.localStorage.getItem(GUEST_PLAN_DRAFT_KEY) ?? "null");
     } catch {
@@ -799,6 +813,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     }
     if (!stored || stored.catalogRaceId !== activePlan.catalogRaceId) return;
     window.localStorage.removeItem(GUEST_PLAN_DRAFT_KEY);
+    if (stored.intent === "unlock") setPendingUnlockPlanId(activePlanId);
     const values = sanitizePlannerValues(stored.values as PlannerStorageValues);
     if (!values) return;
     const planUpdatedAt = Date.parse(activePlan.updatedAt ?? "");
@@ -811,6 +826,16 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       planName: stored.planName,
     });
   }, [activePlan, activePlanId]);
+
+  // « Débloquer mon plan complet » from the visitor preview: once the new plan's access is known, a plan that is
+  // still locked goes straight to its course offer (an annual subscriber already sees the full plan).
+  useEffect(() => {
+    if (!pendingUnlockPlanId || pendingUnlockPlanId !== activePlanId || !currentRunnerAccess) return;
+    setPendingUnlockPlanId(null);
+    if (currentRunnerAccess.canViewDetails) return;
+    trackGoogleAnalyticsEvent("visitor unlock redirected", { event_category: "plan", plan_id: pendingUnlockPlanId });
+    router.push(`/premium?planId=${encodeURIComponent(pendingUnlockPlanId)}` as Route);
+  }, [activePlanId, currentRunnerAccess, pendingUnlockPlanId, router]);
 
   useEffect(() => {
     if (queryPlanIdRef.current) return;
@@ -1961,6 +1986,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                   remainingAidStations={lockedAidStationCount}
                   coursePrice={courseOfferPrice.formatted}
                   annualPrice={annualOfferPrice.formatted}
+                  onUnlock={handleVisitorUnlock}
                   onCreateAccount={handleVisitorSave}
                   unlockHref={activePlanId ? `/premium?planId=${encodeURIComponent(activePlanId)}` : "/premium"}
                 />
@@ -2162,7 +2188,13 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                 onChooseAnotherRace={() => setIsRaceCatalogOpen(true)}
               />
             }
-            floatingFooter={<VisitorPlanSaveBar onCreateAccount={handleVisitorSave} />}
+            floatingFooter={
+              <VisitorPlanUnlockBar
+                remainingAidStations={Math.max(0, courseProfileAidStations.length - 1)}
+                coursePrice={courseOfferPrice.formatted}
+                onUnlock={handleVisitorUnlock}
+              />
+            }
             mobileView={mobileView}
             onMobileViewChange={setMobileView}
             planLabel={racePlannerCopy.sections.summary.title}

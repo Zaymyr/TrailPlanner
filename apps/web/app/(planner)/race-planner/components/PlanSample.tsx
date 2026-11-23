@@ -45,6 +45,7 @@ export function PlanSampleLockedCta({
   remainingAidStations,
   coursePrice,
   annualPrice,
+  onUnlock,
   onCreateAccount,
   unlockHref,
 }: {
@@ -52,7 +53,9 @@ export function PlanSampleLockedCta({
   remainingAidStations: number;
   coursePrice: string | null;
   annualPrice: string | null;
-  /** Visitor: saves the preview locally and opens sign-up. */
+  /** Visitor, primary: keeps the preview, creates the account, then opens the course offer of the new plan. */
+  onUnlock?: () => void;
+  /** Visitor, secondary: keeps the free preview only (account without purchase). */
   onCreateAccount?: () => void;
   /** Free account: course unlock page for this plan. */
   unlockHref?: string;
@@ -90,9 +93,18 @@ export function PlanSampleLockedCta({
       </ul>
       <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
         {audience === "visitor" ? (
-          <button type="button" onClick={onCreateAccount} className={primaryClassName}>
-            Garder mon plan gratuitement
-          </button>
+          <>
+            <button type="button" onClick={onUnlock} className={primaryClassName}>
+              {coursePrice ? `Débloquer mon plan complet · ${coursePrice}` : "Débloquer mon plan complet"}
+            </button>
+            <button
+              type="button"
+              onClick={onCreateAccount}
+              className="inline-flex min-h-11 items-center justify-center px-2 text-sm font-semibold text-brand underline-offset-4 hover:underline"
+            >
+              ou garder l’aperçu gratuitement
+            </button>
+          </>
         ) : (
           <Link href={(unlockHref ?? "/premium") as Route} className={primaryClassName}>
             {coursePrice ? `Débloquer cette course · ${coursePrice}` : "Débloquer cette course"}
@@ -106,7 +118,7 @@ export function PlanSampleLockedCta({
       </div>
       <p className="mt-3 text-xs text-muted-foreground">
         {audience === "visitor"
-          ? `Compte gratuit : ton temps, ta course et ton 1er ravito sont gardés. Le plan complet se débloque ensuite${coursePrice ? ` pour ${coursePrice} la course` : ""}.`
+          ? "Paiement unique pour cette course, sans abonnement. Étape 1 : ton compte (ton aperçu est gardé), étape 2 : le paiement."
           : "Paiement unique pour cette course, sans abonnement. Tes réglages du 1er ravito sont conservés."}
       </p>
     </section>
@@ -149,21 +161,35 @@ export function PlanSampleBanner({
   );
 }
 
-/** Sticky bottom bar of the visitor preview: the plan only lives in this browser until an account exists. */
-export function VisitorPlanSaveBar({ onCreateAccount }: { onCreateAccount: () => void }) {
+/** Sticky bottom bar of the visitor preview: what is still locked and the unlock action. */
+export function VisitorPlanUnlockBar({
+  remainingAidStations,
+  coursePrice,
+  onUnlock,
+}: {
+  remainingAidStations: number;
+  coursePrice: string | null;
+  onUnlock: () => void;
+}) {
+  const lockedLabel =
+    remainingAidStations > 1
+      ? `Tes ${remainingAidStations} autres ravitos t’attendent.`
+      : remainingAidStations === 1
+        ? "Ton prochain ravito t’attend."
+        : "La suite de ta course t’attend.";
   return (
     <div className="fixed inset-x-0 bottom-0 z-30 border-t border-brand-border bg-card/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-6px_20px_rgba(0,0,0,0.08)] backdrop-blur print:hidden">
       <div className="mx-auto flex max-w-5xl items-center gap-3">
         <p className="min-w-0 flex-1 text-sm leading-snug text-foreground">
-          <span className="font-semibold">Garde ton plan pour le jour J.</span>{" "}
-          <span className="hidden text-muted-foreground sm:inline">Compte gratuit : retrouve-le sur ton téléphone, même sans réseau.</span>
+          <span className="font-semibold">{lockedLabel}</span>{" "}
+          <span className="hidden text-muted-foreground sm:inline">Quantités, heures de passage et fiche à imprimer jusqu’à l’arrivée.</span>
         </p>
         <button
           type="button"
-          onClick={onCreateAccount}
+          onClick={onUnlock}
           className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl bg-brand px-4 text-sm font-semibold text-brand-foreground transition hover:bg-brand-light"
         >
-          Garder mon plan
+          {coursePrice ? `Débloquer · ${coursePrice}` : "Débloquer"}
         </button>
       </div>
     </div>
@@ -207,7 +233,7 @@ export function VisitorPlanRecap({
         ))}
       </dl>
       <p className="text-sm text-muted-foreground">
-        Ton plan vit dans ce navigateur pour l’instant. Garde-le avec un compte gratuit pour le retrouver dans l’app.
+        Ton aperçu vit dans ce navigateur pour l’instant. Il est gardé quand tu crées ton compte, gratuit ou pour débloquer le plan.
       </p>
       <button type="button" onClick={onChooseAnotherRace} className={`${secondaryClassName} sm:w-full`}>
         Choisir une autre course

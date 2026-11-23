@@ -846,3 +846,7 @@ The web planner free preview opened from the account-free estimate (`loadCatalog
 
 ## Funnel analytics touch (2026-11-22)
 The web runner funnel instrumentation (analytics events only) touched `RacePlannerPageContent.tsx`: the planner upgrade modal emits `premium checkout started` and `QuickRaceEstimate` remembers the source race. No data contract, RLS rule or business rule described here changed. Web runner funnel analytics (2026-11-22): see [analytics.md](../05-integrations/analytics.md#web-runner-funnel-2026-11-22).
+
+## Visitor unlock CTA touch (2026-11-23)
+
+The visitor preview's primary action is now « Débloquer mon plan complet · <course price> » (secondary: « ou garder l’aperçu gratuitement »), with an `intent` kept in the local guest draft; the sticky bar counts the catalog aid stations the organizer published, minus the unlocked first one. Organizer authoring, publication gates, products and Pro overlay rules are unchanged; see [runner-monetization.md](runner-monetization.md#web-free-plan-preview-2026-11-23).

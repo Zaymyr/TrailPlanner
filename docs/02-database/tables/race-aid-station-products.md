@@ -140,3 +140,7 @@ The web runner funnel instrumentation (analytics events only) touched `RacePlann
 ## Visitor free preview and catalog aid stations (2026-11-23)
 
 The visitor preview of the web planner (no account, no `race_plans` row) now loads the catalog ravitos of the race through the public `GET /api/race-catalog/[id]/aid-stations` (`race_aid_stations`, now also selecting `solid_available` and `assistance_allowed`; see [plan-storage.md](../../03-business-rules/plan-storage.md#visitor-plan-preview-draft-2026-11-23)). It does not read this table: `organizerAidStationProducts` only reaches the planner through `planner_values` of an account plan (`/api/plans/from-catalog` snapshot, `/api/plans` GET overlay), so a visitor preview carries no organizer suggestions, and the one-shot automatic fill that pre-fills the departure and first ravito runs without the ravito-products opt-in. No column, index, RLS rule or table read changed.
+
+## Visitor unlock CTA touch (2026-11-23)
+
+The visitor preview's primary action is now « Débloquer mon plan complet » (secondary: keep the free preview). `RacePlannerPageContent.tsx` stores an `intent` in the local guest draft and, after sign-up, may redirect a still-locked new plan to `/premium?planId=…`. No column, index, RLS rule or read of this table changed; the visitor still reads the catalog ravitos only through the public aid-stations route, and the organizer products still reach the planner only through an account plan.

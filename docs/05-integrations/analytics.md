@@ -237,9 +237,9 @@ Ordered runner funnel, all in PostHog:
 1. `race page viewed`
 2. `quick estimate completed`
 3. `quick estimate open plan` / `visitor plan opened`
-4. `visitor plan save` / `sign up started`
+4. `visitor plan unlock` (primary CTA) / `visitor plan save` (secondary link) / `sign up started`
 5. `sign up completed`
-6. `premium paywall viewed`
+6. `visitor unlock redirected` (only after a `visitor plan unlock`: the new, still locked plan is sent to `/premium?planId=…`) / `premium paywall viewed`
 7. `premium checkout started` (annual) / `runner course checkout started` (one-time course)
 8. `premium purchase verified` / `runner course purchase verified`
 

@@ -4,6 +4,14 @@
 
 Journal en ajout seul, la plus récente en haut. Format : `## AAAA-MM-JJ — Titre`, puis Contexte / Décision / Conséquence (2 à 4 lignes chacun). Les décisions d'architecture détaillées (ADR) vont dans [docs/08-decisions/](../08-decisions/README.md).
 
+## 2026-11-23 — Aperçu visiteur : « Débloquer » en action principale
+
+**Contexte.** L'aperçu promet la suite du plan ; « Garder mon plan » capturait un compte mais ne vendait pas le déblocage.
+
+**Décision.** Le CTA principal devient « Débloquer mon plan complet · <prix course> » (inscription étape 1/2, puis `/premium?planId=…` si le plan reste verrouillé) ; « ou garder l'aperçu gratuitement » reste un lien secondaire pour garder la capture de comptes à faible trafic. Mesure : `visitor plan unlock` contre `visitor plan save`.
+
+**Conséquence.** Aucun changement de droits, de prix ni de migration. Voir `docs/03-business-rules/runner-monetization.md`.
+
 ## 2026-11-23 — Planificateur web : aperçu résultat d'abord, paywall course d'abord, landing
 
 **Contexte.** L'audit de conversion du planificateur web : l'aperçu gratuit montrait d'abord les étapes de réglage, perdait les ravitos du catalogue et le D+ réel (valeur par défaut de 2200 m), proposait trois boutons d'enregistrement, et la modale premium vendait seulement l'abonnement avec un prix de repli faux (« 7,99 $/mois »). La démo Trail TST avait des GPX de 13 points (≈ 24 km pour la course de 42 km).

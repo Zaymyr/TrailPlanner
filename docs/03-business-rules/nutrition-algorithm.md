@@ -432,3 +432,7 @@ Admin i18n (2026-11-22): `admin.growth.title` is now « Croissance » / « Growt
 ## Funnel analytics touch (2026-11-22)
 
 The web runner funnel instrumentation (analytics events only) touched `RacePlannerPageContent.tsx`: the planner upgrade modal emits `premium checkout started` and `QuickRaceEstimate` remembers the source race. No data contract, RLS rule or business rule described here changed. Web runner funnel analytics (2026-11-22): see [analytics.md](../05-integrations/analytics.md#web-runner-funnel-2026-11-22).
+
+## Visitor unlock CTA touch (2026-11-23)
+
+`RacePlannerPageContent.tsx` now offers « Débloquer mon plan complet » as the visitor preview's primary action (free save kept as a secondary link) and may redirect the new, still-locked plan to `/premium?planId=…` after sign-up. Needs, carryover, candidate pool and the one-shot visitor automatic fill are unchanged; the locked section stays inert and the unlock CTA does not trigger a fill.
