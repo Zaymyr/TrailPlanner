@@ -2,7 +2,7 @@
 title: races Table
 scope: database
 
-last_verified: 2026-11-22
+last_verified: 2026-11-23
 # Event hubs (2026-11-22): the hub reads `racebook_is_live` of its featured formats (service role, explicit columns) for the Livret coureur promise; landing pages list only dated upcoming formats; no format column or visibility rule changes.
 # Assisted legacy conversion (2026-11-15): legacy format text can become a review-only proposal; normal organizer save remains the only persistence step.
 # Structured runner-info phase (2026-11-15): additive start-area, briefing and key-rule objects coexist with historical strings for old mobile compatibility; equipment control checkpoints and short notes are optional runner guidance.
@@ -21,6 +21,7 @@ ai_priority: high
 # Fill-flow note (2026-11-13): organizer form ergonomics (ravito services, Enter-to-add, slot undo, sponsor ordering) do not alter stored data or contracts.
 related_files:
   - supabase/migrations/20261106142000_add_lut_by_night_2026_gpx.sql
+  - supabase/migrations/20261123170000_import_saintelyon_salon_organizers_2027.sql
   - supabase/migrations/20261105082511_enrich_saintelyon_2026_formats.sql
   - supabase/migrations/20251220120000_add_race_catalog.sql
   - supabase/migrations/20260324000000_refactor_race_catalog_to_races.sql
@@ -175,6 +176,8 @@ Existing `races` policies control the whole row, including import status. Organi
 Authenticated non-admin users can no longer insert races. Trusted `app_metadata` admins retain direct catalog insertion; organizer mutations remain service-route operations. Legacy standalone owners retain the existing update/delete boundary so old data can still be maintained or removed without reopening creation.
 
 ## Business Invariants
+
+- The 2027 SaintéLyon-salon organizer import creates its new events and formats in the organizer Privé state (`is_public = false`, `is_live = false`, preview visible, RaceBook off) on a catalog-visible event and edition, and keeps formats whose 2027 date is only provisional as masked drafts. Already-public formats stay public and are only enriched. Unknown D- keeps the NOT NULL `0` placeholder; organizer-published D+ labels stay authoritative over GPX-derived totals, and an official trace from the previous edition is recorded as `organizer_details.catalogSource.gpxEditionYear`.
 
 - The 2026 Radiance Mutuelle LUT By Night snapshot keeps the official published distance and D+ labels for the 10 km, 20 km and 30 km formats while attaching their three official GPX objects, hashes and parsed route metadata. The 10 km Rando remains without a GPX because its official page exposes no downloadable trace URL.
 
