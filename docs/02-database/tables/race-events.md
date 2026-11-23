@@ -343,6 +343,7 @@ where is_live = true
 
 ## Gotchas
 
+- The public `GET /api/race-catalog` (planner race picker, anon key, `is_live=eq.true`) also returns `event_id`, `race_date` and the embedded parent event `race_events(id,name,location,race_date,thumbnail_url)` (null when the race has no event or the anon key cannot read it). The change is additive: existing fields and the `search` parameter are unchanged, and the write handlers are untouched. The picker groups formats by that event and keeps only the latest edition of a format name repeated in the same event.
 - `race_events.slug` is immutable and shares the public URL namespace with edition slugs: never write it from a client, never reuse an edition slug, and do not rename it without first adding an event-slug redirect table.
 - Region landing pages trust only `location_region_code` with `location_country_code = 'FR'`; a new French event without the code is absent from its region page.
 

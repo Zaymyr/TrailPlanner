@@ -1,7 +1,7 @@
 ---
 title: Nutrition Algorithm
 scope: business-rule
-last_verified: 2026-11-22
+last_verified: 2026-11-23
 # Livret supporter note (2026-11-16): the public name of the supporter_guide surface is now "Livret supporter" (formerly "Livret accompagnateur"); aid-station access wording ("Accompagnateurs autorisés") is unchanged; no data, contract or offer change.
 # Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
 ai_priority: high
@@ -378,7 +378,7 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 - Keep Ravitos/Chronologie/Allures navigation tab-only, preserve the single parent vertical scroll, and keep slider gesture capture horizontal-intent-only so ordinary screen scrolling remains usable.
 - Admin-only favorite usage shown in the mobile product detail modal is operational metadata. It must not influence allocation order, product eligibility, or per-unit nutrition values.
 - Harmonized official product display names must not change the underlying nutrition math. Allocation still depends on `fuel_type`, carbs, sodium, and quantity, not on the display label shown to runners.
-- Keep page-translation contracts defined only once in `apps/web/locales/types.ts`; this includes admin catalog actions such as direct GPX download, and duplicate aliases can break `next build` before planner or catalog pages compile. The shared locale files also contain non-nutrition and SEO copy, including partner and `/links` page descriptions; keep the French and English Google Play/App Store CTAs aligned when replacing a campaign such as the retired beta waitlist.
+- Keep page-translation contracts defined only once in `apps/web/locales/types.ts`; this includes admin catalog actions such as direct GPX download, and duplicate aliases can break `next build` before planner or catalog pages compile. The shared locale files also contain non-nutrition and SEO copy, including partner and `/links` page descriptions; keep the French and English Google Play/App Store CTAs aligned when replacing a campaign such as the retired beta waitlist. The planner race picker copy (`racePlanner.raceCatalog`, including `quickFilters` and the `{count}` placeholder of `resultsCount`) lives there too and has no effect on nutrition computation.
 - The shared locale files also define the Admin partner-link copy. Those labels are configuration-only and must not alter product eligibility, allocation, or the older product-specific `affiliate_offers` behavior.
 - `Math.round(waterNeeded / 500)` can produce `0` electrolyte servings for low water demand.
 - Carb allocation uses product carbs as weights; products with `carbs_g <= 5` are excluded from carb-source allocation.

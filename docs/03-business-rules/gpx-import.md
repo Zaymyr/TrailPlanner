@@ -259,6 +259,7 @@ Playback, progressive route reveal, and the 9:16/16:9 switch are presentation-on
 
 ## Gotchas
 
+- The public `GET /api/race-catalog` (planner race picker, anon key, `is_live=eq.true`) also returns `event_id`, `race_date` and the embedded parent event `race_events(id,name,location,race_date,thumbnail_url)` (null when the race has no event or the anon key cannot read it). The change is additive: existing fields and the `search` parameter are unchanged, and the write handlers are untouched. The picker groups formats by that event and keeps only the latest edition of a format name repeated in the same event.
 - Organizer GPX deletion now uses the shared accessible confirmation dialog; storage deletion and retained race metrics follow the existing API contract.
 
 - Admin catalog copy may use typographic French apostrophes to remain JSX-lint safe; this presentation detail must not alter GPX parsing, upload, or publication behavior.

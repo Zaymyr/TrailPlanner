@@ -673,6 +673,14 @@ export const en: Translations = {
       empty: "No races match your search yet.",
       useAction: "Use GPX",
       using: "Using...",
+      clearSearch: "Clear search",
+      resultsCount: "{count} event(s)",
+      quickFilters: {
+        all: "All",
+        short: "< 30 km",
+        trail: "30–60 km",
+        ultra: "60+ km",
+      },
       table: {
         image: "Image",
         name: "Race",

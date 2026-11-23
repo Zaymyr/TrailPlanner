@@ -1,7 +1,7 @@
 ---
 title: Design Tokens
 scope: design-system
-last_verified: 2026-11-22
+last_verified: 2026-11-23
 ai_priority: medium
 related_files:
   - packages/design-system/src/tokens/colors.ts
@@ -60,7 +60,7 @@ Token groups:
   surfaces/borders. The information role aliases the alpine blue; terracotta
   remains an attention/danger accent rather than a general action color.
 
-The web app also defines HSL CSS variables in `apps/web/app/globals.css` for light/dark runtime themes.
+The web app also defines HSL CSS variables in `apps/web/app/globals.css` for its single light theme (`:root`, `color-scheme: light`). The dark theme was removed on 2026-11-23: there is no `.dark` variable block any more, and `tailwind.config.ts` keeps `darkMode: "class"` only so leftover `dark:` utilities never apply.
 
 `globals.css` also scopes the admin console fonts (2026-11-22): `.admin-console` (root of `AdminShell`) uses `var(--font-admin-sans)` (Bricolage Grotesque) and `.admin-console .font-mono` uses `var(--font-admin-mono)` (JetBrains Mono, tabular figures). The variables come from `next/font/google` in `app/admin/_components/shell/AdminShell.tsx`, so the rest of the site keeps its Inter stack. The console palette (sidebar `#1f2a12`, lime accent `#c8d44e`, page `#f4f2ec`, card border `#e6e2d8`, orange counts `#f0873a`, red bell `#e05252`) follows the ADR mock-up and is written as Tailwind arbitrary values in the shell components, not as theme tokens.
 
@@ -169,7 +169,7 @@ It also exposes CSS-variable theme colors such as `background`, `foreground`, `b
   `brand.border` for selected controls; neither is organizer-controlled.
 - Do not hardcode actual PostHog/Supabase/Stripe colors or secrets in design docs.
 - If tokens change, update Tailwind mapping and design docs together.
-- Existing web body background uses a brand-surface radial gradient in light mode and flat dark background in dark mode.
+- The web body background uses a brand-surface radial gradient over the light background. Do not add new `dark:` utilities or raw `slate-*` / `emerald-*` colors on web pages; use the tokens.
 - The mobile trail signature is presentation-only: its ridge, blaze, contour, cote and sign tokens must not encode publication, entitlement, follow membership, or nutrition-calculation state.
 
 ## Related Docs

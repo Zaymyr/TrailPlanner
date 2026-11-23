@@ -4,6 +4,14 @@
 
 Journal en ajout seul, la plus récente en haut. Format : `## AAAA-MM-JJ — Titre`, puis Contexte / Décision / Conséquence (2 à 4 lignes chacun). Les décisions d'architecture détaillées (ADR) vont dans [docs/08-decisions/](../08-decisions/README.md).
 
+## 2026-11-23 — Site web en thème clair uniquement, bandeau app réduit
+
+**Contexte.** L’audit des pages coureur du site a montré que le thème sombre reprenait l’ancienne palette (bleu nuit, émeraude) et ne ressemblait ni au thème clair ni à l’App ; le bandeau « télécharger l’app » recouvrait le bas des formulaires sur mobile.
+
+**Décision.** Le site web n’a plus qu’un thème clair : plus de bascule, plus de variables `.dark`, préférence système et valeur enregistrée ignorées. Le bandeau devient une barre fine en bas d’écran (titre, bouton, croix), mêmes règles d’affichage et mêmes événements analytics.
+
+**Conséquence.** Les ~900 classes `dark:` restantes sont inertes (`darkMode: "class"` conservé) et seront retirées page par page lors des lots d’harmonisation. Aucune nouvelle classe `dark:` ni couleur brute sur le web.
+
 ## 2026-11-23 — Journal des actions admin
 
 **Contexte.** Aucune trace de qui avait modifié un rôle, accordé du Premium, envoyé un message, changé un pack ou publié un post ; seuls les champs `created_by` / `reviewed_by` de quelques tables gardaient un acteur, sans avant/après.

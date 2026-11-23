@@ -441,6 +441,15 @@ export type RacePlannerTranslations = {
     empty: string;
     useAction: string;
     using: string;
+    clearSearch: string;
+    /** `{count}` is replaced with the number of listed events. */
+    resultsCount: string;
+    quickFilters: {
+      all: string;
+      short: string;
+      trail: string;
+      ultra: string;
+    };
     table: {
       image: string;
       name: string;

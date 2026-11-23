@@ -19,7 +19,6 @@ vi.mock("./hooks/useVerifiedSession", () => ({
   useVerifiedSession: () => ({ session: { role: "user" }, isLoading: false, clearSession: vi.fn() }),
 }));
 vi.mock("./language-toggle", () => ({ LanguageToggle: () => null }));
-vi.mock("../components/ThemeToggle", () => ({ ThemeToggle: () => null }));
 
 afterEach(cleanup);
 

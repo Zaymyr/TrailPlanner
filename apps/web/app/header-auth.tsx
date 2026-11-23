@@ -7,7 +7,6 @@ import React, { useEffect, useRef } from "react";
 import { useI18n } from "./i18n-provider";
 import { useVerifiedSession } from "./hooks/useVerifiedSession";
 import { LanguageToggle } from "./language-toggle";
-import { ThemeToggle } from "../components/ThemeToggle";
 
 export function HeaderAuth() {
   const { t } = useI18n();
@@ -62,7 +61,6 @@ export function HeaderAuth() {
       <div className="absolute right-0 z-30 mt-2 w-72 space-y-2 rounded-lg border border-border-strong bg-card p-3 shadow-xl">
         <div className="grid grid-cols-1 gap-2">
           <LanguageToggle />
-          <ThemeToggle />
         </div>
         {session ? (
           <nav className="grid gap-1 border-t border-border pt-2" aria-label={t.navigation.account} onClick={closeMenu}>

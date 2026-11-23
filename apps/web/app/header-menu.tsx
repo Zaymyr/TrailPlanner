@@ -8,7 +8,6 @@ import type { Route } from "next";
 import { useOrganizerMembershipStatus } from "./hooks/useOrganizerMembershipStatus";
 import { useVerifiedSession } from "./hooks/useVerifiedSession";
 import { useI18n } from "./i18n-provider";
-import { applyTheme, getInitialTheme, type Theme } from "../lib/theme";
 
 type MenuItem = {
   label: string;
@@ -31,7 +30,6 @@ export function HeaderMenu() {
   const { session, clearSession } = useVerifiedSession();
   const { hasManagedRaces } = useOrganizerMembershipStatus(session?.accessToken);
   const [isOpen, setIsOpen] = useState(false);
-  const [theme, setTheme] = useState<Theme>("dark");
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
@@ -102,12 +100,6 @@ export function HeaderMenu() {
   });
 
   useEffect(() => {
-    const initialTheme = getInitialTheme();
-    applyTheme(initialTheme);
-    setTheme(initialTheme);
-  }, []);
-
-  useEffect(() => {
     if (!isOpen) {
       return;
     }
@@ -147,15 +139,6 @@ export function HeaderMenu() {
     }
   };
 
-  const handleThemeToggle = () => {
-    const updatedTheme = theme === "dark" ? "light" : "dark";
-    applyTheme(updatedTheme);
-    window.localStorage.setItem("theme", updatedTheme);
-    setTheme(updatedTheme);
-  };
-
-  const nextTheme = theme === "dark" ? "light" : "dark";
-
   return (
     <div className="relative" ref={menuRef}>
       <button
@@ -171,7 +154,7 @@ export function HeaderMenu() {
 
       {isOpen ? (
         <div className="absolute right-0 z-20 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-lg border border-border-strong bg-card/95 p-2 shadow-xl dark:bg-card/60 dark:backdrop-blur">
-          <div className="mb-2 grid grid-cols-2 gap-2 border-b border-border pb-2">
+          <div className="mb-2 grid grid-cols-1 gap-2 border-b border-border pb-2">
             <button
               type="button"
               className={menuActionClass}
@@ -181,25 +164,6 @@ export function HeaderMenu() {
               <span className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{locale === "fr" ? "Langue" : "Lang"}</span>
               <span className="rounded bg-background px-2 py-1 text-xs font-semibold text-[hsl(var(--success))] dark:text-emerald-200">
                 {locale.toUpperCase()}
-              </span>
-            </button>
-            <button
-              type="button"
-              className={menuActionClass}
-              aria-label={
-                locale === "fr"
-                  ? theme === "dark"
-                    ? "Passer au thème clair"
-                    : "Passer au thème sombre"
-                  : theme === "dark"
-                    ? "Switch to light theme"
-                    : "Switch to dark theme"
-              }
-              onClick={handleThemeToggle}
-            >
-              <span className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{locale === "fr" ? "Thème" : "Theme"}</span>
-              <span className="rounded bg-background px-2 py-1 text-xs font-semibold text-[hsl(var(--success))] dark:text-emerald-200">
-                {locale === "fr" ? (nextTheme === "dark" ? "Sombre" : "Clair") : nextTheme}
               </span>
             </button>
           </div>
