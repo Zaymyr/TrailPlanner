@@ -47,6 +47,8 @@ One row: `available` (false when `net._http_response` does not exist or cannot b
 
 ## Gotchas
 
+- `transactional_email_log` and `admin_audit_log` (lot 7) had received every privilege for `service_role` through Supabase's default privileges; `20261123150000_admin_logs_service_privileges.sql` restricts both to `select, insert, delete`, and `supabase/tests/admin_system_health_checks.sql` now fails if `update` or `truncate` come back.
+
 - pg_cron `succeeded` for a pg_net job only means the HTTP request was queued. `net._http_response` keeps neither the URL nor the job (and only about 6 h of rows), so an HTTP status cannot be tied to a job: the console shows this summary for all jobs together and documents the limit.
 - A pg_net job also succeeds while the Vault secrets `web_app_url` / `cron_secret` are missing: its `select` returns no row and nothing is sent.
 - `cron.job_run_details` is never purged by pg_cron; `failures_24h` scans it. If it grows large, add a purge job (not done in lot 3).

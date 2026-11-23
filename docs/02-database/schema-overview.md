@@ -7,6 +7,7 @@ last_verified: 2026-11-23
 # Livret supporter private preview (2026-11-18): the catalog Livret supporter entry admits active organizers of a private event (preview only); runner badge, data and contracts unchanged.
 ai_priority: high
 related_files:
+  - supabase/migrations/20261123150000_admin_logs_service_privileges.sql
   - supabase/migrations/20261116150000_add_organizer_demo_requests.sql
   - supabase/migrations/20261119130000_add_social_posts.sql
   - supabase/migrations/20261119170000_add_render_job_auto_draft.sql
@@ -266,7 +267,7 @@ The November 2026 mobile plan-flow polish changes catalog search controls, image
 | `race_plans` | Saved planner state and imported GPX plan metadata. |
 | `race_requests` | Authenticated user requests for races to add. |
 | `organizer_demo_requests` | Service-only demo requests from the public organizer page (e-mail, race link, optional phone), reviewed in the admin inbox. See [organizer_demo_requests](tables/organizer-demo-requests.md). |
-| `transactional_email_log` | Service-only journal of transactional Resend e-mails (date, category, `sent`/`skipped`/`failed`, code, short message, masked recipient; no content), written best-effort by `lib/resend.ts`, purged after 90 days by the pg_cron job `transactional-email-log-purge`. The same migration adds the service-only functions `admin_cron_job_status()` and `admin_pg_net_response_summary()` read by the admin console. See [transactional_email_log](tables/transactional-email-log.md) and [Admin system health functions](admin-system-health-functions.md). |
+| `transactional_email_log` | (service role: select/insert/delete only since `20261123150000`) Service-only journal of transactional Resend e-mails (date, category, `sent`/`skipped`/`failed`, code, short message, masked recipient; no content), written best-effort by `lib/resend.ts`, purged after 90 days by the pg_cron job `transactional-email-log-purge`. The same migration adds the service-only functions `admin_cron_job_status()` and `admin_pg_net_response_summary()` read by the admin console. See [transactional_email_log](tables/transactional-email-log.md) and [Admin system health functions](admin-system-health-functions.md). |
 | `admin_audit_log` | Service-only journal of the admin console actions (who, action `domain.verb`, target, French summary, sanitized `before`/`after`, `ok`/`error`; no secret, message content or full e-mail), written best-effort by `lib/admin-audit-log.ts` (`withAdminAudit` on every admin write route), append-only, purged after 365 days by the pg_cron job `admin-audit-log-purge`. See [admin_audit_log](tables/admin-audit-log.md). |
 | `video_voices` | Service-only shared pool of ElevenLabs voices of the admin reel generator (unique ElevenLabs id, name, `active`); each new reel draws an active voice at random. See [video_voices](tables/video-voices.md). |
 | `reel_automation_settings` | Service-only single row of the automatic reel pipeline: generation and publication switches (off by default), caps, lead time, publication time. See [reel_automation_settings](tables/reel-automation-settings.md). |
