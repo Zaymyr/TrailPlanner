@@ -42,9 +42,20 @@ export function CourseWeatherGlyph({ kind, label, size = 24 }: { kind: WeatherGl
     </g>
   );
 
+  const moon = (path: string) => <path d={path} stroke="#5C6450" />;
+
   switch (kind) {
     case "clear":
       return <svg {...common}>{sun(12, 12, 4)}</svg>;
+    case "clear_night":
+      return <svg {...common}>{moon("M15.5 4.5a7.5 7.5 0 1 0 4 12.6A6.2 6.2 0 0 1 15.5 4.5Z")}</svg>;
+    case "partly_night":
+      return (
+        <svg {...common}>
+          {moon("M9.5 3.5a4.6 4.6 0 1 0 3.4 7.7A3.8 3.8 0 0 1 9.5 3.5Z")}
+          <path d="M9.5 19h8a3.5 3.5 0 0 0 .5-6.96A4.8 4.8 0 0 0 9.6 13 3.1 3.1 0 0 0 9.5 19Z" stroke="#5C6450" />
+        </svg>
+      );
     case "partly":
       return (
         <svg {...common}>

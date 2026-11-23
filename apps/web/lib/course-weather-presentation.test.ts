@@ -5,6 +5,7 @@ import {
   courseWeatherFeelsLikeC,
   courseWeatherHourAlerts,
   courseWeatherHourAt,
+  courseWeatherLikelyPassageHours,
   summarizeCourseWeatherHours,
   type CourseWeatherHour,
   type CourseWeatherPoint,
@@ -64,6 +65,18 @@ describe('course weather presentation', () => {
       hour('b', { temperatureC: 9, precipitationMm: 1.2, windGustKph: 40, symbol: 'rain' }),
     ]);
     expect(summary).toMatchObject({ minTemperatureC: 4, maxTemperatureC: 9, maxWindGustKph: 40, totalPrecipitationMm: 1.6, dominantSymbol: 'rain' });
+  });
+
+  it('keeps only the hours the field is likely to pass a point', () => {
+    const hours = Array.from({ length: 48 }, (_, i) =>
+      hour(new Date(Date.parse('2026-11-28T20:00:00Z') + i * 3_600_000).toISOString().replace('.000Z', 'Z')),
+    );
+    const start = '2026-11-28T22:30:00Z';
+    // 40 km: fastest 12 km/h → 01:50, slowest 4 km/h → 08:30 (+1 h margin) the next day.
+    const likely = courseWeatherLikelyPassageHours({ distanceKm: 40, hours }, start);
+    expect(likely[0].time).toBe('2026-11-29T01:00:00Z');
+    expect(likely.at(-1)?.time).toBe('2026-11-29T09:00:00Z');
+    expect(courseWeatherLikelyPassageHours({ distanceKm: 40, hours }, null)).toHaveLength(48);
   });
 
   it('places each passage on the nearest point at start + elapsed time', () => {

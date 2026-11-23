@@ -1,7 +1,7 @@
 ---
 title: Mobile offline access (RaceBook, Supporter Guide, plans)
 scope: business-rule
-last_verified: 2026-11-23
+last_verified: 2026-11-24
 # Supporter onboarding (2026-11-18): the onboarding gate reads the new supporter tour status through a tolerant select (device-local fallback while the column is missing); the offline launch route to Plans and the Livret supporter device copy are unchanged.
 # Livret supporter private preview (2026-11-18): the 404 that deletes the Supporter Guide copy is evaluated after the authenticated organizer retry.
 ai_priority: high
@@ -67,7 +67,7 @@ A plan copy stores the raw `race_plans` row, the best elevation profile and only
 5. **Offline launch keeps the account.** When the access token has expired and the refresh fails for lack of network, supabase-js reports no session although the refresh token is still stored. The root layout then uses the persisted session (`readStoredAuthSession`) instead of creating a guest session or sending the runner to login, and ignores a null `INITIAL_SESSION`. Plan rights come from the cached capabilities (`readCachedRunnerPlanCapabilities`) of that account.
 6. **Offline launch opens the plans.** `getPostAuthRoute` routes to `/(app)/plans` when the profile query fails with a transport error. A startup OTA check that fails for lack of network continues to the installed version instead of the "Mise à jour indisponible" screen; the foreground check retries later.
 7. **Edits made offline are not queued.** Plan saves and crew passage confirmations still need the network; they fail as before and are not replayed.
-8. **Weather copies are explicit about their age.** The course-weather copy is not account data (keyed by race id, still purged on `SIGNED_OUT` with the rest of the directory). It is read first and reused without network until the forecast `expiresAt`; every display shows "Prévision du {fetchedAt}", plus a stale note when a refresh failed. A copy whose race window ended more than 24 h ago is no longer shown.
+8. **Weather copies are explicit about their age.** The course-weather copy is not account data (keyed by race id, still purged on `SIGNED_OUT` with the rest of the directory). It is read first and reused without network until the forecast `expiresAt`; every display shows "Prévision du {fetchedAt}", plus a stale note when a refresh failed. A copy whose race window ended more than 24 h ago is no longer shown. The cached copy keeps every forecast hour: the per-point summary over the likely passage hours (`courseWeatherLikelyPassageHours`) is recomputed at display time, so an offline copy never needs a refetch to change it.
 
 ## Gotchas
 

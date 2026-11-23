@@ -1,7 +1,7 @@
 ---
 title: MET Norway Course Weather
 scope: integration
-last_verified: 2026-11-23
+last_verified: 2026-11-24
 ai_priority: medium
 related_files:
   - apps/web/app/api/race-weather/route.ts
@@ -120,6 +120,8 @@ From `COURSE_WEATHER_THRESHOLDS` in `packages/shared/src/course-weather/presenta
 | `rain` | precipitation ≥ 1 mm/h or a `rain` symbol |
 | `storm` | `thunder` symbol |
 | `snow` | `snow` or `sleet` symbol (replaces `rain`) |
+
+Without a runner plan (public race page, Livret coureur, Livret supporter), each point is summarised over the hours the field is likely to pass it, `courseWeatherLikelyPassageHours`: from `startAt + km / 12 km/h − 30 min` to `startAt + km / 4 km/h + 1 h` (`COURSE_WEATHER_FIELD_SPEED_KPH`), all hours when `startAt` is unknown. Summarising the whole 48 h window mixed daytime highs into night races (SaintéLyon showed −1 to 9 °C at a 23:30 start instead of −1 °C).
 
 ## Gotchas
 

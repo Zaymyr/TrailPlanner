@@ -9,6 +9,7 @@ import {
   courseWeatherAtPassages,
   courseWeatherFeelsLikeC,
   courseWeatherHourAlerts,
+  courseWeatherLikelyPassageHours,
   summarizeCourseWeatherHours,
   type CourseWeatherAlert,
   type CourseWeatherAtPassage,
@@ -203,11 +204,15 @@ export type CourseWeatherPointRow = {
   alerts: CourseWeatherAlert[];
 };
 
-/** Race-window summary of every course point (Livret coureur: no runner ETA). */
-export function buildCourseWeatherPointRows(forecast: Pick<CourseWeatherForecast, 'points'>): CourseWeatherPointRow[] {
+/** Summary of every course point over the hours the field is likely to pass it (Livret coureur: no runner ETA). */
+export function buildCourseWeatherPointRows(
+  forecast: Pick<CourseWeatherForecast, 'points'> & Partial<Pick<CourseWeatherForecast, 'startAt'>>,
+): CourseWeatherPointRow[] {
   return forecast.points.map((point) => {
-    const summary = summarizeCourseWeatherHours(point.hours);
-    const feelsLike = point.hours.map((hour) => courseWeatherFeelsLikeC(hour)).filter(isNumber);
+    // Likely passage hours of the field, not the whole 48 h forecast window.
+    const hours = courseWeatherLikelyPassageHours(point, forecast.startAt ?? null);
+    const summary = summarizeCourseWeatherHours(hours);
+    const feelsLike = hours.map((hour) => courseWeatherFeelsLikeC(hour)).filter(isNumber);
     return {
       id: point.id,
       kind: point.kind,
@@ -217,9 +222,9 @@ export function buildCourseWeatherPointRows(forecast: Pick<CourseWeatherForecast
       summary,
       minFeelsLikeC: feelsLike.length ? Math.min(...feelsLike) : null,
       maxFeelsLikeC: feelsLike.length ? Math.max(...feelsLike) : null,
-      maxWindSpeedKph: maxOf(point.hours.map((hour) => hour.windSpeedKph)),
-      maxWindGustKph: maxOf(point.hours.map((hour) => hour.windGustKph)),
-      alerts: sortCourseWeatherAlerts(point.hours.flatMap((hour) => courseWeatherHourAlerts(hour))),
+      maxWindSpeedKph: maxOf(hours.map((hour) => hour.windSpeedKph)),
+      maxWindGustKph: maxOf(hours.map((hour) => hour.windGustKph)),
+      alerts: sortCourseWeatherAlerts(hours.flatMap((hour) => courseWeatherHourAlerts(hour))),
     };
   });
 }

@@ -165,6 +165,27 @@ export function courseWeatherHoursBetween(
   });
 }
 
+/** Speed range (km/h) bounding when the field can pass a point when no runner plan is known. */
+export const COURSE_WEATHER_FIELD_SPEED_KPH = { fastest: 12, slowest: 4 } as const;
+
+/**
+ * Hours of a point when the field is likely to pass it, without a runner plan: from
+ * `startAt + km / fastest − 30 min` to `startAt + km / slowest + 1 h`. Falls back to every
+ * hour when the start instant is unknown or no hour falls in the window.
+ */
+export function courseWeatherLikelyPassageHours(
+  point: Pick<CourseWeatherPoint, 'hours' | 'distanceKm'>,
+  startAt: string | null,
+): CourseWeatherHour[] {
+  const start = startAt ? Date.parse(startAt) : Number.NaN;
+  if (!Number.isFinite(start)) return point.hours;
+  const km = Math.max(0, point.distanceKm);
+  const from = start + (km / COURSE_WEATHER_FIELD_SPEED_KPH.fastest) * 60 * MINUTE_MS - 30 * MINUTE_MS;
+  const to = start + (km / COURSE_WEATHER_FIELD_SPEED_KPH.slowest) * 60 * MINUTE_MS + 60 * MINUTE_MS;
+  const hours = courseWeatherHoursBetween(point, new Date(from), new Date(to));
+  return hours.length ? hours : point.hours;
+}
+
 /**
  * Weather the runner should meet at each planned passage: nearest forecast point by distance,
  * forecast hour at `startAt + elapsedMinutes`. Empty when the race has no start instant.

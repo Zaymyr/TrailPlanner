@@ -2,6 +2,7 @@ import {
   courseWeatherAtPassages,
   courseWeatherFeelsLikeC,
   courseWeatherHourAlerts,
+  courseWeatherLikelyPassageHours,
   summarizeCourseWeatherHours,
   type CourseWeatherAlert,
   type CourseWeatherForecast,
@@ -26,8 +27,9 @@ export function weatherGlyphForSymbol(symbol: string | null | undefined): Weathe
   if (symbol.includes("snow") || symbol.includes("sleet")) return "snow";
   if (symbol.includes("rain") || symbol.includes("showers")) return "rain";
   if (symbol.startsWith("fog")) return "fog";
-  if (symbol.startsWith("clearsky")) return "clear";
-  if (symbol.startsWith("fair") || symbol.startsWith("partlycloudy")) return "partly";
+  const night = symbol.endsWith("_night") || symbol.endsWith("_polartwilight");
+  if (symbol.startsWith("clearsky")) return night ? "clear_night" : "clear";
+  if (symbol.startsWith("fair") || symbol.startsWith("partlycloudy")) return night ? "partly_night" : "partly";
   if (symbol.startsWith("cloudy")) return "cloudy";
   return "unknown";
 }
@@ -172,21 +174,23 @@ export function buildPassageRows(
   });
 }
 
-/** One row per course point summarising the whole race window (public race page). */
+/** One row per course point summarising the hours the field is likely to pass it (public race page). */
 export function buildRaceDayRows(forecast: CourseWeatherForecast, locale: CourseWeatherLocale): CourseWeatherRow[] {
   const copy = courseWeatherCopy[locale];
   return forecast.points.map((point) => {
-    const summary = summarizeCourseWeatherHours(point.hours);
+    // Likely passage hours of the field, not the whole 48 h forecast window.
+    const hours = courseWeatherLikelyPassageHours(point, forecast.startAt);
+    const summary = summarizeCourseWeatherHours(hours);
     const glyph = weatherGlyphForSymbol(summary.dominantSymbol);
     const alerts = new Set<CourseWeatherAlert>();
     let coldestFeelsLike: number | null = null;
-    for (const hour of point.hours) {
+    for (const hour of hours) {
       for (const alert of courseWeatherHourAlerts(hour)) alerts.add(alert);
       const feels = courseWeatherFeelsLikeC(hour);
       if (feels !== null && (coldestFeelsLike === null || feels < coldestFeelsLike)) coldestFeelsLike = feels;
     }
-    const speeds = point.hours.map((hour) => hour.windSpeedKph).filter((v): v is number => typeof v === "number");
-    const gusts = point.hours.map((hour) => hour.windGustKph).filter((v): v is number => typeof v === "number");
+    const speeds = hours.map((hour) => hour.windSpeedKph).filter((v): v is number => typeof v === "number");
+    const gusts = hours.map((hour) => hour.windGustKph).filter((v): v is number => typeof v === "number");
     const min = round(summary.minTemperatureC);
     const feelsLike = round(coldestFeelsLike);
     return {
@@ -205,7 +209,7 @@ export function buildRaceDayRows(forecast: CourseWeatherForecast, locale: Course
       precipitationMm: summary.totalPrecipitationMm,
       precipitationProbability: round(summary.maxPrecipitationProbability),
       alerts: Array.from(alerts),
-      hasData: point.hours.length > 0,
+      hasData: hours.length > 0,
     };
   });
 }

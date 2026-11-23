@@ -2,7 +2,7 @@ import type { CourseWeatherAlert, CourseWeatherPointKind } from "@trailplanner/s
 
 export type CourseWeatherLocale = "fr" | "en";
 
-export type WeatherGlyphKind = "clear" | "partly" | "cloudy" | "fog" | "rain" | "snow" | "storm" | "unknown";
+export type WeatherGlyphKind = "clear" | "clear_night" | "partly" | "partly_night" | "cloudy" | "fog" | "rain" | "snow" | "storm" | "unknown";
 
 export type CourseWeatherCopy = {
   planTitle: string;
@@ -39,7 +39,9 @@ export const courseWeatherCopy: Record<CourseWeatherLocale, CourseWeatherCopy> =
     pointKind: { start: "Départ", aid_station: "Ravito", summit: "Point culminant", finish: "Arrivée" },
     glyph: {
       clear: "Ciel dégagé",
+      clear_night: "Nuit dégagée",
       partly: "Éclaircies",
+      partly_night: "Nuit partiellement nuageuse",
       cloudy: "Nuageux",
       fog: "Brouillard",
       rain: "Pluie",
@@ -71,7 +73,9 @@ export const courseWeatherCopy: Record<CourseWeatherLocale, CourseWeatherCopy> =
     pointKind: { start: "Start", aid_station: "Aid station", summit: "Highest point", finish: "Finish" },
     glyph: {
       clear: "Clear sky",
+      clear_night: "Clear night",
       partly: "Partly cloudy",
+      partly_night: "Partly cloudy night",
       cloudy: "Cloudy",
       fog: "Fog",
       rain: "Rain",

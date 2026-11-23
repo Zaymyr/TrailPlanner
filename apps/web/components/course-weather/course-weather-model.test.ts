@@ -79,7 +79,8 @@ const forecast: CourseWeatherForecast = {
 describe("weatherGlyphForSymbol", () => {
   it.each([
     ["clearsky_day", "clear"],
-    ["fair_night", "partly"],
+    ["fair_night", "partly_night"],
+    ["clearsky_night", "clear_night"],
     ["partlycloudy_day", "partly"],
     ["cloudy", "cloudy"],
     ["fog", "fog"],
