@@ -4,7 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { getPublicRaces } from "../../lib/public-races";
-import { getIndexableDistancePages } from "../../lib/race-discovery";
+import { buildLandingCrossLinks, getTodayInFrance } from "../../lib/race-landing-pages";
 import { DEFAULT_SOCIAL_IMAGE, DEFAULT_SOCIAL_IMAGE_PATH, SITE_URL } from "../seo";
 import { RaceCatalogFilter } from "./_components/RaceCatalogFilter";
 import {
@@ -50,22 +50,31 @@ export function generateMetadata({ searchParams }: { searchParams?: CatalogSearc
   };
 }
 
-const getTodayInFrance = () => {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Paris",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return `${values.year}-${values.month}-${values.day}`;
-};
+function SelectionPills({ links, wrap = false }: { links: Array<{ href: string; label: string; count: number }>; wrap?: boolean }) {
+  return (
+    <ul className={wrap ? "flex flex-wrap gap-2" : "-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0"}>
+      {links.map((link) => (
+        <li key={link.href} className="shrink-0">
+          <Link
+            href={link.href as Route}
+            className="inline-flex min-h-10 items-center gap-2 rounded-full border border-border bg-card px-4 text-sm font-semibold text-foreground transition hover:border-brand-border hover:bg-brand-surface"
+          >
+            {link.label}
+            <span className="rounded-full bg-brand-surface px-2 text-xs text-brand">{link.count}</span>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export default async function CoursesPage({ searchParams }: { searchParams?: CatalogSearchParams }) {
   const races = await getPublicRaces();
-  const distancePages = getIndexableDistancePages(races);
+  const todayIso = getTodayInFrance();
+  // Distance, region and month selections (upcoming formats only, five minimum).
+  const selectionGroups = buildLandingCrossLinks(races, todayIso).filter((group) => group.links.length);
   const query = parseCatalogQuery(searchParams);
-  const catalogView = getCatalogView(races, query, getTodayInFrance());
+  const catalogView = getCatalogView(races, query, todayIso);
   if (query.page > catalogView.totalPages) notFound();
   const visibleRaces = catalogView.groups.flatMap((group) => group.races);
   const itemListData = {
@@ -97,28 +106,28 @@ export default async function CoursesPage({ searchParams }: { searchParams?: Cat
         </p>
       </header>
 
-      {distancePages.length ? (
-        <nav aria-labelledby="distance-selections-heading" className="space-y-2">
+      {selectionGroups.slice(0, 1).map((group) => (
+        <nav key={group.heading} aria-labelledby="distance-selections-heading" className="space-y-2">
           <h2 id="distance-selections-heading" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Explorer par distance
+            Explorer {group.heading.toLowerCase()}
           </h2>
-          <ul className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0">
-            {distancePages.map(({ page, races: matchingRaces }) => (
-              <li key={page.slug} className="shrink-0">
-                <Link
-                  href={`/courses/distances/${page.slug}` as Route}
-                  className="inline-flex min-h-10 items-center gap-2 rounded-full border border-border bg-card px-4 text-sm font-semibold text-foreground transition hover:border-brand-border hover:bg-brand-surface"
-                >
-                  {page.label}
-                  <span className="rounded-full bg-brand-surface px-2 text-xs text-brand">{matchingRaces.length}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <SelectionPills links={group.links} />
         </nav>
-      ) : null}
+      ))}
 
       <RaceCatalogFilter view={catalogView} />
+
+      {selectionGroups.length > 1 ? (
+        <section aria-labelledby="more-selections-heading" className="space-y-4">
+          <h2 id="more-selections-heading" className="text-xl font-bold text-foreground sm:text-2xl">Explorer le calendrier</h2>
+          {selectionGroups.slice(1).map((group) => (
+            <nav key={group.heading} aria-label={group.heading} className="space-y-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group.heading}</h3>
+              <SelectionPills links={group.links} wrap />
+            </nav>
+          ))}
+        </section>
+      ) : null}
     </div>
   );
 }

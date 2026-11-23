@@ -83,6 +83,7 @@ describe("organizer landing TST discovery", () => {
     expect(source).toContain("Livret coureur et Livret supporter, l’essentiel");
     expect(source).toContain("Vagues de départ (SAS) et barrières horaires");
     expect(source).toContain("Partenaires et statistiques de clics");
+    expect(source).toContain("\"Rapport partenaires\"");
     expect(source).not.toContain("SAS et barrières");
     expect(source).not.toContain("Sponsors et clics");
   });

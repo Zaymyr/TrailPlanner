@@ -14,6 +14,8 @@ import type { Locale, RacePlannerTranslations } from "../../../locales/types";
 import type { ElevationPoint, FormValues, OrganizerAidStationProductSuggestion, StationSupply } from "./types";
 import { defaultFuelType } from "../../../lib/fuel-types";
 import type { FuelProduct } from "../../../lib/product-types";
+import { rememberPendingCheckout } from "../../../lib/checkout-return";
+import { readFunnelSourceRace } from "../../../lib/race-funnel-source";
 import { fetchUserProfile } from "../../../lib/profile-client";
 import { isUserProfileReady, type UserProfile } from "../../../lib/profile-types";
 import { mapProductToSelection } from "../../../lib/product-preferences";
@@ -53,7 +55,7 @@ import { usePlannerState } from "./hooks/usePlannerState";
 import { useRacePlan } from "./hooks/useRacePlan";
 import { PrintablePlanV2 } from "./components/print/PrintablePlanV2";
 import { addSuppliesToInventory, consumeInventoryForTargets } from "../../../components/race-planner/carryoverNutrition";
-import { trackPlanExported } from "../../../lib/product-analytics";
+import { trackPlanExported, trackRunnerCheckoutStarted } from "../../../lib/product-analytics";
 import type { RunnerPlanAccess } from "../../../lib/runner-access";
 import { RunnerProfileStep } from "./components/RunnerProfileStep";
 import { QuickRaceEstimate } from "./components/QuickRaceEstimate";
@@ -1137,6 +1139,9 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         throw new Error(data?.message ?? premiumCopy.checkoutError);
       }
 
+      const sourceRace = readFunnelSourceRace();
+      trackRunnerCheckoutStarted({ offer: "annual", placement: "planner_modal", sourceRace });
+      rememberPendingCheckout({ offer: "annual", sourceRace });
       const popup = window.open(data.url, "_blank", "noopener,noreferrer");
       if (!popup) {
         setUpgradeError(premiumCopy.premiumModal.popupBlocked);

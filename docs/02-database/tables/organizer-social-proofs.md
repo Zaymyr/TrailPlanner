@@ -129,3 +129,4 @@ Admin (2026-11-22): the « Preuves sociales » tab of `/admin` is addressable as
 ## Admin audit journal (lot 7)
 
 `app/api/admin/organizer-social-proofs/route.ts` now exports its write handler through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`organizer.social-proof`) to the admin action journal ([`admin_audit_log`](./admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.
+Partner report note (2026-11-22): the Organizer dashboard adds a « Rapport partenaires » card under the Sponsors editor and the /organisateurs Signature card lists « Rapport partenaires »; neither touches this document's domain, data or contracts.

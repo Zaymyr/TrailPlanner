@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { PublicRaceShare } from "./PublicRaceShare";
+import { RaceFunnelTracker, type RaceFunnelContext } from "./RaceFunnelTracker";
 
 export type PublicHeroMetric = { label: string; value: string };
 
@@ -20,6 +21,7 @@ export function PublicHeroShell({
   meta,
   share,
   metrics,
+  funnel,
   children,
 }: {
   imageUrl: string | null;
@@ -28,12 +30,15 @@ export function PublicHeroShell({
   meta: ReactNode;
   share: { title: string; url: string };
   metrics: PublicHeroMetric[];
+  /** Race funnel analytics context; omitted pages fall back to the pathname. */
+  funnel?: RaceFunnelContext;
   children?: ReactNode;
 }) {
   const hasImage = Boolean(imageUrl && /^https?:\/\//i.test(imageUrl));
 
   return (
     <header className="-mx-4 overflow-hidden bg-card shadow-sm sm:mx-0 sm:rounded-2xl sm:border sm:border-border">
+      <RaceFunnelTracker context={funnel} />
       <div className="relative isolate">
         {hasImage ? (
           <img

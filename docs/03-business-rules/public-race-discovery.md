@@ -2,6 +2,7 @@
 title: Public Race Discovery
 scope: business-rule
 last_verified: 2026-11-22
+# Event hubs and landing pages (2026-11-22): permanent year-free event hubs (race_events.slug) are the indexable event pages and edition pages canonicalize to them; region (INSEE code) and month landing pages join the distance pages, all upcoming-only, paginated, ItemList, five-format minimum.
 # Business card QR (2026-11-18): ?src=carte on the guide page redirects to /carte-visite (app on Android, Google Play / App Store listing otherwise).
 # Livret supporter private preview (2026-11-18): the client guide page retries with the stored session token so an active organizer previews a private edition; public behavior unchanged.
 # Shared-plan app gate (2026-11-17): app-store.ts gains detectMobileAppPlatform for the public crew page; course-page app bridge behavior is unchanged.
@@ -71,7 +72,17 @@ related_files:
   - apps/web/app/courses/_components/RaceLinksCarousel.tsx
   - apps/web/components/ui/accordion.tsx
   - apps/web/app/courses/PublicRaceShare.test.ts
-  - apps/web/app/courses/distances/[category]/page.tsx
+  - apps/web/app/courses/distances/[category]/[[...page]]/page.tsx
+  - apps/web/app/courses/regions/[region]/[[...page]]/page.tsx
+  - apps/web/app/courses/mois/[month]/[[...page]]/page.tsx
+  - apps/web/app/courses/_components/RaceLandingPage.tsx
+  - apps/web/lib/race-landing-pages.ts
+  - apps/web/lib/race-landing-pages.test.ts
+  - apps/web/app/courses/evenements/[slug]/EventEditionSections.tsx
+  - apps/web/app/courses/evenements/[slug]/event-hub.ts
+  - apps/web/app/courses/evenements/[slug]/event-hub.test.ts
+  - supabase/migrations/20261122230000_add_race_event_slugs_and_region_codes.sql
+  - supabase/tests/race_event_slugs_checks.sql
   - apps/web/app/courses/race-discovery.test.ts
   - apps/web/lib/public-races.test.ts
   - apps/web/app/courses/[slug]/page.test.ts
@@ -167,9 +178,23 @@ Sharing uses the native Web Share sheet when available, which lets installed mob
 
 ## Catalog Event Grouping
 
-Every public edition with at least one web-public format has one canonical `/courses/evenements/[slug]` page. It lists only that edition's public formats (sorted by distance), their factual distance, D+, date and ravito count, and sanitized practical information inherited from the event. It emits one parent `SportsEvent` whose `subEvent` entries are `@id` references to the format pages. Former edition slugs permanently redirect after the current event and format visibility gates are rechecked. The sitemap deduplicates event-edition URLs and uses the newest edition, event, or format timestamp available; station rows currently have no `updated_at`, so station-only changes cannot improve `<lastmod>` evidence.
+Every public edition with at least one web-public format has one `/courses/evenements/<edition-slug>` page. Since 2026-11-22 its canonical is the permanent event hub (see below) whenever the event has a slug; the edition page stays reachable, keeps its own content and JSON-LD, and its breadcrumb goes through the hub. It lists only that edition's public formats (sorted by distance), their factual distance, D+, date and ravito count, and sanitized practical information inherited from the event. It emits one parent `SportsEvent` whose `subEvent` entries are `@id` references to the format pages. Former edition slugs permanently redirect after the current event and format visibility gates are rechecked. The sitemap lists the event hub instead of edition URLs (an edition URL only when its event has no hub slug) and uses the newest format timestamp available; station rows currently have no `updated_at`, so station-only changes cannot improve `<lastmod>` evidence.
 
-Historical edition pages remain indexable and canonical (the Trail TST demo excepted, see below). After the inclusive `end_date` has passed in Europe/Paris, they show an “Édition terminée” banner; if the same event has a later edition with at least one web-public format, the banner links directly to it. An already-published later edition is also highlighted from a non-past page.
+After the inclusive `end_date` has passed in Europe/Paris, an edition page shows an “Édition terminée” banner; if the same event has a later edition with at least one web-public format, the banner links directly to it, otherwise to the hub (« Toutes les éditions »). An already-published later edition is also highlighted from a non-past page. A finished edition no longer shows the « S’inscrire » action (the official-site link stays in the overview).
+
+## Permanent Event Hubs (2026-11-22)
+
+Hub and edition pages share `EventEditionSections`, which also hands the edition funnel context to the hero analytics tracker (no visible change).
+
+Every yearly edition used to be its own indexable URL (`hoka-utmb-mont-blanc-2026`, then `-2027`), so authority and queries split every year. Each event now has a durable year-free slug (`race_events.slug`, generated on insert, immutable, trailing edition year stripped) and a hub at `/courses/evenements/<event-slug>` in the same route as the edition pages. The database keeps event slugs disjoint from edition slugs and reserved edition redirects, so the route resolves the edition namespace first (current slug, then former slug with a 301), then the hub; nothing that resolved before changes.
+
+- Indexation: the hub is the only indexable event page; every edition page (upcoming or past) canonicalizes to it but stays reachable with a 200, so inbound links, the Livret supporter follow page (`/<edition-slug>/suivre`) and printed links keep working. No edition URL is redirected: a 301 of past editions would remove the history the hub links to. Canonicalizing the upcoming edition too avoids two near-identical pages competing for the event query; its yearly facts are on the hub.
+- Content: the featured edition is the earliest public edition whose inclusive `end_date` has not passed (Europe/Paris), otherwise the latest finished one (then a « Prochaine édition pas encore publiée » banner). The hub reuses the edition sections (`EventEditionSections`: hero, Livret supporter entry, formats linking to their pages, common information, app bridge, overview), adds « Livret coureur disponible » when a featured format has `racebook_is_live` on a mobile-visible edition (same rule as the course app bridge), and lists every edition with a web-public format, newest first, linking to each edition page.
+- Titles: `buildEventHubMetadataTitle` uses the event name without a trailing year and appends the featured year only while that edition is upcoming; the description (≤ 160) gives the next (or last) edition date, format count and distance range.
+- Structured data: the hub publishes the featured edition's `SportsEvent` under the edition `@id` (the one the format pages' `superEvent` references) with the hub as `url`/`mainEntityOfPage`, plus a `BreadcrumbList`. No `EventSeries`: it is an Event subtype that Google validates for `startDate`/`location` like the partial nested Events removed on 2026-11-16. Past featured editions keep the no-`eventStatus`/no-`Offer` rule.
+- Links: the course page breadcrumb, a « Toutes les éditions et formats de … » link, and the catalog/landing cards « Voir l’événement » point to the hub. Format URLs keep their yearly slugs (follow-up: a year-free format pattern would need a format-series identity and is not attempted).
+- Resilience: event slugs are read by a separate lenient query; if the column is missing (web deployed before the migration) hub links fall back to edition URLs and edition pages stay self-canonical.
+- The Trail TST demo hub is reachable, `noindex,follow`, without `SportsEvent`, and absent from the sitemap.
 
 Each event-edition header exposes one registration action (« S’inscrire sur le site officiel ») sourced from the shared event website, after the primary « Estimer mon temps » jump to the format list. Distance-selection cards use the same target, while standalone cards fall back to the format URL and retain a separate internal course-detail link.
 
@@ -194,13 +219,15 @@ Course detail display rules:
 
 ## Prefiltered Landing Pages
 
+Landing pages share one contract (`lib/race-landing-pages.ts`, `RaceLandingPage`): they list only dated upcoming formats (today included, Europe/Paris; never the Trail TST demo), exist and are indexable only with at least five such formats (`MIN_INDEXABLE_RACES`), group formats into the `/courses` event cards, paginate 12 groups per page (`/page/<n>`, self-canonical, `prev`/`next`; `/page/1` and out-of-range pages are not found), emit a page-scoped `ItemList` and a breadcrumb, keep titles ≤ 60 and descriptions ≤ 160 characters (page number included), and link to every other indexable distance, region and month page. `/courses` shows the same selections. Regions are `/courses/regions/<slug>` for the 18 French INSEE regions; months are `/courses/mois/<mois>-<année>` (`mai-2027`), so a month page disappears (404) once its formats have passed.
+
 Distance pages use three mutually exclusive structured ranges:
 
 - `trail-court`: less than 30 km;
 - `trail-30-79-km`: at least 30 km and less than 80 km;
 - `ultra-trail`: at least 80 km.
 
-A page is generated and indexable only while at least five public races have a numeric distance in its range. Below that threshold it is omitted from generated parameters, navigation and metadata indexation, and the route returns not found.
+A page is generated and indexable only while at least five upcoming public races have a numeric distance in its range. Below that threshold it is omitted from navigation and the sitemap, and the route returns not found.
 
 ## Geographic Landing-Page Guardrail
 
@@ -208,7 +235,7 @@ A page is generated and indexable only while at least five public races have a n
 
 The 2027 extension publishes 15 organizer-verified formats across the Trail du Petit Ballon, Grand Trail des Cadourques, and Volvic Volcanic Experience. It reuses the existing Volvic event, corrects its parent anchor while preserving the 2026 XGTV route label, creates canonical visible 2027 editions, and keeps unpublished D+ values null.
 
-Regional and departmental landing pages are not enabled yet. When introduced, they must use stable normalized codes from the parent event, apply the same five-race minimum-content threshold, and include only public formats under live events. Free-text `location`/`location_text`, postal-code guesses and runtime city-to-region lookup remain unacceptable sources of truth.
+Regional landing pages are enabled for French regions (2026-11-22). A format belongs to a region only through its live parent event's `location_country_code = 'FR'` and `location_region_code` (INSEE); migration `20261122230000` backfilled the code from the exact normalized `location_region` name for the 87 French events that had the name but no code. The derived `PublicRace.regionSlug` is the only region value added to the catalog DTO. Departmental and city pages are still not enabled; they must follow the same rules. Free-text `location`/`location_text`, postal-code guesses and runtime city-to-region lookup remain unacceptable sources of truth.
 
 Nearby-city discovery may use the stored event anchor coordinates as an approximate straight-line prefilter. It must be labelled accordingly and must not imply route distance or that a multi-city trail lies wholly inside the anchor municipality.
 
@@ -248,6 +275,9 @@ Edition slugs follow the same no-chain rule through `race_event_edition_slug_red
 - Similarity is a navigation aid, not a statement that courses have comparable terrain or difficulty.
 - Do not expose a thin landing page merely because its URL pattern exists; the five-race threshold is part of the indexation contract.
 - Do not derive regions or departments from display-location strings; exclude null normalized values from exact geographic filters.
+- Do not link or list a landing page without checking its five-format threshold (`getIndexable*Pages`): the route returns 404 below it.
+- Do not give an event slug to an edition or the other way round: the triggers reject it, and the route would serve the edition first.
+- Do not change `race_events.slug`: it is immutable (no event-slug redirect table yet). Renaming an event changes neither slug.
 - Do not publish thin region/city SEO pages merely because a normalized field exists. Geographic indexation still requires the five-race threshold and useful unique content.
 - Keep all public queries restricted to explicit columns and published rows.
 - Never reuse a former slug for another race. It remains reserved in `race_slug_redirects` while the target race exists.
@@ -269,3 +299,7 @@ Edition slugs follow the same no-chain rule through `race_event_edition_slug_red
 `/livret-coureur` and `/livret-supporter` are static, indexable product pages for runners and for supporters (family, friends, public), listed in the sitemap and the footer; they describe only existing surfaces and route organizers to `/organisateurs`.
 
 The `/livret-coureur` product page mentions the organizer entry price (« dès 199 € HT par édition », since 2026-11-22); it stays a static copy aligned with `ORGANIZER_TIER_PRICE_EUR`.
+
+## Funnel analytics (2026-11-22)
+
+The hero shell mounts `RaceFunnelTracker`, which emits `race page viewed` and `race estimate cta clicked` (the hero, sticky bar and estimates-section links carry `data-estimate-placement`). Navigation, links, SEO output and the estimate flow are unchanged. Web runner funnel analytics (2026-11-22): see [analytics.md](../05-integrations/analytics.md#web-runner-funnel-2026-11-22).

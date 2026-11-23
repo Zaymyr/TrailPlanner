@@ -23,10 +23,17 @@ ai_priority: medium
 related_files:
   - apps/web/app/admin/_components/runners/RunnerProfileDrawer.tsx
   - apps/web/app/admin/_components/messaging/MessagesHistory.tsx
+  - apps/web/lib/race-funnel-source.ts
+  - apps/web/lib/race-funnel-source.test.ts
+  - apps/web/lib/checkout-return.ts
+  - apps/web/lib/checkout-return.test.ts
+  - apps/web/app/checkout-return-tracker.tsx
+  - apps/web/app/courses/_components/RaceFunnelTracker.tsx
   - apps/mobile/components/feedback/FeedbackSurveyForm.tsx
   - apps/web/lib/feedback-surveys.ts
   - apps/web/lib/posthog-organizer-analytics.ts
   - apps/web/lib/posthog-organizer-analytics.test.ts
+  - apps/web/app/api/organizer/editions/[id]/sponsor-report/route.ts
   - apps/web/app/api/organizer/editions/[id]/analytics/route.ts
   - apps/web/app/api/organizer/editions/[id]/analytics/route.test.ts
   - apps/web/app/organizer/_components/dashboard/analytics-panel.tsx
@@ -346,6 +353,8 @@ Unique readers and daily trends use `racebook opened`. Duration and engagement u
 
 The admin social-proof route reuses the same server-only Endpoint with a wider edition-specific window. The admin's searchable edition field filters the already fetched authorized list locally by trail name, year, and location; typing in it neither queries PostHog nor emits a product event. The analytics window starts at the earliest attached format's durable RaceBook publication timestamp and ends at the earlier of the current UTC date or fourteen days after the edition end. Only the summary's `uniqueReaders` and `totalOpens` are persisted to `organizer_social_proofs`; the landing reads that snapshot from Supabase and never queries PostHog. The first published snapshot may be summarized in the acquisition hero and the complete selection remains in the highlighted proof surface; both placements, including removal of decorative phone callouts, viewport-height media sizing, compact mobile grids, the organizer-space race logo and the testimonial-first layout with compact metrics, are presentation-only and emit no additional proof-view event. These values must be presented as estimated unique readers and successful opens, not registered participants. Refresh failure blocks publication instead of persisting a manufactured zero, and a successful save invalidates the five-minute public proof cache.
 
+The organizer partner report (`/api/organizer/editions/:id/sponsor-report`) reuses the same Endpoint for all formats of the edition over its campaign window (first RaceBook publication to the edition end + 30 days, capped at today) and only when `racebook_analytics.view` is effective. It reads the summary row only, emits no product event, and degrades to an « Indisponible » reader block on any upstream failure instead of failing the report.
+
 The server uses `POSTHOG_API_KEY` with only `endpoint:read`, or the existing server-only alias `POSTHOG_PERSONAL_API_KEY`, together with `POSTHOG_PROJECT_ID` and the API origin in `POSTHOG_API_HOST`; `POSTHOG_ORGANIZER_ANALYTICS_ENDPOINT` optionally overrides the default endpoint name. `POSTHOG_API_HOST` is the private API application origin such as `https://eu.posthog.com`, not the public ingestion host ending in `.i.posthog.com`. Missing configuration, non-2xx responses, network failures, and malformed rows all become a generic 502 without returning upstream bodies or credentials.
 
 The production-connected PostHog project is id `176628`. Endpoint `organizer-racebook-analytics` was provisioned there on 2026-09-16 as active version 1 with a 900-second freshness target and validated against real edition-scoped events. Vercel already exposes `POSTHOG_PROJECT_ID`, `POSTHOG_API_HOST`, and the server secret under `POSTHOG_PERSONAL_API_KEY`; the application accepts that existing secret name without copying or exposing its value.
@@ -541,3 +550,20 @@ Admin console (2026-11-23, lot 5): `AdminUsersTab` reads and writes its own URL 
 ## Admin audit journal (lot 7)
 
 `app/api/admin/organizer-social-proofs/route.ts`, `app/api/admin/user-notifications/route.ts`, `app/api/admin/users/route.ts` now export their write handlers through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`organizer.social-proof`, `message.send`, `user.role`) to the admin action journal ([`admin_audit_log`](../02-database/tables/admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.
+## Web runner funnel (2026-11-22)
+Product events for the organic runner path: race page, estimate, signup, checkout, purchase. All go through `trackGoogleAnalyticsEvent` (consent-gated PostHog + GA, `$internal_or_test_user` identification unchanged). The helpers live in `apps/web/lib/product-analytics.ts`.
+**Naming.** The runner events already emitted by web and mobile use lowercase words with spaces (`plan created`, `quick estimate completed`, `premium checkout started`); the funnel stays in that style instead of the snake_case used by the organizer acquisition events (`organizer_landing_cta_clicked`). Existing events are reused, with added properties, where one already fired at the step; the new web-only events are `race page viewed`, `race estimate cta clicked`, `sign up started` and `sign up completed`. Web now also emits the mobile names `premium paywall viewed`, `premium checkout started`, `runner course checkout started`, `premium purchase verified` and `runner course purchase verified`, with `store: web` and `billing_provider: stripe` to separate them from RevenueCat data.
+| Order | Event | Where | Properties |
+|---|---|---|---|
+| 1 | `race page viewed` | `RaceFunnelTracker` mounted by `PublicHeroShell` (format and event pages) | `page_type` (format or event), `slug`, `race_id`, `event_id`, `has_gpx` (route preview present), `is_upcoming`, `is_demo` |
+| 2 | `race estimate cta clicked` | delegated click on any link to `/race-planner?catalogRaceId=` | `placement` (hero, sticky_bar, estimates_section, format_list, other), `page_type`, `race_id`, `source_race`, `slug` |
+| 3a | `quick estimate completed` | `QuickRaceEstimate` (anonymous estimate) | existing `source: web_catalog`, `input`, plus `source_race` |
+| 3b | `plan created` | `useRacePlan` (`trackPlanPersisted`) | existing properties plus `source_race` (the plan's catalog race id) |
+| 4 | `sign up started` / `sign up completed` | `/sign-up` | `method` (email, google, apple), `source_race`; completed adds `email_confirmation_pending` |
+| 5a | `premium paywall viewed` | `/premium` | `placement: premium_page`, `has_plan_context`, `source_race` |
+| 5b | `premium checkout started` (annual) / `runner course checkout started` (course) | `/premium`, planner upgrade modal, profile | `offer` (annual or course), `purchase_type`, `placement`, `billing_provider: stripe`, `store: web`, `source_race` |
+| 5c | `premium purchase verified` / `runner course purchase verified` | `CheckoutReturnTracker` (mounted in `Analytics`) | same as 5b plus `verification_source: web_entitlement_check` |
+Attribution (`source_race`) is a public catalog race id only. At signup it is read from the `catalogRaceId` of the existing return path (`readCurrentReturnPath`), else from the last race remembered in `localStorage` (`runner.funnelSourceRace`, 7 days, written only after analytics consent, by `lib/race-funnel-source.ts`). `/premium` and the planner modal read the same value. No return-path normalisation, API route or Supabase column changed.
+Purchase verification: starting a checkout stores the offer, source race and plan id in `localStorage` (`runner.pendingCheckout`, 2 hours, consent-gated, `lib/checkout-return.ts`). On the Stripe success return (`?billing=success`) `CheckoutReturnTracker` polls up to 6 times, 2.5 s apart, because the webhook can land after the redirect: annual requires `/api/entitlements` to report premium with an active or trialing subscription, course requires `/api/plans/:id/access` to report `source: plan_unlock`. The event is never emitted from the URL alone and the pending record is cleared after emission.
+Funnel reading: `race page viewed` -> `race estimate cta clicked` -> `quick estimate completed` / `plan created` -> `sign up completed` -> `premium paywall viewed` -> checkout started -> purchase verified. Break down by `source_race` or `page_type`. Admin and internal users are excluded with the usual `$internal_or_test_user` and `role = admin` filters.
+The event and hub pages pass `page_type: event`, the featured edition `slug`, `event_id`, `is_upcoming` and `is_demo` (no `race_id` or `has_gpx`, which are format-level). Known gaps: CTAs outside the hero, sticky bar, estimates section and event format list report `placement: other`; OAuth sign-up completion happens on `/auth/callback` and is not tracked; the verified-purchase return only works when Stripe returns to a page where `Analytics` is mounted with `?billing=success` (the default `/settings?billing=success`; `STRIPE_CHECKOUT_SUCCESS_URL` overrides it); the planner modal opens Stripe in a new tab, which shares the same `localStorage`.

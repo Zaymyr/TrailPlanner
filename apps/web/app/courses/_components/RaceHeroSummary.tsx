@@ -70,6 +70,15 @@ export function RaceHeroSummary({
       title={race.name}
       share={{ title: race.name, url: canonicalUrl }}
       metrics={metrics}
+      funnel={{
+        pageType: "format",
+        slug: race.slug,
+        raceId: race.id,
+        eventId: race.eventId,
+        hasGpx: race.routePreview !== null,
+        date: race.date,
+        isDemo,
+      }}
       meta={(
         <>
           {isDemo ? <DemoRaceBadge /> : null}
@@ -84,6 +93,7 @@ export function RaceHeroSummary({
         <div className="grid gap-2 sm:flex sm:flex-wrap">
           <Link
             id={HERO_ESTIMATE_CTA_ID}
+            data-estimate-placement="hero"
             href={estimateHref as Route}
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-brand px-5 text-base font-semibold text-brand-foreground shadow-sm transition hover:bg-brand-light"
           >

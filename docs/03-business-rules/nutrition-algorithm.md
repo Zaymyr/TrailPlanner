@@ -424,3 +424,6 @@ Official aid-station distance, name, type, and services remain read-only in the 
 The web runner now presents a true no-course empty state and restores selected saved plans through `planId`; these journey changes do not calculate a fictitious estimate and do not alter nutrition formulas.
 
 Admin i18n (2026-11-22): `admin.growth.title` is now « Croissance » / « Growth » (tab label); no nutrition rule changed.
+## Funnel analytics touch (2026-11-22)
+
+The web runner funnel instrumentation (analytics events only) touched `RacePlannerPageContent.tsx`: the planner upgrade modal emits `premium checkout started` and `QuickRaceEstimate` remembers the source race. No data contract, RLS rule or business rule described here changed. Web runner funnel analytics (2026-11-22): see [analytics.md](../05-integrations/analytics.md#web-runner-funnel-2026-11-22).

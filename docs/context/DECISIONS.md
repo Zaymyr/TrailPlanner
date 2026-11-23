@@ -35,6 +35,18 @@ Journal en ajout seul, la plus récente en haut. Format : `## AAAA-MM-JJ — Tit
 **Décision.** Console à barre latérale (Pilotage, Clients, Catalogue, Contenus, Communication, Système), une route par écran sous `/admin/*`, recherche ⌘K et pastilles de mode simulation en haut ; les écrans existants sont montés sans réécriture et les anciennes URL redirigées. Livraison par lots 0 à 7 sur une seule PR.
 
 **Conséquence.** Le header du site n’apparaît plus sur `/admin` (la console a sa propre coque) ; les primitives admin (`StatusBadge`, `Switch`, `Drawer`, `KpiTile`, `Toast`, `CommandPalette`…) sont dans `components/ui`. Détail : [ADR console admin](../08-decisions/2026-11-22-admin-console.md).
+## 2026-11-22 — Pas d’offre « l’organisateur paie le plan de ses coureurs »
+**Contexte.** L’audit du 2026-11-22 proposait une offre B2B2C où l’organisateur Signature offrirait le plan de course payant à ses coureurs.
+**Décision.** Écartée par le fondateur. Le plan coureur reste vendu au coureur (9,99 € la course, 29,99 € par an) ; les offres organisateurs restent Essentiel / Complet / Signature.
+**Conséquence.** Aucun code de déblocage organisateur ni droit coureur offert par édition. À ne pas reproposer sans nouveau contexte.
+## 2026-11-22 — Pages événement permanentes, pages région et mois
+**Contexte.** Chaque édition avait sa propre URL indexable (`…-2026`, puis `…-2027`) : l'autorité et les requêtes (« UTMB temps ») se dispersaient chaque année. Seules trois pages distance existaient, dont une de 1,35 Mo sans pagination.
+**Décision.** Chaque événement reçoit un slug permanent sans année (`race_events.slug`, immuable, jamais égal à un slug d'édition) et une page hub `/courses/evenements/<slug-événement>`, seule page événement indexable : prochaine édition (formats, Livrets), historique des éditions. Toutes les pages d'édition restent accessibles (200) mais canonicalisent vers le hub ; aucune redirection. Le hub publie le `SportsEvent` de l'édition mise en avant, sans `EventSeries`. Pages région (codes INSEE) et mois (`/courses/mois/mai-2027`) rejoignent les pages distance : courses à venir uniquement, 5 minimum, pagination `/page/<n>`, `ItemList`.
+**Conséquence.** Le sitemap liste les hubs au lieu des éditions, plus chaque page de sélection. Les URL de format gardent leur année (suite possible). Un événement ne peut pas changer de slug tant qu'aucune table de redirection d'événement n'existe. Détail : [Public Race Discovery](../03-business-rules/public-race-discovery.md#permanent-event-hubs-2026-11-22).
+## 2026-11-22 — Rapport partenaires inclus dans Signature
+**Contexte.** Les organisateurs Signature avaient des compteurs agrégés d'impressions et de clics par partenaire et des statistiques de lecture, mais rien à remettre à leurs sponsors après la course.
+**Décision.** Signature inclut un « Rapport partenaires » téléchargeable (PDF et CSV) par édition, agrégé et anonyme : lecteurs du Livret coureur, impressions, clics et meilleurs placements. Même verrou que le module Sponsors (Signature ou cadeau `module.sponsors`) ; les lecteurs n'y figurent que si les statistiques sont incluses. Aucun nouveau prix, droit ou table.
+**Conséquence.** Carte verrouillée sous l'éditeur Sponsors pour les offres inférieures (fenêtre d'offres existante) ; carte Signature de /organisateurs complétée. Détail : [Organizer Commercial Offers](../03-business-rules/organizer-commercial-offers.md#rapport-partenaires-2026-11-22).
 
 ## 2026-11-22 — Ouverture courte, tracé gris puis vert, sous-titres à 86 %
 

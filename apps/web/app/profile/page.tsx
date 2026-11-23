@@ -13,6 +13,9 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { FuelTypeBadge } from "../../components/products/FuelTypeBadge";
+import { rememberPendingCheckout } from "../../lib/checkout-return";
+import { trackRunnerCheckoutStarted } from "../../lib/product-analytics";
+import { readFunnelSourceRace } from "../../lib/race-funnel-source";
 import { fetchUserProfile, updateUserProfile } from "../../lib/profile-client";
 import { mapProductToSelection } from "../../lib/product-preferences";
 import { fuelProductSchema, type FuelProduct } from "../../lib/product-types";
@@ -349,6 +352,9 @@ export default function ProfilePage() {
         throw new Error(data?.message ?? t.profile.subscription.checkoutError);
       }
 
+      const sourceRace = readFunnelSourceRace();
+      trackRunnerCheckoutStarted({ offer: "annual", placement: "profile", sourceRace });
+      rememberPendingCheckout({ offer: "annual", sourceRace });
       const popup = window.open(data.url, "_blank", "noopener,noreferrer");
       if (!popup) {
         setUpgradeError(t.profile.premiumModal.popupBlocked);

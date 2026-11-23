@@ -150,3 +150,4 @@ Admin console (2026-11-23, lot 4): the `/organizer` dashboard changed only its a
 ## Admin audit journal (lot 7)
 
 `app/api/organizer/events/[id]/website-import/route.ts` now exports its write handler through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`catalog.event-import`) to the admin action journal ([`admin_audit_log`](../02-database/tables/admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.
+Partner report note (2026-11-22): the Organizer dashboard adds a « Rapport partenaires » card under the Sponsors editor and the /organisateurs Signature card lists « Rapport partenaires »; neither touches this document's domain, data or contracts.

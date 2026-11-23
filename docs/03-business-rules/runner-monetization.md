@@ -1,7 +1,7 @@
 ---
 title: Runner Monetization
 scope: business-rule
-last_verified: 2026-11-16
+last_verified: 2026-11-22
 ai_priority: high
 related_files:
   - apps/mobile/components/plan-workspace/LockedPlanContent.tsx
@@ -163,3 +163,5 @@ The standardized Livret/Plan segmented control and removal of the duplicate Race
 ## Admin audit journal (lot 7)
 
 `app/api/admin/runner-access-mode/route.ts` now exports its write handler through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`simulation.runner-mode`) to the admin action journal ([`admin_audit_log`](../02-database/tables/admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.
+## Web funnel analytics (2026-11-22)
+`/premium` now emits `premium paywall viewed` and, after the checkout session is created, `premium checkout started` or `runner course checkout started` with `offer`; the planner modal and profile page emit the annual event. Purchase verification is emitted after the Stripe return once the entitlement is visible. Offers, prices, access rules and the checkout API are unchanged, and no price string is sent to analytics. Web runner funnel analytics (2026-11-22): see [analytics.md](../05-integrations/analytics.md#web-runner-funnel-2026-11-22).

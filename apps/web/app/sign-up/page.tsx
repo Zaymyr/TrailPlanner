@@ -11,6 +11,8 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { persistSessionToStorage } from "../../lib/auth-storage";
+import { trackSignUpCompleted, trackSignUpStarted, type SignUpMethod } from "../../lib/product-analytics";
+import { parseSourceRaceFromPath, readFunnelSourceRace } from "../../lib/race-funnel-source";
 import { redirectToAppleOAuth, redirectToGoogleOAuth } from "../../lib/oauth";
 import {
   buildAuthCallbackPath,
@@ -43,6 +45,9 @@ const createSignUpSchema = (authCopy: Translations["auth"]) =>
 
 type SignUpForm = z.infer<ReturnType<typeof createSignUpSchema>>;
 
+/** Race that led the runner here: carried by the return path, else the last race page/estimate. */
+const resolveSourceRace = (returnPath: string) => parseSourceRaceFromPath(returnPath) ?? readFunnelSourceRace();
+
 export default function SignUpPage() {
   const router = useRouter();
   const { t } = useI18n();
@@ -72,6 +77,8 @@ export default function SignUpPage() {
 
     try {
       const returnPath = readCurrentReturnPath();
+      const sourceRace = resolveSourceRace(returnPath);
+      trackSignUpStarted({ method: "email", sourceRace });
       const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -93,6 +100,14 @@ export default function SignUpPage() {
       if (!response.ok) {
         setFormError(data?.message ?? t.auth.signUp.error);
         return;
+      }
+
+      if (data?.access_token || data?.requiresEmailConfirmation) {
+        trackSignUpCompleted({
+          method: "email",
+          emailConfirmationPending: !data.access_token,
+          sourceRace,
+        });
       }
 
       if (data?.access_token) {
@@ -121,11 +136,16 @@ export default function SignUpPage() {
     }
   });
 
+  const trackOAuthSignUpStarted = (method: SignUpMethod, returnPath: string) =>
+    trackSignUpStarted({ method, sourceRace: resolveSourceRace(returnPath) });
+
   const handleGoogleSignUp = () => {
     setOauthError(null);
 
     try {
-      redirectToGoogleOAuth(buildAuthCallbackPath(readCurrentReturnPath()));
+      const returnPath = readCurrentReturnPath();
+      trackOAuthSignUpStarted("google", returnPath);
+      redirectToGoogleOAuth(buildAuthCallbackPath(returnPath));
     } catch (error) {
       console.error("Unable to start Google sign up", error);
       setOauthError(error instanceof Error ? error.message : "Unable to start Google sign up.");
@@ -136,7 +156,9 @@ export default function SignUpPage() {
     setOauthError(null);
 
     try {
-      redirectToAppleOAuth(buildAuthCallbackPath(readCurrentReturnPath()));
+      const returnPath = readCurrentReturnPath();
+      trackOAuthSignUpStarted("apple", returnPath);
+      redirectToAppleOAuth(buildAuthCallbackPath(returnPath));
     } catch (error) {
       console.error("Unable to start Apple sign up", error);
       setOauthError(error instanceof Error ? error.message : "Unable to start Apple sign up.");
