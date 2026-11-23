@@ -8,6 +8,7 @@ import { PlansList } from '../../components/plans/PlansList';
 import { FollowedPlansList } from '../../components/plans/FollowedPlansList';
 import { Colors } from '../../constants/colors';
 import {
+  ROOT_HEADER_COMPACT_BODY_HEIGHT,
   ROOT_HEADER_EXPANDED_BODY_HEIGHT,
   RootCollapsibleHeader,
 } from '../../components/navigation/RootCollapsibleHeader';
@@ -91,14 +92,24 @@ export default function PlansScreen() {
       topInset={insets.top}
     />
   );
+  // The tabs follow the header while it contracts (76 → 60 pt) and reach up
+  // behind its rounded lower corners, so no gap lets the list show through.
+  const selectorTop = scrollY.interpolate({
+    inputRange: [0, ROOT_HEADER_EXPANDED_BODY_HEIGHT - ROOT_HEADER_COMPACT_BODY_HEIGHT],
+    outputRange: [
+      insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT - SELECTOR_HEADER_OVERLAP,
+      insets.top + ROOT_HEADER_COMPACT_BODY_HEIGHT - SELECTOR_HEADER_OVERLAP,
+    ],
+    extrapolate: 'clamp',
+  });
   // Same in-page tabs as RaceBook › Course (TrailTabs planks); the list starts right below them.
   const listSelector = (
-    <View
+    <Animated.View
       onLayout={(event) => {
         const height = Math.round(event.nativeEvent.layout.height);
         setSelectorHeight((current) => (current === height ? current : height));
       }}
-      style={[styles.selector, { top: insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT }]}
+      style={[styles.selector, { top: selectorTop }]}
     >
       <TrailTabs
         activeKey={activeList}
@@ -109,9 +120,9 @@ export default function PlansScreen() {
           { key: 'following' as const, label: t.planFollow.assistantTab },
         ]}
       />
-    </View>
+    </Animated.View>
   );
-  const listTopInset = insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT + selectorHeight;
+  const listTopInset = insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT + Math.max(0, selectorHeight - SELECTOR_HEADER_OVERLAP);
   if (loading) {
     return (
       <Screen style={styles.screen}>
@@ -266,6 +277,9 @@ export default function PlansScreen() {
   );
 }
 
+/** Matches the root header's 22 pt lower radius: the selector background fills behind the corners. */
+const SELECTOR_HEADER_OVERLAP = 22;
+
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -281,10 +295,11 @@ const styles = StyleSheet.create({
   },
   selector: {
     position: 'absolute',
-    left: 16,
-    right: 16,
+    left: 0,
+    right: 0,
     zIndex: 12,
-    paddingTop: 8,
+    paddingHorizontal: 16,
+    paddingTop: 8 + SELECTOR_HEADER_OVERLAP,
     paddingBottom: 4,
     backgroundColor: Colors.background,
   },

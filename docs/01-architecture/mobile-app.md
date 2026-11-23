@@ -662,6 +662,7 @@ The Livret coureur, the Livret supporter, the Mes courses plans list, the plan w
 
 ## Gotchas
 
+- A pinned element under a root header (the Mes courses tabs) must follow the header height on scroll (76 → 60 pt) and reach up behind its 22-point lower corners; pinned at the expanded height it leaves a gap through which the list shows while scrolling.
 - Quick-return headers clamp the scroll offset to the scrollable range before computing direction; reading raw `contentOffset.y` makes the iOS bounce at the bottom look like an upward scroll and flashes the header back. Its animation uses the JS driver because the header height already follows `scrollY` on the JS side.
 - Store-candidate workflows must be dispatched with the exact `main` SHA, not `--ref main`, which EAS can resolve to an older commit. Verify the run's commit before approving its gate. iOS builds also need an App Store provisioning profile that includes Associated Domains (see `infrastructure.md` Gotchas).
 
