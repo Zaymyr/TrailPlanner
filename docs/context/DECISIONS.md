@@ -4,6 +4,14 @@
 
 Journal en ajout seul, la plus récente en haut. Format : `## AAAA-MM-JJ — Titre`, puis Contexte / Décision / Conséquence (2 à 4 lignes chacun). Les décisions d'architecture détaillées (ADR) vont dans [docs/08-decisions/](../08-decisions/README.md).
 
+## 2026-11-23 — Chronologie : un seul moteur partagé web + mobile
+
+**Contexte.** Le planificateur web doit afficher l'onglet « Chronologie » (quoi prendre et quand, section par section) déjà présent sur mobile, calculé dans `apps/mobile/lib/continuousNutrition.ts`. Une deuxième implémentation web aurait divergé.
+
+**Décision.** Le calcul pur (contrats du formulaire de plan, normalisation des valeurs, résumé de section/allure, chronologie continue, compaction de l'eau) déménage dans `packages/shared/src/plan-timeline/`, exporté par `@trailplanner/shared`. Le web l'appelle via l'adaptateur `apps/web/lib/plan-chronology.ts` ; le mobile garde ses anciens chemins comme ré-exports relatifs (le pre-check mobile interdit d'importer le paquet par son nom, Metro surveille déjà la racine du dépôt).
+
+**Conséquence.** Comportement mobile identique, figé par des snapshots (`apps/mobile/lib/continuousNutrition.test.ts`) ; toute modification du moteur part en OTA au merge. Le repli `buildSectionIntakeTimelineV2` reste mobile. Voir `docs/03-business-rules/nutrition-algorithm.md` et `docs/01-architecture/packages.md`.
+
 ## 2026-11-23 — Planificateur web : refonte visuelle carte de course
 
 **Contexte.** Le plan web (frise, jauges, résumé) gardait un style générique (bordures vertes épaisses, émeraude/rose/ardoise bruts, icônes PNG) éloigné de la signature de l'app.

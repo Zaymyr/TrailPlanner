@@ -11,6 +11,7 @@ related_files:
   - apps/web/next.config.mjs
   - packages/shared/src/index.ts
   - packages/shared/src/plan-share-tracking.ts
+  - packages/shared/src/plan-timeline/index.ts
   - apps/web/package.json
   - apps/mobile/package.json
   - packages/design-system/package.json
@@ -67,7 +68,15 @@ Exports from `packages/shared/src/index.ts`. Current shared logic includes alert
 - `getAlertsToFire`
 - related alert types
 
-This package contains runtime-neutral logic, but no current application import was found during the 2026-09-16 verification. Mobile intentionally imports its narrower local `apps/mobile/lib/shared.ts` implementation and tests that implementation directly. Treat consolidation as a deliberate compatibility change, not as a mechanical import rewrite.
+This package contains runtime-neutral logic. The web app imports it by package name (Supporter Guide, followed plan, plan share tracking, runner profile, plan timeline). For alert scheduling, mobile intentionally imports its narrower local `apps/mobile/lib/shared.ts` implementation and tests that implementation directly; treat consolidation as a deliberate compatibility change, not as a mechanical import rewrite.
+
+### Plan-timeline module (2026-11-23)
+
+`packages/shared/src/plan-timeline/` (re-exported by `src/index.ts`) is the single implementation of the plan-editor section summary and intake chronology used by both apps: `types.ts` (plan-form contracts), `profile-utils.ts` (profile slices, sub-segments, effort/fatigue duration), `section-summary.ts`, `plan-values.ts` (planner-values normalization), `continuous-nutrition.ts` (continuous intake chronology) and `presentation.ts` (`compactPlanTimeline`). Rules: [Nutrition Algorithm](../03-business-rules/nutrition-algorithm.md#intake-chronology-engine-shared-web--mobile-2026-11-23), [Pacing Algorithm](../03-business-rules/pacing-algorithm.md).
+
+- Web imports it from `@trailplanner/shared` (adapter `apps/web/lib/plan-chronology.ts`).
+- Mobile does **not** import the package by name (the Mobile Pre-Check workflow `.github/workflows/main.yml` rejects `@trailplanner/shared` under `apps/mobile/app` and `apps/mobile/lib`). Its former modules — `lib/continuousNutrition.ts`, `lib/planTimelinePresentation.ts`, `components/plan-form/profile-utils.ts`, `section-summary.ts`, and parts of `contracts.ts` / `helpers.ts` — re-export the source files through relative paths (`../../../packages/shared/src/plan-timeline/...`). Metro bundles them because `apps/mobile/metro.config.js` watches the workspace root (as for `packages/design-system`); `tsc` and vitest follow the relative imports.
+- Mobile-only pieces stay in the app: the fallback `buildSectionIntakeTimelineV2` and gauges (`components/plan-form/metrics.ts`), carryover and auto-fill, and all rendering.
 
 ### `@pace-yourself/design-system`
 
@@ -113,7 +122,7 @@ apps/mobile ┘
 
 Avoid importing app-specific code from packages. Packages should not depend on Next.js route handlers, Expo modules, local storage, or service-role configuration.
 
-The diagram is the target direction for genuinely shared behavior, not proof that every package currently has both consumers. `@pace-yourself/design-system` is shared by web and mobile today; `@trailplanner/shared` is not.
+The diagram is the target direction for genuinely shared behavior, not proof that every package currently has both consumers. `@pace-yourself/design-system` is shared by web and mobile today; of `@trailplanner/shared`, mobile bundles only the `plan-timeline` module, by relative path.
 
 ## When to Move Code Into a Package
 
@@ -133,6 +142,8 @@ Keep logic inside an app when:
 
 - When editing `apps/web/next.config.mjs`, preserve both shared-package transpilation and the browser/locale header rules. The initial CSP is deliberately report-only and is not an authorization to remove required service origins before observing production reports.
 
+- `packages/shared/src/plan-timeline/` is bundled into the Expo app: keep it free of React, React Native, DOM, Node and network imports, never import the package root (`src/index.ts`) from it or from mobile, and remember any change ships to mobile as an OTA on merge. Mobile golden snapshots (`apps/mobile/lib/continuousNutrition.test.ts`) must change only deliberately.
+- In a parallel-agent worktree whose `node_modules` is a junction to the primary checkout, `@trailplanner/shared` resolves to the primary checkout's `packages/shared`: new shared exports then fail web `tsc`/vitest locally until merged or aliased; CI and fresh installs are unaffected.
 - Keep the RaceBook branding resolver runtime-neutral: both Next.js and Expo import it, so it must not depend on DOM, Node, React, or React Native APIs.
 - Keep color contrast derivation in this shared resolver; app surfaces must not independently darken bright organizer colors.
 - The package name `@trailplanner/shared` still uses the old TrailPlanner naming. Do not rename it casually; workspace package names affect imports.

@@ -66,6 +66,15 @@ related_files:
   - apps/mobile/lib/autoFillPreview.ts
   - apps/mobile/lib/autoFillPreview.test.ts
   - apps/mobile/lib/continuousNutrition.ts
+  - apps/mobile/lib/continuousNutrition.test.ts
+  - apps/mobile/lib/planTimelinePresentation.ts
+  - packages/shared/src/plan-timeline/index.ts
+  - packages/shared/src/plan-timeline/types.ts
+  - packages/shared/src/plan-timeline/plan-values.ts
+  - packages/shared/src/plan-timeline/continuous-nutrition.ts
+  - packages/shared/src/plan-timeline/presentation.ts
+  - apps/web/lib/plan-chronology.ts
+  - apps/web/lib/plan-chronology.test.ts
   - apps/mobile/lib/freeTrainingLive.ts
   - apps/mobile/lib/raceLiveSession.ts
   - apps/mobile/components/race/TrainingLiveSession.tsx
@@ -390,11 +399,26 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 - Sodium from electrolytes and carb products is subtracted before capsule allocation.
 - If product routes omit sodium in a select, sodium allocation can undercount. Check route selects when changing nutrition behavior.
 - Do not document `water_ml` as a product schema field.
+- The intake chronology has one implementation (`packages/shared/src/plan-timeline/`). Never re-implement it in a web component or a mobile screen; change the shared engine and update the mobile golden snapshots deliberately (`npx vitest run lib/continuousNutrition.test.ts -u` in `apps/mobile`), knowing a merge ships it to mobile as an OTA.
+- The plan-timeline files must stay pure (no React, React Native, DOM, Node or network import): Expo bundles them through relative imports.
 - Web plan gauges (« bande cible ») must keep deriving tone and range from `getPlanStatus` / `buildGaugeRanges`; do not re-derive status from colours or add a second threshold in the presentation, and flag water capacity shortfalls through `helperIsWarning`.
+
+## Intake chronology engine, shared web + mobile (2026-11-23)
+
+The « Chronologie » (what the runner consumes, and when, section by section) is computed by one engine in `packages/shared/src/plan-timeline/`, exported from `@trailplanner/shared` and used by both apps:
+
+- `continuous-nutrition.ts` (moved from `apps/mobile/lib/continuousNutrition.ts`): `buildContinuousSections` (sections on a five-minute grid, carried water per section, supplies only where assistance is allowed), `buildContinuousIntakeTimeline` (whole-unit solids picked when the cumulative carb deficit reaches `max(target/4, 16 g)` or after 30 min, first solid not before 20 min and at least 15 min apart; drink sips every 10 min of about 140 ml, one active drink mix diluted in at most half the carried water; water/solid events closer than 4 min merged), `buildSectionTimelineFromContinuous`, `buildSuggestedSolidIntakePlan`, water-only reminder intervals.
+- `presentation.ts`: `compactPlanTimeline` (moved from `apps/mobile/lib/planTimelinePresentation.ts`), the Lot 8 plain-water compaction below.
+- `plan-values.ts`: `buildInitialPlanValues` / `injectSystemStations` / `normalizeSupplies` / `cloneSectionSegments` (moved from `apps/mobile/components/plan-form/helpers.ts`): explicit Départ / Arrivée stations, refill and assistance flags defaulting to true, no supplies at a no-assistance station, clamped fatigue.
+- `types.ts`: the plan-form contracts (`PlanFormValues`, `PlanProduct`, `IntakeTimelineItem`, station ids, fluid constants, `DEFAULT_PLAN_VALUES`) moved from `apps/mobile/components/plan-form/contracts.ts`.
+
+Mobile keeps its former module paths as re-exports, so the editor, live race mode, recap and onboarding demo behave identically; `apps/mobile/lib/continuousNutrition.test.ts` pins the engine output with golden snapshots. The mobile fallback `buildSectionIntakeTimelineV2` (`components/plan-form/metrics.ts`) stays mobile-side: it only covers a section the debounced continuous timeline has not produced yet, a case the web adapter cannot hit because it iterates the engine's own sections.
+
+Web adapter: `apps/web/lib/plan-chronology.ts` `buildPlanChronology({ values, elevationProfile, products, startName, finishName })` maps web planner values through `buildInitialPlanValues` (the same normalization as mobile `normalizeStoredPlanValues`; `sectionSegments` falls back to `segments`), web catalogue products onto the engine's product shape, then returns per section `{ key, fromName, toName, startMinute, durationMin, distanceKm, dPlus, dMinus, events }`. Events are compacted with `compactPlanTimeline`, `minute` is counted from the race start, and `kind` is `carbs` when carbs > 0, `sodium` for sodium without water, `water` for water without sodium, otherwise `mixed` (e.g. an electrolyte drink). It is pure and SSR-safe, and adds no second calculation path: `plan-chronology.test.ts` asserts it returns exactly the engine output.
 
 ## Lot 8 presentation
 
-The recap shows combined carbohydrate/sodium totals and a rounded ten-minute drinking rhythm. The editor chronology keeps product intakes and emits a plain-water row only when the rounded 10 ml quantity changes. This compaction is presentation-only and does not alter allocation totals, reminders, or saved plan values. All-uppercase product labels receive display-only normal casing with known acronym preservation.
+The recap shows combined carbohydrate/sodium totals and a rounded ten-minute drinking rhythm. The editor chronology keeps product intakes and emits a plain-water row only when the rounded 10 ml quantity changes (`compactPlanTimeline`, shared with the web Chronologie). This compaction is presentation-only and does not alter allocation totals, reminders, or saved plan values. All-uppercase product labels receive display-only normal casing with known acronym preservation.
 
 Trail signature (2026-11-09): after a standard plan creation, `plan/new` opens the editor with a one-use `created=1` route parameter that only triggers the summit celebration overlay. It does not change seeding, allocation, persistence or any nutrition calculation.
 
