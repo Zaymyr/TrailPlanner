@@ -101,7 +101,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 // Articles about a specific race link to its public event page (permanent hub or current edition).
 const ARTICLE_EVENT_LINKS: Record<string, Array<{ href: string; label: string }>> = {
   "trail-des-templiers": [{ href: "/courses/evenements/hoka-les-templiers", label: "Les Templiers : dates, formats et ravitos" }],
-  "marathon-mont-blanc-preparation": [{ href: "/courses/evenements/marathon-du-mont-blanc-2027", label: "Marathon du Mont-Blanc : dates, formats et ravitos" }],
+  "marathon-mont-blanc-preparation": [{ href: "/courses/evenements/marathon-du-mont-blanc", label: "Marathon du Mont-Blanc : dates, formats et ravitos" }],
 };
 
 const CATALOG_RACE_MAP: Record<string, string> = {

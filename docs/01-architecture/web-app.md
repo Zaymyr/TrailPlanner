@@ -1226,3 +1226,7 @@ Home copy that changed (heading, subheading, how-it-works including the Livret c
 - The home page reads blog metadata with a `.catch(() => [])` guard so a blog read failure never takes `/` down.
 - `app/courses/_components/CourseDiscoveryLinks.tsx` (server) renders the indexable distance, region and month landing links (`buildLandingCrossLinks`, same rules as `/courses`) on the home page and under every blog article; blog articles about a specific race add a featured link to its event page (`ARTICLE_EVENT_LINKS` in `app/blog/[...slug]/page.tsx`).
 - `app/courses/_components/RaceRelatedArticles.tsx` (server) adds « Pour préparer cette course » on format pages: up to 3 blog guides chosen by distance (`lib/race-related-articles.ts`), matched on the article canonical path, silently omitted when the blog cannot be read.
+
+## Catalogue slug redirects (2026-11-23)
+
+`next.config.mjs` exports `catalogSlugRedirects`, permanent redirects for event hub slugs retired by a data merge. They stay outside `staticPathRedirects`, whose integrity test only covers legacy and blog routes with static targets. First entries: the two suffixed Marathon du Mont-Blanc hubs (`…-08a81d9c`, `…-d1472716`) now redirect to `/courses/evenements/marathon-du-mont-blanc` after migration `20261123200000` merged the duplicate events. The Marathon du Mont-Blanc blog article links to that hub. Covered by `lib/catalog-slug-redirects.test.ts`.

@@ -63,6 +63,14 @@ export const staticPathRedirects = [
   ['/blog/probl-mes-digestifs-ultra', '/blog/problemes-digestifs-ultra'],
 ];
 
+// Permanent redirects for catalogue hub slugs retired by a data merge (dynamic targets,
+// so they are kept out of the static legacy/blog redirect integrity map).
+export const catalogSlugRedirects = [
+  // Duplicate Marathon du Mont-Blanc events merged on 2026-11-23 (migration 20261123200000).
+  ['/courses/evenements/marathon-du-mont-blanc-08a81d9c', '/courses/evenements/marathon-du-mont-blanc'],
+  ['/courses/evenements/marathon-du-mont-blanc-d1472716', '/courses/evenements/marathon-du-mont-blanc'],
+];
+
 // Temporary redirects: the bare `/en` has no page (only /en/links and /en/partners exist).
 export const temporaryPathRedirects = [
   ['/en', '/'],
@@ -91,6 +99,7 @@ const createConfig = async () => {
     async redirects() {
       return [
         ...staticPathRedirects.map(([source, destination]) => ({ source, destination, permanent: true })),
+        ...catalogSlugRedirects.map(([source, destination]) => ({ source, destination, permanent: true })),
         ...temporaryPathRedirects.map(([source, destination]) => ({ source, destination, permanent: false })),
       ];
     },
