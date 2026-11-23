@@ -50,6 +50,7 @@ The catalog Supporter Guide entry is independent from event-update read tracking
 
 ## Gotchas
 
+- The Courses quick-return header (`apps/mobile/hooks/useQuickReturnHeader.ts`) is presentation-only: it hides and reveals the header and sticky search card on scroll and does not change the catalog reads, favorites, unread updates or analytics described here.
 - Making the Courses sticky search surface opaque and aligning it to the shared gutter does not display an organizer message and must not create a read receipt.
 
 - Keeping Courses search and filters visible below the compact header, including native date filters, does not display an announcement or create a read receipt.

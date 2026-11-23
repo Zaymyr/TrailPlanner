@@ -9,6 +9,8 @@ import { TopoContourPattern } from '../themed/TopoContourPattern';
 
 export const ROOT_HEADER_EXPANDED_BODY_HEIGHT = 76;
 export const ROOT_HEADER_COMPACT_BODY_HEIGHT = 60;
+/** Extra travel so the compact bar's shadow also leaves the screen when it hides. */
+const HIDDEN_SHADOW_CLEARANCE = 24;
 /** Centers the 48pt watch buttons in the 60pt compact bar. */
 const HEADER_ACTION_TOP = 6;
 const HEADER_ACTION_SIZE = 48;
@@ -24,13 +26,19 @@ type HeaderAction = {
 type Props = {
   action?: HeaderAction;
   helpAction?: ReactNode;
+  /**
+   * Quick-return progress from `useQuickReturnHeader` (0 shown → 1 hidden).
+   * When set, the compact bar slides out of the screen and a brand strip keeps
+   * the status bar covered.
+   */
+  hideProgress?: Animated.Value;
   icon: keyof typeof Ionicons.glyphMap;
   scrollY: Animated.Value;
   title: string;
   topInset: number;
 };
 
-export function RootCollapsibleHeader({ action, helpAction, icon, scrollY, title, topInset }: Props) {
+export function RootCollapsibleHeader({ action, helpAction, hideProgress, icon, scrollY, title, topInset }: Props) {
   const [compact, setCompact] = useState(false);
   const expandedHeight = topInset + ROOT_HEADER_EXPANDED_BODY_HEIGHT;
   const compactHeight = topInset + ROOT_HEADER_COMPACT_BODY_HEIGHT;
@@ -50,6 +58,16 @@ export function RootCollapsibleHeader({ action, helpAction, icon, scrollY, title
     outputRange: [0, 1],
     extrapolate: 'clamp',
   });
+  const hiddenTranslateY = hideProgress?.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -(compactHeight + HIDDEN_SHADOW_CLEARANCE)],
+    extrapolate: 'clamp',
+  });
+  const statusStripOpacity = hideProgress?.interpolate({
+    inputRange: [0, 0.2],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
   useEffect(() => {
     const listenerId = scrollY.addListener(({ value }) => {
       setCompact(value >= collapseDistance * 0.72);
@@ -58,77 +76,86 @@ export function RootCollapsibleHeader({ action, helpAction, icon, scrollY, title
   }, [collapseDistance, scrollY]);
 
   return (
-    <Animated.View
-      style={[
-        styles.header,
-        compact && styles.headerScrolled,
-        { height },
-      ]}
-    >
-      <TopoContourPattern color={Colors.textOnBrand} opacity={0.1} />
+    <>
       <Animated.View
-        accessibilityElementsHidden={compact}
-        importantForAccessibility={compact ? 'no-hide-descendants' : 'auto'}
-        pointerEvents={helpAction ? 'box-none' : 'none'}
-        style={[styles.expandedContent, { top: topInset, opacity: expandedOpacity }]}
-      >
-        {/*
-          Without a help watch, the screen icon is decorative only: drawn bare
-          (no button frame) in the same 48pt slot so the title keeps its place.
-        */}
-        {helpAction ? <View style={styles.leadingActionSpacer} /> : (
-          <View
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            style={[styles.leadingActionSpacer, styles.decorativeIcon]}
-          >
-            <Ionicons color={Colors.textOnBrand} name={icon} size={26} />
-          </View>
-        )}
-        <Text
-          accessibilityRole="header"
-          adjustsFontSizeToFit
-          minimumFontScale={0.72}
-          numberOfLines={1}
-          style={styles.expandedTitle}
-        >
-          {title}
-        </Text>
-      </Animated.View>
-
-      <Animated.View
-        accessibilityElementsHidden={!compact}
-        importantForAccessibility={compact ? 'auto' : 'no-hide-descendants'}
-        pointerEvents="none"
         style={[
-          styles.compactContent,
-          helpAction ? styles.compactContentWithLeadingAction : undefined,
-          { top: topInset, opacity: compactOpacity },
+          styles.header,
+          compact && styles.headerScrolled,
+          { height },
+          hiddenTranslateY ? { transform: [{ translateY: hiddenTranslateY }] } : undefined,
         ]}
       >
-        <Text accessibilityRole="header" numberOfLines={1} style={styles.compactTitle}>
-          {title}
-        </Text>
+        <TopoContourPattern color={Colors.textOnBrand} opacity={0.1} />
+        <Animated.View
+          accessibilityElementsHidden={compact}
+          importantForAccessibility={compact ? 'no-hide-descendants' : 'auto'}
+          pointerEvents={helpAction ? 'box-none' : 'none'}
+          style={[styles.expandedContent, { top: topInset, opacity: expandedOpacity }]}
+        >
+          {/*
+            Without a help watch, the screen icon is decorative only: drawn bare
+            (no button frame) in the same 48pt slot so the title keeps its place.
+          */}
+          {helpAction ? <View style={styles.leadingActionSpacer} /> : (
+            <View
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              style={[styles.leadingActionSpacer, styles.decorativeIcon]}
+            >
+              <Ionicons color={Colors.textOnBrand} name={icon} size={26} />
+            </View>
+          )}
+          <Text
+            accessibilityRole="header"
+            adjustsFontSizeToFit
+            minimumFontScale={0.72}
+            numberOfLines={1}
+            style={styles.expandedTitle}
+          >
+            {title}
+          </Text>
+        </Animated.View>
+
+        <Animated.View
+          accessibilityElementsHidden={!compact}
+          importantForAccessibility={compact ? 'auto' : 'no-hide-descendants'}
+          pointerEvents="none"
+          style={[
+            styles.compactContent,
+            helpAction ? styles.compactContentWithLeadingAction : undefined,
+            { top: topInset, opacity: compactOpacity },
+          ]}
+        >
+          <Text accessibilityRole="header" numberOfLines={1} style={styles.compactTitle}>
+            {title}
+          </Text>
+        </Animated.View>
+
+        {helpAction ? (
+          <View pointerEvents="box-none" style={[styles.helpAction, { top: topInset + HEADER_ACTION_TOP }]}>
+            {helpAction}
+          </View>
+        ) : null}
+
+        {action ? (
+          <IconAction
+            accessibilityLabel={action.accessibilityLabel}
+            disabled={action.disabled}
+            icon={<Ionicons color={Colors.textOnBrand} name={action.icon} size={21} />}
+            onPress={action.onPress}
+            style={[styles.action, { top: topInset + HEADER_ACTION_TOP }]}
+            testID={action.testID}
+            tone="onBrand"
+          />
+        ) : null}
       </Animated.View>
-
-      {helpAction ? (
-        <View pointerEvents="box-none" style={[styles.helpAction, { top: topInset + HEADER_ACTION_TOP }]}>
-          {helpAction}
-        </View>
-      ) : null}
-
-      {action ? (
-        <IconAction
-          accessibilityLabel={action.accessibilityLabel}
-          disabled={action.disabled}
-          icon={<Ionicons color={Colors.textOnBrand} name={action.icon} size={21} />}
-          onPress={action.onPress}
-          style={[styles.action, { top: topInset + HEADER_ACTION_TOP }]}
-          testID={action.testID}
-          tone="onBrand"
+      {statusStripOpacity && topInset > 0 ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.statusStrip, { height: topInset, opacity: statusStripOpacity }]}
         />
       ) : null}
-    </Animated.View>
+    </>
   );
 }
 
@@ -150,6 +177,14 @@ const styles = StyleSheet.create({
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 7 },
     elevation: 8,
+  },
+  statusStrip: {
+    position: 'absolute',
+    zIndex: 31,
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: Colors.brandPrimary,
   },
   expandedContent: {
     position: 'absolute',

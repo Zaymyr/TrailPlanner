@@ -110,6 +110,7 @@ Organizer deletion includes both `updateId` and `editionId`. The server verifies
 
 ## Gotchas
 
+- The Courses quick-return header (`apps/mobile/hooks/useQuickReturnHeader.ts`) is presentation-only: it hides and reveals the header and sticky search card on scroll and does not change the catalog reads, favorites, unread updates or analytics described here.
 - Root-header, sticky-search, event-date and card-action alignment changes are presentation-only. They do not reorder, retarget or mark organizer updates as read.
 
 - Sticky catalog filters, locale-formatted native dates, and the full-width format action row do not publish, retarget, load, or mark organizer announcements.
