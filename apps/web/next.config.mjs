@@ -76,6 +76,12 @@ const createConfig = async () => {
   const nextConfig = {
     experimental: {
       typedRoutes: true,
+      // The blog loader reads MDX from content/blog at runtime (ISR regeneration of / and /blog,
+      // related guides on course pages). Without this, Vercel functions do not bundle the folder
+      // and every regeneration failed with "Unable to locate the blog content directory".
+      outputFileTracingIncludes: {
+        "/**": ["./content/blog/**/*"],
+      },
     },
     eslint: {
       ignoreDuringBuilds: true,

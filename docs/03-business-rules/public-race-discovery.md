@@ -1,7 +1,7 @@
 ---
 title: Public Race Discovery
 scope: business-rule
-last_verified: 2026-11-22
+last_verified: 2026-11-23
 # Event hubs and landing pages (2026-11-22): permanent year-free event hubs (race_events.slug) are the indexable event pages and edition pages canonicalize to them; region (INSEE code) and month landing pages join the distance pages, all upcoming-only, paginated, ItemList, five-format minimum.
 # Business card QR (2026-11-18): ?src=carte on the guide page redirects to /carte-visite (app on Android, Google Play / App Store listing otherwise).
 # Livret supporter private preview (2026-11-18): the client guide page retries with the stored session token so an active organizer previews a private edition; public behavior unchanged.
@@ -303,3 +303,7 @@ The `/livret-coureur` product page mentions the organizer entry price (« dès 1
 ## Funnel analytics (2026-11-22)
 
 The hero shell mounts `RaceFunnelTracker`, which emits `race page viewed` and `race estimate cta clicked` (the hero, sticky bar and estimates-section links carry `data-estimate-placement`). Navigation, links, SEO output and the estimate flow are unchanged. Web runner funnel analytics (2026-11-22): see [analytics.md](../05-integrations/analytics.md#web-runner-funnel-2026-11-22).
+
+## Internal links for crawl discovery (2026-11-23)
+
+A 2026-11-23 URL Inspection pass found 392 of 830 format URLs never crawled and most blog articles unknown to Google. To shorten crawl paths, format pages link to distance-matched blog guides (« Pour préparer cette course »), and the home page and every blog article link to the indexable distance, region and month landing pages. These links follow the landing-page eligibility rules (upcoming formats, `MIN_INDEXABLE_RACES`), so they never point to a 404 selection. No route, canonical or structured-data change.

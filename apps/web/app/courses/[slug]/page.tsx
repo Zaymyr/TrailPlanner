@@ -14,6 +14,7 @@ import { getIndexableRegionPages, getTodayInFrance } from "../../../lib/race-lan
 import { DEFAULT_SOCIAL_IMAGE, DEFAULT_SOCIAL_IMAGE_PATH, SITE_URL } from "../../seo";
 import { PublicElevationProfile } from "../_components/PublicElevationProfile";
 import { RaceLinksCarousel } from "../_components/RaceLinksCarousel";
+import { RaceRelatedArticles } from "../_components/RaceRelatedArticles";
 import { RaceAidStationsTimeline } from "../_components/RaceAidStationsTimeline";
 import { HERO_ESTIMATE_CTA_ID, RaceHeroSummary } from "../_components/RaceHeroSummary";
 import { RaceRouteExplorer } from "../_components/RaceRouteExplorer";
@@ -479,6 +480,8 @@ export default async function RacePage({ params }: PageProps) {
           </Link>
         ) : null}
       </section>
+
+      <RaceRelatedArticles distanceKm={race.distanceKm} />
 
       {otherFormats.length || similarRaces.length ? (
         <section id="a-decouvrir" className="-mx-4 scroll-mt-16 space-y-5 bg-muted/60 px-4 py-5 sm:mx-0 sm:rounded-2xl sm:p-8" aria-labelledby="discover-more-heading">
