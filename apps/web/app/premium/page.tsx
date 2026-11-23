@@ -10,6 +10,8 @@ import { readFunnelSourceRace } from "../../lib/race-funnel-source";
 import { useVerifiedSession } from "../hooks/useVerifiedSession";
 import { type RunnerOffer, useRunnerPrice } from "../hooks/useRunnerPrice";
 import { useI18n } from "../i18n-provider";
+import { PremiumSections } from "./PremiumSections";
+import { PREMIUM_COPY } from "./premium-copy";
 import { orderRunnerOffers, resolvePlanCourseName, type SavedPlanSummary } from "./offer-presentation";
 
 const isUuid = (value: string | null): value is string =>
@@ -19,6 +21,7 @@ export default function PremiumPage() {
   const { session } = useVerifiedSession();
   const { locale } = useI18n();
   const fr = locale === "fr";
+  const copy = PREMIUM_COPY[fr ? "fr" : "en"];
   const annualPrice = useRunnerPrice("annual", locale);
   const coursePrice = useRunnerPrice("course", locale);
   const [planId, setPlanId] = useState<string | null>(null);
@@ -106,28 +109,22 @@ export default function PremiumPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8 py-8">
+    <div className="mx-auto w-full min-w-0 max-w-4xl space-y-10 px-4 py-8 sm:px-0">
       <div className="space-y-3 text-center">
-        <h1 className="text-3xl font-semibold">
-          {courseName
-            ? (fr ? `Prépare ${courseName} dans les détails` : `Prepare ${courseName} in detail`)
-            : (fr ? "Prépare tes courses dans les détails" : "Prepare every race in detail")}
+        <h1 className="text-3xl font-semibold leading-tight">
+          {courseName ? copy.heroTitleRace(courseName) : copy.heroTitle}
         </h1>
-        <p className="text-muted-foreground">
-          {fr
-            ? "Ton estimation est gratuite. Débloque les allures, les ravitos et le plan nutrition qui correspondent à ton objectif."
-            : "Your estimate is free. Unlock the pacing, aid stations and nutrition plan for your goal."}
-        </p>
+        <p className="mx-auto max-w-2xl text-muted-foreground">{copy.heroSub}</p>
       </div>
 
-      <div className="grid gap-6 sm:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-2">
         {offers.map((offer) => {
           const price = offer === "course" ? coursePrice : annualPrice;
           const needsPlan = offer === "course" && !planId;
           const unavailable = price.status === "unavailable";
           const disabled = !enabled || price.status !== "available" || opening !== null || needsPlan;
           const disabledReason = needsPlan
-            ? (fr ? "Choisis d’abord une course pour obtenir l’offre qui lui correspond." : "Choose a race first to see its matching offer.")
+            ? null
             : unavailable
               ? (fr ? "Ce prix n’est pas configuré. L’achat reste désactivé pour éviter un montant incorrect." : "This price is not configured. Checkout stays disabled to avoid an incorrect amount.")
               : !enabled
@@ -138,11 +135,16 @@ export default function PremiumPage() {
 
           return (
             <section key={offer} className="space-y-5 rounded-2xl border border-border bg-card p-6">
-              <h2 className="text-xl font-semibold">
-                {offer === "course"
-                  ? (courseName ? (fr ? `Cette course — ${courseName}` : `This race — ${courseName}`) : (fr ? "Cette course" : "This race"))
-                  : (fr ? "Toutes mes courses" : "All my races")}
-              </h2>
+              <div className="space-y-1">
+                <h2 className="text-xl font-semibold">
+                  {offer === "course"
+                    ? (courseName ? copy.courseTitleRace(courseName) : copy.courseTitle)
+                    : copy.annualTitle}
+                </h2>
+                <p className="text-sm font-medium text-brand">
+                  {offer === "course" ? copy.courseTag : copy.annualTag}
+                </p>
+              </div>
               <p className="text-3xl font-semibold" aria-live="polite">
                 {price.status === "available"
                   ? `${price.formatted}${offer === "annual" ? (fr ? "/an" : "/year") : ""}`
@@ -150,18 +152,26 @@ export default function PremiumPage() {
                     ? (fr ? "Chargement du prix…" : "Loading price…")
                     : (fr ? "Prix indisponible" : "Price unavailable")}
               </p>
-              <p className="text-muted-foreground">
-                {offer === "course"
-                  ? (fr ? "Paiement unique. Accès durable à ce format pour cette édition." : "One-time payment. Lasting access to this distance and edition.")
-                  : (fr ? "Abonnement annuel renouvelable pour préparer toutes tes courses." : "Auto-renewing annual subscription for all your races.")}
-              </p>
-              <ul className="list-inside list-disc space-y-2 text-sm">
-                <li>{fr ? "Allures ajustables section par section" : "Adjustable pacing by section"}</li>
-                <li>{fr ? "Produits et quantités ravito par ravito" : "Products and quantities at each aid station"}</li>
-                <li>{fr ? "Récapitulatif, assistance et exports" : "Summary, crew support and exports"}</li>
+              <ul className="space-y-2 text-sm">
+                {(offer === "course" ? copy.courseBullets : copy.annualBullets).map((bullet) => (
+                  <li key={bullet} className="flex gap-2">
+                    <span aria-hidden="true" className="font-bold text-brand">✓</span>
+                    <span>{bullet}</span>
+                  </li>
+                ))}
               </ul>
 
-              {session && !session.isAnonymous ? (
+              {needsPlan ? (
+                <div className="space-y-2">
+                  <Link
+                    href="/race-planner"
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-brand px-3 text-sm font-medium text-brand-foreground shadow-sm hover:bg-brand-light"
+                  >
+                    {copy.chooseRaceCta}
+                  </Link>
+                  <p className="text-sm text-muted-foreground">{copy.chooseRaceHint}</p>
+                </div>
+              ) : session && !session.isAnonymous ? (
                 <Button
                   className="min-h-11 w-full disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-brand"
                   onClick={() => { void purchase(offer); }}
@@ -170,16 +180,14 @@ export default function PremiumPage() {
                 >
                   {opening === offer
                     ? (fr ? "Ouverture…" : "Opening…")
-                    : offer === "course"
-                      ? (fr ? "Débloquer cette course" : "Unlock this race")
-                      : (fr ? "Passer à l’abonnement annuel" : "Choose annual access")}
+                    : offer === "course" ? copy.courseCta : copy.annualCta}
                 </Button>
               ) : (
                 <Link
                   href="/sign-up"
                   className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-brand px-3 text-sm font-medium text-brand-foreground shadow-sm hover:bg-brand-light"
                 >
-                  {fr ? "Créer mon compte" : "Create my account"}
+                  {copy.anonymousCta}
                 </Link>
               )}
               {disabledReason ? (
@@ -193,11 +201,16 @@ export default function PremiumPage() {
       </div>
 
       {error ? <p role="alert" className="text-red-600">{error}</p> : null}
-      <p className="text-sm text-muted-foreground">
-        {fr
-          ? "Les achats sont rattachés à ton compte et accessibles sur le web, Android et iOS. Après expiration de l’abonnement, tes plans préparés restent consultables ; leur modification nécessite un achat ou un réabonnement."
-          : "Purchases belong to your account across web, Android and iOS. After a subscription expires, prepared plans remain readable; editing requires a purchase or resubscription."}
-      </p>
+      <ul className="flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:flex-wrap sm:justify-center sm:gap-x-6">
+        {copy.reassurance.map((line) => (
+          <li key={line} className="flex items-center gap-2">
+            <span aria-hidden="true" className="font-bold text-brand">✓</span>
+            {line}
+          </li>
+        ))}
+      </ul>
+
+      <PremiumSections copy={copy} />
     </div>
   );
 }

@@ -18,6 +18,8 @@ related_files:
   - apps/web/app/api/admin/runner-access-mode/route.ts
   - apps/web/app/api/runner/config/route.ts
   - apps/web/app/premium/page.tsx
+  - apps/web/app/premium/premium-copy.ts
+  - apps/web/app/premium/PremiumSections.tsx
   - apps/web/components/RunnerAdminAccessMode.tsx
   - apps/web/app/onboarding/layout.tsx
   - apps/web/app/(planner)/race-planner/components/RunnerProfileStep.tsx
@@ -176,4 +178,4 @@ Goal: let the visitor feel the plan before asking for anything. A visitor (no se
 - Analytics (Google Analytics): `quick estimate open plan`, `visitor plan opened`, `visitor plan save`, `plan sample locked action`.
 
 ## Web funnel analytics (2026-11-22)
-`/premium` now emits `premium paywall viewed` and, after the checkout session is created, `premium checkout started` or `runner course checkout started` with `offer`; the planner modal and profile page emit the annual event. Purchase verification is emitted after the Stripe return once the entitlement is visible. Offers, prices, access rules and the checkout API are unchanged, and no price string is sent to analytics. Web runner funnel analytics (2026-11-22): see [analytics.md](../05-integrations/analytics.md#web-runner-funnel-2026-11-22).
+`/premium` (2026-11-23 conversion overhaul) is now a selling page: outcome hero, differentiated course/annual cards (the course card links to `/race-planner` when no `planId` is present, the anonymous CTA reads "Créer mon compte et débloquer"), a free-vs-full comparison table, deliverables, reassurance (Stripe, account-bound purchase, plans kept), an FAQ and a link to `/methodologie`. Copy lives in `premium-copy.ts`; no price is hardcoded and no refund or guarantee is promised. `/premium` now emits `premium paywall viewed` and, after the checkout session is created, `premium checkout started` or `runner course checkout started` with `offer`; the planner modal and profile page emit the annual event. Purchase verification is emitted after the Stripe return once the entitlement is visible. Offers, prices, access rules and the checkout API are unchanged, and no price string is sent to analytics. Web runner funnel analytics (2026-11-22): see [analytics.md](../05-integrations/analytics.md#web-runner-funnel-2026-11-22).
