@@ -8,6 +8,8 @@ const toPxScale = (tokens: Record<string, number>) =>
 
 const config: Config = {
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
+  // The web app is light-only (dark theme removed 2026-11-23). Keep "class": nothing adds `.dark` any more,
+  // so leftover `dark:` utilities stay inert instead of following the OS setting as "media" would.
   darkMode: "class",
   theme: {
     extend: {
