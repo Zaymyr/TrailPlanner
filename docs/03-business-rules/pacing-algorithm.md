@@ -1,7 +1,7 @@
 ---
 title: Pacing Algorithm
 scope: business-rule
-last_verified: 2026-11-16
+last_verified: 2026-11-23
 # Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
 ai_priority: high
 related_files:
@@ -15,6 +15,10 @@ related_files:
   - apps/web/app/(planner)/race-planner/utils/__tests__/section-recompute.test.ts
   - packages/fuel-planner/computeFuelPlan.ts
   - packages/shared/src/index.ts
+  - packages/shared/src/plan-timeline/profile-utils.ts
+  - packages/shared/src/plan-timeline/section-summary.ts
+  - apps/mobile/components/plan-form/profile-utils.ts
+  - apps/mobile/components/plan-form/section-summary.ts
   - apps/web/lib/nutrition.ts
 related_tables:
   - race_plans
@@ -75,6 +79,15 @@ Sub-section recomputation accepts either an elevation-aware `estimateSeconds` ca
 
 Water capacity is based on `waterBagLiters * 1000`. Available water is reduced by segment demand and refilled at stations unless water refill is disabled. Segment objects also carry station service metadata such as `solidRefill`, `assistanceAllowed`, and optional `sourceAidStationId`; these fields support nutrition inventory, recap, and official ravito product matching rather than ETA computation. When assistance is disabled, `segments.ts` keeps only supplies marked `source: "organizer"` because they represent official ravito products rather than crew handoffs.
 
+## Shared mobile pacing model (plan-timeline, 2026-11-23)
+
+The mobile plan editor's section pacing now lives in `packages/shared/src/plan-timeline/` so the web « Chronologie » tab runs the same timing as the mobile Chronologie:
+
+- `profile-utils.ts` (moved from `apps/mobile/components/plan-form/profile-utils.ts`): elevation slices, section sub-segments, `estimateEffortDurationSeconds` (same equivalent-distance + fatigue formula as the web `utils/pacing.ts`) and `recomputeSectionFromSubSections`.
+- `section-summary.ts` (moved from `apps/mobile/components/plan-form/section-summary.ts`): `getBaseSpeedKph` and `buildPlanSectionSummary` — per section, movement ETA from `sectionSegments["section-N"]` (the outgoing station's `pauseMinutes` added), targets scaled by duration, D+/D− from sub-segment stats. Without an elevation profile, a section receives a pro-rata D+ fallback profile.
+
+The mobile files are one-line re-exports; behavior is unchanged (golden test `apps/mobile/lib/continuousNutrition.test.ts`). This model reads only `sectionSegments` adjustments, not the web per-station `segmentMinutesOverride` / `paceAdjustmentMinutesPerKm` fields used by `segments.ts`, so a web plan that relies on those station-level overrides can show Chronologie section times that differ from its web timeline ETAs.
+
 ## Fuel Planner Module
 
 `packages/fuel-planner/computeFuelPlan.ts` is a smaller computation module. It:
@@ -125,6 +138,7 @@ This is onboarding guidance, not the full planner segment model.
 - Segment timing and alert scheduling are related but not identical systems.
 - Do not expect `secondsPerKm` alone to apply elevation equivalence during sub-section recomputation; that field is the explicit flat fallback.
 - Do not move UI-dependent planner code into `packages/shared`.
+- The web planner (`segments.ts`) and the shared plan-timeline section summary are two pacing paths over the same effort formula. Change the formula in both, or consolidate them deliberately; the shared one also drives mobile live mode and recaps (OTA on merge).
 
 ## Related Docs
 
