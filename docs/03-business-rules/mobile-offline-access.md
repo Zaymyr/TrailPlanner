@@ -1,7 +1,7 @@
 ---
 title: Mobile offline access (RaceBook, Supporter Guide, plans)
 scope: business-rule
-last_verified: 2026-11-18
+last_verified: 2026-11-23
 # Supporter onboarding (2026-11-18): the onboarding gate reads the new supporter tour status through a tolerant select (device-local fallback while the column is missing); the offline launch route to Plans and the Livret supporter device copy are unchanged.
 # Livret supporter private preview (2026-11-18): the 404 that deletes the Supporter Guide copy is evaluated after the authenticated organizer retry.
 ai_priority: high
@@ -24,6 +24,8 @@ related_files:
   - apps/mobile/app/(app)/plan/followed/[id].tsx
   - apps/mobile/components/plan-workspace/PlanRecapContent.tsx
   - apps/mobile/components/plans/FollowedPlansList.tsx
+  - apps/mobile/lib/courseWeather.ts
+  - apps/mobile/components/course-weather/useCourseWeather.ts
 related_tables:
   - race_plans
   - plan_share_follows
@@ -49,9 +51,10 @@ Trail races start and run where the network is weak or absent. The mobile app ke
 | `supporter-guide` | race id | `/api/supporter-guide` answers 200 | the request throws or answers 5xx (initial load only) |
 | `plans-list` | user id | `fetchPlansScreenBootstrap` succeeds | the `race_plans` list query fails with a transport error |
 | `plan` | user id + plan id | the plan workspace loads the plan row, and after every successful save | the plan row query fails with a transport error |
-| `plan-race-start` | plan id | the plan summary resolves the race date, official start time and start waves | the `race_plans` query of the summary fails with a transport error |
+| `plan-race-start` | plan id | the plan summary resolves the race date, official start time, start waves and linked race id | the `race_plans` query of the summary fails with a transport error |
 | `followed-plans` | user id | `GET /api/plan-share-follows` succeeds | the call throws without HTTP status or with 5xx |
 | `followed-plan` | user id + follow id | the followed plan loads, and after each successful crew-state update | same as above |
+| `course-weather` | race id | `/api/race-weather` answers a forecast or a "too early" status (deleted on a 4xx or an `unavailable` answer other than `provider_error`) | the request fails, answers 5xx or `provider_error`, or the copy is still fresh (before the forecast `expiresAt`) |
 
 A plan copy stores the raw `race_plans` row, the best elevation profile and only the products the plan references (`collectPlanProductIdsFromValues`), so the summary keeps product names offline.
 
@@ -64,6 +67,7 @@ A plan copy stores the raw `race_plans` row, the best elevation profile and only
 5. **Offline launch keeps the account.** When the access token has expired and the refresh fails for lack of network, supabase-js reports no session although the refresh token is still stored. The root layout then uses the persisted session (`readStoredAuthSession`) instead of creating a guest session or sending the runner to login, and ignores a null `INITIAL_SESSION`. Plan rights come from the cached capabilities (`readCachedRunnerPlanCapabilities`) of that account.
 6. **Offline launch opens the plans.** `getPostAuthRoute` routes to `/(app)/plans` when the profile query fails with a transport error. A startup OTA check that fails for lack of network continues to the installed version instead of the "Mise à jour indisponible" screen; the foreground check retries later.
 7. **Edits made offline are not queued.** Plan saves and crew passage confirmations still need the network; they fail as before and are not replayed.
+8. **Weather copies are explicit about their age.** The course-weather copy is not account data (keyed by race id, still purged on `SIGNED_OUT` with the rest of the directory). It is read first and reused without network until the forecast `expiresAt`; every display shows "Prévision du {fetchedAt}", plus a stale note when a refresh failed. A copy whose race window ended more than 24 h ago is no longer shown.
 
 ## Gotchas
 
