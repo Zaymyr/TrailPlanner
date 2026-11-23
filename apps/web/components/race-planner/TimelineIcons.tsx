@@ -1,6 +1,7 @@
 "use client";
 
-import type { SVGProps } from "react";
+// React in scope: Vitest renders these icons with the classic JSX runtime (plan-views tests).
+import React, { type SVGProps } from "react";
 
 type IconProps = SVGProps<SVGSVGElement>;
 
@@ -63,6 +64,17 @@ export function DropletIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" {...baseProps} {...props}>
       <path d="M12 2s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11Z" />
+    </svg>
+  );
+}
+
+/** Salt crystal (sodium): a cube in perspective, drawn on the signature 24-grid with the same stroke. */
+export function SaltIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" {...baseProps} strokeWidth={1.9} {...props}>
+      <path d="M12 3.8 19 7.6v8.8L12 20.2 5 16.4V7.6L12 3.8Z" />
+      <path d="M5 7.6 12 11.4l7-3.8" opacity={0.55} />
+      <path d="M12 11.4v8.8" opacity={0.55} />
     </svg>
   );
 }

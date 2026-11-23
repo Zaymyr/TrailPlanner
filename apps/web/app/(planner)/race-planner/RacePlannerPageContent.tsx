@@ -28,6 +28,8 @@ import { PlanPrimaryContent } from "./components/PlanPrimaryContent";
 import { PlannerRightPanel } from "./components/PlannerRightPanel";
 import { PlannerSetupSteps, type PlannerSetupStepId } from "./components/PlannerSetupSteps";
 import { PlannerLanding } from "./components/PlannerLanding";
+import { ChronologyView } from "../../../components/race-planner/plan-views";
+import { alignChronologyToSections, buildPlanChronology } from "../../../lib/plan-chronology";
 import { GuestSaveBanner } from "../../../components/GuestSaveBanner";
 import { CommandCenter } from "../../../components/race-planner/CommandCenter";
 import { useVerifiedSession } from "../../hooks/useVerifiedSession";
@@ -1138,7 +1140,10 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   );
 
   const formatDistanceWithUnit = (value: number) =>
-    `${value.toFixed(1)} ${racePlannerCopy.sections.timeline.distanceWithUnit}`;
+    `${(Number.isFinite(value) ? value : 0).toLocaleString(locale === "fr" ? "fr-FR" : "en-US", {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    })} ${racePlannerCopy.sections.timeline.distanceWithUnit}`;
 
   const formatFuelAmount = (value: number) =>
     racePlannerCopy.sections.timeline.fuelLabel.replace("{amount}", value.toFixed(0));
@@ -1198,6 +1203,43 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       });
     return ids;
   }, [organizerAidStationProducts]);
+
+  // « Chronologie » view: the engine shared with the mobile app, re-timed onto the web sections so the
+  // passage times match the aid-stations and pace views.
+  const chronologySections = useMemo(() => {
+    if (!parsedValues.success || segments.length === 0) return [];
+    try {
+      const sections = buildPlanChronology({
+        values: parsedValues.data,
+        elevationProfile,
+        products: mergedFuelProducts,
+        startName: racePlannerCopy.defaults.start,
+        finishName: racePlannerCopy.defaults.finish,
+      });
+      return alignChronologyToSections(
+        sections,
+        segments.map((segment) => ({
+          startMinute: Math.max(0, segment.etaMinutes - segment.segmentMinutes),
+          durationMin: segment.segmentMinutes,
+          fromName: segment.from,
+          toName: segment.checkpoint,
+        })),
+      );
+    } catch (error) {
+      console.error("Unable to build the plan chronology", error);
+      return [];
+    }
+  }, [elevationProfile, mergedFuelProducts, parsedValues, racePlannerCopy.defaults.finish, racePlannerCopy.defaults.start, segments]);
+  const renderChronology = useCallback(
+    ({ lockedFromIndex }: { lockedFromIndex?: number }) => (
+      <ChronologyView
+        sections={chronologySections}
+        locale={locale === "fr" ? "fr" : "en"}
+        lockedFromIndex={lockedFromIndex}
+      />
+    ),
+    [chronologySections, locale],
+  );
 
   const fuelProductEstimates = useMemo<FuelProductEstimate[]>(
     () => buildFuelProductEstimates(mergedFuelProducts, raceTotals),
@@ -1995,6 +2037,8 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           : undefined
       }
       setupAfterPlan={sampleAudience === "visitor"}
+      raceName={contextualRaceNameForSample ?? (planName.trim() || null)}
+      renderChronology={renderChronology}
       topContent={
         sampleAudience ? (
           <PlanSampleBanner

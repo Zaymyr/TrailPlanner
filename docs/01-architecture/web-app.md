@@ -715,6 +715,8 @@ The current web stack still runs on `react` / `react-dom` `18.3.1`. Any browser 
 
 The production web TypeScript project excludes `*.test.ts` and `*.test.tsx` files. Vitest remains responsible for compiling and running those tests; this prevents a web-only Next.js build from following test imports into mobile-only Expo modules whose dependencies are intentionally absent from the web deployment.
 
+`apps/web/vitest.config.ts` aliases `next/font/google` to `apps/web/test/next-font-google.stub.ts` (2026-11-23): the real loader only runs inside the Next.js compiler, so any test importing a module that declares a font (for example `components/race-planner/plan-fonts.ts`, pulled in by the planner page and `ActionPlan`) would otherwise fail with « Bricolage_Grotesque is not a function ». The stub returns the `className` / `variable` / `style` shape; add a factory there when a new Google font is declared in code reached by tests.
+
 `apps/web/next.config.mjs` enables:
 
 - optional MDX page support when MDX dependencies are available;

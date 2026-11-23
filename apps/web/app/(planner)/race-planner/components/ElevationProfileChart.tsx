@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { AidStationIcon } from "@pace-yourself/design-system/icons";
 import type { RacePlannerTranslations } from "../../../../locales/types";
 import type { AidStation, ElevationPoint, Segment } from "../types";
 import { formatClockTime } from "../utils/format";
@@ -14,14 +15,42 @@ function niceStep(range: number, targetCount: number): number {
   return niceNorm * magnitude;
 }
 
-function slopeToColor(grade: number) {
-  const clamped = Math.max(-0.25, Math.min(0.25, grade));
-  const t = (clamped + 0.25) / 0.5;
-  const start = { r: 59, g: 130, b: 246 }; // blue
-  const end = { r: 239, g: 68, b: 68 }; // red
-  const channel = (from: number, to: number) => Math.round(from + (to - from) * t);
+// Chart palette (design-system tokens): climb = forest, descent = alpine blue.
+const CHART = {
+  climb: "#3F6B1F",
+  descent: "#3F6F8F",
+  forest: "#2D5016",
+  ink: "#1F2410",
+  inkSecondary: "#5C6450",
+  inkTertiary: "#8A917E",
+  grid: "#E5E2D8",
+  axis: "#C9C5B8",
+  target: "#C8D44E",
+  surface: "#FFFFFF",
+} as const;
+const MONO_FONT = "var(--font-plan-mono), ui-monospace, SFMono-Regular, Menlo, monospace";
+const DISPLAY_FONT = "var(--font-plan-display), ui-sans-serif, system-ui, sans-serif";
 
-  return `rgb(${channel(start.r, end.r)}, ${channel(start.g, end.g)}, ${channel(start.b, end.b)})`;
+type Rgb = { r: number; g: number; b: number };
+const mix = (from: Rgb, to: Rgb, t: number) => {
+  const channel = (a: number, b: number) => Math.round(a + (b - a) * t);
+  return `rgb(${channel(from.r, to.r)}, ${channel(from.g, to.g)}, ${channel(from.b, to.b)})`;
+};
+
+function slopeToColor(grade: number) {
+  // Steeper grades get the deeper shade of their family; flat reads as climb green.
+  const t = Math.min(Math.abs(grade) / 0.2, 1);
+  if (grade < -0.01) {
+    return mix({ r: 107, g: 148, b: 173 }, { r: 47, g: 88, b: 117 }, t); // alpine blue family
+  }
+  return mix({ r: 95, g: 130, b: 62 }, { r: 31, g: 56, b: 16 }, t); // forest family
+}
+
+/** Picks a "nice" kilometre step so that ticks keep at least ~48 px apart. */
+function distanceTickStep(trackDistanceKm: number, plotWidthPx: number) {
+  const candidates = [1, 2, 5, 10, 20, 25, 50, 100];
+  const maxTicks = Math.max(Math.floor(plotWidthPx / 48), 2);
+  return candidates.find((step) => trackDistanceKm / step <= maxTicks) ?? 100;
 }
 
 type EnrichedElevationPoint = ElevationPoint & {
@@ -122,6 +151,8 @@ export function ElevationProfileChart({
   totalDistanceKm,
   copy,
   baseMinutesPerKm,
+  startLabel = copy.sections.courseProfile.startLabel,
+  finishLabel = copy.sections.courseProfile.finishLabel,
 }: {
   profile: ElevationPoint[];
   aidStations: AidStation[];
@@ -129,7 +160,12 @@ export function ElevationProfileChart({
   totalDistanceKm: number;
   copy: RacePlannerTranslations;
   baseMinutesPerKm: number | null;
+  /** Label of the first point (« Départ » by default; a section chart passes its aid station). */
+  startLabel?: string;
+  /** Label of the last point (« Arrivée » by default; a section chart passes the next aid station). */
+  finishLabel?: string;
 }) {
+  const gradientId = `elevation-fill-${useId().replace(/:/g, "")}`;
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [chartWidth, setChartWidth] = useState(900);
@@ -156,11 +192,13 @@ export function ElevationProfileChart({
     [profile]
   );
 
-  const width = Math.max(Math.round(chartWidth), 480);
-  const paddingX = 20;
-  const paddingLeft = 50;
-  const paddingY = 20;
-  const paddingYBottom = 48;
+  // Render at the real container width (no down-scaling on phones) so the
+  // mono labels keep their size; ticks adapt their density below.
+  const width = Math.max(Math.round(chartWidth), 300);
+  const paddingX = 14;
+  const paddingLeft = 46;
+  const paddingY = 26;
+  const paddingYBottom = 50;
   const elevationAreaHeight = 150;
   const height = paddingY + elevationAreaHeight + paddingYBottom;
   const elevationBottom = paddingY + elevationAreaHeight;
@@ -191,12 +229,15 @@ export function ElevationProfileChart({
 
   const xTicks = useMemo(() => {
     const ticks: number[] = [];
-    for (let d = 5; d <= trackDistanceKm; d += 5) {
+    const step = distanceTickStep(trackDistanceKm, width - paddingLeft - paddingX);
+    for (let d = step; d <= trackDistanceKm; d += step) {
       ticks.push(Math.round(d * 10) / 10);
     }
     return ticks;
-  }, [trackDistanceKm]);
+  }, [paddingLeft, paddingX, trackDistanceKm, width]);
 
+  // The farthest aid station is the finish only when it actually sits at the end of the course (GPX imports
+  // list the finish as a station). Catalog aid stations stop before the finish, which is drawn on its own.
   const finishStationIndex = useMemo(() => {
     if (aidStations.length === 0) return -1;
     let maxDist = -Infinity;
@@ -207,8 +248,9 @@ export function ElevationProfileChart({
         maxIdx = i;
       }
     });
-    return maxIdx;
-  }, [aidStations]);
+    const tolerance = Math.max(0.3, trackDistanceKm * 0.02);
+    return trackDistanceKm > 0 && trackDistanceKm - maxDist <= tolerance ? maxIdx : -1;
+  }, [aidStations, trackDistanceKm]);
 
   const aidStationLabelLayout = useMemo(() => {
     const layout = buildWaypointLabelLayout(
@@ -414,15 +456,69 @@ export function ElevationProfileChart({
     activeElevationM !== null && activeElevationM !== undefined ? yScale(activeElevationM) : null;
 
   if (!hasProfile) {
-    return <p className="text-sm text-muted-foreground dark:text-slate-400">{copy.sections.courseProfile.empty}</p>;
+    return <p className="text-sm text-[#5C6450]">{copy.sections.courseProfile.empty}</p>;
   }
+
+  const monoText = { fontFamily: MONO_FONT, fontVariantNumeric: "tabular-nums" } as const;
+  // White halo keeps place names legible where they cross the profile line.
+  const displayText = { fontFamily: DISPLAY_FONT, paintOrder: "stroke" } as const;
+  const halo = { stroke: CHART.surface, strokeWidth: 3, strokeLinejoin: "round" as const };
+
+  // Discreet legend, top-right: short stroke swatches + muted labels.
+  const legendY = 12;
+  const estimateTextWidth = (label: string) => label.length * 5.6;
+  const descentTextX = width - paddingX;
+  const descentSwatchX2 = descentTextX - estimateTextWidth(copy.sections.courseProfile.legendDescent) - 5;
+  const descentSwatchX1 = descentSwatchX2 - 12;
+  const climbTextX = descentSwatchX1 - 12;
+  const climbSwatchX2 = climbTextX - estimateTextWidth(copy.sections.courseProfile.legendClimb) - 5;
+  const climbSwatchX1 = climbSwatchX2 - 12;
+
+  const units = copy.units;
+  const tooltipCopy = copy.sections.courseProfile.tooltip;
+  const tooltipCells: Array<{ label: string; value: string }> = activeRavito
+    ? [
+        { label: tooltipCopy.distance, value: `${activeRavito.distanceKm.toFixed(1)} ${units.kilometer}` },
+        {
+          label: tooltipCopy.waterRefill,
+          value: activeRavito.waterRefill !== false ? tooltipCopy.waterRefillYes : tooltipCopy.waterRefillNo,
+        },
+        ...(activeSegment
+          ? [
+              { label: tooltipCopy.plannedGels, value: activeSegment.gelsPlanned.toFixed(1) },
+              { label: tooltipCopy.plannedCarbs, value: `${activeSegment.plannedFuelGrams.toFixed(0)} ${units.grams}` },
+              { label: tooltipCopy.plannedCalories, value: `${(activeSegment.plannedFuelGrams * 4).toFixed(0)} kcal` },
+              {
+                label: tooltipCopy.plannedSodium,
+                value: `${activeSegment.plannedSodiumMg.toFixed(0)} ${units.milligrams}`,
+              },
+              {
+                label: tooltipCopy.plannedWater,
+                value: `${activeSegment.plannedWaterMl.toFixed(0)} ${units.milliliters}`,
+              },
+            ]
+          : []),
+      ]
+    : activePoint
+      ? [
+          { label: tooltipCopy.distance, value: `${activePoint.distanceKm.toFixed(1)} ${units.kilometer}` },
+          { label: tooltipCopy.elevation, value: `${activePoint.elevationM.toFixed(0)} ${units.meter}` },
+          { label: tooltipCopy.segmentGain, value: `${activePoint.segmentGainM.toFixed(0)} ${units.meter}` },
+          { label: tooltipCopy.segmentLoss, value: `${activePoint.segmentLossM.toFixed(0)} ${units.meter}` },
+          { label: tooltipCopy.cumulativeGain, value: `${activePoint.cumulativeGainM.toFixed(0)} ${units.meter}` },
+          { label: tooltipCopy.cumulativeLoss, value: `${activePoint.cumulativeLossM.toFixed(0)} ${units.meter}` },
+          ...(activePoint.timeMinutes !== null
+            ? [{ label: tooltipCopy.time, value: formatClockTime(activePoint.timeMinutes) }]
+            : []),
+        ]
+      : [];
 
   return (
     <div ref={chartContainerRef} className="relative w-full">
       <svg
         ref={svgRef}
         viewBox={`0 0 ${width} ${height}`}
-        className="h-[215px] w-full"
+        className="block h-auto w-full select-none"
         role="img"
         aria-label={copy.sections.courseProfile.ariaLabel}
         onPointerMove={handlePointerMove}
@@ -430,9 +526,9 @@ export function ElevationProfileChart({
         onPointerDown={handlePointerDown}
       >
         <defs>
-          <linearGradient id="elevationGradient" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="#34d399" stopOpacity="0.4" />
-            <stop offset="100%" stopColor="#0f172a" stopOpacity="0.05" />
+          <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor={CHART.forest} stopOpacity="0.16" />
+            <stop offset="100%" stopColor={CHART.forest} stopOpacity="0.01" />
           </linearGradient>
         </defs>
 
@@ -445,24 +541,18 @@ export function ElevationProfileChart({
                 x2={width - paddingX}
                 y1={lineY}
                 y2={lineY}
-                stroke="#334155"
+                stroke={CHART.grid}
                 strokeWidth={1}
-                strokeDasharray="4 4"
+                strokeDasharray="2 4"
               />
-              <text
-                x={paddingLeft - 6}
-                y={lineY + 4}
-                fontSize={10}
-                fill="#64748b"
-                textAnchor="end"
-              >
+              <text x={paddingLeft - 8} y={lineY + 3.5} fontSize={10} fill={CHART.inkTertiary} textAnchor="end" style={monoText}>
                 {tick.toFixed(0)} {copy.units.meter}
               </text>
             </g>
           );
         })}
 
-        <path d={areaPath} fill="url(#elevationGradient)" stroke="none" />
+        <path d={areaPath} fill={`url(#${gradientId})`} stroke="none" />
         {slopeSegments.map((segment, index) => (
           <line
             key={`${segment.x1}-${segment.x2}-${index}`}
@@ -471,17 +561,19 @@ export function ElevationProfileChart({
             x2={segment.x2}
             y2={segment.y2}
             stroke={segment.color}
-            strokeWidth={3}
+            strokeWidth={2.25}
             strokeLinecap="round"
           />
         ))}
 
-        {cursorX !== null && cursorY !== null && (
-          <>
-            <line x1={cursorX} x2={cursorX} y1={paddingY} y2={elevationBottom} stroke="#38bdf8" strokeWidth={1} />
-            <circle cx={cursorX} cy={cursorY} r={4} fill="#38bdf8" stroke="#0f172a" strokeWidth={2} />
-          </>
-        )}
+        <line
+          x1={paddingLeft}
+          x2={width - paddingX}
+          y1={elevationBottom}
+          y2={elevationBottom}
+          stroke={CHART.axis}
+          strokeWidth={1}
+        />
 
         {(() => {
           const startX = xScale(0);
@@ -489,37 +581,65 @@ export function ElevationProfileChart({
           const startY = yScale(startElevation);
           return (
             <g>
-              <line x1={startX} x2={startX} y1={startY} y2={elevationBottom} stroke="#3b82f6" strokeWidth={2} />
-              <circle cx={startX} cy={startY} r={5} fill="#3b82f6" />
+              <line x1={startX} x2={startX} y1={startY} y2={elevationBottom} stroke={CHART.forest} strokeWidth={1.25} />
+              <circle cx={startX} cy={startY} r={4} fill={CHART.surface} stroke={CHART.forest} strokeWidth={2} />
               <text
-                x={startX}
-                y={Math.max(startY - 9, paddingY + 8)}
-                fontSize={9}
-                fontWeight="700"
-                fill="#3b82f6"
-                textAnchor="middle"
+                x={startX - 2}
+                y={Math.max(startY - 10, 10)}
+                fontSize={10}
+                fontWeight={600}
+                fill={CHART.ink}
+                textAnchor="start"
+                style={displayText}
+                  {...halo}
               >
-                {copy.sections.courseProfile.startLabel}
+                {startLabel}
               </text>
             </g>
           );
         })()}
 
+        {finishStationIndex === -1 && trackDistanceKm > 0
+          ? (() => {
+              const finishX = xScale(trackDistanceKm);
+              const finishY = yScale(getElevationAtDistance(trackDistanceKm));
+              return (
+                <g>
+                  <line x1={finishX} x2={finishX} y1={finishY} y2={elevationBottom} stroke={CHART.forest} strokeWidth={1.5} />
+                  <circle cx={finishX} cy={finishY} r={5} fill={CHART.forest} stroke={CHART.surface} strokeWidth={2} />
+                  <text
+                    x={finishX + 2}
+                    y={Math.max(finishY - 10, paddingY + 4)}
+                    fontSize={10}
+                    fontWeight={600}
+                    fill={CHART.ink}
+                    textAnchor="end"
+                    style={displayText}
+                    {...halo}
+                  >
+                    {finishLabel}
+                  </text>
+                </g>
+              );
+            })()
+          : null}
+
         {aidStations.map((station, index) => {
           const isFinish = index === finishStationIndex;
+          const isActive = ravitoIndex === index;
           const x = xScale(station.distanceKm);
           const elevationAtPoint = getElevationAtDistance(station.distanceKm);
           const y = yScale(elevationAtPoint);
-          const color = isFinish ? "#22c55e" : "#fbbf24";
           const labelLayout = aidStationLabelLayout.get(index);
           const showLabel = !isFinish && Boolean(labelLayout?.visibleLabel);
-          const labelY = labelLayout?.lane === "top" ? Math.max(y - 16, paddingY + 10) : elevationBottom + 33;
+          const labelY = labelLayout?.lane === "top" ? Math.max(y - 14, paddingY + 6) : elevationBottom + 33;
           const labelText = labelLayout?.shortLabel ?? station.name;
           return (
             <g
               key={`${station.name}-${station.distanceKm}`}
               role="button"
               tabIndex={0}
+              className="cursor-pointer outline-none"
               aria-label={`${copy.sections.courseProfile.tooltip.ravitoTitle}: ${station.name}`}
               onFocus={() => setRavitoIndex(index)}
               onBlur={() => setRavitoIndex(null)}
@@ -529,40 +649,81 @@ export function ElevationProfileChart({
             >
               <title>{station.name}</title>
               <line
-                x1={x} x2={x} y1={y} y2={elevationBottom}
-                stroke={color}
-                strokeWidth={isFinish ? 2 : 1.5}
-                strokeDasharray={isFinish ? undefined : "2 3"}
+                x1={x}
+                x2={x}
+                y1={y}
+                y2={elevationBottom}
+                stroke={isFinish || isActive ? CHART.forest : CHART.inkTertiary}
+                strokeWidth={isFinish ? 1.5 : 1}
+                strokeDasharray={isFinish ? undefined : "1.5 3"}
               />
-              <circle cx={x} cy={y} r={isFinish ? 5 : 4} fill={color} />
+              {isActive ? (
+                <circle cx={x} cy={y} r={9} fill="none" stroke={CHART.forest} strokeOpacity={0.35} strokeWidth={1.5} />
+              ) : null}
+              {isFinish ? (
+                <circle cx={x} cy={y} r={5} fill={CHART.forest} stroke={CHART.surface} strokeWidth={2} />
+              ) : (
+                <circle
+                  cx={x}
+                  cy={y}
+                  r={isActive ? 5 : 3.75}
+                  fill={isActive ? CHART.target : CHART.surface}
+                  stroke={CHART.forest}
+                  strokeWidth={1.75}
+                />
+              )}
               {isFinish ? (
                 <text
-                  x={x}
-                  y={Math.max(y - 9, paddingY + 8)}
-                  fontSize={9}
-                  fontWeight="700"
-                  fill={color}
-                  textAnchor="middle"
+                  x={x + 2}
+                  y={Math.max(y - 10, paddingY + 4)}
+                  fontSize={10}
+                  fontWeight={600}
+                  fill={CHART.ink}
+                  textAnchor="end"
+                  style={displayText}
+                  {...halo}
                 >
-                  {copy.sections.courseProfile.finishLabel}
+                  {finishLabel}
                 </text>
-              ) : (
-                showLabel ? (
-                  <text x={x} y={labelY} fontSize={10} fontWeight="600" fill={color} textAnchor="middle">
-                    {labelText}
-                  </text>
-                ) : null
-              )}
+              ) : showLabel ? (
+                <text
+                  x={x}
+                  y={labelY}
+                  fontSize={10}
+                  fontWeight={600}
+                  fill={isActive ? CHART.ink : CHART.inkSecondary}
+                  textAnchor="middle"
+                  style={displayText}
+                  {...halo}
+                >
+                  {labelText}
+                </text>
+              ) : null}
             </g>
           );
         })}
+
+        {cursorX !== null && cursorY !== null && (
+          <g pointerEvents="none">
+            <line
+              x1={cursorX}
+              x2={cursorX}
+              y1={paddingY}
+              y2={elevationBottom}
+              stroke={CHART.ink}
+              strokeOpacity={0.35}
+              strokeWidth={1}
+            />
+            <circle cx={cursorX} cy={cursorY} r={4.5} fill={CHART.surface} stroke={CHART.forest} strokeWidth={2} />
+          </g>
+        )}
 
         {xTicks.map((d) => {
           const x = xScale(d);
           return (
             <g key={d}>
-              <line x1={x} x2={x} y1={elevationBottom} y2={elevationBottom + 4} stroke="#475569" strokeWidth={1} />
-              <text x={x} y={elevationBottom + 13} fontSize={9} fill="#64748b" textAnchor="middle">
+              <line x1={x} x2={x} y1={elevationBottom} y2={elevationBottom + 4} stroke={CHART.axis} strokeWidth={1} />
+              <text x={x} y={elevationBottom + 15} fontSize={10} fill={CHART.inkTertiary} textAnchor="middle" style={monoText}>
                 {d}
               </text>
             </g>
@@ -570,35 +731,39 @@ export function ElevationProfileChart({
         })}
 
         <text
-          x={width / 2}
-          y={elevationBottom + 44}
+          x={width - paddingX}
+          y={elevationBottom + 46}
           fontSize={10}
-          fill="#475569"
-          textAnchor="middle"
+          fill={CHART.inkTertiary}
+          textAnchor="end"
         >
           {copy.sections.courseProfile.axisLabel}
         </text>
 
-        {/* Slope color legend — top-right */}
-        <g>
-          <rect
-            x={width - paddingX - 112}
-            y={paddingY - 16}
-            width={112}
-            height={16}
-            rx={4}
-            fill="#0f172a"
-            fillOpacity={0.55}
+        <g aria-hidden="true">
+          <line
+            x1={climbSwatchX1}
+            x2={climbSwatchX2}
+            y1={legendY - 3.5}
+            y2={legendY - 3.5}
+            stroke={CHART.climb}
+            strokeWidth={2.5}
+            strokeLinecap="round"
           />
-          {/* Descent: blue */}
-          <circle cx={width - paddingX - 104} cy={paddingY - 8} r={3.5} fill="rgb(59,130,246)" />
-          <text x={width - paddingX - 98} y={paddingY - 4} fontSize={9} fill="#94a3b8">
-            {copy.sections.courseProfile.legendDescent}
-          </text>
-          {/* Climb: red */}
-          <circle cx={width - paddingX - 52} cy={paddingY - 8} r={3.5} fill="rgb(239,68,68)" />
-          <text x={width - paddingX - 46} y={paddingY - 4} fontSize={9} fill="#94a3b8">
+          <text x={climbTextX} y={legendY} fontSize={10} fill={CHART.inkSecondary} textAnchor="end">
             {copy.sections.courseProfile.legendClimb}
+          </text>
+          <line
+            x1={descentSwatchX1}
+            x2={descentSwatchX2}
+            y1={legendY - 3.5}
+            y2={legendY - 3.5}
+            stroke={CHART.descent}
+            strokeWidth={2.5}
+            strokeLinecap="round"
+          />
+          <text x={descentTextX} y={legendY} fontSize={10} fill={CHART.inkSecondary} textAnchor="end">
+            {copy.sections.courseProfile.legendDescent}
           </text>
         </g>
       </svg>
@@ -606,7 +771,7 @@ export function ElevationProfileChart({
       {(activePoint || activeRavito) && (
         <div
           ref={tooltipRef}
-          className="absolute z-10 max-w-[220px] rounded-md border border-border bg-slate-950/90 p-3 text-xs text-slate-100 shadow-lg backdrop-blur"
+          className="pointer-events-none absolute z-10 w-max max-w-[240px] rounded-[10px] border border-[#E5E2D8] bg-white/95 p-3 text-[#1F2410] shadow-[0_10px_30px_rgba(31,36,16,0.12)] backdrop-blur"
           style={
             tooltipPosition
               ? { left: tooltipPosition.left, top: tooltipPosition.top }
@@ -614,86 +779,29 @@ export function ElevationProfileChart({
           }
         >
           {activeRavito ? (
-            <div className="space-y-2">
-              <div className="text-sm font-semibold text-slate-50">
+            <div className="mb-2 flex items-center gap-1.5 font-[family-name:var(--font-plan-display)] text-[13px] font-semibold leading-tight">
+              <AidStationIcon size={14} strokeWidth={1.8} color={CHART.forest} />
+              <span>
                 {copy.sections.courseProfile.tooltip.ravitoTitle}: {activeRavito.name}
-              </div>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-slate-200">
-                <div>
-                  {copy.sections.courseProfile.tooltip.distance}: {activeRavito.distanceKm.toFixed(1)} {" "}
-                  {copy.units.kilometer}
-                </div>
-                <div>
-                  {copy.sections.courseProfile.tooltip.waterRefill}: {" "}
-                  {activeRavito.waterRefill !== false
-                    ? copy.sections.courseProfile.tooltip.waterRefillYes
-                    : copy.sections.courseProfile.tooltip.waterRefillNo}
-                </div>
-                {activeSegment ? (
-                  <>
-                    <div>
-                      {copy.sections.courseProfile.tooltip.plannedGels}: {activeSegment.gelsPlanned.toFixed(1)}
-                    </div>
-                    <div>
-                      {copy.sections.courseProfile.tooltip.plannedCarbs}: {activeSegment.plannedFuelGrams.toFixed(0)} {" "}
-                      {copy.units.grams}
-                    </div>
-                    <div>
-                      {copy.sections.courseProfile.tooltip.plannedCalories}: {" "}
-                      {(activeSegment.plannedFuelGrams * 4).toFixed(0)} kcal
-                    </div>
-                    <div>
-                      {copy.sections.courseProfile.tooltip.plannedSodium}: {activeSegment.plannedSodiumMg.toFixed(0)} {" "}
-                      {copy.units.milligrams}
-                    </div>
-                    <div>
-                      {copy.sections.courseProfile.tooltip.plannedWater}: {activeSegment.plannedWaterMl.toFixed(0)} {" "}
-                      {copy.units.milliliters}
-                    </div>
-                  </>
-                ) : null}
-              </div>
+              </span>
             </div>
-          ) : activePoint ? (
-            <div className="space-y-2">
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-slate-200">
-                <div>
-                  {copy.sections.courseProfile.tooltip.distance}: {activePoint.distanceKm.toFixed(1)} {" "}
-                  {copy.units.kilometer}
-                </div>
-                <div>
-                  {copy.sections.courseProfile.tooltip.elevation}: {activePoint.elevationM.toFixed(0)} {copy.units.meter}
-                </div>
-                <div>
-                  {copy.sections.courseProfile.tooltip.segmentGain}: {activePoint.segmentGainM.toFixed(0)} {" "}
-                  {copy.units.meter}
-                </div>
-                <div>
-                  {copy.sections.courseProfile.tooltip.segmentLoss}: {activePoint.segmentLossM.toFixed(0)} {" "}
-                  {copy.units.meter}
-                </div>
-                <div>
-                  {copy.sections.courseProfile.tooltip.cumulativeGain}: {activePoint.cumulativeGainM.toFixed(0)} {" "}
-                  {copy.units.meter}
-                </div>
-                <div>
-                  {copy.sections.courseProfile.tooltip.cumulativeLoss}: {activePoint.cumulativeLossM.toFixed(0)} {" "}
-                  {copy.units.meter}
-                </div>
-                {activePoint.timeMinutes !== null ? (
-                  <div>
-                    {copy.sections.courseProfile.tooltip.time}: {formatClockTime(activePoint.timeMinutes)}
-                  </div>
-                ) : null}
+          ) : null}
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+            {tooltipCells.map((cell) => (
+              <div key={cell.label} className="min-w-0">
+                <dt className="text-[10px] leading-tight text-[#8A917E]">{cell.label}</dt>
+                <dd className="font-[family-name:var(--font-plan-mono)] text-[12px] font-medium leading-tight tabular-nums">
+                  {cell.value}
+                </dd>
               </div>
-              {(paceLabel || speedLabel) && (
-                <div className="text-[11px] text-slate-300">
-                  {paceLabel ? `${copy.sections.courseProfile.tooltip.pace}: ${paceLabel}` : null}
-                  {paceLabel && speedLabel ? " • " : null}
-                  {speedLabel ? `${copy.sections.courseProfile.tooltip.speed}: ${speedLabel}` : null}
-                </div>
-              )}
-            </div>
+            ))}
+          </dl>
+          {!activeRavito && (paceLabel || speedLabel) ? (
+            <p className="mt-2 border-t border-[#E5E2D8] pt-2 text-[11px] text-[#5C6450]">
+              {paceLabel ? `${copy.sections.courseProfile.tooltip.pace}: ${paceLabel}` : null}
+              {paceLabel && speedLabel ? " · " : null}
+              {speedLabel ? `${copy.sections.courseProfile.tooltip.speed}: ${speedLabel}` : null}
+            </p>
           ) : null}
         </div>
       )}

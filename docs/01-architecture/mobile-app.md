@@ -741,6 +741,8 @@ The saved-plan recap now keeps the runner's locally stored departure authoritati
 
 Courses delay their loading skeleton for 400 ms, format sheets use equal outline actions and keep past-plan access only when a plan already exists, and brief non-destructive feedback uses the shared toast above the tab bar. Native selection feedback is decorative, disabled on web and when reduced motion is enabled, and never blocks an action. Adding `expo-haptics` moves both platforms to runtime `1.1.2`; a new native build is required before publishing compatible OTA updates.
 
+Shared chronology engine (2026-11-23): `lib/planTimelinePresentation.ts` (`compactPlanTimeline`), `lib/continuousNutrition.ts`, `components/plan-form/profile-utils.ts`, `section-summary.ts` and the plan contracts / values normalization in `contracts.ts` and `helpers.ts` are now relative re-exports of `packages/shared/src/plan-timeline/`, which the web planner's Chronologie also uses. Mobile behavior is byte-for-byte unchanged (golden snapshots in `lib/continuousNutrition.test.ts`); the change is pure JS and OTA-compatible. Mobile never imports `@trailplanner/shared` by name; see [Packages](packages.md#plan-timeline-module-2026-11-23).
+
 ## Related Docs
 
 - [Overview](overview.md)

@@ -7,6 +7,7 @@ import type { RacePlannerTranslations } from "../../../../locales/types";
 import type { FuelProduct } from "../../../../lib/product-types";
 import type { StoredProductPreference } from "../../../../lib/product-preferences";
 import { ActionPlan } from "../../../../components/race-planner/ActionPlan";
+import { planFontVariables } from "../../../../components/race-planner/plan-fonts";
 import type {
   ElevationPoint,
   FormValues,
@@ -73,6 +74,10 @@ type PlanPrimaryContentProps = {
   topContent?: ReactNode;
   /** Free preview: show the timeline (the result) first and the setup steps after it. */
   setupAfterPlan?: boolean;
+  /** Chronology view of the plan (engine shared with the mobile app). */
+  renderChronology?: ComponentProps<typeof ActionPlan>["renderChronology"];
+  /** Race name shown in the race band above the views. */
+  raceName?: string | null;
 };
 
 export const PlanPrimaryContent = memo(function PlanPrimaryContent({
@@ -116,9 +121,11 @@ export const PlanPrimaryContent = memo(function PlanPrimaryContent({
   sampleMode,
   topContent,
   setupAfterPlan = false,
+  renderChronology,
+  raceName = null,
 }: PlanPrimaryContentProps) {
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${planFontVariables}`}>
       {showProfileError && profileError ? <p className="text-sm text-amber-200">{profileError}</p> : null}
       {topContent}
       {setupAfterPlan ? null : setupContent}
@@ -159,6 +166,8 @@ export const PlanPrimaryContent = memo(function PlanPrimaryContent({
         onUpgrade={onUpgrade}
         upgradeStatus={upgradeStatus}
         sampleMode={sampleMode}
+        renderChronology={renderChronology}
+        raceName={raceName}
       />
       {setupAfterPlan ? setupContent : null}
     </div>
