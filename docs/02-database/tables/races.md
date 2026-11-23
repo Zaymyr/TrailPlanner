@@ -333,3 +333,7 @@ Switch-row presentation preserves the existing race and organizer-details boolea
 ## Admin audit journal (lot 7)
 
 `app/api/organizer/events/[id]/website-import/route.ts`, `app/api/race-catalog/[id]/thumbnail/route.ts` now export their write handlers through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`catalog.event-import`, `catalog.image`) to the admin action journal ([`admin_audit_log`](./admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.
+
+## Retiring a duplicate format (2026-11-23)
+
+Undated legacy formats that duplicate a dated format are unpublished, not deleted, when a runner plan may reference them: set `is_public = false` and `is_live = false`. `sync_race_web_catalog_visibility` only clears `web_catalog_is_live` when `is_public` is false (with `is_live` alone it keeps the previous value), and `enforce_race_catalog_completeness` turns any updated row without `race_date` into a draft. Add the retired URL to `catalogSlugRedirects` in `apps/web/next.config.mjs`. First case: migration `20261123210000` for the Marathon du Mont-Blanc 90K and 42K legacy formats (the 42K keeps one runner plan; plan access also goes through the live parent event).

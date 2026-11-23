@@ -1230,3 +1230,5 @@ Home copy that changed (heading, subheading, how-it-works including the Livret c
 ## Catalogue slug redirects (2026-11-23)
 
 `next.config.mjs` exports `catalogSlugRedirects`, permanent redirects for event hub slugs retired by a data merge. They stay outside `staticPathRedirects`, whose integrity test only covers legacy and blog routes with static targets. First entries: the two suffixed Marathon du Mont-Blanc hubs (`…-08a81d9c`, `…-d1472716`) now redirect to `/courses/evenements/marathon-du-mont-blanc` after migration `20261123200000` merged the duplicate events. The Marathon du Mont-Blanc blog article links to that hub. Covered by `lib/catalog-slug-redirects.test.ts`.
+
+Catalogue slug redirects (2026-11-23, follow-up): `catalogSlugRedirects` also sends the two undated legacy Marathon du Mont-Blanc formats (`/courses/marathon-du-mont-blanc-90k-lunr`, `/courses/marathon-du-mont-blanc-qonc`) to the dated 2027 formats, after migration `20261123210000` unpublished them. The Marathon du Mont-Blanc article's plan CTA (`CATALOG_RACE_MAP`) now targets the 42 km 2027 format.
