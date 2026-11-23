@@ -130,44 +130,33 @@ export function MobileAppPrompt() {
   const isExternalLink = storeTarget.url.startsWith("https://");
 
   return (
+    // Thin bottom bar (not a card): it must never cover a form. Hidden from md up, on store-button pages and
+    // while another overlay is open (see above).
     <aside
       aria-label={t.mobileAppPrompt.title}
-      className="fixed bottom-4 left-1/2 z-40 w-[min(calc(100vw-2rem),22rem)] -translate-x-1/2 md:hidden"
-      role="dialog"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-brand-border bg-card/95 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur md:hidden"
     >
-      <div className="relative rounded-lg border border-emerald-200 bg-white p-4 pr-10 text-slate-950 shadow-xl shadow-slate-950/15 dark:border-emerald-500/30 dark:bg-slate-950 dark:text-slate-50">
+      <div className="mx-auto flex max-w-md items-center gap-2">
+        <p className="min-w-0 flex-1 text-[13px] font-semibold leading-tight text-foreground">{t.mobileAppPrompt.title}</p>
+        <a
+          href={storeTarget.url}
+          target={isExternalLink ? "_blank" : undefined}
+          rel={isExternalLink ? "noreferrer" : undefined}
+          onClick={handleDownload}
+          className="inline-flex h-9 shrink-0 items-center justify-center rounded-full bg-brand px-4 text-sm font-semibold text-brand-foreground transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {t.mobileAppPrompt.cta}
+        </a>
         <button
           type="button"
           aria-label={t.mobileAppPrompt.dismissLabel}
           onClick={handleDismiss}
-          className="absolute right-2 top-2 inline-flex h-11 w-11 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-50"
+          className="-mr-1 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          x
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className="h-4 w-4">
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
         </button>
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <p className="text-sm font-semibold text-slate-950 dark:text-slate-50">{t.mobileAppPrompt.title}</p>
-            <p className="text-sm leading-5 text-slate-600 dark:text-slate-300">{t.mobileAppPrompt.description}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <a
-              href={storeTarget.url}
-              target={isExternalLink ? "_blank" : undefined}
-              rel={isExternalLink ? "noreferrer" : undefined}
-              onClick={handleDownload}
-              className="inline-flex h-10 flex-1 items-center justify-center rounded-md bg-[hsl(var(--brand))] px-3 text-sm font-semibold text-[hsl(var(--brand-foreground))] transition hover:bg-[hsl(var(--brand)/0.9)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 dark:bg-emerald-500 dark:text-foreground dark:hover:bg-emerald-400"
-            >
-              {t.mobileAppPrompt.cta}
-            </a>
-            <button
-              type="button"
-              onClick={handleDismiss}
-              className="inline-flex h-10 items-center justify-center rounded-md border border-border px-3 text-sm font-medium text-[hsl(var(--success))] transition hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 dark:text-emerald-100 dark:hover:bg-emerald-950/60"
-            >
-              {t.mobileAppPrompt.later}
-            </button>
-          </div>
-        </div>
       </div>
     </aside>
   );
