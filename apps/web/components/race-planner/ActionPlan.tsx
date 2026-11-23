@@ -174,6 +174,17 @@ type ActionPlanProps = {
   premiumCopy: RacePlannerTranslations["account"]["premium"];
   onUpgrade: (reason: "autoFill" | "print") => void;
   upgradeStatus: "idle" | "opening";
+  /**
+   * Free preview (visitor or free account): the first `editableItemCount` points (departure, first aid
+   * station) stay interactive, the rest of the timeline is shown blurred and inert behind `lockedCta`, and
+   * the header actions (add aid station, auto-fill, print) call `onLockedAction` instead of acting.
+   */
+  sampleMode?: {
+    editableItemCount: number;
+    /** Receives the number of aid stations hidden behind the lock (finish excluded). */
+    lockedCta: (lockedAidStationCount: number) => ReactNode;
+    onLockedAction: () => void;
+  };
 };
 
 const parseOptionalNumber = (value: string | number) => {
@@ -649,7 +660,7 @@ function AidStationHeaderRow({
           onTitleClick={onTitleClick}
         />
         {headerMiddle ? (
-          <div className="flex w-full min-w-[240px] flex-1 justify-center">{headerMiddle}</div>
+          <div className="flex w-full min-w-0 flex-1 justify-center sm:min-w-[240px]">{headerMiddle}</div>
         ) : null}
         {headerActions ? <div className="flex items-center justify-end gap-3">{headerActions}</div> : null}
       </div>
@@ -1176,6 +1187,7 @@ export function ActionPlan({
   premiumCopy,
   onUpgrade,
   upgradeStatus,
+  sampleMode,
 }: ActionPlanProps) {
   const { locale } = useI18n();
   const [collapsedAidStations, setCollapsedAidStations] = useState<Record<string, boolean>>({});
@@ -1919,7 +1931,7 @@ export function ActionPlan({
             description={timelineCopy.description}
             descriptionAsTooltip
           action={
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {hasCollapsibleAidStations ? (
                 <Button
                   type="button"
@@ -1931,7 +1943,7 @@ export function ActionPlan({
                 </Button>
               ) : null}
               <span id="onboarding-add-aid-btn" className="inline-flex">
-                <Button type="button" onClick={openCreateEditor}>
+                <Button type="button" onClick={sampleMode ? sampleMode.onLockedAction : openCreateEditor}>
                   {aidStationsCopy.add}
                 </Button>
               </span>
@@ -1953,7 +1965,9 @@ export function ActionPlan({
                     variant="outline"
                     className={autoFillLocked ? "premium-glow" : undefined}
                     onClick={
-                      autoFillLocked
+                      sampleMode
+                        ? sampleMode.onLockedAction
+                        : autoFillLocked
                         ? () => onUpgrade("autoFill")
                         : () => onAutomaticFill({ useOrganizerProducts: useOrganizerProductsForAutoFill })
                     }
@@ -1976,7 +1990,7 @@ export function ActionPlan({
                   type="button"
                   variant="outline"
                   className={exportLocked ? "hidden sm:inline-flex premium-glow" : "hidden sm:inline-flex"}
-                  onClick={exportLocked ? () => onUpgrade("print") : onPrintAssistance}
+                  onClick={sampleMode ? sampleMode.onLockedAction : exportLocked ? () => onUpgrade("print") : onPrintAssistance}
                   disabled={exportLocked && isUpgradeBusy}
                 >
                   {copy.buttons.printPlan}
@@ -1993,7 +2007,7 @@ export function ActionPlan({
         {segments.length > 0 ? (
           <div className="relative space-y-8">
             {(() => {
-              return renderItems.map((item, itemIndex) => {
+              const renderedItems = renderItems.map((item, itemIndex) => {
                 const pointNumber = itemIndex + 1;
                 const distanceFieldName =
                   typeof item.aidStationIndex === "number"
@@ -2230,7 +2244,7 @@ export function ActionPlan({
                         }
                       }}
                     >
-                      <div className="flex items-start justify-between gap-2">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
                         <div className="flex flex-1 flex-wrap gap-2">
                           {summarized?.items?.length
                             ? summarized.items.map(({ product, quantity }) => {
@@ -2302,7 +2316,7 @@ export function ActionPlan({
                               })
                             : null}
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
                           {waterRefillToggle}
                           {solidRefillToggle}
                           {assistanceAllowedToggle}
@@ -2978,6 +2992,26 @@ export function ActionPlan({
                   </div>
                 );
               });
+              if (!sampleMode || renderedItems.length <= sampleMode.editableItemCount) return renderedItems;
+              return (
+                <>
+                  {renderedItems.slice(0, sampleMode.editableItemCount)}
+                  <div className="relative z-10">
+                    {sampleMode.lockedCta(
+                      renderItems.slice(sampleMode.editableItemCount).filter((item) => !item.isFinish && !item.isStart).length,
+                    )}
+                  </div>
+                  {/* Locked preview: real points stay visible to show what the full plan holds, but cannot be used. */}
+                  <div
+                    aria-hidden="true"
+                    ref={(node) => node?.setAttribute("inert", "")}
+                    className="pointer-events-none relative max-h-[42rem] select-none space-y-8 overflow-hidden opacity-60 blur-[2px]"
+                  >
+                    {renderedItems.slice(sampleMode.editableItemCount)}
+                    <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-card to-transparent" />
+                  </div>
+                </>
+              );
             })()}
           </div>
         ) : null}

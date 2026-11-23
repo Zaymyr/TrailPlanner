@@ -31,7 +31,7 @@ export function SectionHeader({
   );
 
   return (
-    <div className="flex items-start justify-between gap-3">
+    <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="space-y-1">
         {headingLevel === "h3" ? (
           <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">{titleContent}</h3>
@@ -40,7 +40,7 @@ export function SectionHeader({
         )}
         {description && !descriptionAsTooltip ? <p className="text-sm text-muted-foreground">{description}</p> : null}
       </div>
-      {action ? <div className="shrink-0">{action}</div> : null}
+      {action ? <div className="max-w-full shrink-0">{action}</div> : null}
     </div>
   );
 }

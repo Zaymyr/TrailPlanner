@@ -4,6 +4,14 @@
 
 Journal en ajout seul, la plus récente en haut. Format : `## AAAA-MM-JJ — Titre`, puis Contexte / Décision / Conséquence (2 à 4 lignes chacun). Les décisions d'architecture détaillées (ADR) vont dans [docs/08-decisions/](../08-decisions/README.md).
 
+## 2026-11-23 — Aperçu gratuit du plan sur le web (invité et compte gratuit)
+
+**Contexte.** Sur le planificateur web, un invité qui choisissait une course ne voyait rien se passer ; l’estimation finissait sur un mur de compte et le compte gratuit ne voyait qu’un aperçu figé. Rien ne donnait envie d’aller jusqu’à l’achat.
+
+**Décision.** Parcours sans compte : course → estimation (allure ou temps sur 10 km plat) → « Voir mon plan de course », le vrai planificateur où le départ et le 1er ravito sont personnalisables, la suite floutée derrière une carte d’appel. Enregistrer demande un compte gratuit ; le compte gratuit garde la même expérience et débloque la course pour aller plus loin. Les réglages du 1er ravito restent sur l’appareil jusqu’à l’achat (aucun changement de base : le trigger `sanitize_runner_free_plan` est conservé).
+
+**Conséquence.** La règle « aucun contrôle éditable dans l’aperçu gratuit » est remplacée sur le web par cet échantillon. L’App mobile garde son aperçu actuel. Les réglages d’un compte gratuit ne suivent pas d’un appareil à l’autre avant l’achat.
+
 ## 2026-11-23 — Site web en thème clair uniquement, bandeau app réduit
 
 **Contexte.** L’audit des pages coureur du site a montré que le thème sombre reprenait l’ancienne palette (bleu nuit, émeraude) et ne ressemblait ni au thème clair ni à l’App ; le bandeau « télécharger l’app » recouvrait le bas des formulaires sur mobile.

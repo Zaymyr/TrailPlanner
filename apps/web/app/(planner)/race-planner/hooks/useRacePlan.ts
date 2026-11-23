@@ -702,58 +702,71 @@ export const useRacePlan = ({
     [session?.accessToken]
   );
 
+  /**
+   * Loads a catalog race into the local form only (no plan row is created). Used by visitors (free plan
+   * preview opened from the quick estimate) and by the legacy guest planner. Resolves to `true` on success.
+   */
+  const loadCatalogRaceLocally = useCallback(async (raceId: string): Promise<boolean> => {
+    setAccountError(null);
+    setAccountMessage(null);
+    setCatalogSubmissionId(raceId);
+    try {
+      const gpxResponse = await fetch(`/api/race-catalog/${raceId}/gpx`);
+      if (!gpxResponse.ok) {
+        setAccountError(racePlannerCopy.raceCatalog.errors.createFailed);
+        return false;
+      }
+      const gpxContent = await gpxResponse.text();
+      const parsedGpx = parseGpxLocal(gpxContent, racePlannerCopy);
+
+      const fallbackDistance = parsedGpx.distanceKm || defaultValues.raceDistanceKm;
+      const fallbackStations =
+        parsedGpx.aidStations.length > 0
+          ? parsedGpx.aidStations
+          : [{ name: racePlannerCopy.defaults.finish, distanceKm: Number(fallbackDistance.toFixed(1)) }];
+
+      if (parsedGpx.plannerValues) {
+        const plannerAidStations = sanitizeAidStations(parsedGpx.plannerValues.aidStations);
+        const mergedAidStations = plannerAidStations.length > 0 ? plannerAidStations : fallbackStations;
+        form.reset(
+          {
+            ...defaultValues,
+            ...parsedGpx.plannerValues,
+            raceDistanceKm: parsedGpx.plannerValues.raceDistanceKm ?? fallbackDistance,
+            aidStations: mergedAidStations,
+            finishPlan: parsedGpx.plannerValues.finishPlan ?? defaultValues.finishPlan,
+          },
+          { keepDefaultValues: true }
+        );
+      } else {
+        form.setValue("raceDistanceKm", Number(fallbackDistance.toFixed(1)));
+        form.setValue("aidStations", fallbackStations);
+      }
+
+      setElevationProfile(parsedGpx.elevationProfile);
+      setAccountMessage(racePlannerCopy.raceCatalog.messages.guestLoaded);
+      setIsRaceCatalogOpen(false);
+      return true;
+    } catch (error) {
+      console.error("Unable to load catalog race for guest", error);
+      setAccountError(racePlannerCopy.raceCatalog.errors.createFailed);
+      return false;
+    } finally {
+      setCatalogSubmissionId(null);
+    }
+  }, [defaultValues, form, racePlannerCopy, setCatalogSubmissionId, setElevationProfile, setIsRaceCatalogOpen]);
+
   const handleUseCatalogRace = useCallback(async (raceId: string) => {
     setAccountError(null);
     setAccountMessage(null);
 
-    setCatalogSubmissionId(raceId);
-
     // Guest flow: fetch GPX and load locally without saving to DB
     if (!session?.accessToken) {
-      try {
-        const gpxResponse = await fetch(`/api/race-catalog/${raceId}/gpx`);
-        if (!gpxResponse.ok) {
-          setAccountError(racePlannerCopy.raceCatalog.errors.createFailed);
-          return;
-        }
-        const gpxContent = await gpxResponse.text();
-        const parsedGpx = parseGpxLocal(gpxContent, racePlannerCopy);
-
-        const fallbackDistance = parsedGpx.distanceKm || defaultValues.raceDistanceKm;
-        const fallbackStations =
-          parsedGpx.aidStations.length > 0
-            ? parsedGpx.aidStations
-            : [{ name: racePlannerCopy.defaults.finish, distanceKm: Number(fallbackDistance.toFixed(1)) }];
-
-        if (parsedGpx.plannerValues) {
-          const plannerAidStations = sanitizeAidStations(parsedGpx.plannerValues.aidStations);
-          const mergedAidStations = plannerAidStations.length > 0 ? plannerAidStations : fallbackStations;
-          form.reset(
-            {
-              ...defaultValues,
-              ...parsedGpx.plannerValues,
-              raceDistanceKm: parsedGpx.plannerValues.raceDistanceKm ?? fallbackDistance,
-              aidStations: mergedAidStations,
-              finishPlan: parsedGpx.plannerValues.finishPlan ?? defaultValues.finishPlan,
-            },
-            { keepDefaultValues: true }
-          );
-        } else {
-          form.setValue("raceDistanceKm", Number(fallbackDistance.toFixed(1)));
-          form.setValue("aidStations", fallbackStations);
-        }
-
-        setElevationProfile(parsedGpx.elevationProfile);
-        setAccountMessage(racePlannerCopy.raceCatalog.messages.guestLoaded);
-        setIsRaceCatalogOpen(false);
-      } catch (error) {
-        console.error("Unable to load catalog race for guest", error);
-        setAccountError(racePlannerCopy.raceCatalog.errors.createFailed);
-      } finally {
-        setCatalogSubmissionId(null);
-      }
+      await loadCatalogRaceLocally(raceId);
       return;
     }
+
+    setCatalogSubmissionId(raceId);
 
     try {
       const response = await fetch("/api/plans/from-catalog", {
@@ -809,15 +822,13 @@ export const useRacePlan = ({
       setCatalogSubmissionId(null);
     }
   }, [
-    defaultValues,
-    form,
     handleLoadPlan,
+    loadCatalogRaceLocally,
     premiumCopy.planLimitReached,
     racePlannerCopy,
     requestPremiumUpgrade,
     session?.accessToken,
     setCatalogSubmissionId,
-    setElevationProfile,
     setIsRaceCatalogOpen,
   ]);
 
@@ -860,6 +871,7 @@ export const useRacePlan = ({
     handleRenamePlan,
     handleRefreshPlans,
     handleUseCatalogRace,
+    loadCatalogRaceLocally,
     handleCreateRace,
     handleDeleteRace,
   };

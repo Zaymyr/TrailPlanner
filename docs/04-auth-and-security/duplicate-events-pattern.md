@@ -1,7 +1,7 @@
 ---
 title: Duplicate Events Pattern
 scope: auth
-last_verified: 2026-11-22
+last_verified: 2026-11-23
 ai_priority: high
 related_files:
   - apps/web/app/onboarding/account/page.tsx
@@ -62,6 +62,8 @@ After a successful save it sets:
 - `localStorage.setItem('onboarding_plan_saved', '1')`.
 
 `apps/web/app/(planner)/race-planner/hooks/useRacePlan.ts` later removes `trailplanner.pendingPlanId` and both onboarding save flags after loading the pending plan.
+
+`useRacePlan.ts` also exposes `loadCatalogRaceLocally` (2026-11-23) for the visitor plan preview: it only fills the local form from the catalog GPX and never saves, so it adds no write that needs this pattern; the plan is still created once by `POST /api/plans/from-catalog` after authentication.
 
 ## Server-Side Backstop
 

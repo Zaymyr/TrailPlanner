@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, type ReactNode } from "react";
+import { memo, type ComponentProps, type ReactNode } from "react";
 import type { UseFormRegister, UseFormSetValue } from "react-hook-form";
 
 import type { RacePlannerTranslations } from "../../../../locales/types";
@@ -67,6 +67,10 @@ type PlanPrimaryContentProps = {
   premiumCopy: RacePlannerTranslations["account"]["premium"];
   onUpgrade: (reason: "autoFill" | "print") => void;
   upgradeStatus: "idle" | "opening";
+  /** Free preview of the plan, see `ActionPlan`. */
+  sampleMode?: ComponentProps<typeof ActionPlan>["sampleMode"];
+  /** Shown above the plan setup (free preview banner). */
+  topContent?: ReactNode;
 };
 
 export const PlanPrimaryContent = memo(function PlanPrimaryContent({
@@ -107,10 +111,13 @@ export const PlanPrimaryContent = memo(function PlanPrimaryContent({
   premiumCopy,
   onUpgrade,
   upgradeStatus,
+  sampleMode,
+  topContent,
 }: PlanPrimaryContentProps) {
   return (
     <div className="space-y-6">
       {showProfileError && profileError ? <p className="text-sm text-amber-200">{profileError}</p> : null}
+      {topContent}
       {setupContent}
 
       <ActionPlan
@@ -148,6 +155,7 @@ export const PlanPrimaryContent = memo(function PlanPrimaryContent({
         premiumCopy={premiumCopy}
         onUpgrade={onUpgrade}
         upgradeStatus={upgradeStatus}
+        sampleMode={sampleMode}
       />
     </div>
   );

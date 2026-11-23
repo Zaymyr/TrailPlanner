@@ -1,7 +1,7 @@
 ---
 title: Plan Storage
 scope: business-rule
-last_verified: 2026-11-22
+last_verified: 2026-11-23
 # Crew follow UX (2026-11-17): passed checkpoints collapse, confirmed passages can be corrected or undone, the crew handover is a device-local checklist, aid-station directions match supporter points by place name within 2 km, and phones without the app get an app-first gate on the public page; no column, RLS or crew_state shape change.
 # Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
 # Structured cutoff phase (2026-11-15): optional day offsets make overnight and multi-day aid-station/final cutoffs deterministic; missing offsets preserve the historical clock heuristic, and relay clock columns remain text normalized client-side.
@@ -117,6 +117,10 @@ Idempotency behavior:
 - the partial unique database index is the final concurrency guard, and a conflicting insert reloads the winning plan;
 - without a race id, it checks plans created in the last 60 seconds;
 - it inserts `race_plans` with `user_id`, `name`, `planner_values`, `elevation_profile`, and optional `race_id`.
+
+## Visitor plan preview draft (2026-11-23)
+
+The web free plan preview (see [runner-monetization.md](./runner-monetization.md#web-free-plan-preview-2026-11-23)) is never written to `race_plans` before an account exists. « Enregistrer mon plan » stores it in `localStorage` under `runner.guestPlanDraft` (`catalogRaceId`, sanitized planner values, elevation profile, plan name). When the authenticated planner loads a plan whose `catalogRaceId` matches, it moves that payload to the plan draft key (`getRacePlannerDraftKey(planId)`, `updatedAt` newer than the plan row) and removes the guest key; the existing draft restore then applies it. For a free plan the save keeps that draft (the free row is sanitized server-side), so the first aid station survives until the course is unlocked; a paid save clears it as before. `loadCatalogRaceLocally` (useRacePlan) is the only loader of the preview and creates no row.
 
 ## Post-Signup Storage
 

@@ -7,7 +7,7 @@ import { APP_INSTALL_HELP_URL, resolveAppStoreTarget, type AppStoreTarget } from
 import { trackGoogleAnalyticsEvent } from "../../../../lib/google-analytics";
 import { trackQuickEstimateCompleted } from "../../../../lib/product-analytics";
 import { rememberFunnelSourceRace } from "../../../../lib/race-funnel-source";
-import { formatDurationHm, formatPaceMinPerKm, type QuickEstimateResult } from "../utils/quick-estimate";
+import { FLAT_PACE_MAX, FLAT_PACE_MIN, formatDurationHm, formatPaceMinPerKm, type QuickEstimateResult } from "../utils/quick-estimate";
 
 export const QUICK_ESTIMATE_STORAGE_KEY = "runner.quickEstimate";
 
@@ -27,6 +27,10 @@ export function readStoredQuickEstimateInputs(): StoredQuickEstimateInputs | nul
   }
 }
 
+/** Reference flat distance of the « temps sur le plat » input. */
+const FLAT_REFERENCE_KM = 10;
+
+type InputMode = "pace" | "flatTime";
 type RaceSummary = { id: string; name: string; slug: string; distanceKm: number | null; elevationGainM: number | null; date: string | null };
 type EstimateResponse = {
   fromPace: QuickEstimateResult | null;
@@ -37,22 +41,37 @@ const inputClassName =
   "h-12 w-full rounded-xl border border-border bg-background px-3 text-center text-lg font-semibold tabular-nums text-foreground outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30";
 
 const primaryButtonClassName =
-  "inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-brand px-5 text-base font-semibold text-brand-foreground transition hover:bg-brand-light disabled:opacity-60";
-
-const secondaryButtonClassName =
-  "inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-border bg-card px-5 text-base font-semibold text-foreground transition hover:border-brand-border hover:bg-brand-surface";
+  "inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 text-base font-semibold text-brand-foreground transition hover:bg-brand-light disabled:opacity-60";
 
 const Metric = ({ label, value }: { label: string; value: string }) => (
-  <div className="min-w-0 rounded-xl bg-muted/50 px-3 py-2">
+  <div className="min-w-0 rounded-xl bg-card/70 px-3 py-2">
     <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
     <p className="truncate text-base font-bold text-foreground">{value}</p>
   </div>
 );
 
-export function QuickRaceEstimate({ race, returnPath }: { race: RaceSummary | null; returnPath: string }) {
-  const [paceMinutes, setPaceMinutes] = useState("");
-  const [paceSeconds, setPaceSeconds] = useState("");
+const digits = (value: string, max: number) => value.replace(/\D/g, "").slice(0, max);
+
+/**
+ * Account-free estimate of a catalog race: flat pace (or a flat 10 km time) and/or UTMB Index → total time
+ * and ravito passages. The primary next step opens the free plan preview (`onOpenPlan`), where the visitor
+ * prepares the departure and the first aid station before being asked for an account.
+ */
+export function QuickRaceEstimate({
+  race,
+  onOpenPlan,
+  isOpeningPlan = false,
+}: {
+  race: RaceSummary | null;
+  /** Opens the free plan preview with the flat pace the estimate used (min/km). */
+  onOpenPlan: (flatPaceMinPerKm: number) => void;
+  isOpeningPlan?: boolean;
+}) {
+  const [mode, setMode] = useState<InputMode>("pace");
+  const [firstValue, setFirstValue] = useState("");
+  const [secondValue, setSecondValue] = useState("");
   const [utmbIndex, setUtmbIndex] = useState("");
+  const [showUtmb, setShowUtmb] = useState(false);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<EstimateResponse | null>(null);
@@ -63,10 +82,13 @@ export function QuickRaceEstimate({ race, returnPath }: { race: RaceSummary | nu
     const stored = readStoredQuickEstimateInputs();
     if (stored?.flatPaceMinPerKm) {
       const totalSeconds = Math.round(stored.flatPaceMinPerKm * 60);
-      setPaceMinutes(String(Math.floor(totalSeconds / 60)));
-      setPaceSeconds(String(totalSeconds % 60).padStart(2, "0"));
+      setFirstValue(String(Math.floor(totalSeconds / 60)));
+      setSecondValue(String(totalSeconds % 60).padStart(2, "0"));
     }
-    if (stored?.utmbIndex) setUtmbIndex(String(stored.utmbIndex));
+    if (stored?.utmbIndex) {
+      setUtmbIndex(String(stored.utmbIndex));
+      setShowUtmb(true);
+    }
   }, []);
 
   const raceId = race?.id ?? null;
@@ -74,17 +96,37 @@ export function QuickRaceEstimate({ race, returnPath }: { race: RaceSummary | nu
     rememberFunnelSourceRace(raceId);
   }, [raceId]);
 
+  const switchMode = (next: InputMode) => {
+    if (next === mode) return;
+    setMode(next);
+    setFirstValue("");
+    setSecondValue("");
+    setError(null);
+  };
+
+  /** Flat pace in min/km from the active input, or null when empty/invalid. */
+  const readFlatPace = (): number | null => {
+    if (!firstValue.trim()) return null;
+    const first = Number(firstValue);
+    const second = secondValue.trim() ? Number(secondValue) : 0;
+    if (!Number.isFinite(first) || !Number.isFinite(second) || second > 59) return null;
+    const minutes = first + second / 60;
+    return mode === "pace" ? minutes : minutes / FLAT_REFERENCE_KM;
+  };
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!race) return;
-    const minutes = paceMinutes.trim() ? Number(paceMinutes) : null;
-    const seconds = paceSeconds.trim() ? Number(paceSeconds) : 0;
-    const flatPaceMinPerKm = minutes !== null && Number.isFinite(minutes) && Number.isFinite(seconds) ? minutes + seconds / 60 : null;
+    const flatPaceMinPerKm = readFlatPace();
     const index = utmbIndex.trim() ? Number(utmbIndex) : null;
-    const hasPace = flatPaceMinPerKm !== null && flatPaceMinPerKm >= 3 && flatPaceMinPerKm <= 15;
+    const hasPace = flatPaceMinPerKm !== null && flatPaceMinPerKm >= FLAT_PACE_MIN && flatPaceMinPerKm <= FLAT_PACE_MAX;
     const hasIndex = index !== null && Number.isFinite(index) && index > 0 && index <= 1000;
     if (!hasPace && !hasIndex) {
-      setError("Indique ton allure sur le plat (entre 3:00 et 15:00 /km) ou ton indice UTMB.");
+      setError(
+        mode === "pace"
+          ? "Indique ton allure sur le plat, entre 3:00 et 15:00 /km."
+          : "Indique ton temps sur 10 km plat, entre 30 min et 2 h 30.",
+      );
       return;
     }
 
@@ -125,12 +167,21 @@ export function QuickRaceEstimate({ race, returnPath }: { race: RaceSummary | nu
   const primary = result?.fromPace ?? result?.fromUtmb ?? null;
   const secondary = result?.fromPace && result.fromUtmb ? result.fromUtmb : null;
   const checkpoints = primary?.checkpoints ?? [];
+  // `checkpoints` lists the aid stations then « Arrivée » (no departure).
+  const aidStationCount = Math.max(0, checkpoints.length - 1);
+  const firstAidStation = checkpoints.length > 1 ? checkpoints[0] : null;
+
+  const openPlan = () => {
+    if (!primary) return;
+    trackGoogleAnalyticsEvent("quick estimate open plan", { event_category: "plan", race_id: race?.id });
+    onOpenPlan(primary.flatPaceMinPerKm);
+  };
 
   return (
     <section className="mx-auto w-full max-w-xl space-y-4" aria-labelledby="quick-estimate-heading">
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-        <div className="space-y-3 bg-brand px-4 py-4 text-brand-foreground sm:px-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] opacity-80">Estimation gratuite</p>
+        <div className="space-y-3 bg-brand px-4 py-5 text-brand-foreground sm:px-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] opacity-80">Gratuit · sans compte · 30 secondes</p>
           <h2 id="quick-estimate-heading" className="text-2xl font-bold leading-tight">
             {race ? `Ton temps sur ${race.name}` : "Ton temps sur cette course"}
           </h2>
@@ -148,50 +199,75 @@ export function QuickRaceEstimate({ race, returnPath }: { race: RaceSummary | nu
         </div>
 
         <form onSubmit={submit} className="space-y-4 p-4 sm:p-6" noValidate>
+          <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted p-1" role="group" aria-label="Ce que tu connais">
+            {(
+              [
+                ["pace", "Mon allure /km"],
+                ["flatTime", "Mon temps sur 10 km"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={mode === value}
+                onClick={() => switchMode(value)}
+                className={`min-h-10 rounded-lg px-3 text-sm font-semibold transition ${
+                  mode === value ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
           <fieldset className="space-y-2">
-            <legend className="text-sm font-semibold text-foreground">Ton allure confortable sur le plat</legend>
+            <legend className="text-sm font-semibold text-foreground">
+              {mode === "pace" ? "Ton allure confortable sur le plat" : "Ton temps sur 10 km plat, sans forcer"}
+            </legend>
             <div className="flex items-center gap-2">
               <input
-                aria-label="Minutes par kilomètre"
+                aria-label={mode === "pace" ? "Minutes par kilomètre" : "Minutes"}
                 inputMode="numeric"
-                placeholder="6"
-                value={paceMinutes}
-                onChange={(event) => setPaceMinutes(event.target.value.replace(/\D/g, "").slice(0, 2))}
-                className={`${inputClassName} max-w-[5rem]`}
+                placeholder={mode === "pace" ? "6" : "55"}
+                value={firstValue}
+                onChange={(event) => setFirstValue(digits(event.target.value, mode === "pace" ? 2 : 3))}
+                className={`${inputClassName} max-w-[5.5rem]`}
               />
-              <span className="text-lg font-bold text-muted-foreground">:</span>
+              <span className="text-lg font-bold text-muted-foreground">{mode === "pace" ? ":" : "min"}</span>
               <input
-                aria-label="Secondes par kilomètre"
+                aria-label="Secondes"
                 inputMode="numeric"
-                placeholder="30"
-                value={paceSeconds}
-                onChange={(event) => setPaceSeconds(event.target.value.replace(/\D/g, "").slice(0, 2))}
+                placeholder={mode === "pace" ? "30" : "00"}
+                value={secondValue}
+                onChange={(event) => setSecondValue(digits(event.target.value, 2))}
                 className={`${inputClassName} max-w-[5rem]`}
               />
-              <span className="text-sm font-medium text-muted-foreground">min/km</span>
+              <span className="text-sm font-medium text-muted-foreground">{mode === "pace" ? "min/km" : "s"}</span>
             </div>
-            <p className="text-xs text-muted-foreground">L’allure d’un footing où tu peux encore parler.</p>
+            <p className="text-xs text-muted-foreground">
+              {mode === "pace" ? "L’allure d’un footing où tu peux encore parler." : "Un 10 km tranquille, pas ton record."}
+            </p>
           </fieldset>
 
-          <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            <span className="h-px flex-1 bg-border" />
-            et / ou
-            <span className="h-px flex-1 bg-border" />
-          </div>
+          {showUtmb ? (
+            <div className="space-y-2">
+              <label htmlFor="quick-estimate-utmb" className="block text-sm font-semibold text-foreground">Ton indice UTMB (optionnel)</label>
+              <input
+                id="quick-estimate-utmb"
+                inputMode="numeric"
+                placeholder="Ex. 520"
+                value={utmbIndex}
+                onChange={(event) => setUtmbIndex(digits(event.target.value, 4))}
+                className={`${inputClassName} max-w-[9rem]`}
+              />
+            </div>
+          ) : (
+            <button type="button" onClick={() => setShowUtmb(true)} className="text-sm font-semibold text-brand underline-offset-4 hover:underline">
+              + J’ai un indice UTMB
+            </button>
+          )}
 
-          <div className="space-y-2">
-            <label htmlFor="quick-estimate-utmb" className="block text-sm font-semibold text-foreground">Ton indice UTMB</label>
-            <input
-              id="quick-estimate-utmb"
-              inputMode="numeric"
-              placeholder="Ex. 520"
-              value={utmbIndex}
-              onChange={(event) => setUtmbIndex(event.target.value.replace(/\D/g, "").slice(0, 4))}
-              className={`${inputClassName} max-w-[9rem]`}
-            />
-          </div>
-
-          {error ? <p role="alert" className="text-sm font-medium text-red-600">{error}</p> : null}
+          {error ? <p role="alert" className="text-sm font-medium text-pace-semantic-danger">{error}</p> : null}
 
           <button type="submit" className={primaryButtonClassName} disabled={status === "loading" || !race}>
             {status === "loading" ? "Calcul en cours…" : result ? "Recalculer" : "Calculer mon temps"}
@@ -202,7 +278,7 @@ export function QuickRaceEstimate({ race, returnPath }: { race: RaceSummary | nu
       {primary ? (
         <div className="space-y-4" aria-live="polite">
           <div className="rounded-2xl border border-brand-border bg-brand-surface p-4 sm:p-6">
-            <p className="text-sm font-semibold text-brand">Temps estimé</p>
+            <p className="text-sm font-semibold text-brand">Ton temps estimé</p>
             <p className="text-5xl font-bold tracking-tight text-foreground tabular-nums">{formatDurationHm(primary.totalSeconds)}</p>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <Metric label="Allure moyenne" value={formatPaceMinPerKm(primary.averagePaceMinPerKm)} />
@@ -214,12 +290,36 @@ export function QuickRaceEstimate({ race, returnPath }: { race: RaceSummary | nu
               </p>
             ) : null}
             <p className="mt-3 text-xs text-muted-foreground">
-              Estimation hors pauses aux ravitos, basée sur la distance, le dénivelé et la fatigue. Affine-la dans ton plan.
+              Calculé sur la distance, le dénivelé et la fatigue, hors pauses aux ravitos.
             </p>
           </div>
 
+          <div className="space-y-4 rounded-2xl border-2 border-brand bg-card p-4 shadow-md sm:p-6">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand">Étape suivante · gratuit</p>
+              <h3 className="text-xl font-bold leading-tight text-foreground">Ton temps, c’est bien. Ton plan de course, c’est mieux.</h3>
+              <p className="text-sm text-muted-foreground">
+                {firstAidStation
+                  ? `Prépare tout de suite ta course jusqu’à ${firstAidStation.name} (km ${firstAidStation.distanceKm.toLocaleString("fr-FR", { maximumFractionDigits: 1 })}) : ce que tu emportes au départ, ce que tu manges et bois, ton heure de passage.`
+                  : "Prépare tout de suite ton départ : ce que tu emportes, ce que tu manges et bois, tes heures de passage."}
+              </p>
+            </div>
+            <ul className="space-y-1.5 text-sm text-foreground">
+              <li className="flex gap-2"><span aria-hidden className="font-bold text-brand">✓</span>Glucides, eau et sodium calculés pour ton allure</li>
+              <li className="flex gap-2"><span aria-hidden className="font-bold text-brand">✓</span>Tes gels, barres et boissons placés au bon moment</li>
+              <li className="flex gap-2">
+                <span aria-hidden className="font-bold text-brand">✓</span>
+                {aidStationCount > 0 ? `Tes ${aidStationCount} ravitos et tes heures de passage` : "Tes heures de passage jusqu’à l’arrivée"}
+              </li>
+            </ul>
+            <button type="button" onClick={openPlan} className={primaryButtonClassName} disabled={isOpeningPlan}>
+              {isOpeningPlan ? "Ouverture du plan…" : "Voir mon plan de course →"}
+            </button>
+            <p className="text-center text-xs text-muted-foreground">Sans compte, sans carte bancaire.</p>
+          </div>
+
           {checkpoints.length > 1 ? (
-            <details className="group rounded-2xl border border-border bg-card" open={checkpoints.length <= 6}>
+            <details className="group rounded-2xl border border-border bg-card">
               <summary className="flex min-h-12 cursor-pointer items-center justify-between px-4 text-sm font-semibold text-foreground marker:content-none">
                 Tes passages aux ravitos
                 <span className="text-muted-foreground transition group-open:rotate-180" aria-hidden="true">▾</span>
@@ -238,37 +338,18 @@ export function QuickRaceEstimate({ race, returnPath }: { race: RaceSummary | nu
             </details>
           ) : null}
 
-          <div className="space-y-3 rounded-2xl border border-border bg-card p-4 sm:p-6">
-            <h3 className="text-lg font-bold text-foreground">Transforme ce temps en plan de course</h3>
-            <p className="text-sm text-muted-foreground">Crée ton compte pour enregistrer cette estimation et la retrouver sur l’app comme sur le web.</p>
-            <ul className="space-y-1 text-sm text-muted-foreground">
-              <li>✓ Glucides, eau et sodium entre chaque ravito</li>
-              <li>✓ Le Livret coureur officiel quand l’organisation le publie</li>
-              <li>✓ Tes passages aux ravitos à partager avec tes proches</li>
-            </ul>
+          <p className="text-center text-sm text-muted-foreground">
+            Tu préfères ton téléphone ?{" "}
             <a
               href={appTarget.url}
               target={appTarget.url.startsWith("https://") ? "_blank" : undefined}
               rel={appTarget.url.startsWith("https://") ? "noreferrer" : undefined}
-              className={primaryButtonClassName}
+              className="font-semibold text-brand underline-offset-4 hover:underline"
               onClick={() => trackGoogleAnalyticsEvent("quick estimate app click", { event_category: "plan", platform: appTarget.platform })}
             >
-              Télécharger l’app gratuite
+              Télécharge l’app gratuite
             </a>
-            <Link
-              href={{ pathname: "/sign-up", query: { returnPath } }}
-              className={secondaryButtonClassName}
-              onClick={() => trackGoogleAnalyticsEvent("quick estimate signup click", { event_category: "plan" })}
-            >
-              Continuer sur le web
-            </Link>
-            <p className="text-center text-sm text-muted-foreground">
-              Déjà un compte ?{" "}
-              <Link href={{ pathname: "/sign-in", query: { returnPath } }} className="font-semibold text-brand hover:underline">
-                Me connecter
-              </Link>
-            </p>
-          </div>
+          </p>
         </div>
       ) : null}
 
