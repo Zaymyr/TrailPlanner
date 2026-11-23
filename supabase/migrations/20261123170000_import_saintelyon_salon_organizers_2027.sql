@@ -99,40 +99,25 @@ set gpx_path = 'catalog/restonica-trail-by-utmb/2027/gt-20k-d0e83f2a.gpx', gpx_h
       bounds_min_lat = 42.30514, bounds_min_lng = 9.14763, bounds_max_lat = 42.33473, bounds_max_lng = 9.21719
 where race.id = '93250a6b-31ee-463c-a7e0-b6a48e9e3d9c' and race.gpx_storage_path is null;
 update public.races race
-set 
-where race.id = '1aa693c2-ef9d-472d-adc6-25cd859520c0';
-update public.races race
 set gpx_path = 'catalog/trail-du-saint-jacques-by-utmb/2027/ultra-100m-893ed928.gpx', gpx_hash = '893ed928df692bc3c6fe7c09e5009c2b3784da20a8eb3d8d8797d446026b6a3c', gpx_storage_path = 'catalog/trail-du-saint-jacques-by-utmb/2027/ultra-100m-893ed928.gpx', gpx_sha256 = '893ed928df692bc3c6fe7c09e5009c2b3784da20a8eb3d8d8797d446026b6a3c',
       min_alt_m = 529, max_alt_m = 1428, start_lat = 44.95979, start_lng = 3.5439,
       bounds_min_lat = 44.89342, bounds_min_lng = 3.5439, bounds_max_lat = 45.06754, bounds_max_lng = 3.88449
 where race.id = '1aa693c2-ef9d-472d-adc6-25cd859520c0' and race.gpx_storage_path is null;
-update public.races race
-set 
-where race.id = '6d585447-f398-4e3a-b360-d7cb5d7e2d05';
 update public.races race
 set gpx_path = 'catalog/trail-du-saint-jacques-by-utmb/2027/grand-trail-100k-f8186799.gpx', gpx_hash = 'f8186799c35eb3645f9e5bd040208976e51f0ffcf328953c52d3a2c36f0ed9d3', gpx_storage_path = 'catalog/trail-du-saint-jacques-by-utmb/2027/grand-trail-100k-f8186799.gpx', gpx_sha256 = 'f8186799c35eb3645f9e5bd040208976e51f0ffcf328953c52d3a2c36f0ed9d3',
       min_alt_m = 610, max_alt_m = 1428, start_lat = 44.96903, start_lng = 3.64606,
       bounds_min_lat = 44.89517, bounds_min_lng = 3.64271, bounds_max_lat = 45.04557, bounds_max_lng = 3.88448
 where race.id = '6d585447-f398-4e3a-b360-d7cb5d7e2d05' and race.gpx_storage_path is null;
 update public.races race
-set 
-where race.id = 'c7b83fb3-02ea-459c-b753-c03d4ba959dc';
-update public.races race
 set gpx_path = 'catalog/trail-du-saint-jacques-by-utmb/2027/monistrail-50k-982cd894.gpx', gpx_hash = '982cd89443e5307e6f1ee99f88dbe45e604e1c8837fa01335eb84cec78758d90', gpx_storage_path = 'catalog/trail-du-saint-jacques-by-utmb/2027/monistrail-50k-982cd894.gpx', gpx_sha256 = '982cd89443e5307e6f1ee99f88dbe45e604e1c8837fa01335eb84cec78758d90',
       min_alt_m = 613, max_alt_m = 1426, start_lat = 44.96879, start_lng = 3.64653,
       bounds_min_lat = 44.93698, bounds_min_lng = 3.64267, bounds_max_lat = 45.04558, bounds_max_lng = 3.88449
 where race.id = 'c7b83fb3-02ea-459c-b753-c03d4ba959dc' and race.gpx_storage_path is null;
 update public.races race
-set 
-where race.id = 'fff944aa-93e4-412c-b766-30713ae7db74';
-update public.races race
 set gpx_path = 'catalog/trail-du-saint-jacques-by-utmb/2027/chibottes-20k-cf84a884.gpx', gpx_hash = 'cf84a884e960428cf24d25eea58e63bc354aa6729dfb142e84e0ee4fabe0102b', gpx_storage_path = 'catalog/trail-du-saint-jacques-by-utmb/2027/chibottes-20k-cf84a884.gpx', gpx_sha256 = 'cf84a884e960428cf24d25eea58e63bc354aa6729dfb142e84e0ee4fabe0102b',
       min_alt_m = 628, max_alt_m = 894, start_lat = 44.9673, start_lng = 3.88298,
       bounds_min_lat = 44.96715, bounds_min_lng = 3.84883, bounds_max_lat = 45.04557, bounds_max_lng = 3.90838
 where race.id = 'fff944aa-93e4-412c-b766-30713ae7db74' and race.gpx_storage_path is null;
-update public.races race
-set 
-where race.id = '429f6f0f-0404-4487-9c64-821c61249ad7';
 update public.races race
 set gpx_path = 'catalog/trail-du-saint-jacques-by-utmb/2027/12-du-dolaizon-61af5b7f.gpx', gpx_hash = '61af5b7f3008f387814c74b31b634e7c9f4a3bd96dc957938d17e3ce67f42691', gpx_storage_path = 'catalog/trail-du-saint-jacques-by-utmb/2027/12-du-dolaizon-61af5b7f.gpx', gpx_sha256 = '61af5b7f3008f387814c74b31b634e7c9f4a3bd96dc957938d17e3ce67f42691',
       min_alt_m = 628, max_alt_m = 912, start_lat = 44.99702, start_lng = 3.82146,
