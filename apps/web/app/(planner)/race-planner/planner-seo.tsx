@@ -3,7 +3,7 @@ import React from "react";
 import { RACE_PLANNER_URL } from "../../seo";
 
 export const PLANNER_META_DESCRIPTION =
-  "Préparez vos glucides, votre hydratation, votre sodium, votre allure et vos ravitaillements pour chaque segment de votre trail.";
+  "Estimez gratuitement votre temps de course, puis préparez glucides, hydratation, sodium et heures de passage à chaque ravitaillement de votre trail.";
 
 export const plannerStructuredData = {
   "@context": "https://schema.org",
