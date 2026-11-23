@@ -18,7 +18,7 @@ export function ElevationSectionChart({
   baseMinutesPerKm,
 }: ElevationSectionChartProps) {
   if (profile.length < 2 || !Number.isFinite(totalDistanceKm) || totalDistanceKm <= 0) {
-    return <p className="text-sm text-muted-foreground dark:text-slate-400">{copy.sections.courseProfile.sectionEmpty}</p>;
+    return <p className="text-sm text-[#5C6450]">{copy.sections.courseProfile.sectionEmpty}</p>;
   }
 
   return (
