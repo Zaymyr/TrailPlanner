@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { BlogLayout } from "../../../components/BlogLayout";
+import { CourseDiscoveryLinks } from "../../courses/_components/CourseDiscoveryLinks";
 import { getAllPostMetadata, getPostBySlug, type PostMeta } from "../../../lib/blog/posts";
 import { localeToLanguageTag, localeToOgLocale, SITE_URL } from "../../seo";
 
@@ -97,6 +98,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 // Mapping slug d'article → UUID dans race_catalog
 // Permet de pré-charger la course dans le planner depuis un article de blog
+// Articles about a specific race link to its public event page (permanent hub or current edition).
+const ARTICLE_EVENT_LINKS: Record<string, Array<{ href: string; label: string }>> = {
+  "trail-des-templiers": [{ href: "/courses/evenements/hoka-les-templiers", label: "Les Templiers : dates, formats et ravitos" }],
+  "marathon-mont-blanc-preparation": [{ href: "/courses/evenements/marathon-du-mont-blanc-2027", label: "Marathon du Mont-Blanc : dates, formats et ravitos" }],
+};
+
 const CATALOG_RACE_MAP: Record<string, string> = {
   "marathon-mont-blanc-preparation": "0037b73c-b638-4fd9-80a9-34fdb3a4e97d",
 };
@@ -116,10 +123,15 @@ export default async function BlogPostPage({ params }: PageProps) {
   const catalogRaceId = CATALOG_RACE_MAP[post.meta.slug];
 
   return (
-    <BlogLayout
-      post={post}
-      canonicalUrl={canonicalUrl}
-      catalogRaceId={catalogRaceId}
-    />
+    <>
+      <BlogLayout
+        post={post}
+        canonicalUrl={canonicalUrl}
+        catalogRaceId={catalogRaceId}
+      />
+      <div className="px-4 pb-8 sm:px-6">
+        <CourseDiscoveryLinks title="Prépare ta prochaine course" featured={ARTICLE_EVENT_LINKS[post.meta.canonicalPath.replace("/blog/", "")] ?? []} maxPerGroup={6} />
+      </div>
+    </>
   );
 }

@@ -1,7 +1,7 @@
 ---
 title: race_slug_redirects Table
 scope: database
-last_verified: 2026-11-22
+last_verified: 2026-11-23
 ai_priority: high
 related_files:
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
@@ -113,3 +113,5 @@ from public.rename_race_slug(:race_id, :new_slug);
 - [Migrations](../migrations.md)
 
 The canonical page reached after a slug redirect keeps the same metadata rules; course titles now prefix generic format names with their event name (`Event — Format`). Redirect resolution is unchanged.
+
+Format pages (2026-11-23) gained a related-guides block; slug resolution and redirects are unchanged.

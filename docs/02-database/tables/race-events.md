@@ -491,3 +491,5 @@ Admin console (2026-11-23, lot 5): `GET /api/admin/event-publication-requests` a
 ## Admin audit journal (lot 7)
 
 `app/api/admin/event-publication-requests/route.ts`, `app/api/admin/organizer-claims/route.ts`, `app/api/admin/race-events/[id]/route.ts`, `app/api/admin/race-events/[id]/thumbnail/route.ts`, `app/api/organizer/events/[id]/website-import/route.ts`, `app/api/race-catalog/route.ts` now export their write handlers through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`edition.publication`, `edition.pack`, `organizer.claim`, `catalog.event-update`, `catalog.image`, `catalog.event-import`, `catalog.race-create`) to the admin action journal ([`admin_audit_log`](./admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.
+
+Format pages (2026-11-23) also render distance-matched blog guides; no `race_events` read or contract change.

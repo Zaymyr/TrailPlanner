@@ -1,7 +1,7 @@
 ---
 title: Packages Architecture
 scope: architecture
-last_verified: 2026-11-22
+last_verified: 2026-11-23
 # Crew follow UX (2026-11-17): passed checkpoints collapse, confirmed passages can be corrected or undone, the crew handover is a device-local checklist, aid-station directions match supporter points by place name within 2 km, and phones without the app get an app-first gate on the public page; no column, RLS or crew_state shape change.
 ai_priority: medium
 related_files:
@@ -154,3 +154,5 @@ Keep logic inside an app when:
 `apps/video-render-worker` is a standalone Node package outside the npm workspaces (its own `package-lock.json`, Playwright only) built into the Cloud Run render image. The web CSP (`next.config.mjs`, report-only) allows `https://storage.googleapis.com` for signed render uploads and downloads.
 
 The runner follow-up keeps plan selection, renaming and URL restoration inside the existing web workspace; it adds no shared-package contract or dependency.
+
+Blog runtime bundling (2026-11-23): `next.config.mjs` gained `experimental.outputFileTracingIncludes` for `content/blog/**`; package boundaries are unchanged.

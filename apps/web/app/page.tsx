@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { getAllPostMetadata } from "../lib/blog/posts";
 import { loadPublishedOrganizerSocialProofs } from "../lib/organizer-social-proof-server";
+import { CourseDiscoveryLinks } from "./courses/_components/CourseDiscoveryLinks";
 import { LandingPage } from "./landing-page";
 import { buildHomeStructuredData } from "./home-structured-data";
 import { CANONICAL_PATH } from "./seo";
@@ -27,7 +28,8 @@ const buildExcerpt = (description?: string): string =>
   description?.trim() ?? "A preview of this article will be available soon. Check back for more details.";
 
 const selectFeaturedGuides = async (): Promise<FeaturedGuideCard[]> => {
-  const posts = await getAllPostMetadata();
+  // Never let a blog read failure take the home page down (it is the main crawl entry).
+  const posts = await getAllPostMetadata().catch(() => []);
 
   return posts.slice(0, 4).map((post) => ({
     slug: post.slug,
@@ -52,6 +54,9 @@ export default async function HomePage() {
         }}
       />
       <LandingPage featuredGuides={featuredGuides} socialProofs={socialProofs} />
+      <div className="px-4 pb-8 sm:px-6">
+        <CourseDiscoveryLinks />
+      </div>
     </>
   );
 }
