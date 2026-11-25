@@ -99,6 +99,7 @@ Standard links are not described as affiliate links. Each mobile surface disclos
 
 ## Gotchas
 
+- Course weather (2026-11-23, lot 1): the RaceBook screen (`apps/mobile/app/(app)/race/[id]/racebook.tsx`) also mounts `components/course-weather/CourseWeatherSection.tsx` in its Course › route sub-tab. It is a display-only MET Norway forecast fed by `GET /api/race-weather`, not by this data; it changes no stored row, no pacing or nutrition calculation and not the organizer weather plan.
 - The Livret quick-return header (`apps/mobile/hooks/useQuickReturnHeader.ts`) is presentation-only: the compact hero and Livret/plan switch hide and reappear on scroll, and nothing about the data, publication, partner, offline or analytics contracts described here changes.
 - Shared web locale types also carry the account pages copy (`auth.shared` cross links, `auth.callback`) , the nutrition list copy (`productSettings`) and the profile copy (`profile.eyebrow`, `profile.premiumModal.unavailable`, 2026-11-23). They now also carry the planner race-picker copy (`raceCatalog.clearSearch`, `resultsCount`, `quickFilters`) and navigation and not-found accessibility copy. That extension is unrelated to partner-link resolution and must not change allowlisting, attribution, or outbound click behavior.
 

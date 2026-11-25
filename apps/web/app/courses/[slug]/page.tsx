@@ -15,6 +15,7 @@ import { DEFAULT_SOCIAL_IMAGE, DEFAULT_SOCIAL_IMAGE_PATH, SITE_URL } from "../..
 import { PublicElevationProfile } from "../_components/PublicElevationProfile";
 import { RaceLinksCarousel } from "../_components/RaceLinksCarousel";
 import { RaceRelatedArticles } from "../_components/RaceRelatedArticles";
+import { CourseRaceDayWeather } from "../../../components/course-weather/CourseRaceDayWeather";
 import { RaceAidStationsTimeline } from "../_components/RaceAidStationsTimeline";
 import { HERO_ESTIMATE_CTA_ID, RaceHeroSummary } from "../_components/RaceHeroSummary";
 import { RaceRouteExplorer } from "../_components/RaceRouteExplorer";
@@ -349,6 +350,8 @@ export default async function RacePage({ params }: PageProps) {
           </Card>
         </aside>
       </div>
+
+      <CourseRaceDayWeather raceId={race.id} raceDate={race.date} />
 
       {hasPractical ? (
         <section id="infos-pratiques" className="scroll-mt-16 space-y-3" aria-labelledby="practical-heading">

@@ -296,6 +296,8 @@ Prefer the shared brief toast for non-destructive feedback, the existing empty s
 
 New mobile screens use the trail objects: `TrailSignButton` to go elsewhere, at most one primary `ActionButton` (enamel plate) per screen, `StatusPill` wristbands for states, `TopoCard` posters for blocks. Components in lists pass a stable `variationKey` (id) so their decorative variation differs per item while staying stable for the session.
 
+Course weather (2026-11-23, lot 1): weather displays reuse `components/course-weather/` (`CourseWeatherSection` card, `CourseWeatherPassageRow`, `useCourseWeather`) built from themed `Card`, `Text`, `DataText`, `StatusPill` and Ionicons; mount them instead of forking a new weather UI, and keep the MET Norway attribution visible wherever weather is shown.
+
 The Livret / plan switch (`RaceWorkspaceSwitch`) is now drawn as a pinned bib (active view) over a flipped bib (other view), 70 points high (`RACE_WORKSPACE_SWITCH_HEIGHT`); which view is available or locked is unchanged.
 
 New screens use `Field` (never a raw `TextInput`) and `IconAction` (never a raw pressable icon), with `tone="onBrand"` on forest headers and `variant="back"` for back buttons.

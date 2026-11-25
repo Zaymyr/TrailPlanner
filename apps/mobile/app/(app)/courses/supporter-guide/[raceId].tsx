@@ -14,6 +14,7 @@ import {
 } from '../../../../components/racebook/RacebookCollapsibleHero';
 import { RacebookServicesSection, type RacebookServicesCopy } from '../../../../components/racebook/RacebookServicesSection';
 import { RacebookSupporterPointsSection, type RacebookSupporterStop } from '../../../../components/racebook/RacebookSupporterPointsSection';
+import { CourseWeatherSection } from '../../../../components/course-weather/CourseWeatherSection';
 import { RacebookTabBar } from '../../../../components/racebook/RacebookTabBar';
 import { AccordionHeader } from '../../../../components/themed/AccordionHeader';
 import { ActionButton } from '../../../../components/themed/ActionButton';
@@ -706,6 +707,7 @@ export default function SupporterGuideScreen() {
                   }))}
                   onOpenUrl={(url) => openUrl(url)}
                 />
+                <CourseWeatherSection raceId={currentFormat.raceId} />
               </>
             ) : (
               <EmptyState title={copy.emptyFollow} />

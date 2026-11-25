@@ -425,6 +425,7 @@ Selecting a source ravito, deriving a same-course GPX access coordinate, and hid
 
 ## Gotchas
 
+- Course weather (2026-11-23, lot 1): the display-only weather card of the RaceBook Course › route sub-tab, of the Livret supporter "Suivre" section and the per-passage weather of the plan recap emit no analytics event. There is no per-card view convention on mobile; `racebook tab viewed` still covers the tab.
 - The Livret quick-return header (`apps/mobile/hooks/useQuickReturnHeader.ts`) is presentation-only: the compact hero and Livret/plan switch hide and reappear on scroll, and nothing about the data, publication, partner, offline or analytics contracts described here changes.
 - The Courses quick-return header (`apps/mobile/hooks/useQuickReturnHeader.ts`) is presentation-only: it hides and reveals the header and sticky search card on scroll and does not change the catalog reads, favorites, unread updates or analytics described here.
 - Organizer analytics selectors and reader helper copy changed presentation only; event names and aggregation semantics are unchanged.

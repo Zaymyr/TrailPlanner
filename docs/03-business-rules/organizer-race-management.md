@@ -600,6 +600,7 @@ Structured services, equipment items, aid stations, and sponsors use valid local
 
 ## Gotchas
 
+- Course weather (2026-11-23, lot 1): the RaceBook screen (`apps/mobile/app/(app)/race/[id]/racebook.tsx`) also mounts `components/course-weather/CourseWeatherSection.tsx` in its Course › route sub-tab. It is a display-only MET Norway forecast fed by `GET /api/race-weather`, not by this data; it changes no stored row, no pacing or nutrition calculation and not the organizer weather plan.
 - The Livret quick-return header (`apps/mobile/hooks/useQuickReturnHeader.ts`) is presentation-only: the compact hero and Livret/plan switch hide and reappear on scroll, and nothing about the data, publication, partner, offline or analytics contracts described here changes.
 - The Courses quick-return header (`apps/mobile/hooks/useQuickReturnHeader.ts`) is presentation-only: it hides and reveals the header and sticky search card on scroll and does not change the catalog reads, favorites, unread updates or analytics described here.
 - Address autocomplete (`/api/location-search`) and catalog plan creation (`/api/plans/from-catalog`) rate limit through the DB-backed `checkRateLimitAsync`; the in-memory limiter is not relied on across serverless instances (2026-11-22).
@@ -854,3 +855,7 @@ The visitor preview's primary action is now « Débloquer mon plan complet · <c
 ## Race plan visual redesign touch (2026-11-23)
 
 The runner plan timeline (`ActionPlan.tsx`) and `RacePlannerPageContent.tsx` changed look and number formatting only: organizer product suggestions at a ravito are shown as pills with a forest quantity badge, with the same selection, `source: "organizer"` supplies, auto-fill opt-in and Pro overlay rules as above. `AidStationBadge` (round trail-post markers: start, ravito, finish) is shared with the organizer aid-stations editor (`aid-stations-editor.tsx`), whose ravito cards therefore get the new post look; its props and the editor's behaviour are unchanged. The runner plan timeline then gained three views (Ravitos / Allures / Chronologie) and a race band; organizer product pills, the official-products-only picker and the `source: "organizer"` supplies stay in the Ravitos view, and `RacePlannerPageContent.tsx` only builds the chronology and passes the race name. No organizer authoring, publication or data contract changed. See [Design Components](../07-design-system/components.md#race-plan-web-2026-11-23). Section elevation charts in the Allures view name their ends after the two aid stations of the section (`ElevationProfileChart` / `SubSectionElevationChart` `startLabel` / `finishLabel`), and split-part charts after their kilometres, instead of « Départ » / « Arrivée » (2026-11-23, display only).
+
+## Course weather touch (2026-11-23)
+
+The race planner mounts `CoursePlanWeather` (display-only forecast weather at each planned passage, read from the plan segments, never written back) through a `weatherContent` slot of `PlanPrimaryContent`. It adds no plan, nutrition or pacing logic and no data model change. See [Design Components](../07-design-system/components.md) "Course weather".

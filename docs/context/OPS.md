@@ -7,6 +7,7 @@
 - **E-mail** — Resend, expéditeur `noreply@mail.pace-yourself.com`. Voir [docs/05-integrations/resend.md](../05-integrations/resend.md).
 - **Analytics** — PostHog (web + mobile) et GA4 (web). Voir [docs/05-integrations/analytics.md](../05-integrations/analytics.md).
 - **Paiements** — voir [docs/05-integrations/stripe.md](../05-integrations/stripe.md).
+- **Météo du parcours** — MET Norway Locationforecast 2.0 (gratuit, usage commercial autorisé, CC BY 4.0 : attribution obligatoire, User-Agent identifiant `PaceYourself/1.0 (+https://pace-yourself.com)`, sans clé). Appelée uniquement par `/api/race-weather`. Voir [docs/05-integrations/met-norway-weather.md](../05-integrations/met-norway-weather.md).
 
 ## Tâches planifiées de l’application (pg_cron)
 

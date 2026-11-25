@@ -1,7 +1,7 @@
 ---
 title: Design Components
 scope: design-system
-last_verified: 2026-11-23
+last_verified: 2026-11-24
 # Organizer headers (2026-11-13): `SectionHeader` receives a section-specific icon, supports two-line titles, and no longer supplies a generic arrow fallback.
 ai_priority: medium
 related_files:
@@ -33,6 +33,8 @@ related_files:
   - apps/web/components/race-planner/plan-views/PlanViewTabs.tsx
   - apps/web/components/race-planner/plan-views/chronology-types.ts
   - apps/web/app/(planner)/race-planner/components/PlanPrimaryContent.tsx
+  - apps/web/components/course-weather/CourseWeatherPanel.tsx
+  - apps/web/components/course-weather/course-weather-model.ts
   - apps/web/app/(planner)/race-planner/components/ElevationProfileChart.tsx
   - apps/mobile/components/themed/Button.tsx
   - apps/mobile/components/themed/ActionButton.tsx
@@ -510,3 +512,12 @@ Organizer `FieldGroup` uses a responsive label/description column (up to 200 px)
 Organizer editor cards now use `SectionHeader` with a brand-surface icon, visible description, save state, and a subtle token-based terrain wash. Dark mode relies only on theme variables.
 
 Compact `FileField` actions wrap beneath metadata so the control remains contained in the 250 px media rail and narrow mobile layouts.
+
+## Course weather (2026-11-23)
+
+`apps/web/components/course-weather/` (display-only, fr/en copy in `copy.ts`, pure logic in `course-weather-model.ts`):
+
+- `CourseWeatherPanel`: shared shell. States: loading, `too_early` (« Prévisions météo disponibles à partir du {date} »), forecast rows, a discreet one-line message for a provider error or fetch failure; `unavailable` renders nothing. Footer: « Prévision du {date} » plus the provider attribution (`source.attribution`, linked).
+- Row: local time (race time zone), `CourseWeatherGlyph` (small inline-SVG set, signature stroke: clear, clear night (moon), partly, partly night, cloudy, fog, rain, snow, storm; MET `symbol` mapped by `weatherGlyphForSymbol`, `_night` and `_polartwilight` variants get the moon), label and km, temperature with feels-like, wind and gusts, precipitation, alert chips (heat, cold, wind, rain, storm, snow from `courseWeatherHourAlerts`). « Heure de départ estimée à 7h » when `startTimeIsEstimated`.
+- `CoursePlanWeather` (planner, one row per plan passage via `passagesFromPlanSegments` and `courseWeatherAtPassages`) and `CourseRaceDayWeather` (public race page, one summary row per course point over the hours the field is likely to pass it, `courseWeatherLikelyPassageHours`). Light theme tokens only (`border-border`, `bg-card`, `text-muted-foreground`), no `dark:` classes.
+- Tests: `course-weather-model.test.ts`.

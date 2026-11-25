@@ -313,3 +313,7 @@ The hero shell mounts `RaceFunnelTracker`, which emits `race page viewed` and `r
 ## Internal links for crawl discovery (2026-11-23)
 
 A 2026-11-23 URL Inspection pass found 392 of 830 format URLs never crawled and most blog articles unknown to Google. To shorten crawl paths, format pages link to distance-matched blog guides (« Pour préparer cette course »), and the home page and every blog article link to the indexable distance, region and month landing pages. These links follow the landing-page eligibility rules (upcoming formats, `MIN_INDEXABLE_RACES`), so they never point to a 404 selection. No route, canonical or structured-data change.
+
+## Course weather touch (2026-11-23)
+
+The public race page mounts `CourseRaceDayWeather` (client component, fetched from `GET /api/race-weather`, so the ISR page output is unchanged) before « Informations pratiques ». It shows nothing for past races or when the forecast is unavailable. No data model change. See [Design Components](../07-design-system/components.md) "Course weather".

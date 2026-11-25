@@ -245,6 +245,7 @@ where web_catalog_is_live = true
 
 ## Gotchas
 
+- Course weather (2026-11-23, lot 1): the RaceBook screen (`apps/mobile/app/(app)/race/[id]/racebook.tsx`) also mounts `components/course-weather/CourseWeatherSection.tsx` in its Course › route sub-tab. It is a display-only MET Norway forecast fed by `GET /api/race-weather`, not by this data; it changes no stored row, no pacing or nutrition calculation and not the organizer weather plan.
 - The Livret quick-return header (`apps/mobile/hooks/useQuickReturnHeader.ts`) is presentation-only: the compact hero and Livret/plan switch hide and reappear on scroll, and nothing about the data, publication, partner, offline or analytics contracts described here changes.
 - An existing-plan refine CTA and preview veil do not change race visibility, source fields, or plan association.
 

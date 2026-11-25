@@ -4,6 +4,14 @@
 
 Journal en ajout seul, la plus récente en haut. Format : `## AAAA-MM-JJ — Titre`, puis Contexte / Décision / Conséquence (2 à 4 lignes chacun). Les décisions d'architecture détaillées (ADR) vont dans [docs/08-decisions/](../08-decisions/README.md).
 
+## 2026-11-23 — Météo du parcours : MET Norway gratuit, affichage seul
+
+**Contexte.** Les coureurs veulent la météo attendue au départ, aux ravitos et au sommet à l'heure de leur passage. Open-Meteo interdit l'usage commercial en gratuit (≈ 30 €/mois en payant).
+
+**Décision.** Source MET Norway Locationforecast 2.0 (gratuite, usage commercial autorisé, CC BY 4.0 avec attribution et User-Agent identifiant), servie par `GET /api/race-weather` (contrat partagé `packages/shared/src/course-weather/`), mise en cache Next/CDN, sans migration ni stockage. Affichage seul : la météo ne modifie ni l'allure ni la nutrition tant que les seuils n'ont pas été calibrés sur plusieurs courses.
+
+**Conséquence.** Prévision disponible à J−9 (`too_early` avant) ; hors Scandinavie, pas de rafales ni de probabilité de pluie. Voir `docs/05-integrations/met-norway-weather.md`.
+
 ## 2026-11-23 — Plus aucun cron Vercel, chaque tâche en échec dit quoi faire
 
 **Contexte.** La console affichait des tâches en erreur sans piste d’action : deux tâches créées à la main dans Supabase (`trial-reminder-j0` / `trial-reminder-j3`, appel à `extensions.http_post` inexistant, essais arrêtés le 30/10) et les deux crons Vercel jamais appelés (réconciliation RevenueCat, enrichissement Trace de Trail).

@@ -52,6 +52,9 @@ import { MetricTile } from '../themed/MetricTile';
 import { Text } from '../themed/Text';
 import { Button } from '../themed/Button';
 import { PlanWorkspaceStickyBar } from './PlanWorkspaceStickyBar';
+import { CourseWeatherPassageRow, CourseWeatherPlanNote } from '../course-weather/CourseWeatherPassage';
+import { useCourseWeather } from '../course-weather/useCourseWeather';
+import { buildCourseWeatherPassageLines, selectCourseWeatherDisplay, type CourseWeatherPassageLine } from '../../lib/courseWeather';
 
 type Props = {
   id: string;
@@ -65,7 +68,7 @@ type Props = {
 };
 
 /** Official start of the plan's race, kept on the device for offline summaries. */
-type PlanRaceStartCopy = { raceDate: string | null; startTime: string | null; waves: PlanStartWave[] };
+type PlanRaceStartCopy = { raceDate: string | null; startTime: string | null; waves: PlanStartWave[]; raceId?: string | null };
 
 function formatLiters(value: number) {
   return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1);
@@ -93,7 +96,7 @@ function ProductLine({ product }: { product: PlanSummaryProduct }) {
   );
 }
 
-function CheckpointCard({ checkpoint, departureTime, summary }: { checkpoint: PlanSummaryCheckpoint; departureTime: Date; summary: PlanSummary }) {
+function CheckpointCard({ checkpoint, departureTime, summary, weather }: { checkpoint: PlanSummaryCheckpoint; departureTime: Date; summary: PlanSummary; weather?: CourseWeatherPassageLine }) {
   const { locale, t } = useI18n();
   const noAssistance = checkpoint.assistanceState === 'unavailable';
   const assistance = checkpoint.assistanceState === 'available' && !checkpoint.isStart && !checkpoint.isFinish;
@@ -106,6 +109,7 @@ function CheckpointCard({ checkpoint, departureTime, summary }: { checkpoint: Pl
         </View>
         <Ionicons name={checkpoint.isFinish || checkpoint.isStart ? 'flag-outline' : 'trail-sign'} size={20} color={Colors.brandPrimary} />
       </View>
+      <CourseWeatherPassageRow line={weather} />
       <View style={styles.chips}>
         <Text style={styles.chip}>{getWaterInstruction(checkpoint, summary, t.planSummary)}</Text>
         {checkpoint.solidState === 'unavailable' ? <Text style={styles.chip}>{t.planSummary.solidUnavailable}</Text> : null}
@@ -131,6 +135,7 @@ export function PlanRecapContent({ id, summary, contentTopInset, stickyTopInset,
   const [officialDepartureTime, setOfficialDepartureTime] = useState<Date | null>(null);
   const [startWaves, setStartWaves] = useState<PlanStartWave[]>([]);
   const [departureReady, setDepartureReady] = useState(false);
+  const [raceId, setRaceId] = useState<string | null>(null);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [pickerHour, setPickerHour] = useState('00');
   const [pickerMinute, setPickerMinute] = useState('00');
@@ -156,28 +161,32 @@ export function PlanRecapContent({ id, summary, contentTopInset, stickyTopInset,
       let raceDate: string | null | undefined;
       let startTime: string | null;
       let waves: PlanStartWave[] = [];
+      let linkedRaceId: string | null = null;
       const offlineStart = isPostgrestNetworkFailure(result)
         ? await readOfflineCache<PlanRaceStartCopy>('plan-race-start', id)
         : null;
       if (offlineStart) {
         // No network: the official start saved with the plan's last online load.
         ({ raceDate, startTime, waves } = offlineStart.data);
+        linkedRaceId = offlineStart.data.raceId ?? null;
       } else {
         const row = result.data as { race_id?: string | null; races?: { race_date?: string | null; organizer_details?: unknown } | null } | null;
         raceDate = row?.races?.race_date;
         startTime = readOrganizerStartTime(row?.races?.organizer_details);
+        linkedRaceId = row?.race_id ?? null;
         if (row?.race_id) {
           const { data } = await supabase.from('race_start_waves').select('id,name,start_time').eq('race_id', row.race_id).order('order_index', { ascending: true });
           waves = normalizePlanStartWaves(data);
           if (!startTime) startTime = waves[0]?.startTime ?? null;
         }
-        if (!result.error) void writeOfflineCache<PlanRaceStartCopy>('plan-race-start', id, { raceDate: raceDate ?? null, startTime, waves });
+        if (!result.error) void writeOfflineCache<PlanRaceStartCopy>('plan-race-start', id, { raceDate: raceDate ?? null, startTime, waves, raceId: linkedRaceId });
       }
       if (cancelled) return;
       const officialIso = buildLocalDepartureAt(raceDate, startTime);
       const official = officialIso ? new Date(officialIso) : null;
       const manual = applyStoredDepartureTime(stored, buildRaceDateBase(raceDate, fallback));
       setStartWaves(waves);
+      setRaceId(linkedRaceId);
       setOfficialDepartureTime(official);
       setDepartureTime(manual ?? official ?? fallback);
     }).catch(() => !cancelled && setDepartureTime(fallback)).finally(() => !cancelled && setDepartureReady(true));
@@ -284,6 +293,18 @@ export function PlanRecapContent({ id, summary, contentTopInset, stickyTopInset,
     setPickerVisible(false);
   };
 
+  // Weather at each planned passage (display-only), from the runner's own departure instant.
+  const courseWeather = useCourseWeather(raceId);
+  const weatherDisplay = selectCourseWeatherDisplay(courseWeather.entry);
+  const weatherForecast = weatherDisplay.kind === 'forecast' ? weatherDisplay.forecast : null;
+  const weatherLines = useMemo(
+    () => weatherForecast && departureReady
+      ? buildCourseWeatherPassageLines(weatherForecast, summary.checkpoints, departureTime)
+      : new Map<number, CourseWeatherPassageLine>(),
+    [departureReady, departureTime, summary.checkpoints, weatherForecast],
+  );
+  const hasPassageWeather = [...weatherLines.values()].some((line) => line.hour !== null);
+
   const departureDelta = officialDepartureTime
     ? formatDepartureDelta(departureTime, officialDepartureTime, locale)
     : null;
@@ -347,7 +368,8 @@ export function PlanRecapContent({ id, summary, contentTopInset, stickyTopInset,
         </View>
         <View style={styles.section}>
           <Text weight="bold" style={styles.sectionTitle}>{t.planSummary.crewPlan}</Text>
-          <View style={styles.checkpoints}>{summary.checkpoints.map((checkpoint) => <CheckpointCard checkpoint={checkpoint} departureTime={departureTime} key={`${checkpoint.index}-${checkpoint.name}`} summary={summary} />)}</View>
+          <View style={styles.checkpoints}>{summary.checkpoints.map((checkpoint) => <CheckpointCard checkpoint={checkpoint} departureTime={departureTime} key={`${checkpoint.index}-${checkpoint.name}`} summary={summary} weather={weatherLines.get(checkpoint.index)} />)}</View>
+          <CourseWeatherPlanNote display={weatherDisplay} hasPassageWeather={hasPassageWeather} stale={courseWeather.stale} />
         </View>
         {ownedShareId ? (
           <View style={styles.section}>

@@ -343,6 +343,7 @@ where is_live = true
 
 ## Gotchas
 
+- Course weather (2026-11-23, lot 1): the RaceBook screen (`apps/mobile/app/(app)/race/[id]/racebook.tsx`) also mounts `components/course-weather/CourseWeatherSection.tsx` in its Course › route sub-tab. It is a display-only MET Norway forecast fed by `GET /api/race-weather`, not by this data; it changes no stored row, no pacing or nutrition calculation and not the organizer weather plan.
 - The Livret quick-return header (`apps/mobile/hooks/useQuickReturnHeader.ts`) is presentation-only: the compact hero and Livret/plan switch hide and reappear on scroll, and nothing about the data, publication, partner, offline or analytics contracts described here changes.
 - The Courses quick-return header (`apps/mobile/hooks/useQuickReturnHeader.ts`) is presentation-only: it hides and reveals the header and sticky search card on scroll and does not change the catalog reads, favorites, unread updates or analytics described here.
 - The public `GET /api/race-catalog` (planner race picker, anon key, `is_live=eq.true`) also returns `event_id`, `race_date` and the embedded parent event `race_events(id,name,location,race_date,thumbnail_url)` (null when the race has no event or the anon key cannot read it). The change is additive: existing fields and the `search` parameter are unchanged, and the write handlers are untouched. The picker groups formats by that event and keeps only the latest edition of a format name repeated in the same event.
@@ -499,3 +500,7 @@ Format pages (2026-11-23) also render distance-matched blog guides; no `race_eve
 ## Duplicate event merges (2026-11-23)
 
 Event slugs are immutable (`assign_race_event_slug`), so merging two rows that describe the same event is a one-off migration: move editions, formats and every `event_id` reference to the kept event, fill its missing fields from the merged one, delete the merged row, then rename the kept slug to the clean base slug with the trigger disabled for that statement only, and add the retired hub slugs to `catalogSlugRedirects` in `apps/web/next.config.mjs`. First case: migration `20261123200000_merge_duplicate_marathon_du_mont_blanc_event.sql` kept `d1472716…` (2027 edition, 12 formats) and merged `08a81d9c…` (2026 edition, 2 formats) into `marathon-du-mont-blanc`. Do not dry-run such merges through the Supabase connector: write statements open a confirmation dialog that some clients cannot display.
+
+## Course weather touch (2026-11-23)
+
+The public race page mounts `CourseRaceDayWeather` (client component, fetched from `GET /api/race-weather`, so the ISR page output is unchanged) before « Informations pratiques ». It shows nothing for past races or when the forecast is unavailable. No data model change. See [Design Components](../../07-design-system/components.md) "Course weather".
