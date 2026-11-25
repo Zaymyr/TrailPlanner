@@ -6,6 +6,7 @@ import {
   courseWeatherHourAlerts,
   courseWeatherHourAt,
   courseWeatherLikelyPassageHours,
+  courseWeatherLikelyPassageWindow,
   summarizeCourseWeatherHours,
   type CourseWeatherHour,
   type CourseWeatherPoint,
@@ -77,6 +78,14 @@ describe('course weather presentation', () => {
     expect(likely[0].time).toBe('2026-11-29T01:00:00Z');
     expect(likely.at(-1)?.time).toBe('2026-11-29T09:00:00Z');
     expect(courseWeatherLikelyPassageHours({ distanceKm: 40, hours }, null)).toHaveLength(48);
+  });
+
+  it('exposes the likely passage window of the field', () => {
+    const window = courseWeatherLikelyPassageWindow(40, '2026-11-28T22:30:00Z');
+    expect(window?.from.toISOString()).toBe('2026-11-29T01:20:00.000Z');
+    expect(window?.to.toISOString()).toBe('2026-11-29T09:30:00.000Z');
+    expect(courseWeatherLikelyPassageWindow(0, '2026-11-28T22:30:00Z')?.from.toISOString()).toBe('2026-11-28T22:00:00.000Z');
+    expect(courseWeatherLikelyPassageWindow(40, null)).toBeNull();
   });
 
   it('places each passage on the nearest point at start + elapsed time', () => {

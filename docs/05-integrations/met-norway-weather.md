@@ -1,7 +1,7 @@
 ---
 title: MET Norway Course Weather
 scope: integration
-last_verified: 2026-11-24
+last_verified: 2026-11-25
 ai_priority: medium
 related_files:
   - apps/web/app/api/race-weather/route.ts
@@ -121,7 +121,16 @@ From `COURSE_WEATHER_THRESHOLDS` in `packages/shared/src/course-weather/presenta
 | `storm` | `thunder` symbol |
 | `snow` | `snow` or `sleet` symbol (replaces `rain`) |
 
-Without a runner plan (public race page, Livret coureur, Livret supporter), each point is summarised over the hours the field is likely to pass it, `courseWeatherLikelyPassageHours`: from `startAt + km / 12 km/h − 30 min` to `startAt + km / 4 km/h + 1 h` (`COURSE_WEATHER_FIELD_SPEED_KPH`), all hours when `startAt` is unknown. Summarising the whole 48 h window mixed daytime highs into night races (SaintéLyon showed −1 to 9 °C at a 23:30 start instead of −1 °C).
+Without a runner plan (public race page, Livret coureur without plan, Livret supporter), each point is summarised over the hours the field is likely to pass it: `courseWeatherLikelyPassageWindow(km, startAt)` gives `startAt + km / 12 km/h − 30 min` to `startAt + km / 4 km/h + 1 h` (`COURSE_WEATHER_FIELD_SPEED_KPH`), and `courseWeatherLikelyPassageHours` keeps the hours of that window (all hours when `startAt` is unknown). Summarising the whole 48 h window mixed daytime highs into night races (SaintéLyon showed −1 to 9 °C at a 23:30 start instead of −1 °C).
+
+## Mobile display (inline in the passage rows)
+
+Since 2026-11-25 the mobile app shows weather inside the rows that already carry passage times, not as a separate card (details in `docs/01-architecture/mobile-app.md` § Course weather):
+
+- **Livret coureur** aid-station list (start, each aid station, finish): with a linked plan, the forecast hour at the runner's own passage = `startAt` shifted by the personal departure clock, plus the plan's elapsed minutes; without a plan, the field window above.
+- **Livret supporter** stops: from the first expected arrival to the stop cutoff (organizer race-day clocks converted to instants by anchoring them on `startAt` in the response `timeZone`), the field window filling a missing bound.
+- Rows are matched to forecast points by id (`start`, `finish`, `aid-<order_index>`) when the km agrees within 2 km, else by nearest km within 2 km; thinned or near-endpoint stations therefore borrow the closest point, and a row with no point within 2 km shows nothing.
+- The attribution `Données météo : MET Norway (CC BY 4.0)` and the status messages (too early, stale copy, estimated start, device time) are rendered once per list, under the rows.
 
 ## Gotchas
 
@@ -131,6 +140,8 @@ Without a runner plan (public race page, Livret coureur, Livret supporter), each
 - Aid-station km are official kms projected on the GPX length; when the GPX is shorter than the official distance, late stations clamp to the GPX end. `distanceKm` stays the official km so planned passages match.
 - The in-memory rate limiter is per serverless instance; the CDN cache in front of the route is the real protection for MET.
 - Never put a personal address in the User-Agent and never call MET from the client apps: always through this route.
+- Point ids use `order_index` server-side (`row.order_index ?? index`) while the mobile Livret reads `order_index ?? 0`; a null `order_index` can therefore mismatch the id, which the 2 km distance check and the nearest-km fallback absorb.
+- Mobile converts local clocks to instants relative to `startAt`, so a DST change between the start and a passage is ignored (at most one hour, display only).
 
 ## Related Docs
 

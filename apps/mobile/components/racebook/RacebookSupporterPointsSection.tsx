@@ -1,7 +1,10 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Colors } from '../../constants/colors';
+import type { CourseWeatherInlineLine } from '../../lib/courseWeather';
+import { CourseWeatherInlineRow } from '../course-weather/CourseWeatherPassage';
 import { formatDistance, formatDistanceRange } from '../../lib/displayFormat';
 import { useI18n } from '../../lib/i18n';
 import type { SupporterGuideStop } from '../../lib/supporterGuide';
@@ -42,10 +45,13 @@ export function RacebookSupporterPointsSection({
   stops,
   locale,
   onOpenUrl,
+  weather = null,
 }: {
   stops: RacebookSupporterStop[];
   locale: 'fr' | 'en';
   onOpenUrl: (url: string, action: 'directions' | 'plan') => void;
+  /** Course weather (display-only) per stop id while runners pass, and one status/attribution note. */
+  weather?: { timeZone: string; byStopId: Record<string, CourseWeatherInlineLine>; note?: ReactNode } | null;
 }) {
   const { t } = useI18n();
   const accessLabel = {
@@ -181,18 +187,23 @@ export function RacebookSupporterPointsSection({
                   ) : null}
                 </View>
               ) : null}
+              {weather?.byStopId[stop.id] ? (
+                <CourseWeatherInlineRow line={weather.byStopId[stop.id]} timeZone={weather.timeZone} />
+              ) : null}
               {showAccessLabel ? <Text style={styles.access}>{stop.accessLabel}</Text> : null}
               {stop.accessNote ? <Text style={styles.note}>{stop.accessNote}</Text> : null}
             </View>
           </View>
         );
       })}
+      {weather?.note ? <View style={styles.weatherNote}>{weather.note}</View> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   list: { gap: 0 },
+  weatherNote: { paddingLeft: 50, paddingRight: 4 },
   row: { flexDirection: 'row', alignItems: 'stretch' },
   closedRow: { opacity: 0.55 },
   rail: { width: 42, alignItems: 'center' },

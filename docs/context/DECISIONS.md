@@ -4,6 +4,14 @@
 
 Journal en ajout seul, la plus récente en haut. Format : `## AAAA-MM-JJ — Titre`, puis Contexte / Décision / Conséquence (2 à 4 lignes chacun). Les décisions d'architecture détaillées (ADR) vont dans [docs/08-decisions/](../08-decisions/README.md).
 
+## 2026-11-25 — Météo intégrée aux ravitos, à l'heure de passage
+
+**Contexte.** La carte « Météo » ajoutée en bas du Livret coureur et du Livret supporter était lue comme un bloc de plus, séparé des temps de passage ; le propriétaire voulait la météo avec les horaires des coureurs.
+
+**Décision.** Plus de carte météo séparée sur mobile : une ligne compacte dans chaque ravito (départ et arrivée compris) — à l'heure de passage du coureur s'il a un plan lié, sinon sur la fenêtre de passage probable du peloton — et dans chaque arrêt du Livret supporter (de la première arrivée attendue à la barrière horaire). Une seule mention « Données météo : MET Norway (CC BY 4.0) » et les messages d'état sous la liste. Toujours en affichage seul.
+
+**Conséquence.** Un ravito sans point de prévision à moins de 2 km n'affiche rien. Détail dans `docs/01-architecture/mobile-app.md` § Course weather et `docs/05-integrations/met-norway-weather.md`.
+
 ## 2026-11-23 — Météo du parcours : MET Norway gratuit, affichage seul
 
 **Contexte.** Les coureurs veulent la météo attendue au départ, aux ravitos et au sommet à l'heure de leur passage. Open-Meteo interdit l'usage commercial en gratuit (≈ 30 €/mois en payant).

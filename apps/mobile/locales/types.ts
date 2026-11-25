@@ -1223,13 +1223,9 @@ export type MobileTranslations = {
     fetchedAt: string;
     staleCopy: string;
     estimatedStart: string;
-    /** {start} / {end} = local clocks of the race window. */
-    raceWindow: string;
     deviceTimeNote: string;
-    start: string;
-    finish: string;
-    summit: string;
-    aidStation: string;
+    /** {start} / {end} = local clocks of the window runners pass a point (no plan, Livret supporter). */
+    passageWindow: string;
     /** {value} = feels-like temperature (with °). */
     feelsLike: string;
     /** {value} = km/h (sustained wind; gusts are often missing). */
@@ -1242,6 +1238,8 @@ export type MobileTranslations = {
     precipitationProbability: string;
     outOfForecast: string;
     planOutOfRange: string;
+    /** No row of a list without runner plan falls in the forecast. */
+    fieldOutOfRange: string;
     alerts: {
       heat: string;
       cold: string;

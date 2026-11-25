@@ -1,10 +1,12 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ResolvedRacebookTheme } from '@pace-yourself/design-system';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Colors } from '../../constants/colors';
+import type { CourseWeatherInlineLine } from '../../lib/courseWeather';
 import { formatDuration } from '../../lib/planSummary';
+import { CourseWeatherInlineRow } from '../course-weather/CourseWeatherPassage';
 import type { RacebookAidStation } from '../../lib/racebook';
 import { resolveRacebookFinishStation } from '../../lib/racebookAidStationPresentation';
 import { estimatePersonalSegmentDuration, normalizeSimpleClock } from '../../lib/racebookPlanReflection';
@@ -64,6 +66,15 @@ type RacebookAidStationsSectionProps = {
   officialCutoffDisplayByStationId?: Record<string, string>;
   officialFinishCutoffDisplay?: string | null;
   onEditPersonalPlanStation?: (station: RacebookAidStation) => void;
+  /** Course weather (display-only) per aid station id, at the start and at the finish. */
+  weather?: {
+    timeZone: string;
+    byStationId: Record<string, CourseWeatherInlineLine>;
+    start?: CourseWeatherInlineLine;
+    finish?: CourseWeatherInlineLine;
+    /** Status and MET Norway attribution, once under the list. */
+    note?: ReactNode;
+  } | null;
 };
 
 const formatStationDistance = formatDistance;
@@ -105,7 +116,9 @@ function AidStationCard({
   officialCutoffDisplay,
   onEditPersonalPlan,
   locale,
+  weather,
 }: {
+  weather?: ReactNode;
   station: RacebookAidStation;
   position: number;
   isFinish?: boolean;
@@ -246,6 +259,8 @@ function AidStationCard({
         </View>
       ) : null}
 
+      {weather ? <View style={styles.weatherRow}>{weather}</View> : null}
+
       {expanded && hasExpandedDetails ? (
         <View style={styles.aidStationExpandedContent}>
           {station.organizerDetails.maxStopMinutes ? <Text style={styles.noteText}>{locale === 'fr' ? `Temps d’arrêt maximum : ${station.organizerDetails.maxStopMinutes} min` : `Maximum stop: ${station.organizerDetails.maxStopMinutes} min`}</Text> : null}
@@ -275,6 +290,7 @@ function EndpointCard({
   distanceKm,
   time,
   locale,
+  weather,
 }: {
   label: string;
   distanceKm: number;
@@ -284,10 +300,11 @@ function EndpointCard({
     tone: 'positive' | 'critical';
   } | null;
   locale: 'fr' | 'en';
+  weather?: ReactNode;
 }) {
   return (
-    <View accessible accessibilityLabel={[label, formatStationDistance(distanceKm, locale), time ? `${time.label} ${time.value}` : null].filter(Boolean).join(', ')} style={styles.aidStationCard}>
-      <View style={styles.aidStationSummary}>
+    <View style={styles.aidStationCard}>
+      <View accessible accessibilityLabel={[label, formatStationDistance(distanceKm, locale), time ? `${time.label} ${time.value}` : null].filter(Boolean).join(', ')} style={styles.aidStationSummary}>
         <View style={styles.aidStationSummaryMain}>
           <Text numberOfLines={2} style={styles.aidStationName}>{label}</Text>
           {time ? (
@@ -312,6 +329,7 @@ function EndpointCard({
         </View>
         <DataText style={styles.aidStationSummaryDistance}>{formatStationDistance(distanceKm, locale)}</DataText>
       </View>
+      {weather ? <View style={styles.weatherRow}>{weather}</View> : null}
     </View>
   );
 }
@@ -450,8 +468,12 @@ export function RacebookAidStationsSection({
   officialCutoffDisplayByStationId = {},
   officialFinishCutoffDisplay = null,
   onEditPersonalPlanStation,
+  weather = null,
 }: RacebookAidStationsSectionProps) {
   const finishStation = resolveRacebookFinishStation(stations);
+  const weatherRow = (line: CourseWeatherInlineLine | undefined) => (
+    weather && line ? <CourseWeatherInlineRow line={line} timeZone={weather.timeZone} /> : null
+  );
   const aidStations = finishStation ? stations.slice(0, -1) : stations;
   const previousStation = aidStations[aidStations.length - 1];
   const finishSegmentLabel = previousStation
@@ -467,6 +489,7 @@ export function RacebookAidStationsSection({
             distanceKm={0}
             locale={locale}
             time={startTime ? { label: copy.startLabel, value: startTime, tone: 'positive' } : null}
+            weather={weatherRow(weather?.start)}
           />
         </View>
       </View>
@@ -526,6 +549,7 @@ export function RacebookAidStationsSection({
                   personalPlan={personalPlanByStationId[station.id]}
                   officialCutoffDisplay={officialCutoffDisplayByStationId[station.id]}
                   onEditPersonalPlan={onEditPersonalPlanStation ? () => onEditPersonalPlanStation(station) : undefined}
+                  weather={weatherRow(weather?.byStationId[station.id])}
                 />
               </View>
             </View>
@@ -565,12 +589,14 @@ export function RacebookAidStationsSection({
               personalPlan={personalPlanByStationId[finishStation.id]}
               officialCutoffDisplay={officialCutoffDisplayByStationId[finishStation.id] ?? officialFinishCutoffDisplay}
               onEditPersonalPlan={onEditPersonalPlanStation ? () => onEditPersonalPlanStation(finishStation) : undefined}
+              weather={weatherRow(weather?.finish)}
             />
           ) : (
             <EndpointCard
               label={finish.label}
               distanceKm={finish.distanceKm}
               locale={locale}
+              weather={weatherRow(weather?.finish)}
               time={finish.cutoffTime ? {
                 label: copy.aidCutoffTime,
                 value: officialFinishCutoffDisplay ?? normalizeSimpleClock(finish.cutoffTime) ?? finish.cutoffTime,
@@ -580,12 +606,15 @@ export function RacebookAidStationsSection({
           )}
         </View>
       </View>
+      {weather?.note ? <View style={styles.weatherNote}>{weather.note}</View> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   timingRows: { gap: 5, paddingHorizontal: 14, paddingBottom: 10 },
+  weatherRow: { paddingHorizontal: 14, paddingBottom: 10 },
+  weatherNote: { paddingTop: 10, paddingHorizontal: 4 },
   passageSummary: { minHeight: 24, flexDirection: 'row', alignItems: 'center', gap: 5 },
   timingIcon: { width: 14, alignItems: 'center', justifyContent: 'center' },
   passageSummaryLabel: { flex: 1, color: Colors.success, fontSize: 12, lineHeight: 16, fontWeight: '700' },

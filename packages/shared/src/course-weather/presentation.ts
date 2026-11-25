@@ -169,20 +169,34 @@ export function courseWeatherHoursBetween(
 export const COURSE_WEATHER_FIELD_SPEED_KPH = { fastest: 12, slowest: 4 } as const;
 
 /**
- * Hours of a point when the field is likely to pass it, without a runner plan: from
- * `startAt + km / fastest − 30 min` to `startAt + km / slowest + 1 h`. Falls back to every
- * hour when the start instant is unknown or no hour falls in the window.
+ * Window when the field is likely to pass `distanceKm`, without a runner plan: from
+ * `startAt + km / fastest − 30 min` to `startAt + km / slowest + 1 h`. `null` when the start
+ * instant is unknown.
+ */
+export function courseWeatherLikelyPassageWindow(
+  distanceKm: number,
+  startAt: string | null,
+): { from: Date; to: Date } | null {
+  const start = startAt ? Date.parse(startAt) : Number.NaN;
+  if (!Number.isFinite(start)) return null;
+  const km = Number.isFinite(distanceKm) ? Math.max(0, distanceKm) : 0;
+  return {
+    from: new Date(start + (km / COURSE_WEATHER_FIELD_SPEED_KPH.fastest) * 60 * MINUTE_MS - 30 * MINUTE_MS),
+    to: new Date(start + (km / COURSE_WEATHER_FIELD_SPEED_KPH.slowest) * 60 * MINUTE_MS + 60 * MINUTE_MS),
+  };
+}
+
+/**
+ * Hours of a point when the field is likely to pass it (`courseWeatherLikelyPassageWindow`).
+ * Falls back to every hour when the start instant is unknown or no hour falls in the window.
  */
 export function courseWeatherLikelyPassageHours(
   point: Pick<CourseWeatherPoint, 'hours' | 'distanceKm'>,
   startAt: string | null,
 ): CourseWeatherHour[] {
-  const start = startAt ? Date.parse(startAt) : Number.NaN;
-  if (!Number.isFinite(start)) return point.hours;
-  const km = Math.max(0, point.distanceKm);
-  const from = start + (km / COURSE_WEATHER_FIELD_SPEED_KPH.fastest) * 60 * MINUTE_MS - 30 * MINUTE_MS;
-  const to = start + (km / COURSE_WEATHER_FIELD_SPEED_KPH.slowest) * 60 * MINUTE_MS + 60 * MINUTE_MS;
-  const hours = courseWeatherHoursBetween(point, new Date(from), new Date(to));
+  const window = courseWeatherLikelyPassageWindow(point.distanceKm, startAt);
+  if (!window) return point.hours;
+  const hours = courseWeatherHoursBetween(point, window.from, window.to);
   return hours.length ? hours : point.hours;
 }
 

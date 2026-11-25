@@ -14,7 +14,9 @@ import {
 } from '../../../../components/racebook/RacebookCollapsibleHero';
 import { RacebookServicesSection, type RacebookServicesCopy } from '../../../../components/racebook/RacebookServicesSection';
 import { RacebookSupporterPointsSection, type RacebookSupporterStop } from '../../../../components/racebook/RacebookSupporterPointsSection';
-import { CourseWeatherSection } from '../../../../components/course-weather/CourseWeatherSection';
+import { CourseWeatherPlanNote } from '../../../../components/course-weather/CourseWeatherPassage';
+import { useCourseWeather } from '../../../../components/course-weather/useCourseWeather';
+import { buildCourseWeatherRowWindows, courseWeatherInstantAt, selectCourseWeatherDisplay } from '../../../../lib/courseWeather';
 import { RacebookTabBar } from '../../../../components/racebook/RacebookTabBar';
 import { AccordionHeader } from '../../../../components/themed/AccordionHeader';
 import { ActionButton } from '../../../../components/themed/ActionButton';
@@ -321,6 +323,28 @@ export default function SupporterGuideScreen() {
     ? selectedRaceId
     : raceChoices[0]?.raceId ?? null;
   const currentFormat = guide?.formats.find((format) => format.raceId === currentRaceId) ?? null;
+  const followStops = useMemo(() => (currentFormat ? resolveGuideStops(currentFormat) : []), [currentFormat]);
+
+  // Course weather (display-only) inside each stop of the course line, while runners pass there:
+  // from the first expected arrival to the stop cutoff, else the field's likely passage window.
+  const followWeather = useCourseWeather(activeSection === 'follow' ? currentFormat?.raceId : null);
+  const followWeatherDisplay = selectCourseWeatherDisplay(followWeather.entry);
+  const followWeatherForecast = followWeatherDisplay.kind === 'forecast' ? followWeatherDisplay.forecast : null;
+  const followStopWeather = useMemo(() => {
+    if (!followWeatherForecast) return {};
+    return buildCourseWeatherRowWindows(followWeatherForecast, followStops.map((stop) => {
+      const arrivals = [stop.expectedArrivals?.men, stop.expectedArrivals?.women]
+        .map((clock) => courseWeatherInstantAt(followWeatherForecast, clock))
+        .filter((instant): instant is Date => instant !== null);
+      return {
+        key: stop.id,
+        pointId: stop.endpoint === 'start' ? 'start' : stop.isFinish ? 'finish' : null,
+        distanceKm: stop.km,
+        from: arrivals.length > 0 ? new Date(Math.min(...arrivals.map((instant) => instant.getTime()))) : null,
+        to: courseWeatherInstantAt(followWeatherForecast, stop.cutoff),
+      };
+    }));
+  }, [followStops, followWeatherForecast]);
 
   const openUrl = useCallback((url: string) => {
     void Linking.openURL(url).catch(() => undefined);
@@ -697,7 +721,7 @@ export default function SupporterGuideScreen() {
                 <Text style={styles.sectionLead}>{copy.followSubtitle}</Text>
                 <RacebookSupporterPointsSection
                   locale={locale}
-                  stops={resolveGuideStops(currentFormat).map((stop): RacebookSupporterStop => ({
+                  stops={followStops.map((stop): RacebookSupporterStop => ({
                     ...stop,
                     cutoffLabel: formatGuideClock(stop.cutoff, currentFormat.date, locale),
                     closed: stop.endpoint === 'start' ? false : isStopClosed(stop, currentFormat.date, now),
@@ -706,8 +730,20 @@ export default function SupporterGuideScreen() {
                     expectedWomenLabel: formatGuideClock(stop.expectedArrivals?.women, currentFormat.date, locale),
                   }))}
                   onOpenUrl={(url) => openUrl(url)}
+                  weather={followWeatherDisplay.kind === 'hidden' ? null : {
+                    timeZone: followWeatherForecast?.timeZone ?? 'UTC',
+                    byStopId: followStopWeather,
+                    note: (
+                      <CourseWeatherPlanNote
+                        display={followWeatherDisplay}
+                        hasPassageWeather={Object.keys(followStopWeather).length > 0}
+                        outOfRangeMessage={t.courseWeather.fieldOutOfRange}
+                        showEstimatedStart
+                        stale={followWeather.stale}
+                      />
+                    ),
+                  }}
                 />
-                <CourseWeatherSection raceId={currentFormat.raceId} />
               </>
             ) : (
               <EmptyState title={copy.emptyFollow} />
