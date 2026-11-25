@@ -1,7 +1,7 @@
 ---
 title: Organizer Flyover Video Orders
 scope: business-rule
-last_verified: 2026-11-22
+last_verified: 2026-11-25
 ai_priority: medium
 related_files:
   - apps/web/lib/admin-renders.ts
@@ -18,6 +18,7 @@ related_files:
   - apps/web/lib/flyover-generation.ts
   - apps/web/lib/flyover-generation.test.ts
   - apps/web/app/survol/page.tsx
+  - apps/web/app/survol/flyover-structured-data.ts
   - apps/web/app/survol/flyover-order-form.tsx
   - apps/web/app/survol/commande/[id]/page.tsx
   - apps/web/app/api/flyover-orders/route.ts
@@ -53,6 +54,8 @@ A standalone paid product for race organizers, independent of the livret coureur
 - **No catalog race**: the order id stands for the race id inside the in-memory `VideoGeneratorDetail` (`buildFlyoverDetail`); render jobs carry `flyover_order_id` and a null `race_id`.
 
 ## Page flow (`/survol`, 2026-11-22)
+
+SEO (2026-11-25): the page emits a schema.org `Service` JSON-LD (`flyover-structured-data.ts`) with one `Offer` per `FLYOVER_OFFERS` entry, price = `amountCents / 100` in EUR (TTC, like the page). Changing an offer price in `lib/flyover-orders.ts` updates it automatically; the Stripe price must still match.
 
 The price comes last, after the organizer has seen the video:
 

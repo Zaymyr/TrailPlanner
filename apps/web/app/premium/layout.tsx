@@ -7,7 +7,7 @@ const canonicalPath = "/premium";
 const canonicalUrl = new URL(canonicalPath, SITE_URL).toString();
 const title = "Pace Yourself Premium : allures, ravitos et plan nutrition";
 const description =
-  "Ton temps estimé reste gratuit. Débloque le plan : allures section par section, produits ravito par ravito, fiche à imprimer et exports, pour une course ou à l’année.";
+  "Ton temps estimé reste gratuit. Débloque le plan : allures par section, produits à chaque ravito, fiche imprimable, exports, pour une course ou à l’année.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

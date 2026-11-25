@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { extractOrganizerAttribution, buildOrganizerCreationHref } from "../../lib/organizer-acquisition";
 import { loadPublishedOrganizerSocialProofs } from "../../lib/organizer-social-proof-server";
 import { OrganizerLandingPage } from "./organizer-landing-page";
+import { buildOrganizerStructuredData } from "./organizer-structured-data";
 import { SITE_URL } from "../seo";
 
 const canonicalPath = "/organisateurs";
@@ -37,11 +38,19 @@ export default async function OrganizersLandingPage({ searchParams }: Organizers
   const attribution = extractOrganizerAttribution(searchParams);
   const socialProofs = await loadPublishedOrganizerSocialProofs();
 
+  const structuredData = buildOrganizerStructuredData(canonicalPath, description);
+
   return (
-    <OrganizerLandingPage
-      attribution={attribution}
-      creationHref={buildOrganizerCreationHref(attribution)}
-      socialProofs={socialProofs}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }}
+      />
+      <OrganizerLandingPage
+        attribution={attribution}
+        creationHref={buildOrganizerCreationHref(attribution)}
+        socialProofs={socialProofs}
+      />
+    </>
   );
 }

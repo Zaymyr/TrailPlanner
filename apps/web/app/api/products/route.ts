@@ -96,6 +96,9 @@ const toProduct = (row: z.infer<typeof supabaseProductSchema>): FuelProduct => (
 
 const buildSlug = (name: string) => {
   const base = name
+    // Strip accents first so « Énergie » becomes « energie », not « nergie ».
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9]+/g, "-")

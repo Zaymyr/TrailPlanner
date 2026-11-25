@@ -2,7 +2,7 @@
 title: race_events Table
 scope: database
 
-last_verified: 2026-11-23
+last_verified: 2026-11-25
 # Event hub slug (2026-11-22): `slug` (not null, unique, immutable, year-free, disjoint from edition slugs) generated on insert by `assign_race_event_slug`; French `location_region_code` backfilled from the exact normalized region name.
 # Supporter onboarding (2026-11-18): the mobile guided catalog gains a `supporter` mode over the same public event list; no read, table or RLS change here (the only schema change is `user_profiles.supporter_onboarding_status`).
 # Inbox push badge (2026-11-18): apps/web/lib/push.ts adds an iOS badge only to admin inbox pushes (unread user_notifications count); race event update pushes, schema and RLS are unchanged.
@@ -498,6 +498,8 @@ Admin console (2026-11-23, lot 5): `GET /api/admin/event-publication-requests` a
 Format pages (2026-11-23) also render distance-matched blog guides; no `race_events` read or contract change.
 
 ## Duplicate event merges (2026-11-23)
+
+Course page titles and descriptions (`race-metadata.ts`, 2026-11-25) are cut on word boundaries and read only existing event/format names; no column or rule changes. Cleaning a stored name (migration `20261125090000`: `224km_XGTV` to `224km XGTV`) is a data fix on `races.name`, not on this table.
 
 Event slugs are immutable (`assign_race_event_slug`), so merging two rows that describe the same event is a one-off migration: move editions, formats and every `event_id` reference to the kept event, fill its missing fields from the merged one, delete the merged row, then rename the kept slug to the clean base slug with the trigger disabled for that statement only, and add the retired hub slugs to `catalogSlugRedirects` in `apps/web/next.config.mjs`. First case: migration `20261123200000_merge_duplicate_marathon_du_mont_blanc_event.sql` kept `d1472716…` (2027 edition, 12 formats) and merged `08a81d9c…` (2026 edition, 2 formats) into `marathon-du-mont-blanc`. Do not dry-run such merges through the Supabase connector: write statements open a confirmation dialog that some clients cannot display.
 

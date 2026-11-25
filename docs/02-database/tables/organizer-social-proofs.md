@@ -1,7 +1,7 @@
 ---
 title: organizer_social_proofs
 scope: database
-last_verified: 2026-11-22
+last_verified: 2026-11-25
 # Organizer hero note (2026-11-16): /organisateurs now presents the Livret coureur and the Livret supporter side by side (hero cards, illustrative supporter preview, metadata title); presentation only, no data, analytics event or offer change.
 ai_priority: high
 related_files:
@@ -119,6 +119,8 @@ limit 3;
 - [RLS Policies](../rls-policies.md)
 
 Organizer header (2026-11-16): the dashboard header no longer shows the « Aperçu coureur » and « Aperçu accompagnateur » web preview links (« Voir le Livret coureur » and « Télécharger le QR » remain), and its row wraps instead of letting the actions block overlap the edition selector. Presentation only; no data, contract or offer change.
+
+`/organisateurs` also renders a `Service` JSON-LD with the tier offers (2026-11-25); it reads no proof data.
 
 The `/organisateurs` metadata title is « Livret coureur et livret supporter pour organisateurs » and its description stays under 160 characters; proof cards and their data are unchanged.
 

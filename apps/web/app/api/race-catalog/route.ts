@@ -179,6 +179,9 @@ const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 
 const buildSlug = (name: string) => {
   const base = name
+    // Strip accents first so « Païens » becomes « paiens », not « pa-ens ».
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
