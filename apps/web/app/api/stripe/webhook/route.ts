@@ -10,6 +10,13 @@ import {
   StripeSubscriptionEventData,
   verifyStripeSignature,
 } from "../../../../lib/stripe";
+import {
+  chargeColumns,
+  newerChargeFilter,
+  type RunnerSaleCharge,
+  stripeCharge,
+  subscriptionChargeColumns,
+} from "../../../../lib/runner-payments";
 import { getSupabaseServiceConfig } from "../../../../lib/supabase";
 
 type StripeCheckoutSessionEventData = {
@@ -43,14 +50,31 @@ const serviceHeaders = (serviceConfig: NonNullable<ReturnType<typeof getSupabase
   ...(contentType ? { "Content-Type": contentType } : {}),
 });
 
+type StripeInvoiceEventData = {
+  id?: string;
+  amount_paid?: number;
+  currency?: string;
+  subscription?: string | { id?: string } | null;
+  // Stripe API 2025-03+ moved the subscription under `parent.subscription_details`.
+  parent?: { subscription_details?: { subscription?: string | { id?: string } | null } | null } | null;
+};
+
+const idOf = (value: string | { id?: string } | null | undefined) =>
+  typeof value === "string" ? value : typeof value?.id === "string" ? value.id : null;
+
+const stripeEventAt = (event: StripeEvent) =>
+  typeof event.created === "number" ? new Date(event.created * 1000).toISOString() : new Date().toISOString();
+
 const recordRunnerBillingEvent = async (
   event: StripeEvent,
   transactionId: string,
-  transactionStatus: "active" | "refunded" | "revoked",
+  /** `null` for subscription charges: they never take part in the course transaction state. */
+  transactionStatus: "active" | "refunded" | "revoked" | null,
+  charge: RunnerSaleCharge | null = null,
 ) => {
   const service = getSupabaseServiceConfig();
   if (!service) throw new Error("Supabase service configuration is missing.");
-  const eventAt = typeof event.created === "number" ? new Date(event.created * 1000).toISOString() : new Date().toISOString();
+  const eventAt = stripeEventAt(event);
   const response = await fetch(`${service.supabaseUrl}/rest/v1/runner_billing_events?on_conflict=provider,provider_event_id`, {
     method: "POST",
     headers: { ...serviceHeaders(service), Prefer: "resolution=merge-duplicates" },
@@ -63,6 +87,7 @@ const recordRunnerBillingEvent = async (
       event_at: eventAt,
       payload: event,
       processing_error: null,
+      ...chargeColumns(charge),
     }),
     cache: "no-store",
   });
@@ -349,6 +374,42 @@ const upsertRunnerSubscriptionAccount = async (userId: string, subscriptionId: s
   if (!service || !subscriptionId) return;
   const response = await fetch(`${service.supabaseUrl}/rest/v1/runner_subscription_accounts?on_conflict=provider,provider_subscription_id`, { method: "POST", headers: { ...serviceHeaders(service), Prefer: "resolution=merge-duplicates" }, body: JSON.stringify({ user_id: userId, provider: "stripe", provider_subscription_id: subscriptionId, status: status ?? "unknown", current_period_end: periodEnd }) });
   if (!response.ok) throw new Error(`Unable to upsert runner subscription account: ${await response.text()}`);
+  await fillStripeSubscriptionChargeFromJournal(subscriptionId);
+};
+
+/** Writes a charged period as the latest charge of a Stripe subscription account (older never wins). */
+const patchStripeSubscriptionCharge = async (subscriptionId: string, charge: RunnerSaleCharge, chargedAt: string) => {
+  const service = getSupabaseServiceConfig();
+  if (!service) throw new Error("Supabase service configuration is missing.");
+  const response = await fetch(
+    `${service.supabaseUrl}/rest/v1/runner_subscription_accounts?provider=eq.stripe&provider_subscription_id=eq.${encodeURIComponent(subscriptionId)}&${newerChargeFilter(chargedAt)}`,
+    { method: "PATCH", headers: serviceHeaders(service), body: JSON.stringify(subscriptionChargeColumns(charge, chargedAt)), cache: "no-store" },
+  );
+  if (!response.ok) throw new Error(`Unable to record runner subscription charge: ${await response.text()}`);
+};
+
+/**
+ * Subscription charge (`invoice.paid`, or the first Checkout): journaled with the subscription id as
+ * transaction and no transaction status, then copied onto the account when it already exists.
+ */
+const recordStripeSubscriptionCharge = async (event: StripeEvent, subscriptionId: string, charge: RunnerSaleCharge) => {
+  const chargedAt = await recordRunnerBillingEvent(event, subscriptionId, null, charge);
+  await patchStripeSubscriptionCharge(subscriptionId, charge, chargedAt);
+  await markRunnerBillingEventProcessed(event.id);
+};
+
+/** A charge delivered before `customer.subscription.created` is picked up from the journal. */
+const fillStripeSubscriptionChargeFromJournal = async (subscriptionId: string) => {
+  const service = getSupabaseServiceConfig();
+  if (!service) return;
+  const response = await fetch(
+    `${service.supabaseUrl}/rest/v1/runner_billing_events?provider=eq.stripe&transaction_id=eq.${encodeURIComponent(subscriptionId)}&transaction_status=is.null&amount_minor=not.is.null&select=amount_minor,currency,event_at&order=event_at.desc&limit=1`,
+    { headers: serviceHeaders(service, ""), cache: "no-store" },
+  );
+  if (!response.ok) throw new Error(`Unable to read runner subscription charges: ${await response.text()}`);
+  const row = ((await response.json().catch(() => [])) as Array<{ amount_minor?: number; currency?: string; event_at?: string }>)[0];
+  const charge = stripeCharge(row?.amount_minor, row?.currency);
+  if (charge && row?.event_at) await patchStripeSubscriptionCharge(subscriptionId, charge, row.event_at);
 };
 
 const handleSubscriptionEvent = async (payload: StripeSubscriptionEventData) => {
@@ -511,7 +572,9 @@ export async function POST(request: NextRequest) {
         ) {
           const transactionId = typeof checkout.payment_intent === "string" ? checkout.payment_intent : checkout.id;
           if (!transactionId) throw new Error("Runner checkout transaction is missing.");
-          const purchasedAt = await recordRunnerBillingEvent(event, transactionId, "active");
+          // The journaled charge (TTC, minor units) is copied onto the unlock by the claim RPC.
+          const charge = stripeCharge(checkout.amount_total, checkout.currency, { allowZero: true });
+          const purchasedAt = await recordRunnerBillingEvent(event, transactionId, "active", charge);
           await handleRunnerCourseFulfillment(checkout, purchasedAt);
           await markRunnerBillingEventProcessed(event.id);
         } else if (event.type === "checkout.session.async_payment_failed") {
@@ -521,7 +584,20 @@ export async function POST(request: NextRequest) {
         }
       } else if (event.type === "checkout.session.completed") {
           await handleCheckoutSessionCompleted(checkout);
+          // First charge of an annual subscription Checkout (renewals come from `invoice.paid`).
+          const subscriptionId = typeof checkout.subscription === "string" ? checkout.subscription : null;
+          const charge = stripeCharge(checkout.amount_total, checkout.currency);
+          if (subscriptionId && charge && (checkout.payment_status === "paid" || checkout.status === "complete")) {
+            await recordStripeSubscriptionCharge(event, subscriptionId, charge);
+          }
       }
+    }
+
+    if (event.type === "invoice.paid") {
+      const invoice = event.data.object as StripeInvoiceEventData;
+      const subscriptionId = idOf(invoice.subscription) ?? idOf(invoice.parent?.subscription_details?.subscription);
+      const charge = stripeCharge(invoice.amount_paid, invoice.currency);
+      if (subscriptionId && charge) await recordStripeSubscriptionCharge(event, subscriptionId, charge);
     }
 
     if (event.type === "charge.refunded" || event.type === "charge.dispute.created") {

@@ -12,7 +12,6 @@ related_files:
   - supabase/tests/app_feedback_review_checks.sql
   - .github/workflows/db-migrate.yml
   - .github/workflows/db-verify.yml
-  - .github/workflows/db-schema-snapshot.yml
   - supabase/migrations
   - supabase/migrations/20261105115106_admin_user_notifications.sql
   - supabase/tests/admin_user_notifications_checks.sql
@@ -198,11 +197,11 @@ This document summarizes the migration history and the rules for adding new Supa
 
 ## CI and Production Deployment
 
-Database changes use three separate safeguards:
+Database changes use two separate safeguards:
 
 - `.github/workflows/db-verify.yml` runs on every pull request so its `static-migration-checks` status can be required consistently. It validates the complete migration filename history and checks newly created `public` tables in changed SQL for RLS plus an explicit `GRANT` or `REVOKE` decision for `anon`, `authenticated`, and `service_role`.
 - `.github/workflows/db-migrate.yml` is called by the `migrate` job of `.github/workflows/release.yml` whenever the merged range contains `supabase/migrations/*.sql`, before the web deployment and the production OTA (see [Release Flow](../06-workflows/release-flow.md)). A manual dispatch remains for exceptional cases (full commit SHA already merged into `main`, `APPLY_PRODUCTION_MIGRATIONS`). Pull requests whose migrations contain destructive statements are blocked by the `release-guards` check unless labelled `migration-destructive-ok`. It verifies that exact ref, compares remote migration versions with repository files, validates every migration still pending remotely (not only the last commit), uploads the CLI listing as a diagnostic, previews the pending push with `--dry-run`, inspects sessions, and only then deploys serially. A remote-only version blocks the job. CI must never repair migration history automatically: `migration repair` changes the tracking table without proving that the schema matches the repository.
-- `.github/workflows/db-schema-snapshot.yml` runs after a successful `Supabase DB Migrate` dispatch or `Release` run. It checks out `main`, writes a non-empty PostgreSQL 17 schema dump including access-control statements, regenerates `docs/db/README.md`, and opens a dedicated pull request only when the snapshot changed. The bot never pushes directly to protected `main`; because bot-created pull-request events do not start other workflows, it explicitly dispatches the required web and database checks on the snapshot branch.
+There is no automated schema snapshot any more: `docs/db/schema.sql` and `docs/db/README.md` are a frozen, outdated dump. Read the live schema from the migrations or the Supabase project, not from them.
 
 The repository currently cannot prove a clean local rebuild: `supabase/config.toml` is absent and the `race_events` create-table migration is still missing from the visible history. Consequently, CI does **not** claim that `supabase db reset` or the 13 rollback SQL scripts under `supabase/tests` pass from an empty database. Restore and verify a complete baseline before adding those dynamic checks to the required workflow. Until then, run the SQL scripts only against an isolated, schema-compatible staging database, never against production as a substitute for pre-deployment verification.
 
@@ -529,6 +528,10 @@ Push support comes from:
 The later cron auth migration should be treated as the effective schedule/auth implementation.
 
 Organizer import cleanup additionally uses `organizer-import-cleanup-hourly` at minute 17 of each hour. Unlike data-only purges, it calls `/api/cron/organizer-import-cleanup` so the route can remove private Storage objects before deleting expired session rows.
+
+### Runner Sale Amounts
+
+`20261123220100_record_runner_sale_amounts.sql` (additive, idempotent, RLS and grants unchanged) adds nullable charge columns — `amount_minor` (TTC, minor units), `currency`, `store_takehome_rate`, `store_tax_rate` — to `runner_billing_events`, `runner_plan_unlocks` and `runner_support_purchases`, and the latest charged period (`last_amount_minor`, `last_currency`, `last_charged_at`, `last_store_*`) to `runner_subscription_accounts`. It adds the immutable helper `runner_currency_minor_factor(text)` (service role only), backfills journaled RevenueCat and Stripe Checkout payloads into `runner_billing_events` and then the unlocks of the same provider transaction, replaces `claim_runner_plan_unlock` with the same signature (it now copies the journaled charge), and drops/recreates `record_runner_support_event` with 4 optional trailing amount parameters (grants re-applied). `supabase/tests/runner_support_purchase_checks.sql` uses the new signature and checks that a support charge is recorded once and never overwritten. See [Runner Billing Tables](tables/runner-billing.md) « Sale amounts ».
 
 ## Adding a Migration
 

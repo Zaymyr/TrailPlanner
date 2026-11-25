@@ -18,7 +18,7 @@ begin
     raise exception 'Support billing tables must remain service-only';
   end if;
   if has_function_privilege('authenticated', 'public.claim_runner_support_purchase(uuid,text,text,text,timestamptz,uuid)', 'EXECUTE')
-     or has_function_privilege('authenticated', 'public.record_runner_support_event(uuid,text,text,text,text,timestamptz,timestamptz,text)', 'EXECUTE') then
+     or has_function_privilege('authenticated', 'public.record_runner_support_event(uuid,text,text,text,text,timestamptz,timestamptz,text,integer,text,numeric,numeric)', 'EXECUTE') then
     raise exception 'Support billing RPCs must remain service-only';
   end if;
 
@@ -67,6 +67,22 @@ begin
   ) then raise exception 'Support refund reversal was not recorded'; end if;
   if not exists(select 1 from public.runner_support_purchases where user_id = first_user and status = 'active') then
     raise exception 'Support refund reversal did not restore the marker';
+  end if;
+
+  -- The charge (20261123220100) fills a purchase without amount once, whatever the event order.
+  if not public.record_runner_support_event(
+    first_user, 'apple', 'runner_app_support', 'support-transaction', 'active', purchase_time,
+    purchase_time + interval '4 minutes', 'support-priced', 999, 'eur', 0.74, 0.1667
+  ) then raise exception 'Priced support event was not recorded'; end if;
+  if not public.record_runner_support_event(
+    first_user, 'apple', 'runner_app_support', 'support-transaction', 'active', purchase_time,
+    purchase_time + interval '5 minutes', 'support-priced-again', 1, 'USD', 2, -1
+  ) then raise exception 'A second priced event must not be rejected'; end if;
+  if not exists(
+    select 1 from public.runner_support_purchases
+    where user_id = first_user and amount_minor = 999 and currency = 'EUR' and store_takehome_rate = 0.74 and store_tax_rate = 0.1667
+  ) then
+    raise exception 'Support charge was not recorded once and kept';
   end if;
 
   if (select count(*) from public.subscriptions) <> subscription_count

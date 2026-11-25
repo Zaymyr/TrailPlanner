@@ -15,6 +15,8 @@ import {
   BILLING_STATUS_CONFIG,
   formatBillingAmount,
   formatBillingDate,
+  NET_ESTIMATE_HINT,
+  NET_ESTIMATE_LABEL,
   UNTRACKED_AMOUNT_LABEL,
   type BillingEntry,
 } from "../../../../lib/admin-billing";
@@ -202,12 +204,22 @@ export function BillingEntryDrawer({ accessToken, entry, onClose, onChanged, onC
                 {amounts.ht !== null ? <span className="block">HT {formatBillingAmount(amounts.ht, entry.currency)}</span> : null}
                 {amounts.tva !== null ? <span className="block">TVA {formatBillingAmount(amounts.tva, entry.currency)}</span> : null}
                 <span className="block font-semibold">TTC {formatBillingAmount(amounts.ttc, entry.currency)}</span>
-                {amounts.ht === null ? <span className="block font-sans text-xs text-muted-foreground">HT et TVA non stockés (TVA calculée par Stripe).</span> : null}
+                {amounts.ht === null ? (
+                  <span className="block font-sans text-xs text-muted-foreground">
+                    {entry.method === "store" ? "Prix payé par le client, TVA comprise (collectée et reversée par le store)." : "HT et TVA non stockés (TVA calculée par Stripe)."}
+                  </span>
+                ) : null}
               </span>
             ) : (
-              <span className="text-muted-foreground">{UNTRACKED_AMOUNT_LABEL[0].toUpperCase() + UNTRACKED_AMOUNT_LABEL.slice(1)} : le prix payé n’est pas enregistré en base.</span>
+              <span className="text-muted-foreground">{UNTRACKED_AMOUNT_LABEL[0].toUpperCase() + UNTRACKED_AMOUNT_LABEL.slice(1)} : aucun prix n’a été transmis par le fournisseur pour cet achat (antérieur au suivi des montants).</span>
             )}
           </Row>
+          {entry.netEstimateMinor !== null ? (
+            <Row label={NET_ESTIMATE_LABEL}>
+              <span className="font-mono tabular-nums">≈ {formatBillingAmount(entry.netEstimateMinor, entry.currency)}</span>
+              <span className="block text-xs text-muted-foreground">{NET_ESTIMATE_HINT[0].toUpperCase() + NET_ESTIMATE_HINT.slice(1)}.</span>
+            </Row>
+          ) : null}
           <Row label="Moyen">{[BILLING_METHOD_LABEL[entry.method], entry.methodDetail].filter(Boolean).join(" · ")}</Row>
         </dl>
 

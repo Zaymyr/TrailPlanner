@@ -9,7 +9,9 @@ import { GET as runDemoRaceRefresh } from "../../../cron/demo-race-refresh/route
 import { GET as runFlyoverOrders } from "../../../cron/flyover-orders/route";
 import { GET as runOrganizerImportCleanup } from "../../../cron/organizer-import-cleanup/route";
 import { GET as runReelAutomation } from "../../../cron/reel-automation/route";
+import { GET as runRevenueCatReconciliation } from "../../../cron/revenuecat-reconciliation/route";
 import { GET as runSocialPostsPublish } from "../../../cron/social-posts-publish/route";
+import { GET as runTraceDeTrailEnrichment } from "../../../cron/tracedetrail-catalog-enrichment/route";
 
 export const dynamic = "force-dynamic";
 // The longest cron route (reels, carousels, flyovers) may take 5 minutes.
@@ -22,6 +24,8 @@ const HANDLERS: Record<CronRunKey, (request: Request) => Promise<Response>> = {
   "flyover-orders": runFlyoverOrders,
   "demo-race-refresh": runDemoRaceRefresh,
   "organizer-import-cleanup-hourly": runOrganizerImportCleanup,
+  "revenuecat-reconciliation": runRevenueCatReconciliation,
+  "tracedetrail-catalog-enrichment": runTraceDeTrailEnrichment,
 };
 
 const bodySchema = z.object({ job: z.enum(CRON_RUN_KEYS) });

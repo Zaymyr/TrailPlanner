@@ -16,6 +16,7 @@ import {
   summarizeCronHealth,
   summarizeEmailHealth,
   summarizePaymentHealth,
+  taskRemedy,
   VERCEL_CRONS,
   vercelScheduledTasks,
   type CronJobRow,
@@ -103,12 +104,28 @@ describe("classifyCronJob", () => {
   it("keeps an unknown job under its own name, without a manual run", () => {
     expect(classifyCronJob(job({ job_name: "custom-job" }), NOW)).toMatchObject({ label: "custom-job", manualRun: null });
   });
+
+  it("tells what to do: nothing when healthy, the job's own remedy when it fails", () => {
+    expect(classifyCronJob(job(), NOW).remedy).toBeNull();
+    expect(classifyCronJob(job({ active: false, last_start: ago(5000) }), NOW).remedy).toBeNull();
+    const reconciliation = classifyCronJob(job({ job_name: "revenuecat-reconciliation", schedule: "17 3 * * *", last_status: "failed" }), NOW);
+    expect(reconciliation).toMatchObject({ label: SCHEDULED_TASKS["revenuecat-reconciliation"].label, manualRun: "revenuecat-reconciliation", remedy: SCHEDULED_TASKS["revenuecat-reconciliation"].remedy });
+    expect(reconciliation.remedy).toContain("REVENUECAT");
+    expect(classifyCronJob(job({ last_status: "failed" }), NOW).remedy).toBe(taskRemedy("failed", SCHEDULED_TASKS["reel-automation"]));
+    expect(classifyCronJob(job({ failures_24h: 2 }), NOW).remedy).toBeTruthy();
+  });
+
+  it("tells to delete or version an unknown failing job (hand-made in Supabase)", () => {
+    const task = classifyCronJob(job({ job_name: "trial-reminder-j0", last_status: "failed", last_message: "ERROR: function extensions.http_post does not exist" }), NOW);
+    expect(task.remedy).toBe(taskRemedy("failed", undefined));
+    expect(task.remedy).toContain("Cron Jobs");
+  });
 });
 
 describe("Vercel crons", () => {
-  it("lists exactly the crons of vercel.json, never called", () => {
-    const vercel = JSON.parse(readFileSync(path.resolve(__dirname, "../../../vercel.json"), "utf8")) as { crons: Array<{ path: string; schedule: string }> };
-    expect(VERCEL_CRONS.map(({ path: cronPath, schedule }) => ({ path: cronPath, schedule }))).toEqual(vercel.crons);
+  it("lists exactly the crons of vercel.json (none since every cron runs on pg_cron)", () => {
+    const vercel = JSON.parse(readFileSync(path.resolve(__dirname, "../../../vercel.json"), "utf8")) as { crons?: Array<{ path: string; schedule: string }> };
+    expect(VERCEL_CRONS.map(({ path: cronPath, schedule }) => ({ path: cronPath, schedule }))).toEqual(vercel.crons ?? []);
     expect(vercelScheduledTasks(now).every((task) => task.status === "never_called" && task.statusLabel === "Jamais appelée par Vercel" && task.docHref)).toBe(true);
   });
 
@@ -124,7 +141,7 @@ describe("summarizeCronHealth", () => {
     const health = summarizeCronHealth(tasks, null);
     expect(health).toMatchObject({ key: "crons", status: "error", href: "/admin/system/automation", lastAt: ago(2) });
     expect(health.detail).toContain("Reels automatiques : en retard");
-    expect(health.detail).toContain("2 crons Vercel jamais appelés");
+    expect(health.detail).not.toContain("Vercel");
   });
 
   it("warns on pg_net HTTP errors that cannot be tied to a job", () => {

@@ -12,6 +12,22 @@ Journal en ajout seul, la plus récente en haut. Format : `## AAAA-MM-JJ — Tit
 
 **Conséquence.** Prévision disponible à J−9 (`too_early` avant) ; hors Scandinavie, pas de rafales ni de probabilité de pluie. Voir `docs/05-integrations/met-norway-weather.md`.
 
+## 2026-11-23 — Plus aucun cron Vercel, chaque tâche en échec dit quoi faire
+
+**Contexte.** La console affichait des tâches en erreur sans piste d’action : deux tâches créées à la main dans Supabase (`trial-reminder-j0` / `trial-reminder-j3`, appel à `extensions.http_post` inexistant, essais arrêtés le 30/10) et les deux crons Vercel jamais appelés (réconciliation RevenueCat, enrichissement Trace de Trail).
+
+**Décision.** Les deux tâches d’essai sont supprimées. RevenueCat (03:17 UTC) et Trace de Trail (03:47 UTC) passent sur pg_cron + pg_net via `public.configure_daily_web_cron` ; `vercel.json` ne déclare plus de crons. Chaque tâche en échec, en retard ou jamais lancée affiche un « Que faire ? » (remède propre à la tâche, sinon générique ; une tâche inconnue = créée à la main, à supprimer ou à versionner dans une migration).
+
+**Conséquence.** Les deux tâches sont relançables depuis Maintenance. Une tâche ajoutée à la main dans Supabase reste visible mais signalée comme à régulariser.
+
+## 2026-11-23 — Ventes coureurs : on enregistre le montant réel (App Store, Google Play, Stripe)
+
+**Contexte.** Le registre admin « Ventes & facturation » n'affichait aucun prix pour les ventes Apple et Google : les tables coureurs ne stockaient pas de montant (écart « aucun montant stocké » de la console admin, sans raison métier), alors que RevenueCat envoie le prix payé, la devise, la part de taxe et la part reversée dans chaque webhook d'achat.
+
+**Décision.** Chaque vente coureur garde son montant TTC réel en unités mineures et sa devise : achat à la course, abonnement annuel (dernière période prélevée, chaque renouvellement journalisé), soutien ; plus les taux RevenueCat pour un « net estimé » store (TTC × (1 − taxe) × reversement, affiché comme estimation). Le montant n'est jamais déduit d'un prix public ; Stripe enregistre `amount_total` / `invoice.paid`. Rattrapage depuis les payloads déjà journalisés.
+
+**Conséquence.** Migration `20261123220100_record_runner_sale_amounts.sql` au merge ; les 5 achats à la course existants (9,99 EUR) récupèrent leur montant, les 6 abonnements et soutiens antérieurs restent « montant non suivi » jusqu'au prochain prélèvement. `invoice.paid` doit être ajouté à l'endpoint Stripe pour suivre les renouvellements Stripe. Montants purement informatifs, aucun effet sur les droits. Voir `docs/02-database/tables/runner-billing.md`.
+
 ## 2026-11-23 — Planificateur web : trois vues Ravitos / Allures / Chronologie alignées sur le mobile, bandeau de course, jauges position/fenêtre
 
 **Contexte.** Le plan web n'avait qu'une frise unique et un « ticket d'arrivée » sombre ; les jauges en « bande cible » se lisaient mal (la zone cible ressemblait à la barre).

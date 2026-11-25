@@ -80,4 +80,6 @@ group by category order by 2 desc;
 - [Admin system health functions](../admin-system-health-functions.md)
 - [Web App Architecture](../../01-architecture/web-app.md)
 
+Since 2026-11-23 `admin-system-health.ts` also attaches a « Que faire ? » remedy to failing scheduled tasks; the e-mail health line is unchanged.
+
 Refactor (2026-11-23, admin console lot 4): `lib/admin-system-health-server.ts` now uses the shared Data API helpers of `lib/admin-service-rest.ts`; the journal reads, columns and masking are unchanged.

@@ -112,6 +112,8 @@ Stripe webhooks store billing metadata on `subscriptions`; entitlement checks do
 
 RevenueCat writes a provider-scoped `runner_subscription_accounts` row first. It updates the legacy `subscriptions` projection only when doing so cannot overwrite Stripe customer/subscription identity. New runner-ledger rows with no verified period end are stored expired rather than becoming permanent grants.
 
+Since 2026-11-23 both webhooks also record the price actually paid (course unlock, subscription period, support purchase) on the runner ledgers. These amount columns are informational for the admin sales register: no entitlement check reads them, a missing amount never denies access, and an amount write never creates or extends a subscription row (charge writes are `PATCH`es on existing accounts). See [Runner Billing Tables](../02-database/tables/runner-billing.md) « Sale amounts ».
+
 ## Business Invariants
 
 - First-hour supporter badge/cohort and the one-time support product are explicitly non-entitlements: neither may set `isPremium`, unlock a plan, alter trial/grant resolution, or replace the separately authorized grandfathered-plan snapshot.

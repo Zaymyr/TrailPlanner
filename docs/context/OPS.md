@@ -11,7 +11,7 @@
 
 ## Tâches planifiées de l’application (pg_cron)
 
-Les crons déclarés dans `vercel.json` ne sont jamais appelés par Vercel en production (voir [DECISIONS](DECISIONS.md), 2026-11-21) : les tâches qui tournent passent par pg_cron, et pg_net pour appeler les routes `/api/cron/*` avec `CRON_SECRET` (secrets Vault `web_app_url` et `cron_secret`). Horaires en UTC.
+Vercel n’appelle jamais les crons de `vercel.json` en production (voir [DECISIONS](DECISIONS.md), 2026-11-21) ; depuis le 2026-11-23, `vercel.json` n’en déclare plus aucun : toutes les tâches passent par pg_cron, et pg_net pour appeler les routes `/api/cron/*` avec `CRON_SECRET` (secrets Vault `web_app_url` et `cron_secret`). Horaires en UTC.
 
 | Tâche pg_cron | Planification | Rôle |
 | --- | --- | --- |
@@ -21,13 +21,13 @@ Les crons déclarés dans `vercel.json` ne sont jamais appelés par Vercel en pr
 | `reel-automation` | toutes les heures à :17 | Reels automatiques |
 | `organizer-import-cleanup-hourly` | toutes les heures à :17 | Nettoyage des imports organisateurs |
 | `carousel-automation` | toutes les heures à :47 | Carrousels automatiques |
+| `revenuecat-reconciliation` | 03:17 | Réconciliation des abonnements RevenueCat |
+| `tracedetrail-catalog-enrichment` | 03:47 | Enrichissement du catalogue Trace de Trail |
 | `push-reminders-daily` | 09:00 | Rappels push (Edge Function) |
 | `transactional-email-log-purge` | 04:23 | Purge du journal des e-mails (> 90 j, SQL seul) |
 | `cron-job-run-details-purge` | 04:41 | Purge de l’historique pg_cron (`cron.job_run_details` > 7 j, SQL seul) |
 
-Non exécutées (Vercel) : `revenuecat-reconciliation` (03:17), `tracedetrail-catalog-enrichment` (03:47).
-
-Suivi : `/admin/system/automation` (dernier passage, durée, statut, échecs 24 h, message) ; relance manuelle d’une tâche pg_net : `/admin/system/maintenance`. Détail : [Admin system health functions](../02-database/admin-system-health-functions.md).
+Suivi : `/admin/system/automation` (dernier passage, durée, statut, échecs 24 h, message, et « Que faire ? » pour chaque tâche en échec ou en retard) ; une tâche inconnue de la console a été créée à la main dans Supabase → Database → Cron Jobs : la supprimer ou la versionner dans une migration ; relance manuelle d’une tâche pg_net : `/admin/system/maintenance`. Détail : [Admin system health functions](../02-database/admin-system-health-functions.md).
 
 ## Tâches planifiées (Claude)
 

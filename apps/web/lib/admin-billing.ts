@@ -3,6 +3,7 @@ import { z } from "zod";
 import { parisDayOf } from "./admin-overview";
 import { ORGANIZER_TIER_LABEL } from "./organizer-modules";
 import { addDays, parisToday } from "./reel-planner";
+import { currencyMinorFactor } from "./runner-payments";
 import { maskEmailAddress } from "./transactional-email-log";
 
 /**
@@ -18,10 +19,13 @@ import { maskEmailAddress } from "./transactional-email-log";
  * - `flyover_video_orders` — paid, cancelled-after-payment or refunded flyover orders (unpaid
  *   orders are not listed);
  * - runner ledgers `runner_plan_unlocks`, `runner_subscription_accounts`, `runner_support_purchases`
- *   — no amount is stored: the amount is « non suivi », never inferred from a public price.
+ *   — the real charge recorded from the provider (TTC, purchase currency; latest period for a
+ *   subscription). Rows recorded without one stay « montant non suivi »: an amount is never inferred
+ *   from a public price. Store sales add a « net estimé » from the RevenueCat tax / take-home rates.
  *
  * Amounts are minor units (cents). Organizer packs keep their stored HT / TVA / TTC; manual invoices
- * are VAT-exempt (art. 293 B CGI: TVA 0, TTC = net); flyover orders store only their TTC amount.
+ * are VAT-exempt (art. 293 B CGI: TVA 0, TTC = net); flyover orders and runner sales store only their
+ * TTC amount.
  */
 
 // ---------------------------------------------------------------------------------------------
@@ -96,9 +100,14 @@ export const billingEntrySchema = z.object({
   clientDetail: z.string().nullable(),
   object: z.string(),
   reference: z.string().nullable(),
-  /** Minor units; `null` = amount not tracked (runner purchases). Each part may be unknown. */
+  /** Minor units; `null` = amount not tracked (runner purchases recorded before 2026-11-23). Each part may be unknown. */
   amounts: z.object({ ht: z.number().int().nullable(), tva: z.number().int().nullable(), ttc: z.number().int().nullable() }).nullable(),
   currency: z.string(),
+  /**
+   * App Store / Google Play sales only: estimated net after store tax and commission
+   * (TTC × (1 − tax rate) × take-home rate sent by RevenueCat). An estimate, never an accounting figure.
+   */
+  netEstimateMinor: z.number().int().nullable(),
   status: z.enum(BILLING_STATUSES),
   statusNote: z.string().nullable(),
   method: z.enum(BILLING_METHODS),
@@ -245,6 +254,21 @@ export const flyoverOrderRowSchema = z.object({
 });
 export type FlyoverOrderRow = z.infer<typeof flyoverOrderRowSchema>;
 
+/** `numeric` columns may arrive as JSON numbers or strings; anything else is unknown. */
+const rateColumn = z.union([z.number(), z.string()]).nullable().optional()
+  .transform((value) => {
+    const rate = typeof value === "string" ? Number(value) : value;
+    return typeof rate === "number" && Number.isFinite(rate) ? rate : null;
+  });
+
+/** Recorded charge of a runner sale (migration `20261123220100`); absent on older rows. */
+const runnerChargeColumns = {
+  amount_minor: z.number().int().nullable().optional(),
+  currency: z.string().nullable().optional(),
+  store_takehome_rate: rateColumn,
+  store_tax_rate: rateColumn,
+};
+
 export const runnerUnlockRowSchema = z.object({
   id: z.string(),
   user_id: z.string(),
@@ -253,8 +277,9 @@ export const runnerUnlockRowSchema = z.object({
   provider_transaction_id: z.string().nullable().optional(),
   status: z.enum(["pending", "active", "refunded", "revoked"]),
   purchased_at: z.string(),
+  ...runnerChargeColumns,
 });
-export type RunnerUnlockRow = z.infer<typeof runnerUnlockRowSchema>;
+export type RunnerUnlockRow = z.input<typeof runnerUnlockRowSchema>;
 
 export const runnerSubscriptionRowSchema = z.object({
   id: z.string(),
@@ -264,8 +289,13 @@ export const runnerSubscriptionRowSchema = z.object({
   status: z.string(),
   current_period_end: z.string().nullable().optional(),
   created_at: z.string(),
+  last_amount_minor: z.number().int().nullable().optional(),
+  last_currency: z.string().nullable().optional(),
+  last_charged_at: z.string().nullable().optional(),
+  last_store_takehome_rate: rateColumn,
+  last_store_tax_rate: rateColumn,
 });
-export type RunnerSubscriptionRow = z.infer<typeof runnerSubscriptionRowSchema>;
+export type RunnerSubscriptionRow = z.input<typeof runnerSubscriptionRowSchema>;
 
 export const runnerSupportRowSchema = z.object({
   id: z.string(),
@@ -273,8 +303,15 @@ export const runnerSupportRowSchema = z.object({
   provider: z.enum(["apple", "google"]),
   status: z.enum(["active", "refunded"]),
   purchased_at: z.string(),
+  ...runnerChargeColumns,
 });
-export type RunnerSupportRow = z.infer<typeof runnerSupportRowSchema>;
+export type RunnerSupportRow = z.input<typeof runnerSupportRowSchema>;
+
+/** Columns the register reads from the runner ledgers (shared by the billing and runner-profile loaders). */
+export const RUNNER_CHARGE_SELECT = "amount_minor,currency,store_takehome_rate,store_tax_rate";
+export const RUNNER_UNLOCK_COLUMNS = `id,user_id,plan_key,provider,provider_transaction_id,status,purchased_at,${RUNNER_CHARGE_SELECT}`;
+export const RUNNER_SUBSCRIPTION_COLUMNS = "id,user_id,provider,provider_subscription_id,status,current_period_end,created_at,last_amount_minor,last_currency,last_charged_at,last_store_takehome_rate,last_store_tax_rate";
+export const RUNNER_SUPPORT_COLUMNS = `id,user_id,provider,status,purchased_at,${RUNNER_CHARGE_SELECT}`;
 
 /** Lookups resolved on the server: full e-mail of a runner, catalog race name of a plan key. */
 export type BillingLookups = {
@@ -288,6 +325,7 @@ const baseEntry = (partial: Pick<BillingEntry, "id" | "source" | "rowId" | "date
   reference: null,
   amounts: null,
   currency: "EUR",
+  netEstimateMinor: null,
   statusNote: null,
   methodDetail: null,
   editionId: null,
@@ -487,7 +525,40 @@ const runnerClient = (userId: string, lookups: BillingLookups) => {
   return { email, label: maskEmailAddress(email) ?? "Compte coureur" };
 };
 
-/** One-course unlock: no stored amount. Admin unlocks are « offert ». */
+const readRate = (value: number | string | null | undefined) => {
+  const rate = typeof value === "string" ? Number(value) : value;
+  return typeof rate === "number" && Number.isFinite(rate) ? rate : null;
+};
+
+/**
+ * Store net estimate: TTC × (1 − tax rate) × take-home rate, both sent by RevenueCat with the sale.
+ * RevenueCat's take-home share applies to the price net of tax, so without a tax rate no estimate
+ * is given (it would still include VAT). Never computed for Stripe sales.
+ */
+export const storeNetEstimate = (ttc: number, takehomeRate: number | null, taxRate: number | null): number | null => {
+  if (takehomeRate === null || taxRate === null) return null;
+  if (takehomeRate < 0 || takehomeRate > 1 || taxRate < 0 || taxRate >= 1) return null;
+  return Math.round(ttc * (1 - taxRate) * takehomeRate);
+};
+
+/** Recorded charge of a runner row → amounts (TTC only), currency and store net estimate. */
+const runnerCharge = (charge: {
+  amountMinor: number | null | undefined;
+  currency: string | null | undefined;
+  takehomeRate: number | string | null | undefined;
+  taxRate: number | string | null | undefined;
+  store: boolean;
+}): Pick<BillingEntry, "amounts" | "currency" | "netEstimateMinor"> => {
+  const currency = charge.currency?.trim().toUpperCase();
+  if (charge.amountMinor === null || charge.amountMinor === undefined || !currency) return { amounts: null, currency: "EUR", netEstimateMinor: null };
+  return {
+    amounts: { ht: null, tva: null, ttc: charge.amountMinor },
+    currency,
+    netEstimateMinor: charge.store ? storeNetEstimate(charge.amountMinor, readRate(charge.takehomeRate), readRate(charge.taxRate)) : null,
+  };
+};
+
+/** One-course unlock: amount recorded since 2026-11-23 (backfilled from store events). Admin unlocks are « offert ». */
 export const normalizeRunnerUnlock = (row: RunnerUnlockRow, lookups: BillingLookups = {}): IndexedBillingEntry => {
   const status: BillingStatus = row.status === "active" ? (row.provider === "admin" ? "offered" : "paid") : row.status === "pending" ? "pending" : row.status;
   const method: BillingMethod = row.provider === "stripe" ? "stripe" : row.provider === "admin" ? "offered" : "store";
@@ -506,6 +577,13 @@ export const normalizeRunnerUnlock = (row: RunnerUnlockRow, lookups: BillingLook
     method,
     methodDetail: STORE_LABEL[row.provider] ?? null,
     stripeUrl: row.provider === "stripe" ? stripeDashboardUrl(row.provider_transaction_id) : null,
+    ...(row.provider === "admin" ? {} : runnerCharge({
+      amountMinor: row.amount_minor,
+      currency: row.currency,
+      takehomeRate: row.store_takehome_rate,
+      taxRate: row.store_tax_rate,
+      store: method === "store",
+    })),
   });
   return { entry, searchText: normalizeText([client.email, client.label, object].filter(Boolean).join(" ")) };
 };
@@ -522,11 +600,23 @@ const SUBSCRIPTION_STATUS: Record<string, { status: BillingStatus; note: string 
   paused: { status: "pending", note: "Abonnement en pause" },
 };
 
-/** Annual subscription account (one row per subscription, not per renewal): no stored amount. */
+/**
+ * Annual subscription account (one row per subscription, not per renewal): the amount is the latest
+ * charged period (`last_amount_minor`); accounts charged before 2026-11-23 have none.
+ */
 export const normalizeRunnerSubscription = (row: RunnerSubscriptionRow, lookups: BillingLookups = {}): IndexedBillingEntry => {
   const mapped = SUBSCRIPTION_STATUS[row.status] ?? { status: "pending" as const, note: `Statut fournisseur : ${row.status}` };
   const client = runnerClient(row.user_id, lookups);
   const periodNote = row.current_period_end ? `Période jusqu’au ${formatDayFr(parisDayOf(row.current_period_end))}` : null;
+  const method: BillingMethod = row.provider === "stripe" ? "stripe" : "store";
+  const charge = runnerCharge({
+    amountMinor: row.last_amount_minor,
+    currency: row.last_currency,
+    takehomeRate: row.last_store_takehome_rate,
+    taxRate: row.last_store_tax_rate,
+    store: method === "store",
+  });
+  const chargeNote = charge.amounts && row.last_charged_at ? `Dernier prélèvement le ${formatDayFr(parisDayOf(row.last_charged_at))}` : null;
   const entry = baseEntry({
     id: `runner:subscription:${row.id}`,
     source: "runner",
@@ -535,15 +625,16 @@ export const normalizeRunnerSubscription = (row: RunnerSubscriptionRow, lookups:
     client: client.label,
     object: "Abonnement annuel",
     status: mapped.status,
-    statusNote: [mapped.note, periodNote].filter(Boolean).join(" · ") || null,
-    method: row.provider === "stripe" ? "stripe" : "store",
+    statusNote: [mapped.note, periodNote, chargeNote].filter(Boolean).join(" · ") || null,
+    method,
     methodDetail: STORE_LABEL[row.provider] ?? null,
     stripeUrl: row.provider === "stripe" ? stripeDashboardUrl(row.provider_subscription_id) : null,
+    ...charge,
   });
   return { entry, searchText: normalizeText([client.email, client.label, "abonnement annuel"].filter(Boolean).join(" ")) };
 };
 
-/** Voluntary support purchase (grants no access): no stored amount. */
+/** Voluntary support purchase (grants no access): amount recorded since 2026-11-23. */
 export const normalizeRunnerSupport = (row: RunnerSupportRow, lookups: BillingLookups = {}): IndexedBillingEntry => {
   const client = runnerClient(row.user_id, lookups);
   const entry = baseEntry({
@@ -556,6 +647,13 @@ export const normalizeRunnerSupport = (row: RunnerSupportRow, lookups: BillingLo
     status: row.status === "active" ? "paid" : "refunded",
     method: "store",
     methodDetail: STORE_LABEL[row.provider] ?? null,
+    ...runnerCharge({
+      amountMinor: row.amount_minor,
+      currency: row.currency,
+      takehomeRate: row.store_takehome_rate,
+      taxRate: row.store_tax_rate,
+      store: true,
+    }),
   });
   return { entry, searchText: normalizeText([client.email, client.label, "soutien volontaire"].filter(Boolean).join(" ")) };
 };
@@ -696,8 +794,16 @@ export const billingSummarySchema = z.object({
   toCollectCount: z.number().int(),
   overdueCount: z.number().int(),
   transactionCount: z.number().int(),
-  /** Lines without a tracked amount (runner purchases), counted but never summed. */
+  /** Lines without a tracked amount (older runner purchases), counted but never summed. */
   untrackedCount: z.number().int(),
+  /** Lines with an amount in another currency than `currency`, counted but never summed. */
+  otherCurrencyCount: z.number().int(),
+  /** Paid App Store / Google Play sales included in `collectedMinor` (TTC) and their net estimate. */
+  storeCollectedMinor: z.number().int(),
+  storeCollectedCount: z.number().int(),
+  storeNetEstimateMinor: z.number().int(),
+  /** Store sales of `storeCollectedCount` without a net estimate (rates not sent). */
+  storeNetUnknownCount: z.number().int(),
 });
 export type BillingSummary = z.infer<typeof billingSummarySchema>;
 
@@ -717,18 +823,34 @@ export const summarizeBilling = (entries: BillingEntry[]): BillingSummary => {
     overdueCount: 0,
     transactionCount: entries.length,
     untrackedCount: 0,
+    otherCurrencyCount: 0,
+    storeCollectedMinor: 0,
+    storeCollectedCount: 0,
+    storeNetEstimateMinor: 0,
+    storeNetUnknownCount: 0,
   };
   entries.forEach((entry) => {
     const ttc = ttcOf(entry);
     if (ttc === null) {
-      // Runner purchases: counted as transactions, never summed nor counted as collected.
+      // Older runner purchases: counted as transactions, never summed nor counted as collected.
       summary.untrackedCount += 1;
+      return;
+    }
+    if (entry.currency.toUpperCase() !== summary.currency) {
+      // A store sale in another currency: never added to euro totals.
+      summary.otherCurrencyCount += 1;
       return;
     }
     const amount = ttc;
     if (entry.status === "paid" || entry.status === "settled") {
       summary.collectedMinor += amount;
       summary.collectedCount += 1;
+      if (entry.method === "store") {
+        summary.storeCollectedMinor += amount;
+        summary.storeCollectedCount += 1;
+        if (entry.netEstimateMinor === null) summary.storeNetUnknownCount += 1;
+        else summary.storeNetEstimateMinor += entry.netEstimateMinor;
+      }
     } else if (entry.status === "refunded") {
       summary.refundedMinor += amount;
       summary.refundedCount += 1;
@@ -808,12 +930,15 @@ export const billingEditionsResponseSchema = z.object({ editions: z.array(billin
 
 const amountFormatter = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 export const formatBillingAmount = (minor: number | null | undefined, currency = "EUR") =>
-  minor === null || minor === undefined ? "—" : (minor / 100).toLocaleString("fr-FR", { style: "currency", currency });
+  minor === null || minor === undefined ? "—" : (minor / currencyMinorFactor(currency)).toLocaleString("fr-FR", { style: "currency", currency });
+
+export const NET_ESTIMATE_LABEL = "Net estimé";
+export const NET_ESTIMATE_HINT = "après TVA et commission du store, taux transmis par RevenueCat : estimation, pas un relevé";
 
 const parisDateTime = new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 export const formatBillingDate = (iso: string) => parisDateTime.format(new Date(iso));
 
-const CSV_HEADERS = ["Date", "Source", "Client", "Détail client", "Objet", "Référence", "Montant HT", "TVA", "Montant TTC", "Devise", "Statut", "Précision", "Moyen"];
+const CSV_HEADERS = ["Date", "Source", "Client", "Détail client", "Objet", "Référence", "Montant HT", "TVA", "Montant TTC", "Devise", "Net estimé (store)", "Statut", "Précision", "Moyen"];
 
 /** One CSV cell: quoted when needed, formula-like values neutralised for spreadsheets. */
 export const csvCell = (value: string | null | undefined) => {
@@ -822,7 +947,8 @@ export const csvCell = (value: string | null | undefined) => {
   return /[";\n\r]/.test(text) ? `"${text.replace(/"/g, "\"\"")}"` : text;
 };
 
-const csvAmount = (minor: number | null | undefined) => (minor === null || minor === undefined ? "" : amountFormatter.format(minor / 100).replace(/ | /g, " "));
+const csvFormatter = (factor: number) => (factor === 100 ? amountFormatter : new Intl.NumberFormat("fr-FR", { minimumFractionDigits: Math.round(Math.log10(factor)), maximumFractionDigits: Math.round(Math.log10(factor)) }));
+const csvAmount = (minor: number | null | undefined, currency = "EUR") => (minor === null || minor === undefined ? "" : csvFormatter(currencyMinorFactor(currency)).format(minor / currencyMinorFactor(currency)).replace(/ | /g, " "));
 
 /** CSV of the filtered view: `;` separator, French headers, decimal comma, BOM for spreadsheets. */
 export const buildBillingCsv = (entries: BillingEntry[]): string => {
@@ -833,10 +959,11 @@ export const buildBillingCsv = (entries: BillingEntry[]): string => {
     entry.clientDetail,
     entry.object,
     entry.reference,
-    entry.amounts ? csvAmount(entry.amounts.ht) : "",
-    entry.amounts ? csvAmount(entry.amounts.tva) : "",
-    entry.amounts ? csvAmount(entry.amounts.ttc) : "",
+    entry.amounts ? csvAmount(entry.amounts.ht, entry.currency) : "",
+    entry.amounts ? csvAmount(entry.amounts.tva, entry.currency) : "",
+    entry.amounts ? csvAmount(entry.amounts.ttc, entry.currency) : "",
     entry.amounts ? entry.currency : "",
+    csvAmount(entry.netEstimateMinor, entry.currency),
     BILLING_STATUS_CONFIG[entry.status].label,
     [entry.amounts ? null : UNTRACKED_AMOUNT_LABEL, entry.statusNote].filter(Boolean).join(" · "),
     [BILLING_METHOD_LABEL[entry.method], entry.methodDetail].filter(Boolean).join(" · "),

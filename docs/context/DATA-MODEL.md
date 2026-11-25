@@ -61,13 +61,13 @@ Sharing: `plan_share_links`, `plan_share_follows` — see their docs.
 
 | Table | Purpose | Client access |
 | --- | --- | --- |
-| `runner_plan_unlocks` | One-off unlock per canonical `plan_key` (format + edition), `provider` stripe/google/apple/admin, `status` pending/active/refunded/revoked | owner read |
+| `runner_plan_unlocks` | One-off unlock per canonical `plan_key` (format + edition), `provider` stripe/google/apple/admin, `status` pending/active/refunded/revoked; charge paid `amount_minor` (TTC, minor units) + `currency` + store `store_takehome_rate` / `store_tax_rate` (nullable, since 2026-11-23) | owner read |
 | `runner_purchase_intents` | Server-created pending purchase | owner read |
-| `runner_billing_events` | Deduplicated provider webhook ledger | service |
-| `runner_subscription_accounts` | Provider subscription ledger | service |
+| `runner_billing_events` | Deduplicated provider webhook ledger; each charging event keeps `amount_minor`, `currency`, store rates | service |
+| `runner_subscription_accounts` | Provider subscription ledger; latest charged period `last_amount_minor`, `last_currency`, `last_charged_at`, `last_store_takehome_rate`, `last_store_tax_rate` | service |
 | `runner_monetization_config` | Single-row `monetization_enabled` switch | service |
 | `runner_plan_history`, `runner_launch_cohorts`, `runner_launch_grandfathered_plans` | Provenance and grandfathering of pre-launch plans | see docs |
-| `runner_support_purchases` (+ intents, events) | "Contribuer" support purchase, one per user, apple/google | see doc |
+| `runner_support_purchases` (+ intents, events) | "Contribuer" support purchase, one per user, apple/google; same nullable charge columns as unlocks | see doc |
 | `subscriptions` | Legacy Stripe / RevenueCat entitlement snapshot (`provider`, `status`, `current_period_end`) | see doc |
 | `premium_grants` | Manual premium overrides with optional `ends_at` | see doc |
 

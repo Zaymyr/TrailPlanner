@@ -13,6 +13,9 @@ import {
   organizerInvoiceRowSchema,
   organizerPaymentRowSchema,
   raceIdOfPlanKey,
+  RUNNER_SUBSCRIPTION_COLUMNS,
+  RUNNER_SUPPORT_COLUMNS,
+  RUNNER_UNLOCK_COLUMNS,
   runnerSubscriptionRowSchema,
   runnerSupportRowSchema,
   runnerUnlockRowSchema,
@@ -86,9 +89,9 @@ const loadFlyoverOrders = async (supabase: SupabaseServiceConfig, query: Billing
 
 const loadRunnerLedgers = async (supabase: SupabaseServiceConfig, query: BillingQuery) => {
   const [unlocks, subscriptions, support] = await Promise.all([
-    getServiceJson(supabase, withFilters(`runner_plan_unlocks?select=id,user_id,plan_key,provider,provider_transaction_id,status,purchased_at&order=purchased_at.desc&limit=${ROW_LIMIT}`, billingDateFilter("purchased_at", query))),
-    getServiceJson(supabase, withFilters(`runner_subscription_accounts?select=id,user_id,provider,provider_subscription_id,status,current_period_end,created_at&order=created_at.desc&limit=${ROW_LIMIT}`, billingDateFilter("created_at", query))),
-    getServiceJson(supabase, withFilters(`runner_support_purchases?select=id,user_id,provider,status,purchased_at&order=purchased_at.desc&limit=${ROW_LIMIT}`, billingDateFilter("purchased_at", query))),
+    getServiceJson(supabase, withFilters(`runner_plan_unlocks?select=${RUNNER_UNLOCK_COLUMNS}&order=purchased_at.desc&limit=${ROW_LIMIT}`, billingDateFilter("purchased_at", query))),
+    getServiceJson(supabase, withFilters(`runner_subscription_accounts?select=${RUNNER_SUBSCRIPTION_COLUMNS}&order=created_at.desc&limit=${ROW_LIMIT}`, billingDateFilter("created_at", query))),
+    getServiceJson(supabase, withFilters(`runner_support_purchases?select=${RUNNER_SUPPORT_COLUMNS}&order=purchased_at.desc&limit=${ROW_LIMIT}`, billingDateFilter("purchased_at", query))),
   ]);
   return {
     unlocks: z.array(runnerUnlockRowSchema).parse(unlocks),
