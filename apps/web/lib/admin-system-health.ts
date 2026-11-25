@@ -145,10 +145,20 @@ export const CRON_RUN_KEYS = [
   "flyover-orders",
   "demo-race-refresh",
   "organizer-import-cleanup-hourly",
+  "revenuecat-reconciliation",
+  "tracedetrail-catalog-enrichment",
 ] as const;
 export type CronRunKey = (typeof CRON_RUN_KEYS)[number];
 
-type TaskInfo = { label: string; description: string; target: string; manualRun: CronRunKey | null; docHref: string | null };
+type TaskInfo = {
+  label: string;
+  description: string;
+  target: string;
+  manualRun: CronRunKey | null;
+  docHref: string | null;
+  /** What to check when this task fails (shown under « Que faire ? » in the console). */
+  remedy?: string;
+};
 
 const DOCS = "https://github.com/Zaymyr/TrailPlanner/blob/main/docs";
 
@@ -163,6 +173,42 @@ export const SCHEDULED_TASKS: Record<string, TaskInfo> = {
   "push-reminders-daily": { label: "Rappels push", description: "Envoie les rappels push du jour (Edge Function Supabase).", target: "Edge Function push-reminders", manualRun: null, docHref: null },
   "transactional-email-log-purge": { label: "Purge du journal des e-mails", description: "Supprime les lignes du journal des e-mails de plus de 90 jours.", target: "SQL : purge_transactional_email_log()", manualRun: null, docHref: `${DOCS}/02-database/tables/transactional-email-log.md` },
   "cron-job-run-details-purge": { label: "Purge de l’historique des tâches", description: "Supprime l’historique des passages pg_cron de plus de 7 jours (lu par la santé des systèmes).", target: "SQL : purge_cron_job_run_details()", manualRun: null, docHref: `${DOCS}/02-database/admin-system-health-functions.md` },
+  "revenuecat-reconciliation": {
+    label: "Réconciliation RevenueCat",
+    description: "Rattrape les achats mobiles (Apple, Google) que le webhook RevenueCat n’a pas transmis.",
+    target: "POST /api/cron/revenuecat-reconciliation",
+    manualRun: "revenuecat-reconciliation",
+    docHref: `${DOCS}/03-business-rules/runner-monetization.md`,
+    remedy: "Relance-la. Si elle échoue encore, vérifie dans Vercel les clés RevenueCat (REVENUECAT_*_API_KEY) et que le webhook RevenueCat pointe bien vers /api/revenuecat/webhook.",
+  },
+  "tracedetrail-catalog-enrichment": {
+    label: "Enrichissement Trace de Trail",
+    description: "Importe les GPX autorisés d’une liste de formats Trace de Trail.",
+    target: "POST /api/cron/tracedetrail-catalog-enrichment",
+    manualRun: "tracedetrail-catalog-enrichment",
+    docHref: `${DOCS}/03-business-rules/gpx-import.md`,
+    remedy: "Relance-la. Une erreur 503 veut dire que TRACEDETRAIL_ENRICHMENT_SECRET manque dans Vercel ; une erreur 502, que Trace de Trail a refusé ou changé un GPX.",
+  },
+};
+
+/** Generic « Que faire ? » per status, used when the task has no specific advice. */
+const STATUS_REMEDIES: Partial<Record<TaskStatus, string>> = {
+  failed: "Lis le message d’erreur, corrige la cause (secret manquant, route en erreur…) puis clique « Relancer une tâche ».",
+  late: "Elle n’a pas tourné à l’heure prévue : relance-la. Si le retard revient, vérifie que pg_cron et pg_net sont actifs dans Supabase.",
+  warning: "Le dernier passage a réussi : rien à faire tant que les échecs ne se répètent pas.",
+  never: "Elle n’a encore jamais tourné : attends son premier créneau ou relance-la pour vérifier qu’elle répond.",
+  never_called: "Vercel n’appelle pas ces crons : elle doit être planifiée sur pg_cron (migration).",
+};
+/** Advice for a pg_cron job that no migration of the repository declares. */
+const UNKNOWN_JOB_REMEDY =
+  "Cette tâche n’est déclarée dans aucune migration du dépôt : elle a été créée à la main dans Supabase (Database → Cron Jobs). Si elle ne sert plus, supprime-la ; sinon, ajoute-la au dépôt par une migration.";
+
+/** « Que faire ? » for a task in trouble (null when it runs fine or is switched off). */
+export const taskRemedy = (status: TaskStatus, info: TaskInfo | undefined): string | null => {
+  if (status === "ok" || status === "running" || status === "inactive") return null;
+  if (!info) return UNKNOWN_JOB_REMEDY;
+  if (status === "warning") return STATUS_REMEDIES.warning ?? null;
+  return info.remedy ?? STATUS_REMEDIES[status] ?? null;
 };
 
 /** Route path of each manual run (the cron route is invoked in-process with `CRON_SECRET`). */
@@ -173,16 +219,16 @@ export const CRON_RUN_PATHS: Record<CronRunKey, string> = {
   "flyover-orders": "/api/cron/flyover-orders",
   "demo-race-refresh": "/api/cron/demo-race-refresh",
   "organizer-import-cleanup-hourly": "/api/cron/organizer-import-cleanup",
+  "revenuecat-reconciliation": "/api/cron/revenuecat-reconciliation",
+  "tracedetrail-catalog-enrichment": "/api/cron/tracedetrail-catalog-enrichment",
 };
 
 /**
  * Crons declared in the repository `vercel.json`: Vercel never calls them in production (no call
- * recorded 2026-11-17 → 21, docs/context/DECISIONS.md 2026-11-21). Kept in sync by a test.
+ * recorded 2026-11-17 → 21, docs/context/DECISIONS.md 2026-11-21). Kept in sync by a test. Empty since
+ * 2026-11-23: the last two (RevenueCat reconciliation, Trace de Trail enrichment) moved to pg_cron.
  */
-export const VERCEL_CRONS = [
-  { path: "/api/cron/revenuecat-reconciliation", schedule: "17 3 * * *", label: "Réconciliation RevenueCat", description: "Rattrape les achats mobiles RevenueCat non reçus par webhook." },
-  { path: "/api/cron/tracedetrail-catalog-enrichment", schedule: "47 3 * * *", label: "Enrichissement Trace de Trail", description: "Importe les GPX autorisés d’une liste de formats Trace de Trail." },
-] as const;
+export const VERCEL_CRONS: ReadonlyArray<{ path: string; schedule: string; label: string; description: string }> = [];
 export const VERCEL_CRONS_DOC_HREF = `${DOCS}/context/DECISIONS.md`;
 
 // ---------------------------------------------------------------------------------------------
@@ -255,6 +301,8 @@ export const scheduledTaskSchema = z.object({
   downSince: z.string().nullable(),
   manualRun: z.enum(CRON_RUN_KEYS).nullable(),
   docHref: z.string().nullable(),
+  /** « Que faire ? »: what the admin should do when the task is in trouble (null when it runs fine). */
+  remedy: z.string().nullable().default(null),
 });
 export type ScheduledTask = z.infer<typeof scheduledTaskSchema>;
 
@@ -333,6 +381,7 @@ export const classifyCronJob = (row: CronJobRow, nowMs: number, now = new Date(n
     downSince,
     manualRun: info?.manualRun ?? null,
     docHref: info?.docHref ?? null,
+    remedy: taskRemedy(status, info),
   };
 };
 
@@ -360,6 +409,7 @@ export const vercelScheduledTasks = (now = new Date()): ScheduledTask[] =>
     downSince: null,
     manualRun: null,
     docHref: VERCEL_CRONS_DOC_HREF,
+    remedy: STATUS_REMEDIES.never_called ?? null,
   }));
 
 const DOWN_TASK_STATUSES = new Set<TaskStatus>(["failed", "late"]);

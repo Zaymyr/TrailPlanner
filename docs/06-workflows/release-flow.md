@@ -51,7 +51,7 @@ The `development` channel is shared: it always holds the **last PR pushed**. Tes
 
 Web inputs are `apps/web/`, `packages/`, root `package.json` / `package-lock.json`, `turbo.json` and `vercel.json`. Mobile inputs are `apps/mobile/` (excluding `apps/mobile/.eas/` and Markdown), `packages/`, root `package.json` / `package-lock.json`.
 
-`vercel.json` sets `git.deploymentEnabled.main` to `false`: Vercel no longer deploys `main` by itself, so production web can never run ahead of the migrations. Preview deployments of other branches are unchanged.
+`vercel.json` sets `git.deploymentEnabled.main` to `false`: Vercel no longer deploys `main` by itself, so production web can never run ahead of the migrations. It declares no crons (every scheduled web task is a pg_cron job, shipped by the migrations of the same release). Preview deployments of other branches are unchanged.
 
 ## Guards
 

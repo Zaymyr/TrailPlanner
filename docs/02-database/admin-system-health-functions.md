@@ -52,7 +52,8 @@ One row: `available` (false when `net._http_response` does not exist or cannot b
 - pg_cron `succeeded` for a pg_net job only means the HTTP request was queued. `net._http_response` keeps neither the URL nor the job (and only about 6 h of rows), so an HTTP status cannot be tied to a job: the console shows this summary for all jobs together and documents the limit.
 - A pg_net job also succeeds while the Vault secrets `web_app_url` / `cron_secret` are missing: its `select` returns no row and nothing is sent.
 - `cron.job_run_details` is never purged by pg_cron; `failures_24h` scans it. If it grows large, add a purge job (not done in lot 3).
-- The Vercel crons of `vercel.json` are not pg_cron jobs and never appear here; the console lists them from `VERCEL_CRONS`.
+- Since 2026-11-23 `vercel.json` declares no crons (`VERCEL_CRONS` is empty); every scheduled web task is a pg_cron job listed here.
+- The console adds a « Que faire ? » remedy to every failed, late, warning or never-run task (`taskRemedy`): the task's own remedy when `SCHEDULED_TASKS` has one, a status remedy otherwise, and for a job unknown to `SCHEDULED_TASKS` (created by hand in Supabase) the advice to delete it or version it in a migration.
 
 ## Related Docs
 

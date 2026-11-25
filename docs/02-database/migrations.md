@@ -530,6 +530,10 @@ The later cron auth migration should be treated as the effective schedule/auth i
 
 Organizer import cleanup additionally uses `organizer-import-cleanup-hourly` at minute 17 of each hour. Unlike data-only purges, it calls `/api/cron/organizer-import-cleanup` so the route can remove private Storage objects before deleting expired session rows.
 
+### Runner Sale Amounts
+
+`20261123220100_record_runner_sale_amounts.sql` (additive, idempotent, RLS and grants unchanged) adds nullable charge columns — `amount_minor` (TTC, minor units), `currency`, `store_takehome_rate`, `store_tax_rate` — to `runner_billing_events`, `runner_plan_unlocks` and `runner_support_purchases`, and the latest charged period (`last_amount_minor`, `last_currency`, `last_charged_at`, `last_store_*`) to `runner_subscription_accounts`. It adds the immutable helper `runner_currency_minor_factor(text)` (service role only), backfills journaled RevenueCat and Stripe Checkout payloads into `runner_billing_events` and then the unlocks of the same provider transaction, replaces `claim_runner_plan_unlock` with the same signature (it now copies the journaled charge), and drops/recreates `record_runner_support_event` with 4 optional trailing amount parameters (grants re-applied). `supabase/tests/runner_support_purchase_checks.sql` uses the new signature and checks that a support charge is recorded once and never overwritten. See [Runner Billing Tables](tables/runner-billing.md) « Sale amounts ».
+
 ## Adding a Migration
 
 1. Read the relevant table doc under `docs/02-database/tables`.

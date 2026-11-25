@@ -37,6 +37,13 @@ function TaskMessage({ task }: { task: ScheduledTask }) {
   const message = task.lastMessage?.trim();
   const showMessage = Boolean(message) && task.status === "failed";
   return (
+    <>
+    {task.remedy ? (
+      <p className="mt-1 text-xs text-foreground">
+        <span className="font-semibold">Que faire ? </span>
+        {task.remedy}
+      </p>
+    ) : null}
     <details className="group mt-1 text-xs text-muted-foreground">
       <summary className="cursor-pointer select-none rounded font-semibold text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
         {showMessage ? "Voir le message d’erreur" : "Détails"}
@@ -57,6 +64,7 @@ function TaskMessage({ task }: { task: ScheduledTask }) {
         ) : null}
       </div>
     </details>
+    </>
   );
 }
 

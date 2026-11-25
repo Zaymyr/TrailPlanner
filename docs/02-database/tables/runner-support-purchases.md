@@ -1,10 +1,11 @@
 ---
 title: Runner Support Purchase Tables
 scope: database
-last_verified: 2026-11-01
+last_verified: 2026-11-23
 ai_priority: high
 related_files:
   - supabase/migrations/20261031092338_add_runner_support_purchase_ledger.sql
+  - supabase/migrations/20261123220100_record_runner_sale_amounts.sql
   - apps/mobile/lib/revenueCat.ts
   - apps/mobile/hooks/useSupportPurchase.ts
   - apps/web/lib/runner-support.ts
@@ -33,6 +34,7 @@ These service-only tables verify and record a voluntary, one-time “support” 
 - Only service role has table access; provider verification and RPC claims are server-side.
 - Server authorization happens before the store sheet; admin Free/Premium simulation is blocked. Strict RevenueCat reconciliation/restore checks the same user, provider, product and transaction.
 - The shared webhook route accepts either its configured Authorization value or a valid RevenueCat HMAC signature over the raw payload. This transport authentication does not change the support ledger's non-entitlement semantics.
+- Since 2026-11-23 (`20261123220100_record_runner_sale_amounts.sql`) `runner_support_purchases` also keeps the charge sent by RevenueCat: `amount_minor` (TTC, minor units), `currency`, `store_takehome_rate`, `store_tax_rate`, all nullable. `record_runner_support_event` takes them as 4 optional trailing parameters (default null; the old 8-argument signature was replaced, and `claim_runner_support_purchase` still calls it with 8 positional arguments). The webhook passes them on `NON_RENEWING_PURCHASE` only, never on a refund; the RPC fills a purchase that has no amount whatever the event order, ignores invalid values and never overwrites a known amount. The client sync path (`claim_runner_support_purchase`) carries no price. No support purchase existed in production when this shipped, so nothing was backfilled.
 - New authorization requires an effective launch, early-supporter cohort membership and the active seven-day window. `sync`, `reconcile` and `cancel` remain available after that window solely to finish, restore or clean up an already-started purchase; they cannot begin a new charge.
 
 ## Gotchas
