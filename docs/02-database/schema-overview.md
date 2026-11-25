@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-11-23
+last_verified: 2026-11-25
 # Supporter onboarding (2026-11-18): `user_profiles.supporter_onboarding_status` (migration 20261118200000) joins the Plan/RaceBook statuses; the mobile guided catalog gains a `supporter` mode over the same public event list, no other table or RLS change.
 # Inbox push badge (2026-11-18): apps/web/lib/push.ts adds an iOS badge only to admin inbox pushes (unread user_notifications count); race event update pushes, schema and RLS are unchanged.
 # Livret supporter private preview (2026-11-18): the catalog Livret supporter entry admits active organizers of a private event (preview only); runner badge, data and contracts unchanged.
@@ -453,6 +453,7 @@ erDiagram
 - Shared catalog product image backfills should update `products.image_url` only for curated catalog rows and keep ownership/visibility fields unchanged.
 - Admin catalog image writes normalize race/event thumbnails to bounded, versioned WebP objects before storing the public URL. Reference-based image maintenance updates only `thumbnail_url`; it does not change ownership, visibility, or relationships and keeps prior objects for rollback.
 - Public plan recap links store a bounded JSON snapshot plus limited `crew_state` in `plan_share_links`; raw URL tokens are not stored, only SHA-256 hashes.
+- Race slugs are generated without accents (2026-11-25); three public slugs broken before that were renamed by a data-only migration, their old URLs kept in `race_slug_redirects`. No schema change.
 - Former course slugs are reserved database-wide while their race exists. Resolve them through `race_slug_redirects.race_id`, then reapply the current public race/event visibility gates before redirecting.
 - The legacy coach/coachee feature is retired. Do not reintroduce `coach_*` tables, coach RLS, or coach entitlement columns without a new product decision and migration plan.
 - `user_profiles.onboarding_completed_at` remains nullable legacy Plan state. New mobile gating and the Profile dot use the two checked per-tour status columns; skipped is deliberately distinct from completed.

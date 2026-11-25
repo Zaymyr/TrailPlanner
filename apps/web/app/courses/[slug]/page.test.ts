@@ -213,6 +213,58 @@ describe("public race legacy slug page", () => {
     expect(relay.length).toBeLessThanOrEqual(60);
   });
 
+  it("shortens long event and format titles on readable boundaries, never inside a word", () => {
+    const alsace = buildRaceMetadataTitle({
+      ...canonicalRace,
+      eventName: "Trail Alsace by UTMB",
+      name: "Ultra-Trail des Chevaliers",
+      distanceKm: 158.68,
+      date: "2026-05-15",
+    });
+    const aran = buildRaceMetadataTitle({
+      ...canonicalRace,
+      eventName: "HOKA Val d'Aran by UTMB®",
+      name: "HOKA Val d'Aran by UTMB® - Torn dera Val d'Aran (163km)",
+      distanceKm: 163,
+      date: "2026-07-01",
+    });
+    const saintJacques = buildRaceMetadataTitle({
+      ...canonicalRace,
+      eventName: "Trail du Saint Jacques by UTMB",
+      name: "Trail du Saint Jacques by UTMB - Monistrail - 50K",
+      distanceKm: 53.96,
+      date: "2026-06-12",
+    });
+
+    expect(alsace).toBe("Trail Alsace — Ultra-Trail des Chevaliers | 158,68 km · 2026");
+    expect(aran).toBe("Torn dera Val d'Aran (163km) | 163 km · 2026");
+    expect(saintJacques).toBe("Trail du Saint Jacques — Monistrail - 50K | 53,96 km · 2026");
+    for (const title of [alsace, aran, saintJacques]) {
+      expect(title).not.toContain("…");
+      expect(title).not.toContain("®");
+      expect(title.length).toBeLessThanOrEqual(60);
+    }
+  });
+
+  it("writes a complete description sentence instead of cutting it with an ellipsis", () => {
+    const description = buildRaceMetadataDescription(
+      {
+        ...canonicalRace,
+        eventName: "Trail Alsace by UTMB",
+        name: "Ultra-Trail des Chevaliers",
+        distanceKm: 158.68,
+        elevationGainM: 5689,
+        location: "Station du Lac Blanc (Orbey) — Obernai, Grand Est, France",
+        date: "2026-05-15",
+      },
+      "18 h 20 à 34 h 10",
+    );
+
+    expect(description.length).toBeLessThanOrEqual(160);
+    expect(description.endsWith("…")).toBe(false);
+    expect(description).toContain("Temps estimé de 18 h 20 à 34 h 10");
+  });
+
   it("uses distance to distinguish otherwise identical long race names", () => {
     const shared = {
       ...canonicalRace,

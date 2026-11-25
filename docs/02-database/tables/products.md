@@ -1,7 +1,7 @@
 ---
 title: products Table
 scope: database
-last_verified: 2026-11-22
+last_verified: 2026-11-25
 ai_priority: high
 related_files:
   - supabase/migrations/20241215030000_create_products_and_affiliate_offers.sql
@@ -166,6 +166,7 @@ An update to a product referenced by an organizer ravito increments the affected
 - Decathlon aliases (`Décat`, `Decat`, `Decath`, and case variants) normalize to `Decathlon`. The corrective migration targets curated rows only; user products retain their stored values and use display-only casing safeguards in mobile.
 - Do not infer "official/shared" from `created_by is null`. Use `is_official`. `created_by` is owner metadata and can be null for reasons unrelated to official catalog curation.
 - User-facing product deletion archives the row (`is_live = false`, `is_archived = true`) and removes favorite links instead of physically deleting the product row.
+- `buildSlug` in `app/api/products/route.ts` strips accents (NFD) before replacing non `[a-z0-9]` runs (2026-11-25), so « Énergie » gives `energie`, not `nergie`; existing slugs are unchanged.
 - Data-only product catalog migrations should use idempotent `insert ... on conflict (slug) do update` statements so nutrition corrections can be replayed safely without duplicating rows.
 - Official brand import migrations should set both `is_official = true` and `official_name`; otherwise clients may show the rows as unverified user/catalog data even when `is_live = true`.
 - Official product image migrations should keep `created_by` untouched and target only curated catalog rows, so user-owned products with similar naming are not overwritten.

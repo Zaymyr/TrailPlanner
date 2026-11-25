@@ -1,7 +1,7 @@
 ---
 title: Public Race Discovery
 scope: business-rule
-last_verified: 2026-11-23
+last_verified: 2026-11-25
 # Event hubs and landing pages (2026-11-22): permanent year-free event hubs (race_events.slug) are the indexable event pages and edition pages canonicalize to them; region (INSEE code) and month landing pages join the distance pages, all upcoming-only, paginated, ItemList, five-format minimum.
 # Business card QR (2026-11-18): ?src=carte on the guide page redirects to /carte-visite (app on Android, Google Play / App Store listing otherwise).
 # Livret supporter private preview (2026-11-18): the client guide page retries with the stored session token so an active organizer previews a private edition; public behavior unchanged.
@@ -89,6 +89,7 @@ related_files:
   - apps/web/lib/public-races.test.ts
   - apps/web/app/courses/[slug]/page.test.ts
   - apps/web/app/courses/[slug]/race-metadata.ts
+  - supabase/migrations/20261125090000_fix_accent_stripped_race_slugs.sql
   - apps/web/lib/app-store.ts
   - scripts/audit-public-race-slugs.mjs
   - scripts/audit-public-race-slugs.test.mjs
@@ -169,7 +170,7 @@ When a private GPX object exists, the server downloads and parses it only after 
 
 The page always exposes `BreadcrumbList` structured data and exposes `SportsEvent` only when the format has a valid calendar `startDate` in strict `YYYY-MM-DD` form. Its `Place` may use the verified start label, start coordinates, start-address string, and normalized parent city/region/country; unavailable postal components are omitted and a place name is never inserted into `PostalAddress`. `eventStatus` is `EventScheduled` only while the format (its `endDate` when emitted, otherwise its `startDate`) has not passed in Europe/Paris, because the current schema has no cancellation/postponement status. schema.org has no "finished" `EventStatusType`, so a past format keeps its factual `SportsEvent` (the edition page references its `@id`) but omits `eventStatus` and the registration `Offer`, which both describe an event still to come. The edition `SportsEvent` applies the same rule to its inclusive `end_date`. The organizer is the known event identity (falling back to the format identity) with its official HTTP(S) website when available. The registration action becomes an `Offer` containing only its URL; price, currency, and availability remain absent because the catalog does not store them.
 
-`endDate` remains the same date for a single-day edition. A later canonical edition end is emitted only when unambiguous stored start and finish-cutoff clocks prove an overnight format by wrapping past midnight; prose or incomplete clocks cannot establish that fact. Formats attached to a slugged edition emit a `superEvent` reference to its canonical event page. Open Graph and Twitter use the format image first, the event image second, and the shared Pace Yourself social image last. SEO titles are capped at 60 characters, reserve a factual distance/year suffix, and truncate the middle of long names so both the event prefix and distinguishing format suffix survive; when the full name fits, a distance already present in the name is not repeated and a « · temps & ravitos » hook is appended if it still fits. A format name that does not contain its parent event name is prefixed as `Event — Format` in the title and description, so generic names (« 10 km ») stay unique across events. Event-edition titles keep `Event Year` within 60 characters by shortening the « formats, parcours et ravitos » suffix before truncating the name. Descriptions are capped at 160 characters and end with the reference time range (or a generic estimate invitation when no range can be computed). It links to:
+`endDate` remains the same date for a single-day edition. A later canonical edition end is emitted only when unambiguous stored start and finish-cutoff clocks prove an overnight format by wrapping past midnight; prose or incomplete clocks cannot establish that fact. Formats attached to a slugged edition emit a `superEvent` reference to its canonical event page. Open Graph and Twitter use the format image first, the event image second, and the shared Pace Yourself social image last. SEO titles are capped at 60 characters and reserve a factual distance/year suffix; when the full name fits, a distance already present in the name is not repeated and a « · temps & ravitos » hook is appended if it still fits. A format name that does not contain its parent event name is prefixed as `Event — Format` in the title and description, so generic names (« 10 km ») stay unique across events. Names are cleaned of ®/™ and underscores, and a leading part of the format name that repeats the event is dropped. When `<identity> | <distance> · <year>` is too long, `buildShorterIdentities` tries, in order: the format with the full event, the format with the event minus « by UTMB », the format alone when it is distinctive (a non-generic word such as « Ultra-Trail des Chevaliers » or « OCC », never « Trail 22 km »), then the format with the leading words of the event; the last resort is a word-boundary cut with « … ». A title is never cut inside a word (the former head…tail cut is gone; on the 843 live public races of 2026-11-25, titles ending with « … » went from 300 to 7, none over 60 characters, no duplicate). Name matching (`normalizeForMatch`) ignores accents, spaces and punctuation (’ and '). Event-edition titles keep `Event Year` within 60 characters by shortening the « formats, parcours et ravitos » suffix before truncating the name. Descriptions are capped at 160 characters and end with the reference time range (or a generic estimate invitation when no range can be computed); they prefer a complete sentence, dropping the long hook, then the location, then trying the shorter identities before any truncation (`truncateSeoText` cuts at the last space; none of the 843 live descriptions ends with « … »). It links to:
 
 - other published formats sharing the same event edition, with the legacy event-only fallback when `edition_id` is absent;
 - up to three published, upcoming or undated races from other events with the nearest distance, using elevation only as a tie-breaker (a finished format and the Trail TST demo are never suggested);
@@ -249,7 +250,7 @@ Country filters may include country-only rows. City, department, region and near
 
 ## Slug Stability
 
-Existing race slugs remain canonical until a rename is explicitly approved. The durable mapping and permanent redirect contract now exists: the database trigger records every former slug against the stable race id, and the web route resolves directly to the current canonical slug without redirect chains.
+Existing race slugs remain canonical until a rename is explicitly approved. Exception (2026-11-25): migration `20261125090000_fix_accent_stripped_race_slugs.sql` renamed the three public slugs broken by an accent-blind generator (`pa-ens`, `m-tropole`, `m-tis`); their old URLs answer with a 301 through `race_slug_redirects`, and new slugs are generated with accents stripped (see [GPX Import](gpx-import.md)). The durable mapping and permanent redirect contract now exists: the database trigger records every former slug against the stable race id, and the web route resolves directly to the current canonical slug without redirect chains.
 
 Edition slugs follow the same no-chain rule through `race_event_edition_slug_redirects`, but remain a separate namespace and service-only table. `rename_race_event_edition_slug` is the trusted atomic rename boundary.
 
@@ -288,6 +289,7 @@ Edition slugs follow the same no-chain rule through `race_event_edition_slug_red
 - Keep all public queries restricted to explicit columns and published rows.
 - Never reuse a former slug for another race. It remains reserved in `race_slug_redirects` while the target race exists.
 - Do not run a slug migration from the dry-run script; it deliberately has no write path.
+- Never cut a title or description inside a word, and keep sibling formats distinct: when shortening, the format name (not the event prefix) is what must survive.
 
 ## Related Docs
 

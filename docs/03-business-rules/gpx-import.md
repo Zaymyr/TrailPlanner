@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-11-23
+last_verified: 2026-11-25
 # Video generator header (2026-11-20): the admin video generator page header now uses the shared generate/publish switch; GPX rules unchanged.
 # Assisted legacy conversion (2026-11-15): review controls do not alter GPX parsing, waypoint hydration or persistence.
 # Structured access phase (2026-11-15): optional parking and shuttle collections use geocoded locations, bounded notes and edition-day schedules; event inheritance and historical text fallbacks remain intact, while public pages expose summaries only.
@@ -145,6 +145,8 @@ The parser does not use a DOM/XML parser; it uses regex-based extraction tuned t
 5. Optionally decodes the image, bounds it to 1024 px, converts it to WebP, and uploads the versioned object into public `race-images` with one-year cache metadata.
 6. Inserts a public `races` row that stays draft (`is_live = false`) by default unless the admin explicitly marks it live, initializing `edition_group_id` from the new race id and `series_name` from its name.
 7. Inserts `race_aid_stations` from manual stations or normalized GPX waypoints.
+
+Slug generation (2026-11-25): `buildSlug` (this route and the UTMB and Trace de Trail admin imports) strips accents (NFD) before replacing every non `[a-z0-9]` run with a hyphen, so « Païens » gives `paiens`, not `pa-ens`. A slug that is not accent-stripped turns every accented letter into a hyphen; three such public slugs were renamed by migration `20261125090000_fix_accent_stripped_race_slugs.sql` (old URLs redirect). No GPX, import or persistence rule changes.
 
 The Trace de Trail admin adapter first tries the official download with the credentials supplied for the current dialog, then retries the public download endpoint. When both downloads remain protected but the public trace page already exposes its route geometry, it rebuilds an importable GPX from that embedded geometry. The admin preview identifies this result as `embedded`. From the same reviewed preview, the admin can either create the catalog race or download the recovered GPX directly; the download action does not create a `race_events`/`races` row and does not upload anything to Supabase Storage.
 

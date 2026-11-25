@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { SITE_URL } from "../seo";
 import { FlyoverOrderForm } from "./flyover-order-form";
+import { buildFlyoverStructuredData } from "./flyover-structured-data";
 
 const canonicalPath = "/survol";
 const title = "Vidéo de survol 3D de votre parcours";
@@ -35,8 +36,13 @@ type PageProps = { searchParams?: Record<string, string | string[] | undefined> 
 /** Standalone order page of the organizer flyover video (independent of the livret offers). */
 export default function FlyoverOrderPage({ searchParams }: PageProps) {
   const cancelled = searchParams?.paiement === "annule";
+  const structuredData = buildFlyoverStructuredData(canonicalPath, description);
   return (
     <div className="mx-auto max-w-5xl space-y-6 pb-12 sm:space-y-10">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }}
+      />
       <section className="relative overflow-hidden rounded-3xl border border-brand-border bg-gradient-to-br from-brand-surface via-card to-muted p-4 shadow-[0_28px_80px_rgba(45,80,22,0.14)] sm:p-8 dark:border-emerald-400/25 dark:from-emerald-400/10 dark:via-card dark:to-card">
         <p className="inline-flex rounded-full border border-brand-border bg-card/85 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-brand shadow-sm dark:border-emerald-400/30 dark:bg-emerald-950/50 dark:text-emerald-100">
           Organisateurs · Vidéo de survol

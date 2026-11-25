@@ -54,6 +54,9 @@ type SupabaseAuthContext = {
 
 const buildSlug = (name: string) => {
   const base = name
+    // Strip accents first so « Métropole » becomes « metropole », not « m-tropole ».
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9]+/g, "-")

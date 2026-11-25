@@ -1,11 +1,12 @@
 ---
 title: race_slug_redirects Table
 scope: database
-last_verified: 2026-11-23
+last_verified: 2026-11-25
 ai_priority: high
 related_files:
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
   - supabase/migrations/20260923070437_separate_web_and_mobile_race_visibility.sql
+  - supabase/migrations/20261125090000_fix_accent_stripped_race_slugs.sql
   - supabase/tests/race_slug_redirects_checks.sql
   - apps/web/lib/public-races.ts
   - apps/web/lib/public-races.test.ts
@@ -74,7 +75,7 @@ Both mutation functions are `SECURITY INVOKER`, use an empty `search_path`, and 
 - Inserts and updates reject a slug already reserved in this table.
 - Transaction advisory locks serialize reservations for the old and new names; the existing unique race-slug constraint remains the canonical-name collision guard.
 - `rename_race_slug` normalizes trim/case, validates the allowed slug format, locks the race row, updates it, and lets the trigger record the redirect atomically.
-- The public web route returns a permanent redirect only after reloading the target through the current public visibility gates, and it redirects before loading the richer organizer/GPX detail contract. Metadata for an old slug is already canonicalized to the current page and uses the same bounded helper, whose distance/year suffix and middle truncation retain the distinguishing end of long format names. Since 2026-11-16 metadata also reads the cached public detail of the resolved target to add reference finishing times to the description; this happens after resolution and never affects redirect lookup.
+- The public web route returns a permanent redirect only after reloading the target through the current public visibility gates, and it redirects before loading the richer organizer/GPX detail contract. Metadata for an old slug is already canonicalized to the current page and uses the same bounded helper, whose distance/year suffix and word-boundary shortening (format name kept, no head…tail cut) retain the distinguishing part of long format names. Since 2026-11-16 metadata also reads the cached public detail of the resolved target to add reference finishing times to the description; this happens after resolution and never affects redirect lookup.
 - No slug is pre-rendered during deployment. Current and former slugs resolve on first request through dynamic ISR, so preserving redirect checks does not require rebuilding every public detail page.
 - Canonical and redirected web reads share the same service-only durable web flag and explicit parent-event projection. Adding searchable city, department, region, and country labels does not change direct-client RLS or expose organizer JSON, codes, or coordinates.
 - The parent-event projection now also allowlists `website_url` for the registration CTA after canonical resolution. It remains presentation metadata and does not participate in redirect visibility or slug identity.
@@ -113,6 +114,8 @@ from public.rename_race_slug(:race_id, :new_slug);
 - [Migrations](../migrations.md)
 
 The canonical page reached after a slug redirect keeps the same metadata rules; course titles now prefix generic format names with their event name (`Event — Format`). Redirect resolution is unchanged.
+
+Accent-stripped slugs (2026-11-25): migration `20261125090000_fix_accent_stripped_race_slugs.sql` renamed three public races whose slug had lost accented letters: `ultra-trail-des-pa-ens-glf4` to `ultra-trail-des-paiens-glf4`, `ultra-trail-m-tropole-nice-c-te-d-azur-100m-a788` to `ultra-trail-metropole-nice-cote-d-azur-100m-a788`, `m-tis-trail-reunion-pubt` to `metis-trail-reunion-pubt`. A plain `update races set slug` fires the existing trigger, which stores each old slug here, so the old URLs 301 to the new ones. Data only, no schema change; each update is guarded on the old slug, so a re-run is a no-op.
 
 Format pages (2026-11-23) gained a related-guides block; slug resolution and redirects are unchanged.
 
