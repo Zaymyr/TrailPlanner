@@ -80,7 +80,15 @@ import { TapeAlertBanner } from '../../../../components/racebook/TapeAlertBanner
 import { buildMapsSearchUrl } from '../../../../lib/racebookTextLinks';
 import { RacebookStructuredCourseSections } from '../../../../components/racebook/RacebookStructuredCourseSections';
 import { RacebookTabBar } from '../../../../components/racebook/RacebookTabBar';
-import { CourseWeatherSection } from '../../../../components/course-weather/CourseWeatherSection';
+import { CourseWeatherPlanNote } from '../../../../components/course-weather/CourseWeatherPassage';
+import { useCourseWeather } from '../../../../components/course-weather/useCourseWeather';
+import {
+  buildCourseWeatherRowPassages,
+  buildCourseWeatherRowWindows,
+  courseWeatherDepartureAt,
+  selectCourseWeatherDisplay,
+  type CourseWeatherInlineLine,
+} from '../../../../lib/courseWeather';
 import { RacebookElevationProfile } from '../../../../components/racebook/RacebookElevationProfile';
 import { Colors } from '../../../../constants/colors';
 import type { MobileGpxPreviewPoint } from '../../../../lib/gpx';
@@ -1587,6 +1595,46 @@ export default function RaceRacebookScreen() {
     return { byStationId: result, finish };
   }, [data, linkedPlan, officialCutoffDisplayByStationId, officialCutoffs, officialFinishCutoffDisplay, officialStartTime, personalDepartureClock, t.catalog.racebookExpectedPassage]);
   const personalPlanByStationId = personalPlanReflection.byStationId;
+  // Course weather (display-only) inside each aid-station row: at the runner's own passage with a
+  // linked plan, otherwise over the hours the field is likely to pass that point.
+  const courseWeather = useCourseWeather(id);
+  const courseWeatherDisplay = selectCourseWeatherDisplay(courseWeather.entry);
+  const courseWeatherForecast = courseWeatherDisplay.kind === 'forecast' ? courseWeatherDisplay.forecast : null;
+  const aidStationWeather = useMemo(() => {
+    if (!data || !courseWeatherForecast) return null;
+    const finishStation = resolveRacebookFinishStation(data.aidStations);
+    const stations = data.aidStations.filter((station) => station.id !== finishStation?.id);
+    // Row keys: aid station ids, plus the reserved `start` / `finish` endpoints.
+    const rows = [
+      { key: 'start', pointId: 'start', distanceKm: 0 },
+      ...stations.map((station) => ({ key: station.id, pointId: `aid-${station.orderIndex}`, distanceKm: station.km })),
+      { key: 'finish', pointId: 'finish', distanceKm: data.race.distanceKm },
+    ];
+    const departureClock = linkedPlan ? personalDepartureClock ?? officialStartTime : null;
+    const finishArrival = (finishStation ? personalPlanByStationId[finishStation.id]?.arrivalMinute : undefined)
+      ?? personalPlanReflection.finish?.arrivalMinute
+      ?? null;
+    const lines: Record<string, CourseWeatherInlineLine> = linkedPlan
+      ? buildCourseWeatherRowPassages(
+        courseWeatherForecast,
+        rows.map((row) => ({
+          ...row,
+          arrivalMinute: row.key === 'start' ? 0 : row.key === 'finish' ? finishArrival : personalPlanByStationId[row.key]?.arrivalMinute ?? null,
+        })),
+        courseWeatherDepartureAt(courseWeatherForecast, departureClock),
+      )
+      : buildCourseWeatherRowWindows(courseWeatherForecast, rows);
+    const { start, finish, ...byStationId } = lines;
+    return {
+      timeZone: courseWeatherForecast.timeZone,
+      byStationId,
+      start,
+      finish,
+      hasWeather: Object.keys(lines).length > 0,
+      // The 07:00 default start of the API only matters when no runner departure clock is known.
+      showEstimatedStart: !departureClock,
+    };
+  }, [courseWeatherForecast, data, linkedPlan, officialStartTime, personalDepartureClock, personalPlanByStationId, personalPlanReflection.finish]);
   const equipmentNotes = [data?.runnerDetails.equipment.note].filter((value): value is string => Boolean(value));
   const brandTheme = useMemo(
     () => resolveRacebookTheme(sponsorPresentation.branding),
@@ -2534,8 +2582,6 @@ export default function RaceRacebookScreen() {
                   )
                 ) : null}
 
-                {activeCourseTab === 'route' ? <CourseWeatherSection raceId={id} /> : null}
-
                 <RacebookStructuredCourseSections
                   activeTab={activeCourseTab}
                   relaySegments={relaySegments}
@@ -2587,6 +2633,21 @@ export default function RaceRacebookScreen() {
                     officialFinishCutoffDisplay={officialFinishCutoffDisplay}
                     finishPersonalPlan={personalPlanReflection.finish}
                     onEditPersonalPlanStation={(station) => openLinkedPlanAtStation(station.id)}
+                    weather={courseWeatherDisplay.kind === 'hidden' ? null : {
+                      timeZone: aidStationWeather?.timeZone ?? 'UTC',
+                      byStationId: aidStationWeather?.byStationId ?? {},
+                      start: aidStationWeather?.start,
+                      finish: aidStationWeather?.finish,
+                      note: (
+                        <CourseWeatherPlanNote
+                          display={courseWeatherDisplay}
+                          hasPassageWeather={aidStationWeather?.hasWeather ?? false}
+                          outOfRangeMessage={linkedPlan ? undefined : t.courseWeather.fieldOutOfRange}
+                          showEstimatedStart={aidStationWeather?.showEstimatedStart ?? true}
+                          stale={courseWeather.stale}
+                        />
+                      ),
+                    }}
                     copy={{
                       sectionTitle: t.catalog.racebookSectionAidStations,
                       emptyMessage: t.catalog.racebookEmptyAidStations,

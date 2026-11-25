@@ -9,16 +9,22 @@ import {
   courseWeatherAtPassages,
   courseWeatherFeelsLikeC,
   courseWeatherHourAlerts,
+  courseWeatherHourAt,
+  courseWeatherHoursBetween,
   courseWeatherLikelyPassageHours,
+  courseWeatherLikelyPassageWindow,
+  nearestCourseWeatherPoint,
   summarizeCourseWeatherHours,
   type CourseWeatherAlert,
   type CourseWeatherAtPassage,
   type CourseWeatherForecast,
   type CourseWeatherHour,
+  type CourseWeatherPoint,
   type CourseWeatherPointKind,
   type CourseWeatherResponse,
   type CourseWeatherSummary,
 } from './courseWeatherShared';
+import { resolveDepartureOffsetMinutes } from './racebookPlanReflection';
 import { WEB_API_BASE_URL } from './webApi';
 
 const MINUTE_MS = 60_000;
@@ -204,29 +210,39 @@ export type CourseWeatherPointRow = {
   alerts: CourseWeatherAlert[];
 };
 
-/** Summary of every course point over the hours the field is likely to pass it (Livret coureur: no runner ETA). */
+type CourseWeatherHoursSummary = Pick<
+  CourseWeatherPointRow,
+  'icon' | 'summary' | 'minFeelsLikeC' | 'maxFeelsLikeC' | 'maxWindSpeedKph' | 'maxWindGustKph' | 'alerts'
+>;
+
+/** Summary of a set of hours: worst sky glyph, temperature and feels-like range, max wind, alerts. */
+function summarizeCourseWeatherWindowHours(hours: CourseWeatherHour[]): CourseWeatherHoursSummary {
+  const summary = summarizeCourseWeatherHours(hours);
+  const feelsLike = hours.map((hour) => courseWeatherFeelsLikeC(hour)).filter(isNumber);
+  return {
+    // The dominant symbol is a real hour of the window, so its MET `_day` / `_night` suffix follows that hour.
+    icon: courseWeatherIconName(summary.dominantSymbol),
+    summary,
+    minFeelsLikeC: feelsLike.length ? Math.min(...feelsLike) : null,
+    maxFeelsLikeC: feelsLike.length ? Math.max(...feelsLike) : null,
+    maxWindSpeedKph: maxOf(hours.map((hour) => hour.windSpeedKph)),
+    maxWindGustKph: maxOf(hours.map((hour) => hour.windGustKph)),
+    alerts: sortCourseWeatherAlerts(hours.flatMap((hour) => courseWeatherHourAlerts(hour))),
+  };
+}
+
+/** Summary of every course point over the hours the field is likely to pass it (no runner ETA). */
 export function buildCourseWeatherPointRows(
   forecast: Pick<CourseWeatherForecast, 'points'> & Partial<Pick<CourseWeatherForecast, 'startAt'>>,
 ): CourseWeatherPointRow[] {
-  return forecast.points.map((point) => {
+  return forecast.points.map((point) => ({
+    id: point.id,
+    kind: point.kind,
+    name: point.name,
+    distanceKm: point.distanceKm,
     // Likely passage hours of the field, not the whole 48 h forecast window.
-    const hours = courseWeatherLikelyPassageHours(point, forecast.startAt ?? null);
-    const summary = summarizeCourseWeatherHours(hours);
-    const feelsLike = hours.map((hour) => courseWeatherFeelsLikeC(hour)).filter(isNumber);
-    return {
-      id: point.id,
-      kind: point.kind,
-      name: point.name,
-      distanceKm: point.distanceKm,
-      icon: courseWeatherIconName(summary.dominantSymbol),
-      summary,
-      minFeelsLikeC: feelsLike.length ? Math.min(...feelsLike) : null,
-      maxFeelsLikeC: feelsLike.length ? Math.max(...feelsLike) : null,
-      maxWindSpeedKph: maxOf(hours.map((hour) => hour.windSpeedKph)),
-      maxWindGustKph: maxOf(hours.map((hour) => hour.windGustKph)),
-      alerts: sortCourseWeatherAlerts(hours.flatMap((hour) => courseWeatherHourAlerts(hour))),
-    };
-  });
+    ...summarizeCourseWeatherWindowHours(courseWeatherLikelyPassageHours(point, forecast.startAt ?? null)),
+  }));
 }
 
 export type CourseWeatherPlanCheckpoint = { index: number; distanceKm: number; arrivalMinute: number };
@@ -269,6 +285,216 @@ export function buildCourseWeatherPassageLines(
       feelsLikeC: result.feelsLikeC,
       alerts: sortCourseWeatherAlerts(result.alerts),
     });
+  }
+  return lines;
+}
+
+/** A row farther than this (km) from every forecast point shows no weather. */
+export const COURSE_WEATHER_POINT_MATCH_TOLERANCE_KM = 2;
+
+/**
+ * Forecast point of one course row (aid station, start, finish, supporter stop). The point with the
+ * row's id (`start`, `finish`, `aid-<order_index>`) wins when its distance agrees; otherwise the
+ * nearest point within `toleranceKm` (station dropped by the 15-point thinning or merged into the
+ * start/finish); otherwise `null` and the row shows nothing.
+ */
+export function matchCourseWeatherPoint(
+  points: CourseWeatherPoint[],
+  row: { pointId?: string | null; distanceKm: number },
+  toleranceKm: number = COURSE_WEATHER_POINT_MATCH_TOLERANCE_KM,
+): CourseWeatherPoint | null {
+  if (!Number.isFinite(row.distanceKm)) return null;
+  const byId = row.pointId ? points.find((point) => point.id === row.pointId) : undefined;
+  if (byId && Math.abs(byId.distanceKm - row.distanceKm) <= toleranceKm) return byId;
+  const nearest = nearestCourseWeatherPoint(points, row.distanceKm);
+  return nearest && Math.abs(nearest.distanceKm - row.distanceKm) <= toleranceKm ? nearest : null;
+}
+
+const DAY_MS = 24 * HOUR_MS;
+
+function isoDayNumber(day: string | null | undefined): number | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(day ?? '');
+  return match ? Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])) / DAY_MS : null;
+}
+
+function clockMinutes(clock: string | null | undefined): number | null {
+  const match = /^(\d{1,2}):(\d{2})/.exec(clock?.trim() ?? '');
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  return hours < 24 && minutes < 60 ? hours * 60 + minutes : null;
+}
+
+/**
+ * Local day (as a UTC day number) and minute of the day of an instant in the race zone. Falls back
+ * to device time when Hermes cannot format the zone, like `formatCourseWeatherClock`.
+ */
+function localClockParts(instantMs: number, timeZone: string): { dayNumber: number; minutes: number } {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(new Date(instantMs));
+    const value = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find((part) => part.type === type)?.value);
+    const [year, month, day, hour, minute] = [value('year'), value('month'), value('day'), value('hour'), value('minute')];
+    if ([year, month, day, hour, minute].every(Number.isFinite)) {
+      return { dayNumber: Date.UTC(year, month - 1, day) / DAY_MS, minutes: (hour % 24) * 60 + minute };
+    }
+  } catch {
+    // Device time below.
+  }
+  const local = new Date(instantMs);
+  return {
+    dayNumber: Date.UTC(local.getFullYear(), local.getMonth(), local.getDate()) / DAY_MS,
+    minutes: local.getHours() * 60 + local.getMinutes(),
+  };
+}
+
+/** Organizer race-day clock: `date` wins, else race day + `dayOffset` (Livret supporter cutoffs and arrivals). */
+export type CourseWeatherRaceClock = { date?: string | null; time: string; dayOffset?: number | null };
+
+/**
+ * UTC instant of a local race-day clock, anchored on the forecast's official start (`startAt`,
+ * already computed in the race zone by the API): `startAt + (clock − local clock of startAt)`.
+ * A DST change between the start and the clock is ignored (at most one hour, display only).
+ */
+export function courseWeatherInstantAt(
+  forecast: Pick<CourseWeatherForecast, 'startAt' | 'raceDate' | 'timeZone'>,
+  clock: CourseWeatherRaceClock | null | undefined,
+): Date | null {
+  const startMs = forecast.startAt ? Date.parse(forecast.startAt) : Number.NaN;
+  const minutes = clockMinutes(clock?.time);
+  if (!clock || !Number.isFinite(startMs) || minutes === null) return null;
+  const raceDay = isoDayNumber(forecast.raceDate);
+  const targetDay = clock.date ? isoDayNumber(clock.date) : raceDay === null ? null : raceDay + (clock.dayOffset ?? 0);
+  if (targetDay === null) return null;
+  const reference = localClockParts(startMs, forecast.timeZone);
+  const deltaMinutes = (targetDay - reference.dayNumber) * 24 * 60 + minutes - reference.minutes;
+  return new Date(startMs + deltaMinutes * MINUTE_MS);
+}
+
+/**
+ * Runner's departure instant: the forecast's official start shifted by the personal departure
+ * clock (same ±12 h rule as the Livret cutoffs, `resolveDepartureOffsetMinutes`). The official
+ * start itself when no clock is known.
+ */
+export function courseWeatherDepartureAt(
+  forecast: Pick<CourseWeatherForecast, 'startAt' | 'timeZone'>,
+  departureClock: string | null | undefined,
+): Date | null {
+  const startMs = forecast.startAt ? Date.parse(forecast.startAt) : Number.NaN;
+  if (!Number.isFinite(startMs)) return null;
+  if (clockMinutes(departureClock) === null) return new Date(startMs);
+  const reference = localClockParts(startMs, forecast.timeZone).minutes;
+  const referenceClock = `${String(Math.floor(reference / 60)).padStart(2, '0')}:${String(reference % 60).padStart(2, '0')}`;
+  return new Date(startMs + resolveDepartureOffsetMinutes(departureClock, referenceClock) * MINUTE_MS);
+}
+
+/** Weather shown inside one course row: one forecast hour at a planned passage, or a passage window summary. */
+export type CourseWeatherInlineLine =
+  | {
+    kind: 'passage';
+    pointId: string;
+    /** Planned passage instant (UTC ISO). */
+    at: string;
+    hour: CourseWeatherHour;
+    icon: CourseWeatherIconName;
+    feelsLikeC: number | null;
+    alerts: CourseWeatherAlert[];
+  }
+  | ({
+    kind: 'window';
+    pointId: string;
+    /** Covered window (UTC ISO), clipped to the forecast hours. */
+    from: string;
+    to: string;
+  } & CourseWeatherHoursSummary);
+
+export type CourseWeatherRowPassage = {
+  key: string;
+  pointId?: string | null;
+  distanceKm: number;
+  /** Planned elapsed minutes since the runner's departure; `null` skips the row. */
+  arrivalMinute: number | null;
+};
+
+/**
+ * Weather at the runner's own passage of each row (Livret coureur with a linked plan). Rows
+ * without a matched point or outside the forecast are absent from the result.
+ */
+export function buildCourseWeatherRowPassages(
+  forecast: Pick<CourseWeatherForecast, 'points'>,
+  rows: CourseWeatherRowPassage[],
+  departureAt: Date | null,
+): Record<string, CourseWeatherInlineLine> {
+  const lines: Record<string, CourseWeatherInlineLine> = {};
+  const departureMs = departureAt?.getTime() ?? Number.NaN;
+  if (!Number.isFinite(departureMs)) return lines;
+  for (const row of rows) {
+    if (row.arrivalMinute === null || !Number.isFinite(row.arrivalMinute) || row.arrivalMinute < 0) continue;
+    const point = matchCourseWeatherPoint(forecast.points, row);
+    if (!point) continue;
+    const at = new Date(departureMs + row.arrivalMinute * MINUTE_MS);
+    const hour = courseWeatherHourAt(point, at);
+    if (!hour) continue;
+    lines[row.key] = {
+      kind: 'passage',
+      pointId: point.id,
+      at: at.toISOString(),
+      hour,
+      // Each forecast hour carries its own MET `_day` / `_night` symbol, so the glyph follows the passage hour.
+      icon: courseWeatherIconName(hour.symbol),
+      feelsLikeC: courseWeatherFeelsLikeC(hour),
+      alerts: sortCourseWeatherAlerts(courseWeatherHourAlerts(hour)),
+    };
+  }
+  return lines;
+}
+
+export type CourseWeatherRowWindow = {
+  key: string;
+  pointId?: string | null;
+  distanceKm: number;
+  /** Window start; the field's likely first passage when absent. */
+  from?: Date | null;
+  /** Window end; the field's likely last passage when absent. */
+  to?: Date | null;
+};
+
+/**
+ * Weather summary over the window runners pass each row: explicit bounds (Livret supporter first
+ * arrival / cutoff) or the field's likely passage window (`courseWeatherLikelyPassageWindow`).
+ * An end before the start is widened to one hour. Rows without hours are absent.
+ */
+export function buildCourseWeatherRowWindows(
+  forecast: Pick<CourseWeatherForecast, 'points' | 'startAt'>,
+  rows: CourseWeatherRowWindow[],
+): Record<string, CourseWeatherInlineLine> {
+  const lines: Record<string, CourseWeatherInlineLine> = {};
+  for (const row of rows) {
+    const point = matchCourseWeatherPoint(forecast.points, row);
+    if (!point) continue;
+    const field = courseWeatherLikelyPassageWindow(row.distanceKm, forecast.startAt);
+    const from = row.from ?? field?.from ?? null;
+    let to = row.to ?? field?.to ?? null;
+    if (!from || !to || !Number.isFinite(from.getTime()) || !Number.isFinite(to.getTime())) continue;
+    if (to.getTime() < from.getTime()) to = new Date(from.getTime() + HOUR_MS);
+    const hours = courseWeatherHoursBetween(point, from, to);
+    if (hours.length === 0) continue;
+    const firstHour = Date.parse(hours[0].time);
+    const lastHourEnd = Date.parse(hours[hours.length - 1].time) + HOUR_MS;
+    lines[row.key] = {
+      kind: 'window',
+      pointId: point.id,
+      from: new Date(Math.max(from.getTime(), firstHour)).toISOString(),
+      to: new Date(Math.min(to.getTime(), lastHourEnd)).toISOString(),
+      ...summarizeCourseWeatherWindowHours(hours),
+    };
   }
   return lines;
 }

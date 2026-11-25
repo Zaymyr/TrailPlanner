@@ -1,10 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  COURSE_WEATHER_POINT_MATCH_TOLERANCE_KM,
   buildCourseWeatherPassageLines,
   buildCourseWeatherPointRows,
+  buildCourseWeatherRowPassages,
+  buildCourseWeatherRowWindows,
   buildCourseWeatherUrl,
+  courseWeatherDepartureAt,
   courseWeatherIconName,
+  courseWeatherInstantAt,
+  matchCourseWeatherPoint,
   courseWeatherRefreshAt,
   fetchCourseWeather,
   formatCourseWeatherClock,
@@ -115,6 +121,122 @@ describe('buildCourseWeatherPassageLines', () => {
 
   it('returns nothing without departure', () => {
     expect(buildCourseWeatherPassageLines(forecast, checkpoints, null).size).toBe(0);
+  });
+});
+
+describe('matchCourseWeatherPoint', () => {
+  it('prefers the point with the row id when its distance agrees', () => {
+    expect(matchCourseWeatherPoint(forecast.points, { pointId: 'aid-1', distanceKm: 12 })?.id).toBe('aid-1');
+    expect(matchCourseWeatherPoint(forecast.points, { pointId: 'finish', distanceKm: 25 })?.id).toBe('finish');
+  });
+
+  it('falls back to the nearest point within the tolerance (thinned or near-endpoint station)', () => {
+    // `aid-7` was dropped by the 15-point thinning; `aid-1` is 0.8 km away.
+    expect(matchCourseWeatherPoint(forecast.points, { pointId: 'aid-7', distanceKm: 12.8 })?.id).toBe('aid-1');
+    // A station 300 m after the start is merged into the start point.
+    expect(matchCourseWeatherPoint(forecast.points, { pointId: 'aid-0', distanceKm: 0.3 })?.id).toBe('start');
+    expect(COURSE_WEATHER_POINT_MATCH_TOLERANCE_KM).toBe(2);
+  });
+
+  it('shows nothing when no point is close enough', () => {
+    expect(matchCourseWeatherPoint(forecast.points, { pointId: 'aid-9', distanceKm: 18 })).toBeNull();
+    // An id whose distance disagrees is not trusted.
+    expect(matchCourseWeatherPoint(forecast.points, { pointId: 'aid-1', distanceKm: 19 })).toBeNull();
+    expect(matchCourseWeatherPoint(forecast.points, { distanceKm: Number.NaN })).toBeNull();
+  });
+});
+
+describe('courseWeatherInstantAt', () => {
+  it('anchors a local race-day clock on the official start in the race zone', () => {
+    // startAt 06:00Z = 07:00 in Paris on race day.
+    expect(courseWeatherInstantAt(forecast, { time: '09:30' })?.toISOString()).toBe('2026-11-29T08:30:00.000Z');
+    expect(courseWeatherInstantAt(forecast, { date: null, time: '01:00', dayOffset: 1 })?.toISOString()).toBe('2026-11-30T00:00:00.000Z');
+    expect(courseWeatherInstantAt(forecast, { date: '2026-11-30', time: '01:00', dayOffset: 0 })?.toISOString()).toBe('2026-11-30T00:00:00.000Z');
+  });
+
+  it('uses the race zone, not the device one', () => {
+    const newYork = { ...forecast, startAt: '2026-11-29T12:00:00Z', timeZone: 'America/New_York' };
+    expect(courseWeatherInstantAt(newYork, { time: '10:00' })?.toISOString()).toBe('2026-11-29T15:00:00.000Z');
+  });
+
+  it('returns null without a usable clock or start', () => {
+    expect(courseWeatherInstantAt(forecast, { time: 'midi' })).toBeNull();
+    expect(courseWeatherInstantAt(forecast, null)).toBeNull();
+    expect(courseWeatherInstantAt({ ...forecast, startAt: null }, { time: '09:00' })).toBeNull();
+  });
+});
+
+describe('courseWeatherDepartureAt', () => {
+  it('shifts the official start by the personal departure clock', () => {
+    expect(courseWeatherDepartureAt(forecast, '07:30')?.toISOString()).toBe('2026-11-29T06:30:00.000Z');
+    expect(courseWeatherDepartureAt(forecast, '06:40')?.toISOString()).toBe('2026-11-29T05:40:00.000Z');
+  });
+
+  it('uses the official start without a valid clock', () => {
+    expect(courseWeatherDepartureAt(forecast, null)?.toISOString()).toBe('2026-11-29T06:00:00.000Z');
+    expect(courseWeatherDepartureAt(forecast, 'tôt')?.toISOString()).toBe('2026-11-29T06:00:00.000Z');
+    expect(courseWeatherDepartureAt({ ...forecast, startAt: null }, '07:00')).toBeNull();
+  });
+});
+
+describe('buildCourseWeatherRowPassages', () => {
+  const rows = [
+    { key: 'start', pointId: 'start', distanceKm: 0, arrivalMinute: 0 },
+    { key: 'station-a', pointId: 'aid-1', distanceKm: 12, arrivalMinute: 90 },
+    { key: 'station-b', pointId: 'aid-2', distanceKm: 18, arrivalMinute: 200 },
+    { key: 'station-c', pointId: 'aid-3', distanceKm: 12.5, arrivalMinute: null },
+    { key: 'finish', pointId: 'finish', distanceKm: 25, arrivalMinute: 600 },
+  ];
+
+  it('places each row at departure + planned minutes; the glyph follows the passage hour', () => {
+    const lines = buildCourseWeatherRowPassages(forecast, rows, new Date('2026-11-29T06:00:00Z'));
+    expect(lines.start).toMatchObject({ kind: 'passage', pointId: 'start', icon: 'moon-outline', hour: { time: '2026-11-29T06:00:00Z' } });
+    expect(lines['station-a']).toMatchObject({ kind: 'passage', at: '2026-11-29T07:30:00.000Z', icon: 'snow-outline', alerts: ['snow', 'wind', 'cold'] });
+    // No forecast point near km 18, no planned minute, and 16:00 outside the finish hours.
+    expect(Object.keys(lines)).toEqual(['start', 'station-a']);
+  });
+
+  it('follows a later departure into daylight', () => {
+    const lines = buildCourseWeatherRowPassages(forecast, rows, courseWeatherDepartureAt(forecast, '08:00'));
+    expect(lines.start).toMatchObject({ icon: 'partly-sunny-outline', hour: { time: '2026-11-29T07:00:00Z' } });
+  });
+
+  it('returns nothing without departure', () => {
+    expect(buildCourseWeatherRowPassages(forecast, rows, null)).toEqual({});
+  });
+});
+
+describe('buildCourseWeatherRowWindows', () => {
+  it('summarizes the field likely passage window when no bounds are given', () => {
+    const lines = buildCourseWeatherRowWindows(forecast, [
+      { key: 'start', pointId: 'start', distanceKm: 0 },
+      { key: 'station-a', pointId: 'aid-1', distanceKm: 12 },
+      { key: 'station-b', pointId: 'aid-2', distanceKm: 18 },
+    ]);
+    expect(lines.start).toMatchObject({ kind: 'window', summary: { minTemperatureC: 2, maxTemperatureC: 4 } });
+    // 12 km: 12 km/h − 30 min → 06:30Z, 4 km/h + 1 h → 10:00Z; clipped to the 07:00–09:00Z forecast hours.
+    expect(lines['station-a']).toMatchObject({
+      kind: 'window',
+      from: '2026-11-29T07:00:00.000Z',
+      to: '2026-11-29T09:00:00.000Z',
+      icon: 'thunderstorm-outline',
+      summary: { minTemperatureC: -1, maxTemperatureC: 0 },
+    });
+    expect(lines['station-b']).toBeUndefined();
+  });
+
+  it('uses the first expected arrival and the cutoff (Livret supporter)', () => {
+    const lines = buildCourseWeatherRowWindows(forecast, [
+      { key: 'col', distanceKm: 12, from: new Date('2026-11-29T08:10:00Z'), to: new Date('2026-11-29T08:50:00Z') },
+      { key: 'finish', pointId: 'finish', distanceKm: 25, from: new Date('2026-11-29T09:15:00Z'), to: new Date('2026-11-29T11:00:00Z') },
+      // Cutoff before the first arrival: widened to one hour.
+      { key: 'odd', distanceKm: 25, from: new Date('2026-11-29T09:00:00Z'), to: new Date('2026-11-29T08:00:00Z') },
+      { key: 'late', distanceKm: 25, from: new Date('2026-11-30T10:00:00Z'), to: null },
+    ]);
+    expect(lines.col).toMatchObject({ icon: 'thunderstorm-outline', summary: { minTemperatureC: 0, maxTemperatureC: 0 } });
+    expect(lines.finish).toMatchObject({ from: '2026-11-29T09:15:00.000Z', to: '2026-11-29T10:00:00.000Z', summary: { maxTemperatureC: 9 } });
+    expect(lines.odd).toMatchObject({ summary: { maxTemperatureC: 9 } });
+    expect(lines.late).toBeUndefined();
   });
 });
 

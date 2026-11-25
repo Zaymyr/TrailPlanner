@@ -100,7 +100,7 @@ Trail signature iteration (2026-11-11): runner presentation only. In-page RaceBo
 
 The RaceBook screen (`apps/mobile/app/(app)/race/[id]/racebook.tsx`) renders its last-minute update through `components/racebook/TapeAlertBanner` (orange/white tape strip, 44-point expand toggle) and passes the resolved start time to the plan invitation card; online data loading and writes are unchanged; when the API is unreachable it shows the device copy of the last published RaceBook (see `docs/03-business-rules/mobile-offline-access.md`).
 
-Course weather (2026-11-23, lot 1): the RaceBook screen (`apps/mobile/app/(app)/race/[id]/racebook.tsx`) also mounts `components/course-weather/CourseWeatherSection.tsx` in its Course › route sub-tab. It is a display-only MET Norway forecast fed by `GET /api/race-weather`, not by this data; it changes no stored row, no pacing or nutrition calculation and not the organizer weather plan.
+Course weather (2026-11-23, lot 1; inline since 2026-11-25): the RaceBook screen (`apps/mobile/app/(app)/race/[id]/racebook.tsx`) shows a compact display-only MET Norway weather row inside each card of its Course › Ravitos list (start, aid stations, finish) — at the runner's planned passage with a linked plan, over the field's likely passage hours otherwise — and one status/attribution line under the list (`components/course-weather/CourseWeatherPassage.tsx`). It is fed by `GET /api/race-weather`, not by this data; it changes no stored row, no pacing or nutrition calculation and not the organizer weather plan.
 
 `RacebookGearSection` presents mandatory gear as a stamped checklist (session-stable stamp rotation, static dotted progress trail, 44-point rows); gear-check storage and partner slots are unchanged.
 
