@@ -8,7 +8,6 @@ related_files:
   - .github/workflows/release.yml
   - .github/workflows/db-migrate.yml
   - .github/workflows/eas-update-production.yml
-  - .github/workflows/db-schema-snapshot.yml
   - scripts/release/release-check.mjs
   - scripts/release/release-check.test.mjs
   - vercel.json
@@ -46,8 +45,6 @@ The `development` channel is shared: it always holds the **last PR pushed**. Tes
 3. `web` (only when web inputs changed, and only if `migrate` succeeded or was skipped) deploys with `vercel@65.9.0 deploy --prod --archive=tgz` from the repository root; the project root directory `apps/web` and `vercel.json` apply as for Git deployments. It needs the `VERCEL_TOKEN` secret of the `Production` environment.
 4. `ota` (only when the mobile app changed and the guards allow it, and only if `migrate` succeeded or was skipped) calls `eas-update-production.yml`: lint, typecheck, tests, Expo check, `eas update --branch production`.
 5. `report` posts the release comment on the merged PR (and the job summary): each step's result, the deployment URL, and, when native code changed, the exact store-candidate commands for that SHA.
-
-`db-schema-snapshot.yml` listens to both `Supabase DB Migrate` and `Release`, so the schema snapshot PR still follows a production migration.
 
 Web inputs are `apps/web/`, `packages/`, root `package.json` / `package-lock.json`, `turbo.json` and `vercel.json`. Mobile inputs are `apps/mobile/` (excluding `apps/mobile/.eas/` and Markdown), `packages/`, root `package.json` / `package-lock.json`.
 
@@ -95,4 +92,3 @@ Check `Using workflow file … at <sha>` before approving the EAS gate. Bump `ve
 - `cancel-in-progress` is per PR and per event type: a label change never cancels a code run that is publishing the dev OTA.
 - The release compares with the last **successful** release, not with the previous commit: after a red release, the next merge redeploys everything since the last green one.
 - The CLI web deployment uploads tracked files of the CI checkout only; local `.env*` files never reach Vercel.
-- Workflows triggered by `GITHUB_TOKEN` (bot PRs) do not start `pull-request.yml`; the schema snapshot PR dispatches its required checks itself.
