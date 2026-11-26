@@ -93,7 +93,7 @@ export type CourseTerrainInsert = {
 
 export type CourseTerrainStore = {
   getRow(raceId: string): Promise<CourseTerrainRow | null>;
-  /** Oldest due row: pending/processing, or ready with an older rules version. */
+  /** Next due row (pending/processing, or ready with an older rules version), in backlog priority order. */
   findDueRow(nowIso: string): Promise<CourseTerrainRow | null>;
   /** Optimistic lease: moves next_attempt_at only if nobody else did. Returns the claimed row or null. */
   claimRow(row: CourseTerrainRow, leaseUntilIso: string): Promise<CourseTerrainRow | null>;
@@ -139,13 +139,15 @@ export function createCourseTerrainStore(config: SupabaseServiceConfig): CourseT
       return firstRow(await readRows(`race_id=${eq(raceId)}&select=${COURSE_TERRAIN_READ_COLUMNS}&limit=1`));
     },
     async findDueRow(nowIso) {
-      return firstRow(
-        await readRows(
-          `select=${COURSE_TERRAIN_ROW_COLUMNS}&next_attempt_at=lte.${encodeURIComponent(nowIso)}` +
-            `&or=(status.in.(pending,processing),and(status.eq.ready,rules_version.lt.${COURSE_TERRAIN_RULES_VERSION}))` +
-            `&order=next_attempt_at.asc&limit=1`,
-        ),
-      );
+      // Backlog order lives in SQL (runner-visible, nearest upcoming race, past/undated, drafts last).
+      const response = await fetch(`${config.supabaseUrl}/rest/v1/rpc/next_due_race_course_terrain`, {
+        method: "POST",
+        headers: headers(config),
+        body: JSON.stringify({ p_now: nowIso, p_rules_version: COURSE_TERRAIN_RULES_VERSION }),
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error(`next_due_race_course_terrain failed (${response.status})`);
+      return firstRow(z.array(z.unknown()).parse(await response.json()));
     },
     async claimRow(row, leaseUntilIso) {
       return firstRow(

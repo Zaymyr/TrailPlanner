@@ -15,7 +15,6 @@ import {
   serviceHeaders,
   uuidParamSchema,
 } from "../../../../../../lib/organizer";
-import { isOrganizerRaceModuleSelected } from "../../../../../../lib/organizer-module-settings";
 import type { SupabaseServiceConfig } from "../../../../../../lib/supabase";
 
 /** Tolerance on the GPX distance (rounding of the editor's km inputs). */
@@ -75,10 +74,8 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
   const authorized = await authorize(request, context.params);
   if ("error" in authorized) return authorized.error;
   const { auth, race } = authorized;
-  // Same entitlement rule as the aid stations editor of the same course.
-  if (!race.edition_id || !(await isOrganizerRaceModuleSelected(auth.serviceConfig, race.edition_id, race.id, "aid_stations"))) {
-    return jsonError("Activez la section Ravitos pour corriger le terrain du parcours.", 403);
-  }
+  // Same rule as the GPX upload of the course (organizer of the event, no section toggle):
+  // switching off Ravitos must not block terrain corrections.
 
   const parsedBody = overridesInputSchema.safeParse(await request.json().catch(() => null));
   if (!parsedBody.success) return jsonError("Invalid terrain overrides.", 400);

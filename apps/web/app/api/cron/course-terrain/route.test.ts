@@ -13,10 +13,12 @@ const gpx = `<gpx><trk><trkseg>${Array.from({ length: 21 }, (_, i) => `<trkpt la
 
 let row: Record<string, unknown>;
 const patches: Array<Record<string, unknown>> = [];
+const rpcBodies: Array<Record<string, unknown>> = [];
 
 beforeEach(() => {
   process.env.CRON_SECRET = "secret";
   patches.length = 0;
+  rpcBodies.length = 0;
   row = {
     race_id: raceId,
     gpx_storage_path: "races/course-v1.gpx",
@@ -29,6 +31,11 @@ beforeEach(() => {
   vi.spyOn(global, "fetch").mockImplementation(async (input, init) => {
     const url = String(input);
     const method = init?.method ?? "GET";
+    if (url === "https://db.example.com/rest/v1/rpc/next_due_race_course_terrain") {
+      rpcBodies.push(JSON.parse(String(init?.body)));
+      const due = row.status === "pending" || row.status === "processing";
+      return Response.json(due && Date.parse(String(row.next_attempt_at)) <= Date.now() ? [row] : []);
+    }
     if (url.startsWith("https://db.example.com/rest/v1/race_course_terrain")) {
       if (method === "PATCH") {
         const patch = JSON.parse(String(init?.body));
@@ -73,6 +80,8 @@ describe("/api/cron/course-terrain", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ok: true, processed: [{ raceId, outcome: "ready" }] });
     expect(row.status).toBe("ready");
+    // The backlog order is chosen in SQL (next_due_race_course_terrain) with the current rules version.
+    expect(rpcBodies[0]).toMatchObject({ p_rules_version: 1 });
     expect(row.osm_segments).toEqual([{ fromKm: 0, toKm: row.distance_km, class: "track", surface: null, source: "osm" }]);
     expect(row.coverage).toEqual({ matchedPct: 100, surfaceTagPct: 0, sacScaleTagPct: 0 });
     const overpassCall = vi.mocked(fetch).mock.calls.find((entry) => String(entry[0]).includes("/api/interpreter"))!;

@@ -7,6 +7,8 @@
 -- * Trigger on races: a new or replaced GPX queues the row again (`pending`, or `no_route` when the
 --   GPX is removed) and keeps the organizer overrides.
 -- * Backfill: every race that already has a GPX gets a `pending` row.
+-- * next_due_race_course_terrain(): service-only pick of the next due row, runner-visible and
+--   upcoming races first, drafts last.
 -- * pg_cron + pg_net job `course-terrain` every 10 minutes (minute 3, 13, ...), through
 --   configure_daily_web_cron (20261123220000, accepts any schedule): the Vault secrets `web_app_url`
 --   and `cron_secret` are read at run time, never copied into cron.job.
@@ -130,5 +132,50 @@ select race.id, race.gpx_storage_path, race.gpx_sha256, 'pending'
 from public.races as race
 where race.gpx_storage_path is not null
 on conflict (race_id) do nothing;
+
+-- Next row the cron should work on (due: pending/processing, or ready with an older rules
+-- version). Backlog order: non-draft before draft, runner-visible first (same rule as
+-- apps/web/lib/race-runner-visibility.ts: public, event not offline, and live, or preview-visible
+-- with a live event and a visible edition), then upcoming races by nearest race_date, then past
+-- or undated races, then the oldest next_attempt_at.
+create or replace function public.next_due_race_course_terrain(p_now timestamptz, p_rules_version integer)
+returns setof public.race_course_terrain
+language sql
+stable
+security invoker
+set search_path = public
+as $$
+  select terrain.*
+  from public.race_course_terrain as terrain
+  join public.races as race on race.id = terrain.race_id
+  left join public.race_events as event on event.id = race.event_id
+  left join public.race_event_editions as edition on edition.id = race.edition_id
+  where terrain.next_attempt_at <= p_now
+    and (
+      terrain.status in ('pending', 'processing')
+      or (terrain.status = 'ready' and coalesce(terrain.rules_version, 0) < p_rules_version)
+    )
+  order by
+    coalesce(race.data_status = 'draft', false) asc,
+    (
+      race.is_public is true
+      and event.is_live is not false
+      and (
+        race.is_live is true
+        or (
+          race.racebook_preview_is_visible is true
+          and event.is_live is true
+          and (race.edition_id is null or edition.is_visible is true)
+        )
+      )
+    ) desc,
+    (race.race_date is not null and race.race_date >= (p_now at time zone 'utc')::date) desc,
+    case when race.race_date >= (p_now at time zone 'utc')::date then race.race_date end asc nulls last,
+    terrain.next_attempt_at asc
+  limit 1;
+$$;
+
+revoke all on function public.next_due_race_course_terrain(timestamptz, integer) from public, anon, authenticated;
+grant execute on function public.next_due_race_course_terrain(timestamptz, integer) to service_role;
 
 select public.configure_daily_web_cron('course-terrain', '3-59/10 * * * *', '/api/cron/course-terrain');

@@ -79,7 +79,7 @@ Compared with the prototype, `smoothness` no longer makes a way `technical` (fou
 ### Job, resume and retries (`job.ts`)
 
 - `POST /api/cron/course-terrain` (pg_cron every 10 min at minute 3, 13, ...; `CRON_SECRET` bearer like the other `/api/cron/*` routes; `maxDuration = 300`). Row access goes through `store.ts` (PostgREST, service key).
-- A tick has a 240 s budget. It takes the oldest due row (`pending` / `processing`, or `ready` with an older rules version, `next_attempt_at ≤ now`), leases it by moving `next_attempt_at` 6 min ahead with an optimistic `eq` on the previous value, and works on one race at a time; with budget left (≥ 45 s) it takes the next due race.
+- A tick has a 240 s budget. It takes the next due row (`pending` / `processing`, or `ready` with an older rules version, `next_attempt_at ≤ now`) from the service-only RPC `next_due_race_course_terrain(p_now, p_rules_version)`, leases it by moving `next_attempt_at` 6 min ahead with an optimistic `eq` on the previous value, and works on one race at a time; with budget left (≥ 45 s) it takes the next due race.
 - **Resumable**: after every chunk the matches so far are saved in `progress` as run-length tuples `[sampleCount, class, surface, flags]` plus `nextChunk` and the last way id (continuity). When the next chunk would not fit the budget, the row is left due at once and the next tick resumes at `nextChunk`. Progress is reused only for the same GPX path, hash, rules version, sample and chunk counts. The final segments are always rebuilt from the encoded runs, so a resumed run equals a single pass.
 - **How an ultra fits**: a 170 km course is about 6,800 samples and 30-50 chunks of 3.5 km. At 2-5 s per Overpass answer plus the 1 s gap, most ultras finish in one or two ticks (10-20 min); a slow Overpass day spreads the same work over more ticks without ever exceeding `maxDuration`, since no request starts unless 40 s of budget remain.
 - **Writes are conditional** on `gpx_storage_path` still being the one read: a GPX replaced mid-run (the trigger resets the row) makes the job stop (`superseded`) instead of storing stale terrain.
@@ -89,7 +89,8 @@ Compared with the prototype, `smoothness` no longer makes a way `technical` (fou
 ### Queueing (migration `20261126090000_course_terrain.sql`)
 
 - Trigger `queue_race_course_terrain` after insert / update of `races.gpx_storage_path` or `gpx_sha256` (only when a value changes): upserts the row to `pending` (or `no_route` when the GPX is removed), resets attempts, progress and computed results, keeps the organizer overrides.
-- Backfill: every race with a GPX gets a `pending` row (backlog processed oldest first, several small races per tick).
+- Backfill: every race with a GPX gets a `pending` row; several small races are processed per tick.
+- Backlog order (`next_due_race_course_terrain`, migration `20261126090000`): non-draft formats before drafts (`races.data_status = 'draft'` last); among them, runner-visible races first (same rule as `isRaceRunnerVisible`: public, event not offline, and live, or preview-visible with a live event and a visible edition); then upcoming races by nearest `race_date` (UTC date of now); then past or undated races; ties by oldest `next_attempt_at`. Leasing and backoff are unchanged: a row in backoff is not due, whatever its priority.
 
 ## Endpoints
 
@@ -114,7 +115,7 @@ Every 200 carries `Vercel-Cache-Tag: course-terrain:race:<raceId>`.
 
 - Auth like the other organizer race routes: bearer session (`requireOrganizerAuth`, 401), `loadRaceForOrganizer` (404 unknown race, 409 race without event, 403 when the user is not an active organizer of the event; admins pass).
 - `GET` → `OrganizerCourseTerrain`: the runner-facing `terrain`, `osmSegments` (empty unless ready), `overrides`, `overridesNeedReview` (overrides exist and their `overrides_gpx_sha256` differs from the current `gpx_sha256`).
-- `PUT` body `CourseTerrainOverridesInput`. Same entitlement as the aid-stations editor of the course: the race needs an edition and its `aid_stations` module selected (403 otherwise). Validation (zod, 400): class enum, finite km ≥ 0, `fromKm < toKm`, `toKm ≤` GPX distance + 0.05 km, at most 200 overrides; km rounded to the metre, order kept (later overrides win). 409 without GPX. Works while terrain is pending (the GPX distance is measured from the file; a missing row is created as `pending`). Stores `organizer_overrides`, `overrides_gpx_sha256` = current GPX hash, `overrides_updated_at` / `_by`, then purges the public CDN tag so runners see the change within seconds.
+- `PUT` body `CourseTerrainOverridesInput`. Same permission as the GPX upload of the course (`PUT /api/organizer/races/[id]/gpx`): organizer of the event (or admin), no section toggle or tier gate, so an organizer who switched off Ravitos can still correct terrain (orchestrator decision 2026-11-26). Validation (zod, 400): class enum, finite km ≥ 0, `fromKm < toKm`, `toKm ≤` GPX distance + 0.05 km, at most 200 overrides; km rounded to the metre, order kept (later overrides win). 409 without GPX. Works while terrain is pending (the GPX distance is measured from the file; a missing row is created as `pending`). Stores `organizer_overrides`, `overrides_gpx_sha256` = current GPX hash, `overrides_updated_at` / `_by`, then purges the public CDN tag so runners see the change within seconds.
 
 ## Real-course results (production GPX, 2026-11-25)
 
@@ -158,7 +159,8 @@ OSM route relations rebuilt as pseudo-recorded GPX (`scripts/course-terrain/osm-
 - The public route is CDN-cached 1 h when ready. The organizer PUT and the cron purge the `course-terrain:race:<id>` tag (`invalidateByTag`, only on Vercel); if the purge fails, staleness is bounded by the 1 h TTL. Pending answers are cached 60 s, so the first `ready` appears at most a minute after the computation.
 - A GPX replacement keeps the overrides but their km may no longer match: `overridesNeedReview` tells the organizer. Overrides are still applied.
 - The public Overpass instances are meant for moderate use: keep one race at a time, the 1 s gap and the small chunks; a large backfill takes several hours by design.
-- The cron job has no manual run in `/admin/system/maintenance` yet; the console lists it as « Terrain des parcours ».
+- Visibility is computed twice: in TypeScript for the public route (`race-runner-visibility.ts`) and in SQL for the backlog order (`next_due_race_course_terrain`). A change of the `races_select` anon rule must update both (the SQL one only affects ordering, never access).
+- TODO (follow-ups, 2026-11-26): no manual run of `course-terrain` in `/admin/system/maintenance` yet (the console lists the job as « Terrain des parcours »; adding it needs a handler in `apps/web/app/api/admin/system/cron-run/route.ts`), and no `supabase/tests` SQL check yet for `race_course_terrain` grants, trigger and `next_due_race_course_terrain`.
 
 ## Related Docs
 

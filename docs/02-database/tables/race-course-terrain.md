@@ -25,6 +25,7 @@ One row per race with a GPX: the OpenStreetMap terrain classes along the course 
 ## Key Concepts
 
 - Filled by the trigger `queue_race_course_terrain` on `races` and the backfill of `20261126090000_course_terrain.sql`, computed by `POST /api/cron/course-terrain`.
+- The cron picks rows through the service-only RPC `next_due_race_course_terrain(p_now timestamptz, p_rules_version integer)` (`SECURITY INVOKER`, execute revoked from client roles): due rows ordered non-draft first, runner-visible first, nearest upcoming `race_date`, then past/undated, then oldest `next_attempt_at`.
 - Read by `GET /api/race-terrain` (public, overrides applied) and `GET|PUT /api/organizer/races/[id]/terrain`, always with the service key.
 - `osm_segments` are never modified by organizers; `organizer_overrides` are applied on top at read time (`applyCourseTerrainOverrides`).
 
@@ -79,6 +80,9 @@ RLS enabled, no policy. `public`, `anon` and `authenticated` have every privileg
 -- Backlog and failures
 select status, count(*) from public.race_course_terrain group by status;
 select race_id, attempts, last_error from public.race_course_terrain where status = 'failed';
+
+-- What the cron would pick next
+select race_id, status from public.next_due_race_course_terrain(now(), 1);
 
 -- Force a recomputation of one race (the next tick picks it)
 update public.race_course_terrain

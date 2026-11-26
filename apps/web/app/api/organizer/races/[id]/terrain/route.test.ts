@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GET, PUT } from "./route";
 
-const mocks = vi.hoisted(() => ({ moduleSelected: true, invalidate: vi.fn(async () => {}) }));
+const mocks = vi.hoisted(() => ({ moduleSelected: false, invalidate: vi.fn(async () => {}) }));
 
 vi.mock("../../../../../../lib/supabase", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../../../../lib/supabase")>()),
@@ -44,7 +44,8 @@ const terrainRow = (overrides: Record<string, unknown> = {}) => ({
 let state: { race: Record<string, unknown> | null; gpx: { gpx_storage_path: string | null; gpx_sha256: string | null }; terrain: Record<string, unknown> | null; patches: unknown[]; inserts: unknown[] };
 
 beforeEach(() => {
-  mocks.moduleSelected = true;
+  // The Ravitos section is switched off: terrain corrections must still work.
+  mocks.moduleSelected = false;
   mocks.invalidate.mockClear();
   state = {
     race: { id: raceId, event_id: "22222222-2222-4222-8222-222222222222", edition_id: "33333333-3333-4333-8333-333333333333", distance_km: 10 },
@@ -159,10 +160,11 @@ describe("/api/organizer/races/[id]/terrain", () => {
     expect(state.patches).toEqual([]);
   });
 
-  it("applies the aid stations entitlement and needs a GPX", async () => {
+  it("does not depend on the Ravitos section, like the GPX upload, but needs a GPX", async () => {
     mocks.moduleSelected = false;
-    expect((await PUT(request("PUT", "organizer", { overrides: [] }), { params: { id: raceId } })).status).toBe(403);
-    mocks.moduleSelected = true;
+    expect((await PUT(request("PUT", "organizer", { overrides: [] }), { params: { id: raceId } })).status).toBe(200);
+    state.race = { ...state.race!, edition_id: null };
+    expect((await PUT(request("PUT", "organizer", { overrides: [] }), { params: { id: raceId } })).status).toBe(200);
     state.gpx = { gpx_storage_path: null, gpx_sha256: null };
     expect((await PUT(request("PUT", "organizer", { overrides: [] }), { params: { id: raceId } })).status).toBe(409);
   });
