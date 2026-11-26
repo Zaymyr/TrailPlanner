@@ -206,6 +206,10 @@ The route-local Organizer form kit standardizes labelled fields, select/file/swi
 
 `SelectField` is the only route-level wrapper allowed to render a native `<select>`; editors consume the wrapper rather than duplicating height, focus, and error classes.
 
+## Organizer course terrain block (2026-11-26)
+
+Route-local pieces under `apps/web/app/organizer/_components/dashboard/course-terrain/`: `TerrainBand` (km-proportional strip colored by `COURSE_TERRAIN_CLASS_COLORS`, `off_path` hatched), `TerrainSummaryList` (km and % per class), `TerrainAttribution`, `TerrainSegmentsEditor` (segment rows with `SelectField`, split and range forms) and `CourseTerrainBlock` (load, preview, save). They reuse `Button`, `Input` and the form-kit `SelectField`; light theme only. See [Organizer Race Management](../03-business-rules/organizer-race-management.md#course-terrain-correction-2026-11-26).
+
 ## Input
 
 `Input` is a forwardRef input with:

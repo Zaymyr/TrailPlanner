@@ -862,3 +862,13 @@ The runner plan timeline (`ActionPlan.tsx`) and `RacePlannerPageContent.tsx` cha
 ## Course weather touch (2026-11-23)
 
 The race planner mounts `CoursePlanWeather` (display-only forecast weather at each planned passage, read from the plan segments, never written back) through a `weatherContent` slot of `PlanPrimaryContent`. It adds no plan, nutrition or pacing logic and no data model change. See [Design Components](../07-design-system/components.md) "Course weather".
+
+## Course terrain correction (2026-11-26)
+
+The format's « Formats » tab shows a « Terrain du parcours » block under the GPX panel (`dashboard/course-terrain/course-terrain-block.tsx`, mounted from `OrganizerDashboard.tsx`; client in `apps/web/lib/organizer-course-terrain-client.ts`). It reads `GET /api/organizer/races/<raceId>/terrain` and saves with `PUT` (same Bearer header as the other organizer calls), following the contract in `packages/shared/src/course-terrain/`. Terrain is display-only: it never changes pace, nutrition or time estimates, and runners see the corrected terrain in the Livret coureur.
+
+- States: loading, pending (« Analyse du terrain en cours, revenez dans quelques minutes. »), no route (« Ajoutez un GPX pour obtenir le terrain. »), failed or unreachable (discreet message with « Actualiser »), ready.
+- Ready: terrain band over the course km axis (`COURSE_TERRAIN_CLASS_COLORS`, `off_path` hatched), km and % per class, coverage note and « © OpenStreetMap contributors ». `overridesNeedReview` shows a warning banner (the GPX changed since the corrections).
+- Editing: each displayed segment (OSM or organizer badge) has a class select (Route / Piste / Sentier / Sentier technique / Hors chemin), « Scinder » (the part after the chosen km takes a class), and « Rétablir OpenStreetMap » on organizer segments; « Ajouter une plage » forces a class on a km range. Operations live in `terrain-editing.ts`: the override list is recomputed through `applyCourseTerrainOverrides`, flattened (later wins), merged, and stripped of ranges that only restate OSM; the preview uses `summarizeCourseTerrain`. Bounds are 0 to the GPX distance, `from < to`, at most `COURSE_TERRAIN_MAX_OVERRIDES`.
+- Save: one « Enregistrer le terrain » button. The saved state is updated optimistically; on failure it rolls back, the draft is kept and an error toast is shown. The block is read-only while the dashboard is saving or uploading (the GPX replacement refetches the terrain).
+- The organizer portal copy is French only, as for the other editors.
