@@ -1242,3 +1242,8 @@ Catalogue slug redirects (2026-11-23, follow-up): `catalogSlugRedirects` also se
 ## Course weather (2026-11-23)
 
 Weather along the course is display-only (MET Norway, 9-day horizon) and never feeds pacing or nutrition. `apps/web/lib/course-weather-client.ts` fetches `GET /api/race-weather?raceId=<uuid>` (`CourseWeatherResponse` from `@trailplanner/shared`) and exposes `useCourseWeather`, a small module cache honouring the response `expiresAt` (no TanStack Query provider is mounted in the planner). Two client mounts, both fetched after hydration: the race planner (`CoursePlanWeather`, below the plan views when the plan is linked to a catalog race) and the public `/courses/[slug]` page (`CourseRaceDayWeather`, upcoming races only, so the ISR page is unchanged). Weather is free: it is not part of the paid plan or the free-preview paywall. The attribution returned by the endpoint (« Données météo : MET Norway (CC BY 4.0) ») is shown wherever a forecast is displayed.
+
+
+## Course terrain touch (2026-11-26)
+
+`OrganizerDashboard.tsx` mounts the display-only `CourseTerrainBlock` under the format GPX panel (terrain correction through `/api/organizer/races/<raceId>/terrain`). No change to this document's subject; see [Organizer Race Management](../03-business-rules/organizer-race-management.md#course-terrain-correction-2026-11-26).

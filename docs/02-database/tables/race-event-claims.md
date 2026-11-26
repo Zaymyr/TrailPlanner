@@ -251,3 +251,8 @@ Admin console (2026-11-23, lot 4): invoices and bank transfers are handled in «
 
 `app/api/admin/organizer-claims/route.ts` now exports its write handler through `withAdminAudit` (`apps/web/lib/admin-audit-log.ts`): each successful or server-failed call writes one best-effort line (`organizer.claim`) to the admin action journal ([`admin_audit_log`](./admin-audit-log.md), shown in `/admin/system/audit`). The request and response contracts, the business rules and the schema described here are unchanged.
 Partner report note (2026-11-22): the Organizer dashboard adds a « Rapport partenaires » card under the Sponsors editor and the /organisateurs Signature card lists « Rapport partenaires »; neither touches this document's domain, data or contracts.
+
+
+## Course terrain touch (2026-11-26)
+
+`OrganizerDashboard.tsx` mounts the display-only `CourseTerrainBlock` under the format GPX panel (terrain correction through `/api/organizer/races/<raceId>/terrain`). No change to this document's subject; see [Organizer Race Management](../03-business-rules/organizer-race-management.md#course-terrain-correction-2026-11-26).
