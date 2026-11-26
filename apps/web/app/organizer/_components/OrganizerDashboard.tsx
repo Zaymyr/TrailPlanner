@@ -254,6 +254,10 @@ const AidStationsEditor = dynamic(
   () => import("./dashboard/aid-stations-editor").then((module) => module.AidStationsEditor),
   { loading: editorLoading }
 );
+const CourseTerrainBlock = dynamic(
+  () => import("./dashboard/course-terrain/course-terrain-block").then((module) => module.CourseTerrainBlock),
+  { loading: editorLoading }
+);
 const AwardsEditor = dynamic(
   () => import("./dashboard/structured-content-editors").then((module) => module.AwardsEditor),
   { loading: editorLoading }
@@ -3888,6 +3892,15 @@ export function OrganizerDashboard({
                 eventLocationText={eventForm.location}
                 eventLocation={eventForm.organizerDetails.eventLocation}
               />
+              {activeRace ? (
+                <CourseTerrainBlock
+                  raceId={activeRace.id}
+                  headers={authHeaders}
+                  readOnly={status === "saving" || status === "uploading"}
+                  gpxKey={`${activeRace.gpx_storage_path ?? "none"}:${gpxPreview?.stats?.distanceKm ?? ""}`}
+                  onNotify={showToast}
+                />
+              ) : null}
             </div>
           ) : activeModule === "aidStations" ? (
             activeRace && !activeRaceSidecarsReady ? (

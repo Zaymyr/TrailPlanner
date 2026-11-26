@@ -1246,3 +1246,7 @@ Weather along the course is display-only (MET Norway, 9-day horizon) and never f
 ## Course terrain web display (2026-11-26)
 
 Terrain along the course (OpenStreetMap, display-only, never feeds pacing or nutrition) is consumed from `GET /api/race-terrain?raceId=<uuid>` (`CourseTerrainResponse` from `@trailplanner/shared`) by `apps/web/lib/course-terrain-client.ts` (`useCourseTerrain`, module cache: ready 30 min, pending 30 s, unavailable 5 min). Same two client mounts as course weather, both fetched after hydration: the planner course step (band + summary under `ElevationProfileChart`, through the `terrainContent` slot of `CourseProfileSection`, only for plans linked to a catalog race) and the public `/courses/[slug]` page (so the ISR page is unchanged). Terrain is free and shows « © OpenStreetMap contributors » wherever it appears. Component details: `docs/07-design-system/components.md`.
+
+## Course terrain touch (2026-11-26)
+
+`OrganizerDashboard.tsx` mounts the display-only `CourseTerrainBlock` under the format GPX panel (terrain correction through `/api/organizer/races/<raceId>/terrain`). No change to this document's subject; see [Organizer Race Management](../03-business-rules/organizer-race-management.md#course-terrain-correction-2026-11-26).
