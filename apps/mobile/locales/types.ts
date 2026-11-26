@@ -1249,4 +1249,23 @@ export type MobileTranslations = {
       snow: string;
     };
   };
+  /** Terrain along the course (OpenStreetMap, display-only). */
+  courseTerrain: {
+    title: string;
+    pending: string;
+    /** {pct} = whole percent, {label} = lowercase class label. */
+    share: string;
+    classes: {
+      road: string;
+      track: string;
+      trail: string;
+      technical: string;
+      off_path: string;
+    };
+    /** Short explanation of the hatched `off_path` class. */
+    offPathNote: string;
+    organizerCorrected: string;
+    /** Accessibility label of the band; {summary} = the share line. */
+    bandLabel: string;
+  };
 };

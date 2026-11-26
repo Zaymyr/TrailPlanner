@@ -83,6 +83,13 @@ import { RacebookTabBar } from '../../../../components/racebook/RacebookTabBar';
 import { CourseWeatherPlanNote } from '../../../../components/course-weather/CourseWeatherPassage';
 import { useCourseWeather } from '../../../../components/course-weather/useCourseWeather';
 import {
+  CourseTerrainAttribution,
+  CourseTerrainPendingNote,
+  CourseTerrainSummary,
+} from '../../../../components/course-terrain/CourseTerrainSummary';
+import { useCourseTerrain } from '../../../../components/course-terrain/useCourseTerrain';
+import type { CourseTerrainDisplayState } from '../../../../lib/courseTerrain';
+import {
   buildCourseWeatherRowPassages,
   buildCourseWeatherRowWindows,
   courseWeatherDepartureAt,
@@ -363,6 +370,7 @@ function CourseProfileCard({
   aidStations,
   officialDistanceKm,
   locale,
+  terrain,
 }: {
   title: string;
   points: ElevationPoint[];
@@ -370,6 +378,8 @@ function CourseProfileCard({
   aidStations: RacebookScreenData['aidStations'];
   officialDistanceKm: number;
   locale: 'fr' | 'en';
+  /** Course terrain band + summary (display-only, free). */
+  terrain: CourseTerrainDisplayState;
 }) {
   const brandTheme = useRacebookBrandTheme();
   const { t } = useI18n();
@@ -377,6 +387,7 @@ function CourseProfileCard({
   const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
   const landscapeWidth = Math.max(viewportWidth, viewportHeight);
   const landscapeHeight = Math.min(viewportWidth, viewportHeight);
+  const terrainData = terrain.kind === 'ready' ? terrain.terrain : null;
   return (
     <Card contours={false} style={[styles.sectionCard, { backgroundColor: brandTheme.accentSurfaceColor, borderColor: brandTheme.accentBorderColor }]}>
       <View style={styles.courseVisualHeader}>
@@ -397,10 +408,13 @@ function CourseProfileCard({
           accentColor={brandTheme.accentGraphicColor}
           officialDistanceKm={officialDistanceKm}
           locale={locale}
+          terrain={terrainData}
         />
       ) : (
         <EmptyState message={emptyMessage} />
       )}
+      {points.length >= 2 && terrain.kind === 'ready' ? <CourseTerrainSummary terrain={terrain.terrain} /> : null}
+      {points.length >= 2 && terrain.kind === 'pending' ? <CourseTerrainPendingNote /> : null}
       <Modal
         visible={fullscreen}
         animationType="fade"
@@ -444,7 +458,9 @@ function CourseProfileCard({
                 locale={locale}
                 expanded
                 profileHeight={Math.max(250, landscapeHeight - 155)}
+                terrain={terrainData}
               />
+              {terrainData ? <CourseTerrainAttribution /> : null}
             </View>
           </View>
         </View>
@@ -1598,6 +1614,7 @@ export default function RaceRacebookScreen() {
   // Course weather (display-only) inside each aid-station row: at the runner's own passage with a
   // linked plan, otherwise over the hours the field is likely to pass that point.
   const courseWeather = useCourseWeather(id);
+  const courseTerrain = useCourseTerrain(id);
   const courseWeatherDisplay = selectCourseWeatherDisplay(courseWeather.entry);
   const courseWeatherForecast = courseWeatherDisplay.kind === 'forecast' ? courseWeatherDisplay.forecast : null;
   const aidStationWeather = useMemo(() => {
@@ -2572,6 +2589,7 @@ export default function RaceRacebookScreen() {
                           aidStations={data.aidStations}
                           officialDistanceKm={data.race.distanceKm}
                           locale={locale}
+                          terrain={courseTerrain}
                         />
                       ) : null}
                     </>

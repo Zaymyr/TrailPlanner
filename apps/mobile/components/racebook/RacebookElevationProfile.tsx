@@ -14,6 +14,9 @@ import { Cote } from '../themed/Cote';
 import { DataText } from '../themed/DataText';
 import { Text } from '../themed/Text';
 import { formatDistance, formatDistanceValue } from '../../lib/displayFormat';
+import { courseTerrainSegmentsOnAxis } from '../../lib/courseTerrain';
+import type { CourseTerrain } from '../../lib/courseTerrainShared';
+import { CourseTerrainBandShapes } from '../course-terrain/CourseTerrainBand';
 
 type Props = {
   points: ElevationPoint[];
@@ -23,6 +26,8 @@ type Props = {
   locale: 'fr' | 'en';
   expanded?: boolean;
   profileHeight?: number;
+  /** Course terrain drawn as a thin band under the curve (display-only, GPX axis stretched to the profile). */
+  terrain?: Pick<CourseTerrain, 'segments' | 'distanceKm'> | null;
 };
 
 // The curve spans the whole chart: elevation labels sit inside the plot,
@@ -37,6 +42,9 @@ const MONO_FONT = 'JetBrainsMono_600SemiBold';
 /** Offset of the faint iso-line echoing the course below its own curve. */
 const CONTOUR_ECHO_OFFSET = 7;
 const SUMMIT_FLAG_HEIGHT = 16;
+/** Terrain band between the curve baseline and the distance graduations. */
+const TERRAIN_BAND_GAP = 3;
+const TERRAIN_BAND_HEIGHT = 6;
 
 function formatNumber(value: number, locale: 'fr' | 'en') {
   return new Intl.NumberFormat(locale === 'fr' ? 'fr-FR' : 'en-US', { maximumFractionDigits: 0 }).format(value);
@@ -58,6 +66,7 @@ export function RacebookElevationProfile({
   locale,
   expanded = false,
   profileHeight,
+  terrain = null,
 }: Props) {
   const { t } = useI18n();
   const [width, setWidth] = useState(0);
@@ -117,6 +126,11 @@ export function RacebookElevationProfile({
       yFor,
     };
   }, [aidStations, chartHeight, expanded, points, width]);
+
+  const terrainSegments = useMemo(
+    () => (terrain ? courseTerrainSegmentsOnAxis(terrain, points[points.length - 1]?.distanceKm) : null),
+    [points, terrain],
+  );
 
   const inspection = useMemo(
     () => inspectedDistanceKm === null ? null : getCourseProgressAtDistance(points, inspectedDistanceKm),
@@ -262,6 +276,17 @@ export function RacebookElevationProfile({
                   <Line x1={x} x2={x} y1={y + 7} y2={chart.baseline} stroke={accentColor} strokeOpacity={0.28} strokeDasharray="3 5" />
                 </G>
               ))}
+              {terrainSegments ? (
+                <CourseTerrainBandShapes
+                  segments={terrainSegments}
+                  fromKm={chart.minDistance}
+                  toKm={chart.maxDistance}
+                  x={SIDE_PADDING}
+                  width={chart.innerWidth}
+                  y={chart.baseline + TERRAIN_BAND_GAP}
+                  height={TERRAIN_BAND_HEIGHT}
+                />
+              ) : null}
               {inspectionPosition ? (
                 <G>
                   <Line

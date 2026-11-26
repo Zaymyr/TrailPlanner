@@ -1311,4 +1311,19 @@ export const fr: MobileTranslations = {
       snow: 'Neige',
     },
   },
+  courseTerrain: {
+    title: 'Terrain',
+    pending: 'Analyse du terrain en cours',
+    share: '{pct} % {label}',
+    classes: {
+      road: 'route',
+      track: 'piste',
+      trail: 'sentier',
+      technical: 'technique',
+      off_path: 'hors chemin',
+    },
+    offPathNote: 'Hors chemin : aucun chemin cartographié à cet endroit.',
+    organizerCorrected: 'Terrain corrigé par l’organisateur.',
+    bandLabel: 'Terrain du parcours : {summary}',
+  },
 };

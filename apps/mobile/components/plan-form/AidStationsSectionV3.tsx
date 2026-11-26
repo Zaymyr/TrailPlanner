@@ -36,7 +36,9 @@ import type { GaugeMetric } from './GaugeArc';
 import { GaugesRow } from './GaugesRow';
 import { AidStationCoveragePanel } from './AidStationCoveragePanel';
 import { AidStationProfileSegmentCard } from './AidStationProfileSegmentCard';
-import { ProfileMiniChart } from './ProfileMiniChart';
+import { PROFILE_MINI_CHART_INSETS, ProfileMiniChart } from './ProfileMiniChart';
+import { CourseTerrainSectionSplit } from '../course-terrain/CourseTerrainSummary';
+import type { CourseTerrainSegment } from '../../lib/courseTerrainShared';
 import { SuppliesList } from './SuppliesList';
 import type { EditingStation } from './EditStationModal';
 import type {
@@ -79,6 +81,8 @@ type Props = {
   setEditingStation: (value: EditingStation) => void;
   removeAidStation: (index: number) => void;
   isLinkedRace?: boolean;
+  /** Course terrain of the linked catalog race, already on the plan km axis (display-only). */
+  courseTerrainSegments?: CourseTerrainSegment[] | null;
   fillSuppliesAuto: () => void;
   isAutoFilling: boolean;
   autoFillLoadingMessage: string;
@@ -229,6 +233,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
   setEditingStation,
   removeAidStation,
   isLinkedRace = false,
+  courseTerrainSegments = null,
   fillSuppliesAuto,
   isAutoFilling,
   autoFillLoadingMessage,
@@ -962,6 +967,20 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
           ) : (
             <Text style={styles.profileEmptyText}>Profil indisponible pour cette section.</Text>
           )}
+          {courseTerrainSegments ? (
+            summary.profilePoints.length > 1 ? (
+              // Same km range and insets as the mini profile above, so the band lines up with the curve.
+              <CourseTerrainSectionSplit
+                segments={courseTerrainSegments}
+                fromKm={summary.profilePoints[0].distanceKm}
+                toKm={summary.profilePoints[summary.profilePoints.length - 1].distanceKm}
+                leftInset={PROFILE_MINI_CHART_INSETS.left}
+                rightInset={PROFILE_MINI_CHART_INSETS.right}
+              />
+            ) : (
+              <CourseTerrainSectionSplit segments={courseTerrainSegments} fromKm={station.distanceKm} toKm={nextStation.distanceKm} />
+            )
+          ) : null}
           <View style={styles.profileMetricsRow}>
             <View style={styles.profileMetricPill}>
               <DataText tone="secondary" size="xs" weight="semibold">

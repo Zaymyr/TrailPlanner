@@ -351,6 +351,7 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 
 ## Gotchas
 
+- Course terrain (2026-11-26, lot 2): `PlanForm` (`catalogRaceId`) and `AidStationsSectionV3` (`courseTerrainSegments`) only display an OpenStreetMap terrain band and class split in the Chronologie section cards of a plan linked to a catalog race; terrain is not an input of pacing, ETA or nutrition allocation.
 - The visitor-preview automatic fill is one-shot (`visitorAutoFillPendingRef`, armed when the preview opens): do not turn it into a reactive effect, or it would overwrite what the visitor edits. Locale changes in the premium modal copy (2026-11-23) touch no allocation rule.
 - Web carbohydrate-calculator sliders expose explicit accessible names and unit-bearing value text. The planner fatigue range keeps its existing calculation and adds only a spoken qualitative value; these accessibility attributes must not alter estimate inputs or allocation math.
 
