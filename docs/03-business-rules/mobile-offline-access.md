@@ -1,7 +1,7 @@
 ---
 title: Mobile offline access (RaceBook, Supporter Guide, plans)
 scope: business-rule
-last_verified: 2026-11-24
+last_verified: 2026-11-26
 # Supporter onboarding (2026-11-18): the onboarding gate reads the new supporter tour status through a tolerant select (device-local fallback while the column is missing); the offline launch route to Plans and the Livret supporter device copy are unchanged.
 # Livret supporter private preview (2026-11-18): the 404 that deletes the Supporter Guide copy is evaluated after the authenticated organizer retry.
 ai_priority: high
@@ -26,6 +26,8 @@ related_files:
   - apps/mobile/components/plans/FollowedPlansList.tsx
   - apps/mobile/lib/courseWeather.ts
   - apps/mobile/components/course-weather/useCourseWeather.ts
+  - apps/mobile/lib/courseTerrain.ts
+  - apps/mobile/components/course-terrain/useCourseTerrain.ts
 related_tables:
   - race_plans
   - plan_share_follows
@@ -55,6 +57,7 @@ Trail races start and run where the network is weak or absent. The mobile app ke
 | `followed-plans` | user id | `GET /api/plan-share-follows` succeeds | the call throws without HTTP status or with 5xx |
 | `followed-plan` | user id + follow id | the followed plan loads, and after each successful crew-state update | same as above |
 | `course-weather` | race id | `/api/race-weather` answers a forecast or a "too early" status (deleted on a 4xx or an `unavailable` answer other than `provider_error`) | the request fails, answers 5xx or `provider_error`, or the copy is still fresh (before the forecast `expiresAt`) |
+| `course-terrain` | race id | `/api/race-terrain` answers `ready` (deleted on a 4xx or an `unavailable` / `no_route` answer; a `pending` or `failed` answer leaves the copy untouched) | the request fails or answers 5xx, or the copy is still fresh (saved less than 24 h ago) |
 
 A plan copy stores the raw `race_plans` row, the best elevation profile and only the products the plan references (`collectPlanProductIdsFromValues`), so the summary keeps product names offline.
 
@@ -68,6 +71,7 @@ A plan copy stores the raw `race_plans` row, the best elevation profile and only
 6. **Offline launch opens the plans.** `getPostAuthRoute` routes to `/(app)/plans` when the profile query fails with a transport error. A startup OTA check that fails for lack of network continues to the installed version instead of the "Mise à jour indisponible" screen; the foreground check retries later.
 7. **Edits made offline are not queued.** Plan saves and crew passage confirmations still need the network; they fail as before and are not replayed.
 8. **Weather copies are explicit about their age.** The course-weather copy is not account data (keyed by race id, still purged on `SIGNED_OUT` with the rest of the directory). It is read first and reused without network until the forecast `expiresAt`; every display shows "Prévision du {fetchedAt}", plus a stale note when a refresh failed. A copy whose race window ended more than 24 h ago is no longer shown. The cached copy keeps every forecast hour: the per-row weather of the Livret coureur and Livret supporter (runner passage, field likely passage window, supporter arrival-to-cutoff window, all in `apps/mobile/lib/courseWeather.ts`) is recomputed at display time from that copy, so an offline copy never needs a refetch when the departure clock or the linked plan changes.
+9. **Terrain copies are long-lived.** The course-terrain copy (`apps/mobile/lib/courseTerrain.ts`, `components/course-terrain/useCourseTerrain.ts`) is not account data either (keyed by race id, purged on `SIGNED_OUT`). Only a `ready` terrain is written; it is reused without network for 24 h, then refreshed. A `pending` answer is shown (« Analyse du terrain en cours ») but never overwrites the last good copy; a `failed` computation keeps showing the last good terrain; `no_route` or a 4xx deletes it. In memory, `pending` is re-asked after 15 min and `unavailable` after 6 h. The copy keeps the GPX-axis segments; scaling to the Livret profile or to the plan km is done at display time.
 
 ## Gotchas
 

@@ -76,6 +76,8 @@ import {
   type AutoFillResult,
 } from '../lib/autoFillPreview';
 import { resolvePersonalAidStationTargetIndex } from '../lib/racebookPlanReflection';
+import { courseTerrainSegmentsOnAxis } from '../lib/courseTerrain';
+import { useCourseTerrain } from './course-terrain/useCourseTerrain';
 import { resolveAidStationEdit } from '../lib/planRaceEditing';
 import {
   getPreviewReachableContentMinHeight,
@@ -112,6 +114,8 @@ type Props = {
   onWorkspaceScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   targetAidStationId?: string;
   isLinkedRace?: boolean;
+  /** Catalog race of a linked plan: its course terrain is shown in the section cards (display-only). */
+  catalogRaceId?: string | null;
   tutorial?: {
     scrollRef: React.MutableRefObject<ScrollView | null>;
     onContentSizeChange: (height: number) => void;
@@ -163,10 +167,19 @@ export default function PlanForm({
   onWorkspaceScroll,
   targetAidStationId,
   isLinkedRace = false,
+  catalogRaceId = null,
 }: Props) {
   const { locale, t } = useI18n();
   const [values, setValues] = useState<PlanFormValues>(() => buildInitialPlanValues(initialValues));
   const debouncedValues = useDebounced(values, 300);
+  const courseTerrainDisplay = useCourseTerrain(catalogRaceId);
+  const courseTerrain = courseTerrainDisplay.kind === 'ready' ? courseTerrainDisplay.terrain : null;
+  // Terrain is on the GPX axis: stretch it to the plan profile (station km), else to the plan distance.
+  const courseTerrainAxisKm = elevationProfile[elevationProfile.length - 1]?.distanceKm ?? values.raceDistanceKm;
+  const courseTerrainSegments = useMemo(
+    () => (courseTerrain ? courseTerrainSegmentsOnAxis(courseTerrain, courseTerrainAxisKm) : null),
+    [courseTerrain, courseTerrainAxisKm],
+  );
   const [expandedStations, setExpandedStations] = useState<Set<string>>(new Set());
   const [expandedSections, setExpandedSections] = useState<Record<AccordionSection, boolean>>({
     course: false,
@@ -1056,6 +1069,7 @@ export default function PlanForm({
             toolbarHidden={stickyControlsVisible}
             previewMode={previewMode}
             isLinkedRace={isLinkedRace}
+            courseTerrainSegments={courseTerrainSegments}
             previewUnlockStickyVisible={previewUnlockStickyVisible}
             onPreviewBoundaryLayout={(top, height) => {
               const nextMeasurement = top === null

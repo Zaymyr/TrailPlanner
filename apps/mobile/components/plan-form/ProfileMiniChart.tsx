@@ -17,6 +17,8 @@ const AXIS_WIDTH = 48;
 const TOP_PADDING = 10;
 const RIGHT_PADDING = 14;
 const BOTTOM_PADDING = 18;
+/** Horizontal insets of the curve, for overlays drawn under the chart (course terrain band). */
+export const PROFILE_MINI_CHART_INSETS = { left: AXIS_WIDTH, right: RIGHT_PADDING } as const;
 
 function samplePoints(points: ElevationPoint[], maxPoints = 72) {
   const step = Math.max(1, Math.ceil(points.length / maxPoints));
