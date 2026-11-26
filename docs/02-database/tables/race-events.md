@@ -2,7 +2,7 @@
 title: race_events Table
 scope: database
 
-last_verified: 2026-11-25
+last_verified: 2026-11-26
 # Event hub slug (2026-11-22): `slug` (not null, unique, immutable, year-free, disjoint from edition slugs) generated on insert by `assign_race_event_slug`; French `location_region_code` backfilled from the exact normalized region name.
 # Supporter onboarding (2026-11-18): the mobile guided catalog gains a `supporter` mode over the same public event list; no read, table or RLS change here (the only schema change is `user_profiles.supporter_onboarding_status`).
 # Inbox push badge (2026-11-18): apps/web/lib/push.ts adds an iOS badge only to admin inbox pushes (unread user_notifications count); race event update pushes, schema and RLS are unchanged.
@@ -506,3 +506,5 @@ Event slugs are immutable (`assign_race_event_slug`), so merging two rows that d
 ## Course weather touch (2026-11-23)
 
 The public race page mounts `CourseRaceDayWeather` (client component, fetched from `GET /api/race-weather`, so the ISR page output is unchanged) before « Informations pratiques ». It shows nothing for past races or when the forecast is unavailable. No data model change. See [Design Components](../../07-design-system/components.md) "Course weather".
+
+No schema change from the course terrain web display (2026-11-26): the planner and public race page only read `races` through `/api/race-terrain`.

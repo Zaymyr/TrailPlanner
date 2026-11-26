@@ -1,7 +1,7 @@
 ---
 title: Nutrition Algorithm
 scope: business-rule
-last_verified: 2026-11-23
+last_verified: 2026-11-26
 # Livret supporter note (2026-11-16): the public name of the supporter_guide surface is now "Livret supporter" (formerly "Livret accompagnateur"); aid-station access wording ("Accompagnateurs autorisés") is unchanged; no data, contract or offer change.
 # Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
 ai_priority: high
@@ -477,3 +477,7 @@ The web plan timeline (`ActionPlan.tsx`, `PlanPrimaryContent.tsx`) and `RacePlan
 ## Course weather touch (2026-11-23)
 
 The race planner mounts `CoursePlanWeather` (display-only forecast weather at each planned passage, read from the plan segments, never written back) through a `weatherContent` slot of `PlanPrimaryContent`. It adds no plan, nutrition or pacing logic and no data model change. See [Design Components](../07-design-system/components.md) "Course weather".
+
+## Course terrain is display-only (2026-11-26)
+
+The terrain band shown under the planner elevation profile (`CourseProfileSection` slot) never feeds pacing or nutrition; nothing in this algorithm reads it.
