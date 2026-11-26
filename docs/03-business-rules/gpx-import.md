@@ -375,3 +375,7 @@ Partner report note (2026-11-22): the Organizer dashboard adds a « Rapport part
 ## Course terrain touch (2026-11-26)
 
 `OrganizerDashboard.tsx` mounts the display-only `CourseTerrainBlock` under the format GPX panel (terrain correction through `/api/organizer/races/<raceId>/terrain`). No change to this document's subject; see [Organizer Race Management](organizer-race-management.md#course-terrain-correction-2026-11-26).
+
+## Course terrain on the public profile (2026-11-26)
+
+`PublicElevationProfile` gained an optional `footer` slot, used by the public race page to show the display-only OpenStreetMap terrain band inside the profile card. The elevation profile still reads the same downsampled GPX preview; no GPX import, storage or geometry rule changes.

@@ -1,11 +1,16 @@
+import type { ReactNode } from "react";
+
 import type { PublicRaceAidStationSummary, PublicRaceRoutePoint } from "../../../lib/public-race-detail";
 
 export function PublicElevationProfile({
   points,
   aidStations,
+  footer,
 }: {
   points: PublicRaceRoutePoint[];
   aidStations: PublicRaceAidStationSummary[];
+  /** Rendered inside the card under the chart (e.g. the course terrain band, aligned on the plot area). */
+  footer?: ReactNode;
 }) {
   const elevationPoints = points.filter(
     (point): point is PublicRaceRoutePoint & { elevationM: number } => point.elevationM !== null,
@@ -100,6 +105,7 @@ export function PublicElevationProfile({
           </text>
         ))}
       </svg>
+      {footer}
       {aidStations.length ? (
         <ul className="sr-only">
           {aidStations.map((station) => (

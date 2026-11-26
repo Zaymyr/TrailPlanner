@@ -508,4 +508,4 @@ Event slugs are immutable (`assign_race_event_slug`), so merging two rows that d
 
 The public race page mounts `CourseRaceDayWeather` (client component, fetched from `GET /api/race-weather`, so the ISR page output is unchanged) before « Informations pratiques ». It shows nothing for past races or when the forecast is unavailable. No data model change. See [Design Components](../../07-design-system/components.md) "Course weather".
 
-No schema change from the course terrain web display (2026-11-26): the planner and public race page only read `races` through `/api/race-terrain`.
+No schema change from the course terrain web display (2026-11-26): the planner and public race page only read `races` through `/api/race-terrain`; on the public page the band sits inside the elevation profile card (`PublicElevationProfile` `footer` slot).

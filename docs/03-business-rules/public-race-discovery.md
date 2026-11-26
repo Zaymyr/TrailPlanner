@@ -322,4 +322,4 @@ The public race page mounts `CourseRaceDayWeather` (client component, fetched fr
 
 ## Course terrain on the race page (2026-11-26)
 
-The `/courses/[slug]` page shows a terrain band and legend under the elevation profile, client-fetched from `GET /api/race-terrain` after hydration (ISR and SEO output unchanged). Display-only and free; it carries the « © OpenStreetMap contributors » attribution. See `docs/01-architecture/web-app.md`.
+The `/courses/[slug]` page shows a terrain band and legend under the elevation profile, client-fetched from `GET /api/race-terrain` after hydration (ISR and SEO output unchanged). Display-only and free; it carries the « © OpenStreetMap contributors » attribution. See `docs/01-architecture/web-app.md`. On the public page the band and legend render inside the elevation profile card, through the optional `footer` slot of `PublicElevationProfile` (below the km axis, same 50/720 and 20/720 insets); the card is unchanged while terrain is not ready.
