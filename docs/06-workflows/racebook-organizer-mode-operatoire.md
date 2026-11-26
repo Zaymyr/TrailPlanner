@@ -148,3 +148,8 @@ La page `/organizers` s’adresse aux organisateurs avec « vous », propose « 
 ## Administration : facturation (2026-11-23)
 
 Les factures, virements et règlements se font dans **Ventes & facturation** (`/admin/billing`) : registre de toutes les ventes, « Nouvelle facture », « Enregistrer un virement », et pour chaque ligne télécharger, régénérer, marquer réglée ou rectifier. Dans Organisateurs, chaque édition affiche un résumé et le lien « Voir dans Ventes & facturation ». Sur `/organizer`, l’admin n’a plus de bouton « Offrir une offre partenaire » : le lien « Gérer le pack dans l’admin » ouvre l’édition dans Organisateurs, où « Gérer le pack et les accès » (origine Offert comprise) reste la seule façon d’attribuer un pack. Depuis le lot 5 de la console (2026-11-23), ce bouton ouvre la fiche de l’édition (panneau latéral, `?edition=<id>`) sur l’onglet « Pack & modules », avec les mêmes champs ; la fiche regroupe aussi le résumé, la facturation, les demandes et l’activité de l’édition.
+
+
+## Course terrain touch (2026-11-26)
+
+`OrganizerDashboard.tsx` mounts the display-only `CourseTerrainBlock` under the format GPX panel (terrain correction through `/api/organizer/races/<raceId>/terrain`). No change to this document's subject; see [Organizer Race Management](../03-business-rules/organizer-race-management.md#course-terrain-correction-2026-11-26).

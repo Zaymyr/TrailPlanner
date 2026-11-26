@@ -1299,4 +1299,19 @@ export const en: MobileTranslations = {
       snow: 'Snow',
     },
   },
+  courseTerrain: {
+    title: 'Terrain',
+    pending: 'Terrain analysis in progress',
+    share: '{pct}% {label}',
+    classes: {
+      road: 'road',
+      track: 'track',
+      trail: 'trail',
+      technical: 'technical',
+      off_path: 'off path',
+    },
+    offPathNote: 'Off path: no mapped path at this spot.',
+    organizerCorrected: 'Terrain corrected by the organizer.',
+    bandLabel: 'Course terrain: {summary}',
+  },
 };

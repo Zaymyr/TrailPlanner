@@ -4,6 +4,14 @@
 
 Journal en ajout seul, la plus récente en haut. Format : `## AAAA-MM-JJ — Titre`, puis Contexte / Décision / Conséquence (2 à 4 lignes chacun). Les décisions d'architecture détaillées (ADR) vont dans [docs/08-decisions/](../08-decisions/README.md).
 
+## 2026-11-26 — Terrain du parcours depuis OpenStreetMap : affichage seul, hors chemin honnête, corrections organisateur
+
+**Contexte.** Les coureurs veulent savoir où le parcours est sur route, piste, sentier ou technique. L’étude sur 11 GPX réels de production montre un bon appariement OSM (≥ 94 % sur 9 courses, deux 100 miles compris), mais 35 à 40 % de hors-chemin réel sur L’Estran et Pons (plage, champs) et des instances Overpass publiques qui expirent sur les ultras.
+
+**Décision.** Terrain calculé côté serveur depuis OSM (Overpass) pour chaque GPX et stocké dans `race_course_terrain` : classes route / piste / sentier / technique / hors chemin ; `technique` = `sac_scale` ≥ T3, surface rocheuse (rock, scree…), `trail_visibility` mauvaise ou choix organisateur, jamais la pente GPX ; hors chemin = aucune voie cartographiée à moins de 30 m, jamais deviné. Les corrections de l’organisateur gagnent sur OSM. Calcul par une tâche pg_cron toutes les 10 min, reprenable morceau par morceau (bbox de 3,5 km, 240 s par passage). Attribution « © OpenStreetMap contributors » (ODbL). Affichage seul : aucun effet sur allure ni nutrition tant que ce n’est pas calibré sur plusieurs courses.
+
+**Conséquence.** Migration `20261126090000_course_terrain.sql` au merge (table, déclencheur sur le GPX, rattrapage de toutes les courses avec GPX, tâche `course-terrain`). Routes `/api/race-terrain` (public) et `/api/organizer/races/[id]/terrain` (corrections : même droit que l’import GPX du format, pas lié à la section Ravitos). File d’attente : courses visibles des coureurs d’abord, puis les plus proches à venir, puis passées ou sans date, brouillons en dernier. Voir `docs/03-business-rules/course-terrain.md`.
+
 ## 2026-11-25 — Météo intégrée aux ravitos, à l'heure de passage
 
 **Contexte.** La carte « Météo » ajoutée en bas du Livret coureur et du Livret supporter était lue comme un bloc de plus, séparé des temps de passage ; le propriétaire voulait la météo avec les horaires des coureurs.

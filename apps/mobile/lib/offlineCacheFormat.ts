@@ -15,7 +15,8 @@ export type OfflineCacheKind =
   | 'plans-list'
   | 'followed-plan'
   | 'followed-plans'
-  | 'course-weather';
+  | 'course-weather'
+  | 'course-terrain';
 
 export type OfflineCacheEntry<T> = {
   /** ISO timestamp of the successful network load that produced the copy. */

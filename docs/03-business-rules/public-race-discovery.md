@@ -1,7 +1,7 @@
 ---
 title: Public Race Discovery
 scope: business-rule
-last_verified: 2026-11-25
+last_verified: 2026-11-26
 # Event hubs and landing pages (2026-11-22): permanent year-free event hubs (race_events.slug) are the indexable event pages and edition pages canonicalize to them; region (INSEE code) and month landing pages join the distance pages, all upcoming-only, paginated, ItemList, five-format minimum.
 # Business card QR (2026-11-18): ?src=carte on the guide page redirects to /carte-visite (app on Android, Google Play / App Store listing otherwise).
 # Livret supporter private preview (2026-11-18): the client guide page retries with the stored session token so an active organizer previews a private edition; public behavior unchanged.
@@ -319,3 +319,7 @@ A 2026-11-23 URL Inspection pass found 392 of 830 format URLs never crawled and 
 ## Course weather touch (2026-11-23)
 
 The public race page mounts `CourseRaceDayWeather` (client component, fetched from `GET /api/race-weather`, so the ISR page output is unchanged) before « Informations pratiques ». It shows nothing for past races or when the forecast is unavailable. No data model change. See [Design Components](../07-design-system/components.md) "Course weather".
+
+## Course terrain on the race page (2026-11-26)
+
+The `/courses/[slug]` page shows a terrain band and legend under the elevation profile, client-fetched from `GET /api/race-terrain` after hydration (ISR and SEO output unchanged). Display-only and free; it carries the « © OpenStreetMap contributors » attribution. See `docs/01-architecture/web-app.md`. On the public page the band and legend render inside the elevation profile card, through the optional `footer` slot of `PublicElevationProfile` (below the km axis, same 50/720 and 20/720 insets); the card is unchanged while terrain is not ready.

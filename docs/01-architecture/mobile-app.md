@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-11-24
+last_verified: 2026-11-26
 # Supporter onboarding (2026-11-18): the welcome chooser asks « Je cours » / « J’accompagne un coureur » and routes to the Livret coureur or the Livret supporter; a new `supporter` tour (status `user_profiles.supporter_onboarding_status`, migration 20261118200000) runs a spotlight tour on the Livret supporter.
 # Welcome onboarding cleanup (2026-11-18): full-page onboarding shell (no card, no top glow), Livret coureur intro without the Officiel pill or doubled promise icons, and « Choisir ma course » as its only action (plan offer removed from the intro).
 # Profile attention trail (2026-11-18): the Profil tab-bar dot now leads somewhere: Réglages gets the same dot while a guided tour is not completed, and each unfinished tour row in Parcours guidés carries one; the app icon badge mirrors the unread inbox count (expo-notifications setBadgeCountAsync, OTA-safe).
@@ -46,6 +46,13 @@ related_files:
   - apps/mobile/components/course-weather/useCourseWeather.ts
   - apps/mobile/components/course-weather/CourseWeatherPassage.tsx
   - apps/mobile/components/course-weather/CourseWeatherParts.tsx
+  - apps/mobile/lib/courseTerrain.ts
+  - apps/mobile/lib/courseTerrain.test.ts
+  - apps/mobile/lib/courseTerrainShared.ts
+  - apps/mobile/components/course-terrain/useCourseTerrain.ts
+  - apps/mobile/components/course-terrain/CourseTerrainBand.tsx
+  - apps/mobile/components/course-terrain/CourseTerrainSummary.tsx
+  - apps/mobile/components/plan-form/AidStationsSectionV3.tsx
   - apps/mobile/package.json
   - apps/mobile/vitest.config.ts
   - apps/mobile/lib/shared.ts
@@ -676,6 +683,17 @@ Weather is shown **inside the existing passage rows**, never as a separate card 
 - **Plan recap** (`PlanRecapContent.tsx`, plan linked to a catalog race): weather at each planned passage through `buildCourseWeatherPassageLines` / `courseWeatherAtPassages` (nearest point, no tolerance), from the runner's departure (manual or official start) plus the planned elapsed minutes. The recap tab is only rendered when the runner may see plan details, so the free/paid preview boundary is unchanged.
 - **One note per list** (`CourseWeatherPlanNote`, under the aid-station list, the supporter course line and the recap passages): `too_early` shows "Météo · Prévisions disponibles à partir du {date}"; then an out-of-range sentence when no row has weather, the estimated-start note when no departure clock is known and `startTimeIsEstimated`, the stale-copy and device-time notes, and "Prévision du {fetchedAt} · Données météo : MET Norway (CC BY 4.0)" (`source.attribution`, CC BY 4.0 requirement) exactly once. `unavailable` shows nothing at all. Local hours use `response.timeZone`; when Hermes Intl rejects the zone, device time is used for display and instant computation, and a note says so.
 - Weather never changes pacing, nutrition or the organizer `weatherPlan` (the existing heat/cold alert banner of the Livret stays as is). No analytics event is emitted for these displays.
+
+## Course terrain (lot 2)
+
+Display-only terrain classes along the course, computed server side from OpenStreetMap (contract and colors: `packages/shared/src/course-terrain/`, re-exported to mobile by `apps/mobile/lib/courseTerrainShared.ts`; rules: [Course terrain](../03-business-rules/course-terrain.md)). Terrain is free and never changes pacing, nutrition or what a locked plan shows.
+
+- **Data** (`apps/mobile/lib/courseTerrain.ts`): `GET /api/race-terrain?raceId=` on `WEB_API_BASE_URL`, classified like the weather (`ok` / authoritative 4xx `gone` / `unreachable`); `components/course-terrain/useCourseTerrain.ts` serves memory → device copy (`course-terrain` kind) → network, one request per race at a time, and returns the display state: `hidden` (no copy, `unavailable`, empty segments), `pending` or `ready`. Refresh and copy rules: [Mobile offline access](../03-business-rules/mobile-offline-access.md) rule 9.
+- **Axis**: segments are on the GPX distance (`distanceKm`); `courseTerrainSegmentsOnAxis` stretches them (`scaleCourseTerrainSegments`) to the last point of the profile shown (Livret) or of the plan elevation profile, else the plan distance (plan sections, whose stations use that axis).
+- **Band** (`components/course-terrain/CourseTerrainBand.tsx`): one rect per segment in `COURSE_TERRAIN_CLASS_COLORS`, `off_path` hatched (SVG `Pattern`, existing `react-native-svg`). `CourseTerrainBandShapes` draws inside an existing `Svg`; `CourseTerrainBand` is a standalone strip with the chart insets. Geometry: `buildCourseTerrainBandRects` (same km → px mapping as the curve, clipped to the range).
+- **Livret coureur** (`racebook.tsx` `CourseProfileCard`, `RacebookElevationProfile` `terrain` prop): 6 px band between the curve baseline and the km graduations, in the card and in the fullscreen profile. Under the card profile, `CourseTerrainSummary`: a swatch per class with « 48 % sentier »-style shares (whole percents, largest first, 0 % dropped), the « Hors chemin : aucun chemin cartographié à cet endroit. » note when `off_path` is present, « Terrain corrigé par l’organisateur. » when `hasOrganizerOverrides`, and « © OpenStreetMap contributors ». Fullscreen shows the attribution under the profile. `pending` shows the discreet « Analyse du terrain en cours » line; `hidden` shows nothing.
+- **Plan** (`plan/[id]/edit.tsx` → `PlanForm` `catalogRaceId` → `AidStationsSectionV3` `courseTerrainSegments`, plans linked to a catalog race only): in the Chronologie section cards, `CourseTerrainSectionSplit` under the `ProfileMiniChart` (same km range and `PROFILE_MINI_CHART_INSETS`): a band, then « 60 % sentier · 40 % piste · © OpenStreetMap contributors » (`courseTerrainSectionShares` over `courseTerrainBetween`), plus the « Hors chemin » note when present. Only a `ready` terrain is shown there (no pending line). The per-segment Allures cards and the Livret supporter show no terrain yet.
+- No analytics event is emitted for these displays.
 
 ## Offline device copies
 

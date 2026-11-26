@@ -9,6 +9,7 @@ import {
 import { z } from "zod";
 
 import { parseGpx } from "../gpx/parseGpx";
+import { isRaceRunnerVisible } from "../race-runner-visibility";
 import type { SupabaseServiceConfig } from "../supabase";
 import { COURSE_WEATHER_SOURCE, fetchMetNorwayPointForecast, mapWithConcurrency } from "./met-norway";
 import { selectCourseWeatherPoints, startOnlyCourseWeatherPoint, type CourseWeatherPointSpec } from "./points";
@@ -56,7 +57,6 @@ const aidStationSchema = z.object({
 });
 
 const startWaveSchema = z.object({ start_time: z.string() });
-const editionSchema = z.object({ is_visible: z.boolean().nullable().optional() });
 
 const RACE_COLUMNS = [
   "id", "event_id", "edition_id", "race_date", "distance_km", "start_lat", "start_lng", "gpx_storage_path",
@@ -73,28 +73,6 @@ async function fetchRows<T>(config: SupabaseServiceConfig, path: string, schema:
   const response = await fetch(`${config.supabaseUrl}/rest/v1/${path}`, { headers: serviceHeaders(config), cache: "no-store" });
   if (!response.ok) throw new Error(`Supabase read failed (${response.status})`);
   return z.array(schema).parse(await response.json());
-}
-
-/**
- * Mirrors the anon branches of the `races_select` policy: a public live format, or a public
- * preview-visible format of a live event and visible edition (the mobile catalog's private state).
- */
-async function isRunnerVisible(
-  config: SupabaseServiceConfig,
-  race: z.infer<typeof raceSchema>,
-  event: z.infer<typeof eventSchema> | null,
-): Promise<boolean> {
-  if (race.is_public !== true) return false;
-  if (event && event.is_live === false) return false;
-  if (race.is_live === true) return true;
-  if (race.racebook_preview_is_visible !== true || !race.event_id || event?.is_live !== true) return false;
-  if (!race.edition_id) return true;
-  const [edition] = await fetchRows(
-    config,
-    `race_event_editions?id=eq.${encodeURIComponent(race.edition_id)}&select=is_visible&limit=1`,
-    editionSchema,
-  );
-  return edition?.is_visible === true;
 }
 
 const scheduleStartTime = (organizerDetails: unknown): string | null => {
@@ -130,7 +108,7 @@ export async function buildCourseWeather(
   const [race] = await fetchRows(config, `races?id=eq.${encodeURIComponent(raceId)}&select=${RACE_COLUMNS}&limit=1`, raceSchema);
   if (!race) return { kind: "not_found" };
   const event = Array.isArray(race.race_events) ? race.race_events[0] ?? null : race.race_events ?? null;
-  if (!(await isRunnerVisible(config, race, event))) return { kind: "not_found" };
+  if (!(await isRaceRunnerVisible(config, race, event))) return { kind: "not_found" };
 
   const raceDate = race.race_date?.slice(0, 10) ?? null;
   if (!raceDate || !/^\d{4}-\d{2}-\d{2}$/.test(raceDate)) {

@@ -16,6 +16,7 @@ import { PublicElevationProfile } from "../_components/PublicElevationProfile";
 import { RaceLinksCarousel } from "../_components/RaceLinksCarousel";
 import { RaceRelatedArticles } from "../_components/RaceRelatedArticles";
 import { CourseRaceDayWeather } from "../../../components/course-weather/CourseRaceDayWeather";
+import { CourseTerrainBlock } from "../../../components/course-terrain/CourseTerrainBlock";
 import { RaceAidStationsTimeline } from "../_components/RaceAidStationsTimeline";
 import { HERO_ESTIMATE_CTA_ID, RaceHeroSummary } from "../_components/RaceHeroSummary";
 import { RaceRouteExplorer } from "../_components/RaceRouteExplorer";
@@ -310,7 +311,22 @@ export default async function RacePage({ params }: PageProps) {
                   aidStations={race.aidStations.map((station) => ({ name: station.name, distanceKm: station.distanceKm }))}
                   heightClassName="h-56 sm:h-96"
                 />
-                <PublicElevationProfile points={race.routePreview.points} aidStations={race.aidStations} />
+                <PublicElevationProfile
+                  points={race.routePreview.points}
+                  aidStations={race.aidStations}
+                  footer={
+                    // Client-fetched terrain band inside the profile card, aligned with the plot area
+                    // (50/720 and 20/720 of the chart width); renders nothing until terrain is ready.
+                    <CourseTerrainBlock
+                      raceId={race.id}
+                      axisKm={Math.max(...race.routePreview.points.filter((point) => point.elevationM !== null).map((point) => point.distanceKm), 0.1)}
+                      insetLeft="6.944%"
+                      insetRight="2.778%"
+                      locale="fr"
+                      className="mt-1"
+                    />
+                  }
+                />
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">Le tracé GPX de cette course n’est pas encore disponible.</p>

@@ -2,7 +2,7 @@
 title: race_events Table
 scope: database
 
-last_verified: 2026-11-25
+last_verified: 2026-11-26
 # Event hub slug (2026-11-22): `slug` (not null, unique, immutable, year-free, disjoint from edition slugs) generated on insert by `assign_race_event_slug`; French `location_region_code` backfilled from the exact normalized region name.
 # Supporter onboarding (2026-11-18): the mobile guided catalog gains a `supporter` mode over the same public event list; no read, table or RLS change here (the only schema change is `user_profiles.supporter_onboarding_status`).
 # Inbox push badge (2026-11-18): apps/web/lib/push.ts adds an iOS badge only to admin inbox pushes (unread user_notifications count); race event update pushes, schema and RLS are unchanged.
@@ -344,6 +344,7 @@ where is_live = true
 ## Gotchas
 
 - Course weather (2026-11-23, lot 1; inline since 2026-11-25): the RaceBook screen (`apps/mobile/app/(app)/race/[id]/racebook.tsx`) shows a compact display-only MET Norway weather row inside each card of its Course › Ravitos list (start, aid stations, finish) — at the runner's planned passage with a linked plan, over the field's likely passage hours otherwise — and one status/attribution line under the list (`components/course-weather/CourseWeatherPassage.tsx`). It is fed by `GET /api/race-weather`, not by this data; it changes no stored row, no pacing or nutrition calculation and not the organizer weather plan.
+- Course terrain (2026-11-26, lot 2): the RaceBook Course › Tracé profile card (`apps/mobile/app/(app)/race/[id]/racebook.tsx`, `RacebookElevationProfile` `terrain` prop) draws a display-only OpenStreetMap terrain band under the curve, a class-share summary and « © OpenStreetMap contributors » (`components/course-terrain/`). It is fed by `GET /api/race-terrain`, not by this data; it changes no stored row and no pacing or nutrition calculation.
 - The Livret quick-return header (`apps/mobile/hooks/useQuickReturnHeader.ts`) is presentation-only: the compact hero and Livret/plan switch hide and reappear on scroll, and nothing about the data, publication, partner, offline or analytics contracts described here changes.
 - The Courses quick-return header (`apps/mobile/hooks/useQuickReturnHeader.ts`) is presentation-only: it hides and reveals the header and sticky search card on scroll and does not change the catalog reads, favorites, unread updates or analytics described here.
 - The public `GET /api/race-catalog` (planner race picker, anon key, `is_live=eq.true`) also returns `event_id`, `race_date` and the embedded parent event `race_events(id,name,location,race_date,thumbnail_url)` (null when the race has no event or the anon key cannot read it). The change is additive: existing fields and the `search` parameter are unchanged, and the write handlers are untouched. The picker groups formats by that event and keeps only the latest edition of a format name repeated in the same event.
@@ -506,3 +507,5 @@ Event slugs are immutable (`assign_race_event_slug`), so merging two rows that d
 ## Course weather touch (2026-11-23)
 
 The public race page mounts `CourseRaceDayWeather` (client component, fetched from `GET /api/race-weather`, so the ISR page output is unchanged) before « Informations pratiques ». It shows nothing for past races or when the forecast is unavailable. No data model change. See [Design Components](../../07-design-system/components.md) "Course weather".
+
+No schema change from the course terrain web display (2026-11-26): the planner and public race page only read `races` through `/api/race-terrain`; on the public page the band sits inside the elevation profile card (`PublicElevationProfile` `footer` slot).

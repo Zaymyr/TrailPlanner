@@ -1351,6 +1351,7 @@ export default function EditPlanScreen() {
           showActions={false}
           targetAidStationId={targetAidStationId}
           isLinkedRace={Boolean(linkedRaceId)}
+          catalogRaceId={linkedRaceId}
           surface={activeTab === 'settings' ? 'settings' : 'plan'}
           tutorial={{
             scrollRef,

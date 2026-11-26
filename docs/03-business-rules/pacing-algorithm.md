@@ -1,7 +1,7 @@
 ---
 title: Pacing Algorithm
 scope: business-rule
-last_verified: 2026-11-24
+last_verified: 2026-11-26
 # Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
 ai_priority: high
 related_files:
@@ -29,6 +29,8 @@ related_tables:
 `packages/shared/src/index.ts` also re-exports `racebook-cutoffs` (official cutoff resolution for the Supporter Guide); pacing exports are unchanged.
 
 `packages/shared/src/index.ts` also re-exports `course-weather` (MET Norway forecast contract and display helpers, see [met-norway-weather.md](../05-integrations/met-norway-weather.md)). It is display-only: weather never feeds pace, ETA or nutrition until a calibration on several real races has been done (founder decision, 2026-11-23). `courseWeatherAtPassages` reads plan ETAs and never writes them.
+
+`packages/shared/src/index.ts` also re-exports `course-terrain` (OpenStreetMap terrain classes along the GPX, organizer overrides and display helpers, see [course-terrain.md](course-terrain.md)). It is display-only as well: terrain never changes pace, ETA or nutrition until it has been calibrated on several real races (founder decision, 2026-11-26); no pacing function imports it.
 
 The additional `@trailplanner/shared` Supporter Guide export is a transport DTO only. It does not calculate, persist or modify pacing, ETA interpolation or nutrition inputs.
 

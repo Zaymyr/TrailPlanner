@@ -2,7 +2,7 @@
 title: Organizer Race Management
 scope: business-rule
 
-last_verified: 2026-11-25
+last_verified: 2026-11-26
 # Supporter onboarding (2026-11-18): the mobile guided catalog gains a `supporter` mode over the same public event list; no read, table or RLS change here (the only schema change is `user_profiles.supporter_onboarding_status`).
 # Inbox push badge (2026-11-18): apps/web/lib/push.ts adds an iOS badge only to admin inbox pushes (unread user_notifications count); race event update pushes, schema and RLS are unchanged.
 # Livret supporter private preview (2026-11-18): an active organizer opens the private Livret supporter (catalog entry, app screen and web page send the session token); runners still need a public format.
@@ -602,6 +602,7 @@ Structured services, equipment items, aid stations, and sponsors use valid local
 ## Gotchas
 
 - Course weather (2026-11-23, lot 1; inline since 2026-11-25): the RaceBook screen (`apps/mobile/app/(app)/race/[id]/racebook.tsx`) shows a compact display-only MET Norway weather row inside each card of its Course › Ravitos list (start, aid stations, finish) — at the runner's planned passage with a linked plan, over the field's likely passage hours otherwise — and one status/attribution line under the list (`components/course-weather/CourseWeatherPassage.tsx`). It is fed by `GET /api/race-weather`, not by this data; it changes no stored row, no pacing or nutrition calculation and not the organizer weather plan.
+- Course terrain (2026-11-26, lot 2): the RaceBook Course › Tracé profile card (`apps/mobile/app/(app)/race/[id]/racebook.tsx`, `RacebookElevationProfile` `terrain` prop) draws a display-only OpenStreetMap terrain band under the curve, a class-share summary and « © OpenStreetMap contributors » (`components/course-terrain/`). It is fed by `GET /api/race-terrain`, not by this data; it changes no stored row and no pacing or nutrition calculation.
 - The Livret quick-return header (`apps/mobile/hooks/useQuickReturnHeader.ts`) is presentation-only: the compact hero and Livret/plan switch hide and reappear on scroll, and nothing about the data, publication, partner, offline or analytics contracts described here changes.
 - The Courses quick-return header (`apps/mobile/hooks/useQuickReturnHeader.ts`) is presentation-only: it hides and reveals the header and sticky search card on scroll and does not change the catalog reads, favorites, unread updates or analytics described here.
 - Address autocomplete (`/api/location-search`) and catalog plan creation (`/api/plans/from-catalog`) rate limit through the DB-backed `checkRateLimitAsync`; the in-memory limiter is not relied on across serverless instances (2026-11-22).
@@ -862,3 +863,17 @@ The runner plan timeline (`ActionPlan.tsx`) and `RacePlannerPageContent.tsx` cha
 ## Course weather touch (2026-11-23)
 
 The race planner mounts `CoursePlanWeather` (display-only forecast weather at each planned passage, read from the plan segments, never written back) through a `weatherContent` slot of `PlanPrimaryContent`. It adds no plan, nutrition or pacing logic and no data model change. See [Design Components](../07-design-system/components.md) "Course weather".
+
+## Course terrain display (2026-11-26)
+
+Runners see the terrain of a catalog race (planner profile, public race page) with a « Corrigé par l'organisateur » note when the organizer saved overrides (`hasOrganizerOverrides`). The web display is read-only; editing stays in the organizer terrain endpoints.
+## Course terrain correction (2026-11-26)
+
+The format's « Formats » tab shows a « Terrain du parcours » block under the GPX panel (`dashboard/course-terrain/course-terrain-block.tsx`, mounted from `OrganizerDashboard.tsx`; client in `apps/web/lib/organizer-course-terrain-client.ts`). It reads `GET /api/organizer/races/<raceId>/terrain` and saves with `PUT` (same Bearer header as the other organizer calls), following the contract in `packages/shared/src/course-terrain/`. Terrain is display-only: it never changes pace, nutrition or time estimates, and runners see the corrected terrain in the Livret coureur.
+
+- States: loading, pending (« Analyse du terrain en cours, revenez dans quelques minutes. »), no route (« Ajoutez un GPX pour obtenir le terrain. »), failed or unreachable (discreet message with « Actualiser »), ready.
+- Ready: terrain band over the course km axis (`COURSE_TERRAIN_CLASS_COLORS`, `off_path` hatched), km and % per class, coverage note and « © OpenStreetMap contributors ». `overridesNeedReview` shows a warning banner (the GPX changed since the corrections).
+- Editing: each displayed segment (OSM or organizer badge) has a class select (Route / Piste / Sentier / Sentier technique / Hors chemin), « Scinder » (the part after the chosen km takes a class), and « Rétablir OpenStreetMap » on organizer segments; « Ajouter une plage » forces a class on a km range. Operations live in `terrain-editing.ts`: the override list is recomputed through `applyCourseTerrainOverrides`, flattened (later wins), merged, and stripped of ranges that only restate OSM; the preview uses `summarizeCourseTerrain`. Bounds are 0 to the GPX distance, `from < to`, at most `COURSE_TERRAIN_MAX_OVERRIDES`.
+- Save: one « Enregistrer le terrain » button. The saved state is updated optimistically; on failure it rolls back, the draft is kept and an error toast is shown. The block is read-only while the dashboard is saving or uploading (the GPX replacement refetches the terrain).
+- The organizer portal copy is French only, as for the other editors.
+- Permission: same as the GPX upload route (organizer of the event, or admin); no section toggle or tier gate, so an organizer who turned off the Ravitos section can still correct terrain. Saving without a GPX returns 409.

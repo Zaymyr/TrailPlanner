@@ -111,6 +111,7 @@ Selecting the conditional `Relais` sub-tab is recorded as RaceBook product engag
 ## Gotchas
 
 - Course weather (2026-11-23, lot 1; inline since 2026-11-25): the RaceBook screen (`apps/mobile/app/(app)/race/[id]/racebook.tsx`) shows a compact display-only MET Norway weather row inside each card of its Course › Ravitos list (start, aid stations, finish) — at the runner's planned passage with a linked plan, over the field's likely passage hours otherwise — and one status/attribution line under the list (`components/course-weather/CourseWeatherPassage.tsx`). It is fed by `GET /api/race-weather`, not by this data; it changes no stored row, no pacing or nutrition calculation and not the organizer weather plan.
+- Course terrain (2026-11-26, lot 2): the RaceBook Course › Tracé profile card (`apps/mobile/app/(app)/race/[id]/racebook.tsx`, `RacebookElevationProfile` `terrain` prop) draws a display-only OpenStreetMap terrain band under the curve, a class-share summary and « © OpenStreetMap contributors » (`components/course-terrain/`). It is fed by `GET /api/race-terrain`, not by this data; it changes no stored row and no pacing or nutrition calculation.
 - The Livret quick-return header (`apps/mobile/hooks/useQuickReturnHeader.ts`) is presentation-only: the compact hero and Livret/plan switch hide and reappear on scroll, and nothing about the data, publication, partner, offline or analytics contracts described here changes.
 - The scrollable preview veil is unrelated to relay-point boundaries and does not change legs or publication.
 

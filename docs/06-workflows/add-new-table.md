@@ -1,7 +1,7 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-11-25
+last_verified: 2026-11-26
 # Supporter onboarding (2026-11-18): schema-overview lists the new `user_profiles.supporter_onboarding_status` column; no new table.
 # Inbox push badge (2026-11-18): schema-overview notes the admin inbox push badge; no table, column or RLS change.
 # Reel narration mode (2026-11-19): supabase/tests/video_narrations_checks.sql also checks the (race_id, mode) key; this workflow is unchanged.
@@ -56,11 +56,13 @@ related_files:
   - supabase/migrations/20261105115106_admin_user_notifications.sql
   - supabase/tests/admin_user_notifications_checks.sql
   - supabase/migrations/20261123120000_admin_audit_log.sql
+  - supabase/migrations/20261126090000_course_terrain.sql
   - supabase/tests/admin_audit_log_checks.sql
   - supabase/migrations/20261116180000_add_feedback_surveys.sql
   - supabase/tests/feedback_survey_checks.sql
 related_tables:
   - admin_audit_log
+  - race_course_terrain
   - race_slug_redirects
   - race_event_edition_branding
   - organizer_edition_capability_grants
@@ -231,3 +233,5 @@ Catalog end date (2026-11-14): no table added; the schema overview only records 
 `transactional_email_log` (2026-11-23, admin console lot 3) is the append-only journal example: service-only (RLS on, no policy, client privileges revoked, `service_role` limited to `select, insert, delete`, no update), bounded text columns as checks, no foreign key, and its retention as a `SECURITY DEFINER` purge function scheduled by pg_cron in the same migration (plain SQL, no pg_net, so no Vault secret is needed). The same migration shows how to expose `cron.*` / `net.*` data to the server only: `SECURITY DEFINER` functions with `search_path = ''`, fully qualified names, dynamic SQL for an optional extension, execute revoked from client roles. `supabase/tests/admin_system_health_checks.sql` checks grants, checks and the purge window. See [transactional_email_log](../02-database/tables/transactional-email-log.md).
 
 `admin_audit_log` (2026-11-23, admin console lot 7) follows the same append-only journal pattern with a few additions worth copying: `before` / `after` `jsonb` columns bounded by a `pg_column_size` check, slug checks on the machine-readable columns (`action`, `target_type`), no foreign key on the actor so the journal outlives the account, an index per read path (time, actor + time, target + time, action + time), a 365-day purge function scheduled in the same migration, and a writer that sanitizes what it stores (secrets, message content and full e-mail addresses never reach the table). `supabase/tests/admin_audit_log_checks.sql` checks the grants (no `update`), the checks, the indexes, the purge window and the job. See [admin_audit_log](../02-database/tables/admin-audit-log.md).
+
+`race_course_terrain` (2026-11-26, course terrain) is the service-only derived-data example keyed by its parent: `race_id` primary key cascading from `races`, RLS on without policy, privileges revoked from `public`, `anon`, `authenticated` and `service_role` before granting `service_role` select / insert / update / delete, jsonb shape checks, and a `SECURITY DEFINER` trigger on the parent (execute revoked from client roles) that queues the row when the source GPX changes, plus an idempotent backfill. Its pg_cron schedule ships in the same migration through the existing `configure_daily_web_cron` helper, so no secret is involved. No `supabase/tests` script yet. See [race_course_terrain](../02-database/tables/race-course-terrain.md).

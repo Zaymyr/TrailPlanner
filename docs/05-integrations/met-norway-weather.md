@@ -1,12 +1,13 @@
 ---
 title: MET Norway Course Weather
 scope: integration
-last_verified: 2026-11-25
+last_verified: 2026-11-26
 ai_priority: medium
 related_files:
   - apps/web/app/api/race-weather/route.ts
   - apps/web/app/api/race-weather/route.test.ts
   - apps/web/lib/course-weather/service.ts
+  - apps/web/lib/race-runner-visibility.ts
   - apps/web/lib/course-weather/met-norway.ts
   - apps/web/lib/course-weather/points.ts
   - apps/web/lib/course-weather/time-zone.ts
@@ -60,7 +61,7 @@ No authentication: the endpoint only serves races a runner can already see.
 
 ### Visibility
 
-Mirrors the anon branches of the `races_select` policy (`supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql`), read with the service role:
+`isRaceRunnerVisible` in `apps/web/lib/race-runner-visibility.ts` (shared with `GET /api/race-terrain`, see [Course Terrain](../03-business-rules/course-terrain.md)) mirrors the anon branches of the `races_select` policy (`supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql`), read with the service role:
 
 - `races.is_public = true`, and the parent event is not `is_live = false`; then
 - `races.is_live = true` (public format), **or**
@@ -149,3 +150,4 @@ Since 2026-11-25 the mobile app shows weather inside the rows that already carry
 - [races](../02-database/tables/races.md)
 - [GPX Import](../03-business-rules/gpx-import.md)
 - [Packages Architecture](../01-architecture/packages.md)
+- [Course Terrain from OpenStreetMap](../03-business-rules/course-terrain.md) (sister display-only feature, same visibility rule)
