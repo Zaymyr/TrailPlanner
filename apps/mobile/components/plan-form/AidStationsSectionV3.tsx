@@ -1270,6 +1270,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
     onPreviewLimitReached,
     previewUnlockStickyVisible,
     locale,
+    courseTerrainSegments,
   ]);
 
   const profileElements = useMemo(() => renderProfileView(), [

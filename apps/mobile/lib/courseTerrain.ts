@@ -182,7 +182,7 @@ export type CourseTerrainShare = { class: CourseTerrainClass; pct: number };
 const classOrder = (terrainClass: CourseTerrainClass) => COURSE_TERRAIN_CLASSES.indexOf(terrainClass);
 
 /** Whole percents, largest first; shares rounding to 0 % are dropped. */
-function toShares(entries: Array<{ class: CourseTerrainClass; pct: number }>): CourseTerrainShare[] {
+function toShares(entries: { class: CourseTerrainClass; pct: number }[]): CourseTerrainShare[] {
   return entries
     .map((entry) => ({ class: entry.class, pct: Math.round(entry.pct) }))
     .filter((entry) => entry.pct > 0)
