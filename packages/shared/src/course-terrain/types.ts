@@ -87,3 +87,15 @@ export type OrganizerCourseTerrain = {
   /** True when the GPX changed after the overrides were saved: km positions may need a review. */
   overridesNeedReview: boolean;
 };
+
+/**
+ * Display colors per class (brand palette, docs/context/PROJECT.md): same on web and mobile.
+ * `off_path` is drawn hatched on top of its color so it never reads as a real surface.
+ */
+export const COURSE_TERRAIN_CLASS_COLORS: Record<CourseTerrainClass, string> = {
+  road: '#5C6450',
+  track: '#C8D44E',
+  trail: '#2D5016',
+  technical: '#E05252',
+  off_path: '#D9D6CC',
+};
