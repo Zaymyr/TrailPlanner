@@ -1,7 +1,7 @@
 ---
 title: Design Components
 scope: design-system
-last_verified: 2026-11-24
+last_verified: 2026-11-26
 # Organizer headers (2026-11-13): `SectionHeader` receives a section-specific icon, supports two-line titles, and no longer supplies a generic arrow fallback.
 ai_priority: medium
 related_files:
@@ -35,6 +35,8 @@ related_files:
   - apps/web/app/(planner)/race-planner/components/PlanPrimaryContent.tsx
   - apps/web/components/course-weather/CourseWeatherPanel.tsx
   - apps/web/components/course-weather/course-weather-model.ts
+  - apps/web/components/course-terrain/CourseTerrainBand.tsx
+  - apps/web/components/course-terrain/course-terrain-model.ts
   - apps/web/app/(planner)/race-planner/components/ElevationProfileChart.tsx
   - apps/mobile/components/themed/Button.tsx
   - apps/mobile/components/themed/ActionButton.tsx
@@ -521,3 +523,12 @@ Compact `FileField` actions wrap beneath metadata so the control remains contain
 - Row: local time (race time zone), `CourseWeatherGlyph` (small inline-SVG set, signature stroke: clear, clear night (moon), partly, partly night, cloudy, fog, rain, snow, storm; MET `symbol` mapped by `weatherGlyphForSymbol`, `_night` and `_polartwilight` variants get the moon), label and km, temperature with feels-like, wind and gusts, precipitation, alert chips (heat, cold, wind, rain, storm, snow from `courseWeatherHourAlerts`). « Heure de départ estimée à 7h » when `startTimeIsEstimated`.
 - `CoursePlanWeather` (planner, one row per plan passage via `passagesFromPlanSegments` and `courseWeatherAtPassages`) and `CourseRaceDayWeather` (public race page, one summary row per course point over the hours the field is likely to pass it, `courseWeatherLikelyPassageHours`). Light theme tokens only (`border-border`, `bg-card`, `text-muted-foreground`), no `dark:` classes.
 - Tests: `course-weather-model.test.ts`.
+
+## Course terrain (2026-11-26)
+
+`apps/web/components/course-terrain/` (display-only, free, fr/en copy in `copy.ts`, pure logic in `course-terrain-model.ts`). Data from `useCourseTerrain` (`apps/web/lib/course-terrain-client.ts`, module cache, `GET /api/race-terrain?raceId=<uuid>`).
+
+- `CourseTerrainBand`: 10 px SVG band, one rect per segment colored with `COURSE_TERRAIN_CLASS_COLORS`; `off_path` uses a diagonal-stripe pattern so it never reads as a surface. Rects are positioned in SVG percent lengths on the chart axis (`axisKm`, segments rescaled from the GPX distance with `scaleCourseTerrainSegments` and clipped), and `insetLeft`/`insetRight` match the chart plot area, so the band follows the chart width without measuring it. Hover title: « Sentier · km 12,3 → 14,8 · surface : roche » (common OSM surfaces translated, unknown raw values hidden; off_path adds « Aucun chemin cartographié… »).
+- `CourseTerrainSummary`: legend chips « 48 % sentier · 28 % piste » (classes rounding to 0 % skipped, off_path chip hatched with the same explanation as tooltip), « Corrigé par l'organisateur » when `hasOrganizerOverrides`, attribution « © OpenStreetMap contributors » linked to `attributionUrl`. `pending` shows « Analyse du terrain en cours »; `unavailable`, loading and errors render nothing.
+- `CourseTerrainBlock`: hook + band + summary. Mounts: planner course step (`terrainContent` slot of `CourseProfileSection`, under the elevation chart, insets 46 px / 14 px matching `ElevationProfileChart`, only when `activePlan?.catalogRaceId ?? pendingCatalogRace?.id` exists) and the public `/courses/[slug]` page (client-fetched card under `PublicElevationProfile`, insets 50/720 and 20/720 of its width, ISR unchanged). Light theme tokens only, no `dark:` classes.
+- Tests: `course-terrain-model.test.ts`.

@@ -16,6 +16,7 @@ import { PublicElevationProfile } from "../_components/PublicElevationProfile";
 import { RaceLinksCarousel } from "../_components/RaceLinksCarousel";
 import { RaceRelatedArticles } from "../_components/RaceRelatedArticles";
 import { CourseRaceDayWeather } from "../../../components/course-weather/CourseRaceDayWeather";
+import { CourseTerrainBlock } from "../../../components/course-terrain/CourseTerrainBlock";
 import { RaceAidStationsTimeline } from "../_components/RaceAidStationsTimeline";
 import { HERO_ESTIMATE_CTA_ID, RaceHeroSummary } from "../_components/RaceHeroSummary";
 import { RaceRouteExplorer } from "../_components/RaceRouteExplorer";
@@ -311,6 +312,16 @@ export default async function RacePage({ params }: PageProps) {
                   heightClassName="h-56 sm:h-96"
                 />
                 <PublicElevationProfile points={race.routePreview.points} aidStations={race.aidStations} />
+                {/* Client-fetched terrain band, aligned with the profile plot area (50/720 and 20/720 of its width). */}
+                <div className="rounded-xl border border-border bg-card px-3 py-3 empty:hidden sm:px-5">
+                  <CourseTerrainBlock
+                    raceId={race.id}
+                    axisKm={Math.max(...race.routePreview.points.filter((point) => point.elevationM !== null).map((point) => point.distanceKm), 0.1)}
+                    insetLeft="6.944%"
+                    insetRight="2.778%"
+                    locale="fr"
+                  />
+                </div>
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">Le tracé GPX de cette course n’est pas encore disponible.</p>

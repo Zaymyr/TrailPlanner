@@ -22,6 +22,7 @@ import { isUserProfileReady, type UserProfile } from "../../../lib/profile-types
 import { mapProductToSelection } from "../../../lib/product-preferences";
 import { RacePlannerLayout } from "../../../components/race-planner/RacePlannerLayout";
 import { CoursePlanWeather } from "../../../components/course-weather/CoursePlanWeather";
+import { CourseTerrainBlock } from "../../../components/course-terrain/CourseTerrainBlock";
 import { RaceCatalogModal } from "./components/RaceCatalogModal";
 import { RaceSelector } from "../../../components/race-planner/RaceSelector";
 import { PlanSaveBar } from "../../../components/race-planner/PlanSaveBar";
@@ -1915,6 +1916,16 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
               baseMinutesPerKm={baseMinutesPerKm}
               headingLevel="h3"
               showCollapseToggle={false}
+              terrainContent={
+                <CourseTerrainBlock
+                  raceId={activePlan?.catalogRaceId ?? pendingCatalogRace?.id ?? null}
+                  axisKm={Math.max(totalDistanceKm, elevationProfile.at(-1)?.distanceKm ?? 0, 1)}
+                  insetLeft="46px"
+                  insetRight="14px"
+                  locale={locale === "fr" ? "fr" : "en"}
+                  className="mt-1"
+                />
+              }
             />
           ),
         },

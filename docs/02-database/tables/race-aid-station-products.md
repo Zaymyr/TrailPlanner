@@ -1,7 +1,7 @@
 ---
 title: race_aid_station_products Table
 scope: database
-last_verified: 2026-11-23
+last_verified: 2026-11-26
 # Structured station phase (2026-11-15): optional amenities, supporter access and maximum-stop metadata remain in organizer JSON; runner surfaces prefer them while preserving legacy notes, and planner pauses only warn when they exceed the organizer limit.
 ai_priority: high
 related_files:
@@ -152,3 +152,5 @@ The web plan timeline (`ActionPlan.tsx`) is redrawn as a « carte de course »: 
 ## Course weather touch (2026-11-23)
 
 The race planner mounts `CoursePlanWeather` (display-only forecast weather at each planned passage, read from the plan segments, never written back) through a `weatherContent` slot of `PlanPrimaryContent`. It adds no plan, nutrition or pacing logic and no data model change. See [Design Components](../../07-design-system/components.md) "Course weather".
+
+No schema change from the course terrain web display (2026-11-26): the planner and public race page only read `races` through `/api/race-terrain`.
