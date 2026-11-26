@@ -96,7 +96,7 @@ describe("surface and tooltip labels", () => {
 describe("buildCourseTerrainChips", () => {
   it("lists classes by decreasing share and skips 0 %", () => {
     const chips = buildCourseTerrainChips(summarizeCourseTerrain(segments, 20), "fr");
-    expect(chips.map((c) => c.label)).toEqual(["50 % sentier", "25 % hors chemin", "25 % route"]);
+    expect(chips.map((c) => c.label)).toEqual(["50 % sentier", "25 % route", "25 % hors chemin"]);
     expect(chips.find((c) => c.class === "off_path")?.hatched).toBe(true);
   });
 
