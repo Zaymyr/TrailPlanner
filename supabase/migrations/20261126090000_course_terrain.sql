@@ -72,7 +72,8 @@ for each row execute function public.set_race_course_terrain_updated_at();
 
 alter table public.race_course_terrain enable row level security;
 
-revoke all on table public.race_course_terrain from public, anon, authenticated;
+-- Supabase default privileges give service_role everything (truncate included): reset it first.
+revoke all on table public.race_course_terrain from public, anon, authenticated, service_role;
 grant select, insert, update, delete on table public.race_course_terrain to service_role;
 
 -- A new or replaced GPX queues the computation again. Organizer overrides are kept: the

@@ -1,7 +1,7 @@
 ---
 title: Database Relationships
 scope: database
-last_verified: 2026-11-09
+last_verified: 2026-11-26
 ai_priority: high
 related_files:
   - supabase/migrations/20241215010000_create_race_plans.sql
@@ -96,6 +96,8 @@ related_tables:
 Each edition-backed `races` row owns one `racebook_publication_states` row and many immutable `racebook_publications`. The state has a composite pointer constrained to a publication for the same race/event/edition. Each publication owns its asset references by cascade; the independent cleanup queue deliberately has no publication FK so retry work survives history pruning.
 
 `race_event_editions` has many `race_edition_services`. `races` has many `race_start_waves` and `race_awards`. All three foreign keys use `ON DELETE CASCADE` and have explicit indexes for parent lookups.
+
+`races` has at most one `race_course_terrain` row (primary key `race_id`, `ON DELETE CASCADE`), kept in sync with the race GPX columns by the `queue_race_course_terrain` trigger; `race_course_terrain.overrides_updated_by` references `auth.users` (`ON DELETE SET NULL`, indexed).
 
 The RLS repair changes no foreign key: service rows still belong directly to an edition, while their client-readable publication/organizer predicate reaches the edition indirectly through a format's existing `races.edition_id` relationship.
 
