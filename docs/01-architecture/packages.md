@@ -1,7 +1,7 @@
 ---
 title: Packages Architecture
 scope: architecture
-last_verified: 2026-11-23
+last_verified: 2026-11-26
 # Crew follow UX (2026-11-17): passed checkpoints collapse, confirmed passages can be corrected or undone, the crew handover is a device-local checklist, aid-station directions match supporter points by place name within 2 km, and phones without the app get an app-first gate on the public page; no column, RLS or crew_state shape change.
 ai_priority: medium
 related_files:
@@ -13,6 +13,9 @@ related_files:
   - packages/shared/src/plan-share-tracking.ts
   - packages/shared/src/plan-timeline/index.ts
   - packages/shared/src/course-weather/index.ts
+  - packages/shared/src/course-terrain/index.ts
+  - packages/shared/src/course-terrain/types.ts
+  - packages/shared/src/course-terrain/presentation.ts
   - apps/web/package.json
   - apps/mobile/package.json
   - packages/design-system/package.json
@@ -82,6 +85,8 @@ This package contains runtime-neutral logic. The web app imports it by package n
 ### Course-weather module (2026-11-23)
 
 `packages/shared/src/course-weather/` (re-exported by `src/index.ts`) holds the `GET /api/race-weather` contract (`types.ts`: `CourseWeatherResponse`, `COURSE_WEATHER_HORIZON_DAYS`) and pure display helpers (`presentation.ts`: nearest forecast hour, feels-like, alerts and thresholds, summaries, weather at planned passages). Runtime-neutral, no network. The MET Norway client and point selection stay server-side in `apps/web/lib/course-weather/`. Rules: [MET Norway Course Weather](../05-integrations/met-norway-weather.md).
+
+`packages/shared/src/course-terrain/` (re-exported by `src/index.ts`) holds the course terrain contract (`types.ts`: `CourseTerrainResponse` of `GET /api/race-terrain`, `OrganizerCourseTerrain` and `CourseTerrainOverridesInput` of `/api/organizer/races/[id]/terrain`, classes, attribution, `COURSE_TERRAIN_CLASS_COLORS`) and pure helpers (`presentation.ts`: normalize, `applyCourseTerrainOverrides`, `summarizeCourseTerrain`, segment at km, rescale, km range shares). Runtime-neutral, display-only. Overpass, matching and the resumable job stay server-side in `apps/web/lib/course-terrain/`. Rules: [Course Terrain](../03-business-rules/course-terrain.md).
 
 ### `@pace-yourself/design-system`
 

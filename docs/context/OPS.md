@@ -8,6 +8,7 @@
 - **Analytics** — PostHog (web + mobile) et GA4 (web). Voir [docs/05-integrations/analytics.md](../05-integrations/analytics.md).
 - **Paiements** — voir [docs/05-integrations/stripe.md](../05-integrations/stripe.md).
 - **Météo du parcours** — MET Norway Locationforecast 2.0 (gratuit, usage commercial autorisé, CC BY 4.0 : attribution obligatoire, User-Agent identifiant `PaceYourself/1.0 (+https://pace-yourself.com)`, sans clé). Appelée uniquement par `/api/race-weather`. Voir [docs/05-integrations/met-norway-weather.md](../05-integrations/met-norway-weather.md).
+- **Terrain du parcours** — OpenStreetMap via les instances Overpass publiques (`overpass-api.de`, repli `overpass.kumi.systems`), sans clé, User-Agent `PaceYourself/1.0 (+https://pace-yourself.com)`, ODbL : attribution « © OpenStreetMap contributors » obligatoire. Appelé uniquement par la tâche `/api/cron/course-terrain`. Voir [docs/03-business-rules/course-terrain.md](../03-business-rules/course-terrain.md).
 
 ## Tâches planifiées de l’application (pg_cron)
 
@@ -17,6 +18,7 @@ Vercel n’appelle jamais les crons de `vercel.json` en production (voir [DECISI
 | --- | --- | --- |
 | `social-posts-publish` | toutes les 5 min | Publications Instagram programmées |
 | `flyover-orders` | toutes les 10 min | Commandes de vidéos de survol |
+| `course-terrain` | toutes les 10 min (:03, :13…) | Terrain OpenStreetMap des GPX en attente, une course à la fois, reprenable |
 | `demo-race-refresh` | toutes les heures à :05 | Démo Trail TST à la date du jour |
 | `reel-automation` | toutes les heures à :17 | Reels automatiques |
 | `organizer-import-cleanup-hourly` | toutes les heures à :17 | Nettoyage des imports organisateurs |

@@ -1,12 +1,13 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-11-25
+last_verified: 2026-11-26
 # Supporter onboarding (2026-11-18): `user_profiles.supporter_onboarding_status` (migration 20261118200000) joins the Plan/RaceBook statuses; the mobile guided catalog gains a `supporter` mode over the same public event list, no other table or RLS change.
 # Inbox push badge (2026-11-18): apps/web/lib/push.ts adds an iOS badge only to admin inbox pushes (unread user_notifications count); race event update pushes, schema and RLS are unchanged.
 # Livret supporter private preview (2026-11-18): the catalog Livret supporter entry admits active organizers of a private event (preview only); runner badge, data and contracts unchanged.
 ai_priority: high
 related_files:
+  - supabase/migrations/20261126090000_course_terrain.sql
   - supabase/migrations/20261123150000_admin_logs_service_privileges.sql
   - supabase/migrations/20261116150000_add_organizer_demo_requests.sql
   - supabase/migrations/20261119130000_add_social_posts.sql
@@ -105,6 +106,7 @@ related_files:
   - apps/mobile/app/(app)/catalog.tsx
   - apps/mobile/components/race/RaceEventSummaryCard.tsx
 related_tables:
+  - race_course_terrain
   - race_plans
   - plan_share_links
   - plan_aid_stations
@@ -274,6 +276,7 @@ The November 2026 mobile plan-flow polish changes catalog search controls, image
 | `reel_automation_items` | Service-only planned automatic reels, one per race and edition (unique), with their status, step, lease and links to the render job and draft. See [reel_automation_items](tables/reel-automation-items.md). |
 | `flyover_video_orders` | Service-only organizer flyover video orders (`/survol`, independent of the catalog): offer, Stripe references, GPX path, status flow `pending_payment` to `ready`, retry lease, chosen `story_mode` and basemap preset (`20261122200000`), links to its `video_render_jobs` render (whose `race_id` is now nullable, with `flyover_order_id`) and collab `social_posts` row (new `collaborators` column). |
 | `social_posts` | Service-only Instagram Reels drafted from finished `video_render_jobs` (by an admin, or automatically when a one-click render finishes: `auto_generated`, one per render) and published by explicit admin action through a resumable state machine. See [social_posts](tables/social-posts.md). |
+| `race_course_terrain` | Service-only OpenStreetMap terrain of a race GPX (one row per race, `20261126090000`): OSM segments, coverage, organizer overrides and the resumable cron job state; queued by a trigger on the race GPX columns. Display-only. See [race_course_terrain](tables/race-course-terrain.md). |
 | `races` | Current race catalog/private race table, renamed from `race_catalog`, with yearly organizer edition grouping on `edition_group_id` / `series_name`. |
 | `race_slug_redirects` | Former course slugs mapped to stable race ids for visibility-gated permanent redirects. |
 | `rate_limit_entries` | DB-backed rate limit counters used by security-sensitive routes. |
@@ -354,6 +357,7 @@ erDiagram
 - [race_relay_points](tables/race-relay-points.md)
 - [race_aid_station_products](tables/race-aid-station-products.md)
 - [races](tables/races.md)
+- [race_course_terrain](tables/race-course-terrain.md)
 - [race_slug_redirects](tables/race-slug-redirects.md)
 - [video_render_jobs](tables/video-render-jobs.md)
 - [video_voices](tables/video-voices.md)

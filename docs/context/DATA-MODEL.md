@@ -88,6 +88,8 @@ Admin console journal (lot 3, 2026-11-23): `transactional_email_log` ([doc](../0
 
 Admin console journal (lot 7, 2026-11-23): `admin_audit_log` ([doc](../02-database/tables/admin-audit-log.md)) — one row per admin write action (actor, `domain.verb` action, target, French summary, sanitized `before`/`after` without secrets, message content or full e-mail, `ok`/`error`), service role only (append-only, no update), written best-effort by `lib/admin-audit-log.ts` and purged after 365 days by the pg_cron job `admin-audit-log-purge`.
 
+Course terrain (lot 2, 2026-11-26): `race_course_terrain` ([doc](../02-database/tables/race-course-terrain.md)) — one row per race with a GPX (PK `race_id` → `races`, cascade): OpenStreetMap terrain segments (road / track / trail / technical / off_path) on the GPX km axis, coverage, organizer overrides (`organizer_overrides`, win over OSM, `overrides_gpx_sha256` to flag a GPX change) and the resumable job state (`status` pending/processing/ready/failed/no_route, `attempts`, `next_attempt_at` lease, `progress`). Service role only (RLS on, no policy); queued by a trigger on `races.gpx_storage_path` / `gpx_sha256`, computed by the pg_cron job `course-terrain`. Display-only: never read by pacing or nutrition.
+
 Livret content: `race_event_edition_sponsors`, `race_event_edition_branding`, `race_event_edition_partner_slots`, `race_edition_services`, `race_start_waves`, `race_awards`, `race_event_updates`, versioned snapshots in `racebook_publications` / `racebook_publication_states`. See schema-overview.
 
 ## Known pitfalls

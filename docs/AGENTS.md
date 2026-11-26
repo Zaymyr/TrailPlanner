@@ -119,6 +119,7 @@ You modify `apps/web/lib/auth/session.ts`, which is referenced by `docs/04-auth-
 | Admin reel background render / Google Cloud | `docs/05-integrations/google-cloud-video-render.md` + `docs/02-database/tables/video-render-jobs.md` + `docs/05-integrations/mapbox-3d.md` |
 | Admin reel voice pool (random ElevenLabs voice per reel) | `docs/02-database/tables/video-voices.md` + `docs/05-integrations/mapbox-3d.md` |
 | Admin system health (crons, e-mail journal, Stripe webhook, integrations, maintenance) | `docs/01-architecture/web-app.md` + `docs/02-database/admin-system-health-functions.md` + `docs/02-database/tables/transactional-email-log.md` + `docs/05-integrations/resend.md` + `docs/05-integrations/stripe.md` |
+| Course terrain (OpenStreetMap, `/api/race-terrain`, organizer overrides, cron) | `docs/03-business-rules/course-terrain.md` + `docs/02-database/tables/race-course-terrain.md` + `docs/01-architecture/packages.md` |
 | Course weather (MET Norway, `/api/race-weather`) | `docs/05-integrations/met-norway-weather.md` + `docs/02-database/tables/race-start-waves.md` + `docs/01-architecture/packages.md` |
 | Booking / Decathlon partner links | `docs/05-integrations/affiliate-partner-links.md` + `docs/02-database/tables/partner-link-settings.md` |
 | Organizer LLM reconciliation | `docs/05-integrations/openai-organizer-import.md` + `docs/03-business-rules/organizer-race-management.md` + `docs/02-database/tables/organizer-import-sessions.md` |

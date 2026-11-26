@@ -1,98 +1,169 @@
 ---
-title: Course Terrain from OpenStreetMap (prototype study)
+title: Course Terrain from OpenStreetMap
 scope: business-rule
-last_verified: 2026-11-24
+last_verified: 2026-11-26
 ai_priority: medium
 related_files:
+  - packages/shared/src/course-terrain/index.ts
+  - packages/shared/src/course-terrain/types.ts
+  - packages/shared/src/course-terrain/presentation.ts
+  - apps/web/lib/course-terrain-presentation.test.ts
+  - apps/web/lib/course-terrain/classify.ts
+  - apps/web/lib/course-terrain/geometry.ts
+  - apps/web/lib/course-terrain/matching.ts
+  - apps/web/lib/course-terrain/segments.ts
+  - apps/web/lib/course-terrain/overpass.ts
+  - apps/web/lib/course-terrain/store.ts
+  - apps/web/lib/course-terrain/job.ts
+  - apps/web/lib/course-terrain/response.ts
+  - apps/web/lib/course-terrain/cache.ts
+  - apps/web/lib/course-terrain/service.ts
+  - apps/web/lib/course-terrain/course-terrain.test.ts
+  - apps/web/lib/race-runner-visibility.ts
+  - apps/web/app/api/race-terrain/route.ts
+  - apps/web/app/api/race-terrain/route.test.ts
+  - apps/web/app/api/organizer/races/[id]/terrain/route.ts
+  - apps/web/app/api/organizer/races/[id]/terrain/route.test.ts
+  - apps/web/app/api/cron/course-terrain/route.ts
+  - apps/web/app/api/cron/course-terrain/route.test.ts
+  - supabase/migrations/20261126090000_course_terrain.sql
   - scripts/course-terrain/compute-terrain.mjs
   - scripts/course-terrain/osm-route-to-gpx.mjs
 related_tables:
+  - race_course_terrain
   - races
 ---
 
-# Course Terrain from OpenStreetMap (prototype study)
+# Course Terrain from OpenStreetMap
 
-Status: prototype / study (lot 2 preparation). Nothing here is wired to production, to the planner or to the database.
+Status: production server side (lot 2, 2026-11-26). Web, mobile and organizer UIs consume the contract below.
 
 ## Purpose
 
-Estimate the terrain type along a race GPX (road, wide unpaved track, trail, technical) from OpenStreetMap so a later lot can show a terrain band under the elevation profile. This document records the method, the class rules, the results of the first runs, the observed weaknesses and the recommended production design.
+Show the terrain type along a race GPX (road, wide unpaved track, trail, technical, off path) under the elevation profile, derived from OpenStreetMap, with organizer corrections.
 
-**Terrain must NOT change pacing** until it has been calibrated on several real races (founder decision). `pacing-algorithm.md` is unchanged; the output of this prototype is informational only.
+**Display-only.** Terrain never changes pacing, ETA or nutrition until it has been calibrated on several real races (founder decision, see `docs/context/DECISIONS.md` 2026-11-26). `pacing-algorithm.md` does not read it.
 
 ## Key Concepts
 
-- Sample: the GPX is parsed (`<trkpt>` lat/lon), cumulative haversine distance is computed and the track is resampled every 25 m.
-- Corridor fetch: public Overpass API, sequential requests, `User-Agent: PaceYourself-terrain-prototype/0.1 (+https://pace-yourself.com)`, backoff on 429/502/504 and on HTTP 200 responses carrying a runtime-error `remark`, endpoints `overpass-api.de` then `overpass.kumi.systems`.
-- Map matching: each sample goes to the nearest way segment (point-to-segment distance, local metric projection). The previous way is kept if it is within 12 m of the best candidate (continuity, avoids jumping to a crossing road). Beyond 30 m the sample is `unknown`.
-- Segments: consecutive samples with the same class are merged; runs shorter than 200 m are absorbed into the longer neighbour, then equal neighbours are merged again.
+- **Contract**: `packages/shared/src/course-terrain/types.ts` (`CourseTerrainResponse` = `ready` | `pending` | `unavailable`, `OrganizerCourseTerrain`, `CourseTerrainOverridesInput`, `COURSE_TERRAIN_MAX_OVERRIDES` = 200, class colors) and pure helpers in `presentation.ts` (normalize, `applyCourseTerrainOverrides`, `summarizeCourseTerrain`, at-km, scale, between), tested by `apps/web/lib/course-terrain-presentation.test.ts`. Re-exported by `packages/shared/src/index.ts`.
+- **Axis**: segments are expressed in cumulative GPX km (`parseGpx` haversine distance), `0 → distanceKm`, contiguous. UIs that draw on the official distance use `scaleCourseTerrainSegments`.
+- **Storage**: one row per race in `race_course_terrain` (service role only, see [race_course_terrain](../02-database/tables/race-course-terrain.md)): OSM segments, coverage, organizer overrides, job state.
+- **Attribution**: every surface showing terrain renders `© OpenStreetMap contributors` linked to `https://www.openstreetmap.org/copyright` (`COURSE_TERRAIN_ATTRIBUTION`, `COURSE_TERRAIN_ATTRIBUTION_URL`, also in every `ready` response). OSM data is ODbL; stored segments are derived data: review the share-alike obligations before sharing the dataset externally.
 
-## Method
+## Classes and rules (`COURSE_TERRAIN_RULES_VERSION = 1`)
 
-1. `node scripts/course-terrain/compute-terrain.mjs <file.gpx> [--out result.json] [--save-cache f] [--from-cache f]`.
-2. The track is simplified (Douglas-Peucker, 8 m) and cut into chunks whose bounding box stays below about 9 km per side; one `way["highway"](bbox);out geom tags;` request per chunk, 5 s apart; ways are de-duplicated and filtered locally by distance.
-3. The polyline form `(around:R,lat,lon,lat,lon,...)` was tried first and returned empty results on the public instance, so bbox plus local filtering is used (allowed by the spec, and it is what this prototype validates).
-4. Output: console summary and JSON (`segments[{fromKm,toKm,class,surface,sacScale,highway}]`, per-class km and percent, coverage).
-
-## Class rules
-
-First matching rule wins (also documented in the script header).
+`apps/web/lib/course-terrain/classify.ts`, first matching rule wins, `trail` is the fallback. GPX slope is deliberately not used.
 
 | Class | Rule |
 | --- | --- |
-| `technical` | not paved AND (`sac_scale` in demanding_mountain_hiking / alpine_hiking / demanding_alpine_hiking / difficult_alpine_hiking, OR `surface` in rock / scree / stone / shingle / boulders, OR `trail_visibility` in bad / horrible / no, OR `smoothness` in very_bad / horrible / very_horrible / impassable) |
-| `road` | `surface` paved (asphalt, concrete, paving_stones, sett, cobblestone, metal, wood, ...) OR no `surface` and `highway` in motorway..residential, service, living_street, unclassified, pedestrian |
-| `track` | `highway=track` with `tracktype` grade1-3 or none; road-type highway with an explicit unpaved surface |
-| `trail` | `highway` path / footway / bridleway / steps / cycleway, track grade4-5, `sac_scale` none / T1 / T2; also the fallback |
-| `unknown` | no way within 30 m |
+| `technical` | not paved AND (`sac_scale` demanding_mountain_hiking / alpine_hiking / demanding_alpine_hiking / difficult_alpine_hiking, i.e. T3 and above, OR `surface` rock / rocks / scree / stone / shingle / boulders, OR `trail_visibility` bad / horrible / no) |
+| `road` | paved `surface` (asphalt, concrete, paving_stones, sett, cobblestone, metal, wood, bricks, chipseal, ...) OR no `surface` and a road-class `highway` (motorway..residential, links, service, living_street, unclassified, pedestrian, road) |
+| `trail` | `highway=track` with `tracktype` grade4 / grade5 |
+| `track` | `highway=track` (grade1-3 or no tracktype); a road-class `highway` with an explicit unpaved surface |
+| `trail` | everything else (path, footway, bridleway, steps, cycleway, sac_scale T1-T2 or none) |
+| `off_path` | not a tag rule: no mapped way within 30 m of the sample (beach, fields, cross-country). Honest "unknown", never guessed |
+| organizer | an organizer override wins over OSM on its km range (`source: 'organizer'`) |
 
-## Results
+Compared with the prototype, `smoothness` no longer makes a way `technical` (founder rule list) and `off_path` replaces `unknown`. Bump `COURSE_TERRAIN_RULES_VERSION` on any rule change: `ready` rows with an older version are recomputed by the cron while the old terrain stays on display.
 
-Data: OSM Overpass, 2026-11-23/24. Percentages of distance.
+## Computation (`apps/web/lib/course-terrain/`)
 
-Real race GPX files are not available in the repository: `supabase/demo-assets/trail-tst-*.gpx` are synthetic (linearly interpolated coordinates), and production storage must not be used. To exercise the pipeline on real geometry, `osm-route-to-gpx.mjs` rebuilds a pseudo-recorded GPX (4 m gaussian noise) from OSM route relations. These fixtures are circular for matching (the track is made of OSM ways, hence about 100% matched) but the tag coverage and the class split are real OSM information. Their length is inflated by the added noise.
+1. **GPX**: read from the private `race-gpx` bucket with the service key (`loadRaceGpxText` in `service.ts`), parsed with `apps/web/lib/gpx/parseGpx.ts`, resampled every 25 m (`resampleTrack`, `geometry.ts`).
+2. **Chunks**: consecutive samples whose bbox side stays ≤ 3.5 km (`buildTrackChunks`, deterministic), padded by 100 m (> match distance) so every candidate way intersects the bbox.
+3. **Overpass** (`overpass.ts`): one `way["highway"]["highway"!~"^(proposed|construction|abandoned|razed|platform|bus_stop|elevator)$"](bbox); out tags geom;` per chunk, `[timeout:25]` server side and a 35 s client abort (the client always waits longer than the server), User-Agent `PaceYourself/1.0 (+https://pace-yourself.com)`, up to 4 tries alternating `overpass-api.de` / `overpass.kumi.systems` with 2 / 5 / 10 s backoff, 1 s gap between chunks. Non-2xx, non-JSON and HTTP 200 with a runtime `remark` (timeout, out of memory) are failures. A request is never started if a full client timeout would outlive the tick budget.
+4. **Matching** (`matching.ts`): nearest way segment within 30 m (spatial hash, local metric projection per chunk); the previous way keeps the sample while it is within best + 12 m (continuity, avoids jumping to crossings and parallel roads); continuity is carried across chunks. No way within 30 m → `off_path`.
+5. **Segments** (`segments.ts`): runs of one class; runs shorter than 200 m are absorbed into the longer neighbour (left on ties), equal neighbours merge, until stable; most frequent OSM `surface` per segment; contiguous `0 → distanceKm`, rounded to the metre.
+6. **Coverage**: % of samples matched, with a `surface` tag, with a `sac_scale` tag.
 
-| Course | km | matched | `surface` tag | `sac_scale` tag | road | track | trail | technical | unknown |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| TMB main route, first 60 km of geometry (mountain ultra, relation 9678362) | 82.0 | 100% | 57.9% | 53.9% | 18.1% | 23.8% | 54.1% | 4.0% | 0% |
-| TMB variant Fenetre d'Arpette (alpine, relation 9678380) | 14.5 | 100% | 79.6% | 84.9% | 0% | 5.2% | 84.2% | 10.7% | 0% |
-| Voie Verte Berges du Rhone, Lyon (mostly paved, relation 1115075) | 19.7 | 100% | 99.6% | 0% | 67.9% | 0% | 32.1% | 0% | 0% |
-| demo trail-tst-18 (synthetic) | 18.4 | 35.5% | 13.5% | 0.4% | 0% | 0% | 1.4% | 0% | 89.4% (rest 9.2% absorbed) |
-| demo trail-tst-42 (synthetic) | 42.6 | 29.0% | 14.8% | 0.9% | 9.5% | 5.5% | 2.1% | 0% | 82.9% |
-| demo trail-tst-82 (synthetic) | 82.3 | 25.7% | 10.8% | 2.7% | 6.1% | 2.5% | 2.2% | 0% | 89.1% |
+### Job, resume and retries (`job.ts`)
 
-The synthetic demo tracks mostly do not follow real paths, so their low matching is expected and says nothing about OSM quality. For trail-tst-18 the class percentages do not sum to 100% because the printed values are rounded and short matched runs were absorbed into `unknown`.
+- `POST /api/cron/course-terrain` (pg_cron every 10 min at minute 3, 13, ...; `CRON_SECRET` bearer like the other `/api/cron/*` routes; `maxDuration = 300`). Row access goes through `store.ts` (PostgREST, service key).
+- A tick has a 240 s budget. It takes the oldest due row (`pending` / `processing`, or `ready` with an older rules version, `next_attempt_at ≤ now`), leases it by moving `next_attempt_at` 6 min ahead with an optimistic `eq` on the previous value, and works on one race at a time; with budget left (≥ 45 s) it takes the next due race.
+- **Resumable**: after every chunk the matches so far are saved in `progress` as run-length tuples `[sampleCount, class, surface, flags]` plus `nextChunk` and the last way id (continuity). When the next chunk would not fit the budget, the row is left due at once and the next tick resumes at `nextChunk`. Progress is reused only for the same GPX path, hash, rules version, sample and chunk counts. The final segments are always rebuilt from the encoded runs, so a resumed run equals a single pass.
+- **How an ultra fits**: a 170 km course is about 6,800 samples and 30-50 chunks of 3.5 km. At 2-5 s per Overpass answer plus the 1 s gap, most ultras finish in one or two ticks (10-20 min); a slow Overpass day spreads the same work over more ticks without ever exceeding `maxDuration`, since no request starts unless 40 s of budget remain.
+- **Writes are conditional** on `gpx_storage_path` still being the one read: a GPX replaced mid-run (the trigger resets the row) makes the job stop (`superseded`) instead of storing stale terrain.
+- **Failures**: an Overpass or storage error increments `attempts`, stores `last_error` and retries after 15 min × 2^(attempts−1) (15, 30, 60, 120 min) keeping the progress; at 5 attempts the row is `failed`. An invalid GPX is `failed` at once. A row without GPX becomes `no_route`. A failed recomputation of a `ready` row keeps the terrain on display and retries (after 7 days once 5 attempts are spent).
+- After a row becomes `ready` the job purges the CDN tag of the public route (`cache.ts`).
 
-## Observed weaknesses
+### Queueing (migration `20261126090000_course_terrain.sql`)
 
-- Tag gaps: on the TMB main route only about 58% of matched distance has `surface` and 54% has `sac_scale`; ways without `surface` default by `highway` type (a `highway=service` or `unclassified` without surface becomes `road` although it may be gravel). `sac_scale` is absent on the paved Lyon route (expected) and on most non-alpine trails.
-- A `highway=path` with neither `sac_scale` nor `surface` is `trail`, never `technical`: scree or boulder fields mapped as plain paths are under-detected.
-- Crossings and parallel ways: roads and paths crossing or running alongside the track can capture a sample; the continuity rule limits this, 25 m resampling plus the 200 m absorption removes most blips, but a parallel road within 30 m can still win over a long stretch.
-- Switchbacks: tight zigzags are mapped coarsely, and a GPS track cutting corners can match the wrong leg; 30 m is a compromise.
-- Cross-country, snow, glacier, riverbed and open-mountain sections are not ways: they appear as `unknown` and need `natural` / `landuse` / land-cover data or manual input.
-- Overpass operations: the public instances returned 502 "at capacity" and timeouts repeatedly during these runs, the polyline `around` form returned empty results, and a dense-city bbox (Lyon) returned 66k ways in one request. A bbox corridor is wasteful in cities; production needs a narrower corridor query, a dedicated or self-hosted Overpass, or a regional OSM extract. The public endpoints also state they are meant for human-operated tools rather than heavy automated use.
-- Fixtures are optimistic for matching; the real match rate on organizer GPX files (recorded or hand-drawn) must be measured before drawing conclusions.
+- Trigger `queue_race_course_terrain` after insert / update of `races.gpx_storage_path` or `gpx_sha256` (only when a value changes): upserts the row to `pending` (or `no_route` when the GPX is removed), resets attempts, progress and computed results, keeps the organizer overrides.
+- Backfill: every race with a GPX gets a `pending` row (backlog processed oldest first, several small races per tick).
 
-## Licensing
+## Endpoints
 
-OSM data is ODbL. Every surface showing terrain derived from it must credit "© OpenStreetMap contributors" (link to openstreetmap.org/copyright). Stored per-race terrain segments are derived data: keep the attribution and, if the derived dataset is ever shared externally, review the share-alike obligations.
+### `GET /api/race-terrain?raceId=<uuid>` (public)
 
-## Recommended production design
+Same runner visibility as `/api/race-weather` (`isRaceRunnerVisible`, `apps/web/lib/race-runner-visibility.ts`, mirror of the anon `races_select` branches); same 30 / min / IP in-memory rate limit. Built by `buildPublicCourseTerrain` (`service.ts`) and `toCourseTerrainResponse` (`response.ts`).
 
-1. Compute once per GPX, on import or publication, keyed by `gpx_sha256` (same key as the other GPX-derived artifacts); recompute only when the hash changes. Run it server side (job or worker), never from the client.
-2. Store the result per race (`segments`, coverage, source and OSM data timestamp), versioned by rules version so the classification table can evolve without refetching.
-3. Organizer correction: the organizer can override a segment's class (and add terrain for unmapped stretches); overrides win over OSM and survive recomputation while the hash is unchanged.
-4. Display: a terrain band under the elevation profile with the OSM attribution; show coverage honestly (hatched `unknown`).
-5. If coverage is poor (low `surface` tag share or many `unknown` stretches): complementary sources IGN BD TOPO (France, roads and paths with nature attribute) and ESA WorldCover / land cover for off-path terrain; keep OSM as the primary source.
-6. Pacing: no impact until calibrated on several races (founder decision); a later lot can compare real per-class paces with the terrain classes before any coefficient is introduced.
+| Case | HTTP | Body | `Cache-Control` |
+|---|---|---|---|
+| Invalid id | 400 | `{ message }` | `no-store` |
+| Unknown or runner-hidden race | 404 | `{ message }` | `no-store` |
+| Rate limited | 429 | `{ message }` | `no-store` |
+| Read failure | 502 | `{ message }` | `no-store` |
+| Row `ready` | 200 | `CourseTerrain` (overrides applied with `applyCourseTerrainOverrides`, `summarizeCourseTerrain`) | `public, s-maxage=3600, stale-while-revalidate=86400` |
+| No row but a GPX, or `pending` / `processing` | 200 | `{ status: 'pending' }` | `public, s-maxage=60` |
+| No GPX, `no_route` | 200 | `unavailable / no_route` | `public, s-maxage=300` |
+| `failed` | 200 | `unavailable / failed` | `public, s-maxage=300` |
+
+Every 200 carries `Vercel-Cache-Tag: course-terrain:race:<raceId>`.
+
+### `GET | PUT /api/organizer/races/[id]/terrain` (organizer)
+
+- Auth like the other organizer race routes: bearer session (`requireOrganizerAuth`, 401), `loadRaceForOrganizer` (404 unknown race, 409 race without event, 403 when the user is not an active organizer of the event; admins pass).
+- `GET` → `OrganizerCourseTerrain`: the runner-facing `terrain`, `osmSegments` (empty unless ready), `overrides`, `overridesNeedReview` (overrides exist and their `overrides_gpx_sha256` differs from the current `gpx_sha256`).
+- `PUT` body `CourseTerrainOverridesInput`. Same entitlement as the aid-stations editor of the course: the race needs an edition and its `aid_stations` module selected (403 otherwise). Validation (zod, 400): class enum, finite km ≥ 0, `fromKm < toKm`, `toKm ≤` GPX distance + 0.05 km, at most 200 overrides; km rounded to the metre, order kept (later overrides win). 409 without GPX. Works while terrain is pending (the GPX distance is measured from the file; a missing row is created as `pending`). Stores `organizer_overrides`, `overrides_gpx_sha256` = current GPX hash, `overrides_updated_at` / `_by`, then purges the public CDN tag so runners see the change within seconds.
+
+## Real-course results (production GPX, 2026-11-25)
+
+11 organizer GPX of production races, run with the prototype `scripts/course-terrain/compute-terrain.mjs` (prototype rules: `unknown` = later `off_path`, `smoothness` still counted as technical). Percentages of distance (classes) and of samples (coverage).
+
+| Course | matched | `surface` tag | `sac_scale` tag | road | track | trail | technical | unknown |
+|---|---|---|---|---|---|---|---|---|
+| UTC 100M Corse 108 km | 96.6 | 52 | 64 | 8 | 5 | 64 | 21 | 2.6 |
+| Nice 100M 165 km | 97.7 | 15 | 39 | 20 | 11 | 64 | 3 | 2 |
+| Marcaires 65 Vosges | 99 | 52 | 54 | 4 | 20 | 74 | 1.4 | 0.5 |
+| Mafate 54 Réunion | 98.4 | 55 | 35 | 28 | 4 | 68 | 0 | 0.4 |
+| Petit Train 28 Isère | 94 | 47 | 30 | 24 | 24 | 39 | 9 | 5 |
+| Drailles Galinette 50 | 99.9 | 10 | 23 | 9 | 31 | 58 | 1.5 | 0 |
+| Monistrail 50 | 96.8 | 24 | 0 | 21 | 38 | 37 | 0 | 3 |
+| Uzès→Nîmes 87 | 98.9 | 33 | 0 | 22 | 28 | 48 | 1 | 0.3 |
+| SaintéVia 36 | 99.9 | 58 | 0 | 64 | 16 | 20 | 1 | 0 |
+| L'Estran 32 Bretagne | 57 | 25 | 1 | 12 | 1 | 38 | 1 | 47 |
+| Trail 33 Pons | 46 | 11 | 0 | 24 | 13 | 5 | 0 | 59 |
+
+Conclusions:
+
+- Real organizer GPX match well (≥ 94% on 9 of 11 courses), including two 100-mile ultras.
+- `surface` is tagged on 10-58% of samples and `sac_scale` is absent outside mountain courses: the road / track / trail split leans on the `highway` defaults, and `technical` is only reliable where `sac_scale` exists (Corse 21%).
+- Gap analysis on L'Estran and Pons: about 35-40% of samples are more than 60 m from any mapped way (beach and tidal zone, unmapped field paths). This is real off-path terrain, not a threshold issue, hence the honest `off_path` class and organizer overrides rather than a wider match distance.
+- Overpass lessons: public instances time out on ultra-sized bboxes; the prototype aborted the client at 75 s while asking the server for 90 s (the client must wait longer than the server timeout); HTTP 200 + empty list + `remark` is a failure; one dense-city bbox returned 11k ways. Hence small chunks, `[timeout:25]` / 35 s client abort, remark detection and the resumable job.
+
+### Earlier fixture runs (2026-11-23/24)
+
+OSM route relations rebuilt as pseudo-recorded GPX (`scripts/course-terrain/osm-route-to-gpx.mjs`, 4 m noise): TMB main route (82 km of geometry) road 18.1% / track 23.8% / trail 54.1% / technical 4.0%, TMB Fenêtre d'Arpette variant technical 10.7%, Voie Verte Lyon road 67.9%; matching is ~100% by construction. The synthetic demo tracks (`supabase/demo-assets/trail-tst-*.gpx`, interpolated) match 26-36% only and say nothing about OSM quality.
+
+## Prototype scripts
+
+`node scripts/course-terrain/compute-terrain.mjs <file.gpx> [--out result.json] [--save-cache f] [--from-cache f]` remains the offline study tool (sequential, 9 km bboxes, prototype rules). Production code is the TypeScript port above; do not reuse the script's Overpass settings.
 
 ## Gotchas
 
-- Coverage percentages are of 25 m samples; class percentages are of merged segment length.
-- Fixture-based rows are not representative of real match rates.
-- Do not ship the script's Overpass usage as-is: it is a sequential prototype for the public endpoints.
+- Coverage is % of 25 m samples; class percentages are % of segment length.
+- `off_path` short stretches (< 200 m) are absorbed like any other run: a few metres of beach between two paths do not show.
+- A `highway=service` or `unclassified` without `surface` is `road` although it may be gravel; a scree field mapped as a plain `path` without tags is `trail`. Organizer overrides are the correction path.
+- Parallel ways within 30 m can still win over a long stretch despite continuity; switchbacks cut by the GPS can match the wrong leg.
+- The public route is CDN-cached 1 h when ready. The organizer PUT and the cron purge the `course-terrain:race:<id>` tag (`invalidateByTag`, only on Vercel); if the purge fails, staleness is bounded by the 1 h TTL. Pending answers are cached 60 s, so the first `ready` appears at most a minute after the computation.
+- A GPX replacement keeps the overrides but their km may no longer match: `overridesNeedReview` tells the organizer. Overrides are still applied.
+- The public Overpass instances are meant for moderate use: keep one race at a time, the 1 s gap and the small chunks; a large backfill takes several hours by design.
+- The cron job has no manual run in `/admin/system/maintenance` yet; the console lists it as « Terrain des parcours ».
 
 ## Related Docs
 
+- [race_course_terrain](../02-database/tables/race-course-terrain.md)
 - [GPX Import](gpx-import.md)
 - [Pacing Algorithm](pacing-algorithm.md)
+- [MET Norway Course Weather](../05-integrations/met-norway-weather.md) (sister display-only feature)
+- [Packages Architecture](../01-architecture/packages.md)
