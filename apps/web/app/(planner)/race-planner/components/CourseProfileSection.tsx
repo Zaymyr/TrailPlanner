@@ -69,6 +69,8 @@ type CourseProfileSectionProps = {
   baseMinutesPerKm: number | null;
   headingLevel?: "h2" | "h3";
   showCollapseToggle?: boolean;
+  /** Terrain band + summary rendered right under the elevation chart (catalog races only). */
+  terrainContent?: React.ReactNode;
 };
 
 const fieldLabelClass = "flex items-center gap-1.5 text-[13px] font-medium text-[#5C6450]";
@@ -98,6 +100,7 @@ export const CourseProfileSection = ({
   baseMinutesPerKm,
   headingLevel = "h2",
   showCollapseToggle = true,
+  terrainContent = null,
 }: CourseProfileSectionProps) => {
   const isEmbedded = !showCollapseToggle;
 
@@ -199,6 +202,7 @@ export const CourseProfileSection = ({
               copy={copy}
               baseMinutesPerKm={baseMinutesPerKm}
             />
+            {terrainContent}
           </div>
 
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">

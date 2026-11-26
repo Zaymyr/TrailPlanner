@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-11-25
+last_verified: 2026-11-26
 # Event hubs and landing pages (2026-11-22): /courses/evenements/<event-slug> is the permanent indexable hub (edition pages canonicalize to it), distance/region/month landing pages are paginated under /page/<n>, list upcoming formats only and emit ItemList; the sitemap lists hubs instead of edition URLs.
 # Reel caption voice (2026-11-20): the reel caption is written for reading (lively tone, a hook line, a question, 2-8 emojis) and may not copy 7 words of the voice-over (reel-content.ts checks).
 # Reel voice pool (2026-11-20): the admin keeps a shared pool of ElevenLabs voices (video_voices, service role only, /api/admin/video-generator/voices); each new reel draws an active voice at random (pickPoolVoice), the choice is saved with the narration and shown as « Voix : <nom> ».
@@ -1242,3 +1242,7 @@ Catalogue slug redirects (2026-11-23, follow-up): `catalogSlugRedirects` also se
 ## Course weather (2026-11-23)
 
 Weather along the course is display-only (MET Norway, 9-day horizon) and never feeds pacing or nutrition. `apps/web/lib/course-weather-client.ts` fetches `GET /api/race-weather?raceId=<uuid>` (`CourseWeatherResponse` from `@trailplanner/shared`) and exposes `useCourseWeather`, a small module cache honouring the response `expiresAt` (no TanStack Query provider is mounted in the planner). Two client mounts, both fetched after hydration: the race planner (`CoursePlanWeather`, below the plan views when the plan is linked to a catalog race) and the public `/courses/[slug]` page (`CourseRaceDayWeather`, upcoming races only, so the ISR page is unchanged). Weather is free: it is not part of the paid plan or the free-preview paywall. The attribution returned by the endpoint (« Données météo : MET Norway (CC BY 4.0) ») is shown wherever a forecast is displayed.
+
+## Course terrain web display (2026-11-26)
+
+Terrain along the course (OpenStreetMap, display-only, never feeds pacing or nutrition) is consumed from `GET /api/race-terrain?raceId=<uuid>` (`CourseTerrainResponse` from `@trailplanner/shared`) by `apps/web/lib/course-terrain-client.ts` (`useCourseTerrain`, module cache: ready 30 min, pending 30 s, unavailable 5 min). Same two client mounts as course weather, both fetched after hydration: the planner course step (band + summary under `ElevationProfileChart`, through the `terrainContent` slot of `CourseProfileSection`, only for plans linked to a catalog race) and the public `/courses/[slug]` page (so the ISR page is unchanged). Terrain is free and shows « © OpenStreetMap contributors » wherever it appears. Component details: `docs/07-design-system/components.md`.
