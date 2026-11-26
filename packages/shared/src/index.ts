@@ -204,3 +204,4 @@ export * from './racebook-cutoffs';
 export * from './supporter-guide';
 export * from './plan-timeline';
 export * from './course-weather';
+export * from './course-terrain';
