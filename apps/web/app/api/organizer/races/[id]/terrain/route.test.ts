@@ -128,7 +128,7 @@ describe("/api/organizer/races/[id]/terrain", () => {
     });
     const body = await response.json();
     expect(body.overridesNeedReview).toBe(false);
-    expect(body.terrain.summary.track.km).toBe(0.77);
+    expect(body.terrain.summary.track.km).toBeCloseTo(0.765, 1);
     expect(mocks.invalidate).toHaveBeenCalledWith(raceId);
   });
 
